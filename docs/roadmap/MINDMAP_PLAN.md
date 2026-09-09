@@ -542,3 +542,147 @@ Each was found by measuring, not by reading — which is the point of the rule.
   `note`/`document`/`file`/`link` render and are covered by the label and icon
   code, but nothing in the UI yet *creates* one — that is §5 item 11's work,
   and until it exists a reference node can only arrive from the AI tools.
+
+
+## 11. Built: the previews, Phase 4 and Phase 5
+
+The fourth run. §5 item 12's preview redesign (the report in
+[agent-remaining/mindmap.md](agent-remaining/mindmap.md) section F), then
+Phase 4 and Phase 5 in the plan's order. Everything below was driven in a real
+Chromium against the running app (`scratchpad/ui-sweeps/mindmap.js`, 76
+checks, and `mindmap3.js`, 57) rather than reasoned about; §11.3 says what
+that still does not cover.
+
+### 11.1 What landed
+
+**The preview, redrawn (§5 item 12, the picture half).** The renderer was not
+rebuilt: `mapPreview` in app.js is still the one function all four surfaces
+draw through. Four things about the picture were wrong and are now not:
+
+- **Shape.** `preview_aspect` (the board's sampled corner span, clamped into
+  `PREVIEW_ASPECT_RANGE`) ships with the items, the viewBox is drawn at that
+  ratio and `xMidYMid meet` letterboxes it. Every board used to be stretched
+  into the card's box, so a map running down the page and one running across
+  came out the same shape. Measured: aspect 3.0 draws at 3.000, aspect 0.5 at
+  0.500, both 0.0% off; the tall board's paper is 82.2px inside a 293.5px
+  card. Each fixed size (padding, block, type) is divided by the scale `meet`
+  will apply, so a node is the same size on screen whatever shape its board is.
+- **Colour.** `preview_items[].color` and `preview_edges[].color` carry
+  Coggle's branch rule, computed server-side by `_map_branch_colors` from
+  `MAP_BRANCH_PALETTE` (d3.schemeTableau10, copied, with the reason in the
+  comment: the canvas takes the same scale from d3 at runtime and the two
+  pictures of one map have to agree). An edge takes its child's colour.
+- **Shape and line.** Nodes are rounded by their own size and take the colour
+  as a `fill` attribute; edges are cubic curves along their dominant axis,
+  which is what the canvas draws.
+- **The frame moved off the `<svg>` element onto a `.board-minimap-paper`
+  rect**, because the element is the card's box and the rect is the board.
+  That is also what a sweep can measure.
+- **One designed empty state**: a dashed paper with a ghost of a three-node
+  map. It used to return null and each caller improvised: no picture in the
+  Library's card mode, a hand-made dashed rail in rows mode, no thumbnail at
+  all on the dashboard.
+- **Labels come off below 60% of the card's width.** Measured on the first
+  run of the redesign: a letterboxed tall board draws 82px across, and the
+  labels that read as a texture at 293px overlapped each other and the nodes
+  ("First branchRoot").
+- **A cache per board**, keyed on a fingerprint of the three whiteboard
+  tables' counts and high-water marks plus the same pair for the notes its
+  cards stand for, so renaming a note still redraws the card that shows its
+  title. The Library rebuilt every thumbnail on every visit and a thumbnail is
+  a full scan of the board.
+
+**Phase 4 item 15, AI generation, as preview before commit.** `POST
+/whiteboard/boards/propose` writes nothing and returns an outline; `POST
+/whiteboard/boards/generate` builds the map from the outline the user saw and
+edited. The nodes are the user's real notes: a line matching a chosen note's
+title becomes a `note` node carrying its id, once each however often the
+outline repeats it. The UI is three steps: `pickNotesDialog` (a multi-select
+on the same `.entry-pick-*` recipe as the single-pick one), the outline in an
+editable monospace textarea, then Create.
+
+**Phase 4 items 16 and 17, FreeMind `.mm`**, the format §4's decision list
+names and the only one of its five that was missing. Export and import, both
+through `_parse_xml_document`, which is now the one XML door (the DOCTYPE
+refusal and defusedxml live there rather than being copied into the newer
+parser). A multi-root map exports under one node named after the map, because
+a `.mm` file has exactly one root.
+
+**Phase 5, all four items.**
+
+- **Focus (item 18).** `F` on a node, or its context menu, shows that node and
+  everything within N steps: parents, children *and* cross-links, because the
+  edges someone drew to say "these are related" are exactly what "near" means
+  on a map. A bar over the canvas says what is focused, how far it reaches and
+  how many of the map's nodes that is, with a step in, a step out and a way
+  back. Measured on a 201-node map: 201 drawn, 3 at one step, more at two, 201
+  again after Show all. Never persisted: focus is a gesture inside one reading.
+- **Perspectives (item 19).** Colour by branch (the default, Coggle's rule),
+  category, age or "behind a note", with a legend on the canvas whenever the
+  colours mean something other than the branch. Category and age come from
+  `ref_category`/`ref_updated_at`, resolved in `/tree` for `note` nodes only
+  and never for a private one: this is the notebook's own metadata, which is
+  the thing the plan says a general mindmapper cannot do.
+- **Metrics (item 20).** Nodes, how many stand for real library items, depth,
+  ends, the widest branch, cross-links, categories behind it, collapsed
+  branches, and loose roots. Only the honest ones: centrality needs a graph
+  with cycles to mean anything, so the one network number is the cross-link
+  count.
+- **Templates (item 21).** Four starting shapes (brainstorm, decision, project,
+  cause and effect) offered on the canvas of a map that is still just its root,
+  dismissible per board, applied by creating nodes through the endpoint Tab
+  already uses. The plan's reason, quoted: "an empty canvas is the main reason
+  mindmap features go unused."
+
+### 11.2 Decisions taken while building
+
+- **The preview's colours are computed on the server, not the client.** The
+  alternative was shipping a branch index and mapping it through d3 in app.js,
+  which moves the same duplication into a file where d3 is not guaranteed to
+  have loaded, and rules out caching the finished picture.
+- **The aspect is measured over the sampled corner span**, the same box the
+  positions were normalised into, not the board's true extent including each
+  item's width and height. A ratio measured any other way is a number that
+  does not match the drawing.
+- **The AI proposal falls back to the notebook's own filing**, and says which
+  of the two wrote the outline and why (no model running, an answer with no
+  outline in it, a model that could not be reached). A 4B model asked for an
+  outline answers with a paragraph often enough that a feature which only
+  works when the model behaves is a feature most people meet broken. A note
+  the model left out is added back under "Other notes".
+- **A perspective is stored in the browser, focus is not stored at all.** How
+  you are looking at a map is not a property of the map; and a map that opens
+  tomorrow showing four of its nodes, with no memory of having asked for that,
+  looks broken.
+- **Phase 5's chrome floats over the canvas rather than joining the top bar**,
+  which `scratchpad/ui-sweeps/docks.js` measures at fifteen controls. Colour
+  by and the stats item are rows in the existing View menu; the focus bar, the
+  legend and the template offer are `.card.glass` panels beside the gesture
+  strip.
+- **`.board-minimap-branch` and `.board-minimap-edge-accent` exist because a
+  presentation attribute loses to any class that declares the same property.**
+  The colour arrives as a `fill`/`stroke` attribute, so the classes that carry
+  a colour are only put on the nodes that have none. The alternative,
+  `el.style.fill`, writes a `style` attribute, which `mindmap3.js` asserts the
+  absence of.
+
+### 11.3 Not verified
+
+- **No real inference, still.** The proposal prompt is asserted against the
+  fake transport only (`tests/test_map_generation.py`), including both
+  fallbacks; §7's "verified against a real local model" remains open, as does
+  §10.4's note that no AI *tool* has been driven from the UI.
+- **One theme, one viewport.** Everything here was measured in light theme at
+  1440x900, DPR 1. The dark sweep (`mindmap-theme.js`) was not re-run against
+  the new preview or Phase 5's three panels, and nothing was measured on a
+  phone.
+- **The perspectives were measured on a map of topics**, where "category" and
+  "age" are the quiet grey by construction. A map with fifty reference nodes
+  across a dozen categories has never been drawn, so what those colours look
+  like *together* is reasoned, not seen.
+- **PDF export is still undriven** (§10.4), and the FreeMind download was
+  asserted at the endpoint, not at the file that lands on disk.
+- **The preview cache is not measured under concurrency.** It is a plain
+  module-level LRU keyed on a fingerprint; two requests racing recompute the
+  same picture and one overwrites the other with an identical value, which is
+  harmless by construction rather than by test.

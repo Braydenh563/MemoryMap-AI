@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 
+from memorymap.api.routes_whiteboard import MAP_BRANCH_PALETTE
 from memorymap.core.database import Entry, WhiteboardObject
 
 
@@ -388,8 +389,11 @@ def test_a_maps_thumbnail_carries_its_edges(client):
     assert len(row["preview_items"]) == 2
     assert len(row["preview_edges"]) == 1
     edge = row["preview_edges"][0]
-    assert set(edge) == {"x1", "y1", "x2", "y2"}
-    assert all(0.0 <= value <= 1.0 for value in edge.values())
+    assert {"x1", "y1", "x2", "y2"} <= set(edge)
+    assert all(0.0 <= edge[axis] <= 1.0 for axis in ("x1", "y1", "x2", "y2"))
+    # The edge carries the branch it belongs to, so the thumbnail is the same
+    # picture as the canvas rather than a grey diagram of one.
+    assert edge["color"] in MAP_BRANCH_PALETTE
 
 
 def test_an_ordinary_board_has_no_edges_to_draw(client):
@@ -423,6 +427,54 @@ def test_duplicating_a_map_keeps_its_shape(client):
         n["id"] for n in tree["roots"][0]["children"]
     }
     assert not copied_ids & {root["id"]}
+
+
+# --- what the notebook knows about a node (section 5 item 19) ---------------
+
+
+def test_a_note_node_carries_its_category_and_age(client):
+    """The perspectives colour a map by the notebook's own metadata, which is
+    the thing a general mindmapper cannot do. It has to be resolved here: a
+    copy on the client goes stale the moment a note is refiled, and the client
+    has no way to know it did."""
+    note = client.post("/entries", json={"content": "# Filed thing\n\nbody"}).json()
+    board = _map(client)
+    _node(client, board["id"], kind="note", ref_id=note["id"])
+
+    node = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]
+    assert node["ref_category"]
+    assert node["ref_updated_at"]
+
+
+def test_a_topic_carries_no_facets_at_all(client):
+    """A topic stands for nothing, so it has nothing to be coloured by, and
+    the payload says so by leaving the keys out rather than by sending nulls
+    for every node on the board."""
+    board = _map(client)
+    _node(client, board["id"], text="Just a topic")
+
+    node = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]
+    assert "ref_category" not in node
+    assert "ref_updated_at" not in node
+
+
+def test_a_private_notes_filing_stays_behind_the_boundary(client, session):
+    """Its title already does (`_reference_label` renders "Private note"), and
+    its category and its edit time are facts about it too."""
+    from memorymap.core import vault
+
+    vault.close()
+    vault.create(session, "test-passphrase")
+    session.commit()
+    note = client.post("/entries", json={"content": "# Secret\n\nbody"}).json()
+    board = _map(client)
+    _node(client, board["id"], kind="note", ref_id=note["id"])
+    assert client.post(f"/entries/{note['id']}/privacy", json={"private": True}).status_code == 200
+
+    node = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]
+    assert node["text"] == "Private note"
+    assert "ref_category" not in node
+    vault.close()
 
 
 # --- export and import ------------------------------------------------------
@@ -473,6 +525,101 @@ def test_opml_imports_and_exports_to_the_same_structure(client):
     ).json()
     second = _structure(client.get(f"/whiteboard/boards/{again['id']}/tree").json()["roots"])
     assert second == first
+
+
+FREEMIND = """<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0.1">
+  <node TEXT="Thesis">
+    <node TEXT="Method">
+      <node TEXT="Interviews"/>
+    </node>
+    <node TEXT="Results"/>
+  </node>
+</map>"""
+
+
+def test_freemind_imports_with_its_root_as_the_maps_name(client):
+    """A `.mm` file's single root node *is* its title, which is the shape
+    FreeMind, Freeplane and Coggle all write: taking it as a node instead
+    would leave every imported map one level deeper than it was drawn."""
+    imported = client.post(
+        "/whiteboard/boards/import", json={"format": "freemind", "content": FREEMIND}
+    )
+    assert imported.status_code == 201, imported.text
+    board = imported.json()
+    assert board["type"] == "map"
+    assert board["title"] == "Thesis"
+
+    roots = _structure(client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"])
+    assert roots == [
+        {"text": "Method", "children": [{"text": "Interviews", "children": []}]},
+        {"text": "Results", "children": []},
+    ]
+
+
+def test_freemind_round_trips_through_the_export(client):
+    """The point of the format: a map made here opens in FreeMind, and a map
+    made there opens here, without either end losing the tree."""
+    first_id = client.post(
+        "/whiteboard/boards/import", json={"format": "freemind", "content": FREEMIND}
+    ).json()["id"]
+    first = _structure(client.get(f"/whiteboard/boards/{first_id}/tree").json()["roots"])
+
+    exported = client.get(f"/whiteboard/boards/{first_id}/export?format=freemind")
+    assert exported.status_code == 200, exported.text
+    assert exported.headers["content-disposition"].endswith('.mm"')
+    assert exported.text.lstrip().startswith("<?xml")
+    assert "<map version=" in exported.text
+
+    again = client.post(
+        "/whiteboard/boards/import",
+        json={"format": "freemind", "content": exported.text},
+    ).json()
+    assert _structure(client.get(f"/whiteboard/boards/{again['id']}/tree").json()["roots"]) == first
+
+
+def test_a_multi_root_map_exports_under_one_freemind_root(client):
+    """`.mm` has room for exactly one root, and a map here can have several.
+    The alternative to naming a trunk after the map is a file FreeMind
+    refuses to open, or one that quietly drops every root but the first."""
+    board = _map(client, name="Two trunks")
+    _node(client, board["id"], text="Alpha")
+    _node(client, board["id"], text="Beta")
+
+    exported = client.get(f"/whiteboard/boards/{board['id']}/export?format=freemind").text
+    assert exported.count("<node") == 3
+    back = client.post(
+        "/whiteboard/boards/import", json={"format": "freemind", "content": exported}
+    ).json()
+    assert back["title"] == "Two trunks"
+    roots = _structure(client.get(f"/whiteboard/boards/{back['id']}/tree").json()["roots"])
+    assert [node["text"] for node in roots] == ["Alpha", "Beta"]
+
+
+def test_a_freemind_import_with_a_doctype_is_refused(client):
+    """The second XML door. It shares `_parse_xml_document` with OPML for
+    exactly this reason: a security check copied per format is a check that
+    is one day only in one of them."""
+    bomb = (
+        '<?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY lol "lol">]>'
+        '<map version="1.0.1"><node TEXT="&lol;"/></map>'
+    )
+    refused = client.post(
+        "/whiteboard/boards/import", json={"format": "freemind", "content": bomb}
+    )
+    assert refused.status_code == 422
+    assert "FreeMind" in refused.json()["detail"]
+
+
+def test_an_opml_file_sent_as_freemind_imports_as_nothing_rather_than_wrongly(client):
+    """OPML's nodes are `<outline>` and FreeMind's are `<node>`: the parser
+    finds nothing rather than inventing a tree. Written down because the
+    client picks the format from the file's extension, and `.mm` had to be
+    tested before `.xml` for that reason."""
+    empty = client.post(
+        "/whiteboard/boards/import", json={"format": "freemind", "content": OPML}
+    ).json()
+    assert empty["object_count"] == 0
 
 
 def test_markdown_exports_as_an_indented_outline_and_comes_back(client):

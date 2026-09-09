@@ -564,6 +564,306 @@ const VIEWPORT = (() => {
 
   await page.screenshot({ path: `${OUT}/mindmap3-chat-${process.env.THEME || "light"}-${VIEWPORT.width}.png` });
 
+  // ==========================================================================
+  // Item 5 — the preview redesign (agent-remaining/mindmap.md F)
+  //
+  // What is being measured, and why a screenshot would not have caught any of
+  // it: the miniature used to be drawn with preserveAspectRatio="none" into a
+  // fixed 100x56 viewBox, so every board in the Library was the same shape as
+  // every other and a map that runs down the page was squashed into one that
+  // runs across. The board's own ratio now ships as `preview_aspect` and the
+  // drawing is letterboxed at it, which is a number: the rendered paper's
+  // width/height against the ratio the server sent.
+  // ==========================================================================
+  const shapes = await page.evaluate(async () => {
+    const api = window.apiJson;
+    const made = {};
+    const build = async (name, dx, dy) => {
+      const board = await api("/whiteboard/boards", {
+        method: "POST",
+        body: JSON.stringify({ name, type: "map", layout: "tree-right" }),
+      });
+      const node = (body) =>
+        api(`/whiteboard/boards/${board.id}/nodes`, { method: "POST", body: JSON.stringify(body) });
+      const root = await node({ kind: "topic", text: "Root", x: 0, y: 0 });
+      await node({ kind: "topic", parent_id: root.id, text: "First branch", x: dx, y: 0 });
+      await node({ kind: "topic", parent_id: root.id, text: "Second branch", x: dx, y: dy });
+      made[name] = board.id;
+    };
+    // Two boards of deliberately different shape, and one with nothing on it.
+    await build("Wide preview map", 800, 220);
+    await build("Tall preview map", 160, 700);
+    const empty = await api("/whiteboard/boards", {
+      method: "POST",
+      body: JSON.stringify({ name: "Empty preview map", type: "map", layout: "tree-right" }),
+    });
+    made["Empty preview map"] = empty.id;
+    return made;
+  });
+  check("three boards exist to measure the preview against", Object.keys(shapes).length === 3, JSON.stringify(shapes));
+
+  await page.click('[data-tab="library"]');
+  await page.waitForTimeout(600);
+  await page.click('[data-target="library-view-whiteboard"]');
+  await page.waitForTimeout(1800);
+
+  const NAMES = ["Wide preview map", "Tall preview map", "Empty preview map"];
+  const drawn = await page.evaluate(async (names) => {
+    const rows = await window.apiJson("/whiteboard/boards");
+    const out = {};
+    for (const name of names) {
+      const board = rows.find((b) => b.title === name) || null;
+      const card = [...document.querySelectorAll(".library-board-card")].find(
+        (c) => c.querySelector(".library-card-title")?.textContent === name
+      );
+      const svg = card ? card.querySelector("svg.board-minimap") : null;
+      const paper = svg ? svg.querySelector(".board-minimap-paper") : null;
+      const box = paper ? paper.getBoundingClientRect() : null;
+      const svgBox = svg ? svg.getBoundingClientRect() : null;
+      const edges = svg ? [...svg.querySelectorAll(".board-minimap-edge")] : [];
+      const nodes = svg ? [...svg.querySelectorAll(".board-minimap-branch")] : [];
+      out[name] = {
+        aspect: board ? board.preview_aspect : null,
+        // The paper *is* the board: its rendered ratio is the assertion.
+        drawn: box && box.height ? Number((box.width / box.height).toFixed(3)) : null,
+        paperW: box ? Number(box.width.toFixed(1)) : null,
+        boxW: svgBox ? Number(svgBox.width.toFixed(1)) : null,
+        boxH: svgBox ? Number(svgBox.height.toFixed(1)) : null,
+        edges: edges.length,
+        curves: edges.filter((e) => e.tagName === "path" && /C/.test(e.getAttribute("d") || "")).length,
+        colours: [...new Set(nodes.map((n) => n.getAttribute("fill")))],
+        rounded: nodes.length > 0 && nodes.every((n) => Number(n.getAttribute("rx")) > 0),
+        labels: svg ? svg.querySelectorAll(".board-minimap-label").length : 0,
+        emptyState: svg ? Boolean(svg.querySelector(".board-minimap-paper-empty")) : null,
+        ghostNodes: svg ? svg.querySelectorAll(".board-minimap-ghost rect").length : 0,
+        inlineStyle: svg && svg.querySelector("[style]") ? "yes" : "no",
+      };
+    }
+    return out;
+  }, NAMES);
+
+  for (const name of ["Wide preview map", "Tall preview map"]) {
+    const m = drawn[name];
+    const off = m && m.aspect && m.drawn ? Math.abs(m.drawn / m.aspect - 1) : 1;
+    check(
+      `${name}: the thumbnail is drawn at the board's own ratio (within 2%)`,
+      off <= 0.02,
+      JSON.stringify({ ...m, off: Number(off.toFixed(4)) })
+    );
+  }
+  check(
+    "a tall board is letterboxed inside the card's box rather than stretched",
+    drawn["Tall preview map"].paperW < drawn["Tall preview map"].boxW - 2,
+    JSON.stringify({ paper: drawn["Tall preview map"].paperW, box: drawn["Tall preview map"].boxW })
+  );
+  check(
+    "the two boards are drawn at different shapes",
+    Math.abs(drawn["Wide preview map"].drawn - drawn["Tall preview map"].drawn) > 0.3,
+    `${drawn["Wide preview map"].drawn} vs ${drawn["Tall preview map"].drawn}`
+  );
+  check(
+    "every edge is a curve, not a straight segment",
+    drawn["Wide preview map"].edges >= 2 && drawn["Wide preview map"].curves === drawn["Wide preview map"].edges,
+    JSON.stringify({ edges: drawn["Wide preview map"].edges, curves: drawn["Wide preview map"].curves })
+  );
+  check(
+    "the two branches draw in two different colours, rounded",
+    drawn["Wide preview map"].colours.length >= 2 && drawn["Wide preview map"].rounded,
+    JSON.stringify(drawn["Wide preview map"].colours)
+  );
+  check(
+    "a card wide enough to read carries its labels, a letterboxed sliver does not",
+    drawn["Wide preview map"].labels >= 2 && drawn["Tall preview map"].labels === 0,
+    JSON.stringify({ wide: drawn["Wide preview map"].labels, tall: drawn["Tall preview map"].labels })
+  );
+  check(
+    "an empty map draws the designed empty state, not nothing",
+    drawn["Empty preview map"].emptyState === true && drawn["Empty preview map"].ghostNodes === 3,
+    JSON.stringify(drawn["Empty preview map"])
+  );
+  check(
+    "no thumbnail carries a style attribute (CSP drops them)",
+    NAMES.every((n) => drawn[n].inlineStyle === "no"),
+    JSON.stringify(NAMES.map((n) => drawn[n].inlineStyle))
+  );
+  await page.screenshot({ path: `${OUT}/mindmap3-previews-${process.env.THEME || "light"}-${VIEWPORT.width}.png` });
+
+  // The same picture in the dashboard's widget, from the same function: the
+  // failure this guards against is one surface keeping the old drawing, which
+  // is exactly what happened before mapPreview was factored out.
+  await page.click('[data-tab="dashboard"]');
+  await page.waitForTimeout(2500);
+  const dashShape = await page.evaluate(() => {
+    const card = document.querySelector('[data-widget="boards"]');
+    const svg = card ? card.querySelector("svg.board-minimap") : null;
+    const paper = svg ? svg.querySelector(".board-minimap-paper") : null;
+    const box = paper ? paper.getBoundingClientRect() : null;
+    const svgBox = svg ? svg.getBoundingClientRect() : null;
+    return {
+      papers: card ? card.querySelectorAll(".board-minimap-paper").length : 0,
+      thumbs: card ? card.querySelectorAll("svg.board-minimap").length : 0,
+      letterboxed: box && svgBox ? box.width <= svgBox.width + 1 && box.height <= svgBox.height + 1 : null,
+    };
+  });
+  check(
+    "the dashboard widget draws the same letterboxed paper",
+    dashShape.papers >= 1 && dashShape.papers === dashShape.thumbs && dashShape.letterboxed === true,
+    JSON.stringify(dashShape)
+  );
+
+  // ==========================================================================
+  // Item 6 — make a map of these notes (§5 item 15), driven end to end
+  //
+  // No model runs in this sandbox, so what is exercised here is the path a
+  // first run of the app takes anyway: the server falls back to the notebook's
+  // own filing and says so, and the dialog reports which of the two wrote the
+  // outline. The three steps are the assertion: pick, review, create.
+  // ==========================================================================
+  await page.click('[data-tab="library"]');
+  await page.waitForTimeout(600);
+  await page.click('[data-target="library-view-whiteboard"]');
+  await page.waitForTimeout(900);
+
+  const madeNotes = await page.evaluate(() =>
+    Promise.all(
+      ["# Kolmogorov complexity\n\nstrings", "# Entropy\n\nbits"].map((content) =>
+        window.apiJson("/entries", { method: "POST", body: JSON.stringify({ content }) })
+      )
+    ).then((rows) => rows.map((r) => r.id))
+  );
+  await page.evaluate(() => window.loadEntries && window.loadEntries());
+  await page.waitForTimeout(1500);
+  check("two notes exist to build a map from", madeNotes.length === 2, JSON.stringify(madeNotes));
+
+  const boardsBefore = await page.evaluate(() =>
+    window.apiJson("/whiteboard/boards").then((rows) => rows.length)
+  );
+  await page.click("#wb-boards-generate");
+  await page.waitForTimeout(700);
+  const picker = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll(".entry-pick-check")];
+    const confirm = [...document.querySelectorAll(".confirm-actions button")].find((b) =>
+      /Propose a map/.test(b.textContent)
+    );
+    return { rows: rows.length, disabled: confirm ? confirm.disabled : null };
+  });
+  check(
+    "the note picker opens with its confirm disabled until something is ticked",
+    picker.rows >= 2 && picker.disabled === true,
+    JSON.stringify(picker)
+  );
+
+  // Tick the two notes by their labels, so this cannot pass by ticking
+  // whatever happened to be first in the list.
+  const ticked = await page.evaluate(() => {
+    let on = 0;
+    for (const row of document.querySelectorAll(".entry-pick-check")) {
+      if (!/Kolmogorov complexity|Entropy/.test(row.textContent)) continue;
+      const box = row.querySelector("input");
+      box.checked = true;
+      box.dispatchEvent(new Event("change", { bubbles: true }));
+      on += 1;
+    }
+    return on;
+  });
+  check("both notes can be ticked in one pass", ticked === 2, String(ticked));
+
+  await page.evaluate(() => {
+    const confirm = [...document.querySelectorAll(".confirm-actions button")].find((b) =>
+      /Propose a map/.test(b.textContent)
+    );
+    confirm.click();
+  });
+  await page.waitForTimeout(1500);
+
+  const review = await page.evaluate(async () => {
+    const card = document.querySelector(".wb-proposal-card");
+    if (!card) return null;
+    const outline = card.querySelector(".wb-proposal-outline");
+    const style = outline ? getComputedStyle(outline) : null;
+    return {
+      said: card.querySelector("p.muted")?.textContent || "",
+      lines: outline ? outline.value.trim().split("\n").length : 0,
+      hasBoth: outline
+        ? /Kolmogorov complexity/.test(outline.value) && /Entropy/.test(outline.value)
+        : false,
+      mono: style ? style.fontFamily : "",
+      width: outline ? Math.round(outline.getBoundingClientRect().width) : 0,
+      cardWidth: Math.round(card.getBoundingClientRect().width),
+      boards: await window.apiJson("/whiteboard/boards").then((rows) => rows.length),
+    };
+  });
+  check(
+    "the proposal is shown as an editable outline holding both notes",
+    review && review.hasBoth && review.lines >= 3,
+    JSON.stringify(review)
+  );
+  check(
+    "it says who wrote the outline rather than implying the model did",
+    /model did not answer|local model/.test(review.said || ""),
+    JSON.stringify(review.said)
+  );
+  check(
+    "the outline is monospace and fits inside its dialog",
+    /mono/i.test(review.mono || "") && review.width <= review.cardWidth,
+    JSON.stringify({ mono: review.mono, width: review.width, card: review.cardWidth })
+  );
+
+  // The user edits the proposal: this is the step the whole preview exists
+  // for, so the map that lands has to be the edited one, not the proposed one.
+  await page.evaluate(() => {
+    const outline = document.querySelector(".wb-proposal-outline");
+    outline.value = "- Information theory\n  - Kolmogorov complexity\n  - Entropy\n";
+    const name = document.querySelector(".wb-proposal-card input[type=text]");
+    name.value = "Swept map";
+  });
+  const before = await page.evaluate(
+    () => document.querySelectorAll(".library-board-card").length
+  );
+  await page.evaluate(() => {
+    const create = [...document.querySelectorAll(".wb-proposal-card button")].find((b) =>
+      /Create the map/.test(b.textContent)
+    );
+    create.click();
+  });
+  await page.waitForTimeout(2500);
+
+  const built = await page.evaluate(async () => {
+    const boards = await window.apiJson("/whiteboard/boards");
+    const board = boards.find((b) => b.title === "Swept map");
+    if (!board) return { made: false, before: boards.length };
+    const tree = await window.apiJson(`/whiteboard/boards/${board.id}/tree`);
+    const flat = [];
+    const walk = (nodes) => nodes.forEach((n) => (flat.push(n), walk(n.children)));
+    walk(tree.roots);
+    return {
+      made: true,
+      onCanvas: document.querySelectorAll(".wb-map-node").length,
+      texts: flat.map((n) => n.text),
+      kinds: flat.map((n) => n.kind),
+      refs: flat.filter((n) => n.ref_id).length,
+    };
+  });
+  check(
+    "the edited outline is what gets built, as real note nodes",
+    built.made &&
+      built.texts.join("|") === "Information theory|Kolmogorov complexity|Entropy" &&
+      built.kinds.join("|") === "topic|note|note" &&
+      built.refs === 2,
+    JSON.stringify(built)
+  );
+  check(
+    "and the new map is opened, drawn, rather than left in the list",
+    built.onCanvas >= 3,
+    String(built.onCanvas)
+  );
+  check(
+    "the proposal itself wrote nothing: no board until it was accepted",
+    review.boards === boardsBefore,
+    JSON.stringify({ before: boardsBefore, atReview: review.boards, atAccept: before })
+  );
+  await page.screenshot({ path: `${OUT}/mindmap3-generated-${process.env.THEME || "light"}-${VIEWPORT.width}.png` });
+
   const passed = results.filter((r) => r.ok).length;
   console.log(`\n${passed}/${results.length} checks passed.`);
   console.log("shots in " + OUT);

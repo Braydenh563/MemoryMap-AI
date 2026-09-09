@@ -3558,10 +3558,11 @@ Link to another note with [[its first few words]]."></textarea>
                  for in a second dialog, the extension already says which of
                  the two it is, and a picker that made you repeat it is the
                  friction this app's own bookmark-URL lesson is about. -->
-            <button id="wb-boards-import" class="ghost small" type="button" title="Import a mind map from an OPML or Markdown outline"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Import outline…</button>
-            <input id="wb-import-map-file" type="file" accept=".opml,.xml,.md,.markdown,.txt" class="hidden"
-              aria-label="Choose an OPML or Markdown outline to import as a mind map"
-              title="Choose an OPML or Markdown outline to import as a mind map">
+            <button id="wb-boards-generate" class="ghost small" type="button" title="Pick some notes and let the app propose a map of them"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Map from notes…</button>
+            <button id="wb-boards-import" class="ghost small" type="button" title="Import a mind map from an OPML, FreeMind or Markdown outline"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Import outline…</button>
+            <input id="wb-import-map-file" type="file" accept=".opml,.xml,.mm,.md,.markdown,.txt" class="hidden"
+              aria-label="Choose an OPML, FreeMind or Markdown outline to import as a mind map"
+              title="Choose an OPML, FreeMind or Markdown outline to import as a mind map">
             <button id="library-boards-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             <button type="button" id="wb-boards-help" class="icon-only ghost small graph-help-toggle"
               aria-expanded="false" aria-controls="wb-boards-intro"
@@ -3610,6 +3611,29 @@ Link to another note with [[its first few words]]."></textarea>
         <span class="wb-gesture">Drag a card's edge onto another to link them</span>
         <button type="button" id="wb-gestures-dismiss" class="ghost small icon-only"
           title="Got it: hide these" aria-label="Hide the gesture hints"><i class="ph ph-x" aria-hidden="true"></i></button>
+      </div>
+      <!-- **Focus** (§5 item 18). Over the canvas rather than in the top bar:
+           a state this strong (most of the map is not being drawn) has to be
+           visible where the map is, not in a strip above it. -->
+      <div id="wb-map-focus" class="wb-map-focus card glass" role="note" aria-label="Focus" hidden>
+        <i class="ph ph-crosshair ph-lead" aria-hidden="true"></i>
+        <span class="wb-map-focus-name" id="wb-map-focus-label"></span>
+        <span class="muted" id="wb-map-focus-depth"></span>
+        <button type="button" id="wb-map-focus-less" class="ghost small icon-only" title="Show one step less" aria-label="Show one step less"><i class="ph ph-minus" aria-hidden="true"></i></button>
+        <button type="button" id="wb-map-focus-more" class="ghost small icon-only" title="Show one step more" aria-label="Show one step more"><i class="ph ph-plus" aria-hidden="true"></i></button>
+        <button type="button" id="wb-map-focus-clear" class="ghost small" title="Show the whole map again">Show all</button>
+      </div>
+      <!-- **What the colours mean** (§5 item 19), drawn only when they mean
+           something other than the branch they are on. -->
+      <div id="wb-map-legend" class="wb-map-legend card glass" role="note" aria-label="What the colours mean" hidden></div>
+      <!-- **Templates** (§5 item 21): "an empty canvas is the main reason
+           mindmap features go unused". Offered on a map that is still just
+           its root, and never again once it is dismissed or used. -->
+      <div id="wb-map-templates" class="wb-map-templates card glass" role="note" aria-label="Start from a template" hidden>
+        <span class="wb-map-templates-title">Start from a shape</span>
+        <span class="muted">A few branches to push against, or ignore this and press Tab.</span>
+        <div class="wb-map-templates-row" id="wb-map-template-row"></div>
+        <button type="button" id="wb-map-templates-dismiss" class="ghost small icon-only" title="No thanks: start from the root" aria-label="Hide the template suggestions"><i class="ph ph-x" aria-hidden="true"></i></button>
       </div>
     <div class="whiteboard-container" id="whiteboard-container" tabindex="-1">
       <!-- The SVG layer for drawing, fills the container -->
@@ -3700,6 +3724,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <li><span>Rename a topic</span><kbd>F2 · double-click</kbd></li>
                 <li><span>Delete the subtree</span><kbd>Delete</kbd></li>
                 <li><span>Fold a branch</span><kbd>the chevron on it</kbd></li>
+                <li><span>Focus here · show all again</span><kbd>F</kbd></li>
               </ul>
               <h4>Selection</h4>
               <ul>
@@ -3851,6 +3876,23 @@ Link to another note with [[its first few words]]."></textarea>
               </label>
             </div>
             <input type="file" id="wb-bg-image-input" aria-label="Choose a board background image" title="Choose a board background image" accept="image/*" class="hidden" aria-hidden="true">
+            <!-- Map views (MINDMAP_PLAN.md §5 items 19 and 20). Both rows
+                 are hidden on an ordinary whiteboard by `wbSyncMapChrome`,
+                 the same rule the top bar's map controls follow: a control
+                 that can never apply here is not one worth reading past. -->
+            <div class="wb-menu-section">
+              <span class="wb-panel-group-label">Map</span>
+              <div class="wb-menu-row" hidden>
+                <span>Colour by</span>
+                <select id="wb-map-perspective" class="ghost small" aria-label="What a node's colour means" title="What a node's colour means">
+                  <option value="branch">Branch</option>
+                  <option value="category">Category</option>
+                  <option value="age">Age</option>
+                  <option value="notes">Behind a note</option>
+                </select>
+              </div>
+              <button type="button" class="wb-menu-item" id="wb-map-stats-item" hidden><i class="ph ph-chart-bar ph-lead" aria-hidden="true"></i><span>What this map is made of</span></button>
+            </div>
             <div class="wb-menu-section">
               <span class="wb-panel-group-label">Panels</span>
               <label class="wb-menu-row wb-snap-label" title="Show the properties drawer when something is selected or a drawing tool is active"><span>Properties</span><input type="checkbox" id="wb-panel-props" checked></label>

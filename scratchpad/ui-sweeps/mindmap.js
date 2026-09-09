@@ -1061,6 +1061,216 @@ function check(label, ok, detail) {
       `during ${during.worst}px, after ${after.worst}px, ${pointerMs}ms for 12 pointer frames`);
   }
 
+  // ==========================================================================
+  // Phase 5 — focus, perspectives, metrics, templates (MINDMAP_PLAN.md §5
+  // items 18 to 21)
+  //
+  // Measured on the 200-node map this file has just built, which is the size
+  // at which focus is worth having at all: the assertion is how many nodes
+  // the canvas actually draws, before and after.
+  // ==========================================================================
+  const bigRoot = await page.evaluate(() => {
+    const index = window.wbMapIndex ? window.wbMapIndex() : null;
+    return index && index.roots.length ? index.roots[0].id : null;
+  });
+  const drawn = () => page.evaluate(() => document.querySelectorAll(".wb-map-node").length);
+  const allNodes = await drawn();
+  check("(P5) the big map is fully drawn to start with", allNodes > 50, `${allNodes} nodes`);
+
+  await page.evaluate((id) => window.wbMapSetFocus(id, 1), bigRoot);
+  await page.waitForTimeout(700);
+  const atOne = await drawn();
+  const focusBar = await page.evaluate(() => {
+    const bar = document.getElementById("wb-map-focus");
+    if (!bar || bar.hidden) return null;
+    const box = bar.getBoundingClientRect();
+    return {
+      label: document.getElementById("wb-map-focus-label")?.textContent || "",
+      depth: document.getElementById("wb-map-focus-depth")?.textContent || "",
+      onScreen: box.width > 0 && box.top >= 0,
+    };
+  });
+  check(
+    "(P5) focus at one step draws the node and its neighbours, not the map",
+    atOne > 1 && atOne < allNodes / 4,
+    `${atOne} of ${allNodes} nodes drawn`
+  );
+  check(
+    "(P5) and the focus bar says what is focused and how far it reaches",
+    focusBar && focusBar.onScreen && /step/.test(focusBar.depth) && /of \d+ nodes/.test(focusBar.depth),
+    JSON.stringify(focusBar)
+  );
+  // **Clear of the top bar.** Not a nicety: at `top: var(--space-4)` this bar
+  // rendered inside `#wb-topbar`'s box and its own + button could not be
+  // clicked at all, which cost this sweep a four-minute timeout rather than a
+  // failure. An overlap in pixels is the only honest test of it.
+  const focusClear = await page.evaluate(() => {
+    const bar = document.getElementById("wb-map-focus").getBoundingClientRect();
+    const top = document.getElementById("wb-topbar").getBoundingClientRect();
+    const at = document.elementFromPoint(
+      Math.round((bar.left + bar.right) / 2),
+      Math.round((bar.top + bar.bottom) / 2)
+    );
+    return {
+      overlap: Math.round(Math.max(0, Math.min(bar.bottom, top.bottom) - Math.max(bar.top, top.top))),
+      hitsItself: Boolean(at && at.closest("#wb-map-focus")),
+    };
+  });
+  check(
+    "(P5) the focus bar is clear of the top bar and is what the pointer lands on",
+    focusClear.overlap === 0 && focusClear.hitsItself,
+    JSON.stringify(focusClear)
+  );
+
+  await page.click("#wb-map-focus-more");
+  await page.waitForTimeout(700);
+  const atTwo = await drawn();
+  check("(P5) one step more reveals more of the map", atTwo > atOne, `${atOne} then ${atTwo}`);
+
+  await page.click("#wb-map-focus-clear");
+  await page.waitForTimeout(900);
+  const cleared = await drawn();
+  const barGone = await page.evaluate(() => document.getElementById("wb-map-focus")?.hidden);
+  check(
+    "(P5) show all puts every node back and takes the bar away",
+    cleared === allNodes && barGone === true,
+    `${cleared} of ${allNodes}, bar hidden ${barGone}`
+  );
+
+  // --- perspectives ---------------------------------------------------------
+  const paintUnder = async (key) => {
+    await page.evaluate((k) => window.wbMapSetPerspective(k), key);
+    await page.waitForTimeout(800);
+    return page.evaluate(() => {
+      const nodes = [...document.querySelectorAll(".wb-map-node")].slice(0, 60);
+      const colours = nodes.map((n) => n.style.getPropertyValue("--wb-branch").trim());
+      const legend = document.getElementById("wb-map-legend");
+      return {
+        distinct: [...new Set(colours.filter(Boolean))].length,
+        legend: legend && !legend.hidden ? legend.querySelectorAll(".wb-map-legend-row").length : 0,
+        title: legend && !legend.hidden ? legend.querySelector(".wb-map-legend-title")?.textContent : "",
+      };
+    });
+  };
+  const branch = await paintUnder("branch");
+  const notes = await paintUnder("notes");
+  check(
+    "(P5) branch colouring uses several colours and shows no legend",
+    branch.distinct >= 2 && branch.legend === 0,
+    JSON.stringify(branch)
+  );
+  check(
+    "(P5) 'behind a note' collapses a map of topics to one colour, with a legend",
+    notes.distinct === 1 && notes.legend >= 2 && /Behind a note/.test(notes.title || ""),
+    JSON.stringify(notes)
+  );
+  const legendClear = await page.evaluate(() => {
+    const legend = document.getElementById("wb-map-legend").getBoundingClientRect();
+    const tools = document.querySelector(".whiteboard-floating-panel:not(.hidden)");
+    const box = tools ? tools.getBoundingClientRect() : null;
+    const at = document.elementFromPoint(
+      Math.round((legend.left + legend.right) / 2),
+      Math.round((legend.top + legend.bottom) / 2)
+    );
+    return {
+      overlap: box
+        ? Math.round(
+            Math.max(0, Math.min(legend.right, box.right) - Math.max(legend.left, box.left)) *
+              Math.max(0, Math.min(legend.bottom, box.bottom) - Math.max(legend.top, box.top))
+          )
+        : 0,
+      hitsItself: Boolean(at && at.closest("#wb-map-legend")),
+      inViewport: legend.top >= 0 && legend.bottom <= window.innerHeight,
+    };
+  });
+  check(
+    "(P5) the legend sits clear of the tool row and inside the viewport",
+    legendClear.overlap === 0 && legendClear.hitsItself && legendClear.inViewport,
+    JSON.stringify(legendClear)
+  );
+
+  const byAge = await paintUnder("age");
+  check(
+    "(P5) age draws its four buckets in the legend",
+    byAge.legend >= 4,
+    JSON.stringify(byAge)
+  );
+  await page.evaluate(() => window.wbMapSetPerspective("branch"));
+  await page.waitForTimeout(500);
+
+  // --- metrics --------------------------------------------------------------
+  await page.evaluate(() => document.getElementById("wb-map-stats-item")?.click());
+  await page.waitForTimeout(600);
+  const stats = await page.evaluate(() => {
+    const list = document.querySelector(".wb-map-stats");
+    if (!list) return null;
+    const rows = [...list.querySelectorAll("dt")].map((dt) => [
+      dt.textContent,
+      dt.nextElementSibling?.textContent || "",
+    ]);
+    return { rows: Object.fromEntries(rows), count: rows.length };
+  });
+  check(
+    "(P5) the stats dialog reports the map it is looking at",
+    stats && stats.count >= 6 && new RegExp(`^${allNodes} `).test(stats.rows.Nodes || ""),
+    JSON.stringify(stats && stats.rows)
+  );
+  await page.evaluate(() => {
+    const close = [...document.querySelectorAll(".confirm-actions button")].find((b) =>
+      /Close/.test(b.textContent)
+    );
+    close?.click();
+  });
+  await page.waitForTimeout(400);
+
+  // --- templates ------------------------------------------------------------
+  // A brand new map, which is the only state the offer is made in.
+  const freshMap = await page.evaluate(() =>
+    window
+      .apiJson("/whiteboard/boards", {
+        method: "POST",
+        body: JSON.stringify({ name: "Template map", type: "map", layout: "tree-right" }),
+      })
+      .then((board) =>
+        window
+          .apiJson(`/whiteboard/boards/${board.id}/nodes`, {
+            method: "POST",
+            body: JSON.stringify({ kind: "topic", text: "Template map" }),
+          })
+          .then(() => board.id)
+      )
+  );
+  await page.evaluate((id) => window.openWhiteboardBoard(id), freshMap);
+  await page.waitForTimeout(2500);
+  const offered = await page.evaluate(() => {
+    const panel = document.getElementById("wb-map-templates");
+    if (!panel || panel.hidden) return null;
+    const box = panel.getBoundingClientRect();
+    return {
+      buttons: panel.querySelectorAll("[data-wb-template]").length,
+      onScreen: box.width > 0 && box.top >= 0 && box.bottom <= window.innerHeight,
+    };
+  });
+  check(
+    "(P5) a map that is still just its root offers a starting shape",
+    offered && offered.buttons === 4 && offered.onScreen,
+    JSON.stringify(offered)
+  );
+
+  await page.click('[data-wb-template="brainstorm"]');
+  await page.waitForTimeout(3000);
+  const started = await page.evaluate(() => ({
+    nodes: document.querySelectorAll(".wb-map-node").length,
+    texts: [...document.querySelectorAll(".wb-map-node .wb-map-text")].map((n) => n.textContent.trim()),
+    panel: document.getElementById("wb-map-templates")?.hidden,
+  }));
+  check(
+    "(P5) the template fills the map and the offer does not come back",
+    started.nodes >= 6 && started.texts.includes("Ideas") && started.panel === true,
+    JSON.stringify(started)
+  );
+  await page.screenshot({ path: `${OUT}/mindmap-phase5-${process.env.THEME || "light"}.png` });
+
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed.`);
   if (failed.length) console.log("FAILED: " + failed.map((f) => f.label).join(" ; "));

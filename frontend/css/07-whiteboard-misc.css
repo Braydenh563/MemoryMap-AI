@@ -3992,6 +3992,165 @@ summary:not(.icon-only):not(.icon-button) {
   line-height: 1.5;
 }
 
+/* --- Phase 5: the three things a map says about itself ---------------------
+   MINDMAP_PLAN.md §5 items 18, 19 and 21. All three float over the canvas
+   beside `.wb-gestures` rather than joining the top bar, which is already
+   fifteen controls wide (measured, scratchpad/ui-sweeps/docks.js): a state
+   about what the canvas is showing belongs where the canvas is. They sit on
+   `.card.glass`, the app's own floating-panel recipe, so they are the same
+   surface as the overview and the gesture strip rather than a fourth one. */
+.wb-map-focus {
+  position: absolute;
+  z-index: 6;
+  /* **Below the top bar, not under it.** Measured the hard way: at
+     `top: var(--space-4)` this bar rendered inside `#wb-topbar`'s box, and the
+     sweep's click on its own + button was refused for four minutes with
+     "#wb-search-toggle ... intercepts pointer events". `--wb-h-topbar` is the
+     bar's real measured height (a ResizeObserver in whiteboard.js publishes
+     it), which is the same clearance the library sidebar takes, so a top bar
+     that wraps on a narrow window moves this with it instead of leaving it
+     behind. */
+  top: calc(0.5rem + var(--wb-h-topbar) + var(--space-3));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: min(38rem, 90%);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-md);
+}
+
+/* The focused node's own name, which is the one part of that row that can be
+   any length at all. */
+.wb-map-focus-name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wb-map-legend {
+  position: absolute;
+  z-index: 6;
+  /* Clear of the tool row, which is what `.wb-gestures` does and for the
+     reason recorded there: the row wraps to two or three lines on a narrow
+     board, so a constant puts a panel straight back underneath it. */
+  bottom: calc(0.5rem + var(--wb-h-tools) + var(--space-4));
+  left: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 14rem;
+  padding: var(--space-3);
+  font-size: var(--text-base);
+}
+
+.wb-map-legend-title {
+  color: var(--muted);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.wb-map-legend-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.wb-map-legend-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The swatch carries the colour it is standing for as a `background` set from
+   the data, so this rule sets everything except that. */
+.wb-map-legend-swatch {
+  flex: 0 0 auto;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: calc(var(--radius) * 0.25);
+}
+
+.wb-map-templates {
+  position: absolute;
+  z-index: 6;
+  /* Same clearance as the focus bar above, and for the same reason. The two
+     never show at once: `wbSyncMapTemplates` withdraws the offer while focus
+     is on. */
+  top: calc(0.5rem + var(--wb-h-topbar) + var(--space-3));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  max-width: min(44rem, 92%);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-md);
+}
+
+.wb-map-templates-title {
+  font-weight: 600;
+}
+
+.wb-map-templates-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* What a map is made of (§5 item 20), as a definition list: a term and its
+   number, which is what these rows are, rather than a table nobody needs the
+   second column of. */
+.wb-map-stats {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  font-size: var(--text-md);
+}
+
+.wb-map-stats dt {
+  color: var(--muted);
+}
+
+.wb-map-stats dd {
+  margin: 0;
+}
+
+/* The map proposal dialog (`wbReviewMapProposal`, whiteboard.js: "make a map
+   of these notes"). `.confirm-card`'s min(30rem, 92vw) is sized for a question
+   and two buttons; what this holds is a twenty-line outline, and at that width
+   the lines it exists to let you read wrap. Compound selector for the reason
+   `.confirm-card.graph-link-panel` gives at its own override: equal
+   specificity would let source order decide, and `.confirm-card` is declared
+   in a later file. */
+.confirm-card.wb-proposal-card {
+  width: min(36rem, 94vw);
+}
+
+/* The outline itself. Monospace because indentation *is* the structure here:
+   two spaces per level is a shape you can see in a fixed-width font and have
+   to count in a proportional one. */
+.wb-proposal-outline {
+  width: 100%;
+  min-height: 14rem;
+  resize: vertical;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-md);
+  line-height: 1.5;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+
 /* A board's actual layout, in miniature. The dots are cards drawn at their
    real relative positions, so two boards look different from each other in
    the way the boards themselves do. */
@@ -4001,9 +4160,42 @@ summary:not(.icon-only):not(.icon-button) {
   height: auto;
   aspect-ratio: 100 / 56;
   margin: var(--space-3) 0 var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) * 0.5);
-  background: var(--chip-bg);
+}
+
+/* **The board itself, at the board's own shape.** The frame and the fill used
+   to sit on the `<svg>` element, which is the *card's* box: so every board in
+   the Library was framed as the same wide rectangle whatever shape it really
+   was, and the picture inside was stretched to fit it. The drawing is now made
+   at `preview_aspect` and letterboxed (`preserveAspectRatio="xMidYMid meet"`,
+   mapPreview in app.js), and this rect is the letterboxed board, which is also
+   the thing a sweep can measure. `non-scaling-stroke` keeps the border one
+   pixel: it is scaled by whatever `meet` decided, and a hairline on a wide
+   card came out three times heavier on a tall one. */
+.board-minimap-paper {
+  fill: var(--chip-bg);
+  stroke: var(--border);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+/* An empty board says so in the same language: a dashed frame around a ghost
+   of a three-node map, rather than the nothing-at-all each surface improvised
+   before (see mapPreview's header comment). */
+.board-minimap-paper-empty {
+  fill: none;
+  stroke-dasharray: 3 3;
+}
+
+.board-minimap-ghost {
+  fill: var(--border);
+  stroke: var(--border);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.5;
+}
+
+.board-minimap-ghost path {
+  fill: none;
 }
 
 /* The row-sized preview (`mapPreview(board, {size: "row"})`), the dashboard's
@@ -4050,15 +4242,6 @@ summary:not(.icon-only):not(.icon-button) {
   order: -1;
 }
 
-/* The empty board's stand-in rail: see `board-minimap-blank` in
-   whiteboard.js. A frame, not a filled box: it says "nothing on this board"
-   in the same place a map would say what is. */
-.board-minimap-blank {
-  display: block;
-  border: 1px dashed var(--border);
-  background: none;
-}
-
 .library-list .library-board-card .library-card-title {
   flex: 0 0 20rem;
   min-width: 0;
@@ -4076,9 +4259,20 @@ summary:not(.icon-only):not(.icon-button) {
   margin-left: auto;
 }
 
-.board-minimap rect {
+.board-minimap-card,
+.board-minimap-object {
   fill: var(--accent);
   opacity: 0.55;
+}
+
+/* A map node in its branch colour (`_map_branch_colors`, server-side). The
+   fill arrives as a `fill` *attribute* per node, so this rule deliberately
+   does not declare one: a class would win over the attribute and every node
+   would be grey again. It only has to stop the grey blocks' opacity from
+   muting the colour: those are faded because an unlabelled box is texture,
+   while a coloured node is carrying which branch it belongs to. */
+.board-minimap-branch {
+  opacity: 0.9;
 }
 
 /* An object (an image, a shape, a text box) is on the board but is not a
@@ -4093,10 +4287,17 @@ summary:not(.icon-only):not(.icon-button) {
    the thumbnail, and drawn at full weight they swamp the blocks they join. */
 .board-minimap-edge {
   fill: none;
-  stroke: var(--accent);
   stroke-width: 0.9;
   stroke-linecap: round;
   opacity: 0.5;
+}
+
+/* An edge with no branch behind it: an ordinary board's, and the ghost map in
+   the empty state (which takes its stroke from the group instead). A coloured
+   edge carries a `stroke` attribute, which any class declaring `stroke` would
+   beat, so the accent lives in its own class rather than in the rule above. */
+.board-minimap-edge-accent {
+  stroke: var(--accent);
 }
 
 /* Strokes, as a stroke. Drawn rather than filled because a sketch has no
@@ -4118,11 +4319,12 @@ summary:not(.icon-only):not(.icon-button) {
 .board-minimap-label {
   fill: var(--ink);
   opacity: 0.75;
-  font-size: 4.2px;
   font-family: inherit;
 }
 
-.library-board-card:hover .board-minimap rect,
+/* The paper is excluded: it is the board's frame, and lifting its opacity on
+   hover made the card look selected rather than pointed at. */
+.library-board-card:hover .board-minimap rect:not(.board-minimap-paper, .board-minimap-branch),
 .library-board-card:hover .board-minimap path {
   opacity: 0.8;
 }

@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections import OrderedDict
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -503,6 +504,17 @@ class BoardOut(BaseModel):
     #: so the one thing the picture has to show is the one thing points alone
     #: cannot.
     preview_edges: list[dict] = []
+    #: The board's own width/height, so a thumbnail can be drawn at the shape
+    #: the board actually has instead of stretched to whatever box it lands
+    #: in. Normalising into 0..1 threw this away: a tall map and a wide board
+    #: both came back as the unit square, so every card drew the same
+    #: rectangle and a tree that runs left to right looked identical to one
+    #: that runs top to bottom.
+    #:
+    #: Clamped into `PREVIEW_ASPECT_RANGE`. Past that the letterboxed picture
+    #: is a sliver a few pixels wide inside a card that is mostly empty, which
+    #: says less about the board than a slightly wrong ratio does.
+    preview_aspect: float = 1.0
 
 
 class BoardTypeMixin(BaseModel):
@@ -577,27 +589,119 @@ def _preview_points(rows: list[tuple[float, float]]) -> list[list[float]]:
 PREVIEW_LABEL_CHARS = 28
 
 
-def _preview_items(rows: list[tuple[float, float, str, str]]) -> list[dict]:
+#: The branch colours a map's thumbnail draws, in the order a first-level
+#: branch claims them.
+#:
+#: **This is `d3.schemeTableau10`, copied.** The canvas takes that scale from
+#: d3 at runtime (`wbMapColors`, whiteboard.js), and the thumbnail has to
+#: agree with the canvas or the same map is two different pictures depending
+#: on where you look at it. The server has no d3, and shipping a *branch
+#: index* instead would only move the same duplication into app.js, where the
+#: preview is drawn and d3 is not guaranteed to have loaded. Copied here, once,
+#: with `tests/test_board_preview.py` asserting a preview's colours come from
+#: this list.
+MAP_BRANCH_PALETTE = [
+    "#4e79a7",
+    "#f28e2c",
+    "#e15759",
+    "#76b7b2",
+    "#59a14f",
+    "#edc949",
+    "#af7aa1",
+    "#ff9da7",
+    "#9c755f",
+    "#bab0ab",
+]
+
+
+def _map_branch_colors(
+    parents: dict[int, int | None], own: dict[int, str | None]
+) -> dict[int, str]:
+    """Every map node's branch colour, by object id: Coggle's rule, which the
+    canvas already follows.
+
+    A first-level topic (a *child of a root*, not a root) takes the next
+    palette entry, and every descendant inherits it unless it sets its own
+    `data.color`. Starting at the roots instead would paint a whole map one
+    colour, which is the one thing branch colour exists not to do.
+
+    Iterative rather than recursive: a map imported from a deep OPML file is
+    still a tree, but nothing here should be able to turn a 1,000-deep import
+    into a `RecursionError` in a *thumbnail*. `seen` also makes a cycle (a
+    dangling or corrupt `parent_id`) terminate rather than hang, and any node
+    whose parent is missing is treated as a root, which is what every other
+    reader of `parent_id` does.
+    """
+    children: dict[int | None, list[int]] = {}
+    for node_id, parent_id in parents.items():
+        key = parent_id if parent_id in parents else None
+        children.setdefault(key, []).append(node_id)
+    colors: dict[int, str] = {}
+    seen: set[int] = set()
+    branch = 0
+    # (id, the colour inherited from above, depth from its root)
+    stack: list[tuple[int, str | None, int]] = [
+        (node_id, None, 0) for node_id in reversed(children.get(None, []))
+    ]
+    while stack:
+        node_id, inherited, depth = stack.pop()
+        if node_id in seen:
+            continue
+        seen.add(node_id)
+        colour = own.get(node_id)
+        if colour is None and depth == 1:
+            # Depth 1 *is* the branch, and it is the only depth that ever
+            # takes a new colour: the client decides this by asking whether
+            # the colour handed down was null, which is true for exactly one
+            # generation, a root's own children.
+            colour = MAP_BRANCH_PALETTE[branch % len(MAP_BRANCH_PALETTE)]
+            branch += 1
+        if colour is None:
+            colour = inherited
+        if colour:
+            colors[node_id] = colour
+        for child_id in reversed(children.get(node_id, [])):
+            stack.append((child_id, colour, depth + 1))
+    return colors
+
+
+def _preview_items(rows: list[tuple[float, float, str, str, str | None]]) -> list[dict]:
     """The same normalisation as `_preview_points`, carrying what each item
-    *is* and what it says.
+    *is*, what it says and what colour it is.
 
     Sampling happens before normalising and both use one stride, so the
     labels can never end up attached to the wrong positions, which is the
     obvious way to break this while every number still looks plausible.
+
+    `color` is omitted rather than sent as null for the items that have none
+    (every card, every sketch, every object on an ordinary board): a
+    twenty-board list ships eight hundred of these.
     """
     if not rows:
         return []
     stride = max(1, len(rows) // PREVIEW_POINTS)
     sampled = rows[::stride][:PREVIEW_POINTS]
-    points = _preview_points([(x, y) for x, y, _, _ in sampled])
-    return [
-        {"x": nx, "y": ny, "kind": kind, "label": label}
-        for (nx, ny), (_, _, kind, label) in zip(points, sampled, strict=True)
-    ]
+    points = _preview_points([(x, y) for x, y, _, _, _ in sampled])
+    items = []
+    for (nx, ny), (_, _, kind, label, colour) in zip(points, sampled, strict=True):
+        item = {"x": nx, "y": ny, "kind": kind, "label": label}
+        if colour:
+            item["color"] = colour
+        items.append(item)
+    return items
 
 
-def _board_preview(db: Session, board_id: int | None) -> tuple[list[dict], list[dict]]:
-    """Everything placed on one board, as a thumbnail: `(items, edges)`.
+#: How far a thumbnail's shape is allowed to depart from a square, as
+#: width/height. A board 30 times wider than it is tall is a real board, and
+#: letterboxed honestly into a Library card it is a two-pixel band of grey:
+#: past this the ratio stops being information and starts being an empty card.
+PREVIEW_ASPECT_RANGE = (0.5, 3.0)
+
+
+def _board_preview(
+    db: Session, board_id: int | None
+) -> tuple[list[dict], list[dict], float]:
+    """Everything placed on one board, as a thumbnail: `(items, edges, aspect)`.
 
     Cards, sketches *and* objects. Cards alone was the first version and it
     is why a sketch-only board previewed as an empty rectangle: the count
@@ -609,6 +713,14 @@ def _board_preview(db: Session, board_id: int | None) -> tuple[list[dict], list[
     emitted only when both of its ends survived sampling, and it reuses the
     normalised coordinates the items already got rather than normalising a
     second time against different bounds.
+
+    **`aspect` is the shape the normalisation threw away.** Positions come
+    back in 0..1 on both axes, so the client cannot tell a tall map from a
+    wide board and drew both stretched into the card's box. It is measured
+    over exactly the sampled corner span the items were normalised against,
+    not over the board's true extent including each item's own width and
+    height: the picture the client letterboxes *is* that span, so a ratio
+    measured any other way would be a number that does not match the drawing.
     """
     from memorymap.entry import manager
 
@@ -617,12 +729,18 @@ def _board_preview(db: Session, board_id: int | None) -> tuple[list[dict], list[
             model.board_id.is_(None) if board_id is None else model.board_id == board_id
         )
 
-    rows: list[tuple[float, float, str, str]] = []
+    rows: list[tuple[float, float, str, str, str | None]] = []
     #: Which object each row came from, positionally, `None` for a card or a
     #: sketch, which have no tree. Only map nodes ever claim a parent, so an
     #: ordinary board leaves `parent_of` empty and pays for nothing.
     owners: list[int | None] = []
     parent_of: dict[int, int] = {}
+    #: Every object's parent (including the roots, at None) and its own
+    #: `data.color`, which is what the branch-colour walk needs. Separate from
+    #: `parent_of` because that one carries only real parents and is what the
+    #: edges are drawn from.
+    tree_parents: dict[int, int | None] = {}
+    own_colors: dict[int, str | None] = {}
 
     for node in db.scalars(select(WhiteboardNode).where(on(WhiteboardNode))):
         entry = db.get(Entry, node.entry_id)
@@ -636,27 +754,56 @@ def _board_preview(db: Session, board_id: int | None) -> tuple[list[dict], list[
             label = (manager.extract_title(text) or text.strip().split("\n")[0])[
                 :PREVIEW_LABEL_CHARS
             ]
-        rows.append((float(node.x), float(node.y), "card", label))
+        rows.append((float(node.x), float(node.y), "card", label, None))
         owners.append(None)
 
     for sketch in db.scalars(select(WhiteboardSketch).where(on(WhiteboardSketch))):
-        rows.append((float(sketch.x), float(sketch.y), "sketch", ""))
+        rows.append((float(sketch.x), float(sketch.y), "sketch", "", None))
         owners.append(None)
 
-    for obj in db.scalars(select(WhiteboardObject).where(on(WhiteboardObject))):
+    # Ordered by id so the branch colours fall in the same order the canvas
+    # gives them: the client walks the objects in the order `GET /whiteboard`
+    # returns them, which is this one.
+    objects = list(
+        db.scalars(
+            select(WhiteboardObject)
+            .where(on(WhiteboardObject))
+            .order_by(WhiteboardObject.id)
+        )
+    )
+    for obj in objects:
         label = ""
+        data = {}
+        try:
+            parsed = json.loads(obj.data)
+            data = parsed if isinstance(parsed, dict) else {}
+        except (TypeError, ValueError):
+            data = {}
         if obj.kind == MAP_TOPIC_KIND:
-            # A map's thumbnail is mostly topics, and a topic *is* its text, 
+            # A map's thumbnail is mostly topics, and a topic *is* its text,
             # a tree of unlabelled boxes tells two maps apart no better than
             # a scatter of dots did.
-            try:
-                label = str(json.loads(obj.data).get("content") or "")[:PREVIEW_LABEL_CHARS]
-            except (TypeError, ValueError):
-                label = ""
-        rows.append((float(obj.x), float(obj.y), obj.kind or "object", label))
+            label = str(data.get("content") or "")[:PREVIEW_LABEL_CHARS]
+        rows.append((float(obj.x), float(obj.y), obj.kind or "object", label, None))
         owners.append(obj.id)
         if obj.parent_id is not None:
             parent_of[obj.id] = obj.parent_id
+        if obj.kind == MAP_TOPIC_KIND or obj.kind in MAP_REFERENCE_KINDS:
+            tree_parents[obj.id] = obj.parent_id
+            colour = data.get("color")
+            own_colors[obj.id] = colour if isinstance(colour, str) and colour else None
+
+    # **The branch colours, computed here and not in the client.** Every node
+    # drew in one grey before this, so a map's thumbnail showed its structure
+    # and nothing about which branch was which, while the same map on the
+    # canvas is colour-coded by branch. The rule is Coggle's and the canvas
+    # already implements it; see `_map_branch_colors`.
+    if tree_parents:
+        branch_colors = _map_branch_colors(tree_parents, own_colors)
+        rows = [
+            (x, y, kind, label, branch_colors.get(owner) if owner is not None else colour)
+            for (x, y, kind, label, colour), owner in zip(rows, owners, strict=True)
+        ]
 
     # Sample here rather than inside `_preview_items` so the edges can be
     # drawn against the *same* survivors: passing an already-sampled list
@@ -666,16 +813,132 @@ def _board_preview(db: Session, board_id: int | None) -> tuple[list[dict], list[
     kept = list(range(len(rows)))[::stride][:PREVIEW_POINTS]
     items = _preview_items([rows[i] for i in kept])
 
+    # The sampled corner span, which is the box the items were normalised
+    # into and therefore the box the client draws.
+    aspect = 1.0
+    if kept:
+        xs = [rows[i][0] for i in kept]
+        ys = [rows[i][1] for i in kept]
+        span_x, span_y = max(xs) - min(xs), max(ys) - min(ys)
+        if span_x > 0 and span_y > 0:
+            low, high = PREVIEW_ASPECT_RANGE
+            aspect = round(min(max(span_x / span_y, low), high), 3)
+        # A single item, or a straight line of them, has no extent on an axis
+        # and keeps the square: the alternative is a divide by zero or a
+        # thumbnail whose shape is an artefact of a rounding error.
+
     edges: list[dict] = []
     if parent_of:
         at = {owners[i]: n for n, i in enumerate(kept) if owners[i] is not None}
         for child_id, parent_id in parent_of.items():
             if child_id in at and parent_id in at:
                 child, parent = items[at[child_id]], items[at[parent_id]]
-                edges.append(
-                    {"x1": parent["x"], "y1": parent["y"], "x2": child["x"], "y2": child["y"]}
-                )
-    return items, edges
+                edge = {
+                    "x1": parent["x"],
+                    "y1": parent["y"],
+                    "x2": child["x"],
+                    "y2": child["y"],
+                }
+                # An edge takes the *child's* colour, which is what the canvas
+                # does: a branch is one colour from where it leaves the trunk
+                # all the way out, and colouring it by the parent would paint
+                # the first hop of every branch the trunk's colour.
+                if child.get("color"):
+                    edge["color"] = child["color"]
+                edges.append(edge)
+    return items, edges, aspect
+
+
+#: How many boards' thumbnails are remembered at once. The Library lists every
+#: board in the notebook, so this only has to cover one screenful of cards
+#: plus the dashboard's widget; a notebook with more boards than this simply
+#: recomputes the ones that fell off the end.
+PREVIEW_CACHE_LIMIT = 128
+
+#: `key -> (items, edges, aspect)`, where the key carries a fingerprint of
+#: everything the picture is drawn from (see `_preview_fingerprint`), so a
+#: stale entry cannot be served: a changed board has a different key, and the
+#: old entry ages out rather than being invalidated by hand.
+_PREVIEW_CACHE: "OrderedDict[tuple, tuple[list[dict], list[dict], float]]" = OrderedDict()
+
+#: Hits and misses since the process started. Read by
+#: `tests/test_board_preview.py`, which is the only way to assert a cache
+#: works: the response is identical either way, which is the point of it.
+PREVIEW_CACHE_STATS = {"hits": 0, "misses": 0}
+
+
+def _preview_fingerprint(db: Session, board_id: int | None) -> tuple:
+    """Everything a board's thumbnail depends on, as a cheap tuple.
+
+    Three counts and three high-water marks, one per table, plus the same
+    pair for the *notes* the board's cards stand for: a card's label is the
+    note's title, so renaming a note has to change this key even though
+    nothing on the board was touched. Six aggregates over indexed columns
+    against a full scan of every row on the board plus one `Entry` fetch per
+    card, which is what the miss path costs.
+
+    The database's own identity is in the key as well. The cache is module
+    state and the test suite builds a fresh database per test, so two
+    databases whose board 1 is empty in the same way would otherwise share an
+    entry: harmless today (both previews are empty) and exactly the sort of
+    cross-test leak that is diagnosed at three in the morning.
+    """
+    def on(model):
+        return model.board_id.is_(None) if board_id is None else model.board_id == board_id
+
+    stamps: list = []
+    for model in (WhiteboardNode, WhiteboardSketch, WhiteboardObject):
+        row = db.execute(
+            select(func.count(), func.max(model.updated_at)).where(on(model))
+        ).one()
+        stamps.append((row[0], str(row[1])))
+    cards = db.execute(
+        select(func.count(), func.max(Entry.updated_at))
+        .select_from(WhiteboardNode)
+        .join(Entry, Entry.id == WhiteboardNode.entry_id)
+        .where(on(WhiteboardNode))
+    ).one()
+    stamps.append((cards[0], str(cards[1])))
+    bind = db.get_bind()
+    return (
+        str(getattr(bind, "url", bind)),
+        db.info.get("workspace_id"),
+        board_id,
+        tuple(stamps),
+    )
+
+
+def _preview_fields(db: Session, board_id: int | None) -> dict:
+    """A board's three preview fields, ready to splat into `BoardOut`, from
+    the cache when the board has not moved since it was last drawn.
+
+    **Why this is cached at all**: the Library rebuilds every board's
+    thumbnail on every visit, and a thumbnail is a full scan of the board.
+    Twenty boards of a few hundred items each is twenty of those, per visit,
+    for a picture that changes only when the board does.
+    """
+    key = _preview_fingerprint(db, board_id)
+    cached = _PREVIEW_CACHE.get(key)
+    if cached is not None:
+        PREVIEW_CACHE_STATS["hits"] += 1
+        # Newest last: this is a plain LRU, and a board being looked at now is
+        # the one least worth dropping.
+        _PREVIEW_CACHE.move_to_end(key)
+        items, edges, aspect = cached
+    else:
+        PREVIEW_CACHE_STATS["misses"] += 1
+        items, edges, aspect = _board_preview(db, board_id)
+        _PREVIEW_CACHE[key] = (items, edges, aspect)
+        while len(_PREVIEW_CACHE) > PREVIEW_CACHE_LIMIT:
+            _PREVIEW_CACHE.popitem(last=False)
+    # Copied on the way out: the cached lists are shared with every later
+    # caller, and a response model that a caller mutated in place would poison
+    # every board list after it.
+    return {
+        "preview_items": [dict(item) for item in items],
+        "preview_edges": [dict(edge) for edge in edges],
+        "preview_aspect": aspect,
+    }
 
 
 @router.get("/boards", response_model=list[BoardOut])
@@ -741,7 +1004,6 @@ def list_boards(
     # The default scratch board has no note behind it, so it has nowhere to
     # store settings and is always an ordinary board, which is why it is
     # excluded by `?type=map` rather than being special-cased into it.
-    default_items, default_edges = _board_preview(db, None)
     boards = [
         BoardOut(
             id=None,
@@ -749,8 +1011,7 @@ def list_boards(
             node_count=default_nodes,
             sketch_count=default_sketches,
             object_count=default_objects,
-            preview_items=default_items,
-            preview_edges=default_edges,
+            **_preview_fields(db, None),
         )
     ] if type in (None, DEFAULT_BOARD_TYPE) else []
     # `is_board` entries are included even at zero counts, see its own
@@ -773,7 +1034,6 @@ def list_boards(
             if type is not None and board_type != type:
                 continue
             title = extract_title(entry.content) or entry.content.strip()[:40] or f"Note {entry.id}"
-            items, edges = _board_preview(db, entry.id)
             boards.append(
                 BoardOut(
                     id=entry.id,
@@ -783,8 +1043,7 @@ def list_boards(
                     object_count=object_counts.get(entry.id, 0),
                     type=board_type,
                     layout=layout,
-                    preview_items=items,
-                    preview_edges=edges,
+                    **_preview_fields(db, entry.id),
                 )
             )
     return boards
@@ -952,7 +1211,6 @@ def duplicate_board(board_id: int, db: Session = Depends(get_session)) -> BoardO
 
     db.commit()
     db.refresh(copy)
-    items, edges = _board_preview(db, copy.id)
     board_type, layout = _board_settings(copy)
     return BoardOut(
         id=copy.id,
@@ -962,8 +1220,7 @@ def duplicate_board(board_id: int, db: Session = Depends(get_session)) -> BoardO
         object_count=len(sources),
         type=board_type,
         layout=layout,
-        preview_items=items,
-        preview_edges=edges,
+        **_preview_fields(db, copy.id),
     )
 
 
@@ -1014,7 +1271,6 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
     object_count = db.scalar(
         select(func.count()).select_from(WhiteboardObject).where(WhiteboardObject.board_id == board_id)
     )
-    items, edges = _board_preview(db, board_id)
     return BoardOut(
         id=board_id,
         title=title,
@@ -1023,8 +1279,7 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
         object_count=object_count,
         type=board_type,
         layout=layout,
-        preview_items=items,
-        preview_edges=edges,
+        **_preview_fields(db, board_id),
     )
 
 
@@ -1395,6 +1650,37 @@ def _reference_label(db: Session, kind: str, ref_id: int | None, fallback: str) 
     return fallback
 
 
+def _reference_facets(db: Session, kind: str, ref_id: int | None) -> dict:
+    """What the *notebook* knows about the note behind a node: its category
+    and when it was last edited.
+
+    MINDMAP_PLAN.md §5 item 19, and the sentence in it that is the reason
+    this is here at all: colouring a map by category or by age is "the thing
+    a general mindmapper cannot do", because a general mindmapper has only
+    the tree. Resolved on the server for the same reason the label is
+    (`_reference_label`): a copy on the client goes stale the moment a note is
+    refiled, and the client has no way to know it did.
+
+    Only for `note` nodes. A document, file or link has no filing of its own
+    in this notebook, and a private note contributes nothing at all, which is
+    the same boundary its title is behind one function above.
+    """
+    from memorymap.core.database import Category
+
+    if kind != "note" or ref_id is None:
+        return {}
+    entry = db.get(Entry, ref_id)
+    if entry is None or entry.is_deleted or entry.is_private:
+        return {}
+    category = db.get(Category, entry.category_id) if entry.category_id is not None else None
+    return {
+        "ref_category": category.name if category is not None else "Unfiled",
+        # Naive UTC, as every timestamp in this database is: the client reads
+        # it as UTC explicitly rather than letting the browser guess a zone.
+        "ref_updated_at": entry.updated_at.isoformat() if entry.updated_at else None,
+    }
+
+
 def _object_data(obj: WhiteboardObject) -> dict:
     """An object's JSON blob, never raising. A row edited by hand, or written
     by an older version, must not take a whole board's tree down with it."""
@@ -1416,7 +1702,7 @@ def _map_node_dict(db: Session, obj: WhiteboardObject) -> dict:
         if obj.kind in (MAP_TOPIC_KIND, "text")
         else _reference_label(db, obj.kind, ref_id, content)
     )
-    return {
+    node = {
         "id": obj.id,
         "kind": obj.kind,
         "text": text,
@@ -1428,6 +1714,8 @@ def _map_node_dict(db: Session, obj: WhiteboardObject) -> dict:
         "pinned": bool(data.get("pinned")),
         "children": [],
     }
+    node.update(_reference_facets(db, obj.kind, ref_id))
+    return node
 
 
 def _build_tree(db: Session, objects: list[WhiteboardObject]) -> list[dict]:
@@ -1824,6 +2112,58 @@ def _export_opml(title: str, roots: list[dict]) -> str:
     )
 
 
+def _export_freemind(title: str, roots: list[dict]) -> str:
+    """FreeMind `.mm`: the other format every mindmapper reads, and the one
+    Coggle, Freeplane, XMind and MindMeister all import (§4's list).
+
+    **A `.mm` file has exactly one root.** A map here may have several, which
+    is a real shape (two unrelated trunks on one board), so a multi-root map is
+    exported under one node named after the map rather than as several
+    documents or as a file only this app can read back. A single-root map is
+    written as itself, so the common case round-trips unchanged.
+
+    `_kind`/`_ref` ride along for the same reason they do in the OPML export:
+    FreeMind ignores attributes it does not know, and they are what lets a
+    reference node come back as a reference node rather than as a topic.
+    """
+    import xml.etree.ElementTree as ET
+
+    document = ET.Element("map", {"version": "1.0.1"})
+
+    def add(parent_element, node: dict):
+        attrs = {"TEXT": node["text"] or "(untitled)"}
+        if node["kind"] != MAP_TOPIC_KIND:
+            attrs["_kind"] = node["kind"]
+            if node["ref_id"] is not None:
+                attrs["_ref"] = str(node["ref_id"])
+        element = ET.SubElement(parent_element, "node", attrs)
+        for child in node["children"]:
+            add(element, child)
+        return element
+
+    if len(roots) == 1:
+        add(document, roots[0])
+    else:
+        trunk = ET.SubElement(document, "node", {"TEXT": title})
+        for root in roots:
+            add(trunk, root)
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        + ET.tostring(document, encoding="unicode")
+        + "\n"
+    )
+
+
+#: What each export format is called on the way out: the media type a browser
+#: should treat it as, and the extension the file has to have. A `.md` file
+#: holding OPML is a file nothing will open.
+EXPORT_FORMATS = {
+    "markdown": ("text/markdown", "md"),
+    "opml": ("text/x-opml", "opml"),
+    "freemind": ("application/x-freemind", "mm"),
+}
+
+
 @router.get("/boards/{board_id}/export")
 def export_board(board_id: int, format: str = "markdown", db: Session = Depends(get_session)):
     """A map as an indented Markdown outline, or as OPML.
@@ -1834,18 +2174,22 @@ def export_board(board_id: int, format: str = "markdown", db: Session = Depends(
     """
     from fastapi.responses import Response
 
-    if format not in ("markdown", "opml"):
+    if format not in EXPORT_FORMATS:
         raise HTTPException(
             status_code=422,
-            detail=f"Unknown export format {format!r}: expected markdown or opml",
+            detail=f"Unknown export format {format!r}: expected one of "
+            + ", ".join(sorted(EXPORT_FORMATS)),
         )
     entry = _board_entry(db, board_id)
     title = extract_title(entry.content) or entry.content.strip()[:40] or f"Note {board_id}"
     roots = _build_tree(db, _map_objects(db, board_id))
+    media, suffix = EXPORT_FORMATS[format]
     if format == "markdown":
-        text, media, suffix = _export_markdown(title, roots), "text/markdown", "md"
+        text = _export_markdown(title, roots)
+    elif format == "opml":
+        text = _export_opml(title, roots)
     else:
-        text, media, suffix = _export_opml(title, roots), "text/x-opml", "opml"
+        text = _export_freemind(title, roots)
     # The filename is built from the board's id, never from its title: a
     # title is free text, and a Content-Disposition header is exactly where
     # free text becomes a header-injection question nobody wants to answer
@@ -1869,11 +2213,109 @@ class MapImport(BaseModel):
     @field_validator("format")
     @classmethod
     def _known_format(cls, value: str) -> str:
-        if value not in ("markdown", "opml"):
+        if value not in IMPORT_FORMATS:
             raise ValueError(
-                f"Unknown import format {value!r}: expected markdown or opml"
+                f"Unknown import format {value!r}: expected one of "
+                + ", ".join(sorted(IMPORT_FORMATS))
             )
         return value
+
+
+#: The formats `import_board` reads. Markdown and OPML both round-trip with
+#: the exports above; FreeMind `.mm` is the format Coggle, Freeplane, XMind and
+#: MindMeister all write, which is what section 4's list meant by "an existing
+#: map can come in".
+IMPORT_FORMATS = ("markdown", "opml", "freemind")
+
+
+def _parse_xml_document(content: str, label: str):
+    """The XML door, for both formats that come through it.
+
+    **A document type declaration is refused outright**, before the parser
+    ever sees the string. `xml.etree` does not resolve *external* entities,
+    but it does expand internal ones, which is the billion-laughs shape: a
+    dozen nested entity definitions turn a 1KB file into gigabytes of memory
+    inside the parse call, where no size cap on the way in can see it coming.
+    Nothing else in this app parses XML from anywhere, and no real OPML or
+    FreeMind file needs a DTD: so the door refuses one, which is a check that
+    stays correct even if the parser behind it is swapped later.
+
+    The parser behind it is `defusedxml`, not the stdlib: the string check
+    above is belt, this is braces. defusedxml refuses entity declarations at
+    the parser level, and it is also the only shape CodeQL's `py/xml-bomb`
+    query accepts as safe, the stdlib call was flagged as a high-severity
+    alert on this PR even with the guard in front of it.
+
+    One function rather than one per format because a second copy of a
+    security check is a second copy that can drift: the FreeMind import
+    arrived after the OPML one and is exactly where the DOCTYPE guard would
+    otherwise have been quietly left out.
+    """
+    try:
+        from defusedxml import ElementTree as ET
+        from defusedxml.common import DefusedXmlException
+    except ImportError as exc:  # a hand-rolled install that skipped requirements.txt
+        raise HTTPException(
+            status_code=503,
+            detail=f"{label} import needs the defusedxml package: pip install defusedxml",
+        ) from exc
+
+    lowered = content.lower()
+    if "<!doctype" in lowered or "<!entity" in lowered:
+        raise HTTPException(
+            status_code=422,
+            detail=f"That {label} declares a document type. Remove the <!DOCTYPE ...> line and try again.",
+        )
+    try:
+        return ET.fromstring(content)
+    except (ET.ParseError, DefusedXmlException) as exc:
+        raise HTTPException(
+            status_code=422, detail=f"That isn't valid {label}: {exc}"
+        ) from exc
+
+
+def _parse_freemind(content: str) -> tuple[str, list[dict]]:
+    """FreeMind `.mm` in, `(title, nested {text, children})` out.
+
+    The format is one `<node TEXT="...">` inside another, and the document's
+    single root node *is* its title: so the root's own text names the map and
+    its children become the map's roots, which is the shape `_export_freemind`
+    writes and the shape Freeplane and Coggle export. A file with several
+    top-level nodes (not legal FreeMind, but files are files) keeps all of
+    them and takes no title from them.
+
+    Text can also live in a `<richcontent>` element rather than in `TEXT`.
+    That body is HTML, and rendering someone else's HTML into a node is not a
+    thing this import is going to do: such a node comes in unlabelled rather
+    than with its markup as its label.
+    """
+    root = _parse_xml_document(content, "FreeMind")
+    counted = [0]
+
+    def walk(element, depth: int) -> list[dict]:
+        out: list[dict] = []
+        if depth >= MAX_IMPORT_DEPTH:
+            return out
+        for child in element.findall("node"):
+            counted[0] += 1
+            if counted[0] > MAX_IMPORT_NODES:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"That outline has more than {MAX_IMPORT_NODES} nodes: split it up first.",
+                )
+            text = (child.get("TEXT") or child.get("text") or "").strip()
+            out.append(
+                {"text": text[:MAX_OBJECT_TEXT_CHARS], "children": walk(child, depth + 1)}
+            )
+        return out
+
+    tops = root.findall("node")
+    if len(tops) == 1:
+        # The one legal shape: the document's root node names the map, and the
+        # map's own roots are its children.
+        title = (tops[0].get("TEXT") or "").strip()
+        return title, walk(tops[0], 0)
+    return "", walk(root, 0)
 
 
 def _parse_opml(content: str) -> tuple[str, list[dict]]:
@@ -1884,35 +2326,11 @@ def _parse_opml(content: str) -> tuple[str, list[dict]]:
     but it does expand internal ones, which is the billion-laughs shape: a
     dozen nested entity definitions turn a 1KB file into gigabytes of memory
     inside the parse call, where no size cap on the way in can see it coming.
-    Nothing else in this app parses XML from anywhere, and no real OPML file
-    needs a DTD: so the door refuses one, which is a check that stays
-    correct even if the parser behind it is swapped later.
-
-    The parser behind it is `defusedxml`, not the stdlib: the string check
-    above is belt, this is braces. defusedxml refuses entity declarations at
-    the parser level, and it is also the only shape CodeQL's
-    `py/xml-bomb` query accepts as safe, the stdlib call was flagged as a
-    high-severity alert on this PR even with the guard in front of it.
+    Both guards live in `_parse_xml_document`, which is the one XML door in
+    this app: see it for the billion-laughs reasoning and for why the parser
+    is defusedxml rather than the stdlib.
     """
-    try:
-        from defusedxml import ElementTree as ET
-        from defusedxml.common import DefusedXmlException
-    except ImportError as exc:  # a hand-rolled install that skipped requirements.txt
-        raise HTTPException(
-            status_code=503,
-            detail="OPML import needs the defusedxml package: pip install defusedxml",
-        ) from exc
-
-    lowered = content.lower()
-    if "<!doctype" in lowered or "<!entity" in lowered:
-        raise HTTPException(
-            status_code=422,
-            detail="That OPML declares a document type. Remove the <!DOCTYPE ...> line and try again.",
-        )
-    try:
-        root = ET.fromstring(content)
-    except (ET.ParseError, DefusedXmlException) as exc:
-        raise HTTPException(status_code=422, detail=f"That isn't valid OPML: {exc}") from exc
+    root = _parse_xml_document(content, "OPML")
 
     title = ""
     head_title = root.find("./head/title")
@@ -1996,41 +2414,43 @@ def _parse_markdown_outline(content: str) -> tuple[str, list[dict]]:
     return title, roots
 
 
-@router.post("/boards/import", response_model=BoardOut, status_code=201)
-def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOut:
-    """Create a map from an OPML file or an indented Markdown outline.
+def _place_map_nodes(
+    db: Session,
+    board_id: int,
+    parsed: list[dict],
+    reference_for=None,
+) -> int:
+    """Write a parsed outline onto a board as map nodes, returning how many.
 
-    Every node comes in as a `topic`: an imported outline is text written
-    somewhere else, and guessing that a line reading "Chapter three" means a
-    particular note in *this* notebook is the kind of helpfulness that
-    silently attaches the wrong thing. Linking a topic to a note afterwards
-    is one action; finding out which of two hundred nodes was mis-linked is
-    not.
+    One walk for both doors onto a map made from text: an import, and the
+    AI proposal the user accepted. They differ in exactly one thing, whether
+    a line stands for a note the user already has, and that is what
+    `reference_for` answers: given a node's text it returns `(kind, ref_id)`
+    or None. An import passes nothing, because guessing that a line reading
+    "Chapter three" means a particular note in *this* notebook is the kind of
+    helpfulness whose mistakes are invisible until much later; the proposal
+    passes a lookup over the notes the user themselves chose, which is not a
+    guess.
+
+    A single running row counter is shared by the whole walk, so the map lands
+    as a readable ladder rather than with every branch stacked on top of the
+    last one at y=0.
     """
-    title, parsed = (
-        _parse_opml(body.content)
-        if body.format == "opml"
-        else _parse_markdown_outline(body.content)
-    )
-    name = (body.name or title or "Imported map").strip()[:100] or "Imported map"
-    entry = Entry(content=f"# {name}", is_board=True)
-    _store_board_settings(entry, "map", DEFAULT_BOARD_LAYOUT)
-    db.add(entry)
-    db.flush()  # the nodes need the board's id before they can point at it
-
     created = 0
-    #: A single running row counter shared by the whole walk, so an imported
-    #: map lands as a readable ladder rather than with every branch stacked
-    #: on top of the last one at y=0.
     row = [0]
 
     def place(nodes: list[dict], parent: WhiteboardObject | None, depth: int) -> None:
         nonlocal created
         for node in nodes:
+            reference = reference_for(node["text"]) if reference_for else None
+            kind, ref_id = reference if reference else (MAP_TOPIC_KIND, None)
+            data: dict = {"content": node["text"]}
+            if ref_id is not None:
+                data["ref_id"] = ref_id
             obj = WhiteboardObject(
-                board_id=entry.id,
-                kind=MAP_TOPIC_KIND,
-                data=json.dumps({"content": node["text"]}),
+                board_id=board_id,
+                kind=kind,
+                data=json.dumps(data),
                 x=float(depth) * MAP_COL,
                 y=float(row[0]) * MAP_ROW,
                 z=1,
@@ -2043,9 +2463,230 @@ def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOu
             place(node["children"], obj, depth + 1)
 
     place(parsed, None, 0)
+    return created
+
+
+#: The most notes one proposal is built from. Matches
+#: `librarian.MAP_PROPOSAL_NOTES`, and is repeated here rather than imported
+#: because a Pydantic field's bound is read at import time and this module is
+#: imported by things that have no business pulling in the AI package.
+MAP_PROPOSAL_MAX_NOTES = 40
+
+
+class MapProposal(BaseModel):
+    """"Make a map of these notes" (MINDMAP_PLAN.md section 5 item 15): which
+    notes, and what to call the result."""
+
+    note_ids: list[int] = Field(min_length=1, max_length=MAP_PROPOSAL_MAX_NOTES)
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+
+
+def _proposal_notes(db: Session, note_ids: list[int]) -> list[Entry]:
+    """The chosen notes, in the order they were chosen, minus anything that is
+    not a readable note.
+
+    A private note is dropped rather than refused: this is a bulk action over
+    a list someone assembled by ticking boxes, and failing the whole thing
+    because one of thirty is private would be a dead end with no obvious way
+    out. The same boundary every AI-facing read path in this codebase holds
+    (search, embeddings, the janitor, chat linking) still holds: its text
+    never reaches the model.
+    """
+    found = {
+        entry.id: entry
+        for entry in db.scalars(select(Entry).where(Entry.id.in_(note_ids))).all()
+        if not entry.is_deleted and not entry.is_private and not entry.is_board
+    }
+    return [found[note_id] for note_id in note_ids if note_id in found]
+
+
+def _note_titles(db: Session, notes: list[Entry]) -> list[tuple[Entry, str, str]]:
+    """`(entry, title, first line)` for each note, which is everything both
+    the prompt and the fallback need and all either of them gets."""
+    from memorymap.ai import librarian
+    from memorymap.entry import manager
+
+    out = []
+    for entry in notes:
+        text = manager.readable_content(entry)
+        title = (manager.extract_title(text) or text.strip().split("\n")[0] or "Untitled")[:100]
+        body = " ".join(text.replace(title, "", 1).split())[: librarian.MAP_PROPOSAL_CHARS]
+        out.append((entry, title, body))
+    return out
+
+
+def _outline_from_filing(db: Session, rows: list[tuple[Entry, str, str]], name: str) -> str:
+    """The proposal the notebook can make on its own: one branch per category,
+    the notes filed under it.
+
+    **Why this exists at all.** The plan asks the agent to propose the tree,
+    and it does; but a 4B model asked for an outline answers with a paragraph
+    often enough that a feature which only works when the model behaves is a
+    feature most people meet broken. This is what the notebook already knows,
+    it is never wrong (it is the user's own filing), and the proposal says
+    which of the two produced it rather than passing this off as the model's
+    work.
+    """
+    from memorymap.core.database import Category
+
+    by_category: dict[str, list[str]] = {}
+    for entry, title, _ in rows:
+        label = "Unfiled"
+        if entry.category_id is not None:
+            category = db.get(Category, entry.category_id)
+            if category is not None:
+                label = category.name
+        by_category.setdefault(label, []).append(title)
+    lines = [f"- {name}"]
+    for label, titles in by_category.items():
+        lines.append(f"  - {label}")
+        lines.extend(f"    - {title}" for title in titles)
+    return "\n".join(lines) + "\n"
+
+
+def _outline_covering(outline: str, rows: list[tuple[Entry, str, str]]) -> str:
+    """The model's outline with every note it forgot added back.
+
+    A proposal for "map these thirty notes" that quietly contains eleven of
+    them is the failure mode worth guarding: it looks like a map, it reads
+    like an answer, and the nineteen that are missing are invisible unless you
+    count. The strays go under one heading at the end rather than being
+    scattered, so what the model did and what this added stay legible.
+    """
+    seen = {line.strip().lstrip("-*+ ").strip().casefold() for line in outline.splitlines()}
+    missing = [title for _, title, _ in rows if title.casefold() not in seen]
+    if not missing:
+        return outline
+    lines = [outline.rstrip("\n"), "  - Other notes"]
+    lines.extend(f"    - {title}" for title in missing)
+    return "\n".join(lines) + "\n"
+
+
+@router.post("/boards/propose")
+def propose_map(body: MapProposal, db: Session = Depends(get_session)) -> dict:
+    """Propose a map of these notes, and write nothing.
+
+    Preview before commit, the convention `generate_diagram` and the note
+    extractor already follow in this app: the answer comes back as the outline
+    text the user then edits, and `POST /boards/generate` creates the map from
+    what they actually saw. A generator that wrote straight to a new board
+    would make "undo" mean "find and delete the board it just made".
+    """
+    from memorymap.ai import librarian
+
+    notes = _proposal_notes(db, body.note_ids)
+    if not notes:
+        raise HTTPException(
+            status_code=404,
+            detail="None of those notes can be mapped (deleted, private, or already a board).",
+        )
+    rows = _note_titles(db, notes)
+    name = (body.name or f"Map of {len(rows)} notes").strip()[:100]
+
+    outline = ""
+    source = "notebook"
+    #: Why the notebook wrote it, when it did. The dialog says this out loud,
+    #: and the three cases want three different sentences: "your model is not
+    #: running" is a thing the reader can go and fix, "the model answered with
+    #: a paragraph" is a thing about the model they chose, and neither should
+    #: be reported as the other. `sources`/`reason` rather than one string
+    #: because the client also styles on `source`.
+    reason = "offline"
+    ollama = deps.get_ollama()
+    if ollama.is_running():
+        try:
+            outline = librarian.propose_map_outline(
+                [(title, body_text) for _, title, body_text in rows],
+                deps.get_model_manager(),
+                ollama,
+            )
+            reason = "unusable"
+        except Exception:
+            # A model that is running and still fails (a pulled-out model, a
+            # timeout) is a reason to fall back, not to lose the action: the
+            # notebook's own filing is a proposal too.
+            logging.getLogger("memorymap.whiteboard").warning(
+                "Map proposal failed, falling back to the notebook's own filing",
+                exc_info=True,
+            )
+            outline = ""
+            reason = "failed"
+        # A reply with no bullets in it is prose, which is what a small model
+        # answers with often enough to plan for; and one bullet is not a map.
+        if len([line for line in outline.splitlines() if line.strip()[:1] in "-*+"]) >= 2:
+            source = "model"
+            reason = "model"
+        else:
+            outline = ""
+    if not outline:
+        outline = _outline_from_filing(db, rows, name)
+    outline = _outline_covering(outline, rows)
+    return {
+        "name": name,
+        "outline": outline,
+        "source": source,
+        "reason": reason,
+        "note_ids": [entry.id for entry, _, _ in rows],
+        "notes": len(rows),
+    }
+
+
+class MapGenerate(BaseModel):
+    """The proposal as the user accepted it, possibly edited."""
+
+    name: str = Field(min_length=1, max_length=100)
+    outline: str = Field(min_length=1, max_length=MAX_IMPORT_CHARS)
+    #: The notes the proposal was built from. A line whose text is one of
+    #: their titles becomes a node that *is* that note; everything else is a
+    #: topic. Sent back by the client rather than remembered server-side
+    #: because nothing was written by the proposal, so there is no proposal to
+    #: remember, which is the point of preview-before-commit.
+    note_ids: list[int] = Field(default_factory=list, max_length=MAP_PROPOSAL_MAX_NOTES)
+
+
+@router.post("/boards/generate", response_model=BoardOut, status_code=201)
+def generate_map(body: MapGenerate, db: Session = Depends(get_session)) -> BoardOut:
+    """Create the map the user accepted.
+
+    The nodes that match one of their notes are `note` nodes carrying that
+    note's id, which is the whole difference the plan names between this and
+    a mindmapper's "AI generation": the map is made of the user's real notes,
+    not of invented text that happens to look like them. Editing such a node
+    edits the note, and deleting the map leaves the notes alone (section 5
+    item 4).
+    """
+    _, parsed = _parse_markdown_outline(body.outline)
+    if not parsed:
+        raise HTTPException(
+            status_code=422,
+            detail="That outline has no nodes in it: each line starts with '- '.",
+        )
+    rows = _note_titles(db, _proposal_notes(db, body.note_ids))
+    #: Matched on the casefolded title, because the one thing the user is most
+    #: likely to change in the outline is capitalisation, and because a model
+    #: told to copy a title exactly will still sometimes retitle its case.
+    by_title = {title.casefold(): entry.id for entry, title, _ in rows}
+    used: set[int] = set()
+
+    def reference_for(text: str):
+        note_id = by_title.get(text.strip().casefold())
+        # Once each: an outline that repeats a title (a model's habit when it
+        # cannot decide where a note belongs) would otherwise put the same
+        # note on the board twice, and two nodes editing one note is a
+        # confusion that only shows up later.
+        if note_id is None or note_id in used:
+            return None
+        used.add(note_id)
+        return ("note", note_id)
+
+    name = body.name.strip()[:100] or "Generated map"
+    entry = Entry(content=f"# {name}", is_board=True)
+    _store_board_settings(entry, "map", DEFAULT_BOARD_LAYOUT)
+    db.add(entry)
+    db.flush()
+    created = _place_map_nodes(db, entry.id, parsed, reference_for)
     db.commit()
     db.refresh(entry)
-    items, edges = _board_preview(db, entry.id)
     return BoardOut(
         id=entry.id,
         title=name,
@@ -2054,6 +2695,43 @@ def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOu
         object_count=created,
         type="map",
         layout=DEFAULT_BOARD_LAYOUT,
-        preview_items=items,
-        preview_edges=edges,
+        **_preview_fields(db, entry.id),
+    )
+
+
+@router.post("/boards/import", response_model=BoardOut, status_code=201)
+def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOut:
+    """Create a map from an OPML file or an indented Markdown outline.
+
+    Every node comes in as a `topic`: an imported outline is text written
+    somewhere else, and guessing that a line reading "Chapter three" means a
+    particular note in *this* notebook is the kind of helpfulness that
+    silently attaches the wrong thing. Linking a topic to a note afterwards
+    is one action; finding out which of two hundred nodes was mis-linked is
+    not.
+    """
+    parsers = {
+        "opml": _parse_opml,
+        "freemind": _parse_freemind,
+        "markdown": _parse_markdown_outline,
+    }
+    title, parsed = parsers[body.format](body.content)
+    name = (body.name or title or "Imported map").strip()[:100] or "Imported map"
+    entry = Entry(content=f"# {name}", is_board=True)
+    _store_board_settings(entry, "map", DEFAULT_BOARD_LAYOUT)
+    db.add(entry)
+    db.flush()  # the nodes need the board's id before they can point at it
+
+    created = _place_map_nodes(db, entry.id, parsed)
+    db.commit()
+    db.refresh(entry)
+    return BoardOut(
+        id=entry.id,
+        title=name,
+        node_count=0,
+        sketch_count=0,
+        object_count=created,
+        type="map",
+        layout=DEFAULT_BOARD_LAYOUT,
+        **_preview_fields(db, entry.id),
     )

@@ -3,101 +3,116 @@
 > Companions: [MINDMAP_PLAN.md](../MINDMAP_PLAN.md) ·
 > [HANDOVER.md](../HANDOVER.md) · [../../DESIGN.md](../../DESIGN.md)
 >
-> Rewritten after the second run: reports A to E and H are closed and the
-> detail lives in their commits. Everything below was checked in a real
+> Rewritten after the fourth run: reports A to H are closed, F (the previews)
+> and MINDMAP_PLAN Phases 4 and 5 landed this run, and the detail lives in
+> §11 of the plan and in the commits. Everything below was checked in a real
 > Chromium against the running app, not read off the source.
 
-## Closed, with the commit that carries the numbers
+## Closed, with where the numbers are
 
 | Was | Now |
 | --- | --- |
-| A permanent selection box; B text selection in a node; C a map filed as a note; D the "Point a new node at…" dialog; E a dangling cross-link | First run: see HISTORY and the commits it names. |
-| INBOX 42, an edge attached to neither node after a one-node drag | e985f57. Measured 155.6px adrift mid-drag (child) and 129.2px (root), and it stayed adrift after the drop for any node already pinned; 0px in every case after. |
-| H, tidy at scale, and a map framing itself on open | 047e385. 201 nodes: 0 overlaps, tidy 2905ms, one full render 134ms; a map opens with its root clear of the top bar (0px overlap, the hit test at its centre lands in the node). |
+| A to E, H, and INBOX 42 | First three runs: MINDMAP_PLAN §9 and §10, HISTORY, and the commits they name. |
+| F, the whiteboard and map previews | MINDMAP_PLAN §11.1. Aspect, colour, curves, the paper, the empty state, the label floor and a per-board cache. Measured: aspect 3.0 drawn at 3.000 and 0.5 at 0.500, 0.0% off; a tall board's paper 82.2px inside a 293.5px card. |
+| G, Phase 4 (items 15 to 17) | MINDMAP_PLAN §11.1. "Make a map of these notes" as propose-then-create, and FreeMind `.mm` both ways. |
+| G, Phase 5 (items 18 to 21) | MINDMAP_PLAN §11.1. Focus, perspectives, metrics, templates. Measured on a 201-node map: 201 drawn, 11 at one focus step, 201 again after Show all. |
 
 ## The sweeps that gate this
 
 | Sweep | Checks |
 | --- | --- |
-| `scratchpad/ui-sweeps/mindmap.js` | **63** (was 49) |
-| `scratchpad/ui-sweeps/mindmap3.js` | 37 |
-| `scratchpad/ui-sweeps/mindmap-theme.js` (`THEME=dark`) | 7 |
+| `scratchpad/ui-sweeps/mindmap.js` | **76** (was 63): Phase 2, the 200-node scale run, and Phase 5 |
+| `scratchpad/ui-sweeps/mindmap3.js` | **57** (was 37): Phase 3, the preview redesign, and the generation flow |
+| `scratchpad/ui-sweeps/mindmap-theme.js` (`THEME=dark`) | 7, **not re-run this run** |
 
 Run them against a **fresh** data dir (`serve.sh <port> /tmp/mm-mapN`): the
 sweep asserts board-gallery contents, so a dir left over from an earlier run
 carries other boards into those checks.
 
-## Left to do, in the brief's order
+## Left to do
 
-### F. Redesign the whiteboard and map previews: NOT started
+### 1. The dark theme and the narrow viewport: NOT re-run
 
-**Do not rebuild the renderer; it exists.** `mapPreview()` in
-`frontend/app.js` (~line 1493) is already the single shared preview, used by
-the Library cards, the dashboard widget, the timeline and note chips, and it
-already draws `preview_edges` under the blocks with labels beside them. The
-server half is `_board_preview` / `_preview_items` in
-`src/memorymap/api/routes_whiteboard.py` (~580-670), which normalises
-positions into 0..1 and samples the board down to `PREVIEW_POINTS` (40).
+`errors.js` is clean at 1440, 1024, 820 and 390px (0 page errors, 0 layout
+findings), which covers the Library gallery's new previews at phone width and
+says nothing about the map canvas: it never opens a board. Nothing added this
+run has been seen in dark mode at all. The preview's paper (a `--border`
+stroke over a `--chip-bg` fill), the focus bar, the legend, the template offer
+and the proposal dialog are theme-aware by construction and none has been
+looked at.
 
-What the report asks for that is **not** there, checked in the code:
+**Next step**: `THEME=dark node scratchpad/ui-sweeps/mindmap-theme.js` and
+`VIEWPORT=390x844 node scratchpad/ui-sweeps/mindmap3.js`, then read the two
+screenshots. The panels are `position: absolute` with a `--wb-h-topbar`
+clearance; a phone's wrapped top bar is exactly the case that clearance
+exists for and exactly the case nobody has watched.
 
-1. **Aspect.** The SVG sets `preserveAspectRatio="none"`, so the miniature is
-   stretched to the card's box rather than drawn at the board's own ratio.
-2. **Colour.** `preview_items` ships `{x, y, kind, label}` and no colour, so
-   every node draws in one grey. A map's branch colour is computed on the
-   client (`wbMapColors`), so the server would have to send either the node's
-   own `data.color` or its branch index.
-3. **Shape.** Nodes are 1.5px-radius rects; the brief asks for rounded rects
-   with their colours, edges as curves (they are straight `<line>`s today) and
-   drawings as strokes (today a single squiggle glyph per sketch, because
-   stroke data is deliberately not shipped).
-4. **Cache.** Nothing is cached per `updated_at`; the preview is recomputed on
-   every board list. Worth doing with 4 in one pass: the list rebuilds every
-   board's thumbnail on every visit to the Library.
-5. **Empty state.** `mapPreview` returns `null` for an empty board and each
-   caller improvises. The brief asks for one designed empty state.
+### 2. Perspectives on a map that actually has notes on it: NOT measured
 
-**Next step**: extend `_preview_items` to carry a colour and an aspect ratio
-(the board's own bounds w/h, already computed there), add an `updated_at`-keyed
-cache beside it, then rework `mapPreview()` to letterbox into the card's box
-instead of stretching. Gate it with a new sweep, and reuse the dashboard
-"Boards & maps" widget check that `mindmap3.js` already has.
+Colour-by-category and colour-by-age were measured on a map of topics, where
+both are the quiet grey by construction. What a dozen categories look like
+*together* on one map, and whether the four age blues are distinguishable at
+node size, is reasoned, not seen.
 
-### G. MINDMAP_PLAN.md Phases 4 and 5: NOT started
+**Next step**: build a map of twenty note nodes across four categories
+(`POST /boards/{id}/nodes` with `kind: "note"`), switch the View menu's
+Colour by, and measure the distinct `--wb-branch` values plus contrast
+against `--card` with `scratchpad/pngpixel.py`.
 
-Phase 4 items 14 and 16 are partly built already (the four AI tools, and the
-Markdown/OPML exports plus OPML/Markdown import), MINDMAP_PLAN.md §9 and §10
-record exactly what landed, and §10.4 records that **no AI tool has ever been
-exercised from the UI**. Phase 5 (focus mode, perspectives, metrics,
-templates) is untouched. Read §10.4 before starting either; three sessions
-have rebuilt existing work in this repo.
+### 3. INBOX 43's second half: NOT started
 
-**Next step**: Phase 4 item 15 (AI generation) or item 16's PNG/SVG/PDF half,
-each gated by its own sweep, in the plan's order.
+The whiteboard's bottom tool rail and properties panel onto the bar and panel
+recipes of `08-consistency.css` (one control height, one radius, icon-only
+buttons on the icon recipe). Untouched this run.
+
+**Next step**: `docks.js` already reports the whiteboard's top bar as 15
+controls at two heights (32 and 36px), which is the same defect one row up;
+measure the tool rail the same way before changing anything.
+
+### 4. The AI half, still unexercised
+
+No real model has answered the map proposal prompt, and no map *tool*
+(`read_mindmap`, `create_mindmap`, `add_map_node`, `link_map_nodes`) has been
+driven from the UI in four runs. §7 of the plan asks for both.
+
+**Next step**: the dev-only llama.cpp script planned in WORLD_CLASS_PLAN 9 is
+the honest way to close this; until it exists, say so rather than claiming the
+prompt works.
 
 ## Found while measuring, not fixed
 
-- **Tidy persists one node at a time.** `wbSaveBulkMove` awaits a PUT per
-  moved node, so a 200-node tidy lays out and renders immediately and then
-  spends 2.8s writing (200 requests). Nothing is lost and the canvas is
-  correct throughout; a reload inside those 2.8s would see some nodes at
-  their old places. A bulk move endpoint, or bounded concurrency here, is
-  the fix if it ever matters.
-- **A sweep can stall for minutes with the server answering nothing, and it
-  is the embedding pass, not a hang.** Seen twice while running these
-  sweeps beside two other agents' full test suites on a four-core box: no
-  request logged for minutes, `GET /` timing out, the uvicorn process in
-  `R` state. The server log says what it is doing, between the request
-  lines: `Batches:   0%|          | 0/1 [00:00<?, ?it/s]`, the local
-  embedding model indexing the notes the sweep just created. It answers
-  again when that finishes. Worth knowing before anyone spends an hour on
-  it: check the server log for `Batches:` first, and run a sweep when the
-  box is not already running two suites.
+- **A floating panel with a constant `top` lands under the top bar.** The
+  focus bar was written with `top: var(--space-4)` and rendered *inside*
+  `#wb-topbar`'s box: its own + button could not be clicked, and Playwright
+  reported that as a four-minute timeout rather than as a failure. Fixed with
+  `--wb-h-topbar` (the measured height) and now asserted in pixels by the
+  sweep. Worth knowing: **a click that hangs a sweep is a z-order bug**, not a
+  slow app.
+- **The two XML exports recurse, and nothing bounds a map's depth.**
+  `_export_opml` (which predates this run) and `_export_freemind` both walk the
+  tree with a recursive helper, while every other walk in that file is
+  iterative for exactly this reason. An import is capped at
+  `MAX_IMPORT_DEPTH`, but a map built by hand is not: a thousand Tabs down one
+  branch would export as a `RecursionError`, which is a 500. The fix is the
+  same shape `_map_branch_colors` uses; it was left alone because touching the
+  OPML export was not this run's work and the case has never been seen.
+- **Tidy still persists one node at a time.** `wbSaveBulkMove` awaits a PUT
+  per moved node, so a 200-node tidy renders immediately and then spends about
+  3s writing (200 requests, measured 3021ms this run). Nothing is lost; a
+  reload inside those seconds would see some nodes at their old places. A bulk
+  move endpoint is the fix if it ever matters.
+- **A sweep can stall for minutes with the server answering nothing, and it is
+  the embedding pass, not a hang.** The server log says so between the request
+  lines (`Batches: 0%|`). Check that before spending an hour on it, and do not
+  run a sweep beside two test suites on this box.
 
 ## What could not be verified
 
-- One viewport (1440x900, DPR 1) and light theme, except the dark sweep,
-  which is unchanged at 7/7. Nothing was measured on a phone.
-- No real inference. No AI map tool was driven from the UI.
-- The 200-node timings are one run on a loaded machine; they say "no
-  overlaps and no stall", not "this is the number".
+- One viewport (1440x900, DPR 1) and light theme, for everything this run.
+- No real inference, and no AI map tool driven from the UI.
+- PDF export goes through the browser's print dialog, which Playwright cannot
+  complete; the FreeMind and Markdown downloads were asserted at the endpoint,
+  not at the file that lands on disk.
+- The preview cache is not measured under concurrency: two requests racing
+  recompute the same picture and one overwrites the other with an identical
+  value, which is harmless by construction rather than by test.

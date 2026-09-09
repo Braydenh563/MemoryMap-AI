@@ -2,9 +2,10 @@
 
 **Worktree** `agent-ad5696bf1be5660c3`, branch
 `worktree-agent-ad5696bf1be5660c3`, cut from `claude/epic-ramanujan-8xocc0`
-at `edb6aae`. Fourteen commits, all five items of the batch done, nothing
-half-finished and nothing uncommitted. Never pushed; that is the
-orchestrator's job.
+at `edb6aae`, then merged up to `2af5332`. Fourteen commits in the batch and
+five in the follow-up pass; all five items of the batch and all four of the
+follow-up are done, nothing half-finished and nothing uncommitted. Never
+pushed; that is the orchestrator's job.
 
 **A trap for whoever cuts the next worktree.** This one arrived checked out
 at `28a8911`, **423 commits behind the branch** it was supposed to be cut
@@ -149,33 +150,93 @@ the tree work is done.
   `ERR_CONNECTION_REFUSED` and read exactly like a regression. If a sweep
   fails, `curl -s -o /dev/null -w "%{http_code}" $BASE` before believing it.
 
-## Found and not fixed
+## The follow-up pass (the coordinator's four, 2026-09-09)
 
-- **`enhanceSelect` makes `select.focus()` and select-level `keydown` dead
-  code, app-wide.** `frontend/app.js` ~18427 rebuilds every `<select>` as a
-  shell with a `<button>` opener and marks the native element
-  `select-native-hidden` with `tabindex="-1"`. So focusing a select focuses
-  nothing, and a `keydown` bound to one never fires because it never has the
-  focus. Two listeners in this batch were written that way before a sweep
-  caught them. `grep -n "\.focus()" frontend/*.js` next to a variable holding
-  a select would find the rest; there is no lint.
-- **The caret jumps when a Live marker reveals.** Walking left across
-  `A **bold** word`, `coordsAtPos` reads x 560.3, 554, 544.2, 531.1 and then
-  **559.5** on the press that reveals: a 28.4px move to the *right* on a
-  leftward keystroke, because the reveal inserts four characters left of the
-  caret. `EditorView.atomicRanges` is the usual answer and is the wrong one
-  here: it would make the arrows skip the marker rather than enter it, and
-  entering it is exactly what the owner asked for. No good answer found.
-- **Five file types have no language mode.** `csv`, `ini`, `php`, `r` and
-  `swift` are offered by `GET /documents/file-types` and fall through
-  `docCmLanguageFor`'s `default`, so they are plain text with line numbers.
-  `php` and `swift` exist in `@codemirror/legacy-modes` and would need two
-  lines in `frontend/vendor/codemirror/entry.js` and a `build.sh` run (node
-  and npm); `r` has no mode in the CodeMirror packages at all. `csv` and
-  `ini` arguably want none.
+All four of the found-not-fixed list below are now done, in the order asked.
+
+**1. `select.focus()` and select-level `keydown` are dead code app-wide.**
+`enhanceSelect` takes the native control out of the tab order, so the direct
+call focuses nothing or focuses an `aria-hidden` element. Measured across
+seven tabs with every disclosure opened: **all thirteen reachable selects
+would have focused the hidden native control**, not one would have reached
+its opener. `focusSelect(select)` (app.js, beside `enhanceSelect`) is the one
+way to do it; four call sites now use it, three of which were found by the
+sweep rather than known (the note's bookmark picker, the chat skills panel,
+the note-to-document picker).
+**There is no lint and the reason is in the code**: the lints read source as
+text and what decides is what a variable holds at runtime, so a name-based
+rule would miss `box.focus()` on a select and fire on `picker.focus()` for a
+text input. The guard is the helper plus its comment, the check is
+`scratchpad/ui-sweeps/selectfocus.js`, and DESIGN.md's recipe index carries
+the row. The sweep also corrected the helper twice: it read the opener off
+`parentElement` (three selects have something between them and their shell,
+so `closest(".select-shell")` is what works), and six selects live inside a
+shut `<details>` where nothing is focusable by design, so the sweep opens the
+disclosures rather than asserting the browser is wrong.
+
+**2. The caret jumped 28.4px right on a leftward keystroke.** Fixed by
+revealing a marker when the caret is on its **line** rather than inside its
+range (`rangeRevealed`). `atomicRanges` was correctly ruled out: it steps over
+the marker instead of into it. The line is what holds still, so horizontal
+movement inside one causes no reflow at all; the one reflow left is on
+*arriving* at a line, which is a click or a vertical move and relocates the
+caret anyway. Measured after: fourteen steps left, x 642.2 down to 529.4,
+strictly decreasing. `cm-reveal.js` asserts the monotonic walk. This
+supersedes the phrase "when the caret enters the range" in Phase 2 item 3 and
+is recorded in the plan as a decision.
+
+**3. The empty column above References.** Both `.doc-outline-wrap` sections
+carried `flex: 1 1 auto`: with a two-heading document the outline was 312.4px
+of box around 68.3px of content and References 296.5px around 46px, leaving
+**243.1px of nothing** between them. `flex: 0 1 auto` on both; now 85.3px and
+69.4px, References 16px under the last entry. A long outline still scrolls
+inside its own `max-height` rather than pushing References off (259px of box
+around 242px). `docoutline.js` fails on any section more than 40px taller than
+its content.
+Found while measuring it: **`.linklike` never cancelled the filled button's
+`box-shadow`**, so every text link in the app drew an accent halo behind its
+words. Measured on the storage help as a transparent background with
+`0 2px 10px color-mix(in srgb, var(--accent) 25%, transparent)` still
+painting. One line, and the sweep now fails on any visible `.linklike` whose
+computed shadow is not `none`.
+
+**4. The missing language modes, costed before adding any.** The bundle was
+built four ways with esbuild against the pinned versions; the baseline
+reproduces the committed bundle to within its licence banner.
+Baseline 787,401 raw / 269,374 gz.
+- **swift, r, ini added**: +7,658 raw, **+2,476 gz**, under 1%. Measured in
+  the app: Swift 3 colours over 17 styled tokens, R 3 over 6, INI 1 over 5
+  (bold sections, 600 keys, muted italic comments, plain values).
+- **php refused**: `@codemirror/lang-php` is a full Lezer grammar that also
+  pulls in lang-html, **+98,144 raw and +28,563 gz on its own, 10.6% of the
+  bundle for one language**.
+- **csv refused permanently**: it has no syntax; what it wants is a table.
+- A correction to my own earlier note: `r` *does* have a CodeMirror mode. I
+  wrote otherwise from memory rather than from the package.
+`docviews.js` asserts all five, php and csv included, so adding a mode later
+has to come with an update to the decision.
+
+## Gates after the follow-up
+
+`scripts/gate.sh --changed` green at every step. All sweeps green at the head:
+`selectfocus`, `docoutline`, `docseg`, `docsuggest`, `docviews` (both themes),
+`cm-reveal`, `cm-live`, `cm-editor`, `cm-layout`, `cm-search`, `cm-notes`,
+`cm-engine` (0 CSP violations, 0 style tags, 2 adopted sheets on the rebuilt
+bundle), `doctype` Live p50 24 ms against 30 ms. And
+`scripts/gate.sh --changed --sweeps` at the head:
+
+    ran:     lints node-check ruff changed-tests sweep-errors sweep-docks sweep-contrast sweep-touch
+    passed:  lints node-check ruff changed-tests sweep-errors sweep-docks sweep-contrast sweep-touch
+    failed:  none
+
+errors.js 0 errors and 0 layout findings at 1440, 1024, 820 and 390; contrast
+ok on all seventeen surfaces; touch 0 findings at 390x844.
+
+## Found and not fixed (what is left after the follow-up pass)
+
 - **`scratchpad/ui-sweeps/editor.js` still describes the retired editor**,
   as `documents-engine.md` §2 says. Untouched here.
-- **The Outline section takes all the spare height.** `.doc-outline-wrap` is
-  `flex: 1 1 auto`, so a four-entry outline leaves ~250px of empty column
-  between it and References. Not reported, not fixed, and it is part of "the
-  whole documents sidebar and ui needs fixing" if someone picks that up.
+- **The INI mode does not tokenise values.** `port = 8080` colours the key
+  and leaves `8080` plain, because that is what CodeMirror's `properties`
+  mode does. Correct enough for an INI file; noted so it is not read as the
+  mode failing to load.

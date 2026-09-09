@@ -413,12 +413,13 @@ New features. The plan is subtraction and alignment; the feature backlog
 ## Phase 10 — the Liquid Glass adoptions (½ session)
 
 DESIGN.md's "Taken from Liquid Glass and the HIG" rules 2, 3, 4, 8, 10 and
-12, as the five placed items below (INBOX 100 to 104): the scroll edge
-effect on bars, concentric corners as a token with a lint, the clear
-variant with its scrim and `--text-on-glass`, menus that morph from their
-opener and sheets inset then opaque at full height, the phone tab bar that
-recedes on scroll. Each measured as its item says. Deliberately not taken:
-refraction and lensing (measured too costly), title-case headers.
+12, as the placed items below (INBOX 100 to 104). Rules 2, 3 and 12 are
+built (100, 101, 103; moved to HISTORY.md, "Moved from the plans,
+2026-09-09"). Rule 4's `.glass-clear` and `--text-on-glass` (102) are open
+and carry a measurement that changes the question, below. Rule 10's
+receding tab bar (104) is phone work and moves to Phase 11 with the rest of
+it. Deliberately not taken: refraction and lensing (measured too costly),
+title-case headers.
 
 ## Phase 11 — the phone, done properly (1 to 2 sessions, next session or later)
 
@@ -475,32 +476,71 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
 
 The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
 
-100. **Scroll edge effect** (DESIGN.md, "Taken from Liquid Glass" rule 2):
-    `.dock`, the sub-tab strips and `header#top-bar` fade a 16px gradient
-    under themselves while their region is scrolled (`data-scrolled`). Gate:
-    contrast.js on a scrolled notes list; the gradient absent at scrollTop 0.
-    Owner: Opus, UI Phase 9 batch. Size S.
-101. **Concentric corners**: `--radius-inner: calc(var(--radius) -
-    var(--space-3))` for anything rounded inside a card (inputs, chips,
-    thumbnails, the dock's groups); `tests/test_style_scale.py` extended to
-    fail on a hand-picked inner radius. Owner: Sonnet. Size S.
+Built and moved to HISTORY.md ("Moved from the plans, 2026-09-09"): 100 the
+scroll edge effect, 101 the concentric corner token and its lint, 103 the
+menus that open out of their opener.
+
 102. **Clear glass with a scrim, and text on glass**: `.glass-clear` (blur
     only, `--card` at 30%) for the whiteboard's floating panels and the
     graph's docks over the art, paired with `--glass-scrim` (35% ink) when
     the surface is light; `--text-on-glass` one contrast step above
-    `--text` on every blurred surface. Gate: contrast.js over the aurora
-    and constellation backgrounds. Owner: Opus. Size S.
-103. **Menus morph from their opener; sheets inset**: `kebabMenu` and
-    `details.dock-menu` scale in from the opener's rect (`--motion-base`,
-    spring), off under Reduce motion; a phone sheet has a `--space-3` inset
-    and turns `--modal-bg` at full height. Gate: menus.js, touch.js.
-    Owner: Opus. Size S.
+    `--text` on every blurred surface. Owner: Opus. Size S.
+
+    **Measured before building it, and the numbers move the decision**
+    (2026-09-09, 1440x900, the running app):
+
+    - `--text-on-glass` has no deficit to close. The menu row on the Notes
+      kebab and on the dock's Filter menu is **15.25:1** in light and
+      **14.14:1** in dark (`scratchpad/ui-sweeps/onglass.js`), because those
+      surfaces are `--modal-bg` at 96% rather than thin glass, and
+      contrast.js reports **0** low-contrast items on every tab and ten
+      Settings sections in *both* themes. A token that raises 15:1 to 16:1
+      is a token nothing needs.
+    - `.glass-clear` on `.whiteboard-floating-panel` would reverse a
+      recorded decision. That panel was deliberately moved *up* to
+      `--modal-bg`, with the reason written beside it in
+      06-timeline-dialogs.css: at the page-card tier it "read visibly
+      thinner than every sibling panel" over the board's own art.
+    - The one surface where the variant is honest is the graph's floating
+      zoom pill, which is `--card` plus `--glass-filter` over the animated
+      background, and it shares the floating-control recipe with
+      `.scroll-top`, so changing one changes both.
+
+    **Recommendation, to be taken unless the owner says otherwise**: keep
+    `.glass-clear` and `--glass-scrim` for a surface that actually floats
+    over media (a whiteboard image background, the lightbox), build it with
+    that surface rather than ahead of it, and drop `--text-on-glass` until a
+    measurement asks for it. Rule 4 in DESIGN.md stays as the principle.
+
 104. **The phone tab bar recedes on scroll** (icons only on scroll down,
-    full on scroll up), never hidden. Owner: UI Phase 9. Size S.
+    full on scroll up), never hidden. Moved to Phase 11: it is phone work
+    and the phone gets its own session.
+
 94. **Background animations: fix, refine and improve.** Owner: UI Phase 3
     follow-up (Opus): each style gets a measured frame cost, a still frame
     under Performance mode, no seams at the edges, the intensity slider
     changes something visible at every step.
+
+    Three of the four are done and are in HISTORY.md ("Moved from the plans,
+    2026-09-09"): the frame cost per style is measured and printed by
+    `scratchpad/ui-sweeps/bgart.js` (aurora +21ms, constellation +20ms,
+    waves +17ms, bubbles +17ms, mesh +28ms with a 167ms worst frame, over a
+    16.6ms idle baseline, headless and therefore software-rasterised);
+    Performance mode now stops the art dead, which it did not before because
+    `bg-motion: moving` bypassed the only test it reached the art through;
+    and there are no seams (the canvas is resized with the window and covers
+    it exactly at 1440x900, 900x1200 and 1600x800). Two of the five styles
+    also ignored the intensity slider's density and now scale with it.
+
+    **What is left is the fourth**: does the slider change something a
+    person notices at *every* step? Two ways of measuring it failed and both
+    are written into the sweep so they are not repeated: ink on the canvas
+    varies more between two boots of the same settings than it does across
+    the slider (every style places its marks with `p.random`), and the frame
+    cost at the two ends moves by less than the environment's noise. The
+    honest next step is a human looking at five screenshots, or a change of
+    design so the slider drives something with a large signature (the wash's
+    own alpha, say) rather than the population alone.
 60. **Dashboard "Jump to / Run a skill / stat tiles" section** (screenshot,
     00:58; the owner: "could do with an upgrade and better design, utility,
     features"): three pill links, three skill pills with dashed borders, four

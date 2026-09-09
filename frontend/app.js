@@ -20885,6 +20885,124 @@ for (const bar of document.querySelectorAll(".edge-fade")) {
 window.addEventListener("resize", () => {
   document.querySelectorAll(".edge-fade").forEach(syncEdgeFade);
 }, { passive: true });
+
+// --- the scroll edge effect (UI_MODERNISATION_PLAN Phase 10, INBOX 100) -----
+//
+// "Optimize for legibility when content scrolls beneath controls": the bar
+// over a scrolling region fades a soft edge under itself while there is
+// content passing behind it, and paints nothing at rest. DESIGN.md, "Taken
+// from Liquid Glass and the HIG", rule 2.
+//
+// **One listener, and the bar is chosen by measurement rather than by name.**
+// The obvious implementation is a rule per surface, and it is wrong on the
+// first surface you try it on: Notes has three candidate bars stacked above
+// its list (the top bar, the sub-tab strip, the dock) and only the *last* of
+// them has scrolling content under it. A gradient under the other two lands
+// on another bar, where it reads as a smudge rather than as depth. So this
+// takes the region that actually scrolled, and marks the one bar whose bottom
+// edge is sitting against that region's top.
+//
+// Nothing here knows which tab it is on, which is the point: a new surface
+// with a dock over a scroller gets the effect with no new code, and a surface
+// that puts its dock somewhere else gets nothing rather than getting it in
+// the wrong place.
+const SCROLL_EDGE_BARS = "header#top-bar, .dock, .notes-subtabs, .library-subtabs";
+
+// How close a bar's bottom edge has to be to the top of the scrolling region
+// to count as "the bar over it". A few pixels of margin between the two is
+// normal (`.dock` carries `margin-bottom: var(--space-4)`); half a control
+// height is not, and means the bar belongs to something else.
+const SCROLL_EDGE_GAP = 24;
+
+// Regions that have actually scrolled at least once. Switching tabs has to
+// restore the effect on a page that was left mid-scroll, and re-scanning
+// every element of a page for scrollability on each tab change is a lot of
+// getComputedStyle for a cosmetic gradient. A scroll event is the cheapest
+// possible way to learn which elements are worth asking about.
+const scrollEdgeRegions = new Set();
+
+function markScrollEdge(region) {
+  if (!region || typeof region.getBoundingClientRect !== "function") return;
+  // A menu, a dialog or a popover scrolls over the page, not under a bar.
+  if (
+    region.closest &&
+    region.closest(".action-menu, .help-popover, .modal-overlay, #settings-modal, [role='menu']")
+  ) {
+    return;
+  }
+  scrollEdgeRegions.add(region);
+  const scrolled = region.scrollTop > 1;
+  const top = region.getBoundingClientRect().top;
+  let best = null;
+  let gap = Infinity;
+  for (const bar of document.querySelectorAll(SCROLL_EDGE_BARS)) {
+    // A bar inside the region scrolls with the content; a bar wrapping it is
+    // its container, not a lid over it.
+    if (region.contains(bar) || bar.contains(region)) continue;
+    const box = bar.getBoundingClientRect();
+    if (!box.height) continue;
+    const distance = top - box.bottom;
+    if (distance < -1 || distance > SCROLL_EDGE_GAP) continue;
+    if (distance < gap) {
+      gap = distance;
+      best = bar;
+    }
+  }
+  for (const bar of document.querySelectorAll("[data-scrolled]")) {
+    if (bar !== best) bar.removeAttribute("data-scrolled");
+  }
+  if (best && scrolled) best.setAttribute("data-scrolled", "1");
+  else if (best) best.removeAttribute("data-scrolled");
+}
+
+let scrollEdgeFrame = 0;
+function onScrollEdge(event) {
+  const region = event.target === document ? document.scrollingElement : event.target;
+  if (!region || region.nodeType !== 1) return;
+  if (scrollEdgeFrame) return;
+  // Coalesced to one measurement per frame: a scroll event fires far more
+  // often than the screen repaints, and this one reads layout.
+  scrollEdgeFrame = requestAnimationFrame(() => {
+    scrollEdgeFrame = 0;
+    markScrollEdge(region);
+  });
+}
+
+// Capture, because scroll does not bubble: without it this would only ever
+// hear about the document's own scrolling, which is the one thing this app
+// does not do (the page is its own scroll container, see §36A).
+document.addEventListener("scroll", onScrollEdge, { capture: true, passive: true });
+
+function syncScrollEdges() {
+  const page = document.querySelector(".tab-page:not(.hidden)");
+  let handled = false;
+  for (const region of scrollEdgeRegions) {
+    if (!region.isConnected) {
+      scrollEdgeRegions.delete(region);
+      continue;
+    }
+    if (page && page.contains(region) && region.scrollTop > 1) {
+      markScrollEdge(region);
+      handled = true;
+    }
+  }
+  if (handled) return;
+  for (const bar of document.querySelectorAll("[data-scrolled]")) {
+    bar.removeAttribute("data-scrolled");
+  }
+}
+
+window.addEventListener("resize", syncScrollEdges, { passive: true });
+
+// A tab switch is a class change on the pages, not an event this file
+// publishes, and observing it here keeps the whole effect in one block
+// instead of adding a line to the tab machinery for a gradient.
+if (typeof MutationObserver !== "undefined") {
+  const scrollEdgeObserver = new MutationObserver(() => syncScrollEdges());
+  for (const page of document.querySelectorAll(".tab-page")) {
+    scrollEdgeObserver.observe(page, { attributes: true, attributeFilter: ["class"] });
+  }
+}
 // The pill's text arrives with the status polls, long after first paint, and
 // changes width when it does, so remeasure whenever the header changes size
 // rather than only on window resize.

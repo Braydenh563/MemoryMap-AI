@@ -73,19 +73,31 @@ const TABS = (process.env.TABS || 'notes,library,timeline,reminders,chat').split
           && /auto|scroll/.test(getComputedStyle(e).overflowY));
       if (target) target.scrollTop = 240;
       else window.scrollTo(0, 240);
-      return new Promise((resolve) => setTimeout(() => resolve(
-        [...document.querySelectorAll('[data-scrolled="1"]')]
-          .map((e) => `${e.tagName.toLowerCase()}#${e.id}.${[...e.classList].slice(0, 2).join('.')}`),
-      ), 200));
+      return new Promise((resolve) => setTimeout(() => resolve({
+        marked: [...document.querySelectorAll('[data-scrolled="1"]')]
+          .map((e) => `${e.tagName.toLowerCase()}#${e.id}.${[...e.classList].slice(0, 2).join('.')}`
+            + ` shadow=${getComputedStyle(e).boxShadow.slice(0, 60)}`),
+        // The effect must not turn a horizontal strip into a vertical
+        // scroller: the `::after` version of it did exactly that, and a
+        // 16px vertical scroll on a sub-tab strip is invisible until you
+        // put a finger on it.
+        strips: [...document.querySelectorAll('.notes-subtabs, .library-subtabs, .dock')]
+          .filter((e) => e.scrollHeight > e.clientHeight + 4)
+          .map((e) => `${e.id || e.className} ${e.scrollHeight}/${e.clientHeight}`),
+      }), 200));
     });
     console.log(`== ${tab} @${WIDTH}`);
     console.log(`   scrollers: ${before.scrollers.join(' | ') || 'none'}${before.docScrolls ? ' | (document)' : ''}`);
     console.log(`   bars: ${before.bars.join(' | ') || 'none'}`);
     console.log(`   marked at rest: ${before.marked.join(' | ') || 'none'}`);
-    console.log(`   marked after scroll: ${after.join(' | ') || 'none'}`);
+    console.log(`   marked after scroll: ${after.marked.join(' | ') || 'none'}`);
     if (before.marked.length) { bad += 1; console.log('   FAIL: the edge is painted at scrollTop 0'); }
-    if (!after.length && (before.scrollers.length || before.docScrolls)) {
+    if (!after.marked.length && (before.scrollers.length || before.docScrolls)) {
       bad += 1; console.log('   FAIL: nothing marked after scrolling a region');
+    }
+    if (after.strips.length) {
+      bad += 1;
+      console.log(`   FAIL: a bar gained vertical scroll: ${after.strips.join(', ')}`);
     }
     // Put it back so the next tab starts at rest.
     await page.evaluate(() => {

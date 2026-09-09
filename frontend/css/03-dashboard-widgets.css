@@ -2355,7 +2355,11 @@ header#top-bar select,
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--muted);
-  border-radius: calc(var(--radius-md) - 0.15rem);
+  /* The one hand-picked inner radius in the app, now the token (INBOX 101).
+     It was `calc(var(--radius-md) - 0.15rem)`, which is 6px at the default
+     14px radius; `--radius-inner` is 6px there too, so this moves nothing
+     today and starts tracking the padding it is concentric to. */
+  border-radius: var(--radius-inner);
   /* Explicit properties, not `all`, `color`/`background` change on
      `:hover` below, plus `box-shadow` on the `:checked` state further down. */
   transition: color var(--motion-slow) ease, background var(--motion-slow) ease,

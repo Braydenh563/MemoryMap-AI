@@ -56,4 +56,181 @@
   #tab-bar .tab-label {
     font-size: var(--text-xs);
   }
+
+  /* The band's own rule, applied to the one strip that was exempt from it by
+     accident. Below 820 a hit target is 44px (`--target-min`, set once at the
+     root); the tab buttons take `--header-control-h` instead, because they
+     are levelled with the rest of the header's controls, and that is 40px.
+     Measured with `touch.js` at 800x1180 with `hasTouch`: all seven tab
+     buttons came back at 40.0px tall while every dock control on Notes,
+     Library and Chat passed. `min-height`, not `height`, so the levelling
+     rule still owns the desktop and only the touch band is raised. */
+  #tab-bar button {
+    min-height: var(--target-min);
+  }
+}
+
+/* --- Phase 10, INBOX 100: the scroll edge effect --------------------------
+
+   DESIGN.md, "Taken from Liquid Glass and the HIG", rule 2: "Optimize for
+   legibility when content scrolls beneath controls." A bar with content
+   moving under it says so with a soft edge; a bar with nothing under it says
+   nothing, which is the half that makes the first half mean something.
+
+   `data-scrolled="1"` is set by one listener in app.js, on the *one* bar
+   whose bottom edge is against the top of the region that scrolled. The
+   listener picks it by measuring, not by name, and the reasoning is written
+   there: on Notes three bars are stacked above the list and only the last of
+   them has anything passing behind it.
+
+   A token of its own rather than a shadow: `--glass-shadow` is a drop shadow
+   around a whole surface, and what this needs is a one-sided fall-off from
+   the bar into the content. Its light value is the border ink at a tenth;
+   its dark value is real black, because on a dark page a translucent grey
+   lightens what it covers and the effect inverts into a glow. */
+:root {
+  --scroll-edge: rgba(31, 36, 48, 0.10);
+}
+
+:root[data-mode="dark"] {
+  --scroll-edge: rgba(0, 0, 0, 0.38);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --scroll-edge: rgba(0, 0, 0, 0.38);
+  }
+}
+
+/* --- Phase 10, INBOX 101: concentric corners -----------------------------
+
+   DESIGN.md rule 3, from the HIG's "rounded shapes that are concentric to
+   their containers": a shape inside a rounded container looks wrong at the
+   container's own radius and wrong at a hand-picked one. The right value is
+   the outer radius minus the padding between the two, which is what makes
+   the two arcs share a centre.
+
+   `--space-3` is that padding: it is the inset a `.card` puts between its
+   edge and its contents, so one token expresses the whole relationship and
+   the pair still moves with the radius slider in Settings.
+
+   `max()` with a floor of zero, and this is not defensive dressing: at the
+   square end of the slider `--radius` is 2px and the subtraction is negative.
+   A negative `border-radius` is invalid, the declaration is dropped, and the
+   element quietly falls back to whatever it inherited, which is the
+   APPEARANCE_DEFAULTS shape from CLAUDE.md: a value that is invalid where it
+   is used does its damage nowhere near the code that set it. */
+:root {
+  --radius-inner: max(0px, calc(var(--radius) - var(--space-3)));
+}
+
+/* **A shadow, not the `::after` gradient the rule was written as**, and the
+   reason is a measurement rather than a preference. The gradient was built
+   first, as `position: absolute; top: 100%; height: 1rem` on each bar. An
+   absolutely positioned box extends its containing block's *scrollable*
+   overflow, so every bar that carries the effect gained 16px of vertical
+   scroll: `#notes-subtabs` is `overflow: auto` in both axes and turned from
+   a horizontal strip into a 60/44 vertical scroller, which the sweep caught
+   as a new scroll region on the Notes tab. Clipping it back with
+   `overflow-y: hidden` hides the gradient with it, because the pseudo-element
+   is a child of the bar and the bar is what clips.
+
+   A box shadow is drawn outside the border box, is not clipped by the
+   element's own overflow, and adds nothing to scrollable overflow. Same
+   16px fall-off, none of the side effects, and one declaration instead of
+   three. The two strips restate `--shadow-sm` because they already carry it
+   and `box-shadow` replaces rather than adds. */
+header#top-bar[data-scrolled="1"],
+.dock[data-scrolled="1"] {
+  box-shadow: 0 var(--space-2) var(--space-6) calc(-1 * var(--space-3)) var(--scroll-edge);
+}
+
+.notes-subtabs[data-scrolled="1"],
+.library-subtabs[data-scrolled="1"] {
+  box-shadow:
+    var(--shadow-sm),
+    0 var(--space-2) var(--space-6) calc(-1 * var(--space-3)) var(--scroll-edge);
+}
+
+/* `transition` is a shorthand, so this is only safe because none of the four
+   declares one: checked in the stylesheets and confirmed in the browser,
+   where each of them computed to no transition before this rule. A fifth bar
+   added to the effect later needs the same check, or its own transition goes
+   silently missing.
+
+   Under Reduce motion the edge still appears; it just stops being animated
+   about it, which is the rule DESIGN.md states for every one of these. */
+header#top-bar,
+.dock,
+.notes-subtabs,
+.library-subtabs {
+  transition: box-shadow var(--motion-base) ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  header#top-bar,
+  .dock,
+  .notes-subtabs,
+  .library-subtabs {
+    transition: none;
+  }
+}
+
+/* --- Phase 10, INBOX 103: a menu opens out of the control that opened it --
+
+   DESIGN.md rule 12, from the HIG: controls "fluidly morph into menus and
+   popovers", and rule 6: "an action sheet originates from the element that
+   initiates the action". A menu that simply appears has no relationship to
+   the button you pressed; one that grows out of that button's corner is the
+   same object continuing.
+
+   **A clip, not a scale, and the reason is a measurement rather than
+   taste.** `openActionMenu` (app.js) reads `menu.getBoundingClientRect()` in
+   the same turn it removes `.hidden`, twice: once to decide whether the menu
+   would spill past its scroll parent and flip upward, and again inside
+   `escapeMenuIfClipped`, which reparents a clipped menu to the body and
+   positions it from those coordinates. A transform is included in that rect,
+   so a menu scaling in from 0.92 would be measured at 92% of itself and
+   placed accordingly, permanently. `clip-path` changes nothing about the
+   box; it only decides which of it is painted.
+
+   The circle grows from the opener's own corner: `.action-menu` is anchored
+   `right: 0; top: calc(100% + 4px)` under its opener, so the top-right
+   corner *is* the button, and the flipped variant's origin moves to the
+   bottom with it. 140% is the diagonal of a box, so the last frame is a
+   whole menu rather than a clipped rectangle. */
+@keyframes menu-open-from-opener {
+  from {
+    opacity: 0;
+    clip-path: circle(0% at var(--menu-origin-x) var(--menu-origin-y));
+  }
+
+  to {
+    opacity: 1;
+    clip-path: circle(140% at var(--menu-origin-x) var(--menu-origin-y));
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+
+  .action-menu:not(.hidden),
+  .dock-menu[open] > .dock-menu-list {
+    /* Declared here rather than as a `var()` fallback: a fallback on a token
+       that is declared somewhere is dead code, and `test_style_scale.py`
+       says so by name. */
+    --menu-origin-x: 100%;
+    --menu-origin-y: 0%;
+    animation: menu-open-from-opener var(--motion-base) cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+
+  /* Flipped upward, so it grew out of the bottom of the button instead. */
+  .action-menu.action-menu-flip:not(.hidden) {
+    --menu-origin-y: 100%;
+  }
+
+  /* A dock's `<details>` menu hangs under the left edge of its summary. */
+  .dock-menu[open] > .dock-menu-list {
+    --menu-origin-x: 0%;
+  }
 }

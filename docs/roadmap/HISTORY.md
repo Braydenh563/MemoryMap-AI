@@ -6457,6 +6457,186 @@ a highlight button belongs, and would carry the colour picker with it.
 
 Every "Built" block the plans carried, moved here whole so a plan holds open work only (CLAUDE.md standing order 10). Origin file named on each.
 
+### From UI_MODERNISATION_PLAN.md
+
+### Built, Phase 9's tablet remainder and Phase 10 items 100, 101 and 103, 2026-09-09
+
+Four commits, each measured in Chromium against the running app on 8790
+before and after. Phase 9's phone band was explicitly out of scope for this
+sitting (it becomes Phase 11), so this is the >= 1100, 820-1100 and 600-820
+bands only, plus three of Phase 10's five Liquid Glass adoptions.
+
+All of the new CSS is `frontend/css/10-responsive.css`, linked after
+08-consistency.css and registered in `tests/_css_paths.py`: three agents were
+editing the stylesheets at once and 07-whiteboard-misc.css is the file all
+three reach for.
+
+**The tab strip fits its own row between 600 and 820.** The last measured
+fault in `agent-remaining/responsive.md` that belonged to a tablet rather
+than a phone. Measured with the new `scratchpad/ui-sweeps/tabfit.js`, which
+prints what the seven tabs need against what the row has:
+
+| width | before | after |
+| --- | ---: | ---: |
+| 600 | need 640 in 574 (two tabs out of reach) | need 498 in 574 |
+| 660 | need 634 in 634 | need 498 in 634 |
+| 720 | need 640 in 694 | need 498 in 694 |
+| 819 | need 660 in 787 | need 474 in 787 |
+| 1024, 1440 | unchanged | unchanged |
+
+The caption steps down one type token and the padding one space step inside
+the band; the button height does not move, because it is `--target-min` and
+a 44px target is the point of the band. Wrapping stays: the strip needs
+498px against 171px of space beside the wordmark at 600 and 376px at 819, so
+it cannot share the header's row at any width in this band, and hiding the
+wordmark to make room was reported twice. **An equal-column grid was tried
+first and is a trap**: `tabContentWidth` sums the buttons' own widths to
+decide whether to wrap, so stretching them to fill the row makes the strip
+report that it needs the whole header and the header can never unwrap again.
+
+**And a tab became a 44px target in that band**, which it had never been:
+the strip's buttons take `--header-control-h`, because they are levelled
+with the rest of the header's controls, so they were 40px at every width
+while Phase 9's rule is 44px below 820. `touch.js` at 800x1180 with
+`hasTouch` reported all seven at 40.0px and every dock control passing;
+after a `min-height` in the band it is `PASS: 0 findings` at 800 and at 600,
+for 4px of header (106 to 110 at 600 and 720, 120 to 124 at 819). The sweep
+itself stopped asserting the phone's bottom tab bar at every width, which
+had been reporting a failure for a layout behaving as its band says.
+
+**INBOX 100, the scroll edge effect.** One listener in app.js
+(`markScrollEdge`) marks the single bar whose bottom edge is against the top
+of the region that scrolled, within 24px, and CSS paints a 16px fall-off in
+`--scroll-edge` under `[data-scrolled="1"]`. The bar is chosen by measuring,
+not by name, because a rule per surface is wrong on the first surface you
+try it on: Notes stacks the top bar, the sub-tab strip and the dock above
+its list and only the last of them has content moving behind it (measured:
+the list is `main` at top 72 with the header's bottom at 56, and the dock is
+*inside* `main` and scrolls away with it, so the top bar is the lid; on
+Library the documents view starts at 128 under a strip that ends at 118, so
+the strip is). Numbers, `scratchpad/pngpixel.py` on a 40x20 crop:
+
+| sample | at rest | scrolled |
+| --- | --- | --- |
+| Notes, 1px under the top bar | (243,241,240) | (235,233,232) |
+| Notes, 14px under it | (242,240,239) | (242,240,239) |
+| Library, 1px under the strip | (238,235,235) | (230,227,227) |
+
+**A shadow, not the `::after` gradient the rule was written as**, and that is
+a measurement: an absolutely positioned pseudo-element extends its bar's
+scrollable overflow, so `#notes-subtabs` (which is `overflow: auto` in both
+axes) turned into a 60/44 vertical scroller, and clipping it back with
+`overflow-y: hidden` hides the gradient with it. DESIGN.md rule 2 now says
+shadow, with the reason. `scratchpad/ui-sweeps/scrolledge.js` is the gate:
+nothing marked at rest, the right bar marked after a scroll, and no bar
+gaining vertical scroll.
+
+**INBOX 101, concentric corners.** `--radius-inner: max(0px,
+calc(var(--radius) - var(--space-3)))`. The floor is not decoration: at the
+square end of the Appearance slider `--radius` is 2px, the subtraction is
+negative, and a negative `border-radius` is an invalid declaration that
+drops silently. One adoption, because there was exactly one hand-picked
+inner radius in the app: `.segmented-control label` was `calc(var(--radius-md)
+- 0.15rem)`, which is 6px at the default radius, and `--radius-inner` is 6px
+there too, so nothing moved. Two lints keep it: a radius written as a tier
+minus a length now fails (`calc(var(--radius-lg) - 1px)` is exempt and is a
+different thing, a panel squared off inside its own 1px border), and the
+token's derivation and floor are pinned the way the three tiers are.
+
+**INBOX 103, menus open out of the control that opened them.**
+`.action-menu` and the docks' `details.dock-menu` grow from a circle at the
+opener's corner, off under Reduce motion. **A clip, not a scale, and that is
+a measurement rather than taste**: `openActionMenu` reads
+`getBoundingClientRect()` in the same turn it removes `.hidden`, to decide
+whether to flip upward and again inside `escapeMenuIfClipped`, which
+reparents a clipped menu to the body and positions it from those
+coordinates. A transform is part of that rect, so a menu scaling in from
+0.92 would be measured at 92% of itself and placed there permanently.
+Measured at the first frame: kebab clip `circle(0% at 100% 0%)`, rect
+200x375, layout box 200x375; dock menu clip `circle(0% at 0% 0%)`, rect
+291x48, layout 291x48. Rect equals layout box, which is the whole point.
+
+#### Gates
+
+`errors.js` 0 errors and 0 layout findings at 1440, 1024, 820 and 600 on the
+base tree, and again at the widths each step touched. `contrast.js` 0
+low-contrast items in **both** themes across seven tabs and ten Settings
+sections, which is also the first dark-theme pass Phase 9 never had.
+`tabfit.js` green at 600, 660, 720, 819, 1024 and 1440. `scrolledge.js`
+green on notes, library, timeline, reminders and chat. `menus.js` reports
+the same five panel signatures as before. Thirteen lints, `ruff`, and
+`node --check` on app.js.
+
+#### What is not done, and why
+
+- **INBOX 102** (the clear glass variant and `--text-on-glass`) is open with
+  its measurements in the plan: the text it would improve is already
+  15.25:1 in light and 14.14:1 in dark, and the whiteboard panel it names
+  was deliberately moved the other way, to `--modal-bg`, with the reason
+  recorded beside it.
+- **INBOX 104** (the receding phone tab bar) is phone work and moves to
+  Phase 11 with the rest of the phone band.
+- **`menus.js`'s last step** times out clicking a `.select-opener` on Chat
+  after the model panel has been opened and dismissed. It times out
+  identically with Reduce motion on, where the new animation does not run,
+  so it is not this batch; found, not fixed.
+
+The remaining list, per surface and breakpoint with files and next steps, is
+in [`agent-remaining/responsive.md`](agent-remaining/responsive.md).
+
+### Built, INBOX 94's first three questions, 2026-09-09
+
+The background art measured for the first time, with a sweep that stays:
+`scratchpad/ui-sweeps/bgart.js`.
+
+**Frame cost per style**, 1440x900, the mean interval between frames over
+three seconds with the page otherwise idle:
+
+| style | mean | vs idle | worst frame |
+| --- | ---: | ---: | ---: |
+| background off | 16.6ms | | 16.8ms |
+| aurora | 37.6ms | +21.0 | 50.1ms |
+| constellation | 37.1ms | +20.4 | 50.1ms |
+| waves | 33.4ms | +16.8 | 50.1ms |
+| bubbles | 34.0ms | +17.4 | 83.3ms |
+| mesh | 44.2ms | +27.6 | 166.7ms |
+
+Headless Chromium has no GPU, so these are software-rasterised and a real
+machine will be faster; what they establish is the ranking, the order of
+magnitude, and that the art is by some distance the most expensive thing the
+app draws.
+
+**Performance mode did not stop it.** `bg-motion: moving` bypassed the
+reduced-motion test entirely, and Performance mode reaches the art only
+through that test, so the one setting whose whole job is to cut cost left
+the most expensive thing running. "Moving" still wins over the reduced-motion
+hint, which is a preference about motion; it does not win over Performance
+mode, which is a judgement about the machine (DESIGN.md rule 12). After:
+with `perf: on` the canvas bitmap is identical a second apart, with
+`perf: off` it is not.
+
+**And a screenshot said the opposite.** Comparing two element screenshots
+reported "still moving" after the fix, because the canvas sits at
+`--bg-art-opacity` over a page that paints its own gradient, so the
+composite changes even when the canvas does not. The sweep reads the
+canvas's own pixels now. The rule from CLAUDE.md held again: a screenshot is
+not a measurement.
+
+**Two styles ignored the intensity slider.** Aurora, bubbles and mesh scale
+their population by `ctx.density`; the constellation's star count and the
+waves' layer count were constants. Both scale now, which matters most for
+the constellation because its neighbour search is O(n squared): 19 stars is
+171 pairs a frame where 84 is 3,486.
+
+**No seams.** The canvas is resized with the window and covers it exactly at
+1440x900, 900x1200 and 1600x800.
+
+**Left open** (in the plan, on the item): whether the slider changes
+something a person notices at every step. Counting ink on the canvas varies
+more between two boots of the same settings than it does across the slider,
+and the frame cost at the two ends moves by less than this environment's
+noise. Both failures are written into the sweep so they are not repeated.
+
 ### From GRAPH_PLAN.md
 
 ### Built, Phase 5 (backend), 2026-09-09

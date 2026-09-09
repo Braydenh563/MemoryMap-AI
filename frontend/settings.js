@@ -2368,7 +2368,19 @@ const BG_ART_BUILDERS = {
     let stars = [];
     return {
       init() {
-        const n = Math.min(140, Math.round((p.width * p.height) / 17000));
+        // `ctx.density` is the intensity slider, and this style was one of
+        // the two that never read it: aurora, bubbles and mesh all scale
+        // their population by it and the constellation and the waves did
+        // not, so on those two the slider moved the canvas's opacity and
+        // nothing else. Measured before the change
+        // (`scratchpad/ui-sweeps/bgart.js`): the constellation's frame cost
+        // was 39.5ms at intensity 10 and 37.2ms at 100, which is the same
+        // number twice, while mesh went 32.7ms to 45.6ms.
+        //
+        // It matters more here than anywhere else because the neighbour
+        // search is O(n squared): 19 stars is 171 pairs a frame and 84 is
+        // 3,486.
+        const n = Math.max(3, Math.min(140, Math.round((p.width * p.height) / 17000 * ctx.density)));
         for (let i = 0; i < n; i++) {
           stars.push({
             x: p.random(p.width), y: p.random(p.height),
@@ -2408,7 +2420,8 @@ const BG_ART_BUILDERS = {
     return {
       init() {},
       frame(t) {
-        const layers = 5;
+        // Same as the constellation: five layers whatever the slider said.
+        const layers = Math.max(2, Math.round(5 * ctx.density));
         for (let l = 0; l < layers; l++) {
           const yBase = p.height * (0.35 + l * 0.13);
           const amp = 26 + l * 10;
@@ -2504,8 +2517,23 @@ function startBgArt() {
   // moving at all on a machine with reduced motion on, which is exactly what
   // was reported.
   const bgMotion = appearancePref("bg-motion");
+  // **"Moving" wins over the reduced-motion hint, and does not win over
+  // Performance mode.** The hint exists to protect people from motion they
+  // did not ask for, and this setting is someone asking for it, in a control
+  // that does nothing else; without that override there was no way to get the
+  // art moving at all on a machine with reduced motion on, which was
+  // reported. Performance mode is a different kind of statement: not a
+  // preference about motion but a judgement about what this machine can
+  // afford to draw, and DESIGN.md rule 12 says every animation stops there
+  // except the progress indicators. Measured at 1440x900 in headless
+  // Chromium, the art costs between +17ms and +28ms a frame
+  // (`scratchpad/ui-sweeps/bgart.js`), which makes it the single most
+  // expensive thing Performance mode could switch off, and it was the one
+  // thing that kept running.
   const reduceMotion =
-    bgMotion === "still" || (bgMotion !== "moving" && reducedMotionWanted());
+    bgMotion === "still" ||
+    perfModeOn() ||
+    (bgMotion !== "moving" && reducedMotionWanted());
   // Whatever colour the app is wearing, accent picker or curated palette.
   const accentHex = currentAccentHex();
   const bgStyle = bgArtStyle();

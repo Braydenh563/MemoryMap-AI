@@ -134,9 +134,18 @@ done-when item 4 and 5), in priority order.
     feedback, the packages row, the dashboard band) · 107d the segmented
     mini bars, a redesign recorded in DOCUMENTS_PLAN and DESIGN.md.
     **Status, 2026-09-09 evening.** 107a: five of six closed (`9a2ddf1`),
-    the AI history popover still found-not-fixed. 107b: an Opus agent is
-    running against it now (worktree, not yet merged). 107c and 107d: not
-    started.
+    the AI history popover still found-not-fixed. 107b: **done, merged
+    and pushed (`b24836d`)**, all four items closed plus two bonus finds
+    (a select offering a hidden option; focusing a menu's first row
+    scrolling the page enough to close the menu itself). 107c and 107d:
+    not started.
+    **The owner's live error, confirmed as this exact fix.** A console
+    trace at `library.js:3291` ("Cannot set properties of null (setting
+    'src')", from `openThisRow`/`ocrOpenSibling`) matched the pre-fix
+    line for line at the previous head. `git pull` plus a server restart
+    is what picks this up; the boot-token cache fix (`dd2d843`) stops the
+    *browser* from serving old code once the server has new code on
+    disk, it does not substitute for actually pulling the branch.
 
 77. **Half done, 2026-09-09: the badge is fixed.** It reads "1.2k / 20k"
     instead of "6% of window", is 20px tall at every width from 420 to 1440

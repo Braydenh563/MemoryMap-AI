@@ -459,8 +459,20 @@ engine landed in Phase 2, so none of these is a regression from it.
 
 - "the documents edit and read toggle options dont fit in the toggle and go
   out of it at the bottom" (screenshot: Edit / Read pills overflowing their
-  segmented control). Measure the control's height against its label's line
-  box at 1440 and 1280; the segmented-control recipe in DESIGN.md sets both.
+  segmented control). Where to start, from a partial measurement on
+  2026-09-09: `.doc-dock .seg button` (04-chat-dock-appearance.css, about
+  line 3258) sets `padding-block: 0`, so each button's box is exactly its
+  line box, computed at 24px, inside a `.seg` whose own padding is 4px. That
+  leaves the label's fit entirely to the line box, and the buttons carry an
+  icon (`ph-lead`) whose own line box is taller than the text's, which is
+  the shape that pushes a label past the container's rounded edge. Not
+  confirmed against the running app: the dock only exists once a document is
+  open, and three attempts to open one from a Playwright probe did not reach
+  the editor (the Documents sub-tab activates but `#tab-documents` stays
+  hidden), so this is a reading of the rules and not a measurement. Give the
+  buttons an explicit centred box at a control-height token rather than
+  zeroing their padding, then measure `getBoundingClientRect().bottom`
+  against the `.seg`'s at 1440 and 1280.
 - "md formatting should go invisible unless i click back on that word or
   section or navigate with backspace, delete or arrow keys etc to where
   those formatting markers are." This is CodeMirror's own

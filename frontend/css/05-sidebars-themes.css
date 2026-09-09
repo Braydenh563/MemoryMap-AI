@@ -604,6 +604,26 @@ mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
   flex: 1 1 auto;
 }
 
+/* The keys are one item, not one item per key. Every `<kbd>` in a row used
+   to be its own flex child, so a chord row's keys and the separators between
+   them each took the row's 0.5rem gap and pushed the description into
+   whatever was left. Measured at 1440 on the "Always available" list before
+   this: the `m` then `d/n/c/g/l/t/r` row stood 168.3px tall with its
+   description squeezed to 110.7px over seven lines, beside four ordinary
+   rows at 39.2px with a 403 to 425px description. After: 66.9px with a
+   307.3px description over two lines. The three-key row costs 9px for it
+   (56.9 to 65.9), and the pair together fall from 225.2px to 132.8px.
+   The keys wrap inside their own span rather than being allowed to hold the
+   row open: letting them keep one line instead (no shrink) puts the seven-key
+   row at 102.1px at 1440 and 190.4px at 390, which is the shape this replaces. */
+.shortcut-list li>span.shortcut-keys {
+  flex: 0 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem;
+}
+
 .shortcut-list kbd.capturing {
   background: var(--accent-surface);
   color: var(--on-accent);

@@ -1622,6 +1622,17 @@ Link to another note with [[its first few words]]."></textarea>
                   title="Plan this request first, the Librarian draws the steps and shows them before it starts"><i class="ph ph-compass ph-lead" aria-hidden="true"></i> Plan</button>
               </div>
 
+              <!-- Owner: "im wondering if the elements in the bottom row of
+                   the chat dock should be rearranged better." The groups
+                   were right, the gap between them was not: an unbounded
+                   `margin-left: auto` on the mode group put up to 766px of
+                   dead air between "Plan" and "Ask" on a wide screen. This
+                   spacer absorbs the strip's free space instead, capped at
+                   `--space-9` (see 04-chat-dock-appearance.css), so the
+                   right group sits a fixed, comfortable distance from the
+                   left ones rather than pinned to the far edge of the card. -->
+              <div class="chat-dock-controls-spacer" aria-hidden="true"></div>
+
               <!-- **Right-hand group: what kind of answer, and how it answers.**
                    Asked for: "in the bottom dock, maybe have skills, plan and
                    web on the left, with the mode select and settings on the

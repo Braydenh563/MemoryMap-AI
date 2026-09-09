@@ -25106,8 +25106,18 @@ async function changePassword() {
 }
 
 let prefsCache = null;
+// Set by savePrefs() to the PUT's own promise while it is in flight, and
+// awaited here first (INBOX 73, see savePrefs' own comment): without this,
+// re-showing the Preferences section (closing and reopening Settings does,
+// via showSettingsSection) fires this function's fresh GET concurrently
+// with an unfinished save, and whichever one the server answers first wins
+// -- reproduced with the GET winning, which replaced prefsCache wholesale
+// with the pre-save value and left the checkbox showing it permanently,
+// not just for the moment the save was in flight.
+let prefsSaveInFlight = null;
 
 async function renderPrefs() {
+  if (prefsSaveInFlight) await prefsSaveInFlight.catch(() => {});
   prefsCache = await apiJson("/preferences");
   $("pref-display-name").value = prefsCache.display_name || "";
   $("pref-bin-days").value = prefsCache.recycle_bin_days;
@@ -25529,21 +25539,43 @@ async function savePrefs() {
     // for why folding them in here was the actual cause of "preferences keep
     // getting deleted": this form's DOM may never have been rendered this
     // session, and sending its stale defaults back overwrote real values.
-    prefsCache = await apiJson("/preferences", {
+    const payload = {
+      display_name: $("pref-display-name").value.trim(),
+      recycle_bin_days: recycleBinDays,
+      conversation_retention_days: Number($("pref-chat-retention").value) || 0,
+      search_min_similarity: searchMinSim,
+      search_relative_z_margin: searchZMargin,
+      communication_style: $("pref-style").value,
+      user_profile: $("pref-profile").value,
+      profile_enabled: $("pref-profile-enabled").checked,
+      notifications_muted_except_reminders:
+        $("pref-notif-mute-except-reminders").checked,
+    };
+    // INBOX 73: "'Mute notifications except reminders' toggle disables
+    // itself when the settings close." Reproduced two ways with Playwright
+    // route interception: (1) check the box, Save, close and reopen
+    // Settings before the PUT resolves -- renderPrefs' own fresh GET can
+    // win the race and replace prefsCache wholesale with the pre-save
+    // value; (2) delay the PUT leaving the browser at all (a slow
+    // connection) so a concurrent GET genuinely reaches the server first
+    // -- the checkbox then stayed wrong even after the PUT went on to
+    // succeed, since nothing re-read it afterwards. Two matched fixes:
+    // write the change into prefsCache immediately, before the await, so
+    // any render mid-flight already sees it (renderPrefs still overwrites
+    // this with the server's answer once its own GET lands, this is only
+    // for the window before that); and hold the PUT's promise in
+    // `prefsSaveInFlight` so renderPrefs (above) waits for it first
+    // instead of racing it, which is what closes case 2.
+    if (prefsCache) Object.assign(prefsCache, payload);
+    prefsSaveInFlight = apiJson("/preferences", {
       method: "PUT",
-      body: JSON.stringify({
-        display_name: $("pref-display-name").value.trim(),
-        recycle_bin_days: recycleBinDays,
-        conversation_retention_days: Number($("pref-chat-retention").value) || 0,
-        search_min_similarity: searchMinSim,
-        search_relative_z_margin: searchZMargin,
-        communication_style: $("pref-style").value,
-        user_profile: $("pref-profile").value,
-        profile_enabled: $("pref-profile-enabled").checked,
-        notifications_muted_except_reminders:
-          $("pref-notif-mute-except-reminders").checked,
-      }),
+      body: JSON.stringify(payload),
     });
+    try {
+      prefsCache = await prefsSaveInFlight;
+    } finally {
+      prefsSaveInFlight = null;
+    }
     $("prefs-status").textContent = "Saved.";
 
     // Reflect a name change immediately if the dashboard is showing.

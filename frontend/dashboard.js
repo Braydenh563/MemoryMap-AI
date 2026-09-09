@@ -488,6 +488,44 @@ async function renderDashStats() {
     button.addEventListener("click", tile.go);
     box.appendChild(button);
   }
+
+  // **The shape of the fortnight, where the empty half of the strip was.**
+  // Measured before this (`scratchpad/ui-sweeps/dashstart.js`, 1440x900): the
+  // four tiles used 573px of a 1408px strip and left 835px empty, which is
+  // the "most of its width empty" half of INBOX 60. Four numbers cannot say
+  // whether this week was one burst or seven steady days, and that is exactly
+  // what the empty space had room for.
+  //
+  // A figure, not a control: a chip is a fact, and this is a fact. It carries
+  // its own text alternative because fourteen unlabelled bars are nothing at
+  // all to a screen reader.
+  if (perDay.length) {
+    const spark = document.createElement("div");
+    spark.className = "stat-spark";
+    const days = perDay.slice(-14);
+    const peak = Math.max(1, ...days);
+    const bars = document.createElement("div");
+    bars.className = "stat-spark-bars";
+    for (const count of days) {
+      const bar = document.createElement("span");
+      // A percentage, so the strip's own height decides how tall the chart
+      // is and no number here has to know it. The floor is what keeps an
+      // empty day a visible baseline rather than a gap in the row.
+      bar.style.height = `${Math.max(12, Math.round((count / peak) * 100))}%`;
+      bar.classList.toggle("empty", count === 0);
+      bars.appendChild(bar);
+    }
+    const caption = document.createElement("span");
+    caption.className = "stat-spark-label";
+    caption.textContent = `${days.length} days`;
+    spark.replaceChildren(bars, caption);
+    spark.setAttribute("role", "img");
+    spark.setAttribute(
+      "aria-label",
+      `Notes captured on each of the last ${days.length} days: ${days.join(", ")}`
+    );
+    box.appendChild(spark);
+  }
 }
 
 // --- dashboard quick links ---------------------------------------------------
@@ -811,6 +849,11 @@ function renderQuickLinks() {
     go.row.appendChild(quickLinkButton(link, "quick-link quick-pill"));
   }
   box.appendChild(go.group);
+  // Filled in when the notes arrive; see `renderContinueLink`. The row is
+  // built synchronously because everything else in it is a constant, and a
+  // row that waits for a fetch before drawing anything is a row that flickers
+  // on every dashboard load.
+  renderContinueLink(go.row);
 
   // The skills group is only drawn when there is a skill to put in it. An
   // empty "Run a skill" heading over one "Choose a skill…" button is a section
@@ -835,6 +878,44 @@ function renderQuickLinks() {
     );
     box.appendChild(skillGroup.group);
   }
+}
+
+// **Continue where you left off**, the fourth thing INBOX 60 asked for. The
+// navigation row is three pills wide and the strip is not: measured at 1440,
+// it used 476px of 1408 and left 932px empty. The answer is not more pills
+// naming tabs, which is a decision this file already took and wrote down
+// above; it is the one destination the tab bar cannot offer, because it
+// depends on what you were doing rather than on what the app contains.
+//
+// Most recently *updated*, not created: editing a note is coming back to it,
+// and the note you were last in is the one you want to continue.
+async function renderContinueLink(row) {
+  if (!row || !row.isConnected) return;
+  let entries = [];
+  try {
+    entries = allEntries.length ? allEntries : await apiJson("/entries", { cacheMs: 4000 });
+  } catch {
+    return; // a dashboard that cannot reach the notes still draws the rest
+  }
+  if (!Array.isArray(entries) || !entries.length || !row.isConnected) return;
+  const newest = [...entries]
+    .filter((entry) => entry && !entry.is_draft)
+    .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))[0];
+  if (!newest) return;
+  // One line of the note, short enough to sit in a pill beside three others.
+  const preview = notePreviewText(newest.content || "").trim().slice(0, 42) || "your last note";
+  const button = quickLinkButton(
+    {
+      icon: "ph:arrow-u-up-left",
+      label: "Continue",
+      hint: preview,
+      run: () => flashEntry(newest.id),
+    },
+    "quick-link quick-pill quick-link-continue"
+  );
+  // First in the row: it is the only entry whose usefulness decays, and the
+  // three beside it are constants that can be learned by position.
+  row.prepend(button);
 }
 
 // --- the "everything this app does" browser ----------------------------------

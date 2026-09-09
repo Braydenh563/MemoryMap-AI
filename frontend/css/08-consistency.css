@@ -1759,3 +1759,25 @@ summary > .ph-lead,
   flex: 0 0 auto;
   white-space: nowrap;
 }
+
+/* The mark a keyboard save leaves on the button it pressed (app.js,
+   `flashSaved`). Reported on 2026-09-09: Ctrl+S in settings "needs visual
+   confirmation as well". A ring rather than a colour change, so it reads the
+   same on an accent button and on a ghost one, and short enough that it is
+   an acknowledgement rather than a state. No animation under reduced motion,
+   where the toast the save handler raises is the whole confirmation. */
+@keyframes just-saved-ring {
+  0% { box-shadow: 0 0 0 0 var(--accent); }
+  100% { box-shadow: 0 0 0 6px transparent; }
+}
+
+.just-saved {
+  animation: just-saved-ring var(--motion-slow) ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .just-saved {
+    animation: none;
+  }
+}

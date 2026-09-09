@@ -9553,6 +9553,21 @@ function scheduleCaptureTagSuggestions() {
   }, 1200);
 }
 
+//: Wipes the composer's error line as soon as the person answers it. Bound
+//: once per complaint rather than at startup, so a composer that never
+//: errored carries no listener at all, and `{ once: true }` means the pair
+//: cannot accumulate over a session of near-misses.
+function clearCaptureStatusOnInput() {
+  const status = $("save-status");
+  const clear = () => {
+    if (!status.classList.contains("error")) return;
+    status.textContent = "";
+    status.classList.remove("error");
+  };
+  $("entry-content")?.addEventListener("input", clear, { once: true });
+  $("entry-title")?.addEventListener("input", clear, { once: true });
+}
+
 async function saveEntry() {
   const contentBox = $("entry-content");
   const titleBox = $("entry-title");
@@ -9561,8 +9576,16 @@ async function saveEntry() {
 
   const content = withTitle(contentBox.value.trim(), titleBox?.value);
   if (!content) {
-    status.textContent = "Write something first!";
+    //: No exclamation mark (the copy rule), and it clears itself the moment
+    //: anything is typed. Reported on 2026-09-09: "the words 'write something
+    //: first' is at the bottom of the note capture tab when I didnt do
+    //: anything?? maybe I fumbled a button." Nothing ever cleared this line,
+    //: so one press of Save (or of Ctrl+S, which reaches the same button) on
+    //: an empty box left an error sitting under the composer for the rest of
+    //: the session, long after it had stopped being true.
+    status.textContent = "Write something first, then save.";
     status.classList.add("error");
+    clearCaptureStatusOnInput();
     return;
   }
   const tags = $("entry-tags").value.split(",").map((t) => t.trim()).filter(Boolean);
@@ -9666,8 +9689,16 @@ async function saveEntryAsDraft() {
 
   const content = withTitle(contentBox.value.trim(), titleBox?.value);
   if (!content) {
-    status.textContent = "Write something first!";
+    //: No exclamation mark (the copy rule), and it clears itself the moment
+    //: anything is typed. Reported on 2026-09-09: "the words 'write something
+    //: first' is at the bottom of the note capture tab when I didnt do
+    //: anything?? maybe I fumbled a button." Nothing ever cleared this line,
+    //: so one press of Save (or of Ctrl+S, which reaches the same button) on
+    //: an empty box left an error sitting under the composer for the rest of
+    //: the session, long after it had stopped being true.
+    status.textContent = "Write something first, then save.";
     status.classList.add("error");
+    clearCaptureStatusOnInput();
     return;
   }
   const tags = $("entry-tags").value.split(",").map((t) => t.trim()).filter(Boolean);
@@ -34127,7 +34158,23 @@ document.addEventListener("keydown", (e) => {
       return; // wait for the second key; a lone "m" does nothing on its own
     }
   }
-  //: Ctrl+S saves what is in front of you (INBOX 74, asked for: "register
+  //: A short, non-blocking mark on the control a shortcut just pressed, so a
+//: keyboard save is visibly a save rather than a key that did nothing. The
+//: class is removed on the animation's own end rather than on a timer, so
+//: two presses in a row both show, and it is a no-op under
+//: `prefers-reduced-motion` (the rule carries no animation there).
+function flashSaved(el) {
+  if (!el) return;
+  el.classList.remove("just-saved");
+  // Reading a layout property between the remove and the add is what restarts
+  // a CSS animation on an element that already has the class; without it a
+  // second press inside the animation's own duration shows nothing.
+  void el.offsetWidth;
+  el.classList.add("just-saved");
+  el.addEventListener("animationend", () => el.classList.remove("just-saved"), { once: true });
+}
+
+//: Ctrl+S saves what is in front of you (INBOX 74, asked for: "register
   //: the ctrl s command for saving progress such as settings"). Settings:
   //: the visible section's own Save button; Documents: the document;
   //: Capture: the note. Always swallowed, so the browser's "save page"
@@ -34135,10 +34182,41 @@ document.addEventListener("keydown", (e) => {
   if ((e.key === "s" || e.key === "S") && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
     e.preventDefault();
     if (settingsModalOpen()) {
-      const section = document.querySelector(".settings-section:not(.hidden)");
-      const save = section?.querySelector('button[id$="-save"]:not([disabled])');
-      if (save) save.click();
-      else toast("This section saves as you change it.");
+      //: **Look for a control that is actually on screen, not for a naming
+      //: convention.** Reported on 2026-09-09: "ctrl s for saving settings
+      //: changes while on the settings modal doesnt work and it needs visual
+      //: confirmation as well." Measured with the modal open on its default
+      //: section: seventeen `.settings-section` elements, exactly one of them
+      //: visible (`#settings-models`), and every one of the six
+      //: `button[id$="-save"]` in the document laid out at zero height,
+      //: because they all belong to other sections. So the lookup found
+      //: nothing every time and the keystroke answered "this section saves as
+      //: you change it" whether or not that was true.
+      //:
+      //: `offsetParent` is the test that a screenshot would use: is this
+      //: button on screen. The id suffix stays as the first preference, since
+      //: it is exact where it applies, and a visible "Save…" button anywhere
+      //: in the modal is the fallback for the sections that never adopted it.
+      const onScreen = (el) => el && el.offsetParent !== null && !el.disabled;
+      const section = [...document.querySelectorAll(".settings-section")].find(
+        (el) => el.offsetParent !== null,
+      );
+      let save = [...(section?.querySelectorAll('button[id$="-save"]') || [])].find(onScreen);
+      if (!save) {
+        save = [...document.querySelectorAll("#settings-modal button")].find(
+          (el) => onScreen(el) && /^save\b/i.test((el.textContent || "").trim()),
+        );
+      }
+      if (save) {
+        save.click();
+        //: The visual half of the same report. The save handlers each raise
+        //: their own toast, but a keystroke with no immediate mark on the
+        //: control it pressed reads as a keystroke that went nowhere, so the
+        //: button itself acknowledges the press before its handler answers.
+        flashSaved(save);
+      } else {
+        toast("Nothing on this settings page needs saving. It saves as you change it.");
+      }
       return;
     }
     if (!$("tab-documents")?.classList.contains("hidden") && typeof saveDocument === "function") {
@@ -34147,7 +34225,17 @@ document.addEventListener("keydown", (e) => {
     }
     const capture = $("save-btn");
     if (capture && capture.offsetParent && !capture.disabled) {
+      //: Ctrl+S on an empty composer is a keystroke, not a mistake worth
+      //: scolding: pressing the button would raise the composer's own "write
+      //: something first" error, which is the line the owner found sitting
+      //: there having "didnt do anything".
+      const written = ($("entry-content")?.value || "").trim() || ($("entry-title")?.value || "").trim();
+      if (!written) {
+        toast("Nothing to save yet.");
+        return;
+      }
       capture.click();
+      flashSaved(capture);
       return;
     }
     toast("Nothing to save here.");

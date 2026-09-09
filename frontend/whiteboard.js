@@ -8069,8 +8069,19 @@ async function initWhiteboard() {
   
   document.getElementById("whiteboard-container").addEventListener("drop", async (e) => {
     e.preventDefault();
-    const entryId = e.dataTransfer.getData("text/plain");
-    if (!entryId) return;
+    const dropped = e.dataTransfer.getData("text/plain");
+    if (!dropped) return;
+    //: **Only a note id may be dropped here.** `text/plain` is whatever the
+    //: drag carried, and a selection, a url or a filename all satisfy a bare
+    //: truthiness test: `parseInt` then gave `NaN`, `JSON.stringify` wrote it
+    //: as `null`, and the server answered 422 with "entry_id: Input should be
+    //: a valid integer, input: null". Seen in the owner's console on
+    //: 2026-09-09, beside an "Error creating node: {}" that said nothing.
+    const entryId = Number.parseInt(dropped, 10);
+    if (!Number.isInteger(entryId) || entryId <= 0) {
+      toast("Drop a note from the Library onto the board. That was not a note.", true);
+      return;
+    }
     
     // We need to figure out coordinates relative to the transformed html layer
     const canvasEl = document.getElementById("wb-html-layer");
@@ -8090,7 +8101,7 @@ async function initWhiteboard() {
     // on the drop point instead matches how a text box/image already places
     // itself on click/drop (`wbCreateTextBox`, `wbPlaceUploadedImage`).
     const nodeData = {
-      entry_id: parseInt(entryId, 10),
+      entry_id: entryId,
       x: logicalX - 125,
       y: logicalY - 75,
       z: 10,
@@ -8105,7 +8116,14 @@ async function initWhiteboard() {
       else wbState.nodes.push(res);
       wbScheduleRender();
     } catch (err) {
-      console.error("Error creating node:", err);
+      //: `console.error("...", err)` printed "{}": an Error's `message` is not
+      //: an enumerable own property, so the console's object view showed
+      //: nothing at all and the reader was told a card failed without being
+      //: told why. The message is what the server sent, and it belongs on
+      //: screen rather than in a console nobody has open.
+      const why = (err && err.message) || "the server refused it";
+      console.error("Error creating node:", why);
+      toast(`Could not add that note to the board: ${why}`, true);
     }
   });
 

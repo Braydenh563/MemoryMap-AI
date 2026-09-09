@@ -2949,7 +2949,43 @@ function openActionMenu(menu, opener) {
   //: a menu that fits, and a menu that does not gets the same reparent-to-body
   //: treatment rather than being clipped.
   escapeMenuIfClipped(menu, opener);
-  menu.querySelector("button")?.focus();
+  focusMenuItem(menu.querySelector("button"), menu);
+}
+
+//: **Focusing the first row of a menu must never scroll the page behind it.**
+//:
+//: Measured, not reasoned. The reader picker at the top of the OCR workspace
+//: (`#ocr-reader`) would not open at all: one real Chromium click produced,
+//: in order, `openActionMenu` (the menu unhides and escapes to <body>), a
+//: `focusin` on the chosen row, a `scroll` event on `.ocr-toolbar`, and then
+//: `closeActionMenusOnScroll` shutting the menu it had just opened, 3 option
+//: rows built and 0 visible. `.ocr-toolbar` is `overflow-x: auto` (it scrolls
+//: sideways rather than wrapping, by design), the menu is still a child of
+//: that toolbar at the moment the focus lands, and a plain `.focus()` asks
+//: the browser to scroll every ancestor until the focused element is in view.
+//: So the open *caused* the scroll, and the scroll-away rule, which exists
+//: for a real one (a kebab left beside the wrong note while its list scrolls
+//: under it), could not tell the two apart.
+//:
+//: The fix is at the cause rather than at that rule: this app positions its
+//: own menus, from the opener's rect, escaping to <body> when they would be
+//: clipped, so an ancestor scrolling to "reveal" a menu item is never what is
+//: wanted and is the browser undoing the placement. `preventScroll` says
+//: exactly that, with no timer for anyone to tune.
+//:
+//: What it must not lose is the scrolling that *is* wanted: a long menu (the
+//: model picker, a 30-option select) whose chosen row is below its own fold
+//: has to bring that row into view. So the menu scrolls itself, by the two
+//: lines below, and nothing above it moves.
+function focusMenuItem(item, menu) {
+  if (!item) return;
+  item.focus({ preventScroll: true });
+  const box = menu || item.closest(".action-menu");
+  if (!box || box.scrollHeight <= box.clientHeight) return;
+  const top = item.offsetTop;
+  const bottom = top + item.offsetHeight;
+  if (top < box.scrollTop) box.scrollTop = top;
+  else if (bottom > box.scrollTop + box.clientHeight) box.scrollTop = bottom - box.clientHeight;
 }
 
 //: The nearest ancestor that would clip this menu, `overflow` anything but
@@ -3553,16 +3589,16 @@ function wireMenuKeyboard(menu, opener) {
     const current = menuItems.indexOf(document.activeElement);
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      menuItems[(current + 1) % menuItems.length]?.focus();
+      focusMenuItem(menuItems[(current + 1) % menuItems.length], menu);
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      menuItems[(current - 1 + menuItems.length) % menuItems.length]?.focus();
+      focusMenuItem(menuItems[(current - 1 + menuItems.length) % menuItems.length], menu);
     } else if (event.key === "Home") {
       event.preventDefault();
-      menuItems[0]?.focus();
+      focusMenuItem(menuItems[0], menu);
     } else if (event.key === "End") {
       event.preventDefault();
-      menuItems[menuItems.length - 1]?.focus();
+      focusMenuItem(menuItems[menuItems.length - 1], menu);
     } else if (event.key === "Escape") {
       event.preventDefault();
       closeActionMenus();
@@ -18809,7 +18845,7 @@ function enhanceSelect(select) {
     if (menu.classList.contains("hidden")) {
       rebuild();
       openActionMenu(menu, opener);
-      menu.querySelector(".is-chosen")?.focus();
+      focusMenuItem(menu.querySelector(".is-chosen"), menu);
     } else {
       closeActionMenus();
     }

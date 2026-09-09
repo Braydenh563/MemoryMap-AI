@@ -119,8 +119,17 @@ PR's.
       inside to 6 of 6, worst contrast 3.82:1 to 4.77:1; dashboard
       thumbnail 293.2 square to 40.5 square with the widget's body no
       longer scrolling, where it was 602 against 320.)
-- [ ] 7. The full suite green on the final head (the one local run this
+- [x] 7. The full suite green on the final head (the one local run this
       PR gets; CI covers every push in between); ruff and CodeQL green;
+      **Run, 2026-09-09:** `PYTHONPATH=src .venv/bin/python -m pytest
+      tests/` on the head, exit code 0, no F or E in the progress line, the
+      xfails still xfail. Worth knowing before the next reader thinks the
+      run was cut short: with `addopts = -q` from `pytest.ini`, the totals
+      line does not survive being read out of a redirect on a run this
+      long, while a single-file run prints it normally. The exit code is
+      the result. All sixteen CodeQL review threads on the PR are resolved,
+      the sweeps (errors, docks, contrast, touch) pass on the head, and
+      the branch is mergeable.
       **Note, 2026-09-09:** `.github/workflows/ci.yml` runs `python -m
       pytest` with no selection, so CI *is* the full suite, on every push,
       and it has reported no failing suite on every head today. CodeQL has
@@ -297,21 +306,30 @@ are only just begun or half done." True; this table is the state.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
-**Now (2026-09-09 11:20 UTC, Opus orchestrating, four agents in flight):**
-CI and CodeQL green on every head today. INBOX is at two items, both
-assigned; everything else from the owner's evening batch is merged or with
-an agent. What is left of this PR is HANDOVER's own done-when checklist
-above, and the two things it names last: one full pytest run on the final
-head, and the README's eight screenshots, recaptured only once every UI
-batch has landed.
+**Now (2026-09-09 12:40 UTC, Opus orchestrating, no agents running):**
+CI and CodeQL green on every head today, all sixteen CodeQL review threads
+resolved. Every agent worktree with commits has been merged; the last four
+agents (the settings help popovers, the whole-app visual pass, the escaped
+menu, the Documents batch) have reported and stopped. INBOX is at one item,
+77's per-model context size, which the entry itself assigns to the next
+session.
 
-The agents, by worktree, each merged and pushed as it reports:
-`a6db54045f3f6f144` (Sonnet: the Boards and maps dock, INBOX 77 the token
-badge), `ad99faa1d715c7412` (Sonnet: INBOX 105's on-surface retest of the
-whiteboard and mind map View menus, and the Documents Edit and Read
-toggle), `a93efefdb83c29141` (Opus: the recursive OPML and FreeMind
-exports, which 500 on a deep map, then the Boards and maps dock heights),
-`ad5696bf1be5660c3` (Opus: the Documents batch, click-an-underline first).
+The done-when checklist above is at eight of nine, and the ninth is the
+owner's: run the updated build once. Item 7 is ticked with the local run
+this PR gets. The changelog header is cut ("[0.3.0] - 2026-09-09" in both
+copies, a fresh empty Unreleased above it), so what remains before the
+merge is the owner's build check; after the merge, `git tag v0.3.0` and
+push the tag, per docs/RELEASING.md.
+
+The last fix of the session was a dialog that could not scroll: `.modal-card`
+capped every dialog at 88vh with `overflow-y: visible`, so anything a
+dialog rendered from script past that cap had no route to it. The keyboard
+shortcuts overlay was carrying 1925px of content in a 790px card with
+`scrollTop` stuck at 0. Worth remembering how it hid: measuring the markup
+as it stands in `index.html` shows 790 in 790 and nothing wrong. The fault
+only appears once the dialog's own opener has filled it, which is the
+difference between `modalscroll.js` (walks every overlay, reports clean)
+and `shortcuts.js` (runs `openShortcuts()` first, reports the fault).
 
 Three things this session learned the hard way, all now enforced rather
 than remembered:

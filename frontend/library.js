@@ -7341,7 +7341,18 @@ function bookmarkRow(bookmark) {
     save.textContent = "Save";
     const cancel = document.createElement("button");
     cancel.type = "button";
-    cancel.className = "ghost small icon-only";
+    // Owner: "the links edit save and cancel buttons arent consistent."
+    // `icon-only` forces a square button (aspect-ratio: 1, see
+    // 00-tokens-shell.css), which is right for a button whose only content
+    // is a glyph and wrong here: this button's content is the word
+    // "Cancel". Measured before this fix: Save 62.6x28 against Cancel
+    // 56.2x56.2, a pill beside a near-square, not the "same radius, height
+    // and padding, only the fill differs" pair DESIGN.md's button ramp
+    // describes (filled `button` for the one action a surface is for, tonal
+    // `.ghost` beside it for everything else). Plain `.ghost.small` matches
+    // `.small` on both, the same pairing `.small`/`.ghost.small` already
+    // uses everywhere else an edit row offers Save next to Cancel.
+    cancel.className = "ghost small";
     cancel.textContent = "Cancel";
     buttons.append(save, cancel);
     form.appendChild(buttons);

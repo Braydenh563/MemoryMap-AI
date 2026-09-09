@@ -1321,6 +1321,26 @@ header#top-bar.tabs-wrapped #tab-bar {
   gap: var(--space-3);
 }
 
+/* The name and its "Installed"/"Not ready yet" chip are one flex item, not
+   two. Reported: "there are also still wrapping issues in the packages tab
+   with the buttons, titles, and badges" -- measured on the Tesseract row
+   ("Search inside images (Tesseract OCR)", the longest label here) at
+   1440px in a fresh settings modal: title and chip on the first line,
+   Reinstall/Remove dropped correctly to a right-aligned second line -- but
+   with the title, chip and actions as three independent flex children of
+   `.entry-meta`, a narrower modal or a longer label can just as easily
+   fragment them across three unrelated lines, the same shape
+   `.answer-title` (01-forms-settings.css, the chat answer header) fixes for
+   the same reason. Grouped here, the title wraps or does not as a unit
+   instead of losing its chip to whichever line has room. */
+.extras-row .entry-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .extras-row .entry-actions {
   margin-left: auto;
   align-items: center;

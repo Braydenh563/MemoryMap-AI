@@ -987,3 +987,49 @@ unchanged, errors.js clean. Serve on 8788. Every new glass surface goes on
 the `[data-glass="off"]` list. Sentence case, no em-dashes, tokens only,
 commit trailers.
 
+## Brief 21 (Opus agent): UI_MODERNISATION Phases 9 and 10, the rest of the plan
+
+Relaunch text, verbatim. Read CLAUDE.md, DESIGN.md (the recipe index and
+"Taken from Liquid Glass and the HIG"), UI_MODERNISATION_PLAN Phase 9
+(the breakpoint table and its rules), Phase 10 and its placed items
+(INBOX 60, 94, 100 to 104), and `agent-remaining/responsive.md`. Own
+worktree, commit per step, never push, five-line report,
+`agent-remaining/responsive.md` rewritten before stopping.
+
+Scope rules, because two other agents are running: every new CSS goes in
+a new `frontend/css/10-responsive.css` linked after 08-consistency.css
+with `?v=` (tests/test_asset_cache_busting.py); edits to existing CSS
+files only when a rule must be removed; do not touch documents.js,
+editor.js, whiteboard.js, library.js, graph.js or graph-canvas.js (their
+owners are mid-flight); app.js and index.html edits kept to the tab bar,
+the sidebars, the docks' responsive behaviour and the scroll-edge
+listener.
+
+Phase 9, in the plan's order: the four breakpoints as stated once
+(≥1100, 820 to 1100, 600 to 820, <600) with what changes app-wide;
+`--target-min` steps up in the 820 block; safe-area insets; sidebars
+collapse to icons then become sheets; docks keep identity, search, Filter
+and the primary under 820 with the rest in ⋯; two-up grids on iPad
+portrait; on the phone every tab gets the Phase 5 rules (strips scroll,
+one control row, the primary pinned bottom-right, bottom docks above the
+keyboard), the tab bar pinned to the bottom. Gate: errors.js and touch.js
+at 1440, 1024, 820, 600 and 390; no horizontal page scroll at any width;
+docks.js unchanged at desktop; the numbers per width in the commit.
+
+Phase 10, each with its own commit and measurement: 100 the scroll edge
+effect (`data-scrolled` set by one listener, a 16px gradient under
+`.dock`, the sub-tab strips and the top bar; absent at scrollTop 0;
+contrast.js on a scrolled list); 101 `--radius-inner` and the
+test_style_scale rule; 102 `.glass-clear` with `--glass-scrim` for the
+panels over the art and `--text-on-glass` on every blurred surface
+(contrast.js over aurora and constellation); 103 menus morphing from
+their opener (`kebabMenu`, `details.dock-menu`; off under Reduce motion)
+and sheets inset by `--space-3` then `--modal-bg` at full height (menus.js,
+touch.js); 104 the phone tab bar receding on scroll down, back on scroll
+up, never hidden; then 94 (the background animations: a measured frame
+cost per style, still under Performance mode, no seams, the intensity
+slider visible at every step) and 60 (the dashboard start section per its
+decision). Every new glass surface goes on the `[data-glass="off"]` list
+(tests/test_ui_recipes.py). Serve on 8790; never pkill uvicorn; sentence
+case; no em-dashes; tokens only; commit trailers.
+

@@ -410,6 +410,16 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-09", UI_MODERNISATION_PLAN.m
 New features. The plan is subtraction and alignment; the feature backlog
 (BACKLOG.md) waits until the shell is quiet.
 
+## Phase 10 — the Liquid Glass adoptions (½ session)
+
+DESIGN.md's "Taken from Liquid Glass and the HIG" rules 2, 3, 4, 8, 10 and
+12, as the five placed items below (INBOX 100 to 104): the scroll edge
+effect on bars, concentric corners as a token with a lint, the clear
+variant with its scrim and `--text-on-glass`, menus that morph from their
+opener and sheets inset then opaque at full height, the phone tab bar that
+recedes on scroll. Each measured as its item says. Deliberately not taken:
+refraction and lensing (measured too costly), title-case headers.
+
 ## Placed from INBOX, 2026-09-09
 
 The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.

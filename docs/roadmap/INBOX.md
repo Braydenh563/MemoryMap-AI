@@ -510,10 +510,27 @@ four blurred surfaces covering 32% of the viewport at rest; frame p95
 library.js 348 KB, documents.js 280 KB, graph.js 177 KB, all loaded at boot,
 plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
 
-47. **Static assets are not compressed.** Decision: extend the gzip layer
-    to `/static` and the root JS and CSS (they are not streams), with the
-    existing `?v=` stamps for caching; expected wire size about 1.2 MB.
-    Owner: Sonnet, one session, measured by weight.js. Size S.
+47. **(fixed, this session)** ~~Static assets are not compressed.~~ This
+    session's own `curl` against a freshly restarted server, before touching
+    anything, found the premise wrong: the gzip middleware added in 610def1
+    (Aug 23) is innermost and wraps the static mount along with everything
+    else, so `/app.js`, every other root script, `/vendor/*` and `/css/*`
+    were already coming back `content-encoding: gzip` (app.js 1.6 MB plain,
+    515 KB on the wire), and `tests/test_compression.py`'s
+    `test_the_frontend_is_compressed` already covered it. The 6.7 MB
+    `weight.js` figure above is not evidence otherwise: Playwright decodes
+    gzip before handing a response's `body()` to JS, so that number is the
+    *decompressed* size regardless of whether the wire transfer was
+    compressed, both before and after this fix. The real gap was
+    `RevalidatedStatic` sending `Cache-Control: no-cache` on every static
+    reply including stamped ones, so a `?v=<version>` URL (a different URL
+    on every release, never actually stale) still paid a revalidation round
+    trip it did not need. Fixed: a stamped request now gets `Cache-Control:
+    public, max-age=31536000, immutable`; unstamped paths (including
+    `/vendor/*`, deliberately unstamped by
+    `test_asset_cache_busting.py::test_vendored_assets_are_left_alone`) keep
+    `no-cache`. New test: `tests/test_static_compression.py`. Owner: Sonnet,
+    one session.
 48. **Every module parses at boot, whichever tab opens.** Decision: load
     whiteboard.js, documents.js, library.js and graph.js on first use of
     their tab (a small loader in app.js, `tests/test_frontend_load_order.py`

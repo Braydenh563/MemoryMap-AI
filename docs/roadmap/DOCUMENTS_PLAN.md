@@ -310,6 +310,63 @@ extended per phase.
   Acceptance: `errors.js` at 390/820/1024 reports 0 findings on the
   editor; the first line of text is on screen with the keyboard open.
 
+### Phase 8 — one editor everywhere (1 session, the owner's ask, 2026-09-09)
+
+The owner: "plan for the note capture and editors in the notes tab, making
+a new note from the graph, and anywhere there is a note related capture,
+edit or view area with a text box to integrate features similar to the
+documents upgrade. The editors need to be consistent in form and
+function." Today the app has nineteen textareas in the page and seventeen
+more made in script, and five of them are note editors with five
+different feature sets: the capture box (`#entry-content`: formatting
+strip, `[[` autocomplete, attachments, dictate, improve), the inline note
+edit (`app.js` ~3988 and ~15256: a bare textarea), the graph's note popup
+and new-note box (`#graph-popup-content`, `#graph-new-content`: bare), the
+Write with the AI panes (`#draft-thoughts`, `#draft-text`: bare, the draft
+in monospace) and the document (`#doc-content`: the engine after Phase 2).
+
+**Decisions (made here, not remade).**
+- One factory, `noteSurface(host, options)`, built on Phase 2's
+  `docSurface()` adapter and the same CodeMirror bundle, replaces every
+  note editor. Options: `size` (`inline` for a card, `box` for capture
+  and popups, `page` for the document), `live` (decorations on or off),
+  `strip` (the formatting strip, opt-in as in Phase 1), `findings`,
+  `attachments`. The textarea stays as the fallback and as the form value
+  carrier (the surface mirrors into it on change), so every existing
+  save path, test and handler keeps working unchanged.
+- The same features in every surface: Live decorations, `[[` note
+  autocomplete, the `/` menu, the selection toolbar (bold, italic, code,
+  link, list, ask the AI), undo history, Ctrl+S, `==highlight==`, task
+  boxes, paste of images and files into the attachments row where the
+  surface has one. What differs is size and chrome, never behaviour.
+- One recipe in `09-editor.css`: `.note-surface` with the three size
+  variants, the tokens' radius, `--control-h` for the strip, the same
+  focus ring; a lint (`tests/test_note_surface.py`) that every note
+  textarea in the page carries `data-note-surface` and is mounted through
+  the factory (grep the ids), and that no new `<textarea>` for note text
+  appears without it.
+- The engine loads on the first focus of any surface, once per page.
+- The chat composer is not a note editor: it gets `[[` and `/` only, and
+  keeps its own recipe (send on Enter).
+
+**8a, capture and the inline note edit** (½ session): `#entry-content` and
+the two script-made edit boxes mount the surface (`size: box` and
+`inline`); the capture's formatting strip becomes the selection toolbar
+with the strip opt-in; attachments, dictate and improve stay. Gate: every
+capture test passes; typing in capture with 2,000 notes loaded keeps
+keydown to paint under 30 ms; errors.js clean.
+
+**8b, the graph's popups and Write with the AI** (¼ session): the node
+popup's editor (GRAPH Phase 6 sizes it four lines minimum) and the
+new-note box mount `size: box`; Write with the AI's two panes mount the
+surface with `live` on for the draft (no monospace). Gate: graph4b.js
+and the write panel's own test.
+
+**8c, the rest** (¼ session): whiteboard note cards edit in a `size:
+inline` surface in place of the canvas text field; reminders' magic box
+stays plain (it is a sentence, not a note); the skill editor's steps box
+gets the `/` menu only. Gate: touch.js and mindmap.js unchanged.
+
 ### Phase 7 — export and interchange (½ session)
 
 PDF (via the print stylesheet), HTML (self-contained), DOCX (server-side

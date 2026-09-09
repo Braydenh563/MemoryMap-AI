@@ -861,8 +861,11 @@ blocks (tables, callouts, footnotes, math, embeds, properties, columns) ·
 Phase 4 connected document (backlinks with context, block refs, outline
 drag, command palette, daily notes and templates) · Phase 5 review and AI
 (comments, version history UI, AI diff preview, focus mode, print) ·
-Phase 6 responsive · Phase 7 as written. Then 62/98: the selection
-toolbar becomes the formatting UI and the strip default is revisited.
+Phase 6 responsive · Phase 7 as written · Phase 8 one editor everywhere
+(capture, inline note edit, the graph's popups, Write with the AI, the
+whiteboard's note cards, all on the Phase 2 surface; the owner's ask,
+2026-09-09). Then 62/98: the selection toolbar becomes the formatting UI
+and the strip default is revisited.
 
 ### C. Graph (GRAPH_PLAN), the owner's second priority
 Phase 6 node panel (INBOX 59, the brief in the plan) · 6b minimap (78) ·

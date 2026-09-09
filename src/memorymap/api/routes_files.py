@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import captioning, vision_ocr
+from memorymap.ai import captioning, docreader, vision_ocr
 from memorymap.api.routes_entries import _existing_entry, _to_out
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps, docview, media_gc, media_process, ocr, pdfpages
@@ -114,7 +114,7 @@ def upload_file(
                 raise HTTPException(status_code=413, detail="File is larger than 50 MB")
             out.write(chunk)
 
-    manager.add_attachment(
+    attachment = manager.add_attachment(
         session,
         entry,
         filename=file.filename or stored_name,
@@ -122,6 +122,19 @@ def upload_file(
         mime=file.content_type or "application/octet-stream",
         size=size,
     )
+    #: **A document says what it is without being asked.** An image gets
+    #: Tesseract and a caption on background threads the moment it lands; an
+    #: attachment got neither, so every row in the Files sub-tab was a
+    #: filename until somebody opened each one by hand, which is the "no bg
+    #: process, nothing" half of the owner's report. `read_in_background`
+    #: extracts the text locally and, where a model is running, writes a
+    #: description of it. Fire and forget, so this response is not held.
+    #:
+    #: `getattr` because `add_attachment` has not always returned the row, and
+    #: a missing return here must not turn an upload that worked into a 500.
+    new_id = getattr(attachment, "id", None)
+    if new_id is not None:
+        docreader.read_in_background(new_id)
     return _to_out(session, entry)
 
 

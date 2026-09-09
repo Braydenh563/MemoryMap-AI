@@ -112,17 +112,20 @@ function syncDocFileType() {
   // disabled rather than hidden (hidden controls that come and go make a
   // toolbar feel unstable), and a document already in one of them is moved
   // back to Source rather than left looking at nothing.
-  for (const button of document.querySelectorAll("#doc-view-seg button, #doc-view-menu button")) {
+  for (const button of document.querySelectorAll("#doc-view-seg [data-doc-view], #doc-view-menu [data-doc-view]")) {
     // The Edit group button is never disabled: setDocView maps it to Source
     // for a file with no rendered form, which is the mode it must reach.
     if (button.dataset.docViewGroup) continue;
-    const rendered = button.dataset.docView !== "source";
+    //: Plain is offered for a code file as readily as Source: "use the
+    //: documents tab as a plain text editor" is exactly the thing you would
+    //: want on a `.csv` or a `.php` the bundle has no mode for.
+    const rendered = !DOC_VIEWS_UNRENDERED.includes(button.dataset.docView);
     button.disabled = rendered && !type.previewable;
     button.title = button.disabled
       ? `A .${type.ext} file has no rendered form, this is for markdown.`
       : button.dataset.docTitle || button.title;
   }
-  if (!type.previewable && docView !== "source") setDocView("source");
+  if (!type.previewable && !DOC_VIEWS_UNRENDERED.includes(docView)) setDocView("source");
   //: The engine's own language and wrapping, where it is mounted.
   docCmSyncFileType();
 
@@ -181,7 +184,15 @@ document.addEventListener("click", (event) => {
 // the split view", i.e. reading the finished page at full width is its own
 // thing, not split-with-one-pane-collapsed.
 const DOC_VIEW_KEY = "doc-view-mode";
-const DOC_VIEWS = ["source", "live", "split", "rendered"];
+//: `plain` is the owner's ask of 2026-09-09: "I want to be able to use the
+//: documents tab as a plain text editor like before as a view option (not the
+//: defaul though)". It is Source with the language compartment empty, so it
+//: has no grammar and therefore no highlighting; see `docCmViewLanguage`.
+const DOC_VIEWS = ["source", "live", "split", "rendered", "plain"];
+//: The two ways of editing that need no rendered form, so the two a `.py`
+//: file may be in. Named once, because three separate places used to spell it
+//: out as `!== "source"` and Plain would have been refused by all three.
+const DOC_VIEWS_UNRENDERED = ["source", "plain"];
 let docView = "source";
 
 // The two modes that put #doc-preview on screen. Kept as one predicate because
@@ -480,9 +491,10 @@ function asSurface(box) {
 
 function setDocView(mode) {
   const type = docFileType();
-  // A code file is always Source. Asked for on any other mode, that is the
-  // honest answer rather than an empty pane.
-  if (!type.previewable && mode !== "source") mode = "source";
+  // A code file has no rendered form, so it can only be one of the two views
+  // that do not need one. Asked for any other, that is the honest answer
+  // rather than an empty pane.
+  if (!type.previewable && !DOC_VIEWS_UNRENDERED.includes(mode)) mode = "source";
   docView = DOC_VIEWS.includes(mode) ? mode : "source";
   try {
     localStorage.setItem(DOC_VIEW_KEY, docView);
@@ -516,7 +528,7 @@ function setDocView(mode) {
   $("doc-panes").classList.toggle("reading", docView === "rendered");
 
   if (docView !== "rendered") lastEditView = docView;
-  for (const button of document.querySelectorAll("#doc-view-seg button, #doc-view-menu button")) {
+  for (const button of document.querySelectorAll("#doc-view-seg [data-doc-view], #doc-view-menu [data-doc-view]")) {
     // Edit is on for every mode that is not Read; the menu items behind
     // it mark the one editing mode in use.
     const on = button.dataset.docViewGroup === "edit" ? docView !== "rendered" : button.dataset.docView === docView;
@@ -537,6 +549,11 @@ function setDocView(mode) {
     }
   }
   docSetLiveDecorations(docView === "live");
+  //: Plain is the language compartment emptied, so entering *or leaving* it
+  //: has to reconfigure that compartment. Routed through the same function the
+  //: file-type change uses, so the two can never disagree about what a view is
+  //: allowed to highlight.
+  docCmSyncLanguage();
   //: The engine caches the geometry it lays out with, and a view inside a
   //: `display: none` wrapper measures as zero. Asked for after the panes have
   //: been shown, for the same reason the gutter's metrics are.
@@ -3527,7 +3544,7 @@ $("doc-word-goal-submit").addEventListener("click", () => {
   renderDocStats();
   $("doc-word-goal-dialog").close();
 });
-for (const button of document.querySelectorAll("#doc-view-seg button, #doc-view-menu button")) {
+for (const button of document.querySelectorAll("#doc-view-seg [data-doc-view], #doc-view-menu [data-doc-view]")) {
   // The unmodified title is stashed before syncDocFileType ever overwrites it
   // with the "no rendered form" explanation, so switching back to a markdown
   // document restores the real one rather than leaving the disabled text.
@@ -3536,6 +3553,21 @@ for (const button of document.querySelectorAll("#doc-view-seg button, #doc-view-
     setDocView(button.dataset.docViewGroup === "edit" ? lastEditView : button.dataset.docView)
   );
 }
+
+//: **A second door onto the line numbers, in the menu that is already about
+//: how the document is shown.** The owner: "if I select a txt document,
+//: and/or other code file document, and these can have line numbers as well."
+//: They could, and the only control that said so lived on the formatting
+//: strip, which PLAN.md D1 collapsed by default for good reasons that had
+//: nothing to do with this. A preference nobody can find is a preference the
+//: app does not have.
+//:
+//: The same `setDocGutter`, so this and the strip's button are two views of
+//: one remembered choice rather than two settings; `applyDocGutter` writes
+//: both their pressed states back.
+$("doc-view-gutter")?.addEventListener("click", () => {
+  setDocGutter(!docGutterWanted(!docFileType().previewable));
+});
 $("doc-file-type").addEventListener("change", async (event) => {
   if (!currentDoc) return;
   currentDoc = { ...currentDoc, file_type: event.target.value };
@@ -3907,6 +3939,18 @@ function applyDocGutter() {
     button.setAttribute("aria-pressed", own ? "true" : "false");
     button.title = own ? "Hide line numbers" : "Show line numbers";
     button.setAttribute("aria-label", button.title);
+  }
+  //: The view menu's own row, which is the same choice seen from the other
+  //: door. Written here rather than in its click handler so that the strip's
+  //: button, a file-type change and a fresh document all keep it honest: a
+  //: `.py` file numbers itself without anyone pressing anything, and the row
+  //: has to show that.
+  const row = $("doc-view-gutter");
+  if (row) {
+    const on = docGutterWanted(!docFileType().previewable);
+    row.setAttribute("aria-pressed", on ? "true" : "false");
+    row.classList.toggle("is-on", on);
+    row.title = on ? "Stop numbering the lines" : "Number the lines in the editor";
   }
   renderDocGutter();
 }
@@ -6494,6 +6538,79 @@ function docCmTheme(CM) {
   );
 }
 
+//: **Code colours from the app's own palette, and the reason this is not
+//: optional.** The owner: "for code files, include code syntax and make it a
+//: proper code editor like vs code."
+//:
+//: Without this the bundle falls back to CodeMirror's `defaultHighlightStyle`,
+//: which is a fixed light-page palette: a keyword is `#770088`, a variable
+//: name is `#0000ff`, a string `#aa1111`. Measured against this app's dark
+//: ground, sampled off a screenshot at `rgb(27, 31, 44)`: the keyword reads
+//: **1.76:1** and the variable name **1.91:1**, against WCAG AA's 4.5. Every
+//: token was byte-identical in light and dark, because that style has no dark
+//: variant to switch to. Nothing logged it, and a reader with the theme on
+//: light would never see it, which is the shape this file keeps recording.
+//:
+//: Built here rather than in a stylesheet for the same reason the theme
+//: itself is: adopted sheets sort after every document stylesheet, so a rule
+//: in 09-editor.css would lose to the library's at equal specificity. The
+//: roles are mapped onto tokens the app already defines for both themes, so
+//: the density slider, a custom accent and a theme change move the code with
+//: the rest of the app.
+//: Built once, and **deliberately not inside the theme compartment.** Every
+//: colour below is a `var(--…)`, so light and dark are already handled by the
+//: cascade; rebuilding it on each mode change would define a fresh
+//: `StyleModule` and adopt another stylesheet every time the theme was
+//: toggled, which is a leak that only shows up after a few switches.
+let docCmHighlightCache = null;
+
+function docCmHighlight(CM) {
+  if (docCmHighlightCache) return docCmHighlightCache;
+  const { HighlightStyle } = CM.language;
+  const t = CM.highlight.tags;
+  //: One colour per role, and the roles are the six a reader actually
+  //: separates at a glance: what the language says (keyword), what the writer
+  //: named (variable, and the function or type it is), literal data, prose the
+  //: compiler ignores (comment), and punctuation. More than that and a file
+  //: reads as confetti, which is the failure mode of a highlighter that maps
+  //: every lezer tag it can find.
+  const keyword = { color: "var(--accent)", fontWeight: "600" };
+  const name = { color: "var(--ink)" };
+  const literal = { color: "var(--ok)" };
+  const string = { color: "var(--warn)" };
+  const comment = { color: "var(--muted)", fontStyle: "italic" };
+  const punctuation = { color: "var(--muted)" };
+  docCmHighlightCache = CM.language.syntaxHighlighting(
+    HighlightStyle.define([
+      { tag: [t.keyword, t.modifier, t.controlKeyword, t.operatorKeyword, t.self, t.null], ...keyword },
+      { tag: [t.atom, t.bool, t.number, t.integer, t.float], ...literal },
+      { tag: [t.string, t.special(t.string), t.regexp, t.character], ...string },
+      { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], ...comment },
+      //: A definition is bolder than a use: in a file you are reading rather
+      //: than writing, "where is this declared" is the question the eye is
+      //: actually asking.
+      { tag: [t.definition(t.variableName), t.definition(t.propertyName)], color: "var(--ink)", fontWeight: "600" },
+      { tag: [t.function(t.variableName), t.function(t.propertyName), t.macroName], color: "var(--accent)" },
+      { tag: [t.typeName, t.className, t.namespace, t.standard(t.typeName)], color: "var(--accent)", fontWeight: "600" },
+      { tag: [t.variableName, t.propertyName, t.attributeName], ...name },
+      { tag: [t.punctuation, t.separator, t.bracket, t.operator], ...punctuation },
+      { tag: [t.meta, t.processingInstruction], color: "var(--muted)" },
+      { tag: t.invalid, color: "var(--error)" },
+      { tag: t.link, color: "var(--accent)", textDecoration: "underline" },
+      //: Markdown's own tags, so Source view on a `.md` file is not the one
+      //: file type in the editor with no highlighting at all. Live view draws
+      //: these itself, from the tree, with its markers hidden; this is what
+      //: Source and Plain fall back to.
+      { tag: t.heading, fontWeight: "700", color: "var(--ink)" },
+      { tag: t.emphasis, fontStyle: "italic" },
+      { tag: t.strong, fontWeight: "700" },
+      { tag: t.strikethrough, textDecoration: "line-through" },
+      { tag: [t.monospace], color: "var(--accent)" },
+    ])
+  );
+  return docCmHighlightCache;
+}
+
 //: The chords the fallback textarea's own `keydown` handler carries, as a
 //: keymap instead. They cannot simply be re-attached to CodeMirror's DOM: it
 //: is a contenteditable with its own key handling and its own IME support, so
@@ -6582,8 +6699,9 @@ function docCmExtensions(CM) {
     CM.view.rectangularSelection(),
     CM.view.crosshairCursor(),
     docCmParts.wrap.of(type.previewable ? CM.view.EditorView.lineWrapping : []),
-    docCmParts.language.of(docCmLanguageFor(CM, type.ext)),
+    docCmParts.language.of(docCmViewLanguage(CM)),
     docCmParts.theme.of(docCmTheme(CM)),
+    docCmHighlight(CM),
     CM.view.placeholder(docPlaceholderText || ""),
     //: This app's chords first, then CodeMirror's own defaults, so a binding
     //: the editor already had wins over the library's.
@@ -6803,16 +6921,47 @@ function docWatchAppearance() {
 //: The file type changed while the document was open: the language and the
 //: wrapping follow it. Reconfigured rather than rebuilt, so the caret, the
 //: scroll position and the undo history survive.
+//:
+//: The view is read here as well as the type, because Plain is defined as
+//: "no language at all" and a file-type change while Plain is on must not
+//: quietly turn the highlighting back on.
 function docCmSyncFileType() {
   const CM = window.CM6;
   if (!docCmView || !CM || !docCmParts.language) return;
   const type = docFileType();
   docCmView.dispatch({
     effects: [
-      docCmParts.language.reconfigure(docCmLanguageFor(CM, type.ext)),
+      docCmParts.language.reconfigure(docCmViewLanguage(CM)),
       docCmParts.wrap.reconfigure(type.previewable ? CM.view.EditorView.lineWrapping : []),
     ],
   });
+}
+
+//: **What Plain means, in one function.** The owner: "I want to be able to
+//: use the documents tab as a plain text editor like before as a view option
+//: (not the defaul though)."
+//:
+//: "Like before" is the textarea: characters, a caret, and nothing colouring
+//: or hiding any of them. Live already answers "render as I write" and Source
+//: answers "show me the markdown", but Source still runs the markdown grammar,
+//: so a heading is bold and a fence is tinted, which is not what "plain" is
+//: asking for. Plain is the same editor with the language compartment empty:
+//: no grammar, so no highlighting, no folding by syntax and no bracket
+//: matching, and every other thing the editor does (undo, find, the findings,
+//: the line numbers, autosave) is untouched. That is the smallest honest
+//: definition, and it is one compartment rather than a fourth surface.
+function docCmViewLanguage(CM) {
+  if (docView === "plain") return [];
+  return docCmLanguageFor(CM, docFileType().ext);
+}
+
+//: The view changed, so what the editor is allowed to highlight may have. One
+//: effect, not a rebuild: the caret, the scroll position and the undo history
+//: all survive a hop into Plain and back.
+function docCmSyncLanguage() {
+  const CM = window.CM6;
+  if (!docCmView || !CM || !docCmParts.language) return;
+  docCmView.dispatch({ effects: docCmParts.language.reconfigure(docCmViewLanguage(CM)) });
 }
 
 //: The line-number preference, applied to the engine. `applyDocGutter` still

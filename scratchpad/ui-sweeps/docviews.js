@@ -1,0 +1,159 @@
+// Three ways to edit, line numbers on request, and a code file that is a code
+// editor. DOCUMENTS_PLAN's INBOX batch of 2026-09-09:
+//
+//   "I want to be able to use the documents tab as a plain text editor like
+//    before as a view option (not the defaul though)"
+//   "if I select a txt document, and/or other code file document, and these
+//    can have line numbers as well"
+//   "for code files, include code syntax and make it a proper code editor
+//    like vs code."
+//
+// The contrast half is the reason this file computes WCAG ratios rather than
+// listing colours: the bundle's own `defaultHighlightStyle` is a fixed
+// light-page palette with no dark variant, so every token was byte-identical
+// in both themes and a keyword read 1.76:1 against the dark ground sampled at
+// rgb(27, 31, 44). Nothing logged that, and it is invisible to anyone whose
+// theme is light. A number is the only thing that catches it coming back.
+//
+//   BASE=http://127.0.0.1:8830 node scratchpad/ui-sweeps/docviews.js
+//   THEME=dark BASE=... node scratchpad/ui-sweeps/docviews.js
+const { boot } = require('./lib.js');
+const { openDoc } = require('./docopen.js');
+
+const PY = 'def greet(name):\n    """Say hello."""\n    total = 1 + 2\n    print(f"hi {name}", total)\n    return None\n';
+const MD = '# Heading\n\nSome **bold** text and a `snippet`.\n\nA second paragraph.\n';
+
+// WCAG 2.x relative luminance, from an `rgb(r, g, b)` string.
+function luminance(colour) {
+  const [r, g, b] = colour.match(/[\d.]+/g).slice(0, 3).map(Number).map((v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+function contrast(a, b) {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((p, q) => q - p);
+  return +((hi + 0.05) / (lo + 0.05)).toFixed(2);
+}
+
+(async () => {
+  const { browser, page } = await boot();
+  const say = (k, v) => console.log(`${k}: ${JSON.stringify(v)}`);
+  let bad = 0;
+  const fail = (m) => { console.log('FAIL: ' + m); bad++; };
+
+  // --- the view menu ------------------------------------------------------
+  await openDoc(page, { title: 'Views', content: MD });
+  await page.waitForTimeout(1000);
+  const options = await page.evaluate(() => [...document.querySelectorAll('#doc-view-menu [data-doc-view]')].map((b) => b.dataset.docView));
+  say('edit_views', options);
+  for (const want of ['live', 'source', 'plain']) {
+    if (!options.includes(want)) fail(`the edit menu has no "${want}"`);
+  }
+  say('default_view', await page.evaluate(() => docView));
+  if (await page.evaluate(() => docView) === 'plain') fail('Plain is the default, and was asked not to be');
+
+  // Plain has no grammar, so no highlighting; Source and Live do.
+  const spans = () => page.evaluate(() => {
+    const c = document.querySelector('#doc-editor .cm-content');
+    const ink = getComputedStyle(c).color;
+    const set = new Set();
+    for (const s of c.querySelectorAll('span')) {
+      const col = getComputedStyle(s).color;
+      if (col !== ink) set.add(col);
+    }
+    return { coloured: set.size, ink };
+  });
+  for (const view of ['source', 'plain']) {
+    await page.evaluate((v) => setDocView(v), view);
+    await page.waitForTimeout(700);
+    const s = await spans();
+    say(`${view}_colours`, s);
+    if (view === 'source' && s.coloured === 0) fail('Source shows no markdown highlighting at all');
+    if (view === 'plain' && s.coloured !== 0) fail(`Plain still colours ${s.coloured} kinds of token`);
+  }
+  // Plain keeps the text and the editor: it is a view, not a different box.
+  say('plain_text_intact', await page.evaluate(() => docSurface().text === undefined ? null : docSurface().text.startsWith('# Heading')));
+  if (!(await page.evaluate(() => docSurface().text.startsWith('# Heading')))) fail('Plain lost the document');
+  say('plain_is_the_engine', await page.evaluate(() => Boolean(document.querySelector('#doc-editor .cm-content'))));
+
+  // --- line numbers, on request, from a control anyone can find -----------
+  await page.evaluate(() => setDocView('live'));
+  await page.waitForTimeout(500);
+  const numbers = () => page.evaluate(() => document.querySelectorAll('#doc-editor .cm-lineNumbers .cm-gutterElement').length);
+  say('md_numbers_default', await numbers());
+  if (await numbers() !== 0) fail('a markdown document numbers its lines before being asked');
+  const row = await page.evaluate(() => Boolean(document.getElementById('doc-view-gutter')));
+  say('view_menu_has_line_numbers', row);
+  if (!row) fail('the view menu has no line-numbers row');
+  await page.evaluate(() => document.getElementById('doc-view-gutter').click());
+  await page.waitForTimeout(800);
+  say('md_numbers_after_ask', await numbers());
+  if (await numbers() < 2) fail('asking for line numbers on a markdown document produced none');
+  say('row_pressed', await page.evaluate(() => document.getElementById('doc-view-gutter').getAttribute('aria-pressed')));
+  await page.evaluate(() => document.getElementById('doc-view-gutter').click());
+  await page.waitForTimeout(700);
+  say('md_numbers_off_again', await numbers());
+  if (await numbers() !== 0) fail('turning the line numbers off left them on');
+
+  // --- a code file --------------------------------------------------------
+  // Back to "follow the file type" first, and this matters. `docGutterWanted`
+  // reads a *remembered* choice ahead of the type, so the two presses above
+  // left an explicit "off" that a `.py` file then honours. That is the right
+  // behaviour (someone who turned numbers off meant it), and it is also why
+  // "a code file numbers itself" can only be asserted from a profile that has
+  // never been asked. Clearing the key is what a fresh profile looks like.
+  await page.evaluate(() => {
+    try { localStorage.removeItem('doc-gutter'); } catch (e) { /* private mode */ }
+  });
+  await openDoc(page, { title: 'Code', content: PY, ext: 'py' });
+  await page.waitForTimeout(1200);
+  say('code_type', await page.evaluate(() => docFileType().ext));
+  say('code_view', await page.evaluate(() => docView));
+  say('code_numbers_by_default', await numbers());
+  if (await numbers() < 5) fail('a code file did not number its own lines');
+  say('code_wrap_off', await page.evaluate(() => getComputedStyle(document.querySelector('#doc-editor .cm-content')).whiteSpace));
+  say('code_findings_suppressed', await page.evaluate(() => docProseFound.length));
+  say('plain_offered_for_code', await page.evaluate(() => {
+    const b = document.querySelector('#doc-view-menu [data-doc-view="plain"]');
+    return b ? !b.disabled : 'absent';
+  }));
+  if (await page.evaluate(() => document.querySelector('#doc-view-menu [data-doc-view="plain"]').disabled)) {
+    fail('Plain is refused for a code file, and it is exactly what a code file wants');
+  }
+
+  // The colours, as ratios against the page's own ground.
+  const ground = await page.evaluate(() => {
+    const p = document.createElement('div');
+    p.style.background = 'var(--page)';
+    document.body.appendChild(p);
+    let c = getComputedStyle(p).backgroundColor;
+    p.remove();
+    // `--page` is a gradient in this app, so it resolves to nothing as a
+    // background-color. The mode decides the ground, and both are measured.
+    if (!c || c === 'rgba(0, 0, 0, 0)') {
+      c = document.documentElement.dataset.mode === 'dark' ? 'rgb(27, 31, 44)' : 'rgb(247, 248, 252)';
+    }
+    return c;
+  });
+  say('ground', ground);
+  const tokens = await page.evaluate(() => {
+    const c = document.querySelector('#doc-editor .cm-content');
+    const out = new Map();
+    for (const s of c.querySelectorAll('span')) {
+      const col = getComputedStyle(s).color;
+      if (!out.has(col)) out.set(col, s.textContent.slice(0, 12));
+    }
+    return [...out.entries()];
+  });
+  if (tokens.length < 3) fail(`a Python file drew only ${tokens.length} kinds of token: this is not syntax highlighting`);
+  for (const [colour, sample] of tokens) {
+    const ratio = contrast(colour, ground);
+    say(ratio < 4.5 ? 'LOW_CONTRAST' : 'token', { sample, colour, ratio });
+    if (ratio < 4.5) fail(`"${sample}" reads at ${ratio}:1 against the page, under WCAG AA's 4.5`);
+  }
+
+  console.log(bad ? `docviews: ${bad} failures` : 'docviews: all checks pass');
+  await browser.close();
+  process.exit(bad ? 1 : 0);
+})();

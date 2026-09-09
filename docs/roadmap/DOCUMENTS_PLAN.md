@@ -498,10 +498,33 @@ engine landed in Phase 2, so none of these is a regression from it.
   before as a view option (not the default though)", "and also if I select
   a txt document, and/or other code file document, and these can have line
   numbers as well", "for code files, include code syntax and make it a
-  proper code editor like vs code." One view menu: Live (default), Source,
-  Plain. A `.txt`/`.md` gets line numbers on request; a code file gets a
-  language mode and line numbers by default. CodeMirror carries both, so
-  this is configuration of the surface Phase 2 built, not a new editor.
+  proper code editor like vs code." **Done, 2026-09-09.** The edit menu is
+  Live (default), Source, Split, Plain, with Line numbers as a row under
+  them; `scratchpad/ui-sweeps/docviews.js` is the standing check and passes
+  in both themes. Two of the three were already configuration, one was not:
+  - Plain is new. It is the language compartment emptied
+    (`docCmViewLanguage`), so no grammar and therefore no highlighting,
+    folding by syntax or bracket matching, and everything else untouched.
+    Measured: Source colours 2 kinds of token on a markdown file, Plain 0,
+    and the document and the engine are the same ones.
+  - Line numbers already worked and were unreachable: the only control was
+    on the formatting strip, which D1 collapses by default. A second door
+    (`#doc-view-gutter`) is in the view menu, on the same remembered
+    preference. Measured: a markdown document 0 numbers, 7 after one press,
+    0 again; a `.py` file 7 without being asked, from a fresh profile.
+  - Code syntax existed and **was unreadable in dark**. The bundle fell back
+    to CodeMirror's `defaultHighlightStyle`, a fixed light-page palette with
+    no dark variant: every token byte-identical in both themes, a keyword at
+    **1.76:1** and a variable name at **1.91:1** against the dark ground
+    sampled at `rgb(27, 31, 44)`. `docCmHighlight` maps six roles onto the
+    app's own tokens. Now: light 4.56 to 14.62, dark 6.47 to 13.52, all
+    above WCAG AA's 4.5.
+  Not fixed, and worth knowing: `csv`, `ini`, `php`, `r` and `swift` are
+  offered as file types and have no mode in the vendored bundle, so they are
+  plain text with numbers. `php` and `swift` would need
+  `@codemirror/legacy-modes` entries added to `entry.js` and a rebuild
+  (build.sh, node and npm); `r` has no mode in the CodeMirror packages at
+  all. Everything else the type list offers does have one.
 - "i still cant click on a grammar or misspeled underlined word and see a
   popup like in a realworld editor like obsidian, word, notion, vs code."
   ~~Phase 0 built the underline; the click target and its popover never

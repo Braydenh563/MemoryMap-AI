@@ -55,13 +55,21 @@ async function openDoc(page, opts = {}) {
     .catch(() => {});
   await page.waitForTimeout(600);
   if (opts.ext) {
-    await page.evaluate((ext) => {
-      const sel = document.getElementById('doc-filetype');
-      if (!sel) return;
+    // `doc-file-type`, with both hyphens: the select moved into the ⋯ menu in
+    // Phase 1 and kept its id. Written as `doc-filetype` once here, which set
+    // nothing, said nothing, and cost a probe that reported a Python file with
+    // no syntax highlighting at all. It throws now rather than carrying on
+    // measuring a markdown document that was asked to be code.
+    const problem = await page.evaluate((ext) => {
+      const sel = document.getElementById('doc-file-type');
+      if (!sel) return 'no #doc-file-type in the page';
       sel.value = ext;
+      if (sel.value !== ext) return `#doc-file-type has no option "${ext}"`;
       sel.dispatchEvent(new Event('change', { bubbles: true }));
+      return null;
     }, opts.ext);
-    await page.waitForTimeout(600);
+    if (problem) throw new Error(`openDoc: ${problem}`);
+    await page.waitForTimeout(900);
   }
   return id;
 }

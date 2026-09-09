@@ -365,6 +365,89 @@ header#top-bar,
   white-space: nowrap;
 }
 
+/* --- the quick-nav chord's guide -----------------------------------------
+
+   The owner, with a screenshot: "when I press 'm' for the quick nav, the
+   popup notification is broken visually. also I want it to be more of a whole
+   screen subtle but noticable guide like with the zoom visual thingo."
+
+   It was a `.toast`: a corner notification sized for one sentence, holding
+   ten key-and-label pairs in a row that wrapped mid-pair, which is why "m"
+   and "then" ended up on separate lines beside the chips. And a notification
+   is the wrong kind of thing for it: a toast says something happened, while
+   this is the app waiting for your next keystroke, which is a mode.
+
+   So it takes the HUD's idiom (`.hud`, 07-whiteboard-misc.css: centred,
+   accent-edged, momentary, never interactive) at the size this content needs,
+   over a scrim that dims the page just enough to say the next key means
+   something. `pointer-events: none` throughout: a guide that eats the click
+   you were about to make is worse than no guide at all. */
+.chord-guide {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+  /* Subtle, the word the report used: enough to lift the guide off whatever
+     is behind it, not enough to read as a modal that has taken over. */
+  background: color-mix(in srgb, var(--scrim) 55%, transparent);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  pointer-events: none;
+}
+
+.chord-guide-lead {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--ink);
+  font-size: var(--text-h3);
+  font-weight: 700;
+}
+
+.chord-guide-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.chord-guide-title {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.chord-guide-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+  max-width: min(52rem, 90vw);
+}
+
+/* One pair per chip, so a key and its destination can never be split across
+   a line break: the exact fault in the screenshot. */
+.chord-guide-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-pill);
+  background: var(--modal-bg-opaque);
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: var(--shadow-lg), 0 0 0 6px color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 /* The heatmap's gap was costing more than its cells (the owner: "the heatmap
    on the dashboard is a little small"). Measured in a 306px column: 53 weekly
    columns at a 3px gap spend 156px on gaps and leave 2.8px per cell. At 1px

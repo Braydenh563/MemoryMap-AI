@@ -414,6 +414,43 @@ Backlinks tab and counts in the sidebar (item 5), the sheet behaviour at
 1100px (Phase 6). Not verified: dark theme (the rules are token-driven),
 a real keyboard walk of the chevron menu.
 
+## Built, Phase 2 step 1 (the engine, vendored and verified under the CSP), 2026-09-09
+
+- **The bundle.** `frontend/vendor/codemirror/codemirror.min.js`, one IIFE
+  exposing `CM6` with namespaces `state`, `view`, `commands`, `search`,
+  `language`, `autocomplete`, `lint`, `markdown`, `javascript`, `python`,
+  `css`, `html`, `json`, `yaml`, `highlight` (lezer tags) and the legacy
+  stream modes `shell`, `sql`, `toml`, `go`, `rust`, `c`, `cpp`, `csharp`,
+  `java`, `kotlin`, `ruby`, `xml`, `diff`, `dockerFile`. 772 KB, 269 KB
+  gzipped; no `import()`, no `eval`. Versions pinned in `package.json`
+  beside it; `build.sh` rebuilds it (npm plus esbuild, run by hand, the app
+  has no build step); `LICENSE` lists every package. Not loaded at boot:
+  the editor script-injects it the first time a document opens (INBOX 48's
+  shape; `?v=` is not applied to vendor files, the version is in the pin).
+- **The CSP check, first as the plan asked.** CodeMirror styles itself
+  through style-mod, which for a Document injects a `<style>` tag, and
+  `style-src 'self'` refuses that with no error at the constructor: an
+  editor with no styling at all, the "policy silently refusing the work"
+  shape. The decision: no nonce, no `'unsafe-inline'`. `build.sh` patches
+  one line of style-mod so a Document takes the constructed-stylesheet
+  branch (`document.adoptedStyleSheets`), which CSP does not treat as
+  inline content and which is how Settings custom CSS already works. The
+  build fails if the line moves; `tests/test_vendor_licences.py` fails if
+  a rebuild loses the patch.
+- **Measured in Chromium under the app's real policy** (8784, a script
+  injected into the live page): zero `securitypolicyviolation` events,
+  zero `<style>` tags added, two adopted sheets, `.cm-editor` styled
+  (flex, relative), gutter visible, markdown highlight classes on the
+  heading, typing and `Ctrl+Z` through the default keymap working.
+- **Licences.** `tests/test_vendor_licences.py`: every directory under
+  `frontend/vendor/` has a `LICENSE`, every top-level bundle a
+  `<name>.LICENSE.txt` (d3 ISC and p5 LGPL-2.1 notices added; Phosphor's
+  MIT file added).
+
+Steps 2 to 4 (the `docSurface()` adapter, Live as decorations, findings,
+undo, search, folding and gutters on the engine) are the next Opus brief;
+the API surface above is what it builds against.
+
 ## Built — Phase 0
 
 Everything in §5 Phase 0 is built and measured in Chromium at 1440x900

@@ -785,7 +785,7 @@ body.scroll-top-visible #tab-notes .layout > main {
   padding-top: var(--space-3);
   margin-top: var(--space-3);
   /* Declared here, not on `.chat-composer` below, so the *other* row of the
-     dock can read it too — see `#chat-skills-btn`'s width, which is bound to
+     dock can read it too: see `#chat-skills-btn`'s width, which is bound to
      this and to the composer's own icon-button gap rather than to a number
      copied from a screenshot. A custom property set on `.chat-composer`
      itself would not reach `.chat-dock-controls`, its next sibling, since
@@ -1018,7 +1018,7 @@ body.scroll-top-visible #tab-notes .layout > main {
   max-width: 18rem;
   /* "Make the skills button the width of the two buttons above it so it
      looks neat and symmetrical." Those two are the note picker and the
-     attach button in `.chat-composer`, directly above this one in the dock —
+     attach button in `.chat-composer`, directly above this one in the dock,
      each `--composer-h` square with `--space-2` between them. Bound to those
      same two custom properties rather than to a measured pixel figure, so a
      change to either (density, the touch-target minimum) keeps the two rows
@@ -1148,7 +1148,7 @@ body.scroll-top-visible #tab-notes .layout > main {
    `--composer-h` is the row's control height, the same idea as `--control-h`
    in the strip above, and 2.75rem is deliberately at the 44px touch-target
    minimum: this is the one row of the app used on a phone. Declared on
-   `.chat-dock` itself now, not here — see that rule's own comment — so the
+   `.chat-dock` itself now, not here (see that rule's own comment), so the
    controls row below can size against it too.
 
    `align-items: end` rather than `center` because the box is `autogrow`, when

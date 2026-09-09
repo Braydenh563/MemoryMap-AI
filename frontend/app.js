@@ -28188,8 +28188,25 @@ function toastCloseButton(note, timer) {
   return button;
 }
 
+//: The last toast's text and when it landed, so a click that somehow fires
+//: two handlers for one gesture (CM6's own event dispatch does not always
+//: agree with a plain DOM `stopPropagation` about which handler runs) shows
+//: one notice, not two stacked identical ones. Reported on a wiki-link
+//: click: `[[Act I, Scene I]]` toasted the same "not found" message twice.
+//: A real repeat within the window is rare enough (nobody clicks a broken
+//: link twice inside 400ms on purpose) that this costs nothing anyone would
+//: notice, and it is the whole message plus severity that must match, not
+//: just the timing, so two different toasts arriving close together both
+//: still show.
+let lastToastKey = "";
+let lastToastAt = 0;
 function toast(message, isError = false, { exempt = false } = {}) {
   if (!exempt && !isError && notificationsMuted()) return;
+  const key = `${isError ? "1" : "0"}:${message}`;
+  const now = Date.now();
+  if (key === lastToastKey && now - lastToastAt < 400) return;
+  lastToastKey = key;
+  lastToastAt = now;
   const box = $("toast-box");
   const note = document.createElement("div");
   note.className = isError ? "toast error" : "toast";

@@ -1330,10 +1330,23 @@ body.resizing-sidebar {
   overflow: visible;
 }
 
-/* The compact alternative: one row that scrolls sideways. */
+/* The compact alternative: one row that scrolls sideways.
+
+   **`overflow-y` stated explicitly.** The base rule above sets `overflow:
+   visible` (both axes); this only overrode `overflow-x`, so `overflow-y`
+   stayed `visible`, and the spec forces a mixed `visible`/other pair to
+   compute `visible` as `auto` on *both* axes -- the same rule the comment
+   above this one names, reintroduced by the one axis this rule forgot to
+   set. Reported again, 2026-09-09: "fix the formatting bar in the
+   documents tab, it is crushed vertically and has a vertical scrollbar",
+   from whoever still has `row` saved in `doc-toolbar-mode` (the default
+   changed to `wrap` after that history, but a stored preference from
+   before it changed still reads "row"). `hidden`, not `visible`: the row
+   never wraps, so there is never a second line to lose. */
 .doc-toolbar[data-toolbar-mode="row"] {
   flex-wrap: nowrap;
   overflow-x: auto;
+  overflow-y: hidden;
   /* A scrolling strip needs its own scrollbar to be unobtrusive: this is
      chrome, not content. */
   scrollbar-width: thin;

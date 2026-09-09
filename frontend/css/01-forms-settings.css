@@ -2647,6 +2647,18 @@ mark.global-find-hit.global-find-current {
      - moved together, not independently, or that relationship breaks. */
   z-index: 1010;
   padding: 1.5rem;
+  /* Explicit redundant restatement: a fixed box with top:0/bottom:0
+     and no declared height should fill the viewport with no other
+     rule touching it, and no ancestor transform/filter/zoom in the
+     chain to break that, yet `#doc-ai-panel` measured 759.53px tall
+     inside a 900px window, symmetric gaps top and bottom ("the ai
+     assistant popup blurred background... doesnt reach the full
+     height of the scree"). Height and margin stated explicitly
+     rather than left to the inset shorthand, since whatever is
+     narrowing it is not visible to computed-style or CSSOM
+     inspection from this sandbox. */
+  height: 100dvh;
+  margin: 0;
 }
 
 .modal-card {

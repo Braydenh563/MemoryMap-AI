@@ -1505,15 +1505,29 @@ function layerDocWikiLinks(container) {
       }
       const name = match[1].trim();
       const target = docs.find((d) => d.title.toLowerCase() === name.toLowerCase());
+      //: A `[[wiki link]]` can name a note as easily as a document: the two
+      //: share one bracket syntax and the owner's own report was a note
+      //: title ("Act I, Scene I") that a document-only lookup could never
+      //: resolve. Tried second, only when no document matches, so a
+      //: document and a note that happen to share a title still open the
+      //: document (the surface the link was typed in).
+      const notedTarget = !target
+        ? allEntries.find((e) => (e.title || "").trim().toLowerCase() === name.toLowerCase())
+        : null;
       const link = document.createElement("button");
       link.type = "button";
       link.className = "wiki-link";
       link.textContent = name;
-      link.title = target ? `Open "${target.title}"` : `No document called "${name}" yet.`;
+      link.title = target
+        ? `Open "${target.title}"`
+        : notedTarget
+          ? `Open the note "${notedTarget.title}"`
+          : `Nothing called "${name}" yet.`;
       link.addEventListener("click", (event) => {
         event.stopPropagation();
         if (target) openDocument(target.id);
-        else toast(`No document called "${name}" yet.`, true);
+        else if (notedTarget) flashEntry(notedTarget.id);
+        else toast(`Nothing called "${name}" yet.`, true);
       });
       frag.appendChild(link);
       cursor = pattern.lastIndex;
@@ -2286,6 +2300,7 @@ function docLivePlugin(CM) {
           const wiki = target.closest("[data-doc-wiki]");
           if (wiki) {
             event.preventDefault();
+            event.stopPropagation();
             //: Through the same resolution the preview's own chips use, so a
             //: name that resolves in one view resolves in the other.
             docOpenWikiTarget(wiki.dataset.docWiki);
@@ -2311,8 +2326,18 @@ function docLivePlugin(CM) {
 function docOpenWikiTarget(name) {
   const wanted = String(name || "").trim().toLowerCase();
   const target = docs.find((doc) => (doc.title || "").toLowerCase() === wanted);
-  if (target) openDocument(target.id);
-  else toast(`No document called "${name}" yet.`, true);
+  if (target) {
+    openDocument(target.id);
+    return;
+  }
+  //: Same fallback as `layerDocWikiLinks`' own resolver, and it has to be:
+  //: a name typed once in Live and read once in the rendered preview
+  //: cannot resolve one way in one view and the other way in the other.
+  const notedTarget = allEntries.find(
+    (e) => (e.title || "").trim().toLowerCase() === wanted
+  );
+  if (notedTarget) flashEntry(notedTarget.id);
+  else toast(`Nothing called "${name}" yet.`, true);
 }
 
 //: Ctrl+click on a link chip. Same-origin paths open in the app; anything else

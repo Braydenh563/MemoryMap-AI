@@ -2389,6 +2389,21 @@ dialog::backdrop {
 .space-dialog {
   min-width: min(26rem, calc(100vw - var(--space-8)));
   background: var(--modal-bg);
+  /* **Every `<dialog class="card space-dialog">` in the app was landing at
+     the left edge of the window, not centred.** The base `.card` rule
+     (00-tokens-shell.css) sets `margin-bottom: var(--space-6)` for normal
+     in-flow spacing between stacked cards, which is the right thing for a
+     card in a page. A native `<dialog>` shown with `showModal()` centres
+     itself with the UA default `margin: auto`, but a *longhand*
+     `margin-bottom` from a more specific rule overrides only that one
+     edge and leaves the shorthand's `auto` gone from every edge once the
+     cascade resolves them together, not just the one this rule touched:
+     measured on `#doc-ai-history-dialog`, `margin` computed `0px 0px
+     16px`, left flush to the window (`rect.left: 0`) instead of centred.
+     Restoring `margin: auto` here, after `.card`'s rule in source order,
+     re-centres every dialog built on this class without touching the
+     shared `.card` rule every other card still needs. */
+  margin: auto;
 }
 
 .space-dialog label {

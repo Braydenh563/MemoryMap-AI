@@ -552,13 +552,13 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     content editor, tags, Save, then a 3x3 grid of nine equal action
     buttons (Favourite, Grow, Focus, Similar, Link, Trace, Remind, Open,
     Bin). Placed as GRAPH_PLAN Phase 6. Owner: Opus, now.
-57. **Whiteboard View menu cut short** (screenshot, 00:47; reported as
+57. **Not reproduced at head (Fable, 01:05): with a board open in a 900px window the View menu is 596px tall, uncapped, no clipping ancestor; the cap is innerHeight minus its top. Retest after updating; if it recurs, send the window height. Whiteboard View menu cut short** (screenshot, 00:47; reported as
     "the view menu in the library"): the top-bar View menu opens about 240px
     tall with a scrollbar, "Snap to grid" clipped at the bottom, with the
     whole canvas free below it. Owner: Fable, now. Measure the menu's
     max-height rule (`.wb-topbar` menus, batch A's "menus in viewport"
     clamp) against the space actually available.
-58. **Copying a chat message copies only its last section.** The owner:
+58. **Fixed 2026-09-09 (Fable): "Copy message" on an assistant turn copies the open thinking steps, the plan, each tool call with its arguments and result, and the answer as Markdown, in order (verified on a synthetic turn). The Markdown export still writes question and answer per turn; the run detail is in the copy. Copying a chat message copies only its last section.** The owner:
     "when I copy text from a chat or assistant message bubble, it only
     shows the last agent section of the message, I want it to capture
     everything in the whole chat and assistant messages, including
@@ -566,18 +566,18 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     chat." Owner: Fable, now: the message copy action serialises the whole
     turn (thinking when shown, each tool call as a line, the answer), and
     a "Copy chat" action does the same for every turn.
-53. **Capture box crushed** (screenshot, 00:44): the main "Type anything"
+53. **Fixed 2026-09-09 (Fable): an empty autogrow box is its natural height floored at min-height; measured 44px with a 66px placeholder before. Capture box crushed** (screenshot, 00:44): the main "Type anything"
     textarea on Notes is about two lines tall with its own scrollbar, the
     placeholder's second line clipped, under the "Formatting" strip.
     Owner: Fable, now. Measure `#note-input` (or the capture textarea's id)
     height, min-height and the autogrow pin at 1440 and 1024.
-54. **Selection kebab menu invisible** (screenshot): highlight text, the
+54. **Not reproduced at head (Fable, 01:05): a saved chat's kebab opens a 200x195 menu with five 36px rows, escaped to the body; the screenshot most likely came from the build running before the launcher fix (the update relaunch had failed). Retest after updating; if it recurs, note the window size. Selection kebab menu invisible** (screenshot): highlight text, the
     selection toolbar's "..." opens a flat dark bar with a scrollbar and no
     items. INBOX 33's "completely crushed" shape, still present after batch
     A. Owner: Fable, now. Reproduce by selecting text in the capture box
     and clicking the toolbar's ellipsis; measure the menu's height and its
     items' display.
-55. **Max gravity still spread out** (graph screenshot): at the gravity
+55. **Fixed 2026-09-09 (Fable): the centre pull now follows the slider, 1x at 50 and 3.25x at 100; measured on three seven-note islands, RMS radius 288 at 50, 136 at 100, 560 at 0. Max gravity still spread out** (graph screenshot): at the gravity
     slider's top the components sit far apart with empty space between.
     Owner: Fable, now: raise the gravity force ceiling in graph-worker.js
     tuning (and a component-packing pull at the top of the range).

@@ -131,7 +131,16 @@ are only just begun or half done." True; this table is the state.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
-**Now (2026-09-09 00:50 UTC):** after the reset Fable took the owner's
+**Now (2026-09-09 01:05 UTC):** two Opus agents in flight: DOCUMENTS Phase 2
+steps 2 to 4 (worktree agent-a02238762ae6136e9) and GRAPH Phase 6 node
+panel + Library image cards + whiteboard bottom bar (agent-a39e62953a9e53b63).
+Merge, gate, push each as it reports. Fable this hour: INBOX 49 to 58 (glass
+scope with the art frosted, Performance mode, launcher %0 after SHIFT,
+splash marquee, gravity pull, empty capture box, whole-turn copy; 54 and 57
+not reproduced at head). Open for the next slot: INBOX 60 (dashboard start
+section), 45 (Ask redesign), the graph local pane, UI Phase 9, SKILLS D.
+
+**Previous (2026-09-09 00:50 UTC):** after the reset Fable took the owner's
 direct asks itself: DOCUMENTS Phase 1 (a6dc021, the chrome: five controls
 at one height, the menu rows unfilled, the strip opt-in), GRAPH Phase 3
 (f58ad7c, colour rules and groups), GRAPH Phase 4 (lasso, selection dock,

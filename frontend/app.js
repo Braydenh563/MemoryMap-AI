@@ -10972,9 +10972,61 @@ function chatMessageActions(actions) {
 //:
 //: The order is Odysseus's footer order, with this app's own capture actions
 //: after it: what you do to the *answer* first, what you do with it second.
+//: **Copy copies the whole turn, not the last paragraph of it.** The owner:
+//: "when I copy text from a chat or assistant message bubble, it only shows
+//: the last agent section of the message, I want it to capture everything
+//: in the whole chat and assistant messages, including thinking processes
+//: (if toggled), tool calls, and everything in the chat." The bubble is
+//: walked in document order: a thinking step is included only while it is
+//: open (the toggle is the person's say on whether it is part of the
+//: message), a plan step as its text, each tool chip as one "Tool:" line
+//: with its arguments and result when they are shown, and every answer body
+//: as its text. `text` is the raw Markdown of the final answer, used in
+//: place of the last body's rendered text so headings and links survive.
+function chatTurnTranscript(bubble, text) {
+  const parts = [];
+  const seen = new Set();
+  const nodes = bubble
+    ? [...bubble.querySelectorAll(".agent-step, .tool-chip, .msg-body")]
+    : [];
+  const bodies = nodes.filter((n) => n.classList.contains("msg-body"));
+  for (const node of nodes) {
+    if ([...seen].some((s) => s.contains(node))) continue;
+    seen.add(node);
+    if (node.classList.contains("step-thinking")) {
+      if (!node.open) continue;
+      const body = node.querySelector(".thinking")?.innerText.trim();
+      if (body) parts.push(`Thinking:\n${body}`);
+    } else if (node.classList.contains("step-plan")) {
+      const body = node.innerText.replace(/^\s*Plan\s*/i, "").trim();
+      if (body) parts.push(`Plan:\n${body}`);
+    } else if (node.classList.contains("tool-chip")) {
+      const label = node.querySelector("summary")?.innerText.trim() || node.innerText.trim();
+      const args = node.querySelector(".tool-chip-args")?.textContent.trim();
+      const result = node.querySelector(".tool-chip-result")?.textContent.trim();
+      let line = `Tool: ${label}`;
+      if (args) line += `\n${args}`;
+      if (result) line += `\nResult: ${result}`;
+      parts.push(line);
+    } else if (node.classList.contains("msg-body")) {
+      const last = node === bodies[bodies.length - 1];
+      const body = last && text ? text : node.innerText.trim();
+      if (body) parts.push(body);
+    } else {
+      const body = node.innerText.trim();
+      if (body) parts.push(body);
+    }
+  }
+  return parts.length ? parts.join("\n\n") : text || "";
+}
+
 function assistantMessageActions({ bubble, text, question, onEdit }) {
   return chatMessageActions([
-    { label: "ph:copy", title: "Copy answer", onClick: (e) => copyToClipboard(text, e.currentTarget) },
+    {
+      label: "ph:copy",
+      title: "Copy message",
+      onClick: (e) => copyToClipboard(chatTurnTranscript(bubble, text), e.currentTarget),
+    },
     {
       label: "ph:arrow-clockwise",
       title: "Regenerate from here",

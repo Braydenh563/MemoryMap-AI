@@ -545,6 +545,197 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     formatting", and Phase 2 makes the floating selection toolbar the
     formatting UI. Nothing to fix; if the owner wants the strip on by
     default, flip the default in one line (documents.js `docToolbarMode`).
+64. **Whiteboard properties panel, "needs a massive redesign and fix"**
+    (three screenshots, 01:30): Copy style row, Guide colours (three swatch
+    rows), then Group / Ungroup overlapping each other, an arrow button, the
+    three align icons, two Space buttons and Extract notes "just chucked at
+    the bottom". Owner: WHITEBOARD Phase 1 (properties panel), Opus.
+    Decision: sections with a heading each (Style, Guides, Arrange, Notes);
+    Arrange as one icon toolbar row on the dock recipe (align x3, distribute
+    x2, group/ungroup as a pair) with tooltips, never label buttons that
+    overlap; Extract notes as the section's one text button; measure that
+    no two controls' rects intersect and the panel scrolls inside.
+65. **Whiteboard panels "feel unrefined": the buttons look separate from
+    the panels** (bottom tool bar, zoom pill, properties). Same fix as
+    INBOX 52: one surface per panel, hairline dividers, no per-control
+    background except the active tool. Owner: WHITEBOARD Phase 1.
+66. **Lightbox opened only after leaving graph fullscreen** ("I clicked to
+    view a document while in the graph fullscreen"). Owner: GRAPH Phase 6
+    (Fable/Opus): the lightbox mounts at body level and the fullscreen
+    element is `#graph-card`, so a body-level dialog is invisible while the
+    Fullscreen API is active. Fix: mount the lightbox (and every dialog the
+    node panel can open) inside the fullscreen element while fullscreen is
+    on, or exit fullscreen first and re-enter on close. Size S.
+67. **Max gravity: "the nodes are all still so spread out"** (screenshot at
+    max, 01:30). The screenshot predates the pull fix in e1... (commit
+    "graph: the centre pull follows the gravity slider", pushed 01:00) if
+    the owner's build was older; retest after updating. If still spread:
+    raise the top of the range further (pull 3.25x to 5x at 100) and add a
+    component-packing pass (place each disconnected component's centre on a
+    tight ring at max gravity). Owner: Fable, on the next report.
+68. **Boards & maps preview "looks so bad, especially in the dashboard"**
+    (screenshot: a flat grey square with four rounded blobs and a squiggle,
+    a scrollbar beside it). Owner: MINDMAP §11.1's preview renderer, Opus:
+    draw the board's real shapes at its aspect, cap the widget's height,
+    never a scrollbar inside a preview, an empty board shows a dotted
+    paper with "Empty board", the dashboard widget uses the same renderer
+    at thumbnail size.
+69. **Agent activity panel: the dropdowns don't expand** (screenshot: a
+    "Starting SearXNG" row with a caret that does nothing). Owner: Fable,
+    now: the row is a `details`-like custom toggle; check its handler is
+    wired after the panel re-renders (delegated listener, not per-row).
+70. **Notifications: the "AI activity" combobox doesn't open, and the
+    feature doesn't work** (screenshot). Owner: Fable, now: the select is
+    replaced by enhanceSelect; the panel is a popover that closes on any
+    outside click, which the enhanced menu counts as. Fix: the popover's
+    outside-click guard ignores clicks inside `.select-menu`.
+71. **Web search panel, function extraction UI, agent tools: "redesign
+    them and make them better, more utility and abilities"**. Owner:
+    CHAT_PLAN (next session, Opus): web search results as a source list
+    with favicon, domain, title and a one-line snippet, "Open" and "Save as
+    note" per result, persistent in the turn; the extraction UI (Extract
+    notes) as a review list with checkboxes and per-item edit before
+    saving; the Tools settings as a grouped table (read, write, destructive)
+    with a search box, per-tool on/off and a "why" popover.
+72. **Popup agent panel "still hasn't had its modern redesign"**. Owner:
+    CHAT_PLAN (next session, Opus), with INBOX 45's Ask redesign.
+73. **"Mute notifications except reminders" toggle disables itself when
+    the settings close.** Owner: Fable, now: the preference is written on
+    change but the panel re-renders from `prefsCache` before the save
+    round-trip lands; write to the cache first, then save.
+74. **Preferences page: "Save preferences" and "Delete my profile data" in
+    separate panels; Ctrl+S saves progress such as settings.** Owner: Fable,
+    now: the profile group gets its own settings-group with Delete as a
+    ghost destructive button and a confirm; a `keydown` for Ctrl/Cmd+S on
+    the Settings dialog clicks the section's Save.
+75. **Selection kebab menu needs two clicks to open** (chat message
+    selection "..." button). Owner: Fable, now: the first click moves
+    focus off the selection, the selectionchange handler hides the button
+    and the menu with it; the menu must open on `mousedown` with
+    `preventDefault` so the selection survives.
+76. **Inline citations must be accurate to the specific notes referenced
+    where they are referenced.** Owner: WORLD_CLASS §14 grounding (Fable):
+    the distinctive-terms rule already places numbers per sentence; add
+    the evaluation: a fixture of 20 answers with hand-marked sentence to
+    note pairs, precision and recall reported by `tests/test_grounding.py`,
+    and the popover (INBOX 80) shows the matched terms so a wrong number
+    is visible.
+77. **Token window badge: not centred, text wrong; the window itself
+    should be manageable by the user and auto when set** (screenshots:
+    "6% of window" pill off-centre in the chat header, and the header wraps
+    at width). Owner: CHAT_PLAN header (Fable, now for the badge; the
+    window setting next session): a `num_ctx` preference per model in
+    Settings > Models with Auto (the model file's value) or a number, sent
+    on every request; the badge shows "used / window".
+78. **Graph minimap UX and utility**: Owner: GRAPH Phase 6b (Opus): a
+    viewport rectangle you can drag, click-to-jump, a size toggle, hide
+    when the whole graph fits, cluster colours, the same in fullscreen.
+79. **Files sub-tab rows "could still use a massive redesign upgrade", and
+    clicking the file name does nothing**. Owner: Library dossier
+    (WORLD_CLASS 4), Opus: one row recipe (thumbnail, name as the one
+    link that opens the reader, meta line, reading state as a small
+    disclosure, actions in a kebab), the name clickable.
+80. **Citation hover/click preview**: hovering or clicking a numbered
+    reference shows a popover with a preview of the thing (note, document,
+    mind map, file, website) and a button to go to it; clicking the
+    preview panel itself goes there. Owner: CHAT_PLAN (Opus, next
+    session): one `referencePopover(kind, id)` for every kind, reusing the
+    Library's previews.
+81. **Web search results in the Sources dropdown: links rendered as
+    Markdown links and number-referenced** (the model's table showed raw
+    `<https://...>`). Owner: Fable, now: the answer renderer's link rule
+    accepts autolinks in angle brackets; the sources list numbers web
+    results after the notes so `[5]` resolves to a site.
+82. **Settings misalignment**: "Search inside images (Tesseract OCR)" and
+    "BGE Small (English)" rows show the status chip and the two buttons
+    on a second line, right-aligned, under the heading (two screenshots).
+    Owner: Fable, now: the row's header is a flex row that wraps; give the
+    title `flex: 1 1 12rem` and the actions `flex: 0 0 auto` on one line,
+    wrapping under 560px only.
+83. **Tools settings: the big paragraphs ("How many are offered at once",
+    "Small model mode") become '?' popovers** (screenshot). Owner: Fable,
+    now: one line each, the rest behind `data-help-for`.
+84. **Whiteboard rectangle selection draws behind objects.** Owner:
+    WHITEBOARD Phase 1 (Fable, now): the marquee is drawn on the objects'
+    layer; move it to the overlay canvas above them.
+85. **Quick navigation: change the "g" prefix to "m", with visual
+    assistance** (a hint strip after the first key listing the targets).
+    Owner: Fable, now (app.js ~33950): key "m", a small "m then: n Notes,
+    c Chat, g Graph..." toast for 2 s after the prefix.
+86. **Zoom popup does not show while a dialog (Settings) is open.** Owner:
+    Fable: the zoom indicator's z-index sits under the modal; raise it
+    above dialogs or show it inside the open dialog.
+87. **Settings: reopening goes back to Models but the scroll does not
+    reset.** Owner: Fable, now: `showSettingsSection` scrolls the body to
+    0 when the section changes.
+88. **Fullscreen graph has no glass opacity** (screenshot: the graph card
+    in fullscreen is a flat panel). Owner: GRAPH Phase 6 (Fable): the
+    fullscreen element paints `--page` under it, so the card's 55% shows
+    nothing; give `:fullscreen .graph-card` the page background art or a
+    solid `--modal-bg` on purpose and say so.
+89. **Glass settings: sheen strength, opacity and blur "don't do
+    anything"**. Owner: Fable, now: measure each with getComputedStyle
+    against the top bar and a dialog; the card blur is now off unless the
+    animated background is on (INBOX 49), so the slider must also drive
+    the top bar, the docks and the dialogs (it does through
+    `--glass-blur`); opacity drives `--card` alpha (check the palette
+    override order); sheen is a gradient over `.card` only when
+    `data-glass-sheen=on`.
+90. **User chat bubbles "still very ugly"** (screenshot: a lavender block
+    with "YOU" and an avatar circle top-right). Owner: CHAT_PLAN (Opus):
+    a quieter bubble (accent-soft fill, no avatar, the label as a small
+    muted "You" above, radius from tokens, max-width 70%).
+91. **Chat header wraps and misaligns at width** (screenshot: title, model,
+    exchanges, window pill, tokens, then the three icons on a second
+    line). Owner: Fable, now: title `flex: 1 1 auto` with ellipsis, the
+    meta as one `flex: 0 0 auto` group that hides tokens then exchanges
+    under 900px, the icons never wrap.
+92. **Suggested links panel UI refine** (screenshot: rows of quoted
+    pairs, a wide "Why?" input, a percent chip, Link and X). Owner: Opus,
+    next slot: two note chips joined by an arrow, the score as a small
+    bar, the reason field collapsed behind "Add a reason", Link primary
+    per row, a "Link all above 70%" action in the head.
+93. **Mind map: Coggle-level controls** (six screenshots and a long
+    list). Owner: MINDMAP_PLAN Phase 6 (next session, Opus, 2 sessions).
+    Placed as MINDMAP_PLAN §12 with the full list: map-specific toolbar
+    (not the whiteboard's), + handles on edges to add a branch, a root
+    can always be recreated when the map is empty, node edit strip (text
+    size drag handle, bold/italic/alignment, link, image, icon), node
+    context radial (shape x6, label on the link or above it, auto
+    arrange, comment, add branch, drag to transplant, copy branch, remove
+    item; Alt turns adds into removes), link context (reverse, label,
+    style, delete), link colour wheel on click, draggable control points
+    on a curve, uncollapse (a count badge that reopens), sever and move a
+    whole branch by its parent, background shapes to section areas, export
+    PDF/PNG/.mm/outline and import by drop.
+94. **Background animations: fix, refine and improve.** Owner: UI Phase 3
+    follow-up (Opus): each style gets a measured frame cost, a still frame
+    under Performance mode, no seams at the edges, the intensity slider
+    changes something visible at every step.
+95. **Streaming icon: the three-dot line beside the cycling text does not
+    move while text streams** (the jumping dots work while waiting).
+    Owner: Fable, now: the streaming state class is set on the wrapper
+    but the icon's keyframes are keyed to the waiting class; one class
+    for both, or a second animation for `is-streaming`.
+96. **Graph: reimagine the pinned position after a drag.** The owner:
+    "my original annoyance was that I'd try to drag a node or cluster
+    around and it would just snap back ... but I move a node a little and
+    then I have to unpin it and there's got to be a better way." Owner:
+    GRAPH Phase 6 (Fable): a drag does not pin; it sets the node's
+    position and lets the simulation settle from there at low alpha (so
+    it holds where it was put but still relaxes with its neighbours); an
+    explicit pin is Shift+drag or the menu; a dragged cluster (lasso
+    selection) moves together the same way; a small "pinned" ring only
+    on real pins.
+97. **OCR alternative to pytesseract**, asked directly. Answer: RapidOCR
+    (PaddleOCR models on onnxruntime, pip-installable, no system binary,
+    better on photos and mixed layouts, about 60 MB of models, Apache-2)
+    is the one to offer; EasyOCR needs torch (never). Placed as a
+    Settings > Packages option beside Tesseract, same reading pipeline,
+    the reader named on the row. Owner: next session, Sonnet (backend
+    adapter with a fake in tests) plus the Packages row.
+98. **The documents formatting toolbar**: see 62; the owner asked again.
+    Default stays opt-in until Phase 2's selection toolbar lands.
 63. **Redesign the Ask sub-tab, Write with the AI and Capture** (three
     screenshots, 01:12; the owner: "modernise them and bring them up to
     standard with features, function and ui ux"). Owner: Opus, next slot,

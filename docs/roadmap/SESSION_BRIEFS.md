@@ -835,3 +835,68 @@ offline machine can block.
 
 **Size** L, one session, Opus. **Commits** per step with the trailers.
 **Report** five lines plus `agent-remaining/launcher.md`.
+
+## Brief 18 (the next session, Fable orchestrating): the complete open scope
+
+Written 2026-09-09 04:40 UTC at the owner's ask: "fully outline everything so
+nothing is missed". Every open item in every plan, in the order to work it.
+INBOX numbers are the owner's own reports; each has an owner and a decision
+there. Two agents at a time, merged and gated per batch, pushed as they go.
+
+### A. Bugs and fixes first (INBOX, Fable or Sonnet, one day)
+66 lightbox in graph fullscreen · 67 max gravity retest · 69 agent panel
+dropdowns · 70 notifications combobox · 73 mute toggle resets · 74 profile
+panels and Ctrl+S · 75 kebab needs two clicks · 77 token badge · 81 web
+links as Markdown and numbered · 82 settings row wrap (Tesseract, BGE) ·
+83 Tools paragraphs to popovers · 84 marquee behind objects · 85 "m"
+prefix with a hint · 86 zoom popup under dialogs · 87 settings scroll
+reset · 88 fullscreen graph glass · 89 glass sliders measured · 91 chat
+header wrap · 95 streaming icon · 96 drag without pin · 54 and 57 if they
+recur after the update.
+
+### B. Documents (DOCUMENTS_PLAN), the owner's first priority
+Phase 2 steps 2 to 4 (the engine: adapter, Live as decorations, findings,
+undo, search, folding; tests-first file is in, strict-xfail) · Phase 3
+blocks (tables, callouts, footnotes, math, embeds, properties, columns) ·
+Phase 4 connected document (backlinks with context, block refs, outline
+drag, command palette, daily notes and templates) · Phase 5 review and AI
+(comments, version history UI, AI diff preview, focus mode, print) ·
+Phase 6 responsive · Phase 7 as written. Then 62/98: the selection
+toolbar becomes the formatting UI and the strip default is revisited.
+
+### C. Graph (GRAPH_PLAN), the owner's second priority
+Phase 6 node panel (INBOX 59, the brief in the plan) · 6b minimap (78) ·
+the local pane (Phase 4's last item) · 66, 88, 96 above · 76 citation
+accuracy evaluation feeds the graph's trace too.
+
+### D. Chat (CHAT_PLAN), folded with the owner's reports
+45 Ask redesign · 63 Ask, Write with the AI and Capture · 71 web search
+panel, extraction UI, agent tools · 72 popup agent panel · 80 citation
+preview popover · 90 user bubbles · 77 token window setting (Auto or a
+number per model) · 76 citation accuracy · CHAT_PLAN's own phases after.
+
+### E. Whiteboard (WHITEBOARD_PLAN Phase 1) and mind maps (MINDMAP §12)
+52, 64, 65 (the bottom bar, the properties panel, the panels' recipe) ·
+57 View menu if it recurs · 84 marquee layer · 68 previews · 93 the
+Coggle-level map controls (two sessions, its own brief in MINDMAP_PLAN).
+
+### F. Library, dashboard, settings
+56 image cards · 79 Files rows and the name link · 60 dashboard start
+section · 92 suggested links panel · 74 preferences panels · 97 RapidOCR
+as a Packages option · 94 background animations.
+
+### G. The plans' own remainders
+UI_MODERNISATION Phase 9 (responsive by device) · AGENT_SKILLS Phase D
+(resume a stalled step, edit and re-run a step, "why did this stall") ·
+WORLD_CLASS 1.1 lints for the consistency contract, §9 llama.cpp dev
+script, §12 flaw classes S7 (LIKE escaping) · PLAN.md and REDESIGN.md are
+superseded by the eleven plans (ROADMAP's opening table); FABLE_BRIEF is
+absorbed into MODERNISATION_AUDIT. INBOX 48 lazy modules. TIMELINE_PLAN
+in full.
+
+### The gates that do not move
+Lint set green after each step; the full suite once per merge; errors.js
+at four widths; contrast.js; docks.js; touch.js; weight.js under 10%
+blurred at rest with the art off; every number in the plan's Built block;
+no em-dashes, no exclamation marks, sentence case; commit trailers;
+push per batch.

@@ -122,6 +122,44 @@ function contrast(a, b) {
     fail('Plain is refused for a code file, and it is exactly what a code file wants');
   }
 
+  // Plain on a code file, and back. This is the round trip that would break
+  // silently: Plain empties the language compartment, so leaving it has to put
+  // the grammar back, and the line numbers and the text must survive both hops.
+  const codeState = () => page.evaluate(() => {
+    const c = document.querySelector('#doc-editor .cm-content');
+    const ink = getComputedStyle(c).color;
+    const set = new Set();
+    for (const s of c.querySelectorAll('span')) { const col = getComputedStyle(s).color; if (col !== ink) set.add(col); }
+    return {
+      view: docView,
+      coloured: set.size,
+      numbers: document.querySelectorAll('#doc-editor .cm-lineNumbers .cm-gutterElement').length,
+      textKept: docSurface().text.startsWith('def greet'),
+    };
+  });
+  const asSource = await codeState();
+  await page.evaluate(() => setDocView('plain'));
+  await page.waitForTimeout(700);
+  const asPlain = await codeState();
+  await page.evaluate(() => setDocView('source'));
+  await page.waitForTimeout(700);
+  const andBack = await codeState();
+  say('code_round_trip', { asSource, asPlain, andBack });
+  if (!asSource.coloured) fail('a Python file in Source colours nothing');
+  if (asPlain.coloured) fail(`Plain on a code file still colours ${asPlain.coloured} kinds of token`);
+  if (andBack.coloured !== asSource.coloured) fail(`coming back from Plain left ${andBack.coloured} colours, not ${asSource.coloured}`);
+  for (const [name, st] of [['Source', asSource], ['Plain', asPlain], ['Source again', andBack]]) {
+    if (!st.textKept) fail(`${name} lost the file's text`);
+    if (st.numbers < 3) fail(`${name} lost the line numbers (${st.numbers})`);
+  }
+  // Live stays refused for a code file, which is the rule Plain had to be
+  // carved out of rather than folded into.
+  await page.evaluate(() => setDocView('live'));
+  await page.waitForTimeout(500);
+  const afterLive = await page.evaluate(() => docView);
+  say('live_on_a_code_file_lands_on', afterLive);
+  if (afterLive !== 'source') fail(`asking for Live on a .py file left the view at "${afterLive}"`);
+
   // The colours, as ratios against the page's own ground.
   const ground = await page.evaluate(() => {
     const p = document.createElement('div');

@@ -1,9 +1,23 @@
 # Wrap and alignment sweep: what is left
 
-Agent: worktree `agent-a6db54045f3f6f144`, base commit `28a8911` (PR #142
-merge) on `claude/epic-ramanujan-8xocc0`. Seven reports assigned; five fixed
-and measured, one found already fixed upstream, one blocked by worktree
-staleness and documented below rather than guessed at.
+Agent: worktree `agent-a6db54045f3f6f144` on `claude/epic-ramanujan-8xocc0`.
+Seven reports assigned, plus INBOX 77 (the token window badge) added
+mid-task by the coordinator. All seven reports done: six fixed and
+measured directly, one found already fixed upstream by a concurrent
+session. INBOX 77's badge half fixed and measured; its other half (a
+per-model context-size preference) is explicitly next session's, not this
+one.
+
+**Mid-task correction, worth restating for whoever reads this next:** this
+worktree was cut from a base one merge behind
+`origin/claude/epic-ramanujan-8xocc0`'s tip, which is why `scripts/gate.sh`
+and several lints (`test_no_em_dashes.py` among them) were missing for the
+first four commits below, and why report 6's feature was not there at all.
+`git merge origin/claude/epic-ramanujan-8xocc0` (clean, no conflicts) fixed
+both. Six em-dashes in the first four commits' comments were rewritten by
+the coordinator directly on the branch; every commit from `a63b75f` onward
+was gated with `scripts/gate.sh --changed` (lints, node-check, ruff) before
+committing, which now includes `test_no_em_dashes.py`.
 
 ## Done, with numbers
 
@@ -57,6 +71,35 @@ staleness and documented below rather than guessed at.
    Note for whoever reads this next: the brief named `frontend/settings.js`;
    the actual code is `renderExtras`/`renderEmbedModels` in `frontend/app.js`.
 
+6. **Boards and maps dock** (`frontend/css/08-consistency.css`, after the
+   merge brought the real markup in). This dock's `.dock-actions` has four
+   full-text buttons before its icon utilities (New board, New mind map,
+   Map from notes, Import outline), 730-850px depending on width, and no
+   `.dock-more` menu to fold any into, unlike every other `.dock` this
+   recipe serves. The generic `.dock-actions { margin-left: auto }` pins it
+   to the row's right edge only while it fits beside identity/find/arrange;
+   once `.dock-find`'s own growth leaves too little room, `.dock-actions`
+   wraps onto its own line and the auto margin still fires there, landing
+   its left edge wherever that line's leftover width happens to put it.
+   Measured at 1700px: actions started at x=918 on a 1659px-wide dock,
+   under the middle of the search box above it. Fixed by dropping the auto
+   margin for this one dock (`[data-dock-name="library-boards"]
+   .dock-actions { margin-left: 0 }`, higher specificity than the generic
+   rule so every other dock is unaffected). Re-measured: 1440-2000px
+   (fits, no wrap) pixel-identical to before; at 1300px (wraps) the second
+   row now starts at x=51.2, exactly matching `.dock-identity`'s own
+   x=51.2, so it lands under the title and search box instead of under
+   empty space. Commit `a63b75f`.
+
+   The coordinator's specificity hint (`.card > .row.space-between {
+   flex-wrap: wrap }` outranking a declared `nowrap` elsewhere) was
+   checked and does not apply here: this dock is `<div class="dock"
+   data-dock-name="library-boards">` directly inside `<section
+   class="card glass">`, never `.row.space-between`, and its wrap is the
+   base `.dock { flex-wrap: wrap }` rule working as designed, not a
+   `nowrap` being silently defeated. The bug was in where the wrapped
+   group landed, not whether it wrapped.
+
 7. **Links Save/Cancel** (`frontend/library.js`, `bookmarkRow`'s in-place
    edit form). Cancel was built as `class="ghost small icon-only"` with the
    text "Cancel" as its content, one function using its own hand-rolled
@@ -71,118 +114,78 @@ staleness and documented below rather than guessed at.
    link-creation dialog in graph.js) for the same mistake and found none:
    this bookmark row was the only instance. Commit `b41a7c0`.
 
-All five: `node --check` on every edited file, plus
-`tests/test_frontend_ids.py`, `test_frontend_handlers.py`,
-`test_style_scale.py`, `test_asset_cache_busting.py` (33 tests, all green
-after each step) and `ruff check .` clean. `scripts/gate.sh` does not exist
-in this worktree (see "Not verified" below), so these four were run by hand
-in its place: the closest available substitute for the lint set the brief
-asked for.
+**INBOX 77** (added mid-task): the token window badge (`renderChatContextMeter`
+in app.js, `.chat-context-pill` in `frontend/css/07-whiteboard-misc.css`).
+Two fixes:
+- *Wording*: the pill now reads `${compactTokens(used)} / ${compactTokens(window)}`
+  (e.g. "1.2k / 20k") instead of a raw percentage, matching the entry's own
+  "the badge shows 'used / window'".
+- *Centring*: measured at 700/550/420px (the same band the entry's "header
+  wraps at width" half names) that the pill was stretched from 20px to
+  44px tall by "every control in a dock takes the touch floor below
+  819.98px", a rule meant for real controls that this metadata badge
+  (a `<button>` only so it can also open Compress, same shape as
+  `#chat-turns`) was never meant to be caught by. Its own `align-items:
+  center` still centred its text correctly inside the stretched box, which
+  is why this read as the badge looking wrong rather than as a height
+  change. Excluded `.dock .chat-context-pill` from the touch floor
+  (`min-height: auto`) in the same media-query block, alongside the
+  existing `.graph-help-toggle` exception it already carries a comment
+  for. Re-measured: 20px tall at 1440/1024/700/550/420px alike, vertically
+  centred against `.chat-subline`'s own height at each width. Commit
+  `3b9ed99`.
+
+  Not done, per the coordinator, explicitly next session's: the num_ctx
+  preference (Settings -> Models, Auto or a number, sent on every request)
+  that is the other half of this INBOX entry. I did not touch
+  `docs/roadmap/INBOX.md` or move this item to a plan's "Placed from
+  INBOX" section: only half of it is done, `scratchpad/inbox_resolve.py`
+  moves an item whole, and updating the shared planning docs on a merge
+  read as the orchestrator's step in the standing recipe (section 2, rule
+  10) rather than a per-worktree one, done once per merge rather than
+  once per contributing agent.
 
 ## Found already fixed, not by me
 
 5. **Quick-nav hint wrap** ("m" and "then" wrapping onto two lines beside
-   the key chips, `showTabJumpHint` in `frontend/app.js`). This function
-   does not exist anywhere in this worktree's checkout, confirmed with
-   `grep -n showTabJumpHint` returning nothing in `frontend/app.js`. It
-   does exist on `origin/claude/epic-ramanujan-8xocc0` (read-only, via
-   `git show`, never merged into this worktree), where a concurrent session
-   has already replaced the small popup with the full-screen "chord guide"
-   the owner separately asked for (commit `409f044`, "The quick-nav chord
-   is a full-screen guide, and it has three more keys"). Its
-   `frontend/css/10-responsive.css` carries a comment that names this exact
-   bug as the reason for the rebuild: *"...ten key-and-label pairs in a row
-   that wrapped mid-pair, which is why 'm' and 'then' ended up on separate
-   lines beside the chips"* and *".chord-guide-row: one pair per chip, so a
-   key and its destination can never be split across a line break: the
-   exact fault in the screenshot."* I made no changes here: the code this
-   report names is gone, its replacement already carries a fix for the same
-   defect, and touching it further would be the redesign the brief
-   explicitly told me to leave alone.
-
-## Not fixed: blocked, not guessed at
-
-6. **Boards and maps dock** (`frontend/library.js`, the "Boards & maps"
-   Library sub-tab). This worktree's `index.html` has an old, simple
-   version of this panel: a bare `.row.space-between` with six controls
-   (search, sort, the grid/list toggle, one "New board" button, refresh,
-   help): it has no "New mind map", "Map from notes…" or "Import
-   outline…" buttons at all, so the exact six-control wrap the report
-   describes cannot be reproduced against this checkout; there is nothing
-   here that matches what was reported.
-
-   Read-only, `origin/claude/epic-ramanujan-8xocc0` already has a much more
-   built-out version: a `.dock[data-dock-name="library-boards"]` with the
-   four-zone recipe (`dock-identity` / `dock-find` / `dock-arrange` /
-   `dock-actions`) from "UI_MODERNISATION_PLAN.md Phase 8", including the
-   three new buttons the report names, and a `foldDockArrange` mechanism
-   (app.js) that moves the arrange zone into a menu at some width. I did
-   not attempt a fix against this: this session's local server serves this
-   worktree's own (stale) files, so I cannot open the real panel, drive it
-   in Chromium, or measure it: every fix in this report was earned by
-   `getBoundingClientRect`/`getComputedStyle` against something actually
-   rendering, and guessing at markup I have only read as a diff would break
-   that rule for no good reason.
-
-   What I did check, because it was cheap and specifically named: the
-   coordinator's mid-task note said `.card > .row.space-between {
-   flex-wrap: wrap }` (specificity 0,3,0) has been silently outranking a
-   declared `nowrap` elsewhere, and named this dock as one of the affected
-   surfaces. In the upstream markup the boards-and-maps dock is
-   `<div class="dock" data-dock-name="library-boards">` directly inside
-   `<section class="card glass">`, it is not itself `.row.space-between`,
-   so that specific selector does not match `.dock-actions` by class. That
-   does not clear the dock of the bug, only of *that one* selector; the
-   same specificity trap could still exist under a different selector
-   somewhere in the dock's own cascade, and I have no way to confirm either
-   way without a browser pointed at the real code.
-
-   Next step for whoever picks this up: from a worktree that actually has
-   this branch's current `frontend/index.html` and CSS, boot the app, open
-   Library → Boards & maps, set the viewport to ~2000px, and read
-   `getComputedStyle(document.querySelector('[data-dock-name="library-boards"] .dock-actions')).flexWrap`
-   plus the `top` of each of its six children. If wrap is `wrap` where a
-   `nowrap` rule was clearly intended, look for what is outranking it the
-   same way the graph node panel's fix did (name `.card` or `.dock` in the
-   winning selector). If the six actions wrap as one group with a shared
-   top, matching the "close the gap sensibly" instruction from report 3
-   should generalise: check whether `.dock-actions` needs the same
-   spacer-vs-margin-auto treatment used there, rather than the
-   `foldDockArrange` menu firing later than the owner expects at exactly
-   2000px.
+   the key chips, `showTabJumpHint` in `frontend/app.js`). At the time this
+   was checked, this function did not exist anywhere in this worktree's
+   (then unmerged) checkout. Read-only, on `origin/claude/epic-ramanujan-8xocc0`,
+   a concurrent session had already replaced the small popup with the
+   full-screen "chord guide" the owner separately asked for (commit
+   `409f044`, "The quick-nav chord is a full-screen guide, and it has
+   three more keys"). Its `frontend/css/10-responsive.css` carries a
+   comment naming this exact bug as the reason for the rebuild: *"...ten
+   key-and-label pairs in a row that wrapped mid-pair, which is why 'm'
+   and 'then' ended up on separate lines beside the chips"* and
+   *".chord-guide-row: one pair per chip, so a key and its destination can
+   never be split across a line break: the exact fault in the
+   screenshot."* Confirmed present after the merge
+   (`frontend/app.js`'s `showTabJumpHint`/`chordGuideEl`/`chordGuideGroup`,
+   `frontend/css/10-responsive.css`'s `.chord-guide*` rules). Made no
+   changes here: the code this report names is gone, its replacement
+   already carries a fix for the same defect, and touching it further
+   would be the redesign the brief explicitly told me to leave alone.
 
 ## Not verified
 
 - Real-browser text metrics: everything above was measured against
   Chromium (headless, via Playwright, `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`)
-  at 1024/1280/1366/1440/1920px and the app's own `--zoom` appearance
-  setting at 95%. Font rendering in a different browser or OS could shift
-  an exact wrap breakpoint by a few pixels; none of the fixes above depend
-  on an exact breakpoint holding, only on removing the fragmentation
+  at 420-2200px and the app's own `--zoom` appearance setting at 95%. Font
+  rendering in a different browser or OS could shift an exact wrap
+  breakpoint by a few pixels; none of the fixes above depend on an exact
+  breakpoint holding, only on removing the fragmentation/mislanding
   failure mode, so this should not matter, but it was not itself checked
   against a non-Chromium engine.
-- `scripts/gate.sh` referenced throughout the brief and by the coordinator
-  does not exist in this worktree (`find . -iname gate.sh` returns
-  nothing), nor do several lints the top-level `CLAUDE.md` names as
-  existing (`test_css_braces.py`, `test_dock_grammar.py`,
-  `test_no_em_dashes.py`, `test_ui_recipes.py`, `test_docs_layout.py`,
-  `test_no_innerhtml_interpolation.py`, `test_markdown_link_schemes.py`):
-  this worktree's base commit predates them. Ran the four lints that do
-  exist locally instead (`test_frontend_ids.py`, `test_frontend_handlers.py`,
-  `test_style_scale.py`, `test_asset_cache_busting.py`, all green) plus
-  `ruff check .` and `node --check` on every edited file, and manually
-  balanced braces (`{`/`}` counts equal) on every CSS file touched, as the
-  closest available stand-in. Did not run the full pytest suite, per
-  standing orders.
-- Did not push. Five commits on this branch, in order: `8fb0ae2`
-  (report 1), `af55ba6` (report 2), `4bdec8b` (report 3), `34357f0`
-  (report 4), `b41a7c0` (report 7).
-- General note on this worktree's drift: its base (`28a8911`) is one merge
-  behind `origin/claude/epic-ramanujan-8xocc0`'s tip
-  (`83c6c9d` at the time of this session), which already carries several
-  more merged agent branches, three new CSS files
-  (`08-consistency.css`, `09-editor.css`, `10-responsive.css`), the
-  chord-guide redesign, and the boards-and-maps dock rebuild. Reports 5 and
-  6 are both downstream of that gap; reports 1-4 and 7 were not, and their
-  fixes were made and measured against this worktree's own files as
-  instructed.
+- Did not run the full pytest suite (standing order 5a: routine local gate
+  is `scripts/gate.sh --changed`, the full suite is for a session's end or
+  a backend move). Ran `scripts/gate.sh --changed` before every commit
+  from the merge onward, plus a handful of specific test files by name
+  (`test_dock_grammar.py`, `test_ui_recipes.py`, `test_css_braces.py`,
+  `test_ui_signatures.py`) after the boards-and-maps fix since it touches
+  dock CSS directly.
+- Did not push. Nine commits on this branch, in order: `8fb0ae2` (report
+  1), `af55ba6` (report 2), `4bdec8b` (report 3), `34357f0` (report 4),
+  `b41a7c0` (report 7), `7e54cab` (this file, first version), `1643181`
+  (merge of `origin/claude/epic-ramanujan-8xocc0`), `a63b75f` (report 6),
+  `3b9ed99` (INBOX 77's badge half).

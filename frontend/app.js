@@ -12723,7 +12723,11 @@ function renderChatContextMeter(stats) {
   }
   const pct = Math.min(100, Math.round((used / window) * 100));
   pill.hidden = false;
-  pill.textContent = `${pct}% of window`;
+  // INBOX 77: "text wrong ... the badge shows 'used / window'". A raw
+  // percentage answered "how full", which the colour already says at a
+  // glance; the two counts answer the question a percentage cannot, how
+  // much room is actually left to work with.
+  pill.textContent = `${compactTokens(used)} / ${compactTokens(window)}`;
   pill.classList.toggle("is-warn", pct >= 70 && pct < 85);
   pill.classList.toggle("is-danger", pct >= 85);
   const approx = stats.usage_source === "estimated" ? "about " : "";

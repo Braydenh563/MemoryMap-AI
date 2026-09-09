@@ -18594,7 +18594,7 @@ async function loadConversationList() {
   list.replaceChildren();
   const empty = $("conv-empty");
   empty.classList.toggle("hidden", conversations.length > 0);
-  empty.textContent = "No saved chats yet, ask something!";
+  empty.textContent = "No saved chats yet. Ask something to start one.";
 
   let sawUnpinned = false;
   for (const conversation of conversations) {

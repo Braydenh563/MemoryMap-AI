@@ -1901,7 +1901,7 @@ them are close to being built:
 
 - **MCP tool support** — "an in-built browser with MCP tool abilities to
   accompany the web search". The Model Context Protocol would let MemoryMap
-  either expose its own tools (§7 of `ARCHITECTURE.md`'s 28-tool registry) to
+  either expose its own tools (§7 of `ARCHITECTURE.md`'s 58-tool registry) to
   other MCP clients, or consume external MCP servers as more tools for its
   own agent. Either direction is a real integration, not a checkbox — it
   would need its own trust model, since an external MCP server is exactly

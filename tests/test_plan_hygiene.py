@@ -19,7 +19,7 @@ def test_no_plan_carries_a_built_block() -> None:
     offenders = []
     for plan in PLANS:
         for line in plan.read_text(encoding="utf-8").splitlines():
-            if re.match(r"^#{2,3} Built\b", line):
+            if re.match(r"^#{2,3} (\d+\. )?Built\b", line):
                 body = plan.read_text(encoding="utf-8")
                 after = body.split(line, 1)[1][:300]
                 if "Moved to HISTORY.md" not in after:

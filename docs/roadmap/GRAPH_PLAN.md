@@ -222,3 +222,35 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
   pair, a free-text Why box, a percentage, a Link button and an X, in a
   panel with its own scrollbar).
 - Phase 6 already holds the node panel work; these are its remaining rows.
+
+## Decision changed, 2026-09-09: a drag places, Shift pins
+
+The plan and the code both carried "a drag is an intentional placement and
+it stays placed", added after the report that arranging the map was
+impossible because a released note was handed back to the simulation and
+pulled wherever the forces wanted.
+
+The owner has now asked for the other end of it (INBOX 96): "my original
+annoyance was that I'd try to drag a node or cluster around and it would
+just snap back ... but I move a node a little and then I have to unpin it
+and there's got to be a better way."
+
+Both complaints are satisfied by one rule, and the reason they are not in
+conflict is that releasing is not the same as snapping back. At the end of a
+drag the simulation's alpha is already decaying (`alphaTarget(0)`, which the
+worker has always done), so a released node settles *from where it was
+dropped*, with its neighbours, rather than being yanked to a fresh solution.
+Placement without permanence is what the view wanted; a pin, for the notes
+that must not move at all, is Shift and drag, or the node menu.
+
+So, on both renderers: a plain drag places and releases, Shift and drag
+pins, a node already pinned stays pinned at its new place, a zero-distance
+drag is still a click, and only a real pin is written to
+`graph_pin_x`/`graph_pin_y`. The dashed held ring follows `fx`, so it now
+appears only on real pins, which is the last line of the owner's own
+description of what they wanted.
+
+Still open from that entry: a dragged cluster (a lasso selection) moving
+together the same way. The canvas renderer drags one node at a time
+(`gcDragNode` is a single reference), so multi-drag is a piece of work in
+its own right and is not part of this change.

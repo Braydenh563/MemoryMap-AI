@@ -881,6 +881,16 @@ function gcWireInteraction() {
         node._dragStartX = node.x;
         node._dragStartY = node.y;
         node._wasPinned = node.fx != null;
+        //: **Shift is what pins.** INBOX 96, the owner: "my original annoyance
+        //: was that I'd try to drag a node or cluster around and it would just
+        //: snap back ... but I move a node a little and then I have to unpin
+        //: it and there's got to be a better way." Both halves of that are one
+        //: rule: a plain drag places a node and lets the map settle around it,
+        //: an explicit pin holds it against the simulation for good. Read at
+        //: `start` rather than at `end` because the modifier is part of the
+        //: gesture the reader began, and a Shift pressed or released mid-drag
+        //: would otherwise change what the gesture meant halfway through.
+        node._dragShift = Boolean(event.sourceEvent && event.sourceEvent.shiftKey);
         const [wx, wy] = (gcTransform || d3.zoomIdentity).invert([event.x, event.y]);
         node.fx = wx;
         node.fy = wy;
@@ -927,11 +937,18 @@ function gcWireInteraction() {
         gcDropTarget = null;
         const movedFar =
           Math.abs(node.x - node._dragStartX) > 2 || Math.abs(node.y - node._dragStartY) > 2;
-        // A drag is an intentional placement and it stays placed; a
-        // zero-distance drag is a click and must not pin anything. Both rules
-        // are carried straight over from the SVG renderer, where each was a
-        // reported bug in its own right.
-        const keep = movedFar || node._wasPinned;
+        //: A plain drag places the node and releases it: the worker's own
+        //: `keep: false` path clears `fx`/`fy` and lets `alphaTarget(0)`
+        //: decay, so the node settles from where it was dropped with its
+        //: neighbours rather than snapping back to where it came from. That
+        //: decay is the "better way" the report asks for, and it was already
+        //: written; what was wrong is that a moved node never reached it,
+        //: because any drag over 2px counted as a pin.
+        //:
+        //: A zero-distance drag is still a click and pins nothing, and a node
+        //: that was already pinned stays pinned at its new place: dragging a
+        //: pinned node is a reposition, not a request to release it.
+        const keep = node._dragShift || node._wasPinned;
         gcPost({ type: "drag", phase: "end", id: node.id, keep });
         gcPost({ type: "thaw" });
         if (!keep) {
@@ -942,7 +959,11 @@ function gcWireInteraction() {
           linkByDrop(node, over);
         } else if (!movedFar) {
           gcClickNode(event.sourceEvent, node);
-        } else if (!node.isGroup) {
+        } else if (!node.isGroup && keep) {
+          //: Only a real pin is written down. A placement that the simulation
+          //: is free to relax has no position worth surviving a reload, and
+          //: saving one was what made every small nudge into a pin the reader
+          //: then had to find and undo.
           node.graph_pin_x = node.fx;
           node.graph_pin_y = node.fy;
           apiJson(`/graph/pin/${node.id}`, {

@@ -2077,6 +2077,10 @@ async function renderGraphSvg() {
           // Remembered here and restored at "end" below, the same care
           // `graphDragPinned` already gives every *other* node.
           d.wasPinnedBeforeThisDrag = d.fx != null;
+          //: Shift is the pin (INBOX 96). Read at the start of the gesture,
+          //: not at its end, so a modifier pressed or released mid-drag
+          //: cannot change what the gesture meant halfway through.
+          d.dragShift = Boolean(event.sourceEvent && event.sourceEvent.shiftKey);
           // Where this gesture began, so "end" can tell a placement from a
           // bare click: see its own comment.
           d.dragStartX = d.x;
@@ -2172,7 +2176,24 @@ async function renderGraphSvg() {
           // would freeze the map by accident.
           const movedFar =
             Math.abs(d.x - d.dragStartX) > 2 || Math.abs(d.y - d.dragStartY) > 2;
-          if (!movedFar && !d.wasPinnedBeforeThisDrag) {
+          //: **A plain drag places a note; Shift pins it.** This block used
+          //: to pin on any drag over 2px, and the long comment above records
+          //: why: before it, a released note was handed straight back to the
+          //: simulation and pulled off to wherever the forces wanted, so
+          //: arranging the map was impossible.
+          //:
+          //: The owner has now asked for the other end of that (INBOX 96):
+          //: "I move a node a little and then I have to unpin it and there's
+          //: got to be a better way." Both complaints are satisfied by the
+          //: same rule, and the reason is that releasing is not the same as
+          //: snapping back: the simulation's alpha is already decaying at
+          //: this point, so a released node settles *from where it was
+          //: dropped*, with its neighbours, instead of being yanked to a
+          //: fresh solution. Placement without permanence is what the map
+          //: wanted all along; a pin, for the notes that must not move, is
+          //: Shift and drag, or the node menu.
+          const pinning = d.dragShift || d.wasPinnedBeforeThisDrag;
+          if (!pinning) {
             d.fx = null;
             d.fy = null;
           } else if (movedFar && !d.isGroup) {
@@ -2192,6 +2213,7 @@ async function renderGraphSvg() {
             });
           }
           delete d.wasPinnedBeforeThisDrag;
+          delete d.dragShift;
         })
     )
     .on("click", (event, d) => {

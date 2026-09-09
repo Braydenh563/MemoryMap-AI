@@ -5829,14 +5829,25 @@ Link to another note with [[its first few words]]."></textarea>
               confirm first.
             </p>
             <div class="settings-group">
-              <h3>How many are offered at once</h3>
-              <p class="muted">
-                Every tool the AI is offered is described to it again on every
-                round of every message, all of them together are about three
-                quarters of what a small model reads before it even sees your
-                question. Sending only the ones a message plausibly needs leaves
-                far more room for your notes.
-              </p>
+              <div class="row help-head">
+                <h3>How many are offered at once</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="tool-focus-help" aria-controls="tool-focus-help"
+                  aria-expanded="false" title="Why this matters"
+                  aria-label="Why this matters">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Sending only the tools a message needs leaves more room for your notes.</p>
+              <div class="help-body hidden" id="tool-focus-help" role="dialog" aria-label="Why this matters">
+                <p>
+                  Every tool the AI is offered is described to it again on every
+                  round of every message, all of them together are about three
+                  quarters of what a small model reads before it even sees your
+                  question. Sending only the ones a message plausibly needs leaves
+                  far more room for your notes.
+                </p>
+              </div>
               <label class="check-row">
                 <input type="radio" name="tool-focus" value="auto">
                 <span><strong>Only what the message needs</strong>, the whole set
@@ -5855,13 +5866,24 @@ Link to another note with [[its first few words]]."></textarea>
                  /preferences) with no control anywhere, so the answer was
                  whatever auto decided. -->
             <div class="settings-group">
-              <h3>Small model mode</h3>
-              <p class="muted">
-                A model under about 8 billion parameters does far better with
-                <strong>one</strong> tool in front of it than with twenty. In
-                this mode each step of a skill is offered only the tool that
-                step needs, with a worked example of the call.
-              </p>
+              <div class="row help-head">
+                <h3>Small model mode</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="small-model-mode-help" aria-controls="small-model-mode-help"
+                  aria-expanded="false" title="Why this matters"
+                  aria-label="Why this matters">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Offers a small model one tool at a time instead of the whole set.</p>
+              <div class="help-body hidden" id="small-model-mode-help" role="dialog" aria-label="Why this matters">
+                <p>
+                  A model under about 8 billion parameters does far better with
+                  <strong>one</strong> tool in front of it than with twenty. In
+                  this mode each step of a skill is offered only the tool that
+                  step needs, with a worked example of the call.
+                </p>
+              </div>
               <div class="setting-row">
                 <div class="setting-label">
                   <span>When to use it</span>

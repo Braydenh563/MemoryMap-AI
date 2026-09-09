@@ -2655,6 +2655,27 @@ mark.global-find-hit.global-find-current {
   display: flex;
   flex-direction: column;
   margin-bottom: 0;
+  /* The cap above says how tall a dialog may be and said nothing about what
+     happens to the content past it, so it was simply lost. Settings never
+     showed the fault because its own `.modal-body` owns a scroll pane;
+     a dialog that fills itself from script has no inner pane at all.
+     Measured on the keyboard-shortcuts overlay at 1440x900 once
+     `openShortcuts()` had rendered its rows: 1925px of content inside a
+     790px card, `overflow-y: visible`, and `scrollTop = 9999` leaving
+     scrollTop at 0, so the whole "Always available" section (its heading at
+     y=1444, its list ending at 1934) and the '?' popover beside it were
+     below the window with no scroll, wheel or keyboard route to them. The
+     shape is not specific to that dialog: any of these cards loses whatever
+     its script renders past the cap.
+     Both axes are named rather than `overflow-y` alone: a `visible` sibling
+     next to `auto` computes to `auto`, which would have added a horizontal
+     scrollbar to every dialog in the app as a side effect.
+     `overscroll-behavior` keeps a wheel at the end of the list from
+     scrolling the page behind the dialog. Dialogs that do own an inner pane
+     are unaffected: their content never passes the cap, so `auto` draws
+     nothing. */
+  overflow: hidden auto;
+  overscroll-behavior: contain;
   /* Nearly opaque: unlike page cards, a settings dialog floats over busy
      content: full glass here makes it unreadable. */
   background: var(--modal-bg);

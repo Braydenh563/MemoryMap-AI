@@ -7255,8 +7255,7 @@ focuses nothing app-wide and a `keydown` bound to a select never fires; the
 caret shifts 28.4px rightwards on the leftward keystroke that reveals a Live
 marker (`atomicRanges` is the usual answer and the wrong one here, since it
 would skip the marker rather than enter it); five offered file types have no
-mode in the vendored bundle; and a setext heading hides its underline but
-gets no heading class.
+mode in the vendored bundle.
 
 ### Built, Phase 2 steps 2 to 4 (the engine under the editor), 2026-09-09
 

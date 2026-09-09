@@ -42,8 +42,13 @@ three of the owner's gestures. What was missing was found by inventory, not
 by reading the plugin again: `---` drew its border **and** its three dashes,
 and `> [!warning]` hid its `>` and kept its `[!warning]`. Both fixed; the
 callout now shows its kind's own label from `CALLOUT_KINDS` where the marker
-was ("⚠️ Warning"). `scratchpad/ui-sweeps/cm-reveal.js` holds eight
-constructs against their expected render plus the three gestures.
+was ("⚠️ Warning"). The same inventory then found a third: a setext heading
+(`Title` over `=====`) hid its underline, because that underline is a
+`HeaderMark` like any other, while the heading branch matched `ATXHeading`
+only, so the whole thing rendered as body text. One regex.
+`scratchpad/ui-sweeps/cm-reveal.js` holds eight constructs against their
+expected render, plus the setext pair, the callout label and the three
+gestures.
 
 **3. Three views, line numbers, and a real code editor** (`d396e0c`).
 - **Plain** is new: the language compartment emptied (`docCmViewLanguage`).
@@ -136,11 +141,6 @@ the tree work is done.
   lines in `frontend/vendor/codemirror/entry.js` and a `build.sh` run (node
   and npm); `r` has no mode in the CodeMirror packages at all. `csv` and
   `ini` arguably want none.
-- **A setext heading loses its shape.** `Heading\n=======` hides its `===`
-  underline (the tree calls it a `HeaderMark`) but the line gets no
-  `cm-md-h1` class, because the heading branch matches `ATXHeading[1-6]`
-  only. So a setext heading renders as body text. One extra branch in
-  `docLivePlugin`.
 - **`scratchpad/ui-sweeps/editor.js` still describes the retired editor**,
   as `documents-engine.md` §2 says. Untouched here.
 - **The Outline section takes all the spare height.** `.doc-outline-wrap` is

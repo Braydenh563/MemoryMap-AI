@@ -486,9 +486,7 @@ work found and did *not* fix, which is the part that is still open.
   types and have no mode in the vendored bundle, so they are plain text with
   numbers. `php` and `swift` need two lines in
   `frontend/vendor/codemirror/entry.js` and a `build.sh` run (node and npm);
-  `r` has no CodeMirror mode at all. And a setext heading (`Title\n=====`)
-  hides its underline but gets no heading class, because the heading branch
-  in `docLivePlugin` matches `ATXHeading[1-6]` only.
+  `r` has no CodeMirror mode at all.
 - "i still cant click on a grammar or misspeled underlined word and see a
   popup like in a realworld editor like obsidian, word, notion, vs code."
   **It already worked**, and this entry's previous claim that "the click

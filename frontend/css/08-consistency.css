@@ -707,6 +707,36 @@
   margin-left: calc(var(--space-1) - var(--space-3));
 }
 
+/* **The one dock whose actions zone does not fit the "one filled control,
+   then a few icon utilities" shape Phase 8 sized `margin-left: auto` for.**
+   Owner: "the ui at the top of the boards and maps subtab dock is broken
+   and miss wrapped. remember responsive design!" This dock has four
+   full-text buttons before its icon utilities (New board, New mind map,
+   Map from notes, Import outline), 730-850px depending on width, and no
+   `.dock-more` to fold any of them into (every other `.dock` this recipe
+   serves has one, which is why none of them show this). `margin-left:
+   auto` on `.dock-actions` pins it to the row's right edge only when it
+   fits *beside* identity/find/arrange; once `.dock-find`'s own growth
+   (`flex: 1 1 14rem`, uncapped on the wrapper even though the input inside
+   it is capped at 28rem) leaves too little room, `.dock-actions` wraps
+   alone, and the auto margin still fires on that lone line, landing its
+   left edge wherever that line's leftover width happens to put it: under
+   the *middle* of row one's search box, not under anything that explains
+   why. Measured at 1700px: actions started at x=778 on a 1642px-wide dock,
+   under empty space between the search box and the sort select above it.
+
+   Dropping the auto margin here fixes both readings of "broken": when the
+   zone fits beside the others (1440px+ in this dock, measured), removing
+   it changes nothing, there was next to no free space for the margin to
+   consume in that case anyway. When it does not fit and wraps, the zone
+   now packs to `.dock`'s own `justify-content: flex-start` default and
+   sits flush under the dock's own left edge, the same edge the title and
+   search box above it share, rather than at a right-margin distance that
+   depends on how far `.dock-find` happened to grow on the line above. */
+[data-dock-name="library-boards"] .dock-actions {
+  margin-left: 0;
+}
+
 /* The documents editor's head already *is* a bar - `.doc-toolbar`
    (05-sidebars-themes.css) has carried a `--card` fill, an edge and a radius
    since the "fix the toolbar" round, so there is nothing to build here, only

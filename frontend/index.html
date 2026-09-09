@@ -5785,13 +5785,24 @@ Link to another note with [[its first few words]]."></textarea>
 
           <!-- Templates: prefills for the Capture box -->
           <section class="settings-section hidden" id="settings-templates">
-            <p class="muted">
-              A template fills the Capture box with a starting shape, a
-              recipe's ingredient list, a meeting's agenda. The built-in ones
-              can't be edited or removed; your own can. Picking one from the
-              Capture tab's dropdown never throws away text you've already
-              typed there without asking first.
-            </p>
+            <div class="row help-head">
+              <h3>Templates</h3>
+              <button type="button" class="icon-only ghost small graph-help-toggle"
+                data-help-for="templates-help" aria-controls="templates-help" aria-expanded="false"
+                title="About templates" aria-label="About templates">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
+            </div>
+            <p class="muted">A template fills the Capture box with a starting shape you can pick from a dropdown.</p>
+            <div class="help-body hidden" id="templates-help" role="dialog" aria-label="About templates">
+              <p>
+                A template fills the Capture box with a starting shape, a
+                recipe's ingredient list, a meeting's agenda. The built-in
+                ones can't be edited or removed; your own can. Picking one
+                from the Capture tab's dropdown never throws away text
+                you've already typed there without asking first.
+              </p>
+            </div>
             <ul id="template-list" class="entry-list"></ul>
             <h3>Add your own</h3>
             <input id="template-name" type="text" maxlength="40" placeholder="Name (e.g. Book notes)">

@@ -3059,6 +3059,71 @@ summary:not(.icon-only):not(.icon-button):hover {
   color: var(--ink);
 }
 
+/* **The panels were drawing at the page-card tier, not the floating one, and
+   their own rule says otherwise.** `.whiteboard-floating-panel`
+   (06-timeline-dialogs.css) sets `background: var(--modal-bg)` with a comment
+   recording why: it floats over the board's own art and cards and has to stay
+   legible against all of it. Every one of these panels also carries `card
+   glass` in the markup, and `.card.glass` (03-dashboard-widgets.css) is a
+   two-class selector against that rule's one, so it won: measured
+   `color(srgb 1 1 1 / 0.549)`, which is --card, the 55%-opaque tier meant for
+   a surface content scrolls *inside*.
+
+   That is the shape CLAUDE.md warns about, a fix and the thing it fixed
+   drifting apart in two different rules, and it is half of why the bars read
+   as "unrefined" (INBOX 65): a control bar you can see the canvas through is
+   a bar that does not look like a surface. Restated here, later in the
+   cascade and at a specificity the class pair cannot beat. The blur, border
+   and shadow already come from the panel rule and are unchanged; only the
+   opacity tier is put back. */
+.whiteboard-floating-panel.card.glass,
+.wb-selection-bar.card.glass {
+  background: var(--modal-bg);
+}
+
+/* --- the whiteboard's panels are one surface each -------------------------
+   Reported twice. INBOX 52, of the bottom tool bar: the controls "feel
+   separate from the panels and not integrated". INBOX 65, of all of them:
+   "the buttons look separate from the panels".
+
+   Measured before this, at 1440 with a board open: the tool bar painted
+   **16** backgrounds of its own inside one glass surface (fifteen tonal
+   discs plus the accent-filled active tool), and the zoom pill painted
+   three more. A tonal fill is right for a button that sits on a page, where
+   it is the thing that says "this is a control"; inside a floating bar the
+   bar itself already says that, and fifteen filled discs in a row read as
+   fifteen separate objects that happen to share a tray.
+
+   So: nothing rests filled except the active tool, and the fill comes back
+   under the pointer and on keyboard focus, so the affordance is not lost,
+   only postponed. The group hairlines (--divider) are then the only marks
+   inside the bar.
+
+   Scoped to the floating panels over the canvas. The board's top bar is a
+   different surface with its own settled recipe, and the page's own buttons
+   are untouched. */
+.whiteboard-floating-panel button.ghost:not(.active):not(:disabled),
+.wb-selection-bar button.ghost:not(.active):not(:disabled) {
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.whiteboard-floating-panel button.ghost:not(.active):hover,
+.whiteboard-floating-panel button.ghost:not(.active):focus-visible,
+.wb-selection-bar button.ghost:not(.active):hover,
+.wb-selection-bar button.ghost:not(.active):focus-visible {
+  background: var(--ghost-btn-bg);
+}
+
+/* A disabled control (undo with nothing to undo) rests flat like the rest and
+   does not light up, which is what "disabled" has to look like once the
+   others have stopped resting filled. */
+.whiteboard-floating-panel button.ghost:disabled {
+  background: none;
+  border-color: transparent;
+}
+
 /* --- scrollbars ----------------------------------------------------------
    Reported: "the scrollbar in the categories sidebar actually comes out of
    the curved sidebar corners", and the screenshot shows why. That panel was

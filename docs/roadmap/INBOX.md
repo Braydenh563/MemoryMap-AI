@@ -610,13 +610,30 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     green bar, screenshot). The bar now sits 18px into the row, under the
     16px detail label, 3px tall (`tests/test_launch_splash.py`). Not
     verified: a Windows run.
-52. **Whiteboard bottom bar: the tool groups "feel separate from the
-    panels and not integrated"** (screenshot: seven pill groups with their
-    own backgrounds and dividers inside one bar, and the zoom pill on the
-    right in a different style). Owner: WHITEBOARD Phase 1 (bottom rail),
-    with the mind map agent's whiteboard work merged first. Recommendation:
-    one bar surface, groups separated by a hairline divider only, no
-    per-group background; the zoom pill on the same recipe. Size S.
+52. **Fixed 2026-09-09, with 65. Whiteboard bottom bar: the tool groups
+    "feel separate from the panels and not integrated"** (screenshot: seven
+    pill groups with their own backgrounds and dividers inside one bar, and
+    the zoom pill on the right in a different style). Built as recommended,
+    and the cause was per-*control* fills rather than per-group ones:
+    `button.ghost` rests on a tonal fill, which is right on a page and wrong
+    inside a floating bar that already says "these are controls". Nothing in
+    a whiteboard floating panel rests filled now except the active tool; the
+    fill returns on hover and on keyboard focus, so the affordance is
+    postponed, not lost. The group hairlines are --divider, the token for a
+    separator, rather than --border.
+    **Numbers** (`scratchpad/ui-sweeps/wbbars.js`, new, at 1440 with a board
+    open): elements painting a background of their own inside the tool bar
+    **16 to 1** (the active tool), inside the zoom pill **3 to 0**; bar
+    height 46px, zoom pill height 46px (equal before and after); hover fill
+    measured back at rgba(31, 36, 48, 0.12); `docks.js` and `touch.js`
+    unchanged (touch PASS, 0 findings), `errors.js` 0 at 1440, 1024, 820 and
+    390. **Found on the way:** every one of these panels was drawing at the
+    *page-card* tier, not the floating one. `.whiteboard-floating-panel` sets
+    `--modal-bg` with a comment explaining why, and `.card.glass` (two
+    classes against its one, in an earlier file) silently won: measured
+    `color(srgb 1 1 1 / 0.549)` where the rule intends 0.96. A bar you can
+    see the canvas through is half of why these read as unrefined; the tier
+    is restated at a specificity the class pair cannot beat.
 49. **Fixed 2026-09-09 (Fable): blur off content cards, the hero, the
     sidebar and the status bar; Performance mode (auto/on/off) with the
     small-machine and reduced-transparency auto-on and a one-time toast;

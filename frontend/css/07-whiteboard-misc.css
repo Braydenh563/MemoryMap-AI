@@ -3992,6 +3992,32 @@ summary:not(.icon-only):not(.icon-button) {
   line-height: 1.5;
 }
 
+/* The map proposal dialog (`wbReviewMapProposal`, whiteboard.js: "make a map
+   of these notes"). `.confirm-card`'s min(30rem, 92vw) is sized for a question
+   and two buttons; what this holds is a twenty-line outline, and at that width
+   the lines it exists to let you read wrap. Compound selector for the reason
+   `.confirm-card.graph-link-panel` gives at its own override: equal
+   specificity would let source order decide, and `.confirm-card` is declared
+   in a later file. */
+.confirm-card.wb-proposal-card {
+  width: min(36rem, 94vw);
+}
+
+/* The outline itself. Monospace because indentation *is* the structure here:
+   two spaces per level is a shape you can see in a fixed-width font and have
+   to count in a proportional one. */
+.wb-proposal-outline {
+  width: 100%;
+  min-height: 14rem;
+  resize: vertical;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-md);
+  line-height: 1.5;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+
 /* A board's actual layout, in miniature. The dots are cards drawn at their
    real relative positions, so two boards look different from each other in
    the way the boards themselves do. */

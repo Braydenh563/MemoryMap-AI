@@ -6270,6 +6270,137 @@ function pickLibraryItemDialog(message, { sources = null } = {}) {
   });
 }
 
+//: **Several notes at once**, which `pickLibraryItemDialog` above deliberately
+//: cannot do: that one closes on the first click, because pointing a node at a
+//: note is one choice and a confirm step would be a second click for nothing.
+//: "Make a map of these notes" is the opposite shape, a list you assemble, so
+//: the row is a checkbox and the dialog closes on a button.
+//:
+//: It draws the same `.entry-pick-*` recipe as its single-pick sibling rather
+//: than a second look for the same job, and it reads `allEntries`, the
+//: in-memory list every save keeps current, so there is no fetch and no second
+//: copy of the notebook to go stale.
+//:
+//: Resolves with an array of `{id, label}` in the order they were ticked, or
+//: null if the dialog was dismissed: the empty array is a real answer nobody
+//: wants (a map of no notes), so the confirm button stays disabled until at
+//: least one row is on.
+function pickNotesDialog(message, { confirmLabel = "Continue", limit = 40 } = {}) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay confirm-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", message);
+
+    const card = document.createElement("div");
+    card.className = "card modal-card confirm-card entry-pick-card";
+    const head = document.createElement("div");
+    head.className = "row confirm-head";
+    const title = document.createElement("h3");
+    title.className = "confirm-title";
+    title.textContent = message;
+    head.appendChild(title);
+
+    const search = document.createElement("input");
+    search.type = "search";
+    search.placeholder = "Search your notes…";
+    search.setAttribute("aria-label", message);
+    const list = document.createElement("div");
+    list.className = "entry-pick-list";
+    const count = document.createElement("p");
+    count.className = "muted";
+
+    //: The ticks live here and not in the DOM, so a note stays chosen when a
+    //: search term hides its row: typing a second term to find the second note
+    //: would otherwise silently unpick the first.
+    const chosen = new Map();
+    const returnFocus = document.activeElement;
+    let settled = false;
+    const close = (answer) => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKey, true);
+      overlay.remove();
+      returnFocus?.focus?.();
+      resolve(answer);
+    };
+    const onKey = (event) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      close(null);
+    };
+
+    const confirm = smallButton(confirmLabel, confirmLabel, () => {
+      if (!chosen.size) return;
+      close([...chosen.entries()].map(([id, label]) => ({ id, label })));
+    }, false);
+
+    const refreshCount = () => {
+      count.textContent = chosen.size
+        ? `${chosen.size} note${chosen.size === 1 ? "" : "s"} chosen${chosen.size >= limit ? ` (the most this can use is ${limit})` : ""}`
+        : "Pick the notes this should be built from.";
+      confirm.disabled = chosen.size === 0;
+    };
+
+    const paint = () => {
+      const term = search.value.trim().toLowerCase();
+      const rows = (typeof allEntries !== "undefined" ? allEntries : []).filter(
+        (entry) => !entry.is_draft && !entry.is_deleted && !entry.is_board && !entry.is_private
+      );
+      const matches = rows
+        .map((row) => ({ row, label: noteLabel(row, 70) }))
+        .filter(({ label }) => !term || label.toLowerCase().includes(term))
+        .slice(0, 60);
+      list.replaceChildren();
+      if (!matches.length) {
+        const empty = document.createElement("p");
+        empty.className = "muted";
+        empty.textContent = term ? "No notes match that." : "No notes yet.";
+        list.appendChild(empty);
+        return;
+      }
+      for (const { row, label } of matches) {
+        const line = document.createElement("label");
+        line.className = "entry-pick-row entry-pick-check";
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.checked = chosen.has(row.id);
+        box.addEventListener("change", () => {
+          if (box.checked && chosen.size >= limit && !chosen.has(row.id)) {
+            box.checked = false;
+            toast(`That is the most this can use at once: ${limit} notes.`);
+            return;
+          }
+          if (box.checked) chosen.set(row.id, label);
+          else chosen.delete(row.id);
+          refreshCount();
+        });
+        const text = document.createElement("span");
+        text.textContent = label;
+        line.append(box, text);
+        line.title = label;
+        list.appendChild(line);
+      }
+    };
+
+    search.addEventListener("input", paint);
+    paint();
+    refreshCount();
+
+    const row = document.createElement("div");
+    row.className = "row confirm-actions";
+    row.append(smallButton("Cancel", "Cancel", () => close(null)), confirm);
+    card.append(head, search, list, count, row);
+    overlay.appendChild(card);
+    wireBackdropClose(overlay, () => close(null));
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(overlay);
+    search.focus();
+  });
+}
+
 // Pick something already uploaded rather than uploading it again, asked for
 // directly: "I also want to be able to attach images that are already in the
 // image library... to new notes in the capture subtab." `/media` (the same

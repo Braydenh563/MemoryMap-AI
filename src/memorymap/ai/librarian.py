@@ -841,3 +841,65 @@ def summarize_meeting(
     if not summary or summary.upper() == "NONE":
         return ""
     return summary
+
+
+#: How many notes one map proposal is built from. A mind map of two hundred
+#: notes is not a mind map, and the prompt below has to fit a 4B model's
+#: context beside its own instructions: forty titles is about a page.
+MAP_PROPOSAL_NOTES = 40
+
+#: How much of a note the proposal prompt carries. The title is what a node is
+#: called; the first line is there so the model can group two notes it has
+#: never seen by what they are about, and no more than that, because forty
+#: notes' worth of body text is the context this has to fit inside.
+MAP_PROPOSAL_CHARS = 120
+
+
+def propose_map_outline(
+    notes: list[tuple[str, str]],
+    model_manager: ModelManager,
+    ollama: OllamaClient,
+) -> str:
+    """Ask the model to group notes into a mind map, as an indented outline.
+
+    MINDMAP_PLAN.md section 5 item 15. The differentiator recorded there is
+    that the nodes are *the user's real notes*, not invented text, so the
+    instruction is written around one rule: a note's title is reproduced
+    exactly, and everything the model writes of its own is a grouping topic
+    above them. `routes_whiteboard.propose_map` matches those lines back to
+    note ids by their titles, and a model that paraphrases a title breaks the
+    match, which is why the rule is stated three ways here.
+
+    An indented `- ` outline rather than JSON: it is the same shape
+    `read_mindmap` hands the model and the same shape the Markdown import
+    parses, so a small model is answering in a format it has already seen in
+    this app, and a malformed reply degrades into fewer nodes rather than into
+    a parse error. Raises `OllamaError` if the model is unavailable, like
+    every other helper here; the caller decides what to do.
+    """
+    system = (
+        "You organise notes into a mind map. Reply with ONLY an indented "
+        "outline, no preamble and no closing remarks.\n\n"
+        "Rules:\n"
+        "- one node per line, each line starting with '- '\n"
+        "- two spaces of indentation per level, up to three levels\n"
+        "- the first line is the map's central topic\n"
+        "- group the notes under short topic headings you write yourself\n"
+        "- copy each note's title EXACTLY as given, character for character, "
+        "on its own line: do not rephrase, shorten or re-title a note\n"
+        "- every note appears exactly once\n\n"
+        "Example:\n- Thesis\n  - Method\n    - Interview protocol\n"
+        "  - Reading\n    - Kolmogorov complexity"
+    )
+    listing = "\n".join(
+        f"- {title}" + (f" ({summary})" if summary else "")
+        for title, summary in notes[:MAP_PROPOSAL_NOTES]
+    )
+    reply = ollama.chat(
+        model_manager.utility_model(),
+        [
+            {"role": "system", "content": system},
+            {"role": "user", "content": f"Notes to map:\n{listing}"},
+        ],
+    )
+    return reply["content"].strip()

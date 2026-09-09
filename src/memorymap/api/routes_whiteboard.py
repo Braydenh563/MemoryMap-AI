@@ -2079,6 +2079,58 @@ def _export_opml(title: str, roots: list[dict]) -> str:
     )
 
 
+def _export_freemind(title: str, roots: list[dict]) -> str:
+    """FreeMind `.mm`: the other format every mindmapper reads, and the one
+    Coggle, Freeplane, XMind and MindMeister all import (§4's list).
+
+    **A `.mm` file has exactly one root.** A map here may have several, which
+    is a real shape (two unrelated trunks on one board), so a multi-root map is
+    exported under one node named after the map rather than as several
+    documents or as a file only this app can read back. A single-root map is
+    written as itself, so the common case round-trips unchanged.
+
+    `_kind`/`_ref` ride along for the same reason they do in the OPML export:
+    FreeMind ignores attributes it does not know, and they are what lets a
+    reference node come back as a reference node rather than as a topic.
+    """
+    import xml.etree.ElementTree as ET
+
+    document = ET.Element("map", {"version": "1.0.1"})
+
+    def add(parent_element, node: dict):
+        attrs = {"TEXT": node["text"] or "(untitled)"}
+        if node["kind"] != MAP_TOPIC_KIND:
+            attrs["_kind"] = node["kind"]
+            if node["ref_id"] is not None:
+                attrs["_ref"] = str(node["ref_id"])
+        element = ET.SubElement(parent_element, "node", attrs)
+        for child in node["children"]:
+            add(element, child)
+        return element
+
+    if len(roots) == 1:
+        add(document, roots[0])
+    else:
+        trunk = ET.SubElement(document, "node", {"TEXT": title})
+        for root in roots:
+            add(trunk, root)
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        + ET.tostring(document, encoding="unicode")
+        + "\n"
+    )
+
+
+#: What each export format is called on the way out: the media type a browser
+#: should treat it as, and the extension the file has to have. A `.md` file
+#: holding OPML is a file nothing will open.
+EXPORT_FORMATS = {
+    "markdown": ("text/markdown", "md"),
+    "opml": ("text/x-opml", "opml"),
+    "freemind": ("application/x-freemind", "mm"),
+}
+
+
 @router.get("/boards/{board_id}/export")
 def export_board(board_id: int, format: str = "markdown", db: Session = Depends(get_session)):
     """A map as an indented Markdown outline, or as OPML.
@@ -2089,18 +2141,22 @@ def export_board(board_id: int, format: str = "markdown", db: Session = Depends(
     """
     from fastapi.responses import Response
 
-    if format not in ("markdown", "opml"):
+    if format not in EXPORT_FORMATS:
         raise HTTPException(
             status_code=422,
-            detail=f"Unknown export format {format!r}: expected markdown or opml",
+            detail=f"Unknown export format {format!r}: expected one of "
+            + ", ".join(sorted(EXPORT_FORMATS)),
         )
     entry = _board_entry(db, board_id)
     title = extract_title(entry.content) or entry.content.strip()[:40] or f"Note {board_id}"
     roots = _build_tree(db, _map_objects(db, board_id))
+    media, suffix = EXPORT_FORMATS[format]
     if format == "markdown":
-        text, media, suffix = _export_markdown(title, roots), "text/markdown", "md"
+        text = _export_markdown(title, roots)
+    elif format == "opml":
+        text = _export_opml(title, roots)
     else:
-        text, media, suffix = _export_opml(title, roots), "text/x-opml", "opml"
+        text = _export_freemind(title, roots)
     # The filename is built from the board's id, never from its title: a
     # title is free text, and a Content-Disposition header is exactly where
     # free text becomes a header-injection question nobody wants to answer
@@ -2124,11 +2180,109 @@ class MapImport(BaseModel):
     @field_validator("format")
     @classmethod
     def _known_format(cls, value: str) -> str:
-        if value not in ("markdown", "opml"):
+        if value not in IMPORT_FORMATS:
             raise ValueError(
-                f"Unknown import format {value!r}: expected markdown or opml"
+                f"Unknown import format {value!r}: expected one of "
+                + ", ".join(sorted(IMPORT_FORMATS))
             )
         return value
+
+
+#: The formats `import_board` reads. Markdown and OPML both round-trip with
+#: the exports above; FreeMind `.mm` is the format Coggle, Freeplane, XMind and
+#: MindMeister all write, which is what section 4's list meant by "an existing
+#: map can come in".
+IMPORT_FORMATS = ("markdown", "opml", "freemind")
+
+
+def _parse_xml_document(content: str, label: str):
+    """The XML door, for both formats that come through it.
+
+    **A document type declaration is refused outright**, before the parser
+    ever sees the string. `xml.etree` does not resolve *external* entities,
+    but it does expand internal ones, which is the billion-laughs shape: a
+    dozen nested entity definitions turn a 1KB file into gigabytes of memory
+    inside the parse call, where no size cap on the way in can see it coming.
+    Nothing else in this app parses XML from anywhere, and no real OPML or
+    FreeMind file needs a DTD: so the door refuses one, which is a check that
+    stays correct even if the parser behind it is swapped later.
+
+    The parser behind it is `defusedxml`, not the stdlib: the string check
+    above is belt, this is braces. defusedxml refuses entity declarations at
+    the parser level, and it is also the only shape CodeQL's `py/xml-bomb`
+    query accepts as safe, the stdlib call was flagged as a high-severity
+    alert on this PR even with the guard in front of it.
+
+    One function rather than one per format because a second copy of a
+    security check is a second copy that can drift: the FreeMind import
+    arrived after the OPML one and is exactly where the DOCTYPE guard would
+    otherwise have been quietly left out.
+    """
+    try:
+        from defusedxml import ElementTree as ET
+        from defusedxml.common import DefusedXmlException
+    except ImportError as exc:  # a hand-rolled install that skipped requirements.txt
+        raise HTTPException(
+            status_code=503,
+            detail=f"{label} import needs the defusedxml package: pip install defusedxml",
+        ) from exc
+
+    lowered = content.lower()
+    if "<!doctype" in lowered or "<!entity" in lowered:
+        raise HTTPException(
+            status_code=422,
+            detail=f"That {label} declares a document type. Remove the <!DOCTYPE ...> line and try again.",
+        )
+    try:
+        return ET.fromstring(content)
+    except (ET.ParseError, DefusedXmlException) as exc:
+        raise HTTPException(
+            status_code=422, detail=f"That isn't valid {label}: {exc}"
+        ) from exc
+
+
+def _parse_freemind(content: str) -> tuple[str, list[dict]]:
+    """FreeMind `.mm` in, `(title, nested {text, children})` out.
+
+    The format is one `<node TEXT="...">` inside another, and the document's
+    single root node *is* its title: so the root's own text names the map and
+    its children become the map's roots, which is the shape `_export_freemind`
+    writes and the shape Freeplane and Coggle export. A file with several
+    top-level nodes (not legal FreeMind, but files are files) keeps all of
+    them and takes no title from them.
+
+    Text can also live in a `<richcontent>` element rather than in `TEXT`.
+    That body is HTML, and rendering someone else's HTML into a node is not a
+    thing this import is going to do: such a node comes in unlabelled rather
+    than with its markup as its label.
+    """
+    root = _parse_xml_document(content, "FreeMind")
+    counted = [0]
+
+    def walk(element, depth: int) -> list[dict]:
+        out: list[dict] = []
+        if depth >= MAX_IMPORT_DEPTH:
+            return out
+        for child in element.findall("node"):
+            counted[0] += 1
+            if counted[0] > MAX_IMPORT_NODES:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"That outline has more than {MAX_IMPORT_NODES} nodes: split it up first.",
+                )
+            text = (child.get("TEXT") or child.get("text") or "").strip()
+            out.append(
+                {"text": text[:MAX_OBJECT_TEXT_CHARS], "children": walk(child, depth + 1)}
+            )
+        return out
+
+    tops = root.findall("node")
+    if len(tops) == 1:
+        # The one legal shape: the document's root node names the map, and the
+        # map's own roots are its children.
+        title = (tops[0].get("TEXT") or "").strip()
+        return title, walk(tops[0], 0)
+    return "", walk(root, 0)
 
 
 def _parse_opml(content: str) -> tuple[str, list[dict]]:
@@ -2139,35 +2293,11 @@ def _parse_opml(content: str) -> tuple[str, list[dict]]:
     but it does expand internal ones, which is the billion-laughs shape: a
     dozen nested entity definitions turn a 1KB file into gigabytes of memory
     inside the parse call, where no size cap on the way in can see it coming.
-    Nothing else in this app parses XML from anywhere, and no real OPML file
-    needs a DTD: so the door refuses one, which is a check that stays
-    correct even if the parser behind it is swapped later.
-
-    The parser behind it is `defusedxml`, not the stdlib: the string check
-    above is belt, this is braces. defusedxml refuses entity declarations at
-    the parser level, and it is also the only shape CodeQL's
-    `py/xml-bomb` query accepts as safe, the stdlib call was flagged as a
-    high-severity alert on this PR even with the guard in front of it.
+    Both guards live in `_parse_xml_document`, which is the one XML door in
+    this app: see it for the billion-laughs reasoning and for why the parser
+    is defusedxml rather than the stdlib.
     """
-    try:
-        from defusedxml import ElementTree as ET
-        from defusedxml.common import DefusedXmlException
-    except ImportError as exc:  # a hand-rolled install that skipped requirements.txt
-        raise HTTPException(
-            status_code=503,
-            detail="OPML import needs the defusedxml package: pip install defusedxml",
-        ) from exc
-
-    lowered = content.lower()
-    if "<!doctype" in lowered or "<!entity" in lowered:
-        raise HTTPException(
-            status_code=422,
-            detail="That OPML declares a document type. Remove the <!DOCTYPE ...> line and try again.",
-        )
-    try:
-        root = ET.fromstring(content)
-    except (ET.ParseError, DefusedXmlException) as exc:
-        raise HTTPException(status_code=422, detail=f"That isn't valid OPML: {exc}") from exc
+    root = _parse_xml_document(content, "OPML")
 
     title = ""
     head_title = root.find("./head/title")
@@ -2251,41 +2381,43 @@ def _parse_markdown_outline(content: str) -> tuple[str, list[dict]]:
     return title, roots
 
 
-@router.post("/boards/import", response_model=BoardOut, status_code=201)
-def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOut:
-    """Create a map from an OPML file or an indented Markdown outline.
+def _place_map_nodes(
+    db: Session,
+    board_id: int,
+    parsed: list[dict],
+    reference_for=None,
+) -> int:
+    """Write a parsed outline onto a board as map nodes, returning how many.
 
-    Every node comes in as a `topic`: an imported outline is text written
-    somewhere else, and guessing that a line reading "Chapter three" means a
-    particular note in *this* notebook is the kind of helpfulness that
-    silently attaches the wrong thing. Linking a topic to a note afterwards
-    is one action; finding out which of two hundred nodes was mis-linked is
-    not.
+    One walk for both doors onto a map made from text: an import, and the
+    AI proposal the user accepted. They differ in exactly one thing, whether
+    a line stands for a note the user already has, and that is what
+    `reference_for` answers: given a node's text it returns `(kind, ref_id)`
+    or None. An import passes nothing, because guessing that a line reading
+    "Chapter three" means a particular note in *this* notebook is the kind of
+    helpfulness whose mistakes are invisible until much later; the proposal
+    passes a lookup over the notes the user themselves chose, which is not a
+    guess.
+
+    A single running row counter is shared by the whole walk, so the map lands
+    as a readable ladder rather than with every branch stacked on top of the
+    last one at y=0.
     """
-    title, parsed = (
-        _parse_opml(body.content)
-        if body.format == "opml"
-        else _parse_markdown_outline(body.content)
-    )
-    name = (body.name or title or "Imported map").strip()[:100] or "Imported map"
-    entry = Entry(content=f"# {name}", is_board=True)
-    _store_board_settings(entry, "map", DEFAULT_BOARD_LAYOUT)
-    db.add(entry)
-    db.flush()  # the nodes need the board's id before they can point at it
-
     created = 0
-    #: A single running row counter shared by the whole walk, so an imported
-    #: map lands as a readable ladder rather than with every branch stacked
-    #: on top of the last one at y=0.
     row = [0]
 
     def place(nodes: list[dict], parent: WhiteboardObject | None, depth: int) -> None:
         nonlocal created
         for node in nodes:
+            reference = reference_for(node["text"]) if reference_for else None
+            kind, ref_id = reference if reference else (MAP_TOPIC_KIND, None)
+            data: dict = {"content": node["text"]}
+            if ref_id is not None:
+                data["ref_id"] = ref_id
             obj = WhiteboardObject(
-                board_id=entry.id,
-                kind=MAP_TOPIC_KIND,
-                data=json.dumps({"content": node["text"]}),
+                board_id=board_id,
+                kind=kind,
+                data=json.dumps(data),
                 x=float(depth) * MAP_COL,
                 y=float(row[0]) * MAP_ROW,
                 z=1,
@@ -2298,6 +2430,266 @@ def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOu
             place(node["children"], obj, depth + 1)
 
     place(parsed, None, 0)
+    return created
+
+
+#: The most notes one proposal is built from. Matches
+#: `librarian.MAP_PROPOSAL_NOTES`, and is repeated here rather than imported
+#: because a Pydantic field's bound is read at import time and this module is
+#: imported by things that have no business pulling in the AI package.
+MAP_PROPOSAL_MAX_NOTES = 40
+
+
+class MapProposal(BaseModel):
+    """"Make a map of these notes" (MINDMAP_PLAN.md section 5 item 15): which
+    notes, and what to call the result."""
+
+    note_ids: list[int] = Field(min_length=1, max_length=MAP_PROPOSAL_MAX_NOTES)
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+
+
+def _proposal_notes(db: Session, note_ids: list[int]) -> list[Entry]:
+    """The chosen notes, in the order they were chosen, minus anything that is
+    not a readable note.
+
+    A private note is dropped rather than refused: this is a bulk action over
+    a list someone assembled by ticking boxes, and failing the whole thing
+    because one of thirty is private would be a dead end with no obvious way
+    out. The same boundary every AI-facing read path in this codebase holds
+    (search, embeddings, the janitor, chat linking) still holds: its text
+    never reaches the model.
+    """
+    found = {
+        entry.id: entry
+        for entry in db.scalars(select(Entry).where(Entry.id.in_(note_ids))).all()
+        if not entry.is_deleted and not entry.is_private and not entry.is_board
+    }
+    return [found[note_id] for note_id in note_ids if note_id in found]
+
+
+def _note_titles(db: Session, notes: list[Entry]) -> list[tuple[Entry, str, str]]:
+    """`(entry, title, first line)` for each note, which is everything both
+    the prompt and the fallback need and all either of them gets."""
+    from memorymap.ai import librarian
+    from memorymap.entry import manager
+
+    out = []
+    for entry in notes:
+        text = manager.readable_content(entry)
+        title = (manager.extract_title(text) or text.strip().split("\n")[0] or "Untitled")[:100]
+        body = " ".join(text.replace(title, "", 1).split())[: librarian.MAP_PROPOSAL_CHARS]
+        out.append((entry, title, body))
+    return out
+
+
+def _outline_from_filing(db: Session, rows: list[tuple[Entry, str, str]], name: str) -> str:
+    """The proposal the notebook can make on its own: one branch per category,
+    the notes filed under it.
+
+    **Why this exists at all.** The plan asks the agent to propose the tree,
+    and it does; but a 4B model asked for an outline answers with a paragraph
+    often enough that a feature which only works when the model behaves is a
+    feature most people meet broken. This is what the notebook already knows,
+    it is never wrong (it is the user's own filing), and the proposal says
+    which of the two produced it rather than passing this off as the model's
+    work.
+    """
+    from memorymap.core.database import Category
+
+    by_category: dict[str, list[str]] = {}
+    for entry, title, _ in rows:
+        label = "Unfiled"
+        if entry.category_id is not None:
+            category = db.get(Category, entry.category_id)
+            if category is not None:
+                label = category.name
+        by_category.setdefault(label, []).append(title)
+    lines = [f"- {name}"]
+    for label, titles in by_category.items():
+        lines.append(f"  - {label}")
+        lines.extend(f"    - {title}" for title in titles)
+    return "\n".join(lines) + "\n"
+
+
+def _outline_covering(outline: str, rows: list[tuple[Entry, str, str]]) -> str:
+    """The model's outline with every note it forgot added back.
+
+    A proposal for "map these thirty notes" that quietly contains eleven of
+    them is the failure mode worth guarding: it looks like a map, it reads
+    like an answer, and the nineteen that are missing are invisible unless you
+    count. The strays go under one heading at the end rather than being
+    scattered, so what the model did and what this added stay legible.
+    """
+    seen = {line.strip().lstrip("-*+ ").strip().casefold() for line in outline.splitlines()}
+    missing = [title for _, title, _ in rows if title.casefold() not in seen]
+    if not missing:
+        return outline
+    lines = [outline.rstrip("\n"), "  - Other notes"]
+    lines.extend(f"    - {title}" for title in missing)
+    return "\n".join(lines) + "\n"
+
+
+@router.post("/boards/propose")
+def propose_map(body: MapProposal, db: Session = Depends(get_session)) -> dict:
+    """Propose a map of these notes, and write nothing.
+
+    Preview before commit, the convention `generate_diagram` and the note
+    extractor already follow in this app: the answer comes back as the outline
+    text the user then edits, and `POST /boards/generate` creates the map from
+    what they actually saw. A generator that wrote straight to a new board
+    would make "undo" mean "find and delete the board it just made".
+    """
+    from memorymap.ai import librarian
+
+    notes = _proposal_notes(db, body.note_ids)
+    if not notes:
+        raise HTTPException(
+            status_code=404,
+            detail="None of those notes can be mapped (deleted, private, or already a board).",
+        )
+    rows = _note_titles(db, notes)
+    name = (body.name or f"Map of {len(rows)} notes").strip()[:100]
+
+    outline = ""
+    source = "notebook"
+    #: Why the notebook wrote it, when it did. The dialog says this out loud,
+    #: and the three cases want three different sentences: "your model is not
+    #: running" is a thing the reader can go and fix, "the model answered with
+    #: a paragraph" is a thing about the model they chose, and neither should
+    #: be reported as the other. `sources`/`reason` rather than one string
+    #: because the client also styles on `source`.
+    reason = "offline"
+    ollama = deps.get_ollama()
+    if ollama.is_running():
+        try:
+            outline = librarian.propose_map_outline(
+                [(title, body_text) for _, title, body_text in rows],
+                deps.get_model_manager(),
+                ollama,
+            )
+            reason = "unusable"
+        except Exception:
+            # A model that is running and still fails (a pulled-out model, a
+            # timeout) is a reason to fall back, not to lose the action: the
+            # notebook's own filing is a proposal too.
+            logging.getLogger("memorymap.whiteboard").warning(
+                "Map proposal failed, falling back to the notebook's own filing",
+                exc_info=True,
+            )
+            outline = ""
+            reason = "failed"
+        # A reply with no bullets in it is prose, which is what a small model
+        # answers with often enough to plan for; and one bullet is not a map.
+        if len([line for line in outline.splitlines() if line.strip()[:1] in "-*+"]) >= 2:
+            source = "model"
+            reason = "model"
+        else:
+            outline = ""
+    if not outline:
+        outline = _outline_from_filing(db, rows, name)
+    outline = _outline_covering(outline, rows)
+    return {
+        "name": name,
+        "outline": outline,
+        "source": source,
+        "reason": reason,
+        "note_ids": [entry.id for entry, _, _ in rows],
+        "notes": len(rows),
+    }
+
+
+class MapGenerate(BaseModel):
+    """The proposal as the user accepted it, possibly edited."""
+
+    name: str = Field(min_length=1, max_length=100)
+    outline: str = Field(min_length=1, max_length=MAX_IMPORT_CHARS)
+    #: The notes the proposal was built from. A line whose text is one of
+    #: their titles becomes a node that *is* that note; everything else is a
+    #: topic. Sent back by the client rather than remembered server-side
+    #: because nothing was written by the proposal, so there is no proposal to
+    #: remember, which is the point of preview-before-commit.
+    note_ids: list[int] = Field(default_factory=list, max_length=MAP_PROPOSAL_MAX_NOTES)
+
+
+@router.post("/boards/generate", response_model=BoardOut, status_code=201)
+def generate_map(body: MapGenerate, db: Session = Depends(get_session)) -> BoardOut:
+    """Create the map the user accepted.
+
+    The nodes that match one of their notes are `note` nodes carrying that
+    note's id, which is the whole difference the plan names between this and
+    a mindmapper's "AI generation": the map is made of the user's real notes,
+    not of invented text that happens to look like them. Editing such a node
+    edits the note, and deleting the map leaves the notes alone (section 5
+    item 4).
+    """
+    _, parsed = _parse_markdown_outline(body.outline)
+    if not parsed:
+        raise HTTPException(
+            status_code=422,
+            detail="That outline has no nodes in it: each line starts with '- '.",
+        )
+    rows = _note_titles(db, _proposal_notes(db, body.note_ids))
+    #: Matched on the casefolded title, because the one thing the user is most
+    #: likely to change in the outline is capitalisation, and because a model
+    #: told to copy a title exactly will still sometimes retitle its case.
+    by_title = {title.casefold(): entry.id for entry, title, _ in rows}
+    used: set[int] = set()
+
+    def reference_for(text: str):
+        note_id = by_title.get(text.strip().casefold())
+        # Once each: an outline that repeats a title (a model's habit when it
+        # cannot decide where a note belongs) would otherwise put the same
+        # note on the board twice, and two nodes editing one note is a
+        # confusion that only shows up later.
+        if note_id is None or note_id in used:
+            return None
+        used.add(note_id)
+        return ("note", note_id)
+
+    name = body.name.strip()[:100] or "Generated map"
+    entry = Entry(content=f"# {name}", is_board=True)
+    _store_board_settings(entry, "map", DEFAULT_BOARD_LAYOUT)
+    db.add(entry)
+    db.flush()
+    created = _place_map_nodes(db, entry.id, parsed, reference_for)
+    db.commit()
+    db.refresh(entry)
+    return BoardOut(
+        id=entry.id,
+        title=name,
+        node_count=0,
+        sketch_count=0,
+        object_count=created,
+        type="map",
+        layout=DEFAULT_BOARD_LAYOUT,
+        **_preview_fields(db, entry.id),
+    )
+
+
+@router.post("/boards/import", response_model=BoardOut, status_code=201)
+def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOut:
+    """Create a map from an OPML file or an indented Markdown outline.
+
+    Every node comes in as a `topic`: an imported outline is text written
+    somewhere else, and guessing that a line reading "Chapter three" means a
+    particular note in *this* notebook is the kind of helpfulness that
+    silently attaches the wrong thing. Linking a topic to a note afterwards
+    is one action; finding out which of two hundred nodes was mis-linked is
+    not.
+    """
+    parsers = {
+        "opml": _parse_opml,
+        "freemind": _parse_freemind,
+        "markdown": _parse_markdown_outline,
+    }
+    title, parsed = parsers[body.format](body.content)
+    name = (body.name or title or "Imported map").strip()[:100] or "Imported map"
+    entry = Entry(content=f"# {name}", is_board=True)
+    _store_board_settings(entry, "map", DEFAULT_BOARD_LAYOUT)
+    db.add(entry)
+    db.flush()  # the nodes need the board's id before they can point at it
+
+    created = _place_map_nodes(db, entry.id, parsed)
     db.commit()
     db.refresh(entry)
     return BoardOut(

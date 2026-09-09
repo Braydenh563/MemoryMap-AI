@@ -3818,6 +3818,29 @@ span > .chip {
   white-space: nowrap;
 }
 
+/* The multi-pick variant (`pickNotesDialog`, app.js: "make a map of these
+   notes"). It is a `<label>` wrapping a checkbox rather than a `<button>`, so
+   it needs the two things the button gave the row for free and nothing else:
+   a pointer, and a title that shrinks instead of pushing the box off the end.
+   Same height, same padding, same hover as its single-pick sibling, because it
+   is the same list of the same notes. */
+.entry-pick-check {
+  cursor: pointer;
+}
+
+.entry-pick-check > input {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.entry-pick-check > span {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .entry-pick-row:hover,
 .entry-pick-row:focus-visible {
   border-color: var(--border);

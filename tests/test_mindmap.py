@@ -479,6 +479,101 @@ def test_opml_imports_and_exports_to_the_same_structure(client):
     assert second == first
 
 
+FREEMIND = """<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0.1">
+  <node TEXT="Thesis">
+    <node TEXT="Method">
+      <node TEXT="Interviews"/>
+    </node>
+    <node TEXT="Results"/>
+  </node>
+</map>"""
+
+
+def test_freemind_imports_with_its_root_as_the_maps_name(client):
+    """A `.mm` file's single root node *is* its title, which is the shape
+    FreeMind, Freeplane and Coggle all write: taking it as a node instead
+    would leave every imported map one level deeper than it was drawn."""
+    imported = client.post(
+        "/whiteboard/boards/import", json={"format": "freemind", "content": FREEMIND}
+    )
+    assert imported.status_code == 201, imported.text
+    board = imported.json()
+    assert board["type"] == "map"
+    assert board["title"] == "Thesis"
+
+    roots = _structure(client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"])
+    assert roots == [
+        {"text": "Method", "children": [{"text": "Interviews", "children": []}]},
+        {"text": "Results", "children": []},
+    ]
+
+
+def test_freemind_round_trips_through_the_export(client):
+    """The point of the format: a map made here opens in FreeMind, and a map
+    made there opens here, without either end losing the tree."""
+    first_id = client.post(
+        "/whiteboard/boards/import", json={"format": "freemind", "content": FREEMIND}
+    ).json()["id"]
+    first = _structure(client.get(f"/whiteboard/boards/{first_id}/tree").json()["roots"])
+
+    exported = client.get(f"/whiteboard/boards/{first_id}/export?format=freemind")
+    assert exported.status_code == 200, exported.text
+    assert exported.headers["content-disposition"].endswith('.mm"')
+    assert exported.text.lstrip().startswith("<?xml")
+    assert "<map version=" in exported.text
+
+    again = client.post(
+        "/whiteboard/boards/import",
+        json={"format": "freemind", "content": exported.text},
+    ).json()
+    assert _structure(client.get(f"/whiteboard/boards/{again['id']}/tree").json()["roots"]) == first
+
+
+def test_a_multi_root_map_exports_under_one_freemind_root(client):
+    """`.mm` has room for exactly one root, and a map here can have several.
+    The alternative to naming a trunk after the map is a file FreeMind
+    refuses to open, or one that quietly drops every root but the first."""
+    board = _map(client, name="Two trunks")
+    _node(client, board["id"], text="Alpha")
+    _node(client, board["id"], text="Beta")
+
+    exported = client.get(f"/whiteboard/boards/{board['id']}/export?format=freemind").text
+    assert exported.count("<node") == 3
+    back = client.post(
+        "/whiteboard/boards/import", json={"format": "freemind", "content": exported}
+    ).json()
+    assert back["title"] == "Two trunks"
+    roots = _structure(client.get(f"/whiteboard/boards/{back['id']}/tree").json()["roots"])
+    assert [node["text"] for node in roots] == ["Alpha", "Beta"]
+
+
+def test_a_freemind_import_with_a_doctype_is_refused(client):
+    """The second XML door. It shares `_parse_xml_document` with OPML for
+    exactly this reason: a security check copied per format is a check that
+    is one day only in one of them."""
+    bomb = (
+        '<?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY lol "lol">]>'
+        '<map version="1.0.1"><node TEXT="&lol;"/></map>'
+    )
+    refused = client.post(
+        "/whiteboard/boards/import", json={"format": "freemind", "content": bomb}
+    )
+    assert refused.status_code == 422
+    assert "FreeMind" in refused.json()["detail"]
+
+
+def test_an_opml_file_sent_as_freemind_imports_as_nothing_rather_than_wrongly(client):
+    """OPML's nodes are `<outline>` and FreeMind's are `<node>`: the parser
+    finds nothing rather than inventing a tree. Written down because the
+    client picks the format from the file's extension, and `.mm` had to be
+    tested before `.xml` for that reason."""
+    empty = client.post(
+        "/whiteboard/boards/import", json={"format": "freemind", "content": OPML}
+    ).json()
+    assert empty["object_count"] == 0
+
+
 def test_markdown_exports_as_an_indented_outline_and_comes_back(client):
     board = _map(client, name="Trip")
     root = _node(client, board["id"], text="Packing")

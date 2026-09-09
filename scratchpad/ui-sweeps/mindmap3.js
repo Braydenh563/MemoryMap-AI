@@ -711,6 +711,159 @@ const VIEWPORT = (() => {
     JSON.stringify(dashShape)
   );
 
+  // ==========================================================================
+  // Item 6 — make a map of these notes (§5 item 15), driven end to end
+  //
+  // No model runs in this sandbox, so what is exercised here is the path a
+  // first run of the app takes anyway: the server falls back to the notebook's
+  // own filing and says so, and the dialog reports which of the two wrote the
+  // outline. The three steps are the assertion: pick, review, create.
+  // ==========================================================================
+  await page.click('[data-tab="library"]');
+  await page.waitForTimeout(600);
+  await page.click('[data-target="library-view-whiteboard"]');
+  await page.waitForTimeout(900);
+
+  const madeNotes = await page.evaluate(() =>
+    Promise.all(
+      ["# Kolmogorov complexity\n\nstrings", "# Entropy\n\nbits"].map((content) =>
+        window.apiJson("/entries", { method: "POST", body: JSON.stringify({ content }) })
+      )
+    ).then((rows) => rows.map((r) => r.id))
+  );
+  await page.evaluate(() => window.loadEntries && window.loadEntries());
+  await page.waitForTimeout(1500);
+  check("two notes exist to build a map from", madeNotes.length === 2, JSON.stringify(madeNotes));
+
+  const boardsBefore = await page.evaluate(() =>
+    window.apiJson("/whiteboard/boards").then((rows) => rows.length)
+  );
+  await page.click("#wb-boards-generate");
+  await page.waitForTimeout(700);
+  const picker = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll(".entry-pick-check")];
+    const confirm = [...document.querySelectorAll(".confirm-actions button")].find((b) =>
+      /Propose a map/.test(b.textContent)
+    );
+    return { rows: rows.length, disabled: confirm ? confirm.disabled : null };
+  });
+  check(
+    "the note picker opens with its confirm disabled until something is ticked",
+    picker.rows >= 2 && picker.disabled === true,
+    JSON.stringify(picker)
+  );
+
+  // Tick the two notes by their labels, so this cannot pass by ticking
+  // whatever happened to be first in the list.
+  const ticked = await page.evaluate(() => {
+    let on = 0;
+    for (const row of document.querySelectorAll(".entry-pick-check")) {
+      if (!/Kolmogorov complexity|Entropy/.test(row.textContent)) continue;
+      const box = row.querySelector("input");
+      box.checked = true;
+      box.dispatchEvent(new Event("change", { bubbles: true }));
+      on += 1;
+    }
+    return on;
+  });
+  check("both notes can be ticked in one pass", ticked === 2, String(ticked));
+
+  await page.evaluate(() => {
+    const confirm = [...document.querySelectorAll(".confirm-actions button")].find((b) =>
+      /Propose a map/.test(b.textContent)
+    );
+    confirm.click();
+  });
+  await page.waitForTimeout(1500);
+
+  const review = await page.evaluate(async () => {
+    const card = document.querySelector(".wb-proposal-card");
+    if (!card) return null;
+    const outline = card.querySelector(".wb-proposal-outline");
+    const style = outline ? getComputedStyle(outline) : null;
+    return {
+      said: card.querySelector("p.muted")?.textContent || "",
+      lines: outline ? outline.value.trim().split("\n").length : 0,
+      hasBoth: outline
+        ? /Kolmogorov complexity/.test(outline.value) && /Entropy/.test(outline.value)
+        : false,
+      mono: style ? style.fontFamily : "",
+      width: outline ? Math.round(outline.getBoundingClientRect().width) : 0,
+      cardWidth: Math.round(card.getBoundingClientRect().width),
+      boards: await window.apiJson("/whiteboard/boards").then((rows) => rows.length),
+    };
+  });
+  check(
+    "the proposal is shown as an editable outline holding both notes",
+    review && review.hasBoth && review.lines >= 3,
+    JSON.stringify(review)
+  );
+  check(
+    "it says who wrote the outline rather than implying the model did",
+    /model did not answer|local model/.test(review.said || ""),
+    JSON.stringify(review.said)
+  );
+  check(
+    "the outline is monospace and fits inside its dialog",
+    /mono/i.test(review.mono || "") && review.width <= review.cardWidth,
+    JSON.stringify({ mono: review.mono, width: review.width, card: review.cardWidth })
+  );
+
+  // The user edits the proposal: this is the step the whole preview exists
+  // for, so the map that lands has to be the edited one, not the proposed one.
+  await page.evaluate(() => {
+    const outline = document.querySelector(".wb-proposal-outline");
+    outline.value = "- Information theory\n  - Kolmogorov complexity\n  - Entropy\n";
+    const name = document.querySelector(".wb-proposal-card input[type=text]");
+    name.value = "Swept map";
+  });
+  const before = await page.evaluate(
+    () => document.querySelectorAll(".library-board-card").length
+  );
+  await page.evaluate(() => {
+    const create = [...document.querySelectorAll(".wb-proposal-card button")].find((b) =>
+      /Create the map/.test(b.textContent)
+    );
+    create.click();
+  });
+  await page.waitForTimeout(2500);
+
+  const built = await page.evaluate(async () => {
+    const boards = await window.apiJson("/whiteboard/boards");
+    const board = boards.find((b) => b.title === "Swept map");
+    if (!board) return { made: false, before: boards.length };
+    const tree = await window.apiJson(`/whiteboard/boards/${board.id}/tree`);
+    const flat = [];
+    const walk = (nodes) => nodes.forEach((n) => (flat.push(n), walk(n.children)));
+    walk(tree.roots);
+    return {
+      made: true,
+      onCanvas: document.querySelectorAll(".wb-map-node").length,
+      texts: flat.map((n) => n.text),
+      kinds: flat.map((n) => n.kind),
+      refs: flat.filter((n) => n.ref_id).length,
+    };
+  });
+  check(
+    "the edited outline is what gets built, as real note nodes",
+    built.made &&
+      built.texts.join("|") === "Information theory|Kolmogorov complexity|Entropy" &&
+      built.kinds.join("|") === "topic|note|note" &&
+      built.refs === 2,
+    JSON.stringify(built)
+  );
+  check(
+    "and the new map is opened, drawn, rather than left in the list",
+    built.onCanvas >= 3,
+    String(built.onCanvas)
+  );
+  check(
+    "the proposal itself wrote nothing: no board until it was accepted",
+    review.boards === boardsBefore,
+    JSON.stringify({ before: boardsBefore, atReview: review.boards, atAccept: before })
+  );
+  await page.screenshot({ path: `${OUT}/mindmap3-generated-${process.env.THEME || "light"}-${VIEWPORT.width}.png` });
+
   const passed = results.filter((r) => r.ok).length;
   console.log(`\n${passed}/${results.length} checks passed.`);
   console.log("shots in " + OUT);

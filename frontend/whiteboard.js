@@ -4927,8 +4927,169 @@ async function wbExportMapText(format) {
   // hyphens because a map may be called anything at all and this becomes a
   // filename on someone's disk.
   const safe = title.replace(/[^\w -]+/g, "").trim() || "mindmap";
-  await saveFile(`${safe}.${format === "opml" ? "opml" : "md"}`, blob);
-  toast(`Map exported as ${format === "opml" ? "OPML" : "a Markdown outline"}.`);
+  //: One table, so the extension and the sentence can never disagree about
+  //: which format was actually asked for: which is what a pair of ternaries
+  //: here would have turned into the moment a third format arrived.
+  const formats = {
+    markdown: { suffix: "md", said: "a Markdown outline" },
+    opml: { suffix: "opml", said: "OPML" },
+    freemind: { suffix: "mm", said: "a FreeMind map" },
+  };
+  const chosen = formats[format] || formats.markdown;
+  await saveFile(`${safe}.${chosen.suffix}`, blob);
+  toast(`Map exported as ${chosen.said}.`);
+}
+
+//: **Make a map of these notes** (MINDMAP_PLAN.md §5 item 15).
+//:
+//: Three steps, in the order a person would say them: pick the notes, look at
+//: what came back, then create it. The middle step is the whole point, and it
+//: is `generate_diagram`'s and the note extractor's own preview-before-commit
+//: convention: `POST /boards/propose` writes nothing at all, so a proposal
+//: that is wrong costs a Cancel rather than a board to go and delete.
+//:
+//: The proposal is shown as **the outline itself, editable**, rather than as a
+//: rendered tree with controls to rearrange it. It is the same indented text
+//: the Markdown export writes and the import reads, a person can retype a line
+//: or delete three of them faster than any node editor would let them, and the
+//: map is one keystroke from being editable properly anyway once it exists.
+//:
+//: `source` says who wrote it. A local 4B model asked for an outline answers
+//: with a paragraph often enough that the server falls back to the notebook's
+//: own filing, and a proposal that quietly claimed to be the model's when it
+//: was not would make the model look better than it is, which is exactly the
+//: kind of thing this app does not do.
+async function wbGenerateMapFromNotes() {
+  if (typeof pickNotesDialog !== "function") return;
+  const chosen = await pickNotesDialog("Which notes should the map be built from?", {
+    confirmLabel: "Propose a map",
+  });
+  if (!chosen || !chosen.length) return;
+
+  toast("Working out a shape for those notes…");
+  let proposal = null;
+  try {
+    proposal = await apiJson("/whiteboard/boards/propose", {
+      method: "POST",
+      body: JSON.stringify({ note_ids: chosen.map((note) => note.id) }),
+    });
+  } catch (error) {
+    toast(error.message || "Couldn't propose a map from those notes.", true);
+    return;
+  }
+
+  const accepted = await wbReviewMapProposal(proposal);
+  if (!accepted) return;
+  try {
+    const board = await apiJson("/whiteboard/boards/generate", {
+      method: "POST",
+      body: JSON.stringify({
+        name: accepted.name,
+        outline: accepted.outline,
+        note_ids: proposal.note_ids,
+      }),
+    });
+    window.wbLastCreatedBoard = board;
+    toast(`Made “${board.title}”: ${board.object_count} node${board.object_count === 1 ? "" : "s"}.`);
+    // Straight into the map, for the same reason the import opens what it
+    // imported: landing back on an unchanged-looking list is how a thing that
+    // worked reads as a thing that did not.
+    await openWhiteboardBoard(board.id);
+  } catch (error) {
+    toast(error.message || "Couldn't create that map.", true);
+  }
+}
+
+//: The middle step: the proposal, as text, with a name beside it.
+//:
+//: Its own dialog rather than `promptDialog` because the thing being reviewed
+//: is a block of lines, not a value: a single-line input for a twenty-line
+//: outline would make the one step that exists for reading it the one step
+//: that cannot show it.
+function wbReviewMapProposal(proposal) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay confirm-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", "Review the proposed map");
+
+    const card = document.createElement("div");
+    card.className = "card modal-card confirm-card wb-proposal-card";
+    const head = document.createElement("div");
+    head.className = "row confirm-head";
+    const title = document.createElement("h3");
+    title.className = "confirm-title";
+    title.textContent = "Review the map before it is made";
+    head.appendChild(title);
+
+    const said = document.createElement("p");
+    said.className = "muted";
+    //: Three fallbacks, three sentences. "Your model is not running" is
+    //: something the reader can go and fix; "the model answered with a
+    //: paragraph" is something about the model they chose; and reporting
+    //: either as the other is the kind of small dishonesty that teaches
+    //: people not to read these lines at all.
+    const because = {
+      model: "Proposed by your local model",
+      offline: "Grouped by how they are filed, because no local model is running",
+      unusable: "Grouped by how they are filed, because the model did not answer with an outline",
+      failed: "Grouped by how they are filed, because the model could not be reached",
+    };
+    const counted = `${proposal.notes} note${proposal.notes === 1 ? "" : "s"}`;
+    said.textContent = `${because[proposal.reason] || because.offline}, from ${counted}. Edit anything here before it is created.`;
+
+    const name = document.createElement("input");
+    name.type = "text";
+    name.value = proposal.name || "";
+    name.setAttribute("aria-label", "What to call the map");
+
+    const outline = document.createElement("textarea");
+    outline.className = "wb-proposal-outline";
+    outline.value = proposal.outline || "";
+    outline.rows = 12;
+    outline.spellcheck = false;
+    outline.setAttribute("aria-label", "The proposed outline, one node per line");
+
+    const returnFocus = document.activeElement;
+    let settled = false;
+    const close = (answer) => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKey, true);
+      overlay.remove();
+      returnFocus?.focus?.();
+      resolve(answer);
+    };
+    // Escape only. Enter is a newline in a textarea, which is the whole point
+    // of this dialog being one.
+    const onKey = (event) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      close(null);
+    };
+
+    const row = document.createElement("div");
+    row.className = "row confirm-actions";
+    row.append(
+      smallButton("Cancel", "Cancel", () => close(null)),
+      smallButton("Create the map", "Create the map", () => {
+        const text = outline.value.trim();
+        if (!text) {
+          toast("There is nothing in the outline to build.", true);
+          return;
+        }
+        close({ name: name.value.trim() || proposal.name || "Generated map", outline: text });
+      }, false)
+    );
+    card.append(head, said, name, outline, row);
+    overlay.appendChild(card);
+    wireBackdropClose(overlay, () => close(null));
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(overlay);
+    outline.focus();
+  });
 }
 
 //: How much of a file this will send. Matches `MAX_IMPORT_CHARS` in
@@ -4957,7 +5118,15 @@ async function wbImportOutlineFile(event) {
   // when it is written without it.
   input.value = "";
   if (!file) return;
-  const format = /\.(opml|xml)$/i.test(file.name) ? "opml" : "markdown";
+  // FreeMind first: a `.mm` file is XML too, so an extension test that asked
+  // "is it XML?" first would send every FreeMind map to the OPML parser and
+  // import it as an empty map, since OPML's nodes are `<outline>` and
+  // FreeMind's are `<node>`, and neither parser finds the other's.
+  const format = /\.mm$/i.test(file.name)
+    ? "freemind"
+    : /\.(opml|xml)$/i.test(file.name)
+      ? "opml"
+      : "markdown";
   let content = "";
   try {
     content = await file.text();
@@ -5158,6 +5327,7 @@ function wbExportBoard(anchor) {
     addHeading("Outline");
     addOption("Markdown (.md)", () => wbExportMapText("markdown"));
     addOption("OPML (.opml)", () => wbExportMapText("opml"));
+    addOption("FreeMind (.mm)", () => wbExportMapText("freemind"));
   }
 
   document.body.appendChild(menu);
@@ -9544,6 +9714,11 @@ document.addEventListener("DOMContentLoaded", () => {
   //: else. Wired on the input's `change` rather than assigned as `onchange`
   //: inside the click handler, because a second click would then rebind it and
   //: `tests/test_frontend_handlers.py` exists to catch exactly that shape.
+  //: The third way to start a map, beside New mind map and Import outline
+  //: (§5 item 15). In the same row because it is the same kind of action:
+  //: "start a map", from notes that already exist rather than from an empty
+  //: canvas or from a file.
+  $("wb-boards-generate")?.addEventListener("click", wbGenerateMapFromNotes);
   $("wb-boards-import")?.addEventListener("click", () => {
     $("wb-import-map-file")?.click();
   });

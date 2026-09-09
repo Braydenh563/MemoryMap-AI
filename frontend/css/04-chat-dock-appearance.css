@@ -1364,10 +1364,50 @@ body.scroll-top-visible #tab-notes .layout > main {
   min-width: 0;
 }
 
+/* **One line, ellipsised, and the close button never moves.** Reported on
+   2026-09-09: "sometimes the x close button in the graph popup panels gets
+   pushed out of place by the note title, and the note title gets cut off
+   with no ellipse". `min-width: 0` let the identity block shrink, which is
+   half the job, but the title itself was still free to wrap, so a long one
+   took two lines, grew the header, and pushed the close button down and
+   across. A note's title is a label here, not the content, and the whole of
+   it is one hover away (`title` is set beside the text in graph.js).
+
+   The chips beside it still wrap to their own line, which is what
+   `.graph-popup-ident`'s own `flex-wrap: wrap` is for: it is the title, not
+   the row, that must stay on one line. */
 .graph-popup-ident>strong {
   font-size: var(--text-body);
   line-height: 1.3;
+  flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* `flex: none` so the button keeps its own size when the header is tight,
+   and `align-self: flex-start` so it stays level with the first line of the
+   identity block rather than centring itself against a taller one.
+
+   Measured at the panel's real 340px with a long title before this pair
+   landed: the header was 92px tall and the close button sat 56px down and
+   276px in from the right, which is the second line, at its far left. That
+   is the reported "gets pushed out of place". With the identity block told
+   to absorb the width and the button told to keep its own, both stay on the
+   first line at any title length. */
+.graph-popup .graph-popup-head {
+  flex-wrap: nowrap;
+}
+
+.graph-popup-head>.graph-popup-ident {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.graph-popup-head>#graph-popup-close {
+  flex: none;
+  align-self: flex-start;
 }
 
 /* The AI's filing confidence, beside the title rather than as a fifth chip

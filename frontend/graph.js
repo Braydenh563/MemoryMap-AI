@@ -3061,6 +3061,10 @@ function renderGraphPopupHeader(entry, node) {
       : (entry.content || "").split("\n")[0];
   titleEl.textContent =
     entry.title || firstLine.slice(0, 80).trim() || node.category || "Note";
+  //: The title is ellipsised to one line now, so the whole of it has to be
+  //: reachable some other way: hover is the cheapest, and it is what every
+  //: other truncated label in this app already does.
+  titleEl.title = titleEl.textContent;
 
   const confidence = $("graph-popup-confidence");
   //: `> 0`, not `typeof === "number"`: a note the AI never filed carries 0,
@@ -3093,7 +3097,9 @@ async function openGraphPopup(event, node) {
   //: question rather than an absent one. `preview` is the same string the
   //: canvas paints beside the node (`gcLabelText`), so the panel opens
   //: saying what the map said.
-  $("graph-popup-title").textContent = node.preview || node.category || "Note";
+  const mapTitle = $("graph-popup-title");
+  mapTitle.textContent = node.preview || node.category || "Note";
+  mapTitle.title = mapTitle.textContent;
   $("graph-popup-confidence").classList.add("hidden");
   $("graph-popup-category").classList.add("hidden");
   $("graph-popup-info").textContent = "";

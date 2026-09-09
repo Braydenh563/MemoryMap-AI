@@ -950,3 +950,86 @@ def test_a_board_id_that_is_not_a_board_contributes_nothing(client):
     refused: the message is still worth answering."""
     prepared = _prepared(board_ids=[99999])
     assert [n for n in prepared["notes"] if n.get("category") == "Mind map"] == []
+
+
+# --- exports that cannot be made to recurse ---------------------------------
+
+
+def _deep_chain(session, board_id: int, depth: int) -> int:
+    """One branch, `depth` nodes long, written straight to the database.
+
+    Through the API this would be `depth` requests and about as many seconds;
+    what the test is about is the export, not the insert. `parent_id` is a
+    plain integer column (see its own comment), so this builds exactly the
+    shape a person builds with the Tab key, only faster.
+    """
+    parent_id = None
+    for level in range(depth):
+        node = WhiteboardObject(
+            kind="topic",
+            data=json.dumps({"content": f"Level {level}"}),
+            board_id=board_id,
+            x=float(level * 40),
+            y=0.0,
+            width=200.0,
+            height=56.0,
+            parent_id=parent_id,
+        )
+        session.add(node)
+        session.flush()
+        parent_id = node.id
+    session.commit()
+    return depth
+
+
+def test_a_map_deeper_than_pythons_recursion_headroom_still_exports(client, session):
+    """**The two XML exports used to recurse.** Nothing caps how deep a map
+    built by hand can go: `MAX_IMPORT_DEPTH` caps an import and the Tab key is
+    not an import. A branch longer than Python's own recursion limit therefore
+    left `_export_opml` and `_export_freemind` raising `RecursionError`, which
+    reaches the person pressing Download as a 500 on a map that opens fine.
+
+    1,200 rather than a round thousand: the default limit is 1,000 and each
+    level of the old walk took more than one frame, so a number just over it
+    would have passed by luck on some builds.
+    """
+    board = _map(client, name="Deep map")
+    depth = _deep_chain(session, board["id"], 1200)
+
+    for fmt in ("opml", "freemind", "markdown"):
+        exported = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}")
+        assert exported.status_code == 200, f"{fmt}: {exported.text[:200]}"
+        # Every level is in the file: the nesting is clamped past
+        # MAX_MAP_DEPTH, the content is not.
+        assert "Level 0" in exported.text
+        assert f"Level {depth - 1}" in exported.text
+        assert exported.text.count("Level ") == depth
+
+
+def test_a_ring_in_the_tree_does_not_hang_an_export(client, session):
+    """`_build_tree` re-roots the lowest id of an unreachable ring rather than
+    dropping its rows, so a ring reaches the exporters as a root whose
+    descendants lead back to it. The recursive versions never returned, and
+    the Markdown walk, which was already iterative, had no seen set and
+    appended rows until it ran out of memory.
+
+    A ring is not hypothetical: `parent_id` is a plain integer, so any write
+    that sets it without the move endpoint's `_is_descendant` check can make
+    one, and a restored backup or a hand-edited database certainly can.
+    """
+    board = _map(client, name="Ring map")
+    first = _node(client, board["id"], text="A")
+    second = _node(client, board["id"], parent_id=first["id"], text="B")
+    # Close the ring behind the API's back: the move endpoint refuses this,
+    # which is the point. It is the shape that arrives from somewhere else.
+    session.get(WhiteboardObject, first["id"]).parent_id = second["id"]
+    session.commit()
+
+    for fmt in ("opml", "freemind", "markdown"):
+        exported = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}")
+        assert exported.status_code == 200, f"{fmt}: {exported.text[:200]}"
+        # Each node once, not once per lap.
+        laps_a = exported.text.count(">A<") + exported.text.count('"A"') + exported.text.count("- A")
+        laps_b = exported.text.count(">B<") + exported.text.count('"B"') + exported.text.count("- B")
+        assert laps_a == 1, f"{fmt}: node A written {laps_a} times"
+        assert laps_b == 1, f"{fmt}: node B written {laps_b} times"

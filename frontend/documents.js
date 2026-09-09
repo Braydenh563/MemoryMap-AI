@@ -413,11 +413,15 @@ function cmSurface(view) {
     blur() { view.contentDOM.blur(); },
     rect() { return view.dom.getBoundingClientRect(); },
     getBoundingClientRect() { return view.dom.getBoundingClientRect(); },
-    //: CodeMirror raises no `input` event for a scripted change, so the one
-    //: pipeline every other box reaches through `input` is called straight
-    //: instead. Same effect, and no synthetic event on a contenteditable.
+    //: **Nothing to dispatch, and that is not a stub.** Callers written for a
+    //: textarea end a scripted write with an `input` event, because writing
+    //: `.value` raises none and half this editor hangs off one. Every write
+    //: through this adapter is a *transaction*, and the view's update
+    //: listener has already run the same pipeline by the time this is
+    //: reached: raising a synthetic event on a contenteditable would run it a
+    //: second time and reset the autosave timer twice per edit. Returns true
+    //: because that is what `dispatchEvent` means: nothing cancelled it.
     dispatchEvent() {
-      docSurfaceChanged();
       return true;
     },
   };
@@ -425,8 +429,10 @@ function cmSurface(view) {
   return surface;
 }
 
-//: Registered through `onChange`; run for a CodeMirror edit by the view's own
-//: update listener and for a scripted write by `dispatchEvent` above.
+//: Registered through `onChange` on a CodeMirror surface, and run by the
+//: view's own update listener. A textarea surface registers the same
+//: callbacks as real `input` listeners on the element, so the two engines
+//: reach one pipeline by the same call.
 const docSurfaceChangeHandlers = [];
 
 function docSurfaceChanged() {
@@ -3123,7 +3129,11 @@ function docSurfaceInput() {
   scheduleDocPreview();
   renderDocGutter();
 }
-docBoxEl().addEventListener("input", docSurfaceInput);
+//: Registered through the adapter rather than on the element, so the same
+//: line serves whichever engine is underneath. `mountDocEditor` says it
+//: again for the view it builds: a handler registered on the fallback's DOM
+//: cannot follow the document into CodeMirror.
+docSurface().onChange(docSurfaceInput);
 // The gutter is a separate element beside the textarea, so it has to be told
 // to follow it, because a textarea's own scroll does not move its siblings.
 // The fallback's problem only: the engine's own gutter is inside the view and
@@ -6500,7 +6510,6 @@ function docCmExtensions(CM) {
 //: pipeline for typed and scripted edits alike.
 function docCmUpdate(update) {
   if (update.docChanged) {
-    docSurfaceInput();
     docSurfaceChanged();
     docToolsOnInput(docSurface());
     //: editor.js hangs the "/" and `[[` triggers off a DOM `input` event,
@@ -6599,6 +6608,10 @@ function mountDocEditor(CM) {
     extensions: docCmExtensions(CM),
   });
   docCmView = new CM.view.EditorView({ state, parent: host });
+  //: The document-level pipeline, re-registered on the surface that exists
+  //: now: the fallback's own `input` listener is on an element the engine has
+  //: just taken out of the layout.
+  cmSurface(docCmView).onChange(docSurfaceInput);
   host.classList.remove("hidden");
   $("doc-source-wrap")?.classList.add("has-cm");
   //: The column beside the textarea is not the editor's gutter any more

@@ -24524,7 +24524,14 @@ function autoGrow(el) {
   const next = chosen > 0
     ? (chosen < auto ? chosen : Math.max(auto, Math.min(chosen, viewportLimit)))
     : !el.value.trim()
-      ? (parseFloat(getComputedStyle(el).minHeight) || auto)
+      //: An empty box is its own natural height (`rows` and the placeholder,
+      //: measured at height:auto above), floored at min-height, never *just*
+      //: min-height. Reported with a screenshot: the capture box at 44px
+      //: under a two-line placeholder, the second line clipped, a scrollbar
+      //: on an empty textarea. "A cleared box must not keep the height of
+      //: what was in it" still holds: scrollHeight at height:auto is the
+      //: empty box's own size, not the old text's.
+      ? Math.max(parseFloat(getComputedStyle(el).minHeight) || 0, auto)
       : Math.min(el.scrollHeight, limit);
   el.style.height = `${next}px`;
   el.style.overflowY = el.scrollHeight > next ? "auto" : "hidden";

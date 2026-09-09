@@ -537,6 +537,15 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     updated for the split; boot stays synchronous for app.js and the
     guards). Expected: the parse cost of about 1.3 MB of JavaScript leaves
     the startup path. Owner: Opus. Size M.
+60. **Dashboard "Jump to / Run a skill / stat tiles" section** (screenshot,
+    00:58; the owner: "could do with an upgrade and better design, utility,
+    features"): three pill links, three skill pills with dashed borders, four
+    stat tiles, all left-aligned in a band with most of its width empty.
+    Owner: Opus, next slot (dashboard). Recommendation: one "Start" row
+    that fills the width, the stats as a compact strip with a sparkline for
+    the week and the streak, the skills row showing the last-run time and a
+    Run button per skill, a "Continue" tile for the last note or document
+    touched; the band's height unchanged.
 59. **Graph node popup panel redesign** (screenshot, 00:50; the owner:
     "include redesigning the graph node popup panels in the graph redesign
     plan"): title, five meta chips at one weight, a file card, a tall

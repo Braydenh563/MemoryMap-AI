@@ -150,9 +150,19 @@ function tuning(params) {
   const gravityScale = 0.4 + gravity / 41.7; // 0.4x-2.8x
   const spreadScale = 0.5 + spread / 50; // 0.5x-2.5x
   const density = SPREAD_TRIM * densityScale(nodes.length);
+  //: Reported twice, with a screenshot the second time: "max gravity on the
+  //: graph is still quite spread out". Weaker repulsion alone cannot close
+  //: the gaps *between* components, nothing links them, so they sit wherever
+  //: the initial spiral left them. The centre pull is the only force that
+  //: acts across a gap, and it did not move with the slider. Quadratic so
+  //: the middle of the range is untouched (1x at 50) and the top of it packs
+  //: the islands together: 0.25x at 0, 3.25x at 100.
+  const pull = 0.25 + 0.75 * (gravity / 50) ** 2;
   return {
     charge: (-340 * density) / gravityScale,
     linkDistance: (edge) => (edge.kind === "similar" ? 130 : 80) * density * spreadScale,
+    pullX: 0.015 * centreScale(nodes.length) * pull,
+    pullY: 0.02 * centreScale(nodes.length) * pull,
   };
 }
 
@@ -161,6 +171,8 @@ function applyForces(params) {
   const tuned = tuning(params);
   simulation.force("charge").strength(tuned.charge);
   simulation.force("link").distance(tuned.linkDistance);
+  simulation.force("x").strength(tuned.pullX);
+  simulation.force("y").strength(tuned.pullY);
 }
 
 //: Keep the layout inside its own world. Carried over from the SVG tick
@@ -350,8 +362,8 @@ self.onmessage = (event) => {
         // it) while the centre keeps pulling the whole cloud in without
         // changing anything about how a cluster is arranged inside itself. It
         // is 1x up to the reference count, so a small notebook is untouched.
-        .force("x", d3.forceX(0).strength(0.015 * centreScale(nodes.length)))
-        .force("y", d3.forceY(0).strength(0.02 * centreScale(nodes.length)))
+        .force("x", d3.forceX(0).strength(tuned.pullX))
+        .force("y", d3.forceY(0).strength(tuned.pullY))
         .force(
           "collide",
           d3.forceCollide().radius((d) => (d.r || 8) + COLLIDE_PAD)

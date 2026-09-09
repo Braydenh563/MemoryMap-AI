@@ -5571,7 +5571,14 @@ Link to another note with [[its first few words]]."></textarea>
                    discoverable only by trying it. -->
               <dl id="model-spec" class="model-spec hidden"></dl>
               <p id="model-spec-health" class="muted hidden"></p>
-              <h3>Utility model (filing, digest &amp; writing fixes)</h3>
+              <div class="row help-head">
+                <h3>Utility model (filing, digest &amp; writing fixes)</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="utility-model-help" aria-controls="utility-model-help" aria-expanded="false"
+                  title="About the utility model" aria-label="About the utility model">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
               <div class="row">
                 <select id="utility-model-select" aria-label="Model used for background jobs" title="Model used for background jobs"></select>
                 <button id="utility-model-apply" class="small">Use this model</button>
@@ -5582,28 +5589,42 @@ Link to another note with [[its first few words]]."></textarea>
                   <span>Use Smart Model Routing for Background Tasks</span>
                 </label>
               </div>
-              <p class="muted">
-                Quick background jobs run on this model, so a big slow chat
-                model isn't tied up categorising every note. Point it at a
-                small fast model (e.g. llama3.2) and let a bigger one answer
-                your questions. Leave as “Same as chat model” to keep it simple.
-              </p>
+              <p class="muted">A small fast model handles background jobs, so the chat model stays free to answer.</p>
+              <div class="help-body hidden" id="utility-model-help" role="dialog" aria-label="About the utility model">
+                <p>
+                  Quick background jobs run on this model, so a big slow
+                  chat model isn't tied up categorising every note. Point it
+                  at a small fast model (e.g. llama3.2) and let a bigger one
+                  answer your questions. Leave as “Same as chat model” to
+                  keep it simple.
+                </p>
+              </div>
               <!-- Vision-capable models (ROADMAP.md's largest open item).
                    Same "Same as X" shape the utility model above already
                    uses, except the default resolves by capability rather
                    than falling back to the chat model, a vision model is
                    usually a different, heavier one kept just for photos. -->
-              <h3>Vision model (used when an image is attached in chat)</h3>
+              <div class="row help-head">
+                <h3>Vision model (used when an image is attached in chat)</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="vision-model-help" aria-controls="vision-model-help" aria-expanded="false"
+                  title="About the vision model" aria-label="About the vision model">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
               <div class="row">
                 <select id="vision-model-select" aria-label="Model used for images" title="Model used for images"></select>
                 <button id="vision-model-apply" class="small">Use this model</button>
               </div>
               <p id="vision-model-note" class="status"></p>
-              <p class="muted">
-                “Auto-detect” uses the first installed model that reports it
-                can see images. Pick one by hand if you have several, or if
-                auto-detect isn't finding the one you want.
-              </p>
+              <p class="muted">“Auto-detect” uses the first installed model that reports it can see images.</p>
+              <div class="help-body hidden" id="vision-model-help" role="dialog" aria-label="About the vision model">
+                <p>
+                  “Auto-detect” uses the first installed model that reports
+                  it can see images. Pick one by hand if you have several,
+                  or if auto-detect isn't finding the one you want.
+                </p>
+              </div>
 
               <!-- Separate from the vision model above, and the reason is not
                    obvious: rasterising a PDF does not read anything, it turns
@@ -5613,18 +5634,29 @@ Link to another note with [[its first few words]]."></textarea>
                    reader is trained to return the text, tables and layout. Ask
                    moondream for a scanned invoice and it describes the
                    invoice. -->
-              <h3>Reading text (OCR: scanned PDFs, and text in images)</h3>
+              <div class="row help-head">
+                <h3>Reading text (OCR: scanned PDFs, and text in images)</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="ocr-model-help" aria-controls="ocr-model-help" aria-expanded="false"
+                  title="About reading text" aria-label="About reading text">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
               <div class="row">
                 <select id="ocr-model-select" aria-label="Model used to read text off a page" title="Model used to read text off a page"></select>
                 <button id="ocr-model-apply" class="small">Use this model</button>
               </div>
               <p id="ocr-model-note" class="status"></p>
-              <p class="muted">
-                Left on “Automatic”, this prefers a document reader
-                (GLM-OCR, DeepSeek-OCR, PaddleOCR-VL) when you have one
-                installed, then falls back to your vision model. Scanned PDFs
-                also need the “Read scanned PDFs” extra, below in Packages.
-              </p>
+              <p class="muted">Left on “Automatic”, this prefers a dedicated document reader when you have one.</p>
+              <div class="help-body hidden" id="ocr-model-help" role="dialog" aria-label="About reading text">
+                <p>
+                  Left on “Automatic”, this prefers a document reader
+                  (GLM-OCR, DeepSeek-OCR, PaddleOCR-VL) when you have one
+                  installed, then falls back to your vision model. Scanned
+                  PDFs also need the “Read scanned PDFs” extra, below in
+                  Packages.
+                </p>
+              </div>
             </div>
 
             <!-- Deliberately OUTSIDE #models-config. It used to live inside,
@@ -5633,7 +5665,23 @@ Link to another note with [[its first few words]]."></textarea>
                  no Ollama at all. So the one setting you could always change
                  was the one you could never reach (user-reported). -->
             <div id="search-engine-config" class="settings-group">
-              <h3>Search engine (how your notes are understood)</h3>
+              <div class="row help-head">
+                <h3>Search engine (how your notes are understood)</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="search-engine-help" aria-controls="search-engine-help" aria-expanded="false"
+                  title="About the search engine" aria-label="About the search engine">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <div class="help-body hidden" id="search-engine-help" role="dialog" aria-label="About the search engine">
+                <p>
+                  Pick a dedicated <strong>embedding</strong> model (e.g.
+                  nomic-embed-text): chat models can't create embeddings.
+                  Changing this re-reads every note so search keeps making
+                  sense, it runs in the background and search falls back to
+                  keywords until it finishes.
+                </p>
+              </div>
               <!-- Same treatment as the tool-focus group in Settings → Tools:
                    one control with one answer, rather than two loose dots
                    (§35L). `.check-row` is where that lives. -->
@@ -5650,11 +5698,8 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="embedding-apply" class="small">Apply &amp; re-index</button>
               </div>
               <p class="muted" id="embedding-ollama-note">
-                Pick a dedicated <strong>embedding</strong> model (e.g.
-                nomic-embed-text): chat models can't create embeddings.
-                Changing this re-reads every note so search keeps making sense, 
-                it runs in the background and search falls back to keywords until
-                it finishes.
+                Pick a dedicated <strong>embedding</strong> model, chat
+                models can't create embeddings.
               </p>
               <p class="muted hidden" id="embedding-offline-note">
                 The Ollama option needs Ollama running, start it and this list
@@ -5668,7 +5713,22 @@ Link to another note with [[its first few words]]."></textarea>
                  `renderReindex` in app.js, which swaps the button for the
                  progress bar while a job is going. -->
             <div id="reindex-box" class="settings-group">
-              <h3>Search index</h3>
+              <div class="row help-head">
+                <h3>Search index</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="reindex-help" aria-controls="reindex-help" aria-expanded="false"
+                  title="About the search index" aria-label="About the search index">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <div class="help-body hidden" id="reindex-help" role="dialog" aria-label="About the search index">
+                <p>
+                  Rebuilds what semantic search matches on. Worth doing
+                  after an update, or if searching stops finding notes you
+                  know are there, it re-reads every note with its category,
+                  tags and attached text included.
+                </p>
+              </div>
               <progress id="reindex-progress" class="hidden" value="0" max="1"></progress>
               <p id="reindex-label" class="status hidden"></p>
               <!-- Shown only when a bulk change has actually happened, see
@@ -5677,7 +5737,7 @@ Link to another note with [[its first few words]]."></textarea>
                    day you import a vault is one that means something. -->
               <p id="reindex-stale" class="status reindex-stale hidden" role="status"></p>
               <div class="row space-between reindex-action">
-                <p id="reindex-blurb" class="muted text-sm">Rebuilds what semantic search matches on. Worth doing after an update, or if searching stops finding notes you know are there, it re-reads every note with its category, tags and attached text included.</p>
+                <p id="reindex-blurb" class="muted text-sm">Rebuilds what semantic search matches on.</p>
                 <button id="reindex-start" class="ghost small" type="button">Rebuild search index</button>
               </div>
             </div>
@@ -5704,12 +5764,24 @@ Link to another note with [[its first few words]]."></textarea>
                  Collapsed by default: this is genuinely advanced, and the
                  honest default for all of it is "whatever the model says". -->
             <details id="sampling-box" class="settings-group">
-              <summary><h3 class="inline-h3">Advanced response settings</h3></summary>
-              <p class="muted">
-                How the model picks its words. Each row starts at what this
-                model recommends for itself, change one only if you have a
-                reason, and Reset puts it back.
-              </p>
+              <summary>
+                <div class="row help-head">
+                  <h3 class="inline-h3">Advanced response settings</h3>
+                  <button type="button" class="icon-only ghost small graph-help-toggle"
+                    data-help-for="sampling-help" aria-controls="sampling-help" aria-expanded="false"
+                    title="About these settings" aria-label="About these settings">
+                    <i class="ph ph-question" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </summary>
+              <p class="muted">Each row starts at what the model recommends for itself.</p>
+              <div class="help-body hidden" id="sampling-help" role="dialog" aria-label="About these settings">
+                <p>
+                  How the model picks its words. Each row starts at what
+                  this model recommends for itself, change one only if you
+                  have a reason, and Reset puts it back.
+                </p>
+              </div>
               <p id="sampling-model" class="muted text-sm"></p>
               <div id="sampling-rows"></div>
               <div class="row gap">

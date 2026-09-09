@@ -950,15 +950,10 @@ async function attachBookmarkToDocument() {
   row.append(select, cancel);
   wrap.insertBefore(row, $("doc-attach-bookmark"));
   $("doc-attach-bookmark").classList.add("hidden");
-  //: The focus goes to whatever `enhanceSelect` built, once it has built it.
-  //: It runs off a MutationObserver, so the shell does not exist in the frame
-  //: this function returns in; focusing the select directly puts the focus on
-  //: a `tabindex="-1"` element that is about to be hidden, which is the same
-  //: bug as the Escape one above and looks like the picker opening unfocused.
-  requestAnimationFrame(() => {
-    const opener = row.querySelector(".select-opener");
-    (opener || select).focus();
-  });
+  //: `focusSelect` (app.js), which is where this trap and its answer now live
+  //: together. It was open-coded here first, before a sweep of the rest of the
+  //: app found three more call sites doing the plain `.focus()` silently.
+  focusSelect(select);
 }
 
 //: **Templates: a starting shape for the five documents people make most.**

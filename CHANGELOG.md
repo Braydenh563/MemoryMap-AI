@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.3.0] - 2026-09-09
+
 **0.3.0 is the modernisation release.** Everything on the branch since
 0.2.2 (2026-09-06 to 2026-09-09): a canvas graph with colour rules, groups,
 lasso and export; mind maps through Phase 5 with previews and generation
@@ -15,8 +19,8 @@ under the CSP; launchers, uninstallers and a splash on three platforms; the
 glass aesthetic scoped to the functional layer with Performance mode;
 grounding that names the note each sentence came from; a README and
 documentation written for the public; and about forty of the owner's
-reported bugs. The detail, by surface, follows; the tag is cut at merge
-(docs/RELEASING.md).
+reported bugs. The detail, by surface, follows; the tag is cut once
+this lands on main (docs/RELEASING.md).
 
 ### 0.3.0, by surface
 

@@ -2009,6 +2009,37 @@ function docLivePlugin(CM) {
       const line = doc.lineAt(pos);
       return touched(line.from, line.to);
     };
+    //: **A marker reveals when the caret is on its line, not when it is inside
+    //: its range**, and this is the fix for a measured defect rather than a
+    //: preference.
+    //:
+    //: Revealing per range put four characters on screen immediately to the
+    //: left of the caret at the moment it crossed the range's edge, so the
+    //: caret moved *right* on a leftward keystroke. Measured with
+    //: `coordsAtPos` walking left through `A **bold** word here.`: x 560.3,
+    //: 554, 544.2, 531.1, and then **559.5** on the press that revealed the
+    //: markers, a 28.4px jump backwards. The document position was never
+    //: wrong (11 then 10, exactly one character); what moved was the text
+    //: under it.
+    //:
+    //: `EditorView.atomicRanges` is the usual answer to a caret and a hidden
+    //: range, and it is the wrong one here: it makes the arrow keys step
+    //: *over* the marker without revealing it, and the owner's sentence is
+    //: precisely about being able to "navigate with backspace, delete or
+    //: arrow keys etc to where those formatting markers are".
+    //:
+    //: The line is what holds still. Horizontal movement within a line now
+    //: causes no reflow at all, because the line's markers are already up the
+    //: whole time the caret is on it; the one reflow left happens when the
+    //: caret *arrives* on the line, which is a click or a vertical move, and
+    //: both of those relocate the caret anyway so there is nothing to jar
+    //: against. It is also what `HeaderMark`, `QuoteMark` and `TaskMarker`
+    //: have always done here, so this makes the eight constructs agree
+    //: instead of splitting them into two behaviours.
+    //:
+    //: Both line ends, because a range can span a soft-wrapped link.
+    const rangeRevealed = (from, to) =>
+      touched(doc.lineAt(from).from, doc.lineAt(to).to);
     const tree = syntaxTree(state);
 
     //: **A replace decoration may not contain a line break, and this is not a
@@ -2071,7 +2102,7 @@ function docLivePlugin(CM) {
             //: A fence's own ``` is a `CodeMark` too, and hiding those would
             //: leave a code block with no visible boundaries at all.
             if (!parent || parent.name === "FencedCode") return false;
-            if (!touched(parent.from, parent.to)) hide(node.from, node.to);
+            if (!rangeRevealed(parent.from, parent.to)) hide(node.from, node.to);
             return false;
           }
           if (name === "Link") {
@@ -2085,7 +2116,7 @@ function docLivePlugin(CM) {
                 attributes: { "data-doc-href": url, title: `Ctrl+click to open ${url}` },
               }).range(node.from + 1, node.from + close)
             );
-            if (!touched(node.from, node.to)) {
+            if (!rangeRevealed(node.from, node.to)) {
               hide(node.from, node.from + 1);
               hide(node.from + close, node.to);
             }
@@ -2096,7 +2127,7 @@ function docLivePlugin(CM) {
             const close = text.lastIndexOf("](");
             if (close <= 1) return false;
             const src = sameOrigin(text.slice(close + 2, text.length - 1));
-            if (!src || touched(node.from, node.to)) return false;
+            if (!src || rangeRevealed(node.from, node.to)) return false;
             //: Same rule as `hide`: an image whose alt text wraps would put a
             //: line break inside the range this widget replaces.
             if (text.includes("\n")) return false;
@@ -2132,7 +2163,7 @@ function docLivePlugin(CM) {
             //: for the kind's own label while the caret is elsewhere. Offsets
             //: come from the match rather than from a second search, so a body
             //: line that happens to contain `[!note]` cannot be hit.
-            if (kind && !touched(first.from, first.to)) {
+            if (kind && !rangeRevealed(first.from, first.to)) {
               const from = first.from + first.text.indexOf(callout[1]);
               const to = from + callout[1].length;
               let end = to;
@@ -2208,7 +2239,7 @@ function docLivePlugin(CM) {
       };
       scan(/==([^=\n]{1,200})==/g, (match, from, to) => {
         ranges.push(Decoration.mark({ class: "cm-md-highlight" }).range(from, to));
-        if (touched(from, to)) return;
+        if (rangeRevealed(from, to)) return;
         hide(from, from + 2);
         hide(to - 2, to);
       });
@@ -2220,7 +2251,7 @@ function docLivePlugin(CM) {
             attributes: { "data-doc-wiki": name, title: `Open “${name}”` },
           }).range(from + 2, to - 2)
         );
-        if (touched(from, to)) return;
+        if (rangeRevealed(from, to)) return;
         hide(from, from + 2);
         hide(to - 2, to);
       });

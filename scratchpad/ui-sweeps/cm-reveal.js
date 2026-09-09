@@ -90,11 +90,15 @@ const CALLOUT = '> [!warning] a callout';
   if (!label || !/Warning/.test(label)) fail(`the callout kept its [!warning] marker (label ${JSON.stringify(label)})`);
 
   // The reveal, through each gesture the owner named. The bold run is the
-  // subject: park past it, then reach it three different ways.
+  // subject, and the unit is the **line**: a marker reveals when the caret is
+  // on its line, not when it is inside its range. That is not a detail, it is
+  // the fix for a measured defect, and the last block here is what checks it.
   const boldAt = await page.evaluate(() => docSurface().text.indexOf('**bold**'));
+  const boldLine = await page.evaluate((p) => docCmView.state.doc.lineAt(p).number, boldAt);
   const shows = () => page.evaluate(() => document.querySelector('#doc-editor .cm-content').innerText.includes('**bold**'));
-
   const park = (n) => page.evaluate((p) => { const s = docSurface(); s.focus(); s.setSelection(p, p); }, n);
+  // A position on a different line, which is what "away" means now.
+  const elsewhere = await page.evaluate(() => docSurface().text.length);
 
   // Click: put the selection inside the run, which is what a click does.
   await park(boldAt + 3);
@@ -102,33 +106,68 @@ const CALLOUT = '> [!warning] a callout';
   say('reveal_by_selection', await shows());
   if (!(await shows())) fail('a selection inside **bold** did not reveal its markers');
 
-  // Arrow keys: park one past the closing marker and walk left onto it.
-  await park(boldAt + 9);
+  // Off the line: hidden again.
+  await park(elsewhere);
   await page.waitForTimeout(300);
-  say('parked_past', await shows());
-  if (await shows()) fail('the markers were showing before the caret reached them');
-  await page.keyboard.press('ArrowLeft');
+  say('hidden_from_another_line', !(await shows()));
+  if (await shows()) fail('the markers stayed up with the caret on another line');
+
+  // Arrow keys: arrive on the line from the line below it.
+  const lineBelowEnd = await page.evaluate((n) => {
+    const line = docCmView.state.doc.line(n + 2);
+    return line.to;
+  }, boldLine);
+  await park(lineBelowEnd);
   await page.waitForTimeout(300);
-  say('reveal_by_arrowleft', await shows());
-  if (!(await shows())) fail('ArrowLeft onto the closing marker did not reveal it');
+  if (await shows()) fail('the markers were showing before the caret reached the line');
+  for (let i = 0; i < 4 && !(await shows()); i++) {
+    await page.keyboard.press('ArrowUp');
+    await page.waitForTimeout(150);
+  }
+  say('reveal_by_arrowup', await shows());
+  if (!(await shows())) fail('arrowing onto the line did not reveal its markers');
 
   // Backspace and Delete both move the selection, so both must repaint.
-  await park(boldAt + 20);
-  await page.waitForTimeout(250);
-  if (await shows()) fail('parked well past the run and the markers were still up');
   for (const key of ['Backspace', 'Delete']) {
+    await park(elsewhere);
+    await page.waitForTimeout(200);
+    if (await shows()) fail(`the markers were up before ${key} was pressed`);
     await park(boldAt + 20);
-    await page.waitForTimeout(200);
-    // Walk to the edge of the run with that key alone.
-    for (let i = 0; i < 12 && !(await shows()); i++) {
-      await page.keyboard.press(key === 'Backspace' ? 'Backspace' : 'ArrowLeft');
-      if (key === 'Delete') await page.keyboard.press('Delete');
-      await page.waitForTimeout(90);
-    }
+    await page.waitForTimeout(150);
+    await page.keyboard.press(key);
+    await page.waitForTimeout(300);
     say(`reveal_by_${key.toLowerCase()}`, await shows());
-    if (!(await shows())) fail(`${key} never reached the markers`);
+    if (!(await shows())) fail(`${key} on the line did not reveal its markers`);
     await page.keyboard.press('Control+z');
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(250);
+  }
+
+  // **The caret only ever moves left when you press left.** This is the whole
+  // reason the reveal is per line rather than per range. Before: walking left
+  // across `A **bold** word` read x 560.3, 554, 544.2, 531.1 and then 559.5 on
+  // the press that revealed the markers, a 28.4px jump to the *right* on a
+  // leftward keystroke, because four characters appeared immediately to the
+  // caret's left. atomicRanges is the usual answer and is the wrong one: it
+  // would step over the marker rather than into it, and stepping into it is
+  // what the owner asked for.
+  await park(boldAt + 14);
+  await page.waitForTimeout(300);
+  const walk = [];
+  for (let i = 0; i < 14; i++) {
+    walk.push(await page.evaluate(() => {
+      const head = docCmView.state.selection.main.head;
+      const c = docCmView.coordsAtPos(head);
+      return { pos: head, x: c ? +c.left.toFixed(1) : null };
+    }));
+    await page.keyboard.press('ArrowLeft');
+    await page.waitForTimeout(110);
+  }
+  say('caret_walk', walk.map((w) => w.x));
+  for (let i = 1; i < walk.length; i++) {
+    if (walk[i].x === null || walk[i - 1].x === null) continue;
+    if (walk[i].x > walk[i - 1].x) {
+      fail(`ArrowLeft moved the caret right, ${walk[i - 1].x} to ${walk[i].x}, at position ${walk[i].pos}`);
+    }
   }
 
   console.log(bad ? `cm-reveal: ${bad} failures` : 'cm-reveal: all checks pass');

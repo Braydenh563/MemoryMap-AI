@@ -45,7 +45,11 @@ done-when item 4 and 5), in priority order.
     explicit pin is Shift+drag or the menu; a dragged cluster (lasso
     selection) moves together the same way; a small "pinned" ring only
     on real pins.
-81. **Web search results in the Sources dropdown: links rendered as
+81. **Half done, 2026-09-09: the angle-bracket autolink renders as a link
+    now** (`expandAngleAutolinks`, measured end to end through a real note:
+    the href is right, `Array<T>` is untouched and a `javascript:` scheme is
+    refused). What is left is the second half below, the numbering.
+    **Web search results in the Sources dropdown: links rendered as
     Markdown links and number-referenced** (the model's table showed raw
     `<https://...>`). Owner: Fable, now: the answer renderer's link rule
     accepts autolinks in angle brackets; the sources list numbers web

@@ -7919,6 +7919,29 @@ function safeHref(url) {
   return "#";
 }
 
+//: **CommonMark's angle-bracket autolink, `<https://example.com>`.** INBOX
+//: 81: "Web search results in the Sources dropdown: links rendered as
+//: Markdown links", with a screenshot of a model's table showing the raw
+//: `<https://...>` text. Neither inline pattern here has ever matched that
+//: form, so it fell through to plain prose and the reader saw the brackets.
+//:
+//: Rewritten to `[url](url)` *before* matching rather than added as another
+//: alternative to `INLINE_MD`. That pattern's capture groups are addressed by
+//: number in the renderer below, and its own comment records a bug where two
+//: indices were off by two and every image in the app rendered "undefined":
+//: adding a group in the middle of it is exactly how that happens again. A
+//: pre-pass cannot move an index.
+//:
+//: Only http and https, which is the same allowlist `isRenderableUrl`
+//: applies afterwards; the point of the check here is to leave anything else
+//: (an HTML tag, `<3`, a generic like `Array<T>`) exactly as it was.
+function expandAngleAutolinks(text) {
+  return String(text || "").replace(
+    /<(https?:\/\/[^\s<>]{1,500})>/g,
+    (whole, url) => `[${url}](${url})`,
+  );
+}
+
 function renderInlineMarkdown(element, text, terms, compact = false, options = {}) {
   const {
     dismissible = true,
@@ -7935,6 +7958,7 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
   // behaviour is kept only for its own (non-legacy) callers.
   if (!underscoreSyntax) element.replaceChildren();
   if (applyLatex) text = unlatex(text);
+  text = expandAngleAutolinks(text);
   const pattern = new RegExp((underscoreSyntax ? INLINE_MD_LEGACY : INLINE_MD).source, "g");
   let cursor = 0;
   let match;

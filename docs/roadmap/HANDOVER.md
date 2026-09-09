@@ -56,7 +56,8 @@ the plans this session (DOCUMENTS Phase 8, MINDMAP §12, GRAPH 6b, INBOX
 100 to 104, CHAT and TIMELINE in full) is the next session's, not this
 PR's.
 
-- [ ] 1. Documents Phase 2 steps 2 to 4 merged: the CodeMirror surface is
+- [x] 1. Documents Phase 2 steps 2 to 4 merged (2026-09-09;
+      `tests/test_doc_surface.py` carries no xfail marker): the CodeMirror surface is
       the editor, Live as decorations, findings, undo, search, folding;
       `tests/test_doc_surface.py` has no xfail markers left; doctype.js
       under 30 ms; the vendor bundle absent at boot.
@@ -71,6 +72,21 @@ PR's.
       (kebab first click), 82 (settings rows), 91 (chat header), plus
       Ctrl+S and the profile group; errors.js, contrast.js, docks.js,
       touch.js and weight.js green on the head.
+      **Where this stands, 2026-09-09.** Ctrl+S is measured and fixed (the
+      visible section had no reachable Save button, all six in the document
+      laid out at zero height). errors, contrast, docks and touch all passed
+      on the merged head. 82 is clean as far as it was checked: two settings
+      rows carrying both a field and a button, zero height mismatches, which
+      is thin coverage rather than a result. 91 is measured by the wrap
+      sweep, which took the answer header from three fragmented lines at
+      1280px to two clean rows. 75 is still unmeasured: the probe could not
+      find a card kebab to click, so the first-click behaviour is unproven
+      and must not be ticked on the strength of the others.
+      A note on the metric, so the next attempt does not repeat it: counting
+      distinct `top` values among a row's children does **not** detect
+      wrapping. A `nowrap` row whose children are baseline- or
+      centre-aligned reports several distinct tops and has not wrapped. Test
+      whether a child's `top` is at or below the first child's `bottom`.
 - [ ] 5b. The README's screenshots recaptured, last of all. The owner:
       "I think the screen shots on the readme need an update from all the ui
       changes." Eight of them in `docs/images/` (chat, dashboard, documents,

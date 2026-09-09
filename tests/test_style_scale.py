@@ -331,7 +331,23 @@ def test_the_shell_is_declared_once_and_responsively():
 #: design token at all, it's set inline, per bar, per frame, by
 #: startMicLevelMeter() in app.js, so its "declaration" is JS, not this
 #: stylesheet.
-FALLBACK_ALLOWED = {"--mono", "--ui-font", "--bg-art-opacity", "--modal-bg", "--chip-bg", "--bar-scale"}
+#:
+#: --wb-map-edge-colour is the same shape and arrived the same way: a mind
+#: map's edge takes its branch's colour, written per element by the map
+#: renderer with `el.style.setProperty`, and falls back to the accent for an
+#: edge whose branch has none. It is written that way rather than as a
+#: `stroke` attribute because a stylesheet declaration beats an attribute and
+#: the attribute version was dead markup, which is what
+#: `tests/test_svg_paint_attributes.py` now catches.
+FALLBACK_ALLOWED = {
+    "--mono",
+    "--ui-font",
+    "--bg-art-opacity",
+    "--modal-bg",
+    "--chip-bg",
+    "--bar-scale",
+    "--wb-map-edge-colour",
+}
 
 VAR_WITH_FALLBACK = re.compile(r"var\(\s*(--[\w-]+)\s*,")
 DECLARED = re.compile(r"(?m)^\s*(--[\w-]+)\s*:")

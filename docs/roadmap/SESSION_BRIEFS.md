@@ -889,7 +889,8 @@ section · 92 suggested links panel · 74 preferences panels · 97 RapidOCR
 as a Packages option · 94 background animations.
 
 ### G. The plans' own remainders
-UI_MODERNISATION Phase 9 (responsive by device) · AGENT_SKILLS Phase D
+UI_MODERNISATION Phase 9 (desktop and tablet in this PR; the phone is
+Phase 11, its own session or two, the owner's call) · AGENT_SKILLS Phase D
 (resume a stalled step, edit and re-run a step, "why did this stall") ·
 WORLD_CLASS 1.1 lints for the consistency contract, §9 llama.cpp dev
 script, §12 flaw classes S7 (LIKE escaping) · PLAN.md and REDESIGN.md are

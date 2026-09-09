@@ -125,6 +125,50 @@ const SETEXT_DOC = 'Top setext\n==========\n\nbody\n\nSecond setext\n-----------
   if (!empty.noteShown || !empty.note) fail('the empty outline says nothing about what would fill it');
   if (!/^Outline/.test(empty.firstHeading || '')) fail(`the first heading on the Outline tab is "${empty.firstHeading}"`);
 
+  // --- 3b: a section is as tall as what is in it ---------------------------
+  // The hole in the owner's screenshot. Both `.doc-outline-wrap` sections
+  // carried `flex: 1 1 auto`, so with a two-heading document the outline was
+  // 312.4px of box around 68.3px of content and References 296.5px around
+  // 46px: 243.1px of empty column between the last entry and the References
+  // heading, and as much again below it.
+  await openDoc(page, { title: 'Short outline', content: '# Alpha\n\nbody\n\n## Beta\n\nbody\n' });
+  await openOutline();
+  const boxes = await page.evaluate(() => [...document.querySelectorAll('#doc-sidebar-outline > .doc-outline-wrap')]
+    .filter((d) => !d.classList.contains('hidden'))
+    .map((d) => {
+      let content = 0;
+      for (const k of d.children) content += k.getBoundingClientRect().height;
+      return {
+        id: d.id,
+        box: +d.getBoundingClientRect().height.toFixed(1),
+        content: +content.toFixed(1),
+        slack: +(d.getBoundingClientRect().height - content).toFixed(1),
+        flex: getComputedStyle(d).flex,
+      };
+    }));
+  say('section_boxes', boxes);
+  for (const b of boxes) {
+    // Padding and the heading's own margin are real; a section twice its
+    // content is a section that grew into space it had nothing to put in.
+    if (b.slack > 40) fail(`${b.id} is ${b.box}px of box around ${b.content}px of content (${b.slack}px of nothing)`);
+  }
+
+  // A text link may not carry the filled button's drop shadow: `.linklike`
+  // cancels the fill and the border and used to leave the accent glow, which
+  // reads as a soft filled pill around a link.
+  const linkShadow = await page.evaluate(() => {
+    const out = [];
+    for (const el of document.querySelectorAll('.linklike')) {
+      if (!el.getClientRects().length) continue;
+      out.push({ txt: el.textContent.trim().slice(0, 24), shadow: getComputedStyle(el).boxShadow });
+    }
+    return out;
+  });
+  say('linklike_shadows', linkShadow);
+  for (const l of linkShadow) {
+    if (l.shadow !== 'none') fail(`the link "${l.txt}" draws a button shadow: ${l.shadow}`);
+  }
+
   // --- 4: References is a row, and its picker has a way out ----------------
   await page.evaluate(async () => {
     await api('/bookmarks', { method: 'POST', body: JSON.stringify({ title: 'A saved link', url: 'https://example.invalid/one' }) });

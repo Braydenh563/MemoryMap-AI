@@ -518,8 +518,15 @@ work found and did *not* fix, which is the part that is still open.
   listeners in this batch were written that way before a sweep caught it.
   There is no lint for the class; a cheap one would fail on `.focus()` or
   `addEventListener("keydown"` applied to a variable holding a `<select>`.
-  And `.doc-outline-wrap` is `flex: 1 1 auto`, so a short outline leaves
-  ~250px of empty column above References. Not reported, not fixed.
+  The empty column above References is fixed: both sections carried
+  `flex: 1 1 auto`, so with a two-heading document the outline was 312.4px of
+  box around 68.3px of content and References 296.5px around 46px, leaving
+  243.1px of nothing between them. `flex: 0 1 auto` on both; now 85.3px around
+  68.3px and 69.4px around 46px, and `docoutline.js` fails on any section more
+  than 40px taller than what is in it. Found while measuring that: `.linklike`
+  cancels the filled button's background and border and never cancelled its
+  `box-shadow`, so all fifteen text links in the app drew an accent halo
+  behind their words.
 - "the whole documents sidebar and ui needs fixing and the document editor
   still needs a lot of refinement and cleaning but its still in development
   so just make sure you cover it all."

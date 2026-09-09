@@ -126,7 +126,6 @@ def test_index_html_has_the_codemirror_host_and_the_editor_stylesheet():
     assert (CSS_DIR / "09-editor.css").exists(), "frontend/css/09-editor.css is missing"
 
 
-@pytest.mark.xfail(strict=True, reason="Phase 2 step 2: loadCodeMirror lands with the adapter")
 def test_the_bundle_is_loaded_on_demand_and_not_at_boot():
     html = INDEX.read_text(encoding="utf-8")
     body = DOCUMENTS_JS.read_text(encoding="utf-8")

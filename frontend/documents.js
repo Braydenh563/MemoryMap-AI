@@ -123,6 +123,8 @@ function syncDocFileType() {
       : button.dataset.docTitle || button.title;
   }
   if (!type.previewable && docView !== "source") setDocView("source");
+  //: The engine's own language and wrapping, where it is mounted.
+  docCmSyncFileType();
 
   // The formatting toolbar is markdown syntax. In a .py file every button on
   // it inserts something wrong.
@@ -347,9 +349,18 @@ function cmSurface(view) {
     view,
     get scrollEl() { return view.scrollDOM; },
     get text() { return view.state.doc.toString(); },
+    //: **The smallest change that gets there, not "the document is now this
+    //: string".** Several callers still hand over a whole rebuilt document
+    //: (the live view rewrites it on every keystroke, the AI panel replaces a
+    //: passage by slicing). Dispatching that verbatim would make one history
+    //: entry per keystroke that replaces the entire file, which costs
+    //: proportional to the document on every character *and* makes Ctrl+Z
+    //: undo the whole thing. The same prefix/suffix diff the D3 stack used.
     set text(next) {
-      if (next === view.state.doc.toString()) return;
-      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: next } });
+      const current = view.state.doc.toString();
+      if (next === current) return;
+      const [from, to, insert] = docUndoDiffRange(current, next);
+      view.dispatch({ changes: { from, to, insert } });
     },
     get value() { return this.text; },
     set value(next) { this.text = next; },
@@ -517,6 +528,10 @@ function setDocView(mode) {
     }
   }
   if (docView === "live") renderDocLive();
+  //: The engine caches the geometry it lays out with, and a view inside a
+  //: `display: none` wrapper measures as zero. Asked for after the panes have
+  //: been shown, for the same reason the backdrop below is.
+  if (!$("doc-source-wrap").classList.contains("hidden")) docCmViewShown();
   //: After the panes have been shown and hidden, never before: the backdrop's
   //: geometry is copied from a textarea that reports zeros while its wrapper
   //: is `display: none`. The gutter's height has the same problem and the same
@@ -638,7 +653,7 @@ function renderDocList() {
 function showNoDocument() {
   currentDoc = null;
   $("doc-title").value = "";
-  docSurface().text = "";
+  docResetDocument("");
   // Deliberately NOT disabled. Disabling them meant that on a notebook with no
   // documents yet, clicking the editor did nothing and typing did nothing, 
   // a dead end whose only way out was noticing a small "+ New" button. Typing
@@ -657,6 +672,13 @@ function showNoDocument() {
 async function openDocument(id) {
   // Never lose unsaved work by switching away from it.
   if (docDirty) await saveDocument({ silent: true });
+  //: **The engine is loaded here, and this is the only place it is.** Awaited
+  //: before the text is handed over, so the document goes straight into
+  //: CodeMirror rather than into the fallback and then into a view mounted a
+  //: moment later, which is how the two would disagree on the very first
+  //: paint. Failing is not an error path: `ensureDocEditor` resolves to null
+  //: and everything below carries on against the textarea.
+  await ensureDocEditor();
   docSetPlaceholder(
     "# Start writing\n\nMarkdown works here, headings, **bold**, lists, tables, links."
   );
@@ -672,7 +694,7 @@ async function openDocument(id) {
   $("doc-title").disabled = false;
   docBoxEl().disabled = false;
   $("doc-title").value = doc.title;
-  docSurface().text = doc.content;
+  docResetDocument(doc.content);
   docDirty = false;
   //: A new document is a new history. Carrying the previous one over would let
   //: Ctrl+Z paste the *last* document's text into this one, the worst kind of
@@ -4099,10 +4121,15 @@ function applyDocGutter() {
   }
   syncDocGutterMetrics();
   watchDocGutter(docBoxEl());
+  //: The document's own numbers come from the engine once it is mounted, so
+  //: the preference has to reach it as well as the two note columns.
+  docCmSyncGutter();
   for (const button of document.querySelectorAll(".doc-toolbar-gutter")) {
     const bar = button.closest(".doc-toolbar");
     const own = bar?.id === "doc-toolbar"
-      ? !$("doc-gutter")?.classList.contains("hidden")
+      ? docCmView
+        ? docGutterWanted(!docFileType().previewable)
+        : !$("doc-gutter")?.classList.contains("hidden")
       : docGutterPref() === "1";
     button.setAttribute("aria-pressed", own ? "true" : "false");
     button.title = own ? "Hide line numbers" : "Show line numbers";
@@ -4200,7 +4227,9 @@ function mountDocToolbarControlsFor(bar) {
       // The strip's own button reads its own gutter: the documents strip
       // asks #doc-gutter, a note strip asks the remembered choice.
       const own = bar.id === "doc-toolbar"
-        ? $("doc-gutter")?.classList.contains("hidden")
+        ? docCmView
+          ? !docGutterWanted(!docFileType().previewable)
+          : $("doc-gutter")?.classList.contains("hidden")
         : docGutterPref() !== "1";
       setDocGutter(own);
     });
@@ -5402,6 +5431,14 @@ function docToolsOnInput(box) {
 //: textarea checks that used to be the whole of this function. Returning null
 //: for anything else is what keeps the instruments off the note composer.
 function docToolsBoxFor(target) {
+  //: A surface as well as a node, because half the callers now hold one
+  //: already (`applyMarkdown`'s Undo branch is the one that caught this: with
+  //: a surface passed to the old element-only check it returned null and the
+  //: toolbar's Undo silently fell through to `execCommand`).
+  if (target && (target.kind === "textarea" || target.kind === "codemirror")) {
+    if (target.isDocument || target.classList.contains("lp-src")) return target;
+    return null;
+  }
   if (target instanceof HTMLTextAreaElement) {
     if (target.id === "doc-content" || target.classList.contains("lp-src")) {
       return textareaSurface(target);
@@ -6642,6 +6679,13 @@ function docUndoBreak() {
 //: this repo's "features that never ran once" shape, in reverse.
 function docUndoRecord() {
   if (docUndoApplying) return;
+  //: **Not while CodeMirror is the surface** (DOCUMENTS_PLAN Phase 2 decision
+  //: 6). The engine keeps a real history of its own, over transactions rather
+  //: over snapshots, and two histories fed by the same edits is the shape
+  //: where Ctrl+Z walks one of them and the editor shows the other. The stack
+  //: below stays for the fallback textarea, which has the problem it was
+  //: written for.
+  if (docCmView) return;
   const source = docSurface();
   if (!source) return;
   const content = source.text;
@@ -6777,6 +6821,9 @@ function docUndoApply(entry) {
 }
 
 function docUndo() {
+  //: The engine's own history where there is one, so the toolbar's Undo
+  //: button and Ctrl+Z are the same action rather than two that disagree.
+  if (docCmView && window.CM6) return window.CM6.commands.undo(docCmView);
   if (docUndoAt <= 0) return false;
   docUndoAt -= 1;
   docUndoApply(docUndoStack[docUndoAt]);
@@ -6784,6 +6831,7 @@ function docUndo() {
 }
 
 function docRedo() {
+  if (docCmView && window.CM6) return window.CM6.commands.redo(docCmView);
   if (docUndoAt < 0 || docUndoAt >= docUndoStack.length - 1) return false;
   docUndoAt += 1;
   docUndoApply(docUndoStack[docUndoAt]);
@@ -6833,3 +6881,395 @@ document.addEventListener("focusin", (event) => {
   if (!docToolsBoxFor(event.target)) return;
   if (docUndoAt < 0) docUndoReset(docText());
 });
+
+// =============================================================================
+// The engine: CodeMirror 6 under the documents editor (DOCUMENTS_PLAN Phase 2)
+// =============================================================================
+//
+// **Loaded when the first document is opened, never at boot.** The bundle is
+// 772 KB (269 KB gzipped) and most sessions in this app never touch the
+// Documents tab at all, so paying for it on every cold start would be a
+// second of nothing in exchange for a feature that may not be used. INBOX 48
+// argued the same shape for the graph's own vendored library. `?v=` is not
+// applied: vendor URLs are exempt from the cache stamp
+// (tests/test_asset_cache_busting.py) because the version lives in the pin in
+// `frontend/vendor/codemirror/package.json`, not in the app's release number.
+//
+// **The textarea stays.** If the script fails to load, or the browser refuses
+// it, `docSurface()` keeps answering with `#doc-content` and the editor keeps
+// working exactly as it did. That is the whole reason the fallback is still
+// in the markup, and it is why every call site had to go through the adapter
+// first: this file must never be able to tell which one it is talking to.
+
+const DOC_CM_BUNDLE = "/vendor/codemirror/codemirror.min.js";
+
+//: The in-flight load, so two documents opened quickly do not inject two
+//: script tags. Reset to null on failure, so a later attempt can retry after
+//: whatever went wrong (a dropped connection on first paint, most likely).
+let docCmLoad = null;
+
+//: True once loading or mounting has failed. Checked before every attempt, so
+//: a broken bundle costs one request rather than one per document opened.
+let docCmBroken = false;
+
+function loadCodeMirror() {
+  if (window.CM6) return Promise.resolve(window.CM6);
+  if (docCmLoad) return docCmLoad;
+  docCmLoad = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = DOC_CM_BUNDLE;
+    script.async = true;
+    script.addEventListener("load", () => {
+      if (window.CM6) resolve(window.CM6);
+      //: Loaded but exporting nothing is a broken build, not a missing file,
+      //: and the two want different messages in the console.
+      else reject(new Error("the editor bundle loaded but defined no CM6"));
+    });
+    script.addEventListener("error", () =>
+      reject(new Error("the editor bundle could not be loaded"))
+    );
+    document.head.appendChild(script);
+  }).catch((error) => {
+    docCmLoad = null;
+    docCmBroken = true;
+    //: Said out loud once. Silence here would be the "policy silently
+    //: refusing the work" shape: the editor would quietly stay a textarea and
+    //: nobody would know why the new features were missing.
+    console.warn(`MemoryMap: ${error.message}. The plain editor is still available.`);
+    return null;
+  });
+  return docCmLoad;
+}
+
+//: The parts of the configuration that are swapped without rebuilding the
+//: state: the language (a file's type can change while it is open), the theme
+//: (light and dark), the gutter (a remembered preference), and line wrapping
+//: (prose wraps, code does not).
+const docCmParts = {
+  language: null,
+  theme: null,
+  gutter: null,
+  wrap: null,
+};
+
+//: The vendored modes, by the extension `GET /documents/file-types` uses.
+//: Anything not here is plain text, which is the honest answer: several of
+//: the file types this editor opens (php, swift, r) have no mode in the
+//: bundle, and a wrong highlighter is worse than none.
+function docCmLanguageFor(CM, ext) {
+  const stream = (mode) => (mode ? CM.language.StreamLanguage.define(mode) : []);
+  switch (ext) {
+    case "md": return CM.markdown.markdown();
+    case "js": return CM.javascript.javascript();
+    case "ts": return CM.javascript.javascript({ typescript: true });
+    case "py": return CM.python.python();
+    case "css": return CM.css.css();
+    case "html": return CM.html.html();
+    case "json": return CM.json.json();
+    case "yaml": return CM.yaml.yaml();
+    case "bash": return stream(CM.shell);
+    case "sql": return stream(CM.sql);
+    case "toml": return stream(CM.toml);
+    case "go": return stream(CM.go);
+    case "rs": return stream(CM.rust);
+    case "c": return stream(CM.c);
+    case "cpp": return stream(CM.cpp);
+    case "cs": return stream(CM.csharp);
+    case "java": return stream(CM.java);
+    case "kt": return stream(CM.kotlin);
+    case "rb": return stream(CM.ruby);
+    case "xml": return stream(CM.xml);
+    default: return [];
+  }
+}
+
+//: **The editor's ink, from the app's own tokens.**
+//:
+//: A theme object rather than a stylesheet, and the reason is mechanical:
+//: CodeMirror styles itself through `document.adoptedStyleSheets`, and
+//: adopted sheets sort *after* every document stylesheet, so a rule in
+//: 09-editor.css would lose to the library's own base rule at equal
+//: specificity and nothing would say so. Layout lives in the file; colour,
+//: type and the caret live here.
+//:
+//: `var(--…)` all the way through, so the density slider, a custom accent and
+//: a theme change move the editor with the rest of the app rather than
+//: leaving it as the one panel that did not follow.
+function docCmTheme(CM) {
+  const dark = document.documentElement.dataset.mode === "dark";
+  return CM.view.EditorView.theme(
+    {
+      "&": {
+        color: "var(--text)",
+        backgroundColor: "transparent",
+        height: "100%",
+      },
+      "&.cm-focused": { outline: "none" },
+      ".cm-scroller": {
+        fontFamily: "var(--ui-font, system-ui, -apple-system, 'Segoe UI', sans-serif)",
+        lineHeight: "1.6",
+        overflow: "auto",
+      },
+      //: The tail padding is not decoration: without it the last line of a
+      //: document sits against the bottom of the pane and you write the end
+      //: of a chapter at the very edge of the screen. Every editor this app
+      //: is compared to scrolls past the end, for that reason.
+      ".cm-content": {
+        caretColor: "var(--text)",
+        padding: "var(--space-4) var(--space-4) 40vh",
+      },
+      ".cm-line": { padding: "0" },
+      ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--text)" },
+      "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
+        backgroundColor: "var(--accent-soft)",
+      },
+      ".cm-gutters": {
+        backgroundColor: "transparent",
+        color: "var(--muted)",
+        border: "none",
+      },
+      ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--text)" },
+      ".cm-activeLine": { backgroundColor: "transparent" },
+      ".cm-selectionMatch": { backgroundColor: "var(--accent-soft)" },
+      ".cm-searchMatch": { backgroundColor: "var(--accent-soft)" },
+      ".cm-searchMatch.cm-searchMatch-selected": { outline: "1px solid var(--accent)" },
+      ".cm-placeholder": { color: "var(--muted)" },
+      ".cm-tooltip": {
+        backgroundColor: "var(--card)",
+        border: "1px solid var(--border)",
+        color: "var(--text)",
+      },
+    },
+    { dark }
+  );
+}
+
+//: The chords the fallback textarea's own `keydown` handler carries, as a
+//: keymap instead. They cannot simply be re-attached to CodeMirror's DOM: it
+//: is a contenteditable with its own key handling and its own IME support, so
+//: a listener bolted onto it would fight the editor rather than extend it.
+//: Same behaviour and the same order (the shifted S before the plain one, for
+//: the reason that handler's own comment gives).
+function docCmKeymap(CM) {
+  const surface = () => docSurface();
+  return [
+    {
+      key: "Escape",
+      run: () => {
+        if ($("doc-find-bar")?.classList.contains("hidden") !== false) return false;
+        toggleDocFindBar(false);
+        return true;
+      },
+    },
+    //: Tab indents in a code file only, for the reason the textarea handler
+    //: gives: in a markdown document Tab is how a keyboard user leaves the
+    //: editor, and trapping it there puts the toolbar out of reach.
+    {
+      key: "Tab",
+      run: () => {
+        if (docFileType().previewable) return false;
+        indentDocSelection(surface(), false);
+        return true;
+      },
+    },
+    {
+      key: "Shift-Tab",
+      run: () => {
+        if (docFileType().previewable) return false;
+        indentDocSelection(surface(), true);
+        return true;
+      },
+    },
+    { key: "Mod-/", run: () => { toggleDocComment(surface()); return true; } },
+    { key: "Mod-Shift-s", run: () => { wrapDocSelection("~~", "struck through"); return true; } },
+    { key: "Mod-s", run: () => { saveDocument(); return true; } },
+    { key: "Mod-b", run: () => { wrapDocSelection("**", "bold text"); return true; } },
+    { key: "Mod-i", run: () => { wrapDocSelection("*", "italic text"); return true; } },
+    { key: "Mod-e", run: () => { wrapDocSelection("`"); return true; } },
+    { key: "Mod-1", run: () => { applyMarkdown("h1"); return true; } },
+    { key: "Mod-2", run: () => { applyMarkdown("h2"); return true; } },
+    { key: "Mod-3", run: () => { applyMarkdown("h3"); return true; } },
+    //: The app's own find bar, still: CodeMirror's search panel is Phase 2
+    //: step 4, and swapping the gesture before the panel is styled would put
+    //: an unstyled dialog in front of the one thing people press most.
+    { key: "Mod-f", run: () => { toggleDocFindBar(true); return true; } },
+  ];
+}
+
+//: Everything the view is built from. Split out so the mount and a later
+//: rebuild (`docResetDocument`) cannot drift.
+function docCmExtensions(CM) {
+  const type = docFileType();
+  docCmParts.language = new CM.state.Compartment();
+  docCmParts.theme = new CM.state.Compartment();
+  docCmParts.gutter = new CM.state.Compartment();
+  docCmParts.wrap = new CM.state.Compartment();
+  return [
+    docCmParts.gutter.of(docGutterWanted(!type.previewable) ? CM.view.lineNumbers() : []),
+    CM.view.highlightSpecialChars(),
+    CM.commands.history(),
+    CM.view.drawSelection(),
+    CM.view.dropCursor(),
+    CM.state.EditorState.allowMultipleSelections.of(true),
+    CM.language.indentOnInput(),
+    CM.language.syntaxHighlighting(CM.language.defaultHighlightStyle, { fallback: true }),
+    CM.language.bracketMatching(),
+    CM.search.highlightSelectionMatches(),
+    CM.view.rectangularSelection(),
+    CM.view.crosshairCursor(),
+    docCmParts.wrap.of(type.previewable ? CM.view.EditorView.lineWrapping : []),
+    docCmParts.language.of(docCmLanguageFor(CM, type.ext)),
+    docCmParts.theme.of(docCmTheme(CM)),
+    CM.view.placeholder(docPlaceholderText || ""),
+    //: This app's chords first, then CodeMirror's own defaults, so a binding
+    //: the editor already had wins over the library's.
+    CM.view.keymap.of([
+      ...docCmKeymap(CM),
+      ...CM.search.searchKeymap,
+      ...CM.commands.historyKeymap,
+      ...CM.commands.defaultKeymap,
+    ]),
+    CM.view.EditorView.updateListener.of(docCmUpdate),
+  ];
+}
+
+//: **The one place a CodeMirror change becomes an app change.** The library
+//: raises a native `input` on its contenteditable *and* calls this, while a
+//: scripted transaction raises only this: so the delegated `input` listeners
+//: skip anything from inside the view (`docEventFromCm`) and this drives the
+//: pipeline for typed and scripted edits alike.
+function docCmUpdate(update) {
+  if (update.docChanged) {
+    docSurfaceInput();
+    docSurfaceChanged();
+    docToolsOnInput(docSurface());
+    if (!$("doc-suggest-menu")?.classList.contains("hidden")) closeDocSuggest();
+  }
+  if (update.selectionSet) {
+    renderDocStatusBar();
+    //: The pre-edit selection the undo stack needs. `selectionchange` does
+    //: fire for a contenteditable, but for a typed character it arrives after
+    //: the edit, which is one event too late to be the selection the writer
+    //: started from.
+    if (!docUndoApplying) {
+      const now = docSurface().selection();
+      docUndoPreSelection = { start: now.from, end: now.to };
+    }
+  }
+}
+
+//: Build the view, hand the document over to it, and take the textarea out of
+//: the layout. Seeded from the fallback's own value rather than from
+//: `currentDoc`, so whatever is on screen at that moment is what the engine
+//: starts with, including an unsaved edit.
+function mountDocEditor(CM) {
+  const host = $("doc-editor");
+  const box = docBoxEl();
+  if (!host || !box || docCmView) return docCmView;
+  const state = CM.state.EditorState.create({
+    doc: box.value,
+    extensions: docCmExtensions(CM),
+  });
+  docCmView = new CM.view.EditorView({ state, parent: host });
+  host.classList.remove("hidden");
+  $("doc-source-wrap")?.classList.add("has-cm");
+  //: The column beside the textarea is not the editor's gutter any more
+  //: (decision 7), so it is taken down rather than left numbering a box
+  //: nobody can see, and the backdrop with it: findings become decorations in
+  //: step 4, and until then Source view is a plain highlighted editor.
+  applyDocGutter();
+  docSyncBackdrop();
+  wireDocSurfaceScroll(docSurface());
+  docWatchAppearance();
+  return docCmView;
+}
+
+//: Called before a document is put on screen. Resolves to the view, or to
+//: null when the bundle is unavailable, in which case everything carries on
+//: against the textarea.
+async function ensureDocEditor() {
+  if (docCmView) return docCmView;
+  if (docCmBroken) return null;
+  const CM = await loadCodeMirror();
+  if (!CM) return null;
+  try {
+    return mountDocEditor(CM);
+  } catch (error) {
+    docCmBroken = true;
+    console.warn(
+      `MemoryMap: the editor could not start (${error.message}). The plain editor is still available.`
+    );
+    return null;
+  }
+}
+
+//: **Light and dark, without a hook into settings.js.** The appearance code
+//: writes the resolved mode onto `<html data-mode>`; watching that attribute
+//: is one observer here rather than a call added over there, and it catches
+//: every route into a mode change (the toggle, the settings radio, the OS
+//: following "System") because all of them go through that one write.
+let docAppearanceWatcher = null;
+
+function docWatchAppearance() {
+  if (docAppearanceWatcher || typeof MutationObserver !== "function") return;
+  docAppearanceWatcher = new MutationObserver(() => {
+    if (!docCmView || !window.CM6 || !docCmParts.theme) return;
+    docCmView.dispatch({ effects: docCmParts.theme.reconfigure(docCmTheme(window.CM6)) });
+  });
+  docAppearanceWatcher.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-mode", "data-theme"],
+  });
+}
+
+//: The file type changed while the document was open: the language and the
+//: wrapping follow it. Reconfigured rather than rebuilt, so the caret, the
+//: scroll position and the undo history survive.
+function docCmSyncFileType() {
+  const CM = window.CM6;
+  if (!docCmView || !CM || !docCmParts.language) return;
+  const type = docFileType();
+  docCmView.dispatch({
+    effects: [
+      docCmParts.language.reconfigure(docCmLanguageFor(CM, type.ext)),
+      docCmParts.wrap.reconfigure(type.previewable ? CM.view.EditorView.lineWrapping : []),
+    ],
+  });
+}
+
+//: The line-number preference, applied to the engine. `applyDocGutter` still
+//: owns the *decision* (and the two note editors' own columns); this is only
+//: how it reaches the view.
+function docCmSyncGutter() {
+  const CM = window.CM6;
+  if (!docCmView || !CM || !docCmParts.gutter) return;
+  const wanted = docGutterWanted(!docFileType().previewable);
+  docCmView.dispatch({
+    effects: docCmParts.gutter.reconfigure(wanted ? CM.view.lineNumbers() : []),
+  });
+}
+
+//: A different document is a different history: carrying the previous one
+//: over would let Ctrl+Z paste the last document's text into this one, which
+//: is the worst kind of undo bug because it reads as the app corrupting your
+//: file. The textarea path says the same thing through `docUndoReset`.
+function docResetDocument(text) {
+  const CM = window.CM6;
+  if (!docCmView || !CM) {
+    const surface = docSurface();
+    if (surface) surface.text = text;
+    return;
+  }
+  docCmView.setState(
+    CM.state.EditorState.create({ doc: text, extensions: docCmExtensions(CM) })
+  );
+}
+
+//: **Source view has to be measured after it is shown.** CodeMirror caches
+//: the geometry it lays out with, and a view inside a `display: none` wrapper
+//: measures as zero: switching back from Live or Read would leave every line
+//: positioned against that zero until something else forced a reflow.
+function docCmViewShown() {
+  if (!docCmView) return;
+  docCmView.requestMeasure();
+}

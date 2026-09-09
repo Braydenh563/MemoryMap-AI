@@ -33,3 +33,14 @@ def test_no_plan_carries_a_built_block() -> None:
 def test_handover_is_the_current_state_only() -> None:
     lines = (ROADMAP / "HANDOVER.md").read_text(encoding="utf-8").count("\n")
     assert lines < 600, f"HANDOVER.md is {lines} lines; append the session record to HISTORY.md"
+
+
+def test_inbox_holds_open_reports_only() -> None:
+    """A resolved report (fixed, not reproduced, checked) moves to HISTORY.md's
+    "INBOX resolved" with its number; INBOX is what is still open."""
+    text = (ROADMAP / "INBOX.md").read_text(encoding="utf-8")
+    resolved = [
+        line for line in text.splitlines()
+        if re.match(r"^\d+\. \*\*\(?(fixed|Fixed|Not reproduced|checked|Checked|Done|done)", line)
+    ]
+    assert resolved == [], "move these to HISTORY.md, INBOX resolved: " + "; ".join(r[:60] for r in resolved)

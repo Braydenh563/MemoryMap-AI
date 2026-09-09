@@ -119,6 +119,40 @@ def _human_size(size: int) -> str:
     return f"{size / (1024 * 1024):.1f} MB"
 
 
+#: The two board types, mirrored from `routes_whiteboard.BOARD_TYPES` rather
+#: than imported, because importing that module here would pull the whole
+#: whiteboard router into the Library's import graph for the sake of one set
+#: of two strings. `tests/test_library_boards.py` fails if they drift.
+_BOARD_TYPES = {"board", "map"}
+
+
+def _entry_kind(entry: Entry) -> str:
+    """"note", "board" or "map", for one row of the entries table.
+
+    Reported on 2026-09-09: "in the all library subtab, the mindmap I made
+    called bubble tea shows as a note", while Boards and maps drew the same
+    thing correctly as a map with 3 nodes. Not a slip in one view: the
+    storage model shows through. MINDMAP_PLAN §4 chose option B, so a board
+    *is* an `Entry` carrying `is_board`, and a mind map is a board whose
+    `board_settings` JSON says `type: "map"`. This feed selected entries and
+    called every one of them a note, which is true of the row and false of
+    the thing, so "Everything" listed a person's maps under the wrong icon
+    and the Notes chip counted them.
+
+    Unparseable or absent settings mean a plain board, the same fallback
+    `routes_whiteboard._board_settings` takes for the same reason: a board
+    whose settings JSON has been corrupted is still a board.
+    """
+    if not getattr(entry, "is_board", False):
+        return "note"
+    try:
+        parsed = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        parsed = {}
+    board_type = parsed.get("type") if isinstance(parsed, dict) else None
+    return board_type if board_type in _BOARD_TYPES else "board"
+
+
 def _documents(session: Session) -> list[dict]:
     rows = session.scalars(
         select(Document).order_by(Document.updated_at.desc()).limit(PER_KIND_LIMIT)
@@ -484,7 +518,7 @@ def _notes(session: Session) -> list[dict]:
         preview_source = remove_title(text) if own_title else text
         items.append(
             {
-                "kind": "note",
+                "kind": _entry_kind(entry),
                 "id": entry.id,
                 "title": own_title or ((_clip(text)[:60] if text else "Private note") or "Empty note"),
                 "preview": "" if private else _clip(preview_source, NOTE_PREVIEW_CHARS),

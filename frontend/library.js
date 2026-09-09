@@ -120,6 +120,16 @@ const LIBRARY_KINDS = [
   { key: "chat", icon: "ph:chat-circle", label: "Chats" },
   { key: "file", icon: "ph:paperclip", label: "Files" },
   { key: "tag", icon: "ph:tag", label: "Tags" },
+  //: A board and a mind map are `Entry` rows carrying `is_board`
+  //: (MINDMAP_PLAN §4 chose option B), so "Everything" listed them with a
+  //: note's pencil and the Notes chip counted them. Reported on 2026-09-09:
+  //: "in the all library subtab, the mindmap I made called bubble tea shows
+  //: as a note". The server tells them apart now (`_entry_kind`); these two
+  //: rows are what let this view draw and count them as what they are. Same
+  //: icons the Boards and maps sub-tab uses, so one thing has one glyph
+  //: wherever it appears.
+  { key: "board", icon: "ph:pencil-circle", label: "Boards" },
+  { key: "map", icon: "ph:tree-structure", label: "Mind maps" },
   // Drafts used to be a Library sub-tab of its own. It is a *filter over
   // notes*, not a separate kind of thing, and it only sat up there because
   // this chip row did not exist when it was added, so it moved here, which
@@ -929,6 +939,12 @@ function openLibraryItem(item) {
     // The note, not the raw file: a download is one click further and the note
     // is the thing that says why the file was kept.
     flashEntry(item.entry_id);
+  } else if (item.kind === "board" || item.kind === "map") {
+    //: The board, not the entry behind it. Opening the note would show the
+    //: row a board happens to be stored in, which is an empty note, and is
+    //: the same class of mistake as drawing it with a pencil icon.
+    if (typeof openWhiteboardBoard === "function") openWhiteboardBoard(item.id);
+    else flashEntry(item.id);
   } else if (item.kind === "note" || item.kind === "draft") {
     // Drafts open exactly like notes. flashEntry already knows how, it turns
     // the Drafts filter on when its target is one, because drafts are excluded

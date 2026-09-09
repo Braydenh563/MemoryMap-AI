@@ -52,6 +52,14 @@ let gcQuadtreeDirty = true;
 //: renderer's `graphIsPanning` carries; here it is cheaper, because there is
 //: no CSS `:hover` to fight as well.
 let gcPanning = false;
+//: GRAPH_PLAN Phase 4. A lasso (Shift and drag on empty map) selects notes;
+//: the selection dock acts on them. `gcLasso` holds world points while a
+//: lasso is being drawn, `gcSelected` the ids it caught (or Shift-clicks
+//: added). `graphHiddenIds` is the right-click "Hide" for this visit only:
+//: it is not a saved preference, and the legend says how many are hidden.
+let gcSelected = new Set();
+let gcLasso = null;
+let graphHiddenIds = new Set();
 let gcLayoutKind = "force";
 let gcTree = null; // the laid-out hierarchy for tree/radial/arc, else null
 let gcTimeCutoff = null;
@@ -432,6 +440,7 @@ function gcDraw() {
     ctx.stroke(hubs.path);
   }
 
+  gcDrawSelection(ctx, k);
   for (const item of ringed) {
     const node = item.node;
     ctx.globalAlpha = item.dim ? GC_DIM_ALPHA : 1;
@@ -743,6 +752,8 @@ function gcWireInteraction() {
     .filter((event) => {
       if (event.type === "wheel") return true;
       if (event.button) return false;
+      // Shift and drag on empty map is the lasso, not a pan.
+      if (event.shiftKey) return false;
       const [x, y] = gcWorldPoint(event);
       return !gcNodeAtWorld(x, y);
     })
@@ -915,27 +926,278 @@ function gcWireInteraction() {
       openGraphNewNote(event);
       return;
     }
-    const wasPinned = node.fx != null;
-    if (wasPinned) {
-      node.fx = null;
-      node.fy = null;
-      gcPost({ type: "unpin", id: node.id });
-    } else {
-      node.fx = node.x;
-      node.fy = node.y;
-      gcPost({ type: "pin", id: node.id, x: node.x, y: node.y });
-    }
-    gcRequestDraw();
-    if (node.isGroup) return;
-    node.graph_pin_x = wasPinned ? null : node.fx;
-    node.graph_pin_y = wasPinned ? null : node.fy;
-    apiJson(`/graph/pin/${node.id}`, {
-      method: "PUT",
-      body: JSON.stringify({ x: node.graph_pin_x, y: node.graph_pin_y }),
-    }).catch(() => {
-      // Best-effort; the hold works for this session either way.
-    });
+    gcTogglePin(node);
   });
+  gcWireLasso();
+  gcWireNodeMenu();
+  gcWireSelectionDock();
+}
+
+function gcTogglePin(node) {
+  const wasPinned = node.fx != null;
+  if (wasPinned) {
+    node.fx = null;
+    node.fy = null;
+    gcPost({ type: "unpin", id: node.id });
+  } else {
+    node.fx = node.x;
+    node.fy = node.y;
+    gcPost({ type: "pin", id: node.id, x: node.x, y: node.y });
+  }
+  gcRequestDraw();
+  if (node.isGroup) return;
+  node.graph_pin_x = wasPinned ? null : node.fx;
+  node.graph_pin_y = wasPinned ? null : node.fy;
+  apiJson(`/graph/pin/${node.id}`, {
+    method: "PUT",
+    body: JSON.stringify({ x: node.graph_pin_x, y: node.graph_pin_y }),
+  }).catch(() => {
+  });
+}
+
+// --- Phase 4: the lasso ----------------------------------------------------------
+function gcPointInPolygon(x, y, points) {
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const [xi, yi] = points[i];
+    const [xj, yj] = points[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+function gcWireLasso() {
+  gcCanvas.addEventListener("pointerdown", (event) => {
+    if (!event.shiftKey || event.button) return;
+    const [x, y] = gcWorldPoint(event);
+    if (gcNodeAtWorld(x, y)) return;
+    gcLasso = { points: [[x, y]] };
+    gcCanvas.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+  gcCanvas.addEventListener("pointermove", (event) => {
+    if (!gcLasso) return;
+    gcLasso.points.push(gcWorldPoint(event));
+    gcRequestDraw();
+  });
+  const finish = (event) => {
+    if (!gcLasso) return;
+    const points = gcLasso.points;
+    gcLasso = null;
+    try {
+      gcCanvas.releasePointerCapture(event.pointerId);
+    } catch {
+    }
+    if (points.length > 2) {
+      const caught = gcNodes.filter((n) => !n.isGroup && gcPointInPolygon(n.x, n.y, points)).map((n) => n.id);
+      // A second Shift-lasso adds to the first, so two sweeps build one selection.
+      for (const id of caught) gcSelected.add(id);
+    }
+    gcSelectionChanged();
+    gcRequestDraw();
+  };
+  gcCanvas.addEventListener("pointerup", finish);
+  gcCanvas.addEventListener("pointercancel", finish);
+}
+
+function gcDrawSelection(ctx, k) {
+  if (gcSelected.size) {
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = gcTokens.accent;
+    ctx.lineWidth = 3 / k;
+    ctx.setLineDash([4 / k, 3 / k]);
+    for (const node of gcNodes) {
+      if (!gcSelected.has(node.id)) continue;
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, node.r + 5 / k, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  if (gcLasso && gcLasso.points.length > 1) {
+    ctx.save();
+    ctx.beginPath();
+    gcLasso.points.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    ctx.closePath();
+    ctx.fillStyle = gcTokens.accent;
+    ctx.globalAlpha = 0.08;
+    ctx.fill();
+    ctx.globalAlpha = 0.9;
+    ctx.strokeStyle = gcTokens.accent;
+    ctx.lineWidth = 1.5 / k;
+    ctx.setLineDash([6 / k, 4 / k]);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+// --- Phase 4: the selection dock ---------------------------------------------------
+function gcSelectionChanged() {
+  const dock = document.getElementById("graph-selection-dock");
+  const count = document.getElementById("graph-selection-count");
+  if (!dock || !count) return;
+  const live = [...gcSelected].filter((id) => gcById.has(id));
+  gcSelected = new Set(live);
+  dock.classList.toggle("hidden", !live.length);
+  count.textContent = `${live.length} selected`;
+}
+
+function gcSelectedNodes() {
+  return [...gcSelected].map((id) => gcById.get(id)).filter(Boolean);
+}
+
+function gcWireSelectionDock() {
+  const on = (id, fn) => document.getElementById(id)?.addEventListener("click", fn);
+  on("graph-selection-clear", () => {
+    gcSelected.clear();
+    gcSelectionChanged();
+    gcRequestDraw();
+  });
+  on("graph-selection-tag", async () => {
+    const nodes = gcSelectedNodes();
+    if (!nodes.length) return;
+    const tag = (await promptDialog("Tag these notes", "", { confirmLabel: "Add tag" })).trim().replace(/^#/, "");
+    if (!tag) return;
+    let done = 0;
+    for (const node of nodes) {
+      const tags = Array.from(new Set([...(node.tags || []), tag]));
+      // PUT: the entries route has no PATCH, and EntryUpdate leaves every
+      // field it is not given alone.
+      const ok = await apiJson(`/entries/${node.id}`, { method: "PUT", body: JSON.stringify({ tags }) }).catch(() => null);
+      if (ok) {
+        node.tags = tags;
+        done += 1;
+      }
+    }
+    toast(`Tagged ${done} note${done === 1 ? "" : "s"} #${tag}.`);
+    renderGraph();
+  });
+  on("graph-selection-link", async () => {
+    const nodes = gcSelectedNodes();
+    if (nodes.length < 2) {
+      toast("Select at least two notes to link them.");
+      return;
+    }
+    // Pairwise up to six notes (fifteen links); past that a hub, every note
+    // linked to the first, which keeps the map readable.
+    const pairs = [];
+    if (nodes.length <= 6) {
+      for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) pairs.push([nodes[i], nodes[j]]);
+    } else {
+      for (let i = 1; i < nodes.length; i++) pairs.push([nodes[0], nodes[i]]);
+    }
+    let made = 0;
+    for (const [a, b] of pairs) {
+      if (gcAdj.get(a.id)?.has(b.id)) continue;
+      const ok = await apiJson(`/entries/${a.id}/links`, { method: "POST", body: JSON.stringify({ target_id: b.id }) }).catch(() => null);
+      if (ok) made += 1;
+    }
+    toast(made ? `Linked ${made} pair${made === 1 ? "" : "s"}.` : "Those notes were already linked.");
+    renderGraph();
+  });
+  on("graph-selection-map", async () => {
+    const nodes = gcSelectedNodes();
+    if (!nodes.length) return;
+    const name = (await promptDialog("Name the mind map", "", { confirmLabel: "Create map" })).trim();
+    if (!name) return;
+    // "map" is the board type a mind map carries (BOARD_TYPES in
+    // routes_whiteboard.py); "tree-right" is the layout a fresh map gets.
+    const board = await apiJson("/whiteboard/boards", {
+      method: "POST",
+      body: JSON.stringify({ name, type: "map", layout: "tree-right" }),
+    }).catch(() => null);
+    if (!board?.id) {
+      toast("Could not create the map.");
+      return;
+    }
+    const root = await apiJson(`/whiteboard/boards/${board.id}/nodes`, { method: "POST", body: JSON.stringify({ kind: "topic", text: name }) }).catch(() => null);
+    for (const node of nodes) {
+      await apiJson(`/whiteboard/boards/${board.id}/nodes`, {
+        method: "POST",
+        body: JSON.stringify({ kind: "note", ref_id: node.id, parent_id: root?.id ?? null, text: node.preview || "" }),
+      }).catch(() => null);
+    }
+    toast(`Mind map “${name}” made from ${nodes.length} note${nodes.length === 1 ? "" : "s"}. It is in Library, Boards.`);
+  });
+}
+
+// --- Phase 4: the right-click menu ---------------------------------------------------
+let gcNodeMenuEl = null;
+function gcCloseNodeMenu() {
+  if (gcNodeMenuEl) gcNodeMenuEl.remove();
+  gcNodeMenuEl = null;
+}
+
+function gcWireNodeMenu() {
+  gcCanvas.addEventListener("contextmenu", (event) => {
+    const [x, y] = gcWorldPoint(event);
+    const node = gcNodeAtWorld(x, y);
+    if (!node || node.isGroup) return;
+    event.preventDefault();
+    gcShowNodeMenu(node, event.clientX, event.clientY);
+  });
+  document.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (gcNodeMenuEl && !gcNodeMenuEl.contains(event.target)) gcCloseNodeMenu();
+    },
+    true
+  );
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && gcNodeMenuEl) gcCloseNodeMenu();
+  });
+  window.addEventListener("wheel", gcCloseNodeMenu, { passive: true });
+}
+
+function gcShowNodeMenu(node, clientX, clientY) {
+  gcCloseNodeMenu();
+  const menu = document.createElement("div");
+  menu.className = "action-menu action-menu-escaped graph-node-menu";
+  menu.setAttribute("role", "menu");
+  const item = (icon, text, onPick) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "menu-item doc-dock-menu-item";
+    button.setAttribute("role", "menuitem");
+    setLabel(button, `${icon} ${text}`);
+    button.addEventListener("click", () => {
+      gcCloseNodeMenu();
+      onPick();
+    });
+    menu.appendChild(button);
+  };
+  const isNote = node.type !== "entity" && node.type !== "document";
+  if (isNote) item("ph:arrow-square-out", "Open", () => flashEntry(node.id));
+  item(node.fx != null ? "ph:push-pin-slash" : "ph:push-pin", node.fx != null ? "Unpin" : "Pin in place", () => gcTogglePin(node));
+  if (isNote) {
+    item("ph:crosshair", "Focus on this note", () => {
+      graphFocusModeId = node.id;
+      renderGraph();
+    });
+  }
+  const selected = gcSelected.has(node.id);
+  item(selected ? "ph:selection-slash" : "ph:selection-plus", selected ? "Remove from selection" : "Add to selection", () => {
+    if (gcSelected.has(node.id)) gcSelected.delete(node.id);
+    else gcSelected.add(node.id);
+    gcSelectionChanged();
+    gcRequestDraw();
+  });
+  item("ph:eye-slash", "Hide on this map", () => {
+    graphHiddenIds.add(node.id);
+    gcSelected.delete(node.id);
+    gcSelectionChanged();
+    renderGraph();
+  });
+  document.body.appendChild(menu);
+  gcNodeMenuEl = menu;
+  const rect = menu.getBoundingClientRect();
+  const left = Math.min(clientX, window.innerWidth - rect.width - 8);
+  const top = Math.min(clientY, window.innerHeight - rect.height - 8);
+  menu.style.position = "fixed";
+  menu.style.left = `${Math.max(8, left)}px`;
+  menu.style.top = `${Math.max(8, top)}px`;
+  menu.querySelector("button")?.focus();
 }
 
 function gcTooltip(node) {
@@ -950,6 +1212,13 @@ function gcTooltip(node) {
 //: mode picks an end, an in-flight "Link" picks the other note, otherwise the
 //: note opens in the popup.
 function gcClickNode(event, node) {
+  if (event && event.shiftKey && !node.isGroup) {
+    if (gcSelected.has(node.id)) gcSelected.delete(node.id);
+    else gcSelected.add(node.id);
+    gcSelectionChanged();
+    gcRequestDraw();
+    return;
+  }
   if (node.isGroup || node.type === "entity" || node.type === "document") return;
   if (traceModeActive) {
     pickTraceEnd(node);
@@ -1168,11 +1437,13 @@ async function renderGraphCanvas() {
     return ruleColour(gcRuleKey(colourMode, node));
   };
   graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour, groups);
+  gcSelectionChanged();
 
   const ruleHides = colourMode !== "category" && colourMode !== "cluster";
   let visibleNodes = data.nodes.filter(
     (n) =>
       !graphHiddenCategories.has(n.category) &&
+      !graphHiddenIds.has(n.id) &&
       !(ruleHides && graphHiddenKeys.has(`${colourMode}:${gcRuleKey(colourMode, n)}`)) &&
       !(graphGroupOf.has(n.id) && groups[graphGroupOf.get(n.id)]?.hiddenOnMap)
   );
@@ -1338,6 +1609,17 @@ function graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour =
   const legend = document.getElementById("graph-legend");
   if (!legend) return;
   legend.replaceChildren();
+  if (graphHiddenIds.size) {
+    const hidden = document.createElement("button");
+    hidden.className = "legend-item legend-toggle legend-off";
+    hidden.title = "Show the notes hidden from this map again";
+    hidden.textContent = `${graphHiddenIds.size} hidden on this map. Show`;
+    hidden.addEventListener("click", () => {
+      graphHiddenIds.clear();
+      renderGraph();
+    });
+    legend.appendChild(hidden);
+  }
   // Groups lead the legend whatever the rule: they paint over it.
   groups.forEach((group, index) => {
     const off = Boolean(group.hiddenOnMap);

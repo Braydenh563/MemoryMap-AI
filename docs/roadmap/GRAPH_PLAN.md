@@ -149,6 +149,32 @@ assumed, before it is adopted.
 
 ---
 
+## Built, Phase 4 (utility), part one, 2026-09-09
+
+Measured with `scratchpad/ui-sweeps/graph4.js` on the canvas renderer.
+
+- **Lasso.** Shift and drag on empty map draws a lasso (the zoom's filter
+  yields to Shift, so it never pans); notes inside it are selected and
+  ringed; Shift-click adds or removes one; a second sweep adds to the
+  first. Measured: three notes inside a drawn rectangle, three selected.
+- **The selection dock** appears under the graph dock with the count and
+  three actions: Tag (one tag onto every selected note, through the same
+  PUT the note form uses), Link together (pairwise up to six notes, a hub
+  past that; 0 to 3 links on the fixture, then 3 to 6 on a second pass),
+  Mind map (a new map of type "map" with a root topic and one note node
+  per selected note, verified through the board's tree), and Clear.
+- **Right-click on a note** opens a menu at the pointer, kept inside the
+  viewport: Open, Pin in place or Unpin, Focus on this note, Add to or
+  Remove from selection, Hide on this map. Hide is for this visit only;
+  the legend leads with "N hidden on this map. Show".
+- The pin toggle the double-click already did is one function now,
+  shared with the menu.
+
+Not built in this part: the local graph pane beside an open note, Play on
+the time slider, PNG export at 2x with the legend. Not verified: touch
+(no Shift on a phone: a long-press lasso is the Phase 4 follow-up), the
+SVG renderer (no lasso there, by design).
+
 ## Built, Phase 3 (colour rules and groups), 2026-09-09
 
 Measured with `scratchpad/ui-sweeps/graph3.js` on a six-note fixture

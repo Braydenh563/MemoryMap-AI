@@ -5096,3 +5096,17 @@ button.ghost.danger:hover {
 .legend-group {
   font-weight: 500;
 }
+
+
+/* GRAPH_PLAN Phase 4: the selection dock floats under the graph dock, and
+   the right-click menu is a fixed action menu at the pointer. */
+.graph-selection-dock {
+  margin-top: var(--space-2);
+  gap: var(--space-2);
+  width: max-content;
+  max-width: 100%;
+}
+.graph-node-menu {
+  z-index: 80;
+  min-width: 13rem;
+}

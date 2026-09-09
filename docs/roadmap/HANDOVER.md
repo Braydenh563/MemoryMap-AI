@@ -131,19 +131,22 @@ are only just begun or half done." True; this table is the state.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
-**Now (2026-09-08 22:45 UTC):** batch C merged (ea8a6ce: off switches
-mix against `--card` so every track fills, the graph dock down to six
-controls with saved views in More, the options panel fits at 1440x900,
-saved views store gravity and spread, one Markdown stripper with the
-grounding ordinal its own element and chips that ellipsis, the
-chat-suggest null-deref). Full suite green on 41f8c15 here; CI green
-through fbb94a6. In flight: Opus on Brief 17 remainder (worktree
-agent-ac1cca0f51eca7323, nineteen commits, on the splash); Sonnet on Brief
-16 docs in the README's voice (worktree agent-<docs>). Queue after them,
-two at a time: mindmap.md F previews then MINDMAP Phases 4 to 5 (Opus);
-DOCUMENTS Phase 1 (carries INBOX 44); GRAPH 3 to 5; UI Phase 9 remainder;
-SKILLS Phase D; WHITEBOARD Phase 1 (INBOX 43 bottom rail and properties
-panel). The owner's order for the rest of
+**Now (2026-09-09 00:50 UTC):** after the reset Fable took the owner's
+direct asks itself: DOCUMENTS Phase 1 (a6dc021, the chrome: five controls
+at one height, the menu rows unfilled, the strip opt-in), GRAPH Phase 3
+(f58ad7c, colour rules and groups) and GRAPH Phase 4 part one (lasso,
+selection dock, right-click menu, session hide). Two traps found and
+guarded: the launcher tests ran the real uninstaller in the repo and
+deleted the venv (scratch copies now, plus a fixture that fails the
+module if the repo's .venv changes); the suite ran a real pip install of
+torch through the embedding auto-installer (an autouse fixture now makes
+`extras.subprocess.Popen` refuse). In flight: Opus on the mind map
+previews and Phases 4 to 5 (worktree agent-a9bcd9a1e1857d891); Sonnet on
+INBOX 47 gzip and the docs leftovers (worktree agent-a22cd38556273db70).
+Queue after them: GRAPH Phase 4 part two (local pane, Play, PNG export)
+and Phase 5 backend; DOCUMENTS Phase 2 (CodeMirror 6, CSP first); INBOX
+48 and 49 (lazy modules, performance mode); UI Phase 9 remainder; SKILLS
+Phase D; WHITEBOARD Phase 1. The owner's order for the rest of
 this session stands: **finish the phases of the plans already in
 progress; TIMELINE, WHITEBOARD, CHAT, WORLD_CLASS and the Briefs wait for
 the next session.** Queue, two agents at a time, each merged and gated

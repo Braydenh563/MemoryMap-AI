@@ -477,7 +477,17 @@ A bug-fix and consistency release, from one long round of live reports.
 - The selection tick was hidden under the page render on Files rows in
   preview view; sticky rows painted a hard rectangle over their own card.
 
+### Fixed
+- **A mind map's branches are the colours it says they are.** Every edge on
+  every map was drawn in the accent, while the same map's thumbnail showed the
+  branch colours correctly.
+- **A very deep mind map exports.** A long enough branch used to fail the
+  download with a server error, and a map whose parents form a loop could hang
+  the export instead of finishing it.
+
 ### Changed
+- **The Boards and maps toolbar fits one row on a laptop**, with the two
+  import and generate actions behind its ⋯ menu.
 - **A board's preview looks like the board.** Things are drawn at their own
   sizes instead of as identical grey blocks, text boxes and map nodes show
   what is written on them, and the dashboard's miniature is a thumbnail again

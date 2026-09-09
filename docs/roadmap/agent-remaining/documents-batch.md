@@ -83,7 +83,10 @@ read `left` throughout). The indent was 4/16/24/38.4px, steps of 12, 8 and
 itself, and says what fills it. References is one row (link and ✕ 6.4px
 apart, same line) and its picker replaces the button that opened it. The
 storage help is its own content width (224.9px box, 225px of text) at the
-column's left edge, muted, underlined only on hover.
+column's left edge, muted, underlined only on hover. A sixth was found by
+looking at the finished panel rather than at the report list: the outline
+matched `#` headings only, so it read "2" over a document with three, the
+missing one being the setext heading the editor had just started rendering.
 
 ## The exact next step
 

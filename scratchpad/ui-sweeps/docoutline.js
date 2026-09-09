@@ -29,6 +29,11 @@ const { boot } = require('./lib.js');
 const { openDoc } = require('./docopen.js');
 
 const HEADINGS = '# Alpha\n\nbody\n\n## Beta\n\nbody\n\n### Gamma\n\nbody\n\n## Delta\n\nbody\n';
+// The setext form, which the editor renders as a heading and the outline used
+// to skip: the panel read "2" over a document with three headings in it, one
+// of them the largest thing on the page. The `---` after a blank line is a
+// horizontal rule and must NOT become one, which is the guard worth keeping.
+const SETEXT_DOC = 'Top setext\n==========\n\nbody\n\nSecond setext\n-------------\n\nbody\n\n---\n\n### An ATX third\n\nbody\n';
 
 (async () => {
   const { browser, page } = await boot();
@@ -86,6 +91,21 @@ const HEADINGS = '# Alpha\n\nbody\n\n## Beta\n\nbody\n\n### Gamma\n\nbody\n\n## 
     }
   }
   say('outline_count', await page.evaluate(() => document.getElementById('doc-outline-count')?.textContent));
+
+  // Setext headings count, and a horizontal rule does not.
+  await openDoc(page, { title: 'Setext outline', content: SETEXT_DOC });
+  await openOutline();
+  const setext = await page.evaluate(() => [...document.querySelectorAll('#doc-outline li')].map((li) => ({
+    txt: li.textContent.trim(),
+    level: Number((li.className.match(/outline-h(\d)/) || [])[1]),
+  })));
+  say('setext_outline', setext);
+  const want = [['Top setext', 1], ['Second setext', 2], ['An ATX third', 3]];
+  if (setext.length !== want.length) fail(`the outline lists ${setext.length} headings, not ${want.length}: ${JSON.stringify(setext)}`);
+  for (let i = 0; i < want.length && i < setext.length; i++) {
+    if (setext[i].txt !== want[i][0]) fail(`outline row ${i} is "${setext[i].txt}", wanted "${want[i][0]}"`);
+    if (setext[i].level !== want[i][1]) fail(`"${setext[i].txt}" is level ${setext[i].level}, wanted ${want[i][1]}`);
+  }
 
   // --- 3: the empty state --------------------------------------------------
   await openDoc(page, { title: 'No headings', content: 'A paragraph, and not a heading in sight.\n' });

@@ -1346,7 +1346,34 @@ function renderDocOutline() {
     if (line.trim().startsWith("```")) inFence = !inFence;
     if (inFence) return;
     const match = /^(#{1,4})\s+(.*\S)\s*$/.exec(line);
-    if (match) headings.push({ level: match[1].length, text: match[2], line: index });
+    if (match) {
+      headings.push({ level: match[1].length, text: match[2], line: index });
+      return;
+    }
+    //: **The setext form too**, `Title` on one line with `=====` or `-----`
+    //: under it. The editor renders these as headings (`docLivePlugin`'s
+    //: heading branch matches `SetextHeading1` and `2`), so an outline that
+    //: skipped them showed "2" over a document with three headings in it, one
+    //: of them the largest thing on the page. Recognised on the *underline*,
+    //: because that is the line that decides: `Title` on its own is a
+    //: paragraph until the row of `=` arrives.
+    //:
+    //: Guards, and each one is a real document: the line above has to have
+    //: text in it (a rule with a blank line above it is a `<hr>`, not a
+    //: heading), it must not already be an ATX heading or a list item or a
+    //: quote (all of which a `---` under them would not turn into a heading),
+    //: and the previous line must not itself have been consumed as one.
+    const underline = /^\s*(=+|-{2,})\s*$/.exec(line);
+    if (!underline || index === 0) return;
+    const above = lines[index - 1];
+    if (!above || !above.trim()) return;
+    if (/^\s*(#{1,6}\s|[-*+]\s|\d+[.)]\s|>|\|)/.test(above)) return;
+    if (headings.length && headings[headings.length - 1].line === index - 1) return;
+    headings.push({
+      level: underline[1][0] === "=" ? 1 : 2,
+      text: above.trim(),
+      line: index - 1,
+    });
   });
 
   //: **The Outline tab always shows an outline section, even with nothing in

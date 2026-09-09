@@ -7243,6 +7243,14 @@ wrong. Every number below was read out of a running Chromium.
     block`, 226px in a 260px column, centred, underlined at rest, 17px off the
     bottom. Now its own content width (a 224.9px box for 225px of text) at the
     column's left edge, muted, with a `?` glyph and the underline on hover.
+  - *And the outline skipped setext headings*, found by looking at the
+    finished thing rather than at the list of reports: the panel read "2" over
+    a document with three headings in it, one of them the largest thing on the
+    page, because `renderDocOutline` matched `#` only while the editor had
+    just started rendering `Title` / `=====` as a heading. Recognised on the
+    underline, which is the line that decides, with guards for the four
+    documents where a row of dashes is not a heading (a rule after a blank
+    line, an ATX heading, a list item, a quote or table row).
   `scratchpad/ui-sweeps/docoutline.js` is one assertion per problem, and
   measures where the glyphs begin with a `Range` rather than where the box
   does.

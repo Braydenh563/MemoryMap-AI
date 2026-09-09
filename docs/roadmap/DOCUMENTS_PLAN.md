@@ -475,10 +475,25 @@ engine landed in Phase 2, so none of these is a regression from it.
   against the `.seg`'s at 1440 and 1280.
 - "md formatting should go invisible unless i click back on that word or
   section or navigate with backspace, delete or arrow keys etc to where
-  those formatting markers are." This is CodeMirror's own
-  cursor-in-range test on the Live decorations: a mark is hidden unless the
-  selection touches it. The decorations compartment from Phase 2 is where
-  it goes.
+  those formatting markers are." ~~This is CodeMirror's own cursor-in-range
+  test on the Live decorations.~~ **Phase 2 had already built that test**
+  (`touched`/`lineTouched` in `docLivePlugin`, repainting on `selectionSet`),
+  and it was measured working through all three gestures the owner names.
+  What was *not* hidden, found by taking an inventory rather than by reading:
+  `---` drew its border **and** its three dashes, and `> [!note]` hid its `>`
+  and kept its `[!note]`. Both fixed; `scratchpad/ui-sweeps/cm-reveal.js` is
+  the standing inventory and passes. Left as they are, deliberately: list
+  bullets, ordered numbers and a fence's ``` (a list with no bullets is not a
+  list); tables are Phase 3; a setext heading's `===` underline hides but its
+  line gets no heading class, which is a real if small gap.
+  **Measured and not fixed:** the caret shifts when a marker reveals. Walking
+  left across `A **bold** word`, `coordsAtPos` reads x 560.3, 554, 544.2,
+  531.1 and then **559.5** on the press that reveals the markers, a 28.4px
+  jump to the right on a leftward keystroke, because the reveal inserts four
+  characters to the left of the caret. `EditorView.atomicRanges` is the usual
+  answer and is the **wrong** one here: it would make the arrow keys skip the
+  hidden marker rather than enter it, and entering it is precisely what this
+  sentence asks for.
 - "I want to be able to use the documents tab as a plain text editor like
   before as a view option (not the default though)", "and also if I select
   a txt document, and/or other code file document, and these can have line

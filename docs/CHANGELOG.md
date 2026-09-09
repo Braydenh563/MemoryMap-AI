@@ -283,10 +283,16 @@ orchestrator; these are the ones that change what the app does.
   a panel owns no longer counts as a click away from it; the whiteboard's
   selection rectangle draws above the cards; the Arrange tools sit in three
   named rows; nine settings sections trade walls of prose for help popovers;
-  the glass sheen slider drives something for the first time.
+  the glass sheen slider drives something for the first time. The Library's
+  Contents dock keeps one row at 1024 and at 820, where it wrapped in both
+  themes: Collapse all sits in a `...` menu and the four-way segment folds
+  below 1100 like every other dock's, the same answer the boards dock took.
 - **The suite and the tooling.** A lint fails the build on a merge conflict
   marker in any tracked file; another fails on an SVG paint attribute a
-  stylesheet would silently override; `scripts/gate.sh --changed` runs the
+  stylesheet would silently override, now also when the class is assigned
+  through a ternary or a template, with a browser sweep covering the
+  descendant-selector half no text scan can see; `scripts/gate.sh --changed`
+  runs the
   lint set plus the tests naming the files you touched, and the full suite is
   no longer run as routine, because CI runs it unselected on every push. The
   health budget times its fastest sample rather than the median, so it

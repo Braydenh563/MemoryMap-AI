@@ -7126,6 +7126,138 @@ Steps 2 to 4 (the `docSurface()` adapter, Live as decorations, findings,
 undo, search, folding and gutters on the engine) are the next Opus brief;
 the API surface above is what it builds against.
 
+### Built, the owner's evening batch (DOCUMENTS_PLAN's INBOX items), 2026-09-09
+
+Five items, landed as five commits on `worktree-agent-ad5696bf1be5660c3`.
+**Two of the five turned out to be already built and reported as missing**,
+which makes this batch the clearest case yet for CLAUDE.md's own rule: the
+plan's entries for both had been written by reading the source, and both were
+wrong. Every number below was read out of a running Chromium.
+
+- **The Edit / Read pills fit inside their own segment.** "the documents edit
+  and read toggle options dont fit in the toggle and go out of it at the
+  bottom". The plan carried a partial reading blaming `padding-block: 0`,
+  because three earlier Playwright probes never reached the editor; the cause
+  is the opposite. `.doc-dock .seg` is `height: var(--control-h)` (36px) with
+  the base `.seg` rule's 4px padding, so a 28px content box, and
+  08-consistency.css pinned each button to `--control-h-lg` as well: a 36px
+  box starting 4px down a 36px pill. Before, at 1440 and 1280: segment
+  `scrollHeight` 40 against `clientHeight` 36, every button 36px with its
+  bottom 4px below the segment's own. After: 36/36, buttons 28px (which is
+  `--target-min`, clear of WCAG 2.2 AA's 24px floor), 4px inside at both ends,
+  neither clipping its label. Written as `calc(var(--control-h) - 2 *
+  var(--seg-pad))` so it cannot drift.
+  `scratchpad/ui-sweeps/docseg.js`, which used to be the probe that could not
+  answer this, is now the regression check.
+- **`scratchpad/ui-sweeps/docopen.js`**, and it is why the rest of this entry
+  has numbers in it. Eight sweeps had each written out their own twelve lines
+  to POST a document, switch the tab and wait for the engine, and a
+  measurement session that got them slightly wrong reported the dock
+  unreachable. One helper, waiting on `.cm-content` rather than on a timeout.
+- **Click an underlined word, see a popover: already built.** "i still cant
+  click on a grammar or misspeled underlined word and see a popup like in a
+  realworld editor like obsidian, word, notion, vs code." Phase 2 had turned
+  the findings into mark decorations and the click, double-click, right-click
+  and Alt+Enter routes all reach `openDocSuggest`. **No editor code changed.**
+  What was added is `scratchpad/ui-sweeps/docsuggest.js`, the check that
+  should have existed before the reading did: in Live *and* Source, four marks
+  of three kinds, each with `cursor: pointer` and a real
+  `text-decoration-line: underline`; one plain click opens
+  `.doc-suggest-menu` at left 470.6 against the mark's own left and top 172.8
+  against its bottom of 168.8, inside the viewport on all four including one
+  pushed against the right edge, where a 240px menu hung off `anchor.left`
+  would have run off screen; the first item rewrites the document; Alt+Enter
+  opens the same menu from the keyboard.
+- **The last two markdown markers that would not go invisible.** "md
+  formatting should go invisible unless i click back on that word or section
+  or navigate with backspace, delete or arrow keys etc to where those
+  formatting markers are." The cursor-in-range test this describes was also
+  already built (`touched`/`lineTouched`, repainting on `selectionSet`) and
+  works through all three gestures. The gap was found by taking an inventory
+  of every markdown line against what it renders as with the caret elsewhere:
+  `---` drew the rule's border **and** its three dashes, and
+  `> [!warning] a callout` hid its `>` and kept its `[!warning]`, which is the
+  one thing on that line that is pure syntax. The dashes now hide (and
+  `.cm-md-rule` gains a height and margin, because an empty line with a bottom
+  border is a hairline on the baseline of nothing); the callout marker is
+  replaced by its kind's own label from `CALLOUT_KINDS` in editor.js, the same
+  table `calloutTemplate` writes from, so it renders as "⚠️ Warning" where
+  Obsidian puts the same thing. `scratchpad/ui-sweeps/cm-reveal.js` holds
+  eight constructs against their expected render plus the three gestures, and
+  asserts that list bullets, ordered numbers and a fence's ``` keep their
+  markers on purpose.
+- **A Plain view, findable line numbers, and code you can read in dark.**
+  Three sentences, one new thing and two that existed.
+  - *Plain* is the language compartment emptied (`docCmViewLanguage`): no
+    grammar, so no highlighting, no folding by syntax and no bracket matching,
+    and everything else untouched. Last in the edit menu, never the default,
+    and offered for a code file as readily as Source (`DOC_VIEWS_UNRENDERED`
+    replaces three separate `!== "source"` tests that would each have refused
+    it). Measured: Source colours 2 kinds of token on a markdown file and
+    Plain 0, same text, same engine.
+  - *Line numbers* already worked, through `docGutterWanted`'s "follow the
+    file type" default, and the only control that said so was on the
+    formatting strip, which PLAN.md D1 collapses by default. A second door in
+    the view menu (`#doc-view-gutter`) on the same remembered preference, with
+    `applyDocGutter` writing both pressed states. Measured: a markdown
+    document 0 numbers, 7 after one press, 0 again; a `.py` file 7 without
+    being asked, from a profile that has never been asked.
+  - *Code syntax* existed for twenty-one languages and was close to invisible
+    in dark. Without a highlight style of its own the bundle falls back to
+    CodeMirror's `defaultHighlightStyle`, a fixed light-page palette with no
+    dark variant: every token was byte-identical in both themes, and against
+    the dark ground sampled off a screenshot with `scratchpad/pngpixel.py` at
+    `rgb(27, 31, 44)`, `def` read **1.76:1** and a variable name **1.91:1**,
+    against WCAG AA's 4.5. Nothing logged it and nobody on a light theme would
+    ever have seen it. `docCmHighlight` maps six roles onto tokens the app
+    already defines for both themes: now light 4.56 to 14.62 and dark 6.47 to
+    13.52, every token above 4.5. Built once and deliberately outside the
+    theme compartment, because the colours are `var(--…)` and rebuilding it
+    per theme change would adopt a new stylesheet each time.
+  `scratchpad/ui-sweeps/docviews.js` checks all three in both themes.
+- **The Outline sidebar reads as an outline.** "redesign and refine the
+  outlines section of the documents tab as well", with two screenshots.
+  - *Centre-aligned entries*, and `text-align` was not the cause: every entry
+    measured `text-align: left` **and** `justify-content: center`, and the
+    second decides, because the bare `button` element rule in
+    01-forms-settings.css makes every button an `inline-flex` centring its own
+    content and `text-align` governs nothing in a flex container. The rule
+    looked correct at the line that set it and did nothing at the line that
+    used it, which is the shape CLAUDE.md's traps list names.
+  - *The indent went the wrong way*: h1 to h4 were 4, 16, 24 and 38.4px,
+    steps of 12, 8 and 14.4, and with the text centred a deeper heading could
+    start further left than a shallower one. One `--outline-step` multiplied
+    by a declared `--outline-depth`: 4, 16.8, 29.6, a constant 12.8 apart.
+    `--outline-depth: 0` is declared rather than reached for with a fallback,
+    because `tests/test_style_scale.py` fails `var(--x, 0)` and was right to.
+  - *The empty state was a bare heading with nothing under it*: the section
+    hid itself below two headings, so the tab called Outline showed
+    "References" as its first heading and never mentioned outlines. Always
+    shown now, with one line saying what fills it and a count beside the word.
+  - *References stacked its close button above its own select*:
+    `.outline-link` is `width: 100%`, so the ✕ beside it wrapped. A
+    `.doc-outline-row` flex row, measured at 6.4px apart on one line; the
+    attach picker gets the same row with its own ✕, replaces the button that
+    opened it, and closes on Escape.
+  - *"Where are my documents kept?" was dressed as a footer*: `display:
+    block`, 226px in a 260px column, centred, underlined at rest, 17px off the
+    bottom. Now its own content width (a 224.9px box for 225px of text) at the
+    column's left edge, muted, with a `?` glyph and the underline on hover.
+  `scratchpad/ui-sweeps/docoutline.js` is one assertion per problem, and
+  measures where the glyphs begin with a `Range` rather than where the box
+  does.
+
+**Found while measuring and left open** (carried in
+`agent-remaining/documents-batch.md` and in the plan): `enhanceSelect`
+(app.js ~18427) rebuilds every `<select>` as a shell with a `<button>` opener
+and takes the native element out of the tab order, so `select.focus()`
+focuses nothing app-wide and a `keydown` bound to a select never fires; the
+caret shifts 28.4px rightwards on the leftward keystroke that reveals a Live
+marker (`atomicRanges` is the usual answer and the wrong one here, since it
+would skip the marker rather than enter it); five offered file types have no
+mode in the vendored bundle; and a setext heading hides its underline but
+gets no heading class.
+
 ### Built, Phase 2 steps 2 to 4 (the engine under the editor), 2026-09-09
 
 - **One adapter, and a lint that keeps it that way.** `docSurface()`

@@ -359,10 +359,93 @@ edited from here -- this is the confirmation measurement it was waiting
 on, recorded so it does not get re-investigated blind. No commit: nothing
 in the tree changed.
 
+## Fourth batch: a whole-app visual QA pass before the PR closes
+
+The coordinator's ask: every surface at once, at 1440 and 1024, both
+themes, worst finding first, fix only what is small and unambiguous.
+
+New tool: `scratchpad/ui-sweeps/finalqa.js`. Not built from scratch --
+`errors.js` already does console/overflow/off-screen per top-level tab,
+but its Library sub-tab clicks use `[data-section]`/`[data-view]`, which
+Library's own sub-tabs never carry (they use `data-target`), so every
+Library sub-tab past the default has gone unchecked by it since it was
+written. `finalqa.js` walks all 7 tabs, Notes' 4 sub-tabs, Library's 8
+sub-tabs by their real selectors (plus opening a real board and a real
+document, not just their landing lists), and all 17 Settings sections,
+at 1440 and 1024, in both themes: 4 full passes. Per surface: console
+and page errors, HTTP 5xx, horizontal page scroll, clipped text,
+off-screen controls, dock-row wrap, control-height mismatch (excluding a
+dock's own `.dock-identity` label -- a short line of text centred beside
+a taller button is not a height mismatch, and an early run of this
+script had to learn that the hard way, see below), and a sticky panel
+overrunning its own scroll container (the AI-skills-sidebar shape from
+this file's own second batch).
+
+**Worst first (there is only one real finding):**
+
+1. **Library's Contents dock wraps to two lines at 1024px, both themes.**
+   Measured: row 1 (top 162) holds the filter input and the four-way "By
+   category / By tag / By month / By folder" segment (458px, full text
+   labels); row 2 (top 206) holds "Collapse all", refresh and help,
+   pushed down because the row's combined content does not fit 1024px's
+   available width. Screenshot confirms it visually: the wrapped row
+   sits oddly right-aligned under the segment rather than under the
+   filter box. **Not fixed, written down instead**: `.dock`'s own
+   `flex-wrap: wrap` is a deliberate recipe -- a dock wraps rather than
+   crushing its heading or overflowing, per 08-consistency.css's own
+   comment on `.dock-identity` -- so this is the designed fallback
+   engaging on the one dock whose arrange zone is unusually wide, not a
+   broken rule. Whether to narrow the segment's labels, move the
+   trailing actions behind a kebab below some width, or accept the wrap
+   is a design call, not a "wrong height" or a "missing `min-width: 0`",
+   so per the brief it stays a finding, not a fix.
+
+**Everything else came back clean.** 0 console/js/HTTP errors across all
+four passes. 0 findings on: dashboard, notes (+ its 4 sub-tabs), chat,
+graph, library's other 7 sub-tabs, an opened board, an opened document,
+timeline, reminders, and all 17 Settings sections, at both widths, both
+themes.
+
+**Also checked, not part of the structural sweep, no findings:**
+- Five menus (the notification panel, a note's kebab, the chat model
+  picker, the Library sort select, Library's "..." menu) opened and
+  measured fully on-screen at both 1440 and 1024 (10 checks).
+- `docks.js`'s own control-height inventory (a complementary, pre-existing
+  tool) flagged a "2px control" on Timeline: `#timeline-view`,
+  `enhanceSelect`'s deliberately-hidden native `<select>` behind its
+  styled replacement, not a bug -- the same shape repeats on every
+  enhanced select in the app.
+- Two items `notverified.js` (already in the repo, INBOX 75/91,
+  explicitly flagged in its own header as "reasoned, never observed")
+  had never actually been opened in a browser: a kebab opening on the
+  first click, and the chat header not wrapping. Both now observed and
+  both hold up -- the kebab opens correctly (confirmed via
+  `aria-expanded`/visible height after one click; the script's own
+  selector had gone stale, checking for `[aria-haspopup="true"]` when
+  the real markup now uses `aria-haspopup="menu"`), and the chat header's
+  two children sit 1-2px apart (sub-pixel rounding, not a second line),
+  confirmed by a cropped screenshot showing "New chat llama3.2" on one
+  line. Neither is this batch's to resolve (they belong to whichever
+  session owns `notverified.js`'s own three items), so noted here rather
+  than closed elsewhere.
+
+**A false-positive trap for whoever extends this script**: the first
+draft of the control-height/row-wrap check did not exclude
+`.dock-identity`, and reported 13 "findings" -- every one was a text
+heading sitting a few px off a 36px button's top because `align-items:
+center` centres a 24px line of text differently than a 36px button, not
+a real wrap or height mismatch. Fixed before the real sweep ran (see
+`finalqa.js`'s own comment); recorded here so the next script does not
+rediscover it the slow way.
+
+Commit `669349b`.
+
 ## Gate status
 
-Every commit across all three batches: `scripts/gate.sh --changed`
-(lints, `node --check`, ruff, plus `tests/test_dashboard_layout_cap.py`
-once it started matching) all green. Full suite not run (not routine per
+Every commit across all four batches: `scripts/gate.sh --changed`
+(lints, `node --check`, ruff, plus whichever changed-tests matched --
+`test_dashboard_layout_cap.py`, then `test_style_scale`,
+`test_svg_paint_attributes`, `test_whiteboard` once other agents' merged
+work pulled them in) all green. Full suite not run (not routine per
 standing order 5a; CI covers it on push). Not pushed: the orchestrator
 merges.

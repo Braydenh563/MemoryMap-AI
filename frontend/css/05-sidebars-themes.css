@@ -1914,8 +1914,14 @@ body.resizing-sidebar {
   gap: var(--space-2);
 }
 
+/* `.select-shell` as well as the select itself: `enhanceSelect` in app.js
+   rebuilds every `<select>` inside one on a MutationObserver, so for the frame
+   before that runs the select is the row's own child and afterwards it is a
+   grandchild. Naming both means the row never has a frame at the wrong width,
+   and the rule does not quietly stop applying the day that observer changes. */
 .doc-outline-row > .outline-link,
-.doc-attach-row > .bookmark-attach-picker {
+.doc-attach-row > .bookmark-attach-picker,
+.doc-attach-row > .select-shell {
   flex: 1 1 auto;
   min-width: 0;
 }

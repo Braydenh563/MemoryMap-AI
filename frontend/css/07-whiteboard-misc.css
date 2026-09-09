@@ -1256,9 +1256,20 @@ body.has-agent-monitor #tab-library .library-view-section {
   white-space: nowrap;
 }
 
-.agent-run-meta,
+/* The state ("Done", "Running") is two words and never shrinks; the meta is
+   either "Step 2 of 5" or, for a step-less background job, the run's whole
+   detail sentence, so it has to be allowed to shrink and wrap. */
+.agent-run-meta {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
 .agent-run-state {
   flex: none;
+}
+
+.agent-run-meta,
+.agent-run-state {
   font-weight: 400;
   color: var(--muted);
   font-size: var(--text-sm);
@@ -1340,8 +1351,14 @@ body.has-agent-monitor #tab-library .library-view-section {
   flex-wrap: wrap;
 }
 
+/* `1 1 100%`, not `1 0 100%`: a run with no steps puts its whole detail
+   sentence in `.agent-run-meta` on this line, and a line that may not shrink
+   below its content pushed the run list 501px wide inside a 300px panel
+   (measured, 2026-09-09). It still takes a line of its own, it just may now
+   give width back. */
 .agent-run-progress {
-  flex: 1 0 100%;
+  flex: 1 1 100%;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -9347,4 +9364,43 @@ header#top-bar {
     width: var(--target-min);
     height: var(--target-min);
   }
+}
+
+/* --- the agent activity panel: nothing scrolls sideways, nothing folds onto
+   an empty body (INBOX 69 and the owner's report of 2026-09-09) -------------
+
+   Measured before the fix, at the panel's real 348px: the log view's content
+   was 317px wide against a 300px box, so the panel grew a horizontal
+   scrollbar and the first characters of every line sat off the left edge,
+   which is the screenshot. The cause is a logger line's own unbroken tokens
+   (a model id, an absolute path): nothing in a 300px column can break
+   `sentence-transformers/all-MiniLM-L6-v2` without being told it may.
+
+   `anywhere` rather than `break-word`: `break-word` still refuses to break
+   inside a token when the token is the first thing on its line, which is
+   exactly this case. `overflow-x: hidden` is the belt: a glance panel that
+   scrolls sideways has already lost, and with the wrap above there is
+   nothing left to scroll to. */
+.monitor-logs,
+.monitor-runs {
+  overflow-x: hidden;
+}
+
+.monitor-log-item,
+.monitor-runs .agent-run-step > summary,
+.monitor-runs .agent-run-tools,
+.monitor-runs .agent-run-meta {
+  overflow-wrap: anywhere;
+}
+
+/* A run that declared no steps (every background job) has an empty body, so
+   its marker is a control that does nothing: the same rule the step rows have
+   had since Phase C. The click guard in app.js is the other half, since a
+   hidden marker is still a summary and a click on it still toggles. */
+.monitor-runs .agent-run-row:not(.has-steps) > summary::before {
+  visibility: hidden;
+}
+
+.monitor-runs .agent-run-row:not(.has-steps) > summary {
+  cursor: default;
 }

@@ -95,6 +95,17 @@ done-when item 4 and 5), in priority order.
     `--glass-blur`); opacity drives `--card` alpha (check the palette
     override order); sheen is a gradient over `.card` only when
     `data-glass-sheen=on`.
+97. **Library and Files: an expanded dropdown closes itself and scrolls
+    back to the top.** The owner, 2026-09-09: "when I expand the ocr text in
+    this image on the image cards in the images library sub tab, it keeps
+    auto closing and scrolling me back to the top", and "the same happens on
+    the text extracted from this file dropdown in the files subtab". One
+    cause, two surfaces: the list re-renders on a poll and rebuilds every
+    row, so an open `<details>` is replaced by a closed one and the scroll
+    position goes with it. The agent activity panel solved this in Phase C
+    by building rows once and updating in place. Fix: keep the open set and
+    the scroll offset across a re-render, or skip the re-render when nothing
+    in the list changed. Owner: Fable/Opus, now. Size S.
 67. **Max gravity: "the nodes are all still so spread out"** (screenshot at
     max, 01:30). The screenshot predates the pull fix in e1... (commit
     "graph: the centre pull follows the gravity slider", pushed 01:00) if

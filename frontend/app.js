@@ -35855,6 +35855,7 @@ const agentMonitorRuns = $("agent-monitor-runs");
 const agentMonitorEmpty = $("agent-monitor-empty");
 const agentMonitorLogToggle = $("agent-monitor-log-toggle");
 const agentMonitorClose = $("agent-monitor-close");
+const agentMonitorClear = $("agent-monitor-clear");
 
 //: Runs kept in the panel for this session, oldest first. Twelve because the
 //: panel is 350px wide and a row is one line collapsed: past that it is a list
@@ -36009,6 +36010,18 @@ function addAgentRun({ kind, name, icon = "", steps = [], detail = "" }) {
   run.body.className = "agent-run-body";
   el.append(summary, run.body);
   run.el = el;
+  //: **A run with no steps must not offer a fold.** Reported twice (INBOX 69,
+  //: "a 'Starting SearXNG' row with a caret that does nothing"; and again on
+  //: 2026-09-09 against "Loading the embedding model"). Both are background
+  //: jobs, which is exactly the case that declares no steps: the `<details>`
+  //: still drew the marker and still toggled, onto an empty body. The step
+  //: rows have had this rule since Phase C (`:not(.has-tools)`), the run row
+  //: never got it. `has-steps` is set by `agentRunAddStep`; the guard below
+  //: is the half the CSS cannot do, since a hidden marker is still a summary
+  //: and a click on it still toggles.
+  summary.addEventListener("click", (event) => {
+    if (!el.classList.contains("has-steps")) event.preventDefault();
+  });
 
   for (const [index, text] of steps.entries()) agentRunAddStep(run, index, text);
 
@@ -36046,6 +36059,7 @@ function agentRunAddStep(run, index, text) {
   el.append(summary, step.tools);
   step.el = el;
   run.body.appendChild(el);
+  run.el.classList.add("has-steps");
   run.steps.push(step);
   agentRunPaintStep(run, step);
   return step;
@@ -36254,6 +36268,32 @@ function nudgeAgentMonitorIdle() {
     }
     setAgentMonitorVisible(false);
   }, AGENT_MONITOR_IDLE_MS);
+}
+
+//: **Clear**, reported on 2026-09-09: "the agent activity logs cant be
+//: cleared". The panel is a session tail with a fifty-line cap and an
+//: eight-row run cap, so it never emptied on its own except by ageing out,
+//: and a reader who has read it had no way to say so. Both halves go, since
+//: the button is in the header above both and clearing one while the other
+//: kept its backlog would be the sort of half-action that reads as broken.
+//: A run still going is kept: it is the live thing the panel is for, and
+//: removing its row would strand its end with nothing to draw it on.
+if (agentMonitorClear) {
+  agentMonitorClear.addEventListener("click", () => {
+    const kept = [];
+    for (const run of agentRuns) {
+      if (run.state === "running") kept.push(run);
+      else run.el.remove();
+    }
+    agentRuns.length = 0;
+    agentRuns.push(...kept);
+    agentMonitorLogs.textContent = "";
+    agentMonitorEmpty?.classList.toggle(
+      "hidden",
+      agentRuns.length > 0 || !agentMonitorLogs.classList.contains("hidden"),
+    );
+    renderActivityStatusItem();
+  });
 }
 
 if (agentMonitorClose) {

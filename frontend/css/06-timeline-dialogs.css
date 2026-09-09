@@ -2908,7 +2908,11 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: var(--space-2);
+  /* `--space-3`, which is what the row family already uses:
+     `tests/test_ui_signatures.py` caps that family at three distinct gap
+     values and a fourth here would have been a new spacing recipe invented
+     for one toolbar. */
+  gap: var(--space-3);
 }
 
 /* Label beside the buttons, not above them. Above cost 70px of panel height
@@ -2920,7 +2924,7 @@
   display: grid;
   grid-template-columns: 4.5rem auto;
   align-items: start;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 /* Quieter and smaller than `.wb-properties-group-label` above it: that one

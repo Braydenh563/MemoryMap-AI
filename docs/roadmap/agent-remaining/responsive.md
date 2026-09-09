@@ -1,5 +1,22 @@
 # Responsive and Liquid Glass: what is left
 
+**Agent id**: `agent-a93efefdb83c29141` (Brief 21, UI Phases 9 and 10).
+**Stopped**: 2026-09-09, on the owner's usage limit, at a clean tree with
+eight commits, the last `059f8d1` plus a ninth for the mirrored CHANGELOG.
+Nothing is half-edited: every change named below is committed.
+
+**The one thing to do first if you are picking this up cold**: this worktree
+was cut before the CodeMirror editor, the read-only graph layouts and the
+`place()` menu-height fix landed on the branch, and it has *not* been rebased
+onto them. Merge the branch in before touching `frontend/css/10-responsive.css`
+again, and do not undo `place()`.
+
+**The next step, exactly**: section 2 below (INBOX 102) is a decision to put
+to the owner rather than code to write, so the first piece of building work
+is section 4, INBOX 60, the dashboard start section. Section 5 (the tab
+strip's own row from 600 to 1100) is measured and deliberate, and section 7
+(a keyboard-only pass) is the cheapest unstarted piece.
+
 Rewritten 2026-09-09 at the end of the Phases 9-and-10 sitting (Brief 21).
 The scope of that sitting was narrowed by the owner mid-session: **the
 desktop and tablet bands only** (>= 1100, 820-1100, 600-820). The phone
@@ -161,6 +178,18 @@ return to the toggle on Escape (Escape is wired, focus return only on that
 path); is a sort select inside a closed `<details>` still reachable by Tab;
 and does the roving tabindex still work on the tab strip.
 
+## 7a. What this sitting built, in one place
+
+Eight commits, all on `worktree-agent-a93efefdb83c29141` and merged onto the
+branch: the tab strip fitting its own row from 600 to 820 (`3a2a3e5`), the
+scroll edge effect (`b03692e`), the concentric corner token and its two
+lints (`de53d90`), menus opening out of their opener (`dc3d201`), the docs
+move and INBOX 102's measurements (`38b2b47`), Performance mode stopping the
+background art plus two styles that now hear the intensity slider
+(`0a77e8c`), the 94 record (`9565a75`), and the 44px tab target on a tablet
+(`4ea8fee`, `059f8d1`). New sweeps: `tabfit.js`, `scrolledge.js`,
+`onglass.js`, `bgart.js`.
+
 ## 8. Found, not fixed
 
 `menus.js` times out at its last step, clicking a `.select-opener` on Chat
@@ -168,3 +197,24 @@ after the model panel has been opened and dismissed. It times out
 identically with Reduce motion on, where the menu animation added this
 sitting does not run at all, so it is not that change. Nobody has looked at
 why.
+
+**A changelog edit breaks a test two directories away.** `CHANGELOG.md` is
+mirrored into `docs/CHANGELOG.md` for the Pages site and
+`tests/test_docs_site.py` compares them byte for byte, so any changelog line
+needs `cp CHANGELOG.md docs/CHANGELOG.md` in the same commit. This sitting
+tripped it and fixed it; it is the kind of thing the lint set misses because
+it is not in the lint set.
+
+## 9. What could not be verified
+
+- **Every frame-cost number is headless Chromium with no GPU.** The ranking
+  and the order of magnitude are sound; the absolute milliseconds are not
+  what a real machine will show.
+- **No real iPad and no on-screen keyboard** (section 6).
+- **The intensity slider's visible effect per step** (section 3): two ways
+  of measuring it failed, and the failures are recorded in `bgart.js`.
+- **The full pytest suite was not run to completion** on the final tree.
+  The lint set, ruff, `node --check` and the targeted tests for every file
+  touched are green, and a full run that was in flight when this stopped
+  had reached about 36% with one failure, the mirrored `docs/CHANGELOG.md`,
+  which is fixed in the last commit.

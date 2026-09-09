@@ -489,8 +489,23 @@ engine landed in Phase 2, so none of these is a regression from it.
   this is configuration of the surface Phase 2 built, not a new editor.
 - "i still cant click on a grammar or misspeled underlined word and see a
   popup like in a realworld editor like obsidian, word, notion, vs code."
-  Phase 0 built the underline; the click target and its popover never
-  landed. This is the oldest open item in this plan and should go first.
+  ~~Phase 0 built the underline; the click target and its popover never
+  landed.~~ **Measured in a browser on 2026-09-09 and it had landed.** The
+  reading above was written without one, which is the second time on this
+  surface (see the Edit/Read entry). `scratchpad/ui-sweeps/docsuggest.js`
+  is the standing check and passes every assertion: in Live *and* in Source,
+  all three underline kinds (repeat dotted, spelling wavy red, style wavy
+  blue) draw with `cursor: pointer`; one plain click opens
+  `.doc-suggest-menu` anchored to the word (left 470.6 against the mark's
+  own left, top 172.8 against its bottom of 168.8) and inside the viewport
+  at every finding including one against the right edge; pressing the first
+  item rewrites the document ("teh mat" to "the mat"); `Alt+Enter` opens the
+  same menu from the keyboard. `long-sentence` draws no underline, which is
+  `DOC_FINDING_SKIP` doing what its comment says. Nothing was rebuilt.
+  **What would still read as "cant click" and is not covered:** Read view
+  has no editing surface and so no marks, and a code file suppresses
+  findings entirely. If the report comes back, ask which view it was in
+  before touching this code again.
 - "redesign and refine the outlines section of the documents tab as well"
   (two screenshots). Measured problems in them: the outline entries are
   centre-aligned and indented by depth in the wrong direction, the empty

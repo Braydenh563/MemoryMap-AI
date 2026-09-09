@@ -318,6 +318,38 @@ mechanism for the same effect the toggle already provides everywhere else.
 
 ---
 
+## The recipe index: use these, nothing else
+
+The owner, after a run of "the menu is crushed", "the panel clips", "the
+buttons feel separate": every one of those came from a surface built by
+hand instead of from the recipe the rest of the app uses. A new piece of
+UI starts here. If the need is not in this table, the recipe is added to
+this table and its lint in the same commit as the feature, never after.
+
+| You need | Use | Guarded by |
+| --- | --- | --- |
+| A tab or sub-tab's control bar | `.dock` with `.dock-identity`, `.dock-group`, `.dock-actions`; seven controls at most, one filled | `tests/test_dock_grammar.py`, `scratchpad/ui-sweeps/docks.js` |
+| A menu behind a button | `kebabMenu(items, ariaLabel)` in app.js (positions, clamps, escapes clipping, closes on outside click) or `details.dock-menu` in markup | `tests/test_ui_recipes.py` (hand-built menus may not multiply) |
+| A menu item | `makeMenuItem("ph:icon Label", title, run)` | same |
+| A dropdown of values | a plain `<select>`; `enhanceSelect` restyles every one at boot | `tests/test_frontend_handlers.py` |
+| Help longer than one line | one line in place, the rest behind a `data-help-for` '?' button and a `.help-body` popover | `tests/test_ui_signatures.py` |
+| An on/off setting | `label.setting-check` with the switch first | `scratchpad/ui-sweeps/switches.js` |
+| Two to four exclusive choices | `.seg` with `aria-pressed` | `tests/test_ui_signatures.py` |
+| A brief confirmation | `toast(text)`; with one action, `toastAction(text, label, fn)` | |
+| A dialog | `.card.modal-card` (settings-sized) or `.card.space-dialog` (small), opened through the app's modal helpers, never a bare `<dialog>` with its own chrome | `tests/test_ui_signatures.py` |
+| A floating panel over a canvas | `.card.glass` plus the panel on the `[data-glass="off"]` list | `tests/test_ui_recipes.py` |
+| Any surface that blurs | on the `[data-glass="off"]` list, radius from `--glass-blur`, never a px | `tests/test_ui_recipes.py`, `tests/test_style_scale.py` |
+| A button | the ramp below: filled (one per surface), ghost, icon-only with `aria-label` | `tests/test_dock_grammar.py` |
+| A chip | `.chip`; a chip is a fact, never an action (an action is a button) | |
+| Empty state | `.empty-state` with one sentence and one action | |
+| Spacing, type, radius, shadow, motion | the tokens above; a px in a stylesheet is a lint failure | `tests/test_style_scale.py` |
+| Copy | sentence case, no em-dashes, no exclamation marks, one line per section | `tests/test_no_em_dashes.py` |
+
+The sweeps that say whether a new surface matches the rest are
+`errors.js`, `contrast.js`, `docks.js`, `touch.js`, `menus.js` and
+`kebab-viewport.js` under `scratchpad/ui-sweeps/`; a UI change is not
+done until they are green and its numbers are in the commit message.
+
 ## Buttons: the ramp
 
 Three tiers, and a view should be readable from them alone:

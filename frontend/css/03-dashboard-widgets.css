@@ -424,6 +424,28 @@ header#top-bar select,
 :root[data-glass="off"] .graph-zoom,
 :root[data-glass="off"] .scroll-top,
 :root[data-glass="off"] .toast,
+/* Found by tests/test_ui_recipes.py the day it was written: nineteen
+   surfaces that blurred on their own and stayed glassy with the setting
+   off. Every one is here now; the lint fails on the next. */
+:root[data-glass="off"] .library-image-menu-list,
+:root[data-glass="off"] #global-find-bar,
+:root[data-glass="off"] #status-clock-detail,
+:root[data-glass="off"] .answer,
+:root[data-glass="off"] .modal-overlay,
+:root[data-glass="off"] #palette-overlay,
+:root[data-glass="off"] #sketch-overlay,
+:root[data-glass="off"] .lightbox-info,
+:root[data-glass="off"] #improve-overlay,
+:root[data-glass="off"] .help-popover,
+:root[data-glass="off"] .chat-dock-more-panel,
+:root[data-glass="off"] .graph-popup,
+:root[data-glass="off"] .editor-menu,
+:root[data-glass="off"] .notif-panel,
+:root[data-glass="off"] .inline-ai,
+:root[data-glass="off"] .wb-board-menu,
+:root[data-glass="off"] .wb-object-text,
+:root[data-glass="off"] .wb-topbar,
+:root[data-glass="off"] dialog::backdrop,
 :root[data-glass="off"] .glass {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;

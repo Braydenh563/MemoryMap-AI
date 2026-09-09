@@ -96,6 +96,15 @@ full text, with the reasons, is the block at the top of
    the README stale fails the build until the README says the same. Every
    merge ends with: CHANGELOG line, README if a number or name moved,
    INBOX entry marked, the plan's Built block moved.
+11. **New UI comes from DESIGN.md's recipe index**, never from scratch: a
+   menu is `kebabMenu`, a bar is `.dock`, help is `data-help-for`, a
+   blurred surface is on the glass-off list, spacing and radius are
+   tokens. A need the index does not cover gets its recipe and its lint
+   added in the same commit as the feature. `tests/test_ui_recipes.py`
+   holds the ratchets (hand-built menus may not multiply, every blurred
+   surface is listed). The owner's words: "all the ui issues ... happen
+   when new features are added or changed because you don't follow
+   design.md".
 9. **Commit trailers** on every commit: the `Co-Authored-By` and
    `Claude-Session` lines the recent commits carry. No model identifiers in
    commits, PR bodies or code.

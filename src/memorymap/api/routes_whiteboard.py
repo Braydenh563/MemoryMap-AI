@@ -2132,15 +2132,72 @@ def move_map_node(
 
 def _outline_rows(roots: list[dict]) -> list[tuple[int, dict]]:
     """The tree flattened to `(depth, node)` in reading order. Iterative for
-    the same reason every other walk in this file is."""
+    the same reason every other walk in this file is.
+
+    **And guarded by a seen set, which is a different reason.** Iterative made
+    this safe against a deep map and did nothing at all about a *ring*.
+    `_build_tree` deliberately re-roots the lowest id of an unreachable ring
+    so its rows are not silently dropped, which means a ring arrives here as a
+    root whose descendants lead back to it: a to b to a, forever, appending a
+    row each time. That is not a crash, it is a Markdown export that never
+    returns and grows until the process dies, which is worse than a 500.
+
+    The depth is clamped rather than the walk cut short: an outline is a
+    picture of the whole map, and dropping a subtree past some depth loses
+    rows a person typed. `MAX_MAP_DEPTH` is the figure every other walk in
+    this file stops at.
+    """
     rows: list[tuple[int, dict]] = []
+    seen: set[int] = set()
     stack = [(0, node) for node in reversed(roots)]
     while stack:
         depth, node = stack.pop()
-        rows.append((depth, node))
+        if node["id"] in seen:
+            continue
+        seen.add(node["id"])
+        rows.append((min(depth, MAX_MAP_DEPTH), node))
         for child in reversed(node["children"]):
             stack.append((depth + 1, child))
     return rows
+
+
+def _export_tree(root_element, roots: list[dict], build) -> None:
+    """Build one element per node, under the element its parent built.
+
+    **The two XML exports used to recurse, and they were the only walks in
+    this file that did.** Every other one is iterative with a seen set, and
+    `_is_descendant`'s comment says why: a walk of a tree that is not one is a
+    stack overflow rather than a refusal. These two had the same exposure from
+    two directions. Nothing caps how deep a map built by hand can go
+    (`MAX_IMPORT_DEPTH` caps an import; the Tab key is not an import), so a
+    branch deeper than Python's own recursion headroom exported as a
+    `RecursionError`, which reaches the person downloading it as a 500. And
+    `_build_tree` re-roots the lowest id of an unreachable ring rather than
+    dropping its rows, so a ring arrives here as a root whose descendants lead
+    back to it, and a recursive walk of that never returns at all.
+
+    `build(parent_element, node)` returns the element it made, so the walk
+    holds no state of its own between calls: two exports running at once share
+    nothing, which a module-level map of node id to element would not have
+    given.
+
+    Nesting is clamped at `MAX_MAP_DEPTH` rather than cut: a node past the cap
+    is written as a sibling at the cap instead of being dropped, so the file
+    still holds every topic a person typed. Two hundred levels is also about
+    where a serialiser's own recursion becomes the next question, and
+    `ElementTree.tostring` is recursive in CPython.
+    """
+    seen: set[int] = set()
+    stack = [(root_element, 0, node) for node in reversed(roots)]
+    while stack:
+        parent_element, depth, node = stack.pop()
+        if node["id"] in seen:
+            continue
+        seen.add(node["id"])
+        element = build(parent_element, node)
+        below = element if depth < MAX_MAP_DEPTH else parent_element
+        for child in reversed(node["children"]):
+            stack.append((below, depth + 1, child))
 
 
 def _export_markdown(title: str, roots: list[dict]) -> str:
@@ -2179,7 +2236,7 @@ def _export_opml(title: str, roots: list[dict]) -> str:
     ET.SubElement(head, "title").text = title
     body = ET.SubElement(opml, "body")
 
-    def add(parent_element, node: dict) -> None:
+    def build(parent_element, node: dict):
         attrs = {"text": node["text"] or "(untitled)"}
         if node["kind"] != MAP_TOPIC_KIND:
             # `_kind`/`_ref`, not `type`/`ref`: OPML's own `type` attribute
@@ -2191,12 +2248,9 @@ def _export_opml(title: str, roots: list[dict]) -> str:
             attrs["_kind"] = node["kind"]
             if node["ref_id"] is not None:
                 attrs["_ref"] = str(node["ref_id"])
-        element = ET.SubElement(parent_element, "outline", attrs)
-        for child in node["children"]:
-            add(element, child)
+        return ET.SubElement(parent_element, "outline", attrs)
 
-    for root in roots:
-        add(body, root)
+    _export_tree(body, roots, build)
     return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         + ET.tostring(opml, encoding="unicode")
@@ -2222,23 +2276,18 @@ def _export_freemind(title: str, roots: list[dict]) -> str:
 
     document = ET.Element("map", {"version": "1.0.1"})
 
-    def add(parent_element, node: dict):
+    def build(parent_element, node: dict):
         attrs = {"TEXT": node["text"] or "(untitled)"}
         if node["kind"] != MAP_TOPIC_KIND:
             attrs["_kind"] = node["kind"]
             if node["ref_id"] is not None:
                 attrs["_ref"] = str(node["ref_id"])
-        element = ET.SubElement(parent_element, "node", attrs)
-        for child in node["children"]:
-            add(element, child)
-        return element
+        return ET.SubElement(parent_element, "node", attrs)
 
-    if len(roots) == 1:
-        add(document, roots[0])
-    else:
-        trunk = ET.SubElement(document, "node", {"TEXT": title})
-        for root in roots:
-            add(trunk, root)
+    under = document
+    if len(roots) != 1:
+        under = ET.SubElement(document, "node", {"TEXT": title})
+    _export_tree(under, roots, build)
     return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         + ET.tostring(document, encoding="unicode")

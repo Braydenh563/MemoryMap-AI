@@ -8919,6 +8919,39 @@ header#top-bar {
   display: none;
 }
 
+/* --- the graph node panel becomes a sheet (GRAPH_PLAN Phase 6) ------------
+   At 390 the panel is wider than the space either side of the node it was
+   opened from, so a floating card with a corner near the pointer is a card
+   that covers the map and points at nothing. Flush to the bottom of the map,
+   full width, square where it meets the edges: the same "attached, not
+   dropped on" shape the whiteboard drawer takes at 1024. `placeGraphPopup`
+   (graph.js) writes the position, because it owns the inline left/top. */
+@media (max-width: 599.98px) {
+
+  .graph-popup.graph-popup-sheet {
+    width: 100%;
+    max-width: 100%;
+    border-radius: var(--radius) var(--radius) 0 0;
+    border-bottom: none;
+  }
+
+  /* One group per line rather than one wrapped row. A wrapped row leaves a
+     divider at the start of the second line, marking a boundary that is not
+     there: the line break already separates the groups, so the hairlines
+     have nothing left to do. */
+  .graph-popup-sheet .graph-popup-tool-group {
+    flex: 1 0 100%;
+  }
+
+  .graph-popup-sheet .graph-popup-tool-group+.graph-popup-tool-group::before {
+    display: none;
+  }
+
+  .graph-popup-sheet .graph-popup-actions {
+    row-gap: var(--space-3);
+  }
+}
+
 @media (max-width: 599.98px) {
 
   :root {

@@ -3006,6 +3006,45 @@ function applyGraphHighlight() {
 
 let graphPopupId = null;
 let graphPopupAnchor = null;
+//: What the note said when it arrived. Save is a primary action and a primary
+//: action that is always on screen stops meaning "do this": the panel is
+//: opened to *read* a note far more often than to edit one (GRAPH_PLAN Phase
+//: 6). Comparing against the loaded text, rather than listening for any
+//: keystroke, means typing a word and deleting it again puts the button away.
+let graphPopupClean = { content: "", tags: "" };
+
+//: The header's identity line, the muted meta line under it, and the Save
+//: gate all read the same entry, so they are filled from one place.
+function renderGraphPopupHeader(entry, node) {
+  const titleEl = $("graph-popup-title");
+  //: The title used to be the *category*, with the category also sitting in
+  //: the chip row below it: the note's own name was nowhere on a panel about
+  //: that note. `entry.title` when the AI (or the owner) gave it one, the
+  //: first line otherwise, which is what every other note surface shows.
+  const firstLine =
+    typeof notePreviewText === "function"
+      ? notePreviewText(entry.content || "").split("\n")[0]
+      : (entry.content || "").split("\n")[0];
+  titleEl.textContent =
+    entry.title || firstLine.slice(0, 80).trim() || node.category || "Note";
+
+  const confidence = $("graph-popup-confidence");
+  //: `> 0`, not `typeof === "number"`: a note the AI never filed carries 0,
+  //: and "0%" beside a title reads as a verdict on the note rather than as
+  //: "there is no figure here". The old chip had the same bug and said
+  //: "0% confident" out loud.
+  const hasConfidence = typeof entry.ai_confidence === "number" && entry.ai_confidence > 0;
+  confidence.classList.toggle("hidden", !hasConfidence);
+  if (hasConfidence) {
+    confidence.textContent = `${entry.ai_confidence}%`;
+    confidence.title = `The AI was ${entry.ai_confidence}% confident filing this note`;
+  }
+
+  const category = $("graph-popup-category");
+  const name = entry.category || node.category || "";
+  category.classList.toggle("hidden", !name);
+  if (name) setLabel(category, `ph:folders ${name}`);
+}
 
 async function openGraphPopup(event, node) {
   event.stopPropagation();
@@ -3015,8 +3054,13 @@ async function openGraphPopup(event, node) {
   status.textContent = "";
   status.classList.remove("error");
   $("graph-popup-title").textContent = node.category || "Note";
+  $("graph-popup-confidence").classList.add("hidden");
+  $("graph-popup-category").classList.add("hidden");
+  $("graph-popup-info").textContent = "";
   $("graph-popup-content").value = "Loading…";
   $("graph-popup-tags").value = "";
+  graphPopupClean = { content: "Loading…", tags: "" };
+  syncGraphPopupSave();
   popup.classList.remove("hidden");
 
   // Remember where the click was: the popup has to be placed again once the
@@ -3037,11 +3081,30 @@ async function openGraphPopup(event, node) {
   }
   $("graph-popup-content").value = entry.content;
   $("graph-popup-tags").value = (entry.tags || []).join(", ");
-  renderGraphPopupInfo(entry, node);
+  graphPopupClean = { content: entry.content, tags: (entry.tags || []).join(", ") };
+  syncGraphPopupSave();
+  renderGraphPopupHeader(entry, node);
+  renderGraphPopupInfo(entry);
   renderGraphPopupMedia(entry);
   renderGraphPopupActions(entry);
+  //: The editor is sized to the note it just received, not to a fixed slot.
+  //: `autoGrow` measures `scrollHeight`, so it has to run after the value is
+  //: set and while the panel is visible, which it now is.
+  if (typeof autoGrow === "function") autoGrow($("graph-popup-content"));
   placeGraphPopup(); // now that it's at its real height
   $("graph-popup-content").focus();
+}
+
+//: Save appears when the content or the tags differ from what loaded, and
+//: goes away again when they match. Called from the two fields' `input`
+//: events (app.js wires them) and after every load or save.
+function syncGraphPopupSave() {
+  const save = $("graph-popup-save");
+  if (!save) return;
+  const dirty =
+    $("graph-popup-content").value !== graphPopupClean.content ||
+    $("graph-popup-tags").value !== graphPopupClean.tags;
+  save.classList.toggle("hidden", !dirty);
 }
 
 // A link edge's own management panel, asked for directly: "a visual way
@@ -3262,6 +3325,22 @@ function placeGraphPopup() {
   const popup = $("graph-popup");
   if (!graphPopupAnchor || popup.classList.contains("hidden")) return;
   const box = $("graph-box").getBoundingClientRect();
+  //: **On a phone the panel is a sheet, and JS has to be the one to say so**
+  //: (GRAPH_PLAN Phase 6). The position is inline `left`/`top` written here,
+  //: which no stylesheet rule can override without `!important`, so a media
+  //: query alone could style the sheet and never place it. The band is the
+  //: app's own 600px one, spelled the same way as in the stylesheet.
+  if (window.matchMedia("(max-width: 599.98px)").matches) {
+    popup.classList.add("graph-popup-sheet");
+    // Three quarters of the map: enough to read the note, and the map it
+    // came from stays visible above it so the sheet has an origin.
+    popup.style.maxHeight = `${Math.max(160, Math.round(box.height * 0.75))}px`;
+    popup.style.left = "0px";
+    const sheet = popup.getBoundingClientRect();
+    popup.style.top = `${Math.max(0, Math.round(box.height - sheet.height))}px`;
+    return;
+  }
+  popup.classList.remove("graph-popup-sheet");
   // Never taller than the map it sits in, beyond that the popup scrolls
   // itself rather than growing off the edge.
   popup.style.maxHeight = `${Math.max(120, box.height - 16)}px`;
@@ -3278,53 +3357,175 @@ function placeGraphPopup() {
   popup.style.top = `${top}px`;
 }
 
-// The facts about a note, as small chips.
-function renderGraphPopupInfo(entry, node) {
+//: The facts about a note, as **one muted line**.
+//:
+//: This was five chips (category, date, links, views, confidence) plus up to
+//: six tag chips, every one of them the same weight, so the panel opened with
+//: eleven equal marks above the note it was about, and the provenance ones
+//: (confidence, views) shouted as loudly as the category. Reported with a
+//: screenshot, INBOX 59.
+//:
+//: Category and confidence moved into the header where identity belongs; the
+//: tags were already in the tags field two rows down, spelled a second way.
+//: What is left is the three facts that are genuinely the same rank: when it
+//: was made, how connected it is, how often it has been read. A `·`-joined
+//: muted line says "the same kind of small fact" in a way five bordered chips
+//: cannot.
+function renderGraphPopupInfo(entry) {
   const box = $("graph-popup-info");
-  box.replaceChildren();
-  const facts = [
-    ["ph:folders", entry.category || node.category || "Uncategorised"],
-    ["ph:clock", new Date(entry.created_at).toLocaleDateString()],
-    ["ph:link", `${(entry.links || []).length} link${(entry.links || []).length === 1 ? "" : "s"}`],
-    ["ph:eye", `${entry.access_count || 0} view${entry.access_count === 1 ? "" : "s"}`],
+  const links = (entry.links || []).length;
+  const views = entry.access_count || 0;
+  const parts = [
+    new Date(entry.created_at).toLocaleDateString(),
+    `${links} link${links === 1 ? "" : "s"}`,
+    `${views} view${views === 1 ? "" : "s"}`,
   ];
   //: **Star and "Favourite", not pin and "Pinned".** `entry.pinned` is one
   //: flag with one meaning, it floats a note to the top *and* collects it
   //: into the sidebar's Favourites row: and app.js's own note cards were
   //: renamed to say so. The graph and the dashboard were not, so the same
   //: flag had two names and two icons depending on which screen you were
-  //: looking at. Found while fixing the star button's missing glyph.
-  if (entry.pinned) facts.push(["ph:star", "Favourite"]);
-  if (typeof entry.ai_confidence === "number") {
-    facts.push(["ph:target", `${entry.ai_confidence}% confident`]);
-  }
-  for (const [icon, text] of facts) {
-    const item = chip(`${icon} ${text}`, "tag");
-    box.appendChild(item);
-  }
-  const tags = entry.tags || [];
-  for (const tag of tags.slice(0, 6)) box.appendChild(chip(tag, "tag"));
+  //: looking at. Found while fixing the star button's missing glyph. The
+  //: toolbar's star now carries the state, so this line only says it for the
+  //: reader who is scanning the text rather than the icons.
+  if (entry.pinned) parts.push("Favourite");
+  box.textContent = parts.join(" · ");
 }
 
-// Everything you can do to this note from the map.
+// Everything you can do to this note from the map, as one toolbar row.
+//
+//: **Nine equal buttons in a 3x3 grid is a menu, not a toolbar.** Reported
+//: with a screenshot (INBOX 59): Favourite, Grow, Focus, Similar, Link,
+//: Trace, Remind, Open, Bin, all the same width, the same weight and the
+//: same distance apart, so the one you almost always want (Open) took as
+//: long to find as the one you almost never do (Bin), and the block was
+//: taller than the note's own text.
+//:
+//: The grid is now one row of icon buttons in three groups, each group a
+//: verb class, separated by a hairline rather than by a heading:
+//:
+//: - **read** (Open, Similar, Trace): go somewhere, change nothing.
+//: - **shape** (Grow, Focus, Link, Remind): change the map or the note's
+//:   place in it.
+//: - **keep** (Favourite, then Bin after a gap): the note's own fate.
+//:
+//: Open is the single filled control, the DESIGN.md button ramp's "the one
+//: action this surface is for" (test_dock_grammar's one-primary rule is
+//: about docks; this panel follows the same rule by hand). Every other
+//: button is tonal, and Bin is last, set apart, so the destructive one is
+//: never the neighbour of the one you meant.
+//:
+//: The labels live in `title`/`aria-label` only. That is a real trade: the
+//: previous pass added words to these cells *because* an unlabelled star
+//: beside eight labelled buttons read as a failed render. In a row of nine
+//: icons with no words anywhere, nothing is the odd one out, and the state
+//: the words carried (Favourite vs Favourited, Trace vs Trace to) is in the
+//: tooltip and in `aria-pressed`.
 function renderGraphPopupActions(entry) {
   const box = $("graph-popup-actions");
   box.replaceChildren();
 
+  const group = (name) => {
+    const el = document.createElement("div");
+    el.className = `graph-popup-tool-group graph-popup-tool-${name}`;
+    box.appendChild(el);
+    return el;
+  };
+  const read = group("read");
+  const shape = group("shape");
+  const keep = group("keep");
+
+  // read ---------------------------------------------------------------
+  //: The filled one. `smallButton(..., ghost=false)` is the accent recipe;
+  //: it stays square because `smallButton` adds `.icon-only` for a label
+  //: that is a glyph and nothing else.
+  read.appendChild(
+    smallButton(
+      "ph:note-pencil",
+      "Open this note in the Notes tab",
+      () => {
+        const id = entry.id;
+        closeGraphPopup();
+        flashEntry(id);
+      },
+      false
+    )
+  );
+  read.appendChild(
+    smallButton("≈", "Highlight notes that mean something similar", async () => {
+      const related = await apiJson(`/entries/${entry.id}/related`).catch(() => []);
+      if (!related.length) {
+        toast("No similar notes found.");
+        return;
+      }
+      // Reuse the existing highlight pass by searching for these ids.
+      graphHighlightIds = new Set(related.map((r) => r.id).concat(entry.id));
+      applyGraphHighlight();
+      closeGraphPopup();
+      toast(`Highlighted ${related.length} similar note${related.length === 1 ? "" : "s"}.`);
+    })
+  );
+  // Two clicks, the same shape as Link: this note becomes one end of the
+  // trace, and the next one you pick becomes the other. The tooltip says
+  // which end it will be, because a button that does two different things
+  // without saying which is a button you have to try to understand.
+  const tracingFrom = Boolean(traceFromNode);
+  read.appendChild(
+    smallButton(
+      "ph:path",
+      tracingFrom
+        ? "Trace to here: find how this note connects to the one you started from"
+        : "Trace from here: start tracing a path from this note",
+      () => {
+        closeGraphPopup();
+        setTraceEnd(tracingFrom ? "to" : "from", entry.id);
+        if (!tracingFrom) toast("Now pick the other note, use Trace to here.");
+      }
+    )
+  );
+
+  // shape --------------------------------------------------------------
+  shape.appendChild(
+    smallButton("ph:plant", "Grow: add a new note linked to this one", (event) =>
+      openGraphNewNote(event, entry.id)
+    )
+  );
+  if (graphFocusModeId !== entry.id) {
+    shape.appendChild(
+      smallButton("ph:target", "Focus: isolate this note's neighbourhood", () => {
+        graphFocusModeId = entry.id;
+        recordTabVisit("graph", `focus:${entry.id}`);
+        $("graph-focus-clear")?.classList.remove("hidden");
+        closeGraphPopup();
+        renderGraph();
+        toast("Focus Mode active. Showing local neighborhood.");
+      })
+    );
+  }
+  shape.appendChild(
+    smallButton("ph:link", "Link: start linking this note to another", () => {
+      closeGraphPopup();
+      beginOrCompleteLink(entry);
+      toast("Now click another note on the map to link them.");
+    })
+  );
+  shape.appendChild(
+    smallButton("ph:alarm", "Remind me about this note", () => {
+      closeGraphPopup();
+      switchTab("reminders");
+      $("reminder-text").value = `Follow up: ${entry.content.slice(0, 60)}`;
+      setDue(defaultDueValue()); // keeps the visible date/time fields in step
+      $("reminder-text").focus();
+    })
+  );
+
+  // keep ---------------------------------------------------------------
   //: One glyph in both states, coloured when it is on, the note cards'
   //: own rule, and for the reason `favouriteButton` (app.js) records: the
   //: "off" version used a *different icon*, and one of those was missing
   //: from the font and drew nothing at all.
-  //:
-  //: It also carried **no label**, reported directly with a screenshot of
-  //: this grid: eight cells read "Grow", "Focus", "Similar", "Link",
-  //: "Trace", "Remind", "Open", "Bin", and the ninth was a bare star. In a
-  //: labelled grid an unlabelled cell does not read as "the icon says it
-  //: all", it reads as *text that failed to render*, the whole row of
-  //: siblings is the context that makes it look broken. So it is worded
-  //: like the rest, and the wording carries the state the colour carries.
   const favourite = smallButton(
-    entry.pinned ? "ph:star Favourited" : "ph:star Favourite",
+    "ph:star",
     entry.pinned ? "Remove from Favourites" : "Add to Favourites",
     async () => {
       await apiJson(`/entries/${entry.id}`, {
@@ -3339,101 +3540,27 @@ function renderGraphPopupActions(entry) {
   );
   favourite.classList.toggle("is-favourite", Boolean(entry.pinned));
   favourite.setAttribute("aria-pressed", String(Boolean(entry.pinned)));
-  box.appendChild(favourite);
-  box.appendChild(
-    smallButton("ph:plant Grow", "Add a new note linked to this one", (event) =>
-      openGraphNewNote(event, entry.id)
-    )
-  );
-  
-  if (graphFocusModeId !== entry.id) {
-    box.appendChild(
-      smallButton("ph:target Focus", "Isolate this note's neighborhood", () => {
-        graphFocusModeId = entry.id;
-        recordTabVisit("graph", `focus:${entry.id}`);
-        $("graph-focus-clear")?.classList.remove("hidden");
-        closeGraphPopup();
-        renderGraph();
-        toast("Focus Mode active. Showing local neighborhood.");
-      })
+  keep.appendChild(favourite);
+  const bin = smallButton("ph:trash", "Move this note to the recycle bin", async () => {
+    if (!(await confirmDialog("Move this note to the recycle bin?"))) return;
+    await api(`/entries/${entry.id}`, { method: "DELETE" }).catch((e) =>
+      toast(e.message, true)
     );
-  }
-  box.appendChild(
-    smallButton("≈ Similar", "Highlight notes that mean something similar", async () => {
-      const related = await apiJson(`/entries/${entry.id}/related`).catch(() => []);
-      if (!related.length) {
-        toast("No similar notes found.");
-        return;
-      }
-      // Reuse the existing highlight pass by searching for these ids.
-      graphHighlightIds = new Set(related.map((r) => r.id).concat(entry.id));
-      applyGraphHighlight();
-      closeGraphPopup();
-      toast(`Highlighted ${related.length} similar note${related.length === 1 ? "" : "s"}.`);
-    })
-  );
-  box.appendChild(
-    smallButton("ph:link Link", "Start linking this note to another", () => {
-      closeGraphPopup();
-      beginOrCompleteLink(entry);
-      toast("Now click another note on the map to link them.");
-    })
-  );
-  // Two clicks, the same shape as Link Link: this note becomes one end of the
-  // trace, and the next one you pick becomes the other. The label says which
-  // end it will be, because a button that does two different things without
-  // saying which is a button you have to try to understand.
-  const tracingFrom = Boolean(traceFromNode);
-  box.appendChild(
-    smallButton(
-      // "Trace from here" was the one label too long for its cell in the
-      // three-column action grid, so it ellipsised to "Trace from he…".
-      // The icon and the tooltip carry the rest; a button that cannot show
-      // its own label is worse than a shorter one.
-      tracingFrom ? "ph:path Trace to" : "ph:path Trace",
-      tracingFrom
-        ? "Find how this note connects to the one you started from"
-        : "Start tracing a path from this note",
-      () => {
-        closeGraphPopup();
-        setTraceEnd(tracingFrom ? "to" : "from", entry.id);
-        if (!tracingFrom) toast("Now pick the other note, use Trace to here.");
-      }
-    )
-  );
-  box.appendChild(
-    smallButton("ph:alarm Remind", "Set a reminder about this note", () => {
-      closeGraphPopup();
-      switchTab("reminders");
-      $("reminder-text").value = `Follow up: ${entry.content.slice(0, 60)}`;
-      setDue(defaultDueValue()); // keeps the visible date/time fields in step
-      $("reminder-text").focus();
-    })
-  );
-  box.appendChild(
-    smallButton("ph:note-pencil Open", "Open this note in the Notes tab", () => {
-      const id = entry.id;
-      closeGraphPopup();
-      flashEntry(id);
-    })
-  );
-  box.appendChild(
-    smallButton("ph:trash Bin", "Move this note to the recycle bin", async () => {
-      if (!(await confirmDialog("Move this note to the recycle bin?"))) return;
-      await api(`/entries/${entry.id}`, { method: "DELETE" }).catch((e) =>
-        toast(e.message, true)
-      );
-      closeGraphPopup();
-      await loadEntries().catch(() => {});
+    closeGraphPopup();
+    await loadEntries().catch(() => {});
+    renderGraph();
+    toastAction("Moved to the recycle bin.", "Undo", async () => {
+      await api(`/entries/${entry.id}/restore`, { method: "POST" });
+      await loadEntries();
       renderGraph();
-      toastAction("Moved to the recycle bin.", "Undo", async () => {
-        await api(`/entries/${entry.id}/restore`, { method: "POST" });
-        await loadEntries();
-        renderGraph();
-        toast("Note restored.");
-      });
-    })
-  );
+      toast("Note restored.");
+    });
+  });
+  //: Set apart by a gap of its own inside the keep group rather than by a
+  //: fourth divider: three groups is the structure, and a hairline whose
+  //: only job is to isolate one button would read as a fourth.
+  bin.classList.add("graph-popup-tool-bin");
+  keep.appendChild(bin);
 }
 
 function closeGraphPopup() {
@@ -3456,6 +3583,13 @@ async function saveGraphPopup() {
       body: JSON.stringify({ content: $("graph-popup-content").value, tags }),
     });
     status.textContent = "Saved.";
+    //: What was just written is the new clean state, so the button puts
+    //: itself away for the 600ms the panel is still open.
+    graphPopupClean = {
+      content: $("graph-popup-content").value,
+      tags: $("graph-popup-tags").value,
+    };
+    syncGraphPopupSave();
     await loadEntries().catch(() => {});
     renderGraph(); // content/tags may change what the map shows
     setTimeout(closeGraphPopup, 600);

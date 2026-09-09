@@ -1334,6 +1334,8 @@ body.scroll-top-visible #tab-notes .layout > main {
 }
 
 /* --- graph: physics sliders + node popup ----------------------------------- */
+/* Kept for the timeline's own popup, which still shows one date chip. The
+   graph node panel's facts are a muted line now (.graph-popup-meta below). */
 .graph-popup-info {
   display: flex;
   flex-wrap: wrap;
@@ -1341,37 +1343,135 @@ body.scroll-top-visible #tab-notes .layout > main {
   margin: 0.15rem 0 0.5rem;
 }
 
-/* **A grid, not a wrapping row.** Reported with a screenshot: "the popups
-   when interacting with graph nodes need a full redesign as well." Nine
-   actions in a `flex-wrap` row pack by *label length*, so they landed 4 / 3
-   / 2 across three ragged rows with the edges lining up nowhere, the
-   alignment failure DESIGN.md's own CARP section is about, in one component.
-
-   Three equal columns means every button is the same width, every row has
-   the same count, and the block reads as one set of related actions rather
-   than a spill. `minmax(0, 1fr)` so a long label ellipsises inside its cell
-   instead of widening the column and taking the grid with it. */
-.graph-popup-actions {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-2);
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border);
+/* The node panel's header: identity on the left, close on the right. The
+   identity line wraps as a unit so a long title never pushes the close
+   button off the panel. */
+.graph-popup-head {
+  align-items: flex-start;
+  gap: var(--space-3);
+  /* `.row` wraps, and at the sheet width that put the close button on a line
+     of its own under the title, where it reads as a control belonging to the
+     note rather than to the panel. The identity block shrinks instead
+     (min-width: 0 below) and the title wraps inside it. */
+  flex-wrap: nowrap;
 }
 
+.graph-popup-ident {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.graph-popup-ident>strong {
+  font-size: var(--text-body);
+  line-height: 1.3;
+  min-width: 0;
+}
+
+/* The AI's filing confidence, beside the title rather than as a fifth chip
+   in a row of chips (INBOX 59). It is a footnote about how the note was
+   filed, not a fact about the note, so it is the smallest, quietest thing in
+   the header, and the tooltip carries the sentence. */
+.graph-popup-confidence {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Date, links, views. One line, one weight: they are the same rank of fact,
+   and five bordered chips claimed they were five ranks. */
+.graph-popup-meta {
+  margin: var(--space-1) 0 var(--space-3);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+/* The Save button is hidden until the note is edited, so most of the time
+   this row holds nothing visible at all: it must not reserve height it is
+   not using, or the panel keeps a gap the reader cannot account for. */
+.graph-popup-saverow {
+  gap: var(--space-3);
+  min-height: 0;
+}
+
+/* **One toolbar row, three groups, not a 3x3 grid of nine equal buttons.**
+   Reported with a screenshot (INBOX 59, GRAPH_PLAN Phase 6): the grid was
+   taller than the note it belonged to and gave Open and Bin the same
+   prominence. The groups are read / shape / keep, separated by a hairline
+   and nothing else, so the structure costs one pixel per boundary instead
+   of a heading or a box each.
+
+   `flex-wrap` rather than a fixed count: at the sheet width the row is
+   allowed to become two, and the dividers still fall between groups because
+   they are drawn by the group, not by the row. */
+.graph-popup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  /* No column gap: the divider's own margins are the space between two
+     groups, and a gap on top of them would say "separate" twice. The row
+     gap only matters at the sheet width, where the row becomes two. */
+  column-gap: 0;
+  row-gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--divider);
+  /* The strip declares its height and every control in it is that tall
+     (DESIGN.md, "Control height"). 36px, above the app's 28px floor,
+     because these carry no label to widen them. */
+  --control-h: 2.25rem;
+}
+
+.graph-popup-tool-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The hairline is the only thing between two groups. Drawn by the second of
+   the pair (the chat dock's own recipe, 06-timeline-dialogs.css) so it can
+   never be left dangling at the end of the row, and in --border rather than
+   --divider for the same reason that dock uses it: --divider is the line
+   between stacked rows, faint because the rows are already apart, and two
+   groups of icons standing shoulder to shoulder need a mark you can see. */
+.graph-popup-tool-group+.graph-popup-tool-group::before {
+  content: "";
+  align-self: stretch;
+  width: 1px;
+  margin-inline: var(--space-2);
+  background: var(--border);
+}
+
+/* Bin is set apart inside its own group by a gap rather than a fourth
+   hairline: three groups is the structure. */
+.graph-popup-tool-bin {
+  margin-left: var(--space-3);
+}
+
+/* A row of icons with no words has to be tall enough to hit: 2.25rem (36px)
+   here, above the app's 28px floor, because these are the panel's only
+   actions and they carry no label to widen them. */
 .graph-popup-actions button {
   display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: var(--space-2);
+  justify-content: center;
   min-width: 0;
-  min-height: var(--target-min);
-  padding: 0 var(--space-3);
+  min-height: var(--control-h);
+  height: var(--control-h);
   font-size: var(--text-md);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+/* The close button belongs to the same panel and is the same size as the
+   toolbar under it: a 28px close over a row of 36px icons is the four-pixel
+   mismatch DESIGN.md's control-height section is about, and here it is a
+   whole step. */
+#graph-popup-close {
+  flex: 0 0 auto;
+  min-height: 2.25rem;
+  height: 2.25rem;
 }
 
 /* Gravity, Spread and Unpin all used to be an inline-flex row inside the
@@ -1440,8 +1540,13 @@ body.scroll-top-visible #tab-notes .layout > main {
   /* Widened from 22rem. At the old width the three-column action grid below
      is too tight for its labels, and the note's own text: the thing the
      popup exists to show, wrapped every four or five words into a column
-     narrower than the buttons under it. */
-  width: 26rem;
+     narrower than the buttons under it.
+
+     28rem since Phase 6: the nine actions are one row of icon buttons now,
+     and at 26rem that row wrapped 7 + 2, which is the ragged shape the grid
+     was introduced to cure. Measured: the row needs 398px, the panel offers
+     422px of content width at 28rem, which still clears a 15px scrollbar. */
+  width: 28rem;
   max-width: calc(100% - 1rem);
   padding: 0.8rem 0.8rem;
   background: var(--modal-bg);
@@ -1468,9 +1573,15 @@ body.scroll-top-visible #tab-notes .layout > main {
 }
 
 /* The note's own text is the reason this popup opened, so it gets room to
-   be read rather than a three-line slot above a wall of buttons. */
-.graph-popup textarea {
-  min-height: 7rem;
+   be read rather than a three-line slot above a wall of buttons.
+
+   Four lines and then it grows with the note (`.autogrow`, app.js): a fixed
+   7rem slot was two lines of whitespace under a one-line note and a
+   scrollbar inside a long one, which is the "tall content editor" INBOX 59
+   reports. 1.45 is `textarea.autogrow`'s own line-height; --space-6 stands
+   in for the field's vertical padding. */
+#graph-popup-content {
+  min-height: calc(4 * 1.45em + var(--space-6));
 }
 
 .graph-popup .row {

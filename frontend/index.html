@@ -2664,6 +2664,26 @@ Link to another note with [[its first few words]]."></textarea>
                   title="The markdown itself, unrendered"><i class="ph ph-code ph-lead" aria-hidden="true"></i> Source</button>
                 <button type="button" class="doc-dock-menu-item" data-doc-view="split"
                   title="A rendered preview beside the editor"><i class="ph ph-columns ph-lead" aria-hidden="true"></i> Split</button>
+                <!-- Asked for directly: "I want to be able to use the
+                     documents tab as a plain text editor like before as a
+                     view option (not the defaul though)". Last in the list
+                     and never the default, which is the "not the default"
+                     half of that sentence. Source still runs the markdown
+                     grammar, so a heading is bold and a fence is tinted;
+                     Plain empties the language compartment, so the text is
+                     just text (see docCmViewLanguage). Offered for a code
+                     file too, unlike Live and Split. -->
+                <button type="button" class="doc-dock-menu-item" data-doc-view="plain"
+                  title="Just the text, with nothing colouring or hiding any of it"><i class="ph ph-text-align-left ph-lead" aria-hidden="true"></i> Plain</button>
+                <!-- Line numbers were reachable only from the formatting
+                     strip, which is collapsed by default (PLAN.md D1), so the
+                     one control that answers "can these have line numbers as
+                     well" was behind a strip nobody opens. Same remembered
+                     preference (`doc-gutter`), same `applyDocGutter`; this is
+                     a second door onto it, in the menu that is already about
+                     how the document is shown. -->
+                <button type="button" class="doc-dock-menu-item" id="doc-view-gutter" aria-pressed="false"
+                  title="Number the lines in the editor"><i class="ph ph-list-numbers ph-lead" aria-hidden="true"></i> Line numbers</button>
               </div>
             </details>
           </span>

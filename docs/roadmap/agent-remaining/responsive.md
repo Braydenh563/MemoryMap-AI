@@ -344,16 +344,30 @@ broken. `ccb8c46` fixes the sweep; section 7e has the new baseline.
 five-field preview rows after `_preview_items` grew each item's width and
 height and raised `ValueError` the moment a gate ran it (`e8f3ca7`).
 
-**`placeEscapedMenu` places but never caps.** The automatic escape path
-(`openActionMenu` to `escapeMenuIfClipped`) is the one caller that does not
-cap the menu afterwards: `wireEscapedActionMenu`'s `place()` caps, and
-`escapeAndCapMenu` caps, but a plain `.action-menu` that escapes a clipper and
-is taller than the window is clamped to `margin` and runs off the bottom with
-no scroll. Nothing reproduces it today, which is why it is here and not fixed:
-the fix is to move `place()`'s room-above/room-below cap into
-`placeEscapedMenu` itself, and it changes placement for the 21 menus that path
-covers, so it wants its own measurement pass rather than a rider on someone
-else's commit.
+**Retracted, and it was mine**: "`placeEscapedMenu` places but never caps,
+so a menu taller than the window runs off the bottom with no scroll"
+(`60e1bb2`). It cannot be taller than the window. `07-whiteboard-misc.css`
+caps every `.action-menu`, `.doc-dock-menu-list`, `.wb-board-menu`,
+`.wb-export-menu`, `.ocr-region-popover` and `.help-popover` at `calc(100vh -
+var(--space-9) * 2)` with `overflow-y: auto`: computed 576px in a 640px
+window, 296px in a 360px one, with the note kebab's content scrolling 373
+inside 294. The automatic path does not cap because it has nothing to cap.
+
+What was real underneath it was a placement bug, fixed in the same commit: the
+flip-above branch accepted its answer on `above >= margin` alone, so a trigger
+below the fold put 41px of the menu past the bottom of the window (1280x360,
+the third note card, kebab at y=405: top 105, bottom 401). It now requires the
+whole box to land inside and falls through to the clamp: top 56, bottom 352.
+The rest of the inventory is byte-identical at 1440x900, 1280x640 and
+1280x360, as are the whiteboard's five menus and all nine dock menus.
+
+**And the two capping rules stay two, on numbers.** `placeEscapedMenu` was
+given `place()`'s rule as an experiment and measured: a 375px note-card menu
+that fitted whole at 1280x640 became a 301px scrolling one, and at 1280x360
+the visible menu fell from 294px to 207px with 143px of window left empty
+under it. A kebab may span across its own three dots; a `<select>` dropdown
+may not cover the field you are choosing in. Both sites carry the numbers now,
+so the next reader does not merge them on how alike they look.
 
 **A `stroke` or `fill` attribute is beaten by any stylesheet rule for the
 same property**, and `tests/test_svg_paint_attributes.py` now holds that.

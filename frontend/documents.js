@@ -1841,7 +1841,44 @@ function docLivePlugin(CM) {
 
   //: The callout kinds the rest of the app already renders (`CALLOUT_KINDS` in
   //: editor.js) and the syntax GitHub, Obsidian and Typora all understand.
-  const CALLOUT = /^>\s*\[!([A-Za-z]+)\]/;
+  //: The capture is the whole `[!kind]`, so the marker can be hidden the way
+  //: every other marker here is; the group inside it names the kind.
+  const CALLOUT = /^>\s*(\[!([A-Za-z]+)\][-+]?)/;
+
+  //: **A callout says which kind it is, in words, where its marker was.**
+  //: Measured before this: with the caret away from the line, `> [!note] a
+  //: callout` rendered as `[!note] a callout` on a tinted, accent-barred line.
+  //: The `>` went, as it should, and the `[!note]` stayed, which is the one
+  //: thing on the line that is pure markdown syntax. The owner's sentence is
+  //: about exactly that: "md formatting should go invisible unless i click
+  //: back on that word or section". Hiding it outright would leave a note and
+  //: a warning looking identical apart from a border colour, so the marker is
+  //: replaced by the label the rest of the app already uses for that kind
+  //: (`CALLOUT_KINDS` in editor.js, the same table `calloutTemplate` writes
+  //: from), which is what Obsidian shows in the same place.
+  class DocCalloutWidget extends WidgetType {
+    constructor(kind) {
+      super();
+      this.kind = kind;
+    }
+    eq(other) {
+      return other.kind === this.kind;
+    }
+    ignoreEvent() {
+      //: A click on the label is a click into the line behind it: the widget
+      //: is a rendering of text that is really there, and swallowing the
+      //: event would make the one spot on the line you cannot put a caret in.
+      return false;
+    }
+    toDOM() {
+      const meta =
+        (typeof CALLOUT_KINDS === "object" && CALLOUT_KINDS[this.kind]) || null;
+      const chip = document.createElement("span");
+      chip.className = `cm-md-callout-label cm-md-callout-label-${this.kind}`;
+      chip.textContent = meta ? `${meta.icon} ${meta.label}` : this.kind;
+      return chip;
+    }
+  }
 
   function build(view) {
     const state = view.state;
@@ -1954,12 +1991,31 @@ function docLivePlugin(CM) {
           if (name === "Blockquote") {
             const first = doc.lineAt(node.from);
             const callout = CALLOUT.exec(first.text);
-            const cls = callout ? `cm-md-callout cm-md-callout-${callout[1].toLowerCase()}` : "cm-md-quote";
+            const kind = callout ? callout[2].toLowerCase() : null;
+            const cls = kind ? `cm-md-callout cm-md-callout-${kind}` : "cm-md-quote";
             for (let at = node.from; at <= node.to; ) {
               const line = doc.lineAt(at);
               ranges.push(Decoration.line({ class: cls }).range(line.from));
               if (line.to >= node.to) break;
               at = line.to + 1;
+            }
+            //: The `[!kind]` marker, on the callout's first line only, swapped
+            //: for the kind's own label while the caret is elsewhere. Offsets
+            //: come from the match rather than from a second search, so a body
+            //: line that happens to contain `[!note]` cannot be hit.
+            if (kind && !touched(first.from, first.to)) {
+              const from = first.from + first.text.indexOf(callout[1]);
+              const to = from + callout[1].length;
+              let end = to;
+              //: The space after the marker goes with it, exactly as the
+              //: heading and quote marks take theirs: leaving it would indent
+              //: the label's line by one space against every other line.
+              while (end < doc.length && doc.sliceString(end, end + 1) === " ") end += 1;
+              if (!doc.sliceString(from, end).includes("\n")) {
+                ranges.push(
+                  Decoration.replace({ widget: new DocCalloutWidget(kind) }).range(from, end)
+                );
+              }
             }
             return undefined;
           }
@@ -1981,7 +2037,17 @@ function docLivePlugin(CM) {
             return undefined;
           }
           if (name === "HorizontalRule") {
-            ranges.push(Decoration.line({ class: "cm-md-rule" }).range(doc.lineAt(node.from).from));
+            const line = doc.lineAt(node.from);
+            ranges.push(Decoration.line({ class: "cm-md-rule" }).range(line.from));
+            //: **The rule's own dashes go with the rest of the markers.**
+            //: Measured before this: `---` rendered as the three characters
+            //: `---` on a line that also drew the border, so the divider was a
+            //: line with the word for a line written on top of it. The line
+            //: class is the rule; the text is the syntax that asks for one, and
+            //: syntax is what this whole view hides. Hidden rather than
+            //: replaced by a widget: there is nothing to say that the border
+            //: does not already say.
+            if (!touched(line.from, line.to)) hide(line.from, line.to);
             return false;
           }
           return undefined;
@@ -6378,7 +6444,25 @@ function docCmTheme(CM) {
         fontFamily: "var(--mono, ui-monospace, monospace)",
         backgroundColor: "var(--field-inset)",
       },
-      ".cm-md-rule": { borderBottom: "1px solid var(--border)" },
+      //: A rule whose own `---` is hidden is an empty line, and an empty line
+      //: with a bottom border is a hairline sitting on the baseline of nothing.
+      //: The height is what makes it read as a divider between two blocks
+      //: rather than as an underline belonging to the paragraph above.
+      ".cm-md-rule": {
+        borderBottom: "1px solid var(--border)",
+        height: "0.6em",
+        margin: "0.4em 0",
+      },
+      //: The callout's kind, in the place its `[!note]` marker was. Set in
+      //: `em` so it tracks the editor's own type scale, and in the muted ink
+      //: because it labels the block rather than being part of what it says.
+      ".cm-md-callout-label": {
+        fontSize: "0.85em",
+        fontWeight: "600",
+        color: "var(--muted)",
+        marginRight: "0.4em",
+        userSelect: "none",
+      },
       ".cm-md-task": { marginRight: "0.4em", verticalAlign: "middle", cursor: "pointer" },
       ".cm-md-image": { maxWidth: "100%", borderRadius: "var(--radius-sm)" },
 

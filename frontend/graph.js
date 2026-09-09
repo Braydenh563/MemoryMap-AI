@@ -3439,18 +3439,25 @@ function renderGraphPopupActions(entry) {
   //: The filled one. `smallButton(..., ghost=false)` is the accent recipe;
   //: it stays square because `smallButton` adds `.icon-only` for a label
   //: that is a glyph and nothing else.
-  read.appendChild(
-    smallButton(
-      "ph:note-pencil",
-      "Open this note in the Notes tab",
-      () => {
-        const id = entry.id;
-        closeGraphPopup();
-        flashEntry(id);
-      },
-      false
-    )
+  const open = smallButton(
+    "ph:note-pencil",
+    "Open this note in the Notes tab",
+    () => {
+      const id = entry.id;
+      closeGraphPopup();
+      flashEntry(id);
+    },
+    false
   );
+  //: The class, not just the absence of `.ghost`: a late rule paints every
+  //: `.icon-only:not(.ghost)` button tonal (07-whiteboard-misc.css, "a
+  //: control inside a grouped strip does not need its own ground"), so
+  //: leaving Open non-ghost made it *look* exactly like its eight
+  //: neighbours. Measured on the running panel, which is the only way that
+  //: was ever going to show up: the markup said one filled button and the
+  //: pixels said none.
+  open.classList.add("graph-popup-tool-primary");
+  read.appendChild(open);
   read.appendChild(
     smallButton("≈", "Highlight notes that mean something similar", async () => {
       const related = await apiJson(`/entries/${entry.id}/related`).catch(() => []);

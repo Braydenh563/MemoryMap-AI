@@ -38,7 +38,11 @@ const W=Number(process.env.W||1440), H=Number(process.env.H||900);
       panelScrolls:p.scrollHeight>p.clientHeight,
       pageScrolls:document.scrollingElement.scrollHeight>document.scrollingElement.clientHeight+1,
       actionCount:acts.length, perRow:Object.values(rows), rowCount:Object.keys(rows).length,
-      filled:acts.filter(b=>!b.classList.contains('ghost')).map(b=>b.title||b.textContent.trim()),
+      // The PAINT, not the class list: a late rule paints every
+      // .icon-only:not(.ghost) button tonal, so "not ghost" is not "filled".
+      filled:acts.filter(b=>{const bg=getComputedStyle(b).backgroundColor;
+        return bg!=='rgba(0, 0, 0, 0)' && bg!==getComputedStyle(acts[acts.length-1]).backgroundColor;})
+        .map(b=>[b.title||b.textContent.trim(), getComputedStyle(b).backgroundColor]),
       textareaH:ta?+ta.getBoundingClientRect().height.toFixed(1):null,
       saveVisible:(()=>{const s=document.getElementById('graph-popup-save');return s?s.offsetParent!==null:null;})(),
       chips:p.querySelectorAll('.chip').length,

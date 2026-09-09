@@ -186,6 +186,15 @@ control shorter than the row's declared height) at 1440, 1024 and 390.
   in three groups, hairline-separated: read (Open, Similar, Trace), shape
   (Grow, Focus, Link, Remind), keep (Favourite, then Bin after a gap of its
   own). Open is the one filled control. Labels moved to `title`/`aria-label`.
+- **"Filled" had to be measured, not written.** `smallButton(..., ghost =
+  false)` is how the app says filled, and it was not enough: a six-class
+  rule in 07-whiteboard-misc.css paints every `.icon-only:not(.ghost)`
+  button tonal, on purpose, so Open rendered identical to its eight
+  neighbours while the markup said otherwise. No readable selector naming
+  that button could outrank six classes, so it is the fourth name on that
+  rule's own exception list and falls through to the base `button` recipe.
+  The sweep now reads the computed background rather than the class list,
+  because the class list is what was wrong.
 - **Numbers.** Panel 416x439 before, 448x348 after at 1440 and 1024 (21%
   shorter; 26rem to 28rem wide, which is what lets the nine actions sit in
   one row: the row needs 398px and the panel offers 422px of content width).

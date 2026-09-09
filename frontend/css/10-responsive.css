@@ -430,9 +430,30 @@ header#top-bar,
 }
 
 /* A label that fits inside its own shape sits on it, so it needs to read
-   against a filled block rather than against the paper. */
+   against a filled block rather than against the paper.
+
+   The two inks are picked in `mapPreviewOnColour` (app.js) from the branch
+   colour's own luminance, and they are *classes* rather than a `fill`
+   attribute because `.board-minimap-label` declares `fill` in the stylesheet
+   and a CSS declaration beats a presentation attribute. Measured with
+   `scratchpad/ui-sweeps/preview.js`: the app's ink on a mid-tone branch blue
+   is 3.82:1, under the 4.5 the rest of the app is held to, and the attribute
+   version changed that number by nothing at all. Fixed values, not tokens:
+   this is the ink for *that node's colour*, which does not change with the
+   theme, and `--ink` inverting under dark would take white text onto a pale
+   branch. */
 .board-minimap-label-inside {
   opacity: 0.95;
+}
+
+.board-minimap-label-light {
+  fill: #ffffff;
+  opacity: 1;
+}
+
+.board-minimap-label-dark {
+  fill: #12151c;
+  opacity: 1;
 }
 
 /* --- the quick-nav chord's guide -----------------------------------------

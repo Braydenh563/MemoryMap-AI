@@ -1521,6 +1521,34 @@ const MAP_PREVIEW_MIN_BLOCK = 0.5;
 //: measuring text in the DOM, which means laying out every thumbnail twice.
 const MAP_PREVIEW_CHAR_WIDTH = 0.55;
 
+//: **Which ink a label takes when it sits on a coloured node.** Measured
+//: with `scratchpad/ui-sweeps/preview.js` the day inside labels landed: a
+//: map's branch nodes are drawn at full strength in their branch colour, and
+//: the app's own ink on a mid-tone blue is 3.82:1, under the 4.5 the rest of
+//: the app is held to. White on that same blue is 4.9:1. The rule is the
+//: usual one: pick whichever of the two the colour is further from, and
+//: return the name of the class that paints it (see 10-responsive.css).
+//:
+//: Only for a label *inside* a coloured block. A label beside one sits on the
+//: paper and keeps `--ink` from the stylesheet, which is where the theme
+//: belongs.
+function mapPreviewOnColour(colour) {
+  const hex = String(colour || "").trim();
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return null;
+  const value = parseInt(m[1], 16);
+  const channel = (c) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance =
+    0.2126 * channel((value >> 16) & 255) +
+    0.7152 * channel((value >> 8) & 255) +
+    0.0722 * channel(value & 255);
+  // 0.18 is where white and black are equally far in WCAG terms.
+  return luminance > 0.18 ? "dark" : "light";
+}
+
 //: The shortest label worth putting inside a shape. Below this the block is
 //: too small to hold a word and the label goes beside it, where it has the
 //: whole margin to run into: "M…" on a node says less than nothing.
@@ -1807,6 +1835,13 @@ function mapPreview(board, { size = "card" } = {}) {
       text.setAttribute("y", String(round2(ny + size.h / 2 + fontUnits * 0.36)));
       text.setAttribute("text-anchor", "middle");
       text.classList.add("board-minimap-label-inside");
+      //: A class, not a `fill` attribute, and this is the trap the blocks
+      //: above already carry a note about: `.board-minimap-label` declares
+      //: `fill` in the stylesheet, and a CSS declaration beats a presentation
+      //: attribute however specific the attribute looks. Setting the
+      //: attribute changed nothing at all, measured: 3.82:1 before and after.
+      const onColour = item.color ? mapPreviewOnColour(item.color) : null;
+      if (onColour) text.classList.add(`board-minimap-label-${onColour}`);
     } else {
       text.setAttribute("x", String(round2(rightHalf ? nx - gap : nx + size.w + gap)));
       text.setAttribute("y", String(round2(ny + size.h * 0.73)));

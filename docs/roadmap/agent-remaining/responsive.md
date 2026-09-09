@@ -1,206 +1,152 @@
-# Phase 9 — what is left, per surface and per breakpoint
+# Responsive and Liquid Glass: what is left
 
-Written at the end of the first Phase 9 sitting, on a usage limit, so the next
-session resumes instead of re-measuring. Six commits landed (see
-`UI_MODERNISATION_PLAN.md`, "Built — Phase 9"); this is everything that was
-found and deferred, never dropped.
+Rewritten 2026-09-09 at the end of the Phases 9-and-10 sitting (Brief 21).
+The scope of that sitting was narrowed by the owner mid-session: **the
+desktop and tablet bands only** (>= 1100, 820-1100, 600-820). The phone
+band (< 600) and INBOX 104 were taken out of it entirely and become
+**UI_MODERNISATION_PLAN Phase 11**, a session of its own.
 
-Every number here was measured in Chromium against
-`scratchpad/ui-sweeps/serve.sh 8802 /tmp/mm-phone` seeded with `seed.js`, with
-`hasTouch` below 820 and `isMobile` below 600. Re-measure before changing
-anything: this file records what was true at commit `b1f8731` plus the touch
-pass on top of it.
+What that sitting built is in `HISTORY.md`, "Moved from the plans,
+2026-09-09", under UI_MODERNISATION_PLAN: the tab strip fitting its own row
+between 600 and 820, INBOX 100 (the scroll edge effect), 101 (the concentric
+corner token and its two lints) and 103 (menus opening out of their opener).
+
+Every number below was measured in Chromium against
+`bash scratchpad/ui-sweeps/serve.sh 8790 /tmp/mm-8790` seeded with `seed.js`.
+Re-measure before changing anything.
 
 ## How to reproduce the numbers
 
 ```bash
-scratchpad/ui-sweeps/serve.sh 8802 /tmp/mm-phone      # own port, own data dir
-BASE=http://127.0.0.1:8802 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
+bash scratchpad/ui-sweeps/serve.sh 8790 /tmp/mm-8790      # own port, own data dir
+BASE=http://127.0.0.1:8790 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
   node scratchpad/ui-sweeps/seed.js
-BASE=… WIDTHS=390 node scratchpad/ui-sweeps/chrome.js   # chrome vs content
-BASE=… node scratchpad/ui-sweeps/errors.js              # 1440/1024/820/390
-BASE=… node scratchpad/ui-sweeps/touch.js               # 44px targets at 390
+BASE=… WIDTHS=1440,1024,820,600 node scratchpad/ui-sweeps/errors.js   # background flag
+BASE=… WIDTHS=600,660,720,819,1024,1440 node scratchpad/ui-sweeps/tabfit.js
+BASE=… node scratchpad/ui-sweeps/scrolledge.js
+BASE=… node scratchpad/ui-sweeps/onglass.js      # and THEME=dark
+BASE=… node scratchpad/ui-sweeps/contrast.js     # and THEME=dark
+BASE=… WIDTH=390 node scratchpad/ui-sweeps/touch.js
 ```
 
-`chrome.js` prints the chrome stack strip by strip beside each percentage, so
-a number always says which strip to go and look at.
+`tabfit.js`, `scrolledge.js` and `onglass.js` are new this sitting.
 
-## The state at the end of this sitting, 390x844
+## The state at the end of it
 
-| surface | chrome | the stack, strip by strip |
-| --- | ---: | --- |
-| dashboard (first widget) | 95% | top 58, tabs 58, status 37 |
-| dashboard (first action) | 29% | as above |
-| notes | 29% | top 58, tabs 58, status 37, dock 96, subtabs 46 |
-| chat | 23% | top 58, tabs 58, status 37 |
-| library | 40% | top 58, tabs 58, status 37, dock 96, subtabs 46, chips 36 |
-| whiteboard | 46% | free canvas 452 of 844; wb-topbar 104, wb-tools 56 |
-
-Gates at the same commit: `errors.js` 0 errors and 0 layout findings at 1440,
-1024, 820 and 390; `touch.js` PASS with 0 findings; six lints green.
+- `errors.js`: **0 errors, 0 layout findings at 1440, 1024, 820 and 600**,
+  on the base tree and again after each step. No horizontal page scroll at
+  any of the four.
+- `contrast.js`: **0 low-contrast items in both themes**, seven tabs and ten
+  Settings sections. This is also the dark-theme pass the previous list
+  asked for (item 10 below is therefore closed for text contrast, and open
+  only for the surfaces a ratio cannot see).
+- `tabfit.js`: green at 600, 660, 720, 819, 1024, 1440.
+- `scrolledge.js`: green on notes, library, timeline, reminders, chat.
 
 ---
 
-## 1. Whiteboard — `#wb-topbar` is 104px at 390 (two rows)
+## 1. Phase 11: the whole phone band (< 600), including INBOX 104
 
-**The largest remaining piece of phone chrome, and the one with the clearest
-payoff.** The board's own top bar takes 104 of 844 at 390 and 104 of 900 at
-768, in both cases wrapping to two rows. Free canvas is 452px at 390.
+Taken out of Brief 21 by the owner. Everything the previous version of this
+file listed for 390 belongs to it and is repeated here so nothing is lost:
 
-- **Where**: the element is `#wb-topbar` in `frontend/index.html` (about line
-  3329); its rules are `.wb-topbar` in `frontend/css/07-whiteboard-misc.css`.
-- **Why it is untouched**: out of scope by direct instruction for this sitting
-  ("do not touch `#wb-topbar`"). Nothing about it is hard; it was fenced off.
-- **Next step**: it has seventeen controls (Phase 8's own inventory) and no
-  `.dock-more`. The cheapest correct move is the one `foldDockArrange` already
-  makes elsewhere: give it a `.dock-actions > .dock-more` in the markup, then
-  add `wb-topbar` to the fold so its search and its five menus collapse below
-  1100. Expect 104 to 44 at 390, which is +60px of canvas, and 104 to 44 at
-  768 for +60 there too.
-- **Gate**: `WIDTHS=390,768 node scratchpad/ui-sweeps/chrome.js`, the
-  `whiteboard` row's "free canvas" line.
+- **`#wb-topbar` is 104px at 390**, two rows, the largest remaining piece of
+  phone chrome. `#wb-topbar` in `frontend/index.html` (about line 3329),
+  `.wb-topbar` in `frontend/css/07-whiteboard-misc.css`. It has seventeen
+  controls and no `.dock-more`; the cheapest correct move is the one
+  `foldDockArrange` already makes elsewhere. Expect 104 to 44 at both 390
+  and 768, which is +60px of canvas at each.
+- **Short tab captions below 480.** The captions are hidden there because
+  "Dashboard" needs 68px in a 56px column. A `data-short` per tab rendered
+  with `content: attr(data-short)` is the fix, but "Dashboard" to "Home" and
+  "Reminders" to "Alerts" are copy decisions: **ask before writing either.**
+- **The dashboard's `.launch-row-start`** is a column of five 60px
+  full-width buttons at 390, 300px of the 419px of quick actions.
+  `frontend/css/03-dashboard-widgets.css` near line 1290. Five big shortcuts
+  or ten small ones is a product call; measure both.
+- **Library at 390**: dock 96px, sub-tab strip 46px and chip row 36px, first
+  card at y=341. Folding the chip row into the dock's `Filter` menu below
+  600 (`foldSiblingsIntoMenu`) is the shape that already exists.
+- **Notes at 390**: dock 96px, search on its own row. The identity zone and
+  the search field could share a row if the heading became the field's
+  placeholder; that is a design change, sketch it first.
+- **The documents editor at 390 was never measured.** Run
+  `node scratchpad/ui-sweeps/editor.js` at 390 and add a `documents` row to
+  `chrome.js`'s `TABS`.
+- **INBOX 104**, the tab bar receding on scroll down and returning on scroll
+  up, never hidden.
+- **The sheet half of INBOX 103**: a sheet inset by `--space-3` and turning
+  `--modal-bg` at full height. Deliberately not built this sitting: the
+  sidebar sheets are one rule at `max-width: 819.98px` covering both the
+  tablet and the phone, and giving the tablet an opaque sheet while the
+  phone keeps a glass one would be worse than either. Build it once, for
+  both bands, in Phase 11.
 
-## 2. Tab bar — short captions below 480
+## 2. INBOX 102, and the measurement that changes the question
 
-Below 480 the captions are hidden entirely (`.tab-label { display: none }` in
-the `@media (max-width: 479.98px)` block of
-`frontend/css/07-whiteboard-misc.css`). The threshold is measured, not chosen:
-seven equal columns at 390 give each tab 56px, "Dashboard" needs 68px at
-`--text-xs` and "Reminders" 60px, and seven times 68 is 476.
+Open, with its numbers in UI_MODERNISATION_PLAN's placed list. In short:
+`--text-on-glass` has nothing to fix (menu rows are 15.25:1 in light and
+14.14:1 in dark, and contrast.js finds nothing under 4.5:1 in either theme),
+and `.glass-clear` on `.whiteboard-floating-panel` would reverse a recorded
+decision. The recommendation there is to build the clear variant *with* a
+surface that genuinely floats over media, and to drop `--text-on-glass`
+until something measures badly.
 
-- **Why it stops there**: an ellipsis on two captions beside five whole ones is
-  the shape this project already learned reads as broken rather than as
-  abbreviated (BACKLOG.md, the tab strip's edge fade, settled with a real
-  screenshot at 390).
-- **Next step, and it is a copy decision, not a layout one**: a short caption
-  per tab, carried in the markup as `data-short` on each
-  `#tab-bar button[data-tab]` and rendered with `content: attr(data-short)`
-  below 480. Only two need one. "Dashboard" to "Home" renames the app's
-  landing page and needs the owner's word; "Reminders" to "Alerts" likewise.
-  **Ask before writing either.**
-- **Gate**: `node scratchpad/ui-sweeps/touch.js` (the tab bar block already
-  reports per-button width and whether the bar scrolls), plus a `scrollWidth`
-  vs `clientWidth` check on each `.tab-label`.
+## 3. INBOX 94, background animations
 
-## 3. Tab bar — 600 to 819 still scrolls sideways
+Untouched this sitting. `startBgArt` and `BG_ART_BUILDERS` in
+`frontend/settings.js` (about line 2496). What the item asks for: a measured
+frame cost per style, a still frame under Performance mode, no seams at the
+edges, and an intensity slider that changes something visible at every step.
+The frame cost is measurable here (`requestAnimationFrame` deltas in
+`page.evaluate` with each `bg-style` set through the appearance preference);
+the seams need a screenshot of the canvas edges at two window sizes.
 
-At 600 the strip has 574px of room and needs 608px, so it scrolls, and
-`.tabs-wrapped` gives it a row of its own inside a 106px header. That is
-unchanged from before Phase 9; the bottom bar is a `< 600` rule by the plan's
-own band table.
+## 4. INBOX 60, the dashboard start section
 
-- **Where**: `#tab-bar` in `frontend/css/00-tokens-shell.css` (the base rule
-  and the `.tabs-wrapped` pair), `dockTabBar` and `syncTabOverflowFade` in
-  `frontend/app.js`.
-- **Next step**: two candidates, and the choice belongs with the owner.
-  Either extend the bottom bar to the whole one-column band by changing
-  `PHONE_TABS` in app.js and the `599.98` media conditions to `819.98`, which
-  makes 600 to 819 consistent with the phone and inconsistent with the plan's
-  table; or show the tab icons from 820 down beside the captions so the strip
-  fits in the header. Measure both: the second needs each caption plus a 20px
-  icon to fit 574px, which it will not at seven tabs, so the first is probably
-  the honest answer and the plan's table should move rather than the code.
-- **Gate**: `W=600,720,819 node` on a copy of the tab-bar probe, asserting
-  `scrolls: false` and a one-row header.
+Untouched this sitting, and it is the largest open item in the plan. The
+recommendation is written on the item and has not been taken: one "Start"
+row that fills the width, the stats as a compact strip with a sparkline for
+the week and the streak, the skills row showing the last-run time and a Run
+button per skill, a "Continue" tile for the last note or document touched,
+with the band's height unchanged. `frontend/dashboard.js` and
+`frontend/css/03-dashboard-widgets.css`.
 
-## 4. Dashboard — 95% chrome by the strict reading
+## 5. The tab strip still takes a row of its own from 600 to 1100
 
-The first configurable widget in `#dash-grid` starts at y=806 on an 844px
-screen. Everything above it is the greeting banner (117px), the quick actions
-(419px), the counters (84px) and the layout toolbar (57px).
+Not a bug, and now deliberate, but worth stating because it is 50px of
+chrome on every tablet and small laptop: the header is 106px at 600 and 720,
+120px at 819 (the 44px targets) and 108px at 1024, against 56px at 1440.
+Measured with `tabfit.js`, the strip needs 498px at 600 and 696px at 1024
+while the space beside the wordmark and the controls is 171px and 521px, so
+it cannot share the row at any width below about 1100 without hiding the
+wordmark, which was reported twice. The only untried lever is icons instead
+of captions from 820 down; measure before believing it, since seven icon
+buttons at 44px plus gaps is already 340px.
 
-- **What already moved**: the quick-action rows stopped wrapping (they were
-  459px for two children, five full-width buttons and a pill row) and the
-  greeting's live clock is hidden below 600, because every phone paints the
-  time a few pixels above it. Hero 148 to 117.
-- **What is left**: `.launch-row-start` is still a column of five 60px
-  full-width buttons at 390, which is 300px of the 419. It is a column because
-  of a rule in `frontend/css/03-dashboard-widgets.css` near line 1290. The
-  question is whether five big shortcuts or ten small ones is the better phone
-  design, and that is a product call.
-- **Next step**: measure `.launch-row-start` as a scrolling row of pill-sized
-  buttons (the `.launch-row-go` recipe two lines below it already is one) and
-  put the two side by side before choosing. Expect the first widget to come up
-  by about 200px.
-- **Gate**: the `dashboard` and `dash-actions` rows of `chrome.js` at 390.
+## 6. A real iPad, and a real on-screen keyboard
 
-## 5. Library — dock 96px and two strips under it at 390
+Unchanged and unchangeable here. Every number in the 820-1100 and 600-820
+bands is an emulated viewport with `hasTouch`. A real iPad differs in three
+ways this cannot see: non-zero safe-area insets, Safari's own chrome moving
+as you scroll, and a hardware keyboard changing `hover` and `pointer`
+without changing the width. `--keyboard-inset` is verified to be written, to
+be `0px` with no keyboard, and to be read by both bottom docks; its
+behaviour with a keyboard up is reasoned, not observed.
 
-The Library dock is 96px at 390 (two rows) with a 46px sub-tab strip and a
-36px chip row beneath it: 178px before the grid, and the first card at y=341.
+## 7. A keyboard-only pass at each band
 
-- **Where**: `[data-dock-name="library"]` in `frontend/index.html` (about line
-  2890); `.library-subtabs` / `.library-filters` scroll rules are in the
-  `@media (max-width: 819.98px)` block of
-  `frontend/css/07-whiteboard-misc.css`.
-- **Next step**: the dock's second row is the search field, which takes
-  `flex-basis: 100%` below 600 by the Phase 8 rule. On a phone the sub-tab
-  strip and the chip row are both filters, and the dock's `Filter` menu is a
-  third place to filter the same list. Fold the chip row into the `Filter`
-  menu below 600 (the `foldSiblingsIntoMenu` half of `foldDockArrange` in
-  app.js already does exactly this shape) and the 36px goes.
-- **Gate**: `chrome.js` `library` row at 390; target is the first card above
-  y=300.
+`scratchpad/ui-sweeps/keys.js` exists but has not been run against the
+sheets, the folded arrange zone or the menus' new open animation. Three
+questions it should answer: does focus enter a sheet when it opens and
+return to the toggle on Escape (Escape is wired, focus return only on that
+path); is a sort select inside a closed `<details>` still reachable by Tab;
+and does the roving tabindex still work on the tab strip.
 
-## 6. Notes — dock 96px at 390
+## 8. Found, not fixed
 
-Same shape: search on its own row below 600. The dock was 172px before Phase 9
-and is 96px now.
-
-- **Where**: `.dock-find { flex-basis: 100% }` in the
-  `@media (max-width: 600px)` block of `frontend/css/07-whiteboard-misc.css`.
-- **Next step**: the identity zone (`All notes`) and the search field could
-  share a row if the heading became the search field's own placeholder below
-  600, the way several phone apps put the surface name inside the search box.
-  That is a design change, not a size change; sketch it before building it.
-
-## 7. Documents editor at 390
-
-`.doc-layout` was a two-track grid at every width until Phase 9; below 820 it
-is now one column with `#doc-sidebar` as a sheet. **The editor itself was not
-measured at 390 in this sitting.**
-
-- **Where**: `frontend/css/04-chat-dock-appearance.css` (`.doc-layout`,
-  `.doc-dock`), `frontend/css/05-sidebars-themes.css` (`.doc-toolbar`).
-- **Next step**: run `node scratchpad/ui-sweeps/editor.js` at 390 and add a
-  `documents` row to `chrome.js`'s `TABS`. The formatting bar already reads
-  `--keyboard-inset`; what is unmeasured is the dock above the editor and
-  whether the sheet's 52px rail eats into the text column.
-
-## 8. `--keyboard-inset` with a real keyboard
-
-`initKeyboardInset` in `frontend/app.js` writes it from `visualViewport`, and
-`.chat-dock` / `.doc-toolbar` add it to their bottom padding.
-
-- **Verified**: the property is written, it is `0px` with no keyboard, and
-  both docks read it.
-- **Not verified, and not verifiable here**: Chromium headless has no
-  on-screen keyboard. Needs a real phone. Until then the behaviour with a
-  keyboard up is reasoned, not observed.
-
-## 9. A real iPad
-
-Everything in the 820 to 1100 and 600 to 820 bands was measured with an
-emulated viewport plus `hasTouch`. A real iPad differs in at least three ways
-this cannot see: the safe-area insets are actually non-zero, Safari's own
-chrome moves as you scroll, and a hardware keyboard changes `hover` and
-`pointer` without changing the width. The `env(safe-area-inset-*)` rules are
-written with a `0px` fallback, so they are provably no-ops here and untested
-where they matter.
-
-## 10. Dark theme at every band
-
-Phase 9 measured in light only (`localStorage.theme = 'light'` in every
-sweep). The sheets, the bottom tab bar and the folded menu sections are all
-new surfaces and none has been checked in dark. `lib.js` honours `THEME=dark`;
-`scratchpad/pngpixel.py` is the tool; the bar is 4.5:1 for text.
-
-## 11. A keyboard-only pass at each band
-
-Phase 8's acceptance asked for `scratchpad/ui-sweeps/keys.js` and it does not
-exist. Phase 9 added three things that need it specifically: the sheet (does
-focus enter it when it opens, and return to the toggle on Escape — Escape is
-wired, focus return is only wired for the Escape path), the folded arrange
-zone (is a sort select still reachable by Tab when it is inside a closed
-`<details>`), and the bottom tab bar (does the roving tabindex still work now
-that the strip is a child of the body).
+`menus.js` times out at its last step, clicking a `.select-opener` on Chat
+after the model panel has been opened and dismissed. It times out
+identically with Reduce motion on, where the menu animation added this
+sitting does not run at all, so it is not that change. Nobody has looked at
+why.

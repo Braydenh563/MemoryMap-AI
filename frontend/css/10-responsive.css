@@ -1,0 +1,59 @@
+/* ==========================================================================
+   RESPONSIVE, CONTINUED, AND THE LIQUID GLASS ADOPTIONS
+   (UI_MODERNISATION_PLAN.md Phases 9 and 10)
+   ==========================================================================
+
+   Why this file exists and is not another block at the end of
+   07-whiteboard-misc.css: three agents were editing the stylesheets at once
+   when it was written, and 07 is the file every one of them reaches for. A
+   new file loaded last conflicts with nobody, and `tests/test_css_braces.py`
+   makes the append-two-sections-and-lose-a-brace failure impossible to ship
+   from either half.
+
+   It is loaded after 08-consistency.css, so it wins ties on source order.
+   That is a licence to be precise, not a licence to be lazy: every rule here
+   names the band it belongs to and the number that made it necessary.
+
+   The four bands are stated once, at the top of the responsive section in
+   07-whiteboard-misc.css, and nothing here restates them. Half-open,
+   [lower, upper): >= 1100 desktop, 820-1100 iPad landscape, 600-820 iPad
+   portrait, < 600 phone. The phone band is deliberately untouched by this
+   file: it gets a session of its own.
+   ====================================================================== */
+
+/* --- band 3 (600 to 820): the tab strip fits on its own row ---------------
+
+   Measured, `scratchpad/ui-sweeps/tabfit.js` at commit 684f152: at 600 the
+   seven tabs need 640px and the row they wrapped onto is 574px wide, so the
+   strip scrolled sideways inside its own full-width row and two tabs sat
+   out of reach behind an edge fade. At 720 and above the same 640px fits,
+   which is why this was invisible at every width the app is usually driven
+   at, and why it is a band rule rather than a component fix.
+
+   Wrapping is the right answer here and stays: the strip cannot fit beside
+   the wordmark in this band whatever it is wearing (one row needs 640px
+   against 171px of space at 600 and 376px at 819), and the wordmark is what
+   tells you which app this is, reported twice when it was hidden.
+
+   So the strip gets smaller instead. The caption steps down one token and
+   the horizontal padding one step, which takes the seven tabs from 640px to
+   under 500px: they fit at 600 with room to spare, nothing scrolls, nothing
+   is clipped and no caption is abbreviated. The button's *height* does not
+   move: it is `--target-min` in this band and a 44px hit target is the point
+   of the band.
+
+   Deliberately not a grid of equal columns, which was tried first and is a
+   trap: `tabContentWidth` (app.js) sums the buttons' own widths to decide
+   whether to wrap, so stretching them to fill the row makes the strip report
+   that it needs the whole header, and the header can then never unwrap as
+   the window grows back. */
+@media (min-width: 600px) and (max-width: 819.98px) {
+
+  #tab-bar button {
+    padding-inline: var(--space-4);
+  }
+
+  #tab-bar .tab-label {
+    font-size: var(--text-xs);
+  }
+}

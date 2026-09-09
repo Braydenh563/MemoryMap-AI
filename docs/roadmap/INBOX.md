@@ -520,7 +520,13 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     updated for the split; boot stays synchronous for app.js and the
     guards). Expected: the parse cost of about 1.3 MB of JavaScript leaves
     the startup path. Owner: Opus. Size M.
-49. **Glass is drawn on too much of the screen.** Four blurred surfaces
+49. **Fixed 2026-09-09 (Fable): blur off content cards, the hero, the
+    sidebar and the status bar; Performance mode (auto/on/off) with the
+    small-machine and reduced-transparency auto-on and a one-time toast;
+    graph worker at half rate; five surfaces added to the glass-off list.
+    Measured at 1366x768: blurred area at rest 6 to 10% per tab with glass
+    on (was 32 to 81%), 0 to 4% in Performance mode; gate in
+    `tests/test_perf_mode.py`.** Glass is drawn on too much of the screen. Four blurred surfaces
     cover a third of the viewport at rest; on an integrated GPU each is a
     repaint on every scroll. Decision (WORLD_CLASS 1.1 and Brief 2,
     restated): glass only on the top bar, floating docks and popovers,

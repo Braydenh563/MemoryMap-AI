@@ -2907,8 +2907,9 @@ header#top-bar.tabs-wrapped #tab-bar {
      edge, with a scrolling page ending against it. */
   background: var(--modal-bg);
   border-top: 1px solid var(--glass-border);
-  backdrop-filter: blur(18px) saturate(150%);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  /* No blur: the bar is static at the foot of the page, nothing ever scrolls
+     under it, and at 97% opaque a blur behind it was invisible and still
+     cost a filter pass 1366px wide on every frame (INBOX 49). */
   /* Above the page, below the header's popups and every modal. */
   z-index: 30;
   font-size: var(--text-sm);
@@ -3298,10 +3299,29 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 /* --- the glass card -------------------------------------------------------- */
-.card {
-  background: var(--card);
+/* A dialog floats over arbitrary content, so it keeps the full glass recipe
+   (DESIGN.md, Glass & materials); it is open for seconds, not at rest. */
+.card.modal-card,
+.card.space-dialog {
   backdrop-filter: var(--glass-filter);
   -webkit-backdrop-filter: var(--glass-filter);
+}
+
+.card {
+  background: var(--card);
+  /* No blur on a content panel. Measured at 1366x768 (weight.js, INBOX 49):
+     the blurred area at rest was 32% of the viewport on the dashboard and
+     over 80% on the notes, chat and graph tabs, and a backdrop-filter that
+     size is a full repaint on every scroll for an integrated GPU. What a
+     content card blurs is only the page art behind it, which is already a
+     soft gradient, so the blur bought nothing visible for the most expensive
+     paint in the app. Glass now lives where something scrolls *under* the
+     surface or where it floats over content: `header#top-bar`, the sticky
+     sub-tab strips, `.card.glass` (the command palette, the whiteboard's
+     floating panels), the dialogs, popovers, docks and `.scroll-top`. The
+     rim, the border and the 55% fill stay, so a card still reads as a pane.
+     `:root[data-perf="on"]` (Performance mode) and `[data-glass="off"]`
+     take the remaining blur off too. */
   border: 1px solid var(--glass-border);
   /* `--radius`, the user's own corner setting -- not the 0.8 step below it.
      Measured: dashboard widgets, the modal and the graph box were 14px and

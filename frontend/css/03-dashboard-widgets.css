@@ -414,6 +414,16 @@ header#top-bar select,
    from it stays glassy with the setting switched off, which is how three
    earlier violations were found. */
 :root[data-glass="off"] .ocr-region-popover,
+/* The four that blur with `blur(var(--glass-blur))` directly rather than
+   through `.card`, found by glass.js with Performance mode on (INBOX 49):
+   the sticky sub-tab strips, the graph's zoom pill and the scroll-to-top
+   button were the only blurred surfaces left on a machine asking for none. */
+:root[data-glass="off"] .notes-subtabs,
+:root[data-glass="off"] .library-subtabs,
+:root[data-glass="off"] .contents-heading,
+:root[data-glass="off"] .graph-zoom,
+:root[data-glass="off"] .scroll-top,
+:root[data-glass="off"] .toast,
 :root[data-glass="off"] .glass {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;

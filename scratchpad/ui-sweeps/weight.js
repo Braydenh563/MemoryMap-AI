@@ -1,5 +1,5 @@
 const {chromium}=require('/opt/node22/lib/node_modules/playwright');
-const PW='testpassword123'; const BASE='http://127.0.0.1:8781';
+const PW='testpassword123'; const BASE=process.env.BASE||'http://127.0.0.1:8781';
 (async()=>{
   const browser=await chromium.launch(); const ctx=await browser.newContext({viewport:{width:1366,height:768}}); const page=await ctx.newPage();
   let bytes=0, reqs=0; page.on('response',async r=>{try{const b=await r.body();bytes+=b.length;}catch(e){}}); page.on('request',()=>reqs++);

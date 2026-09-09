@@ -2995,8 +2995,9 @@ html.modal-open body {
   background:
     radial-gradient(120% 160% at 0% 0%, var(--accent-soft) 0%, transparent 60%),
     var(--card);
-  backdrop-filter: var(--glass-filter);
-  -webkit-backdrop-filter: var(--glass-filter);
+  /* No backdrop-filter: a content panel over the page art, the same reason
+     `.card` in 00-tokens-shell.css has none. It was a fifth of the viewport
+     blurred at rest on the dashboard (INBOX 49). */
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), var(--glass-shadow);
   /* `flex-shrink: 0`, never a `min-height`: see the note this replaced, 
      an explicit min-height on a flex item of `.tab-page` replaces its

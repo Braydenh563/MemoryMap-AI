@@ -6021,11 +6021,24 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="settings-group">
               <h3>Effects &amp; accessibility</h3>
 
-              <label class="setting-check">
+              <div class="setting-row" id="perf-mode-row">
+                <div class="setting-label">
+                  <span>Performance mode</span>
+                  <small class="muted">Flat panels, no animations, slower graph physics. Auto: on for small machines.</small>
+                  <small class="muted hint-inline hidden" id="perf-mode-hint"></small>
+                </div>
+                <select id="perf-mode" class="small-select setting-control" aria-label="Performance mode">
+                  <option value="auto">Auto</option>
+                  <option value="on">On</option>
+                  <option value="off">Off</option>
+                </select>
+              </div>
+
+              <label class="setting-check" id="glass-row">
                 <input type="checkbox" id="glass-toggle" checked>
                 <span>
-                  Frosted-glass blur on cards
-                  <small class="muted">Off = flat panels, faster on older machines.</small>
+                  Frosted-glass blur on floating panels
+                  <small class="muted">Off = flat panels. Performance mode turns this off too.</small>
                 </span>
               </label>
 
@@ -6103,7 +6116,7 @@ Link to another note with [[its first few words]]."></textarea>
                 </select>
               </div>
 
-              <label class="setting-check">
+              <label class="setting-check" id="reduce-motion-row">
                 <input type="checkbox" id="reduce-motion-toggle">
                 <span>
                   Reduce motion

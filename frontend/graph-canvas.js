@@ -1383,6 +1383,9 @@ function gcStartWorker(nodes, edges, world) {
   gcFittedOnce = false;
   gcPost({
     type: "init",
+    // Performance mode (settings.js): the physics yields twice as long
+    // between ticks, half the CPU for a layout that converges a little later.
+    perf: document.documentElement.dataset.perf === "on",
     nodes: nodes.map((n) => ({
       id: n.id,
       x: n.x,

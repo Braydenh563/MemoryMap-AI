@@ -265,6 +265,29 @@ A sticky row inside a tinted group (`.tool-filter-row`) has to composite the
 tint over the opaque modal colour, not paint the modal colour alone —
 otherwise it shows as a lighter slab inside the group.
 
+### Where the blur is allowed to be
+
+Measured at 1366x768 (`scratchpad/ui-sweeps/weight.js`, INBOX 49): with
+every `.card` blurred, the blurred area at rest was 32% of the viewport on
+the dashboard and over 80% on the notes, chat and graph tabs, a full-screen
+filter pass per scroll on an integrated GPU, and all it blurred was the
+page art, which is already a soft gradient. So a content panel (`.card`,
+`.dash-hero`, `.sidebar-panel`, the status bar) keeps the fill, the border
+and the rim and has **no `backdrop-filter`**. Blur belongs where something
+scrolls under a surface or where the surface floats over content: the top
+bar, the sticky sub-tab strips, `.card.glass`, the dialogs, popovers,
+docks, the graph's zoom pill, `.scroll-top`. The gate, kept by
+`tests/test_perf_mode.py` and the sweep: under 10% of the viewport blurred
+at rest on every tab (measured 6 to 10% after).
+
+**Performance mode** (Settings, Effects & accessibility; the `perf`
+preference, `auto | on | off`) takes the rest off: `data-glass="off"`,
+`data-motion="reduced"` and the graph worker resting twice as long between
+ticks, without rewriting the person's own glass and motion choices. "Auto"
+turns it on for a machine reporting 4 cores or 4 GB or fewer, or an OS
+`prefers-reduced-transparency` setting, and says so once in a toast.
+`theme-boot.js` resolves the same rule before first paint.
+
 ### Turning it off
 
 `:root[data-glass="off"]` is a standing user preference (Settings →

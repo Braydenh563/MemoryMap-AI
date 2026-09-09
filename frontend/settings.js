@@ -1106,6 +1106,13 @@ const APPEARANCE_DEFAULTS = {
   font: "system", // system | serif | mono
   density: "comfortable", // comfortable | compact | spacious
   glass: "on",
+  // Performance mode (INBOX 49): "auto" turns it on for a small machine, 4
+  // cores or 4 GB or fewer, and when the operating system asks for reduced
+  // transparency; "on" and "off" are the person's own word. On, it takes the
+  // glass blur and the animations off and runs the graph's physics at half
+  // rate, whatever the three settings below say, without rewriting them, so
+  // turning it back off restores exactly the look that was chosen.
+  perf: "auto", // auto | on | off
   motion: "auto", // "auto" = follow the OS; "reduced" = force-still
   // Background movement, separate from the interface-wide motion setting.
   // "auto" follows reduced-motion; "moving" is an explicit request that
@@ -1771,16 +1778,51 @@ function applyCustomCssLegacy(css) {
 }
 
 // Applied once at startup (called from the pre-paint path) and on change.
+// A machine that will feel every blurred layer: the two signals a browser
+// gives without a permission prompt. `deviceMemory` is Chromium-only and
+// capped at 8, so a missing value never counts as small on its own.
+function smallMachine() {
+  return (
+    (navigator.deviceMemory && navigator.deviceMemory <= 4) ||
+    (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4)
+  ) === true;
+}
+
+function lessTransparencyWanted() {
+  return window.matchMedia("(prefers-reduced-transparency: reduce)").matches;
+}
+
+// What Performance mode resolves to right now. theme-boot.js repeats this
+// reading for the first paint; keep the two in step.
+function perfModeOn() {
+  const pref = appearancePref("perf");
+  if (pref === "on") return true;
+  if (pref === "off") return false;
+  return smallMachine() || lessTransparencyWanted();
+}
+
+// Why it is on, for the hint under the setting: the person's own choice
+// needs no explanation; an automatic one does.
+function perfModeReason() {
+  if (appearancePref("perf") !== "auto" || !perfModeOn()) return "";
+  if (lessTransparencyWanted()) return "On: your system asks for less transparency.";
+  return "On for this machine: 4 cores or 4 GB of memory or fewer.";
+}
+
 function applyAppearance() {
   const root = document.documentElement;
   root.dataset.fontsize = appearancePref("fontsize");
   root.dataset.font = appearancePref("font");
   root.dataset.density = appearancePref("density");
-  root.dataset.glass = appearancePref("glass");
+  const perf = perfModeOn();
+  root.dataset.perf = perf ? "on" : "off";
+  // The preferences themselves are untouched: Performance mode overrides
+  // what the page shows, not what the person chose.
+  root.dataset.glass = perf ? "off" : appearancePref("glass");
   root.dataset.glassSheen = appearancePref("glass-sheen");
   root.style.setProperty("--glass-sheen-strength", Number(appearancePref("glass-sheen-strength")) / 100);
   root.dataset.themePreset = activeThemePreset();
-  root.dataset.motion = appearancePref("motion");
+  root.dataset.motion = perf ? "reduced" : appearancePref("motion");
   root.dataset.progressMotion = appearancePref("progress-motion");
   root.style.setProperty("--bg-art-opacity", Number(appearancePref("bg-intensity")) / 100);
   // Cards thin out slightly while the art is on, so it reads through the page
@@ -1987,9 +2029,15 @@ function renderAppearance() {
   $("bg-motion").value = appearancePref("bg-motion");
   $("bg-motion-row").classList.toggle("hidden", !bgArtOn());
   renderBgMotionHint();
+  $("perf-mode").value = appearancePref("perf");
+  const perfWhy = perfModeReason();
+  $("perf-mode-hint").textContent = perfWhy;
+  $("perf-mode-hint").classList.toggle("hidden", !perfWhy);
   $("glass-toggle").checked = appearancePref("glass") === "on";
+  $("glass-row").classList.toggle("disabled-row", perfModeOn());
+  $("reduce-motion-row").classList.toggle("disabled-row", perfModeOn());
   $("glass-sheen-toggle").checked = appearancePref("glass-sheen") === "on";
-  $("glass-sheen-row").classList.toggle("disabled-row", appearancePref("glass") !== "on");
+  $("glass-sheen-row").classList.toggle("disabled-row", appearancePref("glass") !== "on" || perfModeOn());
   $("glass-sheen-strength").value = appearancePref("glass-sheen-strength");
   $("glass-sheen-strength-value").textContent = `${appearancePref("glass-sheen-strength")}%`;
   $("glass-sheen-strength-row").classList.toggle(
@@ -2192,7 +2240,7 @@ function renderPaletteGrid() {
 
 function resetAppearance() {
   for (const key of [
-    "fontsize", "font", "density", "glass", "motion", "progress-motion", "bg-intensity", "accent",
+    "fontsize", "font", "density", "glass", "perf", "motion", "progress-motion", "bg-intensity", "accent",
     "contrast", "bgArt", "theme", "radius", "glass-blur", "glass-opacity",
     "glass-sheen", "glass-sheen-strength", "bg-style", "bg-motion", "palette", "themePreset",
     "accent-custom", "page-bg", "custom-css", "zoom",
@@ -2559,6 +2607,16 @@ for (const b of document.querySelectorAll("#density-seg button")) {
     renderAppearance();
   });
 }
+$("perf-mode").addEventListener("change", (e) => {
+  localStorage.setItem("perf", e.target.value);
+  applyAppearance();
+  renderAppearance();
+});
+// The OS setting can change while the app is open; "auto" follows it.
+window.matchMedia("(prefers-reduced-transparency: reduce)").addEventListener("change", () => {
+  applyAppearance();
+  if (!$("settings-appearance").classList.contains("hidden")) renderAppearance();
+});
 $("glass-toggle").addEventListener("change", (e) => {
   const turningOn = e.target.checked && appearancePref("glass") !== "on";
   localStorage.setItem("glass", e.target.checked ? "on" : "off");
@@ -2806,6 +2864,23 @@ $("log-terminal-hint").classList.toggle("hidden", logView !== "terminal");
 // original wiring (applyAppearance()/startBgArt() ran before renderBrandLogo()
 // there too).
 applyAppearance();
+
+// Said once, on the machine it applies to: the app has just switched the
+// glass and the animations off without being asked, and a person who set up
+// their look on a bigger machine deserves to know where that went. Never
+// repeated, and never shown when the mode was chosen by hand.
+function noticePerfMode() {
+  if (appearancePref("perf") !== "auto" || !perfModeOn()) return;
+  if (localStorage.getItem("perf-noticed") === "yes") return;
+  if (typeof toastAction !== "function") return;
+  localStorage.setItem("perf-noticed", "yes");
+  toastAction(
+    "Performance mode is on for this machine: flat panels, no animations.",
+    "Change",
+    () => openSettingsModal("appearance", "perf-mode")
+  );
+}
+window.setTimeout(noticePerfMode, 8000);
 if (bgArtOn()) startBgArt();
 // The generative brand emblem, unique each visit (Wave O). p5 is loaded long
 // before any of these split files (a vendor `<script>` tag, ahead of

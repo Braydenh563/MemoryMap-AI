@@ -145,9 +145,12 @@ torch through the embedding auto-installer (an autouse fixture now makes
 `extras.subprocess.Popen` refuse). In flight: Opus on the mind map
 previews and Phases 4 to 5 (worktree agent-a9bcd9a1e1857d891); Sonnet on
 INBOX 47 gzip and the docs leftovers (worktree agent-a22cd38556273db70).
-Queue after them: the graph's local pane (Phase 4's last item);
-DOCUMENTS Phase 2 (CodeMirror 6, CSP first); INBOX
-48 and 49 (lazy modules, performance mode); UI Phase 9 remainder; SKILLS
+INBOX 49 is done (glass only where something scrolls under it or floats;
+Performance mode in Effects & accessibility, auto-on for 4 cores or 4 GB or
+fewer; blurred area at rest 6 to 10% per tab, gate in
+`tests/test_perf_mode.py`). Queue after them: the graph's local pane
+(Phase 4's last item); DOCUMENTS Phase 2 (CodeMirror 6, CSP first); INBOX
+48 (lazy modules); UI Phase 9 remainder; SKILLS
 Phase D; WHITEBOARD Phase 1. The owner's order for the rest of
 this session stands: **finish the phases of the plans already in
 progress; TIMELINE, WHITEBOARD, CHAT, WORLD_CLASS and the Briefs wait for

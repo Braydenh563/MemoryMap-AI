@@ -51,6 +51,8 @@ let indexById = new Map();
 let world = null;
 let timer = null;
 let dragging = false;
+// Performance mode (init.perf): the loop rests twice as long between ticks.
+let perf = false;
 let ticks = 0;
 //: A rolling mean of how long one `simulation.tick()` takes, in ms. Reported
 //: on every frame because it is the number that decides everything else: it
@@ -261,9 +263,12 @@ function loop() {
   // neighbourhood that reorganises at 10 Hz under a pointer that tracks at
   // 60 Hz looks right; the reverse does not.
   const share = dragging ? 2 : 1;
+  // Performance mode: the yield doubles, so the simulation takes at most a
+  // quarter of a core and a small laptop keeps its frames for the paint.
+  const rest = perf ? 2 : 1;
   timer = setTimeout(
     loop,
-    cost >= 12 ? Math.min(120, cost * share) : Math.max(4, 16 - cost)
+    (cost >= 12 ? Math.min(120, cost * share) : Math.max(4, 16 - cost)) * rest
   );
 }
 
@@ -277,6 +282,7 @@ self.onmessage = (event) => {
     case "init": {
       stopLoop();
       dragging = false;
+      perf = message.perf === true;
       ticks = 0;
       inFlight = 0;
       pool.length = 0;

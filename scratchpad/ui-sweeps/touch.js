@@ -141,7 +141,11 @@ const SURFACES = [
     return { small: out, atBottom: Math.abs(b.bottom - window.innerHeight) < 1.5, scrolls: bar.scrollWidth > bar.clientWidth + 1 };
   }, MIN);
   failures += tabs.small.length;
-  if (!tabs.atBottom) { failures += 1; console.log('tab bar          NOT pinned to the bottom edge'); }
+  // The bottom tab bar is a rule of the phone band (< 600) alone: between
+  // 600 and 1100 the strip takes a row of its own inside the header, on
+  // purpose, and asserting the phone's shape at 800 reported a failure for
+  // a layout that is behaving exactly as its band says it should.
+  if (WIDTH < 600 && !tabs.atBottom) { failures += 1; console.log('tab bar          NOT pinned to the bottom edge'); }
   if (tabs.scrolls) { failures += 1; console.log('tab bar          scrolls sideways — a tab is out of reach'); }
   console.log(`tab bar          under-${MIN}px: ${tabs.small.length}  pinned to bottom: ${tabs.atBottom}  scrolls: ${tabs.scrolls}`);
   for (const line of tabs.small) console.log(`    ${line}`);

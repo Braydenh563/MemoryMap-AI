@@ -56,6 +56,18 @@
   #tab-bar .tab-label {
     font-size: var(--text-xs);
   }
+
+  /* The band's own rule, applied to the one strip that was exempt from it by
+     accident. Below 820 a hit target is 44px (`--target-min`, set once at the
+     root); the tab buttons take `--header-control-h` instead, because they
+     are levelled with the rest of the header's controls, and that is 40px.
+     Measured with `touch.js` at 800x1180 with `hasTouch`: all seven tab
+     buttons came back at 40.0px tall while every dock control on Notes,
+     Library and Chat passed. `min-height`, not `height`, so the levelling
+     rule still owns the desktop and only the touch band is raised. */
+  #tab-bar button {
+    min-height: var(--target-min);
+  }
 }
 
 /* --- Phase 10, INBOX 100: the scroll edge effect --------------------------

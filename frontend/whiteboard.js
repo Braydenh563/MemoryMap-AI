@@ -3561,8 +3561,21 @@ function wbRenderMapEdges() {
       // identity a mid-drag update needs and nothing else reads.
       path.setAttribute("data-parent", String(parent.id));
       path.setAttribute("data-child", String(child.id));
+      //: **A custom property, not a `stroke` attribute**, and the difference
+      //: is the whole branch-colour feature. `.wb-map-edge` declares
+      //: `stroke` in 07-whiteboard-misc.css, and a presentation attribute is
+      //: a declaration at the bottom of the cascade, below every author rule
+      //: however unspecific: so the attribute was dead markup and every edge
+      //: on every map drew in the accent. Measured on a five-edge map: three
+      //: distinct `stroke` attributes from the branch palette, one computed
+      //: colour, `rgb(70, 100, 240)`, which is `--accent`. The thumbnail of
+      //: the same map has been branch-coloured this whole time, which is the
+      //: opposite of MINDMAP_PLAN §11.1's aim that the two pictures agree.
+      //:
+      //: `tests/test_svg_paint_attributes.py` is the lint that found it, and
+      //: `el.style` sits above the stylesheet where the attribute sat below.
       const colour = colors.get(child.id);
-      if (colour) path.setAttribute("stroke", colour);
+      if (colour) path.style.setProperty("--wb-map-edge-colour", colour);
       next.push(path);
     }
   }

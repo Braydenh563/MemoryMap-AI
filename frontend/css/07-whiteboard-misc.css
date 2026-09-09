@@ -8037,7 +8037,13 @@ input[type="file"] {
 
 .wb-map-edge {
   fill: none;
-  stroke: var(--accent);
+  /* The branch's own colour when the renderer has one for this edge, the
+     accent when it does not (an ordinary board's edges, and a map node whose
+     branch has no colour yet). `whiteboard.js` writes the property with
+     `el.style`, which wins over this rule; it used to write a `stroke`
+     attribute, which loses to it, so every edge on every map drew in the
+     accent while the code computed a palette nobody ever saw. */
+  stroke: var(--wb-map-edge-colour, var(--accent));
   stroke-width: 2;
   stroke-linecap: round;
   opacity: 0.75;

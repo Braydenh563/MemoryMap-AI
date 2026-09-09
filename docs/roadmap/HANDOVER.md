@@ -98,6 +98,12 @@ PR's.
       inner scrollbar).
 - [ ] 7. The full suite green on the final head (the one local run this
       PR gets; CI covers every push in between); ruff and CodeQL green;
+      **Note, 2026-09-09:** `.github/workflows/ci.yml` runs `python -m
+      pytest` with no selection, so CI *is* the full suite, on every push,
+      and it has reported no failing suite on every head today. CodeQL has
+      come back green on each one it has finished. The local run this item
+      asks for is therefore a second opinion rather than the only evidence,
+      which is exactly why the owner's "not as routine" rule costs nothing.
       no open CodeQL threads; the branch mergeable.
 - [ ] 8. Documentation: every Built block of the merged phases in
       HISTORY (the lint holds it), INBOX holding open items only, the

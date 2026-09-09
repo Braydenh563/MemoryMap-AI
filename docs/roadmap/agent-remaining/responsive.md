@@ -6,6 +6,11 @@ the owner's evening batch).
 CodeMirror editor, the read-only graph layouts and the `place()` menu-height
 fix are all in) and the tree is clean at every commit below.
 
+**The second batch** (the previews, max gravity, the mind map's visual
+phases): all four items are done or answered, commits `6e365ab`, `25a9cc7`,
+`3aeb733` and this file. INBOX 67 and 68 are closed in HISTORY's "INBOX
+resolved".
+
 **What is done**, with its record in `HISTORY.md` ("Moved from the plans,
 2026-09-09"):
 
@@ -193,7 +198,60 @@ last-run times, `5bd1bd2` the icon tab strip, `c8c2cf6` the keyboard pass,
 `4270f12` back-to-top and heatmap, `409f044` the chord guide and its keys,
 `9932854` dark glass.
 
+## 7b. The second batch, and what it leaves
+
+- **INBOX 68, the previews** (`6e365ab`, `3aeb733`). Every block used to be
+  the same rectangle; a board's things are now drawn at their own sizes, text
+  boxes carry their text, labels sit inside the shapes that can hold them
+  with an ink picked from the node's own colour, and the dashboard's
+  thumbnail is a 40.5px square again instead of a 293px one that made the
+  widget scroll. Numbers in HISTORY.
+  **Left**: an image object still previews as a plain block. A thumbnail of
+  the image itself is the obvious next step and is a different feature (it
+  needs the media pipeline in a list endpoint).
+- **INBOX 67, max gravity** (`25a9cc7`). Not reproduced: 77% off the RMS
+  radius from gravity 0 to 100, and the zoom does not re-fit, so the screen
+  loses it too. Neither of the entry's proposals is needed.
+  **Left, as a recommendation rather than a change**: at the fitted zoom a
+  node is a 2.4px radius, so maximum gravity is a compact cloud of very small
+  dots. If "spread out" is reported again on a current build, the lever is
+  zoom-to-fit after the layout settles, not more pull.
+- **The mind map plan's visual phases** (`3aeb733`). Phase 3's visual items
+  (10, the kind filter; 12, one chip and one preview) are built and were
+  checked rather than assumed. Items 11 and 13 are backend and graph work.
+  **Left, and it is the big one**: MINDMAP_PLAN section 12 (Phase 6a to 6c,
+  the Coggle-level controls: the map toolbar, the node edit strip, the node
+  and link radials, edge handles, sever, transplant) is entirely open. It is
+  a two-session spec in its own worktree by the plan's own note, not a slot
+  in a mixed batch.
+  The mindmap remaining list's items 2 to 4 (perspectives on a map of real
+  notes, INBOX 43's second half, the AI half) are also untouched here.
+
+## 7c. The dashboard band against the Library's boards dock
+
+Asked for after both changes land, measured at 1440 and 1024 with the two
+surfaces side by side:
+
+| | dashboard band | Library boards dock |
+| --- | --- | --- |
+| control height | 37px (pills), 52px (stat tiles) | **28px and 36px, two heights in one bar** |
+| radius | 999px pills, 8.4px tiles | 999px chips |
+| rows at 1440 | 1 and 1, both filling the width | 2 |
+| rows at 1024 | 1 and 1 | 3 |
+
+They do not fight: the band is pills and tiles inside a page, the dock is a
+control bar, and the shared shapes (the pill radius) agree. **What does not
+agree is the dock with itself**: eleven controls at two heights, wrapping to
+two rows at 1440 and three at 1024. That is the wrapping report another agent
+holds, and the two-heights half is the dock-grammar defect `docks.js` already
+reports for the whiteboard's own bar. Recorded here rather than changed, as
+instructed.
+
 ## 8. Found, not fixed
+
+**Two XML exports recurse** (`_export_opml`, `_export_freemind`), noted by
+the mind map run before this one and still true: a deep map exports as a
+`RecursionError`, which is a 500. Not touched here.
 
 `menus.js` times out at its last step, clicking a `.select-opener` on Chat
 after the model panel has been opened and dismissed. It times out

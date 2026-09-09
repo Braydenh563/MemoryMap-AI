@@ -478,6 +478,10 @@ A bug-fix and consistency release, from one long round of live reports.
   preview view; sticky rows painted a hard rectangle over their own card.
 
 ### Changed
+- **A board's preview looks like the board.** Things are drawn at their own
+  sizes instead of as identical grey blocks, text boxes and map nodes show
+  what is written on them, and the dashboard's miniature is a thumbnail again
+  rather than a 300px square that made the widget scroll.
 - **The dashboard's top band uses its whole width**: a Continue pill that takes
   you back to the note you were last in, and a fortnight of activity drawn
   beside the counts, where two thirds of two rows used to be empty.

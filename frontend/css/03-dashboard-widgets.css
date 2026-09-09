@@ -1415,16 +1415,29 @@ header#top-bar select,
    A scrollbar was never the right answer for this control anyway: a year of
    activity is a shape you take in at a glance, and a shape you have to scroll
    is not one. The cells size themselves to the column instead, `1fr` columns
-   with square cells: so the whole year always fits, at whatever width the
-   widget happens to be. `max-width` keeps them from becoming lozenges in a
-   wide layout; `overflow: hidden` means there is no axis left to grow a
-   scrollbar on. */
+   with square cells, capped at `--heat-cell-max` so they read as squares
+   rather than lozenges in a wide layout; `overflow: hidden` means there is
+   no axis left to grow a scrollbar on.
+
+   **Fitting the whole year is what shrank the cells to nothing.** Reported
+   "the heatmap on the dashboard is a little small" -- measured, it was
+   2.7px cells: 53 weeks forced into a 306px-wide widget, and 53 gaps at
+   3px alone ate 159px of that, more than half. dashboard.js now picks how
+   many of the most recent weeks to plot from this box's own measured
+   width, so cells actually reach `--heat-cell-max` instead of every
+   column shrinking to fit a year that was never going to be legible at
+   this widget's width; JS reads both custom properties back rather than
+   a second copy of these numbers, so widening the column (or the "wide"
+   toggle, INBOX/Edit layout) still fits more real weeks in, not bigger
+   gaps. */
 .heatmap {
+  --heat-cell-max: 12px;
+  --heat-gap: 3px;
   display: grid;
   grid-auto-flow: column;
   grid-template-rows: repeat(7, auto);
   grid-auto-columns: minmax(0, 1fr);
-  gap: 3px;
+  gap: var(--heat-gap);
   overflow: hidden;
   padding-bottom: 0.25rem;
 }
@@ -1435,7 +1448,7 @@ header#top-bar select,
   width: auto;
   height: auto;
   aspect-ratio: 1;
-  max-width: 12px;
+  max-width: var(--heat-cell-max);
   border-radius: var(--radius-sm);
   background: var(--chip-bg);
 }

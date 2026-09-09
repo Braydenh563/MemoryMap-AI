@@ -2271,32 +2271,73 @@ async function renderHeatmapWidget(body) {
 
   const grid = document.createElement("div");
   grid.className = "heatmap";
-  const start = new Date(`${data.start}T00:00:00`);
-  // Pad so each column is a whole week starting on Sunday.
-  const lead = start.getDay();
-  for (let i = 0; i < lead; i++) {
-    const blank = document.createElement("span");
-    blank.className = "heat-cell heat-blank";
-    grid.appendChild(blank);
-  }
-  data.counts.forEach((count, index) => {
-    const cell = document.createElement("span");
-    // Five buckets, scaled against the busiest day so quiet notebooks
-    // still show contrast.
-    const level = count === 0 ? 0 : Math.min(4, Math.ceil((count / data.busiest) * 4));
-    cell.className = `heat-cell heat-${level}`;
-    const day = new Date(start);
-    day.setDate(day.getDate() + index);
-    cell.title = `${day.toLocaleDateString()}, ${count} note${count === 1 ? "" : "s"}`;
-    grid.appendChild(cell);
-  });
   body.appendChild(grid);
-  // The grid runs oldest → newest, so the interesting end is the right one.
-  // Start scrolled there instead of making the user drag across a year of
-  // empty squares to find today.
-  requestAnimationFrame(() => {
-    grid.scrollLeft = grid.scrollWidth;
-  });
+
+  //: **Cells scale to the widget's own width instead of shrinking to fit a
+  //: whole year.** Reported "the heatmap on the dashboard is a little
+  //: small" -- measured, cells were 2.7px: 53 weeks of gaps alone (159px)
+  //: outweighed the 306px-wide widget they were squeezed into. `--heat-
+  //: cell-max`/`--heat-gap` (03-dashboard-widgets.css) are the one
+  //: declaration of both numbers; read back here rather than copied, so
+  //: they cannot drift the way the two-file duplication in this codebase
+  //: keeps getting caught. However many recent weeks fit at the real
+  //: (uncapped) size are the weeks shown -- fewer, legible squares rather
+  //: than a year of illegible ones. Re-painted on resize (the "wide"
+  //: toggle in Edit layout, or the window itself) so a widened widget
+  //: earns back more real weeks instead of stretching a fixed set into
+  //: bigger gaps.
+  function paint() {
+    grid.replaceChildren();
+    const cs = getComputedStyle(grid);
+    const cellMax = Number.parseFloat(cs.getPropertyValue("--heat-cell-max")) || 12;
+    const gap = Number.parseFloat(cs.getPropertyValue("--heat-gap")) || 3;
+    const available = grid.getBoundingClientRect().width || cellMax * 7;
+    const columns = Math.max(1, Math.floor((available + gap) / (cellMax + gap)));
+    const days = Math.min(data.counts.length, columns * 7);
+    const counts = data.counts.slice(data.counts.length - days);
+    const start = new Date(`${data.start}T00:00:00`);
+    // Advance past however many leading days this window dropped, so the
+    // remaining counts still line up with their real calendar dates.
+    start.setDate(start.getDate() + (data.counts.length - counts.length));
+    // Pad so each column is a whole week starting on Sunday.
+    const lead = start.getDay();
+    for (let i = 0; i < lead; i++) {
+      const blank = document.createElement("span");
+      blank.className = "heat-cell heat-blank";
+      grid.appendChild(blank);
+    }
+    counts.forEach((count, index) => {
+      const cell = document.createElement("span");
+      // Five buckets, scaled against the busiest day so quiet notebooks
+      // still show contrast.
+      const level = count === 0 ? 0 : Math.min(4, Math.ceil((count / data.busiest) * 4));
+      cell.className = `heat-cell heat-${level}`;
+      const day = new Date(start);
+      day.setDate(day.getDate() + index);
+      cell.title = `${day.toLocaleDateString()}, ${count} note${count === 1 ? "" : "s"}`;
+      grid.appendChild(cell);
+    });
+    // The grid runs oldest → newest, so the interesting end is the right
+    // one. Start scrolled there instead of making the user drag across
+    // empty squares to find today.
+    requestAnimationFrame(() => {
+      grid.scrollLeft = grid.scrollWidth;
+    });
+  }
+
+  paint();
+  if (typeof ResizeObserver !== "undefined") {
+    let queued = false;
+    const ro = new ResizeObserver(() => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        paint();
+      });
+    });
+    ro.observe(grid);
+  }
 
   const legend = document.createElement("div");
   legend.className = "heat-legend muted";

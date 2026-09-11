@@ -106,37 +106,76 @@ The [braydenh563 Hugging Face mirrors](https://huggingface.co/braydenh563) inten
 
 This is a filename and frontend compatibility convention, not a claim that the files were produced by the standard upstream `K_M` quantiser. A mirror labelled `Q4_K_M` may contain a HauhauCS `Q4_K_P` file, and a mirror labelled `Q5_K_M` may contain a HauhauCS `Q5_K_P` file. Check the model card, GGUF metadata, file size, and source attribution before comparing quality or compatibility.
 
-Ollama can also import a local GGUF with a `Modelfile`, for example:
+## Your braydenh563 model cards
 
-```text
-FROM ./model.gguf
-```
+The following recommendations are based on the model-card notes and file tables in the linked repositories, not only on the repository names. These are compatibility-packaged community builds derived from HauhauCS work; they are not official Qwen, Google, Ollama, or Hugging Face releases.
 
-Then create it with:
+### Qwen3.6 35B-A3B
+
+[Qwen3.6-35B-A3B aggressive Ollama](https://huggingface.co/braydenh563/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Ollama) is a 35B-total/~3B-active MoE model with 262K native context, multimodal text/image/video support, and separate `mmproj` vision weights. Its card lists approximately 23 GB for Q4_K_P, 28 GB for Q5_K_P, 31 GB for Q6_K_P, and 44 GB for Q8_K_P. Your Ollama mirrors use the compatibility names Q4_K_M and Q5_K_M while retaining the underlying HauhauCS K_P files. The card recommends `--jinja`; thinking-mode and non-thinking sampling settings are provided there. Vision requires the matching `mmproj` file. [braydenh563/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggr-Ollama-Text](https://huggingface.co/braydenh563/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggr-Ollama-Text) removes the vision projector and is the text-only option.
+
+This is a strong candidate for coding, tool use, and long-context agent work if the machine can hold a 23–31 GB model plus runtime/context memory. It is not a practical 16 GB-laptop model.
+
+### Qwen3.6 1M + MTP
+
+[Qwen3.6-35B-Uncensored-HauhauCS-1M-MTP-Ollama](https://huggingface.co/braydenh563/Qwen3.6-35B-Uncensored-HauhauCS-1M-MTP-Ollama) is a special one-file package with a 1,048,576-token YaRN-scaled context, a grafted official MTP speculative-decoding layer, and verified vision support via an approximately 899 MB `mmproj`. Its model card lists a 21.7 GB Q4_K_M package and says the Ollama-imported model loads the MTP tensors but does not currently obtain speculative-decoding speedup; llama.cpp with draft-MTP is the appropriate route when MTP acceleration matters. The card also provides `draft_num_predict: 4`, `RENDERER qwen3.5`, and `PARSER qwen3.5` guidance.
+
+Treat “1M context” as a capability ceiling, not a promise that a normal computer can use it comfortably. KV-cache memory is the limiting factor; the card reports roughly 44 GB total for a 1M f16 KV setup and roughly 262K fully resident on a 32 GB card. For MemoryMap, normal retrieval means a smaller context is usually preferable and faster.
+
+### Gemma 4 E4B
+
+[Gemma 4 E4B aggressive Ollama](https://huggingface.co/braydenh563/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive-Ollama) is an approximately 4B-parameter multimodal model with 131K context and text, image, video, and audio support when the matching approximately 945 MB `mmproj` is supplied. The card lists roughly 5.1 GB Q4_K_P, 5.5 GB Q5_K_P, 5.9 GB Q6_K_P, and 7.6 GB Q8_K_P. The text-only mirror removes the projector and is appropriate when MemoryMap only handles text; it reduces package complexity but removes vision/audio.
+
+This is one of the most practical profile models for an 8–16 GB machine. Use the compatibility-renamed Q4_K_M or Q5_K_M mirror when direct Ollama discovery matters. The card recommends `temperature=1.0`, `top_p=0.95`, and `top_k=64`, with `--jinja` for llama.cpp.
+
+### Gemma 4 E2B
+
+[Gemma 4 E2B aggressive Ollama](https://huggingface.co/braydenh563/Gemma-4-E2B-Uncensored-HauhauCS-Aggressive-Ollama) is the lightweight option: approximately 2B parameters, 131K context, and multimodal text/image/video/audio support with an approximately 940 MB `mmproj`. Its card lists about 3.3 GB Q4_K_P, 3.5 GB Q5_K_P, 3.7 GB Q6_K_P, and 4.7 GB Q8_K_P. The text-only mirror removes the projector.
+
+It is suitable for quick filing, lightweight chat, and edge/CPU experimentation, but the card explicitly cautions that it remains a 2B model. Do not expect the same nuanced reasoning, tool reliability, or long coherent output as E4B or Qwen3.6 35B.
+
+### Gemma 4 26B-A4B Balanced
+
+[Gemma4-26B-A4B Balanced Ollama](https://huggingface.co/braydenh563/Gemma4-26B-A4B-Uncensored-HauhauCS-Balanced-Ollama) is a 25.2B-total/~3.8B-active MoE model with 256K native context and native vision through an approximately 1.2 GB `mmproj`. Its card lists approximately 17 GB Q4_K_P, 19 GB Q5_K_P, 23 GB Q6_K_P, and 27 GB Q8_K_P, plus smaller IQ variants. The text-only mirror is [Gemma4-26B-A4B-Bal-Ollama-Text](https://huggingface.co/braydenh563/Gemma4-26B-A4B-Uncensored-HauhauCS-Bal-Ollama-Text).
+
+The card positions Balanced primarily for creative writing, roleplay, emotional intelligence, and stable long-context sampling, while noting that Qwen3.6 is generally stronger for agentic coding/tool use. It recommends Q4 for most coding workloads when the model fits, and exposes `enable_thinking` controls. Vision works only with `mmproj`, and the card recommends placing images before text.
+
+## Vision models
+
+A vision-language model normally has two components: the language-model GGUF and a matching multimodal projector or vision tower. A text-only mirror can be easier to run but cannot accept images. Do not infer vision support from a model’s name alone; check the card and runtime.
+
+| Model | Practical role | Local notes |
+| --- | --- | --- |
+| `braydenh563/Qwen3.6-35B-Uncensored-HauhauCS-1M-MTP-Ollama` | Long-context vision, coding-agent backend | 21.7 GB Q4 package plus ~899 MB vision projector; Ollama imports it but does not currently gain MTP speculation |
+| `braydenh563/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Ollama` | High-quality multimodal reasoning | 23 GB Q4, 28 GB Q5, 31 GB Q6; requires the matching ~899 MB `mmproj` |
+| `braydenh563/Gemma4-26B-A4B-Uncensored-HauhauCS-Balanced-Ollama` | Creative writing plus vision | 17 GB Q4, 19 GB Q5, 23 GB Q6; requires ~1.2 GB `mmproj` |
+| `braydenh563/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive-Ollama` | Practical laptop vision/audio | 5.1 GB Q4, 5.5 GB Q5, 5.9 GB Q6; requires ~945 MB `mmproj` |
+| `braydenh563/Gemma-4-E2B-Uncensored-HauhauCS-Aggressive-Ollama` | Lightweight edge vision/audio | 3.3 GB Q4, 3.5 GB Q5, 3.7 GB Q6; requires ~940 MB `mmproj` |
+| `LiquidAI/LFM2.5-VL-1.6B-GGUF` | Very small on-device image understanding | Use the official GGUF card and its supported llama.cpp multimodal command; suitable when memory and latency matter most |
+| `Qwen3-VL` GGUF releases | General vision, OCR-adjacent image reasoning, and thinking variants | GGUF distributions commonly separate the language model and vision component; verify backend support and the matching projector |
+
+The small LFM2.5-VL family is a useful vision specialist rather than a replacement for a general MemoryMap agent. Qwen3-VL is a stronger general multimodal family, but its GGUF packaging and backend support should be checked per size and variant.
+
+## OCR and document models
+
+OCR models are different from general vision chat models: they are trained or tuned to transcribe text, preserve layout, read tables, and sometimes emit bounding boxes or Markdown. For a notebook application, use OCR as a preprocessing step, then pass the extracted text to the normal MemoryMap embedding/chat pipeline.
+
+| Model | Best for | Runtime and caveats |
+| --- | --- | --- |
+| `ggml-org/GLM-OCR-GGUF` | Small, multilingual document OCR and table/image transcription | Official GGUF conversion; `llama-server -hf ggml-org/GLM-OCR-GGUF` is the straightforward llama.cpp route |
+| `ggml-org/DeepSeek-OCR-GGUF` | High-accuracy OCR from documents and screenshots | GGUF support is available; check the current card and llama.cpp build |
+| `sahilchachra/Unlimited-OCR-GGUF` | Long-horizon document parsing and Markdown conversion | Requires DeepSeek-OCR-aware llama.cpp support; every run needs one language GGUF plus the shared fp16 `mmproj` |
+| DeepSeek-OCR / DeepSeek-OCR 2 | OCR plus visual document understanding | Some GGUF paths are NexaSDK-specific; Transformers paths require the appropriate model implementation and GPU support |
+| `Qwen3-VL` | General image understanding with OCR as one capability | Better when OCR is part of a broader visual reasoning task rather than pure transcription |
+| `LFM2.5-VL` | Lightweight image reading and simple OCR | Good edge option, but not a dedicated high-accuracy document parser |
+
+For GLM-OCR and other supported llama.cpp OCR models, the current recommended pattern is an OpenAI-compatible `llama-server`, for example:
 
 ```bash
-ollama create my-model -f Modelfile
+llama-server -hf ggml-org/GLM-OCR-GGUF
 ```
 
-The mirrors remain useful because they make the smaller files easier to search, pull, and recognise in frontends expecting conventional `Q4_K_M` or `Q5_K_M` names.
-
-### Models to explore
-
-These are community/custom builds, not official Qwen, Gemma, or Ollama releases. Availability and exact files change, so follow each repository’s model card.
-
-| Repository | Useful variants to look for | Why it may suit MemoryMap |
-| --- | --- | --- |
-| `HauhauCS/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive` | Q4/Q5 compatibility mirrors; Q6_K_P | Small, fast general or multimodal experimentation |
-| `HauhauCS/Gemma4-26B-A4B-Uncensored-HauhauCS-Balanced` | Q5_K_P or Q6_K_P | Stronger writing, reasoning, and agent use on 24–32 GB systems |
-| `HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Balanced` | Q4/Q5 compatibility mirrors; Q6_K_P | High-quality general reasoning when 24 GB-class memory is available |
-| `HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive` | Q4/Q5 compatibility mirrors; Q6_K_P | More assertive uncensored behaviour; test carefully for agent reliability |
-| `HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive` | Q5_K_P or Q6_K_P | Large MoE model for 32 GB-class machines |
-| `HauhauCS/Qwen3.8-27B-Uncensored-HauhauCS-Aggressive-MTP-GGUF` | Repository’s current K_P variants | Newer Qwen family candidate; inspect MTP and runtime support first |
-| `braydenh563` mirrors | Renamed Q4_K_M/Q5_K_M compatibility files; text-only variants | Easier Ollama/frontend discovery and smaller pulls; verify each mirror’s source and capabilities |
-
-“Text-only” is a separate property from quantisation. Removing the multimodal projector (`mmproj`) can reduce clutter and storage when images are not needed, but it removes vision support. A renamed Q4/Q5 file may still be multimodal unless its repository explicitly says otherwise.
-
-Keep the GGUF metadata, tokenizer/chat template, license information, and source-model attribution intact when mirroring or renaming files. Before using one in MemoryMap, verify that the runtime accepts its architecture and chat template. `llama.cpp`, LM Studio, and other GGUF-compatible servers may support custom `K_P` files even when a frontend displays the quantisation as unknown.
+For Unlimited-OCR, use `--temp 0` for deterministic OCR and supply both the language model and its projector. Keep OCR model serving separate from the chat model unless the application explicitly supports multimodal OCR requests.
 
 ## Ollama and Hugging Face
 
@@ -161,7 +200,7 @@ These capabilities are separate:
 - **Thinking** means the model can spend additional tokens on reasoning. It can improve difficult answers but increases latency and token use.
 - **Vision** means the model accepts image input. The model, backend, and application must all support the same image format.
 
-For MemoryMap agent mode, choose a model that Settings reports as tool-capable. Good starting points are `qwen3.5:9b`, `llama3.1:8b`, `gemma4:12b`, and the larger Qwen/Gemma models when your hardware permits. Always test the actual pulled tag: capability metadata and chat templates vary between builds.
+For MemoryMap agent mode, choose a model that Settings reports as tool-capable. Good starting points are `qwen3.5:9b`, `llama3.1:8b`, `gemma4:12b`, and the larger Qwen/Gemma models when your hardware permits. For image-aware notes, use one of the explicitly multimodal variants above. OCR models should generally be used as a separate extraction service. Always test the actual pulled tag: capability metadata and chat templates vary between builds.
 
 ## Context windows and speed
 
@@ -184,11 +223,12 @@ Ollama provides model downloads and lets the app request a context window. With 
 ## A sensible starting path
 
 1. Install Ollama and try `ollama pull llama3.2`.
-2. If it is too weak, try `qwen3.5:4b` or `gemma4:e4b`.
-3. With 16 GB memory, try `qwen3.5:9b`, `llama3.1:8b`, or `gemma4:12b`.
-4. For a custom community GGUF, choose a `braydenh563` compatibility mirror labelled `Q4_K_M` or `Q5_K_M` when the original Q6_K_P is too large.
-5. With 24–32 GB, try `gemma4:26b-a4b`, `qwen3.5:27b`, or a corresponding HauhauCS Q5/Q6 build.
-6. For maximum local quality, consider a HauhauCS `Q6_K_P` imatrix GGUF if your runtime supports it and your memory budget allows it.
-7. For agent mode, verify **Can use tools** in Settings and test filing, retrieval, and a multi-step tool task.
+2. If it is too weak, try `qwen3.5:4b` or the profile’s Gemma 4 E4B Q4/Q5 compatibility mirror.
+3. With 16 GB memory, try a text-only E4B or Qwen3.6 build only if the measured file and runtime fit; otherwise use a smaller model.
+4. For local vision on modest hardware, try LFM2.5-VL or Gemma 4 E4B with its `mmproj`.
+5. For 24–32 GB, consider Gemma4 26B-A4B Q4/Q5 or Qwen3.6 35B-A3B Q4/Q5 compatibility mirrors.
+6. For OCR, run GLM-OCR or DeepSeek-OCR through a supported llama.cpp/NexaSDK workflow and feed the extracted text into MemoryMap.
+7. Use the Qwen3.6 1M+MTP package only when you specifically need long-context/vision and have enough KV-cache memory; use llama.cpp for MTP acceleration.
+8. For agent mode, verify **Can use tools** in Settings and test filing, retrieval, and a multi-step tool task.
 
 Model availability and tags change. Before documenting a new family or relying on an exact size, check the current [Ollama library](https://ollama.com/library), the model’s [Hugging Face](https://huggingface.co/models) card, and the relevant [HauhauCS](https://huggingface.co/HauhauCS) or [braydenh563](https://huggingface.co/braydenh563) repository.

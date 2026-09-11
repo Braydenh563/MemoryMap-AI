@@ -85,20 +85,58 @@ Specialist alternatives worth considering include:
 
 If you want maximum quality from a local GGUF rather than the smallest download, look at the community quantisations by [HauhauCS](https://huggingface.co/HauhauCS). The `Q*_K_P` files are custom, model-specific imatrix quantisations intended to preserve the weights that matter most for that model. They are often larger than the corresponding standard quantisation, but can provide a useful quality/size trade-off; treat claims such as “one or two quant levels better” as an empirical rule of thumb, not a universal benchmark result.
 
-Examples include:
+### Choosing Q4, Q5, or Q6
 
-| Model/repository | Example file or tier | Approx. file size | Use |
-| --- | --- | ---: | --- |
-| `HauhauCS/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive` | `Q6_K_P` | ~6.25 GB | Small multimodal/vision-capable local model |
-| `HauhauCS/Gemma4-26B-A4B-Uncensored-HauhauCS-Balanced` | `Q6_K_P` | roughly 15–17 GB | Larger MoE reasoning and chat |
-| `HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Balanced` | `Q6_K_P` | ~23.2 GB | High-quality larger local model |
-| `HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive` | `Q6_K_P` | ~30.6 GB | High-quality MoE model for 32 GB-class machines |
+`Q6_K_P` is not always the right choice. It can be too large for a laptop, GPU, or unified-memory system even when the model itself is attractive. HauhauCS-style imatrix builds are available at several quality levels, so choose by the memory you actually have:
 
-The exact file size, architecture, chat template, and context support are repository-specific. Check the model card and files before downloading. Search results and Hugging Face’s model parser may not recognise every custom filename or quantisation suffix consistently. Your renamed mirrors under [braydenh563 on Hugging Face](https://huggingface.co/braydenh563) can make selected files easier to discover, while retaining the original HauhauCS repository as the primary attribution and source reference.
+| Approximate available memory | Prefer | Practical guidance |
+| --- | --- | --- |
+| 8 GB | Compatibility-renamed `Q4_K_M` mirror | Usually the best chance of fitting a small model while leaving room for the OS and context |
+| 12–16 GB | Compatibility-renamed `Q4_K_M` or `Q5_K_M` mirror | Q5 is a strong quality/size compromise if the model fits comfortably |
+| 24 GB | `Q5_K_P` or `Q6_K_P` | Use Q6 when the extra quality is worth the larger download |
+| 32 GB or more | `Q6_K_P` and larger variants | Better for larger MoE models and longer contexts |
 
-Some mirrors are deliberately **text-only**: removing the multimodal projector (`mmproj`) can reduce clutter and storage when you never send images, but it removes vision support and must not be presented as equivalent to the original multimodal package. Keep the GGUF metadata, tokenizer/chat template, license information, and source-model attribution intact when mirroring or renaming files.
+### Compatibility-renamed mirrors
 
-These are community builds, not official Qwen, Gemma, or Ollama releases. Before using one in MemoryMap, verify that the runtime accepts its GGUF architecture and chat template. `llama.cpp`, LM Studio, and other GGUF-compatible servers may support custom `K_P` files even when a frontend displays the quantisation as unknown. Ollama may require an explicit import/Modelfile rather than a direct pull, so the Hugging Face or GGUF workflow is often the clearer route for these files.
+The [braydenh563 Hugging Face mirrors](https://huggingface.co/braydenh563) intentionally rename smaller HauhauCS imatrix files for compatibility:
+
+- Original `Q4_K_P` files are renamed `Q4_K_M`.
+- Original `Q5_K_P` files are renamed `Q5_K_M`.
+- Original `Q6_K_P` files remain named `Q6_K_P`, because Hugging Face/Ollama workflows accept that label for these files.
+
+This is a filename and frontend compatibility convention, not a claim that the files were produced by the standard upstream `K_M` quantiser. A mirror labelled `Q4_K_M` may contain a HauhauCS `Q4_K_P` file, and a mirror labelled `Q5_K_M` may contain a HauhauCS `Q5_K_P` file. Check the model card, GGUF metadata, file size, and source attribution before comparing quality or compatibility.
+
+Ollama can also import a local GGUF with a `Modelfile`, for example:
+
+```text
+FROM ./model.gguf
+```
+
+Then create it with:
+
+```bash
+ollama create my-model -f Modelfile
+```
+
+The mirrors remain useful because they make the smaller files easier to search, pull, and recognise in frontends expecting conventional `Q4_K_M` or `Q5_K_M` names.
+
+### Models to explore
+
+These are community/custom builds, not official Qwen, Gemma, or Ollama releases. Availability and exact files change, so follow each repository’s model card.
+
+| Repository | Useful variants to look for | Why it may suit MemoryMap |
+| --- | --- | --- |
+| `HauhauCS/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive` | Q4/Q5 compatibility mirrors; Q6_K_P | Small, fast general or multimodal experimentation |
+| `HauhauCS/Gemma4-26B-A4B-Uncensored-HauhauCS-Balanced` | Q5_K_P or Q6_K_P | Stronger writing, reasoning, and agent use on 24–32 GB systems |
+| `HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Balanced` | Q4/Q5 compatibility mirrors; Q6_K_P | High-quality general reasoning when 24 GB-class memory is available |
+| `HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive` | Q4/Q5 compatibility mirrors; Q6_K_P | More assertive uncensored behaviour; test carefully for agent reliability |
+| `HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive` | Q5_K_P or Q6_K_P | Large MoE model for 32 GB-class machines |
+| `HauhauCS/Qwen3.8-27B-Uncensored-HauhauCS-Aggressive-MTP-GGUF` | Repository’s current K_P variants | Newer Qwen family candidate; inspect MTP and runtime support first |
+| `braydenh563` mirrors | Renamed Q4_K_M/Q5_K_M compatibility files; text-only variants | Easier Ollama/frontend discovery and smaller pulls; verify each mirror’s source and capabilities |
+
+“Text-only” is a separate property from quantisation. Removing the multimodal projector (`mmproj`) can reduce clutter and storage when images are not needed, but it removes vision support. A renamed Q4/Q5 file may still be multimodal unless its repository explicitly says otherwise.
+
+Keep the GGUF metadata, tokenizer/chat template, license information, and source-model attribution intact when mirroring or renaming files. Before using one in MemoryMap, verify that the runtime accepts its architecture and chat template. `llama.cpp`, LM Studio, and other GGUF-compatible servers may support custom `K_P` files even when a frontend displays the quantisation as unknown.
 
 ## Ollama and Hugging Face
 
@@ -109,6 +147,7 @@ Hugging Face is the broader catalogue. Search for the model family plus `GGUF` w
 - `Q4_K_M` is a common quality/size compromise.
 - `Q5_K_M` or `Q6_K` usually improves quality at a larger size.
 - `Q*_K_P` is a custom imatrix family; verify the producer’s documentation and actual file size.
+- A compatibility-renamed `Q4_K_M` or `Q5_K_M` may contain a custom `Q4_K_P` or `Q5_K_P` file.
 - `Q8_0` is much larger and is useful when memory is plentiful.
 - `F16` is generally for high-memory GPUs or specialised serving.
 
@@ -147,8 +186,9 @@ Ollama provides model downloads and lets the app request a context window. With 
 1. Install Ollama and try `ollama pull llama3.2`.
 2. If it is too weak, try `qwen3.5:4b` or `gemma4:e4b`.
 3. With 16 GB memory, try `qwen3.5:9b`, `llama3.1:8b`, or `gemma4:12b`.
-4. With 24–32 GB, try `gemma4:26b-a4b` or `qwen3.5:27b`.
-5. For maximum local quality, consider a HauhauCS `Q6_K_P` imatrix GGUF if your runtime supports it and your memory budget allows it.
-6. For agent mode, verify **Can use tools** in Settings and test filing, retrieval, and a multi-step tool task.
+4. For a custom community GGUF, choose a `braydenh563` compatibility mirror labelled `Q4_K_M` or `Q5_K_M` when the original Q6_K_P is too large.
+5. With 24–32 GB, try `gemma4:26b-a4b`, `qwen3.5:27b`, or a corresponding HauhauCS Q5/Q6 build.
+6. For maximum local quality, consider a HauhauCS `Q6_K_P` imatrix GGUF if your runtime supports it and your memory budget allows it.
+7. For agent mode, verify **Can use tools** in Settings and test filing, retrieval, and a multi-step tool task.
 
 Model availability and tags change. Before documenting a new family or relying on an exact size, check the current [Ollama library](https://ollama.com/library), the model’s [Hugging Face](https://huggingface.co/models) card, and the relevant [HauhauCS](https://huggingface.co/HauhauCS) or [braydenh563](https://huggingface.co/braydenh563) repository.

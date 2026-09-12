@@ -22784,3 +22784,178 @@ you are in something" is now a row in DESIGN.md's recipe index, with
 in the same commit: the outline's mark must be painted from `[aria-current]`,
 and any frontend file that adds an `is-current` class must set the attribute
 beside it.
+
+### From DOCUMENTS_PLAN.md Phase 3: blocks and structure, items 1 to 3
+
+Built 2026-09-12, on `claude/epic-ramanujan-8xocc0`, three commits. Items 4
+(properties) and 5 (columns and images) are open and are in
+`agent-remaining/documents-phase3.md`. The phase as it was written:
+
+> 1. **Tables** as a real editor: `/table`, Tab between cells, a cell menu
+>    for add/remove row/column, alignment, rendered in Live, byte-exact
+>    round trip through Source (PLAN D4's gate).
+> 2. **Callouts and toggles** (`> [!note]` syntax Obsidian uses, rendered
+>    with an icon and a fold), **footnotes**, **math** (`$…$` via a small
+>    in-repo MathML renderer, no KaTeX), **task lists with progress** in the
+>    outline.
+> 3. **Embeds**: `![[note]]`, `![[map]]`, `![[file]]` render the target's
+>    chip/preview inline: the same `mapChip()`/`mapPreview()` the mindmap
+>    plan's Phase 3 builds, the note card the chat sources use, the file
+>    tile the Library uses. One renderer per kind, app-wide.
+
+**1. The table editor, and the decision the gate forces** (`a963cf6`).
+
+PLAN D4's gate is that a table edited in Live and read back in Source is the
+markdown a person would have typed, byte for byte. That rules out the obvious
+implementation. Parsing a table into a grid and printing it back rebuilds the
+author's padding on the first keystroke: a hand-aligned table comes back
+re-padded, a ragged one comes back tidied, and a cell holding `\|` comes back
+holding whatever the printer decided about pipes. The file is then not the
+file its author wrote, which is the one promise a markdown editor makes.
+
+**So nothing in it prints a table.** The model (documents.js, between the
+`DOC-TABLE-BEGIN` and `DOC-TABLE-END` markers) keeps a row as its indent,
+whether it had an outer pipe, the raw text of each cell *with its padding*,
+and whatever followed the last pipe, so `docTableJoinRow(docTableSplitRow(x))`
+is the identity. Every command returns the smallest `{from, to, insert}` edits
+that express it: a cell edit rewrites that cell's own characters, a column
+insert adds one pipe and one cell per line, alignment rewrites one delimiter
+cell. `tests/test_doc_tables.py` runs that region in node (it is pure string
+work, which is a property the test enforces by existing) over six shapes,
+including an escaped pipe inside a cell, mismatched column widths, a table
+with no outer pipes, an indented one with trailing spaces, and one with
+alignment colons. **678 checks**, and the way they measure the promise is by
+applying each operation *and its inverse* and comparing to the original
+string.
+
+**The one byte an inverse does not take back, and it is markdown's rule.** A
+row with no outer pipes cannot hold a blank *first* cell: GFM reads leading
+spaces as indentation and strips the optional leading pipe, so `  | a | b` is
+an indented two-cell row, not a three-cell one with an empty cell at the
+front. A table written without outer pipes therefore gains a leading pipe the
+day a column is put in front of it and keeps it if that column is removed
+again. The test asserts exactly that rather than letting it pass as a round
+trip.
+
+Two more decisions worth not remaking. A new row or column matches the
+column's width only when every existing cell in that column already shares
+one (the table is aligned by hand) and takes a single space otherwise:
+padding a ragged column to its widest cell is tidying text nobody asked to
+have tidied. And a body row that cannot hold a blank final cell is left alone
+rather than given whitespace GFM will drop: the column is there in the
+rendered table, and the first write into it (`docTableSetCellEdits`) appends
+it for real.
+
+**Live draws it as a CSS grid over the line**, not as a `<table>` widget: the
+pipes are replaced like every other marker in that view, each cell is a mark,
+and `display: grid` on the line turns those marks into the columns, so the
+text on screen is still the text in the file at the same offsets and the
+caret walks it normally. `minmax(0, 1fr)`, because a grid column's implicit
+minimum is its content's min-content width and one long word would otherwise
+push the table wider than the editor. The delimiter row is the header's
+underline (height 0) until the caret arrives on it, which is the rule `---`
+has followed since Phase 2.
+
+Measured, `scratchpad/ui-sweeps/doctable.js` at 1440, **16 of 16**: no pipe in
+the rendered header, three cells per row, the three columns at identical left
+edges across all three rows and identical widths, the centre and right
+alignments reaching the cells' computed `text-align`, the delimiter row 0px,
+Tab landing in the next cell and wrapping to the next row, typing rewriting
+exactly one cell and leaving every other byte, the menu inside the header
+row's own box with ten commands in it.
+
+**Found and fixed on the way.** The "/" menu's table entry had said "3
+columns" since it was written and inserted two. The old Tab-between-cells
+pass (a scan for `|` characters that required the row to *start* with one)
+had no idea what a header or a delimiter row was and no Tab at all for a
+table written without outer pipes; it is now four lines over the same parse
+the renderer uses.
+
+**2. Callouts that fold, footnotes, math, task progress** (`9daf5da`).
+
+A callout written `> [!note]-` or `> [!note]+` is foldable, which is
+Obsidian's syntax and a marker this editor already parsed and ignored. The
+kind's label carries a chevron and clicking it folds the body away. **The
+marker is the state the document opens in, not a field the view writes
+back**: folding a section to read past it is not an edit, and a notebook whose
+files change every time somebody collapses something has no clean diffs left.
+
+Found while doing it: **every fold this editor had lived inside the gutter's
+own compartment**, so a markdown document, which opens with the line numbers
+off, had no folding at all, and the new chevron would have been a control
+that did nothing. `codeFolding`, the fold keymap and both fold services are
+in the base extensions now; `foldGutter` and `lineNumbers` are what stayed in
+the gutter.
+
+Footnotes: `[^1]` and its `[^1]: text` definition render as the identifier
+alone, raised, with the brackets hidden like every other marker in Live, and
+a click on the reference goes to the text. Drawn by a scan rather than from
+the tree because the lezer grammar here has no footnote extension, which is
+also why nothing was drawing them before.
+
+**Math, with no KaTeX, as the plan asks.** A TeX subset to MathML in about
+200 lines of documents.js (`DOC-MATH-BEGIN` to `DOC-MATH-END`): fractions,
+roots with an index, sub and superscripts (`x_i^2` is one `msubsup`, not a
+superscript on a subscript), the greek, operator and function tables, `\text`,
+`\left`/`\right`. Every browser this app runs in has rendered MathML natively
+since 2023; KaTeX is 280 KB of script and about a megabyte of fonts, and a
+stylesheet the CSP would have to be widened for. `tests/test_doc_math.py`
+runs the parser in node over sixteen formulas and asserts the *tree*, because
+an operator that comes out as an identifier is a spacing bug that reads as a
+font problem; it also pins what is math and what is a price (`$5 and $10`
+stays two prices) and that nine half-typed formulas do not throw.
+
+Task progress: each outline row carries its section's done/total at the right
+edge, counting the whole subtree rather than the lines before the next
+heading, because a "Release" heading reading 0/0 over three sub-sections
+holding every task in the document is a count that is accurate and useless.
+
+Measured, `scratchpad/ui-sweeps/docblocks.js` at 1440, **21 of 21**: counts
+1/4 and 0/1 with the chip 4.0px from the row's right edge and the row's title
+saying what the number means; one fold placeholder before the click and none
+after, the chevron turning round and the document unchanged to the byte; two
+footnote marks rendering as "1" with `vertical-align: super`, no `[^` left in
+any line, the click landing on the definition; two `<math>` elements in the
+MathML namespace, an `msup` in the inline one, an `mfrac` and an `msqrt` in
+the block one, laid out by the browser at 57.6x14.3, and the prices left
+alone.
+
+**A correction to a commit message, recorded rather than left standing.**
+`9daf5da` gave that math box as 61.3x22.4, a number that was written down
+without being read. The measured figure is 57.6x14.3, and the sweep prints it
+on success now rather than only on failure, which is how the wrong one got
+written.
+
+**3. Embeds, one renderer per kind** (`71cad57`).
+
+`![[note]]`, `![[map]]` and `![[file]]` render the target inline through the
+renderer that already owns that kind: `entryItem` inside the `.entry-list` its
+appearance lives on, `mapChip` plus `mapPreview`, and `fileCard` (an image
+embed is the image). Nothing here draws a card. A name resolves through
+`docResolveWikiTarget`, the same resolver a plain `[[link]]` uses, plus the
+Library's own index for files, because an embed and a link that disagree
+about what a name means are two features. A name with nothing behind it says
+so in a muted chip, and so does a document, which is the one link target in
+this app with no card of its own.
+
+Measured, `scratchpad/ui-sweeps/docembed.js` at 1440, **11 of 11**, against a
+note, a map and a real uploaded attachment made through the app's own API:
+the note embed contains `.entry-list > li` with the note's body in it, the map
+embed `svg.board-minimap`, the file embed `.file-card .file-card-name`, the
+cards held to 420 and 320 CSS pixels, the plain `[[link]]` still one mark, no
+`![[` left on screen, the document still the text that was typed, and the
+caret on an embed's line showing its markdown again.
+
+**Found and not fixed** (app.js, which this agent was told not to edit):
+`resolveWikiTarget` matches a note by content prefix, so a note whose first
+line is `# Its title` resolves as `[[# Its title]]` and not as
+`[[Its title]]`. One comparison against the content with its leading `#`
+stripped fixes it, and it is written up in
+`agent-remaining/documents-phase3.md`.
+
+**Not verified.** Chromium only, at 1440 and 390. No other browser, no touch
+device. The fallback textarea path is exercised by the table model's own
+tests but was never driven with `docCmBroken` set. Multi-line `$$…$$` blocks
+are deliberately not rendered: a replace decoration from a view plugin may not
+contain a line break, which is a CodeMirror constraint rather than an
+omission, and single-line `$$…$$` is what people write inside a paragraph.

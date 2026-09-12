@@ -248,17 +248,13 @@ extended per phase.
 
 ### Phase 3 — blocks and structure (1–2 sessions)
 
-1. **Tables** as a real editor: `/table`, Tab between cells, a cell menu
-   for add/remove row/column, alignment, rendered in Live, byte-exact
-   round trip through Source (PLAN D4's gate).
-2. **Callouts and toggles** (`> [!note]` syntax Obsidian uses, rendered
-   with an icon and a fold), **footnotes**, **math** (`$…$` via a small
-   in-repo MathML renderer, no KaTeX), **task lists with progress** in the
-   outline.
-3. **Embeds**: `![[note]]`, `![[map]]`, `![[file]]` render the target's
-   chip/preview inline — the same `mapChip()`/`mapPreview()` the mindmap
-   plan's Phase 3 builds, the note card the chat sources use, the file
-   tile the Library uses. One renderer per kind, app-wide.
+**Items 1 to 3 are built** (2026-09-12): tables as a real editor with a
+byte-exact round trip through Source, callouts as toggles, footnotes, math
+through an in-repo MathML renderer, task progress in the outline, and embeds
+that draw the target through the renderer that already owns its kind. The
+record is in HISTORY.md ("Moved from the plans, 2026-09-12"); what those three
+left open is in `agent-remaining/documents-phase3.md`.
+
 4. **Properties**: YAML frontmatter shown as a properties panel at the top
    of the document (tags, aliases, date, status, custom keys), editable as
    fields, searchable from the Library's filter.
@@ -451,6 +447,13 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2
 ## Built — Phase 0
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2026-09-09: a plan holds open work only.
+
+## Built, Phase 3 items 1 to 3 (tables, blocks and embeds), 2026-09-12
+
+Moved to HISTORY.md ("Moved from the plans, 2026-09-12", DOCUMENTS_PLAN.md) on
+2026-09-12: a plan holds open work only. Items 4 and 5 of the phase are still
+open above; what items 1 to 3 left behind is in
+`agent-remaining/documents-phase3.md`.
 
 ## Placed from INBOX: 107d, the segmented mini bars
 

@@ -9,6 +9,20 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Documents: tables you edit rather than type. `/table`, Tab between cells,
+  a cell menu for rows, columns and alignment, and the table drawn as a real
+  grid in Live. The markdown underneath is the markdown you wrote, to the
+  byte: every command edits the smallest span it can, so a hand-aligned table
+  keeps its alignment and a cell holding an escaped pipe keeps its pipe.
+- Documents: callouts written `> [!note]-` fold away and open again on their
+  own label, footnotes render as the raised number they are and go to their
+  text when clicked, `$x^2$` renders as math through a MathML renderer in the
+  app itself rather than a library, and each heading in the outline carries
+  how many of its section's tasks are done.
+- Documents: `![[a note]]`, `![[a map]]` and `![[a file]]` draw the thing
+  inline, through the same note card, map preview and file tile the rest of
+  the app already uses.
+
 - Whiteboard: the arrange tools answer all three of their questions. Space
   evenly now leaves equal gaps rather than equal centres, which is the same
   thing only when every item is the same size and is not what a row of mixed

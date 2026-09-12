@@ -8,7 +8,7 @@
 // commands change the document the way the model says they do.
 //
 //   BASE=http://127.0.0.1:8901 node scratchpad/ui-sweeps/doctable.js
-const { boot } = require('./lib.js');
+const { boot, OUT } = require('./lib.js');
 const { openDoc } = require('./docopen.js');
 
 const TABLE = [
@@ -73,6 +73,44 @@ const check = (name, ok, detail) => out.push({ name, ok: !!ok, detail });
     shape.head[1] && shape.head[1].align === 'center' && shape.head[2].align === 'right',
     `${shape.head[1] && shape.head[1].align}/${shape.head[2] && shape.head[2].align}`);
   check('the delimiter row is a rule, not a blank line', shape.delimHeight === 0, shape.delimHeight);
+
+  // The header cell's ground, **from the pixels**, because the table is the
+  // one thing here that paints a ground of its own and `contrast.js` only
+  // walks a tab with no document open in it.
+  //
+  // Computed styles cannot answer this one. `--field-inset` is
+  // `rgba(31, 36, 48, 0.07)`, so reading its rgb triple gives the ink's own
+  // colour and a ratio of 1:1 (the first version of this check did exactly
+  // that), and compositing the translucent ancestors by hand gave
+  // rgb(110,110,111) against a page that is plainly not grey. So the ground is
+  // read where it is painted: a screenshot, and a pixel inside the header
+  // cell's own padding, which is this project's own rule for anything about
+  // colour.
+  const cellBox = await page.evaluate(() => {
+    const cell = document.querySelector('#doc-editor .cm-md-table-head .cm-md-td');
+    if (!cell) return null;
+    const r = cell.getBoundingClientRect();
+    return { x: Math.round(r.left + 2), y: Math.round(r.top + 2), color: getComputedStyle(cell).color };
+  });
+  const shot = `${OUT}/doctable-head.png`;
+  await page.screenshot({ path: shot });
+  const pixel = require('child_process')
+    .execSync(`python3 ${__dirname}/../pngpixel.py ${shot} ${cellBox.x} ${cellBox.y}`)
+    .toString();
+  const ground = (pixel.match(/\((\d+), ?(\d+), ?(\d+)/) || []).slice(1).map(Number);
+  const ratio = (() => {
+    const fg = (cellBox.color.match(/\d+/g) || []).map(Number);
+    const lum = ([r, g, b]) => {
+      const f = (v) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : Math.pow((v / 255 + 0.055) / 1.055, 2.4));
+      return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+    };
+    const l1 = lum(fg);
+    const l2 = lum(ground);
+    return +((Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05)).toFixed(2);
+  })();
+  check('the header ink clears AA on the ground it is painted on', ratio >= 4.5,
+    `${ratio}:1 on rgb(${ground.join(',')}), pixel line ${pixel.trim()}`);
+  console.log(`  header contrast: ${ratio}:1 on rgb(${ground.join(',')})`);
 
   // Tab walks the cells: put the caret in the first body cell and step twice.
   const tab = await page.evaluate(async () => {

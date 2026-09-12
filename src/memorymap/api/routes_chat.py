@@ -94,9 +94,8 @@ ASK_SURFACE = "chat"
 AGENT_SURFACE = "agent"
 
 
-@router.get("/recent", response_model=list[str])
-def recent_questions(session: Session = Depends(get_session)) -> list[str]:
-    """The last 5 distinct questions, newest first (quick access).
+def _recent_questions(session: Session, limit: int = 5) -> list[str]:
+    """The last `limit` distinct questions asked at the Ask box, newest first.
     Read straight from the audit log, no extra bookkeeping.
 
     Scoped to `ASK_SURFACE`, so an instruction given to the agent is never
@@ -111,9 +110,57 @@ def recent_questions(session: Session = Depends(get_session)) -> list[str]:
     for row in rows:
         if row.detail and row.detail not in questions:
             questions.append(row.detail)
-        if len(questions) == 5:
+        if len(questions) == limit:
             break
     return questions
+
+
+@router.get("/recent", response_model=list[str])
+def recent_questions(session: Session = Depends(get_session)) -> list[str]:
+    """The last 5 distinct questions, newest first (quick access)."""
+    return _recent_questions(session)
+
+
+def _asked_key(question: str) -> str:
+    """One spelling of a question, for comparing the two suggestion rows.
+
+    Only case and surrounding space: a chip is clicked verbatim, so a repeat
+    is character-for-character the same string, and anything cleverer here
+    (dropping the question mark, stemming) would start deciding that two
+    *different* questions are the same one."""
+    return " ".join(question.split()).casefold()
+
+
+#: **The two suggestion rows do not show each other's chips.** Reported (INBOX
+#: 120, the owner): "the try asking and ask again suggestions are nearly
+#: identical", with "Try asking:" above "Ask again:" and two of the five chips
+#: below repeating the row above word for word. The rows answer different
+#: questions, what you could ask and what you already asked, so neither should
+#: be showing the other's answer.
+#:
+#: The rule, decided with the report: the history row wins a duplicate, because
+#: it is a fact about this notebook rather than something generated, and the
+#: generated row fills the gap with its next candidate. Which is why this is
+#: settled here, on the server that builds both rows, rather than in the two
+#: independent `loadSuggestions`/`loadRecentQuestions` calls in the client,
+#: where it would depend on which request came back first.
+SUGGESTIONS_SHOWN = 4
+
+
+def _fill(candidates: list[str], asked: set[str]) -> list[str]:
+    """The first `SUGGESTIONS_SHOWN` candidates that are neither a repeat of
+    each other nor already offered by "Ask again"."""
+    picks: list[str] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        key = _asked_key(candidate)
+        if key in seen or key in asked:
+            continue
+        seen.add(key)
+        picks.append(candidate)
+        if len(picks) == SUGGESTIONS_SHOWN:
+            break
+    return picks
 
 
 # Shown when the chat is empty, to teach the feature (Round 1).
@@ -137,17 +184,22 @@ def suggestions(session: Session = Depends(get_session)) -> list[str]:
     ).all()
     categories = [name for name, _count in rows if name != UNCATEGORISED]
 
-    if not categories:
-        return STARTER_SUGGESTIONS
+    asked = {_asked_key(question) for question in _recent_questions(session)}
 
-    picks: list[str] = []
-    for name in categories[:2]:
-        picks.append(f"What have I saved about {name.lower()}?")
-    picks.append(f"Summarise my {categories[0].lower()}.")
-    picks.append("What have I saved recently?")
-    # De-dupe while preserving order, cap at 5.
-    seen: set[str] = set()
-    return [p for p in picks if not (p in seen or seen.add(p))][:5]
+    if not categories:
+        return _fill(STARTER_SUGGESTIONS, asked)
+
+    # The first four are what this endpoint has always offered, in the order it
+    # offered them. The rest are reserves, reached only when one of the four is
+    # dropped for being in "Ask again" already, so the row keeps its length
+    # instead of losing a chip to the row below it.
+    candidates = [f"What have I saved about {name.lower()}?" for name in categories[:2]]
+    candidates.append(f"Summarise my {categories[0].lower()}.")
+    candidates.append("What have I saved recently?")
+    candidates += [f"What have I saved about {name.lower()}?" for name in categories[2:6]]
+    candidates += [f"Summarise my {name.lower()}." for name in categories[1:3]]
+    candidates.append("What are my most common topics?")
+    return _fill(candidates, asked)
 
 
 class FollowupBody(BaseModel):

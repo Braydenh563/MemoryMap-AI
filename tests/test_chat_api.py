@@ -126,6 +126,45 @@ def test_suggestions_are_content_aware(client):
     assert len(picks) == len(set(picks))  # no duplicates
 
 
+def _asked(session, question):
+    """One question in the Ask box's history, the row `/chat/recent` reads."""
+    from memorymap.api.routes_chat import ASK_SURFACE
+    from memorymap.core.database import AuditLog
+
+    session.add(AuditLog(action="queried", entity_type=ASK_SURFACE, detail=question))
+    session.commit()
+
+
+def test_suggestions_drop_what_ask_again_already_offers(client, session):
+    """INBOX 120: "the try asking and ask again suggestions are nearly
+    identical". The history row wins a duplicate, and the generated row fills
+    the gap with its next candidate rather than coming back one chip short."""
+    _save(client, "a joke", category="Jokes")
+    _save(client, "another joke", category="Jokes")
+    _save(client, "milk", category="Shopping")
+    _save(client, "a run", category="Fitness")
+
+    before = client.get("/chat/suggestions").json()
+    assert "What have I saved about jokes?" in before
+
+    _asked(session, "What have I saved about jokes?")
+    after = client.get("/chat/suggestions").json()
+
+    assert "What have I saved about jokes?" not in after
+    assert "What have I saved about jokes?" in client.get("/chat/recent").json()
+    # Same length, one new candidate promoted into the gap.
+    assert len(after) == len(before)
+    assert set(after) - set(before) == {"What have I saved about fitness?"}
+
+
+def test_suggestions_ignore_case_and_spacing_of_what_was_asked(client, session):
+    _save(client, "a joke", category="Jokes")
+    _save(client, "milk", category="Shopping")
+    _asked(session, "  what have i saved about   JOKES?  ")
+
+    assert "What have I saved about jokes?" not in client.get("/chat/suggestions").json()
+
+
 def test_suggestions_ignore_uncategorised(client):
     _save(client, "a stray thought")  # lands in Uncategorised (no AI)
     # Only the generic starters, since there's no real category.

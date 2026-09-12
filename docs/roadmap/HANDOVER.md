@@ -334,7 +334,14 @@ top-layer dialog fix; the collapsed rail button centred (6/6, was 6/4);
 the settings "?" marks in one column; three `test_ui_recipes.py` lints.
 Four owner reports measured and not reproduced are in INBOX 114; the
 whiteboard drag lag is unattributed after three passes
-(`agent-remaining/mindmap.md`). The hourly check-in re-arms itself.
+(`agent-remaining/mindmap.md`). The hourly check-in re-arms itself. **After the plans (the owner,
+2026-09-12 evening): "just repeat, improve ui, improve ux, fix bugs, fix
+security flaws, poke holes in the application for fixing."** That loop is
+the standing order once the queue is empty: a sweep pass (errors, contrast,
+docks, touch, finalqa), a security pass (WORLD_CLASS_PLAN section 6 and
+the CodeQL categories), a hole-poking pass (the flaw classes in
+WORLD_CLASS_PLAN section 8 with their commands), each finding fixed and
+measured, then again.
 
 ### The agents (worktrees under `.claude/worktrees/agent-<id>`)
 

@@ -732,6 +732,36 @@ class Reminder(Base, WorkspaceMixin):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class NoteScore(Base, WorkspaceMixin):
+    """How faded one note is, computed nightly rather than per request.
+
+    Resurfacing (WORLD_CLASS_PLAN 15, I4) shows three notes a day that are
+    slipping out of reach: old, unlinked, unopened. Working that out means
+    counting links and reads for every note in the notebook, which is a scan
+    nobody should pay for while waiting for a page to paint, and it barely
+    changes between one day and the next. So it is a stored number, refreshed
+    by `ai/resurface.compute_scores`, and the request-time step is a sort plus
+    a cosine against whatever the person is looking at now.
+
+    One row per note, replaced rather than appended: this is a cache of a
+    derivable fact, not a history. `AuditLog` is where history lives.
+    """
+
+    __tablename__ = "note_scores"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"), unique=True)
+    #: 0 to 1, higher means more faded. The parts are kept beside it because a
+    #: score nobody can explain is a score nobody will trust: the panel can say
+    #: "you wrote this 120 days ago, it links to nothing, and you have not
+    #: opened it" instead of "0.82".
+    score: Mapped[float] = mapped_column(Float, default=0.0)
+    age_days: Mapped[int] = mapped_column(Integer, default=0)
+    link_count: Mapped[int] = mapped_column(Integer, default=0)
+    access_count: Mapped[int] = mapped_column(Integer, default=0)
+    computed_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class EntryRevision(Base):
     """A note's text as it was before an edit.
 

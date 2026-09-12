@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Three notes a day that are slipping out of reach. A note you wrote months
+  ago, linked to nothing and never opened since, is the one thing a notebook
+  can give you that a pile of files cannot, and until now nothing in the app
+  ever brought one back. The score is computed from three facts you can
+  check (its age, its links, how often you have opened it) rather than a
+  model's opinion, the day's three are the same all day and different
+  tomorrow, a notebook under ten notes gets nothing rather than the same
+  three for ever, and "never again" is permanent.
+
 - A link suggestion you dismiss stays dismissed, and a search remembers
   which result you opened. The dismissal used to live in the browser and die
   with the tab, so the same pair came back; and asking a question a second

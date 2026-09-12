@@ -610,3 +610,39 @@ def test_documents_limit_is_validated(client):
     assert client.get("/documents", params={"offset": -1}).status_code == 422
     over = routes_documents.DOCUMENTS_PAGE_SIZE_MAX + 1
     assert client.get("/documents", params={"limit": over}).status_code == 422
+
+
+def test_a_document_with_a_note_attached_can_still_be_deleted(client, session):
+    """Four tables point at a document, and the delete knew about two.
+
+    `DocumentLink` (the notes attached to this document) and
+    `DocumentBookmark` (its saved links) hold a real foreign key with no
+    cascade, so a document with a note attached could not be deleted **at
+    all**: `FOREIGN KEY constraint failed`, a 500, and the document still
+    there. The integration the owner asked for, notes and documents joined
+    up, was what made a document undeletable.
+
+    The same shape had already bitten once, for revisions and AI edits, and
+    the comment recording that is still above the fix. The list is now taken
+    from `grep 'ForeignKey("documents.id")'` rather than from memory, which
+    is the only thing that stops it going stale a third time.
+    """
+    from sqlalchemy import func, select
+
+    from memorymap.core.database import DocumentBookmark, DocumentLink
+
+    note = client.post("/entries", json={"content": "a note to attach"}).json()
+    document = client.post("/documents", json={"title": "Doc", "content": "body"}).json()
+    assert client.post(
+        f"/documents/{document['id']}/notes", json={"entry_id": note["id"]}
+    ).status_code == 201
+    session.commit()
+    assert session.scalar(select(func.count()).select_from(DocumentLink)) == 1
+
+    removed = client.delete(f"/documents/{document['id']}")
+    assert removed.status_code == 200, removed.text
+    session.expire_all()
+    assert session.scalar(select(func.count()).select_from(DocumentLink)) == 0
+    assert session.scalar(select(func.count()).select_from(DocumentBookmark)) == 0
+    # The note itself is not the document's to delete.
+    assert client.get(f"/entries/{note['id']}").status_code == 200

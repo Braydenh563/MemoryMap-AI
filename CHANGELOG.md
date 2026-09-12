@@ -197,6 +197,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A document with a note attached to it can be deleted again. It could not
+  be deleted at all: the delete failed on a database constraint and left the
+  document in place, so the feature that joins notes and documents together
+  was what made a document permanent.
+
 - Saving two notes at the same moment can no longer lose one. If both
   needed a category that did not exist yet, one of them failed outright on
   a database constraint. Measured with six writers saving twelve notes each:

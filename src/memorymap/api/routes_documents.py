@@ -26,6 +26,7 @@ from memorymap.core.database import (
     Document,
     DocumentAiEdit,
     DocumentBookmark,
+    DocumentLink,
     DocumentRevision,
     utcnow,
 )
@@ -575,12 +576,28 @@ def delete_document(document_id: int, session: Session = Depends(get_session)) -
     #: about *that document*, and keeping the text of something the user asked
     #: to delete would be the app quietly retaining what it was told to
     #: destroy. The bin covers "I did not mean that" for the document itself.
-    session.query(DocumentRevision).filter(
-        DocumentRevision.document_id == document.id
-    ).delete(synchronize_session=False)
-    session.query(DocumentAiEdit).filter(
-        DocumentAiEdit.document_id == document.id
-    ).delete(synchronize_session=False)
+    #: **All four tables that point at a document, not two.** The comment
+    #: above was written when revisions and AI edits were the only ones, and
+    #: two more have been added since: `DocumentLink` (the notes attached to
+    #: this document, the "documents and notes need to be more integrated"
+    #: feature) and `DocumentBookmark` (its saved links). Both hold a real
+    #: foreign key with no cascade, so a document with a note attached to it
+    #: could not be deleted **at all**: the delete raised `FOREIGN KEY
+    #: constraint failed` and the document stayed. Measured on a fresh
+    #: notebook: attach one note, press delete, 500 and the document is still
+    #: there. The feature the owner asked for was what made a document
+    #: undeletable.
+    #:
+    #: This list is the whole of `grep 'ForeignKey("documents.id")'` in
+    #: `core/database.py`, checked rather than remembered, which is the only
+    #: way it stops going stale a third time.
+    for model, column in (
+        (DocumentRevision, DocumentRevision.document_id),
+        (DocumentAiEdit, DocumentAiEdit.document_id),
+        (DocumentLink, DocumentLink.document_id),
+        (DocumentBookmark, DocumentBookmark.document_id),
+    ):
+        session.query(model).filter(column == document.id).delete(synchronize_session=False)
     session.delete(document)
     session.commit()
     return {"deleted": True}

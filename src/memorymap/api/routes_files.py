@@ -18,10 +18,10 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import captioning, docreader, vision_ocr
@@ -1166,13 +1166,48 @@ class MediaUploadOut(BaseModel):
     pages_read: int = 0
 
 
+#: A page of the gallery, not a ceiling on how many uploads a notebook may
+#: hold: `X-Total-Count` reports the real size and `offset` reaches the
+#: rest, so `renderLibraryImagesGallery` and `ocrLoadSiblings` (library.js)
+#: page until they have everything. 200 rather than the grid's own page
+#: size because both of those need the whole set (one to search it, one to
+#: build the OCR workspace's rail), and 200 keeps the number of round trips
+#: sane. The **max** is 500 rather than the 1000 the document and reminder
+#: lists allow, because a row here is not a fixed cost: `ocr_text`,
+#: `caption` and `vision_ocr_text` ride along, and a page of scanned text
+#: can be kilobytes on its own, so a row count is a poor proxy for bytes and
+#: the ceiling is set lower to compensate.
+MEDIA_PAGE_SIZE = 200
+MEDIA_PAGE_SIZE_MAX = 500
+
+
 @router.get("/media", response_model=list[MediaUploadOut])
-def list_media(session: Session = Depends(get_session)) -> list[MediaUploadOut]:
-    """Every upload `/media/upload` has ever produced: asked for directly
-    (a gallery for note-attached and whiteboard images alike). Newest first,
-    the same convention the Library's own sort defaults to.
+def list_media(
+    response: Response,
+    limit: int = Query(default=MEDIA_PAGE_SIZE, ge=1, le=MEDIA_PAGE_SIZE_MAX),
+    offset: int = Query(default=0, ge=0),
+    session: Session = Depends(get_session),
+) -> list[MediaUploadOut]:
+    """A page of the uploads `/media/upload` has produced: asked for
+    directly (a gallery for note-attached and whiteboard images alike).
+    Newest first, the same convention the Library's own sort defaults to.
+
+    Paged for the reason `GET /entries` is: one response used to be the
+    whole table (300 uploads measured at 117.6 KB, growing with the table),
+    which is a real risk for a local app that is supposed to degrade
+    gracefully rather than stall. `X-Total-Count` is the real size whatever
+    the page, and the id breaks a tie on `created_at` so two uploads made in
+    the same second cannot swap places between pages and hide a row.
     """
-    uploads = session.query(MediaUpload).order_by(MediaUpload.created_at.desc()).all()
+    total = session.scalar(select(func.count(MediaUpload.id))) or 0
+    uploads = (
+        session.query(MediaUpload)
+        .order_by(MediaUpload.created_at.desc(), MediaUpload.id.desc())
+        .limit(limit)
+        .offset(offset)
+        .all()
+    )
+    response.headers["X-Total-Count"] = str(total)
     # One scan for the whole gallery rather than one per file: `usage_map`
     # walks each table once and inverts the result, so this stays a single
     # pass no matter how many uploads there are.

@@ -16,7 +16,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import drafter, vision_ocr
@@ -280,19 +280,47 @@ def list_file_types() -> dict:
     return {"default": filetypes.DEFAULT_FILE_TYPE, "types": filetypes.as_dicts()}
 
 
+#: A page of the document list, not a ceiling on how many documents a
+#: notebook may hold: a caller that wants all of them pages until
+#: `X-Total-Count` is satisfied (`loadDocuments` in documents.js,
+#: `renderLibraryDocuments` in library.js), exactly the way `GET /entries`
+#: is read. 200 because that is the number `GET /conversations` already
+#: caps at, and because every surface built on this response draws far
+#: fewer than that at once: the Documents sidebar shows eight
+#: (`RECENT_DOCS_SHOWN`), the Library's own pager offers 24 or 48. At the
+#: measured row cost (about 400 bytes of summary, never the document's
+#: text) a page is about 78 KB instead of a response that grows with the
+#: table forever.
+DOCUMENTS_PAGE_SIZE = 200
+DOCUMENTS_PAGE_SIZE_MAX = 1000
+
+
 @router.get("")
 def list_documents(
+    response: Response,
     q: str = Query(default="", max_length=200),
+    limit: int = Query(default=DOCUMENTS_PAGE_SIZE, ge=1, le=DOCUMENTS_PAGE_SIZE_MAX),
+    offset: int = Query(default=0, ge=0),
     session: Session = Depends(get_session),
 ) -> list[dict]:
-    """Every document, newest-first, optionally narrowed by `q`.
+    """A page of documents, newest-first, optionally narrowed by `q`.
 
-    No limit even with `q` empty: the Documents tab loads the full list once
-    and filters *titles* client-side (`#library-docs-search`), the same
-    pattern `GET /entries` already uses for notes, a silent cap with no
-    offset made everything past it permanently unreachable. At this app's
-    realistic scale (a single user's own notebook) an unbounded read is the
-    same cost `GET /entries` already pays on every load.
+    **Paged, with an offset, which is the whole point.** This list was
+    genuinely unbounded until now, and carried the reasoning that "an
+    unbounded read is the same cost `GET /entries` already pays on every
+    load". That premise stopped being true when `/entries` was capped: this
+    was mirroring a sibling that had moved. Measured at 300 documents, one
+    response was 300 rows and 116.7 KB and grew with the table with nothing
+    to stop it.
+
+    What the old comment was right about is the failure it was avoiding: a
+    silent cap with *no* offset makes everything past it permanently
+    unreachable. So the cap comes with `limit`, `offset` and an
+    `X-Total-Count` header giving the real size of the current selection
+    (with `q` applied, when `q` is given), and both frontends that need the
+    whole list ask for the next page until they have it. Nothing that could
+    be reached before is unreachable now; only the size of one response is
+    bounded.
 
     `q`, when given, is the gap that client-side filtering can't close on
     its own: `_summary()` never sends document *content* to the browser (a
@@ -306,14 +334,25 @@ def list_documents(
     """
     # Archived documents are kept, but out of the way, reachable via the
     # Library's Shelved filter (routes_library._shelved), not this list.
-    query = select(Document).where(Document.archived_at.is_(None)).order_by(
-        Document.updated_at.desc()
-    )
+    live = Document.archived_at.is_(None)
+    filters = [live]
     term = q.strip()
     if term:
         like = f"%{term}%"
-        query = query.where(Document.title.ilike(like) | Document.content.ilike(like))
+        filters.append(Document.title.ilike(like) | Document.content.ilike(like))
+    # Counted over the same filters as the page below, never over the whole
+    # table: with `q` given, "how many are there" means how many match, or a
+    # caller paging a search would loop past the end of its own results.
+    total = session.scalar(select(func.count(Document.id)).where(*filters)) or 0
+    query = (
+        select(Document)
+        .where(*filters)
+        .order_by(Document.updated_at.desc(), Document.id.desc())
+        .limit(limit)
+        .offset(offset)
+    )
     rows = session.scalars(query)
+    response.headers["X-Total-Count"] = str(total)
     return [_summary(d) for d in rows]
 
 

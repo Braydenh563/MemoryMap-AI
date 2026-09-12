@@ -639,3 +639,66 @@ def test_a_whole_file_reading_still_wins_over_the_page_join(ai_client):
     rows = ai_client.get("/media").json()
     row = next(r for r in rows if r["id"] == upload_id)
     assert row["vision_ocr_text"] == "the whole thing"
+
+
+# --- pagination (INBOX 117: this list used to hand back the whole table,
+# 300 uploads measured at 117.6 KB in one response) ------------------------
+
+
+def _seed_uploads(count):
+    """Rows straight through the model: this is about how the gallery is
+    read, not about the upload path (covered above), and hundreds of real
+    uploads would also write hundreds of files to disk."""
+    from memorymap.core import deps
+    from memorymap.core.database import MediaUpload
+
+    session = deps.get_db().session()
+    session.add_all(
+        MediaUpload(filename=f"seed-{i:04d}.png", original_name=f"photo {i}.png", size_bytes=1)
+        for i in range(count)
+    )
+    session.commit()
+    session.close()
+
+
+def test_media_pages_and_reports_the_real_total(client):
+    _seed_uploads(5)
+
+    first = client.get("/media", params={"limit": 2, "offset": 0})
+    assert first.status_code == 200
+    assert len(first.json()) == 2
+    assert first.headers["X-Total-Count"] == "5"
+
+    second = client.get("/media", params={"limit": 2, "offset": 2})
+    assert len(second.json()) == 2
+
+    last = client.get("/media", params={"limit": 2, "offset": 4})
+    assert len(last.json()) == 1
+    assert last.headers["X-Total-Count"] == "5"
+
+    # `offset` reaches the rest, every row exactly once: the gallery pages
+    # until the header is satisfied, so nothing is left unreachable.
+    paged = [row["id"] for row in first.json() + second.json() + last.json()]
+    assert len(set(paged)) == 5
+    assert set(paged) == {row["id"] for row in client.get("/media", params={"limit": 100}).json()}
+
+
+def test_media_past_the_page_size_is_still_reachable(client):
+    size = routes_files.MEDIA_PAGE_SIZE
+    _seed_uploads(size + 5)
+
+    first = client.get("/media")
+    assert len(first.json()) == size
+    assert first.headers["X-Total-Count"] == str(size + 5)
+
+    rest = client.get("/media", params={"offset": size})
+    assert len(rest.json()) == 5
+    seen = {row["id"] for row in first.json()} | {row["id"] for row in rest.json()}
+    assert len(seen) == size + 5
+
+
+def test_media_limit_is_validated(client):
+    assert client.get("/media", params={"limit": 0}).status_code == 422
+    assert client.get("/media", params={"offset": -1}).status_code == 422
+    over = routes_files.MEDIA_PAGE_SIZE_MAX + 1
+    assert client.get("/media", params={"limit": over}).status_code == 422

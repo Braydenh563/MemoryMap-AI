@@ -200,3 +200,74 @@ def test_magic_add_honours_an_offset_the_model_supplies(ai_client, fake_ollama):
 def test_magic_add_needs_ai_running(ai_client, fake_ollama):
     fake_ollama.running = False
     assert ai_client.post("/reminders/parse", json={"text": "x"}).status_code == 503
+
+
+# --- pagination (INBOX 117: this list used to hand back the whole table,
+# 300 reminders measured at 52.5 KB in one response) -----------------------
+
+
+def test_reminders_page_and_report_the_real_total(client):
+    due = utcnow() + timedelta(days=1)
+    for i in range(5):
+        client.post(
+            "/reminders",
+            json={"text": f"thing {i}", "due_at": (due + timedelta(minutes=i)).isoformat()},
+        )
+
+    first = client.get("/reminders", params={"limit": 2, "offset": 0})
+    assert first.status_code == 200
+    assert len(first.json()) == 2
+    assert first.headers["X-Total-Count"] == "5"
+
+    second = client.get("/reminders", params={"limit": 2, "offset": 2})
+    assert len(second.json()) == 2
+
+    last = client.get("/reminders", params={"limit": 2, "offset": 4})
+    assert len(last.json()) == 1
+    assert last.headers["X-Total-Count"] == "5"
+
+    # Every reminder is reachable exactly once by paging: a cap without a
+    # working offset would make everything past the first page invisible.
+    paged = [r["id"] for r in first.json() + second.json() + last.json()]
+    assert len(set(paged)) == 5
+    assert set(paged) == {r["id"] for r in client.get("/reminders", params={"limit": 100}).json()}
+
+
+def test_reminders_past_the_page_size_are_still_reachable(client):
+    """The page size is a bound on one response, never on how many
+    reminders can exist: `X-Total-Count` says how many there are and
+    `offset` fetches the rest."""
+    from memorymap.api import routes_reminders
+
+    size = routes_reminders.REMINDERS_PAGE_SIZE
+    due = utcnow() + timedelta(days=1)
+    from memorymap.core import deps
+    from memorymap.core.database import Reminder
+
+    # Seeded through the model rather than the endpoint: 200-odd POSTs is a
+    # slow way to say "more rows than one page", and this test is about the
+    # reading, not the writing.
+    session = deps.get_db().session()
+    session.add_all(
+        Reminder(text=f"thing {i}", due_at=due + timedelta(minutes=i)) for i in range(size + 5)
+    )
+    session.commit()
+    session.close()
+
+    first = client.get("/reminders")
+    assert len(first.json()) == size
+    assert first.headers["X-Total-Count"] == str(size + 5)
+
+    rest = client.get("/reminders", params={"offset": size})
+    assert len(rest.json()) == 5
+    seen = {r["id"] for r in first.json()} | {r["id"] for r in rest.json()}
+    assert len(seen) == size + 5
+
+
+def test_reminders_limit_is_validated(client):
+    from memorymap.api import routes_reminders
+
+    assert client.get("/reminders", params={"limit": 0}).status_code == 422
+    assert client.get("/reminders", params={"offset": -1}).status_code == 422
+    over = routes_reminders.REMINDERS_PAGE_SIZE_MAX + 1
+    assert client.get("/reminders", params={"limit": over}).status_code == 422

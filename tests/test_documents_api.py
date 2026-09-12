@@ -38,12 +38,26 @@ def test_documents_are_listed_most_recently_edited_first(client):
     assert titles[0] == "First"
 
 
-def test_documents_past_the_old_200_cap_are_still_reachable(client):
-    """`list_documents` used to `.limit(200)` with no offset: a notebook
-    with more than 200 documents had no way, UI or API, to see the rest."""
-    for i in range(205):
+def test_documents_past_the_page_size_are_still_reachable(client):
+    """`list_documents` once had a `.limit(200)` with **no offset**: a
+    notebook with more than 200 documents had no way, UI or API, to see the
+    rest. The list is paged again (INBOX 117), so this guard stays and asks
+    the question the old cap failed: is everything still reachable? It is,
+    through `offset`, and `X-Total-Count` is how a caller knows to ask."""
+    from memorymap.api import routes_documents
+
+    size = routes_documents.DOCUMENTS_PAGE_SIZE
+    for i in range(size + 5):
         client.post("/documents", json={"title": f"Doc {i}"})
-    assert len(client.get("/documents").json()) == 205
+
+    first = client.get("/documents")
+    assert len(first.json()) == size
+    assert first.headers["X-Total-Count"] == str(size + 5)
+
+    rest = client.get("/documents", params={"offset": size})
+    assert len(rest.json()) == 5
+    seen = {d["id"] for d in first.json()} | {d["id"] for d in rest.json()}
+    assert len(seen) == size + 5
 
 
 def test_documents_search_matches_the_title(client):
@@ -532,3 +546,67 @@ def test_the_file_types_route_is_not_swallowed_by_the_id_route(client):
     for a path parameter typed int, registered the other way round this
     would 422 on every call."""
     assert client.get("/documents/file-types").status_code == 200
+
+
+# --- pagination (INBOX 117: this list used to hand back the whole table,
+# 300 documents measured at 116.7 KB in one response) ----------------------
+
+
+def test_documents_page_and_report_the_real_total(client):
+    for i in range(5):
+        client.post("/documents", json={"title": f"Doc {i}", "content": "words here"})
+
+    first = client.get("/documents", params={"limit": 2, "offset": 0})
+    assert first.status_code == 200
+    assert len(first.json()) == 2
+    assert first.headers["X-Total-Count"] == "5"
+
+    second = client.get("/documents", params={"limit": 2, "offset": 2})
+    assert len(second.json()) == 2
+    assert second.headers["X-Total-Count"] == "5"
+
+    last = client.get("/documents", params={"limit": 2, "offset": 4})
+    assert len(last.json()) == 1
+    assert last.headers["X-Total-Count"] == "5"
+
+    # `offset` reaches the rest: paging through returns every document
+    # exactly once, which is what stops a cap making page two unreachable.
+    paged = [d["id"] for d in first.json() + second.json() + last.json()]
+    assert len(set(paged)) == 5
+    whole = client.get("/documents", params={"limit": 100})
+    assert set(paged) == {d["id"] for d in whole.json()}
+
+
+def test_documents_default_page_is_bounded_but_the_common_case_is_unchanged(client):
+    """Any notebook under the default page size sees exactly what it saw
+    before, and the header reports the true total either way."""
+    from memorymap.api import routes_documents
+
+    for i in range(3):
+        client.post("/documents", json={"title": f"Doc {i}"})
+    response = client.get("/documents")
+    assert len(response.json()) == 3
+    assert response.headers["X-Total-Count"] == "3"
+    assert routes_documents.DOCUMENTS_PAGE_SIZE <= routes_documents.DOCUMENTS_PAGE_SIZE_MAX
+
+
+def test_documents_search_total_counts_the_matches_not_the_table(client):
+    """With `q` given, `X-Total-Count` has to be the size of the *search*:
+    a caller paging a search against the whole table's count would loop
+    past the end of its own results."""
+    client.post("/documents", json={"title": "Sourdough notes", "content": "flour"})
+    client.post("/documents", json={"title": "Sourdough again", "content": "water"})
+    client.post("/documents", json={"title": "Tax return", "content": "receipts"})
+
+    response = client.get("/documents", params={"q": "sourdough", "limit": 1})
+    assert len(response.json()) == 1
+    assert response.headers["X-Total-Count"] == "2"
+
+
+def test_documents_limit_is_validated(client):
+    from memorymap.api import routes_documents
+
+    assert client.get("/documents", params={"limit": 0}).status_code == 422
+    assert client.get("/documents", params={"offset": -1}).status_code == 422
+    over = routes_documents.DOCUMENTS_PAGE_SIZE_MAX + 1
+    assert client.get("/documents", params={"limit": over}).status_code == 422

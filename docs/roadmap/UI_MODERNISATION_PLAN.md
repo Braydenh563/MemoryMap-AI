@@ -67,6 +67,22 @@ one of them and is judged by a count, not by looking at a screenshot.
   "AI sparkle" anywhere in this plan. The glass stays where it reads as
   material (the shell, a floating panel) and goes where it reads as effect.
 
+## Decisions made
+
+Standing order 3: a decision recorded here is not re-opened. A missing one
+becomes an INBOX entry with a one-line recommendation, which is then taken.
+
+- **A picker that adds to a list is an adder, not a `<select>`** (the owner,
+  2026-09-12, on the capture form's "Add to document" box, INBOX 116). A
+  `<select>` is the right control for choosing *a* value in a form: it shows
+  what it holds. Where the answer is a set rather than a value, the picked
+  items are chips and the control that adds one is a button that opens the
+  app's own menu (`labelledMenu`, DESIGN.md's recipe index), so the control
+  never has to lie about holding a value it cannot show. The failure this
+  replaces is exactly that lie: the old handler wrote `value = ""` after
+  every pick, so the box snapped back to "None" and read as broken.
+  Applies wherever the same shape appears next, not only to this row.
+
 ## Phase 0 — tooling and acceptance gates (½ session)
 
 1. Add `tests/test_ui_signatures.py`: a static lint that counts distinct

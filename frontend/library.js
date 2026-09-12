@@ -6625,14 +6625,27 @@ function filterLibraryImagesGallery() {
     const facts = document.createElement("span");
     facts.className = "library-image-facts";
     const syncFacts = () => {
-      const parts = [usageFact];
-      //: Either reader having found something is one fact about the picture,
-      //: not two: which of them read it is a question for the open fold, and
-      //: the summary line has room for about four words.
-      if ((image.vision_ocr_text || "").trim() || (image.ocr_text || "").trim()) {
-        parts.push("text found");
-      }
-      facts.textContent = parts.join(" · ");
+      //: **Where it is used in words, whether it has text in it as a mark.**
+      //: Measured at 1440 on the seeded gallery: a tile is about 176px wide
+      //: and this line has roughly 110px of it, which is twenty characters.
+      //: "Used in 1 place · text found" ellipsed at "· te", so the second
+      //: fact was costing the first one its ending and delivering nothing.
+      //:
+      //: A glyph is not a label and this app says so repeatedly, but the two
+      //: facts are not the same kind of thing: where a picture is used is a
+      //: number worth reading, and whether a reader found text in it is a
+      //: state, which is what a marker is for. It leads the line so the
+      //: words ellipse under it rather than it under the words, and the
+      //: summary's own `aria-label` says it in words for a screen reader.
+      const hasText = Boolean(
+        (image.vision_ocr_text || "").trim() || (image.ocr_text || "").trim()
+      );
+      setLabel(facts, hasText ? `ph:text-aa ${usageFact}` : usageFact);
+      facts.querySelector("i")?.setAttribute("title", "There is text in this picture");
+      readingSummary.setAttribute(
+        "aria-label",
+        hasText ? `${usageFact}, and there is text in this picture` : usageFact
+      );
     };
     syncFacts();
     //: Both readings are editable in the fold below, so this line has to move

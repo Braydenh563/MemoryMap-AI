@@ -2615,6 +2615,58 @@ header#top-bar.tabs-wrapped #tab-bar {
   overflow: hidden;
 }
 
+/* **A card with nothing in it is short, not padded** (INBOX 115: "the bottom
+   of the image cards in the library images subsaection needs a desperate
+   redesign"). Measured at 1440x900 before this, on three cards seeded full,
+   half and empty: all three stood 371.8px tall, because the grid stretches
+   every tile to its row's height while the picture was pinned at 9rem. The
+   emptiest card therefore carried about 73px of nothing under its last
+   label, and the fullest one still fit: the height was never the content's.
+
+   The grid still wants equal heights, a gallery whose cards do not line up
+   is a worse answer, so the slack goes to the one part of a picture card
+   that is worth more of it. The tile is a column, the frame is the only
+   child that grows, and the picture fills whatever the frame ends up being.
+   A card with a long description keeps the 9rem floor; the card beside it
+   with none gets a taller photograph instead of a taller hole.
+
+   `:has(> .library-image-frame)` rather than a grid class, because the frame
+   is exactly what makes a tile a picture card: the Files rows and the
+   "Attach from Library" picker (app.js) build the same tile without one, and
+   both keep the layouts they already have. */
+.library-image-tile:has(> .library-image-frame) {
+  display: flex;
+  flex-direction: column;
+}
+
+.library-image-tile > .library-image-frame {
+  flex: 1 1 auto;
+  min-height: 9rem;
+  /* **A ceiling, because one open card must not inflate the row.** Measured:
+     with every fold open the row stood 660px and the two cards whose folds
+     held nothing grew 583px pictures, which is a portrait poster of a
+     thumbnail. The cap is about one and a quarter tile widths, above the
+     67px the full-to-empty variance actually needs (144px against 211.2px on
+     the seeded gallery) and well under a row driven by an open neighbour.
+     Past it the leftover is a gap under the card's last line, which is
+     exactly what every card carried before this change; the difference is
+     that it now takes one opened card in the row to produce it instead of
+     nothing at all. */
+  max-height: 16rem;
+}
+
+/* Filling a frame whose height its siblings decide. `inset: 0` against the
+   frame's own positioning context resolves at whatever height flex ends up
+   giving it; `height: 100%` would need that height to be definite before
+   layout, which a growing flex item's is not. */
+.library-image-frame > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 /* A scrim, not a bar: a solid strip would be a second surface on the card,
    and the picture behind the name is worth keeping. Built from --scrim, the
    token the command palette's dim already uses, mixed towards black so it
@@ -2711,6 +2763,54 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .library-image-reading > summary:hover {
   color: var(--ink);
+}
+
+/* **The summary line is the answer, not the label.** It used to read "Text in
+   this image", which is a name for what is behind the fold and tells you
+   nothing about this picture; on a wall of twenty cards that is the same
+   grey row twenty times. It now carries the two facts worth knowing before
+   you open anything: how many places use this file, and whether there is any
+   text in it. One line, ellipsed rather than wrapped, so a card with four
+   uses is the same height as a card with none. */
+.library-image-facts {
+  display: flex;
+  align-items: center;
+  /* The line is the flexible part of the summary row and the caret is not:
+     without `min-width: 0` a flex item refuses to shrink below its own text,
+     so the row would push its own end past the card instead of ellipsing. */
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The words ellipse; the "there is text in this one" marker before them does
+   not, which is why it leads the line rather than trailing it. */
+.library-image-facts > .ph-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The two blocks that moved inside the fold were written as sections of the
+   card's outside: a rule above the usage chips, an inset on the byline. In
+   here the fold's own padding and gap already separate them, and a hairline
+   across a disclosure body reads as a second panel. */
+.library-image-reading-body > .library-image-usage {
+  margin: 0;
+  padding: 0;
+  border-top: 0;
+}
+
+.library-image-reading-body > .library-image-provenance {
+  padding: 0;
+}
+
+/* A transcription has no length limit and a grid row is as tall as its
+   tallest card, so one opened reading of a dense page would otherwise set the
+   height of every card beside it. It scrolls at about a card's worth instead.
+   Images only: a Files row is full width and stands on its own. */
+.library-image-card-fold > .library-image-reading-body {
+  max-height: 18rem;
+  overflow-y: auto;
 }
 
 .library-image-reading > summary::-webkit-details-marker {
@@ -2882,7 +2982,6 @@ header#top-bar.tabs-wrapped #tab-bar {
    down a card read as its three actions). It sits at the paragraph's own
    left edge, so it lines up with the text it belongs to rather than with the
    card. */
-.library-image-caption-more,
 .library-image-ocr-more,
 .library-image-vision-ocr-more {
   align-self: flex-start;

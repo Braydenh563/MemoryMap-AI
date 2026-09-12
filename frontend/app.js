@@ -9975,29 +9975,7 @@ const captureDocuments = new Set();
 let captureStagedFiles = [];
 
 async function loadCaptureDocuments() {
-  const select = $("entry-document");
   const documents = await apiJson("/documents").catch(() => []);
-  const chosen = select.value;
-  select.replaceChildren();
-  const none = document.createElement("option");
-  none.value = "";
-  none.textContent = documents.length ? "None" : "No documents yet";
-  select.appendChild(none);
-  for (const doc of documents) {
-    const option = document.createElement("option");
-    option.value = String(doc.id);
-    option.textContent = doc.title;
-    select.appendChild(option);
-  }
-  // Asked for: "the add to document should have the option for a new document
-  // as well". Wanting to file a note under something that does not exist yet
-  // is the normal case at the start of a project, and leaving to make the
-  // document loses the note you were in the middle of writing.
-  const fresh = document.createElement("option");
-  fresh.value = NEW_DOCUMENT;
-  fresh.textContent = "＋ New document…";
-  select.appendChild(fresh);
-  select.value = chosen;
   renderCaptureDocuments(documents);
 }
 
@@ -10023,9 +10001,13 @@ async function createDocumentNamed(suggestion = "") {
 }
 
 let captureDocumentTitles = new Map();
+// The last list the server gave us, so removing a chip can put that document
+// back in the adder's menu without a second round trip.
+let captureDocumentList = [];
 
 function renderCaptureDocuments(documents) {
   if (documents) {
+    captureDocumentList = documents;
     captureDocumentTitles = new Map(documents.map((d) => [String(d.id), d.title]));
   }
   const box = $("entry-document-chips");
@@ -10038,6 +10020,56 @@ function renderCaptureDocuments(documents) {
     chipEl.title = "Don't attach this note to that document after all";
     box.appendChild(chipEl);
   }
+  renderCaptureDocumentAdder();
+}
+
+//: **The picked documents are chips; the control that adds one is an adder.**
+//:
+//: Reported by the owner (INBOX 116) as "the add to document combobox not
+//: changing", and it was not a bug in the handler: the handler wrote
+//: `event.target.value = ""` on every pick *on purpose*, because a note can
+//: go onto several documents and the select could only ever show one. So the
+//: box snapped back to "None" the instant you chose something and the choice
+//: appeared as a chip beside it. A select that refuses to hold the value you
+//: just gave it reads as broken however correct its reasons are.
+//:
+//: The decision (recorded in UI_MODERNISATION_PLAN, "Decisions made"): a
+//: thing you pick and it *acts* is a menu, and the recipe for a menu behind a
+//: worded button is `labelledMenu` (DESIGN.md's recipe index). That is also
+//: the shape "Attach" and "From library" already have on this same row, so
+//: the three now read as one family of adders rather than one dropdown and
+//: two buttons.
+//:
+//: Rebuilt rather than mutated on every render: the menu's contents depend on
+//: which documents are already chips, and a five-item list is cheaper to
+//: rebuild than to diff.
+function renderCaptureDocumentAdder() {
+  const slot = $("entry-document-adder");
+  if (!slot) return;
+  const items = [];
+  for (const doc of captureDocumentList) {
+    if (captureDocuments.has(doc.id)) continue;
+    items.push(
+      makeMenuItem(`ph:file-text ${doc.title}`, `Attach this note to “${doc.title}”`, () => {
+        captureDocuments.add(doc.id);
+        renderCaptureDocuments();
+      }),
+    );
+  }
+  // Asked for: "the add to document should have the option for a new document
+  // as well". Wanting to file a note under something that does not exist yet
+  // is the normal case at the start of a project, and leaving to make the
+  // document loses the note you were in the middle of writing.
+  items.push(
+    makeMenuItem("ph:plus New document…", "Start a document and attach this note to it", async () => {
+      const doc = await createDocumentNamed($("entry-content").value.trim().slice(0, 60));
+      if (!doc) return;
+      captureDocuments.add(doc.id);
+      await loadCaptureDocuments(); // so the new one is in the list to remove
+    }),
+  );
+  const adder = labelledMenu("ph:file-plus Add to document", items, "Add this note to a document", "ghost");
+  slot.replaceChildren(adder);
 }
 
 // The other direction, asked for straight after the capture-time picker:
@@ -19108,7 +19140,13 @@ function makeMenuItem(label, title, run) {
 // A `<select>` is the right control for *choosing a value in a form*; an
 // action that happens the moment you pick it is a menu, and now uses the
 // app's own one.
-function labelledMenu(label, items, ariaLabel) {
+//
+// `openerClass` because the opener has to belong to the row it stands in: on
+// a `.small` toolbar it is a `.small` button, and on the capture panel's
+// 40px attach row it is a plain `.ghost` one beside "Attach" and "From
+// library". Defaulted to what every existing caller already got, so adding
+// the parameter changed nothing that was already on screen.
+function labelledMenu(label, items, ariaLabel, openerClass = "ghost small") {
   const wrap = document.createElement("span");
   wrap.className = "menu-wrap";
 
@@ -19118,7 +19156,7 @@ function labelledMenu(label, items, ariaLabel) {
 
   const opener = document.createElement("button");
   opener.type = "button";
-  opener.className = "ghost small";
+  opener.className = openerClass;
   setLabel(opener, label);
   opener.title = ariaLabel;
   opener.setAttribute("aria-label", ariaLabel);
@@ -24941,21 +24979,6 @@ let timelineSearchDebounceTimeout;
 $("timeline-search").addEventListener("input", () => {
   clearTimeout(timelineSearchDebounceTimeout);
   timelineSearchDebounceTimeout = setTimeout(applyTimelineSearch, 150);
-});
-
-$("entry-document").addEventListener("change", async (event) => {
-  const value = event.target.value;
-  event.target.value = "";
-  if (value === NEW_DOCUMENT) {
-    const doc = await createDocumentNamed($("entry-content").value.trim().slice(0, 60));
-    if (!doc) return;
-    captureDocuments.add(doc.id);
-    await loadCaptureDocuments(); // so the new one is in the list to remove
-    return;
-  }
-  const id = Number(value);
-  if (id) captureDocuments.add(id);
-  renderCaptureDocuments();
 });
 
 // Layout picker (§9). Stored, because which shape suits a notebook is a

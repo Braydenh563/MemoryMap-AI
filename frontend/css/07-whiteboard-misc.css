@@ -4229,8 +4229,17 @@ summary:not(.icon-only):not(.icon-button) {
   position: absolute;
   z-index: 6;
   top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  /* Centred by an auto margin between two anchored edges, not by `left: 50%`
+     and a translate: an absolutely positioned box with only `left` set gets
+     shrink-to-fit sized against the space *remaining to its right*, so the
+     half-width version measured 182px inside a 364px board at phone width and
+     wrapped one sentence over five lines. Anchoring both edges gives the box
+     the whole width to size against, and `max-width` then decides. */
+  left: 0;
+  right: 0;
+  width: fit-content;
+  margin-inline: auto;
+  transform: translateY(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;

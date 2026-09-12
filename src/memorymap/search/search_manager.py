@@ -218,9 +218,16 @@ def _corrected_terms(session: Session, terms: list[str]) -> list[str]:
 
 #: The stopword list and the term splitter both moved to `search/query.py`,
 #: which is the floor both searches share (see its own comment on the import
-#: cycle that made the move necessary). Kept here under the name eighty lines
-#: of this file and `ai/grounding.py` already use.
-_STOPWORDS = query_understanding.STOPWORDS
+#: cycle that made the move necessary).
+#:
+#: A `_STOPWORDS = query_understanding.STOPWORDS` alias stood here for one
+#: commit, kept "under the name eighty lines of this file and
+#: `ai/grounding.py` already use". That was true before the move and false
+#: after it: the same commit rewrote every one of those call sites to go
+#: through `search_terms`, so the alias was read by nothing. CodeQL said so
+#: (alert 402, unused global) and a grep agreed, which is the whole value of
+#: that check: a name kept for compatibility is worth keeping only while
+#: something is compatible with it.
 
 
 def _meaningful_terms(query: str) -> list[str]:

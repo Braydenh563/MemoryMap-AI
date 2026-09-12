@@ -2765,26 +2765,23 @@ header#top-bar.tabs-wrapped #tab-bar {
   color: var(--ink);
 }
 
-/* **The summary line is the answer, not the label.** It used to read "Text in
-   this image", which is a name for what is behind the fold and tells you
-   nothing about this picture; on a wall of twenty cards that is the same
-   grey row twenty times. It now carries the two facts worth knowing before
-   you open anything: how many places use this file, and whether there is any
-   text in it. One line, ellipsed rather than wrapped, so a card with four
-   uses is the same height as a card with none. */
-.library-image-facts {
-  display: flex;
-  align-items: center;
-  /* The line is the flexible part of the summary row and the caret is not:
-     without `min-width: 0` a flex item refuses to shrink below its own text,
-     so the row would push its own end past the card instead of ellipsing. */
-  flex: 1 1 auto;
-  min-width: 0;
-}
+/* **The count is a line you read, not a control you press** (INBOX 118: the
+   fold "sets two unrelated facts in one control"). Where a picture is used
+   and whether anything has read it were one summary line for one revision,
+   `.library-image-facts`, whose rules stood here; the two facts have two
+   shapes now, and this is the first of them. Nothing opens, nothing toggles,
+   so there is no ground, no border and no caret.
 
-/* The words ellipse; the "there is text in this one" marker before them does
-   not, which is why it leads the line rather than trailing it. */
-.library-image-facts > .ph-text {
+   Measured before this rule existed, at 1440 dark on the seeded row: the
+   paragraph rendered at 16px with 16px of user-agent margin above and below
+   it, against 12px for the description it sits under and 12px for the fold
+   under that. The least important line on the card was its largest type and
+   cost 56px of the card's height. The utilities on the element
+   (`muted text-xs`) set the type and the colour; this kills the margin and
+   holds it to one line, so a card used in nine places is the same height as
+   one used in two. */
+.library-image-uses {
+  margin: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -2945,21 +2942,31 @@ header#top-bar.tabs-wrapped #tab-bar {
   line-height: 1.6;
 }
 
-/* Three, since the "Description" label above it went (INBOX 56): the
-   paragraph is the card's one piece of prose and two lines of it was a
-   preview of a preview.
+/* **Two lines, and the same two on every card** (INBOX 118: "no two cards are
+   the same height and their bottoms do not align"). It was three for one
+   revision, on the reading that the paragraph is the card's one piece of
+   prose; three is what a card *can* hold rather than what a gallery wants,
+   and the cost is paid by the card beside it. Measured at 1440 on the six
+   seeded cards, the descriptions ran 3, 3, 3, 2, 1 and 0 lines: the tallest
+   foot stood 176.1px against 9.6px on the emptiest, and the grid pays that
+   difference out as a hole under the short cards (54.5px on the emptiest,
+   because the picture that absorbs the slack has a ceiling). Two lines is a
+   caption, the shape the rest of this card is built as, and the whole
+   description is one hover away in the element's own title, one click away
+   in the editor it opens, and in the lightbox.
 
    **And no bottom padding while it is clamped.** `overflow: hidden` clips at
    the *padding* box, not the content box, so the paragraph's own 8px of
-   bottom padding showed 8px of the fourth line under the ellipsis: a sliced
+   bottom padding showed 8px of the next line under the ellipsis: a sliced
    strip of letters, which is the "cut off half way through the letters"
    report this rule's neighbour already records, arriving by a second route.
-   Measured: box 65.6px against 3 x 19.2 = 57.6px of text. The gap below is
+   Measured when the clamp was three lines: box 65.6px against 3 x 19.2 =
+   57.6px of text, and the same 8px sits under two. The gap below is
    the More button's own margin when there is one, and there always is one
    when this class is present. */
 .library-image-caption.library-image-caption-clamped {
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   padding-bottom: 0;

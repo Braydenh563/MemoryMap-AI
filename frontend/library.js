@@ -6710,7 +6710,11 @@ function filterLibraryImagesGallery() {
     //: the difference between a short card and a padded one: "Not used yet"
     //: was a permanent row on the emptiest card in the gallery.
     const uses = document.createElement("p");
-    uses.className = "library-image-uses muted";
+    //: `text-xs`, because a fact about a picture is not the picture's words:
+    //: unstyled, this paragraph rendered at 16px with 16px of user-agent
+    //: margin either side of it, over a 12px description. It is the smallest
+    //: type on the card now, which is the rank it holds.
+    uses.className = "library-image-uses muted text-xs";
     uses.textContent = usageFact;
     uses.title =
       links.length

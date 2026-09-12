@@ -1944,3 +1944,30 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
     display: none;
   }
 }
+
+/* **The fold on a picture card is a chip, not a bar** (INBOX 118: the
+   full-width tinted disclosure "is the heaviest element on the card").
+
+   The decision it is bent around is not being remade: a `<summary>` rests
+   with a ground and a hairline (`summary:not(.icon-only):not(.icon-button)`,
+   07-whiteboard-misc.css) because "a disclosure that looks like a line of
+   text is a control nobody finds", and that holds here too. What the owner
+   is looking at is not the ground, it is the *span* of it. Measured at 1440
+   dark on a 180.3px tile: the bar ran 159.1px by 32.8px, so a control
+   holding one folded-away reading covered the full width of the card at the
+   weight of a filled button, directly under a 12px description, and it was
+   the first thing the eye landed on in a gallery of twenty.
+
+   Sized to its words instead, and one step down the type scale so it sits
+   below the prose it belongs to rather than over it. `max-width: 100%` and
+   no `nowrap`: past the card's width the label wraps rather than clipping,
+   which is what a 390px card does not need and a narrow tile might.
+
+   (0,3,1) against that rule's (0,2,1), and later in the cascade, so it wins
+   on specificity rather than on file order alone. Images only: the fold on a
+   Files row heads a full-width row and stays a full-width bar. */
+.library-image-card-fold > summary:not(.icon-only):not(.icon-button) {
+  width: fit-content;
+  max-width: 100%;
+  font-size: var(--text-xs);
+}

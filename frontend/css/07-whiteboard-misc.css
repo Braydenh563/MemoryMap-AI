@@ -2756,6 +2756,19 @@ dialog::backdrop {
   margin: 0;
 }
 
+/* **And the text fields on the same rows.** The pair above was written for a
+   row whose only fields were a select and some buttons, so when the tags field
+   became a labelled row of its own it kept the global form-field height:
+   measured on :8895, 1440x900 dark, `#entry-tags` at 41.6px on a row whose
+   every other control is 40. A direct-child selector rather than a descendant
+   one, for the reason the `:not(.menu-item)` above exists: a search box inside
+   a popup that opens from this row is not one of this row's controls. */
+.capture-field-row > input {
+  height: var(--control-h);
+  padding-block: 0;
+  margin: 0;
+}
+
 /* **The Notes panels run on two heights, and only two.**
 
    Measured on the three sub-tabs before this, at 1440x900 dark: twenty

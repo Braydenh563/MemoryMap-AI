@@ -3470,8 +3470,30 @@ span > .chip {
 }
 
 
+/* `.card > .row.space-between > .row` (01-forms-settings.css) sets
+   `flex: 0 0 auto` on any inner row of a card head, which is right for a
+   card head and wrong for this dock: the dock has its own two-line layout
+   below, and "never shrink" turns the second line into an overflow. That
+   selector is four classes deep and beat the two-class one this used to be,
+   so this names the same shape one class further. Written this way rather
+   than by narrowing the generic rule, because that rule reaches every card
+   head in the app and the last time a generic selector was edited to fix
+   one surface it took three others with it (the `:not(dialog)` incident,
+   HISTORY). */
+.card > .row.space-between > .row.doc-actions,
 .doc-dock > .doc-actions {
   flex: 1 1 100%;
+  /* **A flex item does not shrink past its own content unless it is told
+     it may.** `min-width` defaults to `auto` on a flex item, which is its
+     min-content width, so this row refused to go below the width its
+     buttons wanted on one line and simply overflowed the dock instead: at
+     390px it measured 450.1px inside a dock of 278px, and `#doc-ai` sat at
+     x 388.8 to 481.5, entirely off a 390px screen. `flex-wrap: wrap` on
+     the row could not save it, because a row is only asked to wrap once it
+     has been given a width, and this one was never made narrow enough to
+     ask. Found by `errors.js` once it started opening the Documents tab at
+     all (INBOX 121); every width above 390 was already fine. */
+  min-width: 0;
 }
 
 /* Status facts as one group, so a narrow window breaks the bar between the

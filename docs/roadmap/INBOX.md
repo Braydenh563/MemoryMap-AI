@@ -45,30 +45,20 @@ never lost to the smaller stuff.
     an agent at the time of writing, so this is recorded rather than fixed
     under them. 1440, 1024 and 820 are clean; only 390 fails.
 
-120. **Sixth drop continued, verbatim (the owner), the Ask sub-tab.**
-    "the try asking and ask again suggestions are nearly identical" (the
-    screenshot has "Try asking:" with four chips and "Ask again:" with five
-    directly under it, and two of the five repeat the row above word for
-    word: "What have I saved about hobbies?" and "What have I saved about
-    courses & study?"). The two rows answer different questions, what you
-    could ask and what you already asked, so neither should show what the
-    other is showing. Sent to the Notes sub-tabs agent with the rule: the
-    history row wins a duplicate because it is a fact, and the generated
-    row fills the gap with its next candidate.
-
-119. **Sixth drop, 2026-09-12 evening, verbatim (the owner), two messages
-    with a screenshot each, both in the Capture form.**
-    - "when I press preview in the capture a thought formatting toolbar and
-      possibly other places with the toolbar as well, the top of the line
-      numbers can still be hidden and is just a little dot above the text
-      panel" (the screenshot shows a scrollbar-like strip, then a small
-      clipped box a few pixels tall sitting above the preview panel, then
-      the panel reading "Nothing to preview yet.").
-    - "the let the ai decide button popup is a massive gap above the
-      picker" (the screenshot shows the File under picker's menu opened
-      near the top of the form, its bottom about 127px above the opener it
-      belongs to, covering the formatting toolbar and the note body).
-    Both sent to the agent already rebuilding the three Notes sub-tabs.
+    **Fixed.** The cause was not the wrapping at all: `.card > .row.space-
+    between > .row` in `01-forms-settings.css` sets `flex: 0 0 auto` on any
+    inner row of a card head, which is right for a card head and wrong for a
+    dock with its own two-line layout, and at four classes deep it beat the
+    dock's own two-class rule. "Never shrink" is what made the second line
+    overflow instead of wrapping. The dock's rule now names the same shape
+    one class further rather than the generic rule being narrowed, because
+    that rule reaches every card head in the app and the last generic
+    selector edited to fix one surface took three others with it. Measured
+    after: `#doc-ai` x 388.8 to 481.5 (off a 390px screen) became x 81.8 to
+    174.5; `.doc-actions` 450.1 to 278.4px; and the whole column stopped
+    overflowing, `.doc-main` scrollWidth 502 to 346 and `.doc-layout` 519 to
+    364. `errors.js` at 1440, 1024, 820 and 390: 0 errors and 0 layout
+    findings at every width.
 
 117. **Found by the orchestrator's hole-poking pass, 2026-09-12 evening,
     not an owner report.** Three list endpoints hand back the whole table.
@@ -91,37 +81,6 @@ never lost to the smaller stuff.
     filtering a full list client-side. Needs `documents.js` and `library.js`,
     both held by agents at the time of writing, so it is queued behind them
     rather than done piecemeal.
-
-116. **Fourth drop, 2026-09-12 afternoon, verbatim (the owner), one
-    message with a screenshot of the collapsed chat sidebar.**
-    - "the chat sidebar expand button is right up against the right edge of
-      the collapsed sidebar and not in the middle. or doresnt have a gap."
-      (the screenshot shows the rounded collapsed rail with the expand
-      button's right edge flush against the rail's own right border).
-      **Fixed `2d280bc`**: measured 6px inside the left border and 4px
-      inside the right, because the centring halved the rail's 48px column
-      while the button is laid out in its 46px padding box; now 6/6 on all
-      three rails.
-    - "and fix the placement of the '?' tooltip buttons in the settings
-      pages, maybe align them to the right with a gap..." **Fixed
-      `2d280bc`**: the marks sat at 131.1, 408, 114.1 and 241.3px from one
-      left edge, one position per heading length, while the switch rows in
-      the same card already right-aligned theirs; now 533.6px for every
-      heading row, scoped to `#settings-modal`. The one head inside a
-      `<summary>` (`#sampling-box`) ends 28px short of the column because
-      its row sits inside the summary's own padding: noted, not chased.
-    - Second message, with a screenshot of the capture form's "Add to
-      document" row (a `None` select beside a chip reading "Test MD
-      Rendering Document" with its own remove cross): "fix the add to
-      document combobox not changing. actually redesign and give each of
-      the capture, write with ai, and ask tabs a new and improved look."
-      Root cause of the first half, read at `frontend/app.js` line 24941:
-      the `#entry-document` change handler does `event.target.value = ""`
-      on every pick, so the select snaps back to "None" by design and the
-      document becomes a chip beside it. A single select that resets on
-      every choice reads as broken; it is a multi-picker wearing a select.
-      Goes to the redesign brief with the three tabs (an Opus agent, once
-      the agent already in the capture form reports), not fixed piecemeal.
 
 115. **Third drop, 2026-09-12 afternoon, verbatim (the owner), three
     messages.**

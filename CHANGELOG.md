@@ -187,6 +187,42 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- On a phone, the Documents editor's "Ask AI" button was entirely off the
+  side of the screen and the whole column scrolled sideways. A rule meant
+  for card heads told the dock's action row never to shrink, so it
+  overflowed instead of wrapping.
+
+- The line numbers go away with the box they number. Turning on line numbers
+  and then pressing Preview, in the capture box or in a note's edit form, left
+  the numbers column behind as a small tinted box floating above the rendered
+  panel, because the column is the writing box's neighbour rather than part of
+  it and nothing hid the pair together.
+
+- A dropdown that opens above its button no longer floats away from it. A menu
+  taller than the room under its opener was measured at the height it wanted,
+  placed by that height, and then drawn shorter by the stylesheet's own limit,
+  so the gap between the two was the difference: on a notebook with nine
+  categories, the capture form's "File under" list opened 127px above the
+  button it belongs to. It now shows all of itself, ending 4px above its
+  opener.
+
+- The Ask tab's two rows of suggestions stop repeating each other. "Try
+  asking" is generated from your own categories and "Ask again" is what you
+  have actually asked, and neither knew about the other, so a suggestion you
+  clicked once appeared in both rows from then on. What you have asked wins,
+  and the generated row fills the gap with its next suggestion.
+
+- Write with AI is two of the same column. The two writing boxes were
+  different heights for no reason, the left column ended with an empty strip
+  under it while the draft beside it ran on, the revision instruction sat
+  between two buttons that do not read it, and the row under the draft mixed
+  a text field into a line of three buttons of three different weights. Both
+  columns are now a label, a box, one optional field and one line of actions,
+  and the boxes are the same size and end on the same line.
+
+- Every control on the Capture form is one of two heights, and the Ask card's
+  blocks sit on one step rather than four.
+
 - A generated or imported mind map replays with its nodes on it. Both
   routes recorded one event for the whole board whose payload held a node
   count rather than the nodes, so rebuilding one from its history gave an

@@ -374,27 +374,16 @@ second database. Five moves, in dependency order.
 
 ### B1 The event log: every change is a fact, the tables are views
 
-Today every write mutates rows in place; history is lost, undo is per
-feature, sync is impossible and "what did the AI change" cannot be
-answered. Move: an append-only `events` table (`id, ts, actor, kind,
-entity, payload_json, parent_id`), written by every manager method in the
-same transaction as the row change (one helper, `record(kind, entity,
-payload)`). Actors: `user`, `ai:<skill or tool>`, `system:<job>`. From it:
-
-- **Version history** for every note, document, board, reminder: a
-  "History" sheet listing events with restore.
-- **Global undo** of any AI action ("undo auto-filing", "undo tag cleanup")
-  by replaying the inverse.
-- **The audit trail** behind "why did this go here" and the privacy
-  receipt.
-- **Sync** (B6) becomes log shipping.
-- **Activity** on the Dashboard and Timeline becomes a query, not a scan.
-
-Brief: `src/memorymap/core/events.py`, Alembic migration, `record()` in
-`EntryManager`, `WhiteboardManager`, reminders, tags, settings; `/events`
-with cursor pagination; `tests/test_events.py` proving every manager write
-records exactly one event and that replaying a note's events rebuilds it.
-Gate: 100% of manager writes covered (a test enumerates public methods).
+**Built.** Moved to HISTORY.md, "From WORLD_CLASS_PLAN.md B1 and
+SESSION_BRIEFS Brief 7: the event log". One table rather than two:
+`AuditLog` gained `actor` and `payload`, `core/events.py` is the only
+writer and holds `replay`, every public write in `entry/manager.py`
+records exactly one event with whole-field values, a purge is one event
+with the id list, and `tests/test_events.py` (the spec, formerly strict
+xfail throughout) passes with no markers left. History, restore by event
+and `GET /events?since=` are live; what the log does not yet feed (sync,
+global undo of an AI action, the Timeline strip) is in
+`docs/roadmap/agent-remaining/brief7-event-log.md`.
 
 ### B2 The job runtime: durable, resumable, observable
 
@@ -594,7 +583,7 @@ redesign, tooltips/copy) have merged. Each row is one session or less.
 | 2 | §7 checklist, first ten items, measured | Sonnet | audit scripts |
 | 3 | D13 Settings two-pane | Sonnet | prose metric 0 |
 | 4 | D2 Notes: `[[` autocomplete + connections rail | Opus | 150ms, rail on every note |
-| 5 | B1 event log | Opus | 100% writes covered |
+| 5 | B1 event log | Opus | built (HISTORY.md) |
 | 6 | B2 job runtime | Opus | resume after kill |
 | 7 | D3 Chat per-claim citations + composer | Opus | 95% cited |
 | 8 | B3 retrieval engine with explanations | Opus | perf gates |
@@ -678,7 +667,7 @@ line. Order matters: each row leaves the next one cheaper.
 | Tue | D13 Settings two-pane, rest of the '?' popovers (54 paragraphs left, `scratchpad/help-audit/count.py`) | Sonnet | count.py TOTAL 0 |
 | Wed | TIMELINE_PLAN.md Phases 1 to 2 (the measured baseline is in `scratchpad/ui-sweeps/timeline-audit*.js`) | Opus | timeline.js sweep |
 | Wed | F2 pagination on all 25 lists + F6 scheduler | Opus | route test; idle ≤ 2/min |
-| Thu | B1 event log | Opus | every manager write records one event |
+| Thu | B1 event log | Opus | built (HISTORY.md) |
 | Thu | D2 `[[` autocomplete + connections rail | Opus | 150ms; rail on every note |
 | Fri | B2 job runtime + F7 | Opus | resume after kill |
 | Fri | D4 Library one card recipe + D1 widget frame | Sonnet | uniform heights; ≤ 8 recipes |

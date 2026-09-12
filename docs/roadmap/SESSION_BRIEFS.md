@@ -347,50 +347,13 @@ one's.
 
 ## Brief 7 (Thu, Opus): the event log (B1)
 
-**Goal.** Every write through the managers records one event in the same
-transaction; a note's history can be listed and a version restored.
-
-**Done when.** `tests/test_events.py` proves: every public write function
-in `src/memorymap/entry/manager.py` and `routes_whiteboard.py`'s manager
-records exactly one event; replaying a note's events rebuilds its current
-content and tags; `/entries/{id}/history` lists them; `POST
-/entries/{id}/restore/{event_id}` restores and records a `restored`
-event; the UI shows a History sheet from the note's "..." menu.
-
-**Decisions made.** Do NOT add a new table: `AuditLog` (`database.py`
-~1189: action, entity_type, entity_id, detail, created_at) already exists
-and `manager.log_action` (line 45) already writes it from one call site.
-Extend it with two columns via the existing ALTER-at-startup path
-(`database.py` ~1742): `actor` (`user`, `ai:<tool or skill>`,
-`system:<job>`) and `payload` (JSON, the fields that changed, before and
-after). `EntryRevision` (line ~742) keeps working and becomes a view over
-`payload` for content changes; do not delete it this session.
-"Rebuild by replay" means applying `payload.after` in order, which is why
-`payload` carries whole-field values, not diffs.
-
-**Steps.**
-1. Test file first, with the enumeration test: it imports `manager`,
-   lists functions whose name starts with `create_|update_|soft_delete_|
-   restore_|archive_|unarchive_|purge_|link_|unlink_|record_`, calls each
-   on a fixture entry inside a session, and asserts the `audit_log` row
-   count went up by exactly one with a non-empty `payload`.
-2. Columns + `log_action(session, action, entity, payload, actor)`
-   signature (keep the old positional call working for one release).
-3. Thread `actor` from the request: the API sets `deps.current_actor`
-   (`user`), tool calls set `ai:<tool>` (`src/memorymap/ai/tools/_common.py`
-   is where every tool enters), background jobs set `system:<kind>`.
-4. `/entries/{id}/history` (paginated, Brief 6's helper) and restore.
-5. The History sheet in `app.js`: rows = time, actor chip, action, a
-   one-line diff summary; "Restore" per row; the same modal recipe as the
-   rest.
-6. `/events?since=<id>` for the Dashboard activity feed (replace the scan
-   that builds "Recently added" if one exists; grep `recent` in
-   `dashboard.js`).
-
-**Traps.** SQLite `ALTER TABLE ADD COLUMN` cannot add a NOT NULL column
-without a default; give `actor` the default `'user'`. Do not write events
-from inside `_hard_delete` per row for a purge; one `purged` event with
-the id list is the contract.
+**Built.** Moved to HISTORY.md, "From WORLD_CLASS_PLAN.md B1 and
+SESSION_BRIEFS Brief 7: the event log". `AuditLog` carries `actor` and
+`payload`, `core/events.py` is the only writer, every public write in
+`entry/manager.py` records exactly one event with a whole-field payload,
+`tests/test_events.py` passes with no xfail markers left, and history,
+restore and `GET /events?since=` are live. What is still open is in
+`docs/roadmap/agent-remaining/brief7-event-log.md`.
 
 ---
 

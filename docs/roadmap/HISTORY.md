@@ -21707,3 +21707,80 @@ edges" half of the report did not reproduce at 1440x900. A report half
 closed and half declined, with the numbers for both, is the shape these
 should take.
 
+
+### From WORLD_CLASS_PLAN.md B1 and SESSION_BRIEFS Brief 7: the event log
+
+Built and moved here whole. `tests/test_events.py` was the contract, strict
+xfail throughout; all five markers came off, and four more tests were added
+beside them (the actor, the feed, the seam with the older snapshots).
+
+**One table, not two.** The plan's own sketch was an `events` table; the
+brief's decision, kept, was to extend `AuditLog` instead, because the audit
+trail already recorded the action, the entity and the time from eighty-odd
+call sites, and a second table beside it would have meant two half-histories
+each missing what the other held. It gained `actor` (`user`, `ai:<tool>`,
+`system:<job>`) and `payload` (JSON), through the additive startup path and
+an Alembic migration that checks before it adds: `_add_missing_columns()`
+runs first on every start, so a plain `add_column` would have failed with
+"duplicate column name" on every existing database and left
+`alembic_version` stuck at the baseline, warning on every start afterwards.
+
+**Exactly one event per write, structurally.** `core/events.py` is the only
+writer; `manager.log_action` passes through to it with the same five
+positional arguments it always had, which is how the whole app gained an
+actor without any call site being rewritten. What makes the count true is
+the write scope: a manager write declares the event that *is* that write
+(`@events.writes("entry", "created")`), and anything recorded inside the
+call, the category it had to create, the dates it re-resolved, is folded
+into that event's payload under `also` instead of becoming a row. A helper
+each write has to remember to call exactly once is the failure mode the
+enumeration test exists to catch, so it is not the design.
+
+**The enumeration is the part that had to be right.** The spec lists every
+public write in `entry/manager.py` by name prefix and asks `events`
+to drive each one; `exercise_for_test` holds a driver per function and
+raises on a name it does not know, naming what to add. A write added later
+therefore fails the test rather than silently recording nothing. Thirteen
+drivers today: create/update/soft_delete/restore/archive/unarchive/purge
+(both), link and unlink document, create_link, record_dates,
+record_revision. Each sets up what it needs with recording suppressed, so
+the one event the test counts is the write's own.
+
+**Whole values, not diffs.** `payload` is `{"before": ..., "after": ...}`
+with the whole value of each field the action set, because `events.replay`
+rebuilds a note by applying each `after` in order and a diff is only
+meaningful if every earlier event is present and correct. A purge is one
+event carrying `{"ids": [...]}`, never one row per note.
+
+**History and restore.** `GET /entries/{id}/history` answers with `items`
+(the event log, newest first, paged by `before`, each row carrying what the
+note said after that event) and `revisions` (the capped `EntryRevision`
+snapshots, still written, still restorable through their own route, and the
+only history a note has if its edits predate the log). `POST
+/entries/{id}/restore/{event_id}` replays to that event, snapshots the
+current text first and records its own `restored` event, so undoing an undo
+works. The sheet in `app.js` shows the events with an actor chip for
+anything a person did not do; the snapshots render only when the events
+carry no text, after the running app showed each version twice.
+
+**Read forwards.** `GET /events?since=<id>` is the feed a Dashboard or
+Timeline strip should read: ascending from a cursor, no payloads (a payload
+holds a note's whole text), `changed` naming the fields each event set. The
+Library's activity card and the history sheet both hide the two bookkeeping
+actions (`revised`, `dated`), which always accompany the edit that caused
+them; `/audit` still shows everything.
+
+**Verified in a real Chromium** against a live server on :8793: the ⋯ menu's
+History opens the sheet, three rows for a note written then edited, no
+overflow, and restoring the first event put "version one of the note" back
+through the route. What was *not* verified: an upgrade of a real pre-Brief-7
+database (the migration is exercised by the suite, not by a year-old file),
+and anything about a real model driving the tool path.
+
+**Decisions made in the plan's absence, taken and recorded here.** The
+history response is an object with both lists, so the old bare-list shape
+is gone and `tests/test_entry_history.py` reads `["revisions"]`. The
+Dashboard's "Recently added" widget was left reading the entry list it has
+already loaded: replacing it with the event feed would have added a request
+and listed notes that no longer exist. `EntryRevision` stays, per the
+brief.

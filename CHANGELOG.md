@@ -9,6 +9,21 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Every change to a note is recorded as one event, with who made it and the
+  whole value of each field it set: a person, a named AI tool, or a named
+  background job. A note's History sheet lists them, any point in it can be
+  restored, and restoring is itself undoable.
+
+- A note's history can be replayed: the note is rebuilt from its own events
+  rather than from a copy, so what the sheet offers to restore is what the
+  note actually was at that moment.
+
+- `GET /events?since=` reads the log forwards from a cursor, for anything
+  that needs to follow what happens in the notebook.
+
+- Emptying the recycle bin, or deleting several notes for good, records one
+  event carrying the list of ids rather than one per note.
+
 - A mind map has its own controls now, not the whiteboard's. Selecting a
   topic puts a strip above it with bold, italic, four text sizes, alignment,
   colour and a link, in the place the board's own selection bar would take;

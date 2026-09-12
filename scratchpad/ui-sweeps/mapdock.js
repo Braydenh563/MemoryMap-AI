@@ -119,14 +119,18 @@ const liveSections = () =>
   await page.click("#wb-map-collapse");
   await page.waitForTimeout(900);
 
-  // Branch colour: a trunk has no line into it, so the picker says so; a
-  // topic inside a branch carries its colour down and onto the edge.
+  // Branch colour: a topic inside a branch carries its colour down and onto
+  // the edge; a trunk colours only its own card (§12.0, and the pair of
+  // checks at the end of this file).
   const trunk = await page.evaluate(() => {
     selectWbItem("object", wbMapIndex().roots[0].id);
     wbSyncMapToolState();
-    return document.getElementById("wb-map-branch-color").disabled;
+    const el = document.getElementById("wb-map-branch-color");
+    return { disabled: el.disabled, title: el.title };
   });
-  check("a trunk has no branch colour to set", trunk === true, String(trunk));
+  check("a trunk's picker says it colours the trunk alone",
+    trunk.disabled === false && /trunk colours its own card/.test(trunk.title),
+    JSON.stringify(trunk));
   await page.evaluate(async () => {
     const i = wbMapIndex();
     await wbMapAddChild(i.childrenOf.get(i.roots[0].id)[0].id);
@@ -214,6 +218,88 @@ const liveSections = () =>
     hidden: document.getElementById("wb-map-empty").hidden,
   }));
   check("and the action brings the map back", back.n === 1 && back.hidden, JSON.stringify(back));
+
+  // --- the two decisions of §12.0 (Space, and a trunk's own colour) --------
+  await newBoard(page, "Sweep keys", "map");
+  await page.evaluate(async () => {
+    const root = wbMapIndex().roots[0];
+    await wbMapAddChild(root.id);
+  });
+  await page.waitForTimeout(1600);
+  await page.keyboard.press("Escape");
+
+  // A trunk colours its own card and does not cascade: its children are the
+  // first-level topics and keep their palette entries (Coggle's rule).
+  const trunkColour = await page.evaluate(async () => {
+    const i0 = wbMapIndex();
+    const root = i0.roots[0];
+    root.data = { ...root.data, color: "#118844" };
+    await wbSaveObject(root);
+    renderWhiteboardNow();
+    const i = wbMapIndex();
+    const kid = i.childrenOf.get(root.id)[0];
+    const colors = wbMapColors(i);
+    const card = document.querySelector(`.wb-object[data-id="${root.id}"] .wb-map-node`)
+      || document.querySelector(`.wb-object[data-id="${root.id}"]`);
+    return {
+      root: colors.get(root.id),
+      kid: colors.get(kid.id),
+      painted: card ? getComputedStyle(card).getPropertyValue("--wb-branch").trim() : "",
+    };
+  });
+  check("a trunk's own colour paints its card and does not cascade",
+    trunkColour.root === "#118844" && trunkColour.kid !== "#118844"
+      && trunkColour.painted === "#118844",
+    JSON.stringify(trunkColour));
+  const pickerLive = await page.evaluate(() => {
+    selectWbItem("object", wbMapIndex().roots[0].id);
+    wbSyncMapToolState();
+    const el = document.getElementById("wb-map-branch-color");
+    return { disabled: el.disabled, title: el.title };
+  });
+  check("and the picker is live on a trunk, saying what it colours",
+    pickerLive.disabled === false && /trunk colours its own card/.test(pickerLive.title),
+    JSON.stringify(pickerLive));
+
+  // C folds the selected branch; Space still pans the canvas.
+  await page.evaluate(() => {
+    selectWbItem("object", wbMapIndex().roots[0].id);
+    document.getElementById("whiteboard-container").focus();
+  });
+  await page.keyboard.press("c");
+  await page.waitForTimeout(900);
+  const folded2 = await page.evaluate(() => Boolean(wbMapIndex().roots[0].data?.collapsed));
+  await page.keyboard.press("c");
+  await page.waitForTimeout(900);
+  const unfolded2 = await page.evaluate(() => Boolean(wbMapIndex().roots[0].data?.collapsed));
+  check("C folds the selected branch and C again opens it", folded2 && !unfolded2,
+    `${folded2} -> ${unfolded2}`);
+
+  await page.keyboard.down("Space");
+  await page.waitForTimeout(200);
+  const panning = await page.evaluate(() =>
+    document.getElementById("whiteboard-container").classList.contains("wb-space-pan"));
+  await page.keyboard.up("Space");
+  check("Space with the canvas focused is still the pan", panning === true, String(panning));
+
+  // Space on the fold control itself folds, which is §12.1 item 7's "and on
+  // Space" without taking the pan away from the canvas.
+  const chevronFold = await page.evaluate(() => {
+    const root = wbMapIndex().roots[0];
+    const el = document.querySelector(`.wb-object[data-id="${root.id}"] .wb-map-collapse`);
+    if (!el || el.hidden) return null;
+    el.focus();
+    return document.activeElement === el;
+  });
+  await page.keyboard.press("Space");
+  await page.waitForTimeout(1000);
+  const afterSpace = await page.evaluate(() => ({
+    collapsed: Boolean(wbMapIndex().roots[0].data?.collapsed),
+    panning: document.getElementById("whiteboard-container").classList.contains("wb-space-pan"),
+  }));
+  check("Space on a node's chevron folds it instead of panning",
+    chevronFold === true && afterSpace.collapsed && !afterSpace.panning,
+    JSON.stringify(afterSpace));
 
   await browser.close();
   const failed = results.filter((r) => !r.ok);

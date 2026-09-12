@@ -4362,28 +4362,34 @@ function wbSyncMapToolState() {
     const folded = Boolean(node?.data?.collapsed);
     const icon = document.getElementById("wb-map-collapse-icon");
     if (icon) icon.className = `ph ph-caret-circle-${folded ? "right" : "down"}`;
-    const label = folded ? "Open the selected branch again" : "Fold the selected branch away";
+    const label = folded ? "Open the selected branch again (C)" : "Fold the selected branch away (C)";
     collapse.title = label;
     collapse.setAttribute("aria-label", label);
   }
   if (colour) {
-    //: **A trunk has no branch colour**, and the picker says so rather than
-    //: writing a value nothing draws. A node's colour paints the line coming
-    //: *into* it and everything below (`wbMapColors`, and `.wb-map-edge`'s own
-    //: custom property): a root has no incoming line, and its children start
-    //: the palette over by design, so a colour set on a root would be stored,
-    //: drawn nowhere, and inherited by nothing. Measured before deciding
-    //: this: colouring a root left its child at the palette's first colour.
+    //: **A node carries its colour on its own card, so a trunk can set one
+    //: too** (MINDMAP_PLAN.md §12.0, decided after the previous run left the
+    //: picker disabled on a root). The earlier reasoning was that a colour
+    //: paints only the line coming *into* a node, and a root has no incoming
+    //: line: true of the edge, false of the card. `wbPaintMapNode` already
+    //: writes `--wb-branch` on every node from the same map `wbMapColors`
+    //: returns, and `.wb-map-node` already draws that as the 4px spine down
+    //: its leading edge, so a root's own colour was drawn all along and only
+    //: the control refused to set it. What stays true is that it does not
+    //: *cascade*: the roots' children are the first-level topics and start
+    //: the palette over by design (`wbMapColors`'s own comment), which is
+    //: Coggle's rule, so a trunk's colour marks the trunk and leaves its
+    //: branches their own colours. The title says which of the two it is.
     const index = node ? wbMapIndex() : null;
     const isRoot = Boolean(node) && !(node.parent_id != null && index.byId.has(node.parent_id));
-    colour.disabled = !node || isRoot;
+    colour.disabled = !node;
     colour.title = isRoot
-      ? "Branch colour: pick a topic inside a branch, a trunk has no line of its own"
+      ? "Topic colour: a trunk colours its own card, each branch under it keeps its own"
       : "Branch colour: it carries down to everything under this topic";
     // The colour it is *actually drawn in*, which for most nodes is the one
     // inherited from the branch rather than anything stored on the node: a
     // picker that opens on white over a blue branch is a picker that lies.
-    if (node && !isRoot) {
+    if (node) {
       const effective = wbMapColors(index).get(node.id);
       if (effective && /^#[0-9a-f]{6}$/i.test(effective)) colour.value = effective;
     }
@@ -7500,6 +7506,18 @@ async function initWhiteboard() {
       return;
     }
     if (e.code === "Space") {
+      //: **Space stays the pan, except on a fold control** (MINDMAP_PLAN.md
+      //: §12.0). §12.1 item 7 asks for "reopens on click and on Space", and
+      //: held space is this canvas's pan gesture from every tool
+      //: (`wbZoomFilter`): a map node is selected nearly all the time once
+      //: someone is editing, so binding Space to collapse would take the pan
+      //: away exactly when it is most used, and would make a map pan
+      //: differently from a board. So Space folds a branch where the plan
+      //: asked it to, on the fold control itself: with the keyboard focus on
+      //: a node's chevron or the dock's Collapse button, this handler stands
+      //: aside and the browser's own button activation runs. `C` is the key
+      //: for the same thing with the canvas focused (below).
+      if (document.activeElement?.closest(".wb-map-collapse, #wb-map-collapse")) return;
       // preventDefault so the page does not scroll under the board, and so a
       // focused toolbar button is not "clicked" by the space that is panning.
       e.preventDefault();
@@ -7546,6 +7564,15 @@ async function initWhiteboard() {
       if (e.key === "F2") {
         e.preventDefault();
         wbMapEditNode(mapNode.id);
+        return;
+      }
+      //: C folds and unfolds the selected branch, the canvas-focused half of
+      //: the Space decision above. A letter rather than a modifier chord
+      //: because it sits beside the map's other bare keys (Tab, Enter, F,
+      //: the arrows) and `c` is not a tool key on this board.
+      if ((e.key === "c" || e.key === "C") && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        wbMapToggleCollapse(mapNode.id);
         return;
       }
       //: F focuses here, and F again lets the whole map back (§5 item 18).

@@ -368,6 +368,29 @@ extended with the numbers named.
   round-tripping (FreeMind, OPML, Markdown outline) has no way to carry
   it, so it would be a decoration that vanishes on the first export.
 
+- **Space keeps the pan; `C` folds a branch; Space works on the fold
+  control itself** (left open by the previous run, decided here). Held space
+  is this canvas's pan gesture from every tool (`wbZoomFilter`) and a map
+  node is selected nearly all the time once someone is editing, so binding
+  Space to collapse would take the pan away exactly when it is most used and
+  would make a map pan differently from a board, which is the opposite of
+  "the mindmap can keep important and usable parts of the whiteboard". So
+  the key on the canvas is `C` (bare, beside Tab, Enter, F and the arrows;
+  `c` is not a tool key), and §12.1 item 7's "reopens on click and on Space"
+  is met where it actually reads as a button: with the keyboard focus on a
+  node's chevron or on the dock's Collapse button, the Space handler stands
+  aside and the browser's own activation folds the branch.
+- **A node carries its colour on its own card, so a trunk can set one.** The
+  previous run disabled the picker on a root because "a colour paints only
+  the line coming into a node and a root has no incoming line". That is true
+  of the edge and false of the card: `wbPaintMapNode` writes `--wb-branch` on
+  every node and `.wb-map-node` already draws it as the 4px spine down the
+  leading edge, so a root's colour was drawn all along and only the control
+  refused to set it. It does not cascade: the roots' children are the
+  first-level topics and start the palette over by design, which is Coggle's
+  rule, so a trunk's colour marks the trunk and every branch under it keeps
+  its own. The picker's title says which of the two it is doing.
+
 ### 12.1 Phase 6a, the controls (1 session)
 
 1. **The map toolbar** (replaces the whiteboard rail on a map): Add

@@ -6292,6 +6292,49 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
               <p id="small-model-mode-status" class="status" role="status"></p>
             </div>
+            <!-- What one skill run may spend before it stops and hands back
+                 what it has (Brief 13). Every turn inside a run is bounded
+                 already; the run as a whole was not. -->
+            <div class="settings-group">
+              <div class="row help-head">
+                <h3>Run budget</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="run-budget-help" aria-controls="run-budget-help"
+                  aria-expanded="false" title="Why this matters"
+                  aria-label="Why this matters">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">What one skill run may spend before it stops and reports.</p>
+              <div class="help-body hidden" id="run-budget-help" role="dialog" aria-label="Why this matters">
+                <p>
+                  A run is one turn per step, plus a retry for a step that did
+                  not do what it said and up to two rewrites. Each of those
+                  starts with a fresh allowance of tool-calling rounds, so a
+                  run that goes wrong does not loop, it grinds. The budget is
+                  what ends that. A run that reaches it stops between rounds,
+                  says so, and shows what it changed with a way to put it back.
+                  Set either to 0 for no limit.
+                </p>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Tokens</span>
+                  <small class="muted">Counted across every step of the run.</small>
+                </div>
+                <input type="number" id="run-budget-tokens" class="setting-control"
+                  min="0" step="1000" aria-label="Run budget in tokens">
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Seconds</span>
+                  <small class="muted">Wall time, from the first step to the last.</small>
+                </div>
+                <input type="number" id="run-budget-seconds" class="setting-control"
+                  min="0" step="10" aria-label="Run budget in seconds">
+              </div>
+              <p id="run-budget-status" class="status" role="status"></p>
+            </div>
             <div class="settings-group">
               <h3>Which ones it may use</h3>
               <!-- **A filter, because there are fifty-one of these.** Measured

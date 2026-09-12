@@ -403,3 +403,20 @@ def test_only_the_last_few_corrections_ride_in_the_prompt(app_state, session):
     found = librarian.filing_corrections(session, ["House"])
     assert len(found) == librarian.CORRECTIONS_REMEMBERED
     assert found[0]["excerpt"].endswith("8"), "newest first"
+
+
+# --- the budget in Settings --------------------------------------------------
+
+
+def test_the_run_budget_round_trips_through_preferences(ai_client):
+    """A setting the backend reads and nothing can change is a switch that
+    never saves: the shape `small_model_mode` was in before it got a control.
+    """
+    assert ai_client.get("/preferences").json()["run_budget_tokens"] == budget.DEFAULT_TOKENS
+    ai_client.put("/preferences", json={"run_budget_tokens": 5000, "run_budget_seconds": 30})
+    prefs = ai_client.get("/preferences").json()
+    assert (prefs["run_budget_tokens"], prefs["run_budget_seconds"]) == (5000, 30)
+
+
+def test_a_negative_budget_is_refused_rather_than_stored(ai_client):
+    assert ai_client.put("/preferences", json={"run_budget_seconds": -1}).status_code == 422

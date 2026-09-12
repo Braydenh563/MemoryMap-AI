@@ -21238,6 +21238,55 @@ $("small-model-mode")?.addEventListener("change", async () => {
         : "Decided per run from the chat model's name.";
 });
 
+//: **The run budget** (Brief 13), the same shape as the two controls above:
+//: saved on change, because a control that waits for an Apply button reads as
+//: broken here, the next preferences render paints the old value back over it.
+//: Both fields together in one request, so a person who edits one and then the
+//: other does not race two writes of the same preferences file.
+function renderRunBudget(prefs) {
+  const tokens = $("run-budget-tokens");
+  const seconds = $("run-budget-seconds");
+  if (tokens) tokens.value = String(prefs.run_budget_tokens ?? 20000);
+  if (seconds) seconds.value = String(prefs.run_budget_seconds ?? 90);
+}
+
+async function saveRunBudget() {
+  const tokens = $("run-budget-tokens");
+  const seconds = $("run-budget-seconds");
+  const status = $("run-budget-status");
+  if (!tokens || !seconds) return;
+  //: Clamped here as well as by the server: a negative number in a number
+  //: input is one keystroke away, and the failure it causes (a budget that is
+  //: exceeded before the first round) would look like the feature being
+  //: broken rather than like a typo.
+  const body = {
+    run_budget_tokens: Math.max(0, Math.round(Number(tokens.value) || 0)),
+    run_budget_seconds: Math.max(0, Math.round(Number(seconds.value) || 0)),
+  };
+  if (status) status.textContent = "Saving…";
+  try {
+    prefsCache = await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    if (status) {
+      status.classList.add("error");
+      status.textContent = error.message;
+    }
+    return;
+  }
+  if (!status) return;
+  status.classList.remove("error");
+  const parts = [];
+  parts.push(body.run_budget_tokens ? `${body.run_budget_tokens} tokens` : "no token limit");
+  parts.push(body.run_budget_seconds ? `${body.run_budget_seconds}s` : "no time limit");
+  status.textContent = `A run may spend ${parts.join(" and ")}.`;
+}
+
+$("run-budget-tokens")?.addEventListener("change", saveRunBudget);
+$("run-budget-seconds")?.addEventListener("change", saveRunBudget);
+
 async function renderToolSettings() {
   const list = $("tool-list");
   const [catalog, prefs] = await Promise.all([
@@ -21247,6 +21296,7 @@ async function renderToolSettings() {
   prefsCache = prefs;
   renderToolFocus(prefs.tool_focus || "auto");
   renderSmallModelMode(prefs.small_model_mode || "auto");
+  renderRunBudget(prefs);
   const disabled = new Set(prefs.disabled_tools || []);
   list.replaceChildren();
   for (const tool of catalog) {

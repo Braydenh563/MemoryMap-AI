@@ -28,6 +28,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap import __version__
+from memorymap.ai import budget as run_budget
 from memorymap.ai import presets, skills
 from memorymap.core import deps, embedmodels, events, extras, logbuffer
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
@@ -198,6 +199,14 @@ class PreferencesBody(BaseModel):
     #: Pydantic does not know about is silently dropped, so a setting that is
     #: never declared is a switch that never saves.
     small_model_mode: Literal["auto", "on", "off"] | None = None
+    #: **What one skill run may spend** (Brief 13). A run is many turns and
+    #: every one of them starts its own fresh round allowance, so the only
+    #: bound on a run that goes wrong used to be how long the person was
+    #: willing to watch it. Zero in either field means "no limit on this one",
+    #: which is a real answer for a ten-step audit over four thousand notes on
+    #: hardware somebody is happy to give an hour to.
+    run_budget_tokens: int | None = Field(default=None, ge=0)
+    run_budget_seconds: int | None = Field(default=None, ge=0)
     # The ONE feature that goes online, off unless the user opts in.
     web_search_enabled: bool | None = None
     # The other opt-in network call (Settings -> About): see core.config.
@@ -447,6 +456,12 @@ def get_preferences() -> dict:
         "local_only_ai": config.get_preference("local_only_ai", True),
         "tool_focus": config.get_preference("tool_focus", "auto"),
         "small_model_mode": config.get_preference("small_model_mode", "auto"),
+        "run_budget_tokens": config.get_preference(
+            "run_budget_tokens", run_budget.DEFAULT_TOKENS
+        ),
+        "run_budget_seconds": config.get_preference(
+            "run_budget_seconds", run_budget.DEFAULT_SECONDS
+        ),
         "web_search_enabled": config.get_preference("web_search_enabled", False),
         "update_check_enabled": config.get_preference("update_check_enabled", False),
         "auto_update_enabled": config.get_preference("auto_update_enabled", False),

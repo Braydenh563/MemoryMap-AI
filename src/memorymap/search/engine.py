@@ -463,6 +463,14 @@ def _filter_only(
     return [dict(row) for row in rows]
 
 
+def _mentions(row: dict, words: list[str]) -> bool:
+    """Does this row use any of these words, anywhere a query can see?"""
+    haystack = " ".join(
+        str(row.get(column) or "") for column in ("title", "body", "tags")
+    ).lower()
+    return any(word.lower() in haystack for word in words)
+
+
 def _keyword_pass(
     session: Session,
     terms: list[str],
@@ -661,6 +669,17 @@ def search(
     space = context.get("space") or (asked.filters["space"][0] if asked.filters["space"] else None)
     wanted_kinds = [kind for kind in (kinds or asked.filters["kind"]) if kind in search_index.KINDS]
 
+    # Something has to be *asked for*. An empty box, or a query that is only
+    # `-rice`, names nothing to find: listing the whole notebook for it would
+    # be the search box answering a question nobody put. The Notes list is
+    # already showing every note when the box is empty; a search that also
+    # returns every note is not an answer, it is noise with a scrollbar.
+    asks_for_something = bool(
+        terms or asked.phrases or any(asked.filters.values()) or asked.has_range
+    )
+    if not asks_for_something:
+        return []
+
     if terms or asked.phrases:
         rows = _keyword_pass(session, terms, asked, wanted_kinds, space, depth)
     else:
@@ -669,6 +688,12 @@ def search(
         # would be the app refusing to do the one thing §5.1 promises works
         # with no model running.
         rows = _filter_only(session, wanted_kinds, space, asked.since, asked.until, depth)
+        if asked.excluded:
+            # There is no MATCH to hang a `NOT` on here, so the exclusion is
+            # applied to the rows the filters selected. Over a page of
+            # candidates rather than the notebook, the same place `has:file`
+            # is answered.
+            rows = [row for row in rows if not _mentions(row, asked.excluded)]
     if not rows:
         return []
 

@@ -407,3 +407,26 @@ def test_an_exclusion_binds_over_the_whole_query(session):
     # Loose enough that the "any" stage runs (no note has both words).
     hits = engine.search(session, "beans peas -rice", ctx=None)
     assert [hit.snippet for hit in hits] == ["peas with bread"]
+
+
+def test_a_query_that_asks_for_nothing_answers_nothing(session):
+    """An empty box, or a query that is only an exclusion, names nothing to
+    find. Listing the notebook for it is noise with a scrollbar."""
+    from memorymap.search import engine
+
+    _note(session, "beans with rice")
+    _note(session, "peas with bread")
+    assert engine.search(session, "", ctx=None) == []
+    assert engine.search(session, "   ", ctx=None) == []
+    assert engine.search(session, "-rice", ctx=None) == []
+
+
+def test_an_exclusion_narrows_a_filter_only_query(session):
+    from memorymap.core.database import Document
+    from memorymap.search import engine
+
+    session.add(Document(title="Kept", content="peas"))
+    session.add(Document(title="Dropped", content="rice"))
+    session.commit()
+    hits = engine.search(session, "kind:document -rice", ctx=None)
+    assert [hit.title for hit in hits] == ["Kept"]

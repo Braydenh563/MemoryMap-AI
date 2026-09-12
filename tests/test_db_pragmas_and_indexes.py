@@ -23,7 +23,15 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import text
 
-from memorymap.core.database import Attachment, Category, DatabaseManager, Document, Entry, MediaUpload
+from memorymap.core.database import (
+    Attachment,
+    AuditLog,
+    Category,
+    DatabaseManager,
+    Document,
+    Entry,
+    MediaUpload,
+)
 
 
 @pytest.fixture
@@ -188,4 +196,42 @@ def test_documents_list_query_does_not_sort_the_whole_table(db):
         )
     )
     assert "ix_documents_workspace_live_updated" in plan, plan
+    assert "TEMP B-TREE" not in plan, plan
+
+
+def test_a_notes_history_is_served_by_its_index(db):
+    """`events.events_for`, which is the History sheet, every replay and
+    every restore (WORLD_CLASS_PLAN B1): `entity_type` and `entity_id`
+    equality, `id DESC` for the newest-first page. Measured on 60,000
+    events over 2,000 notes before this index existed: "SCAN audit_log",
+    6.390 ms per request; after it, 0.082 ms. `audit_log` is the one table
+    that only grows, so a scan here gets worse with use rather than
+    staying merely wasteful.
+    """
+    with db.session() as session:
+        session.info["workspace_id"] = "default"
+        session.add_all(
+            [
+                AuditLog(
+                    action="edited",
+                    entity_type="entry",
+                    entity_id=(i % 400) + 1,
+                    detail="x",
+                    actor="user",
+                    payload={"after": {"content": "a note", "tags": []}},
+                )
+                for i in range(4000)
+            ]
+        )
+        session.commit()
+
+    plan = " ".join(
+        _plan(
+            db,
+            "SELECT * FROM audit_log WHERE entity_type='entry' AND entity_id=7 "
+            "ORDER BY id DESC LIMIT 51",
+        )
+    )
+    assert "ix_audit_log_entity" in plan, plan
+    assert "SCAN audit_log" not in plan, plan
     assert "TEMP B-TREE" not in plan, plan

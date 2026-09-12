@@ -175,3 +175,60 @@ def test_a_database_stamped_at_the_baseline_upgrades_over_the_auto_migrator(tmp_
         assert conn.execute("SELECT actor FROM audit_log").fetchall() == [("user",)]
     finally:
         conn.close()
+
+
+def test_the_upgrade_creates_the_audit_log_history_index(tmp_path):
+    """The migration, not `_ensure_indexes`, is what is being checked here.
+
+    Both mechanisms create `ix_audit_log_entity` and both use IF NOT
+    EXISTS, so on any ordinary startup the startup path gets there first and
+    the migration is a no-op. Disabling `_INDEXES` for the build leaves the
+    migration as the only thing that can have created it, which is the case
+    that matters for a database upgraded through Alembic alone.
+    """
+    db_path = tmp_path / "index-upgrade.db"
+    original = DatabaseManager._INDEXES
+    DatabaseManager._INDEXES = ()
+    try:
+        DatabaseManager(db_path)
+    finally:
+        DatabaseManager._INDEXES = original
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        before = [
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='index' "
+                "AND name='ix_audit_log_entity'"
+            )
+        ]
+    finally:
+        conn.close()
+    assert before == []
+
+    # A fresh database is stamped at head, which would never run the
+    # migration, so this stands it at the baseline first: the same position a
+    # notebook from before the event log is in.
+    conn = sqlite3.connect(str(db_path))
+    try:
+        conn.execute("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)")
+        conn.execute("INSERT INTO alembic_version VALUES ('8a8a14407cc0')")
+        conn.commit()
+    finally:
+        conn.close()
+
+    _ensure_alembic_baseline(db_path)  # the upgrade path
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        after = [
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='index' "
+                "AND name='ix_audit_log_entity'"
+            )
+        ]
+    finally:
+        conn.close()
+    assert after == ["ix_audit_log_entity"], "the migration did not create the index"

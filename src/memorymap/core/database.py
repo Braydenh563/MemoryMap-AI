@@ -1621,6 +1621,20 @@ class DatabaseManager:
         # `_stored_page_reads`'s `kind=? AND source_id IN (...)` scan from
         # its `(kind, source_id)` prefix with no SCAN (checked with EXPLAIN
         # QUERY PLAN, not assumed), so no new index is added for it here.
+        #
+        # `events.events_for`, which is a note's History sheet, every replay
+        # and every restore (WORLD_CLASS_PLAN B1, Brief 7): it filters
+        # `entity_type` and `entity_id` and orders by `id DESC`, and neither
+        # filter column was indexed, so opening one note's history read the
+        # whole of `audit_log`. That table only grows, and grows fastest on
+        # the notebooks that are used most, so this is the one index here
+        # whose absence gets worse rather than staying merely wasteful.
+        # Measured on 60,000 events over 2,000 notes: "SCAN audit_log" at
+        # 6.390 ms per request became "SEARCH audit_log USING INDEX
+        # ix_audit_log_entity" at 0.082 ms. `id DESC` is in the index so the
+        # newest-first page is a walk backwards along it rather than a sort
+        # of everything that matched.
+        ("ix_audit_log_entity", "audit_log (entity_type, entity_id, id DESC)"),
     )
 
     def _ensure_indexes(self) -> None:

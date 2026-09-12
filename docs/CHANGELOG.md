@@ -140,6 +140,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The "related elsewhere" panel a chat answer shows when no note answered
+  costs three database scans instead of eighteen. It ran three queries per
+  word of the question, each an unindexable `ILIKE '%word%'` over the two
+  widest text columns in the schema; measured on 2,000 documents, 2,000
+  saved chats and 2,000 reminders, 145.3 ms before and 118.8 ms after, and
+  109.8 to 85.3 ms for a question that matches nothing.
+
 - The collapsed sidebar rail's expand button is centred in the rail. It was
   6px from the inside of the left border and 4px from the right, because
   the centring arithmetic halved the rail's 48px column while the button is

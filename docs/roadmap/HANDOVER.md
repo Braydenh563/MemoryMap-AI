@@ -306,186 +306,35 @@ are only just begun or half done." True; this table is the state.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
-**Now (2026-09-12, Opus orchestrating, two agents running):** the owner's
-own session, working the flagged list while they are out. Landed by the
-orchestrator this session, each measured in a live Chromium: file readings
-(describe with AI, OCR, the vision read) now appear in Settings, Background
-tasks (`core/filejobs.py`, deliberately a registry and not a job queue, see
-its docstring); the tonal button tier draws its edge again with a quiet
-variant for runs inside a frame (INBOX 113, resolved, and DESIGN.md's ramp
-rewritten); the global press cue is written as `translate`/`scale` so it can
-no longer throw away a button's own centring (the chat pill moved 68px on
-every press); the page-column rules no longer reach a top-layer `<dialog>`
-(the AI edit history dialog opened 1440px wide at the left edge, reported
-three times); the graph's suggestions panel has an inset and one scrollbar
-instead of none and two; the agent panel is on the spacing scale with its
-header run quieted. Three lints were added with those fixes, in
-`tests/test_ui_recipes.py`, so none of the four can silently come back.
-
-Four owner reports were **measured and did not reproduce**, which is a
-finding, not a fix. "No back to top button appears on the dashboard": the
-button is there, 44x44 at (1372, 795) after a 1200px scroll, correctly
-invisible at rest (`opacity: 0; visibility: hidden`, not `.hidden`, which is
-why a class check alone says otherwise; `scratchpad/ui-sweeps/dashtotop2.js`
-checks six surfaces). "The panels and sidebars go quite far down below where
-the scroll should stop": the room under the last painted content at the
-bottom of each scroller measures 24px on the Dashboard, 16 on Notes, 32 on
-Library, 40 on the Timeline and 24 on Documents, which is the page's own
-gutter; Reminders is 262px and does not scroll at all, so that is a short
-page rather than a scroll that overruns
-(`scratchpad/ui-sweeps/scrolltail.js`). And: "this text in the files sub tab needs indenting" (the
-Files row's title, meta strip, caption field and transcription fold all
-begin at x=172 at 1440, so the alignment fix from 2026-09-09 holds and the
-report is either stale or about something the screenshot showed and the
-words do not), and "the ai skills sidebar not reaching full height" (the
-sidebar measures 711px in a 711px scroll container, exactly full, since the
-`100cqh` fix; the 61px between its bottom and the window is the status bar
-and the page's own gutter).
-
-The agents this session: the documents editor (spelling against a real
-92,972-word dictionary, autocorrect rewired, Tab in a list, the suggestion
-menu) and the mind map (its own dock, the last topic protected, the empty
-map's way back, branch colour) both reported and stopped; the second design
-batch and MINDMAP_PLAN §12.1 items 2 to 9 are running now. **The pan lag is
-not attributed**: the mind map agent A/B'd six conditions on a 201-node map
-and this sandbox is vsync-bound at ~16.7ms in every one of them, including
-with the whole card layer removed, so nothing was changed on a guess.
-
-**As of 2026-09-09 12:40 UTC (Opus orchestrating, no agents running):**
-CI and CodeQL green on every head today, all sixteen CodeQL review threads
-resolved. Every agent worktree with commits has been merged; the last four
-agents (the settings help popovers, the whole-app visual pass, the escaped
-menu, the Documents batch) have reported and stopped. INBOX is at one item,
-77's per-model context size, which the entry itself assigns to the next
-session.
-
-The done-when checklist above is at eight of nine, and the ninth is the
-owner's: run the updated build once. Item 7 is ticked with the local run
-this PR gets. The changelog header is cut ("[0.3.0] - 2026-09-09" in both
-copies, a fresh empty Unreleased above it), so what remains before the
-merge is the owner's build check; after the merge, `git tag v0.3.0` and
-push the tag, per docs/RELEASING.md.
-
-The last fix of the session was a dialog that could not scroll: `.modal-card`
-capped every dialog at 88vh with `overflow-y: visible`, so anything a
-dialog rendered from script past that cap had no route to it. The keyboard
-shortcuts overlay was carrying 1925px of content in a 790px card with
-`scrollTop` stuck at 0. Worth remembering how it hid: measuring the markup
-as it stands in `index.html` shows 790 in 790 and nothing wrong. The fault
-only appears once the dialog's own opener has filled it, which is the
-difference between `modalscroll.js` (walks every overlay, reports clean)
-and `shortcuts.js` (runs `openShortcuts()` first, reports the fault).
-
-**The one that unblocked the rest of the evening.** `start-desktop.bat`
-launches `webview.start(..., private_mode=False, storage_path=<data
-dir>/webview)` (`src/memorymap/__main__.py`), a deliberately persistent
-profile so the desktop window keeps its theme and settings between
-launches. It also keeps its cache, and every CSS/JS URL in the app is
-stamped `?v=0.3.0` (`test_asset_cache_busting.py`), a version that has
-not moved all day. A browser tab opened fresh fetches everything current;
-the desktop window has been serving whatever it cached at the first
-launch of the day, at the same URL, ever since, no matter how many fixes
-landed. The owner reported "basically all my bugs are still there"
-after a long stretch of fixes that were each individually measured
-correct against the branch. Fixed properly rather than left as a
-manual step, per the owner's own ask ("I need this cache problem...
-fixed and automatically handled for me"): `dd2d843` splices a
-per-process `_BOOT_TOKEN` onto every `?v=` stamp in `index.html`'s own
-served body, so a fresh launch of either script can never reuse a
-previous launch's cache, and `__version__` alone still governs what a
-released build caches for a year. A real bug caught in review before it
-shipped: the first version rewrote the response after `super()` had
-already run, which meant a client with an already-cached `index.html`
-could get a 304 from the file's own constant etag and never see the new
-body at all; fixed by handling the three path spellings before `super()`
-is called, so no validator exists to trigger one. Every "regression"
-traced today (the
-heatmap, the boards widget, the skills button, the Edit/Read pill, the
-dashboard sparkline) checked out correct in code every single time; this
-is very likely why, for the whole session, not only the last hour of it.
-
-Three things this session learned the hard way, all now enforced rather
-than remembered:
-
-- **A worktree can be cut from an older base than the branch.** Two agents
-  reported that `scripts/gate.sh` and half the lint set "did not exist";
-  neither was wrong about its own tree, and six em-dashes reached the branch
-  through the gap. Every brief says "merge the branch into your worktree
-  first" now.
-- **Never pipe a `git merge` into anything in a loop that relies on
-  `set -e`.** The pipeline's exit status is the last command's, so a
-  conflicted merge looks like a success, and the `git add -A` that follows a
-  gate will commit the markers. That happened, and
-  `tests/test_plan_hygiene.py` now fails on a conflict marker in any tracked
-  text file.
-- **Counting distinct `top` values does not detect wrapping.** A `nowrap`
-  row whose children are baseline-aligned reports several distinct tops and
-  has not wrapped. Test whether a child's top is at or below the first
-  child's bottom.
-
-The owner's rules stand: commit and push per step, five-line reports, no
-em-dashes, no exclamation marks, tokens not px, the `[data-glass="off"]`
-list for any new glass surface, measure before claiming, and never run the
-full pytest suite as routine.
-
-**Previous (2026-09-09 01:05 UTC):** two Opus agents in flight: DOCUMENTS Phase 2
-steps 2 to 4 (worktree agent-a02238762ae6136e9) and GRAPH Phase 6 node
-panel + Library image cards + whiteboard bottom bar (agent-a39e62953a9e53b63).
-Merge, gate, push each as it reports. Fable this hour: INBOX 49 to 58 (glass
-scope with the art frosted, Performance mode, launcher %0 after SHIFT,
-splash marquee, gravity pull, empty capture box, whole-turn copy; 54 and 57
-not reproduced at head). Open for the next slot: INBOX 60 (dashboard start
-section), 45 (Ask redesign), the graph local pane, UI Phase 9, SKILLS D.
-
-**Previous (2026-09-09 00:50 UTC):** after the reset Fable took the owner's
-direct asks itself: DOCUMENTS Phase 1 (a6dc021, the chrome: five controls
-at one height, the menu rows unfilled, the strip opt-in), GRAPH Phase 3
-(f58ad7c, colour rules and groups), GRAPH Phase 4 (lasso, selection dock,
-right-click menu, session hide, 2x PNG export with the legend, Play on the
-time slider; only the local pane is left) and GRAPH Phase 5 (degree, age
-and map ids on every node, the structure cache, the payload gate). Two traps found and
-guarded: the launcher tests ran the real uninstaller in the repo and
-deleted the venv (scratch copies now, plus a fixture that fails the
-module if the repo's .venv changes); the suite ran a real pip install of
-torch through the embedding auto-installer (an autouse fixture now makes
-`extras.subprocess.Popen` refuse). In flight: Opus on the mind map
-previews and Phases 4 to 5 (worktree agent-a9bcd9a1e1857d891); Sonnet on
-INBOX 47 gzip and the docs leftovers (worktree agent-a22cd38556273db70).
-INBOX 49 is done (glass only where something scrolls under it or floats;
-Performance mode in Effects & accessibility, auto-on for 4 cores or 4 GB or
-fewer; blurred area at rest 6 to 10% per tab, gate in
-`tests/test_perf_mode.py`). Queue after them: the graph's local pane
-(Phase 4's last item); DOCUMENTS Phase 2 (CodeMirror 6, CSP first); INBOX
-48 (lazy modules); UI Phase 9 remainder; SKILLS
-Phase D; WHITEBOARD Phase 1. The owner's order for the rest of
-this session stands: **finish the phases of the plans already in
-progress; TIMELINE, WHITEBOARD, CHAT, WORLD_CLASS and the Briefs wait for
-the next session.** Queue, two agents at a time, each merged and gated
-before the next starts:
-
-1. GRAPH_PLAN Phase 2 (running), then Phases 3 to 5.
-2. DOCUMENTS_PLAN Phase 1 (Opus, next free slot): the chrome; INBOX 18's
-   "squashed" report did not reproduce at 1440 (see inbox.md), retest
-   with the Outline panel open and a long title.
-3. UI_MODERNISATION Phase 9 remainder (`agent-remaining/responsive.md`).
-4. AGENT_SKILLS_REFORM Phase D, recovery.
-5. MINDMAP_PLAN Phases 4 to 5 and `agent-remaining/mindmap.md`.
-6. `agent-remaining/help-popovers.md` and `timeline.md` bug items (Sonnet),
-   then WORLD_CLASS 12 S7 (LIKE escaping, one helper, 18 sites, Sonnet).
-
-INBOX open items ride with the phase that owns them (the owner column in
-INBOX.md). The full-transcript scan of 14:10 added INBOX 21 to 26.
-
-- CI, ruff and CodeQL green as of `315825a`; the merge commit `dca50c6`
-  (six agents' work) is pushed and its checks are running.
-- Merged this night: the hero restored and refined; the primary start
-  tile tinted; arrow keys on every tablist; the Files reading shown in
-  full in place; sidebar toggle centred; the `data-help-for` popover
-  wiring and the Model backend section; the timeline audit scripts and
-  numbers; and the six agents' committed work below.
-- New plan files: `WORLD_CLASS_PLAN.md` (start there), `SESSION_BRIEFS.md`
-  (one brief per session). `ROADMAP.md` opens with the table that says
-  which of the fifteen roadmap files are live.
+**Now (2026-09-12 evening, Fable orchestrating, the owner asleep and
+"finish absolutely everything from the plan" as the order):** four agents
+in flight, then the queue below, two Opus agents at a time, each in its
+own worktree, merged and pushed by the orchestrator at each report. In
+flight: graph node popups plus the movement optimisation (graph-canvas.js);
+the UI batch (mindmap radial, the View menu cap, template dialog, capture
+form heights, the agent panel); splash bar, delete-tool cursor, boards
+selector, Files rows (library.js, whiteboard.js); the Documents sidebar
+(Brief-style prompt, `docsidebar.js` numbers). Queue, by impact, and the owner's clarification ("all the plans worked
+on this session I mean"): the plans touched this session and their
+agent-remaining files come first, gated on which files free up: (1)
+Brief 22, the Notes sub-tabs (INBOX 116), once the capture form is free;
+(2) Library image-card bottoms (INBOX 115, `imagecardbottom.js`) once
+library.js is free; (3) `agent-remaining/brief-13-harness.md`,
+`brief7-event-log.md` (the `generate_map`/`import_board` replay gap) and
+`brief11-retrieval-engine.md`, one backend agent, with
+`tests/test_learned_spec.py` (15 markers) and `test_resurface_spec.py`
+(7) behind them; (4) WHITEBOARD_PLAN Phases 1 to 4 and
+`agent-remaining/mindmap.md` once whiteboard.js is free; (5) DOCUMENTS
+Phases 3 to 8 and `documents-engine.md`; (6) GRAPH Phase 4b and 6b and
+`graph.md`; (7) UI Phase 11, the phone; then TIMELINE_PLAN and CHAT_PLAN
+Phases 2 and 3, untouched this session, last. Landed today by the orchestrator, each
+measured live: file readings in Background tasks (`core/filejobs.py`); the
+tonal tier's quiet variant and the `translate`/`scale` press cue; the
+top-layer dialog fix; the collapsed rail button centred (6/6, was 6/4);
+the settings "?" marks in one column; three `test_ui_recipes.py` lints.
+Four owner reports measured and not reproduced are in INBOX 114; the
+whiteboard drag lag is unattributed after three passes
+(`agent-remaining/mindmap.md`). The hourly check-in re-arms itself.
 
 ### The agents (worktrees under `.claude/worktrees/agent-<id>`)
 

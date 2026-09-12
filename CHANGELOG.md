@@ -66,6 +66,15 @@ below). Versioning is `0.x` while the app stabilises.
 - A map keeps at least one topic: deleting the last one is refused at both
   delete paths, and the refusal offers "Clear the map", which takes the whole
   map away and leaves one blank topic ready to type into.
+- The documents editor's suggestion menu reads down its left edge. The rows
+  had inherited the shell's centred button layout, so each icon sat 29, 30 or
+  31px from the row edge depending on how long its label was; they line up at
+  7px now. The menu also caps its height and scrolls, which it needs now that
+  a real dictionary can fill it.
+- Markdown markers in the rendered view stay down until someone is in the
+  editor. A document nobody had clicked in showed its first heading's "#",
+  because an untouched editor's caret sits at offset 0 and a marker on the
+  caret's line is revealed by design.
 - Tab in the documents editor indents a list item from wherever the caret is
   in it, rather than pushing two spaces into the middle of the word, and
   Shift+Tab pulls it back instead of moving focus to the dock. Reported: "I

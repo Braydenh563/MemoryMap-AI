@@ -24,6 +24,7 @@ from sqlalchemy import (
     DateTime as SaDateTime,
     ForeignKey,
     Integer,
+    JSON,
     Float,
     LargeBinary,
     String,
@@ -1187,7 +1188,17 @@ class UserPreference(Base):
 
 
 class AuditLog(Base):
-    """Every meaningful action, logged from the start (plan §4)."""
+    """Every meaningful action, logged from the start (plan §4), and since
+    Brief 7 the event log the rest of the app replays (WORLD_CLASS_PLAN B1).
+
+    One table, not two: this row already carried the action, the entity and
+    the time, and a second `events` table beside it would have meant two
+    half-histories, each missing whatever the other recorded. `actor` and
+    `payload` are what it lacked, so they were added here.
+
+    `core/events.py` is the only writer (`manager.log_action` delegates to
+    it) and the only reader that interprets `payload`.
+    """
 
     __tablename__ = "audit_log"
 
@@ -1196,6 +1207,21 @@ class AuditLog(Base):
     entity_type: Mapped[str] = mapped_column(String(50))  # entry/category/...
     entity_id: Mapped[int | None] = mapped_column(Integer, default=None)
     detail: Mapped[str | None] = mapped_column(Text, default=None)
+    #: Who did it: `user`, `ai:<tool or skill>`, or `system:<job>`. Free text
+    #: rather than an enum because the tail of it (which tool, which job) is
+    #: the half a reader actually wants, and an enum would have to be widened
+    #: every time a skill is added. Defaults to `user`: an event with no
+    #: stated actor came from somebody pressing something, which is what the
+    #: pre-Brief-7 rows were, so the backfill default tells the truth about
+    #: them too.
+    actor: Mapped[str] = mapped_column(String(60), default="user")
+    #: The whole value of every field this action set, not a diff:
+    #: `{"before": {...}, "after": {...}}` for a change, plus whatever else
+    #: the action needs to be replayable (a purge carries `{"ids": [...]}`).
+    #: Whole values because `events.replay` rebuilds a note by applying each
+    #: `after` in order, and a diff would need every earlier event to be
+    #: present and correct to mean anything at all.
+    payload: Mapped[dict | None] = mapped_column(JSON, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 

@@ -338,3 +338,34 @@ def test_the_search_endpoint_is_behind_the_lock():
 
     source = Path("src/memorymap/api/app.py").read_text(encoding="utf-8")
     assert "app.include_router(routes_search.router, dependencies=locked)" in source
+
+
+def test_making_a_note_private_takes_its_vector_out_of_the_matrix(
+    session, fake_embeddings, monkeypatch
+):
+    """A vector derived from the text is exactly what the encryption is for.
+    The bulk `delete()` in `set_private` never reaches the in-memory array,
+    so the array is told directly."""
+    from memorymap.entry import manager
+    from memorymap.search import engine
+
+    entry = _note(session, "the private thing about bread")
+    fake_embeddings.store_for_entry(session, entry)
+    engine.warm_vectors(session)
+    assert entry.id in engine.vectors_by_id(session)
+
+    monkeypatch.setattr("memorymap.core.vault.key", lambda: b"k" * 32)
+    assert manager.set_private(session, entry, True)
+    session.commit()
+    assert entry.id not in engine.vectors_by_id(session)
+
+
+def test_forget_vector_is_reachable_on_its_own(session, fake_embeddings):
+    from memorymap.search import engine
+
+    entry = _note(session, "a note to forget")
+    fake_embeddings.store_for_entry(session, entry)
+    engine.warm_vectors(session)
+    assert entry.id in engine.vectors_by_id(session)
+    engine.forget_vector(entry.id)
+    assert entry.id not in engine.vectors_by_id(session)

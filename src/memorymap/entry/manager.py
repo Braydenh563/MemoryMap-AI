@@ -1859,6 +1859,15 @@ def set_private(session: Session, entry: Entry, private: bool) -> bool:
             entry.content = crypto.encrypt(key, entry.content)
         entry.is_private = True
         session.execute(delete(EmbeddingRecord).where(EmbeddingRecord.entry_id == entry.id))
+        # And out of the retrieval engine's in-memory matrix, which a bulk
+        # `delete()` statement never reaches: a vector derived from this text
+        # is exactly what the encryption is for, and one left in the array
+        # would go on answering similarity queries about a note nobody can
+        # read. The import is inside the function for the reason
+        # `record_dates` states.
+        from memorymap.search import engine as search_engine
+
+        search_engine.forget_vector(entry.id)
         # And the resolved dates, for the same reason as the embedding: a note
         # is marked private *after* it is created, so anything derived from
         # its text and stored in the clear has to be cleared out here too.

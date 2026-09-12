@@ -277,10 +277,11 @@ def _keep_matrix_in_step(session: Session, flush_context) -> None:  # noqa: ANN0
 
     The same reasoning as the index's own hook (`search/index.py`): every
     writer participates by construction. A bulk `DELETE FROM embeddings`
-    through `session.execute` is the one shape this cannot see; those two call
-    sites (`routes_entries.py`, on making a note private and on re-embedding
-    after an edit) insert a fresh vector straight afterwards, so the row is
-    replaced rather than left stale.
+    through `session.execute` is the one shape this cannot see. Of the three
+    that exist, two (`routes_entries.py`, re-embedding after an edit) store a
+    fresh vector immediately afterwards, so the row is replaced rather than
+    left stale; the third (`manager.set_private`) stores nothing, because a
+    private note is never embedded, and calls `forget_vector` instead.
     """
     if _matrix is None:
         return
@@ -308,6 +309,20 @@ def _remember(record: EmbeddingRecord) -> None:
     _matrix.ids.append(entry_id)
     _matrix.position[entry_id] = len(_matrix.ids) - 1
     _matrix.rows = rows
+
+
+def forget_vector(entry_id: int) -> None:
+    """Drop one note's vector from the matrix, now.
+
+    For the writes the ORM hook cannot see. There is exactly one that matters
+    and it is a privacy one: `manager.set_private` deletes a note's
+    `EmbeddingRecord` with a bulk `delete()` statement and stores nothing in
+    its place, because a private note is never embedded. Without this the
+    matrix would go on holding a vector *derived from the text the
+    encryption exists to hide*, and every similarity query would keep
+    answering questions about it.
+    """
+    _forget(int(entry_id))
 
 
 def _forget(entry_id: int) -> None:

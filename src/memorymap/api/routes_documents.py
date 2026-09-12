@@ -25,6 +25,7 @@ from memorymap.core.database import (
     LIKE_ESCAPE,
     Bookmark,
     Document,
+    Entry,
     DocumentAiEdit,
     DocumentBookmark,
     DocumentLink,
@@ -34,6 +35,7 @@ from memorymap.core.database import (
 )
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import (
+    WIKI_LINK,
     entries_for_document,
     get_entry,
     link_document,
@@ -665,6 +667,216 @@ def detach_note(
     document = _existing(session, document_id)
     unlink_document(session, document.id, entry_id)
     return _full(document, session)
+
+
+# --- backlinks with context, and unlinked mentions ---------------------------
+#: DOCUMENTS_PLAN Phase 4 item 1. The panel used to list the *titles* of the
+#: notes that link here, which reads as a lookup rather than as knowledge: you
+#: learn that a connection exists and nothing about what it says. Two things
+#: change that, and they are the two Obsidian and Kortex both have: the
+#: sentence the link sits in, and the mentions that are not links yet.
+#:
+#: **Why the server does this and the client does not.** The browser holds
+#: every note (`allEntries`) but no document's *content*: `_summary()`
+#: deliberately never sends it, because a document runs to thousands of words.
+#: A client-side scan would therefore find note backlinks and silently miss
+#: every document one, which is the half-built shape this plan exists to stop.
+#: One scan here answers for both kinds and defines "a mention" exactly once.
+
+#: How far either side of a hit the context may reach before it gives up
+#: looking for a sentence boundary. A backlink row is two lines in a 280px
+#: sidebar; more than this is a paragraph nobody reads in a panel.
+BACKLINK_CONTEXT_CHARS = 180
+#: Hits shown per source. A note that names this document eight times has said
+#: one thing, not eight.
+BACKLINK_HITS_PER_SOURCE = 3
+#: Sources scanned and rows returned. A local notebook is small; an imported
+#: vault is not, and this runs on every document open.
+BACKLINK_SOURCES_MAX = 400
+BACKLINK_ROWS_MAX = 60
+#: A title shorter than this is never searched for as an *unlinked* mention:
+#: "AI", "Q3" or "Ops" would match a third of the notebook and every row would
+#: be noise. A linked mention is an exact `[[name]]` and is found at any
+#: length, which is why the guard sits on one half and not the other.
+MENTION_MIN_TITLE_CHARS = 4
+
+#: The markdown a line opens with, dropped from the front of a context line so
+#: a backlink from a bullet list does not read as "- - the sentence".
+_CONTEXT_LEAD = re.compile(r"(?:[#>]+\s*|[-*+]\s+|\d{1,3}[.)]\s+)+")
+
+
+def _sentence_around(text: str, start: int, end: int) -> tuple[str, int, int]:
+    """The sentence a hit sits in, and where the hit is inside that sentence.
+
+    Returns `(context, hit_start, hit_end)` with the offsets relative to the
+    context, so the browser can mark the hit without searching the string
+    again: searching it again is how the second occurrence of a word gets
+    marked instead of the first.
+    """
+    floor = max(0, start - BACKLINK_CONTEXT_CHARS)
+    left = floor
+    index = start - 1
+    while index >= floor:
+        char = text[index]
+        if char == "\n":
+            left = index + 1
+            break
+        if char in ".!?" and (index + 1 >= len(text) or text[index + 1] in " \n"):
+            left = index + 1
+            break
+        index -= 1
+
+    ceiling = min(len(text), end + BACKLINK_CONTEXT_CHARS)
+    right = ceiling
+    index = end
+    while index < ceiling:
+        char = text[index]
+        if char == "\n":
+            right = index
+            break
+        if char in ".!?" and (index + 1 >= len(text) or text[index + 1] in " \n"):
+            right = index + 1
+            break
+        index += 1
+
+    context = text[left:right]
+    hit_start, hit_end = start - left, end - left
+
+    # Tidy the left edge, but never past the hit itself: a document whose only
+    # mention is inside its own heading would otherwise lose the hit with the
+    # `#`.
+    drop = len(context) - len(context.lstrip())
+    lead = _CONTEXT_LEAD.match(context[drop:])
+    if lead and drop + lead.end() <= hit_start:
+        drop += lead.end()
+    context = context[drop:]
+    hit_start -= drop
+    hit_end -= drop
+    trimmed = context.rstrip()
+    hit_end = min(hit_end, len(trimmed)) if hit_end > len(trimmed) else hit_end
+    context = trimmed
+
+    # An ellipsis only where the text really was cut mid-sentence, not where a
+    # sentence or a line ended on its own.
+    if left > 0 and left == floor:
+        context = "…" + context
+        hit_start += 1
+        hit_end += 1
+    if right < len(text) and right == ceiling:
+        context = context + "…"
+    return context, hit_start, hit_end
+
+
+def _backlink_spans(content: str, title: str) -> tuple[list[tuple[int, int]], list[tuple[int, int]]]:
+    """`(linked, unlinked)` spans of this title in one source's text.
+
+    A source with a real link is never listed under unlinked mentions as
+    well: the panel's second list means "not connected yet", and a note that
+    appears in both says the opposite of what each list is for.
+    """
+    wanted = title.lower()
+    wiki: list[tuple[int, int]] = []
+    linked: list[tuple[int, int]] = []
+    for match in WIKI_LINK.finditer(content):
+        wiki.append(match.span())
+        if match.group(1).strip().lower() == wanted:
+            linked.append(match.span())
+    if linked or len(title) < MENTION_MIN_TITLE_CHARS:
+        return linked, []
+    # `(?<![\w\[])` and `(?![\w\]])` keep "Roadmap" out of "Roadmaps" and out
+    # of `[[Roadmap]]`; the `wiki` overlap check is what keeps it out of
+    # `[[Roadmap for 2027]]`, which no lookaround can see.
+    pattern = re.compile(rf"(?<![\w\[]){re.escape(title)}(?![\w\]])", re.IGNORECASE)
+    unlinked = [
+        match.span()
+        for match in pattern.finditer(content)
+        if not any(start < match.end() and match.start() < end for start, end in wiki)
+    ]
+    return linked, unlinked
+
+
+def _backlink_rows(
+    kind: str, source_id: int, label: str, content: str, spans: list[tuple[int, int]]
+) -> list[dict]:
+    rows = []
+    for start, end in spans[:BACKLINK_HITS_PER_SOURCE]:
+        context, hit_start, hit_end = _sentence_around(content, start, end)
+        rows.append(
+            {
+                "kind": kind,
+                "id": source_id,
+                "title": label,
+                "context": context,
+                "hit_start": hit_start,
+                "hit_end": hit_end,
+                # Offsets in the *source's* text, which is what the "Link"
+                # action rewrites. Checked against the title again before any
+                # write: a source edited in another tab must not have a
+                # sentence of it replaced from a stale offset.
+                "start": start,
+                "end": end,
+            }
+        )
+    return rows
+
+
+def _backlinks(session: Session, document: Document) -> dict:
+    from memorymap.entry.manager import plain_label
+
+    title = (document.title or "").strip()
+    if not title:
+        # Nothing to match on. An untitled document has no name to be
+        # mentioned by, which is a fact about the document rather than an
+        # error, so this is an empty answer and not a 400.
+        return {"title": "", "links": [], "mentions": []}
+
+    like = f"%{like_escape(title)}%"
+    sources: list[tuple[str, int, str, str]] = []
+    for row in session.scalars(
+        select(Document)
+        .where(
+            Document.id != document.id,
+            Document.archived_at.is_(None),
+            Document.content.ilike(like, escape=LIKE_ESCAPE),
+        )
+        .order_by(Document.updated_at.desc(), Document.id.desc())
+        .limit(BACKLINK_SOURCES_MAX)
+    ):
+        sources.append(("document", row.id, row.title or "Untitled", row.content or ""))
+    for row in session.scalars(
+        select(Entry)
+        .where(
+            Entry.is_deleted == False,  # noqa: E712
+            # A private note is encrypted at rest, so its content would not
+            # match the LIKE anyway; the filter is here so that stays true by
+            # decision rather than by side effect.
+            Entry.is_private == False,  # noqa: E712
+            Entry.content.ilike(like, escape=LIKE_ESCAPE),
+        )
+        .order_by(Entry.id.desc())
+        .limit(BACKLINK_SOURCES_MAX)
+    ):
+        sources.append(
+            ("note", row.id, plain_label(row.content, 60) or "Untitled note", row.content or "")
+        )
+
+    links: list[dict] = []
+    mentions: list[dict] = []
+    for kind, source_id, label, content in sources:
+        linked, unlinked = _backlink_spans(content, title)
+        links.extend(_backlink_rows(kind, source_id, label, content, linked))
+        mentions.extend(_backlink_rows(kind, source_id, label, content, unlinked))
+    return {
+        "title": title,
+        "links": links[:BACKLINK_ROWS_MAX],
+        "mentions": mentions[:BACKLINK_ROWS_MAX],
+    }
+
+
+@router.get("/{document_id}/backlinks")
+def document_backlinks(document_id: int, session: Session = Depends(get_session)) -> dict:
+    """What links here, what mentions it, and the sentence each one says it in."""
+    return _backlinks(session, _existing(session, document_id))
 
 
 @router.get("/{document_id}/connections")

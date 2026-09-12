@@ -815,60 +815,245 @@ async function openDocument(id) {
   renderDocList();
 }
 
-// The notes this document draws on. Shown beside the outline because both
-// answer the same question, what is this document made of.
-// Which notes point at the open document with a [[wiki link]].
+// =============================================================================
+// Backlinks with context, and unlinked mentions (DOCUMENTS_PLAN Phase 4 item 1)
+// =============================================================================
 //
-// The reverse direction of resolveWikiTarget, and deliberately computed from
-// `allEntries` on the client rather than added as an endpoint: the notes are
-// already loaded, the match is the same title comparison the resolver does, and
-// a round trip to learn something the browser already knows is a round trip
-// that will be slow exactly when the notebook is large.
+// What links *here*. The panel used to be a list of titles, which reads as a
+// lookup: you learn that a connection exists and nothing about what it says.
+// Two things turn it into knowledge, and they are the two Obsidian and Kortex
+// both have: the sentence the link sits in, and the mentions that are not
+// links yet.
 //
-// Note this is a *different* relationship from renderDocNotes above, which
-// lists notes explicitly attached to the document. A note can mention a
-// document without being filed under it, and that is the interesting case.
-function renderDocBacklinks() {
-  const wrap = $("doc-backlinks-wrap");
-  const list = $("doc-backlinks");
-  if (!wrap || !list) return;
-  const title = (currentDoc?.title || "").trim().toLowerCase();
-  const attached = new Set(((currentDoc && currentDoc.notes) || []).map((n) => n.id));
+// **The scan is the server's** (`GET /documents/{id}/backlinks`). The browser
+// holds every note but no other document's *content*: the documents list
+// deliberately carries a preview and not the text, because a document runs to
+// thousands of words. A client-side scan would therefore have found note
+// backlinks and silently missed every document one, which is the half-built
+// shape this plan exists to stop. The endpoint's own reasoning is in
+// routes_documents.py; what is here is the panel and the two actions.
 
-  const linking = !title
-    ? []
-    : (typeof allEntries !== "undefined" ? allEntries : []).filter((entry) => {
-        if (entry.is_private) return false;
-        // Already shown under "Notes it draws on", listing it twice says
-        // there are two connections when there is one.
-        if (attached.has(entry.id)) return false;
-        const pattern = /\[\[([^[\]]{1,120})\]\]/g;
-        let match;
-        while ((match = pattern.exec(entry.content || "")) !== null) {
-          if (match[1].trim().toLowerCase() === title) return true;
-        }
-        return false;
+//: One request at a time, and the last one wins. Switching documents quickly
+//: used to be safe because this was synchronous over `allEntries`; it is a
+//: fetch now, and two in flight would paint the slower one's answer under the
+//: faster one's document. The same shape `renderDocBookmarks` uses.
+let docBacklinksToken = 0;
+
+//: The unlinked-mentions section, made once and kept, for the same reason the
+//: properties panel is made in script: `tests/test_frontend_ids.py` pairs
+//: every `$("...")` with an element in index.html, and index.html belongs to
+//: another agent. Its shape is the backlinks section's exactly, so the two
+//: read as one panel and not as a panel and an add-on.
+function docMentionsHost(create = false) {
+  const anchor = $("doc-backlinks-wrap");
+  if (!anchor || !anchor.parentElement) return null;
+  let host = anchor.parentElement.querySelector(".doc-mentions-wrap");
+  if (!host && create) {
+    host = document.createElement("div");
+    host.className = "doc-outline-wrap doc-mentions-wrap";
+    const heading = document.createElement("h3");
+    heading.append(
+      document.createTextNode("Unlinked mentions "),
+      docSectionCount("doc-mentions-count")
+    );
+    //: The one line of description a section gets (CLAUDE.md's copy rule);
+    //: anything longer belongs behind the '?' the heading carries.
+    const help = document.createElement("p");
+    help.className = "muted doc-outline-empty doc-mentions-help";
+    help.textContent = "Notes and documents that name this one without linking to it.";
+    const list = document.createElement("ul");
+    list.className = "doc-outline doc-mentions";
+    host.append(heading, help, list);
+    anchor.insertAdjacentElement("afterend", host);
+  }
+  return host;
+}
+
+//: A heading's count, from the same recipe the outline's own heading uses, so
+//: the four sidebar sections agree about what a count looks like.
+function docSectionCount(className) {
+  const count = document.createElement("span");
+  count.className = `doc-outline-count ${className}`;
+  return count;
+}
+
+//: The context line, with the match marked. Built as three nodes rather than
+//: as a string with a `<mark>` in it: `tests/test_no_innerhtml_interpolation.py`
+//: exists because a note's own text is not markup, and a note that mentions
+//: this document *and* contains a tag would otherwise render it.
+//:
+//: The offsets come from the server with the context, so the occurrence that
+//: matched is the one marked. Searching the context again here is how the
+//: *first* lookalike gets marked instead of the one that was found.
+function docBacklinkContext(row) {
+  const line = document.createElement("p");
+  line.className = "doc-backlink-context";
+  const text = row.context || "";
+  const from = Math.max(0, Math.min(text.length, row.hit_start | 0));
+  const to = Math.max(from, Math.min(text.length, row.hit_end | 0));
+  const mark = document.createElement("mark");
+  mark.textContent = text.slice(from, to);
+  line.append(document.createTextNode(text.slice(0, from)), mark, document.createTextNode(text.slice(to)));
+  return line;
+}
+
+//: Does the open document already point back at this source? Read from the
+//: text rather than remembered, because the answer changes with every
+//: keystroke and a stale "Linked both ways" is worse than no button.
+function docLinksTo(title) {
+  const wanted = (title || "").trim().toLowerCase();
+  if (!wanted) return false;
+  const pattern = /\[\[([^[\]]{1,120})\]\]/g;
+  const text = docText();
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    if (match[1].trim().toLowerCase() === wanted) return true;
+  }
+  return false;
+}
+
+function docOpenBacklinkSource(row) {
+  if (row.kind === "document") {
+    openDocument(row.id);
+    return;
+  }
+  switchTab("notes");
+  showNotesSection("browse"); // focusing inside a hidden section does nothing
+  flashEntry(row.id);
+}
+
+//: **Link back: insert `[[Source]]` at the caret.** Deliberately the caret and
+//: not the end of the document: every other insert in this editor (the "/"
+//: menu, the table command, the properties command) writes where you are, and
+//: an action that alone appended to the bottom would be the one place in the
+//: editor where "insert" means something else.
+function docLinkBack(title) {
+  const surface = docSurface();
+  if (!surface) return;
+  const at = surface.selectionStart;
+  docReplaceRange(surface, at, surface.selectionEnd, `[[${title}]]`);
+  markDocDirty();
+  surface.focus();
+  renderDocBacklinks();
+}
+
+//: **Link: rewrite the mention in the source that wrote it**, through that
+//: kind's own update route, so the note's revision, its `[[link]]` sync and
+//: its search vector all happen exactly as they do for a hand edit. Writing
+//: the row from here through a new endpoint would have been a second copy of
+//: machinery that already exists and already has guards.
+async function docLinkMention(row, button) {
+  const title = (currentDoc?.title || "").trim();
+  if (!title) return;
+  button.disabled = true;
+  try {
+    let content = null;
+    if (row.kind === "note") {
+      const known = (typeof allEntries !== "undefined" ? allEntries : []).find((e) => e.id === row.id);
+      content = known ? known.content : (await apiJson(`/entries/${row.id}`)).content;
+    } else {
+      content = (await apiJson(`/documents/${row.id}`)).content;
+    }
+    const slice = (content || "").slice(row.start, row.end);
+    //: The offsets were taken when the panel was drawn. A source edited in
+    //: another tab since would have this land in the middle of a sentence, so
+    //: the span is checked against the title before anything is written and
+    //: the panel is redrawn rather than guessed at.
+    if (slice.toLowerCase() !== title.toLowerCase()) {
+      toast("That mention has moved, the panel is refreshing.");
+      renderDocBacklinks();
+      return;
+    }
+    const next = content.slice(0, row.start) + `[[${title}]]` + content.slice(row.end);
+    if (row.kind === "note") {
+      await apiJson(`/entries/${row.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ content: next }),
       });
-
-  wrap.classList.toggle("hidden", !linking.length);
-  list.replaceChildren();
-  for (const entry of linking) {
-    const item = document.createElement("li");
-    const open = document.createElement("button");
-    open.type = "button";
-    open.className = "outline-link";
-    open.textContent = noteLabel(entry, 60);
-    open.title = "Show this note";
-    open.addEventListener("click", () => {
-      switchTab("notes");
-      showNotesSection("browse"); // focusing inside a hidden section does nothing
-      flashEntry(entry.id);
-    });
-    item.appendChild(open);
-    list.appendChild(item);
+      if (typeof loadEntries === "function") loadEntries();
+    } else {
+      await apiJson(`/documents/${row.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ content: next }),
+      });
+      await loadDocuments(currentDoc?.id);
+    }
+    toast(`Linked from ${row.title}.`);
+  } catch (error) {
+    toast(error.message, true);
+  } finally {
+    button.disabled = false;
+    renderDocBacklinks();
   }
 }
 
+function docBacklinkItem(row, linked) {
+  const item = document.createElement("li");
+  item.className = "doc-backlink";
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "outline-link doc-backlink-title";
+  setLabel(open, `${row.kind === "document" ? "ph:file-text" : "ph:note"} ${row.title}`);
+  open.title = row.kind === "document" ? "Open this document" : "Show this note";
+  open.addEventListener("click", () => docOpenBacklinkSource(row));
+  const foot = document.createElement("div");
+  foot.className = "doc-backlink-foot";
+  if (linked) {
+    const already = docLinksTo(row.title);
+    const back = smallButton(
+      already ? "Linked both ways" : "Link back",
+      already
+        ? "This document already links to it"
+        : `Insert [[${row.title}]] where the caret is`,
+      () => docLinkBack(row.title)
+    );
+    back.disabled = already;
+    back.classList.add("doc-backlink-action");
+    foot.appendChild(back);
+  } else {
+    const link = smallButton("Link", `Turn this mention into a link to ${currentDoc?.title || "this document"}`, () => {});
+    link.classList.add("doc-backlink-action");
+    link.addEventListener("click", () => docLinkMention(row, link));
+    foot.appendChild(link);
+  }
+  item.append(open, docBacklinkContext(row), foot);
+  return item;
+}
+
+async function renderDocBacklinks() {
+  const wrap = $("doc-backlinks-wrap");
+  const list = $("doc-backlinks");
+  if (!wrap || !list) return;
+  const token = ++docBacklinksToken;
+  let body = null;
+  if (currentDoc?.id != null) {
+    body = await apiJson(`/documents/${currentDoc.id}/backlinks`, { silent: true }).catch(() => null);
+  }
+  if (token !== docBacklinksToken) return; // a newer document answered first
+  const links = (body && body.links) || [];
+  const mentions = (body && body.mentions) || [];
+
+  wrap.classList.toggle("hidden", !links.length);
+  list.replaceChildren();
+  for (const row of links) list.appendChild(docBacklinkItem(row, true));
+  const count = wrap.querySelector(".doc-backlinks-count") || docSectionCount("doc-backlinks-count");
+  if (!count.parentElement) wrap.querySelector("h3")?.append(document.createTextNode(" "), count);
+  count.textContent = links.length ? String(links.length) : "";
+
+  const host = docMentionsHost(mentions.length > 0);
+  if (host) {
+    const mentionList = host.querySelector(".doc-mentions");
+    mentionList.replaceChildren();
+    for (const row of mentions) mentionList.appendChild(docBacklinkItem(row, false));
+    host.querySelector(".doc-mentions-count").textContent = mentions.length
+      ? String(mentions.length)
+      : "";
+    host.classList.toggle("hidden", !mentions.length);
+  }
+}
+
+// The notes this document draws on. Shown beside the outline because both
+// answer the same question, what is this document made of.
 function renderDocNotes() {
   const wrap = $("doc-notes-wrap");
   const list = $("doc-notes");

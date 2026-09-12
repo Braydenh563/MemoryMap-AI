@@ -4106,3 +4106,84 @@ button.ghost.doc-template-choice:focus-visible {
     --header-pad-x: var(--space-4);
   }
 }
+
+/* Backlinks with context, and unlinked mentions (DOCUMENTS_PLAN Phase 4.1).
+
+   A backlink row is three things stacked, not one line: who said it, what
+   they said, and the one action that changes the connection. `.outline-link`
+   on its own is `white-space: nowrap` with an ellipsis, which is right for a
+   heading in an outline and wrong for a sentence, so the sentence is its own
+   element and the link keeps the behaviour every other outline row has. */
+.doc-backlink {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+}
+
+.doc-backlink + .doc-backlink {
+  border-top: 1px solid var(--border);
+}
+
+.doc-backlink > .doc-backlink-title {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Two lines of the sentence, then an ellipsis: a panel this narrow turns a
+   long paragraph into a wall, and the point of the line is to say enough to
+   recognise the connection, not to read the note in the sidebar. */
+.doc-backlink-context {
+  margin: 0;
+  padding-left: 0.25rem;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* The match itself, on the app's own found-text recipe (`mark.global-find-hit`
+   in 01-forms-settings.css): the soft accent behind inherited ink, so a hit in
+   a backlink and a hit in Find on this page are the same thing to look at.
+   `--accent-surface` is the *selected* fill and needs `--on-accent` over it,
+   which is a different statement and the wrong one here. The weight is the
+   second cue, because a tint alone is a colour-only cue. */
+.doc-backlink-context mark {
+  background: var(--accent-soft);
+  color: inherit;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  padding: 0 0.15rem;
+}
+
+/* The action sits under its own row rather than beside the title: at 226px of
+   sidebar a "Linked both ways" button beside a title leaves the title four
+   characters. `flex-start` so the button is as wide as what it says, the same
+   reason `#doc-attach-bookmark` carries it. */
+.doc-backlink-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: 0.25rem;
+}
+
+.doc-backlink-action {
+  flex: 0 0 auto;
+}
+
+/* Unlinked mentions is the backlinks section's shape exactly, so the two read
+   as one panel. The help line is the section's one line of description
+   (CLAUDE.md's copy rule) and carries the muted empty-state ink. */
+.doc-mentions-help {
+  margin-top: 0;
+}
+
+/* The empty collapse the three sections above already have, for the one the
+   script makes. */
+.doc-mentions-wrap:has(> .doc-mentions:empty) > h3,
+.doc-mentions-wrap:has(> .doc-mentions:empty) > .doc-mentions-help {
+  display: none;
+}

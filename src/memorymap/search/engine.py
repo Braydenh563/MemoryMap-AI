@@ -730,6 +730,35 @@ def similar_to_vector(session: Session, vector, k: int = 10) -> list[tuple[int, 
     return matrix.top_k(np.asarray(vector, dtype="float32"), k)
 
 
+def vectors_by_id(session: Session, only: set[int] | None = None) -> dict[int, "np.ndarray"]:
+    """Every vector the matrix holds, as `{entry_id: unit vector}`.
+
+    For the three whole-notebook features that genuinely do need all of them
+    at once (link suggestions, tensions, the graph's similarity edges): they
+    compare every pair, so there is no top-k to take. What they no longer do
+    is *re-read and re-parse* the blobs: each was selecting every
+    `EmbeddingRecord` row and calling `bytes_to_vector` on it, per request,
+    for data this process already has in one array.
+
+    Rows are unit-normalised, which is what `embeddings.similar_pairs` does to
+    them first thing anyway.
+    """
+    matrix = _live_matrix(session)
+    if matrix is None:
+        backend = _backend_id()
+        if backend is None:
+            return {}
+        warm_vectors(session, backend)
+        matrix = _live_matrix(session)
+        if matrix is None:
+            return {}
+    return {
+        entry_id: matrix.rows[position]
+        for entry_id, position in matrix.position.items()
+        if only is None or entry_id in only
+    }
+
+
 def stats(session: Session) -> dict:
     """What the engine has to work with, for `/search/stats` and for a report."""
     matrix = _live_matrix(session)

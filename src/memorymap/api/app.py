@@ -53,6 +53,7 @@ from memorymap.api import (
     routes_spaces,
     routes_tasks,
     routes_timeline,
+    routes_search,
     routes_tags,
     routes_update,
     routes_voice,
@@ -533,6 +534,7 @@ def create_app() -> FastAPI:
     app.include_router(
         routes_files.media_router, dependencies=[Depends(routes_auth.require_unlock_media)]
     )
+    app.include_router(routes_search.router, dependencies=locked)
     app.include_router(routes_tags.router, dependencies=locked)
     app.include_router(routes_categories.router, dependencies=locked)
     app.include_router(routes_conversations.router, dependencies=locked)

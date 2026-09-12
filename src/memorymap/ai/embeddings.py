@@ -73,6 +73,28 @@ def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # 
         # Now that the model is up, catch any notes that missed out.
         if session_factory is not None and not _warmup["error"]:
             backfill_missing(service, session_factory)
+            # ...and build the retrieval engine's vector matrix once, here,
+            # on the thread that already waited for the model rather than on
+            # whichever request happens to be first (Brief 11). Before the
+            # model is ready there is no backend id to build against, which
+            # is why this is at the end of the warm-up and not in
+            # `create_app`. A failure is logged and dropped: a cold matrix
+            # means "no similarity yet", never a failed startup.
+            try:
+                from memorymap.search import engine as search_engine
+
+                session = session_factory()
+                try:
+                    held = search_engine.warm_vectors(session)
+                finally:
+                    session.close()
+                logging.getLogger("memorymap.embeddings").info(
+                    "retrieval matrix warm with %d vector(s)", held
+                )
+            except Exception:  # noqa: BLE001  # see above
+                logging.getLogger("memorymap.embeddings").warning(
+                    "could not warm the retrieval matrix", exc_info=True
+                )
 
     threading.Thread(target=run, name="embedding-warmup", daemon=True).start()
 

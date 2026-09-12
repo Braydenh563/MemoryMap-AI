@@ -48,6 +48,7 @@ from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_sugg
 )
 from memorymap.core.deps import get_session
 from memorymap.entry import duplicates, manager
+from memorymap.search import engine as search_engine
 from memorymap.search import search_manager
 
 router = APIRouter(prefix="/entries", tags=["entries"])
@@ -669,7 +670,7 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     already-correct shape: fetch every stored vector once, compare all
     pairs in memory: which turns O(n) queries plus O(n) re-embeddings into
     one query and zero re-embedding calls."""
-    from memorymap.ai.embeddings import bytes_to_vector, similar_pairs
+    from memorymap.ai.embeddings import similar_pairs
 
     entries = manager.list_entries(session)
     entries_by_id = {e.id: e for e in entries if not e.is_private}
@@ -684,12 +685,10 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     embeddings = deps.get_embeddings()
     if not embeddings.is_ready():
         return []
-    records = session.execute(
-        select(EmbeddingRecord.entry_id, EmbeddingRecord.embedding).where(
-            EmbeddingRecord.model_version == embeddings.backend_id()
-        )
-    ).all()
-    vectors = {eid: bytes_to_vector(blob) for eid, blob in records if eid in entries_by_id}
+    # From the engine's matrix (Brief 11), not a fresh `SELECT` of every
+    # vector plus a `bytes_to_vector` per row: this process already holds the
+    # array, and the pairs pass below wants exactly it.
+    vectors = search_engine.vectors_by_id(session, only=set(entries_by_id))
 
     # `similar_pairs` hands these back best-first and blocks the matrix
     # multiply, so a big notebook costs one block of memory rather than an
@@ -797,7 +796,7 @@ def find_tensions(
     a bare `[]` renders them identically, which is how a feature that never
     ran gets reported as a feature that found nothing.
     """
-    from memorymap.ai.embeddings import bytes_to_vector, similar_pairs
+    from memorymap.ai.embeddings import similar_pairs
     from memorymap.ai import tensions as tensions_module
 
     ollama = deps.get_ollama()
@@ -813,12 +812,7 @@ def find_tensions(
     if len(by_id) < 2:
         return {"tensions": [], "status": "too_few_notes"}
 
-    records = session.execute(
-        select(EmbeddingRecord.entry_id, EmbeddingRecord.embedding).where(
-            EmbeddingRecord.model_version == embeddings.backend_id()
-        )
-    ).all()
-    vectors = {eid: bytes_to_vector(blob) for eid, blob in records if eid in by_id}
+    vectors = search_engine.vectors_by_id(session, only=set(by_id))
 
     # A pair already marked as contradicting is a finding the person has
     # already accepted, not one to re-propose. Every other link type is left
@@ -1003,22 +997,40 @@ def backfill_link_reasons(
     return result
 
 
+#: How alike two notes have to be before one is offered as "see also".
+#: Unchanged from the number this route already used inline; named now that
+#: the scoring moved into the engine, so the threshold and the engine's own
+#: `MIN_SIMILARITY` are visibly two different decisions rather than one
+#: number copied twice.
+RELATED_MIN_SIMILARITY = 0.3
+
+
 @router.get("/{entry_id}/related", response_model=list[EntryOut])
 def related_entries(entry_id: int, session: Session = Depends(get_session)) -> list[EntryOut]:
     """Semantic neighbours of one entry ("see also")."""
     entry = _existing_entry(session, entry_id)
+    # The engine's matrix rather than a scan of every stored vector per note
+    # opened (Brief 11). `warm_vectors` is idempotent: it builds once per
+    # process and per notebook, and returns immediately after that, so this
+    # is not per-request work. `related()` itself never builds, which is what
+    # the spec pins.
     try:
-        results = search_manager.semantic_search(
-            session, entry.content, deps.get_embeddings(), limit=4
+        search_engine.warm_vectors(session)
+        neighbours = search_engine.related(session, entry.id, k=8)
+    except Exception:  # noqa: BLE001  # a "see also" panel never fails a note
+        neighbours = []
+    wanted = [other_id for other_id, score in neighbours if score >= RELATED_MIN_SIMILARITY]
+    if not wanted:
+        return []
+    found = {
+        other.id: other
+        for other in session.scalars(
+            select(Entry).where(Entry.id.in_(wanted), Entry.is_deleted == False)  # noqa: E712
         )
-    except Exception:
-        results = None
-    related = [
-        other
-        for other, score in (results or [])
-        if other.id != entry.id and score >= 0.3
-    ]
-    return [_to_out(session, e) for e in related[:3]]
+        if not other.is_private
+    }
+    ordered = [found[other_id] for other_id in wanted if other_id in found]
+    return [_to_out(session, e) for e in ordered[:3]]
 
 
 class AttachBookmarkBody(BaseModel):

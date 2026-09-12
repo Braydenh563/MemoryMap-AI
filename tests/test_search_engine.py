@@ -200,3 +200,132 @@ def test_rebuild_matches_what_the_writes_indexed(session):
     index.rebuild(session)
     session.commit()
     assert index.counts(session) == live
+
+
+# --- the engine ---------------------------------------------------------------
+
+
+def _note(session, content, **kwargs):
+    from memorymap.entry import manager
+
+    entry = manager.create_entry(session, content, tags=kwargs.pop("tags", []))
+    for key, value in kwargs.items():
+        setattr(entry, key, value)
+    session.commit()
+    return entry
+
+
+def test_a_hit_from_every_kind_comes_back_from_one_query(session):
+    from datetime import datetime
+
+    from memorymap.core.database import Bookmark, Document, Entry, Reminder
+    from memorymap.search import engine
+
+    _note(session, "allotment planting plan")
+    session.add(Entry(content="allotment board", is_board=True))
+    session.add(Document(title="Allotment", content="the allotment beds"))
+    session.add(Bookmark(url="https://example.com", title="allotment guide"))
+    session.add(Reminder(text="water the allotment", due_at=datetime(2026, 1, 1)))
+    session.commit()
+
+    hits = engine.search(session, "allotment", ctx=None)
+    assert {hit.kind for hit in hits} == {"note", "board", "document", "bookmark", "reminder"}
+    assert all(hit.explain for hit in hits)
+
+
+def test_a_filter_narrows_the_kinds(session):
+    from memorymap.core.database import Document
+    from memorymap.search import engine
+
+    _note(session, "beans in the ground")
+    session.add(Document(title="Beans", content="beans everywhere"))
+    session.commit()
+
+    hits = engine.search(session, "kind:document beans", ctx=None)
+    assert [hit.kind for hit in hits] == ["document"]
+
+
+def test_an_excluded_word_drops_the_hit(session):
+    from memorymap.search import engine
+
+    _note(session, "beans and rice")
+    _note(session, "beans and bread")
+    assert len(engine.search(session, "beans", ctx=None)) == 2
+    kept = engine.search(session, "beans -rice", ctx=None)
+    assert len(kept) == 1 and "bread" in kept[0].snippet
+
+
+def test_a_tag_filter_uses_the_indexed_tags(session):
+    from memorymap.search import engine
+
+    _note(session, "planting notes", tags=["garden"])
+    _note(session, "planting notes for work", tags=["work"])
+    hits = engine.search(session, "tag:garden planting", ctx=None)
+    assert len(hits) == 1
+
+
+def test_the_open_note_lifts_what_is_linked_to_it(session):
+    """The graph signal, which is the one no amount of text similarity has."""
+    from memorymap.core.database import EntryLink
+    from memorymap.search import engine
+
+    open_note = _note(session, "the plan for the season")
+    linked = _note(session, "seedlings hardening off")
+    _note(session, "seedlings from a different year entirely")
+    session.add(EntryLink(source_entry_id=open_note.id, target_entry_id=linked.id))
+    session.commit()
+
+    hits = engine.search(session, "seedlings", ctx={"entry_id": open_note.id})
+    assert hits[0].ref_id == linked.id
+    assert hits[0].scores["graph"] == 0.5  # one hop: 1 / (1 + 1)
+    assert "linked to the open note" in hits[0].explain
+
+
+def test_every_hit_says_which_signal_carried_it(session):
+    from memorymap.search import engine
+
+    _note(session, "risotto with peas", tags=["recipe"])
+    hits = engine.search(session, "risotto", ctx=None)
+    assert hits[0].explain[0] == "matched the title"
+    assert set(hits[0].scores) == {"bm25", "cosine", "graph"}
+
+
+def test_a_cold_matrix_means_no_similarity_not_a_scan(session, monkeypatch):
+    """`related()` returning nothing beats `related()` reading every vector:
+    startup warms the matrix, so cold is the first seconds of a process."""
+    from memorymap.search import engine
+
+    monkeypatch.setattr(engine, "_matrix", None)
+    calls = []
+    monkeypatch.setattr(engine, "_load_all_vectors", lambda *a, **k: calls.append(1))
+    assert engine.related(session, entry_id=1, k=5) == []
+    assert not calls
+
+
+def test_the_matrix_takes_a_new_vector_without_reloading(session, fake_embeddings):
+    from memorymap.search import engine
+
+    entry = _note(session, "a note about bread")
+    assert engine.warm_vectors(session) >= 0
+    before = len(engine.vectors_by_id(session))
+    fake_embeddings.store_for_entry(session, entry)
+    assert len(engine.vectors_by_id(session)) == before + 1
+
+
+def test_the_search_endpoint_answers_with_scores(client):
+    client.post("/entries", json={"content": "bubble tea is a drink"})
+    body = client.get("/search", params={"q": "bubble tea"}).json()
+    assert body["hits"], body
+    hit = body["hits"][0]
+    assert set(hit["scores"]) == {"bm25", "cosine", "graph"}
+    assert hit["explain"]
+    assert body["counts"]["note"] == 1
+
+
+def test_the_search_endpoint_is_behind_the_lock():
+    """The one gate this app has: a route that reads the notebook is
+    registered with `locked`, and this one reads every kind at once."""
+    from pathlib import Path
+
+    source = Path("src/memorymap/api/app.py").read_text(encoding="utf-8")
+    assert "app.include_router(routes_search.router, dependencies=locked)" in source

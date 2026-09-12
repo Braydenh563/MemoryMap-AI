@@ -34777,18 +34777,37 @@ document.addEventListener("keydown", (e) => {
         return;
       }
     }
+  }
+  //: **The "m" chord is not behind the overlay guard, and that is the point.**
+  //:
+  //: Reported: "when I press m and s for settings, it gets stuck when I try
+  //: to press m again and something else to navigate out of it". It was
+  //: stuck because `m` + `s` opens Settings, Settings makes `overlayOpen`
+  //: true, and this whole block used to sit inside `!overlayOpen`: the very
+  //: chord that opened the modal could not be used to leave it. Quick-nav is
+  //: the app's "take me somewhere else" gesture, so it has to outrank a
+  //: surface that is merely on top. The bare shortcuts above stay behind the
+  //: guard, because those are single letters that a modal's own controls
+  //: have a better claim on.
+  //:
+  //: `typing` still wins over both: a chord that fired while you were
+  //: filling in a settings field would eat the letter you meant to type.
+  if (!typing) {
     // The second half of the "m" then a letter chord, armed below. Checked
     // first so a stray letter within the window is consumed (matched or
     // not) rather than falling through and re-arming on a later "g".
     //: **A second "m" toggles the guide closed rather than being read as an
     //: unrecognised chord key.** Asked for directly: "if i press it then the
     //: popup opens and i can press m again to close it or an x close button
-    //: to close it." Checked before the general armed-branch below: without
-    //: this, a second "m" already fell through to "not recognised" and
-    //: closed the guide too, but only by accident, and only for as long as
-    //: `TAB_JUMP_WINDOW_MS` had not yet lapsed (the guide no longer
-    //: auto-hides on that timer at all, see `showTabJumpHint`, so this is
-    //: now the only way "m" closes it besides the X button).
+    //: to close it."
+    //:
+    //: `e.repeat` is refused here and at the arming branch below, because a
+    //: held key repeats: reported as "when I hold down m, the screen flashes
+    //: with the popup help nav ui". Every repeat was a fresh press to this
+    //: handler, so the toggle opened, closed, opened and closed at the
+    //: keyboard's repeat rate. Holding "m" now shows the guide once and
+    //: holds it there, which is what holding a key should mean.
+    if (e.repeat && e.key === "m") return;
     if (tabJumpArmedAt && e.key === "m" && !e.ctrlKey && !e.metaKey && !e.altKey) {
       tabJumpArmedAt = 0;
       hideChordGuide();
@@ -34802,11 +34821,17 @@ document.addEventListener("keydown", (e) => {
       hideChordGuide();
       if (target) {
         e.preventDefault();
+        //: Leaving for another tab means leaving whatever is over it, or the
+        //: jump lands behind a modal that is still taking the keyboard.
+        closeOverlaysForChord();
         switchTab(target);
         return;
       }
       if (action) {
         e.preventDefault();
+        //: Same for an action: `m` then `s` from inside the palette should
+        //: end with Settings open, not with both stacked.
+        closeOverlaysForChord();
         action.run();
         return;
       }
@@ -35371,6 +35396,20 @@ const CHORD_ACTIONS = {
 };
 const TAB_JUMP_WINDOW_MS = 900;
 let tabJumpArmedAt = 0;
+
+//: Whatever is currently on top, dismissed so a resolved chord lands on the
+//: surface it asked for rather than behind a modal that still holds the
+//: keyboard. Each close is guarded by its own "is it open" test, so this is
+//: a no-op in the ordinary case where the chord was pressed with nothing
+//: over the page. `closeSketch` is async (it saves first); it is not awaited
+//: because the tab switch that follows does not depend on the save landing.
+function closeOverlaysForChord() {
+  if (settingsModalOpen()) closeSettingsModal();
+  const palette = document.getElementById("palette-overlay");
+  if (palette && !palette.classList.contains("hidden")) closePalette();
+  const sketch = document.getElementById("sketch-overlay");
+  if (sketch && !sketch.classList.contains("hidden")) closeSketch();
+}
 
 //: **The chord's guide, and why it is not a toast any more.** Reported with a
 //: screenshot: "when I press 'm' for the quick nav, the popup notification is

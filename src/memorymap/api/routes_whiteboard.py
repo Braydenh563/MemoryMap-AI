@@ -25,7 +25,7 @@ import re
 from collections import OrderedDict
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -1830,6 +1830,42 @@ def _object_data(obj: WhiteboardObject) -> dict:
     return parsed if isinstance(parsed, dict) else {}
 
 
+#: What the node edit strip and the two radials write on a node, beyond its
+#: text and its colour (MINDMAP_PLAN.md §12.1 items 2 to 4). Named in one
+#: place because three things have to agree about them: the tree endpoint
+#: hands them to the canvas, the two XML exports carry them out, and the two
+#: XML imports read them back. The seven that arrived with the strip and the
+#: rings were invisible to the exports for exactly as long as this list did
+#: not exist, and §12.0 says a feature that cannot round-trip is not built.
+#: `color` is not here because a node dict has carried it as a key of its own
+#: since long before the strip existed; the exports read both.
+MAP_STYLE_FIELDS = (
+    "bold",
+    "italic",
+    "font_size",
+    "align",
+    "icon",
+    "link",
+    "edge_label",
+    "edge_style",
+    "edge_dashed",
+)
+
+
+def _map_node_style(data: dict) -> dict:
+    """The style fields a node actually carries, in a fixed order, with the
+    unset ones left out: an export writes an attribute only for what somebody
+    chose, so a plain map exports as the same file it did before any of this
+    existed."""
+    style: dict = {}
+    for field in MAP_STYLE_FIELDS:
+        value = data.get(field)
+        if value is None or value is False or value == "":
+            continue
+        style[field] = value
+    return style
+
+
 def _map_node_dict(db: Session, obj: WhiteboardObject) -> dict:
     """One node, flat: `_build_tree` fills in `children`."""
     data = _object_data(obj)
@@ -1851,6 +1887,7 @@ def _map_node_dict(db: Session, obj: WhiteboardObject) -> dict:
         "color": data.get("color"),
         "collapsed": bool(data.get("collapsed")),
         "pinned": bool(data.get("pinned")),
+        "style": _map_node_style(data),
         "children": [],
     }
     node.update(_reference_facets(db, obj.kind, ref_id))
@@ -1953,7 +1990,9 @@ class MapTreeOut(BaseModel):
     type: str
     layout: str
     #: Nested `{id, kind, text, ref_id, x, y, color, collapsed, pinned,
-    #: children}`. Typed as `list[dict]` rather than as a self-referencing
+    #: style, children}`, where `style` holds whichever of
+    #: `MAP_STYLE_FIELDS` the node actually carries. Typed as `list[dict]`
+    #: rather than as a self-referencing
     #: model: OpenAPI's handling of recursive schemas buys nothing here, and
     #: the shape is documented above and asserted in `tests/test_mindmap.py`.
     roots: list[dict]
@@ -2254,6 +2293,13 @@ def _export_markdown(title: str, roots: list[dict]) -> str:
     (note 12)`, because an outline of bare titles is a picture of the map
     rather than a working document: the ids are what let it be read back, or
     followed by hand.
+
+    **Everything a node wears is deliberately dropped here**, and that is the
+    one export where dropping it is right: this format's whole promise is
+    that the file is an outline anybody can paste into anything. The two XML
+    exports carry the style (`MAP_STYLE_FIELDS`), and a bold marker or an
+    icon name smuggled into a bullet would come back in on the Markdown
+    import as part of somebody's topic text.
     """
     lines = [f"# {title}"]
     rows = _outline_rows(roots)
@@ -2266,6 +2312,63 @@ def _export_markdown(title: str, roots: list[dict]) -> str:
             suffix = f" ({node['kind']} {node['ref_id']})"
         lines.append(f"{'  ' * depth}- {text}{suffix}")
     return "\n".join(lines) + "\n"
+
+
+#: How this map's three line shapes are spelled in FreeMind's own `<edge
+#: STYLE>` vocabulary, and back. FreeMind's list is `linear`, `bezier`,
+#: `sharp_linear`, `sharp_bezier`, `horizontal` and `hide_edge`: `bezier` is
+#: a curve, `linear` is a straight segment, and `horizontal` is the
+#: right-angled run this map calls an elbow. Writing the native spelling
+#: rather than a private attribute is what makes a map exported here open in
+#: FreeMind, Freeplane and Coggle *looking* the way it did.
+_FREEMIND_EDGE_STYLE = {"curve": "bezier", "elbow": "horizontal", "straight": "linear"}
+_FREEMIND_EDGE_STYLE_BACK = {value: key for key, value in _FREEMIND_EDGE_STYLE.items()}
+#: And the ones with no native home, written as private attributes on the
+#: node, the same device `_kind` and `_ref` already use here: an unknown
+#: attribute is ignored by every other reader and survives a round trip
+#: through this one. Per field, why it is here rather than in the format:
+#:
+#: - `icon`: FreeMind's `<icon BUILTIN>` is a closed enumeration of its own
+#:   icon names, and this app's are Phosphor names. Writing a Phosphor name
+#:   into BUILTIN would claim an icon FreeMind does not have, which renders
+#:   as a gap there and does not come back as itself here.
+#: - `edge_label`: FreeMind has no label on an edge at all. Freeplane grew
+#:   one much later, in its own namespace, which FreeMind then refuses.
+#: - `edge_dashed`: `<edge>` has STYLE, COLOR and WIDTH, and no dash.
+#: - `align`: FreeMind aligns a node by which side of the root it sits on,
+#:   not by a text alignment, so there is nothing to write it into.
+_FREEMIND_PRIVATE = {
+    "icon": "_icon",
+    "edge_label": "_edge_label",
+    "edge_dashed": "_edge_dashed",
+    "align": "_align",
+}
+#: OPML 2.0 defines `text`, `type`, `url`, `isComment`, `isBreakpoint`,
+#: `created` and `category` and nothing else, so `url` is the only native
+#: home any of these have and the rest ride as private attributes. Reading a
+#: map's look back out of an OPML file is then exact, and an OPML reader that
+#: knows none of them still sees the outline it came for.
+_OPML_PRIVATE = {
+    "bold": "_bold",
+    "italic": "_italic",
+    "font_size": "_font_size",
+    "align": "_align",
+    "icon": "_icon",
+    "edge_label": "_edge_label",
+    "edge_style": "_edge_style",
+    "edge_dashed": "_edge_dashed",
+}
+
+
+def _xml_attribute(value) -> str:
+    """A style value as an XML attribute. `True` is written as the string
+    every XML format in this area uses, and the bool that comes back through
+    `_clean_import_style` is Pydantic's own lax parse of it."""
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    return str(value)
 
 
 def _export_opml(title: str, roots: list[dict]) -> str:
@@ -2295,6 +2398,20 @@ def _export_opml(title: str, roots: list[dict]) -> str:
             attrs["_kind"] = node["kind"]
             if node["ref_id"] is not None:
                 attrs["_ref"] = str(node["ref_id"])
+        style = node.get("style") or {}
+        if style.get("link"):
+            # `url` is OPML 2.0's own attribute for where an outline points,
+            # and it is the one thing on this list another reader will do
+            # something useful with. `type="link"` is deliberately *not* set
+            # alongside it: that would say the outline *is* a link rather
+            # than a topic that has one, and a reader honouring it would drop
+            # the children hanging underneath.
+            attrs["url"] = style["link"]
+        for field, attribute in _OPML_PRIVATE.items():
+            if field in style:
+                attrs[attribute] = _xml_attribute(style[field])
+        if node.get("color"):
+            attrs["_color"] = str(node["color"])
         return ET.SubElement(parent_element, "outline", attrs)
 
     _export_tree(body, roots, build)
@@ -2329,7 +2446,41 @@ def _export_freemind(title: str, roots: list[dict]) -> str:
             attrs["_kind"] = node["kind"]
             if node["ref_id"] is not None:
                 attrs["_ref"] = str(node["ref_id"])
-        return ET.SubElement(parent_element, "node", attrs)
+        style = node.get("style") or {}
+        if style.get("link"):
+            attrs["LINK"] = style["link"]
+        for field, attribute in _FREEMIND_PRIVATE.items():
+            if field in style:
+                attrs[attribute] = _xml_attribute(style[field])
+        element = ET.SubElement(parent_element, "node", attrs)
+        # `<font>` and `<edge>` are FreeMind's own children of a node, and
+        # they are written only when something was actually chosen: an empty
+        # `<font/>` on every node would triple the size of a plain map's file
+        # and say nothing. NAME is left off rather than filled with
+        # "SansSerif": this app sets no font family, and writing one would be
+        # a claim about the map that nobody here made.
+        font = {}
+        if style.get("bold"):
+            font["BOLD"] = "true"
+        if style.get("italic"):
+            font["ITALIC"] = "true"
+        if style.get("font_size"):
+            font["SIZE"] = str(int(style["font_size"]))
+        if font:
+            ET.SubElement(element, "font", font)
+        edge = {}
+        if style.get("edge_style") in _FREEMIND_EDGE_STYLE:
+            edge["STYLE"] = _FREEMIND_EDGE_STYLE[style["edge_style"]]
+        if node.get("color"):
+            # A map's node colour paints the spine down the node's leading
+            # edge and the line coming into it (§12.0, "a node carries its
+            # colour on its own card"), which is `<edge COLOR>` here rather
+            # than `<node COLOR>`: FreeMind's node colour is its *text*
+            # colour, and writing it there would recolour the words.
+            edge["COLOR"] = str(node["color"])
+        if edge:
+            ET.SubElement(element, "edge", edge)
+        return element
 
     under = document
     if len(roots) != 1:
@@ -2462,6 +2613,77 @@ def _parse_xml_document(content: str, label: str):
         ) from exc
 
 
+#: A colour arriving from a file is held to a hex literal, which is stricter
+#: than the object PUT path (`max_length=20`, any string) on purpose. This
+#: value is written into a CSS custom property on the node, and the door a
+#: *file somebody was sent* comes through is not the door to widen: every
+#: colour this app itself writes is a `<input type="color">` value, so the
+#: rule costs nothing real and refuses everything else.
+_IMPORT_COLOUR = re.compile(r"^#[0-9a-fA-F]{3,8}$")
+
+
+def _clean_import_style(raw: dict) -> dict:
+    """The style attributes read off an imported node, validated one at a
+    time, with anything that does not pass simply left out.
+
+    **Validated by `WhiteboardObjectData` itself, field by field.** These
+    values come off an XML attribute in a file from somewhere else, and they
+    are written straight into `data`, which is the same blob the object PUT
+    endpoint validates: so the rules that endpoint enforces (a Phosphor icon
+    name and nothing else, an http/https/mailto link and nothing else, a font
+    size in range, one of three line shapes) have to hold here too, and a
+    second hand-written copy of them is a second copy that drifts. One field
+    per `model_validate` call rather than the whole dict at once, because a
+    file with one bad attribute should lose that attribute, not every
+    attribute it had.
+    """
+    clean: dict = {}
+    for field, value in raw.items():
+        if value is None or value == "":
+            continue
+        if field == "color":
+            text = str(value).strip()
+            if _IMPORT_COLOUR.match(text):
+                clean[field] = text
+            continue
+        try:
+            checked = WhiteboardObjectData.model_validate({field: value})
+        except ValidationError:
+            continue
+        settled = getattr(checked, field, None)
+        if settled is not None and settled is not False:
+            clean[field] = settled
+    return clean
+
+
+def _freemind_style(element) -> dict:
+    """What a `<node>` wears, read back out of the shape `_export_freemind`
+    writes: FreeMind's own `LINK`, `<font>` and `<edge>`, and the private
+    attributes for the four things FreeMind has nowhere to put."""
+    raw: dict = {"link": element.get("LINK")}
+    for field, attribute in _FREEMIND_PRIVATE.items():
+        raw[field] = element.get(attribute)
+    font = element.find("font")
+    if font is not None:
+        raw["bold"] = font.get("BOLD")
+        raw["italic"] = font.get("ITALIC")
+        raw["font_size"] = font.get("SIZE")
+    edge = element.find("edge")
+    if edge is not None:
+        raw["edge_style"] = _FREEMIND_EDGE_STYLE_BACK.get(edge.get("STYLE") or "")
+        raw["color"] = edge.get("COLOR")
+    return _clean_import_style(raw)
+
+
+def _opml_style(element) -> dict:
+    """The same, for an `<outline>`: OPML's `url`, and the private attributes
+    for everything OPML 2.0 has no word for."""
+    raw: dict = {"link": element.get("url"), "color": element.get("_color")}
+    for field, attribute in _OPML_PRIVATE.items():
+        raw[field] = element.get(attribute)
+    return _clean_import_style(raw)
+
+
 def _parse_freemind(content: str) -> tuple[str, list[dict]]:
     """FreeMind `.mm` in, `(title, nested {text, children})` out.
 
@@ -2493,7 +2715,11 @@ def _parse_freemind(content: str) -> tuple[str, list[dict]]:
                 )
             text = (child.get("TEXT") or child.get("text") or "").strip()
             out.append(
-                {"text": text[:MAX_OBJECT_TEXT_CHARS], "children": walk(child, depth + 1)}
+                {
+                    "text": text[:MAX_OBJECT_TEXT_CHARS],
+                    "style": _freemind_style(child),
+                    "children": walk(child, depth + 1),
+                }
             )
         return out
 
@@ -2545,7 +2771,11 @@ def _parse_opml(content: str) -> tuple[str, list[dict]]:
                 )
             text = (child.get("text") or child.get("title") or "").strip()
             out.append(
-                {"text": text[:MAX_OBJECT_TEXT_CHARS], "children": walk(child, depth + 1)}
+                {
+                    "text": text[:MAX_OBJECT_TEXT_CHARS],
+                    "style": _opml_style(child),
+                    "children": walk(child, depth + 1),
+                }
             )
         return out
 
@@ -2635,6 +2865,10 @@ def _place_map_nodes(
             data: dict = {"content": node["text"]}
             if ref_id is not None:
                 data["ref_id"] = ref_id
+            # Whatever the file said the node looks like, already validated
+            # by `_clean_import_style`. A Markdown outline and an AI proposal
+            # carry no style at all, which is why this is a `get`.
+            data.update(node.get("style") or {})
             obj = WhiteboardObject(
                 board_id=board_id,
                 kind=kind,

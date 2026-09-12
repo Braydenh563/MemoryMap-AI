@@ -622,6 +622,165 @@ def test_an_opml_file_sent_as_freemind_imports_as_nothing_rather_than_wrongly(cl
     assert empty["object_count"] == 0
 
 
+#: Everything the node edit strip and the two radials can write on a node
+#: (MINDMAP_PLAN.md §12.1 items 2 to 4), one value each, so a round-trip test
+#: fails if any single one of them is dropped on the way out or on the way
+#: back. Written once and used by both format tests: the two exports lost the
+#: same seven fields in the same way, which is what a shared fixture says.
+MAP_STYLE = {
+    "bold": True,
+    "italic": True,
+    "font_size": 22,
+    "align": "center",
+    "icon": "lightbulb",
+    "link": "https://example.org/paper",
+    "edge_label": "because",
+    "edge_style": "elbow",
+    "edge_dashed": True,
+    "color": "#4f46e5",
+}
+
+
+def _styled_map(client, name):
+    """A two-node map whose child wears every style field there is."""
+    board = _map(client, name=name)
+    root = _node(client, board["id"], text="Trunk")
+    child = _node(client, board["id"], parent_id=root["id"], text="Branch")
+    saved = client.put(
+        f"/whiteboard/objects/{child['id']}",
+        json={
+            "kind": child["kind"],
+            "board_id": board["id"],
+            "data": {**child["data"], **MAP_STYLE},
+            "x": child["x"],
+            "y": child["y"],
+            "z": child["z"],
+        },
+    )
+    assert saved.status_code == 200, saved.text
+    return board
+
+
+def _styled_child(client, board_id):
+    """The styled node, wherever the tree puts it. A `.mm` file's one root is
+    its title, so a map exported and imported again comes back with its trunk
+    as the board's name and the styled node at the top level: the round trip
+    being tested is the style's, not the depth's."""
+
+    def find(nodes):
+        for node in nodes:
+            if node["text"] == "Branch":
+                return node
+            found = find(node["children"])
+            if found is not None:
+                return found
+        return None
+
+    found = find(client.get(f"/whiteboard/boards/{board_id}/tree").json()["roots"])
+    assert found is not None
+    return found
+
+
+def test_the_tree_hands_back_what_the_strip_and_the_rings_wrote(client):
+    """The style fields were readable only by fetching the raw objects, so
+    every other reader of a map (the exports, the agent, a thumbnail) could
+    not see them at all. They are on the node in the tree now."""
+    board = _styled_map(client, "Styled")
+    child = _styled_child(client, board["id"])
+    assert child["color"] == "#4f46e5"
+    assert child["style"] == {
+        key: value for key, value in MAP_STYLE.items() if key != "color"
+    }
+
+
+def test_freemind_carries_a_styled_node_out_and_back(client):
+    """§12.0: "a feature that cannot round-trip is not built". The strip and
+    the two rings landed with none of their fields in either XML export,
+    which made the one path built for taking a map somewhere else a silent
+    loss of everything a person had styled."""
+    board = _styled_map(client, "Styled")
+    exported = client.get(f"/whiteboard/boards/{board['id']}/export?format=freemind").text
+
+    # The four FreeMind has words of its own for, in its own words.
+    assert 'LINK="https://example.org/paper"' in exported
+    assert 'BOLD="true"' in exported and 'ITALIC="true"' in exported
+    assert 'SIZE="22"' in exported
+    assert 'STYLE="horizontal"' in exported and 'COLOR="#4f46e5"' in exported
+    # And the four it does not, as private attributes rather than as invented
+    # FreeMind that another reader would choke on.
+    assert '_icon="lightbulb"' in exported
+    assert '_edge_label="because"' in exported
+    assert '_edge_dashed="true"' in exported
+    assert '_align="center"' in exported
+
+    back = client.post(
+        "/whiteboard/boards/import", json={"format": "freemind", "content": exported}
+    ).json()
+    child = _styled_child(client, back["id"])
+    assert child["color"] == "#4f46e5"
+    assert child["style"] == {
+        key: value for key, value in MAP_STYLE.items() if key != "color"
+    }
+
+
+def test_opml_carries_a_styled_node_out_and_back(client):
+    """OPML 2.0 has one attribute that fits (`url`) and no word for the rest,
+    so the rest ride as private attributes: the same device `_kind` and
+    `_ref` have used here since the export was written."""
+    board = _styled_map(client, "Styled")
+    exported = client.get(f"/whiteboard/boards/{board['id']}/export?format=opml").text
+
+    assert 'url="https://example.org/paper"' in exported
+    # Not `type="link"`: that would say the outline *is* a link, and a reader
+    # honouring it drops the children underneath.
+    assert 'type="link"' not in exported
+    assert '_bold="true"' in exported and '_edge_style="elbow"' in exported
+    assert '_color="#4f46e5"' in exported
+
+    back = client.post(
+        "/whiteboard/boards/import", json={"format": "opml", "content": exported}
+    ).json()
+    child = _styled_child(client, back["id"])
+    assert child["color"] == "#4f46e5"
+    assert child["style"] == {
+        key: value for key, value in MAP_STYLE.items() if key != "color"
+    }
+
+
+def test_a_plain_map_exports_exactly_as_it_did_before_styles(client):
+    """The other half of the round trip: an attribute per unset field would
+    triple a plain map's file and say nothing, so nothing unset is written."""
+    board = _map(client, name="Plain")
+    _node(client, board["id"], text="Trunk")
+    freemind = client.get(f"/whiteboard/boards/{board['id']}/export?format=freemind").text
+    opml = client.get(f"/whiteboard/boards/{board['id']}/export?format=opml").text
+    assert "<font" not in freemind and "<edge" not in freemind
+    assert "_icon" not in freemind and "LINK" not in freemind
+    assert "_bold" not in opml and "url=" not in opml
+
+
+def test_an_imported_style_a_file_invented_is_dropped_field_by_field(client):
+    """The import door validates each attribute against the same model the
+    object PUT endpoint uses, and drops only what fails: a file with one bad
+    attribute loses that attribute, not the nine beside it.
+
+    The icon and the link are the two that matter. An icon name is written
+    straight into a class attribute on the node, and a link is followed on
+    click, so `javascript:` and a name full of punctuation are exactly what a
+    file from somewhere else would carry if it were hostile."""
+    hostile = """<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0"><head><title>Hostile</title></head><body>
+<outline text="Topic" url="javascript:alert(1)" _icon="a&quot; onload=x" _bold="true"
+         _font_size="9999" _edge_style="spiral" _color="red; background: url(x)"/>
+</body></opml>"""
+    board = client.post(
+        "/whiteboard/boards/import", json={"format": "opml", "content": hostile}
+    ).json()
+    node = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]
+    assert node["style"] == {"bold": True}
+    assert node["color"] is None
+
+
 def test_markdown_exports_as_an_indented_outline_and_comes_back(client):
     board = _map(client, name="Trip")
     root = _node(client, board["id"], text="Packing")

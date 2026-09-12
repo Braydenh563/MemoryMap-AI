@@ -538,7 +538,7 @@ updated per session):
 | Contrast failures, both themes | `contrast.js` | 0 after fix | 0 |
 | Console errors across all tabs at 3 widths | `errors.js` | 0 | 0 |
 | Tablists without arrow keys | `audit/keys.js` | 0 after fix | 0 |
-| Idle requests per minute | `audit/idle.js` | 14 | ≤ 2 |
+| Idle requests per minute | `audit/idle.js` | 4 on 2026-09-12 (`/models/status` every 30s, `/reminders` and `/tasks` once a minute; was 14) | ≤ 2 |
 | First paint of Graph on 2k notes | `graph-fixture.js` | n/a (SVG) | < 300ms |
 | Search p95 on 5k notes | `tests/test_search_perf.py` | n/a | < 200ms |
 | Skill eval pass rate, 3B model | `pytest -m evals` | n/a | ≥ 80% |

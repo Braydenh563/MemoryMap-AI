@@ -29,7 +29,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from memorymap.core import deps
+from memorymap.core import deps, events
 from memorymap.core.database import Entry, WhiteboardNode, WhiteboardObject, WhiteboardSketch
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import apply_title, extract_title, update_entry
@@ -258,6 +258,88 @@ class WhiteboardObjectOut(BaseModel):
     parent_id: int | None = None
 
 
+# --- the event log for a board (WORLD_CLASS_PLAN B1, Brief 7) ---------------
+#
+# The entry managers record one event per write with whole-field values, which
+# is what lets a note replay to its current state and a version be put back.
+# A board recorded nothing at all, so the half of B1's own wording that says
+# "and `routes_whiteboard.py`'s manager" was not true: a card could be moved,
+# a text box rewritten and a branch deleted with no record of who did it or
+# what it said before.
+#
+# **What a board's replayable entity is.** A note is one row and replays to
+# one dict. A board is not: it is a note plus every card, sketch and object
+# on it. So the entity here is the *item*, one of `whiteboard_node`,
+# `whiteboard_sketch` and `whiteboard_object`, each replaying to its own
+# current state through the same `events.replay`; the board's own events
+# (`board` created, duplicated, its type or layout changed) are on the board.
+# A board's whole state is the union of its items' replays, which is the only
+# reading that keeps `replay` one function rather than one per surface.
+#
+# Every write below is wrapped in `@events.writes`, not left to remember a
+# call: the decorator is what makes "one write, one event" true by
+# construction, so a route that grows a second write inside it folds rather
+# than quietly recording twice. The exception is any route that calls an
+# entry manager (`rename_board` through `update_entry`): opening a scope
+# there would fold the *note's* own edit into the board's event and take it
+# out of that note's history, which is a worse loss than the tidier shape is
+# worth. Those record beside the manager's event instead, and only for the
+# fields the manager does not know about.
+
+
+def _node_state(node: WhiteboardNode) -> dict:
+    """A card's whole placement, as a payload wants it: values, not a diff."""
+    return {
+        "entry_id": node.entry_id,
+        "board_id": node.board_id,
+        "x": node.x,
+        "y": node.y,
+        "z": node.z,
+        "width": node.width,
+        "height": node.height,
+        "rotation": node.rotation,
+        "group_id": node.group_id,
+    }
+
+
+def _sketch_state(sketch: WhiteboardSketch) -> dict:
+    """A sketch's whole state, its strokes included: `data` is the drawing."""
+    return {
+        "board_id": sketch.board_id,
+        "data": sketch.data,
+        "x": sketch.x,
+        "y": sketch.y,
+        "z": sketch.z,
+        "group_id": sketch.group_id,
+    }
+
+
+def _object_state(obj: WhiteboardObject) -> dict:
+    """An object's whole state. `data` carries the text or the image url, so
+    this is the one payload here that can be large; it is also the only one
+    that can answer "what did that text box say before I rewrote it"."""
+    return {
+        "board_id": obj.board_id,
+        "kind": obj.kind,
+        "data": obj.data,
+        "x": obj.x,
+        "y": obj.y,
+        "z": obj.z,
+        "width": obj.width,
+        "height": obj.height,
+        "rotation": obj.rotation,
+        "group_id": obj.group_id,
+        "parent_id": obj.parent_id,
+    }
+
+
+#: What a deleted item replays to. The whiteboard tables have no soft delete,
+#: so the row is gone and the last event is the only place its state survives:
+#: `before` holds what it was, `after` says it is not there any more, which is
+#: what `events.replay` lands on.
+_DELETED = {"deleted": True}
+
+
 def _object_to_out(obj: WhiteboardObject) -> WhiteboardObjectOut:
     return WhiteboardObjectOut(
         id=obj.id,
@@ -344,7 +426,12 @@ def _forget_links_to(db: Session, board_id: int | None, kind: str, item_id: int)
             data = json.loads(row.data or "{}")
         except (TypeError, ValueError):
             continue
-        if not str(data.get("type", "")).startswith("link-"):
+        # A sketch's `data` is whatever was stored in it, and only a link
+        # sketch is an object with a `type`. A drawing saved as a bare JSON
+        # array (which the API accepts and an import can produce) used to
+        # reach `.get` on a list here and raise, turning a card's deletion
+        # into a 500 because of an unrelated sketch on the same board.
+        if not isinstance(data, dict) or not str(data.get("type", "")).startswith("link-"):
             continue
         ends = (
             (data.get("sourceId"), data.get("sourceKind") or "node"),
@@ -1238,6 +1325,7 @@ def list_images(db: Session = Depends(get_session)) -> list[BoardImageOut]:
 
 
 @router.post("/boards", response_model=BoardOut, status_code=201)
+@events.writes("board", "created")
 def create_board(body: BoardCreate, db: Session = Depends(get_session)) -> BoardOut:
     """A fresh, empty board, a plain note whose whole job is to be one.
 
@@ -1254,6 +1342,18 @@ def create_board(body: BoardCreate, db: Session = Depends(get_session)) -> Board
     # as an ordinary whiteboard.
     board_type, layout = _store_board_settings(entry, body.type, body.layout)
     db.add(entry)
+    db.flush()  # so the event can name the board's id
+    # This route builds the note itself rather than going through
+    # `manager.create_entry`, so without this line a board was the one thing
+    # in the app that could appear with nothing anywhere saying it had.
+    events.record(
+        db,
+        "created",
+        "board",
+        entry.id,
+        name[:80],
+        payload={"after": {"title": name, "type": board_type, "layout": layout}},
+    )
     db.commit()
     db.refresh(entry)
     return BoardOut(
@@ -1267,6 +1367,7 @@ def create_board(body: BoardCreate, db: Session = Depends(get_session)) -> Board
 
 
 @router.post("/boards/{board_id}/duplicate", response_model=BoardOut, status_code=201)
+@events.writes("board", "created")
 def duplicate_board(board_id: int, db: Session = Depends(get_session)) -> BoardOut:
     """Copy a board: every card, sketch and object, at the same positions.
 
@@ -1355,6 +1456,20 @@ def duplicate_board(board_id: int, db: Session = Depends(get_session)) -> BoardO
         if obj.parent_id is not None and obj.parent_id in copied_by_source:
             copied_by_source[obj.id].parent_id = copied_by_source[obj.parent_id].id
 
+    # One event, not one per copied row: a duplicate is one action, and the
+    # copy's own items each replay from the state recorded here.
+    events.record(
+        db,
+        "created",
+        "board",
+        copy.id,
+        f"copy of board {board_id}",
+        payload={
+            "after": {"title": f"{title} (copy)", "copied_from": board_id},
+            "cards": len(nodes),
+            "objects": len(sources),
+        },
+    )
     db.commit()
     db.refresh(copy)
     board_type, layout = _board_settings(copy)
@@ -1398,7 +1513,23 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
         raise HTTPException(status_code=404, detail=f"No board with id {board_id}")
     entry.is_board = True
     if body.type is not None or body.layout is not None:
-        _store_board_settings(entry, body.type, body.layout)
+        before = dict(zip(("type", "layout"), _board_settings(entry)))
+        stored = _store_board_settings(entry, body.type, body.layout)
+        # **Deliberately not wrapped in `@events.writes`.** A title change
+        # here goes through `manager.update_entry`, which records the note's
+        # own `edited` event; a write scope on this route would fold that
+        # into the board's event and take the edit out of the note's history,
+        # which is where a person looks for it and where its replay needs it.
+        # So the board's settings, which the manager knows nothing about, get
+        # their own event beside the note's rather than instead of it.
+        events.record(
+            db,
+            "edited",
+            "board",
+            entry.id,
+            f"{stored[0]}, {stored[1]}",
+            payload={"after": dict(zip(("type", "layout"), stored)), "before": before},
+        )
     if body.title is not None:
         title = body.title.strip()
         update_entry(db, entry, content=apply_title(entry.content, title))
@@ -1430,6 +1561,7 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
 
 
 @router.post("/nodes", response_model=WhiteboardNodeOut)
+@events.writes("whiteboard_node", "placed")
 def create_node(
     node_in: WhiteboardNodeBase, db: Session = Depends(get_session)
 ) -> WhiteboardNode:
@@ -1452,18 +1584,33 @@ def create_node(
     node.rotation = node_in.rotation
     if existing is None:
         db.add(node)
+        db.flush()  # so the event can name the card's id
+    # "placed" rather than "created": dropping the same note on the same board
+    # twice moves the card that is already there (see above), so one verb has
+    # to be honest about both, and where the card ended up is the fact worth
+    # keeping either way.
+    events.record(
+        db,
+        "placed",
+        "whiteboard_node",
+        node.id,
+        f"note {node.entry_id} on board {node.board_id}",
+        payload={"after": _node_state(node), "existing": existing is not None},
+    )
     db.commit()
     db.refresh(node)
     return node
 
 
 @router.put("/nodes/{node_id}", response_model=WhiteboardNodeOut)
+@events.writes("whiteboard_node", "edited")
 def update_node(
     node_id: int, node_in: WhiteboardNodeBase, db: Session = Depends(get_session)
 ) -> WhiteboardNode:
     node = deps.get_or_404(db, WhiteboardNode, node_id, "Node not found")
     _require_entry(db, node_in.entry_id)
     _require_board(db, node_in.board_id)
+    before = _node_state(node)
     node.entry_id = node_in.entry_id
     # `board_id` was read from the body and then never assigned, so moving a
     # card between boards returned 200 and changed nothing.
@@ -1471,17 +1618,34 @@ def update_node(
     node.x, node.y, node.z = node_in.x, node_in.y, node_in.z
     node.width, node.height, node.group_id = node_in.width, node_in.height, node_in.group_id
     node.rotation = node_in.rotation
+    events.record(
+        db,
+        "edited",
+        "whiteboard_node",
+        node.id,
+        f"card on board {node.board_id}",
+        payload={"after": _node_state(node), "before": before},
+    )
     db.commit()
     db.refresh(node)
     return node
 
 
 @router.delete("/nodes/{node_id}")
+@events.writes("whiteboard_node", "deleted")
 def delete_node(node_id: int, db: Session = Depends(get_session)) -> dict:
     # 404 rather than a cheerful "ok": deleting something that isn't there
     # is how a client finds out its board is stale, and swallowing it left
     # ghost cards on screen until a reload.
     node = deps.get_or_404(db, WhiteboardNode, node_id, "Node not found")
+    events.record(
+        db,
+        "deleted",
+        "whiteboard_node",
+        node.id,
+        f"card off board {node.board_id}",
+        payload={"before": _node_state(node), "after": dict(_DELETED)},
+    )
     _forget_links_to(db, node.board_id, "node", node.id)
     db.delete(node)
     db.commit()
@@ -1489,35 +1653,64 @@ def delete_node(node_id: int, db: Session = Depends(get_session)) -> dict:
 
 
 @router.post("/sketches", response_model=WhiteboardSketchOut)
+@events.writes("whiteboard_sketch", "created")
 def create_sketch(
     sketch_in: WhiteboardSketchBase, db: Session = Depends(get_session)
 ) -> WhiteboardSketch:
     _require_board(db, sketch_in.board_id)
     sketch = WhiteboardSketch(**sketch_in.model_dump())
     db.add(sketch)
+    db.flush()  # so the event can name the sketch's id
+    events.record(
+        db,
+        "created",
+        "whiteboard_sketch",
+        sketch.id,
+        f"drawing on board {sketch.board_id}",
+        payload={"after": _sketch_state(sketch)},
+    )
     db.commit()
     db.refresh(sketch)
     return sketch
 
 
 @router.put("/sketches/{sketch_id}", response_model=WhiteboardSketchOut)
+@events.writes("whiteboard_sketch", "edited")
 def update_sketch(
     sketch_id: int, sketch_in: WhiteboardSketchBase, db: Session = Depends(get_session)
 ) -> WhiteboardSketch:
     sketch = deps.get_or_404(db, WhiteboardSketch, sketch_id, "Sketch not found")
     _require_board(db, sketch_in.board_id)
+    before = _sketch_state(sketch)
     sketch.data = sketch_in.data
     sketch.board_id = sketch_in.board_id
     sketch.x, sketch.y, sketch.z = sketch_in.x, sketch_in.y, sketch_in.z
     sketch.group_id = sketch_in.group_id
+    events.record(
+        db,
+        "edited",
+        "whiteboard_sketch",
+        sketch.id,
+        f"drawing on board {sketch.board_id}",
+        payload={"after": _sketch_state(sketch), "before": before},
+    )
     db.commit()
     db.refresh(sketch)
     return sketch
 
 
 @router.delete("/sketches/{sketch_id}")
+@events.writes("whiteboard_sketch", "deleted")
 def delete_sketch(sketch_id: int, db: Session = Depends(get_session)) -> dict:
     sketch = deps.get_or_404(db, WhiteboardSketch, sketch_id, "Sketch not found")
+    events.record(
+        db,
+        "deleted",
+        "whiteboard_sketch",
+        sketch.id,
+        f"drawing off board {sketch.board_id}",
+        payload={"before": _sketch_state(sketch), "after": dict(_DELETED)},
+    )
     _forget_links_to(db, sketch.board_id, "sketch", sketch.id)
     db.delete(sketch)
     db.commit()
@@ -1536,6 +1729,7 @@ def delete_sketch(sketch_id: int, db: Session = Depends(get_session)) -> dict:
 
 
 @router.post("/objects", response_model=WhiteboardObjectOut, status_code=201)
+@events.writes("whiteboard_object", "created")
 def create_object(
     body: WhiteboardObjectBase, db: Session = Depends(get_session)
 ) -> WhiteboardObjectOut:
@@ -1554,6 +1748,15 @@ def create_object(
         group_id=body.group_id,
     )
     db.add(obj)
+    db.flush()  # so the event can name the object's id
+    events.record(
+        db,
+        "created",
+        "whiteboard_object",
+        obj.id,
+        f"{obj.kind} on board {obj.board_id}",
+        payload={"after": _object_state(obj)},
+    )
     db.commit()
     db.refresh(obj)
     if obj.kind == "image":
@@ -1570,6 +1773,7 @@ def create_object(
 
 
 @router.put("/objects/{object_id}", response_model=WhiteboardObjectOut)
+@events.writes("whiteboard_object", "edited")
 def update_object(
     object_id: int, body: WhiteboardObjectBase, db: Session = Depends(get_session)
 ) -> WhiteboardObjectOut:
@@ -1582,18 +1786,28 @@ def update_object(
     # than silently reinterpreting the row is the safer failure.
     if body.kind != obj.kind:
         raise HTTPException(status_code=422, detail="An object's kind can't change")
+    before = _object_state(obj)
     obj.data = body.data.model_dump_json(exclude_none=True)
     obj.board_id = body.board_id
     obj.x, obj.y, obj.z = body.x, body.y, body.z
     obj.width, obj.height = body.width, body.height
     obj.rotation = body.rotation
     obj.group_id = body.group_id
+    events.record(
+        db,
+        "edited",
+        "whiteboard_object",
+        obj.id,
+        f"{obj.kind} on board {obj.board_id}",
+        payload={"after": _object_state(obj), "before": before},
+    )
     db.commit()
     db.refresh(obj)
     return _object_to_out(obj)
 
 
 @router.delete("/objects/{object_id}")
+@events.writes("whiteboard_object", "deleted")
 def delete_object(object_id: int, db: Session = Depends(get_session)) -> dict:
     """Delete an object: and, on a map, everything hanging off it.
 
@@ -1611,6 +1825,24 @@ def delete_object(object_id: int, db: Session = Depends(get_session)) -> dict:
     obj = deps.get_or_404(db, WhiteboardObject, object_id, "Object not found")
     doomed = _subtree(db, obj)
     deleted = [_object_to_out(row).model_dump() for row in doomed]
+    # One event with the id list, the same shape a purge of notes records
+    # (`manager.purge_entries`): deleting a branch is one action a person took
+    # and has to be undoable as one, so it is one event holding the state of
+    # every row that went, not one event per row.
+    events.record(
+        db,
+        "deleted",
+        "whiteboard_object",
+        obj.id,
+        f"{obj.kind} on board {obj.board_id}"
+        + (f" with {len(doomed) - 1} under it" if len(doomed) > 1 else ""),
+        payload={
+            "before": _object_state(obj),
+            "after": dict(_DELETED),
+            "ids": [row.id for row in doomed],
+            "subtree": [_object_state(row) for row in doomed],
+        },
+    )
     for row in doomed:
         _delete_one_object(db, row)
     db.commit()
@@ -2083,6 +2315,7 @@ def _next_position(
 @router.post(
     "/boards/{board_id}/nodes", response_model=WhiteboardObjectOut, status_code=201
 )
+@events.writes("whiteboard_object", "created")
 def create_map_node(
     board_id: int, body: MapNodeCreate, db: Session = Depends(get_session)
 ) -> WhiteboardObjectOut:
@@ -2130,6 +2363,15 @@ def create_map_node(
         parent_id=parent.id if parent is not None else None,
     )
     db.add(obj)
+    db.flush()  # so the event can name the node's id
+    events.record(
+        db,
+        "created",
+        "whiteboard_object",
+        obj.id,
+        f"{obj.kind} on map {board_id}",
+        payload={"after": _object_state(obj)},
+    )
     db.commit()
     db.refresh(obj)
     return _object_to_out(obj)
@@ -2173,6 +2415,7 @@ def _is_descendant(
 @router.put(
     "/boards/{board_id}/nodes/{node_id}/move", response_model=WhiteboardObjectOut
 )
+@events.writes("whiteboard_object", "edited")
 def move_map_node(
     board_id: int, node_id: int, body: MapNodeMove, db: Session = Depends(get_session)
 ) -> WhiteboardObjectOut:
@@ -2191,6 +2434,7 @@ def move_map_node(
             status_code=404, detail=f"No node with id {node_id} on this board"
         )
 
+    before = _object_state(node)
     if body.parent_id is None:
         node.parent_id = None
     else:
@@ -2211,6 +2455,14 @@ def move_map_node(
                 detail="That would make the node a descendant of itself, move the branch out first.",
             )
         node.parent_id = parent.id
+    events.record(
+        db,
+        "edited",
+        "whiteboard_object",
+        node.id,
+        f"moved under {node.parent_id}" if node.parent_id else "moved to a root",
+        payload={"after": _object_state(node), "before": before},
+    )
     db.commit()
     db.refresh(node)
     return _object_to_out(node)
@@ -3093,6 +3345,7 @@ class MapGenerate(BaseModel):
 
 
 @router.post("/boards/generate", response_model=BoardOut, status_code=201)
+@events.writes("board", "created")
 def generate_map(body: MapGenerate, db: Session = Depends(get_session)) -> BoardOut:
     """Create the map the user accepted.
 
@@ -3133,6 +3386,21 @@ def generate_map(body: MapGenerate, db: Session = Depends(get_session)) -> Board
     db.add(entry)
     db.flush()
     created = _place_map_nodes(db, entry.id, parsed, reference_for)
+    # One event for the whole generation: the nodes it placed are rows this
+    # route wrote directly, so there is nothing of theirs to fold, and a map
+    # generated from an accepted proposal is one action a person took.
+    events.record(
+        db,
+        "created",
+        "board",
+        entry.id,
+        f"generated map, {created} nodes",
+        payload={
+            "after": {"title": name, "type": "map", "layout": DEFAULT_BOARD_LAYOUT},
+            "nodes": created,
+            "outline": body.outline,
+        },
+    )
     db.commit()
     db.refresh(entry)
     return BoardOut(
@@ -3148,6 +3416,7 @@ def generate_map(body: MapGenerate, db: Session = Depends(get_session)) -> Board
 
 
 @router.post("/boards/import", response_model=BoardOut, status_code=201)
+@events.writes("board", "created")
 def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOut:
     """Create a map from an OPML file or an indented Markdown outline.
 
@@ -3171,6 +3440,18 @@ def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOu
     db.flush()  # the nodes need the board's id before they can point at it
 
     created = _place_map_nodes(db, entry.id, parsed)
+    events.record(
+        db,
+        "created",
+        "board",
+        entry.id,
+        f"imported {body.format} map, {created} nodes",
+        payload={
+            "after": {"title": name, "type": "map", "layout": DEFAULT_BOARD_LAYOUT},
+            "nodes": created,
+            "format": body.format,
+        },
+    )
     db.commit()
     db.refresh(entry)
     return BoardOut(

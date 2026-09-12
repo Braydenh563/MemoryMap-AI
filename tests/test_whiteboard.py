@@ -771,3 +771,16 @@ def test_loading_a_board_drops_an_edge_whose_end_is_gone(board_client, session):
     again = board_client.get(f"/whiteboard/?board_id={board['id']}").json()
     assert [row["id"] for row in again["sketches"]] == [free_end["id"]]
 
+
+
+def test_deleting_a_card_survives_a_sketch_whose_data_is_a_list(client, session):
+    """A sketch's `data` is free text as far as the API is concerned, and only
+    a *link* sketch is an object with a `type`. A drawing stored as a bare
+    JSON array used to make `_forget_links_to` call `.get` on a list, so
+    deleting an unrelated card on that board answered 500.
+    """
+    note = client.post("/entries", json={"content": "a note", "tags": []}).json()
+    node = client.post("/whiteboard/nodes", json={"entry_id": note["id"]}).json()
+    client.post("/whiteboard/sketches", json={"data": "[[1,2],[3,4]]"})
+
+    assert client.delete(f"/whiteboard/nodes/{node['id']}").status_code == 200

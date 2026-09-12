@@ -15,6 +15,7 @@ gains `actor` and `payload` rather than a new table being added.
 from __future__ import annotations
 
 import inspect
+import json
 from datetime import timedelta
 
 from memorymap.core.database import AuditLog
@@ -275,3 +276,256 @@ def test_a_compacted_version_says_so_rather_than_restoring_nothing(client, sessi
     items = client.get(f"/entries/{entry.id}/history").json()["items"]
     compacted = [item for item in items if item["id"] == oldest.id]
     assert compacted and compacted[0]["compacted"] is True
+
+
+# --- the board's half of the spec (Brief 7 item 3, `events-whiteboard`) ------
+#
+# B1's own wording names "`routes_whiteboard.py`'s manager" beside the entry
+# managers. Its writes recorded nothing at all: a card could be moved, a text
+# box rewritten and a branch deleted with no record of who did it or what it
+# said before. The enumeration below is the same idea as the entry one at the
+# top of this file, driven through the API because these writes are routes:
+# add a write to that module and this test fails until it records.
+
+WHITEBOARD_WRITE_PREFIXES = (
+    "create_", "update_", "delete_", "move_", "rename_", "duplicate_",
+    "generate_", "import_",
+)
+
+
+def _whiteboard_writes():
+    from memorymap.api import routes_whiteboard
+
+    return sorted(
+        name
+        for name, fn in inspect.getmembers(routes_whiteboard, inspect.isfunction)
+        if name.startswith(WHITEBOARD_WRITE_PREFIXES)
+        # `functools.wraps` keeps `__module__` pointing at the module the
+        # function was defined in, so the decorated routes are still found and
+        # the manager helpers imported into that module are still excluded.
+        and fn.__module__ == routes_whiteboard.__name__
+    )
+
+
+def _board_fixture(client):
+    """A board with a card, a sketch, an object and a map node on it."""
+    board = client.post("/whiteboard/boards", json={"name": "spec board"}).json()
+    note = client.post("/entries", json={"content": "a note", "tags": []}).json()
+    node = client.post(
+        "/whiteboard/nodes", json={"entry_id": note["id"], "board_id": board["id"]}
+    ).json()
+    sketch = client.post(
+        "/whiteboard/sketches", json={"board_id": board["id"], "data": "[]"}
+    ).json()
+    obj = client.post(
+        "/whiteboard/objects",
+        json={
+            "board_id": board["id"],
+            "kind": "text",
+            "data": {"content": "a text box"},
+            "x": 1,
+            "y": 1,
+        },
+    ).json()
+    mapped = client.post(
+        f"/whiteboard/boards/{board['id']}/nodes",
+        json={"kind": "topic", "text": "a topic"},
+    ).json()
+    return {
+        "board": board,
+        "note": note,
+        "node": node,
+        "sketch": sketch,
+        "object": obj,
+        "mapped": mapped,
+    }
+
+
+def _whiteboard_drivers(client, board, note):
+    """`name -> (setup, call)`.
+
+    Each driver that needs something to act on makes its own, in `setup`,
+    which runs before the event count is taken: sharing one card between the
+    update driver and the delete driver makes the enumeration depend on the
+    order it happens to run in, and the order is alphabetical.
+    """
+
+    def a_node():
+        return client.post(
+            "/whiteboard/nodes", json={"entry_id": note, "board_id": board}
+        ).json()
+
+    def a_sketch():
+        return client.post(
+            "/whiteboard/sketches",
+            json={"board_id": board, "data": '{"type": "stroke", "points": [[1, 2]]}'},
+        ).json()
+
+    def an_object():
+        return client.post(
+            "/whiteboard/objects",
+            json={
+                "board_id": board,
+                "kind": "text",
+                "data": {"content": "a text box"},
+                "x": 1,
+                "y": 1,
+            },
+        ).json()
+
+    def a_map_node():
+        return client.post(
+            f"/whiteboard/boards/{board}/nodes",
+            json={"kind": "topic", "text": "a topic"},
+        ).json()
+
+    return {
+        "create_board": (None, lambda _: client.post(
+            "/whiteboard/boards", json={"name": "another board"}
+        )),
+        "duplicate_board": (None, lambda _: client.post(
+            f"/whiteboard/boards/{board}/duplicate"
+        )),
+        # Settings only. A rename also changes the board note's *text*, which
+        # `manager.update_entry` records as that note's own event: two facts
+        # on two entities, which `test_renaming_a_board_records_the_note_and_
+        # the_board` below states rather than this count hiding.
+        "rename_board": (None, lambda _: client.put(
+            f"/whiteboard/boards/{board}", json={"layout": "radial"}
+        )),
+        "create_node": (None, lambda _: client.post(
+            "/whiteboard/nodes", json={"entry_id": note, "board_id": board, "x": 5}
+        )),
+        "update_node": (a_node, lambda made: client.put(
+            f"/whiteboard/nodes/{made['id']}",
+            json={"entry_id": note, "board_id": board, "x": 9, "y": 9},
+        )),
+        "delete_node": (a_node, lambda made: client.delete(
+            f"/whiteboard/nodes/{made['id']}"
+        )),
+        "create_sketch": (None, lambda _: client.post(
+            "/whiteboard/sketches", json={"board_id": board, "data": "[[1,2]]"}
+        )),
+        "update_sketch": (a_sketch, lambda made: client.put(
+            f"/whiteboard/sketches/{made['id']}",
+            json={"board_id": board, "data": "[[3,4]]"},
+        )),
+        "delete_sketch": (a_sketch, lambda made: client.delete(
+            f"/whiteboard/sketches/{made['id']}"
+        )),
+        "create_object": (None, lambda _: client.post(
+            "/whiteboard/objects",
+            json={
+                "board_id": board,
+                "kind": "text",
+                "data": {"content": "another box"},
+                "x": 2,
+                "y": 2,
+            },
+        )),
+        "update_object": (an_object, lambda made: client.put(
+            f"/whiteboard/objects/{made['id']}",
+            json={
+                "board_id": board,
+                "kind": "text",
+                "data": {"content": "rewritten"},
+                "x": 3,
+                "y": 3,
+            },
+        )),
+        "delete_object": (an_object, lambda made: client.delete(
+            f"/whiteboard/objects/{made['id']}"
+        )),
+        "create_map_node": (None, lambda _: client.post(
+            f"/whiteboard/boards/{board}/nodes",
+            json={"kind": "topic", "text": "one more topic"},
+        )),
+        "move_map_node": (a_map_node, lambda made: client.put(
+            f"/whiteboard/boards/{board}/nodes/{made['id']}/move",
+            json={"parent_id": None},
+        )),
+        "generate_map": (None, lambda _: client.post(
+            "/whiteboard/boards/generate",
+            json={"name": "generated", "outline": "- root\n  - child\n", "note_ids": []},
+        )),
+        "import_board": (None, lambda _: client.post(
+            "/whiteboard/boards/import",
+            json={"format": "markdown", "content": "- root\n  - child\n"},
+        )),
+    }
+
+
+def test_every_whiteboard_write_records_exactly_one_event(client, session):
+    made = _board_fixture(client)
+    drivers = _whiteboard_drivers(client, made["board"]["id"], made["note"]["id"])
+    writes = _whiteboard_writes()
+    assert writes, "the enumeration found nothing; the prefixes are wrong"
+
+    for name in writes:
+        driver = drivers.get(name)
+        assert driver is not None, (
+            f"{name} is a write route in api/routes_whiteboard.py with no driver "
+            "in this test. Make it record exactly one event (wrap it in "
+            "@events.writes and give its events.record a whole-field payload), "
+            "then add a driver for it here."
+        )
+        setup, call = driver
+        target = setup() if setup is not None else None
+        before = session.query(AuditLog).count()
+        answer = call(target)
+        assert answer.status_code < 400, f"{name} failed: {answer.text[:200]}"
+        # The route committed in its own session; this one has to start a new
+        # transaction to see it.
+        session.commit()
+        after = session.query(AuditLog).count()
+        assert after == before + 1, f"{name} recorded {after - before} events, not one"
+        last = session.query(AuditLog).order_by(AuditLog.id.desc()).first()
+        assert last.payload, f"{name} recorded an event with no payload"
+        assert last.actor in {"user"} or last.actor.startswith(("ai:", "system:"))
+
+
+def test_a_board_items_events_replay_to_their_current_state(client, session):
+    """The same promise a note makes, for the things on a board."""
+    from memorymap.core import events
+
+    made = _board_fixture(client)
+    box = made["object"]["id"]
+    client.put(
+        f"/whiteboard/objects/{box}",
+        json={
+            "board_id": made["board"]["id"],
+            "kind": "text",
+            "data": {"content": "the last word"},
+            "x": 40,
+            "y": 50,
+        },
+    )
+    session.commit()
+
+    rebuilt = events.replay(session, "whiteboard_object", box)
+    assert json.loads(rebuilt["data"])["content"] == "the last word"
+    assert (rebuilt["x"], rebuilt["y"]) == (40, 50)
+
+    client.delete(f"/whiteboard/objects/{box}")
+    session.commit()
+    assert events.replay(session, "whiteboard_object", box)["deleted"] is True
+
+
+def test_renaming_a_board_records_the_note_and_the_board(client, session):
+    """Two facts, on two entities, and deliberately not folded into one.
+
+    A board's title is its note's own heading, so a rename is an edit of that
+    note and `manager.update_entry` records it as one: folding that into a
+    board event would take the edit out of the note's history, which is where
+    a person looks for it and where its own replay needs it.
+    """
+    made = _board_fixture(client)
+    board = made["board"]["id"]
+    before = session.query(AuditLog).count()
+    client.put(f"/whiteboard/boards/{board}", json={"title": "renamed", "type": "map"})
+    session.commit()
+
+    assert session.query(AuditLog).count() == before + 2
+    newest = session.query(AuditLog).order_by(AuditLog.id.desc()).limit(2).all()
+    assert {row.entity_type for row in newest} == {"entry", "board"}
+    assert all(row.entity_id == board for row in newest)

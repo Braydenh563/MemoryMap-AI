@@ -38,6 +38,57 @@
   border, radius, ground and inset shadow against the title beside it with
   none of those. 176px now, and the same treatment as the title.
 
+## The three cards, before and after
+
+`scratchpad/ui-sweeps/notessubtabs.js`, :8895, 1440x900, dark. The before
+column is where this sitting started (the two commits of the first sitting
+already in), the after is the branch as it stands.
+
+    capture, before   19 controls, 8 rows, heights [1, 36, 40, 41.6, 89]
+      150  3  [36, 1]  help, template picker
+      198  1  [40]     Optional title
+      240  3  [36]     the formatting strip
+      282  1  [89]     the note box
+      414  1  [41.6]   Tags
+      462  5  [40]     Attach, From library, Sketch, Dictate, Improve
+      516  3  [40]     Filing: category, Add to document
+      564  2  [40]     Save as draft, Save
+
+    capture, after    19 controls, 8 rows, heights [1, 36, 40, 176]
+      150  3  [36, 1]  help, template picker
+      198  1  [40]     Optional title
+      240  3  [36]     the formatting strip
+      282  1  [176]    the note box, inside the composer's surface
+      492  1  [40]     Tags
+      546  5  [40]     Attach, From library, Sketch, Dictate, Improve
+      594  3  [40]     Filing: category, Add to document
+      642  2  [40]     Save as draft, Save
+
+    writing room, before  10 controls, 4 rows, heights [36, 40, 189.2, 330.3]
+      150  1  [36]              help
+      228  2  [189.2, 330.3]    the two boxes, unequal
+      432  3  [40]              Draft it, Undo, the instruction field
+      576  4  [40]              Save as note, tags, Extract notes, Discard
+
+    writing room, after   10 controls, 4 rows, heights [36, 40, 330.3]
+      150  1  [36]      help
+      228  2  [330.3]   the two boxes, equal
+      582  4  [40]      the instruction field with Undo and Draft it, and the
+                        tags field opposite it in the other column
+      636  3  [40]      Extract notes, Discard, Save as note
+
+    ask, before and after  6 controls, 2 rows, heights [36, 40]
+      150  1  [36]   History
+      204  5  [40]   the question, the length picker, tune, Ask
+
+    What changed on Ask is the spacing, not the controls: the gaps down the
+    card were 12.8, 8, 8 and 13.6 and are now 9.6 throughout, which is the
+    step every row of the Capture card sits on.
+
+The `1` in Capture's height set is the hidden native `<select>` the custom
+picker stands in front of (absolute, 1px, clipped): invisible, and counted by
+the sweep rather than by the eye.
+
 ## Open, with what is known about each
 
 - **The Notes categories sidebar overflows at 390px**, on every sub-tab

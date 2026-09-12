@@ -172,3 +172,35 @@ def test_frontend_served_at_root(client):
 
 def test_empty_content_rejected(client):
     assert client.post("/entries", json={"content": ""}).status_code == 422
+
+
+def test_a_note_has_the_same_ceiling_a_document_has(client):
+    """The same app said yes and no to the same paste, by which box it went in.
+
+    `routes_documents` has had `MAX_CONTENT` since it was written; capture
+    never grew one. Measured 2026-09-12: a 5 MB note was accepted and took
+    2.26 s of blocking handler time, while a 5 MB document was refused. This
+    is not a new opinion about how long a note may be, it is the document's
+    own number applied to the other box: 500,000 characters is a hundred
+    times the longest note anyone writes.
+    """
+    assert client.post("/entries", json={"content": "word " * 1_000_000}).status_code == 422
+    assert client.post("/entries", json={"content": "word " * 20_000}).status_code == 201
+
+
+def test_a_tag_is_a_label_and_has_a_label_s_length(client):
+    """A 50,000-character tag was accepted, which is a chip 50,000 characters
+    wide in every list the note appears in. Clipped rather than refused: a
+    save that fails because one tag was long throws the note away, which is a
+    worse answer than a shortened tag. Blank tags drop out, which is what a
+    trailing comma produces.
+    """
+    saved = client.post(
+        "/entries", json={"content": "tagged", "tags": ["x" * 50_000, "   ", "fine"]}
+    )
+    assert saved.status_code == 201, saved.text
+    assert [len(tag) for tag in saved.json()["tags"]] == [60, 4]
+    # A list long enough to be a paste rather than a set of labels is refused.
+    assert client.post(
+        "/entries", json={"content": "t", "tags": [f"t{i}" for i in range(400)]}
+    ).status_code == 422

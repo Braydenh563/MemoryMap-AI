@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 
@@ -37,9 +37,37 @@ class SpaceResponse(BaseModel):
     class Config:
         from_attributes = True
 
+#: The longest a note may be, and the longest a tag may be.
+#:
+#: Measured 2026-09-12: a 5 MB note was accepted and took 2.26 s of blocking
+#: handler time, while a 5 MB *document* was refused, because
+#: `routes_documents` has had `MAX_CONTENT` since it was written and capture
+#: never grew one. The same app said yes and no to the same paste depending
+#: on which box it went in. This is that number, not a new opinion about how
+#: long a note may be: 500,000 characters is a hundred times the longest note
+#: anyone writes and a tenth of what hurt.
+#:
+#: A tag is a label. 50,000 characters was accepted as one, which is a chip
+#: 50,000 characters wide in every list the note appears in. 60 is twice what
+#: `librarian.py` already allows itself when it suggests one.
+MAX_NOTE_CONTENT = 500_000
+MAX_TAG_LENGTH = 60
+
+
 class EntryCreate(BaseModel):
-    content: str = Field(min_length=1, description="The thought to store")
-    tags: list[str] = Field(default_factory=list)
+    content: str = Field(min_length=1, max_length=MAX_NOTE_CONTENT, description="The thought to store")
+    tags: list[str] = Field(default_factory=list, max_length=200)
+
+    @field_validator("tags")
+    @classmethod
+    def _tags_are_labels(cls, tags: list[str]) -> list[str]:
+        """A tag is a label, so it has a label's length.
+
+        Clipped rather than refused: a save that fails because one tag was
+        long throws away the note, which is a worse answer than a shortened
+        tag. Blank ones drop out, which is what a trailing comma produces.
+        """
+        return [tag.strip()[:MAX_TAG_LENGTH] for tag in tags if tag and tag.strip()]
     # Guided mode: the user picks the category up front and
     # the AI janitor is skipped entirely.
     category: str | None = None

@@ -52,7 +52,17 @@ session spends its probes somewhere new.
 - The concurrency probe used six threads against one TestClient app. Real
   contention between the desktop window, a browser tab and the night shift
   is the same shape but not the same timing.
-- Large-input handling was measured and **not** acted on: a 5 MB note is
-  accepted (2.26 s) while a 5 MB document is refused at 5 MB, and a single
-  50,000-character tag is accepted while a 100,000-character title is
-  refused. That asymmetry is real and is the obvious next probe.
+- ~~Large-input handling was measured and not acted on~~ **acted on the same
+  evening, and the reasoning is worth keeping because it changed.** It was
+  first written down as a product decision to leave alone: capping how long
+  a note may be is a judgement about someone pasting a long article. On a
+  second look that framing was wrong. The question was never "how long may a
+  note be": `routes_documents` already answered it with `MAX_CONTENT =
+  500_000`, and capture simply never grew the same limit, so the same app
+  said yes and no to the same paste depending on which box it went in. Using
+  the document's own number is removing an inconsistency, not making a new
+  rule. A note is now capped at the same 500,000 characters, a tag is
+  clipped to 60 (twice what `librarian.py` allows itself when it suggests
+  one) rather than refused, because a save that fails over one long tag
+  throws the note away, and a tag list past 200 is a paste rather than a set
+  of labels.

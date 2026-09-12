@@ -205,6 +205,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A note now has the same length limit a document has. The same paste was
+  accepted in one box and refused in the other, and the accepted one took
+  over two seconds. A tag is trimmed to a label's length instead of being
+  stored at whatever length it arrived, and a note is never lost because one
+  of its tags was too long.
+
 - A saved link attached to a note or a document can be deleted again.
   Attaching it was what made it permanent: the delete failed and left it in
   the list.

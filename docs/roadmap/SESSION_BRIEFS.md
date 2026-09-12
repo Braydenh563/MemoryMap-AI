@@ -1019,3 +1019,66 @@ Copy in sentence case, no em-dashes, no exclamation marks. New UI from
 the recipe index only (`tests/test_ui_recipes.py`); a shape the index
 does not cover gets its recipe and lint in the same commit. Never pkill
 uvicorn; own port via `scratchpad/ui-sweeps/serve.sh`; commit trailers.
+
+## Brief 23 (Opus agent, backend first): the corrections loop and resurfacing
+
+WORLD_CLASS_PLAN 15, I7 and I9, plus I4. The two largest unbuilt specs left
+on this branch: `tests/test_learned_spec.py` (15 strict-xfail markers) and
+`tests/test_resurface_spec.py` (7). Own worktree, commit per step,
+`scripts/gate.sh --changed` per step, never push, five-line report,
+`agent-remaining/learning-loop.md` before stopping.
+
+**Read this before writing a line of it.** A part of I7 already exists, in a
+different shape from the one the spec names, and rebuilding it is this
+project's most expensive recurring mistake (CLAUDE.md section 1). What is
+there, found 2026-09-12: `ai/librarian.py` from line 908, "filing
+corrections", records a correction as an `AuditLog` row with
+`action="correction"` and a payload of `{from, to, excerpt}`, written by
+`entry/manager.update_entry` when a note the AI filed is moved by hand, and
+read back by `filing_corrections`, `corrections_note` and `filing_prompt`,
+which put the last five into the next filing prompt. It has its own
+constants (`CORRECTIONS_REMEMBERED = 5`, `CORRECTION_EXCERPT_CHARS = 80`).
+
+The spec asks for `ai/learning.py` with `record`, `corrections`, `boosts`,
+`filing_evidence`, `centroid_excluded`, `decayed` and `MAX_BOOST`, over a
+`corrections` table and a derived `learned_boosts`. **Decide, in the first
+commit, one of two things, and write the reason into the plan:** either the
+`learning` module owns the store and `librarian`'s three functions become
+readers of it (the `AuditLog` rows migrating once), or the `AuditLog` row
+stays the store and `learning` is the layer over it. Whichever you choose,
+there must be exactly one place a correction is written and one place it is
+read. The spec's own header allows the second: "a session that needs a
+different shape changes the test in the same commit, with the reason."
+
+Order, because the later work depends on the earlier:
+
+1. **I7, the store and the boosts** (`test_learned_spec.py`, the first five
+   tests). `record`/`corrections`/`boosts`/`decayed`/`MAX_BOOST`, bounded
+   and halving in 30 days, plus `POST /learned/corrections`.
+2. **I7's three consumers.** Filing (`filing_evidence` returns the matching
+   corrections *and* the nearest filed notes; `centroid_excluded` stops a
+   category two refiles have moved away from), search
+   (`search_manager.retrieve` reorders on an `open_after_ask` boost), and
+   link suggestions (a dismissed pair never returns from
+   `/entries/link-suggestions`).
+3. **I4, resurfacing** (`test_resurface_spec.py`, all seven).
+   `ai/resurface.py` with `compute_scores`, `ranked`, `for_context`, a
+   `note_scores` table written nightly, `GET /resurface` and
+   `POST /resurface/compute`. The endpoint is under 50 ms on 500 notes
+   because the scores are precomputed; the daily three are stable within a
+   day (`?as_of=`) and differ across days; a notebook of five notes returns
+   nothing rather than the same three forever; a `dismiss_resurface`
+   correction is honoured across restarts, which is why this comes after 1.
+4. **I9, the Settings section**, last and only if the frontend is free: ask
+   the orchestrator before touching `index.html` or `app.js`, two agents are
+   usually in them. Every derived row listed with its source span, model and
+   time; edit (never overwritten after), delete (never re-derived), reset,
+   a switch per runner and a master switch, "forget everything" leaving
+   notes and revisions byte-identical (the spec hashes the tables), a
+   private note's facts never listed, and a readable JSON export.
+
+Remove a strict-xfail marker only when its test passes on its own, and never
+weaken a test to make it pass: if a test is wrong, change it in the same
+commit and say why in the message. No em-dashes; sentence case; commit
+trailers; never `pkill -f uvicorn`; own port through
+`scratchpad/ui-sweeps/serve.sh` if you need a server at all.

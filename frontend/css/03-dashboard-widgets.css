@@ -481,6 +481,7 @@ header#top-bar select,
 :root[data-glass="off"] .wb-board-menu,
 :root[data-glass="off"] .wb-object-text,
 :root[data-glass="off"] .wb-topbar,
+:root[data-glass="off"] .wb-context,
 :root[data-glass="off"] dialog::backdrop,
 :root[data-glass="off"] .chord-guide,
 :root[data-glass="off"] .glass {
@@ -3439,4 +3440,40 @@ p.graph-help-panel {
 .tool-row.setting-check > input[type="checkbox"] {
   align-self: start;
   margin-top: var(--space-1);
+}
+
+/* --- the touch floor, for the two surfaces the dock rule cannot reach ------
+   `--target-min` steps to 44px below 820 and the dock block in
+   07-whiteboard-misc.css ("every control in a dock takes the touch floor")
+   applies it inside `.dock` and `.chat-dock`. Neither a sub-tab strip nor the
+   dashboard is a dock, so neither was ever raised.
+
+   Measured at 390x844 with `scratchpad/ui-sweeps/touch.js`, after its surface
+   list went from three to sixteen: the Notes sub-tabs 4 of 4 buttons at 36px,
+   the Library sub-tabs 8 of 8 at 36px, and on the dashboard three quick-link
+   pills at 33.6px, four stat tiles at 42px and the two widget buttons at 36px.
+   Those two strips are the app's main navigation on a phone, which makes them
+   the worst place in it to be 8px short.
+
+   A floor, never a height: every one of these controls keeps whatever size
+   its own rule gives it at every other width, and above 820 this block does
+   not exist. */
+@media (max-width: 819.98px) {
+
+  .seg button {
+    min-height: var(--target-min);
+  }
+
+  /* The dashboard's own controls, by the same rule the docks use: buttons,
+     the two native control kinds, and nothing that is only a label. A
+     checkbox or radio is excluded for the reason 06-timeline-dialogs.css
+     gives at `.checkbox-label`: a floor on the input itself turns a 32x18
+     switch into a slab with its knob adrift, and the label around it is the
+     hit area a person aims at. */
+  #tab-dashboard button,
+  #tab-dashboard select,
+  #tab-dashboard summary,
+  #tab-dashboard input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.visually-hidden) {
+    min-height: var(--target-min);
+  }
 }

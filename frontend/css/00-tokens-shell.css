@@ -383,6 +383,14 @@ select optgroup {
      once, on this very row, before it moved here. A shared measurement
      belongs at the root; the header now reads this token too. */
   --control-h-lg: 2.25rem;
+  /* The settings sheet's own row height. It is `--control-h-lg` everywhere a
+     pointer is a mouse, and it exists as a token of its own for one reason:
+     below 820 it steps to `--target-min` (01-forms-settings.css, "the
+     settings sheet takes the touch floor") while the header, whose controls
+     sit in a bar the phone lays out differently, does not. Stepping
+     `--control-h-lg` itself would have moved both, which is a second
+     decision wearing the first one's clothes. */
+  --settings-control-h: var(--control-h-lg);
   /* Reported: "there is too large of a gap ... around the outside of the
      page, it takes up so much space, this is on majority of the pages."
      Measured at 1440px the gutter resolved to 31.7px a side, the 2.2vw

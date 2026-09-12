@@ -29,12 +29,41 @@ const WIDTH = Number(process.env.WIDTH || 390);
 const HEIGHT = Number(process.env.HEIGHT || 844);
 const MIN = 44;
 
-// The docks the plan names, plus the chat composer, which is a dock by any
-// other name: it is the control row you use most on that tab.
+// Every dock the app has, plus the three control surfaces that are docks by
+// any other name (the chat composer, the dashboard's own widgets, the
+// settings sheet). This list used to be three rows, which is how the Notes
+// categories overflow at 390 stayed unseen for a session: a sweep only knows
+// about what it is pointed at, so "touch PASS" over three surfaces is a
+// statement about three surfaces and nothing else.
+//
+// `open` is a selector clicked after the tab switch, for a surface that lives
+// behind a sub-tab; `close` is clicked after the surface has been measured,
+// for the ones that are modal and would otherwise cover everything measured
+// next.
 const SURFACES = [
   { tab: 'notes', label: 'Notes dock', sel: '[data-dock-name="notes"]' },
-  { tab: 'library', label: 'Library dock', sel: '[data-dock-name="library"]' },
+  { tab: 'notes', label: 'Notes sub-tabs', sel: '#notes-subtabs' },
   { tab: 'chat', label: 'Chat composer', sel: '.chat-dock' },
+  { tab: 'dashboard', label: 'Dashboard', sel: '#tab-dashboard' },
+  { tab: 'graph', label: 'Graph dock', sel: '[data-dock-name="graph"]' },
+  { tab: 'timeline', label: 'Timeline dock', sel: '[data-dock-name="timeline"]' },
+  { tab: 'reminders', label: 'Reminders dock', sel: '[data-dock-name="reminders"]' },
+  { tab: 'library', label: 'Library sub-tabs', sel: '#library-subtabs' },
+  { tab: 'library', label: 'Library dock', sel: '[data-dock-name="library"]' },
+  { tab: 'library', label: 'Lib Documents', sel: '[data-dock-name="library-docs"]',
+    open: '#library-subtabs button[data-target="library-view-docs"]' },
+  { tab: 'library', label: 'Lib Boards', sel: '[data-dock-name="library-boards"]',
+    open: '#library-subtabs button[data-target="library-view-whiteboard"]' },
+  { tab: 'library', label: 'Lib Images', sel: '[data-dock-name="library-media"]',
+    open: '#library-subtabs button[data-media-kind="images"]' },
+  { tab: 'library', label: 'Lib skills', sel: '[data-dock-name="library-skills"]',
+    open: '#library-subtabs button[data-target="library-view-skills"]' },
+  { tab: 'library', label: 'Lib Links', sel: '[data-dock-name="library-links"]',
+    open: '#library-subtabs button[data-target="library-view-links"]' },
+  { tab: 'library', label: 'Lib Contents', sel: '[data-dock-name="library-contents"]',
+    open: '#library-subtabs button[data-target="library-view-contents"]' },
+  { tab: 'notes', label: 'Settings sheet', sel: '#settings-modal .modal-card',
+    open: '#settings-btn', close: '#settings-close' },
 ];
 
 (async () => {
@@ -70,7 +99,11 @@ const SURFACES = [
   let failures = 0;
   for (const surface of SURFACES) {
     await page.click(`[data-tab="${surface.tab}"]`).catch(() => {});
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(600);
+    if (surface.open) {
+      await page.click(surface.open).catch(() => {});
+      await page.waitForTimeout(700);
+    }
 
     const result = await page.evaluate(({ sel, MIN }) => {
       const root = document.querySelector(sel);
@@ -91,30 +124,78 @@ const SURFACES = [
 
       const name = (e) => `${e.tagName.toLowerCase()}${e.id ? '#' + e.id : '.' + [...e.classList].slice(0, 2).join('.')}`;
 
+      // A switch, a radio and a slider are deliberately small, and the app's
+      // own decision (06-timeline-dialogs.css, the `.checkbox-label` note) is
+      // that the *label* around them is the hit area: a global floor on the
+      // input itself turned every switch into a slab with its knob adrift,
+      // and was reported with a screenshot within the hour. So measure what a
+      // person actually aims at. Only these three: every other control is its
+      // own target, and substituting a label for a button would hide a real
+      // finding behind a roomy row.
+      const target = (e) => {
+        const kind = (e.getAttribute('type') || '').toLowerCase();
+        if (e.tagName !== 'INPUT' || !['checkbox', 'radio', 'range'].includes(kind)) return e;
+        return e.closest('label') || document.querySelector(`label[for="${CSS.escape(e.id)}"]`) || e;
+      };
+
       const small = [];
       const covered = [];
       const shared = [];
-      const seen = new Map();
 
-      for (const control of controls) {
-        const box = control.getBoundingClientRect();
+      // Two passes, and the order matters. Every box is measured first, at one
+      // scroll position, so the size and overlap answers are all in the same
+      // frame of reference; only then does the reachability pass scroll things
+      // about. Doing both in one pass compared a control measured at the top of
+      // the page with one measured after a scroll, and invented collisions
+      // between controls a screen apart.
+      const boxes = controls.map((control) => target(control).getBoundingClientRect());
+
+      const seen = new Map();
+      controls.forEach((control, index) => {
+        const box = boxes[index];
         if (box.width + 0.5 < MIN || box.height + 0.5 < MIN) {
           small.push(`${name(control)} ${box.width.toFixed(1)}x${box.height.toFixed(1)}`);
         }
+        const key = `${Math.round(box.left + box.width / 2)},${Math.round(box.top + box.height / 2)}`;
+        if (seen.has(key)) shared.push(`${name(control)} shares ${key} with ${seen.get(key)}`);
+        else seen.set(key, name(control));
+      });
+
+      for (const raw of controls) {
+        const control = target(raw);
+        let box = control.getBoundingClientRect();
+        // Bring it into view before asking what is on top of it. Without this
+        // every control below the fold, and every one in a sideways-scrolling
+        // strip (the sub-tab segs, the dashboard's quick links), reported
+        // "hits nothing" - which is true of a point outside the viewport and
+        // says nothing at all about whether a finger can reach the control.
+        // Fifteen such lines in one run were all this, and a sweep that cries
+        // wolf fifteen times is a sweep nobody reads.
+        if (box.top < 0 || box.left < 0
+            || box.bottom > innerHeight || box.right > innerWidth) {
+          control.scrollIntoView({ block: 'center', inline: 'center' });
+          box = control.getBoundingClientRect();
+        }
         const x = Math.round(box.left + box.width / 2);
         const y = Math.round(box.top + box.height / 2);
+        // Still outside after scrolling: a control its own scroll container
+        // cannot reach. That is a finding, not a pass.
+        if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) {
+          covered.push(`${name(control)} cannot be scrolled into view (centre ${x},${y})`);
+          continue;
+        }
         const hit = document.elementFromPoint(x, y);
         if (!hit || (!control.contains(hit) && !hit.contains(control))) {
           covered.push(`${name(control)} at ${x},${y} hits ${hit ? name(hit) : 'nothing'}`);
         }
-        // Two controls whose centres resolve to the same element means one tap
-        // cannot choose between them.
-        const key = `${x},${y}`;
-        if (seen.has(key)) shared.push(`${name(control)} shares ${key} with ${seen.get(key)}`);
-        else seen.set(key, name(control));
       }
       return { count: controls.length, small, covered, shared };
     }, { sel: surface.sel, MIN });
+
+    if (surface.close) {
+      await page.click(surface.close).catch(() => {});
+      await page.waitForTimeout(400);
+    }
 
     if (result.missing) {
       console.log(`${surface.label.padEnd(16)} NOT FOUND (${surface.sel})`);

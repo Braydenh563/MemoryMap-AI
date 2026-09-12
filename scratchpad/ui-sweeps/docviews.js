@@ -83,18 +83,33 @@ function contrast(a, b) {
   const numbers = () => page.evaluate(() => document.querySelectorAll('#doc-editor .cm-lineNumbers .cm-gutterElement').length);
   say('md_numbers_default', await numbers());
   if (await numbers() !== 0) fail('a markdown document numbers its lines before being asked');
-  const row = await page.evaluate(() => Boolean(document.getElementById('doc-view-gutter')));
-  say('view_menu_has_line_numbers', row);
-  if (!row) fail('the view menu has no line-numbers row');
-  await page.evaluate(() => document.getElementById('doc-view-gutter').click());
-  await page.waitForTimeout(800);
-  say('md_numbers_after_ask', await numbers());
-  if (await numbers() < 2) fail('asking for line numbers on a markdown document produced none');
-  say('row_pressed', await page.evaluate(() => document.getElementById('doc-view-gutter').getAttribute('aria-pressed')));
-  await page.evaluate(() => document.getElementById('doc-view-gutter').click());
-  await page.waitForTimeout(700);
-  say('md_numbers_off_again', await numbers());
-  if (await numbers() !== 0) fail('turning the line numbers off left them on');
+  // **The control is on the formatting strip, not in the view menu**, and
+  // this sweep asserted the wrong door for two sessions. `#doc-view-gutter`
+  // existed while the strip was collapsed by default; the owner asked for it
+  // back off once the strip reopened ("remove the line numbers view option":
+  // numbering is a toggle, not a view), and index.html says so where the row
+  // used to be. The sweep kept asking for the removed row, failed, and then
+  // threw on `null.click()`, which is why it has been red against a correct
+  // app. `.doc-toolbar-gutter` is the one the app actually draws
+  // (`documents.js`, the strip's tools group), and it is also what a person
+  // reaches for, which is the point of checking it.
+  const gutterBtn = '#doc-toolbar .doc-toolbar-gutter';
+  const strip = await page.evaluate((sel) => Boolean(document.querySelector(sel)), gutterBtn);
+  say('strip_has_line_numbers', strip);
+  if (!strip) {
+    fail('the formatting strip has no line-numbers button');
+  } else {
+    await page.evaluate((sel) => document.querySelector(sel).click(), gutterBtn);
+    await page.waitForTimeout(800);
+    say('md_numbers_after_ask', await numbers());
+    if (await numbers() < 2) fail('asking for line numbers on a markdown document produced none');
+    say('button_pressed', await page.evaluate(
+      (sel) => document.querySelector(sel).getAttribute('aria-pressed'), gutterBtn));
+    await page.evaluate((sel) => document.querySelector(sel).click(), gutterBtn);
+    await page.waitForTimeout(700);
+    say('md_numbers_off_again', await numbers());
+    if (await numbers() !== 0) fail('turning the line numbers off left them on');
+  }
 
   // --- a code file --------------------------------------------------------
   // Back to "follow the file type" first, and this matters. `docGutterWanted`

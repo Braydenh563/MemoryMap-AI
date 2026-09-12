@@ -851,32 +851,31 @@ body.scroll-top-visible #tab-notes .layout > main {
   --control-h: 1.875rem;
 }
 
-/* "Wondering if the elements in the bottom row of the chat dock should be
-   rearranged better": measured instead of reordered, the groups (Skills and
-   Web/Plan on the left, Ask/Agent plus the gear on the right) were never
-   the problem, the gap between them was. `.chat-tool-group-mode` carried
-   `margin-left: auto`, an *unbounded* push to the strip's own right edge
-   (the card's edge, unrelated to how wide the left-hand groups happen to
-   be). Measured 766px of dead space between "Plan" and "Ask" at 1920px,
-   548px at 1440px.
+/* **The free space between the left groups and the right pair, and all of
+   it.** This spacer is what `margin-left: auto` on `.chat-tool-group-mode`
+   used to be, for the wrap reason below, and it was briefly capped at
+   `--space-9` to close the "dead air" the unbounded push left on a wide
+   screen (766px between "Plan" and "Ask" at 1920px, 548px at 1440px).
 
-   Capping the strip's own `max-width` was the first attempt and the wrong
-   one: Skills can be up to 18rem wide (a long armed skill name) and the
-   mode group up to ~23rem (the "the Librarian" long-form labels shown at
-   wide viewports), and a cap generous enough to survive both worst cases
-   at once left the gap barely smaller than before, while a tighter cap
-   risked forcing an unrelated wrap the old unbounded layout never had.
+   The cap is gone, because it bought the gap at the cost of the thing that
+   gap was holding up. Owner, on the capped version: "the ask/agent toggle
+   and settings button are not aligned to the right anymore??" Measured on
+   that version: the mode group's right edge stopped 503px short of the
+   strip's right edge at 1440px and 757px short at 1920px, so the pair sat
+   adrift in the middle of the row with no edge to read them against. An
+   ungrounded gap is worse than a wide one: `.dock-actions` pins every other
+   dock's right-hand zone to the right edge with exactly this `auto` push
+   (see the dock grammar in DESIGN.md), and the chat strip reading
+   differently from all of them is the inconsistency, not the distance.
 
-   A spacer between the groups instead: `flex: 1 1 auto` so it still absorbs
-   the row's free space and keeps the right group pinned to an edge,
-   `max-width` so that edge is never more than a fixed, comfortable distance
-   from the left groups regardless of viewport width, and free to shrink to
-   0 on its own (no `min-width`) rather than forcing the row to wrap when
-   content is long. This bounds the *gap*, not the row's total width, so it
-   carries no new wrap case at any content length. */
+   Still a spacer rather than a margin, which is the part worth keeping from
+   the capped round: a `margin-left: auto` survives the row wrapping and
+   strands the mode group alone on the right of its own second line, which
+   needed a narrow-viewport override to undo. A flex spacer with no declared
+   `min-width` shrinks to 0 first and then contributes nothing once the row
+   wraps, so the wrapped line needs no special case at all. */
 .chat-dock-controls-spacer {
   flex: 1 1 auto;
-  max-width: var(--space-9);
 }
 
 .chat-dock-controls select,
@@ -4067,13 +4066,12 @@ span > .chip {
    Putting a per-message choice and a per-session one in the same run of
    buttons is what made the strip read as nine equal things. */
 .chat-dock-controls .chat-tool-group-mode {
-  /* Was `margin-left: auto`, an unbounded push to the strip's right edge.
-     `.chat-dock-controls-spacer` (the same file, above) now does that job
-     with a capped `max-width`, so the mode group no longer needs a margin
-     of its own, and the narrow-viewport override this used to need (a
-     margin that would otherwise strand it on a line by itself once the
-     strip wraps) goes with it: a spacer with no declared `min-width`
-     already shrinks to 0 rather than forcing a wrap. */
+  /* Was `margin-left: auto`. `.chat-dock-controls-spacer` (the same file,
+     above) does that job now, so the mode group no longer needs a margin of
+     its own, and the narrow-viewport override this used to need (a margin
+     that would otherwise strand it on a line by itself once the strip
+     wraps) goes with it: a spacer with no declared `min-width` already
+     shrinks to 0 rather than forcing a wrap. */
   display: flex;
   align-items: center;
   gap: var(--space-2);

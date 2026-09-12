@@ -1623,14 +1623,16 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
 
               <!-- Owner: "im wondering if the elements in the bottom row of
-                   the chat dock should be rearranged better." The groups
-                   were right, the gap between them was not: an unbounded
-                   `margin-left: auto` on the mode group put up to 766px of
-                   dead air between "Plan" and "Ask" on a wide screen. This
-                   spacer absorbs the strip's free space instead, capped at
-                   `--space-9` (see 04-chat-dock-appearance.css), so the
-                   right group sits a fixed, comfortable distance from the
-                   left ones rather than pinned to the far edge of the card. -->
+                   the chat dock should be rearranged better", and then, of
+                   the capped answer that followed, "the ask/agent toggle and
+                   settings button are not aligned to the right anymore??"
+                   The groups were right both times; where the right-hand
+                   pair ends was the question. It ends at the strip's right
+                   edge, like every other dock's actions zone: this spacer
+                   takes all of the row's free space to put it there (see
+                   `.chat-dock-controls-spacer` in
+                   04-chat-dock-appearance.css for why a spacer and not a
+                   `margin-left: auto`). -->
               <div class="chat-dock-controls-spacer" aria-hidden="true"></div>
 
               <!-- **Right-hand group: what kind of answer, and how it answers.**

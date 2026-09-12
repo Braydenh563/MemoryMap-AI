@@ -1829,11 +1829,25 @@ summary > .ph-lead,
    an acknowledgement rather than a state. No animation under reduced motion,
    where the toast the save handler raises is the whole confirmation. */
 @keyframes just-saved-ring {
-  0% { box-shadow: 0 0 0 0 var(--accent); }
-  100% { box-shadow: 0 0 0 6px transparent; }
+  /* `--just-saved-rest` is the control's own resting shadow, handed over by
+     `flashSaved` before the class goes on. `box-shadow` is one property
+     holding a list, so animating it replaces whatever was there: without this,
+     a button with a glow of its own (`#prefs-save`, measured at
+     rgba(70,100,240,0.25) 0 2px 10px) lost it for the ring's whole duration
+     and snapped it back at the end. The fallback is a transparent zero shadow
+     so a control with none is unaffected. */
+  0% { box-shadow: var(--just-saved-rest), 0 0 0 0 var(--accent); }
+  100% { box-shadow: var(--just-saved-rest), 0 0 0 6px transparent; }
 }
 
 .just-saved {
+  /* Declared here, plainly, rather than left to a `var(..., fallback)` in the
+     keyframes: `test_style_scale.py` fails a token used with a fallback, and
+     it is right to, a fallback is a value nobody can find by searching for the
+     token. `flashSaved` overwrites this on the element's own style with the
+     control's measured resting shadow; a transparent zero shadow is what a
+     control that has none should compose with. */
+  --just-saved-rest: 0 0 #0000;
   animation: just-saved-ring var(--motion-slow) ease-out;
 }
 

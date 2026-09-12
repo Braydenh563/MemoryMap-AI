@@ -21559,3 +21559,22 @@ else: five agents' worth. Run against the whole diff from the branch point.
   grepping, and the merges were reviewed one at a time as they landed. The
   one deliberate rewrite is the graph's drag, which reverses a decision the
   code defended at length; GRAPH_PLAN carries the reversal and the reason.
+
+### From HANDOVER.md, at the 600-line ceiling (second pass)
+
+### Two traps an agent worktree sets (2026-09-09, both hit for real)
+
+1. **A worktree can be cut from an older base than you think.** Two agents
+   this session reported that `scripts/gate.sh` and half the lint set "do not
+   exist", and one could not measure a feature because its checkout predated
+   it. Neither was wrong about its own tree. **Put "merge
+   `origin/claude/epic-ramanujan-8xocc0` into your worktree before you start"
+   in every brief**, and treat "that lint does not exist here" as a signal to
+   merge rather than as a reason to substitute a weaker check. The visible
+   cost of missing it: six em-dashes reached the branch because the agent's
+   tree had no `tests/test_no_em_dashes.py` to catch them.
+2. **`scripts/gate.sh` used to resolve python and ruff from
+   `<worktree>/.venv`**, which a linked worktree does not have, so its ruff
+   step failed on a tree with nothing wrong. Fixed: it falls back to the main
+   checkout, found through `git rev-parse --git-common-dir`.
+

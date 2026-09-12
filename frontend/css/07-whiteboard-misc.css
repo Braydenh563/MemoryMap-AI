@@ -2756,6 +2756,133 @@ dialog::backdrop {
   margin: 0;
 }
 
+/* **The Notes panels run on two heights, and only two.**
+
+   Measured on the three sub-tabs before this, at 1440x900 dark: twenty
+   controls on the Capture card in *six* heights, 32 (the help dot), 36 (the
+   formatting strip), 38.8 (the template picker), 40 (the buttons), 41.6 (the
+   two text inputs) and an 89px note box. That is what "assembled rather than
+   designed" measures as, and DESIGN.md's control-height section is about
+   exactly this failure at a quarter of the scale.
+
+   The two heights are the tokens the app already has, used for what each is
+   for. `--control-h-lg` (2.25rem) is the *secondary strip*: the card head
+   row, whose height DESIGN.md already fixes, and the formatting toolbar,
+   which is chrome for the box below it and must not out-weigh it.
+   `--control-h` at 2.5rem is the *body*: every field, picker and button you
+   act on, which is what `.capture-field-row`, `.draft-controls` and
+   `.ask-query-row` above already declare. The writing surfaces are the
+   deliberate exception: a textarea is sized by what you are writing, not by
+   a control height, and DESIGN.md says so.
+
+   The head rows had the height on the row and nothing on what stood in it,
+   which is why a 36px row held a 32px dot beside a 38.8px picker. */
+#capture > .row:has(> h2) button,
+#writing-room > .row:has(> h2) button,
+#ask > .row:has(> h2) button {
+  height: var(--control-h-lg);
+  padding-block: 0;
+  margin: 0;
+}
+
+/* **One writing surface**, the recipe `.ask-composer` one panel down already
+   uses: one bordered box carries the edge, the inset and the fields inside
+   it give theirs up, so a title, a formatting strip and a note box read as
+   one thing you write into rather than three boxes in a column.
+
+   Before this the strip that formats the note box was a separate bordered
+   strip *outside* it, with its own card background, and the box it formats
+   was 89px tall on a 498px card. */
+.note-composer {
+  --control-h: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, var(--ink) 25%);
+  border-radius: var(--radius-lg);
+  background: var(--input-bg);
+  box-shadow: inset 0 1px 2px var(--field-inset);
+}
+
+/* The fields inside give up their own edge, ground and inset: the surface
+   carries all three now. `border-radius: 0` with them, or a rounded corner
+   is drawn inside a rounded corner one pixel away from it. */
+.note-composer > input,
+.note-composer > textarea,
+.note-composer > .entry-preview {
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  margin: 0;
+}
+
+/* **The ring stays, drawn one step inside.** `.ask-composer` moves the focus
+   ring onto the shell because it holds one field; this holds two, and a ring
+   on the shell could not say which of them has the caret. So each field keeps
+   the app's one `:focus-visible` ring and only its offset changes, from the
+   base rule's 2px outside (which would straddle the surface's own border) to
+   2px inside it. */
+.note-composer > input:focus-visible,
+.note-composer > textarea:focus-visible,
+.note-composer > .entry-preview:focus-visible {
+  outline-offset: -2px;
+  border-radius: var(--radius-md);
+}
+
+/* The title line: a control height like every other field, with the strip's
+   own hairline under it rather than a border of its own. */
+.note-composer > #entry-title {
+  height: var(--control-h);
+  padding-inline: var(--space-4);
+  font-weight: 600;
+}
+
+/* The strip belongs to the box below it now, so it drops the card ground and
+   the rounded edge it carried as a free-standing bar and keeps one hairline
+   on each side of itself. Still `--control-h-lg` tall, from `.doc-toolbar`. */
+.note-composer > .note-toolbar {
+  margin-bottom: 0;
+  border-inline: none;
+  border-block: 1px solid var(--border);
+  border-radius: 0;
+  background: none;
+}
+
+/* **A note box you can see the note in.** 89px measured, on a card with
+   370px of room under it; `rows="3"` is what a textarea falls back to and it
+   was never a decision. 11rem is four lines of `--text-body` at
+   `textarea.autogrow`'s own 1.45 line-height plus the box's padding, and it
+   is a floor rather than a height: `.autogrow` still grows it with the note.
+
+   **`#entry-content`, not `textarea.autogrow`.** That class is shared with
+   the Reminders form's "Magic add" row, whose box is one line by design; a
+   min-height set there would make every reminder row 11rem tall. */
+.note-composer > #entry-content {
+  min-height: 11rem;
+  padding: var(--space-4);
+}
+
+.note-composer > .entry-preview {
+  min-height: 11rem;
+  padding: var(--space-4);
+}
+
+/* The counter sits inside the surface, so it takes the surface's padding
+   instead of the negative margin it used to pull itself up against a box it
+   no longer touches. */
+.note-composer > .char-count {
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-3);
+}
+
+/* The `[[wiki link]]` list is a popup in flow: inside the surface it keeps
+   its own edge, and takes the side padding so it does not run to the two
+   borders it sits between. */
+.note-composer > .wiki-suggest {
+  margin: 0 var(--space-4) var(--space-3);
+}
+
 /* Notes tab → Ask: the question input, the answer-length select and the Ask
    button had the same three-heights-on-one-row mismatch as
    `.capture-field-row` above, same fix. */

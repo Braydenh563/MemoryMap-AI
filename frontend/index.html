@@ -677,70 +677,80 @@
                 They do render in the document editor.</li>
             </ul>
           </div>
-          <!-- Optional: asked for directly. Not a second stored field: it
-               writes the same leading `# heading` line manager.extract_title
-               already reads on every note, so a title typed here and one
-               typed as the note's own first line ("# Recipe") work exactly
-               the same way. Starting a note with a single # already becomes
-               a title without touching this box at all. -->
-          <input id="entry-title" type="text" maxlength="200"
-            placeholder="Optional title"
-            aria-label="Optional title: becomes the note's leading heading">
-          <!-- Asked for directly: "can you add like a toolbar like in the
-               documents but for notes and stuff as well". Deliberately the
-               same `.doc-toolbar` markup and the same `data-md` contract as
-               the document editor's strip, wired to the same MD_ACTIONS
-               table: one dialect of markdown, one set of buttons, so the
-               two editors cannot drift into behaving differently. Shorter
-               than the document one on purpose: a note is a short thing, so
-               headings, tables and code blocks are left to the document
-               editor rather than crowding a three-row box. -->
-          <div class="doc-toolbar note-toolbar" id="note-toolbar" role="toolbar"
-            aria-label="Formatting" data-md-target="entry-content">
-            <button type="button" data-md="bold" title="Bold (Ctrl+B)"><strong>B</strong></button>
-            <button type="button" data-md="italic" title="Italic (Ctrl+I)"><em>I</em></button>
-            <button type="button" data-md="strike" title="Strikethrough"><s>S</s></button>
-            <button type="button" data-md="code" title="Inline code">&lt;/&gt;</button>
-            <span class="doc-toolbar-sep" aria-hidden="true"></span>
-            <button type="button" class="icon-only" data-md="highlight" title="Highlight (yellow)"
-              aria-label="Highlight"><i class="ph ph-highlighter" aria-hidden="true"></i></button>
-            <select class="md-colour-select" data-md-colour="highlight"
-              aria-label="Highlight colour" title="Highlight in a colour">
-              <option value="">Highlight…</option>
-            </select>
-            <select class="md-colour-select" data-md-colour="ink"
-              aria-label="Text colour" title="Text colour">
-              <option value="">Text colour…</option>
-            </select>
-            <button type="button" class="icon-only" data-md="clearformat" title="Remove highlight or colour"
-              aria-label="Remove highlight or colour"><i class="ph ph-eraser" aria-hidden="true"></i></button>
-            <span class="doc-toolbar-sep" aria-hidden="true"></span>
-            <button type="button" data-md="ul" title="Bulleted list"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i> List</button>
-            <button type="button" data-md="task" title="Task list"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Task</button>
-            <button type="button" class="icon-only" data-md="link" title="Link" aria-label="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
-            <span class="doc-toolbar-sep" aria-hidden="true"></span>
-            <!-- Asked for directly: a way to see highlights and text colours
-                 while writing, and to click a word to edit it. The document
-                 editor's Live view already does this for documents; the note
-                 composer had no preview at all. -->
-            <button type="button" id="entry-preview-toggle" class="doc-toolbar-toggle"
-              aria-pressed="false" aria-controls="entry-preview"
-              title="Preview: see highlights and colours as they will look">
-              <i class="ph ph-eye ph-lead" aria-hidden="true"></i> Preview
-            </button>
+          <!-- **One writing surface, not four stacked boxes.** The title
+               field, the formatting strip, the note box and its counter
+               were four separate controls in a column, each with its own
+               border, and the strip that formats the box sat outside the
+               box it formats. Same recipe as `.ask-composer` one panel
+               down (DESIGN.md, the recipe index): one bordered surface
+               carries the edge, the inset and the focus ring, and the
+               fields inside it give theirs up. -->
+          <div class="note-composer">
+            <!-- Optional: asked for directly. Not a second stored field: it
+                 writes the same leading `# heading` line manager.extract_title
+                 already reads on every note, so a title typed here and one
+                 typed as the note's own first line ("# Recipe") work exactly
+                 the same way. Starting a note with a single # already becomes
+                 a title without touching this box at all. -->
+            <input id="entry-title" type="text" maxlength="200"
+              placeholder="Optional title"
+              aria-label="Optional title: becomes the note's leading heading">
+            <!-- Asked for directly: "can you add like a toolbar like in the
+                 documents but for notes and stuff as well". Deliberately the
+                 same `.doc-toolbar` markup and the same `data-md` contract as
+                 the document editor's strip, wired to the same MD_ACTIONS
+                 table: one dialect of markdown, one set of buttons, so the
+                 two editors cannot drift into behaving differently. Shorter
+                 than the document one on purpose: a note is a short thing, so
+                 headings, tables and code blocks are left to the document
+                 editor rather than crowding a three-row box. -->
+            <div class="doc-toolbar note-toolbar" id="note-toolbar" role="toolbar"
+              aria-label="Formatting" data-md-target="entry-content">
+              <button type="button" data-md="bold" title="Bold (Ctrl+B)"><strong>B</strong></button>
+              <button type="button" data-md="italic" title="Italic (Ctrl+I)"><em>I</em></button>
+              <button type="button" data-md="strike" title="Strikethrough"><s>S</s></button>
+              <button type="button" data-md="code" title="Inline code">&lt;/&gt;</button>
+              <span class="doc-toolbar-sep" aria-hidden="true"></span>
+              <button type="button" class="icon-only" data-md="highlight" title="Highlight (yellow)"
+                aria-label="Highlight"><i class="ph ph-highlighter" aria-hidden="true"></i></button>
+              <select class="md-colour-select" data-md-colour="highlight"
+                aria-label="Highlight colour" title="Highlight in a colour">
+                <option value="">Highlight…</option>
+              </select>
+              <select class="md-colour-select" data-md-colour="ink"
+                aria-label="Text colour" title="Text colour">
+                <option value="">Text colour…</option>
+              </select>
+              <button type="button" class="icon-only" data-md="clearformat" title="Remove highlight or colour"
+                aria-label="Remove highlight or colour"><i class="ph ph-eraser" aria-hidden="true"></i></button>
+              <span class="doc-toolbar-sep" aria-hidden="true"></span>
+              <button type="button" data-md="ul" title="Bulleted list"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i> List</button>
+              <button type="button" data-md="task" title="Task list"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Task</button>
+              <button type="button" class="icon-only" data-md="link" title="Link" aria-label="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
+              <span class="doc-toolbar-sep" aria-hidden="true"></span>
+              <!-- Asked for directly: a way to see highlights and text colours
+                   while writing, and to click a word to edit it. The document
+                   editor's Live view already does this for documents; the note
+                   composer had no preview at all. -->
+              <button type="button" id="entry-preview-toggle" class="doc-toolbar-toggle"
+                aria-pressed="false" aria-controls="entry-preview"
+                title="Preview: see highlights and colours as they will look">
+                <i class="ph ph-eye ph-lead" aria-hidden="true"></i> Preview
+              </button>
+            </div>
+            <textarea id="entry-content" rows="3" class="autogrow"
+              placeholder="Type anything: a joke, a shopping list, a race result…
+  Link to another note with [[its first few words]]."></textarea>
+            <!-- The rendered note, shown instead of the box while Preview is on.
+                 Clicking it goes back to editing with the caret placed at the
+                 words that were clicked - see enterEntryPreview in app.js. -->
+            <div id="entry-preview" class="entry-preview hidden" role="button" tabindex="0"
+              aria-label="Preview of this note, click any text to edit it"></div>
+            <!-- Autocomplete for [[wiki links]], anchored under the note box. -->
+            <ul id="wiki-suggest" class="wiki-suggest hidden" role="listbox"
+              aria-label="Notes you can link to"></ul>
+            <div class="char-count muted" id="entry-count" aria-live="polite">0 characters</div>
           </div>
-          <textarea id="entry-content" rows="3" class="autogrow"
-            placeholder="Type anything: a joke, a shopping list, a race result…
-Link to another note with [[its first few words]]."></textarea>
-          <!-- The rendered note, shown instead of the box while Preview is on.
-               Clicking it goes back to editing with the caret placed at the
-               words that were clicked - see enterEntryPreview in app.js. -->
-          <div id="entry-preview" class="entry-preview hidden" role="button" tabindex="0"
-            aria-label="Preview of this note, click any text to edit it"></div>
-          <!-- Autocomplete for [[wiki links]], anchored under the note box. -->
-          <ul id="wiki-suggest" class="wiki-suggest hidden" role="listbox"
-            aria-label="Notes you can link to"></ul>
-          <div class="char-count muted" id="entry-count" aria-live="polite">0 characters</div>
           <!-- Reported directly: an uploaded/pasted image only shows as raw
                `![name](/media/...)` text while composing, which reads as
                "the image isn't rendered". A plain <textarea> genuinely can't
@@ -749,9 +759,17 @@ Link to another note with [[its first few words]]."></textarea>
                reference from this note's text (the underlying upload stays,
                same as removing any other text does not delete a file). -->
           <div id="entry-attachment-chips" class="attachment-chips hidden"></div>
-          <input id="entry-tags" type="text" list="tag-suggestions"
-            placeholder="Optional tags, comma separated (e.g. joke, work)">
-          <datalist id="tag-suggestions"></datalist>
+          <!-- The tags field was a bare input in the column with nothing
+               saying what it was but its own placeholder, between the note
+               box and a labelled row. Every field below the composer is a
+               labelled row now, so this one is too, and the placeholder
+               stops repeating the word the label already says. -->
+          <div class="row capture-field-row">
+            <label for="entry-tags" class="muted capture-field-label">Tags</label>
+            <input id="entry-tags" type="text" list="tag-suggestions"
+              placeholder="Optional, comma separated (e.g. joke, work)">
+            <datalist id="tag-suggestions"></datalist>
+          </div>
           <!-- Reported directly: "the ai and application doesnt suggest tags
                either before creating a new note or after", a suggestion only
                ever existed after saving, buried in a note's own kebab menu
@@ -760,24 +778,15 @@ Link to another note with [[its first few words]]."></textarea>
                chip to add its tag to the field above. Empty and hidden until
                there is enough text to be worth asking about. -->
           <div id="entry-tag-suggestions" class="recent hidden" aria-live="polite"></div>
-          <!-- Notes and documents are different things, but usually about
-               the same thing. Attaching one here is the moment the connection
-               is obvious; by the time the note is in a list it is forgotten. -->
+          <!-- **Five ways to put something into this note, and nothing
+               else.** Measured before this: this row carried seven controls
+               of two families under one label reading "Add to document",
+               the document picker and its chips followed by these five, so
+               the label described a fifth of its own row. The picker moved
+               down to the filing row, where it belongs with the category,
+               and the label now names what is actually here. -->
           <div class="row capture-field-row">
-            <span class="muted capture-field-label" id="entry-document-label">Add to document</span>
-            <!-- **An adder, not a select** (INBOX 116, the owner: "fix the add
-                 to document combobox not changing"). A select shows the value
-                 it holds; this control holds none, because a note can go on
-                 several documents and each pick becomes a chip. The old
-                 select had to write `value = ""` on every change to stay
-                 honest about that, so it snapped back to "None" the instant
-                 you chose something, which is what "not changing" describes.
-                 A thing you pick and it acts is a menu (DESIGN.md's recipe
-                 index); a thing you pick and it holds a value is a select.
-                 `renderCaptureDocumentAdder` fills this with `labelledMenu`,
-                 the same shape "Attach" and "From library" have on this row. -->
-            <span id="entry-document-adder"></span>
-            <span id="entry-document-chips" class="entry-meta"></span>
+            <span class="muted capture-field-label">Add to this note</span>
             <!-- Moved up from the "File under" row below (reported live: that
                  row was crowded: Save/Save as draft/Improve/Sketch/mic/Attach/
                  From library was seven controls fighting one label for space).
@@ -819,21 +828,44 @@ Link to another note with [[its first few words]]."></textarea>
                401 page with no way back. Empty and hidden until something
                is staged; `renderCaptureFiles` fills it. -->
           <div id="entry-file-strip" class="file-strip hidden" aria-label="Files attached to this note"></div>
-          <!-- INBOX 1a/38: "notes captured while 'All spaces' was selected
+          <!-- **Where this note goes**, both halves of it. A category and a
+               document are the same question asked twice, so they are one
+               row: the select holds a value and shows it, the adder holds a
+               set and shows it as chips (see the decision in
+               UI_MODERNISATION_PLAN). Splitting them across two rows was
+               what left the commit row holding a picker and two buttons. -->
+          <div class="row capture-field-row">
+            <span class="muted capture-field-label">Filing</span>
+            <select id="entry-category" aria-label="File under a category"
+              title="File under a category"></select>
+            <!-- **An adder, not a select** (INBOX 116, the owner: "fix the add
+                 to document combobox not changing"). A select shows the value
+                 it holds; this control holds none, because a note can go on
+                 several documents and each pick becomes a chip. The old
+                 select had to write `value = ""` on every change to stay
+                 honest about that, so it snapped back to "None" the instant
+                 you chose something, which is what "not changing" describes.
+                 A thing you pick and it acts is a menu (DESIGN.md's recipe
+                 index); a thing you pick and it holds a value is a select.
+                 `renderCaptureDocumentAdder` fills this with `labelledMenu`. -->
+            <span id="entry-document-adder"></span>
+            <span id="entry-document-chips" class="entry-meta"></span>
+          </div>
+          <!-- Commit, and nothing else on the row. The space line used to sit
+               between two control rows as a loose paragraph, which is how a
+               helper line ends up reading as a fourth kind of thing in a
+               column of fields; it is this row's own left-hand text now.
+
+               INBOX 1a/38: "notes captured while 'All spaces' was selected
                carry the default workspace, not the space" was invisible from
                here, so a capture that landed somewhere other than where the
                person thought looked like a bug in filing rather than a
-               question this form never answered. One line, filled in by
+               question this form never answered. Filled in by
                `updateCaptureSpaceLabel` (app.js) from the same `spacesCache`
                the switcher reads, so it can never name a different space
                than the one actually selected. -->
-          <p class="muted text-sm capture-space-hint" id="capture-space-hint"></p>
-          <!-- File it, then commit it, and the commit pair sits at the far
-               end, after a spacer, so "Save" is the last thing on the row and
-               the only filled button in the panel. -->
           <div class="row capture-field-row capture-commit-row">
-            <label for="entry-category" class="muted capture-field-label">File under</label>
-            <select id="entry-category"></select>
+            <p class="muted text-sm capture-space-hint" id="capture-space-hint"></p>
             <span class="capture-commit-spacer"></span>
             <!-- Reported live: "no option to save a note as a draft in the
                  capture section", true before this. is_draft: true already

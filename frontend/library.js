@@ -5675,23 +5675,30 @@ function filterLibraryImagesGallery() {
     //: (INBOX 56): the label was one of the six ranks of information the card
     //: stacked at one weight, and the paragraph it labelled is the only prose
     //: on the card, so it does not need naming.
-    const CAPTION_CLAMP_CHARS = 140;
     //: **The description has no More button of its own** (INBOX 115: "the
     //: bottom of the image cards ... needs a desperate redesign"). Under one
     //: picture the card stacked four controls at one rank: a More, a "Text in
     //: this image" fold, a chip row and a byline, and a reader cannot tell
     //: which of four affordances holds the thing they are after.
     //:
-    //: There is one now. The card's fold is what shows everything the card is
-    //: not saying at rest, and unclamping this paragraph is part of that, so
-    //: `openRowReadings` (already the fold's own across-rebuild state) is the
-    //: single per-row flag for "this card is open". A card that is closed
-    //: shows three lines of description; a card that is open shows all of it.
-    const captionClamped = () =>
-      !openRowReadings.has(mediaRowKey(image)) &&
-      (image.caption || "").length > CAPTION_CLAMP_CHARS;
+    //: **And the clamp is unconditional now** (INBOX 118: "still poorly
+    //: designed and look unprofessional"). It used to apply past a character
+    //: count, 140, which is a guess at a line count and was wrong at every
+    //: width: measured on six seeded cards at 1440, the descriptions ran
+    //: 1.44, 2.44, 3, 3, 3.44 and 0 lines, and only two of the six were
+    //: clamped at all, so no two cards had their text ending in the same
+    //: place. A clamp that only sometimes applies is not a clamp; two lines,
+    //: always, is a caption. The whole description is one hover away in the
+    //: element's own title, one click away in the editor it opens, and in the
+    //: lightbox, which has shown the full caption all along.
     const syncCaptionClamp = () => {
-      captionText.classList.toggle("library-image-caption-clamped", captionClamped());
+      //: Never while it is being edited: the clamp treats its child as flowed
+      //: text cut to two lines, and a <textarea> squashed into that box is
+      //: what "the caption collapses when I click it" was.
+      captionText.classList.toggle(
+        "library-image-caption-clamped",
+        !captionText.querySelector("textarea"),
+      );
     };
     //: **Provenance is one muted line at the foot of the card, not chips.**
     //: Reported (INBOX 56): "chips for provenance that read as actions". Who
@@ -5749,8 +5756,10 @@ function filterLibraryImagesGallery() {
       //: lost with the row: "Write a description" is a row of the card's
       //: menu, and it opens this field and puts the caret in it.
       syncCaptionVisibility();
+      //: The clamp cuts at two lines, so the title is where the rest of it
+      //: is, and it is the cheapest place: no control, no row, no height.
       captionText.title = text
-        ? "Click to edit this description"
+        ? `${text}\n\nClick to edit this description`
         : "Click to add a description";
       captionBtn.title = image._isImage
         ? `Describe “${image.original_name}” ${text ? "again " : ""}with AI`
@@ -6172,6 +6181,8 @@ function filterLibraryImagesGallery() {
 
     visionOcrBtn.addEventListener("click", async (event) => {
       event.stopPropagation();
+      //: Same reason as `ocrBtn`'s: the spinner has to be somewhere visible.
+      revealReading();
       visionOcrBtn.disabled = true;
       visionOcrText.replaceChildren(typingDots("Reading text…"));
       try {
@@ -6245,6 +6256,24 @@ function filterLibraryImagesGallery() {
     //: and the one target a card full of controls teaches you not to trust.
     //: `openThisRow` is the same call that click makes, so there is still one
     //: decision about what opening this row means.
+    //: Where a use goes, and what it looks like, said once. The card's menu
+    //: rows and the Files row's chips are two shapes for the same navigation
+    //: and they were two copies of this switch.
+    const useIcon = (use) =>
+      ({ note: "ph:note", document: "ph:file-text", board: "ph:squares-four" })[use.kind] ||
+      "ph:link";
+    const openUse = (use) => {
+      if (use.kind === "note") {
+        switchTab("notes");
+        flashEntry(use.id);
+      } else if (use.kind === "document") {
+        switchTab("documents");
+        openDocument(use.id);
+      } else if (use.kind === "board") {
+        openWhiteboardBoard(use.id ?? null);
+      }
+    };
+
     const openBtn = document.createElement("button");
     openBtn.type = "button";
     openBtn.className = "ghost small library-image-open";
@@ -6279,6 +6308,32 @@ function filterLibraryImagesGallery() {
     //: The description's own placeholder used to be a permanent row of every
     //: card (see `syncCaptionVisibility`). This is where that row went: the
     //: capability is the same click-to-edit field, reached by naming it.
+    //: **The reading is a row of the card only when there is a reading.** It
+    //: used to be a permanent grey "Text in this image" fold on every tile
+    //: including the ones nothing had ever read, which is the third of the
+    //: three rows INBOX 118 counted as saying nothing. This puts it back when
+    //: something is about to land in it, which is the one moment it is
+    //: needed. A function declaration, so the click handlers registered above
+    //: `fields` can call it once the card is built.
+    function revealReading() {
+      if (!visionField.isConnected) fields.append(visionField);
+      visionField.open = true;
+    }
+
+    //: Typing a reading by hand on a picture no reader has touched. The
+    //: always-visible empty box this replaces was itself the answer to a
+    //: report ("no text in it and I cant remove or edit the text??"), so the
+    //: capability is kept exactly and only its permanent row is spent.
+    const writeReading = document.createElement("button");
+    writeReading.type = "button";
+    writeReading.className = "ghost small library-image-write-reading";
+    writeReading.title = `Type the text that is in “${image.original_name}” yourself`;
+    writeReading.addEventListener("click", (event) => {
+      event.stopPropagation();
+      revealReading();
+      startEditingVisionOcr();
+    });
+
     const writeCaption = document.createElement("button");
     writeCaption.type = "button";
     writeCaption.className = "ghost small library-image-write-caption";
@@ -6297,6 +6352,9 @@ function filterLibraryImagesGallery() {
         ? []
         : [{ button: copyRef, label: "ph:code Copy markdown reference" }]),
       { button: writeCaption, label: "ph:pencil-line Write a description" },
+      ...(image._isImage
+        ? [{ button: writeReading, label: "ph:keyboard Type the text in this picture" }]
+        : []),
       { button: rename, label: "ph:pencil-simple Rename" },
       { button: save, label: "ph:download-simple Save a copy" },
       { button: captionBtn, label: "ph:sparkle Describe with AI" },
@@ -6316,6 +6374,24 @@ function filterLibraryImagesGallery() {
       ...(image._isImage || ocrIsPdf(image)
         ? [{ button: ocrOpenBtn, label: "ph:selection-all See text on the page" }]
         : []),
+      //: **Every place this picture is used, by name.** Reported as the gap
+      //: in INBOX 115 ("no way to see which notes use it beyond one chip")
+      //: and sharpened by 118: where a file is used is a count you read at a
+      //: glance, not a row of chips the card pays for. The count stays on the
+      //: card as one line of plain text; the places themselves are rows of
+      //: the menu the card already has, which costs the card nothing at rest
+      //: and lifts the old four-chip cap at the same time.
+      ...(Array.isArray(image.used_by) ? image.used_by : []).slice(0, 6).map((use) => {
+        const go = document.createElement("button");
+        go.type = "button";
+        go.className = "ghost small library-image-goto";
+        go.title = `Open the ${use.kind} this file is used in`;
+        go.addEventListener("click", (event) => {
+          event.stopPropagation();
+          openUse(use);
+        });
+        return { button: go, label: `${useIcon(use)} Go to “${use.label}”` };
+      }),
       { button: del, label: "ph:trash Delete", danger: true },
     ];
     //: The row of controls the kebab lives in. Declared here because the
@@ -6403,14 +6479,18 @@ function filterLibraryImagesGallery() {
     visionField.addEventListener("toggle", () => {
       if (visionField.open) openRowReadings.add(mediaRowKey(image));
       else openRowReadings.delete(mediaRowKey(image));
-      //: One affordance, so opening it opens everything the card was holding
-      //: back, the full description included (see `captionClamped`).
-      syncCaptionClamp();
     });
     const readingSummary = document.createElement("summary");
+    //: **One control, one question** (INBOX 118: the fold "puts two unrelated
+    //: facts in one control ... one of them is not a disclosure at all"). It
+    //: said "Used in 1 place · text found" for one revision, which is where
+    //: the file is *and* what is in it under a single caret. Where it is used
+    //: is a count, and a count is a line of text; this is the fold, and a
+    //: fold says what is folded.
     readingSummary.textContent = image._isImage
       ? "Text in this image"
       : "Text extracted from this file";
+    if (image._isImage) visionField.classList.add("library-image-card-fold");
     const readingBody = document.createElement("div");
     readingBody.className = "library-image-reading-body";
     //: **The label moves inside the fold with the paragraph it names.** On an
@@ -6443,8 +6523,9 @@ function filterLibraryImagesGallery() {
       ocrField.classList.remove("hidden");
       //: The field lives inside the fold now, so revealing it is not enough:
       //: a result that lands in a closed <details> is a button that looks
-      //: like it did nothing.
-      visionField.open = true;
+      //: like it did nothing. And on an image card the fold itself is only on
+      //: the card once there is a reading, so it has to be put back first.
+      revealReading();
     });
 
     readingBody.appendChild(ocrField);
@@ -6622,50 +6703,38 @@ function filterLibraryImagesGallery() {
     //: is behind the one disclosure whose summary line is itself the answer
     //: to "should I care about this one": how many places use it, and whether
     //: there is any text in it.
-    const facts = document.createElement("span");
-    facts.className = "library-image-facts";
-    const syncFacts = () => {
-      //: **Where it is used in words, whether it has text in it as a mark.**
-      //: Measured at 1440 on the seeded gallery: a tile is about 176px wide
-      //: and this line has roughly 110px of it, which is twenty characters.
-      //: "Used in 1 place · text found" ellipsed at "· te", so the second
-      //: fact was costing the first one its ending and delivering nothing.
-      //:
-      //: A glyph is not a label and this app says so repeatedly, but the two
-      //: facts are not the same kind of thing: where a picture is used is a
-      //: number worth reading, and whether a reader found text in it is a
-      //: state, which is what a marker is for. It leads the line so the
-      //: words ellipse under it rather than it under the words, and the
-      //: summary's own `aria-label` says it in words for a screen reader.
-      const hasText = Boolean(
-        (image.vision_ocr_text || "").trim() || (image.ocr_text || "").trim()
-      );
-      setLabel(facts, hasText ? `ph:text-aa ${usageFact}` : usageFact);
-      facts.querySelector("i")?.setAttribute("title", "There is text in this picture");
-      readingSummary.setAttribute(
-        "aria-label",
-        hasText ? `${usageFact}, and there is text in this picture` : usageFact
-      );
-    };
-    syncFacts();
-    //: Both readings are editable in the fold below, so this line has to move
-    //: when they do: a card that still says "text found" over an emptied
-    //: reading is the card lying about its own contents.
-    ocrText.addEventListener("mm:changed", syncFacts);
-    visionOcrText.addEventListener("mm:changed", syncFacts);
-    readingSummary.replaceChildren(facts);
-    readingSummary.title =
-      "Where this picture is used, the text in it, and who described it";
-    visionField.classList.add("library-image-card-fold");
-    //: Chips only, and only when there are any: the count is in the line
-    //: above them and "Not used yet" is already the whole of it.
-    if (usage.childElementCount) readingBody.prepend(usage);
-    //: The byline last, inside the fold. "Described by X, read by Y" is a
-    //: claim about where the card's words came from, not one of the card's
-    //: words, and it had been two lines of model names on the outside of
-    //: every tile in the gallery (INBOX 56, and again in the second design
-    //: batch, both times called noise).
+    //: **The count, as a line of text, only where there is a count.** Not a
+    //: control: nothing opens, nothing toggles, so nothing invites a click
+    //: that would do nothing. Where the places themselves are is in the
+    //: card's menu, a row each. A picture nothing uses says nothing, which is
+    //: the difference between a short card and a padded one: "Not used yet"
+    //: was a permanent row on the emptiest card in the gallery.
+    const uses = document.createElement("p");
+    uses.className = "library-image-uses muted";
+    uses.textContent = usageFact;
+    uses.title =
+      links.length
+        ? "Open the card's menu to go to any of them"
+        : "This picture is not in any note, document or board";
+
+    //: The byline goes with the reading, inside the fold. "Described by X,
+    //: read by Y" is a claim about where the card's words came from, not one
+    //: of the card's words, and it was two lines of model names on the
+    //: outside of every tile (INBOX 56, and again in the second design batch,
+    //: both times called noise). When there is no reading there is no fold,
+    //: and then the card does not carry it at all: the lightbox has shown
+    //: both bylines under the picture since long before this.
     readingBody.append(provenance);
+
+    //: **What the bottom of the card is, in order, and every row optional.**
+    //: The description, then the count, then the fold. `fields` was built
+    //: above for the Files rows, which stack the same two blocks
+    //: unconditionally; an image card composes its own.
+    fields.replaceChildren(captionField);
+    if (links.length || image.usage_incomplete) fields.append(uses);
+    if ((image.vision_ocr_text || "").trim() || (image.ocr_text || "").trim()) {
+      fields.append(visionField);
+    }
 
     fig.append(frame, actions, fields);
     grid.appendChild(fig);

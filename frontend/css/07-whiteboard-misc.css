@@ -470,8 +470,6 @@
 }
 
 
-
-
 /* ======================= MICRO-ANIMATIONS ======================= */
 /* Interactive cards get a slight upward lift and shadow pop on hover */
 .card.interactive,
@@ -2314,8 +2312,6 @@ body.scroll-top-visible .skills-split > main {
 }
 
 
-
-
 /* --- space switcher (top bar) ------------------------------------------------
    Which notebook you are looking at, next to the wordmark. Built out of the
    app's existing `.ghost .small` button so it reads as part of the chrome, 
@@ -3471,7 +3467,7 @@ summary:not(.icon-only):not(.icon-button):hover {
    and shadow already come from the panel rule and are unchanged; only the
    opacity tier is put back. */
 .whiteboard-floating-panel.card.glass,
-.wb-selection-bar.card.glass {
+.wb-context.card.glass {
   background: var(--modal-bg);
 }
 
@@ -3497,7 +3493,7 @@ summary:not(.icon-only):not(.icon-button):hover {
    different surface with its own settled recipe, and the page's own buttons
    are untouched. */
 .whiteboard-floating-panel button.ghost:not(.active):not(:disabled),
-.wb-selection-bar button.ghost:not(.active):not(:disabled) {
+.wb-context button.ghost:not(.active):not(:disabled) {
   background: none;
   border-color: transparent;
   box-shadow: none;
@@ -3505,8 +3501,8 @@ summary:not(.icon-only):not(.icon-button):hover {
 
 .whiteboard-floating-panel button.ghost:not(.active):hover,
 .whiteboard-floating-panel button.ghost:not(.active):focus-visible,
-.wb-selection-bar button.ghost:not(.active):hover,
-.wb-selection-bar button.ghost:not(.active):focus-visible {
+.wb-context button.ghost:not(.active):hover,
+.wb-context button.ghost:not(.active):focus-visible {
   background: var(--ghost-btn-bg);
 }
 
@@ -6873,37 +6869,6 @@ button.connection-row {
   white-space: nowrap;
 }
 
-/* --- the contextual properties panel's own groups ---------------------------
-   The style controls moved out of the tool row and into this panel (see the
-   comment on `#wb-tool-style-group` in index.html, and the restructure it is
-   part of). A group needs the same label treatment `.wb-tool-section-label`
-   gives the tool row's own groups, so "Draw with" reads as a heading over the
-   two rows under it rather than as another property whose value went missing. */
-.wb-properties-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding-bottom: var(--space-2);
-  margin-bottom: var(--space-2);
-  border-bottom: 1px solid var(--glass-border);
-}
-
-.wb-properties-group-label {
-  font-size: var(--text-xs);
-  font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--muted);
-}
-
-/* The thickness slider is the one control here that is not icon-sized, and
-   in an 11rem column it has to give up its intrinsic width or it pushes its
-   own label out of the panel. */
-.wb-properties-group input[type="range"] {
-  width: 5.5rem;
-  min-width: 0;
-}
-
 /* --- Files sub-tab: rows, not cards ----------------------------------------
    Asked for directly: "the card format is difficult with files as they can be
    quite long and large, a single image or ocr caption doesnt fit them. there
@@ -7425,16 +7390,16 @@ button.connection-row {
   cursor: crosshair;
 }
 
-/* The overview steps left of the properties drawer while the drawer is
-   open: reported: "it clashes with the board overview which I also can't
-   manage". The drawer's width plus both insets. */
-#wb-canvas-view:has(> #wb-properties-panel:not(.hidden)) .wb-navigator {
-  right: calc(1rem + 13.5rem + var(--space-3));
-}
+/* The overview used to step left of the properties drawer while the drawer
+   was open (reported: "it clashes with the board overview which I also can't
+   manage"). Phase 2 removed the drawer: the context bar floats over the
+   selection instead of holding a column of the board open, so the overview
+   keeps its own corner at every width and the rule that moved it is gone.
 
-/* The Panels switch for Properties: off means the drawer never shows,
-   whatever is selected. */
-#library-view-whiteboard.wb-hide-props #wb-properties-panel {
+   The Panels switch for the bar: off means it never shows, whatever is
+   selected. The class name follows the surface; the stored key does not, so
+   a person who turned the drawer off keeps that answer. */
+#library-view-whiteboard.wb-hide-context #wb-context {
   display: none !important;
 }
 
@@ -7471,34 +7436,26 @@ button.connection-row {
   max-width: 8rem;
 }
 
-/* Properties drawer rows follow the same name-left / control-right grid,
-   so a colour swatch, a number box, a select and a switch all line up on
-   the same right edge instead of each sitting wherever flex left it. */
-#wb-properties-panel .wb-properties-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--space-3);
-  min-height: 2rem;
-  padding: 0;
-}
-
-#wb-properties-panel .wb-properties-row > span:first-child {
-  color: var(--ink);
-}
-
-#wb-properties-panel .wb-inline-controls {
-  gap: var(--space-1);
-}
-
-#wb-properties-panel .wb-properties-group input[type="range"] {
+/* The "..." menu's own rows take the board menus' name-left / control-right
+   grid above, so a colour swatch, a switch and a slider line up on one right
+   edge. The drawer this replaced had the same rule under its own id. */
+.wb-context-menu .wb-menu-row input[type="range"] {
   width: 6.5rem;
 }
 
-/* The floating selection toolbar (wbUpdateSelectionBar): a pill just above
-   the selected item, in the view's coordinates. Above the drawer and the
-   overview (z 22 > 20) but under any modal. */
-.wb-selection-bar {
+/* --- the context bar (WHITEBOARD_PLAN.md Phase 2, decision 2) -------------
+   One surface where the floating selection pill and the properties drawer
+   used to be two. Placed by `wbUpdateSelectionBar` in the view's own
+   coordinates: above the selection, or over the tool rail while a drawing
+   tool is held with nothing selected. Above the overview (z 22 > 20) and
+   under any modal.
+
+   The pill geometry is the one the selection bar wore, because that half was
+   never the complaint; what is new is that the drawer's controls arrive in it
+   as groups with a hairline between them, the same grammar `.wb-tool-section`
+   gives the rail, rather than as a scrolling column of label/control rows in
+   a panel pinned to the right edge of the board. */
+.wb-context {
   position: absolute;
   z-index: 22;
   display: flex;
@@ -7512,18 +7469,135 @@ button.connection-row {
   backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
-  white-space: nowrap;
+  /* Wraps rather than runs off the canvas: a multi-selection shows the
+     twelve arrange actions, which is wider than a phone. The rail's own
+     answer (scroll sideways) does not work for a bar that floats over the
+     thing it is acting on, because the scrollbar would sit on it. */
+  flex-wrap: wrap;
+  max-width: calc(100% - var(--space-6));
+  row-gap: var(--space-1);
 }
 
-.wb-selection-bar button {
-  height: 1.75rem;
-  width: 1.75rem;
-  min-width: 0;
+.wb-context button {
+  min-width: var(--target-min);
   border-radius: var(--radius-pill);
 }
 
-.wb-selection-bar .wb-topbar-divider {
+/* A group is a run of controls; the hairline before it is the only mark
+   inside the bar, exactly as in the rail. */
+.wb-context-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.wb-context-group + .wb-context-group:not(.hidden) {
+  border-left: 1px solid var(--divider);
+  padding-left: var(--space-2);
+  margin-left: var(--space-1);
+}
+
+.wb-context-divider {
+  width: 1px;
   height: 1rem;
+  background: var(--divider);
+  flex: none;
+}
+
+/* A field with a word in front of it (Size, Width): the word is what stops a
+   bare number box from being a mystery, and it is quiet enough not to read as
+   a second row of labels. */
+.wb-context-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.wb-context-label {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* One control height across the bar, from `--target-min`, which is the
+   1.75rem its buttons have worn since it was the selection pill and 2.75rem
+   below 820 where the pointer is a finger (the touch block near the end of
+   this file). Stated as the token rather than as a number for exactly that
+   reason: a hard 1.75rem here left the inputs at 28px on a phone while every
+   button beside them grew to 44, which is how the bar came to have two
+   heights at 390 and one at 1440 (measured, both).
+
+   Before any of it, a bare `input[type="number"]` came in at 51px and made
+   the line kind's bar 430x61 around a row of 28px controls. */
+.wb-context button,
+.wb-context input[type="number"],
+.wb-context input[type="color"],
+.wb-context select,
+.wb-context .select-shell,
+.wb-context .seg,
+.wb-context .seg > button {
+  height: var(--target-min);
+  min-height: var(--target-min);
+}
+
+.wb-context input[type="number"] {
+  width: 3.5rem;
+  padding-block: 0;
+}
+
+.wb-context input[type="range"] {
+  width: 5.5rem;
+}
+
+.wb-context select {
+  max-width: 9rem;
+}
+
+.wb-context .wb-snap-label {
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+/* The "..." menu hangs off the bar rather than the top bar, so it opens
+   under its own button instead of under the board's chrome. */
+.wb-context .wb-board-menu-wrap {
+  position: relative;
+}
+
+.wb-context-menu {
+  min-width: 15rem;
+}
+
+/* The swatches and the slider in the bar. The panel rules above are scoped to
+   `.whiteboard-floating-panel`, which this is not: it is a pill over the
+   canvas, not one of the board's docked panels. Same values, and the same
+   round well with a ring the rail's ink swatch wears, so a colour control
+   looks like one wherever it appears on this board. */
+.wb-context input[type="color"].wb-color-picker {
+  width: var(--target-min);
+  min-width: var(--target-min);
+  padding: 0;
+  border: 2px solid var(--muted);
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--field-inset);
+  cursor: pointer;
+  overflow: hidden;
+  flex: none;
+}
+
+.wb-context input[type="color"].wb-color-picker:hover,
+.wb-context input[type="color"].wb-color-picker:focus-visible {
+  border-color: var(--accent);
+}
+
+.wb-context input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.wb-context input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
 }
 
 /* Top-bar menu toggles: a word and a caret, reading as a menu rather than
@@ -7733,14 +7807,6 @@ button.connection-row {
   }
 }
 
-/* Under 30rem of height there is no column left for a drawer between the
-   top bar and the dock; the properties stay reachable through the View
-   menu's Properties switch on a taller window. */
-@media (max-height: 30rem) {
-  #wb-properties-panel {
-    display: none !important;
-  }
-}
 
 /* Menus never run off the bottom: cap and scroll (reported with the View
    menu, which is the tallest). The top bar sits ~5rem below the window
@@ -7769,7 +7835,7 @@ button.connection-row {
 .whiteboard-sidebar,
 .wb-export-menu,
 .wb-navigator,
-.wb-selection-bar,
+.wb-context,
 .whiteboard-floating-panel {
   margin: 0;
 }
@@ -8579,7 +8645,7 @@ input[type="file"] {
 
 /* --- the node edit strip (MINDMAP_PLAN.md §12.1 item 2) ---------------------
    The bar that stands in the board selection bar's place on a map node. Same
-   geometry as `.wb-selection-bar` above, deliberately: they are the same thing
+   geometry as `.wb-context` above, deliberately: they are the same thing
    in the same position and a reader switching between a board and a map should
    not see the furniture move. The blur comes from `.card.glass`, so this is not
    a new blurred surface to add to the glass-off list. */

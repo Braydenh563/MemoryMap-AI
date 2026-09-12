@@ -4129,8 +4129,8 @@
             </div>
             <div class="wb-menu-section">
               <span class="wb-panel-group-label">Panels</span>
-              <label class="wb-menu-row wb-snap-label" title="Show the properties drawer when something is selected or a drawing tool is active"><span>Properties</span><input type="checkbox" id="wb-panel-props" checked></label>
-              <label class="wb-menu-row wb-snap-label" title="The board overview (N)"><span>Overview</span><input type="checkbox" id="wb-panel-overview"></label>
+              <label class="wb-menu-row wb-snap-label" title="Show the context bar above the selection, and above the rail while a drawing tool is held"><span>Context bar</span><input type="checkbox" id="wb-panel-props" checked></label>
+              <label class="wb-menu-row wb-snap-label" title="The board overview (Shift+N)"><span>Overview</span><input type="checkbox" id="wb-panel-overview"></label>
               <label class="wb-menu-row wb-snap-label" title="The note library"><span>Library</span><input type="checkbox" id="wb-panel-library"></label>
               <label class="wb-menu-row wb-snap-label" title="Find a card on this board (Ctrl+F)"><span>Search</span><input type="checkbox" id="wb-panel-search"></label>
             </div>
@@ -4391,10 +4391,10 @@
            A real `<input type="color">`, not a button that forwards a click
            to one: the native picker is the only colour picker this app has,
            and Chromium shows no picker for a control that is not rendered, so
-           a swatch that clicked `#wb-color-picker` inside the shut drawer
-           would open nothing. The two are kept equal in both directions by
-           `wbSyncRailInk` in whiteboard.js, which is also why this carries no
-           key of its own: it is the pen's colour, not a tool.
+           a swatch that clicked an input inside a shut panel would open
+           nothing. It is the drawing colour outright since Phase 2 removed
+           the properties drawer that used to hold a second copy of it, and it
+           carries no key of its own: it is the pen's colour, not a tool.
 
            `data-wb-surface="board"` for the same reason the pen and the
            shapes carry it: a map's colours are the branch colour and the node
@@ -4418,18 +4418,190 @@
       <button id="wb-zoom-in" class="ghost small icon-only" title="Zoom in" aria-label="Zoom in"><i class="ph ph-plus" aria-hidden="true"></i></button>
     </div>
 
-    <!-- The floating selection toolbar, see wbUpdateSelectionBar. -->
-    <div id="wb-selection-bar" class="wb-selection-bar card glass hidden" role="toolbar" aria-label="Selected item">
-      <button type="button" id="wb-selbar-duplicate" class="ghost small icon-only" title="Duplicate (Ctrl+D)" aria-label="Duplicate"><i class="ph ph-copy" aria-hidden="true"></i></button>
-      <button type="button" id="wb-selbar-copy-style" class="ghost small icon-only" title="Copy style (Ctrl+Alt+C)" aria-label="Copy style"><i class="ph ph-eyedropper" aria-hidden="true"></i></button>
-      <button type="button" id="wb-selbar-paste-style" class="ghost small icon-only" title="Paste style (Ctrl+Alt+V)" aria-label="Paste style"><i class="ph ph-paint-bucket" aria-hidden="true"></i></button>
-      <span class="wb-topbar-divider" aria-hidden="true"></span>
-      <button type="button" id="wb-selbar-back" class="ghost small icon-only" title="Send backward ([)" aria-label="Send backward"><i class="ph ph-arrow-line-down" aria-hidden="true"></i></button>
-      <button type="button" id="wb-selbar-forward" class="ghost small icon-only" title="Bring forward (])" aria-label="Bring forward"><i class="ph ph-arrow-line-up" aria-hidden="true"></i></button>
-      <span class="wb-topbar-divider" aria-hidden="true"></span>
-      <button type="button" id="wb-selbar-export" class="ghost small icon-only" title="Export the selection (image, PDF, SVG)" aria-label="Export the selection"><i class="ph ph-export" aria-hidden="true"></i></button>
-      <span class="wb-topbar-divider" aria-hidden="true"></span>
-      <button type="button" id="wb-selbar-delete" class="ghost small icon-only danger" title="Delete (Del)" aria-label="Delete"><i class="ph ph-trash" aria-hidden="true"></i></button>
+    <!-- **The context bar** (WHITEBOARD_PLAN.md decision 2): one surface in
+         place of the floating selection bar and the properties drawer, built
+         from a table of kind to controls (`WB_CONTEXT_CONTROLS` in
+         whiteboard.js) so a new kind of object gets its controls by adding a
+         row rather than a panel.
+
+         Why the two it replaces had to go, from the plan's section 2: they
+         were two of the five recipes on this canvas, one a pill of icons
+         above the selection and the other a scrolling column of label and
+         control pairs pinned to the right edge, and between them they asked
+         you to look in two places for the properties of one thing. The drawer
+         also covered 13.5rem of the board at every width and more than half of
+         it on a phone.
+
+         Every id here is the id the control had in one of those two, so every
+         listener in whiteboard.js is unchanged; what is new is which group a
+         control sits in and which groups a kind shows. Each group is a run of
+         controls with a hairline before it, the same grammar the tool rail
+         uses, rather than a sixth way of drawing a row.
+
+         The long tail (copy style, guide colours, extract notes, export, the
+         settings that are not per-item) lives behind the "..." menu, which is
+         a `.wb-board-menu-wrap` like the top bar's five: it escapes the
+         canvas's own clipping and caps itself to the window through
+         `escapeAndCapMenu`, which a hand-placed popover here would have had to
+         learn again. -->
+    <div id="wb-context" class="wb-context card glass hidden" role="toolbar" aria-label="Selected item">
+      <!-- What a drawing tool is about to draw with, shown when one is held
+           and nothing is selected. The colour is on the rail's ink swatch, so
+           it is not repeated here. -->
+      <div class="wb-context-group hidden" data-wb-ctx="tool">
+        <label class="wb-context-field" title="Pen, shape and eraser size">
+          <span class="wb-context-label">Size</span>
+          <input type="range" id="wb-stroke-width" aria-label="Line thickness" title="Pen / shape / eraser size" min="1" max="24" step="1" value="3">
+        </label>
+        <select id="wb-arrow-style" aria-label="Arrowhead style" title="Arrowhead style: the Line and Arrow tools">
+          <option value="end">End</option>
+          <option value="start">Start</option>
+          <option value="both">Both ends</option>
+          <option value="none">Plain</option>
+        </select>
+        <select id="wb-stroke-style" aria-label="Line style" title="Line style">
+          <option value="solid">Solid</option>
+          <option value="dashed">Dashed</option>
+          <option value="dotted">Dotted</option>
+        </select>
+        <span class="row wb-inline-controls">
+          <input type="color" id="wb-fill-color" aria-label="Shape fill colour" title="Shape fill colour" class="wb-color-picker" value="#3355ff">
+          <label class="wb-snap-label" title="Fill the shape, instead of just its outline"><input type="checkbox" id="wb-fill-none" checked aria-label="No fill"><span>Fill</span></label>
+        </span>
+      </div>
+      <!-- A drawn line, arrow or shape, and a text box's own ink. -->
+      <div class="wb-context-group hidden" data-wb-ctx="ink">
+        <input type="color" id="wb-prop-color" class="wb-color-picker" aria-label="Colour" title="Colour">
+        <label class="wb-context-field" title="Line thickness">
+          <span class="wb-context-label">Width</span>
+          <input type="number" id="wb-prop-width" aria-label="Line thickness" title="Line thickness" min="1" max="40" step="1">
+        </label>
+      </div>
+      <!-- Independently per end, and read from the object, never from the
+           tool's own default (the plan's section 2 item 4). -->
+      <div class="wb-context-group hidden" data-wb-ctx="caps">
+        <select id="wb-prop-startcap" aria-label="Line start style" title="Line start style">
+          <option value="none">Start: none</option>
+          <option value="arrow">Start: arrow</option>
+          <option value="circle">Start: circle</option>
+          <option value="square">Start: square</option>
+          <option value="multiline">Start: multi-line</option>
+        </select>
+        <select id="wb-prop-endcap" aria-label="Line end style" title="Line end style">
+          <option value="none">End: none</option>
+          <option value="arrow">End: arrow</option>
+          <option value="circle">End: circle</option>
+          <option value="square">End: square</option>
+          <option value="multiline">End: multi-line</option>
+        </select>
+      </div>
+      <div class="wb-context-group hidden" data-wb-ctx="stroke">
+        <select id="wb-prop-dash" aria-label="Dash pattern" title="Dash pattern">
+          <option value="solid">Solid</option>
+          <option value="dashed">Dashed</option>
+          <option value="dotted">Dotted</option>
+        </select>
+      </div>
+      <div class="wb-context-group hidden" data-wb-ctx="fill">
+        <input type="color" id="wb-prop-shapefill" class="wb-color-picker" aria-label="Shape fill" title="Shape fill">
+        <label class="wb-snap-label" title="Fill the shape with the colour beside it, instead of just its outline">
+          <input type="checkbox" id="wb-prop-shapefill-on" aria-label="Filled"><span>Filled</span>
+        </label>
+      </div>
+      <div class="wb-context-group hidden" data-wb-ctx="text">
+        <label class="wb-context-field" title="Text size">
+          <span class="wb-context-label">Size</span>
+          <input type="number" id="wb-prop-fontsize" aria-label="Text size" title="Text size" min="8" max="200" step="1">
+        </label>
+        <button type="button" id="wb-prop-bold" class="ghost small icon-only" title="Bold the selected text (**)" aria-label="Bold"><strong>B</strong></button>
+        <button type="button" id="wb-prop-italic" class="ghost small icon-only" title="Italicise the selected text (*)" aria-label="Italic"><em>I</em></button>
+        <span class="seg seg-compact" id="wb-prop-align" role="group" aria-label="Text alignment">
+          <button class="icon-only" type="button" data-align="left" title="Align left" aria-label="Align left"><i class="ph ph-text-align-left" aria-hidden="true"></i></button>
+          <button class="icon-only" type="button" data-align="center" title="Centre" aria-label="Centre"><i class="ph ph-text-align-center" aria-hidden="true"></i></button>
+          <button class="icon-only" type="button" data-align="right" title="Align right" aria-label="Align right"><i class="ph ph-text-align-right" aria-hidden="true"></i></button>
+        </span>
+      </div>
+      <!-- The eleven arrange actions (decision 3), in the four questions they
+           answer: hold these together, line them up, space them out, make them
+           the same size. Icon-only with tooltips, never a label with an icon
+           drawn through it (INBOX 64). -->
+      <div class="wb-context-group hidden" data-wb-ctx="arrange">
+        <button type="button" id="wb-multi-group" class="ghost small icon-only" title="Group (Ctrl+G)" aria-label="Group"><i class="ph ph-link" aria-hidden="true"></i></button>
+        <button type="button" id="wb-multi-ungroup" class="ghost small icon-only" title="Ungroup (Ctrl+Shift+G)" aria-label="Ungroup"><i class="ph ph-link-break" aria-hidden="true"></i></button>
+        <span class="wb-context-divider" aria-hidden="true"></span>
+        <button type="button" id="wb-align-left" class="ghost small icon-only" title="Align left edges" aria-label="Align left edges"><i class="ph ph-align-left-simple" aria-hidden="true"></i></button>
+        <button type="button" id="wb-align-hcenter" class="ghost small icon-only" title="Align horizontal centres" aria-label="Align horizontal centres"><i class="ph ph-align-center-vertical-simple" aria-hidden="true"></i></button>
+        <button type="button" id="wb-align-right" class="ghost small icon-only" title="Align right edges" aria-label="Align right edges"><i class="ph ph-align-right-simple" aria-hidden="true"></i></button>
+        <button type="button" id="wb-align-top" class="ghost small icon-only" title="Align top edges" aria-label="Align top edges"><i class="ph ph-align-top-simple" aria-hidden="true"></i></button>
+        <button type="button" id="wb-align-vcenter" class="ghost small icon-only" title="Align vertical centres" aria-label="Align vertical centres"><i class="ph ph-align-center-horizontal-simple" aria-hidden="true"></i></button>
+        <button type="button" id="wb-align-bottom" class="ghost small icon-only" title="Align bottom edges" aria-label="Align bottom edges"><i class="ph ph-align-bottom-simple" aria-hidden="true"></i></button>
+        <span class="wb-context-divider" aria-hidden="true"></span>
+        <button type="button" id="wb-distribute-h" class="ghost small icon-only" title="Even gaps, left to right" aria-label="Even gaps, left to right"><i class="ph ph-arrows-horizontal" aria-hidden="true"></i></button>
+        <button type="button" id="wb-distribute-v" class="ghost small icon-only" title="Even gaps, top to bottom" aria-label="Even gaps, top to bottom"><i class="ph ph-arrows-vertical" aria-hidden="true"></i></button>
+        <button type="button" id="wb-same-width" class="ghost small icon-only" title="Same width as the widest" aria-label="Same width as the widest"><i class="ph ph-arrows-out-line-horizontal" aria-hidden="true"></i></button>
+        <button type="button" id="wb-same-height" class="ghost small icon-only" title="Same height as the tallest" aria-label="Same height as the tallest"><i class="ph ph-arrows-out-line-vertical" aria-hidden="true"></i></button>
+      </div>
+      <div class="wb-context-group hidden" data-wb-ctx="order">
+        <button type="button" id="wb-selbar-back" class="ghost small icon-only" title="Send backward ([)" aria-label="Send backward"><i class="ph ph-arrow-line-down" aria-hidden="true"></i></button>
+        <button type="button" id="wb-selbar-forward" class="ghost small icon-only" title="Bring forward (])" aria-label="Bring forward"><i class="ph ph-arrow-line-up" aria-hidden="true"></i></button>
+      </div>
+      <div class="wb-context-group" data-wb-ctx="common">
+        <button type="button" id="wb-selbar-duplicate" class="ghost small icon-only" title="Duplicate (Ctrl+D)" aria-label="Duplicate"><i class="ph ph-copy" aria-hidden="true"></i></button>
+        <button type="button" id="wb-selbar-delete" class="ghost small icon-only danger" title="Delete (Del)" aria-label="Delete"><i class="ph ph-trash" aria-hidden="true"></i></button>
+        <div class="wb-board-menu-wrap">
+          <button type="button" class="ghost small icon-only wb-menu-toggle" data-wb-menu-toggle title="More, for this selection" aria-label="More, for this selection" aria-haspopup="true" aria-expanded="false" aria-controls="wb-context-menu"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
+          <div id="wb-context-menu" class="wb-board-menu wb-context-menu hidden" role="menu" aria-label="More">
+            <div class="wb-menu-section" data-wb-ctx="more-style">
+              <span class="wb-panel-group-label">Style</span>
+              <div class="wb-menu-row">
+                <span>Copy and paste a style</span>
+                <span class="row wb-inline-controls">
+                  <button type="button" id="wb-copy-style" class="ghost small icon-only" title="Copy this item's style (Ctrl+Alt+C)" aria-label="Copy style"><i class="ph ph-eyedropper" aria-hidden="true"></i></button>
+                  <button type="button" id="wb-paste-style" class="ghost small icon-only" title="Paste the copied style onto what is selected (Ctrl+Alt+V)" aria-label="Paste style"><i class="ph ph-paint-bucket" aria-hidden="true"></i></button>
+                </span>
+              </div>
+              <label class="wb-menu-row hidden" id="wb-prop-nostroke-row" title="No stroke: fill only"><span>No stroke</span><input type="checkbox" id="wb-prop-nostroke"></label>
+              <label class="wb-menu-row hidden" id="wb-prop-md-row" title="Show this box's markdown rendered: headings, bold, lists and links. Editing always shows the raw text."><span>Rendered markdown</span><input type="checkbox" id="wb-prop-md"></label>
+              <div class="wb-menu-row hidden" id="wb-prop-bullets-row">
+                <span>Bulleted list</span>
+                <button type="button" id="wb-prop-bullets" class="ghost small icon-only" title="Turn the lines into a bulleted list" aria-label="Bulleted list"><i class="ph ph-list-bullets" aria-hidden="true"></i></button>
+              </div>
+              <label class="wb-menu-row hidden" id="wb-fill-opacity-row" title="Shape fill opacity"><span>Fill opacity</span><input type="range" id="wb-fill-opacity" aria-label="Shape fill opacity" title="Shape fill opacity" min="0" max="100" step="5" value="100"></label>
+              <label class="wb-menu-row hidden" id="wb-stroke-none-row" title="No stroke: fill only"><span>Draw without a stroke</span><input type="checkbox" id="wb-stroke-none"></label>
+            </div>
+            <!-- A text box's own background and edge: set once and rarely
+                 again, which is what the "..." menu is for. On the bar they
+                 were four controls with two words between them and made the
+                 text row the widest thing on the canvas (measured at 1440:
+                 732px across two rows, 520px in one without them). -->
+            <div class="wb-menu-section hidden" data-wb-ctx="more-card">
+              <span class="wb-panel-group-label">Box</span>
+              <label class="wb-menu-row" title="The box's background"><span>Background</span><span class="row wb-inline-controls"><input type="color" id="wb-prop-bg" class="wb-color-picker" aria-label="Background" title="Background"><input type="checkbox" id="wb-prop-bg-none" aria-label="No background" title="No background"></span></label>
+              <label class="wb-menu-row" title="The box's edge"><span>Border</span><span class="row wb-inline-controls"><input type="color" id="wb-prop-border" class="wb-color-picker" aria-label="Border" title="Border"><input type="checkbox" id="wb-prop-border-none" aria-label="No border" title="No border"></span></label>
+            </div>
+            <div class="wb-menu-section" data-wb-ctx="more-guides">
+              <span class="wb-panel-group-label">Guides</span>
+              <label class="wb-menu-row" title="Shown while dragging when an edge lines up with another item's edge"><span>Edges</span><input type="color" id="wb-guide-color-edge" aria-label="Alignment guide colour: edges" title="Alignment guide colour: edges" class="wb-color-picker" value="#ff00ff"></label>
+              <label class="wb-menu-row" title="Shown while dragging when a centre lines up with another item's centre"><span>Centres</span><input type="color" id="wb-guide-color-center" aria-label="Alignment guide colour: centres" title="Alignment guide colour: centres" class="wb-color-picker" value="#00c8ff"></label>
+              <label class="wb-menu-row" title="Shown while dragging when the gap to two neighbours becomes equal"><span>Spacing</span><input type="color" id="wb-guide-color-spacing" aria-label="Alignment guide colour: spacing" title="Alignment guide colour: spacing" class="wb-color-picker" value="#3ddc84"></label>
+            </div>
+            <div class="wb-menu-section hidden" data-wb-ctx="more-notes">
+              <span class="wb-panel-group-label">Notes</span>
+              <button type="button" class="wb-menu-item" id="wb-extract-notes" title="Turn the selected notes' content into one or more new notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i><span>Extract notes</span></button>
+            </div>
+            <div class="wb-menu-section hidden" data-wb-ctx="more-mindmap">
+              <span class="wb-panel-group-label">Arrange as mind map</span>
+              <button type="button" class="wb-menu-item" id="wb-mindmap-tree" title="Tree layout, root on the left"><i class="ph ph-tree ph-lead" aria-hidden="true"></i><span>Tree</span></button>
+              <button type="button" class="wb-menu-item" id="wb-mindmap-radial" title="Radial layout, root at the centre"><i class="ph ph-target ph-lead" aria-hidden="true"></i><span>Radial</span></button>
+            </div>
+            <div class="wb-menu-section">
+              <span class="wb-panel-group-label">This selection</span>
+              <button type="button" class="wb-menu-item" id="wb-selbar-export" title="Export the selection (image, PDF, SVG)"><i class="ph ph-export ph-lead" aria-hidden="true"></i><span>Export…</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <span id="wb-stroke-width-badge" class="wb-stroke-width-badge hidden"></span>
     </div>
 
     <!-- **The node edit strip** (MINDMAP_PLAN.md §12.1 item 2, Coggle's four:
@@ -4565,303 +4737,6 @@
          boxes... fill, border"). Hidden by default; shown/populated by
          wbUpdatePropertiesPanel() whenever the selection changes, and each
          row toggled to whatever the selected kind actually has to edit. -->
-    <div class="whiteboard-floating-panel mid-right card glass hidden" data-panel-id="properties" id="wb-properties-panel">
-      <div class="wb-panel-header">
-        <h3 class="wb-properties-title">Properties</h3>
-      </div>
-      <!-- **The style controls live with the thing they style, not in the
-           tool row.** Asked for directly: "actually restructure the ui and be
-           inspired from other whiteboard applications. think usability and how
-           the user would expect to use and access the features."
-
-           The tool row was carrying three jobs at once, pick a tool, set the
-           style it will draw with, and undo/redo, which is how it reached 42
-           controls and ~900px, wide enough to fight the zoom cluster for the
-           bottom edge at every window size. Figma, FigJam, Miro, Excalidraw
-           and tldraw all split those: a small row of *tools*, and a separate
-           contextual panel holding the properties of whatever is selected or
-           about to be drawn. This is that panel, so the colour and thickness
-           you are about to draw with now sit beside the colour and thickness
-           of the thing you have selected, the same two settings, in one
-           place, instead of two.
-
-           Same ids, so every listener in whiteboard.js is unchanged; the
-           panel's own show/hide learns about drawing tools in
-           `wbUpdatePropertiesPanel`. -->
-      <!-- Copy a style off one thing and onto another, asked for directly.
-           Here rather than in the tool row because this panel is now where
-           style lives, and because both actions read the current selection,
-           which is what this panel is already about. -->
-      <div class="wb-properties-group" id="wb-style-transfer-group">
-        <span class="wb-properties-group-label">Style</span>
-        <div class="wb-properties-row">
-          <span>Copy style</span>
-          <span class="row wb-inline-controls">
-            <button type="button" id="wb-copy-style" class="ghost small icon-button"
-              title="Copy this item's style (Ctrl+Alt+C)" aria-label="Copy style"><i class="ph ph-copy" aria-hidden="true"></i></button>
-            <button type="button" id="wb-paste-style" class="ghost small icon-button"
-              title="Paste the copied style onto what is selected (Ctrl+Alt+V)" aria-label="Paste style"><i class="ph ph-clipboard-text" aria-hidden="true"></i></button>
-          </span>
-        </div>
-      </div>
-      <div class="wb-properties-group" id="wb-tool-style-group">
-        <span class="wb-properties-group-label">Draw with</span>
-        <label class="wb-properties-row">
-          <span>Colour</span>
-          <input type="color" id="wb-color-picker" aria-label="Drawing colour" title="Drawing colour" value="#ffffff" class="wb-color-picker">
-        </label>
-        <label class="wb-properties-row">
-          <span>Thickness</span>
-          <input type="range" id="wb-stroke-width" aria-label="Line thickness" title="Pen / shape / eraser size" min="1" max="24" step="1" value="3">
-        </label>
-        <span id="wb-stroke-width-badge" class="wb-stroke-width-badge hidden"></span>
-        <!-- These were the bottom two thirds of the Shapes popup (reported:
-             "fix the shapes popup menu"). They are drawing defaults, and
-             the drawer's "Draw with" group is where drawing defaults live;
-             the popup is now only the six shapes. Same ids. -->
-        <label class="wb-properties-row" title="Applies to the Line and Arrow tools">
-          <span>Line ends</span>
-          <select id="wb-arrow-style" aria-label="Arrowhead style" title="Arrowhead style">
-            <option value="end">End</option>
-            <option value="start">Start</option>
-            <option value="both">Both ends</option>
-            <option value="none">Plain</option>
-          </select>
-        </label>
-        <label class="wb-properties-row">
-          <span>Stroke style</span>
-          <select id="wb-stroke-style" aria-label="Line style" title="Line style">
-            <option value="solid">Solid</option>
-            <option value="dashed">Dashed</option>
-            <option value="dotted">Dotted</option>
-          </select>
-        </label>
-        <label class="wb-properties-row" title="No stroke: fill only">
-          <span>No stroke</span>
-          <input type="checkbox" id="wb-stroke-none">
-        </label>
-        <label class="wb-properties-row" title="Rectangle, Circle, Triangle and Diamond only">
-          <span>Fill</span>
-          <span class="row wb-inline-controls">
-            <input type="color" id="wb-fill-color" aria-label="Shape fill colour" title="Shape fill colour" class="wb-color-picker" value="#3355ff">
-            <input type="checkbox" id="wb-fill-none" checked title="No fill: outline only" aria-label="No fill">
-          </span>
-        </label>
-        <label class="wb-properties-row" title="Shape fill opacity">
-          <span>Fill opacity</span>
-          <input type="range" id="wb-fill-opacity" aria-label="Shape fill opacity" title="Shape fill opacity" min="0" max="100" step="5" value="100">
-        </label>
-      </div>
-      <div class="wb-properties-group" id="wb-guide-colour-group">
-        <span class="wb-properties-group-label">Guides</span>
-        <label class="wb-properties-row" title="Shown while dragging when an edge lines up with another item's edge">
-          <span>Edges</span>
-          <input type="color" id="wb-guide-color-edge" aria-label="Alignment guide colour: edges" title="Alignment guide colour: edges" class="wb-color-picker" value="#ff00ff">
-        </label>
-        <label class="wb-properties-row" title="Shown while dragging when a centre lines up with another item's centre">
-          <span>Centres</span>
-          <input type="color" id="wb-guide-color-center" aria-label="Alignment guide colour: centres" title="Alignment guide colour: centres" class="wb-color-picker" value="#00c8ff">
-        </label>
-        <label class="wb-properties-row" title="Shown while dragging when the gap to two neighbours becomes equal">
-          <span>Spacing</span>
-          <input type="color" id="wb-guide-color-spacing" aria-label="Alignment guide colour: spacing" title="Alignment guide colour: spacing" class="wb-color-picker" value="#3ddc84">
-        </label>
-      </div>
-      <label class="wb-properties-row" id="wb-prop-color-row">
-        <span>Colour</span>
-        <input type="color" id="wb-prop-color" aria-label="Selected item colour" title="Selected item colour">
-      </label>
-      <label class="wb-properties-row" id="wb-prop-width-row">
-        <span>Width</span>
-        <input type="number" id="wb-prop-width" aria-label="Selected item line thickness" title="Selected item line thickness" min="1" max="40" step="1">
-      </label>
-      <!-- Independently per end, asked for directly ("a full line/arrow
-           end-cap system... circle/square/multi-line ends"). Replaces the
-           old single "which end gets the (only) arrowhead" dropdown. -->
-      <label class="wb-properties-row hidden" id="wb-prop-startcap-row">
-        <span>Start cap</span>
-        <select id="wb-prop-startcap" aria-label="Line start style" title="Line start style">
-          <option value="none">None</option>
-          <option value="arrow">Arrow</option>
-          <option value="circle">Circle</option>
-          <option value="square">Square</option>
-          <option value="multiline">Multi-line</option>
-        </select>
-      </label>
-      <label class="wb-properties-row hidden" id="wb-prop-endcap-row">
-        <span>End cap</span>
-        <select id="wb-prop-endcap" aria-label="Line end style" title="Line end style">
-          <option value="none">None</option>
-          <option value="arrow">Arrow</option>
-          <option value="circle">Circle</option>
-          <option value="square">Square</option>
-          <option value="multiline">Multi-line</option>
-        </select>
-      </label>
-      <!-- A drawn shape's own fill/stroke-style/no-stroke: asked for
-           directly, editable on an already-drawn shape, not just chosen
-           before drawing a new one (the shape-menu dropdown's own controls,
-           see index.html's #wb-fill-color etc.). -->
-      <label class="wb-properties-row hidden" id="wb-prop-dash-row">
-        <span>Stroke style</span>
-        <select id="wb-prop-dash" aria-label="Dash pattern" title="Dash pattern">
-          <option value="solid">Solid</option>
-          <option value="dashed">Dashed</option>
-          <option value="dotted">Dotted</option>
-        </select>
-      </label>
-      <label class="wb-properties-row hidden" id="wb-prop-nostroke-row">
-        <span>Stroke</span>
-        <input type="checkbox" id="wb-prop-nostroke" title="No stroke: fill only">
-      </label>
-      <label class="wb-properties-row hidden" id="wb-prop-shapefill-row">
-        <span>Fill</span>
-        <span class="row wb-inline-controls">
-          <input type="color" id="wb-prop-shapefill" aria-label="Selected shape fill" title="Selected shape fill" class="wb-color-picker">
-          <label class="wb-snap-label" title="Fill the shape with the colour above, instead of just its outline">
-            <input type="checkbox" id="wb-prop-shapefill-on">
-            <span>Filled</span>
-          </label>
-        </span>
-      </label>
-      <label class="wb-properties-row hidden" id="wb-prop-bg-row">
-        <span>Fill</span>
-        <span class="row wb-inline-controls">
-          <input type="color" id="wb-prop-bg" aria-label="Selected card background" title="Selected card background">
-          <input type="checkbox" id="wb-prop-bg-none" title="No background">
-        </span>
-      </label>
-      <label class="wb-properties-row hidden" id="wb-prop-border-row">
-        <span>Border</span>
-        <span class="row wb-inline-controls">
-          <input type="color" id="wb-prop-border" aria-label="Selected card border" title="Selected card border">
-          <input type="checkbox" id="wb-prop-border-none" title="No border">
-        </span>
-      </label>
-      <div class="wb-properties-row hidden" id="wb-prop-textstyle-row">
-        <span>Text</span>
-        <span class="row wb-inline-controls">
-          <button type="button" id="wb-prop-bold" class="ghost small icon-button" title="Bold the selected text (**)" aria-label="Bold"><strong>B</strong></button>
-          <button type="button" id="wb-prop-italic" class="ghost small icon-button" title="Italicise the selected text (*)" aria-label="Italic"><em>I</em></button>
-          <button type="button" id="wb-prop-bullets" class="ghost small icon-button" title="Turn the lines into a bulleted list" aria-label="Bulleted list"><i class="ph ph-list-bullets" aria-hidden="true"></i></button>
-        </span>
-      </div>
-      <div class="wb-properties-row hidden" id="wb-prop-align-row">
-        <span>Align</span>
-        <span class="seg seg-compact" id="wb-prop-align" role="group" aria-label="Text alignment">
-          <button class="icon-only" type="button" data-align="left" title="Align left" aria-label="Align left"><i class="ph ph-text-align-left" aria-hidden="true"></i></button>
-          <button class="icon-only" type="button" data-align="center" title="Centre" aria-label="Centre"><i class="ph ph-text-align-center" aria-hidden="true"></i></button>
-          <button class="icon-only" type="button" data-align="right" title="Align right" aria-label="Align right"><i class="ph ph-text-align-right" aria-hidden="true"></i></button>
-        </span>
-      </div>
-      <label class="wb-properties-row hidden" id="wb-prop-md-row" title="Show this box's markdown rendered: headings, bold, lists and links. Editing always shows the raw text.">
-        <span>Rendered markdown</span>
-        <input type="checkbox" id="wb-prop-md">
-      </label>
-      <label class="wb-properties-row hidden" id="wb-prop-fontsize-row">
-        <span>Text size</span>
-        <input type="number" id="wb-prop-fontsize" aria-label="Selected item text size" title="Selected item text size" min="8" max="200" step="1">
-      </label>
-      <!-- Mind-mapping (ROADMAP item 25): select a card connected to at
-           least one other by a whiteboard link, arrange everything reached
-           from it via those links in a Tree or Radial layout, reusing the
-           Graph tab's own layout maths (`wbArrangeMindMap`), not a second
-           engine. Shown only for a single selected card, and only once it
-           actually has a link to arrange (see wbUpdatePropertiesPanel). -->
-      <div class="wb-properties-row wb-prop-mindmap hidden" id="wb-prop-mindmap-row">
-        <span>Arrange as mind map</span>
-        <div class="wb-multi-actions">
-          <button type="button" id="wb-mindmap-tree" class="ghost small" title="Tree layout, root on the left"><i class="ph ph-tree ph-lead" aria-hidden="true"></i> Tree</button>
-          <button type="button" id="wb-mindmap-radial" class="ghost small" title="Radial layout, root at the centre"><i class="ph ph-target ph-lead" aria-hidden="true"></i> Radial</button>
-        </div>
-      </div>
-      <!-- Multi-selection tools: grouping and alignment. Asked for directly
-           ("alignment tools... missing") and only meaningful once two or
-           more items are selected at once, so it replaces the single-item
-           rows above rather than sitting alongside them. -->
-      <!-- **Arrange is one icon toolbar, and every button in it is square**
-           (INBOX 64). Reported with three screenshots: "Group / Ungroup
-           overlapping each other, an arrow button, the three align icons,
-           two Space buttons and Extract notes just chucked at the bottom."
-           Measured before this: four `.wb-multi-actions` rows sat as flex
-           items on ONE `.wb-properties-row` line, which is
-           `justify-content: space-between` and does not wrap, so ten
-           labelled buttons were laid out across 200px of a 216px panel and
-           four pairs of them literally intersected (wb-multi-group with
-           wb-align-left, wb-multi-ungroup with wb-align-left and with
-           wb-align-hcenter, wb-align-bottom with wb-distribute-h).
-
-           A label is what made them too wide, and two buttons labelled
-           "Space" were the same word for two different axes anyway. Icons
-           with tooltips, in three groups separated by a gap rather than a
-           rule, on the dock's own recipe: group/ungroup, the six aligns,
-           the two distributes. Every id and handler is unchanged. -->
-      <div class="wb-prop-arrange hidden" id="wb-prop-multi-row">
-        <span class="wb-properties-group-label">Arrange</span>
-        <div class="wb-arrange-toolbar" role="toolbar" aria-label="Arrange the selection">
-          <!-- One labelled row per question, asked for on 2026-09-09: "can
-               the whiteboard arrange tools be better structured??" The ten
-               buttons used to flow as one wrapping strip and came out 2-3-3-2
-               on the panel's width, so the only thing saying which button
-               belonged with which was a 2px gap against a 6px one. Three
-               rows, each named, and the six aligns in the 3x2 grid their own
-               meaning already has. Every id and handler is unchanged. -->
-          <div class="wb-arrange-row" role="group" aria-label="Group">
-            <span class="wb-arrange-label">Group</span>
-            <div class="wb-arrange-group">
-              <button type="button" id="wb-multi-group" class="ghost small icon-only" title="Group (Ctrl+G)" aria-label="Group"><i class="ph ph-link" aria-hidden="true"></i></button>
-              <button type="button" id="wb-multi-ungroup" class="ghost small icon-only" title="Ungroup (Ctrl+Shift+G)" aria-label="Ungroup"><i class="ph ph-link-break" aria-hidden="true"></i></button>
-            </div>
-          </div>
-          <!-- The six aligns as one named question in a 3x2 grid: across
-               on the first line, down on the second, which is what the icons
-               themselves say. Splitting them into "Align across" and "Align
-               down" was a workaround for a single row of six not fitting the
-               panel's 200px of content width; a grid fits three per line by
-               construction and needs no such split. -->
-          <div class="wb-arrange-row" role="group" aria-label="Align">
-            <span class="wb-arrange-label">Align</span>
-            <div class="wb-arrange-grid">
-              <button type="button" id="wb-align-left" class="ghost small icon-only" title="Align left edges" aria-label="Align left edges"><i class="ph ph-align-left-simple" aria-hidden="true"></i></button>
-              <button type="button" id="wb-align-hcenter" class="ghost small icon-only" title="Align horizontal centres" aria-label="Align horizontal centres"><i class="ph ph-align-center-vertical-simple" aria-hidden="true"></i></button>
-              <button type="button" id="wb-align-right" class="ghost small icon-only" title="Align right edges" aria-label="Align right edges"><i class="ph ph-align-right-simple" aria-hidden="true"></i></button>
-              <button type="button" id="wb-align-top" class="ghost small icon-only" title="Align top edges" aria-label="Align top edges"><i class="ph ph-align-top-simple" aria-hidden="true"></i></button>
-              <button type="button" id="wb-align-vcenter" class="ghost small icon-only" title="Align vertical centres" aria-label="Align vertical centres"><i class="ph ph-align-center-horizontal-simple" aria-hidden="true"></i></button>
-              <button type="button" id="wb-align-bottom" class="ghost small icon-only" title="Align bottom edges" aria-label="Align bottom edges"><i class="ph ph-align-bottom-simple" aria-hidden="true"></i></button>
-            </div>
-          </div>
-          <div class="wb-arrange-row" role="group" aria-label="Distribute">
-            <span class="wb-arrange-label">Distribute</span>
-            <div class="wb-arrange-group">
-              <button type="button" id="wb-distribute-h" class="ghost small icon-only" title="Even gaps, left to right" aria-label="Even gaps, left to right"><i class="ph ph-arrows-horizontal" aria-hidden="true"></i></button>
-              <button type="button" id="wb-distribute-v" class="ghost small icon-only" title="Even gaps, top to bottom" aria-label="Even gaps, top to bottom"><i class="ph ph-arrows-vertical" aria-hidden="true"></i></button>
-            </div>
-          </div>
-          <!-- The third of decision 3's questions, and the one that had no
-               control anywhere: make these the same width, or the same
-               height. Same row shape as Group and Distribute above it. -->
-          <div class="wb-arrange-row" role="group" aria-label="Same size">
-            <span class="wb-arrange-label">Size</span>
-            <div class="wb-arrange-group">
-              <button type="button" id="wb-same-width" class="ghost small icon-only" title="Same width as the widest" aria-label="Same width as the widest"><i class="ph ph-arrows-out-line-horizontal" aria-hidden="true"></i></button>
-              <button type="button" id="wb-same-height" class="ghost small icon-only" title="Same height as the tallest" aria-label="Same height as the tallest"><i class="ph ph-arrows-out-line-vertical" aria-hidden="true"></i></button>
-            </div>
-          </div>
-        </div>
-        <!-- BACKLOG.md §62: the selected note cards' own content is the
-             "notes-in-context" this extracts from: shown only once the
-             selection actually includes at least one note card
-             (wbUpdatePropertiesPanel), same gating as the mind-map row
-             above. Its own section, because it is the one thing here that
-             is not about where the selection sits. -->
-        <div class="wb-prop-notes hidden" id="wb-extract-notes-row">
-          <span class="wb-properties-group-label">Notes</span>
-          <button type="button" id="wb-extract-notes" class="ghost small"
-            title="Turn the selected notes' content into one or more new notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
-        </div>
-      </div>
-    </div>
-    
     <aside class="whiteboard-sidebar card glass hidden" id="whiteboard-sidebar">
       <!-- Its own close button. The panel sits at top-right, which is exactly
            where the Library toggle is, so the list covered the only control

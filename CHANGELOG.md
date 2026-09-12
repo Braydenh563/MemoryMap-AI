@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Whiteboard: one context bar where the floating selection pill and the
+  properties drawer used to be two. It appears above whatever is selected and
+  shows only that kind's controls, so a line offers its ends and a text box
+  does not, and the caps it shows are read from the object rather than from
+  the tool's own default. The long tail (copy style, the box's background,
+  guide colours, extract notes, export) is behind one "..." menu, and the
+  drawer that used to hold 13.5rem of every board open, and more than half of
+  a phone, is gone.
+
 - Documents: tables you edit rather than type. `/table`, Tab between cells,
   a cell menu for rows, columns and alignment, and the table drawn as a real
   grid in Live. The markdown underneath is the markdown you wrote, to the

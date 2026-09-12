@@ -136,12 +136,11 @@ Phase 1): a plan holds open work only. The gate lives on in
 `scratchpad/ui-sweeps/whiteboard.js` (13 checks, green at 1440x900 light
 and dark and at 390x844).
 
-### Phase 2: the context bar (one session)
-Kind → controls table; the bar above the selection; the eleven arrange
-actions; the "..." popover; the properties panel and selection bar
-removed. **Gate:** select one of each kind and assert the bar shows only
-that kind's controls; align-centre and distribute-gaps move objects as
-expected (measured positions); caps read from the object.
+### Phase 2: the context bar: BUILT, 2026-09-12
+Moved to HISTORY.md ("Moved from the plans, 2026-09-12", WHITEBOARD_PLAN
+Phase 2): a plan holds open work only. Its gate lives on in
+`scratchpad/ui-sweeps/whiteboard.js` (24 checks, green at 1440x900 light
+and dark and at 390x844).
 
 ### Phase 3: export dialog, handles, highlighter (half a session)
 **Gate:** the export dialog is inside the viewport at 1440 and 390 and
@@ -164,7 +163,12 @@ are the one menu recipe; dialogs the modal recipe; keys in KEYMAP.
 
 Touch: the rail's long-press flyout on a tablet; pen pressure for the
 marker; whether the context bar should pin to the top of the canvas on a
-phone instead of floating (measure both at 390).
+phone instead of floating. **Floating is measured** (2026-09-12, Phase 2):
+at 390x844 the bar wraps to 348px wide and 54px (an image) to 208px (an
+arrow, four rows) in a 364x604 canvas, sits clear of the selected item at
+every kind, and never leaves the canvas. That is the case *for* floating and
+against pinning; what is not measured is a real finger on a real tablet,
+which is what the rest of this section is waiting for too.
 
 ## 8. Research: tldraw, Excalidraw, Miro, FigJam, and what it changes here
 

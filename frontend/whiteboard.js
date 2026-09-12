@@ -1999,145 +1999,206 @@ async function wbPasteCopiedStyle() {
     }
   }
   wbScheduleRender();
-  wbUpdatePropertiesPanel();
+  wbUpdateContextBar();
   if (!applied) return toast("That style does not fit what you selected.");
   toast(skipped
     ? `Style pasted onto ${applied}. ${skipped} skipped: a different kind of item.`
     : `Style pasted onto ${applied}.`);
 }
 
-function wbUpdatePropertiesPanel() {
-  const panel = document.getElementById("wb-properties-panel");
-  if (!panel) return;
-  wbUpdateSelectionBar();
-  const rows = {
-    color: document.getElementById("wb-prop-color-row"),
-    width: document.getElementById("wb-prop-width-row"),
-    startcap: document.getElementById("wb-prop-startcap-row"),
-    endcap: document.getElementById("wb-prop-endcap-row"),
-    bg: document.getElementById("wb-prop-bg-row"),
-    border: document.getElementById("wb-prop-border-row"),
-    fontsize: document.getElementById("wb-prop-fontsize-row"),
-    multi: document.getElementById("wb-prop-multi-row"),
-    mindmap: document.getElementById("wb-prop-mindmap-row"),
-    dash: document.getElementById("wb-prop-dash-row"),
-    nostroke: document.getElementById("wb-prop-nostroke-row"),
-    shapefill: document.getElementById("wb-prop-shapefill-row"),
-    extractNotes: document.getElementById("wb-extract-notes-row"),
-    textstyle: document.getElementById("wb-prop-textstyle-row"),
-    align: document.getElementById("wb-prop-align-row"),
-    md: document.getElementById("wb-prop-md-row"),
-  };
-  Object.values(rows).forEach((r) => r?.classList.add("hidden"));
+//: **The kind to controls table** (WHITEBOARD_PLAN.md decision 2). One row
+//: per thing that can be selected, saying which of the context bar's groups
+//: it shows and which sections of the "..." menu it opens. A new kind of
+//: object gets its controls by adding a row here, not by adding a panel; and
+//: "the bar shows only what applies" is then a property of this table rather
+//: than of forty `classList.toggle` calls spread through a function.
+//:
+//: The keys are the selection's shape, not the storage kind: a `sketch` is a
+//: drawn line, an arrow or a closed shape and those take different controls,
+//: and an `object` is a text box or a picture. `wbContextKindOf` below turns
+//: a selection into one of these names.
+const WB_CONTEXT_CONTROLS = {
+  // Nothing selected, a drawing tool held: what the next stroke will use.
+  tool: { bar: ["tool"], more: ["more-style"] },
+  line: { bar: ["ink", "caps", "stroke", "order"], more: ["more-style"] },
+  shape: { bar: ["ink", "stroke", "fill", "order"], more: ["more-style"] },
+  link: { bar: ["ink", "caps", "stroke"], more: ["more-style"] },
+  text: { bar: ["ink", "text", "order"], more: ["more-style", "more-card"] },
+  image: { bar: ["order"], more: ["more-style"] },
+  // A note card: its look comes from the note, so what it offers is where it
+  // sits and what it can become.
+  note: { bar: ["order"], more: ["more-mindmap", "more-notes"] },
+  multi: { bar: ["arrange", "order"], more: ["more-notes"] },
+};
 
-  // The style controls moved here out of the tool row (see index.html), so
-  // this panel is no longer only about a *selection*: it is also where the
-  // settings a drawing tool is about to use live. It therefore has to be
-  // open whenever one of those tools is active, not just when something is
-  // selected: otherwise picking the pen would hide the pen's own colour.
-  // This is the split every whiteboard app makes: tools in the row,
-  // properties in the panel.
-  const styleGroup = document.getElementById("wb-tool-style-group");
-  const toolDraws = WB_STYLE_TOOLS.has(window.currentTool);
-  styleGroup?.classList.toggle("hidden", !toolDraws);
+//: Every group and menu section the table can name, so hiding "everything
+//: else" never has to list them.
+const WB_CONTEXT_GROUPS = ["tool", "ink", "caps", "stroke", "fill", "text", "arrange", "order"];
+const WB_CONTEXT_MENU_SECTIONS = ["more-style", "more-card", "more-guides", "more-notes", "more-mindmap"];
 
-  // A multi-selection has no one fill/stroke to edit (mixed kinds), but it
-  // does have grouping and alignment, which only make sense here, shown
-  // instead of the single-item rows above rather than alongside them.
-  if (wbMultiSelection.size > 0) {
-    panel.classList.remove("hidden");
-    rows.multi.classList.remove("hidden");
-    // Extract notes (BACKLOG.md §62) only makes sense once the selection
-    // actually includes a note card's content to extract from, a
-    // multi-selection of pure shapes/sketches has no "notes-in-context".
-    const hasNoteCard = wbSelectionEntries().some((e) => e.kind === "node");
-    rows.extractNotes.classList.toggle("hidden", !hasNoteCard);
-    return;
-  }
-  if (!wbSelectedItem) {
-    // Still open if a drawing tool is active, it is showing that tool's own
-    // colour and thickness, which is the point of putting them here.
-    panel.classList.toggle("hidden", !toolDraws);
-    return;
-  }
-  const { kind, id } = wbSelectedItem;
-  const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
-  if (!item) {
-    panel.classList.add("hidden");
-    return;
-  }
-
-  if (kind === "sketch") {
-    // A link has no `.d` of its own (`wbSketchParsedData` only recognises
-    // real drawn shapes), so it needs its own branch here, asked for
-    // directly ("customisable links and lines, colour, connection endpoint
-    // designs"), previously not editable at all once created.
-    let linkParsed = null;
+//: Which row of the table a selection reads. Returns null when the bar has
+//: nothing to say, which is what closes it.
+function wbContextKindOf(sel, item) {
+  if (!sel || !item) return null;
+  if (sel.kind === "sketch") {
+    let parsedLink = null;
     try {
       const candidate = JSON.parse(item.data);
-      if (candidate && (candidate.type || "").startsWith("link-")) linkParsed = candidate;
+      if (candidate && (candidate.type || "").startsWith("link-")) parsedLink = candidate;
     } catch { /* not JSON: not a link either */ }
-    if (linkParsed) {
-      panel.classList.remove("hidden");
-      rows.color.classList.remove("hidden");
-      rows.width.classList.remove("hidden");
-      rows.startcap.classList.remove("hidden");
-      rows.endcap.classList.remove("hidden");
-      rows.dash.classList.remove("hidden");
-      document.getElementById("wb-prop-color").value = linkParsed.color || "#ffffff";
-      document.getElementById("wb-prop-width").value = linkParsed.width || 3;
-      const linkCaps = wbLinkCaps(linkParsed);
-      document.getElementById("wb-prop-startcap").value = linkCaps.startCap;
-      document.getElementById("wb-prop-endcap").value = linkCaps.endCap;
-      document.getElementById("wb-prop-dash").value = linkParsed.dash || "solid";
-      return;
-    }
+    if (parsedLink) return "link";
     const parsed = wbSketchParsedData(item);
-    if (!parsed) {
-      panel.classList.add("hidden");
-      return;
-    }
-    panel.classList.remove("hidden");
-    rows.color.classList.remove("hidden");
-    rows.width.classList.remove("hidden");
+    if (!parsed) return null;
+    return WB_FILLABLE_SHAPES.has(parsed.shape) ? "shape" : "line";
+  }
+  if (sel.kind === "node") return "note";
+  if (sel.kind === "object") return item.kind === "text" ? "text" : "image";
+  return null;
+}
+
+//: Shows exactly the groups a row names and hides the rest, in one pass, so
+//: a control can never be left over from the last selection.
+function wbApplyContextRow(row) {
+  const bar = new Set(row?.bar || []);
+  const more = new Set(row?.more || []);
+  for (const name of WB_CONTEXT_GROUPS) {
+    document.querySelector(`#wb-context [data-wb-ctx="${name}"]`)?.classList.toggle("hidden", !bar.has(name));
+  }
+  for (const name of WB_CONTEXT_MENU_SECTIONS) {
+    document.querySelector(`#wb-context-menu [data-wb-ctx="${name}"]`)?.classList.toggle("hidden", !more.has(name));
+  }
+  // The rows inside the Style section that only some kinds can use.
+  for (const id of ["wb-prop-nostroke-row", "wb-prop-md-row", "wb-prop-bullets-row", "wb-fill-opacity-row", "wb-stroke-none-row"]) {
+    document.getElementById(id)?.classList.add("hidden");
+  }
+}
+
+//: **The bar with nothing selected sits over the rail.** Placed here rather
+//: than in `wbUpdateSelectionBar` for one measured reason: that function runs
+//: on every frame of every pan (`handleWbZoom`), and this position depends on
+//: the rail and the host, neither of which a pan moves. `data-wb-anchor` is
+//: how the pan frame knows to leave it alone without asking any question that
+//: costs a DOM walk; the same lesson the text-editing query above records.
+function wbParkContextOnRail(on) {
+  const bar = document.getElementById("wb-context");
+  const host = document.getElementById("library-view-whiteboard");
+  if (!bar || !host) return;
+  if (!on) {
+    bar.classList.add("hidden");
+    delete bar.dataset.wbAnchor;
+    return;
+  }
+  bar.dataset.wbAnchor = "rail";
+  bar.classList.remove("hidden");
+  // One bar over this canvas, never two (the map strip's own rule).
+  document.getElementById("wb-map-strip")?.classList.add("hidden");
+  const hostRect = host.getBoundingClientRect();
+  const rail = document.getElementById("wb-tools-panel")?.getBoundingClientRect();
+  const w = bar.offsetWidth;
+  const h = bar.offsetHeight;
+  const left = Math.max(8, Math.min(Math.max(8, hostRect.width - w - 8), hostRect.width / 2 - w / 2));
+  // Ten pixels over the rail, and never off the top: on a short window the
+  // rail's own top edge can be less than the bar's height from the top bar.
+  const railTop = rail && rail.height ? rail.top - hostRect.top : hostRect.height - 72;
+  const topBar = document.getElementById("wb-topbar")?.getBoundingClientRect();
+  const floor = topBar ? topBar.bottom - hostRect.top + 8 : 56;
+  bar.style.left = `${Math.round(left)}px`;
+  bar.style.top = `${Math.round(Math.max(floor, railTop - h - 10))}px`;
+}
+
+//: Filled first, placed second, never the other way round: the bar is centred
+//: on the selection from its own measured width, and a bar still holding the
+//: last selection's controls is a different width. The map strip's own comment
+//: a few hundred lines down records exactly the same trap for the same reason.
+function wbUpdateContextBar() {
+  const bar = document.getElementById("wb-context");
+  if (!bar) return;
+  if (wbFillContextBar() === "rail") wbParkContextOnRail(true);
+  else wbUpdateSelectionBar();
+}
+
+//: What the bar holds, from `WB_CONTEXT_CONTROLS`. Returns "rail" when it is
+//: showing a held tool's own settings and so belongs over the rail rather than
+//: over a selection it does not have.
+function wbFillContextBar() {
+  const bar = document.getElementById("wb-context");
+  if (!bar) return null;
+  const show = (...ids) => ids.forEach((id) => document.getElementById(id)?.classList.remove("hidden"));
+
+  // A multi-selection has no one fill or stroke to edit (mixed kinds), but it
+  // does have arrange, which only means anything here.
+  if (wbMultiSelection.size > 0) {
+    wbApplyContextRow(WB_CONTEXT_CONTROLS.multi);
+    // Extract notes (BACKLOG.md §62) only makes sense once the selection
+    // actually includes a note card's content to extract from; a selection of
+    // pure shapes has no "notes-in-context".
+    const hasNoteCard = wbSelectionEntries().some((e) => e.kind === "node");
+    document.querySelector('#wb-context-menu [data-wb-ctx="more-notes"]')?.classList.toggle("hidden", !hasNoteCard);
+    delete bar.dataset.wbAnchor;
+    return null;
+  }
+
+  // The bar is also where a drawing tool's own settings live, so it opens for
+  // a held tool with nothing selected: otherwise picking the pen would hide
+  // the pen's own thickness. This is the split every whiteboard app makes,
+  // tools in the rail, their properties in the context surface.
+  if (!wbSelectedItem) {
+    const toolDraws = WB_STYLE_TOOLS.has(window.currentTool);
+    wbApplyContextRow(toolDraws ? WB_CONTEXT_CONTROLS.tool : null);
+    if (toolDraws) show("wb-fill-opacity-row", "wb-stroke-none-row");
+    if (!toolDraws) wbParkContextOnRail(false);
+    return toolDraws ? "rail" : null;
+  }
+  delete bar.dataset.wbAnchor;
+
+  const { kind, id } = wbSelectedItem;
+  const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
+  const which = wbContextKindOf(wbSelectedItem, item);
+  wbApplyContextRow(which ? WB_CONTEXT_CONTROLS[which] : null);
+  if (!which) return;
+
+  if (which === "link") {
+    const parsed = JSON.parse(item.data);
+    document.getElementById("wb-prop-color").value = parsed.color || "#ffffff";
+    document.getElementById("wb-prop-width").value = parsed.width || 3;
+    const caps = wbLinkCaps(parsed);
+    document.getElementById("wb-prop-startcap").value = caps.startCap;
+    document.getElementById("wb-prop-endcap").value = caps.endCap;
+    document.getElementById("wb-prop-dash").value = parsed.dash || "solid";
+    return;
+  }
+
+  if (which === "line" || which === "shape") {
+    const parsed = wbSketchParsedData(item);
     document.getElementById("wb-prop-color").value = parsed.color || "#000000";
     document.getElementById("wb-prop-width").value = parsed.width || 3;
-    if (wbSketchIsArrow(parsed.d)) {
-      rows.startcap.classList.remove("hidden");
-      rows.endcap.classList.remove("hidden");
-      // The sketch's own actual style, not the active drawing tool's current
-      // default: live-reported bug, same root cause as Line always drawing
-      // with a head: this used to show `window.currentArrowStyle` instead
-      // of what was really on the selected line/arrow.
+    document.getElementById("wb-prop-dash").value = parsed.dash || "solid";
+    show("wb-prop-nostroke-row");
+    document.getElementById("wb-prop-nostroke").checked = Boolean(parsed.noStroke);
+    // **The caps come off the object, never off the tool's default** (the
+    // plan's section 2 item 4, and a live report before it): a drawn line
+    // reported "Arrow" at both ends because the control was showing
+    // `window.currentArrowStyle` rather than what was on the shape.
+    const isArrow = wbSketchIsArrow(parsed.d);
+    document.querySelector('#wb-context [data-wb-ctx="caps"]')?.classList.toggle("hidden", !isArrow);
+    if (isArrow) {
       const caps = wbSketchCaps(parsed);
       document.getElementById("wb-prop-startcap").value = caps.startCap;
       document.getElementById("wb-prop-endcap").value = caps.endCap;
     }
-    // Stroke style/no-stroke apply to any drawn shape/line; fill only to
-    // the four closed shapes, asked for directly ("stroke width, style,
-    // and colour... fill colour/transparency... no border/stroke").
-    rows.dash.classList.remove("hidden");
-    rows.nostroke.classList.remove("hidden");
-    document.getElementById("wb-prop-dash").value = parsed.dash || "solid";
-    document.getElementById("wb-prop-nostroke").checked = Boolean(parsed.noStroke);
-    if (WB_FILLABLE_SHAPES.has(parsed.shape)) {
-      rows.shapefill.classList.remove("hidden");
+    if (which === "shape") {
       document.getElementById("wb-prop-shapefill").value = parsed.fill || "#3355ff";
       document.getElementById("wb-prop-shapefill-on").checked = Boolean(parsed.fill);
       document.getElementById("wb-prop-shapefill").disabled = !parsed.fill;
     }
-  } else if (kind === "object" && item.kind === "text") {
-    panel.classList.remove("hidden");
-    rows.color.classList.remove("hidden");
-    rows.bg.classList.remove("hidden");
-    rows.border.classList.remove("hidden");
-    rows.fontsize.classList.remove("hidden");
-    rows.textstyle.classList.remove("hidden");
-    rows.align.classList.remove("hidden");
-    rows.md.classList.remove("hidden");
+    return;
+  }
+
+  if (which === "text") {
     for (const button of document.querySelectorAll("#wb-prop-align button")) {
       button.classList.toggle("active", button.dataset.align === (item.data.align || "left"));
     }
+    show("wb-prop-md-row", "wb-prop-bullets-row");
     document.getElementById("wb-prop-md").checked = Boolean(item.data.md);
     document.getElementById("wb-prop-color").value = item.data.color || "#1f2430";
     document.getElementById("wb-prop-bg").value = item.data.bg === "transparent" ? "#ffffff" : (item.data.bg || "#ffffff");
@@ -2145,10 +2206,16 @@ function wbUpdatePropertiesPanel() {
     document.getElementById("wb-prop-border").value = item.data.border_color === "transparent" ? "#8888aa" : (item.data.border_color || "#8888aa");
     document.getElementById("wb-prop-border-none").checked = item.data.border_color === "transparent";
     document.getElementById("wb-prop-fontsize").value = item.data.font_size || 16;
-  } else if (kind === "node") {
-    // Mind-mapping (item 25): only worth offering once the card actually
-    // has something to arrange, a card with no links is already exactly
-    // where a "mind map of one" would put it.
+    // A text box has no line ends and no drawn width; the ink group's width
+    // field is a stroke thickness, which a box does not have either.
+    document.getElementById("wb-prop-width").parentElement?.classList.add("hidden");
+    return;
+  }
+
+  if (which === "note") {
+    // Mind-mapping (item 25): only worth offering once the card actually has
+    // something to arrange; a card with no links is already exactly where a
+    // "mind map of one" would put it.
     const hasLink = wbState.sketches.some((s) => {
       try {
         const p = JSON.parse(s.data);
@@ -2157,14 +2224,7 @@ function wbUpdatePropertiesPanel() {
         return false;
       }
     });
-    if (hasLink) {
-      panel.classList.remove("hidden");
-      rows.mindmap.classList.remove("hidden");
-    } else {
-      panel.classList.add("hidden");
-    }
-  } else {
-    panel.classList.add("hidden");
+    document.querySelector('#wb-context-menu [data-wb-ctx="more-mindmap"]')?.classList.toggle("hidden", !hasLink);
   }
 }
 
@@ -5757,7 +5817,7 @@ function wbApplySelectionHighlight() {
   // Only for the single-item selection, a multi-selection has no one
   // bounding box to hang 8 handles off, and resizing a set isn't built.
   wbRenderSketchHandles();
-  wbUpdatePropertiesPanel();
+  wbUpdateContextBar();
   // The map dock's own buttons act on the selected topic, so they follow the
   // selection for the same reason the properties panel above does.
   wbSyncMapToolState();
@@ -5792,7 +5852,7 @@ function wbSelectAllItems() {
   wbMultiSelection.clear();
   for (const [kind, item] of wbLinkCandidates()) wbMultiSelection.add(wbMultiKey(kind, item.id));
   wbApplySelectionHighlight();
-  wbUpdatePropertiesPanel();
+  wbUpdateContextBar();
   wbUpdateSelectionBar();
 }
 
@@ -5805,20 +5865,24 @@ function clearWbSelection() {
   wbUpdateSelectionBar();
 }
 
-//: **The floating selection toolbar.** The four or five things you do to a
-//: selected item most: duplicate it, copy or paste its style, send it back
-//: or forward, delete it, sit in a small bar just above the item, the way
-//: Miro, FigJam, tldraw and draw.io all do. The drawer still holds every
-//: property; this is the short list at the point of attention, so a shape
-//: is not managed from a panel a screen-width away (reported: "annoying
-//: to... manage shapes"). Positioned in the view's own coordinates from the
-//: item's board bbox through the live zoom transform, and re-placed on
-//: every render and every pan/zoom frame.
+//: **Where the context bar goes.** Above the selection, in the view's own
+//: coordinates, from the item's board bbox through the live zoom transform,
+//: re-placed on every render and every pan/zoom frame. What it *contains* is
+//: `wbUpdateContextBar`'s job; this only decides the two numbers.
+//:
+//: One more case than the bar it replaced: with nothing selected and a
+//: drawing tool held, the bar carries that tool's own settings and has no
+//: selection to sit above, so it sits centred just over the tool rail, which
+//: is where the thing it is about is. Excalidraw and tldraw both park the
+//: style panel against the rail for the same reason.
 function wbUpdateSelectionBar() {
-  const bar = document.getElementById("wb-selection-bar");
+  const bar = document.getElementById("wb-context");
   if (!bar) return;
   const sel = wbSelectedItem;
-  const multi = wbMultiSelection.size > 1;
+  // `> 0`, not `> 1`: `wbUpdateContextBar` fills the bar for a selection of
+  // one shift-clicked item and this hid it again, so that selection had an
+  // arrange row nobody could see. `wbSelectionBounds` is happy with one.
+  const multi = wbMultiSelection.size > 0;
   const container = document.getElementById("whiteboard-container");
   const host = document.getElementById("library-view-whiteboard");
   //: **A map node gets the map's own strip, in the board bar's place**
@@ -5832,16 +5896,31 @@ function wbUpdateSelectionBar() {
   //: whichever of the two this selection earns; `other` is hidden every time
   //: so switching between a card and a topic cannot leave one behind.
   const strip = document.getElementById("wb-map-strip");
-  const mapNode = multi ? null : wbSelectedMapNode();
+  const mapNode = wbMultiSelection.size > 1 ? null : wbSelectedMapNode();
   const active = mapNode ? strip : bar;
   const hideBoth = () => {
     bar.classList.add("hidden");
     strip?.classList.add("hidden");
+    delete bar.dataset.wbAnchor;
   };
-  if ((!sel && !multi) || !container || !host || wbLinkDragActive || !active) {
+  if (!container || !host || wbLinkDragActive || !active) {
     hideBoth();
     return;
   }
+  if (!sel && !multi) {
+    // Nothing selected. The bar may still be open on a held drawing tool, in
+    // which case it is anchored to the rail and `wbUpdateContextBar` placed
+    // it; leave it exactly where it is. This branch is the hot one: it runs on
+    // every frame of every pan, which is why it does no work and asks no
+    // question the DOM has to be walked to answer.
+    if (bar.dataset.wbAnchor === "rail") {
+      strip?.classList.add("hidden");
+      return;
+    }
+    hideBoth();
+    return;
+  }
+  delete bar.dataset.wbAnchor;
   // **The document-wide query runs last, not first.** This function is called
   // from the pan/zoom frame (`handleWbZoom`), so it runs at up to 60 Hz while
   // someone drags the canvas, and `querySelector(".wb-object.wb-text-editing")`
@@ -8244,7 +8323,6 @@ async function initWhiteboard() {
   }
 
   const toolGroup = document.getElementById("wb-tool-group");
-  const colorPicker = document.getElementById("wb-color-picker");
   const arrowStyleSelect = document.getElementById("wb-arrow-style");
   // Live-reported: "I selected the line tool and it still drew with an
   // arrow head." Line and Arrow share this one control (asked for
@@ -8363,7 +8441,7 @@ async function initWhiteboard() {
     item.data = { ...item.data, align: button.dataset.align };
     wbSaveObject(item);
     wbScheduleRender();
-    wbUpdatePropertiesPanel();
+    wbUpdateContextBar();
   });
   document.getElementById("wb-prop-md")?.addEventListener("change", (event) => {
     const item = wbSelectedTextObjectOrNull();
@@ -8372,11 +8450,17 @@ async function initWhiteboard() {
     wbSaveObject(item);
     wbScheduleRender();
   });
-  // The floating selection bar's buttons reuse the keyboard paths exactly
-  // (Ctrl+D, Ctrl+Alt+C/V, [ ], Delete) so the two can never disagree.
-  const selBar = document.getElementById("wb-selection-bar");
+  // The context bar's action buttons reuse the keyboard paths exactly
+  // (Ctrl+D, [ ], Delete) so the two can never disagree.
+  const selBar = document.getElementById("wb-context");
   if (selBar) {
-    selBar.addEventListener("mousedown", (e) => e.preventDefault()); // keep the board's focus
+    // Keep the board's focus, but not on the controls people type into or
+    // drag: swallowing mousedown on the whole bar took the caret out of the
+    // width field and stopped a slider taking a drag at all.
+    selBar.addEventListener("mousedown", (e) => {
+      if (e.target.closest("input, select, textarea, [contenteditable=true]")) return;
+      e.preventDefault();
+    });
     const zOrder = (toFront) => {
       const sel = wbSelectedItem;
       const item = sel && (wbState[WB_LIST_BY_KIND[sel.kind]] || []).find((i) => i.id === sel.id);
@@ -8391,8 +8475,6 @@ async function initWhiteboard() {
         const kept = wbClipboard;
         if (wbCopySelection()) wbPasteClipboard().finally(() => { wbClipboard = kept; });
       },
-      "wb-selbar-copy-style": () => wbCopySelectedStyle(),
-      "wb-selbar-paste-style": () => wbPasteCopiedStyle(),
       "wb-selbar-back": () => zOrder(false),
       "wb-selbar-forward": () => zOrder(true),
       "wb-selbar-delete": () => deleteWbSelection(),
@@ -8604,7 +8686,7 @@ async function initWhiteboard() {
     updateWbCursor();
     // The properties panel now also carries the style a drawing tool will
     // use, so a tool switch has to reopen/close it, see its own comment.
-    wbUpdatePropertiesPanel();
+    wbUpdateContextBar();
   }
 
   wbSelectToolRef = selectWbTool;
@@ -8858,14 +8940,18 @@ async function initWhiteboard() {
 
   // **Panels, managed in one place.** Asked for: "there needs to be a window
   // option to manage what windows are showing and not". Four switches in
-  // the Board menu: Properties (a preference: off means the drawer never
+  // the Board menu: Context bar (a preference: off means the bar never
   // opens, even with a selection; the class is read by CSS), and Overview,
   // Library and Search, which are the same toggles the top bar carries,
   // shown as on/off so their state can be read without hunting for them.
   const propsPref = document.getElementById("wb-panel-props");
   const viewHost = document.getElementById("library-view-whiteboard");
+  //: The class and the switch now govern the context bar, which is what
+  //: replaced the drawer this preference was written for. The storage key is
+  //: unchanged on purpose: a person who turned the drawer off once should not
+  //: have the new surface turn itself back on under them.
   const applyPropsPref = (on) => {
-    viewHost?.classList.toggle("wb-hide-props", !on);
+    viewHost?.classList.toggle("wb-hide-context", !on);
     if (propsPref) propsPref.checked = on;
   };
   applyPropsPref(localStorage.getItem("wb-panel-props") !== "off");
@@ -8909,28 +8995,24 @@ async function initWhiteboard() {
     });
   }
 
-  // **The ink swatch on the rail, and the drawer's picker, are one setting in
-  // two places** (WHITEBOARD_PLAN.md decision 1). Whichever is used, both move
-  // and the cursor is redrawn, so the rail can be read with the drawer shut
-  // and the drawer can never show a colour the pen is not using.
+  // **The ink swatch on the rail is the drawing colour** (WHITEBOARD_PLAN.md
+  // decision 1). It was a row in the properties drawer as well until Phase 2
+  // removed that drawer; one control for one setting, on the surface that
+  // holds the tool it belongs to.
   //
   // `input` as well as `change`: a native colour picker fires `input`
   // continuously while a colour is being dragged and `change` once at the end,
   // and a swatch that only catches up when the dialog closes is exactly the
   // "does this control do anything" read this group exists to fix.
   const railInk = document.getElementById("wb-rail-ink");
-  function wbSyncRailInk(value, from) {
-    window.currentStrokeColor = value;
-    localStorage.setItem("wb-stroke-color", value);
-    if (colorPicker && from !== colorPicker) colorPicker.value = value;
-    if (railInk && from !== railInk) railInk.value = value;
-    updateWbCursor();
-  }
-  for (const input of [colorPicker, railInk]) {
-    if (!input) continue;
-    input.value = window.currentStrokeColor;
+  if (railInk) {
+    railInk.value = window.currentStrokeColor;
     for (const type of ["input", "change"]) {
-      input.addEventListener(type, (e) => wbSyncRailInk(e.target.value, e.target));
+      railInk.addEventListener(type, (e) => {
+        window.currentStrokeColor = e.target.value;
+        localStorage.setItem("wb-stroke-color", e.target.value);
+        updateWbCursor();
+      });
     }
   }
 
@@ -10491,9 +10573,9 @@ async function wbSaveSketchD(sketch, newD) {
 // stroke colour. Closed shapes (rect/circle/triangle/diamond) get their
 // fill set, since that's the area a bucket click reads as "inside" of;
 // anything else (line/arrow/pen stroke) has no interior, so its stroke is
-// recoloured instead - the same colour the properties panel would show.
+// recoloured instead, the same colour the rail's ink swatch shows.
 async function wbBucketFillSketch(sketch) {
-  const color = document.getElementById("wb-color-picker")?.value || "#3355ff";
+  const color = document.getElementById("wb-rail-ink")?.value || "#3355ff";
   let parsed;
   try {
     parsed = JSON.parse(sketch.data);

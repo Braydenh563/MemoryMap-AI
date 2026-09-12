@@ -21654,6 +21654,86 @@ done-when item 4 and 5), in priority order.
 
 ## Moved from the plans, 2026-09-12
 
+### From WHITEBOARD_PLAN Phase 2: the context bar
+
+Built 2026-09-12, in two commits (the arrange actions, then the bar). The
+phase as it was written:
+
+> ### Phase 2: the context bar (one session)
+> Kind → controls table; the bar above the selection; the eleven arrange
+> actions; the "..." popover; the properties panel and selection bar
+> removed. **Gate:** select one of each kind and assert the bar shows only
+> that kind's controls; align-centre and distribute-gaps move objects as
+> expected (measured positions); caps read from the object.
+
+**The arrange half.** Align (six) and group/ungroup were already built and
+measured correct, which the gate found before anything was changed. Two of
+decision 3's eleven were not. Distribute spaced *centres* evenly, the same
+thing as spacing gaps only when every item is the same size: three boxes of
+100, 300 and 100 come out with 100px less air on one side of the wide one,
+which is the arrangement a person reaches for that button to fix (the plan's
+§2 item 4, "no distribute-gaps"). It leaves equal gaps now, which is what
+Figma, Illustrator and tldraw mean by the word. Same width and same height had
+no function anywhere: every selected item takes the largest one's size and
+keeps its own top-left corner, so it does not undo the align that almost
+always came just before it, and a drawn shape scales its path about that
+corner rather than taking a width column it has not got. Both reuse the
+history's existing "move" entry, which already carries the whole payload and
+so already covered a resize.
+
+**The bar.** `#wb-context` replaces `#wb-selection-bar` and
+`#wb-properties-panel`, which are gone from the markup rather than hidden.
+What it holds comes from `WB_CONTEXT_CONTROLS` in whiteboard.js, one row per
+selectable kind naming the groups it shows and the "..." sections it opens, so
+a new kind gets its controls by adding a row rather than a panel and "only
+what applies" is a property of a table instead of forty `classList.toggle`
+calls. `wbContextKindOf` turns a selection into one of those rows; a `sketch`
+is a line, an arrow, a closed shape or a link, and an `object` is a text box
+or a picture, because those take different controls.
+
+Three things the rebuild had to get right, each with its reason in the code:
+
+- **Filled first, placed second.** `wbUpdateSelectionBar` centres the bar on
+  the selection from its own measured width, so a bar still holding the last
+  selection's controls is measured at the wrong width. The map strip's own
+  comment records the same trap; `wbUpdateContextBar` now fills through
+  `wbFillContextBar` and only then places.
+- **The pan frame stays cheap.** With nothing selected and a drawing tool
+  held, the bar carries that tool's settings and has no selection to sit
+  above, so it parks over the rail. That placement does not depend on the zoom
+  transform, and `wbUpdateSelectionBar` runs at up to 60Hz during a pan, so the
+  bar is marked `data-wb-anchor="rail"` and the pan frame reads one dataset
+  property rather than re-measuring or running the document-wide query the
+  comment above it spent a measurement removing.
+- **The "..." menu is the board menus' recipe**, a `.wb-board-menu-wrap` with
+  a `.wb-board-menu`, so it escapes the canvas's own clipping and caps itself
+  to the window through `escapeAndCapMenu` rather than learning that again.
+
+**Found while measuring, and fixed.** A bare `input[type="number"]` came in at
+51px and made the line kind's bar 430x61 around a row of 28px controls; then a
+hard 1.75rem on the inputs left them at 28px on a phone while every button
+beside them grew to 44 (the touch block's `--target-min`). The bar's controls
+take the token, so it is one height at both. The text kind was the widest
+thing on the canvas at 732px across two rows: its background and border are
+set once and rarely again, so they moved into the "..." menu and it is 495px
+in one row.
+
+**Numbers.** `scratchpad/ui-sweeps/whiteboard.js`, 24/24 at 1440x900 light,
+24/24 dark, 24/24 at 390x844. Per kind at 1440, groups and bar box: line
+ink+stroke+order+common (9 controls, 430x48); arrow ink+caps+stroke+order+
+common (13, 720x48); shape ink+stroke+fill+order+common (11, 545x48); text
+ink+text+order+common (13, 495x48); image order+common (5, 189x38). One
+control height, 28px at 1440 and 44px at 390. An arrow drawn with a head at
+one end reports `start none, end arrow`; a shape drawn in `#112233` reports
+that colour. Align centres puts three centres on 600; distribute leaves gaps
+of 250 and 250 with the middle box at x=450 (centres would have said 425);
+same size gives [300,120] to all three with lefts unmoved. The bar is inside
+the canvas and clear of the item at both widths; the "..." menu opens inside
+the window at both. `errors.js` 0 errors at 1440, 1024, 820 and 390 (one
+pre-existing dashboard finding at 390, `button#dash-edit` off screen, which is
+not this surface's); `contrast.js` ok on every tab; `touch.js` PASS, 0
+findings; `docks.js` unchanged.
+
 ### From WHITEBOARD_PLAN Phase 1: the rail and the keys
 
 Built 2026-09-12. The phase as it was written:

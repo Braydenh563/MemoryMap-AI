@@ -199,10 +199,10 @@ async function clickCanvas(page) {
     // notice if that stopped happening (CLAUDE.md: a screenshot you look at
     // is not a measurement, and neither is a property beside the paint).
     await page.evaluate(() => {
-      const picker = document.getElementById("wb-color-picker");
-      picker.value = "#ff0000";
-      picker.dispatchEvent(new Event("input", { bubbles: true }));
-      picker.dispatchEvent(new Event("change", { bubbles: true }));
+      const sw = document.getElementById("wb-rail-ink");
+      sw.value = "#ff0000";
+      sw.dispatchEvent(new Event("input", { bubbles: true }));
+      sw.dispatchEvent(new Event("change", { bubbles: true }));
     });
     await page.waitForTimeout(200);
     // At phone width the rail scrolls sideways inside itself (measured at
@@ -216,22 +216,19 @@ async function clickCanvas(page) {
     await page.screenshot({ path: shot, clip: { x: box.x, y: box.y, width: box.width, height: box.height } });
     const mid = Math.round(box.width / 2);
     const px = execSync(`python3 ${__dirname}/../pngpixel.py ${shot} ${mid} ${mid}`).toString().trim();
-    ok("the ink swatch paints the drawing colour", /\(255, 0, 0\)/.test(px), `centre pixel ${px.split("\n").pop()} after the drawer's picker went #ff0000`);
+    ok("the ink swatch paints the drawing colour", /\(255, 0, 0\)/.test(px), `centre pixel ${px.split("\n").pop()} after the swatch went #ff0000`);
     // And the other way: the rail is a control, not a read-out.
     const back = await page.evaluate(() => {
       const sw = document.getElementById("wb-rail-ink");
       sw.value = "#00ff00";
       sw.dispatchEvent(new Event("input", { bubbles: true }));
       sw.dispatchEvent(new Event("change", { bubbles: true }));
-      return {
-        drawer: document.getElementById("wb-color-picker").value,
-        stroke: window.currentStrokeColor,
-      };
+      return { stroke: window.currentStrokeColor, stored: localStorage.getItem("wb-stroke-color") };
     });
     ok(
       "the rail's swatch sets the drawing colour",
-      back.drawer === "#00ff00" && back.stroke === "#00ff00",
-      `drawer ${back.drawer}, currentStrokeColor ${back.stroke}`,
+      back.stroke === "#00ff00" && back.stored === "#00ff00",
+      `currentStrokeColor ${back.stroke}, stored ${back.stored}`,
     );
   }
 
@@ -374,6 +371,154 @@ async function clickCanvas(page) {
       `sizes ${JSON.stringify(sized.map((b) => [b.w, b.h]))}, lefts ${JSON.stringify(sized.map((b) => b.x))} (were ${JSON.stringify(leftsBefore)})`,
     );
   }
+
+  // --- 7. the context bar shows only the selected kind's controls ----------
+  // WHITEBOARD_PLAN Phase 2's gate, in its own words. One of each kind is made
+  // through the API and selected through the app's own `selectWbItem`, then
+  // the bar's visible groups are read back and compared with the table's row.
+  const kinds = await page.evaluate(async () => {
+    const board = window.currentBoardId;
+    const post = async (path, body) => (await api(path, { method: "POST", body: JSON.stringify(body) })).json();
+    const sketch = async (data) => post("/whiteboard/sketches", { board_id: board, data: JSON.stringify(data), x: 0, y: 0 });
+    const made = {};
+    // A plain line: one subpath, so `wbSketchIsArrow` says no and the caps
+    // group stays away.
+    made.line = (await sketch({ d: "M 60 60 L 260 60", color: "#112233", width: 4, shape: "line" })).id;
+    // An arrow: a second subpath is the head, and this one has a head at the
+    // END only, which is the case the plan's section 2 item 4 is about.
+    made.arrow = (await sketch({ d: "M 60 160 L 260 160 M 250 152 L 260 160 L 250 168", color: "#112233", width: 4, shape: "line", startCap: "none", endCap: "arrow" })).id;
+    made.shape = (await sketch({ d: "M 60 260 L 260 260 L 260 360 L 60 360 Z", color: "#112233", width: 4, shape: "rect", fill: "#ff8800" })).id;
+    made.text = (await post("/whiteboard/objects", { kind: "text", board_id: board, x: 400, y: 60, width: 200, height: 90, data: { content: "hello" } })).id;
+    made.image = (await post("/whiteboard/objects", { kind: "image", board_id: board, x: 400, y: 200, width: 160, height: 120, data: { url: "/media/none.png" } })).id;
+    // Both: `fetchWhiteboardState` fills `wbState` and `renderWhiteboard` is
+    // what puts elements on the canvas. Without the second, every item exists
+    // and none of them is in the DOM, so a check that reads a box measures
+    // nothing (found exactly that way).
+    await fetchWhiteboardState();
+    renderWhiteboard();
+    return made;
+  });
+  await page.waitForTimeout(600);
+
+  const barFor = async (kind, id) => {
+    await page.evaluate(([k, i]) => { wbMultiSelection.clear(); selectWbItem(k, i); }, [kind, id]);
+    await page.waitForTimeout(250);
+    return page.evaluate(() => {
+      const bar = document.getElementById("wb-context");
+      const box = bar.getBoundingClientRect();
+      return {
+        hidden: bar.classList.contains("hidden"),
+        size: `${Math.round(box.width)}x${Math.round(box.height)}`,
+        controls: [...bar.querySelectorAll("button, input, select, .seg")].filter((c) => c.offsetParent !== null && !c.closest(".wb-board-menu")).length,
+        groups: [...bar.querySelectorAll(":scope > [data-wb-ctx]")].filter((g) => !g.classList.contains("hidden")).map((g) => g.dataset.wbCtx),
+        more: [...document.querySelectorAll("#wb-context-menu [data-wb-ctx]")].filter((g) => !g.classList.contains("hidden")).map((g) => g.dataset.wbCtx),
+        startcap: document.getElementById("wb-prop-startcap").value,
+        endcap: document.getElementById("wb-prop-endcap").value,
+        colour: document.getElementById("wb-prop-color").value,
+      };
+    });
+  };
+
+  const want = {
+    line: ["ink", "stroke", "order", "common"],
+    arrow: ["ink", "caps", "stroke", "order", "common"],
+    shape: ["ink", "stroke", "fill", "order", "common"],
+    text: ["ink", "text", "order", "common"],
+    image: ["order", "common"],
+  };
+  const seen = {};
+  for (const [name, id] of Object.entries(kinds)) {
+    seen[name] = await barFor(name === "text" || name === "image" ? "object" : "sketch", id);
+  }
+  const wrongGroups = Object.keys(want).filter((k) => JSON.stringify(seen[k].groups) !== JSON.stringify(want[k]));
+  ok(
+    "the bar shows only the selected kind's controls",
+    wrongGroups.length === 0,
+    Object.entries(seen).map(([k, v]) => `${k}: ${v.groups.join("+")} (${v.controls} controls, ${v.size})`).join("; "),
+  );
+  ok(
+    "a plain line offers no line ends, an arrow does",
+    !seen.line.groups.includes("caps") && seen.arrow.groups.includes("caps"),
+    `line ${seen.line.groups.join("+")}, arrow ${seen.arrow.groups.join("+")}`,
+  );
+  // The caps come off the object, never off the tool's default: the arrow was
+  // made with a head at one end only, and that is what has to be reported.
+  ok(
+    "the caps read from the object, not from the tool",
+    seen.arrow.startcap === "none" && seen.arrow.endcap === "arrow",
+    `start ${seen.arrow.startcap}, end ${seen.arrow.endcap} (drawn with a head at the end only)`,
+  );
+  ok(
+    "the colour reads from the object",
+    seen.shape.colour === "#112233",
+    `#wb-prop-color ${seen.shape.colour} for a shape drawn in #112233`,
+  );
+  // The bar sits above the selection, not over it, and inside the canvas.
+  await page.evaluate((id) => { wbMultiSelection.clear(); selectWbItem("object", id); }, kinds.text);
+  await page.waitForTimeout(400);
+  const placed = await page.evaluate((id) => {
+    const bar = document.getElementById("wb-context").getBoundingClientRect();
+    const host = document.getElementById("library-view-whiteboard").getBoundingClientRect();
+    const item = document.querySelector(`.wb-object[data-id="${id}"]`)?.getBoundingClientRect();
+    return { bar: bar.toJSON(), host: host.toJSON(), item: item ? item.toJSON() : null };
+  }, kinds.text);
+  const inside = placed.bar.left >= placed.host.left - 1 && placed.bar.right <= placed.host.right + 1
+    && placed.bar.top >= placed.host.top - 1 && placed.bar.bottom <= placed.host.bottom + 1;
+  // One control height across the bar, the same property the rail is held to:
+  // a row where a select stands taller than the buttons beside it is the
+  // "assembled rather than designed" read DESIGN.md's control-height section
+  // is about.
+  const heights = await page.evaluate(() => {
+    const out = {};
+    for (const c of document.querySelectorAll("#wb-context button, #wb-context input, #wb-context select, #wb-context .select-shell, #wb-context .seg")) {
+      if (c.offsetParent === null || c.closest(".wb-board-menu")) continue;
+      const h = Math.round(c.getBoundingClientRect().height);
+      const name = `${c.tagName.toLowerCase()}${c.type ? `[${c.type}]` : ""}${c.className ? `.${c.className.toString().split(" ")[0]}` : ""}`;
+      (out[h] = out[h] || []).push(name);
+    }
+    return out;
+  });
+  ok(
+    "one control height across the context bar",
+    Object.keys(heights).length === 1,
+    Object.entries(heights).map(([h, names]) => `${h}px: ${[...new Set(names)].join(", ")}`).join(" | "),
+  );
+
+  // Above the item where there is room and below it where there is not (the
+  // placement's own rule, so a bar never covers the rotate handle or the top
+  // bar), and never across it either way.
+  const clear = placed.item
+    && (placed.bar.bottom <= placed.item.top + 1 || placed.bar.top >= placed.item.bottom - 1);
+  ok(
+    "the bar is inside the canvas and clear of the item",
+    inside && Boolean(clear),
+    `bar ${Math.round(placed.bar.top)} to ${Math.round(placed.bar.bottom)} (${Math.round(placed.bar.width)}x${Math.round(placed.bar.height)}), item ${placed.item ? `${Math.round(placed.item.top)} to ${Math.round(placed.item.bottom)}` : "n/a"}, canvas ${Math.round(placed.host.width)}x${Math.round(placed.host.height)}`,
+  );
+  // The "..." menu is the board menus' own recipe, so it escapes the canvas's
+  // clipping and caps itself to the window rather than being cut off the way
+  // the export popover was (the plan's section 2 item 3).
+  await page.click('#wb-context [data-wb-menu-toggle]');
+  await page.waitForTimeout(400);
+  const menu = await page.evaluate(() => {
+    const m = document.getElementById("wb-context-menu");
+    const r = m.getBoundingClientRect();
+    return { hidden: m.classList.contains("hidden"), rect: r.toJSON(), w: window.innerWidth, h: window.innerHeight };
+  });
+  ok(
+    "the more menu opens inside the window",
+    !menu.hidden && menu.rect.width > 0 && menu.rect.left >= -1 && menu.rect.right <= menu.w + 1
+      && menu.rect.top >= -1 && menu.rect.bottom <= menu.h + 1,
+    `menu ${Math.round(menu.rect.left)},${Math.round(menu.rect.top)} ${Math.round(menu.rect.width)}x${Math.round(menu.rect.height)} in ${menu.w}x${menu.h}`,
+  );
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+
+  // The drawer and the pill it replaced are gone, not hidden.
+  const gone = await page.evaluate(() => ({
+    drawer: Boolean(document.getElementById("wb-properties-panel")),
+    pill: Boolean(document.getElementById("wb-selection-bar")),
+  }));
+  ok("the properties drawer and the selection pill are gone", !gone.drawer && !gone.pill, JSON.stringify(gone));
 
   console.log(`\n${pass}/${pass + fail} checks pass at ${VW}x${VH} (${process.env.THEME || "light"})`);
   await browser.close();

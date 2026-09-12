@@ -2504,45 +2504,6 @@
   overscroll-behavior: contain;
 }
 
-/* Asked for directly, with a screenshot: the title sat on its own row well
-   below the grip, with the panel's `flex-direction: column` (`.mid-right`)
-   turning what should read as one header into two stacked rows with a big
-   gap between them. This wrapper is the header row; `.wb-properties-title`
-   keeps the visual weight, just without the block-level margin that used
-   to be doing the (wrong) spacing job on its own. */
-.wb-panel-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  margin: 0 0 var(--space-2);
-}
-
-.wb-properties-title {
-  font-size: var(--text-sm);
-  font-weight: 650;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin: 0;
-}
-
-.wb-properties-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  font-size: var(--text-sm);
-  padding: var(--space-1) 0;
-}
-
-.wb-properties-row input[type="number"] {
-  width: 3.5rem;
-}
-
-.wb-properties-row select {
-  max-width: 7rem;
-}
-
 .wb-tool-group {
   display: flex;
   align-items: center;
@@ -2701,20 +2662,6 @@
   gap: 0.4rem;
 }
 
-/* The properties panel is a fixed 11rem wide (shared by every row, tuned for
-   one control each) - the Fill row alone crams a swatch, a toggle switch and
-   a text label into it, which no longer fit on one line once the checkbox
-   became a full toggle switch with a "Filled" label. Wrapping instead of
-   widening the whole panel for one row - reported directly as the text
-   running past the panel's edge. */
-.wb-properties-row .wb-inline-controls {
-  flex: 1 1 auto;
-  min-width: 0;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  row-gap: var(--space-1);
-}
-
 .wb-shape-toggle-icon {
   pointer-events: none;
 }
@@ -2845,122 +2792,13 @@
   transform: none;
 }
 
-/* Grouping/alignment row of the properties panel, a stack of small button
-   rows rather than the label+control layout `.wb-properties-row` normally
-   holds, so it overrides that rule's flex-direction/justify rather than
-   fighting it. */
-.wb-prop-multi,
-/* The mind-map row is the same shape and had the same problem, reported with
-   a screenshot: "Arrange as mind map" broken across three lines beside the
-   Tree/Radial pair. `.wb-properties-row` is a `space-between` row built for a
-   short label and one small control, a five-word label next to *two* labelled
-   buttons does not fit the panel's width, so flex shrinks the only flexible
-   thing, the text.
-
-   The row below already solved this by stacking, and the two sit next to each
-   other in the same panel; leaving one stacked and one squeezed was the
-   inconsistency as much as the wrap was. */
-.wb-prop-mindmap {
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-2);
-}
-
-/* Reads as the heading for the two buttons under it rather than a value label
-   that happens to have wrapped. */
-.wb-prop-mindmap>span {
-  color: var(--muted);
-  font-size: var(--text-sm);
-}
-
-.wb-multi-actions {
-  display: flex;
-  gap: var(--space-1);
-}
-
-/* **Arrange is a column of one toolbar, not a row of four rows** (INBOX 64).
-   It used to be a `.wb-properties-row`, which is `justify-content:
-   space-between` and does not wrap, holding four button groups: ten labelled
-   buttons laid across 200px, and four pairs of them measurably intersected.
-   A column that wraps cannot do that, and the buttons are icons now, so the
-   whole set fits in two lines of a 216px panel. */
-.wb-prop-arrange,
-.wb-prop-notes {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-2) 0;
-}
-
-.wb-prop-arrange.hidden,
-.wb-prop-notes.hidden {
-  display: none;
-}
-
-/* **Three named rows, not one wrapping strip** (the owner, 2026-09-09: "can
-   the whiteboard arrange tools be better structured??"). Ten icon buttons
-   flowed as one strip and came out 2-3-3-2 on the panel's width, so the only
-   thing saying which button belonged with which was a 2px gap against a 6px
-   one, and the rows a reader saw were an accident of where the wrap fell.
-   A row per question, each with its own name, cannot come out ragged. */
-.wb-arrange-toolbar {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  /* `--space-3`, which is what the row family already uses:
-     `tests/test_ui_signatures.py` caps that family at three distinct gap
-     values and a fourth here would have been a new spacing recipe invented
-     for one toolbar. */
-  gap: var(--space-3);
-}
-
-/* Label beside the buttons, not above them. Above cost 70px of panel height
-   for the three labels (221px against 151px measured), and a properties
-   panel that scrolls sooner is a worse trade than a label column: the row's
-   own buttons are 112px at their widest, which leaves room for the name
-   inside the panel's 200px of content width. */
-.wb-arrange-row {
-  display: grid;
-  grid-template-columns: 4.5rem auto;
-  align-items: start;
-  gap: var(--space-3);
-}
-
-/* Quieter and smaller than `.wb-properties-group-label` above it: that one
-   names the whole section, these name a row inside it, and two labels at the
-   same weight would read as two sections. */
-.wb-arrange-label {
-  font-size: var(--text-xs);
-  color: var(--muted);
-  /* Level with the first row of buttons rather than with the top of a
-     two-line grid: the name belongs to the row a reader is looking at. */
-  line-height: var(--control-h);
-}
-
-/* Three per line by construction, which is what made splitting the six
-   aligns into "across" and "down" unnecessary: a single row of six measured
-   178px against the panel's 200px of content width and could not survive
-   anything beside it. */
-.wb-arrange-grid {
-  display: grid;
-  grid-template-columns: repeat(3, auto);
-  justify-content: start;
-  gap: 2px;
-}
-
-.wb-arrange-group {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.wb-multi-actions button {
-  flex: 1;
-  padding: var(--space-1);
-  font-size: var(--text-sm);
-  line-height: 1.2;
-}
+/* The properties drawer's own layout rules lived here until Phase 2 of
+   WHITEBOARD_PLAN replaced that drawer with the context bar: the panel header,
+   the label-and-control row grid, the arrange toolbar's three named rows and
+   the six-align grid, and the wrapping rule the Fill row needed inside a
+   200px column. None of those classes is in the markup any more; the bar's
+   own groups are in 07-whiteboard-misc.css under `.wb-context`. Their reasons
+   are in HISTORY.md with the INBOX items that asked for them (52, 64, 65). */
 
 .wb-tool-group button {
   width: 36px;

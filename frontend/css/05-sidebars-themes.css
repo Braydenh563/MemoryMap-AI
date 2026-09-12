@@ -1978,6 +1978,17 @@ body.resizing-sidebar {
   padding-top: 0;
   border-top: none;
   min-height: 0;
+  /* **The one place `flex-shrink: 0` is right in this column**, and the
+     reason is a measurement rather than a taste. With a 60-heading document
+     open the outline wants 1498px in a 686px panel, so the deficit is shared
+     out by shrink factor and this section was squeezed to 11px around a 28px
+     action: the way out of an empty References was a sliver of a button. It
+     is 28px in total, so exempting it costs the outline 28px of a column it
+     is already scrolling inside, and the alternative is a control that is
+     there and cannot be pressed. The section *with* references in it keeps
+     `0 1 auto` and its 4rem floor, which is the rule this is the exception
+     to. */
+  flex: 0 0 auto;
 }
 
 #doc-bookmarks-wrap:has(> .doc-outline:empty) #doc-attach-bookmark {

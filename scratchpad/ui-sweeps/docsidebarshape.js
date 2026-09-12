@@ -188,6 +188,39 @@ function realDoc() {
     return { x: Math.floor(r.x) - 4, y: Math.floor(r.y) - 4, width: Math.ceil(r.width) + 8, height: Math.ceil(r.height) + 8 };
   }) });
 
+  // --- 1b: a document longer than the column ---------------------------------
+  // The outline scrolls inside itself rather than pushing References off the
+  // panel, and the way out of an empty References is a whole button rather
+  // than a sliver of one. Measured before this was asserted: with 60 headings
+  // the outline wanted 1498px in a 686px panel and the References section was
+  // shared into 11px around a 28px action.
+  const long = [];
+  for (let i = 1; i <= 60; i++) {
+    long.push(`${i % 3 === 1 ? '#' : i % 3 === 2 ? '##' : '###'} Heading number ${i}`, '', 'body', '');
+  }
+  await openDoc(page, { title: 'Long plan', content: long.join('\n') });
+  await openOutline();
+  const deep = await page.evaluate(() => {
+    const list = document.getElementById('doc-outline');
+    const panel = document.getElementById('doc-sidebar-outline');
+    const refs = document.getElementById('doc-bookmarks-wrap').getBoundingClientRect();
+    const attach = document.getElementById('doc-attach-bookmark').getBoundingClientRect();
+    const side = document.getElementById('doc-sidebar').getBoundingClientRect();
+    return {
+      rows: list.querySelectorAll('li').length,
+      list: { box: +list.getBoundingClientRect().height.toFixed(1), scroll: list.scrollHeight, client: list.clientHeight },
+      panel: { scroll: panel.scrollHeight, client: panel.clientHeight },
+      references: { box: +refs.height.toFixed(1), attach: +attach.height.toFixed(1), onScreen: refs.bottom <= side.bottom + 1 },
+    };
+  });
+  say('long_document', deep);
+  if (deep.list.scroll <= deep.list.client) fail('a 60-heading outline is not scrolling inside itself');
+  if (deep.panel.scroll > deep.panel.client + 1) fail('the panel scrolls as a whole instead of the outline scrolling');
+  if (!deep.references.onScreen) fail('References is pushed off the panel by a long outline');
+  if (deep.references.box < deep.references.attach) {
+    fail(`References is ${deep.references.box}px around a ${deep.references.attach}px action`);
+  }
+
   // The type on a row is the document's own, not a default printed eight
   // times: a .py document says .py. Last, because opening one changes which
   // document every measurement above was about.

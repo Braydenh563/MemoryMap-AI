@@ -100,6 +100,18 @@ and the history sheet's per-row rebuild (item 7, found in this run).
 3. **Sync (B6) as log shipping.** `id: events-sync`. Unstarted, and
    deliberately: it needs the retention rule, which now exists, so this is
    no longer blocked. A compacted snapshot ships as a snapshot.
+4. ~~**A generated or imported map's nodes do not replay.**~~ **Closed
+   2026-09-12 by the orchestrator.** `_place_map_nodes` returns the objects
+   it placed and both routes record the board event and then one
+   `whiteboard_object`/`created` per node, through `_record_map_creation`.
+   The `@events.writes("board", "created")` decorator came off both, because
+   "the outermost write wins": a decorated helper called from inside a
+   decorated route opens no scope of its own and its event would be folded
+   into the board's, which is the bug itself. `test_events.py` keeps an
+   exact count (1 + N, not "at least one") and
+   `test_a_generated_or_imported_map_replays_with_its_nodes_on_it` replays a
+   three-node import. The original entry, for the record:
+
 4. **A generated or imported map's nodes do not replay.** `file:
    src/memorymap/api/routes_whiteboard.py` (`generate_map`, `import_board`),
    `id: events-generated-nodes`. Found in the third run, not fixed: both

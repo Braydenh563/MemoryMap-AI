@@ -3077,8 +3077,13 @@ def _place_map_nodes(
     board_id: int,
     parsed: list[dict],
     reference_for=None,
-) -> int:
-    """Write a parsed outline onto a board as map nodes, returning how many.
+) -> list[WhiteboardObject]:
+    """Write a parsed outline onto a board as map nodes, returning them.
+
+    Returns the objects rather than a count because both callers have to
+    record one `whiteboard_object`/`created` event each: a map whose nodes
+    have no events of their own replays to an empty board (Brief 7, open
+    item 4, `agent-remaining/brief7-event-log.md`).
 
     One walk for both doors onto a map made from text: an import, and the
     AI proposal the user accepted. They differ in exactly one thing, whether
@@ -3094,11 +3099,10 @@ def _place_map_nodes(
     as a readable ladder rather than with every branch stacked on top of the
     last one at y=0.
     """
-    created = 0
+    created: list[WhiteboardObject] = []
     row = [0]
 
     def place(nodes: list[dict], parent: WhiteboardObject | None, depth: int) -> None:
-        nonlocal created
         for node in nodes:
             reference = reference_for(node["text"]) if reference_for else None
             kind, ref_id = reference if reference else (MAP_TOPIC_KIND, None)
@@ -3121,7 +3125,7 @@ def _place_map_nodes(
             row[0] += 1
             db.add(obj)
             db.flush()  # its children need its id
-            created += 1
+            created.append(obj)
             place(node["children"], obj, depth + 1)
 
     place(parsed, None, 0)
@@ -3306,8 +3310,54 @@ class MapGenerate(BaseModel):
     note_ids: list[int] = Field(default_factory=list, max_length=MAP_PROPOSAL_MAX_NOTES)
 
 
+def _record_map_creation(
+    db: Session,
+    board_id: int,
+    name: str,
+    detail: str,
+    extra: dict,
+    created: list[WhiteboardObject],
+) -> None:
+    """The board event, then one event per node it was built with.
+
+    Both map doors used to record a single `board`/`created` event whose
+    payload held the outline and a node *count*, so `events.replay` rebuilt
+    the board and nothing on it: a generated or imported map replayed empty
+    (Brief 7, open item 4). The AI's own `generate_diagram` already records
+    one event per item, which is the shape decision 4 asks for; these two
+    predate it and now match.
+
+    Written here rather than inside `_place_map_nodes` because of how
+    `events.writes` nests: "the outermost write wins", so a decorated helper
+    called from inside a decorated route opens no scope of its own and its
+    event would be folded into the board's. Both routes therefore drop the
+    decorator and record explicitly, in the order replay needs, the board
+    first and its objects after.
+    """
+    events.record(
+        db,
+        "created",
+        "board",
+        board_id,
+        detail,
+        payload={
+            "after": events.board_state(name, "map", DEFAULT_BOARD_LAYOUT),
+            "nodes": len(created),
+            **extra,
+        },
+    )
+    for obj in created:
+        events.record(
+            db,
+            "created",
+            "whiteboard_object",
+            obj.id,
+            f"{obj.kind} on board {board_id}",
+            payload={"after": _object_state(obj)},
+        )
+
+
 @router.post("/boards/generate", response_model=BoardOut, status_code=201)
-@events.writes("board", "created")
 def generate_map(body: MapGenerate, db: Session = Depends(get_session)) -> BoardOut:
     """Create the map the user accepted.
 
@@ -3348,20 +3398,13 @@ def generate_map(body: MapGenerate, db: Session = Depends(get_session)) -> Board
     db.add(entry)
     db.flush()
     created = _place_map_nodes(db, entry.id, parsed, reference_for)
-    # One event for the whole generation: the nodes it placed are rows this
-    # route wrote directly, so there is nothing of theirs to fold, and a map
-    # generated from an accepted proposal is one action a person took.
-    events.record(
+    _record_map_creation(
         db,
-        "created",
-        "board",
         entry.id,
-        f"generated map, {created} nodes",
-        payload={
-            "after": {"title": name, "type": "map", "layout": DEFAULT_BOARD_LAYOUT},
-            "nodes": created,
-            "outline": body.outline,
-        },
+        name,
+        f"generated map, {len(created)} nodes",
+        {"outline": body.outline},
+        created,
     )
     db.commit()
     db.refresh(entry)
@@ -3370,7 +3413,7 @@ def generate_map(body: MapGenerate, db: Session = Depends(get_session)) -> Board
         title=name,
         node_count=0,
         sketch_count=0,
-        object_count=created,
+        object_count=len(created),
         type="map",
         layout=DEFAULT_BOARD_LAYOUT,
         **_preview_fields(db, entry.id),
@@ -3378,7 +3421,6 @@ def generate_map(body: MapGenerate, db: Session = Depends(get_session)) -> Board
 
 
 @router.post("/boards/import", response_model=BoardOut, status_code=201)
-@events.writes("board", "created")
 def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOut:
     """Create a map from an OPML file or an indented Markdown outline.
 
@@ -3402,17 +3444,13 @@ def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOu
     db.flush()  # the nodes need the board's id before they can point at it
 
     created = _place_map_nodes(db, entry.id, parsed)
-    events.record(
+    _record_map_creation(
         db,
-        "created",
-        "board",
         entry.id,
-        f"imported {body.format} map, {created} nodes",
-        payload={
-            "after": {"title": name, "type": "map", "layout": DEFAULT_BOARD_LAYOUT},
-            "nodes": created,
-            "format": body.format,
-        },
+        name,
+        f"imported {body.format} map, {len(created)} nodes",
+        {"format": body.format},
+        created,
     )
     db.commit()
     db.refresh(entry)
@@ -3421,7 +3459,7 @@ def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOu
         title=name,
         node_count=0,
         sketch_count=0,
-        object_count=created,
+        object_count=len(created),
         type="map",
         layout=DEFAULT_BOARD_LAYOUT,
         **_preview_fields(db, entry.id),

@@ -538,6 +538,15 @@ def test_every_whiteboard_write_records_exactly_one_event(client, session):
     writes = _whiteboard_writes()
     assert writes, "the enumeration found nothing; the prefixes are wrong"
 
+    #: The two map doors are the stated exception, and the reason is Brief 7's
+    #: own open item 4: a `board`/`created` event whose payload held a node
+    #: *count* replayed to an empty board, so each node it places now records
+    #: its own `whiteboard_object`/`created` event. One board event plus one
+    #: per node, which is what `generate_diagram` already did. The count is
+    #: still exact, it is just 1 + N rather than 1: an unexplained extra event
+    #: from either route still fails here.
+    ONE_PER_NODE = {"generate_map", "import_board"}
+
     for name in writes:
         driver = drivers.get(name)
         assert driver is not None, (
@@ -555,7 +564,14 @@ def test_every_whiteboard_write_records_exactly_one_event(client, session):
         # transaction to see it.
         session.commit()
         after = session.query(AuditLog).count()
-        assert after == before + 1, f"{name} recorded {after - before} events, not one"
+        if name in ONE_PER_NODE:
+            nodes = answer.json()["object_count"]
+            assert after == before + 1 + nodes, (
+                f"{name} recorded {after - before} events for {nodes} nodes, "
+                f"not the board's own plus one each"
+            )
+        else:
+            assert after == before + 1, f"{name} recorded {after - before} events, not one"
         last = session.query(AuditLog).order_by(AuditLog.id.desc()).first()
         assert last.payload, f"{name} recorded an event with no payload"
         assert last.actor in {"user"} or last.actor.startswith(("ai:", "system:"))
@@ -738,3 +754,42 @@ def test_every_ai_board_write_records_a_replayable_event(session):
     # one link: nine, and the count is here so a tool that quietly stops
     # writing its rows cannot pass by replaying nothing.
     assert items == 9
+
+
+def test_a_generated_or_imported_map_replays_with_its_nodes_on_it(client, session):
+    """Brief 7's open item 4, closed.
+
+    Both map doors recorded one `board`/`created` event whose payload held
+    the outline and a node *count*, so `events.replay` rebuilt the board and
+    nothing on it: a generated or imported map replayed empty while every
+    hand-placed object replayed fine. The AI's own `generate_diagram` already
+    recorded one event per item; these two predate that decision.
+    """
+    from memorymap.core import events
+
+    made = client.post(
+        "/whiteboard/boards/import",
+        json={
+            "format": "markdown",
+            "name": "Imported outline",
+            "content": "- Roots\n  - First branch\n  - Second branch\n",
+        },
+    )
+    assert made.status_code == 201, made.text
+    board = made.json()
+    assert board["object_count"] == 3
+    session.commit()
+
+    from memorymap.core.database import WhiteboardObject
+
+    objects = (
+        session.query(WhiteboardObject).filter_by(board_id=board["id"]).all()
+    )
+    assert len(objects) == 3
+    for obj in objects:
+        state = events.replay(session, "whiteboard_object", obj.id)
+        assert state, f"object {obj.id} replays to nothing"
+        assert json.loads(state["data"])["content"] == json.loads(obj.data)["content"], state
+
+    board_state = events.replay(session, "board", board["id"])
+    assert board_state["title"] == "Imported outline", board_state

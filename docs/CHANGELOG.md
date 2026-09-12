@@ -143,6 +143,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A generated or imported mind map replays with its nodes on it. Both
+  routes recorded one event for the whole board whose payload held a node
+  count rather than the nodes, so rebuilding one from its history gave an
+  empty board while every hand-placed object rebuilt correctly.
+
 - Five database indexes that were missing, including both columns of the
   link table. A note's connections, the notes list's bulk link fetch, the
   graph build and search's two-hop walk all read `entry_links` by source or

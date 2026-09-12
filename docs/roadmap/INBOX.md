@@ -23,6 +23,28 @@ never lost to the smaller stuff.
 
 ## Open items
 
+117. **Found by the orchestrator's hole-poking pass, 2026-09-12 evening,
+    not an owner report.** Three list endpoints hand back the whole table.
+    Measured with 300 rows of each seeded through the models: `/documents`
+    300 rows and 111.1 KB, `/reminders` 300 rows and 48.4 KB, `/media` 300
+    rows and 84.6 KB. `/conversations` caps at 200 and is fine; `/entries`
+    was capped after exactly this finding and carries `limit`, `offset` and
+    `X-Total-Count`.
+
+    `list_documents` states the decision not to cap ("an unbounded read is
+    the same cost `GET /entries` already pays on every load"), and that
+    premise is no longer true: `/entries` is capped now, so the comment
+    mirrors a sibling that has moved. This is a stale justification rather
+    than a live decision, so under standing order 3 it is recorded here with
+    a recommendation and the recommendation is then taken.
+
+    **Recommendation:** give all three the `/entries` treatment, `limit`
+    and `offset` with `X-Total-Count`, and have the Documents tab fall back
+    to the existing server-side `q` when the user types rather than
+    filtering a full list client-side. Needs `documents.js` and `library.js`,
+    both held by agents at the time of writing, so it is queued behind them
+    rather than done piecemeal.
+
 116. **Fourth drop, 2026-09-12 afternoon, verbatim (the owner), one
     message with a screenshot of the collapsed chat sidebar.**
     - "the chat sidebar expand button is right up against the right edge of

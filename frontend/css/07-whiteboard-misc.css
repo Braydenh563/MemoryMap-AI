@@ -2470,7 +2470,15 @@ dialog::backdrop {
   width: 100%;
 }
 
+/* **At the right edge, which is what the markup has been asking for.** Every
+   one of these rows is written `class="row right space-dialog-actions"` and
+   there is no `.right` rule anywhere in the app, so all ten of them drew their
+   Cancel and their primary against the *left* edge while `.confirm-actions`,
+   the dialog a reader meets far more often, puts them at the right. Reported
+   on the template dialog ("a Cancel that does not match the app's dialog
+   actions"); fixed for the family rather than for the one dialog. */
 .space-dialog-actions {
+  justify-content: flex-end;
   margin-top: var(--space-5);
   gap: var(--space-2);
 }

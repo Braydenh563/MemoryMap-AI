@@ -3739,8 +3739,23 @@ textarea.autogrow {
    own. The three shapes and the reasoning behind them moved there intact. */
 
 /* The template picker's rows: name over a one-line hint, full width, so
-   the list reads as choices rather than as a stack of pill buttons. */
-.doc-template-choice {
+   the list reads as choices rather than as a stack of pill buttons.
+
+   **Quiet, not tonal** (DESIGN.md, the button ramp). They were `button.ghost`
+   and nothing took the tonal fill and hairline back off, so six of them
+   stacked with no gap drew six outlined boxes down the middle of a dialog:
+   reported as "the new from a template popup buttons need a look consistent
+   with the rest of the application". A run of choices inside a dialog is the
+   case the quiet tier exists for, the dialog is the frame and the tint is the
+   state, which is what `.menu-item` and `.wb-menu-item` already do for every
+   other list of choices in the app. Same type as those rows too: the name was
+   inheriting the dialog's 16px prose size, against 13.6px everywhere else.
+
+   Written `button.ghost.doc-template-choice` because `button.ghost` is (0,1,1)
+   and a bare class is (0,1,0): the first pass at this changed the type, which
+   nothing else declares, and left the fill and the hairline exactly where they
+   were. */
+button.ghost.doc-template-choice {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -3748,7 +3763,21 @@ textarea.autogrow {
   width: 100%;
   height: auto;
   padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  box-shadow: none;
+  font-size: var(--text-md);
   text-align: left;
+}
+
+button.ghost.doc-template-choice:hover,
+button.ghost.doc-template-choice:focus-visible {
+  background: var(--accent-soft);
+}
+
+.doc-template-choice > strong {
+  font-weight: 600;
 }
 
 /* The note edit form's meta row: tags take the slack, the category sits

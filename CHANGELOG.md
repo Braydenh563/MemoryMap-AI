@@ -86,6 +86,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Your documents, reminders and pictures arrive a page at a time. All three
+  lists used to hand back every row on every call: 300 documents measured
+  116.7 KB in one response, 300 reminders 52.5 KB, 300 pictures 117.6 KB,
+  with nothing to stop them growing with the table. Each list now sends at
+  most two hundred rows and says how many there really are, and the screens
+  that need all of them (the Documents tab, the Library's documents and
+  images, the editor's insert menus) ask for the next page until they have
+  everything. Nothing you could reach before is out of reach: what is bounded
+  is the size of one answer, not the size of your notebook.
+
 - The bottom of a picture card in the Library is a caption again, not a form.
   A card carries its description, clamped to two lines so a long one cannot
   push the cards beside it out of line, and under it only what that picture

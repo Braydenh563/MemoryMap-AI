@@ -21530,6 +21530,128 @@ done-when item 4 and 5), in priority order.
     composite). Cards 321.1px -> 261.5px, bottoms within 0.1px of each
     other, and the hole under the emptiest card 54.5px -> 1.0px.
 
+120. **Sixth drop continued, verbatim (the owner), the Ask sub-tab.**
+    "the try asking and ask again suggestions are nearly identical" (the
+    screenshot has "Try asking:" with four chips and "Ask again:" with five
+    directly under it, and two of the five repeat the row above word for
+    word: "What have I saved about hobbies?" and "What have I saved about
+    courses & study?"). The two rows answer different questions, what you
+    could ask and what you already asked, so neither should show what the
+    other is showing. Sent to the Notes sub-tabs agent with the rule: the
+    history row wins a duplicate because it is a fact, and the generated
+    row fills the gap with its next candidate. **Fixed `9b8b4e8`**: settled
+    on the server that builds both rows rather than in the client's two
+    independent fetches, where it would have depended on which response
+    arrived first, with reserves in the candidate list so a dropped chip is
+    replaced rather than leaving the row short. Measured on :8895 with a
+    seeded history: an overlap of 2 of 4 before, 0 after, both rows still
+    their own length.
+
+119. **Sixth drop, 2026-09-12 evening, verbatim (the owner), two messages
+    with a screenshot each, both in the Capture form.**
+    - "when I press preview in the capture a thought formatting toolbar and
+      possibly other places with the toolbar as well, the top of the line
+      numbers can still be hidden and is just a little dot above the text
+      panel" (the screenshot shows a scrollbar-like strip, then a small
+      clipped box a few pixels tall sitting above the preview panel, then
+      the panel reading "Nothing to preview yet.").
+    - "the let the ai decide button popup is a massive gap above the
+      picker" (the screenshot shows the File under picker's menu opened
+      near the top of the form, its bottom about 127px above the opener it
+      belongs to, covering the formatting toolbar and the note body).
+    Both sent to the agent already rebuilding the three Notes sub-tabs.
+    **Both fixed.** The dot, `3ef6b9b`: reproduced at 27.2x21.2px above the
+    preview panel in the capture composer and again in the note edit form,
+    the line-number column being the textarea's sibling with nothing hiding
+    the pair together; fixed on the pair rather than on either button, so
+    any box that mounts a gutter takes its numbers with it when it hides.
+    The documents editor was already right for the same reason read the
+    other way round: it hides the wrapper. The gap, `6d456ea`: reproduced
+    at 127.1px on a nine-category notebook, and at 91, 163 and 199px on
+    eight, ten and eleven, `wants - drawn + 4` every time, because the
+    placement measured the menu with every cap off and then handed it back
+    to `.select-menu`'s own 18rem cap before drawing it, the same shape as
+    INBOX 114 one level down. Now 3.8px above its opener at every size
+    measured, with the whole list shown.
+
+116. **Fourth drop, 2026-09-12 afternoon, verbatim (the owner), one
+    message with a screenshot of the collapsed chat sidebar.**
+    - "the chat sidebar expand button is right up against the right edge of
+      the collapsed sidebar and not in the middle. or doresnt have a gap."
+      (the screenshot shows the rounded collapsed rail with the expand
+      button's right edge flush against the rail's own right border).
+      **Fixed `2d280bc`**: measured 6px inside the left border and 4px
+      inside the right, because the centring halved the rail's 48px column
+      while the button is laid out in its 46px padding box; now 6/6 on all
+      three rails.
+    - "and fix the placement of the '?' tooltip buttons in the settings
+      pages, maybe align them to the right with a gap..." **Fixed
+      `2d280bc`**: the marks sat at 131.1, 408, 114.1 and 241.3px from one
+      left edge, one position per heading length, while the switch rows in
+      the same card already right-aligned theirs; now 533.6px for every
+      heading row, scoped to `#settings-modal`. The one head inside a
+      `<summary>` (`#sampling-box`) ends 28px short of the column because
+      its row sits inside the summary's own padding: noted, not chased.
+    - Second message, with a screenshot of the capture form's "Add to
+      document" row (a `None` select beside a chip reading "Test MD
+      Rendering Document" with its own remove cross): "fix the add to
+      document combobox not changing. actually redesign and give each of
+      the capture, write with ai, and ask tabs a new and improved look."
+      Root cause of the first half, read at `frontend/app.js` line 24941:
+      the `#entry-document` change handler does `event.target.value = ""`
+      on every pick, so the select snaps back to "None" by design and the
+      document becomes a chip beside it. A single select that resets on
+      every choice reads as broken; it is a multi-picker wearing a select.
+      Goes to the redesign brief with the three tabs (an Opus agent, once
+      the agent already in the capture form reports), not fixed piecemeal.
+      **Fixed** across Brief 22: the combobox became an adder (`2d4b19b`);
+      Capture's rows were regrouped by family (`728bd71`) and then brought
+      to two control heights, 36px for the head row and the formatting
+      strip and 40px for everything you act on (`75a1d62`); Write with AI
+      became two of the same column, both boxes 330.3px and both columns
+      472.6px with no dead space under either (`1472735`); and the Ask
+      card's four different gaps became one 9.6px step (`554739d`).
+
+117. **Found by the orchestrator's hole-poking pass, 2026-09-12 evening,
+    not an owner report.** Three list endpoints hand back the whole table.
+    Measured with 300 rows of each seeded through the models: `/documents`
+    300 rows and 111.1 KB, `/reminders` 300 rows and 48.4 KB, `/media` 300
+    rows and 84.6 KB. `/conversations` caps at 200 and is fine; `/entries`
+    was capped after exactly this finding and carries `limit`, `offset` and
+    `X-Total-Count`.
+
+    `list_documents` states the decision not to cap ("an unbounded read is
+    the same cost `GET /entries` already pays on every load"), and that
+    premise is no longer true: `/entries` is capped now, so the comment
+    mirrors a sibling that has moved. This is a stale justification rather
+    than a live decision, so under standing order 3 it is recorded here with
+    a recommendation and the recommendation is then taken.
+
+    **Recommendation:** give all three the `/entries` treatment, `limit`
+    and `offset` with `X-Total-Count`, and have the Documents tab fall back
+    to the existing server-side `q` when the user types rather than
+    filtering a full list client-side. Needs `documents.js` and `library.js`,
+    both held by agents at the time of writing, so it is queued behind them
+    rather than done piecemeal.
+
+    **Fixed `e38dffa` (backend) and `dd0caa5` (frontends).** All three take
+    `limit` and `offset` and set `X-Total-Count`; page sizes 200/200/200 with
+    maxima 1000/1000/500, one reason each in the commit. A response that was
+    300 rows and 116.7 KB (`/documents`), 52.5 KB (`/reminders`) and 117.6 KB
+    (`/media`) is 200 rows and 77.9/34.9/78.5 KB, and `?limit=10&offset=295`
+    reaches the last five of each. `list_documents`'s stale justification was
+    replaced by the new decision and the half of the old one that still holds
+    (a cap with no offset makes everything past it unreachable). The
+    Documents tab, the Library's documents and images, the OCR workspace's
+    rail and the editor's insert menus read to the end with `apiPagedList`;
+    the Library's document search still goes to the server's own `q`, which
+    reaches a document's text rather than only its title. Measured in
+    Chromium against 230 seeded rows of each: 230 documents in `docs`, 230
+    rows in the Library list, 230 tiles in the gallery, a search for a row on
+    the server's second page finds it. **Left:** the Reminders tab, whose
+    file was held by another agent, and five other first-page-only callers,
+    all in `docs/roadmap/agent-remaining/list-paging.md` with their numbers.
+
 ## Moved from the plans, 2026-09-12
 
 ### From CHAT_PLAN.md Phase 4 and SESSION_BRIEFS Brief 13: the skill harness and its verifier

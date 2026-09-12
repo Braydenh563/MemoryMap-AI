@@ -43,6 +43,12 @@ session spends its probes somewhere new.
   asserts the content actually rolls back and that a pre-restore safety
   snapshot is taken.
 - **Restore from the bin.** A note comes back with its document link intact.
+- **Rename paths.** The other half of the delete class: renaming a category
+  moves its notes and leaves one category behind (`renamed, merged: false,
+  moved: 0`, the note reads `Projects`), and renaming a tag rewrites it on
+  every note that had it (`changed: 2`, both notes updated, the other tag
+  untouched). Nothing stores a category or tag by name where an id was
+  meant, so nothing goes stale.
 - **Every other short write field.** After capping notes and tags, the rest
   were driven with 100,000 characters: a space's name and icon, a category
   rename, a bookmark's title and url, a reminder's text and a conversation's

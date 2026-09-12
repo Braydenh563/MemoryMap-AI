@@ -22939,8 +22939,8 @@ beside it.
 ### From DOCUMENTS_PLAN.md Phase 3: blocks and structure, items 1 to 3
 
 Built 2026-09-12, on `claude/epic-ramanujan-8xocc0`, three commits. Items 4
-(properties) and 5 (columns and images) are open and are in
-`agent-remaining/documents-phase3.md`. The phase as it was written:
+(properties) and 5 (columns and images) followed the same day and are the
+entry below. The phase as it was written:
 
 > 1. **Tables** as a real editor: `/table`, Tab between cells, a cell menu
 >    for add/remove row/column, alignment, rendered in Live, byte-exact
@@ -23097,12 +23097,12 @@ cards held to 420 and 320 CSS pixels, the plain `[[link]]` still one mark, no
 `![[` left on screen, the document still the text that was typed, and the
 caret on an embed's line showing its markdown again.
 
-**Found and not fixed** (app.js, which this agent was told not to edit):
-`resolveWikiTarget` matches a note by content prefix, so a note whose first
-line is `# Its title` resolves as `[[# Its title]]` and not as
-`[[Its title]]`. One comparison against the content with its leading `#`
-stripped fixes it, and it is written up in
-`agent-remaining/documents-phase3.md`.
+**Found and not fixed here** (app.js, which this agent was told not to edit):
+`resolveWikiTarget` matched a note by content prefix, so a note whose first
+line is `# Its title` resolved as `[[# Its title]]` and not as
+`[[Its title]]`. **Fixed the same day in `d079b11`**, one comparison against
+the content with its leading heading marker stripped, the exact-prefix match
+still tried first; `docembed.js` measures all three, 14/14.
 
 **Not verified.** Chromium only, at 1440 and 390. No other browser, no touch
 device. The fallback textarea path is exercised by the table model's own
@@ -23110,3 +23110,102 @@ tests but was never driven with `docCmBroken` set. Multi-line `$$…$$` blocks
 are deliberately not rendered: a replace decoration from a view plugin may not
 contain a line break, which is a CodeMirror constraint rather than an
 omission, and single-line `$$…$$` is what people write inside a paragraph.
+
+### From DOCUMENTS_PLAN.md Phase 3: blocks and structure, items 4 and 5
+
+Built 2026-09-12, on `claude/epic-ramanujan-8xocc0`, three commits (`8fd3603`
+the properties model, `a5ef6b1` the panel over it, `041d0ce` columns and
+images). **Phase 3 is complete with these.** The phase as it was written:
+
+> 4. **Properties**: YAML frontmatter shown as a properties panel at the top
+>    of the document (tags, aliases, date, status, custom keys), editable as
+>    fields, searchable from the Library's filter.
+> 5. **Columns and images**: two-column blocks via a `:::columns` fence;
+>    image blocks with width, caption and alignment; paste/drop stays as it
+>    is.
+
+**4. Properties, and the rule that nothing prints YAML** (`8fd3603`,
+`a5ef6b1`).
+
+The model (documents.js, between `DOC-FRONTMATTER-BEGIN` and
+`DOC-FRONTMATTER-END`) makes the table model's promise a second time: every
+operation is a list of `{from, to, insert}` edits over the value's own span,
+so a document's frontmatter keeps its quoting, its padding and its key order
+when one field is edited. `status:    draft   ` keeps all seven of its spaces
+while the value beside it changes. A YAML printer would have reformatted every
+save, which is the same failure the table editor refused.
+
+The parse reads what a real notebook has in it: the vault import's own
+`category:`, `tags: [a, b]`, Obsidian's block lists, quoted scalars, keys with
+a space or a dot in them, and a comma inside quotes. What it does not
+understand it leaves alone, bytes and all.
+`tests/test_doc_frontmatter.py` runs the marked region in node over eight
+shapes and asserts the round trip character for character, including the
+shapes that only *look* like frontmatter (a mid-document rule, an unclosed
+block, a setext heading) parsing as nothing at all.
+
+**The panel is DOM above the editor, not a widget inside it**, and that is
+forced rather than chosen: a `Decoration.replace` from a view plugin may not
+contain a line break, and frontmatter is three lines at the very least. The
+YAML hides line by line the way a table's delimiter row does (a
+`Decoration.line` at height 0 per line, no line break inside any one
+replacement, which is what makes it legal) and a line comes back to full
+height the moment the caret is on it. Source still shows the YAML itself, on
+purpose: a panel there would be two editable copies of one thing. Read renders
+the same rows read-only through the preview, which also stops a frontmatter
+block rendering as a rule, a paragraph of key-value lines and another rule,
+which is what it did for every document the vault import has ever written.
+`/` gains a Properties command, documents only.
+
+Measured, `scratchpad/ui-sweeps/docprops.js` at 1440 and 390, **30 of 30**:
+the panel spans 461..1255 against the writing's own 461..1255 (one measure,
+one left edge), 177px tall for three properties, all five frontmatter lines
+zero high, the caret's own line back to 25.6px, and at 390 the key stacks
+above its value with no sideways scroll.
+
+**5. Columns and images, and the syntax decision** (`041d0ce`).
+
+The syntax is in the plan rather than only in the code: `:::columns` opens,
+`:::column` starts the next one, `:::` closes, and an image's options are
+pipe-separated and read by shape, so `![[river.jpg|300|center]]` and
+`![A river|300|center](/media/river.jpg)` mean the same thing. Obsidian's
+`|` form was taken over a `:::figure` fence because the embed widget already
+parsed the name half of it.
+
+**Columns are a block widget from a `StateField`**, which is the one construct
+in this editor that cannot be a view plugin, for the line-break reason above.
+The block is replaced only while the caret is outside it, so clicking a column
+gives back the text you wrote: the same "reveal what you are in" rule the rest
+of Live follows, one block wide instead of one line wide. Read renders the
+same block through the same markdown renderer, with the text split at the
+blocks here rather than teaching `renderMarkdown` a construct every note card
+and chat message would then carry.
+
+The hour this cost is in the comment on `update`: a `StateField`'s update is
+`(value, transaction)`, and written the other way round the field returns the
+transaction as its value, the decorations facet is handed a `Transaction`
+where a `RangeSet` belongs, and the view dies with "reading 'isEmpty' of
+undefined" on the next paint, nowhere near the line.
+
+Measured, `scratchpad/ui-sweeps/doccols.js`, **23 of 23**: at 1440 the columns
+are 470.6..848 and 868..1245.4, both starting at y 260.3 and the same width to
+within a pixel, inside a writing measure of 461..1255; the image is 300px
+wide, centred and captioned in Live and in Read; at 390 the second column sits
+under the first with no sideways scroll.
+
+**Re-measured on the branch head (`d0b6d35`) by the Phase 4 agent**, because a
+measurement taken at its own commit is not a measurement of what shipped:
+docprops 30/30, doccols 23/23, docembed 14/14, and
+`tests/test_doc_frontmatter.py`, `test_doc_columns.py`, `test_doc_tables.py`,
+`test_doc_math.py` green.
+
+**Not verified.** Chromium only, at 1440 and 390: no other browser and no
+touch device. The fallback textarea path (`docCmBroken`) was never driven for
+either item; the properties panel needs the CodeMirror surface to hide the
+YAML at all, so in a textarea the frontmatter simply stays visible, which is
+the behaviour that shipped before this.
+
+**Open from item 4, and it is the half the plan asked for that is not here.**
+"searchable from the Library's filter" is not built: `library.js` was another
+agent's file. The properties are parsed and editable, and nothing filters on
+them. It is written up in `agent-remaining/documents-phase4.md`.

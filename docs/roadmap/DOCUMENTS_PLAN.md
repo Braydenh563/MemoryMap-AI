@@ -246,21 +246,17 @@ extended per phase.
    → paint < 30 ms (PLAN P4's gate, measurable now); every existing
    documents test passes; `node --check` and the DOM lints green.
 
-### Phase 3 — blocks and structure (1–2 sessions)
+### Phase 3 — blocks and structure: built, 2026-09-12
 
-**Items 1 to 3 are built** (2026-09-12): tables as a real editor with a
-byte-exact round trip through Source, callouts as toggles, footnotes, math
-through an in-repo MathML renderer, task progress in the outline, and embeds
-that draw the target through the renderer that already owns its kind. The
-record is in HISTORY.md ("Moved from the plans, 2026-09-12"); what those three
-left open is in `agent-remaining/documents-phase3.md`.
+All five items. The record, with every measurement and every decision, is in
+HISTORY.md ("From DOCUMENTS_PLAN.md Phase 3", items 1 to 3 and items 4 and 5);
+what the phase left open is in `agent-remaining/documents-phase4.md`.
 
-4. **Properties**: YAML frontmatter shown as a properties panel at the top
-   of the document (tags, aliases, date, status, custom keys), editable as
-   fields, searchable from the Library's filter.
-5. **Columns and images**: two-column blocks via a `:::columns` fence;
-   image blocks with width, caption and alignment; paste/drop stays as it
-   is.
+**The syntax this phase decided, kept here because later phases read it**:
+`:::columns` opens a columns block, `:::column` starts the next column, `:::`
+closes; an image's options are pipe-separated and read by shape, so
+`![[river.jpg|300|center]]` and `![A river|300|center](/media/river.jpg)` mean
+the same thing.
 
 ### Phase 4 — the connected document (1 session)
 
@@ -448,12 +444,11 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2026-09-09: a plan holds open work only.
 
-## Built, Phase 3 items 1 to 3 (tables, blocks and embeds), 2026-09-12
+## Built, Phase 3 (tables, blocks, embeds, properties, columns), 2026-09-12
 
-Moved to HISTORY.md ("Moved from the plans, 2026-09-12", DOCUMENTS_PLAN.md) on
-2026-09-12: a plan holds open work only. Items 4 and 5 of the phase are still
-open above; what items 1 to 3 left behind is in
-`agent-remaining/documents-phase3.md`.
+Moved to HISTORY.md ("From DOCUMENTS_PLAN.md Phase 3", two entries) on
+2026-09-12: a plan holds open work only. What the phase left behind is in
+`agent-remaining/documents-phase4.md`.
 
 ## Placed from INBOX: 107d, the segmented mini bars
 

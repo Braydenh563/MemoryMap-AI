@@ -23,6 +23,50 @@ never lost to the smaller stuff.
 
 ## Open items
 
+114. **Mid-work drop, 2026-09-12 afternoon, verbatim (the owner), six
+    reports across five screenshots.** In order as sent:
+    - "I think the border shadow on elements like these are too strong"
+      (three dark screenshots: the top bar, a Peek/Close bar, two icon
+      buttons). **Fixed `69ae9cd`**: the tonal tier carried `--shadow-sm`,
+      which is seven times heavier in dark and was sized for a panel;
+      measured `rgba(0, 0, 0, 0.35)` on every button in the top bar.
+    - "fix the look of the mindmap item radial" (two screenshots: eight
+      circular slots scattered around and *over* a selected topic, some
+      overlapping the node's own chevron and its text, one sitting on the
+      node's edge; a second map where the ring's slots overlap a topic and
+      a link).
+    - "the view dropdown menu in the whiteboard and mindmap is still
+      broken, fix it" (screenshot: the LOOK menu open, "Snap to grid" cut
+      in half at the bottom edge, a scrollbar present, the menu far
+      shorter than its content). This is INBOX 107c's menu-height item,
+      reported again after `1096ee7` capped the menu from where it was
+      actually placed, so that fix did not reach this menu.
+    - "litterally everything isnt in the dictionary" (screenshot: 268
+      suggestions on a 298-word document, with "Offline", "No",
+      "internet", "connection", "handling" and "for" all listed as not in
+      the dictionary). The word list went in at 92,972 words on
+      2026-09-12 morning and `docs-spell.js` measured six findings over
+      8,000 characters of README with no false positives, so something
+      between that and a real document is not matching at all.
+    - "the new from a template popup buttons need a look consistent with
+      the rest of the application" (screenshot of the template dialog:
+      six full-width rows drawn as heavy outlined boxes, and a Cancel
+      that does not match the app's own dialog actions).
+    - "the height of the cature a thought taskbar and note edit form are
+      really high compared to the one in the documents editor"
+      (screenshot of the note toolbar, one tall row with a horizontal
+      scrollbar under it).
+    - "the tree view on the graph is still broken" (screenshot: the graph
+      drawn as a scatter with crossing dotted links, not a tree).
+    - And a question that is a feature request, recorded here rather than
+      answered ad hoc: "there also needs to be more integration and
+      merging between features. like if a document references a note, can
+      you see in that note on the notes page that it is referenced by
+      that document?? If I make a new reference or link in the text
+      editor like in obsidian, can I click on that new link and create it
+      into a new note, document or smth else??"
+
+
 111. **End-of-session drop, 2026-09-09 evening, verbatim (the owner), fixed
     this pass in parentheses.** "the documents formatting toolbar still
     gets clipped, and can you change the editor window background for

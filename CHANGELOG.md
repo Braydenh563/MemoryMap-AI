@@ -74,7 +74,20 @@ below). Versioning is `0.x` while the app stabilises.
 - `C` folds and unfolds the selected branch on a map. Space stays the
   canvas pan, and works on a fold control itself when that has the focus.
 
+- Exporting a map keeps how it looks. Weight, slant, text size, alignment,
+  icon, link, colour, and a line's label, shape and dash are written into the
+  FreeMind `.mm` and OPML files and read back when one is imported, each in
+  the place that format really has for it. A Markdown outline is still plain
+  text on purpose.
+
 ### Fixed
+
+- A ring of actions opened on a topic near the edge of the window no longer
+  loses the slots that fall past the edge, or puts them under the top bar.
+  The whole ring slides back inside the canvas and keeps its shape.
+
+- The strip above a selected topic no longer stands out of the window on a
+  phone: it wraps to two rows when the canvas is narrower than it is.
 
 - A right-click on a mind map topic, or on an idle text box, opened nothing
   at all. The guard that protects a text box's own native menu while you are

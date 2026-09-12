@@ -3,10 +3,12 @@
 > Companions: [MINDMAP_PLAN.md](../MINDMAP_PLAN.md) ·
 > [HANDOVER.md](../HANDOVER.md) · [../../DESIGN.md](../../DESIGN.md)
 >
-> Rewritten after the fifth run: §12.1 items 2 to 9 are built and their
-> account is in HISTORY.md ("Moved from the plans, 2026-09-12"). Everything
-> below was checked in a real Chromium against the running app, not read off
-> the source.
+> Rewritten after the sixth run, which closed the three things the fifth
+> left: the exports now carry everything the strip and the rings set, both
+> rings stay inside the canvas, and all of it has been measured in dark mode
+> and at 390x844. Their account is in HISTORY.md ("Moved from the plans,
+> 2026-09-12"). Everything below was checked in a real Chromium against the
+> running app, not read off the source.
 
 ## Closed, with where the numbers are
 
@@ -17,6 +19,7 @@
 | G, Phases 4 and 5 | MINDMAP_PLAN §11.1. |
 | §12.1 item 1, the map's own dock | HISTORY, "Moved from the plans, 2026-09-09". |
 | §12.1 items 2 to 9 | HISTORY, "Moved from the plans, 2026-09-12": the edit strip, the node radial, the link radial, the mid-line add, the text-size grip, uncollapse, transplant and sever. |
+| Their exports, their viewport clamp, and the dark/narrow pass | HISTORY, same date, "what the sixth run closed behind items 2 to 9". |
 | The two open decisions (Space, a trunk's colour) | MINDMAP_PLAN §12.0, decided 2026-09-12 with the reason for each. |
 
 ## The sweeps that gate this
@@ -25,14 +28,20 @@
 | --- | --- |
 | `scratchpad/ui-sweeps/mindmap.js` | **76**, re-run and green |
 | `scratchpad/ui-sweeps/mindmap3.js` | **57**, re-run and green after two repairs to the sweep itself (see below) |
-| `scratchpad/ui-sweeps/mindmap-theme.js` (`THEME=dark`) | 7, **not re-run since the third run** |
-| `scratchpad/ui-sweeps/mapdock.js` | **25** (was 17): the dock split, the delete doors, the empty map, the two §12.0 decisions, and the three ways out of a fold |
-| `scratchpad/ui-sweeps/mapstrip.js` | **33**, new: the edit strip, both radials, the mid-line add, the grip, transplant and sever |
+| `scratchpad/ui-sweeps/mindmap-theme.js` (`THEME=dark`) | **9** (was 7), re-run: 9/9 dark at 1440, 8/9 dark at 390 (the one failure is the shell's own 7px overflow, below) |
+| `scratchpad/ui-sweeps/mapdock.js` | **26** (was 25): the dock split, the delete doors, the empty map, the two §12.0 decisions, the three ways out of a fold, and the dock's reach at phone width |
+| `scratchpad/ui-sweeps/mapstrip.js` | **37** (was 33): the edit strip, both radials, the mid-line add, the grip, transplant, sever, the strip's own box and both rings against the edge of the canvas |
 | `scratchpad/ui-sweeps/panlag.js` | **5**, new: where a pan's work happens |
 
 Run them against a **fresh** data dir (`serve.sh <port> /tmp/mm-mapN`): the
 sweeps assert board-gallery contents and tree shapes, so a dir left over from
 an earlier run carries other boards into those checks.
+
+`mapstrip.js` and `mapdock.js` take `VIEWPORT=390x844` now, as
+`mindmap-theme.js` already did, and `THEME=dark` works on all three through
+`lib.js`. At phone width `mapstrip.js` frames the map (the app's own
+`wbZoomToFit`) before each gesture that has to land on a node: the
+re-framing finding under "not fixed" says why.
 
 ## Left to do
 
@@ -70,19 +79,19 @@ worth doing them:
   **comments on a node** (item 3, which is §12.2 item 6): each is one line
   in the plan, and each has a reason there for being left.
 
-### 3. The dark theme and the narrow viewport: STILL NOT re-run
+### 3. The dark theme and the narrow viewport: done for the strip, the rings and the dock, NOT for the rest of the map
 
-Nothing added in the last two runs has been seen in dark mode or at phone
-width. That now includes the node edit strip (measured **392px wide** at
-1440), both radials (a ring of radius 68px around a node, which at 390px
-puts two slots off-screen for a node near an edge), the mid-line `+` and the
-drop-target outline.
+Run at 1440 light, 1440 dark and 390x844: mapstrip 37/37 in all three,
+mapdock 26/26 in all three, mindmap-theme 9/9 dark at 1440. The strip's
+392px-in-a-364px-canvas was real and is fixed (it wraps); the rings are
+clamped. What is still unseen narrow or dark: the mid-line `+`, the
+drop-target outline, the templates card (`#wb-map-templates`, which covered
+the only topic of a new map at 390 in a probe: reproduce before fixing, it
+was an empty map), and everything in `mindmap.js` and `mindmap3.js`, neither
+of which takes a `VIEWPORT` yet.
 
-**Next step**: `THEME=dark node scratchpad/ui-sweeps/mapstrip.js` and
-`VIEWPORT=390x844 node scratchpad/ui-sweeps/mapstrip.js`, then read the
-numbers. The strip has no wrapping rule and no `max-width`; at 390px it is
-wider than the viewport by construction, so that one is a known finding
-waiting to be measured rather than a question.
+**Next step**: give `mindmap.js` and `mindmap3.js` the same four-line
+`VIEWPORT` block `mapstrip.js` has, and run both narrow.
 
 ### 4. Perspectives on a map that actually has notes on it: NOT measured
 
@@ -107,6 +116,20 @@ driven from the UI in five runs.
 
 ## Found while measuring, and fixed
 
+- **The two XML exports carry a node's look now, and read it back.** What
+  each format got, and why the four fields FreeMind has no word for ride as
+  private attributes rather than as invented FreeMind, is in HISTORY
+  ("what the sixth run closed behind items 2 to 9"). `MAP_STYLE_FIELDS` in
+  `routes_whiteboard.py` is the one list the tree endpoint, both exports and
+  both imports read, so a tenth field added to the strip and not to that list
+  is the next silent loss.
+- **Both rings slide inside the canvas.** `wbPlaceMapRadial` in
+  `whiteboard.js`, shared by the node ring and the link ring, measured off
+  the slots after the ring is shown. Its bound is the canvas minus the
+  panels that float in bands across it, so a trunk near the top no longer
+  puts three slots under the top bar.
+- **The node edit strip wraps.** Two centred rows at 390x844, capped to
+  `calc(100% - var(--space-6))`; unchanged at any width that fits it.
 - **A click on a topic saved the topic, and raced the control you clicked.**
   `objDrag` runs for a plain click as well as a drag, and `objDragEnd` PUT
   the object every time; a click on the fold chevron therefore sent
@@ -124,6 +147,29 @@ driven from the UI in five runs.
 
 ## Found while measuring, not fixed
 
+- **The app shell scrolls sideways by 7px at 390x844**, on every tab, not
+  just the map: `document.documentElement.scrollWidth` 397 in a 390 window,
+  with 43 elements past the right edge and `.header-controls` (266px wide,
+  right edge 397) the outermost. Not the map's, and not fixed here because it
+  is the shell's own narrow-width layout; it is the one failing check in
+  `mindmap-theme.js` at `VIEWPORT=390x844` ("the page itself does not scroll
+  sideways"). Worth an INBOX entry of its own.
+- **`wbMapNodeSize` and the rendered node disagreed by 94px at 390x844.**
+  Found by the corner-ring check in `mapstrip.js`: a pan computed to put a
+  node's centre at a chosen point landed it 47px (half of 94) to the left,
+  every time, at phone width only. The sweep corrects itself by measuring and
+  panning again, and records the drift; what it means is that some consumer
+  of that size (the layout, the edge anchors, the ring's own centring) is
+  working from a width the node does not have at that viewport. Reproduce
+  before theorising: it may be a render ordering rather than a wrong width.
+- **A map does not re-frame itself after a tidy**, which at 390 leaves the
+  trunk's own centre off the canvas (measured: the root's box at x=-95,
+  `elementFromPoint` at its centre returning the shell behind the canvas).
+  §12.0 says auto-arrange is a command and not a constant, so this is a
+  decision to make rather than a bug to fix: the honest options are to frame
+  after a tidy that pushed content off the canvas, or to leave it and rely on
+  Fit.
+
 - **The pan lag is now half-attributed.** The structural half was real and is
   fixed: `handleWbZoom` deferred the three layer transforms to
   `requestAnimationFrame` along with the per-frame work, and the transform is
@@ -136,15 +182,6 @@ driven from the UI in five runs.
   `--wb-grid-offset-*`, which repaints the container's background while the
   layers composite: moving the grid onto its own transformed layer is a
   separate change with its own measurement.
-- **A map's exports do not carry what the strip and the rings now set.**
-  `edge_label`, `edge_style`, `edge_dashed`, `bold`, `italic`, `icon` and
-  `link` all round-trip through the tree endpoint and the object PUT, and
-  none of them appears in the FreeMind `.mm` or OPML export. FreeMind has a
-  place for three of them (`LINK` on a node, `<font BOLD="true"/>`,
-  `<icon BUILTIN=.../>`) and OPML has `url`. §12.0 says a feature that cannot
-  round-trip is not built, so this is a real gap in what landed this run, and
-  the cheapest honest fix is `LINK` plus `<font>` in `_export_freemind` and
-  `url` in the OPML export.
 - **The two XML exports still recurse, and nothing bounds a map's depth.**
   Unchanged from the fourth run: `_export_opml` and `_export_freemind` walk
   the tree with a recursive helper while every other walk in that file is
@@ -155,12 +192,6 @@ driven from the UI in five runs.
   reason), transplant is one `/move` per child in the Ctrl case, and "open
   every folded branch" is one PUT per folded node. A bulk endpoint is the fix
   if any of them ever matters.
-- **The node radial and the link radial can open off-screen.** Both are
-  placed from a point (the node's centre, or the pointer) with no clamp to
-  the viewport, unlike `wbOpenContextMenuFor`, which clamps. A node near the
-  top or left edge of the canvas loses two or three slots. Not fixed because
-  it wants the same clamp the flat menu has, and that clamp reads
-  `getBoundingClientRect` on an element whose box is 0x0 here.
 - **A sweep's CSS overrides are silently refused, and the run looks
   successful** (the page's CSP is `style-src 'self'`). `el.style.x = ...`
   from `page.evaluate` is allowed and is how every number here was taken.
@@ -171,7 +202,13 @@ driven from the UI in five runs.
 
 ## What could not be verified
 
-- One viewport (1440x900, DPR 1) and light theme, for everything this run.
+- **The sixth run**: the exports were tested against their own importers and
+  against the shapes FreeMind and OPML document, never against FreeMind,
+  Freeplane, XMind, Coggle or MindMeister themselves, so "it opens there
+  looking the way it did" is reasoned from their formats, not observed. The
+  narrow pass is one viewport (390x844, DPR 1) and the dark pass one theme at
+  1440; nothing was seen at 1024, at DPR 2, or on a real touch device.
+- **The fifth run**: one viewport (1440x900, DPR 1) and light theme.
 - No real inference, and no AI map tool driven from the UI.
 - Touch: both radials' long-press paths and the mid-line `+` were written
   against `pointerType: "touch"` and never driven by a touch device.

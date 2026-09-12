@@ -21600,6 +21600,69 @@ set one, without it cascading to the first-level topics that start the
 palette.
 
 
+### From MINDMAP_PLAN.md, what the sixth run closed behind items 2 to 9
+
+Three things the run above left, in the order they cost a person something.
+
+1. **The exports did not carry anything those eight items set.** `bold`,
+   `italic`, `font_size`, `align`, `icon`, `link`, `edge_label`, `edge_style`
+   and `edge_dashed` round-tripped through the API and appeared in neither the
+   FreeMind `.mm` nor the OPML export, which §12.0 forbids by name ("a feature
+   that cannot round-trip is not built") and which made the one path built for
+   taking a map somewhere else a silent loss of everything a person had
+   styled. The tree endpoint hands a node's `style` back alongside its colour
+   now, so every reader of a map can see them, and each export writes each
+   field where that format honestly has room for it: FreeMind takes `LINK`,
+   `<font BOLD/ITALIC/SIZE>` and `<edge STYLE/COLOR>` in its own words (curve,
+   elbow and straight are its `bezier`, `horizontal` and `linear`; the node
+   colour goes on the edge, because FreeMind's node colour is its *text*
+   colour); OPML takes `url`, and deliberately not `type="link"`, which would
+   say the outline *is* a link and drop the children under it. What neither
+   format has a word for rides as a private attribute, the device `_kind` and
+   `_ref` have used here since these exports were written, with the reason
+   recorded per field in the code: FreeMind's `<icon BUILTIN>` is a closed
+   enumeration and this app's icons are Phosphor names, FreeMind has no label
+   on an edge and no dash on one, and neither format has a text alignment.
+   The Markdown export drops the lot on purpose: that format's promise is an
+   outline anybody can paste anywhere. Both imports read it all back,
+   validated field by field against the same Pydantic model the object PUT
+   uses, so a file from somewhere else cannot smuggle a class name or a
+   `javascript:` link through a door the API closes; a colour is held to a hex
+   literal there, stricter than the API, because that value is written into a
+   CSS custom property. Six tests, both directions.
+
+2. **Neither ring clamped to the viewport.** A map grows outward, so the
+   topics nearest an edge are the newest ones, and a ring around one of those
+   lost two or three of its eight slots off-screen: least reachable exactly
+   where it was most wanted. The whole ring slides inside the canvas rather
+   than the slots being rotated or reflected into the room that is left, and
+   the reason is geometry: a ring of eight slots at 45 degrees is its own
+   reflection in both axes and its own rotation by any multiple of 45, so
+   turning it changes nothing about which directions are covered, and the
+   22.5 degrees a rotation can buy is 19px of the 82px a cornered node needs,
+   at the price of moving every slot away from where it was learned. The bound
+   is the canvas minus the panels that float across it, because on screen is
+   not the same as reachable: the top bar covers 46px of the canvas and was
+   taking the clicks for a trunk near the top. Measured after the ring is
+   shown and off the slots rather than off the ring, the two orderings
+   `placeEscapedMenu` paid for: a rect inside a `display: none` ancestor is
+   all zeroes, and this ring's own box is deliberately 0x0 so that it cannot
+   cover the node it surrounds.
+
+3. **The first look at any of it in dark mode or at phone width.** The node
+   edit strip was 392px of controls in a 364px canvas at 390x844, standing
+   23px out of the window with its left edge already pinned by the clamp in
+   `wbUpdateSelectionBar`, which cannot help when the box is wider than the
+   room: it wraps now, two centred rows at 390, capped to the canvas minus its
+   gutters, and the single row it always was at any width that fits. Numbers:
+   mapstrip 37/37 at 1440 light, at 1440 dark and at 390; mapdock 26/26 at all
+   three, with a new check that the dock's 662px of controls stay reachable
+   (the panel scrolls at 390 and wraps at 1440); mindmap-theme 9/9 dark at
+   1440, with two new checks for these surfaces (strip glyphs 12.65:1 on their
+   tray, a ring slot's edge 3.16:1 against the canvas and its glyph 8.68:1).
+   `mapstrip.js` and `mapdock.js` take `VIEWPORT` now, as `mindmap-theme.js`
+   already did.
+
 ### From HANDOVER.md, at the 600-line ceiling
 
 ### The whole-app visual pass, 2026-09-09

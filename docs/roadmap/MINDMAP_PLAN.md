@@ -438,6 +438,14 @@ Gate: every action reachable by strip, radial and key (mindmap.js counts
 the three routes per action); an empty map recreates a root; 0 console
 errors; export/import round-trip of a map using every feature.
 
+**The gate's round-trip half is met** (2026-09-12, sixth run): everything the
+strip and the two rings write is in the FreeMind and OPML exports and comes
+back through both imports, and the two rings stay inside the canvas at any
+viewport. The account, including which field each format has an honest home
+for and which ride as private attributes, is in HISTORY.md ("Moved from the
+plans, 2026-09-12", "what the sixth run closed behind items 2 to 9"). What is
+still open of §12.1 is item 1's four dock menus and the six sub-items above.
+
 ### 12.2 Phase 6b, structure and richness (1 session)
 
 1. **Boundaries** (XMind): a shaded background shape around a branch or

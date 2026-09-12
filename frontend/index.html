@@ -764,11 +764,19 @@ Link to another note with [[its first few words]]."></textarea>
                the same thing. Attaching one here is the moment the connection
                is obvious; by the time the note is in a list it is forgotten. -->
           <div class="row capture-field-row">
-            <label for="entry-document" class="muted capture-field-label">Add to document</label>
-            <select id="entry-document" class="small-select"
-              title="Attach this note to a document you're writing">
-              <option value="">None</option>
-            </select>
+            <span class="muted capture-field-label" id="entry-document-label">Add to document</span>
+            <!-- **An adder, not a select** (INBOX 116, the owner: "fix the add
+                 to document combobox not changing"). A select shows the value
+                 it holds; this control holds none, because a note can go on
+                 several documents and each pick becomes a chip. The old
+                 select had to write `value = ""` on every change to stay
+                 honest about that, so it snapped back to "None" the instant
+                 you chose something, which is what "not changing" describes.
+                 A thing you pick and it acts is a menu (DESIGN.md's recipe
+                 index); a thing you pick and it holds a value is a select.
+                 `renderCaptureDocumentAdder` fills this with `labelledMenu`,
+                 the same shape "Attach" and "From library" have on this row. -->
+            <span id="entry-document-adder"></span>
             <span id="entry-document-chips" class="entry-meta"></span>
             <!-- Moved up from the "File under" row below (reported live: that
                  row was crowded: Save/Save as draft/Improve/Sketch/mic/Attach/
@@ -2356,7 +2364,14 @@ Link to another note with [[its first few words]]."></textarea>
                ids, so a note written tomorrow joins its group by itself. -->
           <div class="dock-menu-section" id="graph-groups-section" role="group" aria-labelledby="graph-groups-label">
             <span class="muted dock-menu-label" id="graph-groups-label">Groups</span>
-            <div class="graph-option-row graph-group-add-row">
+            <!-- Not a `.graph-option-row`: that recipe is "one setting, one
+                 row, what it is on the left and the control that changes it on
+                 the right", and this row makes a group rather than changing
+                 one. Wearing the class put an unlabelled 41.6px search box
+                 among ten labelled 30px settings, which `graph2.js` reported
+                 as three failures at once (two row heights, two label sizes,
+                 and a row whose control is left of a label it does not have). -->
+            <div class="graph-group-add-row">
               <input id="graph-group-query" type="search" placeholder="Search words, e.g. thesis"
                 aria-label="Words a note must match to join the group" autocomplete="off">
               <button id="graph-group-add" class="ghost small" type="button"

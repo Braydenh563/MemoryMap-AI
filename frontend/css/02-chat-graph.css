@@ -5128,10 +5128,17 @@ button.ghost.danger:hover {
 
 
 /* GRAPH_PLAN Phase 3: groups in the display options and the legend. */
+/* The form that makes a group, which is why it is not a `.graph-option-row`
+   (03-dashboard-widgets.css: that recipe is one setting, its name on the left
+   and its control on the right). It still stands on the same height scale, so
+   a form row reads as a different *kind* of row rather than as a row that got
+   away: `max(--control-h, --target-min)` is the same floor the settings rows
+   take, which on a phone is the 44px finger target. */
 .graph-group-add-row {
   display: flex;
   gap: var(--space-2);
   align-items: center;
+  min-height: max(var(--control-h), var(--target-min));
 }
 .graph-group-add-row > input {
   flex: 1 1 auto;

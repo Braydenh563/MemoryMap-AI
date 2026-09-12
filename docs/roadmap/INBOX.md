@@ -23,6 +23,19 @@ never lost to the smaller stuff.
 
 ## Open items
 
+118. **Fifth drop, 2026-09-12 evening, verbatim (the owner), with a
+    screenshot of six Library image cards.** "also redesign the bottom of
+    the images cards again as theyare still poorly designed and look
+    unprofessional". What the screenshot shows, read off it: each card is a
+    description paragraph of two to five lines, unclamped, so no two cards
+    are the same height and their bottoms do not align; under it a
+    full-width tinted disclosure reading "Used in 1 place · text found"
+    with a small triangle, which is the heaviest element on the card and
+    sets two unrelated facts (where it is used, and whether it has text) in
+    one control; and then dead space, most of a card's height on the
+    shortest three. Sent to the agent already redesigning these cards
+    rather than opened as a second pass.
+
 117. **Found by the orchestrator's hole-poking pass, 2026-09-12 evening,
     not an owner report.** Three list endpoints hand back the whole table.
     Measured with 300 rows of each seeded through the models: `/documents`

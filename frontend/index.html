@@ -4400,6 +4400,25 @@ Link to another note with [[its first few words]]."></textarea>
       <button type="button" id="wb-radial-reset" class="ghost small icon-only wb-map-radial-slot" title="Back to the branch: drop this topic's own colour, size, weight, alignment, icon and link" aria-label="Reset this topic to its branch"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
     </div>
 
+    <!-- **The link radial** (MINDMAP_PLAN.md §12.1 item 4): the same ring, on
+         the line rather than on the topic. A tree edge has no row of its own
+         (it *is* `parent_id`), so every slot here writes to the child, which
+         is the end with exactly one incoming line.
+
+         Right-click or hold the line. Coggle also opens the colour wheel on a
+         plain left-click; that is deliberately not copied, see the comment on
+         `wbWireMapEdgeGestures`. -->
+    <div id="wb-map-link-radial" class="wb-map-radial hidden" role="toolbar" aria-label="What you can do with this line">
+      <button type="button" id="wb-link-reverse" class="ghost small icon-only wb-map-radial-slot" title="Turn the line around: the topic below becomes the one above" aria-label="Turn this line around"><i class="ph ph-swap" aria-hidden="true"></i></button>
+      <button type="button" id="wb-link-label" class="ghost small icon-only wb-map-radial-slot" title="Label this line" aria-label="Label this line"><i class="ph ph-tag" aria-hidden="true"></i></button>
+      <button type="button" id="wb-link-curve" class="ghost small icon-only wb-map-radial-slot" title="Draw this line as a curve" aria-label="Draw this line as a curve"><i class="ph ph-bezier-curve" aria-hidden="true"></i></button>
+      <button type="button" id="wb-link-elbow" class="ghost small icon-only wb-map-radial-slot" title="Draw this line as an elbow" aria-label="Draw this line as an elbow"><i class="ph ph-arrow-elbow-right" aria-hidden="true"></i></button>
+      <button type="button" id="wb-link-straight" class="ghost small icon-only wb-map-radial-slot" title="Draw this line straight" aria-label="Draw this line straight"><i class="ph ph-minus" aria-hidden="true"></i></button>
+      <button type="button" id="wb-link-dashed" class="ghost small icon-only wb-map-radial-slot" title="Dash this line" aria-label="Dash this line" aria-pressed="false"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
+      <input type="color" id="wb-link-color" class="wb-color-picker wb-map-radial-slot" aria-label="The colour of this line and everything under it" title="The colour of this line and everything under it">
+      <button type="button" id="wb-link-cut" class="ghost small icon-only wb-map-radial-slot" title="Cut this line: the topic below becomes a trunk of its own" aria-label="Cut this line"><i class="ph ph-scissors" aria-hidden="true"></i></button>
+    </div>
+
     <!-- The navigator: a live minimap of the whole board with a draggable
          viewport rectangle. Anchored to the bottom-right corner of the canvas
          rather than to the zoom panel itself, because that panel is draggable

@@ -191,6 +191,12 @@ class WhiteboardObjectData(BaseModel):
     #: only thing that can carry its label is one of its two ends, and the
     #: child is the end that has exactly one incoming edge.
     edge_label: str | None = Field(default=None, max_length=80)
+    #: And how that line is drawn (§12.1 item 4, the link radial). Stored on
+    #: the child for the same reason as its label. `curve` is the default and
+    #: is what an unset value means, so a map made before these existed draws
+    #: exactly as it did.
+    edge_style: str | None = Field(default=None, pattern="^(curve|elbow|straight)$")
+    edge_dashed: bool | None = None
 
     @field_validator("link")
     @classmethod

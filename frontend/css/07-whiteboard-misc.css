@@ -8306,6 +8306,28 @@ input[type="file"] {
   --wb-radial-dy: calc(var(--wb-radial-diag) * -1);
 }
 
+/* The link ring's colour well is a slot like any other, and has to be the
+   same disc: an unstyled `input[type="color"]` on a ring would be the one
+   square in a circle of round buttons. */
+.wb-map-radial input[type="color"].wb-color-picker {
+  padding: 0;
+  margin: 0;
+  border: 2px solid var(--muted);
+  border-radius: 50%;
+  background: var(--card);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.wb-map-radial input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.wb-map-radial input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+
 /* Alt held: the two add slots are the two remove slots, so they say so. The
    app's own danger colour, on the button rather than only in the title,
    because a gesture that deletes a branch must not look like the one that
@@ -8402,6 +8424,29 @@ input[type="file"] {
   stroke-width: 2;
   stroke-linecap: round;
   opacity: 0.75;
+}
+
+/* **A line you can actually point at.** The drawn edge is 2px wide, which is
+   a target nobody can hit; so every edge is drawn twice, once visibly and once
+   as a transparent stroke wide enough to grab. Same technique as
+   `.sketch-hitbox` above, and the same reason. The group stays
+   `pointer-events: none` so the *visible* line is still inert; only this one
+   takes the pointer, and only on its stroke, so the area a curve encloses is
+   still canvas. */
+.wb-map-edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 16;
+  pointer-events: stroke;
+  cursor: context-menu;
+}
+
+/* Dashed, from the link radial. Deliberately a different dash from the
+   cross-link's below: a dashed *tree* edge is still part of the tree and says
+   "this connection is softer", while a cross-link is not part of the tree at
+   all. Two dash patterns is how the two stay distinguishable. */
+.wb-map-edge.wb-map-edge-dashed {
+  stroke-dasharray: 3 4;
 }
 
 /* A cross-link is the edge `parent_id` cannot express: a connection between

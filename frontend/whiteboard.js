@@ -3563,13 +3563,32 @@ function wbMapEdgeAnchors(parent, child, layout) {
 //: `wbUpdateLinkedSketches` warns about for link sketches.
 function wbMapEdgePathD(parent, child, layout) {
   const a = wbMapEdgeAnchors(parent, child, layout);
+  //: The line's own shape, from the link radial (§12.1 item 4). Read from the
+  //: *child*, which is the end of a tree edge that has exactly one incoming
+  //: line, and defaulting to the curve, so a map made before this existed
+  //: draws exactly as it did.
+  //:
+  //: All three share the anchors above, so switching between them cannot move
+  //: where a line meets a node: the difference is only what happens between
+  //: the two points. The elbow turns at the same midpoint the curve's control
+  //: points sit on, which is what keeps a column of siblings reading as one
+  //: branch in either style.
+  const style = child.data?.edge_style || "curve";
+  const mx = (a.x1 + a.x2) / 2;
+  const my = (a.y1 + a.y2) / 2;
+  if (style === "straight") return `M${a.x1} ${a.y1} L${a.x2} ${a.y2}`;
+  if (style === "elbow") {
+    return a.horizontal
+      ? `M${a.x1} ${a.y1} L${mx} ${a.y1} L${mx} ${a.y2} L${a.x2} ${a.y2}`
+      : `M${a.x1} ${a.y1} L${a.x1} ${my} L${a.x2} ${my} L${a.x2} ${a.y2}`;
+  }
   // Control points on the axis the edge leaves by, at half the span: the
   // curve leaves the parent square to its own edge and arrives square to
   // the child's, which is what makes a column of siblings read as one
   // branch rather than a fan of straight lines crossing each other.
   return a.horizontal
-    ? `M${a.x1} ${a.y1} C${(a.x1 + a.x2) / 2} ${a.y1} ${(a.x1 + a.x2) / 2} ${a.y2} ${a.x2} ${a.y2}`
-    : `M${a.x1} ${a.y1} C${a.x1} ${(a.y1 + a.y2) / 2} ${a.x2} ${(a.y1 + a.y2) / 2} ${a.x2} ${a.y2}`;
+    ? `M${a.x1} ${a.y1} C${mx} ${a.y1} ${mx} ${a.y2} ${a.x2} ${a.y2}`
+    : `M${a.x1} ${a.y1} C${a.x1} ${my} ${a.x2} ${my} ${a.x2} ${a.y2}`;
 }
 
 //: The tree edges touching `id` (its own edge up to its parent, and one per

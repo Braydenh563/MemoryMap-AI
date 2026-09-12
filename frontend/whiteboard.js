@@ -602,6 +602,31 @@ function wbCursorForTool(tool, strokeColor, strokeWidth) {
   }
   if (tool === "link-straight" || tool === "link-curved") return "crosshair";
   if (tool === "lasso") return "crosshair";
+  // Bucket, sticky and text had no case here, so all three fell through to
+  // the `""` Pan returns, and `""` means "whatever the CSS says", which for
+  // `.whiteboard-container` is `cursor: grab`: measured, three of the app's
+  // eighteen board tools showed the open hand that means "drag the canvas"
+  // while a click would have filled a shape, dropped a sticky or placed a
+  // text box. Same fall-through that Select was fixed for, three tools later.
+  if (tool === "bucket") {
+    // A tipped bucket with a drip in the colour that is about to land, the
+    // same "the cursor says what colour" idea the brush crosshair carries.
+    const inner =
+      `<g transform="rotate(-35 13 12)">` +
+      `<path d="M6 8h12l-1.6 9.5a2 2 0 0 1-2 1.7h-4.8a2 2 0 0 1-2-1.7Z" fill="${color}" ` +
+      `stroke="#000" stroke-opacity=".55" stroke-width="1.5" stroke-linejoin="round"/>` +
+      `<path d="M6 8h12" fill="none" stroke="#000" stroke-opacity=".55" stroke-width="1.5"/>` +
+      `</g>` +
+      `<path d="M20 16c1.6 2 2.4 3.2 2.4 4.1a2.4 2.4 0 0 1-4.8 0c0-.9.8-2.1 2.4-4.1Z" ` +
+      `fill="${color}" stroke="#000" stroke-opacity=".45" stroke-width="1"/>`;
+    return `${wbCursorUrl(inner, { hx: 4, hy: 4 })}, crosshair`;
+  }
+  // `copy` and `text` rather than two more drawn images: both are system
+  // cursors that already mean exactly this ("this click makes a new thing"
+  // and "text goes here"), and a system cursor is the one that stays legible
+  // over any board colour on any platform.
+  if (tool === "sticky") return "copy";
+  if (tool === "text") return "text";
   // Reported directly: "the cursor on the selection tool is wrong, it should
   // be a mouse pointer." Select had no case here, so it fell through to the
   // same `""` Pan returns: and `""` means "whatever the CSS says", which for

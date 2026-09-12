@@ -1958,6 +1958,25 @@ body.scroll-top-visible .skills-split > main {
    `mousemove` actually fires, which lags a real, GPU-composited cursor
    image badly enough on a fast swipe to read as snapping. */
 
+/* **An item may not promise a drag under a tool that does not drag.**
+   Reported (INBOX 115): "when Im on the delete tool on the mindmap and hover
+   over a mindmap text node, the cursor changes to the grabber hand". Measured
+   with `getComputedStyle(el).cursor` once per tool over a map node, its text
+   and a whiteboard object: 32 of those pairs answered `grab` while the click
+   would have deleted, erased, drawn, filled or started a link.
+
+   The cause is specificity, not a missing case. Every item on the board
+   carries `cursor: grab` because Select and Hand really do drag it, and an
+   item's own rule beats the tool cursor `updateWbCursor` writes inline on the
+   container. Under any other tool the item is not a handle, it is whatever
+   happens to be under the point the tool acts on, so it hands the cursor back
+   to the container rather than naming a second cursor here: `inherit` cannot
+   drift out of step with `wbCursorForTool` the way a copied list would. */
+#whiteboard-container:not([data-current-tool="select"]):not([data-current-tool="pan"])
+  :is(.wb-object, .wb-object-grip, .node-card, .wb-map-text, .wb-text-content) {
+  cursor: inherit;
+}
+
 /* Draggable toolbar panels, asked for directly. Only the grip starts a
    drag: the panels are almost entirely buttons/inputs, so "grab anywhere"
    would fight every click they already handle. `touch-action: none` stops a

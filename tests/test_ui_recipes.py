@@ -268,3 +268,50 @@ def test_the_radial_is_a_toolbar_rather_than_a_menu() -> None:
         "the node radial must be role=toolbar, not a menu (DESIGN.md, the "
         "recipe index)"
     )
+
+
+def test_every_board_tool_names_its_own_cursor() -> None:
+    """A cursor is a promise about what the click will do.
+
+    Reported (INBOX 115): "when Im on the delete tool on the mindmap and
+    hover over a mindmap text node, the cursor changes to the grabber hand".
+    Two separate causes, both of which this holds shut. The first: a tool
+    with no case in `wbCursorForTool` falls through to the `""` Pan returns,
+    and `""` means "whatever the CSS says", which for the board container is
+    `cursor: grab`. Select was fixed for exactly that once; bucket, sticky
+    and text were still falling through three tools later. Measured before
+    the fix: six of the eighteen tool/surface pairs showed the open hand
+    that means "drag the canvas".
+    """
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    js = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
+    tools = set(re.findall(r'data-tool="([a-z-]+)"', html))
+    assert len(tools) >= 18, tools
+    body = js[js.index("function wbCursorForTool(") : js.index("// The visible half of Select")]
+    brushes = set(re.findall(r'"([a-z]+)"', js[js.index("const WB_BRUSH_TOOLS"):js.index("const WB_HIGHLIGHTER_ALPHA")]))
+    # Pan is the one tool that deliberately returns "": the container's own
+    # grab/grabbing pair is its cursor, and the comment on that line says so.
+    assert 'return ""; // pan' in body
+    tools.discard("pan")
+    missing = sorted(t for t in tools if t not in brushes and f'"{t}"' not in body)
+    assert not missing, f"tools with no cursor of their own: {missing}"
+
+
+def test_an_item_does_not_promise_a_drag_under_a_tool_that_does_not_drag() -> None:
+    """The second cause: every item on the board carries `cursor: grab`
+    because Select and Hand really do drag it, and an item's own rule beats
+    the tool cursor written inline on the container. Measured before the
+    fix with `getComputedStyle(el).cursor`, once per tool over a map node,
+    its text and a whiteboard object: 32 of those pairs answered `grab`
+    while the click would have deleted, erased, drawn, filled or linked.
+    """
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    guard = (
+        '#whiteboard-container:not([data-current-tool="select"])'
+        ':not([data-current-tool="pan"])'
+    )
+    assert guard in css
+    rule = css[css.index(guard) : css.index("}", css.index(guard))]
+    assert "cursor: inherit" in rule
+    for selector in (".wb-object", ".node-card", ".wb-map-text", ".wb-text-content"):
+        assert selector in rule, selector

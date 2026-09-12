@@ -60,10 +60,11 @@ function ok(name, condition, detail) {
   await page.waitForTimeout(2500);
   await page.evaluate(() => setDocView("live"));
   await page.waitForTimeout(900);
-  // The caret starts at offset 0, which is *on* the heading line, and a
-  // marker on the caret's line is revealed by design. Moved to the end first,
-  // so what is measured below is the resting state a reader sees.
-  await page.evaluate(() => docSurface().setSelection(docSurface().text.length));
+  // The resting state a reader sees: nothing focused, so nothing revealed.
+  // This used to need the caret moved off the first line, because the caret
+  // sits at offset 0 in a document nobody has touched and a marker on the
+  // caret's line is revealed by design; markers are now down entirely while
+  // the editor is not focused, which is the case this measures.
   await page.waitForTimeout(400);
 
   const count = (selector) => page.evaluate((s) => document.querySelectorAll(s).length, selector);
@@ -104,9 +105,12 @@ function ok(name, condition, detail) {
     !(await page.evaluate(() => document.querySelector("#doc-editor .cm-md-strong").textContent.includes("*")))
   );
 
-  // The caret reveals the markers on the range it enters.
+  // The caret reveals the markers on the range it enters. Focused first,
+  // because that is what putting a caret somewhere means: a scripted
+  // selection on an editor nobody is in is not a reader looking at a word.
   const revealed = await page.evaluate(() => {
     const at = docSurface().text.indexOf("bold") + 1;
+    docSurface().focus();
     docSurface().setSelection(at, at);
     return new Promise((resolve) =>
       requestAnimationFrame(() =>
@@ -149,8 +153,12 @@ function ok(name, condition, detail) {
       first: menu?.querySelector(".doc-suggest-item")?.textContent?.trim(),
     };
   });
+  // "sentance" is the first flagged word in the document and the dictionary's
+  // nearest real word to it is "sentence". Before the word list landed the
+  // first flag was "teh", from the 42-entry table; the check is the same one,
+  // against what the checker actually knows now.
   ok("clicking an underlined word opens its suggestions, at the word",
-    suggest.open && suggest.anchored && /the/.test(suggest.first || ""), JSON.stringify(suggest));
+    suggest.open && suggest.anchored && /sentence/.test(suggest.first || ""), JSON.stringify(suggest));
   await page.keyboard.press("Escape");
   await page.waitForTimeout(300);
 

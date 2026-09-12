@@ -2108,7 +2108,16 @@ function docLivePlugin(CM) {
     const doc = state.doc;
     const sel = state.selection.main;
     const ranges = [];
-    const touched = (from, to) => sel.from <= to && sel.to >= from;
+    //: **Nothing is revealed while the editor is not focused.** A selection
+    //: exists whether or not anyone is in the editor, and a document just
+    //: opened has one at offset 0, which is almost always the title heading:
+    //: so every document opened with the rendered view on showed its first
+    //: line's "#" before the reader had touched anything. The owner's
+    //: sentence is "md formatting should go invisible unless i click back on
+    //: that word or section", and an untouched document is the one case where
+    //: nobody has clicked on anything at all.
+    const focused = view.hasFocus;
+    const touched = (from, to) => focused && sel.from <= to && sel.to >= from;
     const lineTouched = (pos) => {
       const line = doc.lineAt(pos);
       return touched(line.from, line.to);
@@ -2375,8 +2384,12 @@ function docLivePlugin(CM) {
       update(update) {
         //: Selection as well as document and viewport: the whole idea of this
         //: view is that markers appear when the caret enters what they mark,
-        //: so a caret move is a repaint.
-        if (update.docChanged || update.viewportChanged || update.selectionSet) {
+        //: so a caret move is a repaint. Focus too, since the markers are
+        //: down entirely while the editor is not focused (`focused` in
+        //: `build`): without this the reveal would wait for the first caret
+        //: move after a click rather than happening on the click.
+        if (update.docChanged || update.viewportChanged || update.selectionSet
+            || update.focusChanged) {
           this.decorations = build(update.view);
         }
       }
@@ -4779,7 +4792,8 @@ const DOC_WORDLIST_URL = "/vendor/wordlist/en.txt";
 //: the licence notice beside it keeps describing its contents.
 const DOC_EXTRA_WORDS = [
   "apis", "async", "auth", "autocomplete", "autocorrect", "autosave", "autosaved",
-  "backend", "changelog", "chatbot", "config", "configs", "csv", "dockerfile",
+  "backend", "callout", "callouts", "changelog", "chatbot", "config", "configs",
+  "csv", "dockerfile",
   "downvote", "dropdown", "dropdowns", "embeddings", "enum", "filepath",
   "frontend", "fullstack", "gitlab", "golang", "https", "iterable", "json",
   "kanban", "kubernetes", "linter", "localhost", "memorymap", "mindmap",
@@ -5021,6 +5035,10 @@ const DOC_PROSE_SKIP = [
   /^\[[^\]\n]+\]:\s*\S+/gm, // a reference link's definition
   /<\/?[A-Za-z][^>\n]*>/g, // an html tag
   /\[\[[^\]\n]*\]\]/g, // a note link: the title is a name, not prose
+  //: A callout's own marker. `> [!note]` is syntax, and the space before its
+  //: "!" was being reported as a space before punctuation on every callout in
+  //: every document.
+  /^[ \t]*>[ \t]*\[![A-Za-z]+\]/gm,
   /^---\n[\s\S]*?\n---/g, // frontmatter
 ];
 

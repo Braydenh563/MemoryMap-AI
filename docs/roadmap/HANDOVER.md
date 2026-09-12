@@ -493,6 +493,23 @@ line that carried a dash.
 - The Bash tool times out at 120s; `errors.js` needs the background flag.
 - CodeQL reads `scratchpad/` too: lazy `.*?` regexes over argv paths,
   unclosed `open()`, and case-sensitive tag filters were all flagged there.
+- **A CSS or JS file changed on disk is not re-served to the next sweep
+  until the server process restarts.** Local assets are stamped
+  `?v=<version>-<boot token>` and served as immutable for that stamp, and
+  the boot token is fixed once per uvicorn process, so a second browser run
+  against the same server can be handed the bytes the first run fetched.
+  Cost an hour here: a fix measured correct, then reverted to check the new
+  guard, and the guard stayed green because the browser was still being
+  served the fixed file. Restart the server between a CSS change and the
+  sweep that judges it, exactly as a Python change already requires.
+- A sweep only knows about what it is pointed at. `touch.js` reported
+  "PASS, 0 findings" for a month over three surfaces out of sixteen, and
+  the thirteen it had never opened were holding 33 findings, one of them
+  the whole page sliding 7px sideways on every tab at 390.
+- `elementFromPoint` at a point outside the viewport returns null, so a hit
+  test that does not scroll the control into view first reports every
+  control below the fold, and every one in a sideways-scrolling strip, as
+  "covered". Fifteen such lines in one run were all this.
 
 ---
 

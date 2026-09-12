@@ -4078,3 +4078,31 @@ button.ghost.doc-template-choice:focus-visible {
     display: none;
   }
 }
+
+/* --- and inside a small phone --------------------------------------------
+   The block above buys the 390px class of phone 30px of headroom. A 360 or a
+   320 does not have it: measured with the tighter gaps already in place,
+   `document.documentElement.scrollWidth` is 361 in 360 and 361 in 320, and
+   the overflowing child is `.header-controls` both times. 236px of buttons
+   plus the 65px space switcher plus the 34px mark cannot be made to fit in
+   320 by spacing alone, so something has to leave the row.
+
+   The mark leaves, and it is the only thing in the header that can: it
+   carries `alt=""` and `aria-hidden="true"`, so it is decoration by its own
+   declaration, while every other item is a control or the workspace you are
+   in. The wordmark beside it has been hidden below 720 for the same reason
+   and much longer.
+
+   Measured after: 321 in 360, and 314.6 in 320 with the narrower padding
+   below, so both clear. UI_MODERNISATION_PLAN Phase 11 still replaces all of
+   this with a top bar of the title, the AI dot and one action. */
+@media (max-width: 400px) {
+
+  #top-bar #brand-logo {
+    display: none;
+  }
+
+  header#top-bar {
+    --header-pad-x: var(--space-4);
+  }
+}

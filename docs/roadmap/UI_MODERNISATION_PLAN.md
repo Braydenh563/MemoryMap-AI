@@ -553,7 +553,18 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
 9. **Touch.** 44px targets everywhere below 820 (Phase 9's token step
    holds), no hover-only affordance (every hover state has a tap
    equivalent), long-press replaces right-click app-wide.
-10. **Gates.** A phone sweep (`scratchpad/ui-sweeps/phone.js`) at 390 x 844
+10. **The status bar at 320.** Measured 2026-09-12, after the header was
+    made to fit: at 320 x 844 the page still scrolls sideways, 355 in 320,
+    and the header is no longer the cause. `#status-redo` ends at x=330 and
+    `#status-agent` at x=355, and a toast at x=339. The bar has a declared
+    height (`--status-bar-h`), so it cannot simply wrap; the choice is a
+    sideways scroller with the edge fade the tab strip already uses, or the
+    same "one action, the rest in a sheet" answer this phase gives the top
+    bar. 360 and every width above it are clean (measured 320, 360, 390,
+    414, 480, 600, 640, 768, 820, 900, 1024), so this is the small-phone
+    band alone.
+
+11. **Gates.** A phone sweep (`scratchpad/ui-sweeps/phone.js`) at 390 x 844
     and 430 x 932 per tab: no horizontal scroll, no control under 44px,
     the primary action within the lower 40% of the screen, the composer
     above a simulated keyboard, every desktop action reachable in at most

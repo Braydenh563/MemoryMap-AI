@@ -3665,7 +3665,9 @@ async function openEntryHistory(entry) {
   current.append(currentHead, currentBody);
   list.appendChild(current);
 
-  for (const item of events) {
+  // The row every event renders as. A function rather than a loop body
+  // because a second page of events is rendered by the same code, below.
+  const eventRow = (item) => {
     const row = document.createElement("div");
     row.className = "history-entry";
     const head = document.createElement("p");
@@ -3694,8 +3696,88 @@ async function openEntryHistory(entry) {
         );
       }
     }
-    list.appendChild(row);
-  }
+    return row;
+  };
+
+  // **Paging, and saying what is on screen.** `GET /entries/{id}/history`
+  // returns at most `HISTORY_PAGE` (fifty) events and a `next_cursor` for
+  // what is older than the oldest of them. This sheet used to read the first
+  // page and drop the cursor, so a note edited more than fifty times showed
+  // its newest fifty and looked like the whole history: silent truncation,
+  // which is worse than a short list, because nothing on screen says the
+  // rest exists and a version that is still there reads as lost. The row
+  // below is both halves of the fix: it counts what is shown and it fetches
+  // the next page.
+  let shown = 0;
+  let paged = false;  // whether "load older" has been pressed at least once
+  let cursor = history?.next_cursor || null;
+
+  // The control sits at the bottom of the events and stays there: the pages
+  // that follow are inserted above it, so the list stays in newest-first
+  // order however many times it is pressed.
+  const more = document.createElement("div");
+  more.className = "history-entry";
+
+  const addEvents = (items) => {
+    for (const item of items) {
+      list.insertBefore(eventRow(item), more);
+      shown += 1;
+    }
+  };
+
+  const loadOlder = async () => {
+    if (!cursor) return;
+    const at = cursor;
+    cursor = null;  // so a second press while this one is in flight is a no-op
+    renderMore(true);
+    let page;
+    try {
+      page = await apiJson(`/entries/${entry.id}/history?before=${at}`);
+    } catch (error) {
+      cursor = at;
+      renderMore();
+      $("history-status").classList.add("error");
+      $("history-status").textContent = error.message;
+      return;
+    }
+    addEvents(page?.items || []);
+    paged = true;
+    cursor = page?.next_cursor || null;
+    renderMore();
+  };
+
+  const renderMore = (loading = false) => {
+    more.replaceChildren();
+    // A history that fits in one page says nothing extra: the row exists to
+    // answer "is this all of it?", and on a note with a dozen changes the
+    // list already answers that by ending.
+    more.classList.toggle("hidden", !cursor && !loading && !paged);
+    const note = document.createElement("p");
+    note.className = "muted";
+    if (cursor || loading) {
+      // Plain about what it is: the count is what is on screen, not a
+      // guess at the total, which the route does not send and which
+      // counting would cost a second query to know.
+      note.textContent = `Showing the ${shown} most recent changes to this note.`;
+    } else if (paged) {
+      note.textContent = `That is all ${shown} changes to this note.`;
+    }
+    more.appendChild(note);
+    if (cursor) {
+      more.appendChild(
+        smallButton("ph:clock-counter-clockwise Load older changes", "Load the next page of this note's history", loadOlder)
+      );
+    } else if (loading) {
+      const wait = document.createElement("p");
+      wait.className = "muted";
+      wait.textContent = "Loading older changes.";
+      more.appendChild(wait);
+    }
+  };
+
+  list.appendChild(more);
+  addEvents(events);
+  renderMore();
 
   // The snapshots are the same versions the events already show, one row
   // earlier, so they are only worth rendering for a note whose edits predate

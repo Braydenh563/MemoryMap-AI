@@ -144,3 +144,34 @@ def test_the_events_view_is_there_too(client):
     assert {item["actor"] for item in body["items"]} == {"user"}
     assert body["next_cursor"] is None
     assert [revision["content"] for revision in body["revisions"]] == ["written once"]
+
+
+def test_a_long_history_pages_and_says_so(client):
+    """A note edited past one page hands back a cursor, and the next page
+    continues from it without repeating or skipping an event.
+
+    The sheet in `frontend/app.js` reads both: before this was wired up it
+    took the first page and dropped the cursor, so a note with more changes
+    than one page showed its newest fifty and looked complete.
+    """
+    from memorymap.api.routes_entries import HISTORY_PAGE
+
+    entry = _make(client, "edit 0")
+    for i in range(1, HISTORY_PAGE + 10):
+        client.put(f"/entries/{entry['id']}", json={"content": f"edit {i}"})
+
+    first = client.get(f"/entries/{entry['id']}/history").json()
+    assert len(first["items"]) == HISTORY_PAGE
+    assert first["next_cursor"] == first["items"][-1]["id"]
+
+    second = client.get(
+        f"/entries/{entry['id']}/history?before={first['next_cursor']}"
+    ).json()
+    assert second["items"], "the cursor pointed at nothing"
+    ids = [item["id"] for item in first["items"] + second["items"]]
+    assert len(ids) == len(set(ids)), "a page repeated an event"
+    assert ids == sorted(ids, reverse=True), "the pages are not one newest-first list"
+    # The oldest page ends at the note being created, and there is nothing
+    # older than that to ask for.
+    assert second["items"][-1]["action"] == "created"
+    assert second["next_cursor"] is None

@@ -47,7 +47,14 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   tests/test_docs_layout.py tests/test_asset_cache_busting.py tests/test_no_em_dashes.py
   tests/test_no_innerhtml_interpolation.py tests/test_markdown_link_schemes.py
   tests/test_frontend_load_order.py tests/test_ui_recipes.py tests/test_perf_mode.py
-  tests/test_plan_hygiene.py tests/test_readme_freshness.py tests/test_vendor_licences.py)
+  tests/test_plan_hygiene.py tests/test_readme_freshness.py tests/test_vendor_licences.py
+  # Mirror drift (docs/CHANGELOG.md and friends) belongs here rather than in
+  # --changed: the file that goes stale is a `.md` at the repo root, and the
+  # changed-test heuristic matches on a test naming a changed *source* file, so
+  # it never selects this one. A full local run caught six edits' worth of
+  # drift on 2026-09-12 that every `--changed` gate that day had passed. One
+  # second.
+  tests/test_docs_site.py)
 step lints "$PY" -m pytest -q -p no:warnings "${LINTS[@]}"
 node_check() { local bad=0; for f in frontend/*.js; do node --check "$f" || bad=1; done; return $bad; }
 step node-check node_check

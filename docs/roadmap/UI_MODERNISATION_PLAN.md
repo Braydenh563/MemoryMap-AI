@@ -268,6 +268,43 @@ restacking it.
   states; the "Used in" chips open the note they name; the kebab acts. A row
   that draws all three the same way is the report this decision answers.
 
+### Decided, 2026-09-12 — what the bottom of a picture card is (do not remake)
+
+From INBOX 115 ("the bottom of the image cards in the library images
+subsaection needs a desperate redesign and funection") and INBOX 118 after the
+first pass ("still poorly designed and look unprofessional"). The Files row
+decision above settles a row; this settles the card, which is a different
+shape and was being restacked every pass.
+
+- **The card is a picture and one paragraph about it.** Its name is on the
+  photograph, its description under it, clamped to two lines, and nothing else
+  is a permanent row. A card with nothing in it is short.
+- **A fact is a line of text, a disclosure is a control, and neither is the
+  other.** Where the picture is used is a count you read (`Used in 2 places`,
+  the smallest type on the card, no ground, nothing to press). Whether text
+  was found in it is a fold, present only when something is folded. One
+  control holding both is what INBOX 118 called unprofessional.
+- **Everything you can do to a picture is a row of the card's kebab**, not a
+  control on it: open full size, copy the markdown reference, write a
+  description, type the text in it, rename, save a copy, the two AI readers,
+  and one row per place it is used. Two to three controls on a card at rest,
+  against nine to ten before this work.
+- **The grid wants equal heights, and the photograph pays for them.** The tile
+  is a column, the frame is the one child that grows, with a 9rem floor and a
+  16rem ceiling. Measured on six seeded cards at 1440: 261.5px each, bottoms
+  within 0.1px, pictures 144 to 249.9px, and 1.0px of slack under the
+  emptiest card against 54.5px before. The cost, and it is the accepted one:
+  the six descriptions start at six different heights, because the only other
+  places to put the difference are a hole under the short cards (what the
+  owner reported) or reserved empty rows (what the owner reported first).
+- **Provenance is inside the fold**, with the reading it describes. "Described
+  by X, read by Y" has been called noise twice (INBOX 56 and the second design
+  batch) and is not coming back to the outside of the card.
+
+Built in `75a1d62` and `65cf876`; probed by `scratchpad/ui-sweeps/imagecardfoot.js`
+(shape and, with `pixelcontrast.py`, contrast from the rendered pixels) and
+`imagecardmenu.js` (the menu rows, run rather than assumed).
+
 ## Phase 8 — control docks: one grammar for every tab's head (2 sessions)
 
 **The instruction, verbatim** (after Phases 0–7 were built):

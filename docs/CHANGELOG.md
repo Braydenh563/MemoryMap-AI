@@ -9,6 +9,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The whiteboard's tool rail says which key holds each tool, and shows the
+  ink it will draw with. Every tool now names its key in its tooltip (the
+  sticky note is N, the two connectors are C and Shift+C, the image is I),
+  each of those keys picks that tool, and a swatch at the end of the rail
+  shows the pen's colour and opens the picker without having to open the
+  properties drawer to find out what colour is loaded. The board overview
+  moved from N to Shift+N, which is the letter it had taken from the sticky.
+
 - Three notes a day that are slipping out of reach. A note you wrote months
   ago, linked to nothing and never opened since, is the one thing a notebook
   can give you that a pile of files cannot, and until now nothing in the app

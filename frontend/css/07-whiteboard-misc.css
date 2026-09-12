@@ -10411,3 +10411,79 @@ header#top-bar {
   padding-left: 0;
   padding-right: 0;
 }
+
+/* --- the tool rail (WHITEBOARD_PLAN.md Phase 1, decision 1) ----------------
+   `.wb-rail` is a name for a recipe that was already mostly here rather than a
+   fifth way of drawing a bar: one `.card.glass` panel, `.wb-tool-section`
+   groups separated by a `--divider` hairline (06-timeline-dialogs.css), ghost
+   buttons at one control height with no resting fill and no border of their
+   own except the active tool's (the one-surface rules above, INBOX 52 and 65).
+
+   What this block adds is the part Phase 1 was missing: the ink swatch's own
+   shape, and the statement of the rule in a selector a lint can see. Measured
+   before it, at 1440 with a board open (`scratchpad/ui-sweeps/whiteboard.js`):
+   27 buttons, all 36px, one painted surface, zero painted borders, and no
+   swatch at all. */
+.wb-rail .wb-tool-section-row {
+  /* The swatch is an `<input>` among buttons; without this it sits on the
+     text baseline of the row rather than on the buttons' centre line. */
+  align-items: center;
+}
+
+/* The swatch reads as the pen's nib: a round well of the colour with the same
+   ring `#wb-color-picker` has worn since the board panel first had one, so the
+   two places this one setting appears look like the same control. The ring is
+   what keeps a white ink from being a hole in the rail. */
+#wb-rail-ink {
+  /* Transparent, like `#wb-color-picker`: the value is painted by
+     `::-webkit-color-swatch` below, so the element's own background would be
+     a second surface inside the rail and nothing but a UA default. The sweep
+     counts painted backgrounds in the rail for exactly that reason. */
+  background: transparent;
+  width: var(--target-min);
+  height: var(--target-min);
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+  padding: 0;
+  border: 2px solid var(--muted);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--field-inset);
+  cursor: pointer;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+#wb-rail-ink:hover,
+#wb-rail-ink:focus-visible {
+  border-color: var(--accent);
+}
+
+#wb-rail-ink::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+#wb-rail-ink::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+
+/* --- the Library tab's floating action is not the whiteboard's -------------
+   Found while measuring the rail's ink swatch at 390x844: the swatch read
+   `3a53ca` from y=692 down instead of the ink colour, and `elementFromPoint`
+   at its centre returned `BUTTON#library-new-doc.dock-fab`. "New document" is
+   the Library *tab's* one filled action, and `floatPrimaryActions` (app.js)
+   moves it out to `.tab-page` on a phone precisely so it is hidden with its
+   tab. But this tab has four sub-tabs, and on the Whiteboards one the button
+   makes nothing: it floats bottom-right, which is where this board keeps its
+   tool rail and its zoom cluster, and it covered the last group of both.
+
+   Hidden rather than moved, so the Notes/Images/Files sub-tabs keep the
+   action exactly where Phase 9 put it. `:has()` rather than a JS toggle
+   because which sub-tab is showing is already written in the DOM and a second
+   mechanism would be a second thing to keep in step. */
+@media (max-width: 599.98px) {
+  .tab-page:has(#library-view-whiteboard:not(.hidden)) > .dock-fab {
+    display: none;
+  }
+}

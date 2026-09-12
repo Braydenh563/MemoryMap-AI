@@ -8834,13 +8834,29 @@ async function initWhiteboard() {
     });
   }
 
-  if (colorPicker) {
-    colorPicker.value = window.currentStrokeColor;
-    colorPicker.addEventListener("change", (e) => {
-      window.currentStrokeColor = e.target.value;
-      localStorage.setItem("wb-stroke-color", e.target.value);
-      updateWbCursor();
-    });
+  // **The ink swatch on the rail, and the drawer's picker, are one setting in
+  // two places** (WHITEBOARD_PLAN.md decision 1). Whichever is used, both move
+  // and the cursor is redrawn, so the rail can be read with the drawer shut
+  // and the drawer can never show a colour the pen is not using.
+  //
+  // `input` as well as `change`: a native colour picker fires `input`
+  // continuously while a colour is being dragged and `change` once at the end,
+  // and a swatch that only catches up when the dialog closes is exactly the
+  // "does this control do anything" read this group exists to fix.
+  const railInk = document.getElementById("wb-rail-ink");
+  function wbSyncRailInk(value, from) {
+    window.currentStrokeColor = value;
+    localStorage.setItem("wb-stroke-color", value);
+    if (colorPicker && from !== colorPicker) colorPicker.value = value;
+    if (railInk && from !== railInk) railInk.value = value;
+    updateWbCursor();
+  }
+  for (const input of [colorPicker, railInk]) {
+    if (!input) continue;
+    input.value = window.currentStrokeColor;
+    for (const type of ["input", "change"]) {
+      input.addEventListener(type, (e) => wbSyncRailInk(e.target.value, e.target));
+    }
   }
 
   if (undoBtn) {
@@ -8882,6 +8898,26 @@ async function initWhiteboard() {
     e: "eraser",
     b: "bucket",
     x: "delete",
+    // WHITEBOARD_PLAN.md decision 8 names N for the sticky and C for the
+    // connector; both were tools with no key at all, which the Phase 1 sweep
+    // measured ("18 tools, 3 without a key"). The board has *two* connectors
+    // and the decision names one letter, so the second takes the shifted form
+    // of the same letter (recorded in INBOX with its recommendation rather
+    // than decided here; see `WB_TOOL_SHIFT_KEYS` below).
+    n: "sticky",
+    c: "link-straight",
+  };
+  // Shift + the same letter, for the second tool of a pair. One table rather
+  // than an `if` beside the dispatch, so a third pair cannot be added in a
+  // different shape.
+  const WB_TOOL_SHIFT_KEYS = {
+    c: "link-curved",
+  };
+  // Keys that press a button rather than pick a tool: uploading an image is an
+  // action with a file dialog behind it, not a mode you hold. Declared on the
+  // markup (`data-wb-key`) so the sweep reads the same source the tooltip does.
+  const WB_ACTION_KEYS = {
+    i: "wb-add-image",
   };
   // Held space = pan, from whatever tool you are holding. The flag is read by
   // `wbZoomFilter`; nothing about the active tool changes, so releasing space
@@ -8944,10 +8980,19 @@ async function initWhiteboard() {
       && (tag === "input" || tag === "textarea" || active.isContentEditable)
       && active.offsetParent !== null;
     if (typing) return;
-    // Bare "n" for the overview, matching the single-letter tool keys this
-    // board already uses (V/S/P/R/O...). Modifier chords are left alone so
-    // Ctrl+N still opens a browser window.
-    if ((e.key === "n" || e.key === "N") && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    // **Shift+N for the overview, because bare N is the sticky note**
+    // (WHITEBOARD_PLAN.md decision 8). This took the bare letter first,
+    // "matching the single-letter tool keys this board already uses", and the
+    // plan then gave that letter to a tool, which is the collision the Phase 1
+    // sweep found: N selected nothing and opened the overview instead. Same
+    // letter shifted rather than a third letter invented, the same shape the
+    // second connector takes on Shift+C. Modifier chords are still left alone
+    // so Ctrl+N opens a browser window.
+    // `e.shiftKey` plus the lower-cased letter, not `e.key === "N"`: a real
+    // keyboard reports the shifted letter as "N", but not every source does
+    // (Playwright's own `Shift+n` sends shiftKey with key "n"), and the rest
+    // of this handler already reads letters the lower-cased way.
+    if (e.shiftKey && e.key.toLowerCase() === "n" && !e.ctrlKey && !e.metaKey && !e.altKey) {
       e.preventDefault();
       wbToggleNavigator();
       return;
@@ -9022,7 +9067,12 @@ async function initWhiteboard() {
       //: C folds and unfolds the selected branch, the canvas-focused half of
       //: the Space decision above. A letter rather than a modifier chord
       //: because it sits beside the map's other bare keys (Tab, Enter, F,
-      //: the arrows) and `c` is not a tool key on this board.
+      //: the arrows). `c` became the connector's key on a *board*
+      //: (WHITEBOARD_PLAN decision 8, `WB_TOOL_KEYS`), and Connect is one of
+      //: the three sections a map keeps. The two never collide because this
+      //: branch runs only with a map node selected and returns: with a topic
+      //: in hand C folds it, with nothing selected C reaches for the
+      //: cross-link, which is the only thing C could usefully mean there.
       if ((e.key === "c" || e.key === "C") && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
         wbMapToggleCollapse(mapNode.id);
@@ -9177,10 +9227,24 @@ async function initWhiteboard() {
         return;
       }
     }
-    const mapped = WB_TOOL_KEYS[e.key.toLowerCase()];
+    const letter = e.key.toLowerCase();
+    // Shift first: `e.key` for Shift+C is "C", which lower-cases onto the
+    // unshifted tool, so reading the shift table second would make the two
+    // connectors unreachable from each other.
+    // A shifted letter with no pair still picks the unshifted tool, which is
+    // what it did before this table existed: Shift+P has always been the pen.
+    const mapped = (e.shiftKey && WB_TOOL_SHIFT_KEYS[letter]) || WB_TOOL_KEYS[letter];
     if (mapped) {
       if (mapped !== "select") clearWbSelection(); // switching away from Select drops it
       selectWbTool(mapped);
+      return;
+    }
+    if (WB_ACTION_KEYS[letter]) {
+      const btn = document.getElementById(WB_ACTION_KEYS[letter]);
+      if (btn) {
+        e.preventDefault();
+        btn.click();
+      }
     }
   });
 

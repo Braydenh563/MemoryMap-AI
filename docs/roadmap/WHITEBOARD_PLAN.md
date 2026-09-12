@@ -107,6 +107,18 @@ kind. Every tool has a key and every key is in the tooltip and the help.
    R rectangle, O ellipse, Delete, Ctrl+D duplicate, Ctrl+G group,
    Ctrl+Shift+G ungroup, arrows nudge 1px (Shift 10px), + / - / 0 zoom,
    F fit selection, Escape deselect. Same as the graph where they overlap.
+   Two letters this list did not settle, decided while building Phase 1 and
+   followed from here (the interrupt rule's point 4: a decision is recorded
+   in the plan it affects):
+   - **The board has two connectors and this list names one letter.** C is
+     the straight link, Shift+C the curved one. The shifted form of the same
+     letter rather than a second letter, so the pair reads as one idea; the
+     built rail kept K for lasso and L for line, which is why L is not the
+     lasso here.
+   - **N was already the board overview** (bare, since the overview was
+     built) and this list gives it to the sticky note. The sticky takes N and
+     the overview moves to Shift+N, which is the same shifted-pair shape, and
+     the top bar's button and the board help say so.
 9. **Mind map root placement**: new root centred in the visible canvas,
    below the top bar's inset; edges are re-drawn from the node model on
    every drag frame (the marquee fix must not have detached them; add the
@@ -118,12 +130,11 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-09", WHITEBOARD_PLAN.md) on 
 
 ## 5. Phases
 
-### Phase 1: the rail and the keys (half a session)
-`.wb-rail` markup and CSS on the tokens; tooltips with keys; the ink
-swatch; the key map wired through the app's KEYMAP table (Brief 2).
-**Gate:** `scratchpad/ui-sweeps/whiteboard.js` (new): every tool has a
-tooltip naming a key; pressing each key selects that tool; the rail is
-one panel with one control height; no tool button has its own border.
+### Phase 1: the rail and the keys: BUILT, 2026-09-12
+Moved to HISTORY.md ("Moved from the plans, 2026-09-12", WHITEBOARD_PLAN
+Phase 1): a plan holds open work only. The gate lives on in
+`scratchpad/ui-sweeps/whiteboard.js` (13 checks, green at 1440x900 light
+and dark and at 390x844).
 
 ### Phase 2: the context bar (one session)
 Kind → controls table; the bar above the selection; the eleven arrange

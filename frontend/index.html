@@ -3921,7 +3921,8 @@
                 <li><span><i class="ph ph-pen" aria-hidden="true"></i> Pen · Highlighter</span><kbd>P · M</kbd></li>
                 <li><span><i class="ph ph-eraser" aria-hidden="true"></i> Eraser · Fill</span><kbd>E · B</kbd></li>
                 <li><span><i class="ph ph-shapes" aria-hidden="true"></i> Shapes</span><kbd>L · A · R · O</kbd></li>
-                <li><span><i class="ph ph-text-t" aria-hidden="true"></i> Text · Sticky</span><kbd>T</kbd></li>
+                <li><span><i class="ph ph-text-t" aria-hidden="true"></i> Text · Sticky</span><kbd>T · N</kbd></li>
+                <li><span><i class="ph ph-image" aria-hidden="true"></i> Image · Link</span><kbd>I · C</kbd></li>
                 <li><span><i class="ph ph-trash" aria-hidden="true"></i> Delete tool</span><kbd>X</kbd></li>
               </ul>
             </section>
@@ -3932,7 +3933,7 @@
                 <li><span>Pan sideways</span><kbd>Shift + wheel</kbd></li>
                 <li><span>Zoom</span><kbd>Ctrl+wheel · pinch</kbd></li>
                 <li><span>Pan (any tool)</span><kbd>Space + drag</kbd></li>
-                <li><span>Overview · Find</span><kbd>N · Ctrl+F</kbd></li>
+                <li><span>Overview · Find</span><kbd>Shift+N · Ctrl+F</kbd></li>
                 <li><span>Back to Select</span><kbd>Esc</kbd></li>
               </ul>
             </section>
@@ -4015,7 +4016,7 @@
       </div>
       <div class="wb-topbar-right">
         <button id="wb-search-toggle" class="ghost small icon-button" type="button" title="Find a card on this board (Ctrl+F)" aria-label="Find a card on this board" aria-expanded="false" aria-controls="wb-search-bar"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
-        <button id="wb-navigator-toggle" class="ghost small icon-button" type="button" title="Board overview (N)" aria-label="Board overview" aria-expanded="false" aria-controls="wb-navigator"><i class="ph ph-map-trifold" aria-hidden="true"></i></button>
+        <button id="wb-navigator-toggle" class="ghost small icon-button" type="button" title="Board overview (Shift+N)" aria-label="Board overview (Shift+N)" aria-expanded="false" aria-controls="wb-navigator"><i class="ph ph-map-trifold" aria-hidden="true"></i></button>
         <span class="wb-topbar-divider" aria-hidden="true"></span>
         <!-- Three grouped menus, Insert, View, Board, see whiteboard.js
              (`menuWraps`). Rows are name-left / control-right throughout. -->
@@ -4171,7 +4172,7 @@
         <button id="wb-fullscreen" class="ghost small icon-button" title="Full screen (Esc to leave)" aria-label="Toggle full screen"><i class="ph ph-arrows-out" aria-hidden="true"></i></button>
       </div>
     </div>
-    <div class="whiteboard-floating-panel bottom-center card glass" data-panel-id="tools" id="wb-tools-panel" data-dock="bottom">
+    <div class="whiteboard-floating-panel wb-rail bottom-center card glass" data-panel-id="tools" id="wb-tools-panel" data-dock="bottom">
       <div class="wb-tool-group" id="wb-tool-group" role="toolbar" aria-label="Whiteboard tools">
       <!-- **Seven labelled sections, not forty-two loose icons.**
 
@@ -4343,13 +4344,13 @@
       <div class="wb-tool-section" data-wb-surface="board" role="group" aria-label="Add">
         <span class="wb-tool-section-label" title="Text and pictures">Add</span>
         <div class="wb-tool-section-row">
-        <button class="ghost icon-button" data-tool="sticky" title="Sticky note: click the canvas to place one" aria-label="Sticky note">
+        <button class="ghost icon-button" data-tool="sticky" title="Sticky note (N): click the canvas to place one" aria-label="Sticky note (N)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v10l-6 6H4z"></path><path d="M14 20v-6h6"></path></svg>
         </button>
         <button class="ghost icon-button" data-tool="text" title="Text box (T): click the canvas to place one" aria-label="Text box (T)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="12" y1="4" x2="12" y2="20"></line><line x1="9" y1="20" x2="15" y2="20"></line></svg>
         </button>
-        <button id="wb-add-image" class="ghost icon-button" type="button" title="Upload an image onto the board" aria-label="Upload an image onto the board">
+        <button id="wb-add-image" class="ghost icon-button" type="button" data-wb-key="i" title="Upload an image onto the board (I)" aria-label="Upload an image onto the board (I)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
         </button>
         <input type="file" id="wb-image-file-input" aria-label="Choose an image to place on the board" title="Choose an image to place on the board" accept="image/*" class="hidden" aria-hidden="true">
@@ -4358,10 +4359,10 @@
       <div class="wb-tool-section" role="group" aria-label="Connect">
         <span class="wb-tool-section-label" title="Join two things together">Connect</span>
         <div class="wb-tool-section-row">
-        <button class="ghost icon-button" data-tool="link-straight" title="Straight link: drag from one card to another" aria-label="Straight link">
+        <button class="ghost icon-button" data-tool="link-straight" title="Straight link (C): drag from one card to another" aria-label="Straight link (C)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="20" y2="4"></line><circle cx="4" cy="20" r="2.2"></circle><circle cx="20" cy="4" r="2.2"></circle></svg>
         </button>
-        <button class="ghost icon-button" data-tool="link-curved" title="Curved link: drag from one card to another" aria-label="Curved link">
+        <button class="ghost icon-button" data-tool="link-curved" title="Curved link (Shift+C): drag from one card to another" aria-label="Curved link (Shift+C)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 Q4 4 20 4"></path><circle cx="4" cy="20" r="2.2"></circle><circle cx="20" cy="4" r="2.2"></circle></svg>
         </button>
         </div>
@@ -4378,6 +4379,31 @@
         <button id="wb-redo" class="ghost icon-button" title="Redo (Ctrl+Y)" disabled aria-label="Redo (Ctrl+Y)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"></polyline><path d="M4 20v-7a4 4 0 0 1 4-4h12"></path></svg>
         </button>
+        </div>
+      </div>
+      <!-- **The ink swatch, the last group** (WHITEBOARD_PLAN.md decision 1).
+           Reported as §2 item 2: "the colour of the ink you are about to draw
+           is not visible anywhere on the strip." It was only ever in the
+           properties drawer, which is shut by default and is a different
+           surface from the tool you are holding, so the rail could show a pen
+           as active and say nothing at all about what that pen would draw.
+
+           A real `<input type="color">`, not a button that forwards a click
+           to one: the native picker is the only colour picker this app has,
+           and Chromium shows no picker for a control that is not rendered, so
+           a swatch that clicked `#wb-color-picker` inside the shut drawer
+           would open nothing. The two are kept equal in both directions by
+           `wbSyncRailInk` in whiteboard.js, which is also why this carries no
+           key of its own: it is the pen's colour, not a tool.
+
+           `data-wb-surface="board"` for the same reason the pen and the
+           shapes carry it: a map's colours are the branch colour and the node
+           fill, both of which the map's own strip and rings already own. -->
+      <div class="wb-tool-section" data-wb-surface="board" role="group" aria-label="Ink">
+        <span class="wb-tool-section-label" title="The colour the pen, the shapes and the lines draw with">Ink</span>
+        <div class="wb-tool-section-row">
+          <input type="color" id="wb-rail-ink" class="wb-color-picker wb-rail-ink" value="#3355ff"
+            aria-label="Ink colour" title="Ink colour: what the pen, the shapes and the lines draw with">
         </div>
       </div>
       </div>

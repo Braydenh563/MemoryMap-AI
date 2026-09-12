@@ -21654,6 +21654,67 @@ done-when item 4 and 5), in priority order.
 
 ## Moved from the plans, 2026-09-12
 
+### From WHITEBOARD_PLAN Phase 1: the rail and the keys
+
+Built 2026-09-12. The phase as it was written:
+
+> ### Phase 1: the rail and the keys (half a session)
+> `.wb-rail` markup and CSS on the tokens; tooltips with keys; the ink
+> swatch; the key map wired through the app's KEYMAP table (Brief 2).
+> **Gate:** `scratchpad/ui-sweeps/whiteboard.js` (new): every tool has a
+> tooltip naming a key; pressing each key selects that tool; the rail is
+> one panel with one control height; no tool button has its own border.
+
+**What it found, and what it therefore did.** The gate was written first
+and run against the branch before anything was changed, which is the whole
+reason this phase is small: four of its eight opening checks already passed.
+Measured at 1440x900 with a board open, before any edit: 27 buttons all at
+36px, one painted surface inside the panel (the active tool), zero painted
+borders, 15 tool keys all correct. Three tools named no key in their
+tooltip (the sticky note and both connectors), the panel carried no name for
+its recipe, and there was no ink swatch anywhere on it, which is §2 item 2 of
+the plan word for word.
+
+So the phase is the difference between those two lists, not a rebuild:
+
+- `wb-rail` on `#wb-tools-panel`, and a block in `07-whiteboard-misc.css`
+  that states the recipe (one `.card.glass` panel, `--divider` hairlines
+  between `.wb-tool-section` groups, ghost buttons at one control height
+  with no resting fill) in a selector a lint can see. The one-surface and
+  hairline rules were already there from INBOX 52 and 65; this names them.
+- The three keyless tools named their keys, and `WB_TOOL_KEYS` learned them:
+  N sticky, C straight link. `WB_TOOL_SHIFT_KEYS` (Shift+C, the curved link)
+  and `WB_ACTION_KEYS` (I, which presses the image upload button rather than
+  holding a mode) are new one-entry tables rather than two `if`s beside the
+  dispatch, so a second pair cannot arrive in a different shape.
+- **N was the board overview and is now the sticky note**, with the overview
+  on Shift+N: the collision the gate found, decided in the plan's decision 8
+  rather than here. Its guard reads `e.shiftKey` plus the lower-cased letter
+  rather than `e.key === "N"`, because Playwright's `Shift+n` sends shiftKey
+  with key "n" and the rest of that handler already lower-cases.
+- **The ink swatch**, an `<input type="color">` in its own last group, kept
+  equal with the drawer's `#wb-color-picker` in both directions by
+  `wbSyncRailInk`, on `input` as well as `change` so it tracks a colour being
+  dragged rather than catching up when the dialog shuts. A real input, not a
+  button that forwards a click to one: Chromium shows no picker for a control
+  that is not rendered, and the drawer is shut by default.
+
+**Found while measuring, and fixed.** At 390x844 the swatch read `3a53ca`
+from y=692 down instead of the ink colour, and `elementFromPoint` at its
+centre returned `BUTTON#library-new-doc.dock-fab`. The Library tab's one
+filled action floats bottom-right on a phone, which is where this board keeps
+its tool rail and its zoom cluster, and it covered the last group of both on
+every whiteboard. Hidden on that sub-tab only (`:has(#library-view-whiteboard
+:not(.hidden))`), so Notes, Images and Files keep it where Phase 9 put it.
+
+**Numbers.** `scratchpad/ui-sweeps/whiteboard.js`: 13/13 at 1440x900 light,
+13/13 dark, 13/13 at 390x844. 19 tools, 0 without a key in the tooltip; 17
+keys pressed, 0 wrong; 27 buttons at one height (36px at 1440, 44px at 390);
+1 painted surface in the rail; 0 painted borders; the swatch's centre pixel
+`(255, 0, 0)` after the drawer's picker went `#ff0000`, and `#00ff00` back
+the other way. `errors.js` 0 errors and 0 layout findings at 1440, 1024, 820
+and 390; `contrast.js` ok on every tab.
+
 ### From SESSION_BRIEFS Brief 22: the three Notes sub-tabs
 
 Built over two sittings, `2d4b19b` and `728bd71` (the combobox as an adder,

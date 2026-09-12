@@ -685,6 +685,102 @@ async function newBoard(page, name, type) {
   check("and a branch is never offered its own descendant as a parent",
     noCycle === null, JSON.stringify(noCycle && { id: noCycle.id, parent: noCycle.parent_id }));
 
+  // --- both rings stay inside the window (§12.1 items 3 and 4) --------------
+  // A map grows outward, so the topics nearest an edge are the newest ones,
+  // and a ring that loses slots off-screen is least reachable exactly where
+  // it is most wanted. Driven by panning the canvas until a real topic sits
+  // in the corner, then opening the ring on it with the gesture.
+  const cornered = await page.evaluate(() => {
+    const container = document.getElementById("whiteboard-container");
+    const host = document.getElementById("library-view-whiteboard");
+    const hostRect = host.getBoundingClientRect();
+    const rect = container.getBoundingClientRect();
+    const index = wbMapIndex();
+    const node = index.roots[0];
+    const size = wbMapNodeSize(node);
+    const t = d3.zoomTransform(container);
+    // Just inside the left edge, and just under the top bar so the topic is
+    // still clickable: the ring reaches 82px, so both edges are short of it
+    // and both have to give. (The bar floats over the canvas, which is why
+    // the ring's own bound is the canvas minus the bands across it.)
+    const bar = document.getElementById("wb-topbar").getBoundingClientRect();
+    const want = { x: hostRect.left + 40, y: bar.bottom + 20 };
+    // Solve for the pan that puts this node's centre there:
+    // screen = rect.left + k * world + tx.
+    const tx = want.x - rect.left - t.k * (node.x + size.w / 2);
+    const ty = want.y - rect.top - t.k * (node.y + size.h / 2);
+    d3.select(container).call(wbZoom.transform, d3.zoomIdentity.translate(tx, ty).scale(t.k));
+    return node.id;
+  });
+  // The pan's own transforms are written in a `requestAnimationFrame`
+  // (`handleWbZoom`, panlag.js), so the node's new rect is not there in the
+  // same tick that asked for the pan: reading it there measured the position
+  // it had *before* the pan, and the right-click then landed on bare canvas.
+  await page.waitForTimeout(600);
+  const at = await page.evaluate((id) => {
+    const box = document.querySelector(`.wb-object[data-id="${id}"]`).getBoundingClientRect();
+    return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) };
+  }, cornered);
+  await page.mouse.click(at.x, at.y, { button: "right" });
+  await page.waitForTimeout(500);
+  const ringed = await page.evaluate(() => {
+    const el = document.getElementById("wb-map-radial");
+    const host = document.getElementById("library-view-whiteboard");
+    const hostRect = host.getBoundingClientRect();
+    const slots = [...el.querySelectorAll(".wb-map-radial-slot")].map((b) => b.getBoundingClientRect());
+    const centres = slots.map((r) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 }));
+    const cx = centres.reduce((a, c) => a + c.x, 0) / centres.length;
+    const cy = centres.reduce((a, c) => a + c.y, 0) / centres.length;
+    const radii = centres.map((c) => Math.round(Math.hypot(c.x - cx, c.y - cy)));
+    return {
+      open: !el.classList.contains("hidden"),
+      n: slots.length,
+      minLeft: Math.round(Math.min(...slots.map((r) => r.left))),
+      minTop: Math.round(Math.min(...slots.map((r) => r.top))),
+      maxRight: Math.round(Math.max(...slots.map((r) => r.right))),
+      maxBottom: Math.round(Math.max(...slots.map((r) => r.bottom))),
+      hostLeft: Math.round(hostRect.left),
+      barBottom: Math.round(document.getElementById("wb-topbar").getBoundingClientRect().bottom),
+      w: window.innerWidth,
+      h: window.innerHeight,
+      spread: Math.max(...radii) - Math.min(...radii),
+      radius: Math.min(...radii),
+    };
+  });
+  check("a topic in the corner keeps all eight of its ring's slots reachable",
+    ringed.open && ringed.n === 8
+      && ringed.minLeft >= ringed.hostLeft && ringed.minTop >= ringed.barBottom
+      && ringed.maxRight <= ringed.w && ringed.maxBottom <= ringed.h,
+    JSON.stringify(ringed));
+  check("and the slid ring is still a ring, not eight clamped buttons",
+    ringed.spread <= 2 && ringed.radius > 60,
+    JSON.stringify({ spread: ringed.spread, radius: ringed.radius }));
+
+  // The line ring is placed from the pointer, so the pointer is what this
+  // drives: `wbOpenMapLinkRadial`'s own two arguments, at the far corner of
+  // the window. The hit target itself has its own check above.
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+  const linkClamped = await page.evaluate(() => {
+    const index = wbMapIndex();
+    const child = [...index.byId.values()].find((o) => index.byId.has(o.parent_id));
+    wbOpenMapLinkRadial(child.id, window.innerWidth - 6, window.innerHeight - 6);
+    const el = document.getElementById("wb-map-link-radial");
+    const slots = [...el.querySelectorAll(".wb-map-radial-slot")].map((b) => b.getBoundingClientRect());
+    return {
+      open: !el.classList.contains("hidden"),
+      n: slots.length,
+      maxRight: Math.round(Math.max(...slots.map((r) => r.right))),
+      maxBottom: Math.round(Math.max(...slots.map((r) => r.bottom))),
+      w: window.innerWidth,
+      h: window.innerHeight,
+    };
+  });
+  check("a line ring opened at the far corner stays inside the window too",
+    linkClamped.open && linkClamped.n === 8
+      && linkClamped.maxRight <= linkClamped.w && linkClamped.maxBottom <= linkClamped.h,
+    JSON.stringify(linkClamped));
+
   await browser.close();
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

@@ -4982,6 +4982,100 @@ async function wbMapSetNodeStyle(node, patch) {
 //: than on whatever is selected now.
 let wbMapRadialFor = null;
 
+//: **Show the ring at a point, then slide it back inside the window.**
+//: Both rings are placed from a point with nothing between them and the edge
+//: of the screen: the node ring from the node's own centre, the link ring
+//: from the pointer. A map grows outward, so its newest topics are exactly
+//: the ones nearest an edge, and a ring around one of those lost two or
+//: three of its eight slots off-screen: the control was least reachable
+//: where it was most needed.
+//:
+//: **Why the whole ring moves, rather than the slots being rotated or
+//: reflected into the room that is left.** A ring of eight slots at 45
+//: degrees is its own reflection in both axes and its own rotation by any
+//: multiple of 45, so neither of those changes which directions are covered:
+//: whatever angle the ring is turned through, some slot still points at the
+//: nearest edge, and at 22.5 degrees (the most any rotation can buy) a slot
+//: aimed at the left edge still reaches 68 * cos 22.5 = 63px of the 82px it
+//: needs. Turning the ring also moves every slot away from the position the
+//: person learned it at, to buy 19px. Sliding the whole ring keeps all eight
+//: in their own places and in their own order, and a shift is bounded by the
+//: ring's own reach (82px), which is less than a topic is wide: the ring
+//: still reads as belonging to the node it came from.
+//:
+//: Measured after the ring is shown, not before, which is the ordering
+//: `placeEscapedMenu` in app.js paid for: a rect read inside a
+//: `display: none` ancestor is all zeroes, and zeroes here would produce a
+//: confident shift from nothing. Measured off the slots rather than off the
+//: ring, for the same reason from the other direction: the ring's own box is
+//: deliberately `width: 0; height: 0` so that it cannot cover the node it
+//: surrounds, so its rect says nothing about where its slots are. The union
+//: of the slots is the honest answer, and it stays honest if the radius, the
+//: slot size or the number of slots ever changes.
+function wbPlaceMapRadial(ring, host, x, y) {
+  const margin = 8;
+  ring.style.left = `${Math.round(x)}px`;
+  ring.style.top = `${Math.round(y)}px`;
+  ring.classList.remove("hidden");
+  const hostRect = host.getBoundingClientRect();
+  if (!hostRect.width || !hostRect.height) return;
+  let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+  for (const slot of ring.children) {
+    const box = slot.getBoundingClientRect();
+    if (!box.width && !box.height) continue;
+    left = Math.min(left, box.left);
+    top = Math.min(top, box.top);
+    right = Math.max(right, box.right);
+    bottom = Math.max(bottom, box.bottom);
+  }
+  if (!Number.isFinite(left)) return;
+  //: The window, cut down to the canvas, and then cut down again by the two
+  //: panels that float *over* the canvas: on screen is not the same as
+  //: reachable. Measured at 1440x900: the host starts at y=128 and the map's
+  //: top bar covers 136 to 182 of it, so a trunk near the top of a map (the
+  //: common case, that is where a map starts) would have had its upper slots
+  //: placed under the bar, which takes the click.
+  //:
+  //: A panel counts against an edge only when it is a *band* across the
+  //: canvas, more than half the host's width for a top or bottom bar and
+  //: more than half its height for a side one, because both of these panels
+  //: are draggable and one parked in the middle of the board is something to
+  //: place a ring beside, not a wall to stay out of. The same rule then
+  //: handles the tool panel's own "dock as a sidebar" state without knowing
+  //: it exists.
+  let loX = Math.max(margin, hostRect.left + margin);
+  let hiX = Math.min(window.innerWidth - margin, hostRect.right - margin);
+  let loY = Math.max(margin, hostRect.top + margin);
+  let hiY = Math.min(window.innerHeight - margin, hostRect.bottom - margin);
+  for (const id of ["wb-topbar", "wb-tools-panel"]) {
+    const panel = document.getElementById(id);
+    if (!panel || panel.hidden || panel.classList.contains("hidden")) continue;
+    const bar = panel.getBoundingClientRect();
+    if (!bar.width || !bar.height) continue;
+    const midY = hostRect.top + hostRect.height / 2;
+    const midX = hostRect.left + hostRect.width / 2;
+    if (bar.width > hostRect.width / 2) {
+      if (bar.bottom < midY) loY = Math.max(loY, bar.bottom + margin);
+      else if (bar.top > midY) hiY = Math.min(hiY, bar.top - margin);
+    }
+    if (bar.height > hostRect.height / 2) {
+      if (bar.right < midX) loX = Math.max(loX, bar.right + margin);
+      else if (bar.left > midX) hiX = Math.min(hiX, bar.left - margin);
+    }
+  }
+  //: Right edge first and left edge second, so that on a canvas narrower
+  //: than the ring (which no real viewport is, 164px against 390, but a
+  //: split pane could be) the ring is pinned to the edge a reader starts
+  //: from rather than half off both sides.
+  let dx = 0, dy = 0;
+  if (right > hiX) dx = hiX - right;
+  if (left + dx < loX) dx = loX - left;
+  if (bottom > hiY) dy = hiY - bottom;
+  if (top + dy < loY) dy = loY - top;
+  if (dx) ring.style.left = `${Math.round(x + dx)}px`;
+  if (dy) ring.style.top = `${Math.round(y + dy)}px`;
+}
+
 function wbCloseMapRadial() {
   const ring = document.getElementById("wb-map-radial");
   if (!ring || ring.classList.contains("hidden")) return;
@@ -5031,9 +5125,7 @@ function wbOpenMapRadial(node) {
   const cx = rect.left - hostRect.left + t.applyX((box.minX + box.maxX) / 2);
   const cy = rect.top - hostRect.top + t.applyY((box.minY + box.maxY) / 2);
   wbMapRadialFor = node.id;
-  ring.style.left = `${Math.round(cx)}px`;
-  ring.style.top = `${Math.round(cy)}px`;
-  ring.classList.remove("hidden");
+  wbPlaceMapRadial(ring, host, cx, cy);
   wbSyncMapRadialAlt(false);
   const collapse = document.getElementById("wb-radial-collapse");
   if (collapse) {
@@ -5317,9 +5409,7 @@ function wbOpenMapLinkRadial(childId, clientX, clientY) {
   // you were not looking.
   const hostRect = host.getBoundingClientRect();
   wbMapLinkRadialFor = childId;
-  ring.style.left = `${Math.round(clientX - hostRect.left)}px`;
-  ring.style.top = `${Math.round(clientY - hostRect.top)}px`;
-  ring.classList.remove("hidden");
+  wbPlaceMapRadial(ring, host, clientX - hostRect.left, clientY - hostRect.top);
   wbSyncMapLinkRadial(child, index);
 }
 

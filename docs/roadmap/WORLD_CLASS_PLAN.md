@@ -540,7 +540,9 @@ updated per session):
 | Tablists without arrow keys | `audit/keys.js` | 0 after fix | 0 |
 | Idle requests per minute | `audit/idle.js` | 4 on 2026-09-12 (`/models/status` every 30s, `/reminders` and `/tasks` once a minute; was 14) | ≤ 2 |
 | First paint of Graph on 2k notes | `graph-fixture.js` | n/a (SVG) | < 300ms |
-| Search p95 on 5k notes | `tests/test_search_perf.py` | n/a | < 200ms |
+| Search p95 on 5k notes | `tests/test_search_perf.py` | 14.2 ms median at 3,000 notes, 4 statements, flat (8.4 at 200, 10.5 at 1,000), 2026-09-12 | < 200ms |
+| Capture write cost | the same probe against `POST /entries` | 9.0 ms and 16 statements at 1,206 notes, identical at 56 and 406, 2026-09-12 | flat |
+| Resurfacing read | `ai/resurface` | 6.7 ms at 800 notes after its index; 23.0 ms with no LIMIT and 58.7 ms with a LIMIT and no index | flat |
 | Skill eval pass rate, 3B model | `pytest -m evals` | n/a | ≥ 80% |
 
 ---

@@ -23,6 +23,17 @@ never lost to the smaller stuff.
 
 ## Open items
 
+120. **Sixth drop continued, verbatim (the owner), the Ask sub-tab.**
+    "the try asking and ask again suggestions are nearly identical" (the
+    screenshot has "Try asking:" with four chips and "Ask again:" with five
+    directly under it, and two of the five repeat the row above word for
+    word: "What have I saved about hobbies?" and "What have I saved about
+    courses & study?"). The two rows answer different questions, what you
+    could ask and what you already asked, so neither should show what the
+    other is showing. Sent to the Notes sub-tabs agent with the rule: the
+    history row wins a duplicate because it is a fact, and the generated
+    row fills the gap with its next candidate.
+
 119. **Sixth drop, 2026-09-12 evening, verbatim (the owner), two messages
     with a screenshot each, both in the Capture form.**
     - "when I press preview in the capture a thought formatting toolbar and

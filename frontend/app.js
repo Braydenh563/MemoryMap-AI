@@ -7656,7 +7656,12 @@ function noteEditToolbar(boxId) {
   if (source && typeof wireMarkdownToolbar === "function") {
     const clone = source.cloneNode(true);
     clone.removeAttribute("id");
-    clone.className = "doc-toolbar note-edit-toolbar";
+    //: `note-toolbar` is kept on the clone: it is what makes this the
+    //: *composer's* strip rather than the full-page editor's, and dropping it
+    //: gave a form inside a note card the document editor's own chrome padding
+    //: (measured 91px against the composer's 88 at the same width, both above
+    //: a small box). Reported with the capture strip beside it.
+    clone.className = "doc-toolbar note-toolbar note-edit-toolbar";
     clone.setAttribute("aria-label", "Formatting");
     for (const extra of clone.querySelectorAll("[data-md-extra]")) extra.remove();
     //: **The Preview button stays in the strip.** It used to be cut out of
@@ -7690,7 +7695,7 @@ function noteEditToolbar(boxId) {
     return clone;
   }
   const bar = document.createElement("div");
-  bar.className = "doc-toolbar note-edit-toolbar";
+  bar.className = "doc-toolbar note-toolbar note-edit-toolbar";
   bar.setAttribute("role", "toolbar");
   bar.setAttribute("aria-label", "Formatting");
   for (const action of NOTE_EDIT_TOOLBAR) {

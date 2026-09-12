@@ -3141,6 +3141,21 @@ textarea.autogrow {
   border-color: var(--border);
 }
 
+/* **And it keeps that in the scrolling mode too.** The single-row mode is
+   written `.doc-toolbar[data-toolbar-mode="row"]`, whose block padding is the
+   full-page editor's (`--space-3` over `--space-3 + --space-1`, the lower half
+   reserving the scrollbar's own strip) and which at (0,2,0) beats the rule
+   above: so switching the mode silently handed the composer the document
+   editor's chrome. Measured at 1440x900, one row of 36px controls: 58px in row
+   mode against 46px in wrap, directly above a three-row box. Reported as "the
+   height of the cature a thought taskbar and note edit form are really high
+   compared to the one in the documents editor". The strip keeps its own block
+   padding here and adds the scrollbar's strip to it, rather than taking a
+   larger padding whole. */
+.note-toolbar[data-toolbar-mode="row"] {
+  padding-block: var(--space-1) calc(var(--space-1) * 2);
+}
+
 /* A non-image upload's tile in the Library gallery. Same footprint as an
    image tile so the grid stays a grid, a PDF among photos must not make
    the row it is in a different height. See library.js's own comment for why
@@ -3854,5 +3869,21 @@ button.ghost.doc-template-choice:focus-visible {
   flex-wrap: wrap;
   overflow-x: visible;
   row-gap: var(--space-1);
+}
+
+/* **And the mode does not get to take that back.** `flex-wrap` and
+   `overflow-x` above are written at (0,1,0) and
+   `.doc-toolbar[data-toolbar-mode="row"]` is (0,2,0), so in the scrolling mode
+   the clone was `nowrap` with `overflow-x: visible`: not a scroller and not a
+   wrap, but 339px of controls drawn outside the strip's own box (measured,
+   `scrollWidth` 1369 against a 1030px strip). Restated here at the mode rule's
+   own specificity, with the block padding the composer uses rather than the
+   full-page editor's: wrapping means the scrollbar that bottom padding is
+   reserved for can never appear, and that reservation was itself the reported
+   gap, 12px under the last row of buttons. */
+.note-edit-toolbar[data-toolbar-mode="row"] {
+  flex-wrap: wrap;
+  overflow-x: visible;
+  padding-block: var(--space-1);
 }
 

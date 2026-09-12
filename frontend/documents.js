@@ -1753,6 +1753,45 @@ function docReplaceRange(box, start, end, text) {
   }
 }
 
+//: **The way out of an editor that takes the Tab key.** Owner: "on the
+//: documents editor, I can't press tab to indent without it selecting an
+//: element." Tab now indents in every document, prose as well as code, which
+//: is what every writing tool does and what the report asks for; the reason
+//: it was restricted to code files was never indentation, it was the exit:
+//: a Tab the editor always swallows leaves a keyboard user inside it with no
+//: way to reach the toolbar, the dock or the rest of the page.
+//:
+//: So the exit moves to the chord CodeMirror's own documentation recommends
+//: for exactly this trade (its `indentWithTab` carries the same warning):
+//: press Escape, then Tab, and the Tab is the browser's again. Escape is
+//: already this app's "leave what you are in" key everywhere else, so it is
+//: the one key a reader is most likely to try first, and it costs a writer
+//: nothing because nothing else in the editor consumes a plain Tab.
+//:
+//: The second way out is unchanged and needs nothing learned: Shift+Tab on a
+//: line with no indentation to remove falls through to the browser's own
+//: focus-backwards rather than doing nothing.
+let docTabEscapes = false;
+
+//: Reads the arming *and* clears it, so one Escape buys one Tab: an armed
+//: flag left standing would make the next Tab after any Escape, minutes and
+//: paragraphs later, throw the writer out of the editor.
+function docTakeTabEscape() {
+  const armed = docTabEscapes;
+  docTabEscapes = false;
+  return armed;
+}
+
+//: Shift+Tab has something to do only when there is indentation under the
+//: selection (or a selection at all, which re-indents its lines). Otherwise
+//: it is the browser's, which is what keeps a flush-left caret from being a
+//: keyboard trap.
+function docCanOutdent(box) {
+  if (!box) return false;
+  if (box.selectionEnd > box.selectionStart) return true;
+  return /^[ \t]/.test(docSelectedLines(box).text);
+}
+
 function indentDocSelection(box, outdent) {
   //: One undo step per Tab, not one per burst, see `docUndoBreak`.
   docUndoBreak();
@@ -3928,26 +3967,32 @@ for (const radio of document.querySelectorAll('input[name="doc-ai-verb"]')) {
 $("doc-ai-history").addEventListener("click", openDocAiHistory);
 $("doc-extract").addEventListener("click", openDocExtractPreview);
 docBoxEl().addEventListener("keydown", (event) => {
+  // The fallback textarea's half of the Escape-then-Tab hatch, the same rule
+  // the engine's keymap states (`docTabEscapes`), because which of the two
+  // surfaces is mounted is not something a writer knows or should have to.
+  if (event.key === "Escape") docTabEscapes = true;
+  else if (event.key !== "Tab" && event.key !== "Shift") docTabEscapes = false;
   if (event.key === "Escape" && !$("doc-find-bar").classList.contains("hidden")) {
     toggleDocFindBar(false);
     return;
   }
-  // Tab indents rather than leaving the field. Only in a code document: in a
-  // markdown one Tab is how a keyboard user gets *out* of the editor, and
-  // trapping it there would make the toolbar unreachable without a mouse.
-  // Shift+Tab still escapes even in code, so there is always a way out.
-  if (event.key === "Tab" && !docFileType().previewable && !event.shiftKey) {
+  // Tab indents rather than leaving the field, in prose as well as in code.
+  // An Escape immediately before it hands the key back to the browser, which
+  // is the way out; `docTabEscapes` carries the whole reasoning.
+  if (event.key === "Tab" && !event.shiftKey) {
+    if (docTakeTabEscape()) return;
     event.preventDefault();
     indentDocSelection(docSurface(), false);
     return;
   }
-  if (event.key === "Tab" && event.shiftKey && !docFileType().previewable) {
+  if (event.key === "Tab" && event.shiftKey) {
+    if (docTakeTabEscape()) return;
     const box = docSurface();
     // Shift+Tab dedents when there is something to dedent, and otherwise
     // falls through to the browser's own focus-backwards: so a flush-left
-    // caret is not a keyboard trap.
-    const { text } = docSelectedLines(box);
-    if (/^[ \t]/.test(text) || box.selectionEnd > box.selectionStart) {
+    // caret is not a keyboard trap even for someone who never learns the
+    // Escape chord.
+    if (docCanOutdent(box)) {
       event.preventDefault();
       indentDocSelection(box, true);
       return;
@@ -4447,10 +4492,22 @@ const DOC_READING_WPM = 220;
 function docCaretStats(box) {
   const range = box.selection();
   const line = box.lineAt(range.from);
+  const selected = range.to - range.from;
+  //: **Words in the selection, not just characters.** Asked for: "I want
+  //: more utility in the documents editor like being able to highlight a
+  //: paragraph or set of text and see the amount of words". It belongs on
+  //: this line rather than beside the document's own totals, because this
+  //: is the half of the status bar that reruns on every selection change;
+  //: `renderDocCounts` is deliberately debounced behind `scheduleDocFacts`
+  //: and a selection count that lagged the selection would be worse than
+  //: none. Counted only when there is a selection to count, so the common
+  //: case (a caret, no range) still does no work at all.
+  const words = selected ? (box.text.slice(range.from, range.to).match(/\S+/g) || []).length : 0;
   return {
     line: line.number,
     column: range.from - line.from + 1,
-    selected: range.to - range.from,
+    selected,
+    selectedWords: words,
   };
 }
 
@@ -4467,9 +4524,18 @@ function renderDocCaret() {
   //: one editor there is nothing to translate, and the bar can no longer say
   //: "In a paragraph" because there is no paragraph to be lost in.
   const stats = docCaretStats(box);
-  caret.textContent = `Ln ${stats.line}, Col ${stats.column}${
-    stats.selected ? ` · ${stats.selected} selected` : ""
-  }`;
+  //: Words first: selecting a paragraph is almost always a question about
+  //: its length, and the character count is the supporting detail. A
+  //: selection inside one word has no word count worth printing, so it
+  //: falls back to characters alone.
+  const selection = !stats.selected
+    ? ""
+    : stats.selectedWords
+      ? ` · ${stats.selectedWords.toLocaleString()} word${
+          stats.selectedWords === 1 ? "" : "s"
+        } selected (${stats.selected.toLocaleString()} char${stats.selected === 1 ? "" : "s"})`
+      : ` · ${stats.selected.toLocaleString()} char${stats.selected === 1 ? "" : "s"} selected`;
+  caret.textContent = `Ln ${stats.line}, Col ${stats.column}${selection}`;
 }
 
 //: The counts. A whole-document pass, which is why it is scheduled rather
@@ -6858,18 +6924,22 @@ function docCmKeymap(CM) {
     {
       key: "Escape",
       run: () => {
+        //: Arms the Tab escape hatch (see `docTabEscapes`) whatever else this
+        //: Escape goes on to do: it is set before the find bar is consulted
+        //: so that closing the bar and leaving the editor are one gesture
+        //: away from each other rather than two.
+        docTabEscapes = true;
         if ($("doc-find-bar")?.classList.contains("hidden") !== false) return false;
         toggleDocFindBar(false);
         return true;
       },
     },
-    //: Tab indents in a code file only, for the reason the textarea handler
-    //: gives: in a markdown document Tab is how a keyboard user leaves the
-    //: editor, and trapping it there puts the toolbar out of reach.
+    //: Tab indents, in prose as well as code, with Escape-then-Tab as the way
+    //: out. `docTabEscapes` above carries the whole reason.
     {
       key: "Tab",
       run: () => {
-        if (docFileType().previewable) return false;
+        if (docTakeTabEscape()) return false;
         indentDocSelection(surface(), false);
         return true;
       },
@@ -6877,7 +6947,8 @@ function docCmKeymap(CM) {
     {
       key: "Shift-Tab",
       run: () => {
-        if (docFileType().previewable) return false;
+        if (docTakeTabEscape()) return false;
+        if (!docCanOutdent(surface())) return false;
         indentDocSelection(surface(), true);
         return true;
       },
@@ -6946,6 +7017,25 @@ function docCmExtensions(CM) {
       ...CM.commands.historyKeymap,
       ...CM.commands.defaultKeymap,
     ]),
+    //: The disarming half of the Escape-then-Tab hatch. Anything that is not
+    //: part of that chord means the writer went back to writing, and a flag
+    //: still armed then would send the next Tab to the toolbar instead of
+    //: into the line. Registered as a plain DOM handler rather than as more
+    //: keymap entries because a keymap can only match keys it names, and this
+    //: has to see the ones it does not. Never handles the event (always
+    //: false), so nothing downstream changes.
+    CM.view.EditorView.domEventHandlers({
+      keydown: (event) => {
+        if (event.key !== "Tab" && event.key !== "Shift" && event.key !== "Escape") {
+          docTabEscapes = false;
+        }
+        return false;
+      },
+      mousedown: () => {
+        docTabEscapes = false;
+        return false;
+      },
+    }),
     CM.view.EditorView.updateListener.of(docCmUpdate),
     //: **The browser's own spellcheck, back on.** CodeMirror turns it off by
     //: default, and for a code editor that is right: a red squiggle under

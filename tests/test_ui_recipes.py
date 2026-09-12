@@ -175,24 +175,45 @@ def test_the_press_cue_does_not_use_the_transform_property() -> None:
     assert "translate:" in body and "scale:" in body
 
 
-def test_the_page_column_rules_do_not_reach_a_dialog() -> None:
-    """A modal `<dialog>` is drawn in the top layer, not in the page column.
+def test_no_dialog_is_a_direct_child_of_a_page() -> None:
+    """A modal `<dialog>` must not be authored inside a `.tab-page`.
 
-    `.tab-page > *` caps and fills the content column, and `.tab-page > .card`
-    sets the rhythm between stacked cards. Both are more specific than the
-    `.space-dialog { margin: auto }` that keeps a dialog centred, so a dialog
-    written as a direct child of a page took `width: 100%` and a real
-    `margin-bottom` and landed full-width at the left edge. Measured on the
-    two such dialogs in the markup, then reported three times as "the ai edit
+    It is drawn in the top layer and centres itself with the UA's
+    `position: fixed; inset: 0; width: fit-content; margin: auto`, but a
+    direct child of a page also matches the content-column rules
+    (`.tab-page > *`: `width: 100%` and a cap; `.tab-page > .card`: a bottom
+    margin), which are more specific than the `.space-dialog { margin: auto }`
+    that protects every other dialog. The two that were written there opened
+    1440px wide against the left edge, reported three times as "the ai edit
     history popover still not centering".
+
+    Asserted on the markup rather than on the CSS, because the two CSS fixes
+    both misfire: an opt-out rule has to beat `.tab-page > .card` (0,2,0) and
+    then also beats the dialog's own width class, and narrowing the column
+    rules with `:not(dialog)` raises their specificity and knocks out
+    `.dock-fab` (three phone primary actions went off-screen on that attempt).
     """
-    css = (ROOT / "frontend" / "css" / "00-tokens-shell.css").read_text(encoding="utf-8")
-    for selector, _ in _rules(css):
-        for part in selector.split(","):
-            part = part.strip().replace(" ", "")
-            if not part.startswith(".tab-page>"):
-                continue
-            assert ":not(dialog)" in part, (
-                f"{part} reaches a top-layer dialog; page-column rules must "
-                "exclude `dialog`"
-            )
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    pages = re.findall(
+        r'<div[^>]*class="[^"]*\btab-page\b[^"]*"[^>]*id="(tab-[a-z-]+)"'
+        r'|<div[^>]*id="(tab-[a-z-]+)"[^>]*class="[^"]*\btab-page\b[^"]*"',
+        html,
+    )
+    assert pages, "no .tab-page elements found; this lint has lost its subject"
+    offenders = []
+    for match in re.finditer(r"<dialog[^>]*id=\"([^\"]+)\"", html):
+        before = html[: match.start()]
+        # The nearest unclosed `.tab-page` opener, if any, is this dialog's page.
+        opens = len(re.findall(r'class="[^"]*\btab-page\b', before))
+        if not opens:
+            continue
+        page_start = [m.start() for m in re.finditer(r'class="[^"]*\btab-page\b', before)][-1]
+        segment = html[page_start : match.start()]
+        # Depth from that opener to the dialog: 1 means direct child.
+        depth = segment.count("<div") - segment.count("</div>")
+        if depth == 1:
+            offenders.append(match.group(1))
+    assert offenders == [], (
+        "these dialogs are direct children of a page and will take the content "
+        "column's width and margins: " + ", ".join(offenders)
+    )

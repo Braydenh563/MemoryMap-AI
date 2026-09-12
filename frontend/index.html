@@ -451,6 +451,50 @@
       <button type="button" class="ghost" data-close-dialog="doc-template-dialog">Cancel</button>
     </div>
   </dialog>
+  <!-- **These two live here, beside the other dialogs, and not inside
+       `#tab-documents` where they were written.** A modal `<dialog>` is drawn
+       in the top layer and centres itself with the UA's `position: fixed;
+       inset: 0; width: fit-content; margin: auto`, but a direct child of a
+       `.tab-page` also matches the content-column rules (`width: 100%`, a
+       `max-width` cap, a bottom margin), which are more specific than the
+       `.space-dialog { margin: auto }` that protects the rest of them. Both
+       opened 1440px wide against the left edge of the window, reported three
+       times as "the ai edit history popover still not centering", while
+       `#doc-template-dialog` just above, with exactly the same three classes
+       and one wrapper deeper, opened at 480px and centred.
+
+       Moved rather than out-specified. A rule that opts a dialog out of the
+       column has to beat `.tab-page > .card` (0,2,0) and then beats the
+       dialog's own width class too; narrowing the column rules with
+       `:not(dialog)` raises their specificity instead and knocks out
+       `.dock-fab`, which is how this fix broke three phone primary actions on
+       its first attempt. Where a dialog sits in the markup is the only part
+       of this with no side effects. -->
+    <!-- The document's own history. Same shape as the AI edit log beside it,
+         deliberately: two lists that answer "what happened to this document"
+         should not be two different-looking things. -->
+    <dialog id="doc-history-dialog" class="card space-dialog doc-ai-history-dialog">
+      <h3>Document history</h3>
+      <p class="muted">Every version this document has had. Editing for a while
+        counts as one entry, so this reads as sittings rather than keystrokes, 
+        and restoring one keeps the version it replaced, so nothing here is ever
+        lost.</p>
+      <ul id="doc-history-list" class="doc-ai-history-list"></ul>
+      <p id="doc-history-empty" class="muted hidden">Nothing yet: this document
+        has not been changed since it was made.</p>
+      <div class="row right space-dialog-actions">
+        <button type="button" class="ghost" data-close-dialog="doc-history-dialog">Close</button>
+      </div>
+    </dialog>
+    <dialog id="doc-ai-history-dialog" class="card space-dialog doc-ai-history-dialog">
+      <h3>AI edit history</h3>
+      <p class="muted">Every AI edit accepted into this document. Revert any of them, it's recorded too, so nothing here is ever lost.</p>
+      <ul id="doc-ai-history-list" class="doc-ai-history-list"></ul>
+      <p id="doc-ai-history-empty" class="muted hidden">No AI edits yet.</p>
+      <div class="row right space-dialog-actions">
+        <button type="button" class="ghost" data-close-dialog="doc-ai-history-dialog">Close</button>
+      </div>
+    </dialog>
   <dialog id="doc-word-goal-dialog" class="card space-dialog">
     <h3>Word-count goal</h3>
     <p class="muted">
@@ -3050,31 +3094,6 @@ Link to another note with [[its first few words]]."></textarea>
          distinct from the app's own session-only global undo stack, which
          also fires on every accept for an immediate Ctrl+Z but forgets
          everything on reload. -->
-    <!-- The document's own history. Same shape as the AI edit log beside it,
-         deliberately: two lists that answer "what happened to this document"
-         should not be two different-looking things. -->
-    <dialog id="doc-history-dialog" class="card space-dialog doc-ai-history-dialog">
-      <h3>Document history</h3>
-      <p class="muted">Every version this document has had. Editing for a while
-        counts as one entry, so this reads as sittings rather than keystrokes, 
-        and restoring one keeps the version it replaced, so nothing here is ever
-        lost.</p>
-      <ul id="doc-history-list" class="doc-ai-history-list"></ul>
-      <p id="doc-history-empty" class="muted hidden">Nothing yet: this document
-        has not been changed since it was made.</p>
-      <div class="row right space-dialog-actions">
-        <button type="button" class="ghost" data-close-dialog="doc-history-dialog">Close</button>
-      </div>
-    </dialog>
-    <dialog id="doc-ai-history-dialog" class="card space-dialog doc-ai-history-dialog">
-      <h3>AI edit history</h3>
-      <p class="muted">Every AI edit accepted into this document. Revert any of them, it's recorded too, so nothing here is ever lost.</p>
-      <ul id="doc-ai-history-list" class="doc-ai-history-list"></ul>
-      <p id="doc-ai-history-empty" class="muted hidden">No AI edits yet.</p>
-      <div class="row right space-dialog-actions">
-        <button type="button" class="ghost" data-close-dialog="doc-ai-history-dialog">Close</button>
-      </div>
-    </dialog>
   </div>
 
   <!-- ======================= REMINDERS TAB ================================= -->
@@ -4297,6 +4316,52 @@ Link to another note with [[its first few words]]."></textarea>
       <button type="button" id="wb-selbar-export" class="ghost small icon-only" title="Export the selection (image, PDF, SVG)" aria-label="Export the selection"><i class="ph ph-export" aria-hidden="true"></i></button>
       <span class="wb-topbar-divider" aria-hidden="true"></span>
       <button type="button" id="wb-selbar-delete" class="ghost small icon-only danger" title="Delete (Del)" aria-label="Delete"><i class="ph ph-trash" aria-hidden="true"></i></button>
+    </div>
+
+    <!-- **The node edit strip** (MINDMAP_PLAN.md §12.1 item 2, Coggle's four:
+         text, link, image, icon). It stands in the selection bar's place on a
+         map node rather than beside it: two bars above one node is how they
+         come to overlap, and the board's bar offers duplicate, copy style and
+         the z-order pair, none of which a topic in a tree has any use for.
+         What a topic needs instead is how it reads and what it points at.
+
+         Same recipe as the bar it replaces: `.card.glass` over the canvas,
+         a run of `.ghost.small.icon-only` quieted by the panel rule in
+         07-whiteboard-misc.css, plain `<select>`s that `enhanceSelect`
+         restyles at boot, and the divider the bar already uses. Positioned by
+         `wbUpdateSelectionBar`, which owns both. -->
+    <div id="wb-map-strip" class="wb-map-strip card glass hidden" role="toolbar" aria-label="Topic">
+      <button type="button" id="wb-map-bold" class="ghost small icon-only" title="Bold" aria-label="Bold" aria-pressed="false"><i class="ph ph-text-b" aria-hidden="true"></i></button>
+      <button type="button" id="wb-map-italic" class="ghost small icon-only" title="Italic" aria-label="Italic" aria-pressed="false"><i class="ph ph-text-italic" aria-hidden="true"></i></button>
+      <select id="wb-map-text-size" class="ghost small" aria-label="Text size" title="How big this topic reads">
+        <option value="13">S</option>
+        <option value="16">M</option>
+        <option value="21">L</option>
+        <option value="28">XL</option>
+      </select>
+      <select id="wb-map-align" class="ghost small" aria-label="Text alignment" title="Where the text sits in the topic">
+        <option value="">Auto</option>
+        <option value="left">Left</option>
+        <option value="center">Centre</option>
+        <option value="right">Right</option>
+      </select>
+      <input type="color" id="wb-map-strip-color" class="wb-color-picker" aria-label="Topic colour" title="Topic colour">
+      <span class="wb-topbar-divider" aria-hidden="true"></span>
+      <button type="button" id="wb-map-strip-link" class="ghost small icon-only" title="Link this topic to a page" aria-label="Link this topic to a page"><i class="ph ph-link" aria-hidden="true"></i></button>
+      <select id="wb-map-strip-icon" class="ghost small" aria-label="Icon on this topic" title="Put an icon on this topic">
+        <option value="">No icon</option>
+        <option value="star">Star</option>
+        <option value="flag">Flag</option>
+        <option value="check-circle">Done</option>
+        <option value="warning">Warning</option>
+        <option value="question">Question</option>
+        <option value="lightbulb">Idea</option>
+        <option value="heart">Heart</option>
+        <option value="rocket">Rocket</option>
+        <option value="target">Target</option>
+        <option value="clock">Clock</option>
+        <option value="push-pin">Pin</option>
+      </select>
     </div>
 
     <!-- The navigator: a live minimap of the whole board with a draggable

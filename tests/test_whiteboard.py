@@ -379,6 +379,12 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         "ref_id": None,
         "collapsed": None,
         "pinned": None,
+        # Added with the map's node edit strip (MINDMAP_PLAN.md §12.1 item 2),
+        # and named here for the same reason as the three above.
+        "bold": None,
+        "italic": None,
+        "icon": None,
+        "link": None,
     }
 
     moved = board_client.put(

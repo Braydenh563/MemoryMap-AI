@@ -163,6 +163,41 @@ class WhiteboardObjectData(BaseModel):
     #: carries a JSON blob, so neither earns a column.
     collapsed: bool | None = None
     pinned: bool | None = None
+    #: The node edit strip's four (MINDMAP_PLAN.md §12.1 item 2, Coggle's
+    #: text/link/image/icon). Weight and slant are stored here rather than
+    #: written into the label as `**markdown**` because §12.0 says so
+    #: ("styling is per node ... text size, weight, alignment") and because a
+    #: label is already markdown-ish: a bold *marker* would then compose with
+    #: whatever inline emphasis the text itself carries, and the two would
+    #: fight over the same asterisks. Size and alignment reuse `font_size`
+    #: and `align` above, which a text box already stores in exactly the same
+    #: units, rather than adding a second way to say the same thing.
+    bold: bool | None = None
+    italic: bool | None = None
+    #: A Phosphor icon name without the `ph-` prefix. The pattern is the
+    #: whole guard: this string is written straight into a class attribute on
+    #: the node, so anything but the character set Phosphor's own names use
+    #: has no business arriving here.
+    icon: str | None = Field(default=None, max_length=40, pattern=r"^[a-z0-9-]+$")
+    #: Where a topic points. Held to the three schemes a link on a page may
+    #: safely have: `javascript:` and `data:` are the two this rejects by
+    #: existing, and the frontend's own `wbMapOpenLink` refuses anything else
+    #: again at the click (a stored value predating this validator, or one
+    #: written by a tool, is still not a hole).
+    link: str | None = Field(default=None, max_length=500)
+
+    @field_validator("link")
+    @classmethod
+    def _safe_link_scheme(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        text = value.strip()
+        if not text:
+            return None
+        lowered = text.lower()
+        if not lowered.startswith(("http://", "https://", "mailto:")):
+            raise ValueError("A topic's link must be an http, https or mailto address")
+        return text
 
 
 class WhiteboardObjectBase(BaseModel):

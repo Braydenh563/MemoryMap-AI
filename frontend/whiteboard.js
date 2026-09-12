@@ -3250,14 +3250,32 @@ function wbMapInlineText(el, raw) {
 function wbBuildMapNode(el, d) {
   el.classed("wb-map-node", true);
   const body = el.append("div").attr("class", "wb-map-node-body");
-  if (WB_MAP_REFERENCE_KINDS.has(d.kind)) {
-    body.append("i")
-      .attr("class", `ph ${WB_MAP_ICONS[d.kind] || WB_MAP_ICONS.topic} wb-map-node-icon`)
-      .attr("aria-hidden", "true");
-  }
+  //: **Built for every node, hidden when it has nothing to say**, the same
+  //: rule the chevron and the count badge already follow here and for the
+  //: same reason: a reference node's kind icon and a topic's own chosen icon
+  //: (§12.1 item 2) are one element, so the enter selection cannot build one
+  //: shape and `wbPaintMapNode` a slightly different one. The class is set in
+  //: the paint pass, which is the only place that knows what the node wears.
+  body.append("i").attr("class", "wb-map-node-icon").attr("aria-hidden", "true");
   const text = body.append("div")
     .attr("class", "wb-map-text")
     .attr("contenteditable", "false");
+  //: Where a topic points (§12.1 item 2's "link"). A real button, not a
+  //: decoration: the whole point of setting a link is opening it, and a
+  //: marker you have to go back to the strip to follow is a label. Hidden
+  //: until there is one. `pointerdown` is stopped so following the link is
+  //: not also the first frame of a node drag, the same guard the chevron and
+  //: the two add buttons below already carry.
+  body.append("button")
+    .attr("type", "button")
+    .attr("class", "wb-map-link")
+    .property("hidden", true)
+    .on("pointerdown", (event) => event.stopPropagation())
+    .on("click", (event) => {
+      event.stopPropagation();
+      wbMapOpenLink(d);
+    })
+    .append("i").attr("class", "ph ph-link").attr("aria-hidden", "true");
 
   if (d.kind === "topic") {
     // A topic is renamed in place, through the same two functions a text box
@@ -3409,6 +3427,70 @@ function wbPaintMapNode(el, d, index, colors) {
   }
   el.classed("wb-map-collapsed", collapsed);
   el.classed("wb-map-pinned", Boolean(d.data?.pinned));
+  wbPaintMapNodeStyle(node, d);
+}
+
+//: What the node edit strip sets, drawn on the node (§12.1 item 2).
+//:
+//: Split out of `wbPaintMapNode` rather than inlined into it because the
+//: strip changes one node at a time and a full render is the wrong price for
+//: a bold toggle: `wbMapSetNodeStyle` calls this directly for the node it
+//: just changed, and the render calls it for every node, and both get the
+//: same result by construction rather than by two lists of properties being
+//: kept in step.
+function wbPaintMapNodeStyle(node, d) {
+  const data = d.data || {};
+  node.classList.toggle("wb-map-bold", Boolean(data.bold));
+  node.classList.toggle("wb-map-italic", Boolean(data.italic));
+  if (data.align) node.dataset.align = data.align;
+  else delete node.dataset.align;
+  // Px through CSSOM, which is what a text box's own `font_size` already
+  // does (`renderWbObjects`): the value is per node and arbitrary, so it
+  // cannot be a token, and the stylesheet's own `var(--text-md)` is the
+  // default this replaces only when there is something to replace it with.
+  if (data.font_size) node.style.fontSize = `${data.font_size}px`;
+  else node.style.removeProperty("font-size");
+
+  const icon = node.querySelector(".wb-map-node-icon");
+  if (icon) {
+    // A topic wears what it was given; a reference node falls back to the
+    // icon for its kind, which is what says "this is a note, not a topic".
+    const chosen = data.icon || (WB_MAP_REFERENCE_KINDS.has(d.kind) ? null : "");
+    const name = chosen || (WB_MAP_REFERENCE_KINDS.has(d.kind)
+      ? (WB_MAP_ICONS[d.kind] || WB_MAP_ICONS.topic).replace(/^ph-/, "")
+      : "");
+    icon.hidden = !name;
+    icon.className = name ? `ph ph-${name} wb-map-node-icon` : "wb-map-node-icon";
+  }
+
+  const link = node.querySelector(".wb-map-link");
+  if (link) {
+    const href = typeof data.link === "string" ? data.link : "";
+    link.hidden = !href;
+    if (href) {
+      link.title = `Open ${href}`;
+      link.setAttribute("aria-label", `Open the page this topic links to`);
+    }
+  }
+}
+
+//: The three schemes a topic's link may have, checked again at the click.
+//:
+//: The schema validator (`_safe_link_scheme`) refuses anything else on the
+//: way in, so this is the second of two doors, and it is here because a value
+//: stored before that validator existed, or written by a tool that talks to
+//: the database another way, would otherwise reach `window.open` unexamined.
+//: CLAUDE.md's own rule for the map's delete policy says it plainly: a rule
+//: enforced at one of two doors is not a rule.
+const WB_MAP_LINK_SCHEMES = /^(https?:\/\/|mailto:)/i;
+
+function wbMapOpenLink(d) {
+  const href = d.data?.link;
+  if (!href || !WB_MAP_LINK_SCHEMES.test(String(href).trim())) {
+    toast("That topic's link is not a web address.", true);
+    return;
+  }
+  window.open(String(href).trim(), "_blank", "noopener,noreferrer");
 }
 
 //: Open the library item a reference node stands for. One place, because
@@ -4396,6 +4478,95 @@ function wbSyncMapToolState() {
   }
 }
 
+//: --- the node edit strip (MINDMAP_PLAN.md §12.1 item 2) ---------------------
+//:
+//: Coggle's four are text, link, image and icon. Text and icon are here in
+//: full; link is a web address on the topic, drawn as a marker that opens it;
+//: **image is not built** (it needs the upload path a board image uses, and a
+//: node whose body is a picture rather than a label), and
+//: `agent-remaining/mindmap.md` carries the next step for it.
+//:
+//: Size and alignment reuse `font_size` and `align`, which a text box already
+//: stores in the same units, rather than inventing a second vocabulary for
+//: the same two ideas. Weight and slant are their own booleans rather than
+//: `**markdown**` written into the label: §12.0 says styling is per node and
+//: in `data`, and a label is already markdown-ish, so a bold *marker* and the
+//: emphasis someone typed would be fighting over the same asterisks.
+
+//: A guard, not a convenience. `enhanceSelect` mirrors the real `<select>`
+//: into its own opener on the `change` event only, so a value written here
+//: without dispatching one leaves the visible control reading the previous
+//: node's value. Dispatching it lands in this file's own change handlers,
+//: which would then save the value straight back onto the node: this flag is
+//: what tells them the change came from the sync rather than from a person.
+let wbMapStripSyncing = false;
+
+function wbSyncMapStrip(node) {
+  const data = node.data || {};
+  wbMapStripSyncing = true;
+  try {
+    for (const [id, on] of [["wb-map-bold", data.bold], ["wb-map-italic", data.italic]]) {
+      const button = document.getElementById(id);
+      if (!button) continue;
+      button.classList.toggle("active", Boolean(on));
+      button.setAttribute("aria-pressed", on ? "true" : "false");
+    }
+    const setSelect = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el || el.value === value) return;
+      el.value = value;
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    //: **M is no stored size at all**, not a number that happens to equal the
+    //: stylesheet's. `.wb-map-node` reads at `--text-md`; writing the same
+    //: value as a px on the node would pin it there, so a later change to the
+    //: type scale would move every map in the app except the nodes somebody
+    //: had once set to "medium". The empty option is M for exactly that
+    //: reason, and it is also what makes "back to normal" reachable.
+    setSelect("wb-map-text-size", data.font_size ? String(data.font_size) : "");
+    setSelect("wb-map-align", data.align || "");
+    setSelect("wb-map-strip-icon", data.icon || "");
+    const link = document.getElementById("wb-map-strip-link");
+    if (link) {
+      const has = Boolean(data.link);
+      link.classList.toggle("active", has);
+      link.title = has ? `Change where this topic points (${data.link})` : "Link this topic to a page";
+    }
+    const colour = document.getElementById("wb-map-strip-color");
+    if (colour) {
+      // The colour it is *drawn* in, which for most nodes is inherited from
+      // the branch: same rule (and the same reason) as the dock's own picker.
+      const effective = wbMapColors(wbMapIndex()).get(node.id);
+      if (effective && /^#[0-9a-f]{6}$/i.test(effective)) colour.value = effective;
+    }
+  } finally {
+    wbMapStripSyncing = false;
+  }
+}
+
+//: The size the text grip starts from when a node has never been sized, and
+//: the bounds it may drag between (§12.1 item 6). Measured rather than
+//: assumed: `.wb-map-node` reads at `--text-md`, which computes to 13.6px at
+//: the default root size, so 14 is that rounded to a whole pixel. The strip's
+//: own "M" stores nothing at all instead, see `wbSyncMapStrip`.
+const WB_MAP_TEXT_DEFAULT = 14;
+const WB_MAP_TEXT_MIN = 10;
+const WB_MAP_TEXT_MAX = 44;
+
+//: One write path for everything the strip and the radial set. Saves, repaints
+//: the node it changed (not the board: a bold toggle is not worth re-binding
+//: every card and sketch, the "glitchy and slow to update" report this file
+//: already carries) and re-places the strip, whose width changes with what it
+//: now says.
+async function wbMapSetNodeStyle(node, patch) {
+  if (!node) return;
+  node.data = { ...node.data, ...patch };
+  const el = document.querySelector(`.wb-object[data-id="${node.id}"]`);
+  if (el) wbPaintMapNodeStyle(el, node);
+  await wbSaveObject(node);
+  wbUpdateSelectionBar();
+}
+
 function wbSyncMapChrome() {
   const isMap = wbIsMap();
   wbSyncToolSurfaces(isMap);
@@ -4493,6 +4664,15 @@ function wbApplySelectionHighlight() {
 function selectWbItem(kind, id) {
   wbSelectedItem = { kind, id };
   wbApplySelectionHighlight();
+  //: **The chrome that depends on the selection, updated where the selection
+  //: changes.** Both of these used to wait for the next render or the next
+  //: pan frame, which is why the map dock's own controls were re-synced by
+  //: hand at half a dozen call sites and why the node edit strip would
+  //: otherwise appear a frame late (or not at all, for a selection made
+  //: without a render behind it: `wbHandleItemClick` ends here and renders
+  //: nothing). One call site rather than every caller remembering two.
+  wbSyncMapToolState();
+  wbUpdateSelectionBar();
 }
 
 //: Select everything on the board (Edit → Select all, Ctrl+A on the
@@ -4511,6 +4691,7 @@ function clearWbSelection() {
   wbSelectedItem = null;
   wbMultiSelection.clear();
   wbApplySelectionHighlight();
+  wbSyncMapToolState();
   wbUpdateSelectionBar();
 }
 
@@ -4530,8 +4711,25 @@ function wbUpdateSelectionBar() {
   const multi = wbMultiSelection.size > 1;
   const container = document.getElementById("whiteboard-container");
   const host = document.getElementById("library-view-whiteboard");
-  if ((!sel && !multi) || !container || !host || wbLinkDragActive) {
+  //: **A map node gets the map's own strip, in the board bar's place**
+  //: (MINDMAP_PLAN.md §12.1 item 2). One bar above a node, never two: two
+  //: absolutely-positioned bars computed from the same box is exactly how
+  //: they come to overlap, and this file has already paid for that twice
+  //: (see `.wb-map-count`). The board's bar offers duplicate, copy style and
+  //: the z-order pair, none of which a topic in a tree has a use for, and
+  //: the strip offers how the topic reads and what it points at, which is
+  //: what the whiteboard has no equivalent of. Everything below places
+  //: whichever of the two this selection earns; `other` is hidden every time
+  //: so switching between a card and a topic cannot leave one behind.
+  const strip = document.getElementById("wb-map-strip");
+  const mapNode = multi ? null : wbSelectedMapNode();
+  const active = mapNode ? strip : bar;
+  const hideBoth = () => {
     bar.classList.add("hidden");
+    strip?.classList.add("hidden");
+  };
+  if ((!sel && !multi) || !container || !host || wbLinkDragActive || !active) {
+    hideBoth();
     return;
   }
   // **The document-wide query runs last, not first.** This function is called
@@ -4544,7 +4742,7 @@ function wbUpdateSelectionBar() {
   // are all constant-time and one of them is true whenever nothing is
   // selected, so putting them first skips the walk entirely.
   if (document.querySelector(".wb-object.wb-text-editing")) {
-    bar.classList.add("hidden");
+    hideBoth();
     return;
   }
   // A multi-selection gets the bar above the whole group, that is where
@@ -4558,7 +4756,7 @@ function wbUpdateSelectionBar() {
     box = item ? wbItemBBox(sel.kind, item) : null;
   }
   if (!box) {
-    bar.classList.add("hidden");
+    hideBoth();
     return;
   }
   const t = d3.zoomTransform(container);
@@ -4567,8 +4765,13 @@ function wbUpdateSelectionBar() {
   const cx = rect.left - hostRect.left + t.applyX((box.minX + box.maxX) / 2);
   const top = rect.top - hostRect.top + t.applyY(box.minY);
   const bottom = rect.top - hostRect.top + t.applyY(box.maxY);
-  bar.classList.remove("hidden");
-  const w = bar.offsetWidth, h = bar.offsetHeight;
+  (mapNode ? bar : strip)?.classList.add("hidden");
+  // Filled before it is measured: the strip's controls take their values from
+  // the node, and a select whose value changed is a different width, so
+  // reading `offsetWidth` first would centre the bar on last node's size.
+  if (mapNode) wbSyncMapStrip(mapNode);
+  active.classList.remove("hidden");
+  const w = active.offsetWidth, h = active.offsetHeight;
   // 44px above, not 10: the rotation handle sits 28px above a card or
   // text box (`.wb-rotate-handle`, 12px tall), and a bar placed just over
   // the item covered it, reported: "I can't rotate objects because that
@@ -4580,8 +4783,8 @@ function wbUpdateSelectionBar() {
   const floor = topBar ? topBar.bottom - hostRect.top + gapBelow : 56;
   let y = top - h - gapAbove;
   if (y < floor) y = bottom + gapBelow;
-  bar.style.left = `${Math.round(left)}px`;
-  bar.style.top = `${Math.round(y)}px`;
+  active.style.left = `${Math.round(left)}px`;
+  active.style.top = `${Math.round(y)}px`;
 }
 
 // Shared by every item's own click handler (sketch/node/object): a plain
@@ -6365,6 +6568,68 @@ async function initWhiteboard() {
     node.data = { ...node.data, color: e.target.value };
     await wbSaveObject(node);
     renderWhiteboardNow();
+  });
+  //: The node edit strip (§12.1 item 2). Every handler reads the selection at
+  //: the moment it fires rather than closing over a node: the strip is one set
+  //: of controls that moves between nodes, so a captured node is a control
+  //: that keeps editing whatever was selected when the page loaded.
+  $("wb-map-bold")?.addEventListener("click", () => {
+    const node = wbSelectedMapNode();
+    if (node) wbMapSetNodeStyle(node, { bold: !node.data?.bold });
+  });
+  $("wb-map-italic")?.addEventListener("click", () => {
+    const node = wbSelectedMapNode();
+    if (node) wbMapSetNodeStyle(node, { italic: !node.data?.italic });
+  });
+  $("wb-map-text-size")?.addEventListener("change", (e) => {
+    if (wbMapStripSyncing) return;
+    const node = wbSelectedMapNode();
+    if (node) wbMapSetNodeStyle(node, { font_size: Number(e.target.value) || null });
+  });
+  $("wb-map-align")?.addEventListener("change", (e) => {
+    if (wbMapStripSyncing) return;
+    const node = wbSelectedMapNode();
+    // Empty means "auto", which is no stored alignment at all rather than
+    // `left`: a node that has never been aligned and one aligned left read
+    // the same on screen and must not read the same in an export.
+    if (node) wbMapSetNodeStyle(node, { align: e.target.value || null });
+  });
+  $("wb-map-strip-icon")?.addEventListener("change", (e) => {
+    if (wbMapStripSyncing) return;
+    const node = wbSelectedMapNode();
+    if (node) wbMapSetNodeStyle(node, { icon: e.target.value || null });
+  });
+  $("wb-map-strip-color")?.addEventListener("change", async (e) => {
+    const node = wbSelectedMapNode();
+    if (!node) return;
+    // A colour carries down the branch, so this one *does* redraw the board:
+    // every descendant's card and every edge below it changes with it.
+    node.data = { ...node.data, color: e.target.value };
+    await wbSaveObject(node);
+    renderWhiteboardNow();
+  });
+  $("wb-map-strip-link")?.addEventListener("click", async () => {
+    const node = wbSelectedMapNode();
+    if (!node) return;
+    const current = node.data?.link || "";
+    const next = await promptDialog(
+      "Where should this topic point? An http, https or mailto address.",
+      current,
+      { confirmLabel: current ? "Update the link" : "Add the link" }
+    );
+    //: **An empty answer changes nothing, it does not remove the link.**
+    //: `promptDialog` resolves with `""` for Escape, for Cancel and for an
+    //: empty field alike (`close("")` on all three paths), so "empty means
+    //: remove" would make Escape destructive, which is the one thing Escape
+    //: must never be. Removing a link is "Unlink" on the node radial, where
+    //: a destructive action can say what it is.
+    const trimmed = String(next ?? "").trim();
+    if (!trimmed) return;
+    if (trimmed && !WB_MAP_LINK_SCHEMES.test(trimmed)) {
+      toast("A topic's link has to be an http, https or mailto address.", true);
+      return;
+    }
+    await wbMapSetNodeStyle(node, { link: trimmed });
   });
   $("wb-map-tidy")?.addEventListener("click", async () => {
     const moved = await wbMapTidy({ quiet: true });

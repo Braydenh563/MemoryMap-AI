@@ -231,6 +231,27 @@ const SURFACES = [
   console.log(`tab bar          under-${MIN}px: ${tabs.small.length}  pinned to bottom: ${tabs.atBottom}  scrolls: ${tabs.scrolls}`);
   for (const line of tabs.small) console.log(`    ${line}`);
 
+  // The page itself must not slide sideways. This is the check that found the
+  // 7px the header was over at 390 on all seven tabs: every individual
+  // surface passed its own measurements while the whole application moved
+  // under the finger, because nothing was asking the one question a phone
+  // makes obvious.
+  const slide = await page.evaluate(() => {
+    const out = [];
+    for (const tab of ['dashboard', 'notes', 'chat', 'graph', 'library', 'timeline', 'reminders']) {
+      const button = document.querySelector(`[data-tab="${tab}"]`);
+      if (button) button.click();
+      const root = document.documentElement;
+      if (root.scrollWidth > root.clientWidth + 0.5) {
+        out.push(`${tab}: page scrolls sideways, ${root.scrollWidth} in ${root.clientWidth}`);
+      }
+    }
+    return out;
+  });
+  failures += slide.length;
+  console.log(`sideways scroll   ${slide.length ? slide.length + ' tabs' : 'none'}`);
+  for (const line of slide) console.log(`    ${line}`);
+
   for (const line of errors) console.log(`    ${line}`);
   failures += errors.length;
 

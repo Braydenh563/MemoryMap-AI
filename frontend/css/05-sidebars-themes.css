@@ -4037,3 +4037,44 @@ button.ghost.doc-template-choice:focus-visible {
 .outline-tasks-done {
   color: var(--ok);
 }
+
+/* --- the phone header fits inside the phone -------------------------------
+   Measured at 390x844, on every tab: `document.documentElement.scrollWidth`
+   397 against a `clientWidth` of 390, so the whole application slid 7px
+   sideways under the finger wherever you were. The overflowing child is the
+   same on all seven: `.header-controls` ends at x=397, with `#quit-btn`'s
+   right edge on the same line.
+
+   The arithmetic, at 390 and before this block: 12.8 of padding, the 34px
+   mark, a 9.6 gap, the 65px space switcher, a 9.6 gap, then 266px of
+   controls (five 44px buttons, four 6.4 gaps, a 1px divider and its two),
+   and 12.8 of padding again: 409.8 asked of a 390 box. Nothing in that row
+   can yield, and deliberately so (the base `.header-controls` rule's own
+   note: letting the group shrink crushed it around content that could not,
+   and pushed the theme toggle out of the window).
+
+   So the row loses spacing, not controls, which is the part of
+   UI_MODERNISATION_PLAN Phase 11's decision that holds at any width:
+   "nothing is hidden that the desktop has". The divider goes because a
+   divider is decoration between two buttons rather than one of them, and
+   together with the two tighter gaps that is 373.4px of content in 390:
+   30px of headroom for a longer AI-status dot or a sixth button.
+
+   The real answer is still Phase 11's: a top bar with the title, the AI dot
+   and one action, everything else in a sheet. This is the arithmetic fix
+   that stops the page sliding until that lands, and it costs nothing once
+   the header stops holding five buttons. */
+@media (max-width: 599.98px) {
+
+  header#top-bar {
+    gap: 0.4rem;
+  }
+
+  .header-controls {
+    gap: 0.25rem;
+  }
+
+  .header-divider {
+    display: none;
+  }
+}

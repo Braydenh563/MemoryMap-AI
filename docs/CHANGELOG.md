@@ -140,6 +140,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The spell checker knows English again on a Windows checkout. Every one of
+  the 92,972 dictionary entries was arriving with a trailing carriage return,
+  so none of them matched and an ordinary document came back with a
+  suggestion for nearly every word in it. The loader trims each entry, and
+  `.gitattributes` now pins line endings so the checkout cannot do it again.
+
 - Tonal buttons no longer wear a panel's shadow. In dark mode every one of
   them painted `rgba(0, 0, 0, 0.35)`, because that shadow token is seven
   times heavier in dark (it has to be, over a near-black page) and was sized

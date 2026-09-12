@@ -66,3 +66,36 @@ def test_the_editor_reads_the_word_list_it_is_given() -> None:
     """The url in the code and the file on disk are one edit apart otherwise."""
     source = (VENDOR.parent / "documents.js").read_text(encoding="utf-8")
     assert 'DOC_WORDLIST_URL = "/vendor/wordlist/en.txt"' in source
+
+
+def test_the_loader_trims_each_entry() -> None:
+    """A CRLF checkout must not empty the dictionary.
+
+    Reported with a screenshot of 268 suggestions on a 298-word document,
+    every one of them an ordinary English word: "litterally everything isnt in
+    the dictionary". The list loads, so the no-dictionary guard in
+    `docWordKnown` never fires; it simply matches nothing, because git on
+    Windows checks text out with CRLF by default and every entry arrives as
+    `"offline\\r"`.
+
+    The file in the repository has unix endings and the test above reads it
+    from disk, so neither can see this: the damage happens at checkout, on a
+    machine the suite never runs on. What can be checked is that the loader
+    does not care, which is also the only fix that reaches copies that already
+    exist.
+    """
+    source = (VENDOR.parent / "documents.js").read_text(encoding="utf-8")
+    loader = source[source.index("function docLoadWordlist()") :][:2000]
+    assert "line.trim()" in loader, (
+        "docLoadWordlist must trim each line: an untrimmed CRLF checkout makes "
+        "all 92,972 entries miss and flags the entire language"
+    )
+
+
+def test_git_keeps_the_word_list_in_unix_endings() -> None:
+    """The other half: stop the checkout breaking it in the first place."""
+    attributes = (VENDOR.parents[1] / ".gitattributes").read_text(encoding="utf-8")
+    assert "eol=lf" in attributes, (
+        ".gitattributes must pin line endings, or a Windows checkout rewrites "
+        "the word list, the cache stamps and every byte length a test asserts"
+    )

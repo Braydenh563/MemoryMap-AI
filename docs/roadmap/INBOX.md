@@ -23,6 +23,28 @@ never lost to the smaller stuff.
 
 ## Open items
 
+121. **Found by the orchestrator 2026-09-12, by the sweep that could not
+    see it before.** Extending `errors.js` past the seven tab-bar buttons
+    (Documents and the whiteboard are reached from a dock or a Library row,
+    so `[data-tab]` never opened them) found one real defect on its first
+    run, and it is on the phone: at 390px the Documents dock puts
+    `button#doc-ai` entirely off screen.
+
+    Measured: window 390, `#doc-ai` at x 388.8 to 481.5, so none of it is
+    reachable. Its row `.row.doc-actions` is 450.1px wide inside a
+    `.doc-dock` whose client width is 278px, and `.doc-layout` reports
+    scrollWidth 519 against clientWidth 364. Both rows already carry
+    `flex-wrap: wrap`, which does nothing here: `.doc-actions` is itself a
+    flex item of a wrapping parent, so it is sized at its own max-content
+    width and its inner wrap never triggers. The fix is to constrain it
+    (`min-width: 0` plus a full-width basis below the breakpoint) so it is
+    the dock's width and then wraps inside itself.
+
+    `frontend/css/04-chat-dock-appearance.css` (`.doc-actions` at 3597,
+    `.doc-dock > .doc-actions` at 3473 and its 4316 media block) is held by
+    an agent at the time of writing, so this is recorded rather than fixed
+    under them. 1440, 1024 and 820 are clean; only 390 fails.
+
 120. **Sixth drop continued, verbatim (the owner), the Ask sub-tab.**
     "the try asking and ask again suggestions are nearly identical" (the
     screenshot has "Try asking:" with four chips and "Ask again:" with five

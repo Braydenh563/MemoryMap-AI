@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 
 from memorymap import __version__
 from memorymap.ai import presets, skills
-from memorymap.core import deps, embedmodels, extras, logbuffer
+from memorymap.core import deps, embedmodels, events, extras, logbuffer
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import importer, manager
@@ -1014,11 +1014,59 @@ def audit_log(
             "action": row.action,
             "entity_type": row.entity_type,
             "entity_id": row.entity_id,
+            "actor": row.actor or events.ACTOR_USER,
             "detail": row.detail,
             "created_at": row.created_at.isoformat(),
         }
         for row in rows
     ]
+
+
+@router.get("/events")
+def event_feed(
+    since: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
+    entity_type: str = Query(default="", max_length=40),
+    include_quiet: bool = Query(default=False),
+    session: Session = Depends(get_session),
+) -> dict:
+    """The event log forwards, for anything that follows what happens here.
+
+    `/audit` reads backwards from now, which is what a viewer wants and what
+    a feed cannot use: a poller has to ask "what has happened since the last
+    thing I saw" and get it in the order it happened. So this is ascending
+    from `since` (exclusive), with `cursor` to pass back next time, and it
+    is what a Dashboard or Timeline activity strip should read instead of
+    scanning the notes table for recency (WORLD_CLASS_PLAN B1).
+
+    Payloads are not returned: they carry whole field values, which for a
+    note is its entire text, and a feed that ships every version of every
+    note is a different thing from a feed. `changed` names the fields each
+    event set, which is what a strip renders, and `/entries/{id}/history`
+    has the values when something actually needs them.
+    """
+    query = select(AuditLog).where(AuditLog.id > since)
+    if entity_type:
+        query = query.where(AuditLog.entity_type == entity_type)
+    if not include_quiet:
+        query = query.where(AuditLog.action.notin_(sorted(events.QUIET_ACTIONS)))
+    rows = list(session.scalars(query.order_by(AuditLog.id.asc()).limit(limit)))
+    return {
+        "items": [
+            {
+                "id": row.id,
+                "action": row.action,
+                "entity_type": row.entity_type,
+                "entity_id": row.entity_id,
+                "actor": row.actor or events.ACTOR_USER,
+                "detail": row.detail,
+                "changed": sorted((row.payload or {}).get("after", {}) or {}),
+                "created_at": row.created_at.isoformat(),
+            }
+            for row in rows
+        ],
+        "cursor": rows[-1].id if rows else since,
+    }
 
 
 @router.delete("/audit")

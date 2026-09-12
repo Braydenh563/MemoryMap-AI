@@ -125,3 +125,29 @@ def test_a_write_with_no_stated_actor_is_the_user(session):
     session.commit()
     last = session.query(AuditLog).order_by(AuditLog.id.desc()).first()
     assert last.entity_id == entry.id and last.actor == "user"
+
+
+def test_the_feed_reads_forwards_from_a_cursor(client):
+    """A viewer reads backwards from now; anything that follows the notebook
+    has to read forwards from what it last saw, or it misses whatever
+    happened while it was away."""
+    first = client.post("/entries", json={"content": "one", "tags": []}).json()
+    start = client.get("/events").json()
+    client.post("/entries", json={"content": "two", "tags": []})
+
+    after = client.get(f"/events?since={start['cursor']}").json()
+    actions = [item["action"] for item in after["items"]]
+    assert "created" in actions
+    assert all(item["id"] > start["cursor"] for item in after["items"])
+    assert all(item["actor"] == "user" for item in after["items"])
+    assert not [item for item in after["items"] if item["entity_id"] == first["id"]]
+    assert after["cursor"] >= start["cursor"]
+
+
+def test_the_feed_leaves_the_bookkeeping_out(client):
+    entry = client.post("/entries", json={"content": "before", "tags": []}).json()
+    client.put(f"/entries/{entry['id']}", json={"content": "after"})
+
+    items = client.get("/events").json()["items"]
+    assert "revised" not in [item["action"] for item in items]
+    assert "revised" in [row["action"] for row in client.get("/audit").json()]

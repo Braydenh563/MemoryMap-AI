@@ -36,6 +36,7 @@ from memorymap.core.database import (
     Document,
     Entry,
 )
+from memorymap.core import events
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import extract_title, remove_title, strip_inline_markdown
 
@@ -661,9 +662,14 @@ def _activity(session: Session) -> list[dict]:
     function rather than a surface of its own.
     """
     rows = session.scalars(
-        select(AuditLog).order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).limit(
-            PER_KIND_LIMIT
-        )
+        select(AuditLog)
+        # The bookkeeping events (a version snapshotted before an edit, the
+        # dates re-resolved because the text changed) always accompany the
+        # edit that caused them, so a feed that shows both says everything
+        # twice and buries the half a person recognises.
+        .where(AuditLog.action.notin_(sorted(events.QUIET_ACTIONS)))
+        .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+        .limit(PER_KIND_LIMIT)
     )
     items = []
     for row in rows:

@@ -214,3 +214,21 @@ def test_list_notes_date_lookup_query_count_does_not_scale_with_returned_notes(s
         f"list_notes issued {large} queries for 50 returned notes vs "
         f"{small} for 5: looks like the per-note entry_dates lookup is back"
     )
+
+
+def test_notes_list_fetches_attachments_once_not_once_per_note(client, session):
+    """`GET /entries` reads the attachments table once per page, not per note.
+
+    The fourth thing `_to_out` resolves per entry. `_to_out_bulk` had been
+    given batched forms for categories, dates, documents and links, so the
+    endpoint looked bulk-fetched; `attachments=` still called
+    `manager.attachments_for` inside the list comprehension. Counted on a
+    60-note page: 67 statements, 60 of them the same
+    `SELECT ... FROM attachments WHERE entry_id = ?`; 8 after. This is the
+    notes list, so it is the most-requested endpoint in the app.
+    """
+    category = session.scalars(__import__("sqlalchemy").select(Category).limit(1)).first()
+    _add_entries(session, 60, category.id if category else None)
+
+    hits = _count_statements(session, lambda: client.get("/entries"), "FROM attachments")
+    assert len(hits) <= 1, f"one query per page, got {len(hits)}"

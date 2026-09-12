@@ -9,6 +9,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Save a copy of a file from the Library. The Files rows' menu now hands you
+  the original file back, which nothing in the Library could do before.
+
 - A skill step that has to go through every note now goes through every note.
   A step that reads a page at a time keeps reading until there are no pages
   left, instead of stopping after the first one and ticking itself off. The
@@ -139,6 +142,53 @@ below). Versioning is `0.x` while the app stabilises.
   text on purpose.
 
 ### Fixed
+
+- The notes list reads the attachments table once per page instead of once
+  per note. Counted on a 60-note page: 67 database statements, 60 of them
+  the same attachments query, and 8 after. It is the most-requested
+  endpoint in the app.
+
+- The launcher's progress now finishes. Five steps were reported and only
+  four were ever ticked, because the last one belongs to the app's own
+  window and nothing was marking it done, so the bar stopped short of the
+  end of its track every launch and then the app appeared.
+
+- The cursor on a whiteboard or a mind map follows the tool you are holding.
+  Hovering a topic with the delete tool showed the open hand that means
+  "drag this", which promised the opposite of what the click would do; every
+  tool that acts on a point now keeps its own cursor over the things on the
+  board. The fill, sticky note and text box tools had no cursor of their own
+  at all and showed the hand over the empty canvas too.
+
+- The board picker in the whiteboard's top bar now says which of your boards
+  are mind maps and which are whiteboards, the way the board cards already
+  do. Before, both kinds read as "Name (N items)" with nothing to tell them
+  apart.
+
+- A file row in the Library is a third shorter and says what matters first:
+  the name, then one line carrying what the file is, whether it has been
+  read and where it is used, then its description. It was five stacked
+  blocks each holding one short phrase.
+
+- The tree, radial and arc graph views no longer come out as a scatter of
+  crossing links. Switching to one of them while the force layout was still
+  settling let a position update from the old layout land after the new one
+  had been drawn, overwriting most of it; switching at a quieter moment was
+  fine, which is why it came and went.
+
+- Clicking a note on the graph opens its panel in every view, not only the
+  force one. The other three views have no drag (their shape is the meaning,
+  so a note cannot be pulled out of it), and the click had been riding on the
+  drag.
+
+- Trace, started from a note's panel on the graph, finds the note. It always
+  answered "that note isn't on the map right now" with the note plainly on the
+  map. Picking two notes by clicking them on the map was never affected.
+
+- Panning and zooming the graph does less work per pointer event: the minimap
+  moves its viewport rectangle instead of redrawing every dot, and it does it
+  once per frame rather than once per event. Measured over a forty-move pan,
+  202 document lookups and 40 full minimap repaints before, 0 and 0 after.
 
 - The "related elsewhere" panel a chat answer shows when no note answered
   costs three database scans instead of eighteen. It ran three queries per

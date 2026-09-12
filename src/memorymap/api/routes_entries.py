@@ -77,6 +77,7 @@ def _to_out(
     dates: list | None = None,
     documents: list | None = None,
     links: list | None = None,
+    attachments: list | None = None,
 ) -> EntryOut:
     # Decrypted here if private and the vault is open, every read of a
     # note's text goes through this one helper.
@@ -93,6 +94,9 @@ def _to_out(
         manager.documents_for_entry(session, entry) if documents is None else documents
     )
     resolved_links = manager.links_for_entry(session, entry) if links is None else links
+    resolved_attachments = (
+        manager.attachments_for(session, entry) if attachments is None else attachments
+    )
     return EntryOut(
         id=entry.id,
         content=content,
@@ -143,7 +147,7 @@ def _to_out(
                 size=a.size,
                 is_image=a.mime.startswith("image/"),
             )
-            for a in manager.attachments_for(session, entry)
+            for a in resolved_attachments
         ],
         filed_by=filed_by,
         filing_state=getattr(entry, "filing_state", "done") or "done",
@@ -159,6 +163,7 @@ def _to_out_bulk(session: Session, entries: list) -> list[EntryOut]:
     dates_by_id = manager.entry_dates_bulk(session, ids)
     documents_by_id = manager.documents_for_entries_bulk(session, ids)
     links_by_id = manager.links_for_entries_bulk(session, ids)
+    attachments_by_id = manager.attachments_for_entries_bulk(session, ids)
     return [
         _to_out(
             session,
@@ -167,6 +172,7 @@ def _to_out_bulk(session: Session, entries: list) -> list[EntryOut]:
             dates=dates_by_id.get(e.id, []),
             documents=documents_by_id.get(e.id, []),
             links=links_by_id.get(e.id, []),
+            attachments=attachments_by_id.get(e.id, []),
         )
         for e in entries
     ]

@@ -997,6 +997,31 @@ def attachments_for(session: Session, entry: Entry) -> list[Attachment]:
     )
 
 
+def attachments_for_entries_bulk(
+    session: Session, entry_ids: list[int]
+) -> dict[int, list[Attachment]]:
+    """`attachments_for` for several notes in one query, grouped by note id.
+
+    The fourth of these batched forms, and the one that was missed:
+    `_to_out_bulk` already passed pre-fetched categories, dates, documents and
+    links, so `GET /entries` looked bulk-fetched, while `_to_out`'s
+    `attachments=` list still called `attachments_for` once per row. Measured
+    with a statement counter on a 60-note page: 67 statements, 60 of them the
+    same `SELECT ... FROM attachments WHERE entry_id = ?`. It is the notes
+    list, the most-requested endpoint in the app, so it was also the most
+    expensive place in the schema to leave one.
+    """
+    if not entry_ids:
+        return {}
+    out: dict[int, list[Attachment]] = {}
+    rows = session.scalars(
+        select(Attachment).where(Attachment.entry_id.in_(entry_ids)).order_by(Attachment.id)
+    )
+    for attachment in rows:
+        out.setdefault(attachment.entry_id, []).append(attachment)
+    return out
+
+
 def delete_attachment(
     session: Session, attachment: Attachment, uploads_dir: Path
 ) -> None:

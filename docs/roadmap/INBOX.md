@@ -23,6 +23,22 @@ never lost to the smaller stuff.
 
 ## Open items
 
+112a. **The mechanism behind 112, found 2026-09-12.** The link is not a
+    citation marker and not a wiki link: `CMD_NOTE_REF`
+    (`/\bnotes?\s*(?:id|#)?\s*(\d{1,7})\b/gi`, app.js) rewrites a
+    "note #68" written in the model's own prose into a button, and
+    `cmdPaletteLinkNotes(root, results)` builds it. The id is taken
+    straight from the regex and handed to `flashEntry`, and a link is only
+    built for an id in `known`, which is that turn's `found` plus the notes
+    its tools `touched`. So on the reported turn 68 was genuinely in the
+    retrieved set, which does not fit the screenshot: the chips showed only
+    "bubble tea". Two readings left, and they need one live turn to
+    separate: either the bubble tea note really is id 68 and `flashEntry`
+    landed elsewhere (it looks id-based and resets every filter, so this is
+    the less likely one), or `found`/`touched` carried a second note the
+    chips did not draw. Next session: reproduce with a real model turn,
+    log `known`, the matched id, and what `flashEntry` scrolls to.
+
 112. **Chat citation pointed at the wrong note, 2026-09-09 evening, verbatim
     (the owner), with two screenshots.** "I asked the popup agent this, and
     the bubble tea note it mentioned was my bubble tea mind map, but the

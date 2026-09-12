@@ -70,11 +70,30 @@ CAPTION_PROMPT = (
 #: vision model at all: it is a utility-model completion like tag suggestion
 #: or the meeting summary, and it works on the machines that have no vision
 #: model installed, which is most of them.
+#: **It has to say "do not transcribe", and the page prompt below learned that
+#: before this one did.** Reported on 2026-09-09: *"the files description needs
+#: to be an actual description or summary of what the file is about and
+#: includes, not a transcription."* The first version of this prompt asked a
+#: small local model to "describe this document" and then handed it two
+#: thousand characters of that document, and the most available answer to that
+#: is the opening of the text it was just given, lightly reworded. It reads as
+#: a description until you compare it with the file, and then it is the first
+#: paragraph again.
+#:
+#: `PAGE_CAPTION_PROMPT` hit the same wall on rendered pages and answers it
+#: with one clause: name the subjects, and say plainly not to transcribe. The
+#: same two moves are what this needed. "What it contains" is the other half of
+#: the report ("what the file is about *and includes*"): a reader scanning a
+#: gallery wants to know there are twelve pages of lab results in there, which
+#: is a fact about the whole document and never appears in its first paragraph.
 DOCUMENT_PROMPT = (
     "Describe this document in one or two short, factual sentences: what it "
-    "is and what it covers. Name the subject rather than the format, a reader "
-    "can already see it is a PDF. No preamble, no opinions, no bullet list, "
-    "just the description."
+    "is about, and what it contains (its sections, data, figures or examples). "
+    "Write it in your own words as a summary for someone deciding whether to "
+    "open the file. Do not transcribe, quote or reword the opening of the "
+    "text. Name the subject rather than the format, a reader can already see "
+    "it is a PDF. No preamble, no opinions, no bullet list, just the "
+    "description."
 )
 
 #: How much of a document the describer reads. Two thousand characters is

@@ -151,3 +151,20 @@ class _Extracted:
 def test_the_prompt_names_the_file_and_asks_for_two_sentences():
     assert "sentence" in captioning.DOCUMENT_PROMPT.lower()
     assert "no preamble" in captioning.DOCUMENT_PROMPT.lower()
+
+
+def test_the_prompt_rules_out_a_transcription():
+    """Reported: the description "needs to be an actual description or summary
+    of what the file is about and includes, not a transcription".
+
+    A small local model handed two thousand characters of a document and told
+    to describe it will very often hand back the opening of that document,
+    lightly reworded. `PAGE_CAPTION_PROMPT` already answers this for rendered
+    pages with an explicit clause; this asserts the document prompt carries the
+    same one, and that it asks for what the file contains rather than only what
+    it is about, which is the other half of the report.
+    """
+    prompt = captioning.DOCUMENT_PROMPT.lower()
+    assert "do not transcribe" in prompt
+    assert "contains" in prompt
+    assert "no bullet list" in prompt

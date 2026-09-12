@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- "Describe with AI" is asked for a description rather than a transcription.
+  Handed two thousand characters of a document and told to describe it, a
+  small local model very often gave back the opening of that document,
+  lightly reworded. The prompt now rules that out in as many words and asks
+  what the file contains, not only what it is about.
+
 - The spelling menu's suggestions read as words again. Every candidate drew
   the same check mark, so five suggestions looked like five identical
   commands and the eye had nothing to tell them apart by except the text it

@@ -4744,12 +4744,320 @@ const DOC_AUTOCORRECT = {
 
 const DOC_LONG_SENTENCE_WORDS = 45;
 
+// --- the dictionary the spelling check actually reads -------------------------
+//
+// **What was wrong, and it was the whole check.** Until 2026-09-12 the
+// spelling rule looked each word up in `DOC_AUTOCORRECT`, a hand-written table
+// of 42 typos, and treated every word that was not in it as correctly spelled.
+// That is not a spell checker, it is a list of 42 strings: "tets" was never
+// flagged, and neither was anything else a person actually mistypes. The
+// owner's two reports are the same cause seen from two sides. "Spelling errors
+// and grammar arent picked up all the time" is the table being 42 entries
+// long. "No edit suggestions popup panel appears when I click on underlined
+// words" is subtler and worse: the underline being clicked was not this app's,
+// it was the *browser's* native squiggle, drawn because the editor carries
+// `spellcheck="true"`. The app had no finding at that word, so it had nothing
+// to open a menu about, and the click did nothing.
+//
+// So the fix has to be a real dictionary, and the browser's squiggle has to
+// go once there is one, or every misspelling carries two underlines and only
+// one of them answers a click. `docBrowserSpellcheck` is that switch, and it
+// is deliberately conditional rather than deleted: if the word list fails to
+// load, the browser's checker is better than nothing and comes straight back.
+//
+// **Why it is a fetch and not a script.** 871KB of words parsed into a Set is
+// work the first paint should never wait for, and most sessions never open a
+// document at all. It loads on the first prose pass, which is 150ms after the
+// first keystroke in a document at the earliest, and the pass re-runs itself
+// when it arrives.
+
+const DOC_WORDLIST_URL = "/vendor/wordlist/en.txt";
+
+//: The words this app and the notes people keep in it are written in, that a
+//: general English list does not carry. Kept here rather than appended to the
+//: vendored file, so that file stays exactly what its build.sh produces and
+//: the licence notice beside it keeps describing its contents.
+const DOC_EXTRA_WORDS = [
+  "apis", "async", "auth", "autocomplete", "autocorrect", "autosave", "autosaved",
+  "backend", "changelog", "chatbot", "config", "configs", "csv", "dockerfile",
+  "downvote", "dropdown", "dropdowns", "embeddings", "enum", "filepath",
+  "frontend", "fullstack", "gitlab", "golang", "https", "iterable", "json",
+  "kanban", "kubernetes", "linter", "localhost", "memorymap", "mindmap",
+  "namespace", "navbar", "nodejs", "npm", "oauth", "onboarding", "passwordless",
+  "pypi", "readme", "realtime", "rebase", "regexes", "retagging", "roadmap",
+  "rustc", "scrollbar", "sdk", "signup", "standup", "struct", "subfolder",
+  "subfolders", "todo", "todos", "tokenizer", "toml", "tooltip", "tooltips",
+  "tsv", "ui", "uncached", "untagged", "upvote", "uri", "utf", "uuid", "ux",
+  "viewport", "webapp", "webhook", "webhooks", "wireframe", "yaml", "yml",
+];
+
+let docWordlist = null;
+let docWordlistLoading = false;
+let docWordlistFailed = false;
+
+//: Until this is true the checker makes no claim about whether a word is
+//: spelled correctly, which is why every caller asks rather than assuming.
+function docWordlistReady() {
+  return docWordlist !== null;
+}
+
+function docLoadWordlist() {
+  if (docWordlist || docWordlistLoading || docWordlistFailed) return;
+  docWordlistLoading = true;
+  fetch(DOC_WORDLIST_URL)
+    .then((response) => (response.ok ? response.text() : Promise.reject(new Error(String(response.status)))))
+    .then((text) => {
+      const words = new Set(DOC_EXTRA_WORDS);
+      for (const line of text.split("\n")) if (line) words.add(line);
+      docWordlist = words;
+      docWordlistLoading = false;
+      //: The ranked suggestions are drawn from the same pool, so it has to be
+      //: rebuilt, and the pass that ran without a dictionary has to run again
+      //: now that there is one.
+      docKnownWordsCache = null;
+      docSpellCache = new Map();
+      docCmApplySpellcheck();
+      renderDocProse();
+    })
+    .catch(() => {
+      //: Once, not on a loop: a failed fetch here means the file is missing
+      //: from the build, and retrying on every keystroke would turn one
+      //: mistake into a request storm. The browser's own checker stays on.
+      docWordlistLoading = false;
+      docWordlistFailed = true;
+    });
+}
+
+//: A word the checker is willing to have an opinion about. Everything refused
+//: here is refused because flagging it would be wrong far more often than it
+//: would be right, and a checker that cries wolf is one that gets turned off.
+function docSpellable(text, word, start, end) {
+  if (word.length < 2) return false;
+  //: An acronym (API, HTTP, NASA) is not in any word list and is not a typo.
+  if (word === word.toUpperCase()) return false;
+  //: An internal capital means an identifier or a product name: MemoryMap,
+  //: docSurface, YouTube. Splitting and checking the halves would flag half
+  //: the identifiers in any technical note.
+  if (/[A-Z]/.test(word.slice(1))) return false;
+  //: A letter run touching a digit, a path separator, an @ or a dot before
+  //: more letters is part of something that is not prose: utf-8, app.js,
+  //: me@example.com, C:\\Users. The word regex stops at those characters, so
+  //: the only way to see them is to look at what is on either side.
+  const before = start > 0 ? text[start - 1] : "";
+  const after = end < text.length ? text[end] : "";
+  if (/[0-9_/@\\#$%&*+=<>~]/.test(before) || /[0-9_/@\\#$%&*+=<>~]/.test(after)) return false;
+  if (after === "." && /[A-Za-z]/.test(text[end + 1] || "")) return false;
+  if (before === "." && /[A-Za-z]/.test(text[start - 2] || "")) return false;
+  return true;
+}
+
+//: Is this a word? Asked only of things `docSpellable` has already allowed.
+//: A trailing possessive is stripped rather than listed: the vendored file
+//: drops its 18,579 "word's" forms because this is cheaper and cannot get out
+//: of step with the nouns it is built from.
+function docWordKnown(word) {
+  if (!docWordlist) return true;
+  const bare = word.replace(/['’]s$/i, "").replace(/['’]+$/, "");
+  if (!bare) return true;
+  const lower = bare.toLowerCase();
+  return docWordlist.has(lower) || docDictionary().has(lower);
+}
+
+//: The strings one edit away from a word, each tagged with *which* edit, and
+//: the tag is the point. Norvig's shape for the generation, and the reason it
+//: is this rather than a scan of the dictionary is arithmetic: a scan is
+//: 93,000 edit-distance computations, this is a few hundred Set lookups, and
+//: the two return the same answer for distance one.
+//:
+//: The tag ranks the answers, and ranking by *how specific the edit is* is
+//: what makes the top row the word the writer meant. There are only n-1
+//: transpositions of a word and n deletions, against 26n insertions and 25n
+//: substitutions: so a candidate that needs only a swap is a far stronger
+//: claim than one of twenty-five letters that could have gone in that slot.
+//: Measured: "tets" ranked alphabetically offered tats, teas, teds, tees and
+//: tens, and never "test", which is the one word anybody typing "tets" meant.
+const DOC_ALPHABET = "abcdefghijklmnopqrstuvwxyz'";
+const DOC_EDIT_SWAP = 0;
+const DOC_EDIT_DROP = 1; // one letter too many was typed
+const DOC_EDIT_ADD = 2; // one letter was missed
+const DOC_EDIT_SWAP_LETTER = 3; // the wrong letter was typed
+
+function docEditsOnce(word) {
+  const out = new Map();
+  const note = (candidate, rank) => {
+    if (candidate === word) return;
+    const seen = out.get(candidate);
+    if (seen === undefined || rank < seen) out.set(candidate, rank);
+  };
+  for (let i = 0; i <= word.length; i += 1) {
+    const head = word.slice(0, i);
+    const tail = word.slice(i);
+    if (tail) note(head + tail.slice(1), DOC_EDIT_DROP);
+    if (tail.length > 1) note(head + tail[1] + tail[0] + tail.slice(2), DOC_EDIT_SWAP);
+    for (const letter of DOC_ALPHABET) {
+      if (tail) note(head + letter + tail.slice(1), DOC_EDIT_SWAP_LETTER);
+      note(head + letter + tail, DOC_EDIT_ADD);
+    }
+  }
+  return out;
+}
+
+function docSpellRoot(word) {
+  return word.toLowerCase().replace(/['\u2019]s$/i, "");
+}
+
+//: Real words one or two edits from a misspelling, nearest first. Two edits
+//: is only reached when one edit finds too few, because it costs the square
+//: of the work and because a word with a one-edit neighbour almost always
+//: meant that neighbour.
+const DOC_TWO_EDIT_FLOOR = 2;
+
+function docSpellGuesses(word, limit = DOC_SUGGEST_MAX) {
+  if (!docWordlist) return [];
+  const lower = docSpellRoot(word);
+  const near = [];
+  const once = docEditsOnce(lower);
+  for (const [candidate, rank] of once) {
+    if (docWordlist.has(candidate)) near.push([candidate, rank]);
+  }
+  //: Two edits only when one found next to nothing. It costs the square of
+  //: the work, and a word with any one-edit neighbour almost always meant one
+  //: of those.
+  if (near.length < DOC_TWO_EDIT_FLOOR) {
+    const seen = new Set(near.map(([candidate]) => candidate));
+    //: Two edits out, everything is equally weak evidence, so they all share
+    //: one rank below every one-edit answer.
+    outer: for (const middle of once.keys()) {
+      for (const candidate of docEditsOnce(middle).keys()) {
+        if (candidate === lower || seen.has(candidate)) continue;
+        if (!docWordlist.has(candidate)) continue;
+        seen.add(candidate);
+        near.push([candidate, DOC_EDIT_SWAP_LETTER + 1]);
+        if (near.length >= limit * 3) break outer;
+      }
+    }
+  }
+  near.sort((a, b) => {
+    if (a[1] !== b[1]) return a[1] - b[1];
+    //: Within one kind of edit: the first letter is the one a typist gets
+    //: right, then the nearer length, then alphabetically so the same word
+    //: always offers the same menu in the same order.
+    const first = (b[0][0] === lower[0] ? 1 : 0) - (a[0][0] === lower[0] ? 1 : 0);
+    if (first) return first;
+    const length = Math.abs(a[0].length - lower.length) - Math.abs(b[0].length - lower.length);
+    if (length) return length;
+    return a[0] < b[0] ? -1 : 1;
+  });
+  return near.slice(0, limit).map(([candidate]) => candidate);
+}
+
+//: **The one answer, or none.** A correction this app is willing to make
+//: without being asked, or to put behind a single check button, has to be the
+//: only candidate of its kind: exactly one real word reachable by a swap of
+//: two letters or by dropping one, and nothing else that close. "tets" has
+//: exactly one ("test"); "tho" has several and gets a menu instead. Short
+//: words are refused outright because almost every three-letter string is one
+//: edit from several real words.
+const DOC_CONFIDENT_MIN = 4;
+
+function docSpellConfident(word) {
+  if (!docWordlist) return null;
+  const lower = docSpellRoot(word);
+  if (lower.length < DOC_CONFIDENT_MIN) return null;
+  const swaps = [];
+  const drops = [];
+  for (const [candidate, rank] of docEditsOnce(lower)) {
+    if (rank > DOC_EDIT_DROP) continue;
+    if (!docWordlist.has(candidate)) continue;
+    (rank === DOC_EDIT_SWAP ? swaps : drops).push(candidate);
+  }
+  //: A swap outranks a dropped letter rather than competing with it. "tets"
+  //: has one of each ("test" and "tet", the Vietnamese new year), and
+  //: treating those as a tie left the app with no opinion about the most
+  //: ordinary typo there is.
+  if (swaps.length === 1) return swaps[0];
+  if (!swaps.length && drops.length === 1) return drops[0];
+  return null;
+}
+
+//: One answer per word rather than per occurrence. A document says the same
+//: word many times, the answers cannot change between two of them inside one
+//: pass, and the generation above is the most expensive thing the checker
+//: does. Cleared when the dictionary changes, which is the only thing that
+//: can change an answer.
+let docSpellCache = new Map();
+
+function docSpellLookup(word) {
+  const key = docSpellRoot(word);
+  let answer = docSpellCache.get(key);
+  if (answer === undefined) {
+    answer = { known: docWordKnown(word), sure: null };
+    if (!answer.known) answer.sure = docSpellConfident(word);
+    //: Bounded, because a pathological document must not grow this without
+    //: limit: cleared wholesale rather than evicted one at a time, which
+    //: costs one rebuild on a document with more than 5,000 distinct words.
+    if (docSpellCache.size > 5000) docSpellCache.clear();
+    docSpellCache.set(key, answer);
+  }
+  return answer;
+}
+
+//: Spans of the document the prose rules do not read. A fenced block is code,
+//: an inline span in backticks is code, a URL is an address and a markdown
+//: link's destination is a path: none of them is prose, and every one of them
+//: is full of things that look like misspellings and missing spaces. Without
+//: this a real dictionary would put a red underline under every identifier in
+//: a code sample, which is the single fastest way to make a writer turn the
+//: whole check off.
+//:
+//: A byte mask rather than a list of ranges because the test is asked once
+//: per finding and once per word: a linear scan of ranges per word is the
+//: shape that makes a long document slow.
+const DOC_PROSE_SKIP = [
+  /(^|\n)[ \t]*(```|~~~)[^\n]*\n[\s\S]*?(\n[ \t]*\2[^\n]*|$)/g, // fenced code
+  /`[^`\n]+`/g, // inline code
+  /\b(?:https?:\/\/|ftp:\/\/|mailto:|www\.)\S+/g, // addresses
+  /\]\([^)\n]*\)/g, // a markdown link's destination
+  /^\[[^\]\n]+\]:\s*\S+/gm, // a reference link's definition
+  /<\/?[A-Za-z][^>\n]*>/g, // an html tag
+  /\[\[[^\]\n]*\]\]/g, // a note link: the title is a name, not prose
+  /^---\n[\s\S]*?\n---/g, // frontmatter
+];
+
+function docProseSkipMask(text) {
+  const mask = new Uint8Array(text.length);
+  for (const source of DOC_PROSE_SKIP) {
+    //: A fresh regex per pass, for the reason the rules' own loop gives:
+    //: `lastIndex` survives on a shared object and silently skips half the
+    //: document on every second call.
+    const pattern = new RegExp(source.source, source.flags);
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      if (!match[0].length) {
+        pattern.lastIndex += 1;
+        continue;
+      }
+      mask.fill(1, match.index, match.index + match[0].length);
+    }
+  }
+  return mask;
+}
+
 //: Findings, in document order, each with the exact span it is about so the
 //: panel can jump to it and the fix can replace it without searching for the
 //: text again (which would find the wrong occurrence in a document that says
 //: the same thing twice).
 function docProseFindings(text) {
   const found = [];
+  //: Kicked off here rather than at load: this is the first moment anything
+  //: wants to know whether a word is a word. It returns immediately, and the
+  //: pass that arrives with it re-runs this one.
+  docLoadWordlist();
+  const skip = docProseSkipMask(text);
+  //: A span is skipped when it starts inside code or an address. Its start
+  //: rather than every character of it: a rule whose match straddles the end
+  //: of a code fence is about the code, not the prose after it.
+  const skipped = (at) => skip[at] === 1;
   for (const rule of DOC_PROSE_RULES) {
     if (!rule.test) continue;
     //: A fresh regex per pass: these carry `g`, and `lastIndex` survives
@@ -4759,6 +5067,7 @@ function docProseFindings(text) {
     let match;
     while ((match = pattern.exec(text)) !== null) {
       if (!match[0].length) break; // a zero-width match would loop forever
+      if (skipped(match.index)) continue;
       found.push({
         rule: rule.id,
         message: rule.message,
@@ -4776,6 +5085,7 @@ function docProseFindings(text) {
   const variants = docVariantLookup();
   let hit;
   while ((hit = word.exec(text)) !== null) {
+    if (skipped(hit.index)) continue;
     const lower = hit[0].toLowerCase();
     //: A word in the dictionary is a word. This is the whole point of having
     //: one: the third time a checker flags your project's name, a checker you
@@ -4797,18 +5107,53 @@ function docProseFindings(text) {
       continue;
     }
     const better = DOC_AUTOCORRECT[lower];
-    if (!better) continue;
+    if (better) {
+      found.push({
+        rule: "spelling",
+        message: `“${hit[0]}” is probably “${better}”`,
+        start: hit.index,
+        end: hit.index + hit[0].length,
+        text: hit[0],
+        //: Keeps the writer's capitalisation: a typo at the start of a
+        //: sentence must not be corrected into a lowercase word.
+        replacement: docMatchCase(hit[0], better),
+      });
+      continue;
+    }
+    //: **Everything else, against the dictionary.** The table above is 42
+    //: entries and keeps its place only because it carries the one certain
+    //: answer for each of them; this is the check that makes the other
+    //: several hundred thousand typos visible. Silent until the word list has
+    //: loaded, because a checker that flags every word for a second and then
+    //: takes it back is worse than one that waits.
+    if (!docWordlistReady()) continue;
+    if (!docSpellable(text, hit[0], hit.index, hit.index + hit[0].length)) continue;
+    const looked = docSpellLookup(hit[0]);
+    if (looked.known) continue;
+    //: The candidate list is *not* computed here. It costs the square of the
+    //: work of one edit when one edit finds nothing, and computing it for
+    //: every unknown word on every pass put `docProseFindings` at 29ms over a
+    //: 276-character document (measured, 2026-09-12) when the whole pass has
+    //: a 300ms budget from keystroke to underline. The menu computes it for
+    //: the one word it is about, when it opens.
+    //:
+    //: The row claims an answer only when there is one to claim
+    //: (`docSpellConfident`); otherwise it says what it knows, which is that
+    //: the word is not in the dictionary, and the menu offers the candidates.
+    //: Saying "probably" about the first of five would be picking one at
+    //: random on the writer's behalf.
+    const sure = looked.sure;
     found.push({
       rule: "spelling",
-      message: `“${hit[0]}” is probably “${better}”`,
+      message: sure
+        ? `“${hit[0]}” is probably “${sure}”`
+        : `“${hit[0]}” is not in the dictionary`,
       start: hit.index,
       end: hit.index + hit[0].length,
       text: hit[0],
-      //: Keeps the writer's capitalisation: a typo at the start of a sentence
-      //: must not be corrected into a lowercase word.
-      replacement: hit[0][0] === hit[0][0].toUpperCase()
-        ? better[0].toUpperCase() + better.slice(1)
-        : better,
+      //: `replacement` is what "Fix all" applies without asking, so it is set
+      //: only when there is nothing to choose between.
+      replacement: sure ? docMatchCase(hit[0], sure) : null,
     });
   }
   //: Long sentences, measured over the prose only. Code fences and headings
@@ -5988,8 +6333,10 @@ function docDictionary() {
 async function docDictionaryWrite(words) {
   docDictionarySet = new Set(words.map((word) => word.toLowerCase()));
   //: The ranked suggestions are drawn from this list, so a word added here has
-  //: to be offerable on the very next menu rather than after a reload.
+  //: to be offerable on the very next menu rather than after a reload, and
+  //: the per-word answers have to forget the word that has just been accepted.
   docKnownWordsCache = null;
+  docSpellCache = new Map();
   prefsCache = await apiJson("/preferences", {
     method: "PUT",
     body: JSON.stringify({ writing_dictionary: [...docDictionarySet].sort() }),
@@ -6193,6 +6540,18 @@ function docSuggestAlternatives(finding) {
     for (const [uk, us] of DOC_SPELLING_PAIRS) {
       if (uk === lower) push(docMatchCase(finding.text, us));
       if (us === lower) push(docMatchCase(finding.text, uk));
+    }
+    //: **The dictionary's own answer, first.** These are real words one or
+    //: two edits from what was typed, which is what a person means by "what
+    //: did I mean to write". The two pools below stay underneath it because
+    //: they still answer the cases it cannot: a word the reader added, and a
+    //: word that appears in their own notes and in no dictionary.
+    if (out.length < DOC_SUGGEST_MAX) {
+      const guesses = finding.guesses || docSpellGuesses(finding.text, DOC_SUGGEST_MAX);
+      for (const word of guesses) {
+        if (out.length >= DOC_SUGGEST_MAX) break;
+        push(docMatchCase(finding.text, word));
+      }
     }
     if (out.length < DOC_SUGGEST_MAX) {
       for (const word of docNearestWords(finding.text, docKnownWords(), DOC_SUGGEST_MAX - out.length, seen)) {
@@ -6678,6 +7037,9 @@ const docCmParts = {
   //: Live is this compartment holding the markdown decorations; Source is the
   //: same compartment holding nothing (decision 3).
   live: null,
+  //: Whether the *browser's* checker draws squiggles, which is a question with
+  //: two answers over the life of one editor: see `docCmSpellcheck`.
+  spell: null,
 };
 
 //: How the prose findings tell the view to repaint. A `StateEffect` rather
@@ -7027,6 +7389,7 @@ function docCmExtensions(CM) {
   docCmParts.gutter = new CM.state.Compartment();
   docCmParts.wrap = new CM.state.Compartment();
   docCmParts.live = new CM.state.Compartment();
+  docCmParts.spell = new CM.state.Compartment();
   if (!docFindingsEffect) docFindingsEffect = CM.state.StateEffect.define();
   return [
     //: Live's decorations, off until `setDocView` turns them on. Findings are
@@ -7086,16 +7449,40 @@ function docCmExtensions(CM) {
       },
     }),
     CM.view.EditorView.updateListener.of(docCmUpdate),
-    //: **The browser's own spellcheck, back on.** CodeMirror turns it off by
-    //: default, and for a code editor that is right: a red squiggle under
-    //: every identifier is noise. This is a *writing* surface, the textarea it
-    //: replaces carried `spellcheck="true"`, and losing it would be a
-    //: regression nobody asked for: this app's own checker knows a fixed list
-    //: of unambiguous typos and a UK/US pair table, which is a fraction of
-    //: what the browser's dictionary knows, and the two draw different marks
-    //: so they do not collide.
-    CM.view.EditorView.contentAttributes.of({ spellcheck: "true" }),
+    //: **The browser's own spellcheck, and the one condition it stays on
+    //: under.** CodeMirror turns it off by default, and for a code editor
+    //: that is right: a red squiggle under every identifier is noise. This is
+    //: a writing surface, so while this app's own checker knew 42 typos the
+    //: browser's dictionary was by far the better of the two and it was left
+    //: on. That is what the owner was clicking: "no edit suggestions popup
+    //: panel appears when I click on underlined words" is a native squiggle
+    //: the app cannot see, under a word the app has no finding for.
+    //:
+    //: Now that there is a real word list the app draws its own underline
+    //: under the same words, and its underline opens a menu. Two marks under
+    //: one word, only one of which answers a click, is worse than either
+    //: alone, so the browser's goes off the moment the list is ready and
+    //: comes back if it never loads.
+    docCmParts.spell.of(docCmSpellcheck(CM)),
   ];
+}
+
+//: The browser's checker is the fallback, not the default: it is on exactly
+//: while this app has no dictionary of its own to check against.
+function docCmSpellcheck(CM) {
+  return CM.view.EditorView.contentAttributes.of({
+    spellcheck: docWordlistReady() ? "false" : "true",
+  });
+}
+
+//: Called when the word list lands, which is the one moment the answer above
+//: changes. A compartment rather than a rebuild: rebuilding the editor's
+//: extensions would throw away the undo history and the scroll position for
+//: the sake of one attribute.
+function docCmApplySpellcheck() {
+  const CM = window.CM6;
+  if (!docCmView || !CM || !docCmParts.spell) return;
+  docCmView.dispatch({ effects: docCmParts.spell.reconfigure(docCmSpellcheck(CM)) });
 }
 
 //: **The one place a CodeMirror change becomes an app change.** The library

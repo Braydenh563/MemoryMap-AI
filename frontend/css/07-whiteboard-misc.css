@@ -8004,6 +8004,33 @@ input[type="file"] {
   line-height: 1.35;
 }
 
+/* **The four shapes a topic can be drawn in** (MINDMAP_PLAN.md §12.1 item 3,
+   decided in §12.0). Four, not the plan's eight: parallelogram, trapezoid,
+   cloud and diamond need a clip-path that cuts into the box the label sits
+   in, and at node size that clips the label, which is the one thing a map
+   node may never do. These four are a border-radius and a surface, they hold
+   any label, and "plain" is Coggle's own default look, the text sitting on
+   the line with no card at all.
+
+   Plain keeps the box it had and only stops painting it: `border-color:
+   transparent` rather than `border: none`, because the layout, the edge
+   anchors and the ring's own centring all measure this element, and taking
+   5.5px of border away would move the node under everything already drawn
+   against it. */
+.wb-map-node[data-shape="pill"] {
+  border-radius: var(--radius-pill);
+}
+
+.wb-map-node[data-shape="rect"] {
+  border-radius: 0;
+}
+
+.wb-map-node[data-shape="none"] {
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+
 /* A map that grows downward reads top-to-bottom, so the spine belongs on the
    top edge: a left bar on a node whose parent is directly above it points at
    nothing. */

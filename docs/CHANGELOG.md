@@ -74,6 +74,10 @@ below). Versioning is `0.x` while the app stabilises.
 - `C` folds and unfolds the selected branch on a map. Space stays the
   canvas pan, and works on a fold control itself when that has the focus.
 
+- A topic can be drawn as a rounded card, a pill, a box, or as plain text on
+  the line with no card at all, from the strip above it. The shape is kept in
+  the map's exports.
+
 - Exporting a map keeps how it looks. Weight, slant, text size, alignment,
   icon, link, colour, and a line's label, shape and dash are written into the
   FreeMind `.mm` and OPML files and read back when one is imported, each in

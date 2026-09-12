@@ -415,11 +415,6 @@ extended with the numbers named.
    - **An image in a node** (item 2's fourth). It needs the board's upload
      path and a node whose body is a picture rather than a label, which is a
      second node shape, not a fourth button on a strip.
-   - **Node shape** (item 3's first): rounded, pill, rectangle,
-     parallelogram, diamond, trapezoid, cloud, none. Four of those eight
-     cannot hold a label at node size without clipping it, so the shape
-     control is a decision about which shapes a *notebook's* map offers
-     before it is a control.
    - **Comment on a node** (item 3's sixth) is §12.2 item 6 and belongs
      there, not here.
    - **The control points on a curve drag to reshape it** (item 5's third).
@@ -444,7 +439,9 @@ back through both imports, and the two rings stay inside the canvas at any
 viewport. The account, including which field each format has an honest home
 for and which ride as private attributes, is in HISTORY.md ("Moved from the
 plans, 2026-09-12", "what the sixth run closed behind items 2 to 9"). What is
-still open of §12.1 is item 1's four dock menus and the six sub-items above.
+still open of §12.1 is item 1's four dock menus and the five sub-items above.
+**Node shape is built too** (2026-09-12, same run): four shapes, decided in
+§12.0 and recorded in HISTORY with the rest.
 
 ### 12.2 Phase 6b, structure and richness (1 session)
 

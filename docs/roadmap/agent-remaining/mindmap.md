@@ -19,7 +19,7 @@
 | G, Phases 4 and 5 | MINDMAP_PLAN §11.1. |
 | §12.1 item 1, the map's own dock | HISTORY, "Moved from the plans, 2026-09-09". |
 | §12.1 items 2 to 9 | HISTORY, "Moved from the plans, 2026-09-12": the edit strip, the node radial, the link radial, the mid-line add, the text-size grip, uncollapse, transplant and sever. |
-| Their exports, their viewport clamp, and the dark/narrow pass | HISTORY, same date, "what the sixth run closed behind items 2 to 9". |
+| Their exports, their viewport clamp, the dark/narrow pass, and node shape | HISTORY, same date, "what the sixth run closed behind items 2 to 9". The shape list is a §12.0 decision. |
 | The two open decisions (Space, a trunk's colour) | MINDMAP_PLAN §12.0, decided 2026-09-12 with the reason for each. |
 
 ## The sweeps that gate this
@@ -30,7 +30,7 @@
 | `scratchpad/ui-sweeps/mindmap3.js` | **57**, re-run and green after two repairs to the sweep itself (see below) |
 | `scratchpad/ui-sweeps/mindmap-theme.js` (`THEME=dark`) | **9** (was 7), re-run: 9/9 dark at 1440, 8/9 dark at 390 (the one failure is the shell's own 7px overflow, below) |
 | `scratchpad/ui-sweeps/mapdock.js` | **26** (was 25): the dock split, the delete doors, the empty map, the two §12.0 decisions, the three ways out of a fold, and the dock's reach at phone width |
-| `scratchpad/ui-sweeps/mapstrip.js` | **37** (was 33): the edit strip, both radials, the mid-line add, the grip, transplant, sever, the strip's own box and both rings against the edge of the canvas |
+| `scratchpad/ui-sweeps/mapstrip.js` | **39** (was 33): the edit strip, both radials, the mid-line add, the grip, transplant, sever, the strip's own box, both rings against the edge of the canvas, and the four node shapes |
 | `scratchpad/ui-sweeps/panlag.js` | **5**, new: where a pan's work happens |
 
 Run them against a **fresh** data dir (`serve.sh <port> /tmp/mm-mapN`): the
@@ -57,18 +57,11 @@ carry colour, weight, size, alignment and line shape), so the honest list is
 Layout ▾, Insert ▾, Arrange ▾ and Export ▾, and Layout is a move of
 `#wb-map-layout` and `#wb-map-tidy` out of `#wb-topbar` rather than new UI.
 
-### 2. The six sub-items of §12.1 items 2 to 9 that were not built
+### 2. The five sub-items of §12.1 items 2 to 9 that were not built
 
 Each with its reason, in the plan at §12.1 under "2 to 9". In the order
 worth doing them:
 
-- **Node shape** (item 3). Decide the shape *list* first: of the plan's
-  eight, parallelogram, trapezoid, cloud and diamond cannot hold a label at
-  node size without clipping it. A `data.shape` of rounded (the default),
-  pill, rectangle and none is four pure border-radius and background
-  changes, no clip-path, all readable, and "none" is Coggle's own default
-  look (text on the line). That is an INBOX-shaped decision, then a select
-  in the strip beside the icon one.
 - **An image in a node** (item 2). Needs the board's own upload path
   (`/whiteboard/media`) and a node whose body is a picture rather than a
   label, which is a second node shape rather than a fourth strip button.
@@ -146,6 +139,15 @@ driven from the UI in five runs.
   visibility bug**, not a slow app.
 
 ## Found while measuring, not fixed
+
+- **`WB_MAP_STYLE_KEYS` does not carry the two fields the link ring writes.**
+  `edge_style` and `edge_dashed` are missing from that list in
+  `whiteboard.js`, whose own comment says it is "everything the strip and the
+  radial can set on a node", so copying a branch loses its line shape and its
+  dash and "back to the branch" leaves them behind. Not fixed here because
+  "back to the branch" enumerates what it drops in its own tooltip and adding
+  a line's shape to that list is a small design call, not a typo. One line
+  plus the tooltip when it is taken.
 
 - **The app shell scrolls sideways by 7px at 390x844**, on every tab, not
   just the map: `document.documentElement.scrollWidth` 397 in a 390 window,

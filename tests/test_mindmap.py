@@ -632,6 +632,7 @@ MAP_STYLE = {
     "italic": True,
     "font_size": 22,
     "align": "center",
+    "shape": "pill",
     "icon": "lightbulb",
     "link": "https://example.org/paper",
     "edge_label": "because",
@@ -705,6 +706,7 @@ def test_freemind_carries_a_styled_node_out_and_back(client):
     assert 'LINK="https://example.org/paper"' in exported
     assert 'BOLD="true"' in exported and 'ITALIC="true"' in exported
     assert 'SIZE="22"' in exported
+    assert 'STYLE="bubble"' in exported and '_shape="pill"' in exported
     assert 'STYLE="horizontal"' in exported and 'COLOR="#4f46e5"' in exported
     # And the four it does not, as private attributes rather than as invented
     # FreeMind that another reader would choke on.
@@ -747,6 +749,42 @@ def test_opml_carries_a_styled_node_out_and_back(client):
     }
 
 
+def test_a_topic_with_no_box_is_freeminds_own_fork_node(client):
+    """The one shape FreeMind has a word for. `bubble` covers the other three
+    between them, so the private `_shape` is what tells a pill from a box on
+    the way back; `fork` is written as well because it is what makes the file
+    look right in FreeMind, Freeplane and Coggle.
+
+    The other direction matters more: a `.mm` written somewhere else carries
+    no `_shape` at all, and `fork` is the only one of FreeMind's two styles
+    that means anything here."""
+    board = _map(client, name="Plain topics")
+    node = _node(client, board["id"], text="On the line")
+    client.put(
+        f"/whiteboard/objects/{node['id']}",
+        json={
+            "kind": node["kind"], "board_id": board["id"],
+            "data": {**node["data"], "shape": "none"},
+            "x": node["x"], "y": node["y"], "z": node["z"],
+        },
+    )
+    exported = client.get(f"/whiteboard/boards/{board['id']}/export?format=freemind").text
+    assert 'STYLE="fork"' in exported
+
+    foreign = """<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0.1"><node TEXT="Root">
+  <node TEXT="Bare" STYLE="fork"/><node TEXT="Boxed" STYLE="bubble"/>
+</node></map>"""
+    back = client.post(
+        "/whiteboard/boards/import", json={"format": "freemind", "content": foreign}
+    ).json()
+    roots = client.get(f"/whiteboard/boards/{back['id']}/tree").json()["roots"]
+    shapes = {node["text"]: node["style"].get("shape") for node in roots}
+    # `bubble` is this map's own default, so it stays unset rather than
+    # putting a field on every node of every imported file.
+    assert shapes == {"Bare": "none", "Boxed": None}
+
+
 def test_a_plain_map_exports_exactly_as_it_did_before_styles(client):
     """The other half of the round trip: an attribute per unset field would
     triple a plain map's file and say nothing, so nothing unset is written."""
@@ -755,7 +793,7 @@ def test_a_plain_map_exports_exactly_as_it_did_before_styles(client):
     freemind = client.get(f"/whiteboard/boards/{board['id']}/export?format=freemind").text
     opml = client.get(f"/whiteboard/boards/{board['id']}/export?format=opml").text
     assert "<font" not in freemind and "<edge" not in freemind
-    assert "_icon" not in freemind and "LINK" not in freemind
+    assert "_icon" not in freemind and "LINK" not in freemind and "STYLE" not in freemind
     assert "_bold" not in opml and "url=" not in opml
 
 

@@ -383,6 +383,8 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         # and named here for the same reason as the three above.
         "bold": None,
         "italic": None,
+        # And with the four node shapes (§12.1 item 3, decided in §12.0).
+        "shape": None,
         "icon": None,
         "link": None,
         "edge_label": None,

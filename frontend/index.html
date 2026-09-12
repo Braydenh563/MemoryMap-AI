@@ -4371,6 +4371,12 @@ Link to another note with [[its first few words]]."></textarea>
         <option value="clock">Clock</option>
         <option value="push-pin">Pin</option>
       </select>
+      <select id="wb-map-shape" class="ghost small" aria-label="Topic shape" title="The shape this topic is drawn in">
+        <option value="">Rounded</option>
+        <option value="pill">Pill</option>
+        <option value="rect">Box</option>
+        <option value="none">Plain</option>
+      </select>
     </div>
 
     <!-- **The node radial** (MINDMAP_PLAN.md §12.1 item 3, Coggle's own
@@ -4398,7 +4404,7 @@ Link to another note with [[its first few words]]."></textarea>
       <button type="button" id="wb-radial-copy" class="ghost small icon-only wb-map-radial-slot" title="Copy this branch beside itself" aria-label="Copy this branch beside itself"><i class="ph ph-copy" aria-hidden="true"></i></button>
       <button type="button" id="wb-radial-ref" class="ghost small icon-only wb-map-radial-slot" title="Add a child that points at a note, document, file or link" aria-label="Add a child from the library"><i class="ph ph-bookmarks-simple" aria-hidden="true"></i></button>
       <button type="button" id="wb-radial-sever" class="ghost small icon-only wb-map-radial-slot" title="Cut this topic free of its parent, as a trunk of its own" aria-label="Cut this topic free of its parent"><i class="ph ph-scissors" aria-hidden="true"></i></button>
-      <button type="button" id="wb-radial-reset" class="ghost small icon-only wb-map-radial-slot" title="Back to the branch: drop this topic's own colour, size, weight, alignment, icon and link" aria-label="Reset this topic to its branch"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
+      <button type="button" id="wb-radial-reset" class="ghost small icon-only wb-map-radial-slot" title="Back to the branch: drop this topic's own colour, size, weight, alignment, shape, icon and link" aria-label="Reset this topic to its branch"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
     </div>
 
     <!-- **The link radial** (MINDMAP_PLAN.md §12.1 item 4): the same ring, on

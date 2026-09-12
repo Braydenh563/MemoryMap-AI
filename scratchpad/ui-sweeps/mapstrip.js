@@ -11,6 +11,12 @@
 //   PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node scratchpad/ui-sweeps/mapstrip.js
 const { boot } = require("./lib.js");
 
+// SHOW_ERRORS=1 prints the body of any 4xx the page receives. Off by default
+// because a sweep that passes should say nothing, and on demand because the
+// alternative is guessing: a failing check here reports what it measured, not
+// which field the server refused, and that difference cost a debugging round.
+const SHOW_ERRORS = process.env.SHOW_ERRORS === "1";
+
 // VIEWPORT=390x844 drives the same checks at phone width: everything in this
 // file was written at 1440x900 and nothing here had been seen narrow.
 const VIEWPORT = (() => {
@@ -42,6 +48,15 @@ async function newBoard(page, name, type) {
 
 (async () => {
   const { browser, page } = await boot({ viewport: VIEWPORT });
+  if (SHOW_ERRORS) {
+    page.on("response", async (r) => {
+      if (r.status() >= 400) {
+        let body = "";
+        try { body = (await r.text()).slice(0, 400); } catch (e) { body = "(unreadable)"; }
+        console.log(`HTTP ${r.status()} ${r.request().method()} ${r.url()}\n   ${body}`);
+      }
+    });
+  }
 
   // At phone width the canvas is 364px and a trunk with one child is 440px of
   // tree, so a tidy leaves the trunk's own centre off the left edge and a
@@ -191,6 +206,55 @@ async function newBoard(page, name, type) {
   check("an icon is stored, shown and drawn from Phosphor",
     iconed.stored === "star" && iconed.cls.includes("ph-star") && iconed.shown && iconed.w > 6,
     JSON.stringify(iconed));
+
+  // The four shapes (§12.1 item 3). Measured on the node, not on the select:
+  // the radius and the surface are what a shape *is*, and a select that
+  // stores a value nothing draws is the failure worth catching.
+  const shaped = await page.evaluate(async (id) => {
+    const node = document.querySelector(`.wb-object[data-id="${id}"]`);
+    const select = document.getElementById("wb-map-shape");
+    const read = () => {
+      const cs = getComputedStyle(node);
+      return {
+        radius: Math.round(parseFloat(cs.borderTopLeftRadius)),
+        fill: cs.backgroundColor,
+        spine: cs.borderLeftColor,
+        w: Math.round(node.getBoundingClientRect().width),
+        h: Math.round(node.getBoundingClientRect().height),
+      };
+    };
+    const rounded = read();
+    const out = { rounded };
+    for (const value of ["pill", "rect", "none"]) {
+      select.value = value;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 900));
+      out[value] = { ...read(), stored: wbMapIndex().byId.get(id).data?.shape,
+        shown: node.dataset.shape };
+    }
+    select.value = "";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 900));
+    out.back = { ...read(), stored: wbMapIndex().byId.get(id).data?.shape ?? null,
+      shown: node.dataset.shape ?? null };
+    return out;
+  }, kidId);
+  check("each of the four shapes is stored and drawn",
+    shaped.pill.stored === "pill" && shaped.pill.radius > shaped.rounded.radius
+      && shaped.rect.stored === "rect" && shaped.rect.radius === 0
+      && shaped.none.stored === "none" && shaped.none.fill === "rgba(0, 0, 0, 0)"
+      && shaped.none.spine === "rgba(0, 0, 0, 0)"
+      && shaped.back.stored === null && shaped.back.shown === null
+      && shaped.back.radius === shaped.rounded.radius,
+    JSON.stringify(shaped));
+  // A shape may not resize the node: the layout, the edge anchors and both
+  // rings all measure this box, so a plain topic that lost its 5.5px of
+  // border would move under everything already drawn against it.
+  check("and no shape changes the size of the node",
+    [shaped.pill, shaped.rect, shaped.none, shaped.back]
+      .every((s) => s.w === shaped.rounded.w && s.h === shaped.rounded.h),
+    JSON.stringify({ rounded: [shaped.rounded.w, shaped.rounded.h],
+      none: [shaped.none.w, shaped.none.h] }));
 
   // Read back from the server, which is the only proof the schema kept them:
   // a field Pydantic does not name is dropped silently on the way in, and the

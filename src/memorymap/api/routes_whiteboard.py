@@ -179,6 +179,13 @@ class WhiteboardObjectData(BaseModel):
     #: the node, so anything but the character set Phosphor's own names use
     #: has no business arriving here.
     icon: str | None = Field(default=None, max_length=40, pattern=r"^[a-z0-9-]+$")
+    #: How a topic is drawn (MINDMAP_PLAN.md §12.1 item 3, decided in §12.0).
+    #: Four values and not the plan's eight: `None` is the rounded card this
+    #: map has always drawn, and `pill`, `rect` and `none` are the three that
+    #: can be had from a border-radius and a surface. Parallelogram,
+    #: trapezoid, cloud and diamond want a clip-path that cuts into the box
+    #: the label sits in, which at node size clips the label.
+    shape: str | None = Field(default=None, pattern="^(pill|rect|none)$")
     #: Where a topic points. Held to the three schemes a link on a page may
     #: safely have: `javascript:` and `data:` are the two this rejects by
     #: existing, and the frontend's own `wbMapOpenLink` refuses anything else
@@ -1844,6 +1851,7 @@ MAP_STYLE_FIELDS = (
     "italic",
     "font_size",
     "align",
+    "shape",
     "icon",
     "link",
     "edge_label",
@@ -2338,6 +2346,12 @@ _FREEMIND_EDGE_STYLE_BACK = {value: key for key, value in _FREEMIND_EDGE_STYLE.i
 #: - `align`: FreeMind aligns a node by which side of the root it sits on,
 #:   not by a text alignment, so there is nothing to write it into.
 _FREEMIND_PRIVATE = {
+    #: `_shape` as well as the native `STYLE` below, not instead of it:
+    #: FreeMind's node style is `bubble` or `fork` and has no third value, so
+    #: STYLE alone cannot tell a pill from a box on the way back in. STYLE is
+    #: what makes the file look right where it is opened; `_shape` is what
+    #: makes it come back as itself.
+    "shape": "_shape",
     "icon": "_icon",
     "edge_label": "_edge_label",
     "edge_dashed": "_edge_dashed",
@@ -2349,6 +2363,7 @@ _FREEMIND_PRIVATE = {
 #: map's look back out of an OPML file is then exact, and an OPML reader that
 #: knows none of them still sees the outline it came for.
 _OPML_PRIVATE = {
+    "shape": "_shape",
     "bold": "_bold",
     "italic": "_italic",
     "font_size": "_font_size",
@@ -2452,6 +2467,11 @@ def _export_freemind(title: str, roots: list[dict]) -> str:
         for field, attribute in _FREEMIND_PRIVATE.items():
             if field in style:
                 attrs[attribute] = _xml_attribute(style[field])
+        if style.get("shape"):
+            # FreeMind's own two: `fork` is a label on the line with no box
+            # around it, which is exactly this map's "plain", and `bubble` is
+            # the boxed node every other shape here is a variety of.
+            attrs["STYLE"] = "fork" if style["shape"] == "none" else "bubble"
         element = ET.SubElement(parent_element, "node", attrs)
         # `<font>` and `<edge>` are FreeMind's own children of a node, and
         # they are written only when something was actually chosen: an empty
@@ -2663,6 +2683,12 @@ def _freemind_style(element) -> dict:
     raw: dict = {"link": element.get("LINK")}
     for field, attribute in _FREEMIND_PRIVATE.items():
         raw[field] = element.get(attribute)
+    if not raw.get("shape") and element.get("STYLE") == "fork":
+        # A `.mm` from somewhere else has no `_shape`, and `fork` is the one
+        # of FreeMind's two styles that means something here. `bubble` is left
+        # alone: it is the boxed node, which is this map's own default, and
+        # reading it as a shape would put a field on every imported node.
+        raw["shape"] = "none"
     font = element.find("font")
     if font is not None:
         raw["bold"] = font.get("BOLD")

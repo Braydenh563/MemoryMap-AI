@@ -21602,7 +21602,8 @@ palette.
 
 ### From MINDMAP_PLAN.md, what the sixth run closed behind items 2 to 9
 
-Three things the run above left, in the order they cost a person something.
+Three things the run above left, in the order they cost a person something,
+and the sub-item it ranked first.
 
 1. **The exports did not carry anything those eight items set.** `bold`,
    `italic`, `font_size`, `align`, `icon`, `link`, `edge_label`, `edge_style`
@@ -21649,7 +21650,27 @@ Three things the run above left, in the order they cost a person something.
    all zeroes, and this ring's own box is deliberately 0x0 so that it cannot
    cover the node it surrounds.
 
-3. **The first look at any of it in dark mode or at phone width.** The node
+3. **A topic's shape** (§12.1 item 3's first, and the fifth run's own next
+   step). Four, not the plan's eight: rounded (the default, stored as no
+   field at all), pill, rect and plain, which between them are a
+   border-radius and a surface, hold any label, and include Coggle's default
+   look, the text on the line with no card. The four the plan named and this
+   does not offer (parallelogram, diamond, trapezoid, cloud) all want a
+   clip-path that cuts into the box the label sits in, and at node size that
+   clips the label, which `.wb-map-node` is built never to do. §12.0 carries
+   the decision. A shape never resizes a node: "plain" stops painting the
+   border rather than removing it, because the layout, the edge anchors and
+   both rings all measure that box. In the exports it is FreeMind's own
+   `STYLE="fork"` for plain and `"bubble"` for the rest, which is what makes
+   the file look right where it is opened, plus a private `_shape`, which is
+   what makes a pill come back a pill; a `.mm` written elsewhere reads `fork`
+   as plain and leaves `bubble` alone, since that is this map's own default
+   and reading it would put a field on every node of every imported file.
+   Measured in a real browser: radius 8 to 999 to 0, the plain node's fill
+   and spine both `rgba(0, 0, 0, 0)`, back to 8 with the field gone, and
+   200x52 in all four.
+
+4. **The first look at any of it in dark mode or at phone width.** The node
    edit strip was 392px of controls in a 364px canvas at 390x844, standing
    23px out of the window with its left edge already pinned by the clamp in
    `wbUpdateSelectionBar`, which cannot help when the box is wider than the

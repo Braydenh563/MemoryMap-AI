@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The spelling menu's suggestions read as words again. Every candidate drew
+  the same check mark, so five suggestions looked like five identical
+  commands and the eye had nothing to tell them apart by except the text it
+  was meant to be comparing. The candidates are now bare, with the first in
+  bold, and the check mark is kept for the panel's own apply button.
+
 - The Graph's toolbar fits on one row again at laptop widths. Its three zones
   wanted nine pixels more than the row had at 1024, so the whole actions
   group, including the tab's primary action, dropped to a second line with

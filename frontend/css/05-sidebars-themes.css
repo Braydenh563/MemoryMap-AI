@@ -3635,6 +3635,13 @@ textarea.autogrow {
   background: var(--chip-bg);
 }
 
+/* The first candidate is the one Enter and a double-click take, so it reads
+   as the answer and the rest as the alternatives. Weight only: a second
+   colour here would compete with the accent the hovered row already uses. */
+.doc-suggest-best {
+  font-weight: 650;
+}
+
 .doc-suggest-none {
   margin: 0;
   padding: var(--space-1) var(--space-2);

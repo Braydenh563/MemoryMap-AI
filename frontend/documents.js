@@ -6651,18 +6651,29 @@ function openDocSuggest(finding, anchorRect, focus = true) {
   const list = document.createElement("div");
   list.className = "doc-suggest-list";
   const alternatives = docSuggestAlternatives(finding);
-  for (const option of alternatives) {
+  //: **A candidate word is a word, not an action, and it used to be drawn as
+  //: one.** Every row carried the same `ph:check`, so five suggestions read as
+  //: five identical commands with different arguments, and the eye had nothing
+  //: to tell them apart by except the text it was meant to be comparing.
+  //: Reported as exactly that. Every other spell checker anyone has used shows
+  //: the candidates bare, and that is the point: the row IS the word. The
+  //: check mark stays where it means something, on the panel's own "apply this
+  //: fix" button, and the actions below this list keep their icons, so the
+  //: menu now separates into "which word" and "what to do about it" without a
+  //: divider having to say so. The first candidate carries the weight, because
+  //: it is the one Enter and a double-click take.
+  alternatives.forEach((option, index) => {
     const item = document.createElement("button");
     item.type = "button";
-    item.className = "doc-suggest-item";
-    setLabel(item, `ph:check ${option === " " ? "one space" : option}`);
+    item.className = index === 0 ? "doc-suggest-item doc-suggest-best" : "doc-suggest-item";
+    item.textContent = option === " " ? "one space" : option;
     item.title = `Replace with “${option}”`;
     item.addEventListener("click", () => {
       docProseFix({ ...finding, replacement: option });
       closeDocSuggest();
     });
     list.appendChild(item);
-  }
+  });
   if (!alternatives.length) {
     const none = document.createElement("p");
     none.className = "muted doc-suggest-none";

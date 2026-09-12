@@ -369,3 +369,41 @@ def test_forget_vector_is_reachable_on_its_own(session, fake_embeddings):
     assert entry.id in engine.vectors_by_id(session)
     engine.forget_vector(entry.id)
     assert entry.id not in engine.vectors_by_id(session)
+
+
+def test_a_query_of_filters_alone_still_answers(session):
+    """`kind:document` is a question. An empty page for it would be the app
+    refusing the one thing §5.1 promises works with no model running."""
+    from memorymap.core.database import Document
+    from memorymap.search import engine
+
+    _note(session, "a note")
+    session.add(Document(title="First", content="one"))
+    session.add(Document(title="Second", content="two"))
+    session.commit()
+
+    hits = engine.search(session, "kind:document", ctx=None)
+    assert {hit.kind for hit in hits} == {"document"}
+    assert len(hits) == 2
+    assert hits[0].explain == ["matched your filters"]
+
+
+def test_a_quoted_phrase_binds_over_the_whole_query(session):
+    """FTS5 binds AND tighter than OR, so an unbracketed `a OR b AND "p"`
+    makes the phrase optional for half the results."""
+    from memorymap.search import engine
+
+    _note(session, "the quick brown fox jumped")
+    _note(session, "quick, but no fox at all")
+    hits = engine.search(session, 'quick fox "brown fox"', ctx=None)
+    assert len(hits) == 1
+
+
+def test_an_exclusion_binds_over_the_whole_query(session):
+    from memorymap.search import engine
+
+    _note(session, "beans with rice")
+    _note(session, "peas with bread")
+    # Loose enough that the "any" stage runs (no note has both words).
+    hits = engine.search(session, "beans peas -rice", ctx=None)
+    assert [hit.snippet for hit in hits] == ["peas with bread"]

@@ -364,7 +364,12 @@ def _match_expression(terms: list[str], phrases: list[str], excluded: list[str],
     else:
         parts.extend(terms)
     joiner = " OR " if mode == "any" else " AND "
-    expression = joiner.join(parts) if parts else ""
+    # Parenthesised before anything is appended. FTS5 binds AND tighter than
+    # OR and reads NOT as a binary operator, so `a OR b AND "phrase"` means
+    # `a OR (b AND "phrase")`: the phrase the person quoted would be optional
+    # for half the results, and `a OR b NOT c` would exclude `c` from only
+    # half. One pair of brackets is the whole fix.
+    expression = f"({joiner.join(parts)})" if parts else ""
     for phrase in phrases:
         cleaned = phrase.replace('"', " ").strip()
         if cleaned:
@@ -372,7 +377,7 @@ def _match_expression(terms: list[str], phrases: list[str], excluded: list[str],
     for word in excluded:
         safe = "".join(ch for ch in word if ch.isalnum() or ch in "_-")
         if safe and expression:
-            expression = f"{expression} NOT {safe}"
+            expression = f"({expression}) NOT {safe}"
     return expression
 
 
@@ -415,6 +420,45 @@ def _candidates(
         sql.append("AND (written = '' OR written <= :until)")
         params["until"] = until.isoformat()
     sql.append("ORDER BY score LIMIT :depth")
+    rows = session.execute(text(" ".join(sql)), params).mappings().all()
+    return [dict(row) for row in rows]
+
+
+def _filter_only(
+    session: Session,
+    kinds: list[str],
+    space: str | None,
+    since,
+    until,
+    depth: int,
+) -> list[dict]:
+    """The rows a query with no words at all asks for.
+
+    `kind:document`, `is:pinned`, `after:2026-01-01`: a filter is a question
+    too, and an FTS5 MATCH needs something to match. Newest first, because
+    with nothing to rank by, recency is the only honest order. `score` is
+    zeroed so the caller's normalisation leaves every bm25 at zero rather
+    than inventing a relevance nobody computed.
+    """
+    sql = [
+        "SELECT rowid, kind, ref_id, source, title, body, tags, space, flags, written, "
+        "0.0 AS score FROM search_index WHERE 1 = 1"
+    ]
+    params: dict = {"depth": depth}
+    if kinds:
+        names = {f"kind{i}": kind for i, kind in enumerate(kinds)}
+        sql.append("AND kind IN (" + ", ".join(f":{name}" for name in names) + ")")
+        params.update(names)
+    if space:
+        sql.append("AND space = :space")
+        params["space"] = space
+    if since is not None:
+        sql.append("AND (written = '' OR written >= :since)")
+        params["since"] = since.isoformat()
+    if until is not None:
+        sql.append("AND (written = '' OR written <= :until)")
+        params["until"] = until.isoformat()
+    sql.append("ORDER BY written DESC, rowid DESC LIMIT :depth")
     rows = session.execute(text(" ".join(sql)), params).mappings().all()
     return [dict(row) for row in rows]
 
@@ -604,14 +648,27 @@ def search(
     asked = query_understanding.understand(q)
     from memorymap.search import search_manager
 
-    terms = search_manager._meaningful_terms(asked.subject or q)
+    # The words to match on. The raw query is the fallback only when the
+    # reader found nothing *and* there were no operators to find: with
+    # operators, falling back would feed `kind:document` to the index as the
+    # two words "kind" and "document", which match nothing and turn a filter
+    # into an empty page.
+    subject = asked.subject or ("" if (asked.has_operators or asked.has_range) else q)
+    terms = search_manager._meaningful_terms(subject)
     for phrase in asked.phrases:
         terms.extend(word for word in search_manager._meaningful_terms(phrase) if word not in terms)
     context = ctx or {}
     space = context.get("space") or (asked.filters["space"][0] if asked.filters["space"] else None)
     wanted_kinds = [kind for kind in (kinds or asked.filters["kind"]) if kind in search_index.KINDS]
 
-    rows = _keyword_pass(session, terms, asked, wanted_kinds, space, depth)
+    if terms or asked.phrases:
+        rows = _keyword_pass(session, terms, asked, wanted_kinds, space, depth)
+    else:
+        # Nothing to match on, but something to filter by: `kind:document`,
+        # `is:pinned`, `after:2026-01-01`. Answering those with an empty page
+        # would be the app refusing to do the one thing §5.1 promises works
+        # with no model running.
+        rows = _filter_only(session, wanted_kinds, space, asked.since, asked.until, depth)
     if not rows:
         return []
 
@@ -644,9 +701,10 @@ def search(
         return []
 
     best_raw = min(row["score"] for row in rows)  # bm25: more negative is better
+    filters_only = best_raw == 0
     cosines: dict[int, float] = {}
     if hybrid:
-        cosines = _cosine_scores(session, asked.subject or q, rows)
+        cosines = _cosine_scores(session, subject or q, rows)
     hops: dict[int, int] = {}
     open_entry = context.get("entry_id")
     if open_entry:
@@ -663,6 +721,10 @@ def search(
             "graph": (1.0 / (1 + hop)) if hop else 0.0,
         }
         blended = sum(WEIGHTS[name] * value for name, value in scores.items())
+        if filters_only:
+            # A filter matched, nothing was ranked: every row is equally an
+            # answer, and MIN_SCORE would throw the whole list away.
+            blended = max(blended, MIN_SCORE)
         # Three floats from three subsystems: a NaN here would sort
         # unpredictably and do its damage nowhere near its cause, which is a
         # shape this project has already paid an afternoon for once.

@@ -1901,3 +1901,32 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .library-image-actions > button.ghost:focus-visible {
   border-color: var(--ghost-btn-border);
 }
+
+/* --- the Graph dock's second row, and the nine pixels that cause it -------
+   `finalqa.js` at 1024 in both themes: "[graph] row wraps: .dock tops=93,137".
+   Measured: the dock's content box is 965px (981 minus its own 8px padding
+   each side) and its three zones want 448 + 224 + 298 with two 9.6px gaps,
+   which is 974. Nine pixels. The actions group, the one holding "Add note"
+   and the four icon buttons, is what goes over the edge and down a line, so
+   the tab's own primary action is on a row of its own with 667px of empty
+   space beside it.
+
+   `.dock`'s `flex-wrap: wrap` is deliberate and stays; what is wrong is that
+   this dock's identity zone carries three things (a heading, a live stats
+   readout and a labelled link) where every other dock carries one or two.
+   The link's *label* is the part that can go: at 147px it is the widest
+   single item in that zone, the icon is the same tree mark the Boards and
+   maps sub-tab uses, and the full sentence is in the button's own title.
+   111px back, and the row then measures 878 against 965 with room to spare
+   rather than nine pixels of debt.
+
+   Below 1200 rather than at 1024: the debt is nine pixels at 1024 and the
+   zones do not shrink with the window, so it is only luck that 1100 is not
+   the same picture, and a control that appears and disappears twice across
+   one drag of a window edge reads as a glitch. */
+@media (max-width: 1199.98px) {
+
+  #graph-concept-maps .dock-link-label {
+    display: none;
+  }
+}

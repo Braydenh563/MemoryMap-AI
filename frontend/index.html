@@ -2067,8 +2067,16 @@ Link to another note with [[its first few words]]."></textarea>
                  a screen reader hears the counts change; still carries the
                  layout sentence as its title. -->
             <span id="graph-stats" class="dock-chip graph-stats" role="status"></span>
+            <!-- The label is in a span so it can come off below 1200, where
+                 this dock's three zones overflow their row by nine pixels and
+                 the whole actions group wraps to a second line. See
+                 `#graph-concept-maps .dock-link-label` in 08-consistency.css.
+                 `aria-label` is written out because a button whose only
+                 remaining content is a decorative icon has no accessible name
+                 otherwise, and `title` is a tooltip, not a name. -->
             <button id="graph-concept-maps" class="ghost small dock-link" type="button"
-              title="A concept map is one you draw yourself: your own cards, your own links, your own arrangement, where this map is built for you from what your notes already say."><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Concept maps</button>
+              aria-label="Concept maps"
+              title="A concept map is one you draw yourself: your own cards, your own links, your own arrangement, where this map is built for you from what your notes already say."><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> <span class="dock-link-label">Concept maps</span></button>
           </div>
           <div class="dock-group dock-find">
             <input id="graph-search" type="search" placeholder="Highlight notes…"
@@ -4334,10 +4342,10 @@ Link to another note with [[its first few words]]."></textarea>
       <button type="button" id="wb-map-bold" class="ghost small icon-only" title="Bold" aria-label="Bold" aria-pressed="false"><i class="ph ph-text-b" aria-hidden="true"></i></button>
       <button type="button" id="wb-map-italic" class="ghost small icon-only" title="Italic" aria-label="Italic" aria-pressed="false"><i class="ph ph-text-italic" aria-hidden="true"></i></button>
       <select id="wb-map-text-size" class="ghost small" aria-label="Text size" title="How big this topic reads">
-        <option value="13">S</option>
-        <option value="16">M</option>
-        <option value="21">L</option>
-        <option value="28">XL</option>
+        <option value="12">S</option>
+        <option value="">M</option>
+        <option value="19">L</option>
+        <option value="25">XL</option>
       </select>
       <select id="wb-map-align" class="ghost small" aria-label="Text alignment" title="Where the text sits in the topic">
         <option value="">Auto</option>

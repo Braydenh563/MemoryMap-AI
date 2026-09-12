@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Graph's toolbar fits on one row again at laptop widths. Its three zones
+  wanted nine pixels more than the row had at 1024, so the whole actions
+  group, including the tab's primary action, dropped to a second line with
+  667px of empty space beside it. The "Concept maps" link keeps its icon and
+  gives up its label below 1200, which buys back 111px.
+
 - A note reference in an answer now says which note it opens. Reported: an
   answer described a bubble tea note, called it "note #68", and the link
   opened a Shakespeare parody. The link was never pointing at the wrong

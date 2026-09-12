@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai import librarian, skills, toolwords
 from memorymap.ai.ollama_client import OllamaError
-from memorymap.core import deps
+from memorymap.core import deps, events
 from memorymap.core.database import Category, Entry, Reminder
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager, paths
@@ -3959,7 +3959,14 @@ def execute_tool(session: Session, name: str, arguments: dict, context_tokens: i
         args = dict(arguments or {})
         if context_tokens is not None:
             args["__context_tokens__"] = context_tokens
-        result = spec.handler(session, args)
+        # Every write the handler makes, however deep in the managers it
+        # happens, is recorded as this tool's doing (Brief 7). Set here, at
+        # the one door every tool call comes through, rather than in each
+        # handler: a handler that forgot would silently file the AI's edit
+        # as something the user typed, which is the one question the event
+        # log exists to answer.
+        with events.acting_as(f"ai:{name}"):
+            result = spec.handler(session, args)
     except ToolError as exc:
         # An explanation the handler wrote on purpose, safe to hand back.
         session.rollback()
@@ -4001,6 +4008,7 @@ def execute_tool(session: Session, name: str, arguments: dict, context_tokens: i
         "ai_tool",
         "chat",
         detail=f"{name} {json.dumps(arguments or {})[:200]}",
+        actor=f"ai:{name}",
     )
     session.commit()
     return result

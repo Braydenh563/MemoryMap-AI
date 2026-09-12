@@ -60,7 +60,7 @@ from memorymap.api import (
     routes_whiteboard,
 )
 from memorymap.api.routes_auth import require_unlock
-from memorymap.core import backup, bgtasks, deps, logbuffer, security, startup_status
+from memorymap.core import backup, bgtasks, deps, events, logbuffer, security, startup_status
 from memorymap.core.deps import init_app_state
 from memorymap.entry import manager
 
@@ -200,7 +200,8 @@ def _purge_expired_bin_entries() -> None:
         try:
             config = deps.get_config()
             days = int(config.get_preference("recycle_bin_days", 30))
-            manager.purge_expired_deleted(session, days, uploads_dir=config.uploads_dir)
+            with events.acting_as("system:recycle-bin"):
+                manager.purge_expired_deleted(session, days, uploads_dir=config.uploads_dir)
         finally:
             session.close()
     except Exception:  # noqa: BLE001  # a failed purge must never block startup

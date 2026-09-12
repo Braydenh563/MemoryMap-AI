@@ -98,3 +98,30 @@ def test_a_purge_is_one_event_with_the_id_list(session):
     last = session.query(AuditLog).order_by(AuditLog.id.desc()).first()
     assert last.action == "purged"
     assert sorted(last.payload["ids"]) == sorted(ids)
+
+
+def test_a_tool_call_is_recorded_as_the_ai_doing_it(session):
+    """Who changed the note is the first thing the log has to answer.
+
+    The actor is set once, at the door every tool call comes through
+    (`tools.execute_tool`), so a handler cannot forget it and file the AI's
+    edit as something the user typed.
+    """
+    from memorymap.ai import tools
+
+    tools.execute_tool(session, "create_note", {"content": "the AI wrote this"})
+    session.commit()
+    written = (
+        session.query(AuditLog)
+        .filter(AuditLog.entity_type == "entry", AuditLog.action == "created")
+        .order_by(AuditLog.id.desc())
+        .first()
+    )
+    assert written.actor == "ai:create_note"
+
+
+def test_a_write_with_no_stated_actor_is_the_user(session):
+    entry = manager.create_entry(session, "typed by a person", tags=[])
+    session.commit()
+    last = session.query(AuditLog).order_by(AuditLog.id.desc()).first()
+    assert last.entity_id == entry.id and last.actor == "user"

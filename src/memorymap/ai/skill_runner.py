@@ -165,7 +165,16 @@ def _record_run(
     if steps:
         detail = f"{outcome} · {steps} step(s) · {len(changes)} change(s)"
     try:
-        log_action(session, "ran", "skill", None, f"{skill.get('name') or 'skill'}, {detail}")
+        log_action(
+            session,
+            "ran",
+            "skill",
+            None,
+            f"{skill.get('name') or 'skill'}, {detail}",
+            # The writes the run made are already attributed to the tool that
+            # made them (`execute_tool`); this row is the run itself.
+            actor=f"ai:{skill.get('name') or 'skill'}",
+        )
         session.commit()
     except Exception:  # noqa: BLE001  # bookkeeping must not fail a finished run
         logger.warning("couldn't record the skill run", exc_info=True)

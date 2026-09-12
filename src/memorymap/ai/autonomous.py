@@ -46,7 +46,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select, text
 
 from memorymap.ai import agent
-from memorymap.core import deps
+from memorymap.core import deps, events
 from memorymap.core.database import Conversation
 
 logger = logging.getLogger("memorymap.autonomous")
@@ -243,7 +243,14 @@ def _enabled_tasks(config) -> list[str]:  # noqa: ANN001  # config is duck-typed
 
 
 def _run_optimization() -> None:
-    """One pass. Never raises: it is the top of a worker thread."""
+    """One pass. Never raises: it is the top of a worker thread.
+
+    Everything it changes is recorded as `system:librarian` (Brief 7): this
+    is the one place in the app that edits notes while nobody is looking,
+    which makes "who did this" the first thing anyone asks about it. Set
+    here rather than inherited, because a thread starts with a fresh
+    context and would otherwise record the default, `user`.
+    """
     if not _working.is_set():
         # Belt and braces: both entry points set this before starting the
         # thread, so reaching here without it means a new caller forgot.
@@ -254,6 +261,12 @@ def _run_optimization() -> None:
     # by the thread that is finishing, right up until it finishes.
     _cancel.clear()
     started = time.monotonic()
+    with events.acting_as("system:librarian"):
+        _optimization_pass(started)
+
+
+def _optimization_pass(started: float) -> None:
+    """The body of one pass, split out so the actor above wraps all of it."""
     try:
         config = deps.get_config()
         if config.get_preference("battery_efficient_mode"):

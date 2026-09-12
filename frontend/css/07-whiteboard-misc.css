@@ -2820,8 +2820,22 @@ dialog::backdrop {
 /* The fields inside give up their own edge, ground and inset: the surface
    carries all three now. `border-radius: 0` with them, or a rounded corner
    is drawn inside a rounded corner one pixel away from it. */
+/* **`.gutter-wrap` counts as the composer's own child.** Every rule in this
+   block was written as `.note-composer > …`, and `mountGutterFor`
+   (documents.js) wraps the note box in a `.gutter-wrap` div the moment the
+   line-number column is mounted, which is on every load: so the box stopped
+   being a child of the surface and every one of these stopped reaching it.
+   Measured on :8895 at 1440x900 dark before this, with the title beside it as
+   the control: the title had no border and no ground, as intended, while the
+   box it shares a surface with had a 1px border, a 9.8px radius, its own
+   ground and its own inset shadow, a box drawn inside a box, and stood 89px
+   tall on `textarea.autogrow`'s 44px floor instead of the 11rem this file
+   already asked for. The wrap is named in each selector rather than the rules
+   being loosened to descendants, which would reach into the preview and the
+   `[[` list as well. */
 .note-composer > input,
 .note-composer > textarea,
+.note-composer > .gutter-wrap > textarea,
 .note-composer > .entry-preview {
   border: none;
   border-radius: 0;
@@ -2838,6 +2852,7 @@ dialog::backdrop {
    2px inside it. */
 .note-composer > input:focus-visible,
 .note-composer > textarea:focus-visible,
+.note-composer > .gutter-wrap > textarea:focus-visible,
 .note-composer > .entry-preview:focus-visible {
   outline-offset: -2px;
   border-radius: var(--radius-md);
@@ -2871,9 +2886,16 @@ dialog::backdrop {
    **`#entry-content`, not `textarea.autogrow`.** That class is shared with
    the Reminders form's "Magic add" row, whose box is one line by design; a
    min-height set there would make every reminder row 11rem tall. */
-.note-composer > #entry-content {
+.note-composer #entry-content {
   min-height: 11rem;
   padding: var(--space-4);
+}
+
+/* The wrap is the box's stand-in inside the surface, so it takes neither the
+   `.gutter-wrap` recipe's own bottom margin (which would open a gap inside
+   the composer, above the counter) nor any width of its own. */
+.note-composer > .gutter-wrap {
+  margin-bottom: 0;
 }
 
 .note-composer > .entry-preview {

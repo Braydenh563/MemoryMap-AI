@@ -23,8 +23,8 @@
 
 | Sweep | Checks |
 | --- | --- |
-| `scratchpad/ui-sweeps/mindmap.js` | **76**, not re-run this run |
-| `scratchpad/ui-sweeps/mindmap3.js` | **57**, not re-run this run |
+| `scratchpad/ui-sweeps/mindmap.js` | **76**, re-run and green |
+| `scratchpad/ui-sweeps/mindmap3.js` | **57**, re-run and green after two repairs to the sweep itself (see below) |
 | `scratchpad/ui-sweeps/mindmap-theme.js` (`THEME=dark`) | 7, **not re-run since the third run** |
 | `scratchpad/ui-sweeps/mapdock.js` | **25** (was 17): the dock split, the delete doors, the empty map, the two §12.0 decisions, and the three ways out of a fold |
 | `scratchpad/ui-sweeps/mapstrip.js` | **33**, new: the edit strip, both radials, the mid-line add, the grip, transplant and sever |
@@ -104,6 +104,23 @@ panel recipes of `08-consistency.css`. Untouched for two runs.
 No real model has answered the map proposal prompt, and no map *tool*
 (`read_mindmap`, `create_mindmap`, `add_map_node`, `link_map_nodes`) has been
 driven from the UI in five runs.
+
+## Found while measuring, and fixed
+
+- **A click on a topic saved the topic, and raced the control you clicked.**
+  `objDrag` runs for a plain click as well as a drag, and `objDragEnd` PUT
+  the object every time; a click on the fold chevron therefore sent
+  `collapsed: null` and `collapsed: true` to the same row in one tick with no
+  defined order, and the map kept whichever landed second. Found by
+  `mindmap.js`'s SVG export check counting two edges where the map had four,
+  then instrumented in a real browser and confirmed against a worktree of the
+  commit before this session. The save is gated on "did it really move" now.
+- **`mindmap3.js` had been timing out since 2026-09-09**, when the Boards &
+  maps dock put "Import outline…" and "Map from notes…" behind its ⋯. The
+  sweep clicked a button inside a closed `<details>`, which Playwright reports
+  as a thirty-second timeout rather than as "the control moved". Worth knowing
+  for the next sweep that stalls: **a click that hangs is a z-order or a
+  visibility bug**, not a slow app.
 
 ## Found while measuring, not fixed
 

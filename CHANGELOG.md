@@ -60,6 +60,12 @@ below). Versioning is `0.x` while the app stabilises.
   a colour paints the line into a node and a trunk has none, which is true of
   the line and false of the card the colour was already painting.
 
+- Clicking a control on a mind map topic no longer saves the topic
+  underneath it. A click is a drag that never moved, and the board saved the
+  object on every one of them: a click on a fold chevron sent two conflicting
+  writes to the same row in one go, so a branch folded on screen and came
+  back unfolded.
+
 - Panning a board or a map writes the canvas layers in the event that moved
   them rather than a frame later. The per-frame work (the grid, the overview,
   the selection bar) is still done once a frame, which is what that deferral

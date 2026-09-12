@@ -175,3 +175,34 @@ def test_a_long_history_pages_and_says_so(client):
     # older than that to ask for.
     assert second["items"][-1]["action"] == "created"
     assert second["next_cursor"] is None
+
+
+def test_every_row_of_a_long_history_shows_its_own_version(client):
+    """Page two says what the note said then, the same as page one.
+
+    The per-row text is a fold of every event up to that row, and it is
+    folded once per page rather than once per row (`events.states_at`). A
+    fold that stopped in the wrong place, or kept the wrong row's copy,
+    would show a row somebody else's text, which looks like the history
+    being wrong about what was written rather than like a bug in a loop.
+    """
+    from memorymap.api.routes_entries import HISTORY_PAGE
+
+    edits = HISTORY_PAGE + 9
+    entry = _make(client, "edit 0")
+    for i in range(1, edits + 1):
+        client.put(f"/entries/{entry['id']}", json={"content": f"edit {i}"})
+
+    items = []
+    cursor = None
+    while True:
+        url = f"/entries/{entry['id']}/history"
+        page = client.get(f"{url}?before={cursor}" if cursor else url).json()
+        items += page["items"]
+        cursor = page["next_cursor"]
+        if cursor is None:
+            break
+
+    assert [item["content"] for item in items] == [
+        f"edit {i}" for i in range(edits, -1, -1)
+    ]

@@ -197,6 +197,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Saving two notes at the same moment can no longer lose one. If both
+  needed a category that did not exist yet, one of them failed outright on
+  a database constraint. Measured with six writers saving twelve notes each:
+  5 of 72 saves died before, none after. The app really does have several
+  writers, since the desktop window, a browser tab and the overnight filing
+  all save notes.
+
 - Nine lists that stopped at the first page now read to the end: the
   Reminders tab and its dashboard widgets, the command palette's reminder
   search, both "file this note under a document" pickers, the note picker's

@@ -15,6 +15,7 @@ import threading
 from datetime import datetime, timedelta
 
 from sqlalchemy import delete, func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from pathlib import Path
@@ -76,13 +77,39 @@ def log_action(
 
 
 def get_or_create_category(session: Session, name: str) -> Category:
-    """Categories are identified by name; create on first use."""
+    """Categories are identified by name; create on first use.
+
+    **Two writers can reach this at the same moment**, and the naive
+    check-then-insert loses that race: both see no row, both insert, and the
+    second hits `UNIQUE constraint failed: categories.workspace_id,
+    categories.name`, which surfaces as a 500 and loses whatever note was
+    being saved. Not theoretical: measured with six concurrent writers
+    capturing twelve notes each, 5 of 72 saves died that way, because the
+    app genuinely has several writers (the desktop window, a browser tab,
+    and the night shift's auto-filing all save notes).
+
+    The insert therefore runs in a savepoint, and losing the race is treated
+    as what it is: somebody else has made the category this caller wanted, so
+    read theirs. The savepoint matters because without it the failed insert
+    poisons the caller's whole transaction, turning a recoverable collision
+    into the same 500 by a different route. The re-read is guaranteed to find
+    the row: SQLite allows one writer at a time, so the other transaction had
+    to have committed for its row to be what this one collided with.
+    """
     category = session.scalar(select(Category).where(Category.name == name))
-    if category is None:
-        category = Category(name=name)
-        session.add(category)
-        session.flush()  # assigns category.id without committing yet
-        log_action(session, "created", "category", category.id, name)
+    if category is not None:
+        return category
+    try:
+        with session.begin_nested():
+            category = Category(name=name)
+            session.add(category)
+            session.flush()  # assigns category.id without committing yet
+    except IntegrityError:
+        existing = session.scalar(select(Category).where(Category.name == name))
+        if existing is None:  # pragma: no cover - see the docstring's last line
+            raise
+        return existing
+    log_action(session, "created", "category", category.id, name)
     return category
 
 

@@ -1723,6 +1723,15 @@ async function renderGraphSvg() {
   }
 
   const box = $("graph-box");
+  //: **Whether those two fallbacks below are load-bearing this run.** A box
+  //: inside a tab that has not been laid out yet reports `clientWidth` 0, so
+  //: the `|| 800` is not a safety net, it is a guess that then gets used as
+  //: the frame for a whole layout. The tree layouts are the ones where that
+  //: shows: reported as "I loaded up the tree graph and it looked like this
+  //: but when I went onto another graph view and came back it was fine",
+  //: which is the second render finding a real width. Recorded here and
+  //: acted on where the tree is framed.
+  const boxMeasured = box.clientWidth > 0 && box.clientHeight > 0;
   const width = box.clientWidth || 800;
   const height = box.clientHeight || 540;
   svg.attr("viewBox", [0, 0, width, height]);
@@ -2506,8 +2515,31 @@ async function renderGraphSvg() {
     nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
     labelGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
     if (!graphAutoFitDone) {
-      graphAutoFitDone = true;
-      frameTree(svg, zoomBehavior, canvas, nodes, width, height, tree.radial);
+      //: Only commit the one auto-fit this view gets if the box it is being
+      //: fitted to was real. On a first visit it often is not (see
+      //: `boxMeasured` above), and framing a tree against the 800x540
+      //: fallback is what the owner saw: a tree drawn to the wrong frame
+      //: that came good only after a trip through another layout. Out of a
+      //: real measurement the fit waits one frame for layout rather than
+      //: spending `graphAutoFitDone` on a guess. The flag is re-checked
+      //: inside, because a render that arrives in between has a better
+      //: claim on the camera than this retry does.
+      if (boxMeasured) {
+        graphAutoFitDone = true;
+        frameTree(svg, zoomBehavior, canvas, nodes, width, height, tree.radial);
+      } else {
+        requestAnimationFrame(() => {
+          const realWidth = box.clientWidth;
+          const realHeight = box.clientHeight;
+          if (graphAutoFitDone || !realWidth || !realHeight) return;
+          graphAutoFitDone = true;
+          //: The viewBox was written from the same guess, so it is corrected
+          //: here too: framing against a real size inside a fake viewBox
+          //: would just move the error rather than fix it.
+          svg.attr("viewBox", [0, 0, realWidth, realHeight]);
+          frameTree(svg, zoomBehavior, canvas, nodes, realWidth, realHeight, tree.radial);
+        });
+      }
     }
   }
 

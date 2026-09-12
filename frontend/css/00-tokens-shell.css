@@ -643,12 +643,36 @@ select,
   --glass-underline: rgba(0, 0, 0, 0.28);
   --glass-edge: rgba(255, 255, 255, 0.05);
   --glass-filter: blur(var(--glass-blur)) saturate(140%);
+  /* **Dark's shadows answer the same slider light's do, and there are three
+     of them, not two.** Reported as "glass looks better on light mode and not
+     dark but idk if thats an actual thing or if the values are different".
+     Measured (`scratchpad/ui-sweeps/shadowpref.js`), and two of the values
+     really are different in ways nothing intended:
+
+       - `--shadow-sm` had **no dark value at all**. It is declared once, in
+         the alias block, as `rgba(31, 38, 135, ...)`, a blue-violet ink that
+         reads on white paper and is invisible on a #0e1017 page, so the whole
+         small-raised tier (buttons, chips, selects, the toolbar strips) lost
+         its depth in dark while `--shadow-md` and `--shadow-lg` kept theirs.
+       - The Appearance shadow-strength slider moved nothing in dark. Measured
+         at 5% and at 40%: light's `--shadow-md` went 0.05 to 0.4 and its
+         `--shadow-lg` with it; dark's were byte-identical at both settings,
+         because these were literals rather than multiples of the token the
+         slider writes.
+
+     The literals are kept exactly, as multiples of `--shadow-intensity` that
+     land on them at its 5% default (7x, 8.4x, 11x), so nothing about the
+     default look changes and the control now reaches both modes. The inks
+     stay black rather than being mirrored from light: an alpha over a dark
+     ground and an alpha over a light one are not comparable numbers, which is
+     the reasoning already written out for the rim in 10-responsive.css. */
   --glass-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.35),
-    0 12px 32px rgba(0, 0, 0, 0.42);
+    0 1px 2px rgba(0, 0, 0, calc(var(--shadow-intensity) * 7)),
+    0 12px 32px rgba(0, 0, 0, calc(var(--shadow-intensity) * 8.4));
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, calc(var(--shadow-intensity) * 7));
   /* Same fix as the light value above: color-mix so --glass-sheen-strength (unwired here before) actually scales it. */
   --glass-catch: radial-gradient(70% 90px at 22% -30px, color-mix(in srgb, rgba(255, 255, 255, 0.075) calc(var(--glass-sheen-strength) * 100%), transparent), transparent 65%);
-  --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 20px 48px rgba(0, 0, 0, calc(var(--shadow-intensity) * 11));
   --modal-bg: rgba(24, 27, 37, 0.97);
   --modal-bg-opaque: rgb(24, 27, 37);
   --ink: #e7e9ee;
@@ -693,12 +717,36 @@ select,
     --glass-underline: rgba(0, 0, 0, 0.28);
     --glass-edge: rgba(255, 255, 255, 0.05);
     --glass-filter: blur(var(--glass-blur)) saturate(140%);
+    /* **Dark's shadows answer the same slider light's do, and there are three
+       of them, not two.** Reported as "glass looks better on light mode and not
+       dark but idk if thats an actual thing or if the values are different".
+       Measured (`scratchpad/ui-sweeps/shadowpref.js`), and two of the values
+       really are different in ways nothing intended:
+
+         - `--shadow-sm` had **no dark value at all**. It is declared once, in
+           the alias block, as `rgba(31, 38, 135, ...)`, a blue-violet ink that
+           reads on white paper and is invisible on a #0e1017 page, so the whole
+           small-raised tier (buttons, chips, selects, the toolbar strips) lost
+           its depth in dark while `--shadow-md` and `--shadow-lg` kept theirs.
+         - The Appearance shadow-strength slider moved nothing in dark. Measured
+           at 5% and at 40%: light's `--shadow-md` went 0.05 to 0.4 and its
+           `--shadow-lg` with it; dark's were byte-identical at both settings,
+           because these were literals rather than multiples of the token the
+           slider writes.
+
+       The literals are kept exactly, as multiples of `--shadow-intensity` that
+       land on them at its 5% default (7x, 8.4x, 11x), so nothing about the
+       default look changes and the control now reaches both modes. The inks
+       stay black rather than being mirrored from light: an alpha over a dark
+       ground and an alpha over a light one are not comparable numbers, which is
+       the reasoning already written out for the rim in 10-responsive.css. */
     --glass-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.35),
-      0 12px 32px rgba(0, 0, 0, 0.42);
+      0 1px 2px rgba(0, 0, 0, calc(var(--shadow-intensity) * 7)),
+      0 12px 32px rgba(0, 0, 0, calc(var(--shadow-intensity) * 8.4));
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, calc(var(--shadow-intensity) * 7));
     /* Same fix as the light value above: color-mix so --glass-sheen-strength (unwired here before) actually scales it. */
     --glass-catch: radial-gradient(70% 90px at 22% -30px, color-mix(in srgb, rgba(255, 255, 255, 0.075) calc(var(--glass-sheen-strength) * 100%), transparent), transparent 65%);
-    --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
+    --shadow-lg: 0 20px 48px rgba(0, 0, 0, calc(var(--shadow-intensity) * 11));
     --modal-bg: rgba(24, 27, 37, 0.97);
     --modal-bg-opaque: rgb(24, 27, 37);
     --ink: #e7e9ee;

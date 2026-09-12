@@ -392,14 +392,23 @@ header#top-bar,
 :root[data-mode="dark"] {
   --card: color-mix(in srgb, rgba(40, 45, 60, 0.55) calc(var(--glass-opacity) * 100%), transparent);
   --glass-filter: blur(var(--glass-blur)) saturate(140%) brightness(1.12);
-  --glass-catch: radial-gradient(70% 90px at 22% -30px, rgba(255, 255, 255, 0.14), transparent 65%);
+  /* Through `color-mix` with `--glass-sheen-strength`, like every other catch
+     in the app. Written as a flat rgba here, this override silently undid
+     INBOX 89's own fix ("sheen strength ... doesn't do anything") for dark
+     mode only: measured, light's catch computed
+     `color-mix(... calc(1 * 100%) ...)` and dark's computed a bare
+     `rgba(255, 255, 255, 0.14)`, so the Appearance slider moved the sheen in
+     one mode and not the other. 0.14 is unchanged, it is now the strength
+     slider's 100%. */
+  --glass-catch: radial-gradient(70% 90px at 22% -30px, color-mix(in srgb, rgba(255, 255, 255, 0.14) calc(var(--glass-sheen-strength) * 100%), transparent), transparent 65%);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --card: color-mix(in srgb, rgba(40, 45, 60, 0.55) calc(var(--glass-opacity) * 100%), transparent);
     --glass-filter: blur(var(--glass-blur)) saturate(140%) brightness(1.12);
-    --glass-catch: radial-gradient(70% 90px at 22% -30px, rgba(255, 255, 255, 0.14), transparent 65%);
+    /* See the `[data-mode="dark"]` copy above for why this is a color-mix. */
+    --glass-catch: radial-gradient(70% 90px at 22% -30px, color-mix(in srgb, rgba(255, 255, 255, 0.14) calc(var(--glass-sheen-strength) * 100%), transparent), transparent 65%);
   }
 }
 

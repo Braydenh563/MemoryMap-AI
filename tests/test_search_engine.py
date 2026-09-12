@@ -282,12 +282,21 @@ def test_the_open_note_lifts_what_is_linked_to_it(session):
 
 
 def test_every_hit_says_which_signal_carried_it(session):
+    from memorymap.core.database import Document
     from memorymap.search import engine
 
     _note(session, "risotto with peas", tags=["recipe"])
     hits = engine.search(session, "risotto", ctx=None)
-    assert hits[0].explain[0] == "matched the title"
+    assert hits[0].explain[0] == "matched your words"
     assert set(hits[0].scores) == {"bm25", "cosine", "graph"}
+
+    # A title only counts as one when the body does not simply repeat it: a
+    # one-line note *is* its own first line, and "matched the title" there is
+    # a distinction the reader cannot see.
+    session.add(Document(title="Risotto method", content="stir until the rice gives"))
+    session.commit()
+    titled = engine.search(session, "kind:document risotto", ctx=None)
+    assert titled[0].explain[0] == "matched the title"
 
 
 def test_a_cold_matrix_means_no_similarity_not_a_scan(session, monkeypatch):

@@ -1790,6 +1790,29 @@ header#top-bar select,
   white-space: nowrap;
 }
 
+/* The Notes list's own "why this result" chip (app.js `whyThisResultChip`).
+   It reuses `.result-reason-chip` above rather than inventing a look, and
+   needs one thing that chip did not: permission to be narrower than its
+   text. `.entry-meta` is a nowrap flex row in the compact rows view, so a
+   chip wide enough to name two signals pushed itself 57 to 84px past the
+   row's right edge (measured, scratchpad/ui-sweeps/searchwhy.js). A flex
+   child will not shrink below its content while `min-width` is `auto`,
+   which is why the ellipsis the chip already carries never fired. */
+/* One line, under the note, holding one chip. `min-width: 0` on both is what
+   lets the chip's own ellipsis fire: a flex child will not shrink below its
+   content while `min-width` is `auto`, which is why the ellipsis
+   `.result-reason-chip` already carries never fired in the narrow lane this
+   line replaced. */
+.entry-why {
+  display: flex;
+  min-width: 0;
+  margin-top: var(--space-2);
+}
+
+.result-reason-why {
+  min-width: 0;
+}
+
 .result-reason-connected {
   background: var(--accent-soft);
   color: var(--accent);

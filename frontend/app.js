@@ -120,6 +120,13 @@ let inlineAction = null; // {id, kind: "context"|"continue"} open on a card
 let busyEntryId = null; // entry the AI is currently working on (spinner shown)
 let flashConfidenceId = null; // entry whose confidence badge just changed (flash once)
 let noteSearch = ""; // Notes-tab text filter (Wave J)
+// Why each note is in the filtered list, keyed by id: `{explain, scores}` from
+// `GET /search` (the retrieval engine, Brief 11). The list itself is still
+// filtered here in the browser, which is what keeps typing instant; this is
+// the *explanation* the browser cannot produce, because two of the three
+// signals (meaning, and distance over the links) only exist on the server.
+// Cleared whenever the box is, so a stale reason can never outlive its query.
+const noteSearchWhy = new Map();
 let noteSort = "newest"; // newest | oldest | az | most-used (Wave J)
 // BACKLOG §77 item 1. "all" (the default) keeps the existing continuous
 // scroll (§86's renderIncrementally) untouched; a numeric size switches
@@ -2510,6 +2517,23 @@ function entryItem(entry, options = {}) {
     meta.appendChild(fileChip);
   }
   li.appendChild(meta);
+
+  // "Why this result" is its own line under the note, not another chip in
+  // the meta lane. Measured: in the compact rows view that lane is a
+  // `fit-content(26rem)` track with `overflow-x: auto`, and a chip naming
+  // two signals pushed the date and the actions strip out of the visible
+  // box (57 to 84px past its right edge, `scratchpad/ui-sweeps/searchwhy.js`),
+  // which is the exact crowding `.entry-meta`'s own comment says that track
+  // was rebuilt to stop. A row of its own also says what it is: a reason for
+  // this note being in *this* list, which appears with a query and goes with
+  // it, rather than a permanent fact about the note like its category.
+  const why = whyThisResultChip(entry);
+  if (why) {
+    const line = document.createElement("div");
+    line.className = "entry-why";
+    line.appendChild(why);
+    li.appendChild(line);
+  }
 
   // Attachments (Wave B; images become thumbnails in Wave M).
   if (entry.attachments.length > 0) {
@@ -8914,6 +8938,61 @@ function searchHighlightTerms() {
   return [...query.phrases, ...query.words].filter((t) => t.length > 1);
 }
 
+// "Why this result", in words rather than a number, from the three scores the
+// engine returns with every hit (`search/engine.py`). Asked for by Brief 11
+// directly: the list says *matched the title*, *similar meaning*, *linked to
+// the open note*, and the exact percentages sit in the tooltip for anyone who
+// disagrees with the order. The chip recipe is the one the chat results
+// already use (`.chip.result-reason-chip`), not a new look.
+function whyThisResultChip(entry) {
+  const hit = noteSearchWhy.get(entry.id);
+  const words = hit?.explain?.join(" · ");
+  if (!words) return null;
+  const badge = chip(`ph:sparkle ${words}`, "result-reason-chip result-reason-why");
+  const percent = (value) => Math.round((value || 0) * 100);
+  badge.title =
+    `Why this result: words ${percent(hit.scores?.bm25)}%, ` +
+    `meaning ${percent(hit.scores?.cosine)}%, ` +
+    `links ${percent(hit.scores?.graph)}%.`;
+  return badge;
+}
+
+// One call per settled query, not per keystroke: the caller debounces, and a
+// reply that arrives after the box has moved on is dropped rather than
+// painting reasons for a query nobody is looking at any more.
+async function refreshNoteSearchWhy() {
+  const asked = noteSearch;
+  if (!asked) {
+    noteSearchWhy.clear();
+    return;
+  }
+  // What the person is looking at, when that is unambiguous: one note opened
+  // out in the list is the app's own "open note", and it is what makes the
+  // third signal (distance over the links) mean anything. Two open rows, or
+  // none, is not a context, and passing a guess would put "linked to the open
+  // note" on a note linked to something nobody is reading.
+  const open =
+    editingId || (expandedRows.size === 1 ? [...expandedRows][0] : null);
+  let body;
+  try {
+    // 50 is the endpoint's own ceiling (`routes_search.MAX_LIMIT`): a search
+    // box shows a page, not a notebook, and a note past the fiftieth best
+    // match simply carries no reason chip rather than a wrong one.
+    body = await apiJson(
+      `/search?q=${encodeURIComponent(asked)}&kind=note,board&limit=50` +
+        (open ? `&entry_id=${open}` : "")
+    );
+  } catch {
+    // The list is already rendered and already correct; the reasons are the
+    // only thing missing, so a failed call leaves the notes alone.
+    return;
+  }
+  if (noteSearch !== asked) return;
+  noteSearchWhy.clear();
+  for (const hit of body?.hits || []) noteSearchWhy.set(hit.id, hit);
+  renderEntries();
+}
+
 // Sort comparator for the chosen mode (Wave J). Pinned always floats to
 // the top first, matching the server's own ordering.
 function sortEntries(entries) {
@@ -9213,6 +9292,10 @@ $("notes-view-rows")?.addEventListener("click", () => setNotesViewMode("rows"));
 $("notes-view-cards")?.addEventListener("click", () => setNotesViewMode("cards"));
 
 function renderEntries() {
+  // A cleared box clears its reasons here rather than at each of the five
+  // places that can clear the box: a reason for a query nobody typed is
+  // worse than no reason at all.
+  if (!noteSearch && noteSearchWhy.size) noteSearchWhy.clear();
   const list = $("entry-list");
   const empty = $("empty-message");
   const noMatch = $("no-match-message");
@@ -34361,6 +34444,7 @@ function renderSavedSearches() {
       $("note-search").value = item.query;
       noteSearch = item.query;
       renderEntries();
+      refreshNoteSearchWhy();
       announce(`Applied the saved filter "${item.name}".`);
     });
     const remove = document.createElement("button");
@@ -36042,6 +36126,10 @@ $("note-search").addEventListener("input", (e) => {
   noteSearchDebounceTimeout = setTimeout(() => {
     if ($("semantic-search-toggle")?.checked) loadEntries(); // trigger semantic backend search
     renderEntries();
+    // After the list is on screen, never before it: the reasons are an
+    // annotation on a list that is already correct, and waiting for a
+    // round trip to show any notes at all would undo the debounce's point.
+    refreshNoteSearchWhy();
   }, 150);
 });
 $("note-sort").addEventListener("change", (e) => {

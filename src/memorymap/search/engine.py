@@ -494,8 +494,14 @@ def _explain(scores: dict[str, float], row: dict, terms: list[str], hop: int | N
     """
     said: list[tuple[float, str]] = []
     title = (row.get("title") or "").lower()
+    body = " ".join((row.get("body") or "").split()).lower()
+    # A note's "title" is its own first line, so on a one-line note the title
+    # and the body are the same words and "matched the title" would be a
+    # distinction the person cannot see. Only say it when there is a title to
+    # match that the body does not repeat.
+    has_real_title = bool(title) and body != title
     if scores["bm25"] > 0:
-        if any(term in title for term in terms):
+        if has_real_title and any(term in title for term in terms):
             said.append((scores["bm25"] * WEIGHTS["bm25"] + 0.01, "matched the title"))
         elif (row.get("tags") or "") and any(term in (row.get("tags") or "").lower() for term in terms):
             said.append((scores["bm25"] * WEIGHTS["bm25"], "matched a tag"))

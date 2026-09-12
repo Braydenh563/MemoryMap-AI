@@ -4013,3 +4013,27 @@ button.ghost.doc-template-choice:focus-visible {
   padding-block: var(--space-1);
 }
 
+
+/* **How far along a section is, on its outline row** (DOCUMENTS_PLAN Phase 3
+   item 2, "task lists with progress in the outline"). Pushed to the right
+   edge of the row rather than sat after the words: the headings are what the
+   eye runs down, and a count that moves with the length of each title is a
+   count you have to hunt for. `margin-left: auto` is what does it, against
+   the `inline-flex` the bare `button` rule gives every one of these rows, the
+   same property the outline's own alignment comment explains. */
+.outline-tasks {
+  margin-left: auto;
+  padding-left: var(--space-2);
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  /* The digits hold one width, so a column of counts does not jitter as the
+     numbers change under the caret. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* Finished, in the app's own success ink. A colour and the numbers it sits
+   beside, never the colour alone: the count still reads 5/5. */
+.outline-tasks-done {
+  color: var(--ok);
+}

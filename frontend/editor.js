@@ -367,6 +367,14 @@ function editorCommands(context) {
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.ul),
     },
     {
+      id: "math",
+      group: "Blocks & frames",
+      label: "\u{1F9EE} Math",
+      hint: "$\u2026$, rendered where you write it",
+      keywords: ["math", "formula", "equation", "latex", "tex", "mathml"],
+      run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.math),
+    },
+    {
       id: "divider",
       primary: true,
       group: "Blocks & frames",

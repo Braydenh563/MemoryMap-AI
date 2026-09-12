@@ -1443,6 +1443,44 @@ function renderDocOutline() {
     });
   });
 
+  //: **The tasks in each section, counted.** DOCUMENTS_PLAN Phase 3 item 2
+  //: asks for "task lists with progress in the outline", and the outline is
+  //: where it belongs rather than beside the list itself: a checklist knows
+  //: how far along it is by being read, and what a reader cannot see from the
+  //: text is how far along the *section* is without scrolling to the end of
+  //: it.
+  //:
+  //: A heading counts its whole subtree, not the lines before the next
+  //: heading of any level: "Release" showing 0/0 while the three sub-sections
+  //: under it hold every task in the document would be a count that is
+  //: accurate and useless. Fenced code is skipped, for the same reason the
+  //: headings above skip it.
+  const DOC_TASK_LINE = /^\s*(?:[-*+]|\d+[.)])\s+\[([ xX])\]/;
+  headings.forEach((heading, index) => {
+    let end = lines.length;
+    for (let next = index + 1; next < headings.length; next += 1) {
+      if (headings[next].level <= heading.level) {
+        end = headings[next].line;
+        break;
+      }
+    }
+    let done = 0;
+    let total = 0;
+    let fenced = false;
+    for (let at = heading.line + 1; at < end; at += 1) {
+      if (lines[at].trim().startsWith("```")) {
+        fenced = !fenced;
+        continue;
+      }
+      if (fenced) continue;
+      const task = DOC_TASK_LINE.exec(lines[at]);
+      if (!task) continue;
+      total += 1;
+      if (task[1] !== " ") done += 1;
+    }
+    heading.tasks = total ? { done, total } : null;
+  });
+
   //: **The Outline tab always shows an outline section, even with nothing in
   //: it.** It used to hide itself below two headings, which meant that opening
   //: the tab called Outline on a document without them showed a "References"
@@ -1473,6 +1511,18 @@ function renderDocOutline() {
     button.className = "outline-link";
     button.textContent = heading.text;
     button.title = `Jump to “${heading.text}”`;
+    if (heading.tasks) {
+      const chip = document.createElement("span");
+      const { done, total } = heading.tasks;
+      chip.className = done === total ? "outline-tasks outline-tasks-done" : "outline-tasks";
+      chip.textContent = `${done}/${total}`;
+      //: The chip is a number on a row that is already a link, so the row's
+      //: own name has to carry what the number means: a screen reader reading
+      //: "Design notes 2/5" is reading a fraction with no unit.
+      button.title = `Jump to “${heading.text}”: ${done} of ${total} tasks done`;
+      chip.setAttribute("aria-label", `${done} of ${total} tasks done`);
+      button.appendChild(chip);
+    }
     button.addEventListener("click", () => jumpToDocLine(heading.line));
     li.appendChild(button);
     list.appendChild(li);
@@ -2813,6 +2863,276 @@ function docTableMenu(context) {
   return kebabMenu(items, "Table row and column actions");
 }
 
+
+// =============================================================================
+// Math: a small TeX subset rendered as MathML (DOCUMENTS_PLAN Phase 3 item 2)
+// =============================================================================
+//
+// **No KaTeX, and the plan is explicit about it.** The reasons are worth
+// keeping next to the code rather than in the plan: KaTeX is 280 KB of script
+// and a megabyte of fonts for a notebook whose documents are notes and plans,
+// it wants a stylesheet this app's CSP would have to be widened for, and every
+// browser this app runs in has rendered MathML natively since 2023. What a
+// local-first notebook needs is the arithmetic, the greek, a fraction, a root,
+// a sum and a sub/superscript, which is what this does.
+//
+// The parser is deliberately small and deliberately total: anything it does
+// not understand comes out as the text that was typed rather than as an error,
+// because an editor that turns a formula it half-knows into a red box is worse
+// than one that leaves it alone. `tests/test_doc_math.py` runs it in node over
+// the shapes this file claims to handle.
+
+// DOC-MATH-BEGIN
+
+//: The symbols, by what they are rather than by how they look: a greek letter
+//: is an identifier (`mi`, italic like any variable) and an operator is an
+//: operator (`mo`, spaced like one). Getting that split wrong is what makes
+//: hand-rolled math read as a string of glyphs.
+const DOC_MATH_LETTERS = {
+  alpha: "α", beta: "β", gamma: "γ", delta: "δ", epsilon: "ε",
+  varepsilon: "ε", zeta: "ζ", eta: "η", theta: "θ", iota: "ι",
+  kappa: "κ", lambda: "λ", mu: "μ", nu: "ν", xi: "ξ", pi: "π",
+  rho: "ρ", sigma: "σ", tau: "τ", upsilon: "υ", phi: "φ",
+  varphi: "φ", chi: "χ", psi: "ψ", omega: "ω",
+  Gamma: "Γ", Delta: "Δ", Theta: "Θ", Lambda: "Λ", Xi: "Ξ",
+  Pi: "Π", Sigma: "Σ", Phi: "Φ", Psi: "Ψ", Omega: "Ω",
+  infty: "∞", partial: "∂", nabla: "∇", emptyset: "∅", ell: "ℓ",
+};
+
+const DOC_MATH_OPERATORS = {
+  times: "×", div: "÷", cdot: "⋅", pm: "±", mp: "∓",
+  le: "≤", leq: "≤", ge: "≥", geq: "≥", ne: "≠", neq: "≠",
+  approx: "≈", equiv: "≡", propto: "∝", sim: "∼",
+  to: "→", rightarrow: "→", leftarrow: "←", Rightarrow: "⇒",
+  leftrightarrow: "↔", mapsto: "↦",
+  in: "∈", notin: "∉", subset: "⊂", subseteq: "⊆", supset: "⊃",
+  cup: "∪", cap: "∩", forall: "∀", exists: "∃", neg: "¬",
+  land: "∧", lor: "∨", oplus: "⊕", otimes: "⊗", circ: "∘",
+  star: "⋆", perp: "⊥", parallel: "∥", angle: "∠", degree: "°",
+  ldots: "…", dots: "…", cdots: "⋯", vdots: "⋮",
+  sum: "∑", prod: "∏", int: "∫", iint: "∬", oint: "∮",
+  bigcup: "⋃", bigcap: "⋂", sqrt: "√",
+};
+
+//: A named function is set upright, not italic: `sin x` is a function applied
+//: to a variable, and `s` times `i` times `n` times `x` is what it reads as
+//: when every letter is an identifier.
+const DOC_MATH_FUNCTIONS = [
+  "sin", "cos", "tan", "sec", "csc", "cot", "arcsin", "arccos", "arctan",
+  "sinh", "cosh", "tanh", "log", "ln", "exp", "lim", "max", "min", "sup", "inf",
+  "det", "dim", "gcd", "deg", "arg", "mod",
+];
+
+//: Text, taken raw, because the tokeniser below throws whitespace away and
+//: `\text{a b}` is the one place the spaces are the point.
+const DOC_MATH_RAW_COMMANDS = ["text", "mathrm", "operatorname", "mathbf", "textbf"];
+
+function docMathTokens(tex) {
+  const src = String(tex == null ? "" : tex);
+  const tokens = [];
+  let at = 0;
+  while (at < src.length) {
+    const ch = src[at];
+    if (/\s/.test(ch)) {
+      at += 1;
+      continue;
+    }
+    if (ch === "\\") {
+      const command = /^\\([A-Za-z]+|.)/.exec(src.slice(at));
+      if (!command) break;
+      at += command[0].length;
+      const name = command[1];
+      if (DOC_MATH_RAW_COMMANDS.includes(name) && src[at] === "{") {
+        let depth = 1;
+        let end = at + 1;
+        while (end < src.length && depth > 0) {
+          if (src[end] === "{") depth += 1;
+          else if (src[end] === "}") depth -= 1;
+          if (depth > 0) end += 1;
+        }
+        tokens.push({ kind: "text", value: src.slice(at + 1, end), bold: name === "mathbf" || name === "textbf" });
+        at = end + 1;
+        continue;
+      }
+      tokens.push({ kind: "cmd", value: name });
+      continue;
+    }
+    const number = /^[0-9]+(?:\.[0-9]+)?/.exec(src.slice(at));
+    if (number) {
+      tokens.push({ kind: "num", value: number[0] });
+      at += number[0].length;
+      continue;
+    }
+    if (/[A-Za-z]/.test(ch)) {
+      tokens.push({ kind: "id", value: ch });
+      at += 1;
+      continue;
+    }
+    if (ch === "{" || ch === "}" || ch === "^" || ch === "_") {
+      tokens.push({ kind: ch });
+      at += 1;
+      continue;
+    }
+    tokens.push({ kind: "op", value: ch });
+    at += 1;
+  }
+  return tokens;
+}
+
+function docMathRow(kids) {
+  return kids.length === 1 ? kids[0] : { tag: "mrow", kids };
+}
+
+//: One argument: a braced group, or the single token after the command.
+function docMathArgument(tokens, state) {
+  const token = tokens[state.at];
+  if (!token) return { tag: "mrow", kids: [] };
+  if (token.kind === "{") {
+    state.at += 1;
+    return docMathRow(docMathNodes(tokens, state));
+  }
+  state.at += 1;
+  return docMathToken(token, tokens, state);
+}
+
+function docMathToken(token, tokens, state) {
+  if (token.kind === "num") return { tag: "mn", text: token.value };
+  if (token.kind === "id") return { tag: "mi", text: token.value };
+  if (token.kind === "text") {
+    //: `mathvariant`, never a `style` attribute: this app's CSP refuses inline
+    //: styles, so a bold done that way would be a silent no-op.
+    return token.bold
+      ? { tag: "mtext", attrs: { mathvariant: "bold" }, text: token.value }
+      : { tag: "mtext", text: token.value };
+  }
+  if (token.kind === "cmd") return docMathCommand(token.value, tokens, state);
+  return { tag: "mo", text: token.value };
+}
+
+function docMathCommand(name, tokens, state) {
+  if (name === "frac" || name === "dfrac" || name === "tfrac") {
+    const top = docMathArgument(tokens, state);
+    const bottom = docMathArgument(tokens, state);
+    return { tag: "mfrac", kids: [top, bottom] };
+  }
+  if (name === "sqrt") {
+    //: `\sqrt[3]{x}`: the index is in brackets, which the tokeniser has no
+    //: special case for, so it arrives as the operators `[` and `]`.
+    if (tokens[state.at] && tokens[state.at].kind === "op" && tokens[state.at].value === "[") {
+      state.at += 1;
+      const index = [];
+      while (
+        state.at < tokens.length &&
+        !(tokens[state.at].kind === "op" && tokens[state.at].value === "]")
+      ) {
+        const token = tokens[state.at];
+        state.at += 1;
+        index.push(docMathToken(token, tokens, state));
+      }
+      if (state.at < tokens.length) state.at += 1;
+      return { tag: "mroot", kids: [docMathArgument(tokens, state), docMathRow(index)] };
+    }
+    return { tag: "msqrt", kids: [docMathArgument(tokens, state)] };
+  }
+  if (name === "left" || name === "right") {
+    //: The delimiter that follows carries the meaning; the sizing command
+    //: itself is MathML's job rather than the author's.
+    const next = tokens[state.at];
+    if (!next) return { tag: "mrow", kids: [] };
+    state.at += 1;
+    if (next.kind === "cmd" && next.value === ".") return { tag: "mrow", kids: [] };
+    return { tag: "mo", text: next.value || "" };
+  }
+  if (DOC_MATH_LETTERS[name]) return { tag: "mi", text: DOC_MATH_LETTERS[name] };
+  if (DOC_MATH_OPERATORS[name]) return { tag: "mo", text: DOC_MATH_OPERATORS[name] };
+  if (DOC_MATH_FUNCTIONS.includes(name)) return { tag: "mi", attrs: { mathvariant: "normal" }, text: name };
+  if (name === "{" || name === "}" || name === "|") return { tag: "mo", text: name };
+  //: Anything unknown comes back as what was typed. A formula that is nine
+  //: tenths understood should render nine tenths of the way, not fail.
+  return { tag: "mi", text: name };
+}
+
+function docMathNodes(tokens, state) {
+  const kids = [];
+  while (state.at < tokens.length) {
+    const token = tokens[state.at];
+    if (token.kind === "}") {
+      state.at += 1;
+      break;
+    }
+    if (token.kind === "{") {
+      state.at += 1;
+      kids.push(docMathRow(docMathNodes(tokens, state)));
+      continue;
+    }
+    if (token.kind === "^" || token.kind === "_") {
+      state.at += 1;
+      const base = kids.pop() || { tag: "mrow", kids: [] };
+      const script = docMathArgument(tokens, state);
+      const up = token.kind === "^";
+      //: `x_i^2` is one element with two scripts, not a superscript on a
+      //: subscript: written as the second it prints the 2 above the i.
+      if (base.tag === "msub" && up) {
+        kids.push({ tag: "msubsup", kids: [base.kids[0], base.kids[1], script] });
+      } else if (base.tag === "msup" && !up) {
+        kids.push({ tag: "msubsup", kids: [base.kids[0], script, base.kids[1]] });
+      } else {
+        kids.push({ tag: up ? "msup" : "msub", kids: [base, script] });
+      }
+      continue;
+    }
+    state.at += 1;
+    kids.push(docMathToken(token, tokens, state));
+  }
+  return kids;
+}
+
+//: The whole of the public surface: TeX in, a MathML tree out, as plain
+//: objects so this can be tested without a browser and built with
+//: `createElementNS` in one.
+function docMathTree(tex, display = false) {
+  const kids = docMathNodes(docMathTokens(tex), { at: 0 });
+  return {
+    tag: "math",
+    attrs: { display: display ? "block" : "inline" },
+    kids: [docMathRow(kids.length ? kids : [{ tag: "mtext", text: "" }])],
+  };
+}
+
+//: **What counts as math and what is a price.** `$` is a currency sign far
+//: more often than it is a delimiter in a notebook, so the rule is the one
+//: Obsidian and Typora use, plus one guard of this app's own: no space just
+//: inside either delimiter (which is what excludes "$5 and $10"), and the
+//: content has to contain something mathematical rather than being a bare
+//: number with an operator stuck to it (which is what excludes "$5-$10").
+const DOC_MATH_MEANINGFUL = /[A-Za-z\\^_=+]/;
+
+function docMathLooksLikeMath(body) {
+  const text = String(body == null ? "" : body);
+  if (!text || /^\s/.test(text) || /\s$/.test(text)) return false;
+  return DOC_MATH_MEANINGFUL.test(text);
+}
+
+// DOC-MATH-END
+
+//: The tree as elements. MathML is its own namespace: built with
+//: `createElement` the tags are unknown HTML elements, which render as their
+//: own text content in a straight line and look exactly like a renderer that
+//: half-works.
+const DOC_MATHML_NS = "http://www.w3.org/1998/Math/MathML";
+
+function docMathElement(node) {
+  const el = document.createElementNS(DOC_MATHML_NS, node.tag);
+  for (const [name, value] of Object.entries(node.attrs || {})) el.setAttribute(name, value);
+  if (node.text != null) el.textContent = node.text;
+  for (const kid of node.kids || []) el.appendChild(docMathElement(kid));
+  return el;
+}
+
+function docMathRender(tex, display = false) {
+  return docMathElement(docMathTree(tex, display));
+}
+
 //: The compartment decision 3 names: Live is this editor with the markdown
 //: decorations on, Source is the same editor with them off. Nothing else
 //: differs between the two views, which is the whole point.
@@ -2932,12 +3252,19 @@ function docLivePlugin(CM) {
   //: (`CALLOUT_KINDS` in editor.js, the same table `calloutTemplate` writes
   //: from), which is what Obsidian shows in the same place.
   class DocCalloutWidget extends WidgetType {
-    constructor(kind) {
+    constructor(kind, fold) {
       super();
       this.kind = kind;
+      //: `null` when the callout is not a toggle at all, otherwise the line it
+      //: starts on and whether it is currently folded.
+      this.fold = fold;
     }
     eq(other) {
-      return other.kind === this.kind;
+      return (
+        other.kind === this.kind &&
+        !!other.fold === !!this.fold &&
+        (!this.fold || (other.fold.at === this.fold.at && other.fold.closed === this.fold.closed))
+      );
     }
     ignoreEvent() {
       //: A click on the label is a click into the line behind it: the widget
@@ -2951,6 +3278,21 @@ function docLivePlugin(CM) {
       const chip = document.createElement("span");
       chip.className = `cm-md-callout-label cm-md-callout-label-${this.kind}`;
       chip.textContent = meta ? `${meta.icon} ${meta.label}` : this.kind;
+      //: **A callout written `[!note]-` or `[!note]+` is a toggle**, which is
+      //: the syntax Obsidian uses and the "toggles" half of Phase 3 item 2.
+      //: The marker is the *initial* state and clicking does not rewrite it,
+      //: which is also Obsidian's behaviour and the right one: folding a
+      //: section to read past it is not an edit to the document, and a
+      //: notebook whose files change every time somebody collapses something
+      //: has no clean diffs left.
+      if (this.fold) {
+        const chevron = document.createElement("span");
+        chevron.className = "cm-md-callout-fold";
+        chevron.textContent = this.fold.closed ? "\u25B8" : "\u25BE";
+        chip.dataset.docCalloutFold = String(this.fold.at);
+        chip.title = this.fold.closed ? "Show what is inside" : "Fold this away";
+        chip.append(" ", chevron);
+      }
       return chip;
     }
   }
@@ -3000,6 +3342,31 @@ function docLivePlugin(CM) {
       const wrap = docTableMenu(this.context);
       wrap.classList.add("cm-md-table-menu");
       return wrap;
+    }
+  }
+
+  //: **Math, rendered where it was written.** The renderer is the MathML one
+  //: at the top of this file, so what Live draws and what an export would draw
+  //: come from one place. The widget replaces the `$…$` only while the caret
+  //: is off its line, which is the rule every other marker here follows: the
+  //: way to edit a formula is to put the caret in it and see the TeX again.
+  class DocMathWidget extends WidgetType {
+    constructor(tex, display) {
+      super();
+      this.tex = tex;
+      this.display = display;
+    }
+    eq(other) {
+      return other.tex === this.tex && other.display === this.display;
+    }
+    ignoreEvent() {
+      return false;
+    }
+    toDOM() {
+      const host = document.createElement("span");
+      host.className = this.display ? "cm-md-math cm-md-math-block" : "cm-md-math";
+      host.appendChild(docMathRender(this.tex, this.display));
+      return host;
     }
   }
 
@@ -3195,9 +3562,15 @@ function docLivePlugin(CM) {
               //: heading and quote marks take theirs: leaving it would indent
               //: the label's line by one space against every other line.
               while (end < doc.length && doc.sliceString(end, end + 1) === " ") end += 1;
-              if (!doc.sliceString(from, end).includes("\n")) {
+                if (!doc.sliceString(from, end).includes("\n")) {
+                //: A toggle only where the marker says so, and its chevron
+                //: pointing the way the view actually is rather than the way
+                //: the marker asked for on open.
+                const toggle = /[-+]$/.test(callout[1])
+                  ? { at: first.from, closed: docCalloutFolded(state, first) }
+                  : null;
                 ranges.push(
-                  Decoration.replace({ widget: new DocCalloutWidget(kind) }).range(from, end)
+                  Decoration.replace({ widget: new DocCalloutWidget(kind, toggle) }).range(from, end)
                 );
               }
             }
@@ -3266,6 +3639,64 @@ function docLivePlugin(CM) {
         if (rangeRevealed(from, to)) return;
         hide(from, from + 2);
         hide(to - 2, to);
+      });
+      //: **Math.** `$$…$$` first and `$…$` second, with the ranges the first
+      //: took recorded: `$$x$$` contains `$x$`, so an inline pass run on its
+      //: own would draw a second widget inside the first one's range, and two
+      //: replacements over one span is a decoration set that throws rather
+      //: than one that looks wrong.
+      //:
+      //: Both are limited to a single line, and that is a property of the
+      //: architecture rather than an omission: a replace decoration from a
+      //: view plugin may not contain a line break (CodeMirror throws and the
+      //: whole view stops updating), so a `$$` block spread over three lines
+      //: stays as the text it is. Single-line `$$…$$` is what people write
+      //: inside a paragraph, which is where this matters.
+      const mathTaken = [];
+      scan(/\$\$([^$\n]{1,400})\$\$/g, (match, from, to) => {
+        if (!docMathLooksLikeMath(match[1])) return;
+        mathTaken.push([from, to]);
+        if (rangeRevealed(from, to)) return;
+        ranges.push(
+          Decoration.replace({ widget: new DocMathWidget(match[1], true) }).range(from, to)
+        );
+      });
+      scan(/\$([^$\n]{1,300})\$/g, (match, from, to) => {
+        if (mathTaken.some(([start, end]) => from >= start && to <= end)) return;
+        if (!docMathLooksLikeMath(match[1])) return;
+        if (rangeRevealed(from, to)) return;
+        ranges.push(
+          Decoration.replace({ widget: new DocMathWidget(match[1], false) }).range(from, to)
+        );
+      });
+
+      //: **Footnotes**, Phase 3 item 2. Two shapes of the same thing: a
+      //: reference `[^1]` in the prose and its definition `[^1]: the text` at
+      //: the foot of the document. Both render as the identifier alone, raised,
+      //: because the brackets and the caret are syntax like every other marker
+      //: in this view; the reference is a link to its definition and the
+      //: definition is not a link to anything.
+      //:
+      //: Scanned rather than taken from the tree because the lezer markdown
+      //: grammar here has no footnote extension: `[^1]` parses as ordinary
+      //: text, which is also why nothing was drawing it before this.
+      scan(/\[\^([^\][\s]{1,40})\](:?)/g, (match, from, to) => {
+        const line = doc.lineAt(from);
+        const definition = match[2] === ":" && line.from === from;
+        const idFrom = from + 2;
+        const idTo = to - (definition ? 2 : 1);
+        if (idTo <= idFrom) return;
+        ranges.push(
+          Decoration.mark({
+            class: definition ? "cm-md-footnote" : "cm-md-footnote cm-md-footnote-ref",
+            attributes: definition
+              ? {}
+              : { "data-doc-footnote": match[1], title: `Go to footnote ${match[1]}` },
+          }).range(idFrom, idTo)
+        );
+        if (rangeRevealed(from, to)) return;
+        hide(from, idFrom);
+        hide(idTo, to);
       });
       scan(/\[\[([^[\]\n]{1,120})\]\]/g, (match, from, to) => {
         const name = match[1].trim();
@@ -3389,6 +3820,20 @@ function docLivePlugin(CM) {
             //: Through the same resolution the preview's own chips use, so a
             //: name that resolves in one view resolves in the other.
             docOpenWikiTarget(wiki.dataset.docWiki);
+            return true;
+          }
+          const fold = target.closest("[data-doc-callout-fold]");
+          if (fold) {
+            event.preventDefault();
+            event.stopPropagation();
+            docToggleCalloutFold(Number(fold.dataset.docCalloutFold));
+            return true;
+          }
+          const note = target.closest("[data-doc-footnote]");
+          if (note) {
+            event.preventDefault();
+            event.stopPropagation();
+            docGoToFootnote(note.dataset.docFootnote);
             return true;
           }
           const link = target.closest("[data-doc-href]");
@@ -3603,6 +4048,10 @@ const MD_ACTIONS = {
   sup: { pre: "<sup>", post: "</sup>", placeholder: "sup" },
   sub: { pre: "<sub>", post: "</sub>", placeholder: "sub" },
   underline: { pre: "<u>", post: "</u>", placeholder: "underlined" },
+  //: `$…$` is the syntax every markdown editor with math uses, and the
+  //: renderer for it is in this file (`docMathTree`). Symmetric, so pressing
+  //: it twice takes it off again, which is what `wrap` gives.
+  math: { wrap: "$", placeholder: "x^2" },
   //: `%%…%%` is Obsidian's comment: kept in the file, never rendered.
   comment: { pre: "%%", post: "%%", placeholder: "note to self" },
   image: { custom: "image" },
@@ -8252,6 +8701,24 @@ function docCmTheme(CM) {
         marginRight: "0.4em",
         userSelect: "none",
       },
+      //: A footnote's identifier, raised, where its brackets were. The
+      //: reference is a link to the definition; the definition is the place
+      //: being linked to, so only one of them is clickable.
+      //: Math sits on the text's own baseline and takes the editor's ink;
+      //: MathML brings its own metrics, so nothing here sets a size.
+      ".cm-md-math": { cursor: "text" },
+      ".cm-md-math-block": { display: "block", textAlign: "center", margin: "0.2em 0" },
+      ".cm-md-footnote": {
+        verticalAlign: "super",
+        fontSize: "0.72em",
+        color: "var(--accent)",
+        fontWeight: "600",
+      },
+      ".cm-md-footnote-ref": { cursor: "pointer" },
+      //: The toggle's chevron sits with the callout's own label, in the same
+      //: muted ink, because it is part of the same control.
+      ".cm-md-callout-fold": { fontSize: "0.9em", opacity: "0.8" },
+      ".cm-md-callout-label[data-doc-callout-fold]": { cursor: "pointer" },
       ".cm-md-task": { marginRight: "0.4em", verticalAlign: "middle", cursor: "pointer" },
       ".cm-md-image": { maxWidth: "100%", borderRadius: "var(--radius-sm)" },
 
@@ -8485,6 +8952,12 @@ function docCmExtensions(CM) {
     docCmParts.live.of(docView === "live" ? docLivePlugin(CM) : []),
     docFindingsPlugin(CM),
     docCmParts.gutter.of(docCmGutter(CM)),
+    //: Folding, wherever the gutter is: a heading section, a fenced block and
+    //: a `[!note]-` callout all fold with or without the line numbers on.
+    CM.language.codeFolding(),
+    CM.view.keymap.of(CM.language.foldKeymap),
+    docHeadingFold(CM),
+    docCalloutFold(CM),
     CM.view.highlightSpecialChars(),
     CM.commands.history(),
     CM.view.drawSelection(),
@@ -8710,6 +9183,7 @@ function mountDocEditor(CM) {
   wireDocSurfaceScroll(docSurface());
   docWatchAppearance();
   docGuardGlobalShortcuts(host);
+  docFoldMarkedCallouts();
   return docCmView;
 }
 
@@ -8850,13 +9324,13 @@ function docCmSyncGutter() {
 //: `applyDocGutter` still owns the decision.
 function docCmGutter(CM) {
   if (!docGutterWanted(!docFileType().previewable)) return [];
-  return [
-    CM.view.lineNumbers(),
-    CM.language.codeFolding(),
-    CM.language.foldGutter(),
-    CM.view.keymap.of(CM.language.foldKeymap),
-    docHeadingFold(CM),
-  ];
+  //: **Only the gutter is in the gutter.** Folding itself moved into the base
+  //: extensions when callouts became foldable (Phase 3 item 2): every fold
+  //: this editor offers lived in here, so a markdown document, which opens
+  //: with the line numbers off, had no folding at all and a callout's toggle
+  //: would have been a chevron that did nothing. The arrow in the margin is a
+  //: gutter control and stays; what it operates is not.
+  return [CM.view.lineNumbers(), CM.language.foldGutter()];
 }
 
 //: **Folding on headings.** The markdown parser gives fold ranges for fenced
@@ -8868,6 +9342,106 @@ function docCmGutter(CM) {
 //:
 //: Only for markdown. In a `.py` file a `#` line is a comment, and folding
 //: from one comment to the next would be nonsense.
+//: **A callout is foldable when its marker says so**, `> [!note]-` (start
+//: folded) or `> [!note]+` (start open), which is the syntax Obsidian uses and
+//: the one GitHub and Typora also read. The range folded is everything after
+//: the first line to the end of the blockquote, so the kind's own label stays
+//: on screen as the thing you click to get the rest back.
+//:
+//: Written against the document rather than the syntax tree for the same
+//: reason the renderer's callout branch is: `[!note]` is not markdown, it is a
+//: convention inside a blockquote, and the tree has no node for it.
+function docCalloutFoldRange(state, line) {
+  if (!/^\s*>\s*\[![A-Za-z]+\][-+]/.test(line.text)) return null;
+  let last = line.number;
+  for (let number = line.number + 1; number <= state.doc.lines; number += 1) {
+    if (!/^\s*>/.test(state.doc.line(number).text)) break;
+    last = number;
+  }
+  if (last === line.number) return null;
+  return { from: line.to, to: state.doc.line(last).to };
+}
+
+function docCalloutFold(CM) {
+  return CM.language.foldService.of((state, lineStart) => {
+    if (!docFileType().previewable) return null;
+    return docCalloutFoldRange(state, state.doc.lineAt(lineStart));
+  });
+}
+
+//: Whether this callout is folded *now*, which is what decides which way its
+//: chevron points. The marker in the text says where it started, not where it
+//: is.
+function docCalloutFolded(state, line) {
+  const CM = window.CM6;
+  if (!CM || typeof CM.language.foldedRanges !== "function") return false;
+  const range = docCalloutFoldRange(state, line);
+  if (!range) return false;
+  let folded = false;
+  CM.language.foldedRanges(state).between(range.from, range.to, () => {
+    folded = true;
+    return false;
+  });
+  return folded;
+}
+
+//: The click on a callout's label. Dispatches the fold itself rather than
+//: calling `toggleFold`, whose job is the *cursor's* fold: a click on a
+//: callout three screens from the caret would otherwise fold whatever the
+//: caret happened to be inside.
+function docToggleCalloutFold(at) {
+  const CM = window.CM6;
+  const view = docCmView;
+  if (!CM || !view) return;
+  const line = view.state.doc.lineAt(Math.max(0, Math.min(at, view.state.doc.length)));
+  const range = docCalloutFoldRange(view.state, line);
+  if (!range) return;
+  let folded = null;
+  CM.language.foldedRanges(view.state).between(range.from, range.to, (from, to) => {
+    if (!folded) folded = { from, to };
+    return false;
+  });
+  view.dispatch({
+    effects: folded ? CM.language.unfoldEffect.of(folded) : CM.language.foldEffect.of(range),
+  });
+}
+
+//: **Every `[!kind]-` callout in the document, folded, once.** The marker is a
+//: statement about how the document opens, so it is applied when the document
+//: opens and never again: re-applying it on every repaint would make a
+//: callout somebody opened close itself under their hands.
+function docFoldMarkedCallouts() {
+  const CM = window.CM6;
+  const view = docCmView;
+  if (!CM || !view || !docFileType().previewable) return;
+  const effects = [];
+  for (let number = 1; number <= view.state.doc.lines; number += 1) {
+    const line = view.state.doc.line(number);
+    if (!/^\s*>\s*\[![A-Za-z]+\]-/.test(line.text)) continue;
+    const range = docCalloutFoldRange(view.state, line);
+    if (range) effects.push(CM.language.foldEffect.of(range));
+  }
+  if (effects.length) view.dispatch({ effects });
+}
+
+//: A footnote reference goes to its definition, which is the whole point of
+//: the raised number: in a long document the text it refers to is hundreds of
+//: lines away and scrolling for it is what stops people using footnotes.
+function docGoToFootnote(id) {
+  const surface = docSurface();
+  if (!surface) return;
+  const text = surface.text;
+  const marker = `\n[^${id}]:`;
+  let at = text.startsWith(`[^${id}]:`) ? 0 : text.indexOf(marker);
+  if (at > 0) at += 1;
+  if (at < 0) {
+    if (typeof toast === "function") toast(`Footnote ${id} has no text yet`);
+    return;
+  }
+  surface.focus();
+  surface.setSelectionRange(at, at);
+}
+
 function docHeadingFold(CM) {
   return CM.language.foldService.of((state, lineStart, lineEnd) => {
     if (!docFileType().previewable) return null;
@@ -8909,6 +9483,9 @@ function docResetDocument(text) {
   //: while the view control still said Live, and nothing would log a thing.
   docSetLiveDecorations(docView === "live");
   docCmRepaintFindings();
+  //: The `[!kind]-` callouts, folded as their markers ask, on the one event
+  //: that means "a different document is on screen now".
+  docFoldMarkedCallouts();
 }
 
 //: **Source view has to be measured after it is shown.** CodeMirror caches

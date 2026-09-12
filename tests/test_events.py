@@ -254,6 +254,36 @@ def test_compaction_is_safe_to_run_twice(session):
     assert events.replay(session, "entry", entry.id)["content"] == "version 29"
 
 
+def test_a_second_window_moves_the_snapshot_forward(session):
+    """The case that actually recurs: more edits happen, they age, and the
+    pass runs again. The boundary moves, the old snapshot is folded into the
+    new one, and replay still lands on the current state."""
+    from memorymap.core import events
+
+    entry = manager.create_entry(session, "version 0", tags=[])
+    session.commit()
+    for i in range(1, 20):
+        manager.update_entry(session, entry, content=f"version {i}", tags=[])
+        session.commit()
+    _age_all_events(session, 200)
+    events.compact(session, keep_last=5)
+    first_snapshot = [
+        row
+        for row in events.events_for(session, "entry", entry.id, newest_first=False)
+        if isinstance((row.payload or {}).get("after"), dict)
+    ][0]
+
+    for i in range(20, 40):
+        manager.update_entry(session, entry, content=f"version {i}", tags=[])
+        session.commit()
+    _age_all_events(session, 200)
+    assert events.compact(session, keep_last=5)["events"] > 0
+
+    session.refresh(first_snapshot)
+    assert events.is_compacted(first_snapshot), "the old snapshot was not folded in"
+    assert events.replay(session, "entry", entry.id)["content"] == "version 39"
+
+
 def test_a_compacted_version_says_so_rather_than_restoring_nothing(client, session):
     from memorymap.core import events
 

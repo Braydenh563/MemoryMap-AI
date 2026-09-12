@@ -2399,19 +2399,52 @@ header#top-bar select,
 }
 
 /* Segmented Controls (replaces native radio buttons) */
+/* --- the two radio-backed segmented bars ------------------------------------
+   `#doc-ai-verb` (Edit / Write / Remove, in the document assistant) and
+   `#graph-layout`. INBOX 107d: "I want to get rid of and redesign these mini
+   menu bars as they are in a couple popups around the place and they
+   desperately need a modern redesign or alternative", with a photo of the
+   first one.
+
+   **They are the app's segmented control with a different set of numbers, and
+   that is the whole of what is wrong with them.** Measured side by side with
+   `#doc-view-seg`, a plain `.seg`, on the same screen
+   (`scratchpad/ui-sweeps/segbars.js`):
+
+     track     radius 8.4px, padding 2.4px, gap 1.6px   vs 15.4px, 4px, 2.4px
+     segment   26px tall, 12px type                     vs 28px tall, 16px type
+     selected  rgba(79,109,245,0.14) behind --ink,      vs --accent-surface
+               plus a 0 2px 8px drop shadow                behind --on-accent
+
+   A 14% tint behind body-coloured text is not a selected state you can see
+   across a popup: in the screenshot the bar reads as three grey words, one of
+   them faintly lavender, which is this project's own "shapes with text in
+   them" report again. The drop shadow under a segment inside a well is the
+   other half: a segment is inset in its track, it does not float above it.
+
+   So the answer to "redesign or alternative" is neither a third treatment nor
+   a new control (standing order 11: new UI comes from the recipe index): it is
+   these two reading as the twenty-eight `.seg` groups they are the same thing
+   as. The numbers below are `.seg`'s, above this rule. What stays theirs is
+   the radio plumbing, which is why this is still its own block: `.seg` is
+   built from buttons and these are `<label>`s around a visually hidden
+   `input[type="radio"]`, for the native arrow-key navigation between options
+   that a run of buttons does not give.
+
+   `--radius-inner` on the segment stays as it is (INBOX 101 picked that token
+   deliberately, and it lands within 2.4px of `.seg button`'s own radius). */
 .segmented-control {
   display: inline-flex;
   align-items: center;
-  /* A choice control, so the `.seg` recipe: a tinted well, no edge. It was
-     the card recipe (glass fill + hairline), which made the Graph's two
-     layout/colour pickers the only choice groups in the app drawn as
-     cards -- measured, 28 `.seg` groups against these 2 and the chat
-     dock's mode switch. Transparent 1px keeps the box the same size. */
+  /* Content-width, always. As a flex child of the assistant panel's column
+     this stretched to the panel: measured 686px of well holding 161px of
+     options, with the three of them huddled at the left end of it. */
+  align-self: flex-start;
   background: var(--chip-bg);
   border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  padding: 0.15rem;
-  gap: 0.1rem;
+  border-radius: var(--radius-lg);
+  padding: 0.25rem;
+  gap: 0.15rem;
 }
 
 :root[data-glass="off"] .segmented-control {
@@ -2421,10 +2454,10 @@ header#top-bar select,
 
 .segmented-control label {
   cursor: pointer;
-  padding: 0.25rem 0.6rem;
+  padding: 0.25rem 0.8rem;
   /* Contains the radio-hiding rule's own `position: absolute` below. */
   position: relative;
-  font-size: var(--text-sm);
+  font-size: var(--text-md);
   font-weight: 500;
   color: var(--muted);
   /* The one hand-picked inner radius in the app, now the token (INBOX 101).
@@ -2439,9 +2472,12 @@ header#top-bar select,
   user-select: none;
 }
 
-.segmented-control label:hover {
+/* `--ghost-btn-bg`, and not on the option that is already chosen: both from
+   `.seg button:not(.active):hover`. `--chip-bg` here was the well's own colour,
+   so hovering an option painted it the same tone as the track it sits in. */
+.segmented-control label:not(:has(input[type="radio"]:checked)):hover {
   color: var(--ink);
-  background: var(--chip-bg);
+  background: var(--ghost-btn-bg);
 }
 
 .segmented-control input[type="radio"] {
@@ -2461,12 +2497,14 @@ header#top-bar select,
   border: 0;
 }
 
+/* `.seg button.active`'s own two lines, and no third thing. The drop shadow
+   is gone with the tint: a segment sits inside its track, it does not lift
+   out of it. */
 .segmented-control input[type="radio"]:checked+span,
 /* If there's a span inside */
 .segmented-control label:has(input[type="radio"]:checked) {
-  color: var(--ink);
-  background: var(--accent-soft);
-  box-shadow: var(--shadow-sm);
+  color: var(--on-accent);
+  background: var(--accent-surface);
 }
 
 /* --- graph page layout ------------------------------------------------------

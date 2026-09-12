@@ -452,6 +452,33 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2026-09-09: a plan holds open work only.
 
+## Placed from INBOX: 107d, the segmented mini bars
+
+"Note in the redesign documents and where it is supposed to that I want to get
+rid of and redesign these mini menu bars as they are in a couple popups around
+the place and they desperately need a modern redesign or alternative", with a
+photo of `#doc-ai-verb`, the Edit / Write / Remove bar in this tab's AI
+assistant panel.
+
+**Done, 2026-09-12, and the decision is in `docs/DESIGN.md`** ("A choice
+control's selected segment is `--accent-surface` behind `--on-accent`"), which
+is where it belongs: it is a rule about a recipe, not about this tab. The
+short version, so it is not re-litigated here: the two radio-backed bars
+(`#doc-ai-verb`, `#graph-layout`) were the app's own segmented control drawn
+with a different set of numbers, and the selected option was a 14% accent tint
+behind body-coloured text with a drop shadow under it, which is not a selected
+state anyone can see across a popup. They read as the other twenty-eight `.seg`
+groups now. Measured before and after with
+`scratchpad/ui-sweeps/segbars.js`; the numbers are in DESIGN.md and in the
+commit.
+
+**Found, not fixed.** `.seg button` draws its label at 16px because it sets no
+`font-size` and inherits the body's, while `--text-md` (13.6px) is the "one
+control label size" UI_MODERNISATION_PLAN Phase 3 settled on and is what every
+other control in a strip uses. The two bars above are on the token. Putting the
+other twenty-eight on it is a one-line change to `.seg button` and a sweep of
+every strip that holds one, which is its own pass.
+
 ## Placed from INBOX, 2026-09-09 (the owner's evening batch)
 
 Verbatim, with the reading each one gets.

@@ -533,6 +533,23 @@ already that, and the Graph's layout/colour pickers plus the chat dock's
 mode switch were the three drawn as cards, now conformed, not given a
 third recipe.
 
+**A choice control's selected segment is `--accent-surface` behind
+`--on-accent`, with no shadow, whichever of the two forms it is.** The
+radio-backed form (`.segmented-control`: `#doc-ai-verb`, `#graph-layout`) is
+the same object as the button-backed one (`.seg`) and the recipe index has no
+room for a second reading of it. Reported as INBOX 107d, "I want to get rid of
+and redesign these mini menu bars ... they desperately need a modern redesign
+or alternative". Measured beside `#doc-view-seg` on one screen before
+(`scratchpad/ui-sweeps/segbars.js`): track radius 8.4px against 15.4px,
+padding 2.4px against 4px, segments 26px tall at 12px type against 28px at
+16px, and a selected state of `rgba(79,109,245,0.14)` behind `--ink` plus a
+`0 2px 8px` drop shadow, against a solid accent behind white. A 14% tint
+behind body-coloured text is not a selected state you can see across a popup,
+and a segment inset in a well does not cast a shadow out of it. The answer to
+"redesign or alternative" was neither: it was `.seg`'s numbers. What stays
+particular to the radio form is only the plumbing, the visually hidden
+`input[type="radio"]` that gives the group its native arrow-key navigation.
+
 **Form rows share a label column.** `--form-label-col` (9rem; `-wide`, 11rem,
 for Search relevance) is the width every `.setting-label` reserves, so the
 controls in adjacent rows start on one edge.

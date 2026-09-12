@@ -1514,30 +1514,22 @@ function layerDocWikiLinks(container) {
         frag.appendChild(document.createTextNode(text.slice(cursor, match.index)));
       }
       const name = match[1].trim();
-      const target = docs.find((d) => d.title.toLowerCase() === name.toLowerCase());
-      //: A `[[wiki link]]` can name a note as easily as a document: the two
-      //: share one bracket syntax and the owner's own report was a note
-      //: title ("Act I, Scene I") that a document-only lookup could never
-      //: resolve. Tried second, only when no document matches, so a
-      //: document and a note that happen to share a title still open the
-      //: document (the surface the link was typed in).
-      const notedTarget = !target
-        ? allEntries.find((e) => (e.title || "").trim().toLowerCase() === name.toLowerCase())
-        : null;
+      //: Through `docResolveWikiTarget` (above), which is the Notes tab's own
+      //: resolver with documents tried first. This pane used to run its own
+      //: exact-match-on-`e.title` lookup, which could not resolve the note
+      //: form the `[[` picker actually inserts; see that function's comment.
+      const target = docResolveWikiTarget(name);
+      const label = docWikiTargetLabel(target);
       const link = document.createElement("button");
       link.type = "button";
       link.className = "wiki-link";
       link.textContent = name;
       link.title = target
-        ? `Open "${target.title}"`
-        : notedTarget
-          ? `Open the note "${notedTarget.title}"`
-          : `Nothing called "${name}" yet.`;
+        ? `Open ${target.kind === "document" ? "" : `the ${target.kind} `}"${label}"`
+        : `Nothing called "${name}" yet.`;
       link.addEventListener("click", (event) => {
         event.stopPropagation();
-        if (target) openDocument(target.id);
-        else if (notedTarget) flashEntry(notedTarget.id);
-        else toast(`Nothing called "${name}" yet.`, true);
+        docOpenResolvedWikiTarget(target, name);
       });
       frag.appendChild(link);
       cursor = pattern.lastIndex;
@@ -2330,24 +2322,70 @@ function docLivePlugin(CM) {
   return docLivePluginCache;
 }
 
-//: `[[name]]`, resolved against the documents list exactly as
-//: `layerDocWikiLinks` resolves it in the rendered preview. One resolver, so a
-//: link cannot work in one view and fail in the other.
-function docOpenWikiTarget(name) {
+//: **One resolver for a `[[name]]`, and now it really is one.**
+//:
+//: Reported directly: "[[]] links work between notes in the your notes tab,
+//: but it is still coming up with that error in the documents editor",
+//: with a screenshot of `[[# Girl with bell]]` toasting "Nothing called ...
+//: yet" beside a note whose first line is exactly that.
+//:
+//: Both of this file's resolvers looked a note up as
+//: `allEntries.find(e => e.title === wanted)`, an *exact* match on a
+//: *derived* field: `EntryOut.title` is the note's first line with its `# `
+//: stripped (schemas.py says so, and it is `None` for a note whose first
+//: line is not a heading). The `[[…]]` text the picker inserts is the note's
+//: opening words verbatim, `# ` and all, so the two forms differ by exactly
+//: the characters the derivation removes and the comparison could never be
+//: true. `resolveWikiTarget` (app.js) is the resolver the Notes tab has used
+//: all along: it matches a vault note by its file stem, a board by title, a
+//: note by *content prefix* (which is what makes the picker's opening-words
+//: form resolve), and a document by title or title prefix.
+//:
+//: Documents are still tried first, which the previous code did deliberately
+//: and is worth keeping: a document and a note sharing a name, clicked from
+//: inside a document, should open the document. Everything else defers to
+//: the one resolver, so the drift the old comments kept promising was
+//: impossible cannot happen again.
+function docResolveWikiTarget(name) {
   const wanted = String(name || "").trim().toLowerCase();
-  const target = docs.find((doc) => (doc.title || "").toLowerCase() === wanted);
-  if (target) {
-    openDocument(target.id);
+  if (!wanted) return null;
+  const asDoc = docs.find((doc) => (doc.title || "").trim().toLowerCase() === wanted);
+  if (asDoc) return { kind: "document", doc: asDoc };
+  return typeof resolveWikiTarget === "function" ? resolveWikiTarget(name) : null;
+}
+
+//: What a resolved target is called, for a link's tooltip. A note has no
+//: title of its own worth showing (see above), so it borrows the preview
+//: text every other note list in the app labels a note with.
+function docWikiTargetLabel(target) {
+  if (!target) return "";
+  if (target.kind === "document") return target.doc.title || "";
+  if (target.kind === "board") return target.entry.title || "";
+  const entry = target.entry || {};
+  const text =
+    typeof notePreviewText === "function"
+      ? notePreviewText(entry.content || "")
+      : entry.content || "";
+  //: `notePreviewText` strips the markdown but keeps the note's line breaks
+  //: and does not shorten. A `title` attribute renders both literally, so a
+  //: note would hand the tooltip its whole body across as many lines as it
+  //: has: collapsed to one line and cut here.
+  const line = text.replace(/\s+/g, " ").trim();
+  return line.length > 60 ? `${line.slice(0, 60).trimEnd()}…` : line;
+}
+
+function docOpenResolvedWikiTarget(target, name) {
+  if (!target) {
+    toast(`Nothing called "${name}" yet.`, true);
     return;
   }
-  //: Same fallback as `layerDocWikiLinks`' own resolver, and it has to be:
-  //: a name typed once in Live and read once in the rendered preview
-  //: cannot resolve one way in one view and the other way in the other.
-  const notedTarget = allEntries.find(
-    (e) => (e.title || "").trim().toLowerCase() === wanted
-  );
-  if (notedTarget) flashEntry(notedTarget.id);
-  else toast(`Nothing called "${name}" yet.`, true);
+  if (target.kind === "document") openDocument(target.doc.id);
+  else if (target.kind === "board") openWhiteboardBoard(target.entry.id);
+  else flashEntry(target.entry.id);
+}
+
+function docOpenWikiTarget(name) {
+  docOpenResolvedWikiTarget(docResolveWikiTarget(name), name);
 }
 
 //: Ctrl+click on a link chip. Same-origin paths open in the app; anything else

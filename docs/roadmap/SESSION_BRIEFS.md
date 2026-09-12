@@ -965,60 +965,17 @@ case; no em-dashes; tokens only; commit trailers.
 
 ## Brief 22 (Opus agent): the three Notes sub-tabs, Capture, Write with AI and Ask
 
-The owner, INBOX 116: "fix the add to document combobox not changing.
-actually redesign and give each of the capture, write with ai, and ask
-tabs a new and improved look." Relaunch text, verbatim. Read CLAUDE.md,
-DESIGN.md's recipe index, UI_MODERNISATION_PLAN Phases 5 and 6 (the
-per-surface pass and designed states), and INBOX 116. Shared worktree,
-commit per step, never push, `scripts/gate.sh --changed` per step,
-five-line report, `agent-remaining/notes-subtabs.md` before stopping.
+**Built.** Moved to HISTORY.md, "From SESSION_BRIEFS Brief 22: the three
+Notes sub-tabs". Capture's controls are two heights (36 for the head row and
+the formatting strip, 40 for everything you act on) with the note box inside
+the composer's own surface at last; Write with AI is two of the same column,
+both 472.6px with both boxes 330.3px; the Ask card sits on one 9.6px step;
+and the three owner reports that came in with it (INBOX 119's preview gutter
+and menu gap, 120's duplicated suggestion rows) are fixed with their numbers
+in HISTORY's "INBOX resolved". What is left is in
+`docs/roadmap/agent-remaining/notes-subtabs.md`.
 
-Where: `frontend/index.html` from line 586 (`#tab-notes`): `#capture`
-(the form from 732), `#writing-room` (849), `#ask`; the handlers in
-`frontend/app.js` (`loadCaptureDocuments` 9973, the `#entry-document`
-change handler 24941, `NOTES_SECTIONS`); CSS by grep on `capture-`,
-`writing-room`, `ask-`. Sweep: `scratchpad/ui-sweeps/notessubtabs.js`
-(1440x900, dark), which prints every control row per sub-tab.
-
-Measured on `f4b22d4`, so the work starts at the change:
-
-- **Capture**: 20 controls in 7 rows on a 498px card, in **six control
-  heights** (32, 36, 38.8, 40, 41.6 and the 89px textarea): the two
-  inputs are 41.6, the template select 38.8, the formatting strip 36, the
-  buttons 40. One row holds seven controls of two families under one label
-  ("Add to document": the select, its chips, then Attach, From library,
-  Sketch, Dictate, Improve). The formatting toolbar is a labelled 36px
-  strip outside the textarea it formats. The textarea is 89px of a 498px
-  card. "Filing into Default Space (pick a space above...)" is a helper
-  line wedged between two control rows.
-- **The combobox** (`app.js` 24941): the handler sets
-  `event.target.value = ""` on every pick, so the select snaps to "None"
-  and the document becomes a chip. A single select that resets on each
-  choice reads as broken; it is a multi-picker in a select's clothes. The
-  decision: the picked documents are chips and the control that adds one
-  is an adder (a button that opens the picker, the shape "Attach" and
-  "From library" on the same row already have), not a select that lies.
-- **Write with AI**: two textareas side by side at **189.2 and 330.3px**,
-  unequal, with 100px of nothing under the left column's buttons. The
-  refinement instruction ("make it shorter") is a 40px text input wedged
-  between Undo and Draft it; the bottom row is Extract notes (disabled),
-  Discard, a tags input and Save as note, four weights in one row with an
-  input among buttons.
-- **Ask**: the sound one. One 40px input row (input, a Normal select, a
-  tune button, Ask), suggestion chips, an empty state. Bring it to the
-  same rhythm as the other two rather than redesigning it.
-
-Done when: every control on the three sub-tabs is one of two heights (the
-input height and the button height, DESIGN.md's tokens, and say which two
-in the report); each row holds one family; the combobox is gone and the
-adder is measured (pick two documents, two chips, no select showing a
-value it does not hold); the two draft columns share a height; errors.js,
-contrast.js (dark and light) and touch.js at 1440 and 390 clean; the
-row list from `notessubtabs.js` before and after in the commit message.
-Copy in sentence case, no em-dashes, no exclamation marks. New UI from
-the recipe index only (`tests/test_ui_recipes.py`); a shape the index
-does not cover gets its recipe and lint in the same commit. Never pkill
-uvicorn; own port via `scratchpad/ui-sweeps/serve.sh`; commit trailers.
+---
 
 ## Brief 23 (Opus agent, backend first): the corrections loop and resurfacing
 

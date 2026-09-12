@@ -1856,6 +1856,25 @@ button.ghost.danger {
 
   .dash-toolbar {
     padding: var(--space-2) 0;
+    /* **The two buttons take a row of their own rather than a strip of the
+       next screen.** Measured at 390x844: `#dash-edit` ran from x=296 to
+       x=397 in a 390px viewport, so "Edit layout" was cut off at the right
+       edge. It had been *reachable* only because the header was overflowing
+       too and the whole page scrolled sideways with it; fixing the header
+       (05-sidebars-themes.css, "the phone header fits inside the phone")
+       left this one clipped with nowhere to scroll, which is how it turned
+       up in an errors.js run as "off-screen: button#dash-edit".
+
+       Wrapping rather than shrinking: `.dash-toolbar-actions` is `0 0 auto`
+       around two labelled buttons, and a label that truncates to "Edit lay…"
+       is not a smaller version of the control, it is a worse one. */
+    flex-wrap: wrap;
+  }
+
+  /* With the row wrapped, the actions land on the second line; `auto` keeps
+     them against the right edge, under the label rather than beside it. */
+  .dash-toolbar-actions {
+    margin-left: auto;
   }
 
   .row {

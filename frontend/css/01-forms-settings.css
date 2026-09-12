@@ -416,13 +416,40 @@ button:hover {
 }
 
 /* Subtle press feedback across every button, a small, consistent tactile
-   cue. transition is disabled under Reduce motion / prefers-reduced-motion. */
+   cue. transition is disabled under Reduce motion / prefers-reduced-motion.
+
+   **Written as `translate` and `scale`, not as `transform`, and that is the
+   whole point of this rule.** `transform` is one property holding a list, so
+   setting it here *replaces* whatever transform the button already had.
+   Plenty of buttons in this app carry one as their own positioning: a pill
+   centred with `left: 50%; transform: translateX(-50%)`, an arrow centred
+   with `translateY(-50%)`, a knob nudged along its track. For every one of
+   them, pressing the button dropped its centring and it jumped by half its
+   own width or height and snapped back.
+
+   It has been reported twice. Once as "the jumping animation of the next and
+   prev buttons when I click them is annoying" (the lightbox arrows, patched
+   in place by restating their centring inside their own `:active` rule, with
+   a comment ending "same trap as any element that both centres and animates
+   with transform"), and again as "when I pressed the jump to latest button in
+   the chat, it jumped to the right for a second". The second one is the same
+   bug in the next place, which is what a per-element patch guarantees.
+
+   `translate` and `scale` are separate properties that compose with
+   `transform` rather than replacing it, so the press cue can no longer
+   collide with anything a button uses to place itself, anywhere, including
+   buttons nobody has written yet. The lightbox arrows' own patch came out
+   with this change: with the cue no longer touching `transform`, restating
+   the centring is unnecessary, and its `scale(0.985)` would have multiplied
+   with this rule's. */
 button {
-  transition: transform var(--motion-fast) ease, filter var(--motion-fast) ease;
+  transition: translate var(--motion-fast) ease, scale var(--motion-fast) ease,
+    filter var(--motion-fast) ease;
 }
 
 button:active:not(:disabled) {
-  transform: translateY(1px) scale(0.985);
+  translate: 0 1px;
+  scale: 0.985;
 }
 
 button:disabled {

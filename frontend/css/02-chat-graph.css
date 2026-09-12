@@ -3778,19 +3778,13 @@ mark.lightbox-hit {
   place-items: center;
 }
 
-/* **The press cue must keep the centring transform.** Reported live: "the
-   jumping animation of the next and prev buttons when I click them is
-   annoying." It was not an animation anyone designed, the global
-   `button:active` rule (01-forms-settings.css) sets
-   `transform: translateY(1px) scale(0.985)`, and `transform` is one
-   property, not a list: applying it *replaces* this button's own
-   `translateY(-50%)`, so every press dropped the arrow by half its height
-   and snapped it back. Restating the centring alongside the press cue keeps
-   the tactile feedback and removes the jump. Same trap as any element that
-   both centres and animates with transform. */
-.lightbox-nav:active:not(:disabled) {
-  transform: translateY(-50%) scale(0.985);
-}
+/* The press cue used to be restated here, because the global `button:active`
+   rule set `transform` and replaced this button's own centring, so every
+   press dropped the arrow by half its height ("the jumping animation of the
+   next and prev buttons when I click them is annoying"). That cue is written
+   as `translate`/`scale` now (01-forms-settings.css), which compose with this
+   rule's `transform` instead of replacing it, so the restatement is gone: it
+   would have multiplied its own `scale(0.985)` with the global one. */
 
 .lightbox-nav:hover,
 .lightbox-nav:focus-visible {

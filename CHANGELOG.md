@@ -7,6 +7,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed
+
+- Pressing a button that centres itself no longer makes it jump. The chat's
+  jump-to-latest pill moved 68px to the right for as long as the mouse was
+  down, measured; so did anything else placed with a transform, because the
+  press cue set `transform` and replaced the placement instead of composing
+  with it. Reported twice, for two different buttons.
+
 ### Changed
 
 - Buttons look like buttons again. A tonal button (`button.ghost`, most of

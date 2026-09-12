@@ -147,3 +147,29 @@ def test_the_tonal_button_keeps_its_edge_and_its_lift() -> None:
         "button.ghost must sit slightly proud of its surface; box-shadow: none "
         "is what the second pass set and what the report came back about"
     )
+
+
+def test_the_press_cue_does_not_use_the_transform_property() -> None:
+    """`button:active` composes with a button's own placement, never replaces it.
+
+    `transform` is one property holding a list, so a press cue written as
+    `transform: translateY(1px)` throws away whatever transform the button
+    already had. Plenty of buttons here centre themselves with one
+    (`left: 50%; transform: translateX(-50%)`), and every press moved them by
+    half their own width: reported once for the lightbox arrows and again,
+    measured at 68px, for the chat jump-to-latest pill. Written as `translate`
+    and `scale`, which are separate properties, the cue cannot collide with
+    anything, including buttons nobody has written yet.
+    """
+    css = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
+    body = ""
+    for selector, rule in _rules(css):
+        if selector.strip() == "button:active:not(:disabled)":
+            body = rule
+            break
+    assert body, "the global press cue rule has gone missing"
+    assert "transform:" not in body, (
+        "the press cue must use `translate`/`scale`, not `transform`: "
+        "`transform` replaces a button's own centring and makes it jump"
+    )
+    assert "translate:" in body and "scale:" in body

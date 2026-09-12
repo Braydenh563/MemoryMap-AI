@@ -14,6 +14,12 @@ below). Versioning is `0.x` while the app stabilises.
   is recorded with who did it and what it looked like before, so a board's
   parts can be rebuilt from their own history the way a note already could.
 
+- A board the AI builds is recorded the same way as one you build by hand.
+  Cards it places, links it draws, maps it creates and the nodes it adds all
+  keep what they looked like, so a whole board the AI made can be rebuilt
+  from its own history. Before this the log said a card had been placed and
+  could not say where.
+
 - One search across the whole notebook. Notes, boards, documents, the text
   read out of files, bookmarks and reminders are in one index, so a word you
   wrote in a document is found by the same search that finds it in a note.
@@ -44,6 +50,15 @@ below). Versioning is `0.x` while the app stabilises.
 - Opening a note's history is no longer slower the more the notebook has
   been used: it is served from an index rather than by reading the whole
   log. Measured on 60,000 recorded changes, 6.390 ms became 0.082 ms.
+
+- Opening the history of a much edited note is faster again: each page is
+  built from its own page rather than from the whole of that note's log.
+  Measured on a note with 4,000 recorded changes, the first page went from
+  109 ms to 36 ms and an older page from 104 ms to 3 ms.
+
+- The activity feed no longer reports a summarised change as having rewritten
+  every field at once. A change whose text has been let go says so, and the
+  summary standing in for a run of old changes says how many it covers.
 
 - Finding notes similar to the one you are reading no longer reads every
   stored vector for every note opened. They are held in one array, built

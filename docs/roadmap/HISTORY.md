@@ -22064,3 +22064,72 @@ Found and fixed on the way: `_forget_links_to` called `.get` on whatever
 `json.loads` returned for a sketch's `data`, so a drawing stored as a bare
 JSON array (which the API accepts, and an import can produce) turned an
 unrelated card's deletion into a 500.
+
+### From `agent-remaining/brief7-event-log.md`: the event log's last three gaps
+
+The three the second run left, plus one found while measuring. What is still
+open stays in that file, with the decisions this run added (6 and 7).
+
+**A board the AI built replays now too (item 4).** The six write tools in
+`ai/tools/whiteboard.py` called `log_action` with a detail and no payload,
+so the log knew a card had been placed and could not say where: a board the
+model built was in the log and did not replay, while the same board built by
+hand did. That is the wrong half to leave out, since the AI is the writer
+whose work a person is most likely to want to read back or put back.
+
+They go through four helpers wrapped in `@events.writes` (`_place_card`,
+`_draw_link`, `_place_object`, `_new_board`), so the decorator is the
+contract rather than a `record` call each site has to remember. The payload
+builders moved out of `api/routes_whiteboard.py` into `core/events.py`
+beside `entry_state` (`node_state`, `sketch_state`, `object_state`, and a
+new `board_state`): the routes are no longer the only writer of these
+events, `ai/` cannot import `api/` at module level, and two copies of a
+state function is how two writers of one entity come to disagree about what
+its state is. The routes keep their old names as aliases.
+
+The two batch tools stay undecorated and record one event per item, which is
+what the write scope's own docstring asks for and what decision 4 means (a
+board's replayable entity is the item): decorating a loop would fold a whole
+batch into one event, the shape that lost the replay in the first place.
+`generate_diagram` records one more, on the board and carrying no `after`,
+for the fact that the run happened at all. The tools' entity types now
+follow the routes' vocabulary; the old `mindmap`, `mindmap_node`,
+`mindmap_link`, `whiteboard_link` and `whiteboard_diagram` names had no
+reader anywhere in the app.
+
+Proved in `tests/test_events.py`: a map, a branch, a cross-link, two cards,
+a link and a two-node generated diagram, built by calling the tools, then
+every one of the nine items on that board replayed against its current
+state, plus the board's own title and type. The test enumerates the write
+tools in that module, so a seventh fails it until it is driven. Fixed on the
+way: `add_whiteboard_card` recorded its event against the note's id rather
+than the card's, which put one card's history on another entity.
+
+**A compaction snapshot says it is one (item 5).** `/events` named the
+fields an event set by reading `payload["after"]`. A snapshot's `after` is
+the whole state, folded from a run of old events, so the feed reported one
+change as having set the content, the tags, the category and the rest at a
+single instant, which never happened. A snapshot now reports `changed: []`
+and `snapshot`, the number of events it stands for; the rows behind it, the
+ones whose values the compactor took, report `compacted` rather than an edit
+that changed nothing. A count rather than a span of time because the count
+is what the compactor knows and it stays right when a later run folds more
+events into the same snapshot, while the rows behind it keep their own
+timestamps for a reader that wants dates.
+
+**A history page folds from its own page (item 7, found in this run).**
+`entry_history` rebuilt the state behind every row by loading every event of
+the note, hydrating each into an ORM object and keeping a whole copy of the
+note's text per event, whichever page was asked for. `events.states_at`
+keeps the single ascending pass and drops the three costs: the two columns
+the fold needs rather than the row, nothing past the newest id on the page,
+and a copy kept only for the rows being rendered.
+
+Measured on this sandbox, on notes built by the app's own managers: at 4,000
+events the newest page went from 109.3 ms to 35.9 ms and the oldest page
+from 103.9 ms to 2.9 ms; at 1,000 events, 17.2 ms to 10.3 ms and 16.5 ms to
+2.9 ms. At 10 events it was 1.8 ms and did not need fixing, which is the
+answer to "is this worth it yet": a note edited a few times is fine either
+way, the shape only bites on the long histories compaction has just made
+cheap to keep. It is still linear in the events below the page, which is the
+honest shape of the question; only a snapshot can cut that short.

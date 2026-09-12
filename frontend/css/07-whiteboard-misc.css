@@ -8185,14 +8185,26 @@ input[type="file"] {
    in the same position and a reader switching between a board and a map should
    not see the furniture move. The blur comes from `.card.glass`, so this is not
    a new blurred surface to add to the glass-off list. */
+/* **It wraps, and it never grows past the canvas it floats over.** Measured
+   at 390x844 before this rule: the strip is 392px of controls in a 364px
+   canvas, so it stood out to x=413 in a 390px window and took the whole page
+   into a sideways scroll (scrollWidth 397). Its placement already clamps the
+   left edge to 8px, which cannot help when the box itself is wider than the
+   room. Two rows of controls on a phone is the ordinary answer and the one
+   the rest of the app gives; the rows centre so the strip stays a tray
+   rather than a ragged stack, and at any width that fits, this rule is
+   inert and the strip is the single row it always was. */
 .wb-map-strip {
   position: absolute;
   z-index: 22;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: var(--space-1);
   margin: 0;
   padding: var(--space-1);
+  max-width: calc(100% - var(--space-6));
   border-radius: var(--radius-pill);
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);

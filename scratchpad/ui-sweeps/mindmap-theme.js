@@ -270,6 +270,82 @@ const VIEWPORT = (() => {
     JSON.stringify(controls)
   );
 
+  // --- the node edit strip and the node radial (§12.1 items 2 and 3) -------
+  // Both landed in one run, measured at one width in one theme. These two
+  // checks are the other theme and the other width: the strip's glyphs
+  // against the tray they sit in, and a ring slot's own edge against the
+  // canvas behind it, which is the 3:1 WCAG 1.4.11 asks of a control's
+  // boundary. The colour maths is the same as the block above (a `color(srgb
+  // …)`-aware parse, flatten, WCAG ratio), written again rather than shared
+  // because a `page.evaluate` body cannot see the other one's locals.
+  const firstNode = await page.evaluate(() => {
+    const el = document.querySelector(".wb-object.wb-map-node");
+    selectWbItem("object", Number(el.dataset.id));
+    return Number(el.dataset.id);
+  });
+  await page.waitForTimeout(500);
+  await page.evaluate((id) => {
+    const el = document.querySelector(`.wb-object[data-id="${id}"]`);
+    const r = el.getBoundingClientRect();
+    el.dispatchEvent(new MouseEvent("contextmenu", {
+      bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
+    }));
+  }, firstNode);
+  await page.waitForTimeout(500);
+  const chrome = await page.evaluate(() => {
+    const parse = (css) => {
+      const modern = css.match(/color\(srgb\s+([^)]+)\)/);
+      if (modern) {
+        const parts = modern[1].split("/");
+        const rgb = parts[0].trim().split(/\s+/).map(Number);
+        return { r: rgb[0] * 255, g: rgb[1] * 255, b: rgb[2] * 255, a: parts.length > 1 ? parseFloat(parts[1]) : 1 };
+      }
+      const m = css.match(/rgba?\(([^)]+)\)/);
+      if (!m) return { r: 0, g: 0, b: 0, a: 0 };
+      const parts = m[1].split(/[,/]/).map((x) => parseFloat(x.trim()));
+      return { r: parts[0], g: parts[1], b: parts[2], a: parts.length > 3 ? parts[3] : 1 };
+    };
+    const over = (t, b) => ({ r: t.r * t.a + b.r * (1 - t.a), g: t.g * t.a + b.g * (1 - t.a), b: t.b * t.a + b.b * (1 - t.a), a: 1 });
+    const lum = (c) => {
+      const f = (v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; };
+      return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+    };
+    const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+    const page_ = parse(getComputedStyle(document.body).backgroundColor);
+    const canvas = over(parse(getComputedStyle(document.getElementById("whiteboard-container")).backgroundColor), { ...page_, a: 1 });
+
+    const strip = document.getElementById("wb-map-strip");
+    const tray = over(parse(getComputedStyle(strip).backgroundColor), canvas);
+    const glyph = strip.querySelector("button i");
+    const stripInk = Math.round(ratio(over(parse(getComputedStyle(glyph).color), tray), tray) * 100) / 100;
+    const sr = strip.getBoundingClientRect();
+
+    const ring = document.getElementById("wb-map-radial");
+    const slot = ring.querySelector(".wb-map-radial-slot");
+    const cs = getComputedStyle(slot);
+    const slotFill = over(parse(cs.backgroundColor), canvas);
+    return {
+      theme: document.documentElement.dataset.theme || "(system)",
+      stripShown: !strip.classList.contains("hidden"),
+      stripRows: Math.round(sr.height) > 60 ? 2 : 1,
+      stripInk,
+      stripInsideCanvas: Math.round(sr.right) <= window.innerWidth,
+      ringOpen: !ring.classList.contains("hidden"),
+      slotEdge: Math.round(ratio(over(parse(cs.borderTopColor), slotFill), canvas) * 100) / 100,
+      slotInk: Math.round(ratio(over(parse(getComputedStyle(slot.querySelector("i")).color), slotFill), slotFill) * 100) / 100,
+    };
+  });
+  check(
+    `[${tag}] the edit strip's controls read against the tray they sit in`,
+    chrome.stripShown && chrome.stripInk >= 4.5 && chrome.stripInsideCanvas,
+    JSON.stringify(chrome)
+  );
+  check(
+    `[${tag}] a ring slot's edge and glyph read against the canvas`,
+    chrome.ringOpen && chrome.slotEdge >= 3 && chrome.slotInk >= 4.5,
+    JSON.stringify({ slotEdge: chrome.slotEdge, slotInk: chrome.slotInk })
+  );
+
   await page.screenshot({ path: `${OUT}/mindmap-theme-${tag}.png` });
 
   const passed = results.filter((r) => r.ok).length;

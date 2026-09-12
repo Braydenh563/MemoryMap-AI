@@ -11,6 +11,15 @@
 //   PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node scratchpad/ui-sweeps/mapstrip.js
 const { boot } = require("./lib.js");
 
+// VIEWPORT=390x844 drives the same checks at phone width: everything in this
+// file was written at 1440x900 and nothing here had been seen narrow.
+const VIEWPORT = (() => {
+  const raw = process.env.VIEWPORT;
+  if (!raw) return { width: 1440, height: 900 };
+  const [w, h] = raw.split("x").map(Number);
+  return { width: w || 1440, height: h || 900 };
+})();
+
 const results = [];
 function check(label, ok, detail) {
   results.push({ label, ok: Boolean(ok) });
@@ -32,7 +41,20 @@ async function newBoard(page, name, type) {
 }
 
 (async () => {
-  const { browser, page } = await boot();
+  const { browser, page } = await boot({ viewport: VIEWPORT });
+
+  // At phone width the canvas is 364px and a trunk with one child is 440px of
+  // tree, so a tidy leaves the trunk's own centre off the left edge and a
+  // click on it lands on the shell behind the canvas (measured at 390x844:
+  // the root's box at x=-95, `elementFromPoint` at its centre returning
+  // `#tab-library`). A person would reach for Fit; this does the same, with
+  // the app's own function, before each gesture that has to land on a node.
+  // A no-op at 1440, where nothing is ever off the canvas.
+  const frame = async () => {
+    if (VIEWPORT.width >= 900) return;
+    await page.evaluate(() => wbZoomToFit({ animate: false }));
+    await page.waitForTimeout(400);
+  };
 
   await newBoard(page, "Strip map", "map");
   // A root plus one child, so there is a branch as well as a trunk.
@@ -61,16 +83,35 @@ async function newBoard(page, name, type) {
       stripShown: !strip.classList.contains("hidden") && s.width > 0,
       barHidden: bar.classList.contains("hidden"),
       above: Math.round(n.top - s.bottom),
+      below: Math.round(s.top - n.bottom),
       dx: Math.round((s.left + s.width / 2) - (n.left + n.width / 2)),
       w: Math.round(s.width),
       h: Math.round(s.height),
+      hostW: Math.round(document.getElementById("library-view-whiteboard").getBoundingClientRect().width),
+      right: Math.round(s.right),
+      view: window.innerWidth,
+      pageScroll: document.documentElement.scrollWidth,
     };
   }, kidId);
   check("a map node gets the strip and the board's bar stands down",
     placed.stripShown && placed.barHidden, JSON.stringify(placed));
-  check("the strip sits clear above the node and centred on it",
-    placed.above > 20 && placed.above < 90 && Math.abs(placed.dx) <= 2,
+  check("the strip sits clear of the node and centred on it",
+    // Above the node, or below it when it no longer fits above: that is
+    // `wbUpdateSelectionBar`'s own documented fallback, and at 390 the strip
+    // is two rows tall and takes it. Centred on the node unless the canvas is
+    // too narrow to centre it there, where the 8px clamp pins it inside.
+    ((placed.above > 20 && placed.above < 90) || (placed.below >= 10 && placed.below < 40))
+      && (Math.abs(placed.dx) <= 2 || placed.w >= placed.hostW - 16),
     JSON.stringify(placed));
+  // At 1440 this is the same single row it always was; at 390 it wraps to two
+  // instead of standing 392px wide in a 364px canvas and out of the window.
+  // `pageScroll` is reported, not asserted: at 390 the whole shell overflows
+  // by 7px (43 elements, `.header-controls` among them), which is nothing to
+  // do with the map and is written down in agent-remaining/mindmap.md.
+  check("the strip stays inside the canvas",
+    placed.w <= placed.hostW && placed.right <= placed.view,
+    JSON.stringify({ w: placed.w, hostW: placed.hostW, right: placed.right,
+      view: placed.view, pageScroll: placed.pageScroll, h: placed.h }));
 
   const boardBar = await page.evaluate(() => {
     // A board's own object still gets the board's bar: the split is the map's,
@@ -198,6 +239,7 @@ async function newBoard(page, name, type) {
   // is that right-click reaches it.
   await page.evaluate((id) => selectWbItem("object", id), kidId);
   await page.waitForTimeout(300);
+  await frame();
   await page.click(`.wb-object[data-id="${kidId}"]`, { button: "right" });
   await page.waitForTimeout(500);
   const ring = await page.evaluate((id) => {
@@ -209,7 +251,14 @@ async function newBoard(page, name, type) {
       return { id: b.id, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
     });
     const cx = n.left + n.width / 2, cy = n.top + n.height / 2;
-    const radii = slots.map((sl) => Math.round(Math.hypot(sl.cx - cx, sl.cy - cy)));
+    // About the ring's own centre, not the node's: a node near an edge slides
+    // its ring inside the window (`wbPlaceMapRadial`), and a radius measured
+    // from the node would then read as a broken ring rather than a moved one.
+    // How far it has moved is its own number below, bounded by the ring's
+    // reach so that it still lands on the topic it belongs to.
+    const rx = slots.reduce((a, sl) => a + sl.cx, 0) / slots.length;
+    const ry = slots.reduce((a, sl) => a + sl.cy, 0) / slots.length;
+    const radii = slots.map((sl) => Math.round(Math.hypot(sl.cx - rx, sl.cy - ry)));
     return {
       open: !el.classList.contains("hidden"),
       role: el.getAttribute("role"),
@@ -217,14 +266,15 @@ async function newBoard(page, name, type) {
       n: slots.length,
       radii,
       spread: Math.max(...radii) - Math.min(...radii),
+      offset: Math.round(Math.hypot(rx - cx, ry - cy)),
     };
   }, kidId);
   check("right-click on a topic opens the ring, not the board's flat menu",
     ring.open && ring.flat && ring.n === 8 && ring.role === "toolbar",
     JSON.stringify({ open: ring.open, flat: ring.flat, n: ring.n, role: ring.role }));
   check("its eight slots sit on one circle around the node",
-    ring.spread <= 2 && Math.min(...ring.radii) > 40,
-    JSON.stringify({ radii: ring.radii, spread: ring.spread }));
+    ring.spread <= 2 && Math.min(...ring.radii) > 40 && ring.offset <= 82,
+    JSON.stringify({ radii: ring.radii, spread: ring.spread, offset: ring.offset }));
 
   // Alt re-labels the two add slots rather than keeping the swap a secret.
   await page.keyboard.down("Alt");
@@ -249,6 +299,7 @@ async function newBoard(page, name, type) {
   await page.waitForTimeout(200);
   const rootId = await page.evaluate(() => wbMapIndex().roots[0].id);
   await page.evaluate((id) => selectWbItem("object", id), rootId);
+  await frame();
   await page.click(`.wb-object[data-id="${rootId}"]`, { button: "right" });
   await page.waitForTimeout(400);
   const severState = await page.evaluate(() => {
@@ -269,6 +320,7 @@ async function newBoard(page, name, type) {
   await page.keyboard.press("Escape");
   const before = await page.evaluate(() => wbMapIndex().nodes.length);
   await page.evaluate((id) => selectWbItem("object", id), kidId);
+  await frame();
   await page.click(`.wb-object[data-id="${kidId}"]`, { button: "right" });
   await page.waitForTimeout(400);
   await page.click("#wb-radial-copy");
@@ -710,17 +762,36 @@ async function newBoard(page, name, type) {
     const tx = want.x - rect.left - t.k * (node.x + size.w / 2);
     const ty = want.y - rect.top - t.k * (node.y + size.h / 2);
     d3.select(container).call(wbZoom.transform, d3.zoomIdentity.translate(tx, ty).scale(t.k));
-    return node.id;
+    return { id: node.id, want };
   });
   // The pan's own transforms are written in a `requestAnimationFrame`
   // (`handleWbZoom`, panlag.js), so the node's new rect is not there in the
   // same tick that asked for the pan: reading it there measured the position
   // it had *before* the pan, and the right-click then landed on bare canvas.
   await page.waitForTimeout(600);
-  const at = await page.evaluate((id) => {
+  // Then correct the pan against where the node actually landed, and say by
+  // how much: the arithmetic above goes through `wbMapNodeSize`, and a
+  // node whose rendered box is not the size that function reports puts the
+  // whole calculation out (measured 47px out at 390x844). One correction is
+  // enough because the second pan is measured, not derived.
+  const at = await page.evaluate(({ id, want }) => {
+    const container = document.getElementById("whiteboard-container");
+    const el = document.querySelector(`.wb-object[data-id="${id}"]`);
+    const first = el.getBoundingClientRect();
+    const t = d3.zoomTransform(container);
+    const dx = want.x - (first.left + first.width / 2);
+    const dy = want.y - (first.top + first.height / 2);
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+      d3.select(container).call(wbZoom.transform,
+        d3.zoomIdentity.translate(t.x + dx, t.y + dy).scale(t.k));
+    }
+    return { drift: [Math.round(dx), Math.round(dy)] };
+  }, cornered);
+  await page.waitForTimeout(500);
+  Object.assign(at, await page.evaluate((id) => {
     const box = document.querySelector(`.wb-object[data-id="${id}"]`).getBoundingClientRect();
     return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) };
-  }, cornered);
+  }, cornered.id));
   await page.mouse.click(at.x, at.y, { button: "right" });
   await page.waitForTimeout(500);
   const ringed = await page.evaluate(() => {

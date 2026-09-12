@@ -10,6 +10,15 @@
 //   PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node scratchpad/ui-sweeps/mapdock.js
 const { boot } = require("./lib.js");
 
+// VIEWPORT=390x844 drives the same checks at phone width: everything in this
+// file was written at 1440x900 and nothing here had been seen narrow.
+const VIEWPORT = (() => {
+  const raw = process.env.VIEWPORT;
+  if (!raw) return { width: 1440, height: 900 };
+  const [w, h] = raw.split("x").map(Number);
+  return { width: w || 1440, height: h || 900 };
+})();
+
 const results = [];
 function check(label, ok, detail) {
   results.push({ label, ok: Boolean(ok) });
@@ -36,7 +45,7 @@ const liveSections = () =>
     .map((s) => s.getAttribute("aria-label"));
 
 (async () => {
-  const { browser, page } = await boot();
+  const { browser, page } = await boot({ viewport: VIEWPORT });
 
   // --- the split ------------------------------------------------------------
   await newBoard(page, "Sweep board", "board");
@@ -355,6 +364,33 @@ const liveSections = () =>
   check("and the map menu opens every folded branch at once",
     expandAll.hidden === false && expandAll.folded >= 1 && expandAll.after === 0,
     JSON.stringify(expandAll));
+
+  // --- the dock at phone width ---------------------------------------------
+  // The map's sections live in the board's bottom panel, which is 662px of
+  // controls: at 390 that is wider than the window, so the question is
+  // whether the controls past the edge can still be reached. A row that
+  // simply clips them is a dock with invisible buttons.
+  const dock = await page.evaluate(() => {
+    const panel = document.getElementById("wb-tools-panel");
+    const group = document.getElementById("wb-tool-group");
+    const r = panel.getBoundingClientRect();
+    const scroller = [panel, group].find((el) => {
+      const o = getComputedStyle(el).overflowX;
+      return o === "auto" || o === "scroll";
+    });
+    return {
+      panelW: Math.round(r.width),
+      groupW: Math.round(group.scrollWidth),
+      view: window.innerWidth,
+      insideWindow: Math.round(r.right) <= window.innerWidth && Math.round(r.left) >= 0,
+      scrolls: scroller ? scroller.id || "panel" : null,
+      wraps: getComputedStyle(group).flexWrap,
+    };
+  });
+  check("the map dock's controls are all reachable at this width",
+    dock.insideWindow
+      && (dock.groupW <= dock.panelW || dock.scrolls !== null || dock.wraps === "wrap"),
+    JSON.stringify(dock));
 
   await browser.close();
   const failed = results.filter((r) => !r.ok);

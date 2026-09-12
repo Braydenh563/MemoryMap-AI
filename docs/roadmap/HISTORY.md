@@ -21578,3 +21578,42 @@ else: five agents' worth. Run against the whole diff from the branch point.
    step failed on a tree with nothing wrong. Fixed: it falls back to the main
    checkout, found through `git rev-parse --git-common-dir`.
 
+### The orchestrator's review of this session's agent work, 2026-09-12
+
+CLAUDE.md section 6 names four shapes to look for in work that came from
+somewhere else, and roughly half of today's commits did. Read rather than
+taken on trust, in the order the section gives them.
+
+**A working thing rewritten into a riskier thing.** The one candidate is
+`1096ee7`, which reverses `escapeAndCapMenu`'s preference from the opener's
+bottom edge to the menu's own top. Checked rather than accepted: the call
+order is `escapeMenuIfClipped` (which calls `placeEscapedMenu`) and only
+then the rect read, so by the time the top is read the box has been placed,
+flipped or clamped, and its own top is the honest answer. The `laidOut()`
+guard still covers the hidden-tab case the previous rule was written for (a
+`.wb-board-menu` measured at `top: 0` inside a `display: none` ancestor,
+which produced a 892px cap on a 900px viewport). Sound.
+
+**A feature that never ran once.** Every commit in the run carries its own
+numbers from a live Chromium, and the two that add markup (`b3ac572`, the
+map node's edit strip, and `11010b4`, the link shapes) both add a sweep in
+the same commit: `mapstrip.js` at 10 checks and `mapdock.js` at 22.
+
+**A guard removed while the shape around it was kept.** `f376165` is the
+one to watch, since it rewrites shadow and sheen tokens that everything
+reads. It keeps every literal exactly, as a multiple of the token the
+Appearance slider writes that lands on the old value at its 5% default
+(7x, 8.4x, 11x, and the catch's 0.14 as the strength's 100%), and the
+commit records the before and after at both 5% and 40%. The default look is
+unchanged and the sliders now reach dark, which they did not: measured
+byte-identical at both settings before.
+
+**A policy silently refusing the work.** No inline `style=` was added to any
+markup this run. `2767fb3` is worth noting for the opposite reason: it swept
+every visible element's radius on ten tabs, fixed the single control that
+computed 0px (the Documents sidebar's Documents/Outline strip) and said
+plainly that the wider "all the containers have hard corner rectangular
+edges" half of the report did not reproduce at 1440x900. A report half
+closed and half declined, with the numbers for both, is the shape these
+should take.
+

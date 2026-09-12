@@ -2071,12 +2071,31 @@ body.scroll-top-visible .skills-split > main {
   padding-left: 0;
   border-bottom: 1px solid var(--glass-border);
   border-radius: 0;
-  gap: var(--space-5);
+  /* Was --space-5, with the tabs themselves having no horizontal padding at
+     all. The padding moved onto the tabs (see below), so the gap comes down a
+     step and the labels stay where they were. */
+  gap: var(--space-3);
 }
 
+/* **The strip is square, the paint on it is not.** Reported as "square tab
+   corners", with a screenshot nobody kept. Measured (`tabhover.js`, 1440x900):
+   the main tab strip is rounded (`#tab-btn-*` 8.4px, `#tab-bar` 11.2px,
+   `.notes-subtabs.seg` 11.2px with 8.4px children) and the one square thing in
+   any tab strip in the app was here: hovering "Outline" painted
+   `rgba(31,36,48,0.12)` across a 49.2 by 28.8 box with `border-radius: 0` and
+   no horizontal padding, so a hard-edged grey rectangle appeared clamped to
+   the word, a few pixels from a 8.4px-rounded collapse toggle.
+
+   The underline strip itself stays (that redesign is recorded above and is not
+   being remade): what changes is that its hover and focus surface obeys
+   DESIGN.md's "one button radius". The bottom corners stay square so the 2px
+   underline is still a straight line under the label, and the fill gets the
+   `--space-2` of horizontal room every other pressable label in the app has,
+   with the `gap` dropped a step so the two tabs sit the same distance apart as
+   before the padding was added. */
 .doc-sidebar-tabs button {
-  padding: 0 0 var(--space-2);
-  border-radius: 0;
+  padding: 0 var(--space-2) var(--space-2);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
   border-bottom: 2px solid transparent;
   font-size: var(--text-md);
 }
@@ -8095,6 +8114,108 @@ input[type="file"] {
   line-height: 1.25rem;
   text-align: center;
   z-index: 5;
+}
+
+/* --- the node edit strip (MINDMAP_PLAN.md §12.1 item 2) ---------------------
+   The bar that stands in the board selection bar's place on a map node. Same
+   geometry as `.wb-selection-bar` above, deliberately: they are the same thing
+   in the same position and a reader switching between a board and a map should
+   not see the furniture move. The blur comes from `.card.glass`, so this is not
+   a new blurred surface to add to the glass-off list. */
+.wb-map-strip {
+  position: absolute;
+  z-index: 22;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+  white-space: nowrap;
+}
+
+.wb-map-strip button.icon-only {
+  height: 1.75rem;
+  width: 1.75rem;
+  min-width: 0;
+  border-radius: var(--radius-pill);
+}
+
+/* Quiet at rest, tinted under the pointer: the same bargain the selection bar
+   and the floating panels struck, for the same reason (a run of filled discs
+   inside a tray reads as separate objects sharing a tray). `.active` is a
+   control that is currently *on* for this node, which is a fact about the
+   node, not a hover state, so it keeps its fill. */
+.wb-map-strip button.ghost:not(.active):not(:disabled) {
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.wb-map-strip button.ghost:not(.active):hover,
+.wb-map-strip button.ghost:not(.active):focus-visible {
+  background: var(--ghost-btn-bg);
+}
+
+.wb-map-strip .wb-topbar-divider {
+  height: 1rem;
+}
+
+/* The size selects stay small enough that the strip does not out-measure the
+   node it belongs to: one or two characters of value plus the caret. */
+.wb-map-strip .select-shell > .select-opener {
+  height: 1.75rem;
+  min-width: 0;
+  padding-inline: var(--space-2);
+}
+
+/* What the strip sets, drawn on the node. Weight and slant sit on the text
+   rather than on the node so a node's icon and its count badge keep their own
+   weight; alignment is the text's own, which is the only thing on the node
+   that can be anywhere but the leading edge. */
+.wb-map-node.wb-map-bold .wb-map-text {
+  font-weight: 700;
+}
+
+.wb-map-node.wb-map-italic .wb-map-text {
+  font-style: italic;
+}
+
+.wb-map-node[data-align="center"] .wb-map-text {
+  text-align: center;
+}
+
+.wb-map-node[data-align="right"] .wb-map-text {
+  text-align: right;
+}
+
+.wb-map-node[data-align="left"] .wb-map-text {
+  text-align: left;
+}
+
+/* A topic's own icon, and the marker that says it points at a page. The icon
+   is the same element the reference kinds already draw (`.wb-map-node-icon`),
+   built for every node now and hidden when it has nothing to show, so the
+   enter selection and the update selection cannot each build one their own
+   way. The link marker is a real button: it opens the page. */
+.wb-map-link {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  color: var(--wb-branch-edge);
+  font-size: var(--text-md);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.wb-map-link:hover,
+.wb-map-link:focus-visible {
+  color: var(--accent);
 }
 
 /* A pinned node keeps the place it was dragged to when the map is tidied

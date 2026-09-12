@@ -51,7 +51,15 @@ last one, contrast off the rendered pixels via `pixelcontrast.py`),
    to those rows only. Nothing in this pass touched them, and nothing
    re-measured them.
 
-5. **`tests/test_learned_spec.py::test_boosts_are_bounded_and_decay` XPASSes
+5. **The dead glass-off rules the brief asked about are already gone.** No
+   rule in `frontend/css/` names `.library-image-edit` or
+   `.library-image-delete`; the glass-off list names the tile, its menu button
+   and its menu list, all of which are real. `visual-c.md`'s found-not-fixed
+   entry has been corrected rather than left to send the next session looking
+   for them. The two buttons are still detached objects the kebab clicks,
+   which is the behaviour question that entry actually raises.
+
+6. **`tests/test_learned_spec.py::test_boosts_are_bounded_and_decay` XPASSes
    strictly** and fails `scripts/gate.sh --changed` for anyone whose changed
    set selects it. It is a backend spec, untouched by this work, and its
    marker is someone's to remove with the plan line that goes with it.

@@ -956,7 +956,61 @@ def _retrieve(
     # the individual queries and have no embeddings to match on, but retrieval
     # feeds the AI's context: a single missed path would hand a private note
     # to the model, so it's checked once more here where every route converges.
-    return _without_private(entries), mode
+    return _learned_order(session, query, _without_private(entries)), mode
+
+
+def _learned_order(session: Session, query: str, entries: list[Entry]) -> list[Entry]:
+    """Move what the person opened last time a question like this was asked.
+
+    WORLD_CLASS_PLAN I7. The ranking above has no memory: asked the same
+    question next week it returns the same order, including the order that
+    was wrong enough that the person scrolled past the first result to open
+    the third. An `open_after_ask` correction records which one they opened,
+    and this puts it back on top.
+
+    Deliberately a *reorder of what was already found*, never an addition: a
+    boost that could inject a note the search did not match would make one
+    click permanently change what the notebook appears to contain, which is
+    the failure mode of every recommender that learns too eagerly. If the
+    note is not in this result, it stays out of it.
+
+    "A question like this" is word overlap against the recorded question, so
+    "sourdough notes" and "my sourdough notes" are the same question and
+    "sourdough" and "tax return" are not. Half the recorded question's words,
+    at least one, which is strict enough that two unrelated questions sharing
+    "notes" do not match.
+    """
+    if not entries:
+        return entries
+    importlib = __import__("importlib")
+    # Imported at the call site: `search` is imported by `ai`, so a module
+    # level `from memorymap.ai import learning` here is a cycle, and
+    # `tests/test_no_import_cycles.py` counts the statement wherever it sits.
+    learning = importlib.import_module("memorymap.ai.learning")
+    boosts = learning.boosts(session, kind="search")
+    if not boosts:
+        return entries
+    asked = learning._words(query)
+    if not asked:
+        return entries
+    by_id = {entry.id: entry for entry in entries}
+    promoted: list[tuple[float, int]] = []
+    for (question, entry_id), weight in boosts.items():
+        if entry_id not in by_id:
+            continue
+        words = learning._words(question)
+        if not words:
+            continue
+        shared = len(words & asked)
+        if shared and shared * 2 >= len(words):
+            promoted.append((weight, entry_id))
+    if not promoted:
+        return entries
+    promoted.sort(reverse=True)
+    order = [by_id[entry_id] for _weight, entry_id in promoted]
+    seen = {entry.id for entry in order}
+    order.extend(entry for entry in entries if entry.id not in seen)
+    return order
 
 
 def _without_private(entries: list[Entry]) -> list[Entry]:

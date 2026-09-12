@@ -19,7 +19,7 @@ from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import extractor, janitor, librarian, links
+from memorymap.ai import extractor, janitor, learning, librarian, links
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import (
     AttachmentOut,
@@ -696,6 +696,15 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     for entry in entries:
         if entry.parent_id is not None:
             already_linked.add(frozenset((entry.parent_id, entry.id)))
+    # A pair the person has already said no to (WORLD_CLASS_PLAN I7). The same
+    # set as the two above, because "you dismissed this" and "these are
+    # already linked" are the same answer to this endpoint's only question:
+    # is there anything left to suggest about these two. A suggestion that
+    # comes back after being dismissed is the single most annoying thing a
+    # suggester can do, and it is what this feature did until now: the
+    # dismissal lived in the browser and died with the tab.
+    for pair in learning.boosts(session, kind="links"):
+        already_linked.add(frozenset(pair))
 
     embeddings = deps.get_embeddings()
     if not embeddings.is_ready():

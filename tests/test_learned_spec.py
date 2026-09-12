@@ -24,10 +24,7 @@ import hashlib
 
 import pytest
 
-BRIEF = (
-    "WORLD_CLASS 15 I7/I9: the store and its boosts are built "
-    "(ai/learning.py); the consumers and the Settings section are not"
-)
+BRIEF = "WORLD_CLASS 15 I9: the Settings section for what was learned is not built yet"
 
 
 def _note(session, text, category=None):
@@ -77,23 +74,36 @@ def test_two_refiles_away_from_a_category_stop_the_centroid_choosing_it(session)
     assert learning.centroid_excluded(session, "Work", "payments worker crash") is True
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_an_open_after_ask_reorders_the_next_similar_question(session):
     from memorymap.ai import learning
     from memorymap.search import search_manager
 
+    # The spec was written calling `retrieve(session, query, limit=...)` and
+    # iterating the result. The real signature takes the embedding service and
+    # returns `(entries, mode)`, and that shape is load-bearing: the mode is
+    # how the UI says whether an answer came from a keyword match or a concept
+    # one ("so the UI can be honest", `retrieve`'s own docstring). Changing the
+    # code to match the spec would ripple through every caller to make the
+    # search *less* able to explain itself, so the test is changed here
+    # instead, per this file's header.
+    from memorymap.core import deps
+
+    def ids(question):
+        entries, _mode = search_manager.retrieve(
+            session, question, deps.get_embeddings(), limit=5
+        )
+        return [entry.id for entry in entries]
+
     a = _note(session, "sourdough starter feeding schedule, morning and night")
     b = _note(session, "sourdough loaf shaping and scoring notes")
-    before = [e.id for e in search_manager.retrieve(session, "sourdough notes", limit=5)]
+    before = ids("sourdough notes")
     assert before[0] in (a.id, b.id)
     chosen = b.id if before[0] == a.id else a.id
     learning.record(session, kind="open_after_ask", subject={"question": "sourdough notes", "entry_id": chosen})
     session.commit()
-    after = [e.id for e in search_manager.retrieve(session, "my sourdough notes", limit=5)]
-    assert after[0] == chosen
+    assert ids("my sourdough notes")[0] == chosen
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_a_dismissed_link_pair_never_returns(ai_client, fake_embeddings):
     a = ai_client.post("/entries", json={"content": "bubble tea order for the office"}).json()
     b = ai_client.post("/entries", json={"content": "bubble tea shop opening hours"}).json()

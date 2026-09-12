@@ -64,7 +64,12 @@ Everything else in the suite passes.
   dead and should go, or the buttons should be in the row and the menu
   should be the overflow. Not touched here: it is a behaviour question, not
   a visual one, and this pass was told to leave those two controls where
-  they are.
+  they are. **Half of it is already gone** (checked 2026-09-12 on the image
+  cards pass): that glass-off list now names `.library-image-tile`, its
+  `.library-image-menu-btn` and `.library-image-menu-list` only, and no rule
+  in `frontend/css/` mentions `.library-image-edit` or
+  `.library-image-delete` any more. The detached buttons themselves are
+  still detached, and that is still a behaviour question.
 - **The graph node panel is reachable while the graph is in fullscreen**,
   and INBOX 66 says the lightbox it can open is not. Same phase, not in
   this brief.

@@ -9,6 +9,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A link suggestion you dismiss stays dismissed, and a search remembers
+  which result you opened. The dismissal used to live in the browser and die
+  with the tab, so the same pair came back; and asking a question a second
+  time returned the same order, including the order that was wrong enough
+  that you scrolled past the first result. Both are reorders of what the
+  search already found, never additions, so one click can never change what
+  the notebook appears to contain.
+
 - The notebook keeps what it has been corrected about, in one place. Moving
   a note out of the category the AI chose, dismissing a suggested link,
   opening a result after a question, or sending a resurfacing card away are

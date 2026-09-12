@@ -1400,7 +1400,30 @@ class DatabaseManager:
         self._session_factory = sessionmaker(
             bind=self.engine, expire_on_commit=False
         )
+        self._ensure_search_index()
         self._ensure_default_spaces()
+
+    def _ensure_search_index(self) -> None:
+        """The index that covers every kind (`search/index.py`), built once.
+
+        Below the session factory rather than beside `_ensure_fts5` because a
+        database that has never had this table has to be *filled*, and filling
+        it needs a session. The import is inside the function for the reason
+        `record_dates` states: `search/` reads this module's models, so the
+        statement at module level is the import cycle CodeQL flags.
+        """
+        from memorymap.search import index as search_index
+
+        with self.engine.begin() as connection:
+            created = search_index.ensure_table(connection)
+        if not created:
+            return
+        # Only on the one startup that creates the table: every write after
+        # this keeps itself in step (see the module's `after_flush` hook), so
+        # this is a migration, not a recurring cost.
+        with self.session() as session:
+            search_index.rebuild(session)
+            session.commit()
 
     def _ensure_default_spaces(self) -> None:
         """Seed default spaces if none exist."""

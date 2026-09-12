@@ -613,3 +613,17 @@ transposition, on a word of four letters or more; everything else is a menu.
 cold, 0.9ms warm, against a 300ms keystroke-to-underline budget. The
 candidate list is computed when the menu opens, not during the pass: doing
 it per unknown word per pass measured 29ms on a 276-character document.
+
+**Found while doing this, not fixed.**
+- `scratchpad/ui-sweeps/docviews.js` fails on "the view menu has no
+  line-numbers row" and then throws on a null click. Reproduced against the
+  branch before any of this landed, so it is an older gap in the view menu
+  rather than a regression: either the row goes back or the sweep stops
+  asking for it.
+- The suggestion menu draws the same check icon on every one of its five
+  word rows, so the words read as five identical actions rather than as the
+  answer with the actions underneath. The separating rule is there and it is
+  doing the work on its own. A real spell menu differentiates them by more.
+- The checker still reads only the shape of a sentence. Its/it's, agreement
+  and tense are behind "Check with AI", which is a button press rather than
+  a pass, for the reason `docProseHeader` records.

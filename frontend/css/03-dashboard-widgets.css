@@ -213,6 +213,31 @@
   border-radius: var(--radius-md);
 }
 
+/* **One label size for a choice control, and it was three.** `.seg button`
+   sets no `font-size`, so each strip inherited whatever its surroundings
+   happened to give it. Measured on the running app, every visible `.seg`:
+   16px on the two tab strips, 13.6px on the chat mode switch and the Notes
+   view toggle, and 12.8px on the Library, Timeline and Reminders view
+   toggles. Those last four are the *same component*, an icon-only two-button
+   view switch, so the same control rendered its icons at 15.64px on Notes
+   and 14.72px on the other three, which is the kind of difference nobody can
+   name and everybody can see.
+
+   `--text-md` is the one control label size UI_MODERNISATION_PLAN Phase 3
+   settled on, and Notes was already on it.
+
+   **Scoped to `[role="group"]`, and that is DESIGN.md's own line rather than
+   a convenience.** A `.seg` is two different things: a *tab strip*
+   (`role="tablist"`: the Notes and Library sub-tabs) is navigation and sits
+   on the surface, a *choice control* (`role="group"`: view, sort, Ask/Agent)
+   is a well you pick an option in. Only the second is a control whose label
+   the control-label size governs; putting the tab strips on it would shrink
+   the app's main navigation from 16px to 13.6px, which is a different
+   decision and not one this rule gets to make. */
+.seg[role="group"] button {
+  font-size: var(--text-md);
+}
+
 /* Hovering an unselected segment did nothing at all, measured: transparent
    background, no border, no shadow, muted text, and no `:hover` rule
    anywhere. Next to the accent-filled selected segment, "Tree / Radial /

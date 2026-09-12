@@ -4259,8 +4259,14 @@ summary:not(.icon-only):not(.icon-button) {
      never show at once: `wbSyncMapTemplates` withdraws the offer while focus
      is on. */
   top: calc(0.5rem + var(--wb-h-topbar) + var(--space-3));
-  left: 50%;
-  transform: translateX(-50%);
+  /* Both edges anchored with an auto margin, for the reason written out on
+     `.wb-map-empty` above: `left: 50%` alone sized this offer against the
+     half of the board to its right, so it came out 704px inside a 1408px
+     board where its own `max-width` allows 704 to 1295. */
+  left: 0;
+  right: 0;
+  width: fit-content;
+  margin-inline: auto;
   display: flex;
   flex-wrap: wrap;
   align-items: center;

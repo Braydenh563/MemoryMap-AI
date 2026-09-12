@@ -1,4 +1,6 @@
-// The whiteboard's tool rail, its keys, and (Phase 2) its context bar.
+// The whiteboard's tool rail and its keys (Phase 1), and its context bar
+// (Phase 2). Phase 3's own gate is `whiteboard3.js` beside this: one sweep
+// that ran both took more than the 110s a Bash call gets.
 //
 //   BASE=http://127.0.0.1:8903 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
 //     timeout 110 node scratchpad/ui-sweeps/whiteboard.js
@@ -390,6 +392,11 @@ async function clickCanvas(page) {
     made.shape = (await sketch({ d: "M 60 260 L 260 260 L 260 360 L 60 360 Z", color: "#112233", width: 4, shape: "rect", fill: "#ff8800" })).id;
     made.text = (await post("/whiteboard/objects", { kind: "text", board_id: board, x: 400, y: 60, width: 200, height: 90, data: { content: "hello" } })).id;
     made.image = (await post("/whiteboard/objects", { kind: "image", board_id: board, x: 400, y: 200, width: 160, height: 120, data: { url: "/media/none.png" } })).id;
+    // A note card, which the handle gate names alongside the other three. It
+    // needs a real note behind it: a `node` is a note placed on a board, not a
+    // kind of drawing.
+    const entry = await post("/entries", { content: "A note on a board", tags: ["wbsweep"] });
+    made.note = (await post("/whiteboard/nodes", { entry_id: entry.id, board_id: board, x: 700, y: 60, z: 1 })).id;
     // Both: `fetchWhiteboardState` fills `wbState` and `renderWhiteboard` is
     // what puts elements on the canvas. Without the second, every item exists
     // and none of them is in the DOM, so a check that reads a box measures
@@ -425,10 +432,12 @@ async function clickCanvas(page) {
     shape: ["ink", "stroke", "fill", "order", "common"],
     text: ["ink", "text", "order", "common"],
     image: ["order", "common"],
+    note: ["order", "common"],
   };
   const seen = {};
+  const kindOf = (name) => (name === "note" ? "node" : name === "text" || name === "image" ? "object" : "sketch");
   for (const [name, id] of Object.entries(kinds)) {
-    seen[name] = await barFor(name === "text" || name === "image" ? "object" : "sketch", id);
+    seen[name] = await barFor(kindOf(name), id);
   }
   const wrongGroups = Object.keys(want).filter((k) => JSON.stringify(seen[k].groups) !== JSON.stringify(want[k]));
   ok(

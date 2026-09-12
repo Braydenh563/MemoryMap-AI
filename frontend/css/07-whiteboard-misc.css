@@ -15,10 +15,8 @@
   cursor: grabbing;
 }
 
-.wb-object.wb-selected {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
+/* The selection box for every kind is one rule, in 06-timeline-dialogs.css
+   beside the card's: decision 6 of WHITEBOARD_PLAN. */
 
 
 /* Swapped in for an image object whose file is gone (deleted via the
@@ -216,6 +214,18 @@
   fill: var(--accent);
   stroke: var(--card);
   stroke-width: 1px;
+}
+
+/* The sketch half of the one selection recipe: the same 1px accent box the
+   card and the text box get from `outline`, which an SVG element cannot use.
+   `vector-effect` so the line stays 1px at every zoom, the way an outline
+   does, rather than thickening with the canvas. */
+.wb-sketch-selection-box {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
 }
 
 /* A sketch's own rotate handle, asked for directly. Round like the
@@ -3660,8 +3670,7 @@ input[type="url"]:hover:not(:focus) {
 .library-image-menu-item,
 .doc-item-button,
 .doc-list-item,
-.doc-dock-menu-item,
-.wb-export-menu button {
+.doc-dock-menu-item {
   justify-content: flex-start;
 }
 

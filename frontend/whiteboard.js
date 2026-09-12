@@ -484,7 +484,26 @@ function wbCursorUrl(inner, { size = 26, hx = 3, hy = size - 3 } = {}) {
 // third, text, needs its own SVG element type, a `<path>` can't render
 // text: and is scoped separately rather than force-fit into this list).
 const WB_BRUSH_TOOLS = new Set(["draw", "line", "rect", "circle", "highlighter", "arrow", "triangle", "diamond"]);
-const WB_HIGHLIGHTER_ALPHA = 0.35; // matches the sketch pad's own SKETCH_HIGHLIGHTER_ALPHA
+//: **The highlighter is a marker that multiplies** (WHITEBOARD_PLAN.md
+//: decision 7: "marker with `mix-blend-mode: multiply` at 40% opacity, width
+//: 12 to 24, Shift for straight"), which is what FigJam and Apple Freeform
+//: both do and what makes two crossing strokes read as two passes of one pen
+//: rather than as a third, lighter colour. 0.4, not 0.35: the plan's figure,
+//: and multiply darkens where plain alpha did not, so the old number would
+//: have made it fainter than it was.
+const WB_HIGHLIGHTER_ALPHA = 0.4; // matches the sketch pad's own SKETCH_HIGHLIGHTER_ALPHA
+//: A nib, not a scaled pen. The width slider runs 1 to 24 and this was four
+//: times it, so a highlighter could be 4px (a pen) or 96px (a wall). Clamped
+//: to the plan's 12 to 24, which is the range a real highlighter has.
+const WB_HIGHLIGHTER_MIN = 12;
+const WB_HIGHLIGHTER_MAX = 24;
+//: Takes the pen width rather than reading it: `WB_STROKE_WIDTH` is a `let`
+//: inside `initWhiteboard`, not a module constant, so a module-level function
+//: that read it threw `WB_STROKE_WIDTH is not defined` on the first stroke
+//: (found by the sweep, which drew nothing at all and said so).
+function wbHighlighterWidth(penWidth) {
+  return Math.min(WB_HIGHLIGHTER_MAX, Math.max(WB_HIGHLIGHTER_MIN, (penWidth || 3) * 4));
+}
 
 //: The four closed shape tools fill applies to, a pen/highlighter/line/
 //: arrow stroke has no enclosed area a fill would read as filling. Module
@@ -7537,95 +7556,197 @@ async function wbExportPdf(scope) {
   toast('Opened Print: choose "Save as PDF" as the destination.');
 }
 
-let wbExportMenuOutsideClick = null;
+//: **Export is a dialog, not a popover** (WHITEBOARD_PLAN.md decision 4).
+//:
+//: It was a list: five headings of two or three options each, built as a
+//: floating menu anchored to whichever button opened it, which is how it came
+//: to be reported as "a full-height list in the wrong place" (INBOX 12, with a
+//: screenshot of it running off the bottom of the window). The choices are a
+//: matrix, scope by format, and a list of every cell of a matrix is as long as
+//: the product of its sides. Two segmented rows are as long as the sum.
+//:
+//: Excalidraw's export dialog is exactly this shape (a scope toggle plus
+//: format buttons), which is the research note in §8 of the plan.
+const WB_EXPORT_SCOPES = [
+  { value: "selection", label: "Selection", title: "Just what is selected" },
+  { value: "visible", label: "On screen", title: "Exactly what the canvas is showing now" },
+  { value: "whole", label: "Whole board", title: "Everything on the board" },
+];
 
-function wbCloseExportMenu() {
-  document.getElementById("wb-export-menu")?.remove();
-  if (wbExportMenuOutsideClick) {
-    document.removeEventListener("click", wbExportMenuOutsideClick, true);
-    wbExportMenuOutsideClick = null;
+//: Each format says which scopes it can answer, rather than the dialog
+//: knowing: SVG has no meaning for "on screen" (it is the board's vectors, not
+//: a screenshot), and an outline is the whole tree or nothing. `map: true`
+//: marks the three that only exist on a mind map, for the reason the old menu
+//: gave in the same words: an outline of a whiteboard is not a thing.
+const WB_EXPORT_FORMATS = [
+  {
+    value: "png", label: "PNG", scopes: ["selection", "visible", "whole"],
+    note: "An image file, and a copy in your image library.",
+    run: (scope) => wbExportPng(scope),
+  },
+  {
+    value: "library", label: "Image library", scopes: ["selection", "visible", "whole"],
+    note: "Straight into the gallery, with no file saved to disk.",
+    run: (scope) => wbSaveToLibrary(scope),
+  },
+  {
+    value: "svg", label: "SVG", scopes: ["selection", "whole"],
+    note: "Vector, so it stays sharp at any size.",
+    run: (scope) => wbExportSvg(scope),
+  },
+  {
+    value: "pdf", label: "PDF", scopes: ["selection", "visible", "whole"],
+    note: "Opens Print: choose “Save as PDF” as the destination.",
+    run: (scope) => wbExportPdf(scope),
+  },
+  {
+    value: "markdown", label: "Markdown", scopes: ["whole"], map: true,
+    note: "The map as an indented outline.",
+    run: () => wbExportMapText("markdown"),
+  },
+  {
+    value: "opml", label: "OPML", scopes: ["whole"], map: true,
+    note: "The interchange format every mind mapper reads.",
+    run: () => wbExportMapText("opml"),
+  },
+  {
+    value: "freemind", label: "FreeMind", scopes: ["whole"], map: true,
+    note: "For FreeMind and Freeplane.",
+    run: () => wbExportMapText("freemind"),
+  },
+];
+
+//: One `.seg` on the app's own recipe (`promptDialog`'s, down to the
+//: `aria-pressed` pair), built twice here rather than once in app.js because
+//: this pair talk to each other: picking a format that cannot answer the
+//: current scope has to move the scope.
+function wbExportSegment(label, options, chosen, onPick) {
+  const seg = document.createElement("div");
+  seg.className = "seg seg-compact wb-export-seg";
+  seg.setAttribute("role", "group");
+  seg.setAttribute("aria-label", label);
+  for (const option of options) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = option.label;
+    button.dataset.value = option.value;
+    if (option.title) button.title = option.title;
+    button.addEventListener("click", () => onPick(option.value));
+    seg.appendChild(button);
+  }
+  return seg;
+}
+
+function wbSyncExportSeg(seg, chosen, allowed) {
+  for (const button of seg.querySelectorAll("button")) {
+    const on = button.dataset.value === chosen;
+    button.classList.toggle("active", on);
+    button.setAttribute("aria-pressed", on ? "true" : "false");
+    // Disabled, not hidden: a scope that vanishes and comes back as the format
+    // changes makes the row jump under the pointer, and "SVG cannot do what is
+    // on screen" is worth saying rather than hiding.
+    const usable = !allowed || allowed.has(button.dataset.value);
+    button.disabled = !usable;
   }
 }
 
-function wbExportBoard(anchor) {
-  wbCloseExportMenu();
-  const button = anchor instanceof Element ? anchor : document.getElementById("wb-export");
-  if (!button) return;
-  const menu = document.createElement("div");
-  menu.id = "wb-export-menu";
-  menu.className = "wb-export-menu";
-  const rect = button.getBoundingClientRect();
-  menu.style.top = `${rect.bottom + 6}px`;
-  menu.style.right = `${window.innerWidth - rect.right}px`;
-  // Opened from the Board menu the button sits low enough that the nine
-  // options ran off the bottom of the window (reported, with a screenshot).
-  // Measured once it is in the DOM and lifted to fit.
-  requestAnimationFrame(() => {
-    const r = menu.getBoundingClientRect();
-    if (r.bottom > window.innerHeight - 8) {
-      menu.style.top = `${Math.max(8, window.innerHeight - r.height - 8)}px`;
-    }
+function wbExportBoard() {
+  const hasSelection = wbMultiSelection.size > 0 || Boolean(wbSelectedItem);
+  const isMap = wbIsMap();
+  const formats = WB_EXPORT_FORMATS.filter((f) => !f.map || isMap);
+  let format = formats[0];
+  let scope = hasSelection ? "selection" : "visible";
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay confirm-overlay wb-export-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "Export this board");
+
+  const card = document.createElement("div");
+  card.className = "card modal-card confirm-card wb-export-card";
+  const head = document.createElement("div");
+  head.className = "row confirm-head";
+  const title = document.createElement("h3");
+  title.className = "confirm-title";
+  title.textContent = "Export this board";
+  head.appendChild(title);
+
+  const formatLabel = document.createElement("span");
+  formatLabel.className = "wb-export-label";
+  formatLabel.textContent = "Format";
+  const scopeLabel = document.createElement("span");
+  scopeLabel.className = "wb-export-label";
+  scopeLabel.textContent = "How much";
+  const note = document.createElement("p");
+  note.className = "confirm-text wb-export-note";
+
+  const scopeSeg = wbExportSegment("How much to export", WB_EXPORT_SCOPES, scope, (value) => {
+    scope = value;
+    sync();
+  });
+  const formatSeg = wbExportSegment("Format", formats, format.value, (value) => {
+    format = formats.find((f) => f.value === value) || formats[0];
+    // The scope follows the format when the format cannot answer it, rather
+    // than the Export button refusing a pair the dialog let you make.
+    if (!format.scopes.includes(scope)) scope = format.scopes.find((s) => s !== "selection" || hasSelection) || format.scopes[0];
+    sync();
   });
 
-  const addHeading = (text) => {
-    const h = document.createElement("div");
-    h.className = "wb-export-heading";
-    h.textContent = text;
-    menu.appendChild(h);
-  };
-  const addOption = (label, run) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.textContent = label;
-    btn.addEventListener("click", async () => {
-      wbCloseExportMenu();
-      try {
-        await run();
-      } catch (err) {
-        toast(err.message || "Couldn't export the board.", true);
-      }
-    });
-    menu.appendChild(btn);
-  };
-
-  // Asked for directly ("an export selection feature"), only offered when
-  // something is actually selected, same reasoning as every other
-  // selection-gated control in this toolbar (align/distribute/delete).
-  const hasSelection = wbMultiSelection.size > 0 || !!wbSelectedItem;
-
-  addHeading("Save to image library");
-  if (hasSelection) addOption("Just the selection", () => wbSaveToLibrary("selection"));
-  addOption("What's on screen now", () => wbSaveToLibrary("visible"));
-  addOption("The whole board", () => wbSaveToLibrary("whole"));
-  addHeading("Image (PNG)");
-  if (hasSelection) addOption("Just the selection", () => wbExportPng("selection"));
-  addOption("What's on screen now", () => wbExportPng("visible"));
-  addOption("The whole board", () => wbExportPng("whole"));
-  addHeading("Vector (SVG)");
-  if (hasSelection) addOption("Just the selection", () => wbExportSvg("selection"));
-  addOption("The whole board", () => wbExportSvg("whole"));
-  addHeading("PDF (via Print)");
-  if (hasSelection) addOption("Just the selection", () => wbExportPdf("selection"));
-  addOption("What's on screen now", () => wbExportPdf("visible"));
-  addOption("The whole board", () => wbExportPdf("whole"));
-
-  // **The text formats, on a map only.** An outline of a whiteboard is not a
-  // thing, there is no tree to indent, and offering it there would be two
-  // dead menu entries on every ordinary board. OPML is the interchange format
-  // every mindmapper reads (§5 item 16): cheap to offer, and it is what makes
-  // this feature not a lock-in.
-  if (wbIsMap()) {
-    addHeading("Outline");
-    addOption("Markdown (.md)", () => wbExportMapText("markdown"));
-    addOption("OPML (.opml)", () => wbExportMapText("opml"));
-    addOption("FreeMind (.mm)", () => wbExportMapText("freemind"));
+  function sync() {
+    const allowed = new Set(format.scopes.filter((s) => s !== "selection" || hasSelection));
+    if (!allowed.has(scope)) scope = [...allowed][0];
+    wbSyncExportSeg(formatSeg, format.value, null);
+    wbSyncExportSeg(scopeSeg, scope, allowed);
+    const chosenScope = WB_EXPORT_SCOPES.find((s) => s.value === scope);
+    // Two sentences, the format's and the scope's, so the line reads the same
+    // way round whichever of the two was changed last.
+    note.textContent = [format.note, chosenScope ? `${chosenScope.title}.` : ""].filter(Boolean).join(" ");
   }
 
-  document.body.appendChild(menu);
-  wbExportMenuOutsideClick = (event) => {
-    if (!menu.contains(event.target) && event.target !== button) wbCloseExportMenu();
+  let settled = false;
+  const close = () => {
+    if (settled) return;
+    settled = true;
+    document.removeEventListener("keydown", onKey, true);
+    overlay.remove();
+    returnFocus?.focus?.();
   };
-  setTimeout(() => document.addEventListener("click", wbExportMenuOutsideClick, true), 0);
+  const onKey = (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      event.stopPropagation();
+      go();
+    }
+  };
+  const go = async () => {
+    const chosen = format;
+    const where = scope;
+    close();
+    try {
+      await chosen.run(where);
+    } catch (err) {
+      toast(err.message || "Couldn't export the board.", true);
+    }
+  };
+
+  const returnFocus = document.activeElement;
+  const row = document.createElement("div");
+  row.className = "row confirm-actions";
+  const exportBtn = smallButton("Export", "Export", go, false);
+  exportBtn.id = "wb-export-go";
+  row.append(smallButton("Cancel", "Cancel", close), exportBtn);
+  card.append(head, formatLabel, formatSeg, scopeLabel, scopeSeg, note, row);
+  overlay.appendChild(card);
+  wireBackdropClose(overlay, close);
+  document.addEventListener("keydown", onKey, true);
+  document.body.appendChild(overlay);
+  sync();
+  exportBtn.focus();
 }
 
 async function initWhiteboard() {
@@ -9854,11 +9975,16 @@ async function initWhiteboard() {
     // its opacity so low it was reported as invisible (HISTORY.md §46).
     currentDrawPath.setAttribute(
       "stroke-width",
-      String(window.currentTool === "highlighter" ? WB_STROKE_WIDTH * 4 : WB_STROKE_WIDTH)
+      String(window.currentTool === "highlighter" ? wbHighlighterWidth(WB_STROKE_WIDTH) : WB_STROKE_WIDTH)
     );
     if (window.currentTool === "highlighter") {
       currentDrawPath.setAttribute("stroke-opacity", String(WB_HIGHLIGHTER_ALPHA));
       currentDrawPath.setAttribute("stroke-linecap", "square");
+      // An inline style, not a class: the export clones these elements into a
+      // standalone SVG where a stylesheet does not follow them, and
+      // `el.style.x = ...` is the form this app's CSP allows (an inline
+      // `style=` attribute in the markup is refused).
+      currentDrawPath.style.mixBlendMode = "multiply";
     } else {
       currentDrawPath.setAttribute("stroke-linecap", "round");
     }
@@ -9875,6 +10001,17 @@ async function initWhiteboard() {
     const [x, y] = getLogicalMouse(e);
     
     if (window.currentTool === "draw" || window.currentTool === "highlighter") {
+      // **Shift draws a straight run** (decision 7). Held mid-stroke it
+      // replaces whatever has been drawn since the start point with one
+      // segment, and letting go carries on freehand from there, which is how
+      // a straightedge behaves and how every app that offers this does it.
+      if (e.shiftKey && window.currentTool === "highlighter") {
+        const [sx0, sy0] = currentDrawData[0];
+        currentDrawData.length = 1;
+        currentDrawData.push([x, y]);
+        currentDrawPath.setAttribute("d", `M ${sx0} ${sy0} L ${x} ${y}`);
+        return;
+      }
       currentDrawData.push([x, y]);
       const d = currentDrawData.map((pt, i) => (i === 0 ? `M ${pt[0]} ${pt[1]}` : `L ${pt[0]} ${pt[1]}`)).join(" ");
       currentDrawPath.setAttribute("d", d);
@@ -9968,7 +10105,7 @@ async function initWhiteboard() {
     const blob = {
       d,
       color: currentStrokeColor,
-      width: isHighlighter ? WB_STROKE_WIDTH * 4 : WB_STROKE_WIDTH,
+      width: isHighlighter ? wbHighlighterWidth(WB_STROKE_WIDTH) : WB_STROKE_WIDTH,
       shape: window.currentTool,
     };
     if (isHighlighter) {
@@ -10851,6 +10988,17 @@ function wbRenderSketchHandles() {
     .append("g")
     .attr("class", "wb-sketch-handle-group");
 
+  //: **One selection box for every kind** (WHITEBOARD_PLAN.md decision 6). A
+  //: card and a text box wear a 1px `--accent` outline; a sketch wore a dashed
+  //: 35%-opacity stroke *along its own path* instead, so the same click read
+  //: as two different kinds of thing and a thin diagonal line had no box at
+  //: all. This is that outline, drawn round the shape's own bbox.
+  group.append("rect")
+    .attr("class", "wb-sketch-selection-box")
+    .attr("x", bbox.minX - 2).attr("y", bbox.minY - 2)
+    .attr("width", (bbox.maxX - bbox.minX) + 4)
+    .attr("height", (bbox.maxY - bbox.minY) + 4);
+
   for (const handle of ["nw", "n", "ne", "e", "se", "s", "sw", "w"]) {
     const hx = handle.includes("w") ? bbox.minX : handle.includes("e") ? bbox.maxX : (bbox.minX + bbox.maxX) / 2;
     const hy = handle.includes("n") ? bbox.minY : handle.includes("s") ? bbox.maxY : (bbox.minY + bbox.maxY) / 2;
@@ -10920,7 +11068,10 @@ function wbRenderSketchHandles() {
   let rotateOriginalD = null, rotateLiveD = null;
   group.append("circle")
     .attr("class", "wb-sketch-rotate-handle")
-    .attr("cx", centerX).attr("cy", handleY).attr("r", 7)
+    // r 6, not 7: the card and text-box grip is 12px across
+    // (`.wb-rotate-handle`), and 14 against 12 was the one measured difference
+    // left between the two recipes.
+    .attr("cx", centerX).attr("cy", handleY).attr("r", 6)
     .style("cursor", "grab")
     .call(
       d3.drag()
@@ -11265,10 +11416,15 @@ function renderWhiteboard() {
     let fill = "none";
     let fillOpacity = 1;
     let dashArray = null;
+    let isHighlighterStroke = false;
     try {
       const parsed = JSON.parse(d.data);
       if (parsed.d) {
         pathData = parsed.d;
+        // `shape` names the tool that drew it, which is what says "highlighter"
+        // rather than "a stroke that happens to carry an opacity": a pen
+        // stroke restyled through the context bar could have one too.
+        isHighlighterStroke = parsed.shape === "highlighter";
         stroke = parsed.noStroke ? "none" : (parsed.color || stroke);
         // Highlighter strokes carry their own width/opacity (see the mouseup
         // handler that writes them), everything else keeps the defaults
@@ -11295,6 +11451,12 @@ function renderWhiteboard() {
     } catch(e) {}
     d3.select(this).select(".sketch-hitbox").attr("d", pathData);
     d3.select(this).select(".sketch-path")
+      // The highlighter's multiply, re-applied every render and cleared on
+      // every other kind so a reused element cannot keep it: the same reason
+      // the width and opacity above are set explicitly rather than only when
+      // present. Inline rather than a class because the export clones these
+      // nodes into a standalone SVG.
+      .style("mix-blend-mode", isHighlighterStroke ? "multiply" : null)
       .attr("d", pathData)
       .attr("stroke", stroke)
       .attr("stroke-width", strokeWidth)

@@ -142,11 +142,16 @@ Phase 2): a plan holds open work only. Its gate lives on in
 `scratchpad/ui-sweeps/whiteboard.js` (24 checks, green at 1440x900 light
 and dark and at 390x844).
 
-### Phase 3: export dialog, handles, highlighter (half a session)
-**Gate:** the export dialog is inside the viewport at 1440 and 390 and
-every scope × format pair produces a file (PNG dimensions asserted);
-handles identical for note, shape, image and text (rect and handle
-count); the highlighter stroke composites (pixel sampled under overlap).
+### Phase 3: export dialog, handles, highlighter: BUILT, 2026-09-12
+Moved to HISTORY.md ("Moved from the plans, 2026-09-12", WHITEBOARD_PLAN
+Phase 3): a plan holds open work only. Its gate lives on in
+`scratchpad/ui-sweeps/whiteboard3.js` (12 checks, green at 1440x900 light
+and dark and at 390x844). Two parts of decision 7 are **open**, with their
+measurements: the quick-sketch pad still has its own copy of the
+highlighter rather than sharing this code, and multiply is worth 20
+luminance units a pass on a light board and 3 on a dark one, which is the
+objection the pad's own comment in `app.js` already records. Both are in
+[`agent-remaining/whiteboard-phases.md`](agent-remaining/whiteboard-phases.md).
 
 ### Phase 4: mind map regressions and Tidy (half a session, with
 MINDMAP_PLAN Phases 4 to 5)

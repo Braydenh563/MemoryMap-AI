@@ -9,6 +9,17 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Whiteboard: export is a dialog, the selection handles are one recipe, and
+  the highlighter behaves like one. Export was a list of every scope and
+  format pair that ran off the bottom of the window; it is two rows of
+  segments and one Export button now. A note, a shape, an image and a text box
+  all show the same eight handles, the same rotate grip on a stem and the same
+  1px selection box, where a drawn shape used to show a dashed outline of
+  itself and no box at all. The highlighter multiplies, so two crossing
+  strokes read as two passes of one pen, and its nib is a nib (12 to 24px)
+  rather than four times whatever the pen slider said; Shift draws a straight
+  run.
+
 - Whiteboard: one context bar where the floating selection pill and the
   properties drawer used to be two. It appears above whatever is selected and
   shows only that kind's controls, so a line offers its ends and a text box

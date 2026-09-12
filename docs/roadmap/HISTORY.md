@@ -21654,6 +21654,77 @@ done-when item 4 and 5), in priority order.
 
 ## Moved from the plans, 2026-09-12
 
+### From WHITEBOARD_PLAN Phase 3: the export dialog, the handles, the highlighter
+
+Built 2026-09-12. The phase as it was written:
+
+> ### Phase 3: export dialog, handles, highlighter (half a session)
+> **Gate:** the export dialog is inside the viewport at 1440 and 390 and
+> every scope x format pair produces a file (PNG dimensions asserted);
+> handles identical for note, shape, image and text (rect and handle
+> count); the highlighter stroke composites (pixel sampled under overlap).
+
+**Export is a dialog** (decision 4). It was five headings of two or three
+options each, built as a floating menu anchored to whichever button opened it,
+which is how it came to be reported as "a full-height list in the wrong place"
+with a screenshot of it running off the bottom of the window (INBOX 12). The
+choices are a matrix, and a list of every cell of a matrix is as long as the
+product of its sides; two segmented rows are as long as the sum. Each format
+now declares which scopes it can answer rather than the dialog knowing, so SVG
+offers no "on screen" (it is the board's vectors, not a screenshot) and an
+outline is the whole tree or nothing, and picking a format the current scope
+does not suit moves the scope instead of letting the Export button refuse a
+pair the dialog allowed.
+
+**One handle recipe** (decision 6). Measured before it: eight handles on every
+kind at 10x10, which was already right, but the rotate grip was 14px on a
+drawn shape against 12px on a card, and the selection box was a 2px accent
+outline on a card and a dashed 35%-opacity stroke *along its own path* on a
+sketch, so a thin diagonal line had no box at all and the same click read as
+two different kinds of thing. Both are 1px `--accent` now, the sketch's as a
+real rect with `vector-effect: non-scaling-stroke` so it stays 1px at every
+zoom the way an outline does, and the note card's own edge stands down while
+it is selected (INBOX 25, "the outline on note objects differs from every
+other object kind").
+
+**The highlighter multiplies** (decision 7). `mix-blend-mode: multiply` at 40%
+opacity, a nib clamped to 12 to 24px rather than four times a slider that runs
+to 24, square caps as before, and Shift mid-stroke replacing everything since
+the start point with one straight run. The blend is set as an inline style
+rather than a class, for a reason worth keeping: the export clones these
+elements into a standalone SVG where a stylesheet does not follow them, and an
+inline `style=` attribute in markup is refused by this app's CSP while
+`el.style.x = ...` is not.
+
+**Found while building, and fixed.** `wbHighlighterWidth` read `WB_STROKE_WIDTH`
+as though it were a module constant; it is a `let` inside `initWhiteboard`, so
+the first highlighter stroke threw `WB_STROKE_WIDTH is not defined` and drew
+nothing. The sweep found it by reporting zero strokes where it had drawn two,
+which is the case for driving a feature rather than reading its diff.
+
+**Numbers.** `scratchpad/ui-sweeps/whiteboard3.js` (new; split from
+`whiteboard.js` because one sweep running Phases 1 to 3 took longer than the
+110s a Bash call gets), 12/12 at 1440x900 light, 12/12 dark, 12/12 at 390x844.
+The export card is 480x393 at 1440 and 342x393 at 390, inside the viewport at
+both, with one filled button and a line saying what the pair will do. Every
+pair that writes a file writes one: PNG selection 280x170, on screen 1408x711
+(364x604 at 390), whole board 1010x420; three uploads answered 200; SVG 331 and
+1209 bytes. Handles: 8 on each of note, shape, text and image, all 10x10, a
+12x12 rotate grip on a stem on each, and a 1px `rgb(70, 100, 240)` box on each.
+Two crossing highlighter strokes measured by pixel: luminance 252.9 on the bare
+board, 229.6 under one stroke, 211.5 under both.
+
+**Not fixed, measured.** In dark the same three readings are 26.4, 23.6 and
+22.0: multiply is worth about 20 luminance units a pass on a light board and 3
+on a dark one, which is the objection `SKETCH_HIGHLIGHTER_COMPOSITE`'s own
+comment in `app.js` already records in as many words ("the same yellow that
+tints a white page turns to mud on a dark one, and this app has a dark
+theme"). Decision 7 says multiply, so multiply is what is built; the
+recommendation and the numbers are in
+`docs/roadmap/agent-remaining/whiteboard-phases.md`, along with the other half
+of decision 7 that is not built, the quick-sketch pad sharing this code rather
+than keeping its own copy.
+
 ### From WHITEBOARD_PLAN Phase 2: the context bar
 
 Built 2026-09-12, in two commits (the arrange actions, then the bar). The

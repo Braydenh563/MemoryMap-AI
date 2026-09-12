@@ -43,6 +43,11 @@ session spends its probes somewhere new.
   asserts the content actually rolls back and that a pre-restore safety
   snapshot is taken.
 - **Restore from the bin.** A note comes back with its document link intact.
+- **Every other short write field.** After capping notes and tags, the rest
+  were driven with 100,000 characters: a space's name and icon, a category
+  rename, a bookmark's title and url, a reminder's text and a conversation's
+  title. All refused (422, or 400 for the two space fields). Capture was the
+  only unbounded one.
 
 ## Not verified
 

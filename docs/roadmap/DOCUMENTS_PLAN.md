@@ -655,3 +655,9 @@ it per unknown word per pass measured 29ms on a 276-character document.
 - The checker still reads only the shape of a sentence. Its/it's, agreement
   and tense are behind "Check with AI", which is a button press rather than
   a pass, for the reason `docProseHeader` records.
+
+## Built, the sidebar redesign (INBOX 115), 2026-09-12
+
+Moved to HISTORY.md ("Moved from the plans, 2026-09-12", DOCUMENTS_PLAN.md) on
+2026-09-12: a plan holds open work only. What is left open is in
+`agent-remaining/doc-sidebar.md`.

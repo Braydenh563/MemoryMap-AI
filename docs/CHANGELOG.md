@@ -59,6 +59,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The Documents sidebar was redesigned, both of its tabs. The outline now
+  takes the height the column has instead of a fixed 224px window that hid 13
+  of a 21-heading document's entries, it marks the heading you are reading as
+  you scroll and keeps that row in view, and its levels are told apart by
+  weight, colour and a guide line rather than by a fraction of a millimetre of
+  type. An empty References no longer reserves a heading and a full-width
+  button over nothing. In the Documents tab every row draws the same shape
+  rather than only the open one, every row is one height, and each says what
+  kind of file it is.
+
 - The history of a note no longer keeps a copy of its whole text for ever.
   Changes older than ninety days keep the record of what happened and who
   did it, and let go of the text, apart from the five most recent changes to

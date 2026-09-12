@@ -22208,3 +22208,114 @@ answer to "is this worth it yet": a note edited a few times is fine either
 way, the shape only bites on the long histories compaction has just made
 cheap to keep. It is still linear in the events below the page, which is the
 honest shape of the question; only a snapshot can cut that short.
+
+### From DOCUMENTS_PLAN.md: the Documents sidebar, both tabs (INBOX 115)
+
+The owner, verbatim: "the documents page sidebar needs redesigning as well,
+both for outline and documents but mostly outline." Measured first
+(`scratchpad/ui-sweeps/docsidebar.js`, 1440x900, light, four documents with a
+21-heading research plan open), then built against those numbers, then
+measured again. The new sweep is `scratchpad/ui-sweeps/docsidebarshape.js`:
+one assertion per problem, 14 failures before, all checks passing after, in
+light and in dark.
+
+**The outline was boxed into a third of a column that had the room.**
+`#doc-outline` was 224px of box around 520px of scroll height, so 8 of 21
+headings were visible and 13 were not, with no scrollbar and no fade to say
+so, while the panel around it was not scrolling at all (`scrollHeight ===
+clientHeight === 686`) and roughly 290px of column sat empty below. The cause
+was a `max-height: 14rem` on `.doc-outline`, a guess at how much outline
+anyone wants. Taking it off does not bring back the hole `docoutline.js`
+guards (a section twice the height of its content), because the wrap is still
+`flex: 0 1 auto`: a short outline is its content, a long one takes what it
+needs, and when the panel runs out the wrap shrinks, the list shrinks with it
+and scrolls inside itself while References stays on screen. After, with the
+same fixture: **21 of 21 rows in view, `#doc-outline` 519.7px of box for
+520px of scroll and 520 of client, the panel 686 scroll against 686 client.**
+
+**Nothing said where you were.** Scrolled to 70% of the same document, zero
+elements under `#doc-outline` carried a current class or `aria-current`, and
+the outline's own `scrollTop` stayed 0. A table of contents that cannot
+answer that is a list of links, and it was the single biggest functional gap
+against Obsidian, Typora and Notion. Now a scroll-spy off whichever surface
+the document is on: CodeMirror is asked for `posAtCoords` at the top-left of
+its own scroller, which is one hit test and exact; the textarea fallback
+estimates from the scroll fraction, which is honestly approximate and says so
+in the comment. One mark per animation frame (`requestAnimationFrame`, not a
+timer, and no outline rebuild), the row takes `aria-current="location"` plus
+`is-current`, and the paint hangs off the *attribute* so the two cannot drift
+apart. Keeping the row in view moves the scrolling box's own `scrollTop`,
+bounded by `#doc-sidebar`: `scrollIntoView` walks every scrolling ancestor,
+and the page is one of them, so the one-liner would have dragged the tab
+under the caret while someone typed. Measured on the 21-heading fixture: 0%
+marks "Research plan", 30% "Method", 70% "Discussion", 100% "First part", one
+row at each, each inside the outline's own box.
+
+**Depth was carried by 0.8px of type size.** h1 and h2 rows were 13.6px, h3
+rows 12.8px, every row weight 400 in one colour (`rgb(76, 85, 99)`), and
+12.8px of indent per level. DESIGN.md's hierarchy section already says what
+to do: weight, colour and case before another size step. So h1 is `--ink` at
+600, h2 `--ink` at 500, h3 and h4 muted at `--text-base`, and each nested row
+draws a hairline guide at the middle of its own indent step, which turns
+accent on the marked row. The guide is a `::before` rather than a border
+because a border would move the text away from the indent `docoutline.js`
+asserts, and its `left` starts from a literal `0.25rem` rather than
+`--space-1`: that token carries `--density`, and a guide drawn from a
+different origin than the text it guides drifts the moment someone picks
+compact.
+
+**An empty References reserved a heading and the heaviest control on the
+panel.** 69.4px of column for a 12px uppercase eyebrow and a 226px full-width
+ghost button over zero rows. Backlinks and "notes it draws on" already hide
+themselves when empty; References cannot, because the way to attach the first
+one is inside it. So the section empties out instead: the eyebrow, the empty
+list, the rule above it and the 4rem floor all go, and what is left is a
+109.5px text action in the same muted ink as the storage help beside it. 28px
+of column, measured. Written as `:has(> .doc-outline:empty)` rather than a
+class from JS, so it covers all three secondary sections without a fourth
+thing to keep in step with three renderers that already end in
+`replaceChildren()`. `#doc-outline-wrap` is excluded on purpose: it is what
+the tab is called, so it keeps its heading and answers with a sentence.
+
+**The Documents tab was one card and seven loose blocks.** Only the selected
+row drew a container, and it drew a fill *and* an accent edge, which is the
+one shape DESIGN.md's surface tiers forbid ("a selected row is a fill, never
+a fill plus an accent edge"). Rows were 56.5px or 78.5px depending on whether
+the title wrapped, and the title was the largest thing in the sidebar at
+0.92rem full weight. Now every row is tinted `--surface-2`, hover is
+`--surface-3`, the open one is `--accent-soft`, the title is one line at
+`--text-md` with the full text on the row's tooltip, and all eight rows
+measure 54.8px. Each row also says what kind of file it is: `file_type` is
+already in `GET /documents`' summary payload, so there is no second request
+and no per-row fetch, and the sweep proves it by opening a `.py` and reading
+`.py` back off its row.
+
+**Contrast, measured rather than assumed** (`contrast.js` never visits the
+documents tab: its `TABS` list has seven tabs and documents is not one of
+them, which is itself worth knowing). Light: 6.99 to 15.52 for every new
+piece of text, the marked outline row 13.03. Dark had to be sampled from
+rendered pixels with `scratchpad/pngpixel.py`, because the page's background
+there is a radial gradient on `<html>` under a 55% opaque card: the marked
+row is 8.90, a resting document row's title 11.47, its meta line 6.37, an h3
+outline row 7.07.
+
+**Decisions, so they are not remade.**
+- A long heading still clips with an ellipsis rather than wrapping. An
+  outline is scanned down its left edge, and a wrapped row costs that edge;
+  the full text is on the row's `title`.
+- `#doc-sidebar-tabs` was left alone. Its `padding: 4px 50.4px 4px 0px` is
+  the reserved lane past the collapse toggle and its `border-radius: 0` is
+  the underline strip this file already recorded as a deliberate redesign
+  away from `.seg`'s filled pill; the paint on the tabs themselves is
+  rounded.
+- Outline rows stay dense (24 to 25.2px) rather than taking `--target-min`'s
+  28px. A table of contents is a list you scan, 21 rows of it, and 24px is
+  WCAG 2.2 AA's own floor. Worth revisiting if the sidebar ever gets a touch
+  layout of its own.
+
+**The new recipe and its lint**, standing order 11. "A list that says where
+you are in something" is now a row in DESIGN.md's recipe index, with
+`tests/test_ui_recipes.py::test_a_row_that_says_where_you_are_also_says_so_to_a_screen_reader`
+in the same commit: the outline's mark must be painted from `[aria-current]`,
+and any frontend file that adds an `is-current` class must set the attribute
+beside it.

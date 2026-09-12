@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- An emptied mind map is no longer a dead end. Reported: "if i delete all
+  nodes in a mindmap, I cant make more nodes". Every way of adding a node
+  hung off a node that was already there, so a map with zero nodes offered
+  nothing; it now shows one sentence and one action that makes the first
+  topic, in place of the whiteboard's own help panel, which talks about pens
+  and shapes.
+- A map keeps at least one topic: deleting the last one is refused at both
+  delete paths, and the refusal offers "Clear the map", which takes the whole
+  map away and leaves one blank topic ready to type into.
 - The documents formatting toolbar's single scrolling row no longer clips its
   icons: the horizontal scrollbar's own strip was coming out of the existing
   bottom padding rather than being added beneath it. Measured at 520px wide
@@ -49,6 +58,17 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- A mind map has its own dock rather than the whiteboard's. The pen,
+  highlighter, eraser, fill, the six shapes, the sticky, the free text box
+  and the image are hidden on a map (13 of the 22 tool buttons could do
+  nothing a map understands); select, pan, lasso, the link tools, delete and
+  undo/redo stay. In their place: add topic, add child, add sibling,
+  collapse or expand the selected branch, branch colour and focus, the
+  gestures that until now were keys and nothing else.
+- Branch colour can be set. The renderer has carried a node's colour down its
+  branch since the map's second phase and nothing in the app could choose
+  one; it now sits in the map dock, with "Reset the colour to the branch" on
+  the node's own menu.
 - The quick-nav guide ("m") stays open until dismissed, by pressing "m"
   again or its new close button, rather than hiding on a 900ms timer.
 - Line numbers leave the view menu: numbering is a toggle, not a view. Plain

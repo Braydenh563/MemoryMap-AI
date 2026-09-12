@@ -8152,6 +8152,12 @@ input[type="file"] {
    than to the node it is folded into. */
 .wb-map-count {
   position: absolute;
+  /* A button now (§12.1 item 7: it reopens the branch on click), so it has to
+     be told not to look like one: the app's button ramp would give a 20px
+     counter a hairline, a lift and a hover fill, and it is a count, not a
+     control you press twice. The pointer and the title say what it does. */
+  border: 0;
+  cursor: pointer;
   /* **Directly above the chevron, not beside it.** Two versions were measured
      before this one and both collided with the chevron, which hangs off the
      same edge vertically centred: hanging off the corner overlapped it by

@@ -301,6 +301,61 @@ const liveSections = () =>
     chevronFold === true && afterSpace.collapsed && !afterSpace.panning,
     JSON.stringify(afterSpace));
 
+  // --- uncollapse: three ways back (§12.1 item 7) ---------------------------
+  await newBoard(page, "Sweep folds", "map");
+  await page.evaluate(async () => {
+    const root = wbMapIndex().roots[0];
+    const kid = await wbMapAddChild(root.id);
+    await wbMapAddChild(kid.id);
+  });
+  await page.waitForTimeout(3200);
+  await page.keyboard.press("Escape");
+
+  const badge = await page.evaluate(async () => {
+    const i = wbMapIndex();
+    const kid = i.childrenOf.get(i.roots[0].id)[0];
+    await wbMapToggleCollapse(kid.id);
+    await new Promise((r) => setTimeout(r, 800));
+    const el = document.querySelector(`.wb-object[data-id="${kid.id}"] .wb-map-count`);
+    return {
+      tag: el ? el.tagName : null,
+      shown: el ? !el.hidden : false,
+      text: el ? el.textContent : "",
+      label: el ? el.getAttribute("aria-label") : "",
+      border: el ? getComputedStyle(el).borderTopWidth : "",
+    };
+  });
+  check("a folded branch's count is a real button that says what it opens",
+    badge.tag === "BUTTON" && badge.shown && badge.text === "1"
+      && /Open the 1 topic folded in here/.test(badge.label) && badge.border === "0px",
+    JSON.stringify(badge));
+
+  const reopened = await page.evaluate(async () => {
+    const i = wbMapIndex();
+    const kid = i.childrenOf.get(i.roots[0].id)[0];
+    document.querySelector(`.wb-object[data-id="${kid.id}"] .wb-map-count`).click();
+    await new Promise((r) => setTimeout(r, 900));
+    return Boolean(wbMapIndex().byId.get(kid.id).data?.collapsed);
+  });
+  check("clicking the count opens the branch again", reopened === false, String(reopened));
+
+  const expandAll = await page.evaluate(async () => {
+    const i = wbMapIndex();
+    for (const node of i.nodes) {
+      if ((i.childrenOf.get(node.id) || []).length) await wbMapToggleCollapse(node.id);
+    }
+    await new Promise((r) => setTimeout(r, 1200));
+    const folded = wbMapIndex().nodes.filter((o) => o.data?.collapsed).length;
+    const item = document.getElementById("wb-map-expand-all");
+    const hidden = item.hidden;
+    item.click();
+    await new Promise((r) => setTimeout(r, 2000));
+    return { folded, hidden, after: wbMapIndex().nodes.filter((o) => o.data?.collapsed).length };
+  });
+  check("and the map menu opens every folded branch at once",
+    expandAll.hidden === false && expandAll.folded >= 1 && expandAll.after === 0,
+    JSON.stringify(expandAll));
+
   await browser.close();
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

@@ -3348,13 +3348,25 @@ function wbBuildMapNode(el, d) {
     });
   }
 
-  // The count badge: how much a collapsed branch is holding. Without it a
-  // collapsed node is indistinguishable from a leaf, which is the difference
-  // between "folded away" and "not there".
-  el.append("span")
+  //: The count badge: how much a collapsed branch is holding. Without it a
+  //: collapsed node is indistinguishable from a leaf, which is the difference
+  //: between "folded away" and "not there".
+  //:
+  //: **A button, because §12.1 item 7 says it reopens on click.** It was a
+  //: `<span aria-hidden>` and read as a decoration: the number told you
+  //: something was folded away and the only way back was the chevron beside
+  //: it. As a button it also answers Space and Enter for free once focused,
+  //: which is the other half of the same item (and of §12.0's Space
+  //: decision).
+  el.append("button")
+    .attr("type", "button")
     .attr("class", "wb-map-count")
-    .attr("aria-hidden", "true")
-    .property("hidden", true);
+    .property("hidden", true)
+    .on("pointerdown", (event) => event.stopPropagation())
+    .on("click", (event) => {
+      event.stopPropagation();
+      wbMapToggleCollapse(d.id);
+    });
 
   // The chevron (collapse) and the `+` (add a child) are the pointer half of
   // the keyboard gestures: `.ghost.small.icon-only`, the app's own tonal
@@ -3479,6 +3491,9 @@ function wbPaintMapNode(el, d, index, colors) {
     const buried = collapsed && index ? wbMapSubtree(index, d.id).length - 1 : 0;
     badge.hidden = buried <= 0;
     badge.textContent = String(buried);
+    const label = `Open the ${buried} topic${buried === 1 ? "" : "s"} folded in here`;
+    badge.title = label;
+    badge.setAttribute("aria-label", label);
   }
   el.classed("wb-map-collapsed", collapsed);
   el.classed("wb-map-pinned", Boolean(d.data?.pinned));
@@ -3581,6 +3596,26 @@ function wbMapStartSizeDrag(grip, event, d) {
   grip.addEventListener("pointermove", move);
   grip.addEventListener("pointerup", done);
   grip.addEventListener("pointercancel", done);
+}
+
+//: Open every folded branch on the map (§12.1 item 7's third route, after the
+//: badge and the chevron). One PUT per folded node rather than a bulk call,
+//: which is the same bargain `wbSaveBulkMove` makes and for the same reason:
+//: there is no bulk endpoint, and the number of *folded* nodes on a map is
+//: small even when the map is not.
+async function wbMapExpandAll() {
+  const folded = wbMapIndex().nodes.filter((o) => o.data?.collapsed);
+  if (!folded.length) {
+    toast("Nothing is folded away on this map.");
+    return;
+  }
+  for (const node of folded) {
+    node.data = { ...node.data, collapsed: false };
+    await wbSaveObject(node);
+  }
+  renderWhiteboardNow();
+  wbSyncMapToolState();
+  toast(`Opened ${folded.length} branch${folded.length === 1 ? "" : "es"}.`);
 }
 
 //: Open the library item a reference node stands for. One place, because
@@ -5267,6 +5302,8 @@ function wbSyncMapChrome() {
   }
   const statsRow = document.getElementById("wb-map-stats-item");
   if (statsRow) statsRow.hidden = !isMap;
+  const expandRow = document.getElementById("wb-map-expand-all");
+  if (expandRow) expandRow.hidden = !isMap;
   if (!isMap && wbMapFocusState) wbMapFocusState = null;
   wbSyncMapViews();
 }
@@ -7236,6 +7273,7 @@ async function initWhiteboard() {
   //: redrawn.
   $("wb-map-perspective")?.addEventListener("change", (e) => wbMapSetPerspective(e.target.value));
   $("wb-map-stats-item")?.addEventListener("click", wbShowMapStats);
+  $("wb-map-expand-all")?.addEventListener("click", wbMapExpandAll);
   $("wb-map-focus-less")?.addEventListener("click", () => wbMapStepFocus(-1));
   $("wb-map-focus-more")?.addEventListener("click", () => wbMapStepFocus(1));
   $("wb-map-focus-clear")?.addEventListener("click", wbMapClearFocus);

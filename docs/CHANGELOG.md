@@ -234,6 +234,32 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Searching for a percent sign found every note in the notebook. `%` and `_`
+  are wildcards in the query the search builds, and nothing in the search box
+  said so, so `100%` matched every row and `a_b` matched `axb`. Thirteen
+  searches across notes, documents, chats, tags and wiki links now escape
+  what you typed, and the test greps every one of them so a new search cannot
+  quietly reintroduce it.
+
+- On a phone, the whole application slid 7px sideways under your finger, on
+  every tab: the header asked for 410px of a 390px screen. It fits now, and
+  on a 360 or a 320 the decorative mark steps aside for the controls. The
+  dashboard's "Edit layout" button, which had been half off the right edge
+  and only reachable because of that slide, takes a row of its own.
+
+- Touch targets below 44px in thirteen places nobody had measured: both
+  sub-tab strips, the dashboard's quick links and stat tiles, and nine of the
+  settings sheet's twenty controls. The sweep that checks this covered three
+  surfaces out of sixteen and now covers all of them.
+
+- The changelog was the one part of the app that answered a request from
+  somebody who had not unlocked the notebook. Every route is now walked by a
+  test that asks each one, without a token, whether it says no.
+
+- An update whose download link pointed anywhere but this app's own releases
+  is refused before anything is downloaded. The installer is downloaded and
+  run silently, so where it comes from is worth checking.
+
 - A note now has the same length limit a document has. The same paste was
   accepted in one box and refused in the other, and the accepted one took
   over two seconds. A tag is trimmed to a label's length instead of being

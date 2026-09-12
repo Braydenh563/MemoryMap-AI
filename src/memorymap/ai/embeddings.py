@@ -17,6 +17,7 @@ import threading
 import time
 
 import numpy as np
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -587,6 +588,15 @@ class EmbeddingService:
         vector = self.embed_text(embedding_text(session, entry))
         if vector is None:
             return False
+        # **Storing is storing, not inserting.** `entry_id` is unique, so a
+        # second call for the same note raised `UNIQUE constraint failed:
+        # embeddings.entry_id` and took whatever was saving with it. Every
+        # caller today already deletes the old row first, or selects only
+        # notes that have none, so nothing was broken; the duplication of
+        # that guard across four call sites was the bug waiting to happen,
+        # because the next caller has to know to write it and the name says
+        # it does not have to. Their deletes stay, harmlessly, as no-ops.
+        session.execute(sa_delete(EmbeddingRecord).where(EmbeddingRecord.entry_id == entry.id))
         session.add(
             EmbeddingRecord(
                 entry_id=entry.id,

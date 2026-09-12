@@ -72,3 +72,28 @@ def test_concurrent_captures_all_survive(parallel_app):
         names = session.scalars(select(Category.name)).all()
         assert len(names) == len(set(names)), f"a duplicate category survived: {names}"
         assert session.scalar(select(func.count()).select_from(Entry)) == WRITERS * EACH
+
+
+def test_storing_a_vector_twice_replaces_it_rather_than_raising(session):
+    """`store_for_entry` is named for a result, not for an insert.
+
+    `embeddings.entry_id` is unique, so a second call for the same note
+    raised `UNIQUE constraint failed: embeddings.entry_id` and took whatever
+    was saving down with it. Nothing was broken in practice: all four callers
+    already delete the old row first, or select only notes that have none.
+    That duplicated guard was the bug waiting to happen, because the next
+    caller has to know to write it and the method's name says it does not.
+    """
+    from sqlalchemy import func
+
+    from memorymap.core.database import EmbeddingRecord
+    from memorymap.entry import manager
+    from tests.fakes import FakeEmbeddingService
+
+    entry = manager.create_entry(session, "a note about gardens", tags=[])
+    session.commit()
+    service = FakeEmbeddingService(available=True)
+
+    assert service.store_for_entry(session, entry) is True
+    assert service.store_for_entry(session, entry) is True
+    assert session.scalar(select(func.count()).select_from(EmbeddingRecord)) == 1

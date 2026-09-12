@@ -550,3 +550,66 @@ work found and did *not* fix, which is the part that is still open.
 - "the whole documents sidebar and ui needs fixing and the document editor
   still needs a lot of refinement and cleaning but its still in development
   so just make sure you cover it all."
+
+## 10. The spelling check: decided 2026-09-12
+
+**The problem, stated once.** The spelling rule looked each word up in
+`DOC_AUTOCORRECT`, a hand-written table of 42 typos, and treated every word
+absent from it as correctly spelled. "tets" was never flagged and neither
+was anything else a person mistypes. The owner's two reports are that one
+cause seen twice: "spelling errors and grammar arent picked up all the
+time", and "no edit suggestions popup panel appears when I click on
+underlined words", the second because the underline being clicked was the
+browser's native squiggle (the editor set `spellcheck="true"`), which the
+app cannot see and has no finding under.
+
+**Decision: ship a real word list (option a), not an honest retreat
+(option b).** The panel, the popup, the ranked suggestions, the dictionary
+and the ignore list were all already built and all of them were starved of
+the one thing that makes them worth opening. Retreating to "we only check
+grammar and style" would have left the owner with a checker that still
+cannot answer a click on a misspelling, because the browser's squiggle is
+not ours to open a menu on. The list is the cheaper half of the work and it
+is the half that makes the other half true.
+
+**What was chosen, and the numbers.**
+- The English Speller Database (SCOWL's successor), tier 60, US and UK
+  spellings both, plus its "hacker" special list. `frontend/vendor/wordlist/`
+  with its `LICENSE` and a `build.sh` that records the exact parameters.
+- Licence: permissive, notice-retention only. It asks that the copyright
+  notice travel with any list built from it, which `LICENSE` does. Safe
+  under this project's AGPL-3.0 (ANALYSIS.md's licence constraint).
+- 92,972 words. 871,173 bytes raw, 252,926 over the wire under this app's
+  own gzip, one fetch, lazily on the first prose pass, never on first paint.
+- `DOC_EXTRA_WORDS` in documents.js carries 75 words the app is written in
+  that a general list does not have yet (json, backend, webhook). It is in
+  the app rather than appended to the vendored file so that file stays
+  exactly what its build script produces.
+
+**The rules that keep it from crying wolf**, each one measured rather than
+assumed: code fences, inline code, addresses, markdown link destinations,
+reference definitions, html tags, `[[note links]]` and frontmatter are
+masked out of every prose rule, not only the spelling one; acronyms
+(`HTTP`), internal capitals (`MemoryMap`, `docSurface`) and letter runs
+touching a digit, a slash, an `@` or a dotted name (`utf-8`, `app.js`) are
+never checked. Measured on 8,000 characters of this project's own README:
+six findings, five distinct words, every one of them a product name or a
+coinage rather than a false positive.
+
+**The browser's own spellcheck is now off while ours is on**, and
+conditional rather than deleted: `docCmParts.spell` turns it back on if the
+word list fails to load. Two underlines under one word, only one of which
+answers a click, is worse than either alone.
+
+**Suggestions and autocorrect come from the same generator.** The candidate
+set is the edits one step from the typed word, filtered against the list
+(Norvig's shape: a few hundred Set lookups rather than 93,000 edit-distance
+computations), ranked by how specific the edit is, because there are n-1
+transpositions of a word against 25n substitutions. Autocorrect fires only
+on a *unique* transposition, or a unique dropped letter when there is no
+transposition, on a word of four letters or more; everything else is a menu.
+
+**Measured cost.** `docProseFindings` over an 8,000-character document: 2.8ms
+cold, 0.9ms warm, against a 300ms keystroke-to-underline budget. The
+candidate list is computed when the menu opens, not during the pass: doing
+it per unknown word per pass measured 29ms on a 276-character document.

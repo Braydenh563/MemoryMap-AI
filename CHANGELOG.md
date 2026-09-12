@@ -7,6 +7,23 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added
+
+- The documents editor checks spelling against a real dictionary. It used to
+  look each word up in a hand-written table of 42 typos and treat everything
+  else as correctly spelled, so an ordinary mistyping was never flagged and
+  the only mark under it was the browser's own squiggle, which the app cannot
+  see and cannot open a menu on. A 92,972-word English list is vendored under
+  `frontend/vendor/wordlist/` with its licence, loaded lazily on the first
+  prose pass, 252,926 bytes over the wire. Code fences, inline code,
+  addresses, link destinations, html tags, note links and frontmatter are not
+  read by any of the prose rules, and acronyms, identifiers and anything
+  touching a digit or a path are never checked. Measured over 8,000
+  characters of this project's README: six findings, no false positives.
+- Suggestions for a flagged word come from the dictionary, ranked by how
+  specific the edit is, so "tets" now offers "test" first rather than not
+  offering it at all.
+
 ### Fixed
 
 - An emptied mind map is no longer a dead end. Reported: "if i delete all
@@ -18,6 +35,18 @@ below). Versioning is `0.x` while the app stabilises.
 - A map keeps at least one topic: deleting the last one is refused at both
   delete paths, and the refusal offers "Clear the map", which takes the whole
   map away and leaves one blank topic ready to type into.
+- Tab in the documents editor indents a list item from wherever the caret is
+  in it, rather than pushing two spaces into the middle of the word, and
+  Shift+Tab pulls it back instead of moving focus to the dock. Reported: "I
+  can't press tab to indent without it selecting an element." Shift+Tab with
+  no selection also leaves a caret now, where it used to select the whole
+  line it had just dedented.
+- Autocorrect in the documents editor works again. It had one caller, the
+  delegated input listener, which returns early for anything inside the
+  CodeMirror view, so the feature had not run since the editor changed
+  surface. It also fixes an unambiguous typo the dictionary knows about
+  rather than only the 42 in the table, and its correction is now its own
+  undo step: one Ctrl+Z used to take back the whole sentence.
 - The documents formatting toolbar's single scrolling row no longer clips its
   icons: the horizontal scrollbar's own strip was coming out of the existing
   bottom padding rather than being added beneath it. Measured at 520px wide

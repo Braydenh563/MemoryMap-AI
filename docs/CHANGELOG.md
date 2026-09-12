@@ -7,7 +7,225 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed
+
+- The Boards & maps dashboard widget shows a board, not a box in a box. Its
+  thumbnail was a 40.5px square drawing its own border and fill, with the board
+  letterboxed inside it at the board's real shape: 7.6px of empty band above
+  and below, inside a second border, and 59% of the box was the picture. It is
+  the same 72 by 40 the Library's own board rows use now, with one frame and
+  85%. A board's item count also stopped calling its text boxes "images".
+
+- The one square tab in the app is round. Swept every visible element's corner
+  radius on all ten tabs: the main strip was never square, and the only
+  tab-like control computing 0px was the Documents sidebar's, whose hover
+  painted a hard-edged grey rectangle clamped to the word next to a rounded
+  collapse toggle.
+
+- The chat composer no longer opens wearing a focus ring. Reported as a panel
+  shadow; it was the dock's own accent ring, lit by the focus the app puts in
+  the composer so you can arrive typing. The caret still lands there, the ring
+  waits until the focus is yours.
+
+- Dark mode answers the Appearance sliders. Measured at 5% and 40%: the
+  shadow-strength slider moved every shadow in light and none in dark, the
+  sheen slider the same, and the small-raised shadow had no dark value at all,
+  so it was a blue-violet ink on a near-black page. Default appearance is
+  unchanged; the controls now reach both modes.
+
+- A dropdown is as tall as the room under it. The whiteboard's View and Arrange
+  menus were capped against their button's bottom while having already been
+  moved higher up the window, so at 1440x700 the View menu scrolled 594px of
+  content through a 505px port with 89px of window to spare. Nothing is clipped
+  and nothing is short at 900, 700 or 600.
+
+- Ctrl+S reaches the code written for it. A shortcut binding on the same keys
+  answered first, so with Settings open it saved the note composer behind the
+  modal instead. It now presses the visible section's Save button, or rings the
+  nav button for a section that saves as you change it, and the ring is drawn
+  on top of the control's own shadow rather than replacing it for its duration.
+
+- The dashboard's Continue pill shows the note again. It is twice the width of
+  its neighbours so it can carry the note's first line, and a later rule had
+  hidden that line: 68.7px of the word "Continue" centred in a 535px pill.
+
+- "Describe with AI" is asked for a description rather than a transcription.
+  Handed two thousand characters of a document and told to describe it, a
+  small local model very often gave back the opening of that document,
+  lightly reworded. The prompt now rules that out in as many words and asks
+  what the file contains, not only what it is about.
+
+- The spelling menu's suggestions read as words again. Every candidate drew
+  the same check mark, so five suggestions looked like five identical
+  commands and the eye had nothing to tell them apart by except the text it
+  was meant to be comparing. The candidates are now bare, with the first in
+  bold, and the check mark is kept for the panel's own apply button.
+
+- The Graph's toolbar fits on one row again at laptop widths. Its three zones
+  wanted nine pixels more than the row had at 1024, so the whole actions
+  group, including the tab's primary action, dropped to a second line with
+  667px of empty space beside it. The "Concept maps" link keeps its icon and
+  gives up its label below 1200, which buys back 111px.
+
+- A note reference in an answer now says which note it opens. Reported: an
+  answer described a bubble tea note, called it "note #68", and the link
+  opened a Shakespeare parody. The link was never pointing at the wrong
+  place; the model had written an id belonging to a different note, and the
+  app repeated it as a citation without saying so. The note's own first line
+  is now shown beside the reference, so a mismatch is visible in the sentence
+  rather than one click later.
+
+- The Dashboard shows something on a phone. Its "Start something" tiles were
+  a one-column grid at 390px (two columns needed 370px of the 364px
+  available, so the layout fell back to one by six pixels), which made a
+  323px tower and pushed the first widget to y=870 on an 844px screen:
+  nothing on the page was above the fold. The tiles now scroll sideways like
+  the row beneath them, and the first widget starts at y=624.
+
+- The AI edit history and document history dialogs open centred. They were
+  1440px wide against the left edge of the window, because the page-column
+  rules reach any direct child of a page and a dialog written there took the
+  column's width and margins instead of the centring every other dialog gets.
+  Reported three times.
+
+- Pressing a button that centres itself no longer makes it jump. The chat's
+  jump-to-latest pill moved 68px to the right for as long as the mouse was
+  down, measured; so did anything else placed with a transform, because the
+  press cue set `transform` and replaced the placement instead of composing
+  with it. Reported twice, for two different buttons.
+
+### Changed
+
+- The two segmented bars in popups (the document assistant's Edit / Write /
+  Remove, the graph's layout picker) read as the segmented control they already
+  were. The selected option was a 14% accent tint behind body-coloured text
+  with a drop shadow under it, at 12px in a 26px segment, where every other
+  segmented control in the app paints a solid accent behind white. The bar is
+  also as wide as its options now: 209px, from 686px of well holding 161px of
+  them.
+
+- Buttons look like buttons again. A tonal button (`button.ghost`, most of
+  the app) draws a hairline edge and sits slightly proud of its surface;
+  a flat tint with no rim reads as a shape with text in it, which is what
+  three reports in a row said. A *run* of them inside something that already
+  frames them stays quiet and lights up under the pointer: a dock, a
+  whiteboard panel, a card's row actions. Measured: a note list used to put
+  52 outlined boxes on one screen, now none, and the largest run of tonal
+  buttons anywhere is five.
+
+### Added
+
+- Reading a file with the AI shows up in Settings, Background tasks.
+  "Describe with AI", the local OCR pass and the vision read were all
+  invisible while they ran: the button went quiet and the panel that lists
+  background work showed nothing, so on a slow local model the only evidence
+  anything was happening was that the app had not answered yet.
+
+- The documents editor checks spelling against a real dictionary. It used to
+  look each word up in a hand-written table of 42 typos and treat everything
+  else as correctly spelled, so an ordinary mistyping was never flagged and
+  the only mark under it was the browser's own squiggle, which the app cannot
+  see and cannot open a menu on. A 92,972-word English list is vendored under
+  `frontend/vendor/wordlist/` with its licence, loaded lazily on the first
+  prose pass, 252,926 bytes over the wire. Code fences, inline code,
+  addresses, link destinations, html tags, note links and frontmatter are not
+  read by any of the prose rules, and acronyms, identifiers and anything
+  touching a digit or a path are never checked. Measured over 8,000
+  characters of this project's README: six findings, no false positives.
+- Suggestions for a flagged word come from the dictionary, ranked by how
+  specific the edit is, so "tets" now offers "test" first rather than not
+  offering it at all.
+
+### Fixed
+
+- An emptied mind map is no longer a dead end. Reported: "if i delete all
+  nodes in a mindmap, I cant make more nodes". Every way of adding a node
+  hung off a node that was already there, so a map with zero nodes offered
+  nothing; it now shows one sentence and one action that makes the first
+  topic, in place of the whiteboard's own help panel, which talks about pens
+  and shapes.
+- A map keeps at least one topic: deleting the last one is refused at both
+  delete paths, and the refusal offers "Clear the map", which takes the whole
+  map away and leaves one blank topic ready to type into.
+- The documents editor's suggestion menu reads down its left edge. The rows
+  had inherited the shell's centred button layout, so each icon sat 29, 30 or
+  31px from the row edge depending on how long its label was; they line up at
+  7px now. The menu also caps its height and scrolls, which it needs now that
+  a real dictionary can fill it.
+- Markdown markers in the rendered view stay down until someone is in the
+  editor. A document nobody had clicked in showed its first heading's "#",
+  because an untouched editor's caret sits at offset 0 and a marker on the
+  caret's line is revealed by design.
+- Tab in the documents editor indents a list item from wherever the caret is
+  in it, rather than pushing two spaces into the middle of the word, and
+  Shift+Tab pulls it back instead of moving focus to the dock. Reported: "I
+  can't press tab to indent without it selecting an element." Shift+Tab with
+  no selection also leaves a caret now, where it used to select the whole
+  line it had just dedented.
+- Autocorrect in the documents editor works again. It had one caller, the
+  delegated input listener, which returns early for anything inside the
+  CodeMirror view, so the feature had not run since the editor changed
+  surface. It also fixes an unambiguous typo the dictionary knows about
+  rather than only the 42 in the table, and its correction is now its own
+  undo step: one Ctrl+Z used to take back the whole sentence.
+- The documents formatting toolbar's single scrolling row no longer clips its
+  icons: the horizontal scrollbar's own strip was coming out of the existing
+  bottom padding rather than being added beneath it. Measured at 520px wide
+  with the scrollbar rendering: 58px tall against a 36px control, 13px under
+  the buttons, where it was 50.8px with about 2px clearing the scrollbar.
+- The wrapping toolbar no longer spills its second row over the document. A
+  `min-height` on the strip replaced the automatic content floor a flex item
+  gets from `min-height: auto`; it is now scoped to the scrolling row, where
+  the content is always one control tall and the floor can never bite.
+- An empty chat composer can be dragged taller. The rule that forgets a
+  dragged height on an empty box was firing on the release of the drag
+  itself, so the gesture undid itself and an empty composer could not be
+  resized at all.
+- Dropdowns no longer flash in the top corner before landing. Placement was
+  computed from the opener's rect without checking it had been laid out; an
+  all-zero rect collapsed the arithmetic to the margin in both axes. It now
+  retries once on the next frame, held invisible rather than painted in the
+  corner.
+- Menu heights are no longer capped from an un-laid-out rect. Measured with
+  the whiteboard tab hidden, every board menu reported `top: 0` and was
+  given an 892px cap on a 900px viewport; a stale large `top` is the same
+  bug in the direction that produces an overly short menu.
+- A dropdown inside a native `<dialog>` (the documents dictionary's spelling
+  picker) opened behind the dialog: the menu escaped to `<body>`, which is
+  outside the dialog's top layer. It now escapes to the dialog itself.
+- The dictionary dialog's spelling picker and "Add a word" button are one
+  height again.
+- `[[wiki links]]` to a document whose title has since changed, or was
+  shorter when the link was written, now resolve by prefix as note links
+  already did.
+- "Describe with AI" on a scan the AI reader had already read no longer
+  re-captions a raw page: `vision_ocr_text` was missing from the fallback
+  chain.
+- A note dragged from the Library onto a whiteboard lands where it was
+  dropped. The drop point was measured against the layer that already
+  carries the pan and zoom as a CSS transform, then had the same transform
+  applied to it a second time.
+
+### Changed
+
+- A mind map has its own dock rather than the whiteboard's. The pen,
+  highlighter, eraser, fill, the six shapes, the sticky, the free text box
+  and the image are hidden on a map (13 of the 22 tool buttons could do
+  nothing a map understands); select, pan, lasso, the link tools, delete and
+  undo/redo stay. In their place: add topic, add child, add sibling,
+  collapse or expand the selected branch, branch colour and focus, the
+  gestures that until now were keys and nothing else.
+- Branch colour can be set. The renderer has carried a node's colour down its
+  branch since the map's second phase and nothing in the app could choose
+  one; it now sits in the map dock, with "Reset the colour to the branch" on
+  the node's own menu.
+- The quick-nav guide ("m") stays open until dismissed, by pressing "m"
+  again or its new close button, rather than hiding on a 900ms timer.
+- Line numbers leave the view menu: numbering is a toggle, not a view. Plain
+  view now numbers by default, since it is the view with no grammar and no
+  decorations, and an explicit off still wins.
+- Plain view gets a plain black or white ground, painted behind the editor
+  rather than fighting CodeMirror's own stylesheet.
 
 ## [0.3.0] - 2026-09-09
 

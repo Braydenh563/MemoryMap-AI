@@ -153,6 +153,32 @@ never lost to the smaller stuff.
       panel shadow, dashboard back-to-top, light-vs-dark glass: each is
       its own visual judgement call, none reproduced live this pass.
       Placed here rather than fixed blind.
+    **Reproduced and fixed, 2026-09-12** (measurements in the commits and in
+    `agent-remaining/visual-c.md`):
+    - **Boards & maps widget: fixed.** The thumbnail was a 40.5 by 40.5 square
+      drawing its own border and fill with the board letterboxed inside it, so
+      a 100x65.7 board came out 38.5 by 25.3 with 7.6px of empty band above and
+      below, inside a second border 1px outside the first; 59% of the box was
+      the picture. Now 72 by 40, one frame, 85%. A board's meta also called its
+      objects "images" and reads "items".
+    - **Square tab corners: fixed, and it was one control.** Swept every
+      visible element's radius on all ten tabs; the main strip is not square,
+      and the only tab-like control computing 0px was the Documents sidebar's
+      Documents/Outline strip, whose hover painted a hard-edged grey rectangle
+      clamped to the word. The wider "all the containers have hard corner
+      rectangular edges" half did not reproduce at 1440x900: no framed square
+      container on any tab but the full-width status bar.
+    - **Chat panel shadow: fixed.** It was `.chat-dock:focus-within`'s accent
+      ring, lit by `switchTab`'s own focus, so every arrival on Chat opened
+      with a blue halo round the composer. The caret still lands there; the
+      ring waits for the reader.
+    - **Light vs dark glass: three token bugs fixed.** `--shadow-sm` had no
+      dark value at all (a blue-violet ink on a near-black page), and neither
+      the shadow-strength nor the sheen-strength slider reached dark mode.
+    - **Still open from this entry**: the graph suggested-links panel, the
+      panel/sidebar overflow, the AI skills sidebar height, the dashboard's
+      back-to-top button, the files description, and the documents code editor
+      (DOCUMENTS_PLAN Phase 3).
 
 107. **The 0.3.0 blocker list (the owner, 2026-09-09 23:25, verbatim).**
     "should I leave this pr open until we can finish the rest of the still
@@ -203,8 +229,24 @@ never lost to the smaller stuff.
     the AI history popover still found-not-fixed. 107b: **done, merged
     and pushed (`b24836d`)**, all four items closed plus two bonus finds
     (a select offering a hidden option; focusing a menu's first row
-    scrolling the page enough to close the menu itself). 107c and 107d:
-    not started.
+    scrolling the page enough to close the menu itself).
+    **Status, 2026-09-12.** 107c: three of four closed. The whiteboard View
+    and Arrange menus were capped from the opener's bottom while
+    `placeEscapedMenu` had already moved them higher up the window, so at
+    1440x700 the View menu scrolled 594px of content through a 505px port
+    with 89px of window to spare; it now takes the room under where it
+    actually sits. Ctrl+S in settings never reached the settings-aware code
+    written for it at all, because `shortcuts` carries a `save` binding on the
+    same keys that answers first; it does now, it rings the section's own Save
+    button or the nav button for a section that saves as you change it, and
+    the ring composes with the control's resting shadow instead of replacing
+    it. The dashboard band had not in fact been changed (the redesign
+    dispatched for it landed no commits); its one measurable defect, a
+    Continue pill holding double width for a note line a later rule hid, is
+    fixed. **Left: the packages row** (headers, badges and buttons displaced
+    onto separate rows), not reproduced this pass.
+    107d: **done**, recorded in `docs/DESIGN.md` and pointed at from
+    DOCUMENTS_PLAN.md.
     **The owner's live error, confirmed as this exact fix.** A console
     trace at `library.js:3291` ("Cannot set properties of null (setting
     'src')", from `openThisRow`/`ocrOpenSibling`) matched the pre-fix

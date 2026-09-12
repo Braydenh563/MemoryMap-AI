@@ -9,6 +9,46 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Boards & maps dashboard widget shows a board, not a box in a box. Its
+  thumbnail was a 40.5px square drawing its own border and fill, with the board
+  letterboxed inside it at the board's real shape: 7.6px of empty band above
+  and below, inside a second border, and 59% of the box was the picture. It is
+  the same 72 by 40 the Library's own board rows use now, with one frame and
+  85%. A board's item count also stopped calling its text boxes "images".
+
+- The one square tab in the app is round. Swept every visible element's corner
+  radius on all ten tabs: the main strip was never square, and the only
+  tab-like control computing 0px was the Documents sidebar's, whose hover
+  painted a hard-edged grey rectangle clamped to the word next to a rounded
+  collapse toggle.
+
+- The chat composer no longer opens wearing a focus ring. Reported as a panel
+  shadow; it was the dock's own accent ring, lit by the focus the app puts in
+  the composer so you can arrive typing. The caret still lands there, the ring
+  waits until the focus is yours.
+
+- Dark mode answers the Appearance sliders. Measured at 5% and 40%: the
+  shadow-strength slider moved every shadow in light and none in dark, the
+  sheen slider the same, and the small-raised shadow had no dark value at all,
+  so it was a blue-violet ink on a near-black page. Default appearance is
+  unchanged; the controls now reach both modes.
+
+- A dropdown is as tall as the room under it. The whiteboard's View and Arrange
+  menus were capped against their button's bottom while having already been
+  moved higher up the window, so at 1440x700 the View menu scrolled 594px of
+  content through a 505px port with 89px of window to spare. Nothing is clipped
+  and nothing is short at 900, 700 or 600.
+
+- Ctrl+S reaches the code written for it. A shortcut binding on the same keys
+  answered first, so with Settings open it saved the note composer behind the
+  modal instead. It now presses the visible section's Save button, or rings the
+  nav button for a section that saves as you change it, and the ring is drawn
+  on top of the control's own shadow rather than replacing it for its duration.
+
+- The dashboard's Continue pill shows the note again. It is twice the width of
+  its neighbours so it can carry the note's first line, and a later rule had
+  hidden that line: 68.7px of the word "Continue" centred in a 535px pill.
+
 - "Describe with AI" is asked for a description rather than a transcription.
   Handed two thousand characters of a document and told to describe it, a
   small local model very often gave back the opening of that document,
@@ -55,6 +95,14 @@ below). Versioning is `0.x` while the app stabilises.
   with it. Reported twice, for two different buttons.
 
 ### Changed
+
+- The two segmented bars in popups (the document assistant's Edit / Write /
+  Remove, the graph's layout picker) read as the segmented control they already
+  were. The selected option was a 14% accent tint behind body-coloured text
+  with a drop shadow under it, at 12px in a 26px segment, where every other
+  segmented control in the app paints a solid accent behind white. The bar is
+  also as wide as its options now: 209px, from 686px of well holding 161px of
+  them.
 
 - Buttons look like buttons again. A tonal button (`button.ghost`, most of
   the app) draws a hairline edge and sits slightly proud of its surface;

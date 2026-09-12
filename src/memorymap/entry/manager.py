@@ -86,6 +86,20 @@ def get_or_create_category(session: Session, name: str) -> Category:
     return category
 
 
+def set_category(session: Session, entry: Entry, name: str) -> Entry:
+    """Put a note in a category by name, creating the category if it is new.
+
+    The plain "file this here" move, without the correction bookkeeping
+    `update_entry_with_correction` does: that one exists to notice a person
+    overruling the AI, and a caller that is simply placing a note (a fixture,
+    an import, a tool) is not overruling anything. Kept beside
+    `get_or_create_category` because the pair is the whole of filing by name.
+    """
+    entry.category_id = get_or_create_category(session, name).id
+    session.flush()
+    return entry
+
+
 @events.writes("entry", "created")
 def create_entry(
     session: Session,

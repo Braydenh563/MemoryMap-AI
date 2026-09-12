@@ -24,7 +24,10 @@ import hashlib
 
 import pytest
 
-BRIEF = "WORLD_CLASS 15 I7/I9: the learning loop and its Settings section are not built yet"
+BRIEF = (
+    "WORLD_CLASS 15 I7/I9: the store and its boosts are built "
+    "(ai/learning.py); the consumers and the Settings section are not"
+)
 
 
 def _note(session, text, category=None):
@@ -47,7 +50,6 @@ def _table_hash(session, table: str) -> str:
 # --- I7: corrections are recorded and change behaviour ------------------------
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_a_refile_is_recorded_and_reaches_the_next_filing_prompt(session):
     from memorymap.ai import learning
 
@@ -62,7 +64,6 @@ def test_a_refile_is_recorded_and_reaches_the_next_filing_prompt(session):
     assert any(item["kind"] == "neighbour" and item["entry_id"] == entry.id for item in evidence)
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_two_refiles_away_from_a_category_stop_the_centroid_choosing_it(session):
     from memorymap.ai import learning
 
@@ -101,7 +102,6 @@ def test_a_dismissed_link_pair_never_returns(ai_client, fake_embeddings):
     assert (a["id"], b["id"]) not in pairs and (b["id"], a["id"]) not in pairs
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_boosts_are_bounded_and_decay(session):
     from memorymap.ai import learning
 

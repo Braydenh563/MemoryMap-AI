@@ -9,6 +9,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The notebook keeps what it has been corrected about, in one place. Moving
+  a note out of the category the AI chose, dismissing a suggested link,
+  opening a result after a question, or sending a resurfacing card away are
+  all recorded as corrections, and what a pile of the same correction adds
+  up to is a bounded weight that halves every thirty days, so a rule you
+  stop reasserting fades rather than becoming permanent.
+
 - Save a copy of a file from the Library. The Files rows' menu now hands you
   the original file back, which nothing in the Library could do before.
 
@@ -61,6 +68,16 @@ below). Versioning is `0.x` while the app stabilises.
   answers the app's own search box gets.
 
 ### Changed
+
+- The bottom of a picture card in the Library is a caption again, not a form.
+  A card carries its description, clamped to two lines so a long one cannot
+  push the cards beside it out of line, and under it only what that picture
+  actually has: how many places use it, and a fold for the text found in it
+  where there is any. Where the picture is used, opening it full size, copying
+  the markdown that puts it in a note, and every note, document and board it
+  appears in are rows of the card's menu. A card in a row of six stood 321.1px
+  whatever it held, with 54.5px of nothing under the emptiest one; it is
+  261.5px now, the bottoms line up, and the slack goes to the photograph.
 
 - The Documents sidebar was redesigned, both of its tabs. The outline now
   takes the height the column has instead of a fixed 224px window that hid 13

@@ -24,7 +24,7 @@ import logging
 import re
 from collections import OrderedDict
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -1136,9 +1136,23 @@ def _preview_fields(db: Session, board_id: int | None) -> dict:
     }
 
 
+#: A page of boards, and a page of board images. Both lists grow with the
+#: notebook rather than with anything the app controls, which is the rule
+#: `tests/test_list_endpoints_page.py` enforces. 200 because it is the number
+#: every other paged list here already uses, and because a board row carries a
+#: preview (up to `PREVIEW_POINTS` points): at 200 that is a response of tens
+#: of kilobytes instead of one that grows forever.
+BOARDS_PAGE_SIZE = 200
+BOARDS_PAGE_SIZE_MAX = 1000
+
+
 @router.get("/boards", response_model=list[BoardOut])
 def list_boards(
-    type: str | None = None, db: Session = Depends(get_session)
+    response: Response,
+    type: str | None = None,
+    limit: int = Query(default=BOARDS_PAGE_SIZE, ge=1, le=BOARDS_PAGE_SIZE_MAX),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_session),
 ) -> list[BoardOut]:
     """Boards actually in use, not, as the client used to build this list
     itself, every note in the notebook.
@@ -1160,6 +1174,19 @@ def list_boards(
     is tens of rows long, not thousands. An unknown value returns nothing
     rather than everything: a filter that silently ignores itself reads as
     "you have no maps" only after the user has read every row.
+
+    **Paged.** `limit`, `offset` and an `X-Total-Count` counted over the same
+    type filter as the page, so a caller that wants every board asks for the
+    next page until it has them all (`apiPagedList` in the frontend). The
+    default board is row one of page one and is counted like any other. The
+    order is the default board, then entry id ascending, which is the order
+    this list already came back in; the tiebreaker matters more here than
+    elsewhere, because two boards created in the same second would otherwise
+    be free to swap places between two pages and hide one of themselves.
+
+    The page boundary is also where the cost is: `_preview_fields` is a query
+    per board, and it now runs for the rows in the page rather than for every
+    board in the notebook.
     """
     if type is not None and type not in BOARD_TYPES:
         raise HTTPException(
@@ -1199,16 +1226,12 @@ def list_boards(
     # The default scratch board has no note behind it, so it has nowhere to
     # store settings and is always an ordinary board, which is why it is
     # excluded by `?type=map` rather than being special-cased into it.
-    boards = [
-        BoardOut(
-            id=None,
-            title="Default board",
-            node_count=default_nodes,
-            sketch_count=default_sketches,
-            object_count=default_objects,
-            **_preview_fields(db, None),
-        )
-    ] if type in (None, DEFAULT_BOARD_TYPE) else []
+    # The page is decided before any preview is built: `None` stands for the
+    # default board, and every other row is an `Entry` that passed the type
+    # filter. Building `BoardOut`s first and slicing afterwards would pay for
+    # a preview query per board in the notebook to answer a request for
+    # twenty of them.
+    page_rows: list[Entry | None] = [None] if type in (None, DEFAULT_BOARD_TYPE) else []
     # `is_board` entries are included even at zero counts, see its own
     # comment on the model and on `_require_board` above: a board that is
     # currently empty (just created, or cleared back to empty) is still a
@@ -1220,27 +1243,56 @@ def list_boards(
             select(Entry.id).where(Entry.is_board.is_(True), Entry.is_deleted.is_(False))
         ).all()
     )
+    settings: dict[int, tuple[str, str]] = {}
     if board_ids:
         entries = db.scalars(
-            select(Entry).where(Entry.id.in_(board_ids), Entry.is_deleted.is_(False))
+            select(Entry)
+            .where(Entry.id.in_(board_ids), Entry.is_deleted.is_(False))
+            .order_by(Entry.id)
         ).all()
         for entry in entries:
             board_type, layout = _board_settings(entry)
+            # The type lives inside a JSON settings blob, so this filter is
+            # Python either way (the docstring above says why); doing it here
+            # rather than inside the page loop is what makes `total` the size
+            # of the selection rather than of the table.
             if type is not None and board_type != type:
                 continue
-            title = extract_title(entry.content) or entry.content.strip()[:40] or f"Note {entry.id}"
+            settings[entry.id] = (board_type, layout)
+            page_rows.append(entry)
+    response.headers["X-Total-Count"] = str(len(page_rows))
+    boards = []
+    for entry in page_rows[offset:offset + limit]:
+        if entry is None:
+            # The default scratch board has no note behind it, so it has
+            # nowhere to store settings and is always an ordinary board, which
+            # is why it is excluded by `?type=map` rather than special-cased
+            # into it.
             boards.append(
                 BoardOut(
-                    id=entry.id,
-                    title=title,
-                    node_count=node_counts.get(entry.id, 0),
-                    sketch_count=sketch_counts.get(entry.id, 0),
-                    object_count=object_counts.get(entry.id, 0),
-                    type=board_type,
-                    layout=layout,
-                    **_preview_fields(db, entry.id),
+                    id=None,
+                    title="Default board",
+                    node_count=default_nodes,
+                    sketch_count=default_sketches,
+                    object_count=default_objects,
+                    **_preview_fields(db, None),
                 )
             )
+            continue
+        board_type, layout = settings[entry.id]
+        title = extract_title(entry.content) or entry.content.strip()[:40] or f"Note {entry.id}"
+        boards.append(
+            BoardOut(
+                id=entry.id,
+                title=title,
+                node_count=node_counts.get(entry.id, 0),
+                sketch_count=sketch_counts.get(entry.id, 0),
+                object_count=object_counts.get(entry.id, 0),
+                type=board_type,
+                layout=layout,
+                **_preview_fields(db, entry.id),
+            )
+        )
     return boards
 
 
@@ -1252,38 +1304,61 @@ class BoardImageOut(BaseModel):
 
 
 @router.get("/images", response_model=list[BoardImageOut])
-def list_images(db: Session = Depends(get_session)) -> list[BoardImageOut]:
-    """Every image object across every board, asked for directly ("what
-    about uploaded images" in the Library). Whiteboard images already have
-    a real row (`WhiteboardObject`, unlike an image pasted into a note's own
-    markdown, which has none, see ROADMAP item 20a for that still-open
+def list_images(
+    response: Response,
+    limit: int = Query(default=BOARDS_PAGE_SIZE, ge=1, le=BOARDS_PAGE_SIZE_MAX),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_session),
+) -> list[BoardImageOut]:
+    """A page of the image objects across every board, asked for directly
+    ("what about uploaded images" in the Library). Whiteboard images already
+    have a real row (`WhiteboardObject`, unlike an image pasted into a note's
+    own markdown, which has none, see ROADMAP item 20a for that still-open
     gap), so this is a flat query, not new plumbing.
+
+    **Paged**, with `X-Total-Count` over the same selection as the page and
+    the row id as the order, which is also the tiebreaker two rows created in
+    the same second need to stop them swapping places between pages.
+
+    The one thing worth knowing about the shape below: the "does this row
+    actually carry a url" test cannot be a SQL filter, because the url is a
+    key inside a JSON blob. So the ids and blobs are read first and filtered
+    in Python, and the page is taken from *that* list. Counting every image
+    row instead and skipping the empty ones per page would make
+    `X-Total-Count` bigger than the number of rows a caller can ever collect,
+    and `apiPagedList` walks until it has that many: it would never stop.
     """
-    objects = db.scalars(select(WhiteboardObject).where(WhiteboardObject.kind == "image")).all()
-    if not objects:
+    rows = db.execute(
+        select(WhiteboardObject.id, WhiteboardObject.board_id, WhiteboardObject.data)
+        .where(WhiteboardObject.kind == "image")
+        .order_by(WhiteboardObject.id)
+    ).all()
+    usable = []
+    for obj_id, board_id, data in rows:
+        try:
+            url = json.loads(data).get("url")
+        except (TypeError, ValueError):
+            url = None
+        if url:
+            usable.append((obj_id, board_id, url))
+    response.headers["X-Total-Count"] = str(len(usable))
+    page = usable[offset:offset + limit]
+    if not page:
         return []
-    board_ids = {o.board_id for o in objects if o.board_id is not None}
+    board_ids = {board_id for _, board_id, _ in page if board_id is not None}
     titles: dict[int | None, str] = {None: "Default board"}
     if board_ids:
         for entry in db.scalars(select(Entry).where(Entry.id.in_(board_ids), Entry.is_deleted.is_(False))):
             titles[entry.id] = extract_title(entry.content) or entry.content.strip()[:40] or f"Note {entry.id}"
-    out = []
-    for obj in objects:
-        try:
-            url = json.loads(obj.data).get("url")
-        except (TypeError, ValueError):
-            url = None
-        if not url:
-            continue
-        out.append(
-            BoardImageOut(
-                id=obj.id,
-                board_id=obj.board_id,
-                board_title=titles.get(obj.board_id, f"Note {obj.board_id}"),
-                url=url,
-            )
+    return [
+        BoardImageOut(
+            id=obj_id,
+            board_id=board_id,
+            board_title=titles.get(board_id, f"Note {board_id}"),
+            url=url,
         )
-    return out
+        for obj_id, board_id, url in page
+    ]
 
 
 @router.post("/boards", response_model=BoardOut, status_code=201)

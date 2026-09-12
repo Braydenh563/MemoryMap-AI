@@ -8446,6 +8446,18 @@ input[type="file"] {
   color: var(--accent);
 }
 
+/* The topic a dragged branch would land on (MINDMAP_PLAN.md §12.1 item 8).
+   The accent as a ring rather than a fill: the node still has to be readable
+   while it is being aimed at, and a filled highlight on a node whose text is
+   already sitting on a chosen board colour is the one place contrast cannot
+   be reasoned about. `outline` rather than `border`, so the node does not
+   change size the moment the pointer crosses it, which would move the very
+   thing being aimed at. */
+.wb-map-drop-target {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
 /* A pinned node keeps the place it was dragged to when the map is tidied
    (`wbMapPinOnDrag`). Stated on the node, quietly, because "why did Tidy
    move everything except this one" is otherwise unanswerable from the screen. */

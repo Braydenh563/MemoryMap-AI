@@ -558,6 +558,133 @@ async function newBoard(page, name, type) {
     parseFloat(clamped.high) <= 44 && parseFloat(clamped.low) >= 10,
     JSON.stringify(clamped));
 
+  // --- drag a branch onto a new parent (§12.1 item 8) -----------------------
+  // A fresh map, so the shape under test is plain: root, two children, and a
+  // grandchild under the first child.
+  await newBoard(page, "Transplant map", "map");
+  const ids = await page.evaluate(async () => {
+    const root = wbMapIndex().roots[0];
+    const a = await wbMapAddChild(root.id);
+    const b = await wbMapAddChild(root.id);
+    const kid = await wbMapAddChild(a.id);
+    return { root: root.id, a: a.id, b: b.id, kid: kid.id };
+  });
+  await page.waitForTimeout(3600);
+  await page.keyboard.press("Escape");
+
+  // The branch follows the topic, and the topic under the pointer lights up.
+  const dragging = await page.evaluate((ids) => {
+    const container = document.getElementById("whiteboard-container");
+    const rect = container.getBoundingClientRect();
+    const t = d3.zoomTransform(container);
+    const at = (node) => {
+      const size = wbMapNodeSize(node);
+      const [sx, sy] = t.apply([node.x + size.w / 2, node.y + size.h / 2]);
+      return { x: rect.left + sx, y: rect.top + sy };
+    };
+    const i = wbMapIndex();
+    const a = i.byId.get(ids.a), b = i.byId.get(ids.b);
+    const kidBefore = { x: i.byId.get(ids.kid).x, y: i.byId.get(ids.kid).y };
+    const from = at(a), to = at(b);
+    const el = document.querySelector(`.wb-object[data-id="${ids.a}"]`);
+    const mouse = (type, x, y, buttons) => new MouseEvent(type, {
+      bubbles: true, cancelable: true, view: window, button: 0, buttons,
+      clientX: x, clientY: y,
+    });
+    el.dispatchEvent(mouse("mousedown", from.x, from.y, 1));
+    window.dispatchEvent(mouse("mousemove", from.x + 6, from.y + 4, 1));
+    window.dispatchEvent(mouse("mousemove", to.x, to.y, 1));
+    const lit = document.querySelectorAll(".wb-map-drop-target");
+    const kidNow = wbMapIndex().byId.get(ids.kid);
+    return {
+      lit: lit.length,
+      litId: lit.length ? Number(lit[0].getAttribute("data-id")) : null,
+      kidMoved: Math.round(Math.hypot(kidNow.x - kidBefore.x, kidNow.y - kidBefore.y)),
+      to,
+    };
+  }, ids);
+  check("dragging a topic takes its branch and lights the topic under the pointer",
+    dragging.lit === 1 && dragging.litId === ids.b && dragging.kidMoved > 10,
+    JSON.stringify({ lit: dragging.lit, litId: dragging.litId, kidMoved: dragging.kidMoved }));
+
+  const dropped = await page.evaluate(async (ids) => {
+    const container = document.getElementById("whiteboard-container");
+    const rect = container.getBoundingClientRect();
+    const t = d3.zoomTransform(container);
+    const i = wbMapIndex();
+    const b = i.byId.get(ids.b);
+    const size = wbMapNodeSize(b);
+    const [sx, sy] = t.apply([b.x + size.w / 2, b.y + size.h / 2]);
+    window.dispatchEvent(new MouseEvent("mouseup", {
+      bubbles: true, cancelable: true, view: window, button: 0, buttons: 0,
+      clientX: rect.left + sx, clientY: rect.top + sy,
+    }));
+    await new Promise((r) => setTimeout(r, 3000));
+    await fetchWhiteboardState();
+    const after = wbMapIndex();
+    return {
+      aParent: after.byId.get(ids.a).parent_id,
+      kidParent: after.byId.get(ids.kid).parent_id,
+      pinned: Boolean(after.byId.get(ids.a).data?.pinned),
+      lit: document.querySelectorAll(".wb-map-drop-target").length,
+    };
+  }, ids);
+  check("the drop re-parents the whole branch and clears the cue",
+    dropped.aParent === ids.b && dropped.kidParent === ids.a
+      && dropped.pinned === false && dropped.lit === 0,
+    JSON.stringify(dropped));
+
+  // Ctrl held: the topic goes alone and its children go up to its old parent.
+  const alone = await page.evaluate(async (ids) => {
+    const container = document.getElementById("whiteboard-container");
+    const rect = container.getBoundingClientRect();
+    const t = d3.zoomTransform(container);
+    const at = (node) => {
+      const size = wbMapNodeSize(node);
+      const [sx, sy] = t.apply([node.x + size.w / 2, node.y + size.h / 2]);
+      return { x: rect.left + sx, y: rect.top + sy };
+    };
+    const i = wbMapIndex();
+    const from = at(i.byId.get(ids.a)), to = at(i.byId.get(ids.root));
+    const el = document.querySelector(`.wb-object[data-id="${ids.a}"]`);
+    const mouse = (type, x, y, buttons) => new MouseEvent(type, {
+      bubbles: true, cancelable: true, view: window, button: 0, buttons,
+      clientX: x, clientY: y, ctrlKey: true,
+    });
+    el.dispatchEvent(mouse("mousedown", from.x, from.y, 1));
+    window.dispatchEvent(mouse("mousemove", from.x + 6, from.y + 4, 1));
+    window.dispatchEvent(mouse("mousemove", to.x, to.y, 1));
+    window.dispatchEvent(mouse("mouseup", to.x, to.y, 0));
+    await new Promise((r) => setTimeout(r, 3000));
+    await fetchWhiteboardState();
+    const after = wbMapIndex();
+    return {
+      aParent: after.byId.get(ids.a).parent_id,
+      kidParent: after.byId.get(ids.kid).parent_id,
+      oldParent: ids.b,
+    };
+  }, ids);
+  check("Ctrl held moves the topic alone and lets its branch up to its old parent",
+    alone.aParent === ids.root && alone.kidParent === ids.b, JSON.stringify(alone));
+
+  // A branch cannot be dropped inside itself: the offer is never made.
+  const noCycle = await page.evaluate((ids) => {
+    // A pair that really is ancestor and descendant *now*: the moves above
+    // have rearranged the tree, and asking about a pair that used to be
+    // related would have measured nothing (it did, once).
+    const i = wbMapIndex();
+    const a = i.byId.get(ids.root);
+    const kid = wbMapSubtree(i, ids.root).find((o) => o.id !== ids.root);
+    const container = document.getElementById("whiteboard-container");
+    const rect = container.getBoundingClientRect();
+    const t = d3.zoomTransform(container);
+    const size = wbMapNodeSize(kid);
+    const [sx, sy] = t.apply([kid.x + size.w / 2, kid.y + size.h / 2]);
+    return wbMapDropTargetAt(a, rect.left + sx, rect.top + sy);
+  }, ids);
+  check("and a branch is never offered its own descendant as a parent",
+    noCycle === null, JSON.stringify(noCycle && { id: noCycle.id, parent: noCycle.parent_id }));
+
   await browser.close();
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

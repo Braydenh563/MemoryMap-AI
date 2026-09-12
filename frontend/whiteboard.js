@@ -3618,6 +3618,118 @@ async function wbMapExpandAll() {
   toast(`Opened ${folded.length} branch${folded.length === 1 ? "" : "es"}.`);
 }
 
+//: --- drag a branch onto a new parent (MINDMAP_PLAN.md §12.1 item 8) --------
+//:
+//: Three things, and they are one gesture: dragging a topic takes its branch
+//: with it, dropping it on another topic re-parents the branch there, and
+//: Ctrl held moves the topic alone and lets its children up to its old parent.
+
+//: The whole branch's starting positions, in the shape `wbApplyBulkMove`
+//: already understands. Reusing the marquee's own machinery rather than
+//: writing a second mover: it already recomputes from a fixed baseline each
+//: frame (rather than compounding a delta), and it already keeps each moved
+//: node's tree edges and link sketches live, both of which this needs and
+//: neither of which is obvious until they are missing.
+function wbMapBranchDragOrigin(d, alone) {
+  if (alone || !wbIsMap() || !WB_MAP_KINDS.has(d.kind)) return null;
+  const index = wbMapIndex();
+  const keys = wbMapSubtree(index, d.id)
+    .filter((o) => o.id !== d.id)
+    .map((o) => wbMultiKey("object", o.id));
+  return keys.length ? wbCaptureBulkMoveOrigin(null, keys) : null;
+}
+
+//: The topic under the pointer that this branch could be dropped on, or null.
+//:
+//: **Geometry, not `elementFromPoint`.** The dragged node follows the pointer,
+//: so it is the element under it for the whole gesture; the usual answer is to
+//: turn its pointer events off mid-drag, which is a second state to get wrong.
+//: The board already knows where everything is, so this asks it.
+//:
+//: A node's own descendants are excluded because dropping a branch inside
+//: itself is the ring `/move` refuses, and an offer the server will reject is
+//: worse than no offer.
+function wbMapDropTargetAt(d, clientX, clientY) {
+  const container = document.getElementById("whiteboard-container");
+  if (!container || !wbIsMap() || !WB_MAP_KINDS.has(d.kind)) return null;
+  const rect = container.getBoundingClientRect();
+  const t = d3.zoomTransform(container);
+  const [bx, by] = t.invert([clientX - rect.left, clientY - rect.top]);
+  const index = wbMapIndex();
+  const forbidden = new Set(wbMapSubtree(index, d.id).map((o) => o.id));
+  const hidden = wbMapConcealed(index);
+  for (const node of index.nodes) {
+    if (forbidden.has(node.id) || hidden.has(node.id)) continue;
+    const size = wbMapNodeSize(node);
+    if (bx >= node.x && bx <= node.x + size.w && by >= node.y && by <= node.y + size.h) {
+      return node;
+    }
+  }
+  return null;
+}
+
+//: The highlight, and the one place it is cleared. A class rather than an
+//: inline style: the CSP rejects `style=` and a drop cue that silently did
+//: nothing is the fourth shape CLAUDE.md §6 lists.
+let wbMapDropTargetId = null;
+
+function wbMapShowDropTarget(id) {
+  if (wbMapDropTargetId === id) return;
+  wbMapClearDropTarget();
+  if (id == null) return;
+  document.querySelector(`.wb-object[data-id="${id}"]`)?.classList.add("wb-map-drop-target");
+  wbMapDropTargetId = id;
+}
+
+function wbMapClearDropTarget() {
+  if (wbMapDropTargetId == null) return;
+  document.querySelector(`.wb-object[data-id="${wbMapDropTargetId}"]`)
+    ?.classList.remove("wb-map-drop-target");
+  wbMapDropTargetId = null;
+}
+
+//: The drop. `alone` is Ctrl held: the topic moves by itself and its children
+//: go up to its old parent first, so nothing is orphaned and nothing travels
+//: that was not asked for.
+//:
+//: The node is unpinned on the way: it was dragged, so `wbMapPinOnDrag` would
+//: otherwise fix it exactly where the pointer let go, which is the one place
+//: it should not stay now that it belongs to a different parent.
+async function wbMapTransplant(d, targetId, alone) {
+  const boardId = window.currentBoardId;
+  const index = wbMapIndex();
+  const target = index.byId.get(targetId);
+  if (!boardId || !target) return false;
+  if (d.parent_id === targetId && !alone) return false;
+  const oldParent = index.byId.has(d.parent_id) ? d.parent_id : null;
+  const move = (id, parentId) => apiJson(
+    `/whiteboard/boards/${boardId}/nodes/${id}/move`,
+    { method: "PUT", body: JSON.stringify({ parent_id: parentId }) }
+  );
+  try {
+    if (alone) {
+      for (const child of index.childrenOf.get(d.id) || []) {
+        Object.assign(child, await move(child.id, oldParent));
+      }
+    }
+    Object.assign(d, await move(d.id, targetId));
+  } catch (err) {
+    toast(err.message || "Couldn't move that branch.", true);
+    return false;
+  }
+  if (d.data?.pinned) {
+    d.data = { ...d.data, pinned: false };
+    await wbSaveObject(d);
+  }
+  await wbMapTidyBranch(targetId);
+  if (oldParent != null) await wbMapTidyBranch(oldParent);
+  renderWhiteboardNow();
+  toast(alone
+    ? `Moved this topic under "${wbMapLabel(target)}", its branches stayed.`
+    : `Moved this branch under "${wbMapLabel(target)}".`);
+  return true;
+}
+
 //: Open the library item a reference node stands for. One place, because
 //: "double-click opens it" is the whole reason a reference node is different
 //: from a topic with the same words in it.
@@ -5655,9 +5767,9 @@ function wbDragIsBulkMove(kind, id) {
 //: compounding a per-frame delta onto an already-moved value (the exact bug
 //: `wbSnap`'s own accumulation fix above exists to avoid, here for a whole
 //: set instead of one item).
-function wbCaptureBulkMoveOrigin(excludeKey) {
+function wbCaptureBulkMoveOrigin(excludeKey, keys = wbMultiSelection) {
   const origin = new Map();
-  for (const key of wbMultiSelection) {
+  for (const key of keys) {
     if (key === excludeKey) continue; // the dragged item's own handler already moves it
     const sep = key.indexOf(":");
     const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
@@ -11125,9 +11237,16 @@ function renderWbObjects(canvas) {
     if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
     if (window.currentTool?.startsWith("link-")) return dragging.call(this, event, d);
     if (d._bulkOrigin === undefined) {
+      //: **A map node drags its branch with it** (MINDMAP_PLAN.md §12.1 item
+      //: 8). Decided on the first real drag frame, like the marquee case
+      //: beside it and for the same reason (see the sketch drag's own "start"
+      //: comment): deciding at `start` turns a click into a bulk move.
+      //: Ctrl held means the topic travels alone, and is read here because
+      //: that is the frame the decision is made in.
+      d._dragAlone = Boolean(event.sourceEvent?.ctrlKey || event.sourceEvent?.metaKey);
       d._bulkOrigin = wbDragIsBulkMove("object", d.id)
         ? wbCaptureBulkMoveOrigin(wbMultiKey("object", d.id))
-        : null;
+        : wbMapBranchDragOrigin(d, d._dragAlone);
     }
     d3.select(this.closest(".wb-object")).raise();
     // d3.drag's dx/dy are raw screen pixels, not board-space, the
@@ -11157,6 +11276,14 @@ function renderWbObjects(canvas) {
     if (d._mapEdges?.length) wbUpdateMapEdges(d._mapEdges);
     wbUpdateSelectionBar();
     if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);
+    // The topic this branch would land on, lit as you pass over it. From the
+    // pointer's own position rather than the node's, because what you aim at
+    // is where you are pointing, not where the box has caught up to.
+    const source = event.sourceEvent;
+    if (source && wbIsMap() && WB_MAP_KINDS.has(d.kind)) {
+      d._dropTarget = wbMapDropTargetAt(d, source.clientX, source.clientY);
+      wbMapShowDropTarget(d._dropTarget?.id ?? null);
+    }
   }
   async function objDragEnd(event, d) {
     if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
@@ -11174,6 +11301,20 @@ function renderWbObjects(canvas) {
     // redetecting it, permanently treating this object as "never bulk"
     // even after it later joins a multi-selection.
     delete d._bulkOrigin;
+    //: Dropped on another topic: that is a transplant, not a placement, and
+    //: it replaces the ordinary save below entirely (`/move` is the only
+    //: endpoint that may write `parent_id`, and it re-lays the branch after).
+    const dropTarget = d._dropTarget;
+    const alone = d._dragAlone;
+    delete d._dropTarget;
+    delete d._dragAlone;
+    wbMapClearDropTarget();
+    if (dropTarget) {
+      delete d._moveUndoBefore;
+      if (bulkOrigin) await wbSaveBulkMove(bulkOrigin);
+      await wbMapTransplant(d, dropTarget.id, alone);
+      return;
+    }
     await wbSaveObject(d);
     const moveBefore = d._moveUndoBefore;
     delete d._moveUndoBefore;

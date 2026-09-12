@@ -3011,6 +3011,37 @@ dialog::backdrop {
   --control-h: 2.5rem;
 }
 
+/* **One step between the blocks of this card, the step the other two sub-tabs
+   use.** Brief 22 asked for the Ask panel to be brought to the same rhythm as
+   Capture and Write with AI rather than redesigned. Measured on :8895 at
+   1440x900 dark, the gaps down the Ask card were 12.8 (composer), 8 ("Try
+   asking"), 8 ("Ask again") and 13.6 (the empty state), four different steps
+   in one card, against the single 9.6px step every row of the Capture card
+   sits on. `--space-4` is the token that 9.6 is, and it is the token the
+   capture rows already name, so the two cards cannot drift apart by one of
+   them being edited in pixels.
+
+   The chip rows carry it as a top margin rather than the `.recent` recipe's
+   own 0.5rem, which is shared with the sidebar's most-used list. */
+#ask > .ask-query-row,
+#ask > .recent,
+#ask > .ask-idle {
+  margin-top: var(--space-4);
+  margin-bottom: 0;
+}
+
+/* The head row owns the step under itself, exactly as `#capture`'s does (see
+   its rule above), and the status line owns none: it is empty most of the
+   time, and an empty paragraph's own margins were what put 13.6px above the
+   empty state while every other block sat on 9.6. */
+#ask > .row.space-between {
+  margin-bottom: var(--space-4);
+}
+
+#ask > p.status {
+  margin: 0;
+}
+
 .ask-query-row input,
 .ask-query-row select,
 .ask-query-row button:not(.menu-item) {

@@ -216,3 +216,42 @@ driven from the UI in five runs.
   against `pointerType: "touch"` and never driven by a touch device.
 - PDF export goes through the browser's print dialog, which Playwright cannot
   complete.
+
+## The drag and pan report, third time: what the next run should not repeat
+
+The owner, 2026-09-12 afternoon: "the whiteboard is still laggy to drag and
+pan around, it isnt perfextly smooth and uniform like it should be on a
+professional application". That is the third report. Two measured passes have
+failed to attribute it and one real change landed (`a2ab550`, the pan's layer
+transforms moved into the event), which the commit is careful to say does not
+prove the report fixed.
+
+An attempt this afternoon got no further, and the useful part is why, so the
+next run starts past it rather than at it:
+
+- **Frame rate is not the measurement here.** This sandbox is vsync-bound at
+  about 16.7ms in every condition anyone has tried, including with the whole
+  card layer removed. Six conditions returned six identical numbers.
+- **Synthetic `PointerEvent`s dispatched from `page.evaluate` do not reach
+  d3's drag behaviour at all.** A profile built that way measured 0ms per
+  event across 60 events and was measuring nothing whatsoever. Use
+  Playwright's own `page.mouse.down/move/up`, which produces trusted events.
+- **`openWhiteboardBoard(id)` called from `page.evaluate` leaves the boards
+  landing showing**, so the board never opens and `.wb-object` count is 0.
+  `mapstrip.js`'s `newBoard(page, name, type)` clicks through the real UI and
+  works; reuse it rather than writing a third one.
+- **What is worth measuring** is the app's own work per event, which the
+  display cannot hide: wrap `wbUpdateSelectionBar`, `renderWhiteboardNow`,
+  `wbScheduleRender`, `wbSyncGridToTransform`, `wbRenderNavigator` and count
+  calls and self time across a real 60-move drag, and count
+  `Document.prototype.querySelector` calls over the same window. The pan work
+  found its one real cost exactly that way: a document-wide query at 0.46ms
+  per frame against 0.013ms for the grid sync beside it.
+- The drag handlers are worth reading first for the same shape:
+  `frontend/whiteboard.js` around the `.on("drag")` handlers does a
+  `document.querySelector` per event to find the element it is moving, and
+  calls `wbUpdateSelectionBar()` on every event.
+
+**Nothing here is a claim that the cause is known.** It is a list of the
+three ways to waste an hour on it, and the one measurement that has ever
+produced a number worth acting on.

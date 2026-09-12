@@ -1946,8 +1946,10 @@ body.resizing-sidebar {
   box-shadow: none;
   color: var(--muted);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   text-align: left;
+  /* The indent guide below is drawn against this box. */
+  position: relative;
   /* **`text-align` is the wrong property here, and that is why the outline
      read as centred.** Reported with a screenshot: "the outline entries are
      centre-aligned". Measured with a document open, every entry came back
@@ -1994,18 +1996,56 @@ body.resizing-sidebar {
   --outline-step: 0.8rem;
 }
 
+/* **Depth is carried by weight, colour and a guide line, not by indent
+   alone.** Measured with a 21-heading document open: h1 and h2 rows were
+   13.6px and h3 rows 12.8px, every one of them weight 400 in the same
+   `rgb(76, 85, 99)`, so three levels differed by 0.8px of type and 12.8px of
+   indent and the panel read as one flat list. DESIGN.md's hierarchy section
+   says it outright: use weight, colour and case before reaching for another
+   size step. So the two top levels are the document's own ink, a step apart
+   in weight, and the two below them are muted at the smaller size, which is
+   two sizes and three levels of contrast rather than four sizes. */
+.outline-h1 .outline-link {
+  font-weight: 600;
+  color: var(--ink);
+}
+
 .outline-h2 .outline-link {
   --outline-depth: 1;
+  font-weight: 500;
+  color: var(--ink);
 }
 
 .outline-h3 .outline-link {
   --outline-depth: 2;
-  font-size: 0.8rem;
+  font-size: var(--text-base);
 }
 
 .outline-h4 .outline-link {
   --outline-depth: 3;
-  font-size: 0.8rem;
+  font-size: var(--text-base);
+}
+
+/* The indent guide: one hairline per nested row, at the middle of the step it
+   is indented by, so a run of subsections reads as one group hanging off the
+   heading above it rather than as rows that happen to start further right.
+   Drawn as a `::before` rather than a border because a border would move the
+   text away from the indent `docoutline.js` asserts, and only on the nested
+   levels: a top-level heading hangs off nothing. */
+.outline-h2 > .outline-link::before,
+.outline-h3 > .outline-link::before,
+.outline-h4 > .outline-link::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  /* The same 0.25rem the padding above starts from, literally rather than as
+     `--space-1`: that token is multiplied by `--density`, and a guide drawn
+     half a step from a different origin than the text it guides is a guide
+     that drifts the moment someone picks compact. */
+  left: calc(0.25rem + (var(--outline-depth) - 0.5) * var(--outline-step));
+  width: 1px;
+  background: var(--divider);
 }
 
 /* A row, not a stack. `.outline-link` is `width: 100%`, so a ✕ beside one had

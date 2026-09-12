@@ -1705,13 +1705,56 @@ function renderDocPreview() {
   //: and go back in above it as the same rows the panel draws, read-only.
   const fm = docFrontmatterParse(text);
   const body = fm ? docFrontmatterStrip(text) : text;
-  renderMarkdown(preview, title ? `# ${title}\n\n${body}` : body);
+  docRenderBody(preview, title ? `# ${title}\n\n${body}` : body);
   if (fm) {
     //: After the title, which is the document's name rather than part of its
     //: text, and before the first thing its author wrote.
     preview.insertBefore(docPropsReadNode(fm), preview.children[title ? 1 : 0] || null);
   }
   layerDocWikiLinks(preview);
+  docLayerImageOptions(preview);
+}
+
+//: **The document, rendered, with its columns side by side.** `renderMarkdown`
+//: is the app's one markdown renderer and knows nothing about `:::columns`;
+//: teaching it would put a documents-editor construct into the renderer every
+//: note card and every chat message uses. So the text is split here, at the
+//: blocks the model finds, and each column is rendered by that same renderer
+//: into its own element. The result is one pass over the document either way,
+//: and a document with no columns in it takes exactly the path it always did.
+function docRenderBody(container, text) {
+  const blocks = docColumnsBlocks(text);
+  if (!blocks.length) {
+    renderMarkdown(container, text);
+    return;
+  }
+  container.replaceChildren();
+  let at = 0;
+  for (const block of blocks) {
+    if (block.from > at) docAppendRendered(container, text.slice(at, block.from));
+    const box = document.createElement("div");
+    box.className = "doc-cols";
+    box.style.setProperty("--doc-cols", String(Math.max(1, block.columns.length)));
+    for (const column of block.columns) {
+      const col = document.createElement("div");
+      col.className = "doc-col";
+      renderMarkdown(col, column.text);
+      box.appendChild(col);
+    }
+    container.appendChild(box);
+    at = block.to;
+  }
+  if (at < text.length) docAppendRendered(container, text.slice(at));
+}
+
+//: `renderMarkdown` replaces its container's children, so a second call into
+//: the same one would take the first's work away. Rendered into a spare
+//: element and moved across, which is also what keeps every piece in document
+//: order.
+function docAppendRendered(container, text) {
+  const spare = document.createElement("div");
+  renderMarkdown(spare, text);
+  while (spare.firstChild) container.appendChild(spare.firstChild);
 }
 
 //: The properties as they read rather than as they are edited: the same rows,
@@ -3967,7 +4010,7 @@ function docSetLiveDecorations(on) {
   const CM = window.CM6;
   if (!docCmView || !CM || !docCmParts.live) return;
   docCmView.dispatch({
-    effects: docCmParts.live.reconfigure(on ? docLivePlugin(CM) : []),
+    effects: docCmParts.live.reconfigure(on ? docLiveExtensions(CM) : []),
   });
 }
 
@@ -4036,6 +4079,9 @@ function docLivePlugin(CM) {
       super();
       this.src = src;
       this.alt = alt;
+      //: `![A river|400|center](/media/river.jpg)`: the options ride in the alt
+      //: text, which is the form that survives being opened somewhere else.
+      this.options = docImageOptionsFromAlt(alt);
     }
     eq(other) {
       return other.src === this.src && other.alt === this.alt;
@@ -4044,8 +4090,8 @@ function docLivePlugin(CM) {
       const img = document.createElement("img");
       img.className = "cm-md-image";
       img.src = this.src;
-      img.alt = this.alt || "";
-      return img;
+      img.alt = this.options.caption || this.options.name || "";
+      return docApplyImageOptions(img, this.options);
     }
   }
 
@@ -4204,12 +4250,18 @@ function docLivePlugin(CM) {
   //: those clicks as clicks into the text would put a caret in the middle of
   //: a button.
   class DocEmbedWidget extends WidgetType {
-    constructor(name) {
+    //: The whole `name|300|center|caption` spec, not just the name: the name
+    //: is what resolves to a thing and the options are how it is drawn, and
+    //: keeping them together is what lets `eq` say "this is the same embed"
+    //: about two widgets that differ only in their width.
+    constructor(spec) {
       super();
-      this.name = name;
+      this.spec = spec;
+      this.options = docImageOptions(spec);
+      this.name = this.options.name;
     }
     eq(other) {
-      return other.name === this.name;
+      return other.spec === this.spec;
     }
     ignoreEvent() {
       return true;
@@ -4218,7 +4270,7 @@ function docLivePlugin(CM) {
       const host = document.createElement("span");
       host.className = "cm-md-embed";
       host.dataset.docEmbed = this.name;
-      docEmbedFill(host, this.name);
+      docEmbedFill(host, this.name, this.options);
       //: The card opens its target, except where the card already has a
       //: control of its own under the pointer.
       host.addEventListener("click", (event) => {
@@ -4558,13 +4610,16 @@ function docLivePlugin(CM) {
         hide(idTo, to);
       });
       scan(/\[\[([^[\]\n]{1,120})\]\]/g, (match, from, to) => {
-        const name = match[1].trim();
+        const spec = match[1].trim();
+        //: A link is its whole text; an embed's is `name|300|center|caption`,
+        //: and only the part before the first pipe names the thing.
+        const name = spec;
         //: `![[name]]` is the embed form, and the `!` is one character to the
         //: left of what this pattern matched.
         const embed = from > 0 && doc.sliceString(from - 1, from) === "!";
         if (embed && !rangeRevealed(from - 1, to)) {
           ranges.push(
-            Decoration.replace({ widget: new DocEmbedWidget(name) }).range(from - 1, to)
+            Decoration.replace({ widget: new DocEmbedWidget(spec) }).range(from - 1, to)
           );
           return;
         }
@@ -4756,6 +4811,148 @@ function docLivePlugin(CM) {
 }
 
 // -----------------------------------------------------------------------------
+// Columns in Live: a block widget from a StateField
+// -----------------------------------------------------------------------------
+//
+// **Why a StateField and not the view plugin every other construct here uses.**
+// A columns block spans lines by definition, and a `Decoration.replace` that
+// contains a line break may not come from a plugin: CodeMirror throws
+// "Decorations that replace line breaks may not be specified via plugin" and
+// the whole view stops updating. A state field may provide one, which is
+// exactly the escape hatch the library documents for block widgets, and this
+// is the one construct in this editor that needs it.
+//
+// **The block is replaced only while the caret is outside it.** Inside, the
+// fences and the two columns are the plain text you typed and every other
+// decoration in Live applies to them as usual; that is the same "reveal what
+// you are in" rule the rest of this view follows, one block wide instead of
+// one line wide. Clicking a rendered column puts the caret at the top of that
+// column, and ArrowDown/ArrowUp into the block step inside it rather than over
+// it (`docColumnsArrowKeymap`), because a block you can only reach with a
+// mouse is a block a keyboard user cannot edit.
+let docColumnsFieldCache = null;
+
+function docColumnsField(CM) {
+  if (docColumnsFieldCache) return docColumnsFieldCache;
+  const { StateField } = CM.state;
+  const { Decoration, EditorView, WidgetType } = CM.view;
+
+  class DocColumnsWidget extends WidgetType {
+    constructor(source, from) {
+      super();
+      this.source = source;
+      this.from = from;
+    }
+    eq(other) {
+      return other.source === this.source && other.from === this.from;
+    }
+    //: The widget's own DOM handles its clicks; everything else (a drag that
+    //: started outside it, a wheel) belongs to the editor.
+    ignoreEvent(event) {
+      return event.type !== "mousedown";
+    }
+    toDOM(view) {
+      const box = document.createElement("div");
+      box.className = "doc-cols";
+      const blocks = docColumnsBlocks(this.source);
+      const columns = blocks.length ? blocks[0].columns : [];
+      box.style.setProperty("--doc-cols", String(Math.max(1, columns.length)));
+      for (const column of columns) {
+        const col = document.createElement("div");
+        col.className = "doc-col";
+        //: Through the app's one markdown renderer, so a column holds what a
+        //: document holds: headings, lists, links, an image.
+        renderMarkdown(col, column.text);
+        //: Where the caret goes when this column is clicked. The offsets in
+        //: `blocks` are relative to the block's own text, so the block's start
+        //: is added back here rather than at every use of it.
+        col.dataset.docColFrom = String(this.from + column.from);
+        box.appendChild(col);
+      }
+      box.addEventListener("mousedown", (event) => {
+        const target = event.target instanceof Element ? event.target.closest("[data-doc-col-from]") : null;
+        //: A link inside a column is a link: let it be clicked.
+        if (event.target instanceof Element && event.target.closest("a, button")) return;
+        event.preventDefault();
+        const at = target ? Number(target.dataset.docColFrom) : this.from;
+        view.dispatch({ selection: { anchor: Math.min(at, view.state.doc.length) } });
+        view.focus();
+      });
+      return box;
+    }
+  }
+
+  const build = (state) => {
+    const text = state.doc.toString();
+    //: The cheap test first: a document with no `:::` in it at all is most of
+    //: them, and this runs on every keystroke.
+    if (!text.includes(":::")) return Decoration.none;
+    const sel = state.selection.main;
+    const ranges = [];
+    for (const block of docColumnsBlocks(text)) {
+      if (sel.from <= block.to && sel.to >= block.from) continue;
+      ranges.push(
+        Decoration.replace({
+          widget: new DocColumnsWidget(text.slice(block.from, block.to), block.from),
+          block: true,
+        }).range(block.from, block.to)
+      );
+    }
+    return Decoration.set(ranges, true);
+  };
+
+  docColumnsFieldCache = StateField.define({
+    create: (state) => build(state),
+    //: **`(value, tr)`, in that order**, which is the whole signature and cost
+    //: an hour: written `(tr, value)` the field returned the *transaction* as
+    //: its value on every update that was not an edit, the decorations facet
+    //: was handed a Transaction where a RangeSet belonged, and the view died
+    //: with "Cannot read properties of undefined (reading 'isEmpty')" on the
+    //: next paint, nowhere near this line.
+    update: (value, tr) => (tr.docChanged || tr.selection ? build(tr.state) : value),
+    provide: (field) => EditorView.decorations.from(field),
+  });
+  return docColumnsFieldCache;
+}
+
+//: Live is three extensions rather than one now, and all three go in the same
+//: compartment, so a view switch turns them on and off together: the block
+//: widget and the arrow keys that step into it belong to Live exactly as the
+//: markdown decorations do.
+function docLiveExtensions(CM) {
+  return [docLivePlugin(CM), docColumnsField(CM), docColumnsArrowKeymap(CM)];
+}
+
+//: Arrow into a rendered block rather than over it. CodeMirror moves the caret
+//: *across* a replaced block range, which is right for a widget with nothing
+//: to edit in it and wrong for this one: the block is the text you wrote.
+function docColumnsArrowKeymap(CM) {
+  const step = (view, back) => {
+    const state = view.state;
+    const sel = state.selection.main;
+    if (!sel.empty) return false;
+    const text = state.doc.toString();
+    if (!text.includes(":::")) return false;
+    const line = state.doc.lineAt(sel.head);
+    const next = back ? line.from - 1 : line.to + 1;
+    if (next < 0 || next > state.doc.length) return false;
+    const block = docColumnsAt(text, next);
+    //: Only when the caret is not already in one: inside the block the arrows
+    //: are the editor's own again.
+    if (!block || docColumnsAt(text, sel.head)) return false;
+    const columns = block.columns;
+    const at = back && columns.length ? columns[columns.length - 1].to : (columns[0] ? columns[0].from : block.from);
+    view.dispatch({ selection: { anchor: Math.max(0, Math.min(at, state.doc.length)) }, scrollIntoView: true });
+    return true;
+  };
+  return CM.view.keymap.of([
+    { key: "ArrowDown", run: (view) => step(view, false) },
+    { key: "ArrowUp", run: (view) => step(view, true) },
+  ]);
+}
+
+
+// -----------------------------------------------------------------------------
 // Embeds: `![[…]]` draws the thing, not a link to it
 // -----------------------------------------------------------------------------
 //
@@ -4831,6 +5028,63 @@ function docEmbedNode(target, name) {
   return null;
 }
 
+//: **An image's options, applied.** One function for both surfaces: the widget
+//: in Live and the `<img>` the preview's renderer produced, because "300 means
+//: 300 pixels wide" has to mean the same thing in the two views of one
+//: document or the width is a property of the view rather than of the image.
+//:
+//: The width is written through `style.width` rather than an attribute or an
+//: inline `style=`: this app's CSP refuses the attribute (DESIGN.md's note on
+//: a policy silently refusing the work), and the theme's own `max-width: 100%`
+//: still wins on a narrow pane, so an over-wide number cannot break the
+//: column.
+function docApplyImageOptions(img, options) {
+  if (!img || !options) return img;
+  if (options.width) img.style.width = `${options.width}px`;
+  if (!options.align && !options.caption) return img;
+  const figure = document.createElement("span");
+  figure.className = "cm-md-figure";
+  if (options.align) figure.classList.add(`cm-md-figure-${options.align}`);
+  if (img.parentNode) img.replaceWith(figure);
+  figure.appendChild(img);
+  if (options.caption) {
+    const caption = document.createElement("span");
+    caption.className = "cm-md-caption";
+    caption.textContent = options.caption;
+    figure.appendChild(caption);
+  }
+  return figure;
+}
+
+//: **A markdown image's alt text is its caption once it carries options.**
+//: `![A river](/media/river.jpg)` is an image with alt text and stays one;
+//: `![A river|400](/media/river.jpg)` is a figure four hundred pixels wide
+//: captioned "A river", because somebody who writes an option has said this
+//: image is a figure. A wiki embed does not do this and must not: the part
+//: before the first pipe there is a file name, and captioning every embedded
+//: picture `photo.png` is worse than captioning none of them.
+function docImageOptionsFromAlt(alt) {
+  const text = String(alt == null ? "" : alt);
+  const options = docImageOptions(text);
+  if (text.includes("|") && !options.caption) options.caption = options.name;
+  return options;
+}
+
+//: The preview's half of the same thing. The renderer puts an image's options
+//: in its `alt`, because that is where they are written in the markdown
+//: (`![A river|400|center](/media/river.jpg)`), so reading them back off the
+//: alt is the same information rather than a second parse of the document.
+function docLayerImageOptions(root) {
+  if (!root) return;
+  for (const img of root.querySelectorAll("img")) {
+    const alt = img.getAttribute("alt") || "";
+    if (!alt.includes("|")) continue;
+    const options = docImageOptionsFromAlt(alt);
+    img.setAttribute("alt", options.caption || options.name);
+    docApplyImageOptions(img, options);
+  }
+}
+
 //: The chip an embed falls back to: a name that resolves to nothing yet, and a
 //: document, which is the one link target in this app with no card of its own.
 //: Said in words rather than left blank, because an embed that draws nothing
@@ -4846,11 +5100,14 @@ function docEmbedChip(name, target) {
   return chip;
 }
 
-function docEmbedFill(host, name) {
+function docEmbedFill(host, name, options = null) {
   const target = docEmbedTarget(name);
   const node = docEmbedNode(target, name);
   if (node) {
     host.replaceChildren(node);
+    //: An image embed is the one kind these options mean anything for; a note
+    //: card with a width of 300 is a card somebody has squashed.
+    if (node.tagName === "IMG") docApplyImageOptions(node, options);
     return;
   }
   host.replaceChildren(docEmbedChip(name, target));
@@ -4864,7 +5121,10 @@ function docEmbedFill(host, name) {
     .then(() => {
       if (!host.isConnected) return;
       const later = docEmbedNode(docEmbedTarget(name), name);
-      if (later) host.replaceChildren(later);
+      if (later) {
+        host.replaceChildren(later);
+        if (later.tagName === "IMG") docApplyImageOptions(later, options);
+      }
     })
     .catch(() => {});
 }
@@ -5078,6 +5338,15 @@ const MD_ACTIONS = {
   //: goes at the top of the document rather than at the caret: it is the one
   //: markdown construct whose position is fixed by what it means.
   properties: { custom: "properties" },
+  //: Two columns, with the caret in the first one. The `block`/`suffix` shape
+  //: rather than `insert`, so the selection lands on the placeholder and the
+  //: first thing typed replaces it, which is what the table and the code
+  //: block already do.
+  columns: {
+    block: "\n:::columns\n",
+    suffix: "\n:::column\n\n:::\n",
+    placeholder: "Left column",
+  },
   //: This app's own link syntax, which is the "application specific
   //: functions" half of the request, a toolbar for *this* notebook has to
   //: offer the link that resolves inside it, not only the markdown one.
@@ -10002,7 +10271,7 @@ function docCmExtensions(CM) {
     //: under a misspelling is not a rendering of the markdown, it is the
     //: checker saying something, and switching to Source to see the raw text
     //: is not a reason to stop being told.
-    docCmParts.live.of(docView === "live" ? docLivePlugin(CM) : []),
+    docCmParts.live.of(docView === "live" ? docLiveExtensions(CM) : []),
     docFindingsPlugin(CM),
     docCmParts.gutter.of(docCmGutter(CM)),
     //: Folding, wherever the gutter is: a heading section, a fenced block and

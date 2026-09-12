@@ -517,6 +517,19 @@ function editorCommands(context) {
       keywords: ["properties", "frontmatter", "metadata", "tags", "yaml", "status", "aliases"],
       run: (textarea) => editorApplyNamed(textarea, "properties"),
     });
+    //: Columns, for the same reason: the `:::columns` fence renders as columns
+    //: in this editor and as three lines of literal text anywhere else, so
+    //: offering it in the capture box would be offering a block that only
+    //: looks like one somewhere the writer cannot see.
+    commands.push({
+      id: "columns",
+      primary: true,
+      group: "Blocks & frames",
+      label: "\u{1F4D1} Two columns",
+      hint: ":::columns",
+      keywords: ["columns", "column", "two", "side", "split", "grid", "layout"],
+      run: (textarea) => editorApplyNamed(textarea, "columns"),
+    });
   }
 
   // --- AI actions ---

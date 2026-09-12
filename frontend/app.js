@@ -10017,7 +10017,11 @@ const captureDocuments = new Set();
 let captureStagedFiles = [];
 
 async function loadCaptureDocuments() {
-  const documents = await apiJson("/documents").catch(() => []);
+  //: To the end, not the first page: the picker exists to file this note
+  //: under *any* document, and a document past the server's page would be
+  //: invisible with nothing on screen saying so (`agent-remaining/
+  //: list-paging.md`). `apiPagedList` is one request at any realistic size.
+  const documents = await apiPagedList("/documents", 200).catch(() => []);
   renderCaptureDocuments(documents);
 }
 
@@ -10124,7 +10128,8 @@ async function renderAttachToDocument(entry, wrap) {
   status.textContent = "Loading documents…";
   wrap.appendChild(status);
 
-  const documents = await apiJson("/documents").catch(() => null);
+  //: To the end, same reason as `loadCaptureDocuments`.
+  const documents = await apiPagedList("/documents", 200).catch(() => null);
   if (!documents) {
     status.classList.add("error");
     status.textContent = "Couldn't load your documents.";
@@ -16983,7 +16988,12 @@ async function notePickerRows(source) {
     return notePickerCache.maps;
   }
   const path = source === "documents" ? "/documents" : source === "files" ? "/files/gallery" : "/media";
-  const rows = await apiJson(path).catch(() => []);
+  //: `/documents` and `/media` are paged; `/files/gallery` is not, and reading
+  //: to the end through `apiPagedList` is correct either way (an unpaged
+  //: endpoint returns everything on the first request and the loop stops).
+  //: A picker that silently cannot reach half the library is worse than a
+  //: slow one.
+  const rows = await apiPagedList(path, 200).catch(() => []);
   let list = Array.isArray(rows) ? rows : rows.documents || [];
   //: **Files means files, and a sketch is a picture.** Reported: "sketches
   //: show in the files section". `/files/gallery` is every attachment
@@ -22221,7 +22231,14 @@ let reminderCalMonth = (() => {
 })();
 
 async function loadReminders() {
-  const all = await apiJson("/reminders").catch(() => []);
+  //: Every reminder, not the first page. `/reminders` is ordered `due_at`
+  //: ascending, so the first page is the *oldest* rows with the ticked-off
+  //: ones among them: a notebook whose oldest two hundred are all done would
+  //: push everything upcoming off the list, which is exactly the silent loss
+  //: paging was added to prevent. Reading to the end keeps the grouping below
+  //: unchanged and loses nothing; a real pager is the better answer at
+  //: thousands and is written up in `agent-remaining/list-paging.md`.
+  const all = await apiPagedList("/reminders", 200).catch(() => []);
   const groupsBox = $("reminder-groups");
   groupsBox.replaceChildren();
 
@@ -22455,7 +22472,9 @@ function updateReminderBadge(reminders) {
 }
 
 async function clearDoneReminders() {
-  const all = await apiJson("/reminders").catch(() => []);
+  //: To the end, or this clears the first page's done rows and reports that
+  //: count as if it were all of them.
+  const all = await apiPagedList("/reminders", 200).catch(() => []);
   const done = all.filter((r) => r.done);
   if (!done.length) return;
   if (!(await confirmDialog(`Delete ${done.length} completed reminder${done.length === 1 ? "" : "s"}?`))) {
@@ -27067,7 +27086,9 @@ async function openPalette() {
   $("palette-input").focus();
   
   // Background fetch of Reminders and Conversations for the palette to search.
-  apiJson("/reminders", { silent: true }).then(res => { paletteReminders = res || []; }).catch(() => { paletteReminders = []; });
+  //: To the end: the palette searches these by text, so a reminder past the
+  //: first page would simply not be findable from the palette.
+  apiPagedList("/reminders", 200, { silent: true }).then(res => { paletteReminders = res || []; }).catch(() => { paletteReminders = []; });
   apiJson("/conversations", { silent: true }).then(res => { paletteConversations = res || []; }).catch(() => { paletteConversations = []; });
   apiJson("/media", { silent: true }).then(res => { paletteMedia = res || []; }).catch(() => { paletteMedia = []; });
   apiJson("/whiteboard/boards", { silent: true }).then(res => { paletteBoards = res || []; }).catch(() => { paletteBoards = []; });
@@ -36418,7 +36439,9 @@ $("notes-page-next").addEventListener("click", () => {
 // (caption, edit, remove), never on the per-keystroke render this chip
 // strip runs under.
 async function resolveMediaUploadByUrl(url) {
-  const uploads = await apiJson("/media");
+  //: To the end: this resolves one url to its upload row, and an upload past
+  //: the first page would simply not resolve.
+  const uploads = await apiPagedList("/media", 200);
   return uploads.find((u) => u.url === url) || null;
 }
 

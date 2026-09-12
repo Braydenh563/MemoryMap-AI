@@ -23,6 +23,32 @@ Measured with 300 rows of each seeded through the models:
 | `/reminders` | 300 rows, 53,783 B (52.5 KB) | 200 rows, 35,783 B (34.9 KB) | 5 rows, 901 B |
 | `/media` | 300 rows, 120,383 B (117.6 KB) | 200 rows, 80,401 B (78.5 KB) | 5 rows, 1,991 B |
 
+## Closed by the orchestrator, 2026-09-12 evening
+
+Both sections below are done. `app.js` and `dashboard.js` freed up when the
+Notes agent reported, and all nine call sites read to the end through
+`apiPagedList`: `loadReminders`, `clearDoneReminders`, `openPalette`'s
+`paletteReminders`, `loadCaptureDocuments`, `renderAttachToDocument`,
+`notePickerRows` (documents, files and images), `resolveMediaUploadByUrl`,
+and dashboard.js's three reminder reads.
+
+The Reminders decision the section below asks for was taken the second way
+it offers, reading to the end rather than adding a pager: it is four lines,
+loses nothing, and leaves the grouping alone. The `due_at` caveat is what
+decided it, and each site now carries it as a comment: the first page is
+the *oldest* rows with the ticked-off ones among them, so a notebook whose
+oldest two hundred are all done would have pushed everything upcoming off
+the list. A real pager is still the better answer at thousands and is left
+here as the next step.
+
+Measured on a seeded notebook of 260 documents and 260 reminders, past the
+server's 200-row page: `apiPagedList` returns 260 and 260, a single
+unpaged read returns 200 and 200. `resolveMediaUploadByUrl` was found while
+doing this and is not in the list below: it resolves one url to its upload
+row, so an upload past the first page simply did not resolve.
+
+The original entries, for the record:
+
 ## 1. The Reminders tab still reads one page (app.js, held elsewhere)
 
 `frontend/app.js` and `frontend/index.html` were held by another agent while

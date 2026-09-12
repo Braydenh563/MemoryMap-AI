@@ -197,6 +197,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Nine lists that stopped at the first page now read to the end: the
+  Reminders tab and its dashboard widgets, the command palette's reminder
+  search, both "file this note under a document" pickers, the note picker's
+  document, file and image sources, and the lookup that resolves a pasted
+  image back to its library row. Reminders are ordered soonest first, so a
+  first page of old ticked-off ones could have hidden everything upcoming.
+
 - Asking the AI about your reminders no longer hands it every reminder you
   have. Everything a tool returns is spent from the model's context window,
   so a long list left no room to reason about it; it now returns a page and

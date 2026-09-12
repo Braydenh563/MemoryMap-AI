@@ -312,7 +312,10 @@ async function renderDashSubmessage() {
   if (!el) return;
   const [stats, reminders] = await Promise.all([
     apiJson("/insights/stats").catch(() => null),
-    apiJson("/reminders").catch(() => []),
+    // To the end: `/reminders` is `due_at` ascending, so a first page of
+    // old, ticked-off rows would hide everything upcoming from this count
+    // (`agent-remaining/list-paging.md`).
+    apiPagedList("/reminders", 200).catch(() => []),
   ]);
   const bits = [];
   if (stats) {
@@ -457,7 +460,8 @@ async function renderDashStats() {
   if (!box) return;
   const [stats, reminders] = await Promise.all([
     apiJson("/insights/stats").catch(() => null),
-    apiJson("/reminders").catch(() => []),
+    // To the end, same reason as the widget above.
+    apiPagedList("/reminders", 200).catch(() => []),
   ]);
 
   const now = new Date();
@@ -2401,7 +2405,10 @@ async function renderQuickCaptureWidget(body) {
 }
 
 async function renderRemindersWidget(body) {
-  const reminders = (await apiJson("/reminders")).filter((r) => !r.done).slice(0, 4);
+  // To the end before filtering: taking four open ones out of a first page
+  // that happens to be all done would show "no open reminders" to someone who
+  // has plenty.
+  const reminders = (await apiPagedList("/reminders", 200)).filter((r) => !r.done).slice(0, 4);
   if (!reminders.length) {
     body.textContent = "No open reminders: add one in the Reminders tab.";
     body.classList.add("muted");

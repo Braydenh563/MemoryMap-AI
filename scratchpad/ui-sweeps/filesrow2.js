@@ -8,7 +8,7 @@
 const { boot } = require("./lib.js");
 
 (async () => {
-  const { browser, page } = await boot({ viewport: { width: 1440, height: 900 } });
+  const { browser, page } = await boot({ viewport: (process.env.VIEWPORT ? { width: +process.env.VIEWPORT.split("x")[0], height: +process.env.VIEWPORT.split("x")[1] } : { width: 1440, height: 900 }) });
   await page.click('[data-tab="library"]');
   await page.waitForTimeout(1200);
 

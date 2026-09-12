@@ -372,11 +372,22 @@
 /* Centred in the collapsed rail. The rail is 48px (makeSidebarResizable
    writes that column) and the button is --sidebar-toggle-size (36px); at
    left: 10px its right edge sat 2px from the rail's edge and read as
-   clashing with it (reported directly). Centring leaves an equal 6px on
-   both sides, and follows the token if either size changes. */
+   clashing with it (reported directly).
+   
+   Centred by `margin-inline: auto` between two zeroed insets rather than by
+   arithmetic on 48px, because the arithmetic was 1px out on each side and
+   the report came back: an absolutely positioned box is laid out in its
+   ancestor's PADDING box, so the width to halve is 46px, the rail minus its
+   own left and right border, not the 48px the column is set to.
+   `calc((48px - 36px) / 2)` put the button 6px from the inside of the left
+   border and 4px from the inside of the right one, which against a 14px
+   corner radius a few pixels above it read as "right up against the right
+   edge". Two insets and `auto` margins need no number at all and stay
+   correct if the rail, the button or the border ever changes. */
 .sidebar-collapsed .sidebar-collapse-toggle {
-  right: auto;
-  left: calc((48px - var(--sidebar-toggle-size)) / 2);
+  left: 0;
+  right: 0;
+  margin-inline: auto;
 }
 
 .sidebar-collapse-toggle .icon-collapsed,

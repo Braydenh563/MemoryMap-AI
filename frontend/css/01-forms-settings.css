@@ -4830,6 +4830,32 @@ select {
   margin-left: 0;
 }
 
+/* In Settings, the other way: the "?" goes to the end of its row.
+   
+   This is the owner overruling the rule directly above, for this surface
+   only, and the reason it is right here is worth keeping. On a card the "?"
+   belongs next to the heading it explains, because a card holds one heading
+   and the eye has nowhere else to look. A Settings page holds a column of
+   sections, and there the "?" beside the text put four marks at 131.1px,
+   408px, 114.1px and 241.3px from the same left edge, a ragged line that
+   tracks how long each heading happens to be. Worse, the same card already
+   right-aligns the "?" on its switch rows, so one card showed both
+   placements at once. Right-aligned, every mark in the modal stands in one
+   column with those, and the heading keeps `.help-head`'s own gap as its
+   minimum. Scoped to `#settings-modal` so the card rule is untouched. */
+#settings-modal .help-head > .graph-help-toggle {
+  margin-left: auto;
+}
+
+/* The one head that sits inside a `<summary>` (`#sampling-box`, "Advanced
+   response settings") is a flex item of that summary (08-consistency.css
+   makes every settings summary `display: flex`), so it shrank to its text,
+   273.3px in a 565.6px row, and its "?" stayed glued to the heading while
+   every other mark moved to the column. It has to take the row to reach it. */
+#settings-modal summary > .help-head {
+  flex: 1 1 auto;
+}
+
 /* The heading gives its own vertical margins up to the row, so the row is one
    box in the flow and the flex centring has nothing asymmetric to centre
    (DESIGN.md, "And zero the margins, not just the heights"). The Settings

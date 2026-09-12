@@ -140,6 +140,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The collapsed sidebar rail's expand button is centred in the rail. It was
+  6px from the inside of the left border and 4px from the right, because
+  the centring arithmetic halved the rail's 48px column while the button is
+  laid out in the rail's 46px padding box; two zero insets and auto margins
+  replace the number. Every "?" in Settings now stands at the end of its
+  heading row, in one column with the marks on the switch rows, instead of
+  hugging headings of four different lengths at four different positions.
+
 - The spell checker knows English again on a Windows checkout. Every one of
   the 92,972 dictionary entries was arriving with a trailing carriage return,
   so none of them matched and an ordinary document came back with a

@@ -31,6 +31,11 @@ never lost to the smaller stuff.
       button's right edge flush against the rail's own right border).
     - "and fix the placement of the '?' tooltip buttons in the settings
       pages, maybe align them to the right with a gap..."
+    - Second message, with a screenshot of the capture form's "Add to
+      document" row (a `None` select beside a chip reading "Test MD
+      Rendering Document" with its own remove cross): "fix the add to
+      document combobox not changing. actually redesign and give each of
+      the capture, write with ai, and ask tabs a new and improved look."
 
 115. **Third drop, 2026-09-12 afternoon, verbatim (the owner), three
     messages.**

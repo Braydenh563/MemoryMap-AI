@@ -37752,12 +37752,30 @@ function cmdPaletteResultRow(results) {
 //: One reference, as a control. Extracted because a list of ids builds several
 //: of these and they must be identical, a note you can open should not look
 //: like two different things in the same sentence.
-function cmdNoteLink(text, id) {
+//: **The link says which note it opens, and that is a correctness feature
+//: rather than a nicety.** Reported: "the bubble tea note it mentioned was
+//: my bubble tea mind map, but the link it gave and grounded was my
+//: shakespeare note". The id in a link comes from the model's own prose
+//: (`CMD_NOTE_REF` matches the "68" in "note #68"), and a model that writes
+//: the wrong id produces a link that goes somewhere the answer never meant.
+//: Nothing here can tell a right id from a wrong one: only the person
+//: reading the sentence knows which note they were promised.
+//:
+//: So the tooltip carries the note's own opening words, labelled the same
+//: way the source chips below the answer are labelled and from the same
+//: retrieved entry. When the model gets it right the tooltip agrees with
+//: the sentence; when it gets it wrong the disagreement is visible before
+//: the click rather than after it. `entry` is optional because a caller
+//: without one is still better off with a working link than none.
+function cmdNoteLink(text, id, entry = null) {
   const link = document.createElement("button");
   link.type = "button";
   link.className = "cmd-note-link";
   link.textContent = text;
-  link.title = "Open this note";
+  const preview = entry && typeof noteLabel === "function"
+    ? noteLabel({ content: entry.content || "" }, 44)
+    : "";
+  link.title = preview ? `Open "${preview}"` : "Open this note";
   link.addEventListener("click", () => cmdPaletteGoToNote(id));
   return link;
 }
@@ -37772,7 +37790,10 @@ function cmdNoteLink(text, id) {
 //: are linked, so a model inventing "note id 900" leaves plain text behind
 //: rather than a button that goes nowhere.
 function cmdPaletteLinkNotes(root, results) {
-  const known = new Set((results || []).map((entry) => entry.id));
+  //: A map rather than a set: every link now carries the note's own opening
+  //: words in its tooltip (see `cmdNoteLink`), so the entry has to travel
+  //: with the id rather than just the fact that the id was retrieved.
+  const known = new Map((results || []).map((entry) => [entry.id, entry]));
   if (!known.size) return;
   const queue = [root];
   while (queue.length) {
@@ -37790,7 +37811,7 @@ function cmdPaletteLinkNotes(root, results) {
     if (!known.has(id)) continue;
     const tail = node.splitText(match.index);
     const rest = tail.splitText(match[0].length);
-    tail.replaceWith(cmdNoteLink(match[0], id));
+    tail.replaceWith(cmdNoteLink(match[0], id, known.get(id)));
     //: **The rest of the list, which is where the report actually lands.** A
     //: model writes "notes id 3, 43 and 49", one phrase naming the id, then
     //: bare numbers. Linking only the head leaves two of the three notes as
@@ -37808,7 +37829,7 @@ function cmdPaletteLinkNotes(root, results) {
       if (!known.has(nextId)) break;
       const numStart = cursor.splitText(more[1].length);
       const after = numStart.splitText(more[2].length);
-      numStart.replaceWith(cmdNoteLink(more[2], nextId));
+      numStart.replaceWith(cmdNoteLink(more[2], nextId, known.get(nextId)));
       cursor = after;
     }
     //: `cursor` carries everything after the run, including any further

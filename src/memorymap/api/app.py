@@ -213,6 +213,45 @@ def _purge_expired_bin_entries() -> None:
         )
 
 
+def _compact_event_log() -> None:
+    """Keep `audit_log` from growing by a copy of every note on every edit.
+
+    Beside the recycle-bin clear above and for the same reason: it is work
+    that has to happen on a schedule in an app with no scheduler, so it
+    happens once per launch, cheaply, and never stops the app from starting.
+
+    Compaction, not deletion: `events.compact`'s own docstring says why
+    (an entity's events have to keep replaying to its current state), and
+    what it gives up (a version older than the window is no longer readable).
+    The window is a preference so a notebook that wants a longer memory can
+    have one without a code change.
+    """
+    try:
+        session = deps.get_db().session()
+        try:
+            config = deps.get_config()
+            days = int(
+                config.get_preference("event_log_days", events.COMPACT_AFTER_DAYS)
+            )
+            summary = events.compact(session, older_than_days=days)
+            if summary["events"]:
+                # Worth a line: this is the one background job that makes a
+                # note's older history stop being readable, so a person
+                # looking for why should find it said plainly.
+                logging.getLogger("memorymap.startup").info(
+                    "event log compacted: %s events across %s items now keep "
+                    "their record but not their text",
+                    summary["events"],
+                    summary["entities"],
+                )
+        finally:
+            session.close()
+    except Exception:  # noqa: BLE001  # a failed compaction must never block startup
+        logging.getLogger("memorymap.startup").warning(
+            "the event log compaction didn't run this start", exc_info=True
+        )
+
+
 def _backup_if_due() -> None:
     """Scheduled local backups: one consistent snapshot per day,
     taken at startup. Failure must never stop the app."""
@@ -397,6 +436,7 @@ def create_app() -> FastAPI:
     startup_status.set_phase("Setting up your notebook…")
     init_app_state()
     _purge_expired_bin_entries()
+    _compact_event_log()
     _backup_if_due()
     startup_status.set_phase("Starting local services…")
     _start_searxng_if_asked()

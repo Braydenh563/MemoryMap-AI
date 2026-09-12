@@ -3681,7 +3681,17 @@ async function openEntryHistory(entry) {
       head.append(" ", chip);
     }
     row.appendChild(head);
-    if (item.content) {
+    if (item.compacted) {
+      // The event is still a fact, its text is not kept: `events.compact`
+      // drops the values behind changes older than the history window so the
+      // log stops growing by a copy of the note on every edit. Saying that in
+      // the row is the difference between a history with a gap and a history
+      // that looks broken.
+      const gone = document.createElement("p");
+      gone.className = "muted";
+      gone.textContent = "The text from this change is no longer kept.";
+      row.appendChild(gone);
+    } else if (item.content) {
       const body = document.createElement("p");
       body.textContent = notePreviewText(item.content);
       row.appendChild(body);

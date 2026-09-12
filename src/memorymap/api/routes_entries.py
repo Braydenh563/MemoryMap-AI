@@ -1526,6 +1526,11 @@ def entry_history(
                 # otherwise.
                 "content": _readable(at_the_time.get("content") or ""),
                 "tags": at_the_time.get("tags") or [],
+                # Whether this event's values were dropped by the compactor
+                # (`events.compact`), so the sheet can say "the text from this
+                # change is no longer kept" rather than render a row with no
+                # text and no reason for it.
+                "compacted": events.is_compacted(row),
             }
         )
 
@@ -1561,6 +1566,19 @@ def restore_event(
     row = session.get(AuditLog, event_id)
     if row is None or row.entity_type != "entry" or row.entity_id != entry.id:
         raise HTTPException(status_code=404, detail="That version no longer exists")
+
+    if events.is_compacted(row):
+        # Not "did not change the note" and not "does not exist": this event
+        # happened, and its text was deliberately dropped to stop the log
+        # growing by a copy of the note on every edit (`events.compact`).
+        # Gone rather than a bad request, which is what 410 is for.
+        raise HTTPException(
+            status_code=410,
+            detail=(
+                "That version is no longer kept: changes older than the "
+                "history window keep the record of what happened, not the text"
+            ),
+        )
 
     state = events.replay(session, "entry", entry.id, upto_event_id=event_id)
     if "content" not in state and "tags" not in state:

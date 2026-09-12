@@ -15,6 +15,7 @@ gains `actor` and `payload` rather than a new table being added.
 from __future__ import annotations
 
 import inspect
+from datetime import timedelta
 
 from memorymap.core.database import AuditLog
 from memorymap.entry import manager
@@ -151,3 +152,126 @@ def test_the_feed_leaves_the_bookkeeping_out(client):
     items = client.get("/events").json()["items"]
     assert "revised" not in [item["action"] for item in items]
     assert "revised" in [row["action"] for row in client.get("/audit").json()]
+
+
+# --- compaction (Brief 7 item 1, `events-retention`) -------------------------
+#
+# The decision the plan made and this pins down: a payload holds whole field
+# values, so the log grows by a copy of a note's text on every edit, and the
+# answer is compaction rather than deletion, because an entity's events have
+# to keep replaying to its current state. What compaction promises is exactly
+# that: the log gets smaller, replay does not move.
+
+
+def _age_all_events(session, days: int) -> None:
+    """Backdate every event, so a compaction window can be reached in a test."""
+    from memorymap.core.database import utcnow
+
+    when = utcnow() - timedelta(days=days)
+    for row in session.query(AuditLog).all():
+        row.created_at = when
+    session.commit()
+
+
+def test_compaction_leaves_replay_on_the_current_state(session):
+    from memorymap.core import events
+
+    entry = manager.create_entry(session, "version 0", tags=["a"])
+    session.commit()
+    for i in range(1, 40):
+        manager.update_entry(session, entry, content=f"version {i}", tags=["a"])
+        session.commit()
+    _age_all_events(session, 200)
+
+    before_bytes = events.payload_bytes(session)
+    before_rows = session.query(AuditLog).count()
+    summary = events.compact(session, keep_last=5)
+    after_bytes = events.payload_bytes(session)
+
+    assert summary["events"] > 0, "nothing was compacted"
+    assert after_bytes < before_bytes, "compaction did not make the log smaller"
+    # Nothing is deleted: the audit trail still has every action, with its
+    # actor and its time. Only the values behind the old ones are gone.
+    assert session.query(AuditLog).count() == before_rows
+
+    rebuilt = events.replay(session, "entry", entry.id)
+    assert rebuilt["content"] == "version 39"
+    assert rebuilt["tags"] == ["a"]
+
+
+def test_compaction_keeps_the_newest_events_whole(session):
+    """However old they are. A note edited twice years ago and not since
+    would otherwise have no readable history at all."""
+    from memorymap.core import events
+
+    entry = manager.create_entry(session, "version 0", tags=[])
+    session.commit()
+    for i in range(1, 20):
+        manager.update_entry(session, entry, content=f"version {i}", tags=[])
+        session.commit()
+    _age_all_events(session, 500)
+
+    events.compact(session, keep_last=5)
+    newest = events.events_for(session, "entry", entry.id, limit=5)
+    assert all(not events.is_compacted(row) for row in newest)
+    assert any((row.payload or {}).get("after", {}).get("content") for row in newest)
+
+
+def test_compaction_leaves_a_young_log_alone(session):
+    from memorymap.core import events
+
+    entry = manager.create_entry(session, "written today", tags=[])
+    session.commit()
+    for i in range(1, 30):
+        manager.update_entry(session, entry, content=f"edit {i}", tags=[])
+        session.commit()
+
+    before = events.payload_bytes(session)
+    assert events.compact(session, keep_last=2) == {"entities": 0, "events": 0}
+    assert events.payload_bytes(session) == before
+
+
+def test_compaction_is_safe_to_run_twice(session):
+    """It runs at startup, so a second pass over an already-compacted log has
+    to be a no-op rather than something that compounds."""
+    from memorymap.core import events
+
+    entry = manager.create_entry(session, "version 0", tags=[])
+    session.commit()
+    for i in range(1, 30):
+        manager.update_entry(session, entry, content=f"version {i}", tags=[])
+        session.commit()
+    _age_all_events(session, 200)
+
+    first = events.compact(session, keep_last=5)
+    settled = events.payload_bytes(session)
+    second = events.compact(session, keep_last=5)
+
+    assert first["events"] > 0
+    assert second == {"entities": 0, "events": 0}
+    assert events.payload_bytes(session) == settled
+    assert events.replay(session, "entry", entry.id)["content"] == "version 29"
+
+
+def test_a_compacted_version_says_so_rather_than_restoring_nothing(client, session):
+    from memorymap.core import events
+
+    entry = manager.create_entry(session, "version 0", tags=[])
+    session.commit()
+    for i in range(1, 30):
+        manager.update_entry(session, entry, content=f"version {i}", tags=[])
+        session.commit()
+    _age_all_events(session, 200)
+    events.compact(session, keep_last=5)
+
+    oldest = events.events_for(session, "entry", entry.id, newest_first=False)[0]
+    assert events.is_compacted(oldest)
+    answer = client.post(f"/entries/{entry.id}/restore/{oldest.id}")
+    assert answer.status_code == 410
+    assert "no longer" in answer.json()["detail"].lower()
+
+    # And the sheet is told, so the row can say it rather than showing a
+    # version with no text and no explanation.
+    items = client.get(f"/entries/{entry.id}/history").json()["items"]
+    compacted = [item for item in items if item["id"] == oldest.id]
+    assert compacted and compacted[0]["compacted"] is True

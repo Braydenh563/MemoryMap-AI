@@ -1938,6 +1938,74 @@ body.resizing-sidebar {
 
 #doc-attach-bookmark {
   margin-top: var(--space-2);
+  /* A `.doc-outline-wrap` is a flex column, so a button in it was stretched
+     to the full width of the sidebar: 226px of ghost button, the heaviest
+     control on the panel, for two words. It is as wide as what it says. */
+  align-self: flex-start;
+}
+
+/* **An empty section does not reserve a heading and a button.** Measured with
+   no references attached: `#doc-bookmarks-wrap` was 69.4px of column for a
+   12px uppercase "REFERENCES" eyebrow and a full-width "Attach a link" over
+   nothing, sitting above roughly 290px of empty sidebar. Backlinks and "notes
+   it draws on" already hide themselves when they have nothing to list
+   (`renderDocBacklinks`, `renderDocNotes`); References cannot, because the
+   way to attach the first one is inside it.
+
+   So the section empties out instead: the eyebrow goes, the empty list goes,
+   the rule above it goes, the 4rem floor every section otherwise keeps goes,
+   and what is left is one quiet action at the panel's left edge, the same
+   weight and the same muted ink as the storage help below it, which is the
+   only other thing down there. Written with `:has` against the list's own
+   emptiness rather than a class from JS: the three renderers all end in
+   `replaceChildren()`, so the DOM already knows, and a class would be a
+   fourth thing to keep in step.
+
+   `#doc-outline-wrap` is deliberately not in this list. It is what the tab is
+   called, so it keeps its heading and answers with a sentence instead
+   (`#doc-outline-empty`), which `docoutline.js` asserts. */
+#doc-backlinks-wrap:has(> .doc-outline:empty) > h3,
+#doc-notes-wrap:has(> .doc-outline:empty) > h3,
+#doc-bookmarks-wrap:has(> .doc-outline:empty) > h3,
+#doc-backlinks-wrap:has(> .doc-outline:empty) > .doc-outline,
+#doc-notes-wrap:has(> .doc-outline:empty) > .doc-outline,
+#doc-bookmarks-wrap:has(> .doc-outline:empty) > .doc-outline {
+  display: none;
+}
+
+#doc-bookmarks-wrap:has(> .doc-outline:empty) {
+  margin-top: var(--space-3);
+  padding-top: 0;
+  border-top: none;
+  min-height: 0;
+  /* **The one place `flex-shrink: 0` is right in this column**, and the
+     reason is a measurement rather than a taste. With a 60-heading document
+     open the outline wants 1498px in a 686px panel, so the deficit is shared
+     out by shrink factor and this section was squeezed to 11px around a 28px
+     action: the way out of an empty References was a sliver of a button. It
+     is 28px in total, so exempting it costs the outline 28px of a column it
+     is already scrolling inside, and the alternative is a control that is
+     there and cannot be pressed. The section *with* references in it keeps
+     `0 1 auto` and its 4rem floor, which is the rule this is the exception
+     to. */
+  flex: 0 0 auto;
+}
+
+#doc-bookmarks-wrap:has(> .doc-outline:empty) #doc-attach-bookmark {
+  margin-top: 0;
+  padding-left: 0;
+  padding-right: 0;
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+#doc-bookmarks-wrap:has(> .doc-outline:empty) #doc-attach-bookmark:hover,
+#doc-bookmarks-wrap:has(> .doc-outline:empty) #doc-attach-bookmark:focus-visible {
+  color: var(--accent);
+  text-decoration: underline;
 }
 
 .outline-link {
@@ -1946,8 +2014,10 @@ body.resizing-sidebar {
   box-shadow: none;
   color: var(--muted);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   text-align: left;
+  /* The indent guide below is drawn against this box. */
+  position: relative;
   /* **`text-align` is the wrong property here, and that is why the outline
      read as centred.** Reported with a screenshot: "the outline entries are
      centre-aligned". Measured with a document open, every entry came back
@@ -1977,8 +2047,26 @@ body.resizing-sidebar {
 }
 
 .outline-link:hover {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+/* **The heading you are in.** Keyed off the attribute rather than off the
+   class beside it, so a mark that is only painted and never announced is a
+   mark that does not appear at all: `documents.js` sets both together and
+   this rule pays for the pair. A fill and a weight, never the colour alone
+   (one in twelve men cannot use a colour-only cue), and a fill *without* an
+   accent edge, which is DESIGN.md's rule for a selected row. */
+.outline-link[aria-current] {
   background: var(--accent-soft);
   color: var(--ink);
+  font-weight: 600;
+}
+
+/* The guide line at the marked row's own depth takes the accent too, so the
+   eye can find the place in a long outline by the rail as well as the fill. */
+.outline-link[aria-current]::before {
+  background: var(--accent);
 }
 
 /* Indentation is the whole point of an outline: it shows the shape. One step,
@@ -1994,18 +2082,56 @@ body.resizing-sidebar {
   --outline-step: 0.8rem;
 }
 
+/* **Depth is carried by weight, colour and a guide line, not by indent
+   alone.** Measured with a 21-heading document open: h1 and h2 rows were
+   13.6px and h3 rows 12.8px, every one of them weight 400 in the same
+   `rgb(76, 85, 99)`, so three levels differed by 0.8px of type and 12.8px of
+   indent and the panel read as one flat list. DESIGN.md's hierarchy section
+   says it outright: use weight, colour and case before reaching for another
+   size step. So the two top levels are the document's own ink, a step apart
+   in weight, and the two below them are muted at the smaller size, which is
+   two sizes and three levels of contrast rather than four sizes. */
+.outline-h1 .outline-link {
+  font-weight: 600;
+  color: var(--ink);
+}
+
 .outline-h2 .outline-link {
   --outline-depth: 1;
+  font-weight: 500;
+  color: var(--ink);
 }
 
 .outline-h3 .outline-link {
   --outline-depth: 2;
-  font-size: 0.8rem;
+  font-size: var(--text-base);
 }
 
 .outline-h4 .outline-link {
   --outline-depth: 3;
-  font-size: 0.8rem;
+  font-size: var(--text-base);
+}
+
+/* The indent guide: one hairline per nested row, at the middle of the step it
+   is indented by, so a run of subsections reads as one group hanging off the
+   heading above it rather than as rows that happen to start further right.
+   Drawn as a `::before` rather than a border because a border would move the
+   text away from the indent `docoutline.js` asserts, and only on the nested
+   levels: a top-level heading hangs off nothing. */
+.outline-h2 > .outline-link::before,
+.outline-h3 > .outline-link::before,
+.outline-h4 > .outline-link::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  /* The same 0.25rem the padding above starts from, literally rather than as
+     `--space-1`: that token is multiplied by `--density`, and a guide drawn
+     half a step from a different origin than the text it guides is a guide
+     that drifts the moment someone picks compact. */
+  left: calc(0.25rem + (var(--outline-depth) - 0.5) * var(--outline-step));
+  width: 1px;
+  background: var(--divider);
 }
 
 /* A row, not a stack. `.outline-link` is `width: 100%`, so a ✕ beside one had

@@ -2231,9 +2231,23 @@ body.scroll-top-visible .skills-split > main {
   flex-direction: column;
 }
 
+/* **The outline is as tall as the column lets it be, and scrolls only when
+   that is not enough.** Measured at 1440x900 with a 21-heading document open
+   (`scratchpad/ui-sweeps/docsidebar.js`): `#doc-outline` was 224px of box
+   around 520px of scroll, so 13 of 21 headings were hidden, with no scrollbar
+   and no fade to say so, while the panel around it was not scrolling at all
+   (`scrollHeight === clientHeight === 686`) and 290px of column sat empty
+   below. A 14rem ceiling is a guess at how much outline anyone wants; the
+   column's own height is the fact.
+
+   Taking the ceiling off does not reintroduce the hole this file's own
+   section above measured, because the wrap is still `flex: 0 1 auto`: with a
+   short document the outline is its content and the sections stack from the
+   top; with a long one it takes the height it needs, and when the panel runs
+   out the wrap shrinks, this list shrinks with it (`min-height: 0`) and
+   scrolls inside itself while References stays on screen. */
 .doc-outline {
   min-height: 0;
-  max-height: 14rem;
   overflow-y: auto;
 }
 

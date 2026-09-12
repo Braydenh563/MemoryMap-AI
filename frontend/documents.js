@@ -620,9 +620,25 @@ function renderDocList() {
     const title = document.createElement("span");
     title.className = "doc-item-title";
     title.textContent = doc.title;
+    //: The row is one line of title now, so a long one is cut with an
+    //: ellipsis rather than wrapping the row to a second line. The whole
+    //: title has to stay reachable, and the row is the thing under the
+    //: pointer, so the tooltip goes on the row rather than on the span.
+    button.title = doc.title || "Untitled";
     const meta = document.createElement("span");
     meta.className = "muted doc-item-meta";
-    meta.textContent = `${doc.words} word${doc.words === 1 ? "" : "s"} · ${relativeTime(doc.updated_at)}`;
+    //: **What kind of file this is.** The list showed a word count and a
+    //: time, so a .py and a .md were the same row: reported as part of the
+    //: sidebar redesign. `file_type` is already in `GET /documents`'s summary
+    //: (`_summary` in routes_documents.py), so this costs nothing, no second
+    //: request and no per-row fetch.
+    const type = document.createElement("span");
+    type.className = "doc-item-type";
+    type.textContent = `.${doc.file_type || "md"}`;
+    meta.append(
+      type,
+      ` · ${doc.words} word${doc.words === 1 ? "" : "s"} · ${relativeTime(doc.updated_at)}`
+    );
     button.append(title, meta);
     button.addEventListener("click", () => openDocument(doc.id));
     button.addEventListener("keydown", (event) => {
@@ -1402,6 +1418,7 @@ function renderDocOutline() {
       ? ""
       : "Headings you write appear here, and each one jumps to its place in the document.";
   }
+  docOutlineRows = [];
   for (const heading of headings) {
     const li = document.createElement("li");
     li.className = `outline-h${heading.level}`;
@@ -1413,7 +1430,111 @@ function renderDocOutline() {
     button.addEventListener("click", () => jumpToDocLine(heading.line));
     li.appendChild(button);
     list.appendChild(li);
+    docOutlineRows.push({ line: heading.line, button });
   }
+  //: The rows are new elements, so whatever was marked a moment ago is gone
+  //: with them. Marked again here rather than waiting for the next scroll:
+  //: the outline is rebuilt on a pause in typing, and a table of contents
+  //: that forgets where you are every time you stop typing is worse than one
+  //: that never knew.
+  docOutlineMarked = -1;
+  markDocOutline();
+}
+
+//: **Where you are in the document, marked in its outline.** The owner, of
+//: the sidebar redesign: "mostly outline". Measured before this existed:
+//: scrolled to 70% of a 21-heading document, zero rows under `#doc-outline`
+//: carried a current class or `aria-current`, and the outline's own scrollTop
+//: stayed 0. A table of contents that cannot say which heading you are in is
+//: a list of links, and it is the one thing every editor this is measured
+//: against (Obsidian, Typora, Notion) does have.
+//:
+//: Kept as a flat line-and-button list rather than re-read from the DOM on
+//: every scroll: the marking runs on a scroll event and must not walk the
+//: document, and rebuilding the outline per scroll was the obvious wrong
+//: answer this avoids.
+let docOutlineRows = [];
+let docOutlineMarked = -1;
+let docOutlineSpyFrame = 0;
+
+//: The first line of the document that is on screen, zero-based.
+//:
+//: CodeMirror is asked where the top-left of its own scroller lands, which is
+//: exact and costs one hit test. `posAtCoords` with `precise` false never
+//: returns null, so a coordinate above the first line or below the last still
+//: answers with the nearest position rather than with nothing.
+//:
+//: The textarea fallback has no line-to-pixel map at all, so it estimates
+//: from the scroll fraction. That is honestly approximate, and it is the
+//: surface nobody has when the engine loads; saying so here is cheaper than a
+//: reader wondering why one branch is exact and the other is not.
+function docVisibleTopLine() {
+  const box = docSurface();
+  if (!box) return 0;
+  if (box.kind === "codemirror") {
+    const view = box.view;
+    const rect = view.scrollDOM.getBoundingClientRect();
+    const pos = view.posAtCoords({ x: rect.left + 4, y: rect.top + 4 }, false);
+    const at = Math.max(0, Math.min(Number(pos) || 0, view.state.doc.length));
+    return view.state.doc.lineAt(at).number - 1;
+  }
+  const range = box.scrollHeight - box.clientHeight;
+  if (range <= 0) return 0;
+  const lines = box.text.split("\n").length;
+  return Math.round((box.scrollTop / range) * Math.max(0, lines - 1));
+}
+
+//: The marked row, kept inside whichever box in the sidebar actually scrolls.
+//: Bounded by `#doc-sidebar` on purpose: `scrollIntoView` walks every
+//: scrolling ancestor, and the page is one of them, so the tidy one-liner
+//: would yank the whole tab under the person's caret while they typed.
+function keepOutlineRowInView(el) {
+  const limit = $("doc-sidebar");
+  if (!limit) return;
+  let box = el.parentElement;
+  while (box && limit.contains(box) && box.scrollHeight <= box.clientHeight + 1) {
+    box = box.parentElement;
+  }
+  if (!box || !limit.contains(box)) return;
+  const row = el.getBoundingClientRect();
+  const frame = box.getBoundingClientRect();
+  if (row.top < frame.top) box.scrollTop -= frame.top - row.top + 8;
+  else if (row.bottom > frame.bottom) box.scrollTop += row.bottom - frame.bottom + 8;
+}
+
+function markDocOutline() {
+  if (!docOutlineRows.length) return;
+  const top = docVisibleTopLine();
+  //: The last heading at or above the top of the view: the section whose text
+  //: you are reading, not the next one down.
+  let index = 0;
+  for (let i = 0; i < docOutlineRows.length; i++) {
+    if (docOutlineRows[i].line > top) break;
+    index = i;
+  }
+  if (index === docOutlineMarked) return;
+  for (const row of docOutlineRows) {
+    row.button.classList.remove("is-current");
+    row.button.removeAttribute("aria-current");
+  }
+  const button = docOutlineRows[index].button;
+  button.classList.add("is-current");
+  //: `location` rather than `true`: this is where the reader is in a
+  //: document, which is exactly what the token means, and it is what makes
+  //: the mark reach a screen reader instead of being a colour.
+  button.setAttribute("aria-current", "location");
+  docOutlineMarked = index;
+  keepOutlineRowInView(button);
+}
+
+//: One mark per frame. A scroll fires far faster than anything needs to be
+//: repainted, and the work behind it is a hit test plus a class swap.
+function scheduleDocOutlineSpy() {
+  if (docOutlineSpyFrame) return;
+  docOutlineSpyFrame = requestAnimationFrame(() => {
+    docOutlineSpyFrame = 0;
+    markDocOutline();
+  });
 }
 
 // Put the caret at the start of a line and scroll it into view. Done by
@@ -2552,6 +2673,10 @@ function wireDocSurfaceScroll(surface) {
   if (!el || el.dataset.docScrollSync === "1") return;
   el.dataset.docScrollSync = "1";
   el.addEventListener("scroll", () => {
+    //: Before the driver guard below, not after it: the outline follows the
+    //: editor whichever pane started the scroll, and when the preview is
+    //: driving, this listener's own surface is the one being moved.
+    scheduleDocOutlineSpy();
     if (docScrollDriver && docScrollDriver !== surface) return;
     syncDocScroll(surface);
   });
@@ -3493,6 +3618,13 @@ function showDocSidebarSection(name) {
     button.tabIndex = active ? 0 : -1;
   }
   localStorage.setItem(DOC_SIDEBAR_STORE, wanted);
+  //: A hidden list has no scroll position to correct, so the mark made while
+  //: the Documents tab was showing could not bring its row into view. Asked
+  //: again on the way in, when the outline has a box.
+  if (wanted === "outline") {
+    docOutlineMarked = -1;
+    markDocOutline();
+  }
 }
 
 function initDocSidebarTabs() {

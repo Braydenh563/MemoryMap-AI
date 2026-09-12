@@ -796,13 +796,23 @@ textarea.drag-over {
    - any toast firing while this is open was rendered directly underneath
    it, not overlapping so much as hidden. Moved to the opposite corner,
    which nothing else in the app claims as a fixed position. */
+/* **Spaced on the scale, like every other floating panel.** It was written
+   in raw pixels before any of this existed: 20px from two edges, a 350px
+   width, and `.card`'s own 20px/24px page padding, which is the inset for a
+   pane of content in a column and far too generous for a 350px panel of
+   small type in a corner. `.whiteboard-floating-panel`, the app's other
+   fixed panel over a surface, is `--space-3` throughout, and this now
+   matches it: the same inset, the same gap from the window edges as the
+   other floating things, and a width in `rem` so it tracks the type scale
+   the panel is full of rather than staying 350 device pixels whatever the
+   reader has set. */
 .agent-monitor {
   position: fixed;
-  bottom: 20px;
-  left: 20px;
-  width: 350px;
-  max-width: calc(100vw - 40px);
+  bottom: var(--space-8);
+  left: var(--space-8);
+  width: min(24rem, calc(100vw - var(--space-8) * 2));
   z-index: 1000;
+  padding: var(--space-4);
   box-shadow: var(--shadow-md);
   animation: slide-up 0.3s ease-out;
   /* **Opaque, and `.glass` is exactly why it has to be said here.** This

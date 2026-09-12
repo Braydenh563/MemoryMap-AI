@@ -1871,7 +1871,8 @@ summary > .ph-lead,
 .entry-actions > button.ghost,
 .entry-actions > .menu-wrap > button.ghost,
 .library-image-actions > button.ghost,
-.library-image-actions > .menu-wrap > button.ghost {
+.library-image-actions > .menu-wrap > button.ghost,
+.monitor-header-actions > button.ghost {
   background: none;
   border-color: transparent;
   box-shadow: none;
@@ -1886,7 +1887,9 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .library-image-actions > button.ghost:hover,
 .library-image-actions > button.ghost:focus-visible,
 .library-image-actions > .menu-wrap > button.ghost:hover,
-.library-image-actions > .menu-wrap > button.ghost:focus-visible {
+.library-image-actions > .menu-wrap > button.ghost:focus-visible,
+.monitor-header-actions > button.ghost:hover,
+.monitor-header-actions > button.ghost:focus-visible {
   background: var(--ghost-btn-bg);
 }
 

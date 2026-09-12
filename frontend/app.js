@@ -2828,9 +2828,29 @@ function nearestScrollParent(el) {
 // `wireEscapedActionMenu` above makes, for the same reason), anchored under
 // its own trigger with a caret pointing back at it, and closed the three
 // ways every other popover here closes.
-function placeHelpPopover(panel, trigger) {
+function placeHelpPopover(panel, trigger, retry = true) {
   const margin = 8;
   const anchor = trigger.getBoundingClientRect();
+  //: **The other half of the flicker, which this function did not have.**
+  //: Reported again after the dropdowns were fixed: "the flickering popup
+  //: panels and dropdown panels are still happening", "still happen on some
+  //: tooltips". `wireEscapedActionMenu`'s `place` already refuses an
+  //: all-zero anchor rect (what a trigger inside a `display: none` or
+  //: not-yet-laid-out ancestor reports, which collapses every sum below to
+  //: the margin and puts the panel in the top corner); this one measured
+  //: the same way and trusted it. Same guard, same shape: one retry on the
+  //: next frame, held invisible rather than painted in the corner while it
+  //: waits, and out of retries it places as best it can rather than
+  //: flashing. A "?" whose trigger is genuinely at the origin also has zero
+  //: width and height, so the three-way test cannot mistake a real corner
+  //: trigger for an unmeasured one.
+  if (!anchor.width && !anchor.height && !anchor.top) {
+    if (retry) {
+      panel.style.visibility = "hidden";
+      requestAnimationFrame(() => placeHelpPopover(panel, trigger, false));
+      return;
+    }
+  }
   // Measured while invisible: the panel is shown at 0,0 for the measure
   // and only then moved, which painted one frame in the top-left corner
   // (reported: "they flicker somewhere else on the screen for a split

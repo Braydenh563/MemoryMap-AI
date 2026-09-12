@@ -30,10 +30,20 @@ question would be worse than one that understood neither.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
 from memorymap.entry import timewords
+
+#: The filter keys `understand()` always returns, so every caller can index
+#: the dict rather than `.get()` it. Named here rather than inline because
+#: `search/engine.py` iterates the same list to decide which filters it knows
+#: how to apply, and two copies of this list would drift.
+FILTER_KEYS = ("tag", "kind", "space", "has", "is")
+
+
+def _empty_filters() -> dict[str, list[str]]:
+    return {key: [] for key in FILTER_KEYS}
 
 
 @dataclass(frozen=True)
@@ -67,10 +77,32 @@ class Understood:
     #:
     #: So a soft range still orders and still labels; it just does not exclude.
     soft: bool = False
+    #: The operators of WORLD_CLASS_PLAN 5.1, as `{"tag": ["work"], …}`.
+    #: Keys: `tag`, `kind`, `space`, `has`, `is`. Always present, always a
+    #: list, empty when the query used no operators, so a caller can read
+    #: `u.filters["tag"]` without guarding first. `before:`/`after:` are not
+    #: in here: they mean the same thing as a time phrase and go to
+    #: `since`/`until`, or a caller would have to apply dates two ways.
+    filters: dict[str, list[str]] = field(default_factory=_empty_filters)
+    #: Quoted runs, `"exact phrase"`, in the order typed. The words stay in
+    #: `subject` as well: the phrase is a *requirement* on top of the words,
+    #: not a replacement for them, and the embedding still wants the text.
+    phrases: list[str] = field(default_factory=list)
+    #: Words after a leading `-`. A hit containing any of these is dropped,
+    #: which is the whole of what the operator promises.
+    excluded: list[str] = field(default_factory=list)
 
     @property
     def has_range(self) -> bool:
         return self.since is not None or self.until is not None
+
+    @property
+    def has_operators(self) -> bool:
+        return (
+            any(self.filters.values())
+            or bool(self.phrases)
+            or bool(self.excluded)
+        )
 
 
 # Phrases that mean "a stretch ending now" rather than a single day. `timewords`
@@ -261,6 +293,132 @@ def _strip_scaffolding(text: str) -> str:
     return cleaned
 
 
+# --- the operators (WORLD_CLASS_PLAN 5.1) -------------------------------------
+#
+# One parser, used by Notes, Library, Timeline, the Chat scope and the palette,
+# which is the point of §5.1: the alternative is five half-parsers that agree
+# about `tag:` and disagree about everything else. They are *pure code*: the
+# section they come from exists because the app has to be excellent with the
+# model switched off, and an operator that needed a model to read would be the
+# opposite of that.
+#
+# The names people type, mapped to the filter key they fill. Aliases are here
+# because a person typing `type:` and a person typing `kind:` mean the same
+# thing and the app knowing only one of them is a papercut nobody reports; they
+# just conclude the feature does not work.
+_OPERATOR_NAMES = {
+    "tag": "tag",
+    "tags": "tag",
+    "kind": "kind",
+    "type": "kind",
+    "in": "space",
+    "space": "space",
+    "has": "has",
+    "is": "is",
+}
+
+#: `before:` and `after:` are dates rather than filters: see `Understood.filters`.
+_DATE_OPERATORS = ("before", "after", "since", "until")
+
+# `name:value`, where the value may be quoted so `tag:"two words"` works, and
+# where the name must start the token so a bare URL ("http://example.com") is
+# never read as an operator. The lookbehind is on whitespace rather than `\b`
+# for exactly that reason.
+_OPERATOR = re.compile(
+    r'(?<!\S)(' + "|".join([*_OPERATOR_NAMES, *_DATE_OPERATORS]) + r'):(?:"([^"]*)"|(\S+))',
+    re.IGNORECASE,
+)
+
+#: A quoted run. Non-greedy would be wrong here: `"a" and "b"` is two phrases,
+#: and `[^"]+` gets that right without backtracking, which matters because this
+#: runs on search-box text (see `_tidy` on the two ReDoS alerts this file has
+#: already collected).
+_PHRASE = re.compile(r'"([^"]+)"')
+
+#: A word the person does not want. Leading `-`, and only at the start of a
+#: token, so "state-of-the-art" and a negative number keep their hyphens.
+_EXCLUDED = re.compile(r"(?<!\S)-([\w][\w'-]*)")
+
+
+def _parse_date_operator(value: str) -> date | None:
+    """`2026-01-01`, `2026-01` or `2026` as a date. Anything else is None.
+
+    Deliberately ISO only, and deliberately silent about the rest: a typed
+    `before:tuesday` falls through to the free-text path below, where
+    `timewords` already knows how to read it, rather than being rejected with
+    an error message in a search box.
+    """
+    parts = value.strip().split("-")
+    try:
+        if len(parts) == 1:
+            return date(int(parts[0]), 1, 1)
+        if len(parts) == 2:
+            return date(int(parts[0]), int(parts[1]), 1)
+        return date(int(parts[0]), int(parts[1]), int(parts[2]))
+    except (TypeError, ValueError):
+        return None
+
+
+def _split_values(raw: str) -> list[str]:
+    """`work`, `work,home` and `"two words"` as a list of values.
+
+    Commas split because `tag:work,home` is what people type when they mean
+    "either", and the alternative (repeating the operator) is the one they
+    reach for second.
+    """
+    return [part.strip() for part in raw.split(",") if part.strip()]
+
+
+def _parse_operators(text: str) -> tuple[str, dict[str, list[str]], list[str], list[str], date | None, date | None]:
+    """Lift the operators out of a query and hand back what is left.
+
+    The remainder goes on to the time and scaffolding passes exactly as an
+    unoperatored query always did, which is why this runs first: `before:`
+    holds a date, and letting the time reader see it would resolve the same
+    constraint twice, once as a filter and once as a phrase.
+    """
+    filters = _empty_filters()
+    since: date | None = None
+    until: date | None = None
+    remainder = text
+
+    def take_operator(match: re.Match) -> str:
+        nonlocal since, until
+        name = match.group(1).lower()
+        value = match.group(2) if match.group(2) is not None else (match.group(3) or "")
+        if name in _DATE_OPERATORS:
+            when = _parse_date_operator(value)
+            if when is None:
+                # Not a date this parser reads: leave the text in place so the
+                # free-text path can try, rather than swallowing it silently.
+                return match.group(0)
+            if name in ("before", "until"):
+                # Exclusive, the way every search box that has these treats
+                # them: "before 2026-01-01" does not mean "including new
+                # year's day". `until:` is the inclusive spelling for anyone
+                # who wants the other reading.
+                until = when - timedelta(days=1) if name == "before" else when
+            else:
+                since = when + timedelta(days=1) if name == "after" else when
+            return " "
+        key = _OPERATOR_NAMES[name]
+        for value_part in _split_values(value):
+            if value_part not in filters[key]:
+                filters[key].append(value_part)
+        return " "
+
+    remainder = _OPERATOR.sub(take_operator, remainder)
+
+    phrases = [m.group(1).strip() for m in _PHRASE.finditer(remainder) if m.group(1).strip()]
+    # The quotes come off but the words stay: see `Understood.phrases`.
+    remainder = _PHRASE.sub(lambda m: " " + m.group(1) + " ", remainder)
+
+    excluded = [m.group(1).lower() for m in _EXCLUDED.finditer(remainder)]
+    remainder = _EXCLUDED.sub(" ", remainder)
+
+    return remainder, filters, phrases, excluded, since, until
+
+
 def understand(question: str, now: datetime | date | None = None) -> Understood:
     """Read a question for a time range and a subject.
 
@@ -273,12 +431,17 @@ def understand(question: str, now: datetime | date | None = None) -> Understood:
         return Understood(subject="")
     today = (now.date() if isinstance(now, datetime) else now) or date.today()
 
-    since = until = None
+    # Operators first: they carry their own dates, and a `before:2026-01-01`
+    # left in the text would be read a second time by the time pass below.
+    remainder, filters, phrases, excluded, since, until = _parse_operators(text)
     phrase = ""
     soft = False
-    remainder = text
+    operator_dates = since is not None or until is not None
     for pattern, kind in _COMPILED_RANGES:
-        match = pattern.search(remainder)
+        # A stated `before:`/`after:` is the more precise of the two, so a
+        # phrase pass that could overwrite it does not run at all. Somebody
+        # who typed both means the dates they typed.
+        match = None if operator_dates else pattern.search(remainder)
         if not match:
             continue
         since, until = _range_for(kind, match, today)
@@ -287,7 +450,7 @@ def understand(question: str, now: datetime | date | None = None) -> Understood:
         remainder = (remainder[: match.start()] + " " + remainder[match.end():]).strip()
         break
 
-    if since is None:
+    if since is None and not operator_dates:
         # No range phrase. A single date might still be in there ("what did I
         # note on tuesday"), and `timewords` already knows how to read one, 
         # widened to its own precision, so "last month" is the month rather
@@ -303,7 +466,16 @@ def understand(question: str, now: datetime | date | None = None) -> Understood:
     # Nothing left but filler once the date came out: the question was *only*
     # about time. Say so, so the caller lists the range instead of ranking
     # noise: "what did I save last week" has no subject to be similar to.
-    time_only = since is not None and not _has_content(subject)
+    #
+    # An operator query is never "time only", even when it names nothing but a
+    # range: `kind:document before:2026-01-01` has a constraint to apply, and
+    # answering it with "every note in the window" would drop the one thing
+    # the person actually typed.
+    time_only = (
+        since is not None
+        and not _has_content(subject)
+        and not (any(filters.values()) or phrases or excluded)
+    )
     return Understood(
         subject=subject if _has_content(subject) else "",
         since=since,
@@ -311,6 +483,9 @@ def understand(question: str, now: datetime | date | None = None) -> Understood:
         when_phrase=phrase,
         time_only=time_only,
         soft=soft,
+        filters=filters,
+        phrases=phrases,
+        excluded=excluded,
     )
 
 

@@ -49,7 +49,6 @@ def test_the_index_covers_every_kind(session):
     assert {"note", "document", "board", "file", "bookmark", "reminder"} <= set(counts)
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_operators_parse():
     from memorymap.search.query import understand
 

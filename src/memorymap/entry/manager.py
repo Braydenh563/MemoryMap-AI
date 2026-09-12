@@ -127,7 +127,19 @@ def set_category(session: Session, entry: Entry, name: str) -> Entry:
     an import, a tool) is not overruling anything. Kept beside
     `get_or_create_category` because the pair is the whole of filing by name.
     """
-    entry.category_id = get_or_create_category(session, name).id
+    # **Filed in the note's own space, whoever is doing the filing.** A new
+    # category takes its space from `session.info["workspace_id"]`, which only
+    # a request sets (from `X-Workspace-ID`). A caller with no request behind
+    # it, a background pass, an import running off the main thread, would
+    # create the category in "default" while the note it is filing sits in
+    # another space, and a note filed into a category its own space cannot
+    # list is a note that has quietly left the sidebar. The link path had
+    # exactly this bug and it was measured; this is the same fact stated once
+    # more, at the other place a row is made for a note.
+    from memorymap.core.deps import impersonate_workspace
+
+    with impersonate_workspace(session, entry.workspace_id or "default"):
+        entry.category_id = get_or_create_category(session, name).id
     session.flush()
     return entry
 

@@ -75,3 +75,29 @@ def test_a_link_made_inside_a_request_still_takes_that_space(app_state):
         assert [link.workspace_id for link in session.scalars(select(EntryLink)).all()] == [
             "space-c"
         ]
+
+
+def test_filing_a_note_without_a_request_makes_the_category_in_its_space(app_state):
+    """The same fact at the other place a row is made for a note.
+
+    A category created while filing takes its space from the session too, so a
+    caller with no request behind it (a background pass, an import off the main
+    thread) would file a note in `space-b` into a category in "default": a
+    category the note's own space cannot list, which is a note that has quietly
+    left the sidebar.
+    """
+    from memorymap.core.database import Category
+
+    db = deps.get_db()
+    with db.session() as session:
+        first, _second = _notes_in(session, "space-b")
+        note_id = first.id
+
+    with db.session() as session:
+        manager.set_category(session, session.get(Entry, note_id), "Research")
+        session.commit()
+
+    with db.session() as session:
+        session.info["workspace_id"] = "space-b"
+        names = [row.name for row in session.scalars(select(Category)).all()]
+        assert "Research" in names, "the note's own space cannot see the category it was filed into"

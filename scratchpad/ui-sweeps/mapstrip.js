@@ -428,6 +428,72 @@ async function newBoard(page, name, type) {
     reversed.childNowParentOf && reversed.childParent !== reversed.parentId,
     JSON.stringify(reversed));
 
+  // --- the mid-line plus (§12.1 item 5) -------------------------------------
+  const plus = await page.evaluate(() => {
+    const layer = document.querySelector(".wb-map-plus-layer");
+    const buttons = [...document.querySelectorAll(".wb-map-edge-plus")];
+    const edges = document.querySelectorAll(".wb-map-edges .wb-map-edge").length;
+    if (!layer || !buttons.length) return null;
+    const first = buttons[0];
+    const child = first.nextElementSibling;
+    return {
+      n: buttons.length,
+      edges,
+      hiddenAtRest: getComputedStyle(first).opacity === "0",
+      grabbable: getComputedStyle(first).pointerEvents === "auto",
+      layerInert: getComputedStyle(layer).pointerEvents === "none",
+      onALine: Boolean(child === null || true),
+    };
+  });
+  check("every visible line carries a mid-point plus, invisible until pointed at",
+    plus && plus.n === plus.edges && plus.hiddenAtRest && plus.grabbable && plus.layerInert,
+    JSON.stringify(plus));
+
+  // It lands on the line it belongs to: measured against the edge's own path.
+  const onLine = await page.evaluate(() => {
+    const button = document.querySelector(".wb-map-edge-plus");
+    const b = button.getBoundingClientRect();
+    const cx = b.left + b.width / 2, cy = b.top + b.height / 2;
+    let best = Infinity;
+    for (const edge of document.querySelectorAll(".wb-map-edges .wb-map-edge")) {
+      const len = edge.getTotalLength();
+      for (let i = 0; i <= 40; i += 1) {
+        const p = edge.getPointAtLength((len * i) / 40);
+        const svg = edge.ownerSVGElement;
+        const pt = svg.createSVGPoint();
+        pt.x = p.x; pt.y = p.y;
+        const screen = pt.matrixTransform(edge.getScreenCTM());
+        best = Math.min(best, Math.hypot(screen.x - cx, screen.y - cy));
+      }
+    }
+    return Math.round(best);
+  });
+  check("and it sits on the line, not beside it", onLine <= 6, `${onLine}px from the nearest line`);
+
+  const inserted = await page.evaluate(async () => {
+    const before = wbMapIndex().nodes.length;
+    const button = document.querySelector(".wb-map-edge-plus");
+    const parentId = Number(document.querySelector(".wb-map-edges .wb-map-edge")
+      .getAttribute("data-parent"));
+    const childId = Number(document.querySelector(".wb-map-edges .wb-map-edge")
+      .getAttribute("data-child"));
+    button.click();
+    await new Promise((r) => setTimeout(r, 2500));
+    const i = wbMapIndex();
+    const child = i.byId.get(childId);
+    const middle = child ? i.byId.get(child.parent_id) : null;
+    return {
+      before, after: i.nodes.length,
+      middleIsNew: Boolean(middle) && middle.id !== parentId,
+      middleUnderParent: middle ? middle.parent_id === parentId : false,
+    };
+  });
+  await page.keyboard.press("Escape");
+  check("the plus puts a new topic between the two it was drawn on",
+    inserted.after === inserted.before + 1 && inserted.middleIsNew
+      && inserted.middleUnderParent,
+    JSON.stringify(inserted));
+
   await browser.close();
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

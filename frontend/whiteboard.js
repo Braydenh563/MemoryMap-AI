@@ -3776,6 +3776,106 @@ function wbRenderMapEdges() {
   // on, and a map's edge count is one per node, small enough that rebuilding
   // is cheaper than the bookkeeping a join would need.
   group.replaceChildren(...next);
+  wbRenderMapEdgePluses(index, hidden, layout);
+}
+
+//: **A `+` at the middle of every line, to put a topic between two others**
+//: (MINDMAP_PLAN.md §12.1 item 5, Coggle's own mid-point add). The other half
+//: of that item, the `+` at the far end of a branch, is the node's own
+//: `.wb-map-add` and has been there since Phase 2.
+//:
+//: Drawn in `#wb-html-layer` rather than in the edge group, and that is the
+//: whole reason this is a separate pass: the layer carries the same pan and
+//: zoom the edges do, so a button placed at board coordinates lands on the
+//: line and scales with it, *and* it can be a real `button.ghost.small
+//: .icon-only` from the app's own ramp instead of a shape drawn in SVG that
+//: would be a control nothing else in the app looks like.
+//:
+//: Invisible until the pointer is on it (CSS), which is what keeps a map of
+//: two hundred lines from being a map of two hundred buttons.
+function wbRenderMapEdgePluses(index, hidden, layout) {
+  const host = document.getElementById("wb-html-layer");
+  if (!host) return;
+  let layer = host.querySelector(".wb-map-plus-layer");
+  if (!wbIsMap()) {
+    layer?.remove();
+    return;
+  }
+  if (!layer) {
+    layer = document.createElement("div");
+    layer.className = "wb-map-plus-layer";
+    host.appendChild(layer);
+  }
+  const next = [];
+  for (const parent of index.nodes) {
+    if (hidden.has(parent.id) || parent.data?.collapsed) continue;
+    for (const child of index.childrenOf.get(parent.id) || []) {
+      if (hidden.has(child.id)) continue;
+      const a = wbMapEdgeAnchors(parent, child, layout);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "ghost small icon-only wb-map-edge-plus";
+      button.title = "Put a topic between these two";
+      button.setAttribute("aria-label", "Put a topic between these two");
+      // Half the button's own 1.5rem, so its centre is on the line rather
+      // than its top-left corner. In board units, which is what this layer
+      // is measured in.
+      button.style.left = `${(a.x1 + a.x2) / 2 - 12}px`;
+      button.style.top = `${(a.y1 + a.y2) / 2 - 12}px`;
+      const glyph = document.createElement("i");
+      glyph.className = "ph ph-plus";
+      glyph.setAttribute("aria-hidden", "true");
+      button.appendChild(glyph);
+      button.addEventListener("pointerdown", (event) => event.stopPropagation());
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        wbMapInsertBetween(parent.id, child.id);
+      });
+      //: **It sits exactly where you would right-click the line**, so it has
+      //: to pass that gesture on. Found by the sweep the moment this landed:
+      //: the link ring stopped opening at a line's middle, because an
+      //: invisible button was in front of the hit stroke and a right-click on
+      //: a button is not a click. Forwarding it means the whole line answers
+      //: the same gesture, middle included.
+      button.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        wbOpenMapLinkRadial(child.id, event.clientX, event.clientY);
+      });
+      next.push(button);
+    }
+  }
+  layer.replaceChildren(...next);
+}
+
+//: Put a new topic between a parent and one of its children: the new topic
+//: takes the parent, and the child takes the new topic.
+//:
+//: Two steps, and the second is a `/move` rather than a create-with-parent,
+//: because the child already exists and `parent_id` is only writable through
+//: the endpoint that runs the cycle check. The new topic opens for typing
+//: like every other add on this map.
+async function wbMapInsertBetween(parentId, childId) {
+  const boardId = window.currentBoardId;
+  if (!boardId) return;
+  const created = await wbMapCreateNode({ parentId });
+  if (!created) return;
+  const child = (wbState.objects || []).find((o) => o.id === childId);
+  if (!child) return;
+  try {
+    const moved = await apiJson(`/whiteboard/boards/${boardId}/nodes/${childId}/move`, {
+      method: "PUT",
+      body: JSON.stringify({ parent_id: created.id }),
+    });
+    Object.assign(child, moved);
+  } catch (err) {
+    toast(err.message || "Couldn't move that topic under the new one.", true);
+    return;
+  }
+  selectWbItem("object", created.id);
+  await wbMapTidyBranch(parentId);
+  renderWhiteboardNow();
+  wbMapEditNode(created.id);
 }
 
 // --- editing a map ----------------------------------------------------------

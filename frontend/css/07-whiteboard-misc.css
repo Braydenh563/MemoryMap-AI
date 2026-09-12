@@ -8426,6 +8426,39 @@ input[type="file"] {
   opacity: 0.75;
 }
 
+/* The mid-line `+` (MINDMAP_PLAN.md §12.1 item 5). One per visible line, in
+   the same layer the nodes live in so it pans and zooms with them.
+
+   **Invisible until it is pointed at**, which is what keeps a map of two
+   hundred lines from being a map of two hundred buttons. It still takes the
+   pointer while invisible, which is the whole affordance: moving toward the
+   middle of a branch finds it, exactly as Coggle's does. The layer itself is
+   inert so the canvas underneath is still the canvas. */
+.wb-map-plus-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.wb-map-edge-plus {
+  position: absolute;
+  width: 1.5rem;
+  height: 1.5rem;
+  min-width: 0;
+  border-radius: var(--radius-pill);
+  /* Under the nodes: a line's middle can pass behind a node on a dense map,
+     and the node is the thing you meant to click there. */
+  z-index: 1;
+  opacity: 0;
+  pointer-events: auto;
+  transition: opacity var(--motion-fast) ease;
+}
+
+.wb-map-edge-plus:hover,
+.wb-map-edge-plus:focus-visible {
+  opacity: 1;
+}
+
 /* **A line you can actually point at.** The drawn edge is 2px wide, which is
    a target nobody can hit; so every edge is drawn twice, once visibly and once
    as a transparent stroke wide enough to grab. Same technique as

@@ -204,3 +204,20 @@ def test_a_tag_is_a_label_and_has_a_label_s_length(client):
     assert client.post(
         "/entries", json={"content": "t", "tags": [f"t{i}" for i in range(400)]}
     ).status_code == 422
+
+
+def test_the_same_two_limits_hold_on_an_edit(client):
+    """A cap that only guards the create path is not a cap.
+
+    Every note in the notebook can be edited, so the long paste and the
+    50,000-character tag simply arrive through `PUT` instead. Found by asking
+    where else the shape this was fixed in can enter, rather than by a second
+    report.
+    """
+    note = client.post("/entries", json={"content": "a note"}).json()
+    assert client.put(
+        f"/entries/{note['id']}", json={"content": "word " * 1_000_000}
+    ).status_code == 422
+    edited = client.put(f"/entries/{note['id']}", json={"tags": ["y" * 50_000, "ok"]})
+    assert edited.status_code == 200, edited.text
+    assert [len(tag) for tag in edited.json()["tags"]] == [60, 2]

@@ -106,9 +106,21 @@ class EntryCreate(BaseModel):
 class EntryUpdate(BaseModel):
     """Manual override: only provided fields change."""
 
-    content: str | None = Field(default=None, min_length=1)
+    #: The same two limits `EntryCreate` carries, for the same reason. A cap
+    #: that only guards the create path is not a cap: every note in the
+    #: notebook can be edited, so the long paste and the 50,000-character tag
+    #: just arrive through `PUT` instead. Found by asking where else the
+    #: shape this was fixed in can enter.
+    content: str | None = Field(default=None, min_length=1, max_length=MAX_NOTE_CONTENT)
     category: str | None = None
-    tags: list[str] | None = None
+    tags: list[str] | None = Field(default=None, max_length=200)
+
+    @field_validator("tags")
+    @classmethod
+    def _tags_are_labels(cls, tags: list[str] | None) -> list[str] | None:
+        if tags is None:
+            return None
+        return [tag.strip()[:MAX_TAG_LENGTH] for tag in tags if tag and tag.strip()]
     pinned: bool | None = None
     is_draft: bool | None = None
 

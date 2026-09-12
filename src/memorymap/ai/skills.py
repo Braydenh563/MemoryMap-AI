@@ -100,6 +100,37 @@ MAX_MANUAL_NOTE = 500
 #: than imported from `tools` because `tools` imports this module.
 NEVER_IN_A_SKILL = frozenset({"run_skill", "make_plan"})
 
+#: **What a skill's `verify` block may assert** (Brief 13; CHAT_PLAN decision
+#: 10). A run ends by reading one number back out of the notebook and checking
+#: it, which is the difference between "the model said it tagged them" and
+#: "the notebook now says so".
+#:
+#: Four predicates, each answerable from one integer, because a postcondition
+#: a small model can be graded against has to be a fact rather than a
+#: judgement:
+#:
+#: - `min` / `max`: the reading is at least / at most this.
+#: - `equals`: exactly this.
+#: - `unchanged`: the same as it was *before the run started*, which is the
+#:   postcondition of every read-only skill in the catalogue ("Notebook health
+#:   check" says in its own prompt that it changes nothing; this is what makes
+#:   that a checked claim rather than a promise).
+#:
+#: The names are the vocabulary and `skill_runner._PREDICATES` holds the
+#: function per name; `tests/test_harness_verifier.py` asserts the two sets are
+#: equal, which is the `core/events.py` driver trick in miniature: a predicate
+#: added here without an evaluator fails the build rather than silently
+#: passing every run that uses it.
+VERIFY_PREDICATES = ("min", "max", "equals", "unchanged")
+
+#: Where the verifier looks for its number when the `verify` block does not
+#: name a field. Ordered: the first of these the tool's result carries wins.
+#: Every counting tool in the registry answers to one of them (`count_notes`
+#: returns `total` or `count`, `list_notes` returns `total_matching`), so the
+#: common case needs no `field` at all, and a tool that answers to none of
+#: them is told so at save time rather than at the end of a run.
+VERIFY_COUNT_FIELDS = ("total", "count", "total_matching", "returned")
+
 #: An ad-hoc plan's title, shown on the plan card. Longer than MAX_NAME because
 #: it is the job in the user's own words: "tidy up my categories and retag
 #: anything that got missed", rather than a name somebody chose for a skill.
@@ -201,6 +232,62 @@ def _one_step_spec(
         "tools": tools,
         "retries": max(0, min(retries, MAX_STEP_RETRIES)),
     }
+
+
+def verify_spec(raw: dict, known_tools: set[str] | None, declared: list[str]) -> dict | None:
+    """One skill's `verify` block in canonical form, or None if it has none.
+
+    `{"tool": name, "field": str|None, "expect": {predicate: value}}`.
+
+    **Why a declaration rather than a step.** A skill could always have ended
+    with a step saying "check it worked", and that is exactly the thing a 3B
+    model reports having done without doing: the failure this whole file is
+    about. A `verify` block is read and run by the app, so the answer comes
+    from the notebook rather than from the model's account of itself, and a
+    run that stopped early cannot claim it passed.
+
+    Validated here, at save time, for the same reason a step's contract is:
+    the alternative is a run that does all its work and then fails at the last
+    line on a typo in a predicate name.
+    """
+    block = raw.get("verify")
+    if not isinstance(block, dict) or not block:
+        return None
+    tool = str(block.get("tool") or "").strip()
+    if not tool:
+        raise SkillError("A verify block needs a tool to read the answer from")
+    if known_tools is not None and tool not in known_tools:
+        raise SkillError(f"There is no tool called “{tool}” to verify with.")
+    if declared and tool not in declared:
+        # Same rule as a step's contract, and the same reason: a verifier the
+        # run's own allowlist refuses is a postcondition that can never pass.
+        raise SkillError(
+            f"This skill verifies with “{tool}”, which it does not declare in "
+            "its tools."
+        )
+    expect = block.get("expect")
+    if not isinstance(expect, dict) or not expect:
+        raise SkillError("A verify block needs an expect, for example {\"min\": 1}")
+    unknown = sorted(set(expect) - set(VERIFY_PREDICATES))
+    if unknown:
+        raise SkillError(
+            "A verify block can't expect "
+            + ", ".join(f"“{name}”" for name in unknown)
+            + ", use one of "
+            + ", ".join(VERIFY_PREDICATES)
+            + "."
+        )
+    checks: dict = {}
+    for name, value in expect.items():
+        if name == "unchanged":
+            checks[name] = bool(value)
+            continue
+        try:
+            checks[name] = int(value)
+        except (TypeError, ValueError):
+            raise SkillError(f"“{name}” in a verify block wants a whole number.") from None
+    field = str(block.get("field") or "").strip()
+    return {"tool": tool, "field": field or None, "expect": checks}
 
 
 def step_specs(skill: dict) -> list[dict]:
@@ -323,8 +410,14 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
     prompt = _text(raw.get("prompt"), MAX_PROMPT, "A skill prompt")
     if not name:
         raise SkillError("A skill needs a name")
-    if not prompt:
-        raise SkillError("A skill needs a prompt saying what it should do")
+    #: **Steps count as the prompt** (Brief 13's decision, recorded in
+    #: CHAT_PLAN "Decisions made"). A numbered list of steps already says what
+    #: the job is, and making the author write it twice is how the two drift
+    #: apart: the prompt says one thing, the steps do another, and the model
+    #: reads both. A skill with neither is still refused, because that is a
+    #: skill that says nothing at all.
+    if not prompt and not (raw.get("steps") or raw.get("step_specs")):
+        raise SkillError("A skill needs a prompt saying what it should do, or steps")
 
     tools: list[str] = []
     for tool in raw.get("tools") or []:
@@ -392,6 +485,12 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
         "tools": tools,
         "inputs": inputs,
     }
+    # Only when it was declared: a skill with no postcondition must round-trip
+    # through here unchanged, and a `verify: None` key on every stored skill
+    # would be a schema change nothing asked for.
+    verify = verify_spec(raw, known_tools, tools)
+    if verify:
+        skill["verify"] = verify
     # Every placeholder used has to be declared, or running the skill sends
     # the model a literal {{tag}} and it invents a value. Cheaper to catch on
     # save than to debug in a run.
@@ -509,7 +608,11 @@ def run_instruction(skill: dict, values: dict | None = None) -> str:
     ]
     if skill.get("description"):
         parts.append(fill(skill["description"], values))
-    parts.append(f"What it should do: {fill(skill['prompt'], values)}")
+    # A skill may say what it does in its prompt, in its steps, or in both
+    # (see `normalise`). An empty line saying "What it should do:" and nothing
+    # after it is worse than no line, so it is only added when there is one.
+    if skill.get("prompt"):
+        parts.append(f"What it should do: {fill(skill['prompt'], values)}")
     if skill.get("steps"):
         numbered = "\n".join(
             f"{i}. {fill(step, values)}" for i, step in enumerate(skill["steps"], start=1)
@@ -567,10 +670,9 @@ def step_instruction(
         else f"You are running the skill “{skill['name']}” for me. "
         f"This is step {index + 1} of {total}."
     )
-    parts = [
-        opening,
-        f"The whole job: {fill(skill['prompt'], values)}",
-    ]
+    parts = [opening]
+    if skill.get("prompt"):
+        parts.append(f"The whole job: {fill(skill['prompt'], values)}")
     if index:
         parts.append(
             "Earlier steps are in the conversation above, build on what they "

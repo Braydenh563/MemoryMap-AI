@@ -14,7 +14,6 @@ import pytest
 BRIEF = "Brief 13: the verifier is not built yet"
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_a_skill_may_declare_a_verify_block():
     from memorymap.ai import skills
 

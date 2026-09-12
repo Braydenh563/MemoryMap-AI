@@ -987,7 +987,13 @@ async function renderContinueLink(row) {
     {
       icon: "ph:arrow-u-up-left",
       label: preview,
-      hint: "Continue where you left off",
+      //: **Says the rule, not an idiom.** Asked directly: "what does left off
+      //: mean?? should it be something else??" It meant "the note you edited
+      //: most recently", which is a fact this pill can simply state; "where
+      //: you left off" is a phrase that assumes the reader already knows the
+      //: app picked a note for them, and reads as a place rather than as a
+      //: note. A tooltip is where a control explains itself, so it explains.
+      hint: "Opens the note you edited most recently",
       run: () => flashEntry(newest.id),
     },
     "quick-link quick-pill quick-link-continue"

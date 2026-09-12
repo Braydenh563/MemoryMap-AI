@@ -58,6 +58,19 @@ never lost to the smaller stuff.
       scrollbar under it).
     - "the tree view on the graph is still broken" (screenshot: the graph
       drawn as a scatter with crossing dotted links, not a tree).
+    - "The note node popups dont show on any of the graph views when I
+      click on a node except for the force view. Also I dont think you
+      have redesigned the popup agent yet"
+    - "the whiteboard is still laggy to drag and pan around, it isnt
+      perfextly smooth and uniform like it should be on a professional
+      application" (third report; two measured passes have failed to
+      attribute it, and this sandbox is vsync-bound at ~16.7ms in every
+      condition tried, so the next attempt needs *drag* profiled, not
+      pan, and needs a real machine to confirm)
+    - "what does left off mean?? should it be something else??"
+      (screenshot of the dashboard's Continue pill, tooltip "Continue
+      where you left off"). **Fixed**: the tooltip now states the rule,
+      "Opens the note you edited most recently".
     - And a question that is a feature request, recorded here rather than
       answered ad hoc: "there also needs to be more integration and
       merging between features. like if a document references a note, can

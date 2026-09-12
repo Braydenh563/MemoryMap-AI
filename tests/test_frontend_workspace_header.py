@@ -40,7 +40,17 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-APP = Path(__file__).resolve().parents[1] / "frontend" / "app.js"
+FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
+
+#: **Every frontend file, not just app.js.** This lint read one file, and the
+#: upload that filed a picture into the wrong space was in library.js: a
+#: `fetch("/media/upload")` with the token and no `X-Workspace-ID`, so the new
+#: row took the model default ("default") instead of the space the person was
+#: working in, and then did not appear in that space's Library. Measured
+#: through the API: the same upload lands in `space-b` with the header and in
+#: `default` without it. A lint that reads one of five files is a lint with
+#: four blind spots.
+SOURCES = sorted(FRONTEND.glob("*.js"))
 
 #: Endpoints that read or write a `WorkspaceMixin` row: a hand-rolled fetch
 #: to one of these must carry `X-Workspace-ID`. Deliberately not every raw
@@ -54,6 +64,7 @@ SCOPED_ENDPOINTS = (
     "`/entries/${entryId}/files`",
     '"/import/markdown"',
     '"/import/document"',
+    '"/media/upload"',
 )
 
 
@@ -83,8 +94,9 @@ def _raw_fetch_blocks(source: str) -> dict[str, str]:
 
 
 def test_every_scoped_raw_fetch_still_carries_the_workspace_header():
-    source = APP.read_text(encoding="utf-8")
-    blocks = _raw_fetch_blocks(source)
+    blocks: dict[str, str] = {}
+    for path in SOURCES:
+        blocks.update(_raw_fetch_blocks(path.read_text(encoding="utf-8")))
     missing = sorted(SCOPED_ENDPOINTS - blocks.keys())
     assert not missing, f"expected fetch() calls not found at all, has the source moved? {missing}"
 
@@ -111,3 +123,39 @@ const response = await fetch("/chat/stream", {
     blocks = _raw_fetch_blocks(fake_source)
     assert '"/chat/stream"' in blocks
     assert "X-Workspace-ID" not in blocks['"/chat/stream"']
+
+
+def test_an_upload_takes_the_space_the_header_names(client):
+    """The backend half of the same bug, pinned so the header keeps mattering.
+
+    A new row takes its space from `session.info["workspace_id"]`, set from
+    `X-Workspace-ID` in `core/deps.get_session`, and applied by the
+    before-flush hook in `core/database.py`. Without the header the row is
+    written with the column default, which is how a picture uploaded inside a
+    space ended up outside it.
+    """
+    import io
+
+    from sqlalchemy import select
+
+    from memorymap.core import deps
+    from memorymap.core.database import MediaUpload
+
+    png = b"\x89PNG\r\n\x1a\n" + b"0" * 64
+    named = client.post(
+        "/media/upload",
+        files={"file": ("inside.png", io.BytesIO(png), "image/png")},
+        headers={"X-Workspace-ID": "space-b"},
+    )
+    bare = client.post(
+        "/media/upload", files={"file": ("outside.png", io.BytesIO(png), "image/png")}
+    )
+    assert named.status_code == 200 and bare.status_code == 200
+
+    with deps.get_db().session() as session:
+        spaces = {
+            row.original_name: row.workspace_id
+            for row in session.scalars(select(MediaUpload)).all()
+        }
+    assert spaces["inside.png"] == "space-b"
+    assert spaces["outside.png"] == "default"

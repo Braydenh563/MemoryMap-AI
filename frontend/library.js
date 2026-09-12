@@ -6925,9 +6925,19 @@ document.addEventListener("DOMContentLoaded", () => {
         // needs the browser to set its own multipart boundary in
         // Content-Type; apiJson's own "application/json" default would
         // fight it (the same fix handleFileUpload's upload already needed).
+        //: **X-Workspace-ID alongside the token, and it is not decoration.**
+        //: A new row takes its space from `session.info["workspace_id"]`
+        //: (core/database.py's before-flush hook), which is set from this
+        //: header, so an upload sent without it is written with the model
+        //: default, "default". Measured: the same upload lands in `space-b`
+        //: with the header and in `default` without it, which means a picture
+        //: added while working in a space vanished from that space's Library
+        //: the moment it was uploaded. `apiJson` adds this header to every
+        //: call it makes; a hand-rolled fetch has to add it itself, and the
+        //: lint that was supposed to catch that only read app.js.
         const response = await fetch("/media/upload", {
           method: "POST",
-          headers: { "X-Auth-Token": authToken() },
+          headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
           body: form,
         });
         const body = await response.json();

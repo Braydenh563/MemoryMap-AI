@@ -4791,7 +4791,7 @@ const DOC_WORDLIST_URL = "/vendor/wordlist/en.txt";
 //: vendored file, so that file stays exactly what its build.sh produces and
 //: the licence notice beside it keeps describing its contents.
 const DOC_EXTRA_WORDS = [
-  "apis", "async", "auth", "autocomplete", "autocorrect", "autosave", "autosaved",
+  "apis", "async", "auth", "autocomplete", "autosave", "autosaved",
   "backend", "callout", "callouts", "changelog", "chatbot", "config", "configs",
   "csv", "dockerfile",
   "downvote", "dropdown", "dropdowns", "embeddings", "enum", "filepath",
@@ -4803,6 +4803,16 @@ const DOC_EXTRA_WORDS = [
   "subfolders", "todo", "todos", "tokenizer", "toml", "tooltip", "tooltips",
   "tsv", "ui", "uncached", "untagged", "upvote", "uri", "utf", "uuid", "ux",
   "viewport", "webapp", "webhook", "webhooks", "wireframe", "yaml", "yml",
+  //: Found by running the app's own visible text past the list: 34 words in
+  //: the whole of index.html were missing, and these are the ones a person
+  //: would also write in a note. The rest were fragments ("ve", "nbsp") or
+  //: real misspellings ("isnt"), which is the answer that check was for.
+  "ctrl", "esc", "bundler", "dev", "embedder", "frontmatter", "minimap",
+  "mistyped", "multiline", "outdent", "rebindable", "resizer", "stylesheet",
+  "subtree", "uncategorised", "uncategorized", "unlinked", "unticked",
+  //: The tools this app talks to by name. They appear in its own screens, so
+  //: they will appear in notes about them.
+  "gmail", "markitdown", "nomic", "ollama", "qwen", "searxng", "tesseract",
 ];
 
 let docWordlist = null;

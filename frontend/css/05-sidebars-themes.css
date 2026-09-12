@@ -1979,8 +1979,26 @@ body.resizing-sidebar {
 }
 
 .outline-link:hover {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+/* **The heading you are in.** Keyed off the attribute rather than off the
+   class beside it, so a mark that is only painted and never announced is a
+   mark that does not appear at all: `documents.js` sets both together and
+   this rule pays for the pair. A fill and a weight, never the colour alone
+   (one in twelve men cannot use a colour-only cue), and a fill *without* an
+   accent edge, which is DESIGN.md's rule for a selected row. */
+.outline-link[aria-current] {
   background: var(--accent-soft);
   color: var(--ink);
+  font-weight: 600;
+}
+
+/* The guide line at the marked row's own depth takes the accent too, so the
+   eye can find the place in a long outline by the rail as well as the fill. */
+.outline-link[aria-current]::before {
+  background: var(--accent);
 }
 
 /* Indentation is the whole point of an outline: it shows the shape. One step,

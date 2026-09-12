@@ -268,3 +268,42 @@ def test_the_radial_is_a_toolbar_rather_than_a_menu() -> None:
         "the node radial must be role=toolbar, not a menu (DESIGN.md, the "
         "recipe index)"
     )
+
+
+#: A row that says "you are here" and marks it with a class alone.
+#: `classList.toggle("is-current-page", …)` is deliberately not matched: that
+#: one highlights every row belonging to a page, which is a filter, not a
+#: position.
+CURRENT_ROW = re.compile(r'classList\.(?:add|toggle)\(\s*"is-current"')
+
+
+def test_a_row_that_says_where_you_are_also_says_so_to_a_screen_reader() -> None:
+    """DESIGN.md's recipe index: where-you-are is `aria-current`, not a colour.
+
+    The document outline is the case that earned the rule. Measured before it
+    had one: scrolled to 70% of a 21-heading document, nothing under
+    `#doc-outline` carried a current class or `aria-current`, so the panel
+    could not answer the one question a table of contents exists to answer.
+    The fix is only half a fix if the mark is paint: a fill that no screen
+    reader announces, and that one reader in twelve cannot separate from the
+    rows around it, is a mark that is not there.
+
+    So the two halves are checked together. The paint hangs off the attribute
+    in CSS, which means removing the attribute removes the paint and the two
+    cannot drift apart, and every file that adds the class sets the attribute
+    beside it.
+    """
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+    assert ".outline-link[aria-current]" in css, (
+        "the outline's current row must be painted from [aria-current], so the "
+        "mark and its announcement are one thing (DESIGN.md, the recipe index)"
+    )
+    for path in JS:
+        text = path.read_text(encoding="utf-8")
+        for match in CURRENT_ROW.finditer(text):
+            window = text[match.start() : match.start() + 600]
+            assert "aria-current" in window, (
+                f"{path.name} marks a row as the current one with a class and "
+                "never sets aria-current beside it: that mark is a colour, and "
+                "a colour is not a position (DESIGN.md, the recipe index)"
+            )

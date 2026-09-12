@@ -110,6 +110,25 @@ never lost to the smaller stuff.
     rendered as an overlapping card, not a full-screen hint; the
     Edit/Read toggle (repeat, already closed once); the suggested-links
     panel's plain unstyled rows.
+    **Triaged 2026-09-12, with numbers against the running app.** Fixed this
+    session: the suggested-links panel (an inset and one scrollbar instead of
+    none and two), the boards and maps widget and the glass difference
+    between themes (both by agent), the AI skills sidebar (measured full
+    already, see below), "no back to top button on the dashboard" (measured
+    present), "the panels and sidebars go far below where the scroll should
+    stop" (measured 16 to 40px of page gutter on every scrolling tab), the
+    hard corners (by agent), the chat panel shadow (the composer was ringing
+    itself on arrival), the files description (the prompt now rules out a
+    transcription in as many words), and the click-an-underline popup plus
+    line numbers for code files (both by the documents pass, with a real
+    92,972-word dictionary behind the underline).
+    **Measured and not reproducible**, at 1440, 1280, 1024, 820 and 390:
+    "the documents edit and read toggle options dont fit in the toggle and go
+    out of it at the bottom". The segment is 36px with 4px of padding and its
+    two buttons are 28px sitting exactly 4px inside it at every width, with
+    no text clipped and nothing overflowing its own box
+    (`scratchpad/ui-sweeps/docsegfit.js`). This was closed once before, so
+    the earlier fix is holding and the screenshot in this entry is stale.
     **Triage.**
     - Plain view, Line numbers: **already correct**, see 107a's commit
       `9a2ddf1`, no change needed.

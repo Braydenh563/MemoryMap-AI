@@ -30,7 +30,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Finding notes similar to the one you are reading no longer reads every
   stored vector for every note opened. They are held in one array, built
   once when the embedding model finishes loading and kept up to date by
-  each save: measured on 5,000 notes on the development sandbox, 15.8ms a
+  each save: measured on 5,000 notes on the development sandbox, 18ms a
   call became under a millisecond.
 
 - Every change to a note is recorded as one event, with who made it and the

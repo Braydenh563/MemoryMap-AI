@@ -407,8 +407,8 @@ and reminders, kept in step by the ORM flush; `search/engine.py` returns
 them; `GET /search` and `/search/stats` serve it; the vector matrix replaced
 three per-request scans of every stored vector.
 `tests/test_search_engine_spec.py` passes with no markers left. Measured on
-the sandbox: keyword 0.5ms and hybrid 0.6ms on 5,000 entries (gates 50 and
-200), similarity for one note 15.8ms to 0.0ms. What is left is in
+the sandbox: keyword 0.6ms and hybrid 0.6ms on 5,000 entries (gates 50 and
+200), similarity for one note 18.0ms to 0.0ms. What is left is in
 `docs/roadmap/agent-remaining/brief11-retrieval-engine.md`.
 
 **Decisions made** (the three the plan had made differently, revised against

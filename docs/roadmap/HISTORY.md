@@ -21853,11 +21853,11 @@ every pair, but no longer re-read and re-parse blobs this process holds).
 
 | | before | after | gate |
 | --- | --- | --- | --- |
-| keyword query | 0.9 ms (notes only) | 0.5 ms (every kind) | 50 ms |
+| keyword query | 0.9 ms (notes only) | 0.6 ms (every kind) | 50 ms |
 | hybrid query | n/a (no such call) | 0.6 ms | 200 ms |
-| hybrid, with an open note | n/a | 1.7 ms | 200 ms |
-| similarity for one note | 15.8 ms (full scan) | 0.0 ms (matrix) | |
-| matrix build | per request | 60.1 ms, once per process | |
+| hybrid, with an open note | n/a | 1.9 ms | 200 ms |
+| similarity for one note | 18.0 ms (full scan) | 0.0 ms (matrix) | |
+| matrix build | per request | 66.8 ms, once per process | |
 
 The similarity "before" is generous to the old path: the fake backend's
 vectors are 4-dimensional and a real one is 384, so its scan grows with the

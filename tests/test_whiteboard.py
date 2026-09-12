@@ -783,4 +783,9 @@ def test_deleting_a_card_survives_a_sketch_whose_data_is_a_list(client, session)
     node = client.post("/whiteboard/nodes", json={"entry_id": note["id"]}).json()
     client.post("/whiteboard/sketches", json={"data": "[[1,2],[3,4]]"})
 
-    assert client.delete(f"/whiteboard/nodes/{node['id']}").status_code == 200
+    # The call is its own statement, not the assertion's expression: `python -O`
+    # strips asserts, and a test whose only delete lives inside one silently
+    # stops exercising anything (CodeQL alert 403, and the sixth of this shape
+    # on this branch).
+    removed = client.delete(f"/whiteboard/nodes/{node['id']}")
+    assert removed.status_code == 200

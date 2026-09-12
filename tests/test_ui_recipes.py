@@ -315,3 +315,26 @@ def test_an_item_does_not_promise_a_drag_under_a_tool_that_does_not_drag() -> No
     assert "cursor: inherit" in rule
     for selector in (".wb-object", ".node-card", ".wb-map-text", ".wb-text-content"):
         assert selector in rule, selector
+
+
+def test_the_boards_selector_says_which_kind_each_board_is() -> None:
+    """Reported (INBOX 115): "whiteboards and mindmaps need to be
+    differentiable in the boards selector". Measured before: the top bar's
+    `#wb-board-select` listed five options reading `Title (N items)`, four of
+    them maps, with nothing on any of them saying so, under an aria-label
+    that called all five whiteboards.
+
+    MINDMAP_PLAN §5 item 12 already decided the idiom ("a map says it is one,
+    in the row", which `mapChip` follows on the timeline, in a note and in the
+    chat). A native `<option>` cannot hold that chip's icon, so the group
+    heading carries it, the way three other selects in this app already do.
+    """
+    js = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    body = js[js.index("async function refreshBoardList") : js.index("async function renameCurrentBoard")]
+    assert 'createElement("optgroup")' in body
+    assert '"Mind maps"' in body and '"Whiteboards"' in body
+    select = html[html.index('<select id="wb-board-select"') :]
+    select = select[: select.index(">") + 1]
+    assert "Which board or map to show" in select
+    assert "Which whiteboard to show" not in select

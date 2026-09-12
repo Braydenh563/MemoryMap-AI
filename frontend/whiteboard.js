@@ -9962,6 +9962,35 @@ async function refreshBoardList(justCreated = null) {
     boards.push({ ...justCreated, node_count: 0, sketch_count: 0, object_count: 0 });
   }
   select.replaceChildren();
+  //: **A map says it is one, in the row** (MINDMAP_PLAN.md §5 item 12, the
+  //: decision `mapChip` already follows on the timeline, in a note and in the
+  //: chat). Reported: "whiteboards and mindmaps need to be differentiable in
+  //: the boards selector". Measured before: five options reading
+  //: `Title (N items)`, four of them maps, with nothing on any of them saying
+  //: so, and an aria-label that called all five whiteboards.
+  //:
+  //: `<optgroup>` rather than a glyph in front of every label: a native
+  //: `<option>` cannot hold the icon `mapChip` marks a map with (it renders as
+  //: text only, and in the OS's own popup on Windows and macOS), so the choice
+  //: is a character standing in for the icon or the platform's own way of
+  //: saying "these are one kind and those are another". The app already uses
+  //: `<optgroup>` for exactly that in three other selects, so this is the
+  //: recipe rather than a fourth idea.
+  //:
+  //: Grouped only when both kinds are actually present: with nothing to tell
+  //: it apart from, a lone "Whiteboards" heading above every row is a label
+  //: that answers a question nobody asked.
+  const mapsPresent = boards.some((b) => b.type === "map");
+  const boardsPresent = boards.some((b) => b.type !== "map");
+  const groups = new Map();
+  if (mapsPresent && boardsPresent) {
+    for (const [key, label] of [["map", "Mind maps"], ["board", "Whiteboards"]]) {
+      const group = document.createElement("optgroup");
+      group.label = label;
+      groups.set(key, group);
+      select.appendChild(group);
+    }
+  }
   for (const board of boards) {
     const opt = document.createElement("option");
     opt.value = board.id ?? "";
@@ -9972,7 +10001,7 @@ async function refreshBoardList(justCreated = null) {
     opt.textContent = board.id === null
       ? board.title
       : `${board.title} (${count} item${count === 1 ? "" : "s"})`;
-    select.appendChild(opt);
+    (groups.get(board.type === "map" ? "map" : "board") || select).appendChild(opt);
   }
   select.value = window.currentBoardId || "";
   // The default scratch board (`board_id=null`) has no underlying note to

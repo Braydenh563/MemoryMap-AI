@@ -287,57 +287,19 @@ class WhiteboardObjectOut(BaseModel):
 # fields the manager does not know about.
 
 
-def _node_state(node: WhiteboardNode) -> dict:
-    """A card's whole placement, as a payload wants it: values, not a diff."""
-    return {
-        "entry_id": node.entry_id,
-        "board_id": node.board_id,
-        "x": node.x,
-        "y": node.y,
-        "z": node.z,
-        "width": node.width,
-        "height": node.height,
-        "rotation": node.rotation,
-        "group_id": node.group_id,
-    }
+# The payload builders themselves live in `core/events.py`, beside
+# `entry_state`, because the routes are no longer the only writer of these
+# events: the AI's own board tools (`ai/tools/whiteboard.py`) record the same
+# ones, `ai/` cannot import `api/` at module level, and two copies of a state
+# function is how two writers of one entity come to disagree about what its
+# state is. Aliased rather than called through `events.` at every site so the
+# twenty-odd uses below read as they did.
+_node_state = events.node_state
+_sketch_state = events.sketch_state
+_object_state = events.object_state
 
-
-def _sketch_state(sketch: WhiteboardSketch) -> dict:
-    """A sketch's whole state, its strokes included: `data` is the drawing."""
-    return {
-        "board_id": sketch.board_id,
-        "data": sketch.data,
-        "x": sketch.x,
-        "y": sketch.y,
-        "z": sketch.z,
-        "group_id": sketch.group_id,
-    }
-
-
-def _object_state(obj: WhiteboardObject) -> dict:
-    """An object's whole state. `data` carries the text or the image url, so
-    this is the one payload here that can be large; it is also the only one
-    that can answer "what did that text box say before I rewrote it"."""
-    return {
-        "board_id": obj.board_id,
-        "kind": obj.kind,
-        "data": obj.data,
-        "x": obj.x,
-        "y": obj.y,
-        "z": obj.z,
-        "width": obj.width,
-        "height": obj.height,
-        "rotation": obj.rotation,
-        "group_id": obj.group_id,
-        "parent_id": obj.parent_id,
-    }
-
-
-#: What a deleted item replays to. The whiteboard tables have no soft delete,
-#: so the row is gone and the last event is the only place its state survives:
-#: `before` holds what it was, `after` says it is not there any more, which is
-#: what `events.replay` lands on.
-_DELETED = {"deleted": True}
+#: What a deleted item replays to; see `events.DELETED`.
+_DELETED = events.DELETED
 
 
 def _object_to_out(obj: WhiteboardObject) -> WhiteboardObjectOut:

@@ -45,7 +45,14 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from memorymap.core.database import AuditLog, Entry, utcnow
+from memorymap.core.database import (
+    AuditLog,
+    Entry,
+    WhiteboardNode,
+    WhiteboardObject,
+    WhiteboardSketch,
+    utcnow,
+)
 
 #: A person pressed something. The default, and the honest description of
 #: every row written before this module existed.
@@ -506,6 +513,78 @@ def entry_state(entry: Entry) -> dict[str, Any]:
         "archived_at": entry.archived_at.isoformat() if entry.archived_at else None,
         "is_private": bool(entry.is_private),
     }
+
+
+#: What a deleted board item replays to. The whiteboard tables have no soft
+#: delete, so the row is gone and its last event is the only place its state
+#: survives: `before` holds what it was, `after` says it is not there any
+#: more, which is what `replay` lands on.
+DELETED = {"deleted": True}
+
+
+# The three board-item payloads below sit here, beside `entry_state`, rather
+# than in `api/routes_whiteboard.py` where they were written, because two
+# writers record these same events and have to record the same payload: the
+# routes, and the AI's own board tools (`ai/tools/whiteboard.py`). `ai/`
+# cannot import `api/` at module level, and a second copy of a state function
+# is how two writers of one entity come to disagree about what its state is,
+# which a replay then rebuilds wrongly and silently.
+
+
+def node_state(node: WhiteboardNode) -> dict:
+    """A card's whole placement, as a payload wants it: values, not a diff."""
+    return {
+        "entry_id": node.entry_id,
+        "board_id": node.board_id,
+        "x": node.x,
+        "y": node.y,
+        "z": node.z,
+        "width": node.width,
+        "height": node.height,
+        "rotation": node.rotation,
+        "group_id": node.group_id,
+    }
+
+
+def sketch_state(sketch: WhiteboardSketch) -> dict:
+    """A sketch's whole state, its strokes included: `data` is the drawing."""
+    return {
+        "board_id": sketch.board_id,
+        "data": sketch.data,
+        "x": sketch.x,
+        "y": sketch.y,
+        "z": sketch.z,
+        "group_id": sketch.group_id,
+    }
+
+
+def object_state(obj: WhiteboardObject) -> dict:
+    """An object's whole state. `data` carries the text or the image url, so
+    this is the one payload here that can be large; it is also the only one
+    that can answer "what did that text box say before I rewrote it"."""
+    return {
+        "board_id": obj.board_id,
+        "kind": obj.kind,
+        "data": obj.data,
+        "x": obj.x,
+        "y": obj.y,
+        "z": obj.z,
+        "width": obj.width,
+        "height": obj.height,
+        "rotation": obj.rotation,
+        "group_id": obj.group_id,
+        "parent_id": obj.parent_id,
+    }
+
+
+def board_state(title: str, board_type: str, layout: str) -> dict:
+    """A board's own replayable state: what it is called and what it is.
+
+    A board is a note that holds a canvas, so its text lives in the note's
+    own `entry` events; what is left, and what only the board knows, is the
+    heading it shows and the two settings that decide how it is drawn.
+    """
+    return {"title": title, "type": board_type, "layout": layout}
 
 
 def changed(before: dict, after: dict) -> dict:

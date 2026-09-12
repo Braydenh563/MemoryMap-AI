@@ -2937,7 +2937,17 @@ dialog::backdrop {
    whole point of making the row one surface. */
 .ask-composer > #question,
 .ask-composer > #question:focus,
-.ask-composer > #question:focus-visible {
+.ask-composer > #question:focus-visible,
+/* The Write with AI panel's revision instruction, which is the same thing on
+   the same recipe: a field you type into with the button that acts on it at
+   the end of the row. Written by id for the reason the paragraph below gives
+   about `!important`, not because the two are different. */
+.ask-composer > #draft-instruction,
+.ask-composer > #draft-instruction:focus,
+.ask-composer > #draft-instruction:focus-visible,
+.ask-composer > #draft-tags,
+.ask-composer > #draft-tags:focus,
+.ask-composer > #draft-tags:focus-visible {
   flex: 1 1 auto;
   min-width: 0;
   outline: none;

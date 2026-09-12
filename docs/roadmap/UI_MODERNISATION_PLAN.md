@@ -83,6 +83,19 @@ becomes an INBOX entry with a one-line recommendation, which is then taken.
   every pick, so the box snapped back to "None" and read as broken.
   Applies wherever the same shape appears next, not only to this row.
 
+- **Two writing columns are two of the same column** (Brief 22, the Write
+  with AI panel, 2026-09-12). Where a panel puts two editors side by side,
+  each column is a label, the box, one optional field and one line of
+  actions, in that order, and the box is the only thing that stretches. What
+  it replaces, measured at 1440x900: boxes of 189.2 and 330.3px from
+  `rows="7"` and `rows="14"`, a left column ending 107px above the right one
+  with nothing in the gap, an instruction input wedged between two buttons
+  that do not read it, and an action row of four weights with a text field
+  among the buttons. The two optional fields ride the `.ask-composer`
+  recipe, which is also what makes the two rows the same height and so the
+  two boxes equal: a row that is the same recipe in both columns is the same
+  height in both.
+
 ## Phase 0 — tooling and acceptance gates (½ session)
 
 1. Add `tests/test_ui_signatures.py`: a static lint that counts distinct

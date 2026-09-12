@@ -910,38 +910,70 @@
             the local AI running, with it off, the Draft button is disabled
             and everything else on this tab still works.
           </p>
+          <!-- **Four rows across two columns, and the same row means the same
+               thing in both.** Measured before this at 1440x900: the two
+               boxes were 189.2 and 330.3px tall (`rows="7"` against
+               `rows="14"`, neither a decision), the left column ended 107px
+               above the right one with nothing in the gap, the instruction
+               input sat between Undo and Draft it, and the row under the
+               draft held a primary button, two `.ghost.small` ones and a text
+               input, four weights and a field among buttons.
+
+               Now: a label, the box, one optional field, one line of actions,
+               in that order down both columns. The boxes are what stretches
+               (`flex: 1` inside columns a grid row makes the same height), so
+               there is no dead space to leave under either of them; the two
+               optional fields, the AI instruction and the note's tags, sit on
+               the same line as each other; and the two footers hold one
+               family each. -->
           <div class="draft-columns">
             <div class="draft-column">
               <label for="draft-thoughts" class="muted">Your thoughts</label>
               <textarea id="draft-thoughts" rows="7"
                 placeholder="Just get it down, order doesn't matter…"></textarea>
-              <div class="row draft-controls">
-                <button id="draft-compose"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Draft it</button>
+              <!-- The instruction and the button that acts on it are one
+                   surface, the `.ask-composer` recipe one panel down: a field
+                   you type into with its own action at the end, rather than a
+                   loose input wedged between two buttons that do not read it.
+                   Undo and Stop are the same family, what the AI pass did and
+                   how to stop or take it back. -->
+              <div class="row draft-controls draft-compose-row ask-composer">
+                <input id="draft-instruction" type="text" maxlength="300"
+                  placeholder="Optional: “make it shorter”, “add a summary”…"
+                  aria-label="An instruction for this revision">
                 <button id="draft-cancel" class="ghost hidden" type="button"
                   title="Stop the AI: nothing you've written is changed"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
                 <button id="draft-undo" class="ghost" type="button" disabled
                   title="Nothing to undo yet"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Undo</button>
-                <input id="draft-instruction" type="text" maxlength="300"
-                  placeholder="Optional: “make it shorter”, “add a summary”…"
-                  aria-label="An instruction for this revision">
+                <button id="draft-compose"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Draft it</button>
               </div>
               <p id="draft-status" class="status" role="status"></p>
             </div>
             <div class="draft-column">
-              <div class="row space-between">
+              <div class="row space-between draft-column-head">
                 <label for="draft-text" class="muted">The draft</label>
                 <span id="draft-count" class="muted"></span>
               </div>
               <textarea id="draft-text" rows="14"
                 placeholder="Your draft will appear here. You can edit it directly."></textarea>
-              <div class="row draft-controls">
-                <button id="draft-save"><i class="ph ph-floppy-disk ph-lead" aria-hidden="true"></i> Save as note</button>
+              <!-- Out of the action row and onto a labelled row of its own, so
+                   the one field on this side of the panel stops being a fourth
+                   weight in a line of buttons. The same `.ask-composer` surface
+                   as the instruction row opposite, and for the same two
+                   reasons: both rows are "one optional field", and a row that
+                   is the same recipe in both columns is the same height in
+                   both, which is what makes the two writing boxes above them
+                   end on one line. -->
+              <div class="row draft-controls draft-tags-row ask-composer">
+                <label for="draft-tags" class="muted draft-field-label">Tags</label>
                 <input id="draft-tags" type="text" maxlength="200"
-                  placeholder="Optional tags, comma separated"
-                  aria-label="Tags for the saved note">
-                <button id="draft-extract" class="ghost small" type="button"
+                  placeholder="Optional, comma separated (e.g. joke, work)">
+              </div>
+              <div class="row draft-controls">
+                <button id="draft-extract" class="ghost" type="button"
                   title="Split this into one or more notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
-                <button id="draft-discard" class="ghost small" type="button">Discard</button>
+                <button id="draft-discard" class="ghost" type="button">Discard</button>
+                <button id="draft-save"><i class="ph ph-floppy-disk ph-lead" aria-hidden="true"></i> Save as note</button>
               </div>
             </div>
           </div>

@@ -2811,7 +2811,13 @@ span > .chip {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
-  align-items: start;
+  /* **`stretch`, not `start`.** With `start` each column was only as tall as
+     its own contents, and the two contents were different: measured at
+     1440x900 dark, the left column ended at y=506.7 and the right at 614.2,
+     so the panel had 107px of nothing under the thoughts box while the draft
+     beside it ran on. Stretched, both columns are the row's height and the
+     boxes take the slack (below), which is where the space was wanted. */
+  align-items: stretch;
 }
 
 .draft-column {
@@ -2819,10 +2825,71 @@ span > .chip {
   flex-direction: column;
   gap: 0.4rem;
   min-width: 0;
+  /* The column's own control height, so the status line below can hold one
+     without repeating the number. `.draft-controls` declares the same value
+     for its own controls; this is the one that reaches everything else in the
+     column. */
+  --control-h: 2.5rem;
 }
 
+/* **The box is what grows; everything else keeps its own height.** The two
+   textareas were `rows="7"` and `rows="14"`, 189.2px and 330.3px measured,
+   which is a fallback rather than a decision and never matched either the
+   column or each other. The floor is four lines, the same reasoning as the
+   capture box's own `min-height`, and the pair below is what makes the two
+   footers equal so the two boxes end up equal too. */
 .draft-column textarea {
   resize: vertical;
+  flex: 1 1 auto;
+  min-height: 11rem;
+}
+
+/* Each column's footer is two rows of the same heights: one optional field
+   (the AI instruction, the note's tags) then one line of actions. The status
+   line holds a control's height whether or not it has anything to say, so a
+   message arriving cannot shorten the box above it, and the two columns stay
+   level. */
+#draft-status {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-h);
+  margin: 0;
+}
+
+/* The instruction and the button that reads it are one surface, the
+   `.ask-composer` recipe (07-whiteboard-misc.css) rather than a shape of this
+   panel's own: the row gets the composer's edge, ground and focus ring and
+   the field inside it gives up its own, which is what the Ask tab's question
+   row and the capture box already look like. The padding is the shell's, so
+   the row's own `--control-h` still decides the controls' height. */
+.draft-compose-row {
+  gap: var(--space-2);
+}
+
+/* **And the field still gives up its width first.** `.ask-composer`'s own
+   interior rule is `flex: 1 1 auto`, which is right in the Ask row (a
+   card-wide strip where the basis never binds) and wrong in a half-width
+   column: measured at 1440x900, the placeholder's intrinsic width held the
+   input at 510px of a 524.8px column and pushed Undo and Draft it onto two
+   more lines, three rows where there should be one. A 6rem basis with
+   `min-width: 0` is the same answer `.draft-controls > input` already carries
+   for this panel, restated here because the id selector above outranks it. */
+/* Two classes and the id, because the rule it answers is `.ask-composer >
+   #draft-instruction` in a stylesheet that loads after this one: equal
+   specificity there would let file order decide, which is not a decision. */
+.draft-compose-row.ask-composer > #draft-instruction,
+.draft-tags-row.ask-composer > #draft-tags {
+  flex: 1 1 6rem;
+}
+
+/* The tags row's label is inside the surface, the way `.ask-composer-icon` is
+   in the Ask row: a word rather than a glyph, since "Tags" is not something an
+   icon says unambiguously. Its own width, not the capture form's 7rem label
+   column, because there is one label here and nothing under it to line up
+   with. */
+.draft-field-label {
+  flex: 0 0 auto;
+  padding-inline: var(--space-2);
 }
 
 /* Same control-height fix as `.capture-field-row` (07-whiteboard-misc.css):

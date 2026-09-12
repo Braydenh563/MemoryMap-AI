@@ -232,7 +232,41 @@ function gcRequestDraw() {
   requestAnimationFrame(() => {
     gcDrawQueued = false;
     gcDraw();
+    if (gcMinimapQueued) {
+      gcMinimapQueued = false;
+      graphMinimapFrame();
+    }
   });
+}
+
+//: **The minimap rides the draw's frame.** A pan used to repaint it
+//: synchronously on every pointer event: measured over a forty-move pan,
+//: forty full repaints, each one four passes over every node and three
+//: document lookups, plus up to 700 fresh `<circle>` elements. Only the last
+//: of those can be seen, exactly as with the canvas itself, so it belongs in
+//: the frame with the draw rather than in the event. What does happen in the
+//: event is the thing that has to: `gcTransform` is the new matrix before the
+//: handler returns, so anything reading the camera reads the current one.
+let gcMinimapQueued = false;
+function gcRequestMinimapFrame() {
+  gcMinimapQueued = true;
+  gcRequestDraw();
+}
+
+//: **Two controls that were read out of the document on every frame.** The
+//: search box and the labels switch are static elements, and `gcDraw` walked
+//: the document for both of them on every frame of every pan, drag and hover:
+//: 41 lookups each over a forty-move pan. Cached by id, re-found if the node
+//: is ever replaced, which is the same shape the whiteboard's selection-bar
+//: lookup needed for the same reason.
+const gcElCache = new Map();
+function gcEl(id) {
+  const hit = gcElCache.get(id);
+  if (hit && hit.isConnected) return hit;
+  const found = document.getElementById(id);
+  if (found) gcElCache.set(id, found);
+  else gcElCache.delete(id);
+  return found;
 }
 
 //: What is dimmed and what is lit, in one pass, for the same reason the SVG
@@ -241,7 +275,7 @@ function gcRequestDraw() {
 //: sources of the same signal, and two of them computed separately contradict
 //: each other on screen.
 function gcHighlight() {
-  const search = document.getElementById("graph-search");
+  const search = gcEl("graph-search");
   const query = (search ? search.value : "").trim().toLowerCase();
   const onPath = graphTrace ? new Set(graphTrace.ids) : null;
   const ids = graphHighlightIds;
@@ -351,7 +385,7 @@ function gcDraw() {
 
   const hl = gcHighlight();
   const labelsOn = (() => {
-    const box = document.getElementById("graph-labels");
+    const box = gcEl("graph-labels");
     return box ? box.checked : true;
   })();
 
@@ -849,7 +883,7 @@ function gcWireInteraction() {
       if (event.sourceEvent) gcUserZoomed = true;
       gcTransform = event.transform;
       gcRequestDraw();
-      graphMinimapPaint();
+      gcRequestMinimapFrame();
     })
     .on("end", () => {
       gcPanning = false;
@@ -1705,6 +1739,12 @@ async function renderGraphCanvas() {
   drawTrace();
   applyGraphHighlight();
   initGraphKeyboard();
+  //: A full paint, because this is exactly the moment the dots are wrong: a
+  //: different set of notes, at different places. A pan only ever moves the
+  //: rectangle (`graphMinimapFrame`), so nothing else on that path repaints
+  //: them, and the force layout's own repaint rides the worker's ticks, which
+  //: a computed layout does not have at all.
+  graphMinimapPaint();
   gcRequestDraw();
 }
 

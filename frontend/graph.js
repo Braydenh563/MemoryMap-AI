@@ -1206,7 +1206,11 @@ function graphNodeUnder(dragged, event) {
     if (other === dragged || other.isGroup) continue;
     const dx = (other.x ?? 0) - event.x;
     const dy = (other.y ?? 0) - event.y;
-    if (Math.hypot(dx, dy) <= graphNodeRadius(other) + DROP_SLOP) return other;
+    // Squared, not `Math.hypot`. This runs over every node on every pointer
+    // event of a drag, so the square root is one transcendental call per note
+    // per event for a comparison that does not need it.
+    const reach = graphNodeRadius(other) + DROP_SLOP;
+    if (dx * dx + dy * dy <= reach * reach) return other;
   }
   return null;
 }
@@ -1777,7 +1781,7 @@ async function renderGraphSvg() {
     })
     .on("zoom", (event) => {
       canvas.attr("transform", event.transform);
-      graphMinimapPaint(); // the viewport rectangle follows the real transform
+      graphMinimapFrame(); // the viewport rectangle follows the real transform
       // Semantic Zoom logic
       const isZoomedOut = event.transform.k < 0.45;
       if (canvas.classed("semantic-zoom-out") !== isZoomedOut) {
@@ -2680,7 +2684,11 @@ async function renderGraphSvg() {
   fillTracePickers(nodes);
   drawTrace();
   applyGraphHighlight();
-  
+  //: A full paint, because this is the moment the dots are wrong: a different
+  //: set of notes, at different places. A pan only moves the rectangle now
+  //: (`graphMinimapFrame`), so nothing else on this path repaints them.
+  graphMinimapPaint();
+
   // Set up temporal filter slider bounds based on data.
   //
   // Bounds used to be computed once, on the first render that had any notes,
@@ -3946,6 +3954,7 @@ const GRAPH_MINIMAP_CORNER_KEY = "graph-minimap-corner";
 // are in the map, and no way to come back to a combination of filters that
 // worked.
 
+let graphMinimapProjection = null; // the last full paint's placement, reused by graphMinimapFrame
 const GRAPH_MINIMAP_W = 168;
 const GRAPH_MINIMAP_H = 112;
 
@@ -4012,9 +4021,41 @@ function graphMinimapPaint() {
   }
   dots.replaceChildren(fragment);
 
-  // The viewport rectangle: which part of the map is currently on screen.
-  // Invert the live zoom transform to get canvas coordinates for the box's
-  // own corners, then run those through the same projection as the dots.
+  // Clicking the minimap centres the map on that point. Stored on the element
+  // so the handler (wired once, below) can invert the projection without
+  // recomputing the extent it was painted with.
+  svg._toCanvas = (mx, my) => [
+    minX + (mx - pad - (GRAPH_MINIMAP_W - pad * 2 - spanX * scale) / 2) / scale,
+    minY + (my - pad - (GRAPH_MINIMAP_H - pad * 2 - spanY * scale) / 2) / scale,
+  ];
+  //: Kept so a pan can move the rectangle without repainting the dots: the
+  //: projection is a property of where the *notes* are, and a pan does not
+  //: move a note. See `graphMinimapFrame`.
+  graphMinimapProjection = { toMini, frame };
+  graphMinimapFrame();
+}
+
+//: **The viewport rectangle alone, for a pan.**
+//:
+//: Which part of the map is on screen is the only thing a pan or a zoom
+//: changes about the minimap: the dots are where the notes are, and a pan
+//: does not move a note. Repainting the whole minimap on every pointer event
+//: of a pan was measured at four passes over every node, three document
+//: lookups and up to 700 fresh `<circle>` elements per event, for a picture
+//: identical to the one already on screen apart from this rectangle. The full
+//: paint still runs where the positions really did change: the simulation's
+//: ticks, a relayout, a saved view.
+function graphMinimapFrame() {
+  if (!graphMinimapProjection) {
+    graphMinimapPaint();
+    return;
+  }
+  const { toMini, frame } = graphMinimapProjection;
+  if (!frame.isConnected) {
+    graphMinimapProjection = null;
+    graphMinimapPaint();
+    return;
+  }
   const transform = graphSvg ? d3.zoomTransform(graphSvg.node()) : null;
   if (!transform || !graphDims.w) return;
   const [x0, y0] = transform.invert([0, 0]);
@@ -4035,14 +4076,6 @@ function graphMinimapPaint() {
   frame.setAttribute("y", clampedY0.toFixed(1));
   frame.setAttribute("width", Math.max(0, clampedX1 - clampedX0).toFixed(1));
   frame.setAttribute("height", Math.max(0, clampedY1 - clampedY0).toFixed(1));
-
-  // Clicking the minimap centres the map on that point. Stored on the element
-  // so the handler (wired once, below) can invert the projection without
-  // recomputing the extent it was painted with.
-  svg._toCanvas = (mx, my) => [
-    minX + (mx - pad - (GRAPH_MINIMAP_W - pad * 2 - spanX * scale) / 2) / scale,
-    minY + (my - pad - (GRAPH_MINIMAP_H - pad * 2 - spanY * scale) / 2) / scale,
-  ];
 }
 
 // --- the dock's real height, in the token everything clears it by ------------

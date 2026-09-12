@@ -197,6 +197,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Asking the AI about your reminders no longer hands it every reminder you
+  have. Everything a tool returns is spent from the model's context window,
+  so a long list left no room to reason about it; it now returns a page and
+  says how many there are in total.
+
 - On a phone, the Documents editor's "Ask AI" button was entirely off the
   side of the screen and the whole column scrolled sideways. A rule meant
   for card heads told the dock's action row never to shrink, so it

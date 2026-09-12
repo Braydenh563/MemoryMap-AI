@@ -1434,7 +1434,27 @@ def _set_reminder(session: Session, args: dict) -> dict:
 
 
 def _list_reminders(session: Session, args: dict) -> dict:
-    rows = session.scalars(select(Reminder).order_by(Reminder.due_at))
+    """A page of reminders, soonest first, like every other list tool.
+
+    This one read the whole table and handed all of it to the model. Its
+    sibling `_list_documents` has paged since it was written, and the reason
+    matters more here than in the HTTP routes: everything this returns is
+    spent from the model's context window, so an unbounded list is a bill the
+    answer pays before it starts. A notebook with three hundred reminders
+    would have filled the window with reminders and left no room to reason
+    about them.
+
+    The `done` filter is applied in SQL rather than after the fetch, because
+    filtering a page after limiting it is how "show me ten" quietly returns
+    two: the rows dropped are already gone from the page.
+    """
+    limit = _limit_arg(args, default=DEFAULT_LIST_LIMIT)
+    offset = max(0, int(args.get("offset") or 0))
+    filters = [] if args.get("include_done") else [Reminder.done.is_(False)]
+    total = session.scalar(select(func.count(Reminder.id)).where(*filters)) or 0
+    rows = session.scalars(
+        select(Reminder).where(*filters).order_by(Reminder.due_at).limit(limit).offset(offset)
+    ).all()
     reminders = [
         {
             "id": r.id,
@@ -1444,9 +1464,15 @@ def _list_reminders(session: Session, args: dict) -> dict:
             "note_id": r.entry_id,
         }
         for r in rows
-        if args.get("include_done") or not r.done
     ]
-    return {"reminders": reminders, "label": "⏰ Listed your reminders"}
+    # The total travels with the page so the model can say "ten of three
+    # hundred" rather than implying it has seen everything.
+    return {
+        "reminders": reminders,
+        "total": total,
+        "offset": offset,
+        "label": f"⏰ Listed {len(reminders)} of {total} reminders",
+    }
 
 
 def _complete_reminder(session: Session, args: dict) -> dict:

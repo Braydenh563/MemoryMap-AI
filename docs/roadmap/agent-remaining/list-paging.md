@@ -84,6 +84,14 @@ and already used by three files; none of these needs anything new.
 
 ## 4. Found, not fixed: the AI's own reminder tool is unbounded
 
+**Closed by the orchestrator, same evening.** `_list_reminders` pages like
+its sibling now, with the `done` filter moved into SQL (filtering a page
+after limiting it is how "show me ten" quietly returns two) and the total
+travelling with the page so the model can say "ten of three hundred"
+rather than implying it has seen everything. Pinned by
+`test_listing_reminders_hands_the_model_a_page_not_the_table`. The
+original entry, for the record:
+
 `_list_reminders` in `src/memorymap/ai/tools/__init__.py` reads every
 reminder row and hands the lot to the model. It is not one of the three
 endpoints INBOX 117 names (it is a tool result, not an HTTP list), so it was

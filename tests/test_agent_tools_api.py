@@ -465,3 +465,38 @@ def test_there_is_only_one_skill_writing_tool():
     have raised."""
     assert "generate_skill" not in tools.TOOLS
     assert "save_skill" in tools.TOOLS
+
+
+def test_listing_reminders_hands_the_model_a_page_not_the_table(session):
+    """Everything a tool returns is spent from the model's context window.
+
+    `_list_reminders` read the whole table; its sibling `list_documents` has
+    paged since it was written. A notebook with three hundred reminders would
+    have filled the window with reminders and left no room to reason about
+    them. The `done` filter moved into SQL at the same time, because
+    filtering a page after limiting it is how "show me ten" quietly returns
+    two.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from memorymap.ai import tools
+    from memorymap.core.database import Reminder
+
+    now = datetime.now(timezone.utc)
+    for i in range(60):
+        session.add(
+            Reminder(text=f"reminder {i}", due_at=now + timedelta(hours=i), done=i % 2 == 0)
+        )
+    session.commit()
+
+    page = tools.execute_tool(session, "list_reminders", {})
+    assert len(page["reminders"]) < 30, "the whole table went to the model"
+    assert page["total"] == 30, page["total"]
+    assert all(not r["done"] for r in page["reminders"]), "a done reminder reached the model"
+
+    second = tools.execute_tool(session, "list_reminders", {"offset": len(page["reminders"])})
+    first_ids = {r["id"] for r in page["reminders"]}
+    assert first_ids.isdisjoint({r["id"] for r in second["reminders"]}), "offset returned the same page"
+
+    withdone = tools.execute_tool(session, "list_reminders", {"include_done": True})
+    assert withdone["total"] == 60, withdone["total"]

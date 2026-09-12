@@ -2865,6 +2865,345 @@ function docTableMenu(context) {
 
 
 // =============================================================================
+// Frontmatter: the properties panel's model (DOCUMENTS_PLAN Phase 3 item 4)
+// =============================================================================
+//
+// The same promise the table model makes, for the same reason: **nothing here
+// ever prints YAML.** Every operation returns a list of `{from, to, insert}`
+// edits in document coordinates, each one covering the value's own span and
+// nothing else, so a document whose frontmatter was written by hand (or by
+// Obsidian, or by this app's own vault import, which writes `category:` and
+// `tags: [a, b]`) keeps its quoting, its spacing and its key order when one
+// field is edited in the panel. A YAML printer would reformat the whole block
+// on the first keystroke, and a notebook whose files come back rewritten every
+// time somebody edits a tag is a notebook whose diffs are noise.
+//
+// The parse is deliberately small, and small is not the same as sloppy: it
+// understands `---` on line 1, `key: value` lines until the closing `---`, and
+// values that are scalars (quoted or not), inline lists (`[a, b]`) or block
+// lists (`- a` on the lines under the key). Anything it does not understand is
+// left alone rather than guessed at: an unparsed line keeps its bytes and the
+// panel simply offers no field for it, which is the only behaviour that cannot
+// lose someone's text.
+//
+// Bracketed by `DOC-FRONTMATTER-BEGIN` / `DOC-FRONTMATTER-END` so
+// `tests/test_doc_frontmatter.py` can run it in node, away from the browser:
+// pure string work, no DOM and no app globals. It uses `docTableApplyEdits`
+// from the table region, because there is one way to apply a list of edits to
+// a string in this file rather than two.
+
+// DOC-FRONTMATTER-BEGIN
+
+//: A fence line: exactly three dashes and nothing but whitespace after them.
+//: Deliberately not `---` anywhere in the document: a horizontal rule mid-text
+//: is the same three characters, and the only thing that makes them a
+//: frontmatter fence is being the document's first line.
+const DOC_FM_FENCE = /^---[ \t]*$/;
+
+//: A key line. The key is what YAML allows without quoting and what the
+//: editors in the plan's competitor table actually write: letters, digits,
+//: underscores, dashes, dots, and spaces inside but never at the ends.
+const DOC_FM_KEY = /^([A-Za-z0-9_][A-Za-z0-9_.\- ]*?)[ \t]*:(.*)$/;
+
+//: A block list item under a key: `  - value`.
+const DOC_FM_ITEM = /^([ \t]*)-[ \t]?(.*)$/;
+
+//: The span of one value inside a line: the whitespace on either side is kept
+//: as `lead`/`tail` rather than trimmed away, because putting it back is what
+//: makes an edit to one value leave every other byte alone. A value that is
+//: quoted keeps its quote, and the text is what is inside it.
+function docFmSpan(raw, from) {
+  const lead = (/^[ \t]*/.exec(raw) || [""])[0];
+  //: `leadIfEmpty` is the space a *key's* value needs when the key has none
+  //: yet (`status:`), and it is empty here because a list item never does: an
+  //: item's own span starts where its text starts. The parse sets it on the
+  //: one span that is a key's value.
+  const span = { from, to: from + raw.length, lead, tail: "", quote: "", text: "", leadIfEmpty: "" };
+  if (lead.length === raw.length) return span;
+  span.tail = (/[ \t]*$/.exec(raw) || [""])[0];
+  const inner = raw.slice(lead.length, raw.length - span.tail.length);
+  if (inner.length >= 2 && (inner[0] === '"' || inner[0] === "'") && inner[inner.length - 1] === inner[0]) {
+    span.quote = inner[0];
+    span.text = inner.slice(1, -1);
+  } else {
+    span.text = inner;
+  }
+  return span;
+}
+
+//: The bytes a span currently holds. The no-op test below compares against
+//: this rather than against the trimmed text, so "set it to what it already
+//: says" is an empty edit list even when the value is padded or quoted.
+function docFmRaw(span) {
+  const body = span.quote ? span.quote + span.text + span.quote : span.text;
+  return span.lead + body + span.tail;
+}
+
+//: Which scalars cannot be written bare. The list is short on purpose: these
+//: are the characters that would change what the line *is* rather than what it
+//: says.
+function docFmNeedsQuote(text) {
+  if (!text) return false;
+  if (/^[ \t]|[ \t]$/.test(text)) return true;
+  if (/[:#[\]{},]/.test(text)) return true;
+  return /^[-?&*!|>%@`]/.test(text);
+}
+
+//: Put a value back into a span, quoted exactly as it was quoted before and
+//: newly quoted only when the text would otherwise stop being one scalar.
+//: An empty value after a bare `key:` gets its space back, or the result is
+//: `key:value`, which YAML reads as a key called `key:value`.
+function docFmWrite(span, value) {
+  const text = String(value == null ? "" : value).replace(/[\r\n]+/g, " ");
+  const quote = span.quote || (docFmNeedsQuote(text) ? '"' : "");
+  const body = quote ? quote + text.split(quote).join("") + quote : text;
+  //: A value cleared back to nothing takes its padding with it: `status:` is
+  //: what an empty property looks like, and `status:   ` with the spaces the
+  //: old value sat in is trailing whitespace nobody typed.
+  if (!body) return "";
+  return (span.lead || span.leadIfEmpty || "") + body + span.tail;
+}
+
+//: Split an inline list's inside (`a, b, c`) into items, with the span of each
+//: one in document coordinates. A comma inside quotes does not split, which is
+//: the piece of YAML people hit immediately: `tags: ["a, b", c]`.
+function docFmSplitInline(text, base) {
+  const items = [];
+  let start = 0;
+  let quote = "";
+  for (let at = 0; at <= text.length; at += 1) {
+    const ch = at < text.length ? text[at] : ",";
+    if (quote) {
+      if (ch === quote) quote = "";
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (ch !== ",") continue;
+    const raw = text.slice(start, at);
+    //: The one thing that is not an item: the whole of an empty list. `[]` and
+    //: `[  ]` are no items at all, where `[a,]` really is a trailing blank.
+    if (raw.trim() || items.length || at < text.length) items.push(docFmSpan(raw, base + start));
+    start = at + 1;
+  }
+  return items;
+}
+
+//: The frontmatter block at the top of a document, or null. Offsets are the
+//: document's, so every edit below is dispatched without a second coordinate
+//: system, exactly as the table model's are.
+function docFrontmatterParse(text) {
+  const source = String(text == null ? "" : text);
+  const lines = source.split("\n");
+  if (!lines.length || !DOC_FM_FENCE.test(lines[0])) return null;
+  const starts = [];
+  let at = 0;
+  for (const line of lines) {
+    starts.push(at);
+    at += line.length + 1;
+  }
+  let close = -1;
+  for (let i = 1; i < lines.length; i += 1) {
+    if (DOC_FM_FENCE.test(lines[i])) {
+      close = i;
+      break;
+    }
+  }
+  if (close === -1) return null;
+
+  const entries = [];
+  for (let i = 1; i < close; i += 1) {
+    const match = DOC_FM_KEY.exec(lines[i]);
+    if (!match) continue;
+    const key = match[1];
+    const rest = match[2];
+    const span = docFmSpan(rest, starts[i] + lines[i].length - rest.length);
+    span.leadIfEmpty = " ";
+    const entry = {
+      key,
+      line: i,
+      from: starts[i],
+      to: starts[i] + lines[i].length,
+      keyFrom: starts[i],
+      keyTo: starts[i] + key.length,
+      value: span,
+      kind: "scalar",
+      listStyle: "",
+      items: [],
+    };
+    if (!span.quote && span.text.startsWith("[") && span.text.endsWith("]")) {
+      entry.kind = "list";
+      entry.listStyle = "inline";
+      entry.open = span.from + span.lead.length + 1;
+      entry.close = span.to - span.tail.length - 1;
+      entry.items = docFmSplitInline(span.text.slice(1, -1), entry.open);
+    } else if (!span.text) {
+      //: A block list: the key's own line carries no value and the lines under
+      //: it are `- item`. Its own kind rather than an empty scalar, because
+      //: `tags:` followed by nothing is a key with no value and `tags:`
+      //: followed by `- a` is a list, and the panel draws the two differently.
+      const items = [];
+      let last = i;
+      for (let j = i + 1; j < close; j += 1) {
+        const item = DOC_FM_ITEM.exec(lines[j]);
+        if (!item) break;
+        items.push(docFmSpan(lines[j].slice(item[1].length + 1), starts[j] + item[1].length + 1));
+        entry.indent = item[1];
+        last = j;
+      }
+      if (items.length) {
+        entry.kind = "list";
+        entry.listStyle = "block";
+        entry.items = items;
+        entry.to = starts[last] + lines[last].length;
+        i = last;
+      } else {
+        entry.kind = "empty";
+      }
+    }
+    entries.push(entry);
+  }
+
+  return {
+    from: 0,
+    to: starts[close] + lines[close].length,
+    bodyFrom: starts[1],
+    bodyTo: starts[close],
+    closeFrom: starts[close],
+    closeLine: close,
+    entries,
+    //: Where the document's prose starts: past the closing fence's newline,
+    //: which is what the preview and the outline read.
+    textFrom: Math.min(source.length, starts[close] + lines[close].length + 1),
+  };
+}
+
+//: The entry for a key, case-insensitively (`Tags` and `tags` are the same
+//: property to anyone reading the panel), or null.
+function docFrontmatterEntry(fm, key) {
+  const wanted = String(key == null ? "" : key).trim().toLowerCase();
+  return (fm && fm.entries.find((entry) => entry.key.toLowerCase() === wanted)) || null;
+}
+
+//: Set a scalar. The span is the value's own, so the key, the colon, the gap
+//: after it and every other line keep their bytes. An empty edit list when the
+//: value already reads that way, which is load-bearing: the panel writes on
+//: every input event and a write that changes nothing must not reach the undo
+//: history.
+function docFrontmatterSetEdits(fm, key, value) {
+  const entry = docFrontmatterEntry(fm, key);
+  if (!entry) return docFrontmatterAddEdits(fm, key, value);
+  const span = entry.value;
+  const insert = docFmWrite(span, value);
+  if (insert === docFmRaw(span)) return [];
+  return [{ from: span.from, to: span.to, insert }];
+}
+
+//: Set the whole list, item by item. An item that reads the same is not
+//: touched at all, which is what keeps `tags: [ one,two ,three ]` from being
+//: tidied up behind its author's back when the second tag is renamed.
+function docFrontmatterSetListEdits(fm, key, values) {
+  const entry = docFrontmatterEntry(fm, key);
+  const wanted = (values || []).map((value) => String(value == null ? "" : value).trim()).filter(Boolean);
+  if (!entry) return wanted.length ? docFrontmatterAddEdits(fm, key, `[${wanted.join(", ")}]`) : [];
+  if (entry.kind !== "list") {
+    //: A scalar asked to hold a list becomes an inline list, which is the one
+    //: place this model rewrites a whole value: `status: draft` turning into
+    //: two statuses has no smaller form than that.
+    return docFrontmatterSetEdits(fm, key, `[${wanted.join(", ")}]`);
+  }
+  const edits = [];
+  const items = entry.items;
+  const shared = Math.min(items.length, wanted.length);
+  for (let i = 0; i < shared; i += 1) {
+    const span = items[i];
+    const insert = docFmWrite(span, wanted[i]);
+    if (insert !== docFmRaw(span)) edits.push({ from: span.from, to: span.to, insert });
+  }
+  if (wanted.length < items.length) {
+    //: Removing items takes the separator that *introduced* each of them: the
+    //: comma before it inline, the whole line in a block list. Taking the one
+    //: after instead is how a list ends up with a trailing comma.
+    const last = items[items.length - 1];
+    const from = wanted.length
+      ? items[wanted.length - 1].to
+      : entry.listStyle === "inline"
+        ? entry.open
+        : entry.value.to;
+    edits.push({ from, to: last.to, insert: "" });
+  } else if (wanted.length > items.length) {
+    const extra = wanted.slice(items.length);
+    if (entry.listStyle === "inline") {
+      const at = items.length ? items[items.length - 1].to : entry.open;
+      edits.push({ from: at, to: at, insert: (items.length ? ", " : "") + extra.join(", ") });
+    } else {
+      const indent = entry.indent === undefined ? "  " : entry.indent;
+      edits.push({ from: entry.to, to: entry.to, insert: extra.map((text) => `\n${indent}- ${text}`).join("") });
+    }
+  }
+  return edits;
+}
+
+//: A new key, on its own line immediately above the closing fence, so the
+//: order the author put the others in is untouched.
+function docFrontmatterAddEdits(fm, key, value) {
+  if (!fm) return [];
+  const name = String(key == null ? "" : key).trim();
+  if (!name || docFrontmatterEntry(fm, name)) return [];
+  const text = String(value == null ? "" : value).replace(/[\r\n]+/g, " ");
+  const body = docFmNeedsQuote(text) && !/^\[.*\]$/.test(text) ? `"${text.split('"').join("")}"` : text;
+  return [{ from: fm.closeFrom, to: fm.closeFrom, insert: `${name}:${body ? ` ${body}` : ""}\n` }];
+}
+
+//: A key and everything under it, including the newline that ended its last
+//: line, so removing the only property leaves `---\n---` rather than a blank
+//: line inside the block.
+function docFrontmatterRemoveEdits(fm, key) {
+  const entry = docFrontmatterEntry(fm, key);
+  if (!entry) return [];
+  return [{ from: entry.from, to: Math.min(entry.to + 1, fm.closeFrom), insert: "" }];
+}
+
+//: The block itself, for a document that has none. The blank line after it is
+//: part of the insert: `---\n---\n# Title` is a document whose first heading
+//: is glued to its properties in every renderer that is not this one.
+function docFrontmatterCreateEdits(text, key, value) {
+  const source = String(text == null ? "" : text);
+  if (docFrontmatterParse(source)) return [];
+  const name = String(key == null ? "" : key).trim() || "tags";
+  const body = String(value == null ? "" : value);
+  return [{ from: 0, to: 0, insert: `---\n${name}:${body ? ` ${body}` : ""}\n---\n${source.trim() ? "\n" : ""}` }];
+}
+
+//: The document without its properties, for anything that reads the prose
+//: rather than the file: the preview, the outline, the reading time. Returns
+//: the text unchanged when there is no frontmatter, which is most documents.
+function docFrontmatterStrip(text) {
+  const fm = docFrontmatterParse(text);
+  if (!fm) return String(text == null ? "" : text);
+  return String(text).slice(fm.textFrom).replace(/^\n+/, "");
+}
+
+//: Every property as `{key, kind, value, items}`, which is what the panel and
+//: the Library's filter both read. Kept beside the parse rather than derived
+//: at each call site, so the two cannot come to disagree about what a value
+//: is.
+function docFrontmatterFields(text) {
+  const fm = docFrontmatterParse(text);
+  if (!fm) return [];
+  return fm.entries.map((entry) => ({
+    key: entry.key,
+    kind: entry.kind,
+    value: entry.kind === "list" ? "" : entry.value.text,
+    items: entry.items.map((item) => item.text),
+  }));
+}
+
+// DOC-FRONTMATTER-END
+
+// =============================================================================
 // Math: a small TeX subset rendered as MathML (DOCUMENTS_PLAN Phase 3 item 2)
 // =============================================================================
 //

@@ -23,6 +23,15 @@ never lost to the smaller stuff.
 
 ## Open items
 
+116. **Fourth drop, 2026-09-12 afternoon, verbatim (the owner), one
+    message with a screenshot of the collapsed chat sidebar.**
+    - "the chat sidebar expand button is right up against the right edge of
+      the collapsed sidebar and not in the middle. or doresnt have a gap."
+      (the screenshot shows the rounded collapsed rail with the expand
+      button's right edge flush against the rail's own right border).
+    - "and fix the placement of the '?' tooltip buttons in the settings
+      pages, maybe align them to the right with a gap..."
+
 115. **Third drop, 2026-09-12 afternoon, verbatim (the owner), three
     messages.**
     - "the files rows in files still needs some ui improvement and

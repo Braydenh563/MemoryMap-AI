@@ -1970,4 +1970,15 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   width: fit-content;
   max-width: 100%;
   font-size: var(--text-xs);
+  /* The chip tier of ground rather than the button tier, which is both half
+     of what made it read as heavy and the only way the label passes AA here.
+     Sampled from the rendered pixels (`scratchpad/pngpixel.py`, not a
+     composite guess, since every surface under this one is translucent over
+     the page's art): on dark the label painted rgb(168,176,189) on a
+     rgb(74,80,93) ground, 3.70:1 at 11.2px against the 4.5 it owes. The same
+     text on `--chip-bg` measures 5.10:1, and light was already 5.71:1 and
+     goes up. The hover fill is untouched, so the control still answers the
+     pointer with the app's own ghost tone. */
+  background: var(--chip-bg);
+  border-color: var(--border);
 }

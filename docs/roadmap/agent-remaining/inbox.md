@@ -109,3 +109,49 @@
   `toggleAgentPalette`), not `#palette-overlay` (a plain `<input>`, the
   global Ctrl+K command palette): two different overlays with similarly
   named ids, easy to conflate.
+
+## INBOX 115, four of the six lines (2026-09-12, agent)
+
+Each reproduced with a measurement before anything was changed, against
+`serve.sh 8857 /tmp/mm-batch3`.
+
+- **The splash's loading bar** (`7c43889`). Instrumented rather than read:
+  the status file captured while `start.sh` ran in a scratch copy. Five
+  steps are written, four ever reach `done`; the fifth is the step the
+  app's own process owns and nothing finished it. Desktop: 4 ticks and
+  80% to 98.4%, now 5 ticks and 100% at the instant the server answers,
+  before the swap. Browser mode ticks it at the handoff instead.
+- **Per-tool cursors on the board and the map** (`8594023`). 32 item/tool
+  pairs answered `grab` under a tool that does not drag, and bucket,
+  sticky and text had no cursor of their own. 0 and 0 after.
+  `scratchpad/ui-sweeps/toolcursor.js`.
+- **The boards selector** (`bedff0c`). `#wb-board-select` said nothing
+  about kind; grouped by kind now, the recipe from MINDMAP_PLAN §5 item 12.
+  `scratchpad/ui-sweeps/boardsel.js`.
+- **The Files rows** (`210a607`). 257px a row of five one-string blocks,
+  now 176px in two ranks, plus "Save a copy". The decision about what a
+  Files row is for is in UI_MODERNISATION_PLAN, "Decided, 2026-09-12".
+  `scratchpad/ui-sweeps/filesrow2.js`, `filesave.js`.
+
+### Left of 115
+
+- **"the bottom of the image cards in the library images subsaection needs
+  a desperate redesign and funection"**: four stacked controls and the
+  model name twice. Untouched. The Files decision above is the shape to
+  apply: two ranks, and a fact is not a control.
+- **"the documents page sidebar needs redesigning as well, both for
+  outline and documents but mostly outline."** Untouched.
+
+### Not verified
+
+- **Windows.** The splash the owner is reading the "3/5" off is
+  `scripts/splash.ps1`, which draws "N of M steps done"; PowerShell cannot
+  run here, so the launcher half is verified through the status file both
+  renderers parse and through the desktop loading window in Chromium. In
+  browser mode the launcher now ticks the last step immediately before
+  deleting the status file, so whether the splash paints `4 of 4` before it
+  closes depends on where its 250ms poll lands; the terminal and the log
+  narration are complete either way.
+- **A real download dialog.** The Playwright download event fires with the
+  right filename; no OS save dialog was driven.
+- **Touch.** Every cursor claim here is a pointer claim.

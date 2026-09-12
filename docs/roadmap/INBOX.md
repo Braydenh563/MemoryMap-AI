@@ -60,12 +60,29 @@ never lost to the smaller stuff.
       redesign, and better function" (screenshot of one row: a filename,
       then "PDF · 121 KB · added 04/09/2026", then a "Read · 808 words"
       pill, on a card with a lot of empty space and no way in except the
-      title).
+      title). **Fixed `210a607`**: measured at 1440, the text column is
+      1218px wide and held five full-width blocks each carrying one short
+      string, 257px a row. Two ranks now (the name, one wrapping line of
+      facts, the description) and a fourth verb, "Save a copy", which no
+      surface in the Library had: 176px a row, and a real download. What a
+      Files row is for is written into UI_MODERNISATION_PLAN
+      ("Decided, 2026-09-12") so it is not settled again next pass.
     - "also whiteboards and mindmaps need to be differentiable in the
-      boards selector."
+      boards selector." **Fixed `bedff0c`**: the gallery cards already
+      carry the kind icon; the top bar's `#wb-board-select` did not.
+      Measured before: five options reading "Title (N items)", four of them
+      maps, nothing saying so, under an aria-label calling all five
+      whiteboards. Grouped by kind now, the optgroup recipe three other
+      selects here already use, per MINDMAP_PLAN §5 item 12.
     - "when Im on the delete tool on the mindmap and hover over a mindmap
       text node, the cursor changes to the grabber hand. the cursor and
       other parts of the application just need better ui and ux"
+      **Fixed `8594023`** for the board and the map. Measured with
+      `getComputedStyle(el).cursor` once per tool over a map node, its text
+      and a whiteboard object: 32 pairs answered `grab` under a tool that
+      does not drag, and six tools (bucket, sticky, text) had no cursor at
+      all. After: 0 and 0. `scratchpad/ui-sweeps/toolcursor.js` is the
+      sweep. The rest of "other parts of the application" is not swept.
     - "the bottom of the image cards in the library images subsaection
       needs a desperate redesign and funection" (screenshot of six image
       cards: each has a "Used in" chip, a wrapped description, a "More"
@@ -75,7 +92,14 @@ never lost to the smaller stuff.
     - "and the documents page sidebar needs redesigning as well, both for
       outline and documents but mostly outline."
     - "the loading bar on the splash graphic only ever goes to steps 3/5
-      and then it loads??"
+      and then it loads??" **Fixed `7c43889`**: instrumented against a real
+      launcher run (the status file captured while `start.sh` ran in a
+      scratch copy). Nothing is skipped: five steps are written and only
+      four ever reach "done", because the step that finishes last is the
+      one the app's own process owns and nothing finished it. The desktop
+      loading window opened on four ticks with the bar at 80% of its track,
+      ran to 98.4%, and was replaced with the fifth still pulsing. After:
+      five ticks, 300.0px of 300.0px.
 
 
 114. **Mid-work drop, 2026-09-12 afternoon, verbatim (the owner), six
@@ -113,9 +137,26 @@ never lost to the smaller stuff.
       scrollbar under it).
     - "the tree view on the graph is still broken" (screenshot: the graph
       drawn as a scatter with crossing dotted links, not a tree).
+      **Fixed `ba892b0`**: a race, not the layout. A position update from
+      the force worker delivered after the hierarchy had been laid out
+      overwrote it by index (`{type:"stop"}` cannot unsend a tick already
+      posted). Every worker message now carries the epoch of the `init` it
+      belongs to and a stale one is dropped. Measured with
+      `graphtreerace.js` at every 100ms of the cooling curve: depth-1
+      spread 469.2px and depth-2 spread 962.3px at one of fifteen moments
+      before, 30 of 30 moments at spread 0 after.
     - "The note node popups dont show on any of the graph views when I
       click on a node except for the force view. Also I dont think you
-      have redesigned the popup agent yet"
+      have redesigned the popup agent yet". **The popups are fixed
+      `f72eec8`**: a click on a node was handled by d3-drag's `end`, and
+      tree, radial and arc deliberately have no drag, so the one path to
+      the popup did not exist in three of the four views. Measured with
+      `graphtree.js`, a trusted click on the node nearest the centre of
+      the viewport: popup 448x338 in force and closed in the other three
+      before, 448x338 in all four after. **The popup redesign is not
+      this**: GRAPH_PLAN Phase 6 and the three evening rows under "Placed
+      from INBOX, 2026-09-09" hold the node panel, and the agent popup is
+      a different surface again. Left open.
     - "the whiteboard is still laggy to drag and pan around, it isnt
       perfextly smooth and uniform like it should be on a professional
       application" (third report; two measured passes have failed to

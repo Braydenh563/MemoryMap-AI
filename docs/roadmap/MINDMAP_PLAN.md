@@ -376,7 +376,13 @@ extended with the numbers named.
    card, image, link, icon, boundary, summary, relationship), Arrange
    (auto, tidy siblings, centre root), Focus, Present, Export ▾, and the
    undo pair; seven visible at most, the rest in ▾ menus, per the dock
-   grammar.
+   grammar. **Part of this is built**: the board-only sections (draw,
+   shapes, the free adds) are hidden on a map and the map's own Topic and
+   Branch sections carry add topic, add child, add sibling, collapse,
+   branch colour and focus; the layout picker and Tidy are still in the
+   top bar, and the Style, Insert, Arrange, Present and Export menus are
+   not written. See `agent-remaining/mindmap.md` for the measured numbers
+   and the rest of the list.
 2. **The node edit strip** (Coggle's four): text (bold, italic, size S M
    L XL, alignment auto/left/centre/right, colour), link (URL or a note
    via `[[`), image (upload or from the Library), icon (Phosphor search).

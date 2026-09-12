@@ -17,6 +17,35 @@
 | G, Phase 4 (items 15 to 17) | MINDMAP_PLAN §11.1. "Make a map of these notes" as propose-then-create, and FreeMind `.mm` both ways. |
 | G, Phase 5 (items 18 to 21) | MINDMAP_PLAN §11.1. Focus, perspectives, metrics, templates. Measured on a 201-node map: 201 drawn, 11 at one focus step, 201 again after Show all. |
 
+## The dock run (§12.1 item 1, part): what landed and what did not
+
+The owner's verdict this run: "the mindmap is still very much a basic demo
+... it needs to be more separated with its own controls and differences from
+the whiteboard ... the mindmap can keep important and usable parts of the
+whiteboard."
+
+Landed, each measured in a real Chromium and each its own commit:
+
+| | |
+| --- | --- |
+| An emptied map is no longer a dead end | `#wb-map-empty`, the `.empty-state` recipe on a floating card, at zero nodes; the whiteboard's own help panel no longer shows on a map at all |
+| The last topic cannot be deleted | Refused at both delete doors, with "Clear the map" offered in its place; decided and written into MINDMAP_PLAN §12.0 with the other two root questions |
+| The map's own dock | Draw, Shapes and Add hidden on a map (22 tool buttons down to 13), Move/Connect/Edit shared; Add topic, Add child, Add sibling, Collapse, Branch colour and Focus added |
+| Branch colour is settable at last | `wbMapColors` has carried `data.color` down the branch since Phase 2 and nothing could write it; a trunk's picker is disabled and says why |
+
+Left of §12.1 item 1, in the order the plan lists them: Layout and Style
+menus in the dock (the layout picker and Tidy are still up in the top bar,
+which is where they were), Insert (note card, image, link, icon, boundary,
+summary, relationship), Arrange, Present and Export as dock controls, and
+the whole of items 2 to 9 (the node edit strip, the node and link radials,
+edge handles, the text-size grip, drag-to-transplant, sever).
+
+**Space does not toggle collapse**, and the plan's key list says it should.
+Held space pans from any tool on this canvas (`wbZoomFilter`), so binding
+Space on a map would take the pan gesture away exactly when a node is
+selected. Decide that one before implementing it; the button and the node's
+own chevron are the two routes today.
+
 ## The sweeps that gate this
 
 | Sweep | Checks |
@@ -24,6 +53,7 @@
 | `scratchpad/ui-sweeps/mindmap.js` | **76** (was 63): Phase 2, the 200-node scale run, and Phase 5 |
 | `scratchpad/ui-sweeps/mindmap3.js` | **57** (was 37): Phase 3, the preview redesign, and the generation flow |
 | `scratchpad/ui-sweeps/mindmap-theme.js` (`THEME=dark`) | 7, **not re-run this run** |
+| `scratchpad/ui-sweeps/mapdock.js` | **17**, new: the board/map dock split, every map control against the selection, both delete doors and the empty map's way back |
 
 Run them against a **fresh** data dir (`serve.sh <port> /tmp/mm-mapN`): the
 sweep asserts board-gallery contents, so a dir left over from an earlier run
@@ -80,6 +110,20 @@ the honest way to close this; until it exists, say so rather than claiming the
 prompt works.
 
 ## Found while measuring, not fixed
+
+- **The pan lag is still unattributed.** Instrumented a drag pan on a
+  201-node map: the frame's own JS is grid sync 0.013ms, navigator 0.02ms and
+  the selection bar 0.46ms (fixed, a document-wide `querySelector` ahead of
+  the constant-time checks, now 0.011ms). The frame median stayed at 16.6 to
+  16.7ms with shadows off, glass off, edges hidden, `will-change` added, and
+  with the entire card layer removed, so this sandbox is vsync-bound and
+  cannot show what the owner sees. Nothing else was changed on a guess.
+- **A map's colour is only drawn on the line into the node.** A root has no
+  incoming line and its children start the palette over by design, so a root
+  cannot carry a colour at all; the picker is disabled there rather than
+  storing a value nothing paints. If a node should carry its branch colour on
+  its own card (a fill or a border), that is a decision and a rendering
+  change, not a control.
 
 - **A floating panel with a constant `top` lands under the top bar.** The
   focus bar was written with `top: var(--space-4)` and rendered *inside*

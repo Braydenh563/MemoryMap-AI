@@ -1904,7 +1904,18 @@ async function renderLibraryDocuments() {
     // `q` searches title *and* content server-side (routes_documents.py): 
     // client-side filtering alone could only ever match a title, since a
     // document's body is never sent to the browser in the list view.
-    docs = await apiJson(needle ? `/documents?q=${encodeURIComponent(needle)}` : "/documents");
+    //
+    //: Read to the end rather than one page (`apiPagedList`, documents.js).
+    //: `GET /documents` returns a page now (INBOX 117), and this list sorts
+    //: and pages *client-side* below: on one page of the server's rows,
+    //: sorting oldest-first would show the oldest of the newest two hundred
+    //: and call it the oldest, and the pager would offer pages that do not
+    //: exist. With `q` given the server counts the matches, not the table,
+    //: so the loop ends on the size of the search.
+    docs = await apiPagedList(
+      needle ? `/documents?q=${encodeURIComponent(needle)}` : "/documents",
+      DOCUMENTS_PAGE_SIZE
+    );
   } catch (error) {
     toast(error.message || "Could not load documents.", true);
     return;
@@ -3629,7 +3640,11 @@ let ocrSiblingCache = null;
 async function ocrLoadSiblings({ force = false } = {}) {
   if (ocrSiblingCache && !force) return ocrSiblingCache;
   const [images, attachments] = await Promise.all([
-    apiJson("/media", { silent: true }).catch(() => []),
+    //: Every upload, not the first page of them: the rail this builds is
+    //: the workspace's only navigation, and a file missing from it is a
+    //: file the reader cannot reach at all. `GET /media` is paged (INBOX
+    //: 117), so this asks until `X-Total-Count` is satisfied.
+    apiPagedList("/media", MEDIA_PAGE_SIZE, { silent: true }).catch(() => []),
     apiJson("/files/gallery", { silent: true }).catch(() => []),
   ]);
   for (const item of images || []) item._isImage = isImageUrl(item.url);
@@ -5243,7 +5258,11 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
   //: to be re-applied with it, the toggle is a property of the list, not of
   //: the tiles that happen to be in it right now.
   applyLibraryMediaView();
-  const images = await apiJson("/media", { silent: true }).catch(() => null);
+  //: The whole gallery, paged out of the server a page at a time (INBOX
+  //: 117): the grid's own search filters `libraryImagesCache` in the
+  //: browser, so a picture missing from that cache is a picture the search
+  //: box can never find, and the tile count would quietly stop at one page.
+  const images = await apiPagedList("/media", MEDIA_PAGE_SIZE, { silent: true }).catch(() => null);
   // A note's own attached file (`Attachment`, not `MediaUpload`) never came
   // from `/media` at all: reported directly, twice: "a pdf I uplaoded to a
   // note doesnt show in the libary" and "my uploaded pdf file isnt shown in

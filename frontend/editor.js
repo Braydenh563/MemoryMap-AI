@@ -791,7 +791,11 @@ let editorFileCache = null;
 async function editorLoadFiles() {
   if (editorFileCache && editorFileCache.length) return;
   const [media, attachments] = await Promise.all([
-    apiJson("/media", { silent: true }).catch(() => []),
+    //: Read to the end (`apiPagedList`, documents.js): `GET /media` returns
+    //: a page now (INBOX 117), and this cache is what the `/` and `[[` menus
+    //: offer. A picker missing a file is a file you cannot insert, with
+    //: nothing on screen to say it exists.
+    apiPagedList("/media", MEDIA_PAGE_SIZE, { silent: true }).catch(() => []),
     apiJson("/files/gallery", { silent: true }).catch(() => []),
   ]);
   const rows = [
@@ -973,7 +977,10 @@ function editorHandleInput(textarea) {
         // and gains documents a moment later rather than blocking on a fetch.
         if (editorDocumentCache === null) {
           editorDocumentCache = [];
-          apiJson("/documents")
+          //: Paged to the end, same reason as the file cache above: a
+          //: document missing from this list is a `[[link]]` the menu
+          //: cannot offer, silently.
+          apiPagedList("/documents", DOCUMENTS_PAGE_SIZE)
             .then((docs) => {
               editorDocumentCache = Array.isArray(docs) ? docs : [];
               if (editorMenuState.open) editorRefreshMenu();

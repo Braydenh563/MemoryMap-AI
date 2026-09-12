@@ -22,6 +22,47 @@
 // a document is something you sit down and write. Sharing storage would put
 // every half-finished draft into note search and the graph.
 
+// --- reading a paged list endpoint whole ---------------------------------------
+//
+// `GET /documents`, `GET /media` and `GET /reminders` each return a page and
+// an `X-Total-Count` header saying how big the selection really is (INBOX
+// 117; `GET /entries` has worked this way for longer, see `loadEntries` in
+// app.js). A caller that needs every row asks for the next page until it has
+// them all, which is the half that makes a cap safe: a cap with no offset
+// makes everything past it permanently unreachable, and that is exactly the
+// failure the old uncapped list was avoiding.
+//
+// Lives here rather than in the file that happens to need it first because
+// library.js needs the same loop for two of its own lists and there is no
+// module system to share it through; documents.js is parsed before
+// library.js (see index.html's ordering), and both call it from inside a
+// function body, so load order is satisfied either way.
+//
+// `options` is passed through to `api()` untouched (library.js wants
+// `{ silent: true }`). A page that comes back empty ends the loop whatever
+// the header says, so a stale or wrong total can never spin forever.
+async function apiPagedList(path, pageSize, options = {}) {
+  const rows = [];
+  let total = Infinity; // discovered from the first response's X-Total-Count
+  while (rows.length < total) {
+    const joiner = path.includes("?") ? "&" : "?";
+    const response = await api(`${path}${joiner}limit=${pageSize}&offset=${rows.length}`, options);
+    const page = await response.json();
+    if (!Array.isArray(page) || !page.length) break;
+    rows.push(...page);
+    const reported = Number(response.headers.get("X-Total-Count"));
+    total = Number.isFinite(reported) && reported > 0 ? reported : rows.length;
+  }
+  return rows;
+}
+
+//: The page size each of those lists is asked for, matching the server's own
+//: default (routes_documents.DOCUMENTS_PAGE_SIZE and routes_files
+//: .MEDIA_PAGE_SIZE): one request for any realistic notebook, more only when
+//: there genuinely is more.
+const DOCUMENTS_PAGE_SIZE = 200;
+const MEDIA_PAGE_SIZE = 200;
+
 let docs = [];
 let currentDoc = null;   // {id, title, content, ...}
 let docDirty = false;
@@ -579,7 +620,12 @@ async function loadDocuments(selectId = null) {
   // behaves, and openDocument below reads it. Awaited rather than fired off,
   // so the picker is never briefly empty on the first visit to this tab.
   await loadDocFileTypes();
-  docs = await apiJson("/documents").catch(() => []);
+  //: Paged, and read to the end: `GET /documents` hands back a page now
+  //: (INBOX 117), and this list is not only the sidebar's eight rows. A
+  //: `[[wiki link]]` resolves against `docs` by title (see
+  //: `docLinkTargetFor`), so a document missing from it is a link that
+  //: silently fails to resolve, not just a row missing from a list.
+  docs = await apiPagedList("/documents", DOCUMENTS_PAGE_SIZE).catch(() => []);
   renderDocList();
   if (selectId) return openDocument(selectId);
   if (!currentDoc && docs.length) return openDocument(docs[0].id);

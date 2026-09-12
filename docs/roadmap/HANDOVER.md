@@ -344,42 +344,57 @@ which is its own slow cost when the next session reads it. The same three sympto
 console are the signature: one real error, then `X is not defined` and
 `Cannot access Y before initialization` from everything declared after it.
 
-**Now (2026-09-12 evening, Fable orchestrating, the owner asleep and
-"finish absolutely everything from the plan" as the order):** four agents
-in flight, then the queue below, two Opus agents at a time, each in its
-own worktree, merged and pushed by the orchestrator at each report. In
-flight: graph node popups plus the movement optimisation (graph-canvas.js);
-the UI batch (mindmap radial, the View menu cap, template dialog, capture
-form heights, the agent panel); splash bar, delete-tool cursor, boards
-selector, Files rows (library.js, whiteboard.js); the Documents sidebar
-(Brief-style prompt, `docsidebar.js` numbers). Queue, by impact, and the owner's clarification ("all the plans worked
-on this session I mean"): the plans touched this session and their
-agent-remaining files come first, gated on which files free up: (1)
-Brief 22, the Notes sub-tabs (INBOX 116), once the capture form is free;
-(2) Library image-card bottoms (INBOX 115, `imagecardbottom.js`) once
-library.js is free; (3) `agent-remaining/brief-13-harness.md`,
-`brief7-event-log.md` (the `generate_map`/`import_board` replay gap) and
-`brief11-retrieval-engine.md`, one backend agent, with
-`tests/test_learned_spec.py` (15 markers) and `test_resurface_spec.py`
-(7) behind them; (4) WHITEBOARD_PLAN Phases 1 to 4 and
-`agent-remaining/mindmap.md` once whiteboard.js is free; (5) DOCUMENTS
-Phases 3 to 8 and `documents-engine.md`; (6) GRAPH Phase 4b and 6b and
-`graph.md`; (7) UI Phase 11, the phone; then TIMELINE_PLAN and CHAT_PLAN
-Phases 2 and 3, untouched this session, last. Landed today by the orchestrator, each
-measured live: file readings in Background tasks (`core/filejobs.py`); the
-tonal tier's quiet variant and the `translate`/`scale` press cue; the
-top-layer dialog fix; the collapsed rail button centred (6/6, was 6/4);
-the settings "?" marks in one column; three `test_ui_recipes.py` lints.
-Four owner reports measured and not reproduced are in INBOX 114; the
-whiteboard drag lag is unattributed after three passes
-(`agent-remaining/mindmap.md`). The hourly check-in re-arms itself. **After the plans (the owner,
-2026-09-12 evening): "just repeat, improve ui, improve ux, fix bugs, fix
-security flaws, poke holes in the application for fixing."** That loop is
-the standing order once the queue is empty: a sweep pass (errors, contrast,
-docks, touch, finalqa), a security pass (WORLD_CLASS_PLAN section 6 and
-the CodeQL categories), a hole-poking pass (the flaw classes in
-WORLD_CLASS_PLAN section 8 with their commands), each finding fixed and
-measured, then again.
+**Now (2026-09-12 late evening, Opus orchestrating, the owner asleep, the
+order "finish absolutely everything from the plan" and, after it, "just
+repeat, improve ui, improve ux, fix bugs, fix security flaws, poke holes in
+the application for fixing"):** two agents in flight, which is the cap:
+DOCUMENTS Phase 3, the blocks (tables with a byte-exact Source round trip,
+callouts, footnotes, math, embeds, properties, columns; `documents.js`, with
+`scratchpad/ui-sweeps/docblocks.js` as its sweep) and WHITEBOARD Phases 1 to
+3 (tool rail and keys, context bar, export, handles, highlighter;
+`whiteboard.js`). Both hold their files; nothing else may touch them.
+
+Queue after them, in the owner's stated order ("all the plans worked on this
+session I mean" comes first, then the rest by impact): (1) WHITEBOARD Phase 4
+with `agent-remaining/mindmap.md` and MINDMAP Phases 4 and 5, once
+whiteboard.js is free; (2) DOCUMENTS Phases 4 to 8 and
+`agent-remaining/documents-engine.md`, once documents.js is free; (3) Brief
+23's I9, the ten markers left in `tests/test_learned_spec.py`, which
+`agent-remaining/learning-loop.md` shows is a derived-facts pipeline and
+needs its own brief rather than a Settings section; (4) GRAPH Phase 4b and
+6b and `agent-remaining/graph.md`; (5) UI Phase 11, the phone; (6)
+TIMELINE_PLAN and CHAT_PLAN Phases 2 and 3, untouched this session, last.
+
+Landed since the previous Now line, each measured: Brief 22, the Notes
+sub-tabs (INBOX 116); the Library image-card bottoms (INBOX 115); INBOX 117
+closed end to end, all nine remaining call sites reading to the end through
+`apiPagedList`; Brief 23 steps 1 to 3, the corrections loop
+(`ai/learning.py`) and resurfacing (`ai/resurface.py`) with their two route
+files; the backend probe written up in `agent-remaining/backend-probe.md`,
+whose ten findings are all fixed (two N+1s, six missing indexes, an O(words)
+query, three delete paths that left a note undeletable, a concurrent-capture
+loss of 5 saves in 72, an unbounded tool payload, and note and tag input
+caps on create *and* update); the graph node popups and movement
+optimisation; the UI batch; splash bar, delete-tool cursor, boards selector,
+Files rows; the Documents sidebar. Sweeps on the current head: errors 0 of 0
+at 1440, 1024, 820 and 390; contrast 31 of 31 in both themes; touch PASS, 0
+findings. CI green on every head.
+
+Carried, found and not fixed: the Notes categories sidebar overflows at 390
+(`aside#sidebar` 976 > 706); the note edit form's toolbar is a clone taken at
+open time, so a change to the real one does not reach it; `touch.js` covers
+three surfaces and is the next tooling gap; the whiteboard drag lag is still
+unattributed after three passes (`agent-remaining/mindmap.md`); four owner
+reports measured and not reproduced are in INBOX 114. The hourly check-in
+re-arms itself.
+
+**After the plans (the owner, 2026-09-12 evening): "just repeat, improve ui,
+improve ux, fix bugs, fix security flaws, poke holes in the application for
+fixing."** That loop is the standing order once the queue is empty: a sweep
+pass (errors, contrast, docks, touch, finalqa), a security pass
+(WORLD_CLASS_PLAN section 6 and the CodeQL categories), a hole-poking pass
+(the flaw classes in WORLD_CLASS_PLAN section 8 with their commands), each
+finding fixed and measured, then again.
 
 ### The agents (worktrees under `.claude/worktrees/agent-<id>`)
 

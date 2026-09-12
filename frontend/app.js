@@ -1899,9 +1899,16 @@ function mapCountLabel(board) {
   if (nodes) parts.push(`${nodes} card${nodes === 1 ? "" : "s"}`);
   if (sketches) parts.push(`${sketches} sketch${sketches === 1 ? "" : "es"}`);
   if (objects) {
+    //: **"items", not "images", on a board.** `object_count` is
+    //: `count(WhiteboardObject)` with no filter on `kind`
+    //: (`routes_whiteboard.py`, the `/whiteboard/boards` listing), and a
+    //: board's objects are text, images, notes, documents, files and links.
+    //: A board seeded with five text boxes read "5 images" in the dashboard
+    //: widget and in the Library, which is the same class of wrong noun §5
+    //: item 12 fixed for a map's nodes and missed here.
     parts.push(isMap
       ? `${objects} node${objects === 1 ? "" : "s"}`
-      : `${objects} image${objects === 1 ? "" : "s"}`);
+      : `${objects} item${objects === 1 ? "" : "s"}`);
   }
   return parts.length ? parts.join(" · ") : isMap ? "Empty map" : "Empty board";
 }

@@ -3182,13 +3182,25 @@ p.graph-help-panel {
   overflow-x: clip;
 }
 
-/* The board miniature in the Boards & maps widget. Sized to the same box as
-   `.dash-list-thumb`'s image so a widget with boards and a widget with photos
-   line up on the same grid, rather than each row setting its own height. */
-.dash-board-thumb {
-  background: var(--inner);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+/* The board miniature in the Boards & maps widget: **one frame, not two.**
+
+   Measured before this (`scratchpad/ui-sweeps/boardsthumb.js`, 1440x900): the
+   thumbnail was a 40.5 by 40.5 square carrying a border and a fill of its own,
+   and the board drawn inside it is letterboxed at the board's real aspect, so
+   a 100x65.7 board came out 38.5 by 25.3 with 7.6px of empty banding above and
+   below, inside a *second* border 1px outside the first. Only 59% of the box
+   was the picture, and what the eye read was a bordered box in a bordered box,
+   which is what "the boards and maps dashboard widget is ugly" is about.
+
+   `.board-minimap-paper` already draws the board's own frame and fill, at the
+   board's own shape, so the `<svg>` box must draw neither. The box itself is
+   sized landscape next to the Library's row thumbnail in 10-responsive.css;
+   this only has to take the photo-thumbnail chrome back off, which needs the
+   extra `li` to outrank `.dash-list-thumb` in 07-whiteboard-misc.css. */
+.dash-list li .dash-board-thumb {
+  background: none;
+  border: 0;
+  border-radius: 0;
 }
 
 /* `.dash-board-thumb-card` / `-sketch` lived here and are gone with the copy

@@ -437,13 +437,22 @@ header#top-bar,
    sizing it, and it is declared *after* `.dash-list-thumb`'s `width: 2.75em`,
    so it took that with it and the square grew to fill the row.
 
-   The row thumbnail is the square the row was built for again. `height` as
-   well as `width`, because `aspect-ratio` with an auto height is what turned
-   one loose width into a 293px box in the first place. */
+   The row thumbnail is a fixed box again. `height` as well as `width`, because
+   `aspect-ratio` with an auto height is what turned one loose width into a
+   293px box in the first place.
+
+   **Landscape, at the Library's row size.** The square this first became was
+   the wrong shape for the thing in it: boards are wide (the two seeded here
+   measure 1.52:1 and 1.41:1), `preserveAspectRatio="xMidYMid meet"` letterboxes
+   them, and a wide board in a square box is 7.6px of empty ground top and
+   bottom. `.library-list .board-minimap` had already answered this with
+   4.5rem by 2.5rem, so the dashboard row now uses the same box and the two
+   surfaces that show a board in a row show it at the same size and shape. */
 .dash-list .board-minimap-row {
-  width: 2.75em;
-  height: 2.75em;
-  min-width: 2.75em;
+  width: 4.5rem;
+  height: 2.5rem;
+  min-width: 4.5rem;
+  aspect-ratio: auto;
   flex: 0 0 auto;
 }
 

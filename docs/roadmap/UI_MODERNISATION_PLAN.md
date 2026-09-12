@@ -553,16 +553,18 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
 9. **Touch.** 44px targets everywhere below 820 (Phase 9's token step
    holds), no hover-only affordance (every hover state has a tap
    equivalent), long-press replaces right-click app-wide.
-10. **The status bar at 320.** Measured 2026-09-12, after the header was
-    made to fit: at 320 x 844 the page still scrolls sideways, 355 in 320,
-    and the header is no longer the cause. `#status-redo` ends at x=330 and
-    `#status-agent` at x=355, and a toast at x=339. The bar has a declared
-    height (`--status-bar-h`), so it cannot simply wrap; the choice is a
-    sideways scroller with the edge fade the tab strip already uses, or the
-    same "one action, the rest in a sheet" answer this phase gives the top
-    bar. 360 and every width above it are clean (measured 320, 360, 390,
-    414, 480, 600, 640, 768, 820, 900, 1024), so this is the small-phone
-    band alone.
+10. **The status bar at 320: taken, the first way.** Measured 2026-09-12,
+    after the header was made to fit: at 320 x 844 the page still scrolled
+    sideways, 355 in 320, and the bar was the cause (its six surviving items
+    need 355px: the AI dot 28, reminders 18, the nav group 147, undo 44, redo
+    44, the agent dot 18, plus gaps). The bar is deliberately `nowrap`, since
+    a wrapped status bar changes the height of the window's furniture as its
+    own text changes, so of the two options here it took the scroller: below
+    400 the bar scrolls with the `edge-fade` recipe every other overflowing
+    strip uses, and nothing is hidden. Measured after: the page is 320 in 320
+    and 360 in 360, and every width from 320 to 1024 is clean. The second
+    option, one action and a sheet, is still the right end state and is this
+    phase's own item 1.
 
 11. **Gates.** A phone sweep (`scratchpad/ui-sweeps/phone.js`) at 390 x 844
     and 430 x 932 per tab: no horizontal scroll, no control under 44px,

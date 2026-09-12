@@ -184,8 +184,26 @@ const SURFACES = [
           covered.push(`${name(control)} cannot be scrolled into view (centre ${x},${y})`);
           continue;
         }
-        const hit = document.elementFromPoint(x, y);
-        if (!hit || (!control.contains(hit) && !hit.contains(control))) {
+        let hit = document.elementFromPoint(x, y);
+        let reached = hit && (control.contains(hit) || hit.contains(control));
+        if (!reached) {
+          // Second chance, and it is not a weakening: a control near the end
+          // of a scroll container cannot be centred, so `scrollIntoView` puts
+          // it wherever the remaining scroll allows, which at the bottom of
+          // the dashboard is under the *fixed* tab bar. A person scrolls a
+          // little less far and taps it. Asking again from a scroll position
+          // the person could actually choose is the honest question; a
+          // control that is covered at every position still fails here.
+          control.scrollIntoView({ block: 'start', inline: 'center' });
+          const again = control.getBoundingClientRect();
+          const ax = Math.round(again.left + again.width / 2);
+          const ay = Math.round(again.top + again.height / 2);
+          if (ax >= 0 && ay >= 0 && ax <= innerWidth && ay <= innerHeight) {
+            hit = document.elementFromPoint(ax, ay);
+            reached = hit && (control.contains(hit) || hit.contains(control));
+          }
+        }
+        if (!reached) {
           covered.push(`${name(control)} at ${x},${y} hits ${hit ? name(hit) : 'nothing'}`);
         }
       }

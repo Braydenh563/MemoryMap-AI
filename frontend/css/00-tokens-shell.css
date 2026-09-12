@@ -3316,6 +3316,38 @@ header#top-bar.tabs-wrapped #tab-bar {
   }
 }
 
+/* --- the status bar on a small phone --------------------------------------
+   Measured at 320x844, after the header was made to fit: the page still
+   scrolled sideways, 355 in 320, and the bar was the cause. Its six surviving
+   items need 355px (the AI dot 28, reminders 18, the three-button nav group
+   147, undo 44, redo 44, the agent dot 18, plus gaps), and the bar is
+   deliberately `nowrap`, because a wrapped status bar changes the height of
+   the window's furniture as its own text changes, which is the fault the
+   header was rebuilt to stop.
+
+   So the bar scrolls rather than the page, with the edge fade every other
+   strip that can overflow already uses. Nothing is hidden: at this width the
+   alternative is dropping a control, and undo, redo and Back are exactly the
+   controls a phone has no other route to. 360 and up are unaffected, they
+   fit.
+
+   UI_MODERNISATION_PLAN Phase 11 replaces this properly: one action and a
+   sheet, the same answer it gives the top bar. */
+@media (max-width: 400px) {
+
+  #status-bar {
+    overflow-x: auto;
+    /* The bar is one line inside a declared height; a horizontal scrollbar
+       would eat a third of it and a vertical one would appear from nothing. */
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  #status-bar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* --- tab navigation (Wave A; pill style inside the top bar in Wave L) ------- */
 #tab-bar {
   display: flex;

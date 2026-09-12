@@ -5114,7 +5114,12 @@
        already a flex column whose middle child scrolls, so a real row costs no
        overlap, no reserved padding, and nothing to keep in sync when the bar's
        height changes. -->
-  <footer id="status-bar">
+  <!-- `edge-fade`: below 400 the bar becomes a sideways scroller (see
+       00-tokens-shell.css, "the status bar on a small phone"), and this is the
+       class `syncEdgeFade` in app.js already drives on every other strip that
+       can run off its own edge. It costs nothing at a width where the bar
+       fits: the fade classes are only added when there is something hidden. -->
+  <footer id="status-bar" class="edge-fade">
     <!-- The generated emblem, which followed the status dot down: it is an AI
          presence marker and it belongs beside the thing that says what the AI
          is doing, which is the reason it was next to it in the header. -->

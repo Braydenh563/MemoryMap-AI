@@ -47,7 +47,14 @@ RELEASE_WITH_ASSET = {
     "assets": [
         {
             "name": "MemoryMap-AI-Setup-9.9.9.exe",
-            "browser_download_url": "https://example.com/MemoryMap-AI-Setup-9.9.9.exe",
+            # A real release link: `_download_url_is_allowed` refuses anything that
+            # is not one of this app's own release hosts, so a fixture
+            # pointing at example.com would exercise the refusal rather than
+            # the apply path it means to test.
+            "browser_download_url": (
+                "https://github.com/Braydenh563/MemoryMap-AI/releases/download"
+                "/v9.9.9/MemoryMap-AI-Setup-9.9.9.exe"
+            ),
             "size": 12,
         }
     ],
@@ -255,6 +262,81 @@ def test_a_successful_apply_downloads_then_launches_the_official_installer_only(
     assert downloaded.read_bytes() == b"MZ-fake-installer-bytes"
 
 
+def test_an_asset_pointing_off_the_release_hosts_is_never_downloaded(
+    client, app_state, monkeypatch, tmp_path
+):
+    """This file downloads an executable and then runs it silently.
+
+    `browser_download_url` is remote data: it is whatever the release row
+    says. One asset pointing somewhere else, through a compromised account or
+    a redirect service, would be an arbitrary executable downloaded and
+    launched, and nothing else in this path would notice (the download is
+    checked for truncation, not for a signature). So the host is checked
+    before a single byte is written, and the check is here rather than only
+    in a constant because a constant nobody asserts is a comment.
+    """
+    app_state.set_preference("update_check_enabled", True)
+    app_state.set_preference("auto_update_enabled", True)
+    monkeypatch.setattr(routes_update.sys, "platform", "win32")
+    monkeypatch.setattr(routes_update.sys, "frozen", True, raising=False)
+
+    elsewhere = {
+        "tag_name": "v9.9.9",
+        "assets": [
+            {
+                "name": "MemoryMap-AI-Setup-9.9.9.exe",
+                "browser_download_url": "https://updates.example.com/MemoryMap-AI-Setup-9.9.9.exe",
+                "size": 12,
+            }
+        ],
+    }
+    fetched = []
+
+    def _fake_get(url, **kwargs):
+        fetched.append(url)
+        if "releases/latest" in url:
+            return _FakeResponse(elsewhere)
+        return _FakeResponse(content=b"MZ-evil", headers={"Content-Length": "7"})
+
+    monkeypatch.setattr(routes_update.requests, "get", _fake_get)
+    popen_calls = []
+    monkeypatch.setattr(routes_update.subprocess, "Popen", lambda *a, **k: popen_calls.append(a))
+    monkeypatch.setattr(routes_update.tempfile, "mkdtemp", lambda prefix="": str(tmp_path))
+    monkeypatch.setattr(routes_update, "EXIT_DELAY_SECONDS", 0)
+    monkeypatch.setattr(routes_update.os, "_exit", lambda code: None)
+
+    assert client.post("/update/apply").status_code == 200
+    _wait_until_idle()
+
+    state = routes_update.current()
+    assert state["outcome"] == "failed"
+    assert "does not point at this app" in state["step"]
+    # Nothing was fetched but the release listing, and nothing was run.
+    assert all("releases/latest" in url for url in fetched)
+    assert popen_calls == []
+    # `tmp_path` is also the notebook's own data dir under the `client`
+    # fixture, so the question is not "is it empty" but "was an installer
+    # written": it was not.
+    assert list(tmp_path.glob("*.exe")) == []
+
+
+def test_the_allowed_hosts_are_https_only():
+    from memorymap.api.routes_update import _download_url_is_allowed
+
+    assert _download_url_is_allowed(
+        "https://objects.githubusercontent.com/x/MemoryMap-AI-Setup-1.0.0.exe"
+    )
+    # http, even to the right host: the bytes become an executable, so a
+    # downgrade is the same hole with an extra step.
+    assert not _download_url_is_allowed("http://github.com/x.exe")
+    # A host that merely ends in the allowed one, which is how an allowlist
+    # written with `endswith` is usually beaten.
+    assert not _download_url_is_allowed("https://evil-github.com/x.exe")
+    assert not _download_url_is_allowed("https://github.com.evil.test/x.exe")
+    assert not _download_url_is_allowed("")
+    assert not _download_url_is_allowed(None)
+
+
 def test_no_matching_windows_asset_is_a_clean_failure_not_a_crash(client, app_state, monkeypatch):
     app_state.set_preference("update_check_enabled", True)
     app_state.set_preference("auto_update_enabled", True)
@@ -307,7 +389,10 @@ def test_apply_with_a_specific_tag_hits_the_tagged_release_not_latest(
         "assets": [
             {
                 "name": "MemoryMap-AI-Setup-8.8.8.exe",
-                "browser_download_url": "https://example.com/MemoryMap-AI-Setup-8.8.8.exe",
+                "browser_download_url": (
+                    "https://github.com/Braydenh563/MemoryMap-AI/releases/download"
+                    "/v8.8.8/MemoryMap-AI-Setup-8.8.8.exe"
+                ),
                 "size": 12,
             }
         ],

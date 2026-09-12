@@ -38,6 +38,7 @@ import tempfile
 import threading
 import time
 from pathlib import Path
+from urllib.parse import urlparse
 
 import requests
 from fastapi import APIRouter, HTTPException
@@ -53,6 +54,33 @@ GITHUB_REPO_API = "https://api.github.com/repos/Braydenh563/MemoryMap-AI"
 GITHUB_HEADERS = {"Accept": "application/vnd.github+json"}
 ASSET_PREFIX = "MemoryMap-AI-Setup-"
 ASSET_SUFFIX = ".exe"
+
+#: The only hosts an installer may be downloaded from, and the reason is that
+#: this file downloads an executable and then runs it.
+#:
+#: `browser_download_url` comes out of the GitHub API response, which is
+#: remote data. TLS means only whoever controls the repo's releases can choose
+#: it, and they already ship the app, so this is not a hole that is open
+#: today. It is the difference between "trusting the release" and "trusting
+#: whatever URL the release names": one asset row pointing somewhere else,
+#: through a compromised account or a redirect service, is an arbitrary
+#: executable downloaded and run silently, and nothing else in this path would
+#: notice (the download is checked for truncation, not for a signature).
+#:
+#: Both names are needed: the API hands back `github.com/...` release links,
+#: which redirect to `objects.githubusercontent.com` for the bytes.
+ALLOWED_DOWNLOAD_HOSTS = frozenset(
+    {"github.com", "api.github.com", "objects.githubusercontent.com"}
+)
+
+
+def _download_url_is_allowed(url: str) -> bool:
+    """https, and one of the release hosts above. Nothing else is fetched."""
+    try:
+        parsed = urlparse(str(url or ""))
+    except ValueError:
+        return False
+    return parsed.scheme == "https" and (parsed.hostname or "").lower() in ALLOWED_DOWNLOAD_HOSTS
 
 #: Every tag this repo's own release workflow ever creates looks like this
 #: (`resolve-version` in release.yml: `v$VERSION`, VERSION always three dot-
@@ -187,6 +215,24 @@ def _run_apply(download_url: str, asset_name: str) -> None:
     # look identical from `except Exception` alone, but need different
     # advice: asked for directly ("handle the case that the new installer
     # download is blocked by browser, firewall or other security").
+    if not _download_url_is_allowed(download_url):
+        # Refused before anything is written to disk, and named in the log
+        # rather than in `_state.error`, which reaches the browser.
+        logger.warning("refusing an update download from an unexpected host")
+        _state.error = (
+            "That update was published with a download link this app does not "
+            "recognise, so nothing was downloaded."
+        )
+        # "failed" rather than a new outcome: the browser switches on this
+        # value, and a state it has never seen would render as nothing at all.
+        _state.outcome = "failed"
+        _state.step = (
+            "The update was not downloaded, because its download link does "
+            "not point at this app's own releases. Install it from the "
+            "releases page instead."
+        )
+        _state.running = False
+        return
     try:
         _state.step = "Downloading the update…"
         tmp_dir = Path(tempfile.mkdtemp(prefix="memorymap-update-"))

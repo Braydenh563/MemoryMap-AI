@@ -8145,6 +8145,15 @@ input[type="file"] {
   pointer-events: auto;
 }
 
+/* Both of these buttons are also slots on the node's ring, and they sit inside
+   the ring's own circle. While the ring is open it is the one place those two
+   actions are offered, rather than a second pair of small round buttons under
+   it (INBOX 114, "fix the look of the mindmap item radial"). */
+.wb-map-node.wb-radial-open .wb-map-actions {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* The text-size grip (MINDMAP_PLAN.md §12.1 item 6). Inside the node, at the
    corner, and shown by the same rule the two add buttons are: it belongs to
    the node you are pointing at, and a grip on every node on a two-hundred-node
@@ -8339,8 +8348,19 @@ input[type="file"] {
    a slot placed with it would be thrown back to the ring's centre on every
    press, which is the exact bug that lint exists to stop. Half the button's
    own width comes off each offset so the *centre* of the button lands on the
-   ring rather than its top-left corner. */
+   ring rather than its top-left corner.
+
+   **The radius is the ring's, not the slot's, because the node sets it.** A
+   ring centred on a node's centre at a fixed radius is drawn *over* the node
+   whenever the node is wider than the ring is round, which every default
+   topic is: 200 by 44 on screen against a 68px radius put the east and west
+   slots 36px inside the box, on top of the node's own text and its chevron.
+   Reported as "fix the look of the mindmap item radial". So the radius lives
+   here, on the ring, and `wbPlaceMapRadial` raises it per node to whatever
+   clears that node's measured box; the slots read it and keep their own
+   geometry off it. */
 .wb-map-radial {
+  --wb-radial-r: 4.25rem;
   position: absolute;
   z-index: 23;
   width: 0;
@@ -8349,7 +8369,6 @@ input[type="file"] {
 }
 
 .wb-map-radial-slot {
-  --wb-radial-r: 4.25rem;
   /* 0.7071 is cos 45 degrees: the four diagonals sit on the same circle as
      the four axes, which is what makes the ring read as a ring. */
   --wb-radial-diag: calc(var(--wb-radial-r) * 0.7071);

@@ -5019,13 +5019,15 @@ let wbMapRadialFor = null;
 //: surrounds, so its rect says nothing about where its slots are. The union
 //: of the slots is the honest answer, and it stays honest if the radius, the
 //: slot size or the number of slots ever changes.
-function wbPlaceMapRadial(ring, host, x, y) {
+function wbPlaceMapRadial(ring, host, x, y, clear) {
   const margin = 8;
   ring.style.left = `${Math.round(x)}px`;
   ring.style.top = `${Math.round(y)}px`;
+  ring.style.removeProperty("--wb-radial-r");
   ring.classList.remove("hidden");
   const hostRect = host.getBoundingClientRect();
   if (!hostRect.width || !hostRect.height) return;
+  wbSizeMapRadial(ring, hostRect, clear);
   let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
   for (const slot of ring.children) {
     const box = slot.getBoundingClientRect();
@@ -5083,12 +5085,97 @@ function wbPlaceMapRadial(ring, host, x, y) {
   if (dy) ring.style.top = `${Math.round(y + dy)}px`;
 }
 
+//: **Push the ring clear of the node's own box, not of its centre.**
+//:
+//: The ring was built at a fixed 4.25rem, which is a circle of radius 68 drawn
+//: around the node's centre. A default topic measures 200 by 44 on screen, so
+//: the east and west slots landed 36px *inside* the box, over the node's text
+//: and over its own chevron, and the four diagonals cleared it by 12px. That
+//: is the report ("fix the look of the mindmap item radial"): the maths was
+//: right and the reading was wrong, because a ring centred on a node covers
+//: the node whenever the node is wider than the ring is round.
+//:
+//: So the radius is raised per node to the one that clears its measured box:
+//: half the node's larger side, plus half a slot, plus the same 8px margin
+//: this function already keeps against every edge. The slots stay on one
+//: circle (`mapstrip.js` asserts a spread of 2px or less), the ring stays
+//: centred on the node it belongs to, and nothing about the order or the
+//: directions moves, so a person who learned where Tidy sits still finds it
+//: there.
+//:
+//: Two caps, because a radius taken from a box has no upper bound of its own:
+//: the ring may not grow past 2.5 times its base, beyond which it reads as a
+//: hoop on the canvas rather than as this node's controls (a topic resized
+//: past ~300px wide keeps its slots on its own margin instead, which is empty
+//: on a node that large), and it may not grow past what the canvas can hold.
+//:
+//: Every number here is measured, not assumed: the base radius and the slot
+//: size are read back off the live ring (the ring's own box is a zero-sized
+//: point at its anchor, so a slot centre minus that point *is* the radius),
+//: which is why this runs after the ring is shown and why a change to the
+//: stylesheet's radius or slot size needs no edit here.
+function wbSizeMapRadial(ring, hostRect, clear) {
+  if (!clear || !(clear.w > 0) || !(clear.h > 0)) return;
+  const slot = ring.querySelector(".wb-map-radial-slot");
+  if (!slot) return;
+  const box = slot.getBoundingClientRect();
+  if (!box.width) return;
+  const origin = ring.getBoundingClientRect();
+  const base = Math.hypot(box.left + box.width / 2 - origin.left,
+    box.top + box.height / 2 - origin.top);
+  if (!base) return;
+  const want = Math.max(clear.w, clear.h) / 2 + box.width / 2 + 8;
+  const fits = Math.min(hostRect.width, hostRect.height) / 2 - box.width / 2 - 8;
+  const r = Math.min(want, base * 2.5, Math.max(base, fits));
+  if (r > base + 1) ring.style.setProperty("--wb-radial-r", `${Math.round(r)}px`);
+}
+
+//: How far an open ring pokes past the node it surrounds, top and bottom, in
+//: the coordinates `wbUpdateSelectionBar` places the strip in. A ring wide
+//: enough to clear a 200px topic reaches 136px from its centre, which is over
+//: the strip the same node already has above it: measured before this, two of
+//: the eight slots were drawn on the strip's own selects. The strip stands off
+//: the ring rather than off the node while the ring is open, and goes back
+//: when it closes. Measured off the slots, not off the ring's box, which is a
+//: zero-sized point (`wbPlaceMapRadial`), and off the live ring rather than
+//: from the radius, so a ring the clamp has slid reports where it actually is.
+function wbMapRadialOverhang(hostRect, top, bottom) {
+  const none = { above: 0, below: 0 };
+  const ring = document.getElementById("wb-map-radial");
+  if (!ring || ring.classList.contains("hidden")) return none;
+  let minTop = Infinity, maxBottom = -Infinity;
+  for (const slot of ring.children) {
+    const r = slot.getBoundingClientRect();
+    if (!r.width && !r.height) continue;
+    minTop = Math.min(minTop, r.top);
+    maxBottom = Math.max(maxBottom, r.bottom);
+  }
+  if (!Number.isFinite(minTop)) return none;
+  const above = hostRect.top + top - minTop;
+  const below = maxBottom - (hostRect.top + bottom);
+  return { above: above > 0 ? above + 8 : 0, below: below > 0 ? below + 8 : 0 };
+}
+
+//: The node whose ring is open wears a class while it is open, because two of
+//: its own hover controls (add a branch, add a topic beside) are two of the
+//: ring's eight slots and sit inside the ring's circle. Two buttons for one
+//: action, one of them under the ring, is the clutter the report was about.
+function wbMarkMapRadialNode(id) {
+  for (const el of document.querySelectorAll(".wb-object.wb-radial-open")) {
+    el.classList.remove("wb-radial-open");
+  }
+  if (id == null) return;
+  document.querySelector(`.wb-object[data-id="${id}"]`)?.classList.add("wb-radial-open");
+}
+
 function wbCloseMapRadial() {
   const ring = document.getElementById("wb-map-radial");
   if (!ring || ring.classList.contains("hidden")) return;
   ring.classList.add("hidden");
   wbMapRadialFor = null;
   wbSyncMapRadialAlt(false);
+  wbMarkMapRadialNode(null);
+  wbUpdateSelectionBar();
 }
 
 //: Alt held turns the two add slots into the two remove slots (Coggle). The
@@ -5132,7 +5219,13 @@ function wbOpenMapRadial(node) {
   const cx = rect.left - hostRect.left + t.applyX((box.minX + box.maxX) / 2);
   const cy = rect.top - hostRect.top + t.applyY((box.minY + box.maxY) / 2);
   wbMapRadialFor = node.id;
-  wbPlaceMapRadial(ring, host, cx, cy);
+  //: The node's box on screen, not on the board: the slots are a fixed size in
+  //: px whatever the zoom, so what the ring has to clear is what the node
+  //: measures at the zoom in force.
+  wbPlaceMapRadial(ring, host, cx, cy, {
+    w: (box.maxX - box.minX) * t.k,
+    h: (box.maxY - box.minY) * t.k,
+  });
   wbSyncMapRadialAlt(false);
   const collapse = document.getElementById("wb-radial-collapse");
   if (collapse) {
@@ -5153,6 +5246,8 @@ function wbOpenMapRadial(node) {
       ? "This topic is already a trunk of its own"
       : "Cut this topic free of its parent, as a trunk of its own";
   }
+  wbMarkMapRadialNode(node.id);
+  wbUpdateSelectionBar();
   return true;
 }
 
@@ -5695,11 +5790,25 @@ function wbUpdateSelectionBar() {
   // panel appears."
   const gapAbove = 44, gapBelow = 10;
   const left = Math.max(8, Math.min(hostRect.width - w - 8, cx - w / 2));
-  // Above the item; below it when the top bar would cover the bar.
+  //: With this node's ring open, the strip clears the *ring* rather than the
+  //: node: a ring wide enough to clear a 200px topic reaches 136px from the
+  //: node's centre, and two of its eight slots were drawn on the strip's own
+  //: selects (INBOX 114). Raised to the ring's reach, not added to the 44
+  //: above, which is the room a card's rotate handle needs and a topic has no
+  //: handle: adding the two pushed the strip past the floor below.
+  let overAbove = 0, overBelow = 0;
+  if (mapNode && wbMapRadialFor === mapNode.id) {
+    const over = wbMapRadialOverhang(hostRect, top, bottom);
+    overAbove = over.above ? Math.max(0, over.above + gapBelow - gapAbove) : 0;
+    overBelow = over.below;
+  }
+  // Above the item; below it when the top bar would cover the bar. The floor
+  // is the bar's own clearance and not the ring's: a floor raised by the room
+  // the ring takes *below* the node is what sent the strip down there.
   const topBar = document.getElementById("wb-topbar")?.getBoundingClientRect();
   const floor = topBar ? topBar.bottom - hostRect.top + gapBelow : 56;
-  let y = top - h - gapAbove;
-  if (y < floor) y = bottom + gapBelow;
+  let y = top - h - gapAbove - overAbove;
+  if (y < floor) y = bottom + gapBelow + overBelow;
   active.style.left = `${Math.round(left)}px`;
   active.style.top = `${Math.round(y)}px`;
 }

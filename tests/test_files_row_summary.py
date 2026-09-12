@@ -161,3 +161,41 @@ def test_both_doors_into_the_lightbox_build_the_same_items():
     #: matches the call text too, subtracted rather than matched around, since
     #: a cleverer pattern here would be a lint about a lint.
     assert LIBRARY.count("libraryLightboxItems(images)") - 1 == 2
+
+
+# --- what the row is for (UI_MODERNISATION_PLAN, "Decided, 2026-09-12") -------
+
+
+def test_the_rows_facts_are_one_line_rather_than_three_blocks():
+    """Reported (INBOX 115): "the files rows in files still needs some ui
+    improvement and redesign, and better function", with a screenshot of a
+    name, a meta strip, a reading pill and a lot of empty space.
+
+    Measured in Chromium at 1440 before this: the text column is 1218px wide
+    and held five full-width blocks, each carrying one short string, so one
+    row stood 257px tall. The three muted ones are statements of fact about
+    one file at one rank, so they share a line; measured after, 176px.
+    """
+    assert 'facts.className = "library-file-facts"' in LIBRARY
+    assert "facts.append(fileMetaLine(image), strip, usage)" in LIBRARY
+    assert "fig.append(img, actions, cap, facts, fields, provenance)" in LIBRARY
+    rule = CSS.split(".library-file-facts {")[1].split("}")[0]
+    assert "flex-wrap: wrap" in rule, "a narrow window gets the stack back, not a clipped line"
+    # The usage row is a *section* of the Images card: a rule above it and
+    # rhythm on both sides. On one line that rule is a hairline hanging in
+    # the middle of the row.
+    neutralised = CSS.split(".library-file-facts > .library-image-usage {")[1].split("}")[0]
+    assert "border-top: 0" in neutralised and "margin: 0" in neutralised
+
+
+def test_a_file_row_can_hand_over_the_file():
+    """The one verb a file list must have and this one did not: nothing in
+    the Library could get a file back out of the notebook. Both tables are
+    served by routes that already exist and already carry the right filename;
+    `mediaSrc` puts the token on the url, the way every other direct link to
+    media here is authorised."""
+    block = LIBRARY.split("const save = document.createElement(\"button\")")[1].split("const menuActions")[0]
+    assert "link.download" in block
+    assert "`/files/${image.id}`" in block and "image.url" in block
+    assert "mediaSrc(" in block
+    assert '{ button: save, label: "ph:download-simple Save a copy" }' in LIBRARY

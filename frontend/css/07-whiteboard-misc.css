@@ -1285,6 +1285,17 @@ body.has-agent-monitor #tab-library .library-view-section {
   min-width: 0;
 }
 
+/* The counter half of that slot: "Step 2 of 3" is a label on the bar it sits
+   beside, and a label that wraps under itself puts the bar on one line and the
+   words on another. Measured in the 384px panel: three rows of 78px, and a
+   list that scrolled inside its own 200px; unwrapped they are 60px and all
+   three fit. Set on the counter only (`renderAgentRunSummary` marks it), so a
+   background job's detail sentence still wraps as the rule above intends. */
+.agent-run-meta.agent-run-count {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .agent-run-state {
   flex: none;
 }
@@ -6757,6 +6768,47 @@ button.connection-row {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* **One line of facts.** Reported (INBOX 115): "the files rows in files
+   still needs some ui improvement and redesign, and better function", with a
+   screenshot of a row holding a name, a meta strip, a reading pill and a lot
+   of empty space. Measured at 1440: the text column is 1218px wide and held
+   five full-width blocks, each carrying one short string, so one row stood
+   257px tall and four files filled the window.
+
+   What the file is, whether it has been read and where it is used are three
+   statements of fact about one file at one rank, so they sit on one wrapping
+   line. The name above them and the description below keep their own lines,
+   which is the difference the old stack could not express: five blocks at one
+   rank say nothing about what matters most. `flex-wrap` gives the stack back
+   on a narrow window rather than clipping the line. */
+.library-file-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-4);
+  row-gap: var(--space-2);
+}
+
+/* The three children size to their own content inside that line: the rows
+   layout stretches every direct child of a tile to the full column, and a
+   `width: 100%` fact would put each one back on its own line. */
+.library-file-facts > * {
+  width: auto;
+  max-width: 100%;
+}
+
+/* The usage row was written as a *section* of the image card: a rule above
+   it, an inset, and rhythm on both sides. On one line beside the meta strip
+   that rule becomes a 333px hairline hanging in the middle of the row, and
+   the rhythm becomes 18px of air the row is paying for twice (measured: the
+   line stood 51px tall around a 33px tallest child). It keeps all of that on
+   the Images cards, where it still separates two stacked sections. */
+.library-file-facts > .library-image-usage {
+  margin: 0;
+  padding: 0;
+  border-top: 0;
 }
 
 .library-file-meta {

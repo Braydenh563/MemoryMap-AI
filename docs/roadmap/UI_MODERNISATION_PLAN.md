@@ -229,6 +229,29 @@ that need building rather than fixing.
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", UI_MODERNISATION_PLAN.md) on 2026-09-09: a plan holds open work only.
 
+### Decided, 2026-09-12 — what a Files row is for (do not remake)
+
+From INBOX 115, "the files rows in files still needs some ui improvement and
+redesign, and better function". The row had grown by accretion: five
+full-width blocks in a 1218px column, each carrying one short string, 257px
+tall at 1440. The question "what should a file row let you do without opening
+anything" is settled here so the next pass adds to a shape rather than
+restacking it.
+
+- **Two ranks, not five.** The name is the row. Under it, one wrapping line of
+  facts at one rank: what the file is (kind, size, pages, added), whether it
+  has been read and how much came out, and where it is used. Under that, the
+  description, which is the only prose and the only thing that may take two
+  lines. Anything new joins one of those three or it does not go on the row.
+- **Four verbs, without opening anything**: open it in the reader (the row's
+  one filled control), save a copy of the original, rename, delete. The last
+  three live in the kebab, which is where every other list in this app puts
+  them. "Save a copy" is the one a file list must have and this one did not:
+  nothing in the Library could get a file back out of the notebook.
+- **A fact is not a control and a control is not a chip.** The reading badge
+  states; the "Used in" chips open the note they name; the kebab acts. A row
+  that draws all three the same way is the report this decision answers.
+
 ## Phase 8 — control docks: one grammar for every tab's head (2 sessions)
 
 **The instruction, verbatim** (after Phases 0–7 were built):

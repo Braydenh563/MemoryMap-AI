@@ -6181,8 +6181,39 @@ function filterLibraryImagesGallery() {
     //: looking different, and no amount of matching the CSS by hand fixes the
     //: next difference. All of that is deleted; the five buttons keep their
     //: handlers and are driven from the shared menu's rows.
+    //: **A copy of the file itself.** Asked for as "better function" on the
+    //: Files rows (INBOX 115), and it was the one verb a file list has to
+    //: have that this one did not: nothing in the Library could get a file
+    //: back out of the notebook. The row already knows how to *read* a
+    //: document and where it is *used*; it could not hand you the bytes.
+    //:
+    //: An `<a download>` clicked from script rather than a fetch: the two
+    //: routes that serve these bytes already exist and already carry the
+    //: right filename (`/files/{id}` answers with
+    //: `Content-Disposition: attachment`), and `mediaSrc` puts the token on
+    //: the url, which is how every other direct link to media in this app is
+    //: authorised. `download` is what makes a `/media/{name}` row (served
+    //: `inline`) save rather than open, and it is same-origin, so it is
+    //: honoured.
+    const save = document.createElement("button");
+    save.type = "button";
+    save.className = "ghost small icon-button library-image-download";
+    save.title = `Save a copy of “${image.original_name}”`;
+    save.setAttribute("aria-label", save.title);
+    setLabel(save, "ph:download-simple");
+    save.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const link = document.createElement("a");
+      link.href = mediaSrc(image._isAttachment ? `/files/${image.id}` : image.url);
+      link.download = image.original_name || "file";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    });
+
     const menuActions = [
       { button: rename, label: "ph:pencil-simple Rename" },
+      { button: save, label: "ph:download-simple Save a copy" },
       { button: captionBtn, label: "ph:sparkle Describe with AI" },
       { button: visionOcrBtn, label: "ph:text-aa Read text with AI" },
       //: Left out entirely, not greyed, when the binary is missing, the
@@ -6433,7 +6464,20 @@ function filterLibraryImagesGallery() {
         openOcrWorkspace(image, libraryImagesCache);
       });
       strip.appendChild(read);
-      fig.append(img, actions, cap, fileMetaLine(image), strip, usage, fields, provenance);
+      //: **One line of facts, not three stacked blocks** (INBOX 115: "the
+      //: files rows in files still needs some ui improvement and redesign").
+      //: Measured at 1440 before this: the text column is 1218px wide and
+      //: held five full-width blocks each carrying one short string, so a
+      //: single row stood 257px tall and four files filled the window. The
+      //: three muted ones, what the file is, whether it has been read, and
+      //: where it is used, are all short statements of fact about the same
+      //: file and read as one line; only the name above them and the
+      //: description below are their own rank. Wrapping, so a narrow window
+      //: gets the old stack back rather than a clipped row.
+      const facts = document.createElement("div");
+      facts.className = "library-file-facts";
+      facts.append(fileMetaLine(image), strip, usage);
+      fig.append(img, actions, cap, facts, fields, provenance);
       grid.appendChild(fig);
       continue;
     }

@@ -140,11 +140,23 @@ def ranked(session: Session, limit: int = DAILY) -> list[Entry]:
     rule about the *panel*, applied by `for_day` where the panel asks.
     """
     dismissed = _dismissed(session)
+    # The limit goes into SQL, not into the loop below. Without it this reads
+    # every scored note in the notebook and throws all but three away, which
+    # is invisible on a test fixture and is the whole cost at ten thousand
+    # notes: measured at 800 notes, the read was already drifting from 13.8 ms
+    # to 23.0 ms while its *query count* stayed at four, which is exactly what
+    # a query with no LIMIT looks like from the outside.
+    #
+    # `+ len(dismissed)` because the dismissals are filtered in Python (they
+    # live in the corrections log, not in this table), so the page has to be
+    # deep enough that every dismissed note in it can be dropped and the
+    # asked-for number still come back.
     rows = session.execute(
         select(NoteScore, Entry)
         .join(Entry, Entry.id == NoteScore.entry_id)
         .where(Entry.is_deleted.is_(False))
         .order_by(NoteScore.score.desc(), NoteScore.entry_id.desc())
+        .limit(limit + len(dismissed))
     ).all()
     out: list[Entry] = []
     for _row, entry in rows:

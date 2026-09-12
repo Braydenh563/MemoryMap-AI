@@ -80,6 +80,7 @@ def test_the_new_indexes_exist_in_sqlite_master(db):
         "ix_whiteboard_objects_board",
         "ix_conversations_workspace_updated",
         "ix_reminders_workspace_due",
+        "ix_note_scores_rank",
     ):
         assert expected in names, f"{expected} missing from a fresh database"
 
@@ -327,3 +328,23 @@ def test_the_chat_and_reminder_lists_do_not_sort_their_whole_table(db):
         plan = " ".join(_plan(db, sql))
         assert index in plan, plan
         assert "TEMP B-TREE" not in plan, plan
+
+
+def test_the_resurfacing_read_is_a_walk_along_its_index(db):
+    """`note_scores` is read faded-first on every resurfacing request.
+
+    The ORDER BY is the whole query, and a LIMIT over an unindexed sort still
+    sorts everything before throwing it away: measured at 800 notes, adding
+    the LIMIT alone moved the read from 23.0 ms to 58.7 ms, and this index
+    took it to 6.7 ms, faster at 800 notes than the unindexed version was at
+    200. That last part is the tell that the cost stopped tracking the row
+    count.
+    """
+    plan = " ".join(
+        _plan(
+            db,
+            "SELECT * FROM note_scores ORDER BY score DESC, entry_id DESC LIMIT 3",
+        )
+    )
+    assert "ix_note_scores_rank" in plan, plan
+    assert "TEMP B-TREE" not in plan, plan

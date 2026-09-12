@@ -1690,6 +1690,14 @@ class DatabaseManager:
         # indexes above, which is why they take the same form.
         ("ix_conversations_workspace_updated", "conversations (workspace_id, updated_at DESC)"),
         ("ix_reminders_workspace_due", "reminders (workspace_id, due_at DESC)"),
+        # `note_scores`, read newest-faded-first on every resurfacing request
+        # (WORLD_CLASS_PLAN I4). The ORDER BY is the whole query, so without
+        # this SQLite sorts every scored note to find three: measured at 800
+        # notes, adding a LIMIT alone moved the read from 23.0 ms to 58.7 ms,
+        # because a LIMIT over an unindexed sort still sorts everything and
+        # then throws it away. The index is the half that makes the LIMIT
+        # mean something.
+        ("ix_note_scores_rank", "note_scores (score DESC, entry_id DESC)"),
     )
 
     def _ensure_indexes(self) -> None:

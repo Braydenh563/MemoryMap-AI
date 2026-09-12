@@ -339,3 +339,58 @@ def test_a_single_note_tag_still_reports_its_id_and_tags(session):
     assert result["tags"] == ["a"]
     # The change list reads the note id back out of the result; it must find one.
     assert agent._change_note_id("tag_note", result) == entry.id
+
+
+def test_a_locked_vault_hands_out_no_private_text_anywhere(client, session):
+    """The promise of a private note, checked across every read at once.
+
+    `test_a_private_note_is_not_stored_in_the_clear` proves the bytes on disk;
+    this proves the surfaces. Twelve read endpoints plus the retrieval path
+    that feeds the model, because the exclusion is only as good as its least
+    careful caller and one missed path hands a private note to an LLM.
+
+    **The trap this test carries, found while writing it.** `/search` echoes
+    the query back in its own response, so searching for the secret word and
+    then grepping the response for that word finds it every time, hits or no
+    hits. A first run of this reported a locked vault leaking plaintext; it
+    was the probe reading its own input. The echo is stripped below, and the
+    lesson is worth more than the test: a privacy check that greps a response
+    must first subtract whatever the caller put into the request.
+    """
+    from memorymap.core import deps
+    from memorymap.search import search_manager
+
+    secret = "zarquonsecret"
+    made = _make_private(client, session, f"a private thought about {secret}")
+    entry_id = made["id"]
+
+    paths = [
+        "/entries", f"/search?q={secret}", "/graph", "/timeline", "/insights",
+        "/duplicates", "/tags", "/entries/link-suggestions", "/resurface",
+        "/entries/most-accessed", "/ask-history", "/library/all",
+    ]
+
+    def leaking() -> list[str]:
+        out = []
+        for path in paths:
+            reply = client.get(path)
+            if reply.status_code != 200:
+                continue
+            body = reply.text.replace(f'"query":"{secret}"', '"query":""')
+            if secret in body:
+                out.append(path)
+        return out
+
+    # With the key loaded the owner is reading their own notebook, so the note
+    # is theirs to see. Asserting *that* it appears somewhere keeps this test
+    # honest: a version that hid everything would pass the locked half for the
+    # wrong reason.
+    assert leaking(), "the private note vanished even with the vault open"
+
+    vault.close()
+    assert leaking() == [], "a locked vault handed out the plaintext"
+
+    vault.create(session, "test-passphrase")
+    session.commit()
+    entries, _mode = search_manager.retrieve(session, secret, deps.get_embeddings(), limit=10)
+    assert entry_id not in [e.id for e in entries], "retrieval fed a private note to the model"

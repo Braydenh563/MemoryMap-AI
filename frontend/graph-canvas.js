@@ -28,6 +28,20 @@
 let gcCanvas = null; // the <canvas> element
 let gcCtx = null;
 let gcWorker = null;
+//: **Which simulation a message from the worker belongs to.** Bumped every
+//: time the node array is replaced, sent with each `init`, and echoed on
+//: every tick. A `{type:"stop"}` cannot unsend a tick already posted (both
+//: directions of `postMessage` are asynchronous), and the tick handler writes
+//: positions *by index*, so a tick from the previous run landing after a
+//: relayout overwrites the new positions with the old ones. Measured: the
+//: tree switched to 500 ms into a warm force simulation came back with its
+//: depth-1 nodes spread over 351 px and its depth-2 nodes over 778 px, where
+//: a tree has every node of one depth at one x. That is the scatter reported
+//: as "the tree view on the graph is still broken", and it also explains why
+//: it was intermittent: at six other moments in the same cooling curve the
+//: same switch was clean. A computed layout never sends an `init` at all, so
+//: its epoch can match nothing and every tick arriving under it is dropped.
+let gcEpoch = 0;
 //: The drawing's own copy of the graph. `gcNodes` is the same array
 //: `graphNodesRef` points at, so everything in graph.js that walks the nodes
 //: (the keyboard, the minimap, `fitGraphToView`, drag-to-link) sees exactly
@@ -1354,6 +1368,12 @@ function gcStartWorker(nodes, edges, world) {
     gcWorker = new Worker(`/graph-worker.js?v=${stamp}`);
     gcWorker.onmessage = (event) => {
       const message = event.data || {};
+      //: A message from a simulation that no longer matches what is on screen
+      //: is dropped whole, buffer included: handing a stale buffer back would
+      //: decrement an `inFlight` count that the newer `init` has already
+      //: reset, and the worker allocates a replacement for nothing worse than
+      //: one skipped frame's worth of pool.
+      if (message.epoch !== gcEpoch) return;
       if (message.type === "tick") {
         gcAlpha = message.alpha;
         gcTicks = message.ticks || 0;
@@ -1424,6 +1444,7 @@ function gcStartWorker(nodes, edges, world) {
   gcFittedOnce = false;
   gcPost({
     type: "init",
+    epoch: gcEpoch,
     // Performance mode (settings.js): the physics yields twice as long
     // between ticks, half the CPU for a layout that converges a little later.
     perf: document.documentElement.dataset.perf === "on",
@@ -1637,6 +1658,9 @@ async function renderGraphCanvas() {
       node.y = centreY + radius * Math.sin(angle);
     });
   }
+  // Everything the worker could still be about is now gone: whatever it says
+  // next is about the previous node array and is dropped on arrival.
+  gcEpoch += 1;
   gcNodes = nodes;
   gcEdges = edges;
   graphNodesRef = nodes;

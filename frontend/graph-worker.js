@@ -20,9 +20,10 @@
 //
 // In:
 //   {type:"init", nodes:[{id,x,y,fx,fy,r}], edges:[{source,target,kind}],
-//    params:{gravity,spread}, world:{left,top,right,bottom}, alpha}
+//    params:{gravity,spread}, world:{left,top,right,bottom}, alpha, epoch}
 //       Replace the whole simulation. `id` is only used to map the drag/pin
 //       messages below onto array indices; positions travel by index alone.
+//       `epoch` is echoed on every message this run produces: see "Out".
 //   {type:"params", params:{gravity,spread}}      re-tune without a rebuild
 //   {type:"drag", phase:"start"|"move"|"end", id, x, y, keep}
 //       start -> alphaTarget(0.3) and pin; move -> move the pin; end ->
@@ -37,10 +38,22 @@
 //   {type:"recycle", buffer}                      hand a position buffer back
 //
 // Out:
-//   {type:"tick", positions:Float32Array (transferred), alpha, running}
+//   {type:"tick", positions:Float32Array (transferred), alpha, running, epoch}
 //       x,y interleaved, one pair per node, in the order `init` supplied.
-//   {type:"end", alpha}   the layout has settled; no further ticks are coming
+//   {type:"end", alpha, epoch}
+//                         the layout has settled; no further ticks are coming
 //                         until something reheats it.
+//
+// **Why every message out carries the `epoch` its `init` came with.** Both
+// directions of `postMessage` are asynchronous, so `{type:"stop"}` cannot
+// unsend a tick that has already been posted: it clears the timer here and
+// the tick sitting in the main thread's queue is still delivered afterwards.
+// The main thread applies positions *by index*, so a tick from the previous
+// simulation landing after the node array has been replaced writes the old
+// solution over the new one. That is what a tree drawn as a scatter is, and
+// it is why it happened only when the layout was switched while the force
+// simulation was still warm. The epoch lets the reader of a message decide
+// whether it is still about the graph on screen.
 // ---------------------------------------------------------------------------
 
 importScripts("/vendor/d3.v7.min.js");
@@ -54,6 +67,7 @@ let dragging = false;
 // Performance mode (init.perf): the loop rests twice as long between ticks.
 let perf = false;
 let ticks = 0;
+let epoch = 0; // whose `init` the messages going out belong to (see the protocol note above)
 //: A rolling mean of how long one `simulation.tick()` takes, in ms. Reported
 //: on every frame because it is the number that decides everything else: it
 //: says whether a slow-feeling map is the simulation, the paint, or the
@@ -207,6 +221,7 @@ function post(final) {
   self.postMessage(
     {
       type: "tick",
+      epoch,
       positions: buffer,
       alpha: simulation ? simulation.alpha() : 0,
       // How many times the simulation has stepped since `init`. Posted because
@@ -245,7 +260,7 @@ function loop() {
   const settled = !dragging && simulation.alpha() < simulation.alphaMin();
   if (settled) {
     post(true);
-    self.postMessage({ type: "end", alpha: simulation.alpha() });
+    self.postMessage({ type: "end", alpha: simulation.alpha(), epoch });
     return;
   }
   post(false);
@@ -298,6 +313,7 @@ self.onmessage = (event) => {
       stopLoop();
       dragging = false;
       perf = message.perf === true;
+      epoch = message.epoch || 0;
       ticks = 0;
       inFlight = 0;
       pool.length = 0;

@@ -1,12 +1,18 @@
 // Does a tick from the force worker land after the tree has been laid out?
 // Switch to the tree while the simulation is still hot and read the geometry
 // back: a clean tree has every node of one depth at one x, a scattered one
-// does not.
+// does not. Reported as "the tree view on the graph is still broken" (INBOX
+// 114) and intermittent from both ends, which is why this walks the whole
+// cooling curve rather than sampling it once.
 const { boot } = require('./lib.js');
+// The window is one message hop wide, so a single pass over the curve hits it
+// only now and then (1 of 15 against the pre-fix code). Two passes.
+const MOMENTS = [];
+for (let pass = 0; pass < 2; pass += 1) for (let t = 0; t <= 1400; t += 100) MOMENTS.push(t);
 (async () => {
   const { browser, page } = await boot();
-  const waits = Number(process.env.WAITS || 0);
-  for (const wait of [0, 60, 120, 250, 500, 1000, 2000]) {
+  const bad = [];
+  for (const wait of MOMENTS) {
     // Back to force, hot, then switch after `wait` ms.
     await page.evaluate(() => switchTab('notes'));
     await page.waitForTimeout(300);
@@ -36,8 +42,13 @@ const { boot } = require('./lib.js');
       return { layout: d.layout, nodes: d.nodes, alpha: d.alpha, bands };
     });
     const dirty = m.bands.some((b) => b.spread > 0.5);
+    if (dirty || m.layout !== 'tree') bad.push(`${wait}ms (alpha ${alphaAt.toFixed(3)}): ${JSON.stringify(m.bands)}`);
     console.log(`switch after ${wait}ms (alpha ${alphaAt.toFixed(3)}): layout=${m.layout} nodes=${m.nodes} bands=${JSON.stringify(m.bands)} ${dirty ? 'SCATTERED' : 'clean'}`);
   }
-  void waits;
   await browser.close();
+  if (bad.length) {
+    console.log(`FAIL\n- the tree was scattered at ${bad.length} of ${MOMENTS.length} switch moments\n- ` + bad.join('\n- '));
+    process.exit(1);
+  }
+  console.log(`PASS ${MOMENTS.length} switch moments, every depth band at one x`);
 })();

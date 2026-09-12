@@ -626,9 +626,20 @@ def create_app() -> FastAPI:
     # used to be defined inline here, but it feeds and is fed by the rest
     # of that module's update machinery, so it moved to sit next to it.
 
-    @app.get("/changelog", tags=["system"])
+    @app.get("/changelog", tags=["system"], dependencies=locked)
     def changelog() -> dict:
         """CHANGELOG.md, so "what changed?" is answerable inside the app.
+
+        Behind the unlock like everything else. It was the one route outside
+        `/health`, `/auth` and the lock screen's own assets that answered an
+        unauthenticated caller, found by the walk in
+        `tests/test_every_route_is_locked.py` rather than by review, which is
+        exactly what that test is for. Nothing needs it before unlock: the
+        only caller is the About panel (`settings.js`), which opens inside an
+        unlocked notebook. It reads a file off disk and hands back its
+        contents, so leaving it open on a LAN would be a file read for
+        anybody who could reach the port, for a file nobody outside has a
+        reason to want.
 
         The file already exists and is written for people, which is the whole
         argument for serving it rather than maintaining a second in-app list

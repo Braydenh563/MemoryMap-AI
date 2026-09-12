@@ -147,3 +147,55 @@ below was taken from the running app, not reasoned.
   earlier, `test_ui_recipes.py::test_a_dialog_opts_out_of_the_page_column`,
   both from the other agent's uncommitted `routes_whiteboard.py` and
   `index.html` edits, checked by `git status` at the time.
+
+---
+
+# visual-c, third pass: INBOX 114's five design reports
+
+2026-09-12, in the shared worktree on `claude/epic-ramanujan-8xocc0`, server
+`:8853`, data dir `/tmp/mm-ui3`. Five commits, not pushed. Every number below
+was taken from the running app.
+
+## Fixed, with the measurement
+
+| Item | What it actually was | Numbers |
+| --- | --- | --- |
+| "Fix the look of the mindmap item radial" | A fixed 68px circle around the node's *centre*, which covers any node wider than the ring is round | Default topic 200x44 on screen: slots over the topic 2 → 0, nearest gap -36px → 8px, slots on the edit strip 2 → 0, radius 68 → 122, spread 0 throughout. `mapstrip.js` 39/39, corner clamp included (`radialfit.js`) |
+| "The view dropdown menu ... is still broken" | `escapeAndCapMenu` cleared its own cap before measuring and got the *stylesheet's* cap instead, so the placer measured an already-cut menu | Map View menu, 714px of content: 1440x760 top 56 → 36, cap 696 → 716, scrolling → not; 1280x640 visible content 574 → 622; 1024x500 434 → 482 (`viewmenu.js`) |
+| "The new from a template popup buttons" | `button.ghost` rows with nothing taking the tonal fill off, and a `class="row right"` matching no rule in the app | Outlined rows 6 → 0, row type 16px → 13.6px, row height 61 → 55, dialog 559 → 526, ten action rows `normal` → `flex-end` (`tpldialog.js`) |
+| "The height of the cature a thought taskbar and note edit form" | `.doc-toolbar[data-toolbar-mode="row"]` (0,2,0) beating `.note-toolbar`, and the edit form's clone built without `note-toolbar` | Composer strip row mode 58 → 50px; edit form row mode 58px with 339px of overflow → 86px with none; edit form wrap 91 → 88px; document strip untouched at 91/58 (`toolbarh.js`) |
+| "I dont think you have redesigned the popup agent yet" | A step counter sharing a slot that may wrap, so it wrapped | Rows 78 → 60px, three runs fit the 200px list; dead `.monitor-title` font-size out (12px before and after); `prefers-reduced-motion` branch added (`agentpanel.js`) |
+
+## Found, not fixed
+
+- **The View menu is 714px of content on a map.** Under about a 730px-tall
+  window it still scrolls, which is correct behaviour and may still read as
+  the report. If it comes back, the fix is the menu's own length (four groups,
+  sixteen rows), not its placement: that is now measured and right at every
+  size from 500 to 1000px tall.
+- **`.monitor-runs` overflows its 200px cap by 4px with three runs.** Rows are
+  60px plus an 8px gap plus 8px of padding. The cap is a recorded decision
+  ("the same max-height as the log it replaces"), so it was left; a fourth run
+  scrolls either way.
+- **The agent panel does not close on Escape.** Every other floating surface
+  does. Not added here because it is a behaviour change on a non-modal panel
+  that never takes focus, and Escape is already crowded.
+- **The panel's empty line is a `<p class="muted">`, not `.empty-state`.** The
+  recipe index names `.empty-state` for this; its 2rem padding and centred
+  block would be wrong in a 384px glance panel. Worth a recipe row for "an
+  empty line in a small panel" rather than a conversion.
+- **`scratchpad/ui-sweeps/menus.js` times out** on the chat tab's
+  `.select-opener` click, on this head and unrelated to any of the above (the
+  change in this batch touches `escapeAndCapMenu`'s callers only, which are
+  the whiteboard's five menus and `details.dock-menu`). Not chased.
+
+## Not verified
+
+- **The owner's own window size.** Every number here is 1440x900 unless the
+  row says otherwise; the View menu was swept from 1440x1000 down to 1024x500.
+- **The radial on a resized topic.** The radius is capped at 2.5 times its
+  base and at what the canvas can hold; a topic wider than ~300px keeps its
+  slots on its own margin. Measured only on default 200x44 topics.
+- **Dark mode**, beyond one capture of the agent panel, which read correctly.
+- **A real touch device**, and the desktop window (the browser tab is what was
+  driven throughout).

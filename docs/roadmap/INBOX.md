@@ -135,13 +135,26 @@ never lost to the smaller stuff.
       circular slots scattered around and *over* a selected topic, some
       overlapping the node's own chevron and its text, one sitting on the
       node's edge; a second map where the ring's slots overlap a topic and
-      a link).
+      a link). **Fixed `df988c4`**: the ring was a fixed 68px circle around
+      the node's *centre*, which covers any node wider than the ring is
+      round. The radius now clears the node's own measured box. Measured on
+      a default topic (200 by 44 on screen): slots over the topic 2 to 0,
+      nearest gap -36px to 8px, slots on the node's edit strip 2 to 0,
+      radius 68 to 122, spread 0 both times; `mapstrip.js` 39/39.
     - "the view dropdown menu in the whiteboard and mindmap is still
       broken, fix it" (screenshot: the LOOK menu open, "Snap to grid" cut
       in half at the bottom edge, a scrollbar present, the menu far
       shorter than its content). This is INBOX 107c's menu-height item,
       reported again after `1096ee7` capped the menu from where it was
-      actually placed, so that fix did not reach this menu.
+      actually placed, so that fix did not reach this menu. **Fixed
+      `8b92164`**: `escapeAndCapMenu` cleared its own inline cap before
+      measuring, which handed the menu back to the *stylesheet's* cap
+      (`.wb-board-menu`, `calc(100vh - 9rem)`), so the placer measured a menu
+      that had already been cut and left it lower than it needed to be.
+      Measured on the map's View menu, 714px of content: at 1440x760 it was
+      placed at top 56 and capped to 696 and scrolled, now placed at 36 and
+      capped to 716 with no scroll; at 1280x640 the visible content goes 574
+      to 622, at 1024x500 434 to 482.
     - "litterally everything isnt in the dictionary" (screenshot: 268
       suggestions on a 298-word document, with "Offline", "No",
       "internet", "connection", "handling" and "for" all listed as not in
@@ -152,11 +165,26 @@ never lost to the smaller stuff.
     - "the new from a template popup buttons need a look consistent with
       the rest of the application" (screenshot of the template dialog:
       six full-width rows drawn as heavy outlined boxes, and a Cancel
-      that does not match the app's own dialog actions).
+      that does not match the app's own dialog actions). **Fixed
+      `f53132b`**: the rows were `button.ghost` with nothing taking the
+      tonal fill and hairline off, and every `.space-dialog-actions` row is
+      written `class="row right ..."` against a `.right` rule that does not
+      exist anywhere in the app. Measured: outlined rows 6 to 0, row type
+      16px to 13.6px, row height 61 to 55, dialog height 559 to 526, and all
+      ten dialog action rows now report `justify-content: flex-end`.
     - "the height of the cature a thought taskbar and note edit form are
       really high compared to the one in the documents editor"
       (screenshot of the note toolbar, one tall row with a horizontal
-      scrollbar under it).
+      scrollbar under it). **Fixed `cce4dbf`**: `.note-toolbar` is written
+      tighter than the document editor's strip on purpose, and two rules took
+      that back, `.doc-toolbar[data-toolbar-mode="row"]` at (0,2,0) beating it
+      in the scrolling mode, and the edit form's clone being built without
+      `note-toolbar` at all. The same specificity gap also left the edit
+      form's strip `nowrap` with `overflow-x: visible`, drawing 339px of
+      controls outside its own box. Measured at 1440x900: composer strip in
+      row mode 58px to 50px, edit form strip 58px with 339px of overflow to
+      86px with none, edit form in wrap mode 91px to 88px; the document
+      editor's own strip untouched at 91 and 58.
     - "the tree view on the graph is still broken" (screenshot: the graph
       drawn as a scatter with crossing dotted links, not a tree).
       **Fixed `ba892b0`**: a race, not the layout. A position update from
@@ -169,7 +197,14 @@ never lost to the smaller stuff.
       before, 30 of 30 moments at spread 0 after.
     - "The note node popups dont show on any of the graph views when I
       click on a node except for the force view. Also I dont think you
-      have redesigned the popup agent yet". **The popups are fixed
+      have redesigned the popup agent yet" **The agent panel half is fixed
+      `6b4e75e`** (the graph half is another agent's): a run's step counter
+      shared a slot with the background-job detail sentence and wrapped under
+      itself, so rows measured 78px and three runs overflowed the 200px list;
+      counter marked as a counter, rows 60px, three runs fit. Also took out
+      `.monitor-title`'s dead `font-size` (the `.card h3` eyebrow wins at
+      (0,1,1); 12px before and after) and gave the 0.3s entrance the
+      `prefers-reduced-motion` branch it had none of.. **The popups are fixed
       `f72eec8`**: a click on a node was handled by d3-drag's `end`, and
       tree, radial and arc deliberately have no drag, so the one path to
       the popup did not exist in three of the four views. Measured with

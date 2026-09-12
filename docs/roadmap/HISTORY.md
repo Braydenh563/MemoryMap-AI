@@ -21784,3 +21784,109 @@ Dashboard's "Recently added" widget was left reading the entry list it has
 already loaded: replacing it with the event feed would have added a request
 and listed notes that no longer exist. `EntryRevision` stays, per the
 brief.
+
+### From WORLD_CLASS_PLAN.md B3 and SESSION_BRIEFS Brief 11: the retrieval engine
+
+Built and moved here whole. `tests/test_search_engine_spec.py` was the
+contract, strict xfail throughout; all five markers came off, and
+`tests/test_search_engine.py` holds the thirty-three tests written beside
+them (the operators one at a time, the index's write path per kind, the
+three signals, the endpoint).
+
+**What was already there, and was kept.** `entries_fts` (FTS5 with a porter
+stemmer, `bm25(entries_fts, 1.0, 4.0)`, a spelling vocabulary read from
+`entries_fts_vocab`), `search_manager.keyword_search` and its four
+loosening stages, `semantic_search`, the RRF fusion `_fuse`, the graph
+expansion `/chat` relies on, and `search/query.py`'s question reader with
+its time vocabulary. None of it was rewritten. The engine is the *search
+surface*: one query, every kind, explained.
+
+**Three decisions the plan had made differently, each revised against what
+is actually in the code** (also written into WORLD_CLASS_PLAN's B3
+"Decisions made"):
+
+1. *A second FTS5 table, not a `kind` column on `entries_fts`.*
+   `entries_fts` is an external-content table over `entries`, so its rowid
+   **is** an entry id and its text is read back out of the notes table:
+   document 7 and note 7 would be one row and FTS5 would look for the
+   document's words in `entries`. `search_index` carries `kind`, `ref_id`,
+   `source`, `space`, `flags` and `written` (all UNINDEXED, so they filter
+   in SQL without matching text) beside the three indexed columns.
+2. *The write path hangs off the ORM flush, not the event log.* The brief
+   said to index through Brief 7's log. Measured against the routes: a
+   document records `created`, `deleted`, `archived` and `restored`, and
+   records **nothing** when its text is edited, which is the one write a
+   search index most needs to hear. An event-fed index would have gone
+   stale on the app's commonest document operation and looked, from
+   outside, exactly like search being broken. `after_flush` sees every
+   write to the six mapped classes from any route, job or script. Brief
+   7's loud half is kept: `index.source_for()` raises `UnknownSource` on a
+   name nobody registered, and a test walks every kind through it, so a
+   seventh kind cannot be added and quietly never be findable.
+3. *Rowids are `slot * 10^12 + ref_id`.* A regular FTS5 table deletes by
+   rowid in O(1) and by anything else with a full scan; at one write per
+   saved note the difference is an index or a stall. Slots are permanent
+   and a duplicate one is refused at import.
+
+**Three scores, always all three.** `bm25` normalised against the best
+score in the same result set (FTS5's is negative and lower-is-better, which
+is neither comparable with a cosine nor renderable), `cosine` from the
+matrix, `graph` as 1/(1+hops) over the link tables to the note the person
+has open, capped at two hops and computed only for candidates that already
+matched. Weights 0.5 / 0.35 / 0.15 in one constant, keyword first because
+it is the signal that is always there: an app whose search quality needs a
+warm model is not an offline app.
+
+**The vector matrix.** One process-level float32 array, rows unit-normalised
+so a top-k is one matmul, built once by `_load_all_vectors` on the embedding
+warm-up thread (the one place that has already waited for the model) and
+kept current by an `after_flush` hook on `EmbeddingRecord`. `related()`
+reads it and **never** builds it, which is what the spec pins; `search()`
+may build it once per process, because a person who just typed a query is
+waiting. Three `select(EmbeddingRecord…).all()` scans are gone from
+`routes_entries.py`: `/entries/{id}/related` (per note opened),
+`/entries/link-suggestions` and `/entries/tensions` (which still compare
+every pair, but no longer re-read and re-parse blobs this process holds).
+
+**Measured on the sandbox**, 5,000 entries with a vector each,
+`scratchpad/search/measure_engine.py`, median of seven:
+
+| | before | after | gate |
+| --- | --- | --- | --- |
+| keyword query | 0.9 ms (notes only) | 0.5 ms (every kind) | 50 ms |
+| hybrid query | n/a (no such call) | 0.6 ms | 200 ms |
+| hybrid, with an open note | n/a | 1.7 ms | 200 ms |
+| similarity for one note | 15.8 ms (full scan) | 0.0 ms (matrix) | |
+| matrix build | per request | 60.1 ms, once per process | |
+
+The similarity "before" is generous to the old path: the fake backend's
+vectors are 4-dimensional and a real one is 384, so its scan grows with the
+width while the build is paid once.
+
+**The operators** of §5.1 are on the existing parser: `tag:`, `kind:`,
+`in:`/`space:`, `before:`/`after:`, `has:`, `is:`, `"quoted phrases"` and
+`-excluded`, with `type:`/`tags:`/`until:`/`since:` as aliases. Decisions
+taken where the plan was silent: `before:`/`after:` are exclusive
+(`until:`/`since:` inclusive), a date the parser cannot read is left in the
+text rather than guessed at, and a query carrying operators is never "time
+only", so `kind:document before:2026-01-01` cannot be answered with every
+note in the window.
+
+**The frontend line.** While the Notes filter box has text, each matching
+note carries one line under it: "matched your words", "matched the title",
+"matched a tag", "similar meaning", "linked to the open note", with the
+three percentages in the tooltip. The chip is the recipe the chat results
+already use. Measured in a real Chromium on :8793
+(`scratchpad/ui-sweeps/searchwhy.js`): the chip sits 692 to 852px inside
+the row's right edge, the meta lane no longer scrolls, `--text-xs`, and no
+chip survives clearing the box. It went on its own line for a measured
+reason: inside `.entry-meta` (a `fit-content(26rem)` track with
+`overflow-x: auto` in rows view) it pushed the date and the actions strip
+57 to 84px out of the visible box.
+
+**Not verified.** Nothing here ran against a real embedding backend: this
+sandbox cannot install sentence-transformers (CLAUDE.md §7), so every cosine
+number comes from the 4-dimensional fake and the widths, the anisotropy and
+the real cost of `embed_text` per query are untested. The startup warm was
+exercised by the suite, not by watching a cold desktop launch. No notebook
+larger than 5,000 entries was built.

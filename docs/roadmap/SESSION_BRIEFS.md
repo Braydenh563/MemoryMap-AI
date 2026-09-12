@@ -473,37 +473,14 @@ agent's miniature renderer; use it, do not draw a second one.
 
 ## Brief 11 (Sat, Opus): the retrieval engine (B3), with explanations
 
-**Goal.** One index over every kind, three signals, every hit explained;
-similarity no longer loads every vector.
-
-**Done when.** `tests/test_search_engine.py`: a 5,000-entry fixture
-answers a keyword query in < 50ms and a hybrid query in < 200ms (on the
-sandbox, recorded as before/after); every hit carries `scores: {bm25,
-cosine, graph}`; boards' node text, documents, file readings and
-bookmarks are found. The Notes list's "why this result" line renders the
-three scores as words ("matched title", "similar meaning", "linked to the
-open note").
-
-**Decisions made.** FTS5 already exists for entries (`database._ensure_fts5`
-~1393); extend the same virtual table with a `kind` column and index the
-other kinds into it through the event log (Brief 7) rather than triggers
-per table. Vectors: a process-level float32 matrix built from
-`EmbeddingRecord` at startup and updated by events; top-k by one matmul;
-`sqlite-vec` is a later option, not this session. Graph proximity = 1 /
-(1 + hops) from the open note over the link tables, capped at 2 hops,
-computed for the top 200 candidates only. Weights `0.5, 0.35, 0.15`,
-constants in one place. `search/query.py`'s `understand()` stays the
-parser; add the operators from WORLD_CLASS_PLAN §5.1 to it.
-
-**Steps.** Fixture builder; the engine module `src/memorymap/search/engine.py`
-with `search(session, q, ctx) -> list[Hit]`; FTS5 kind column and
-indexing; the vector matrix; the three `.all()` scans in `routes_entries.py`
-replaced; `/search` route returning hits with scores; the frontend line.
-One commit each.
-
-**Traps.** Keep the fake embedding backend the tests use; the matrix must
-work with it. FTS5 rebuild on a big notebook is a job (Brief 9), not a
-request.
+**Built.** Moved to HISTORY.md, "From WORLD_CLASS_PLAN.md B3 and
+SESSION_BRIEFS Brief 11: the retrieval engine". One index over every kind
+(`search/index.py`), one `search()` with three scores and an explanation per
+hit (`search/engine.py`), the operators of §5.1 on the existing parser,
+`GET /search`, the Notes list's "why this result" line, and a vector matrix
+that ended three per-request scans of every stored vector. Every marker in
+`tests/test_search_engine_spec.py` is off. What is left is in
+`docs/roadmap/agent-remaining/brief11-retrieval-engine.md`.
 
 ---
 

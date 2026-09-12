@@ -9,6 +9,30 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- One search across the whole notebook. Notes, boards, documents, the text
+  read out of files, bookmarks and reminders are in one index, so a word you
+  wrote in a document is found by the same search that finds it in a note.
+
+- Every result says why it is a result: matched your words, matched the
+  title, matched a tag, similar meaning, or linked to the note you have
+  open. The Notes list shows it as a line under the note, with the three
+  scores behind the tooltip.
+
+- Search operators everywhere they are typed: `tag:`, `kind:`, `in:` (or
+  `space:`), `before:` and `after:`, `has:`, `is:`, `"quoted phrases"` and
+  `-excluded`. They need no AI and no model running.
+
+- `GET /search` and `GET /search/stats` for anything that wants the same
+  answers the app's own search box gets.
+
+### Changed
+
+- Finding notes similar to the one you are reading no longer reads every
+  stored vector for every note opened. They are held in one array, built
+  once when the embedding model finishes loading and kept up to date by
+  each save: measured on 5,000 notes on the development sandbox, 15.8ms a
+  call became under a millisecond.
+
 - Every change to a note is recorded as one event, with who made it and the
   whole value of each field it set: a person, a named AI tool, or a named
   background job. A note's History sheet lists them, any point in it can be

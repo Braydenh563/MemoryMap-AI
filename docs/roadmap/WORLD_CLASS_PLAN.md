@@ -399,17 +399,31 @@ job resumes; the panel shows it.
 
 ### B3 The retrieval engine: one index, three signals, explained
 
-Today: FTS5 for notes only, embeddings optional, everything else a scan.
-Move: one `index` module that indexes every entity (notes, documents,
-files' extracted text, boards' node text, bookmarks' extracts, reminders)
-into FTS5 with a `kind` column and, when an embedding backend exists, into
-a `vectors` table (`sqlite-vec` if vendorable, else numpy blobs with a
-brute-force top-k that is fine to 50k rows). Ranking = BM25 + cosine +
-graph proximity to the current context (open note, active space) with the
-three weights returned per hit, so "why this result" is a rendering, not a
-guess. Incremental: the event log drives re-indexing (B1). Gate: a 5k-note
-fixture answers a query in < 50ms FTS-only and < 200ms hybrid; every hit
-carries the three scores; `tests/test_search_explain.py`.
+**Built.** Moved to HISTORY.md, "From WORLD_CLASS_PLAN.md B3 and
+SESSION_BRIEFS Brief 11: the retrieval engine". `search/index.py` holds one
+FTS5 index over notes, boards, documents, files' extracted text, bookmarks
+and reminders, kept in step by the ORM flush; `search/engine.py` returns
+`Hit`s carrying bm25, cosine and graph proximity with the words that explain
+them; `GET /search` and `/search/stats` serve it; the vector matrix replaced
+three per-request scans of every stored vector.
+`tests/test_search_engine_spec.py` passes with no markers left. Measured on
+the sandbox: keyword 0.5ms and hybrid 0.6ms on 5,000 entries (gates 50 and
+200), similarity for one note 15.8ms to 0.0ms. What is left is in
+`docs/roadmap/agent-remaining/brief11-retrieval-engine.md`.
+
+**Decisions made** (the three the plan had made differently, revised against
+the code and taken; the reasons are in HISTORY):
+
+- A second FTS5 table (`search_index`), not a `kind` column on
+  `entries_fts`: that one is external-content over `entries`, so its rowid
+  is an entry id and a document could not have a row.
+- The index's write path is an `after_flush` hook, not the event log: a
+  document edit records no event, so an event-fed index would have gone
+  stale on the commonest document write. Brief 7's loud driver is kept
+  (`source_for` raises on an unregistered kind).
+- `before:`/`after:` are exclusive, `until:`/`since:` inclusive; an
+  unreadable date is left in the text rather than guessed at; a query with
+  operators is never "time only".
 
 ### B4 The knowledge kernel: entities, claims, links, tensions
 

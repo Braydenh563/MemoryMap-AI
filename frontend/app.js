@@ -8902,9 +8902,24 @@ function resolveWikiTarget(name) {
   //: boards by definition, and it is already loaded for the map chips.
   const board = mapBoardTitled(needle);
   if (board) return { kind: "board", entry: board };
-  const note = entries.find(
-    (e) => !e.is_private && !e.is_board && (e.content || "").toLowerCase().startsWith(needle)
-  );
+  //: **Two ways a note's opening words can be written, and both resolve.** The
+  //: `[[` picker inserts the note's first line *verbatim*, `# ` and all, so
+  //: matching the content by prefix is what makes `[[# Girl with bell]]`
+  //: resolve. Anybody typing a link by hand writes the title they can see,
+  //: `[[Girl with bell]]`, and that matched nothing at all: the note's content
+  //: starts with the hash, so the prefix test failed on the first character.
+  //: Reported by the agent that built the document embeds, which had to avoid
+  //: the shape in its own fixture.
+  //:
+  //: The second comparison strips a leading heading marker from the *content*
+  //: rather than adding one to the needle, because the marker is one to six
+  //: hashes and any amount of space, and the content is where that is known.
+  const opening = (e) => (e.content || "").toLowerCase();
+  const openingTitle = (e) => opening(e).replace(/^#{1,6}[ \t]*/, "");
+  const notes = entries.filter((e) => !e.is_private && !e.is_board);
+  const note =
+    notes.find((e) => opening(e).startsWith(needle)) ||
+    notes.find((e) => openingTitle(e).startsWith(needle));
   if (note) return { kind: "note", entry: note };
   const documents = typeof editorDocumentCache !== "undefined" ? editorDocumentCache : null;
   const docList = documents || [];

@@ -22,13 +22,20 @@ const check = (name, ok, detail) => out.push({ name, ok: !!ok, detail });
   const made = await page.evaluate(async () => {
     const note = await (await api('/entries', {
       method: 'POST',
-      //: **No `# ` on the first line, and that is not incidental.**
-      //: `resolveWikiTarget` (app.js) matches a note by *content prefix*,
-      //: which is the form the `[[` picker inserts (the note's opening words
-      //: verbatim). A note whose first line is a heading therefore resolves
-      //: as `[[# Its title]]` and not as `[[Its title]]`, which is a gap in
-      //: that resolver rather than in the embed, and it is recorded as one.
+      //: No `# ` on the first line: this is the form the `[[` picker inserts,
+      //: the note's opening words verbatim, and it is what `resolveWikiTarget`
+      //: has always matched. The note below is the other form, and the check
+      //: on it is the one this sweep used to record as a gap.
       body: JSON.stringify({ content: 'Embedded note\nWith a body worth reading.' }),
+    })).json();
+    //: **A note whose first line is a heading.** `resolveWikiTarget` matched a
+    //: note by content prefix only, so `[[Headed note]]` (the title anybody
+    //: reading the note can see) resolved to nothing while `[[# Headed note]]`
+    //: resolved: the content starts with the hash, so the prefix test failed
+    //: on the first character. Fixed in app.js; measured here.
+    await (await api('/entries', {
+      method: 'POST',
+      body: JSON.stringify({ content: '# Headed note\nWritten under its own title.' }),
     })).json();
     const board = await (await api('/whiteboard/boards', {
       method: 'POST',
@@ -117,6 +124,22 @@ const check = (name, ok, detail) => out.push({ name, ok: !!ok, detail });
     `${shape.missingChip} / ${shape.missingTitle}`);
   check('a plain [[link]] is still a link', shape.wikiLinks === 1, String(shape.wikiLinks));
   check('no ![[ is left on screen', shape.bang === 0, String(shape.bang));
+
+  //: Both ways of naming a note whose first line is a heading resolve to it,
+  //: and neither resolves to the other note.
+  const headed = await page.evaluate(() => {
+    const one = resolveWikiTarget('Headed note');
+    const two = resolveWikiTarget('# Headed note');
+    const other = resolveWikiTarget('Embedded note');
+    const opening = (t) => (t && t.entry ? (t.entry.content || '').split('\n')[0] : null);
+    return { one: opening(one), two: opening(two), other: opening(other) };
+  });
+  check('a note is found by the title you can see',
+    headed.one === '# Headed note', JSON.stringify(headed));
+  check('and by the opening words the picker inserts',
+    headed.two === '# Headed note', JSON.stringify(headed));
+  check('and the exact-prefix match still wins first',
+    headed.other === 'Embedded note', JSON.stringify(headed));
 
   // The source is untouched by any of it.
   const text = await page.evaluate(() => docSurface().text);

@@ -23,7 +23,7 @@ from ._common import (
 )
 
 def _list_documents(session: Session, args: dict) -> dict:
-    from memorymap.core.database import Document
+    from memorymap.core.database import LIKE_ESCAPE, Document, like_escape
 
     limit = _limit_arg(args, default=DEFAULT_LIST_LIMIT)
     offset = max(0, int(args.get("offset") or 0))
@@ -32,8 +32,11 @@ def _list_documents(session: Session, args: dict) -> dict:
     # total can never describe a different set than the rows.
     filters = []
     if term:
-        like = f"%{term}%"
-        filters.append(Document.title.ilike(like) | Document.content.ilike(like))
+        like = f"%{like_escape(term)}%"
+        filters.append(
+            Document.title.ilike(like, escape=LIKE_ESCAPE)
+            | Document.content.ilike(like, escape=LIKE_ESCAPE)
+        )
     total = session.scalar(select(func.count(Document.id)).where(*filters)) or 0
     rows = list(
         session.scalars(

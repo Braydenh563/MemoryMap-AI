@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.core import deps
-from memorymap.core.database import AskTurn, Entry
+from memorymap.core.database import LIKE_ESCAPE, AskTurn, Entry, like_escape
 from memorymap.core.deps import get_session
 
 router = APIRouter(prefix="/ask-history", tags=["ask-history"])
@@ -55,8 +55,11 @@ def list_ask_history(
         query = query.where(AskTurn.pinned == True)  # noqa: E712
     term = q.strip()
     if term:
-        like = f"%{term}%"
-        query = query.where(AskTurn.question.ilike(like) | AskTurn.answer.ilike(like))
+        like = f"%{like_escape(term)}%"
+        query = query.where(
+            AskTurn.question.ilike(like, escape=LIKE_ESCAPE)
+            | AskTurn.answer.ilike(like, escape=LIKE_ESCAPE)
+        )
     ordered = query.order_by(AskTurn.pinned.desc(), AskTurn.created_at.desc())
     total = session.scalar(select(func.count()).select_from(ordered.subquery()))
     rows = session.scalars(ordered.limit(limit).offset(offset)).all()

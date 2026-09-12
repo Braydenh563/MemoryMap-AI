@@ -18,7 +18,14 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient
-from memorymap.core.database import Entity, EntityMention, Entry, utcnow
+from memorymap.core.database import (
+    LIKE_ESCAPE,
+    Entity,
+    EntityMention,
+    Entry,
+    like_escape,
+    utcnow,
+)
 
 # A note this short rarely names anything worth its own node, cheaper to
 # skip than to spend a model call finding nothing, the same reasoning
@@ -82,7 +89,9 @@ def _find_or_create_entity(session: Session, name: str, cache: dict[str, Entity]
     key = name.lower()
     if key in cache:
         return cache[key]
-    existing = session.scalars(select(Entity).where(Entity.name.ilike(name))).first()
+    existing = session.scalars(
+        select(Entity).where(Entity.name.ilike(like_escape(name), escape=LIKE_ESCAPE))
+    ).first()
     entity = existing or Entity(name=name)
     if not existing:
         session.add(entity)

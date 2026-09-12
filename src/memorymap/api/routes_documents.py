@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from memorymap.ai import drafter, vision_ocr
 from memorymap.core import deps, docview, filetypes
 from memorymap.core.database import (
+    LIKE_ESCAPE,
     Bookmark,
     Document,
     DocumentAiEdit,
@@ -29,6 +30,7 @@ from memorymap.core.database import (
     DocumentLink,
     DocumentRevision,
     utcnow,
+    like_escape,
 )
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import (
@@ -339,8 +341,11 @@ def list_documents(
     filters = [live]
     term = q.strip()
     if term:
-        like = f"%{term}%"
-        filters.append(Document.title.ilike(like) | Document.content.ilike(like))
+        like = f"%{like_escape(term)}%"
+        filters.append(
+            Document.title.ilike(like, escape=LIKE_ESCAPE)
+            | Document.content.ilike(like, escape=LIKE_ESCAPE)
+        )
     # Counted over the same filters as the page below, never over the whole
     # table: with `q` given, "how many are there" means how many match, or a
     # caller paging a search would loop past the end of its own results.

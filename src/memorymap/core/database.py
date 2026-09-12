@@ -50,6 +50,36 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+#: The character every escaped LIKE pattern in this app declares.
+#: A backslash is SQLite's own convention and the one SQLAlchemy passes
+#: straight through in `escape=`.
+LIKE_ESCAPE = "\\"
+
+
+def like_escape(text: str) -> str:
+    """User text, made safe to put inside a LIKE pattern.
+
+    `%` and `_` are wildcards in LIKE, and nothing in a search box says so.
+    Searching for `100%` matched every row in the table, `a_b` matched `axb`,
+    and a tag filter for `50%` returned the whole notebook: not injection (the
+    value is still a bound parameter) but a search that quietly answers a
+    different question than the one asked. WORLD_CLASS_PLAN section 12, S7,
+    which counted the sites.
+
+    The backslash is escaped first, or escaping `%` would double-escape the
+    backslash this function itself inserts and `\%` would come out as a
+    literal backslash followed by a wildcard.
+
+    **Every caller must also pass `escape=LIKE_ESCAPE`**, because a pattern
+    containing `\%` means "a literal percent" only when the statement says
+    what the escape character is; without it SQLite reads the backslash as an
+    ordinary character and the search finds nothing at all. That pairing is
+    what `tests/test_like_escaping.py` checks at every call site, since the
+    two halves are in different lines and only one of them is visibly wrong.
+    """
+    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 class DateTime(TypeDecorator):
     """A DateTime that is always UTC, and always says so.
 

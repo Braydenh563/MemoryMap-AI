@@ -14,7 +14,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from memorymap.core import deps
-from memorymap.core.database import Conversation, utcnow
+from memorymap.core.database import LIKE_ESCAPE, Conversation, like_escape, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import log_action
 
@@ -226,9 +226,10 @@ def list_conversations(
     if term:
         # A cheap SQL prefilter, it over-matches (JSON keys count as text),
         # so everything it returns is then checked properly below.
-        like = f"%{term}%"
+        like = f"%{like_escape(term)}%"
         query = query.where(
-            Conversation.title.ilike(like) | Conversation.messages.ilike(like)
+            Conversation.title.ilike(like, escape=LIKE_ESCAPE)
+            | Conversation.messages.ilike(like, escape=LIKE_ESCAPE)
         )
     # Same cap either way: browsing without a search term shouldn't see
     # fewer conversations than searching does, a 50-row default cap with no

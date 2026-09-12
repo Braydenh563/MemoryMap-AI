@@ -46,6 +46,7 @@ from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps, docview
 from memorymap.core.database import (
+    LIKE_ESCAPE,
     Attachment,
     AskTurn,
     AuditLog,
@@ -55,6 +56,7 @@ from memorymap.core.database import (
     Entry,
     MediaUpload,
     Reminder,
+    like_escape,
 )
 from memorymap.core.deps import get_session
 from memorymap.core.logbuffer import safe_value
@@ -1282,7 +1284,13 @@ def _related_elsewhere(session: Session, question: str) -> list[dict]:
     # then chats, then reminders, so a question whose matches are all
     # documents still gets four documents.
     def _any_word(*columns):
-        return or_(*(col.ilike(f"%{word}%") for col in columns for word in words))
+        return or_(
+            *(
+                col.ilike(f"%{like_escape(word)}%", escape=LIKE_ESCAPE)
+                for col in columns
+                for word in words
+            )
+        )
 
     _add(
         session.scalars(

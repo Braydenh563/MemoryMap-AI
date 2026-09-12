@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 from memorymap.ai import librarian, skills, toolwords
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.core import deps, events
-from memorymap.core.database import Category, Entry, Reminder
+from memorymap.core.database import LIKE_ESCAPE, Category, Entry, Reminder, like_escape
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager, paths
 from memorymap.search import search_manager
@@ -245,7 +245,7 @@ def _graph_neighbours(session: Session, entry: Entry) -> list[tuple[Entry, str]]
         candidates = select(Entry).where(
             Entry.is_deleted == False,  # noqa: E712
             Entry.id != entry.id,
-            or_(*(Entry.tags.ilike(f"%{t}%") for t in tags)),
+            or_(*(Entry.tags.ilike(f"%{like_escape(t)}%", escape=LIKE_ESCAPE) for t in tags)),
         )
         for other in session.scalars(candidates):
             shared = {
@@ -634,7 +634,7 @@ def _list_notes(session: Session, args: dict) -> dict:
     if tag:
         # Tags are stored as a delimited string, so this over-matches
         # ("work" would hit "homework"); the exact check happens below.
-        filters.append(Entry.tags.ilike(f"%{tag}%"))
+        filters.append(Entry.tags.ilike(f"%{like_escape(tag)}%", escape=LIKE_ESCAPE))
     since_days = _since_days(args.get("since"))
     if since_days is not None:
         from memorymap.core.database import utcnow
@@ -740,7 +740,7 @@ def _count_notes(session: Session, args: dict) -> dict:
         # ilike pre-filters (fast), Python exact-match removes false hits
         # ("work" matching "homework"). Count with a generator to avoid
         # materialising a list when we only need the number.
-        filters = list(_visible(Entry.tags.ilike(f"%{tag}%")))
+        filters = list(_visible(Entry.tags.ilike(f"%{like_escape(tag)}%", escape=LIKE_ESCAPE)))
         if wanted:
             filters.append(_category_clause(session, wanted))
         count = sum(
@@ -960,9 +960,10 @@ def _search_chat_history(session: Session, args: dict) -> dict:
         # Prefilter in SQL, then confirm in Python: `messages` is a JSON
         # column, so a raw LIKE also matches its keys, "tent" is inside
         # "content", which matched every conversation ever saved.
-        like = f"%{term}%"
+        like = f"%{like_escape(term)}%"
         query = query.where(
-            Conversation.title.ilike(like) | Conversation.messages.ilike(like)
+            Conversation.title.ilike(like, escape=LIKE_ESCAPE)
+            | Conversation.messages.ilike(like, escape=LIKE_ESCAPE)
         )
     rows = list(
         session.scalars(

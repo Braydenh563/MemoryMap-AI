@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from pathlib import Path
 
 from memorymap.core.database import (
+    LIKE_ESCAPE,
     Attachment,
     Category,
     EmbeddingRecord,
@@ -38,6 +39,7 @@ from memorymap.core.database import (
     WhiteboardObject,
     WhiteboardSketch,
     utcnow,
+    like_escape,
 )
 from memorymap.core import events
 from memorymap.entry import timewords
@@ -2076,13 +2078,16 @@ def find_by_wiki_name(session: Session, name: str) -> Entry | None:
     #: to a note that merely opens with the word "index".
     #: Filtered in SQL rather than by loading every imported note: this runs
     #: once per `[[link]]` per save, and a real vault is thousands of files.
-    #: The `LIKE` can over-match (`Roadmap.md` also matches `My Roadmap.md`,
-    #: and a name containing `%` matches widely), so the stem is checked
-    #: exactly in Python below, the query narrows, it does not decide.
+    #: The `LIKE` can over-match (`Roadmap.md` also matches `My Roadmap.md`),
+    #: so the stem is checked exactly in Python below: the query narrows, it
+    #: does not decide. A name containing `%` used to over-match far wider
+    #: than that, matching any path at all; `like_escape` ends that, and the
+    #: `escape=` beside it is what makes the escaped pattern mean anything.
     vault_clauses = []
     for suffix in (".md", ".markdown"):
-        vault_clauses.append(Entry.source_path.ilike(f"{wanted}{suffix}"))
-        vault_clauses.append(Entry.source_path.ilike(f"%/{wanted}{suffix}"))
+        stem = like_escape(wanted)
+        vault_clauses.append(Entry.source_path.ilike(f"{stem}{suffix}", escape=LIKE_ESCAPE))
+        vault_clauses.append(Entry.source_path.ilike(f"%/{stem}{suffix}", escape=LIKE_ESCAPE))
     vault = session.scalars(
         select(Entry)
         .where(
@@ -2101,7 +2106,7 @@ def find_by_wiki_name(session: Session, name: str) -> Entry | None:
         .where(
             Entry.is_deleted == False,  # noqa: E712
             Entry.is_private == False,  # noqa: E712
-            Entry.content.ilike(f"{wanted}%"),
+            Entry.content.ilike(f"{like_escape(wanted)}%", escape=LIKE_ESCAPE),
         )
         .order_by(Entry.id)
     ).all()

@@ -81,3 +81,14 @@ and already used by three files; none of these needs anything new.
   because the file that draws it was held.
 - The full suite was not run for this work; `scripts/gate.sh --changed` was,
   after each step.
+
+## 4. Found, not fixed: the AI's own reminder tool is unbounded
+
+`_list_reminders` in `src/memorymap/ai/tools/__init__.py` reads every
+reminder row and hands the lot to the model. It is not one of the three
+endpoints INBOX 117 names (it is a tool result, not an HTTP list), so it was
+left alone deliberately, but it is the same shape: its sibling
+`_list_documents` in `ai/tools/documents.py` already takes `limit` and
+`offset` and counts its own filtered set, which is the pattern to copy. The
+cost here is prompt tokens rather than bytes over the wire, and
+`agent.PROSE_BUDGET_CHARS` does not bound a tool result.

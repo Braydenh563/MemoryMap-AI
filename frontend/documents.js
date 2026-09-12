@@ -1786,6 +1786,14 @@ function docTakeTabEscape() {
 //: selection (or a selection at all, which re-indents its lines). Otherwise
 //: it is the browser's, which is what keeps a flush-left caret from being a
 //: keyboard trap.
+//: A markdown list item, at whatever depth. Tab and Shift+Tab treat one of
+//: these as a *block* rather than as a run of characters: pressing Tab with
+//: the caret in the middle of "- alpha" indents the bullet, it does not push
+//: two spaces into the middle of the word, which is what every editor a
+//: writer has used does and what this one did not (measured, 2026-09-12:
+//: "- al|pha" plus Tab gave "- al  pha").
+const DOC_LIST_LINE = /^([ \t]*)([-*+]|\d+[.)])(\s)/;
+
 function docCanOutdent(box) {
   if (!box) return false;
   if (box.selectionEnd > box.selectionStart) return true;
@@ -1799,6 +1807,36 @@ function indentDocSelection(box, outdent) {
   const unit = type.indent || "  ";
   const { start, end, text } = docSelectedLines(box);
   const multiline = text.includes("\n") || box.selectionEnd > box.selectionStart;
+  //: Read before anything is replaced: an edit moves the surface's own
+  //: selection, so a caret read afterwards is the engine's guess rather than
+  //: where the writer was.
+  const caretWas = box.selectionStart;
+
+  // A list item is indented as a whole, from wherever the caret sits in it,
+  // and Shift+Tab pulls it back the same way. `DOC_LIST_LINE` carries the
+  // reason. The caret is kept where it was in the text rather than being
+  // dropped at the line start or spread over the line: an indent that moves
+  // the caret is an indent you have to recover from.
+  if (!multiline && DOC_LIST_LINE.test(text)) {
+    const caret = caretWas;
+    const leading = text.match(/^[ \t]*/)[0];
+    let next = leading;
+    if (!outdent) {
+      next = leading + unit;
+    } else if (leading.startsWith(unit)) {
+      next = leading.slice(unit.length);
+    } else {
+      next = leading.slice(Math.min(leading.length, unit.length));
+    }
+    if (next === leading) return; // nothing to remove: the caller lets Tab go
+    docReplaceRange(box, start, start + leading.length, next);
+    const moved = next.length - leading.length;
+    const at = Math.max(start + next.length, caret + moved);
+    box.setSelectionRange(at, at);
+    markDocDirty();
+    renderDocGutter();
+    return;
+  }
 
   // A plain Tab with no selection inserts one indent at the caret, which is
   // what Tab does in every editor. Only a selection (or Shift+Tab) means
@@ -1823,8 +1861,19 @@ function indentDocSelection(box, outdent) {
     if (!leading) return line;
     return line.slice(Math.min(leading[0].length, unit.length));
   });
-  docReplaceRange(box, start, end, changed.join("\n"));
-  box.setSelectionRange(start, start + changed.join("\n").length);
+  const joined = changed.join("\n");
+  docReplaceRange(box, start, end, joined);
+  if (box.selectionEnd > box.selectionStart || multiline) {
+    box.setSelectionRange(start, start + joined.length);
+  } else {
+    //: A Shift+Tab with no selection is a caret gesture, so it leaves a
+    //: caret. Selecting the whole line here (what this did until 2026-09-12)
+    //: meant the next character typed replaced the line the writer had just
+    //: dedented.
+    const moved = joined.length - text.length;
+    const at = Math.min(Math.max(start, caretWas + moved), start + joined.length);
+    box.setSelectionRange(at, at);
+  }
   markDocDirty();
   renderDocGutter();
 }

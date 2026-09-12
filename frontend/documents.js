@@ -5691,12 +5691,40 @@ function docAutocorrectAt(box) {
   //: says. The dictionary is the reader's answer to this feature, and an
   //: autocorrect that ignored it would be the app overruling them mid-sentence.
   if (docDictionary().has(lower)) return false;
-  const better = DOC_AUTOCORRECT[lower] || docVariantLookup().get(lower);
+  let better = DOC_AUTOCORRECT[lower] || docVariantLookup().get(lower);
+  //: **The dictionary's own unambiguous answers, on the same terms as the
+  //: table's.** The table is 42 strings that are not words in any English
+  //: text, which is the bar an automatic replacement has to clear because the
+  //: cost of being wrong is that the app silently changed something the
+  //: writer meant. `docSpellConfident` holds the same bar against 93,000
+  //: words rather than 42: the word is not in any dictionary, and there is
+  //: exactly one real word a swap of two letters away (or exactly one a
+  //: dropped letter away, when no swap reaches one at all), and it is at
+  //: least four letters long because almost every three-letter string is one
+  //: edit from several real words. Anything with a choice in it stays a menu.
+  if (!better) {
+    //: The same refusals the check itself makes: an acronym, an identifier,
+    //: a word touching a digit or a path is not prose and must never be
+    //: rewritten. The line is the text these offsets are in.
+    const at = caret - line.from - match[0].length;
+    if (!docSpellable(line.text, match[1], at, at + match[1].length)) return false;
+    const looked = docSpellLookup(match[1]);
+    if (looked.known) return false;
+    better = looked.sure;
+  }
   if (!better) return false;
   const replacement = match[1][0] === match[1][0].toUpperCase()
     ? better[0].toUpperCase() + better.slice(1)
     : better;
   const start = caret - match[0].length;
+  //: **Its own step in the history, or the toast below is a lie.** Typing is
+  //: grouped into one undo entry per burst, so a correction folded into that
+  //: burst means Ctrl+Z takes back the whole sentence rather than the
+  //: correction. Measured 2026-09-12: one Ctrl+Z after "I ran a tets " left
+  //: an empty document. Isolating before the replacement makes the first
+  //: Ctrl+Z give back exactly what was typed, which is what the toast says
+  //: and the only thing that makes an automatic rewrite acceptable.
+  docUndoBreak();
   box.replaceRange(start, caret, replacement + match[2]);
   const next = start + replacement.length + match[2].length;
   box.setSelection(next);
@@ -7493,6 +7521,28 @@ function docCmApplySpellcheck() {
 function docCmUpdate(update) {
   if (update.docChanged) {
     docSurfaceChanged();
+    //: **Autocorrect, which never ran once under the engine.** The delegated
+    //: `input` listener that calls it returns early for anything inside the
+    //: view (`docEventFromCm`), because the engine reports its changes here
+    //: instead and running both would do every pass twice. That listener was
+    //: also the only caller of `docAutocorrectAt`, so switching the surface
+    //: to CodeMirror silently turned the feature off: measured 2026-09-12,
+    //: typing "teh " with autocorrect switched on left "teh ".
+    //:
+    //: Deferred by a microtask rather than called here, because this runs
+    //: *during* the view's own update and dispatching a transaction into an
+    //: update in progress is the one thing CodeMirror will not have. A
+    //: microtask still runs before the frame is painted, so the correction is
+    //: never visible as two states.
+    //:
+    //: Only a typed insertion: `isUserEvent("input.type")` is false for the
+    //: correction's own transaction, which is what keeps this from looking at
+    //: its own work, and false for every scripted rewrite (the AI panel, a
+    //: template, a paste is "input.paste"), none of which a writer typed.
+    if (update.transactions.some((tr) => tr.isUserEvent("input.type"))) {
+      const surface = docSurface();
+      queueMicrotask(() => docAutocorrectAt(surface));
+    }
     docToolsOnInput(docSurface());
     //: editor.js hangs the "/" and `[[` triggers off a DOM `input` event,
     //: which the engine never raises for a typed character: it applies the

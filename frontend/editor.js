@@ -502,6 +502,23 @@ function editorCommands(context) {
     }
   );
 
+  //: **Properties**, the one block whose position is not the caret's:
+  //: `docInsertProperties` puts it at the top of the document, or puts the
+  //: caret in the block that is already there. Documents only, and pushed here
+  //: rather than declared with a `contexts` field, because the filter the
+  //: comment above describes is this `if`: nothing reads `contexts`.
+  if (context === "document") {
+    commands.push({
+      id: "properties",
+      primary: true,
+      group: "Blocks & frames",
+      label: "\u{1F3F7}\u{FE0F} Properties",
+      hint: "tags, status, dates",
+      keywords: ["properties", "frontmatter", "metadata", "tags", "yaml", "status", "aliases"],
+      run: (textarea) => editorApplyNamed(textarea, "properties"),
+    });
+  }
+
   // --- AI actions ---
   // Document-only, because these route to the document editor's own AI panel
   // and extract-notes preview. Offering them in the capture box would open a

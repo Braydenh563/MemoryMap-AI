@@ -595,6 +595,10 @@ function setDocView(mode) {
     }
   }
   docSetLiveDecorations(docView === "live");
+  //: The panel belongs to Live (Source shows the YAML itself, and Read renders
+  //: it through the preview), so a view change is what puts it up or takes it
+  //: down.
+  renderDocProperties(true);
   //: Plain is the language compartment emptied, so entering *or leaving* it
   //: has to reconfigure that compartment. Routed through the same function the
   //: file-type change uses, so the two can never disagree about what a view is
@@ -763,6 +767,7 @@ function showNoDocument() {
   renderDocPreview();
   renderDocStats();
   renderDocOutline();
+  renderDocProperties();
 }
 
 async function openDocument(id) {
@@ -803,6 +808,7 @@ async function openDocument(id) {
   //: repainted with it rather than waiting for the first keystroke.
   renderDocTools();
   renderDocOutline();
+  renderDocProperties();
   renderDocNotes();
   renderDocBacklinks();
   renderDocBookmarks();
@@ -1691,9 +1697,51 @@ function renderDocPreview() {
   if (preview.classList.contains("hidden")) return;
   preview.replaceChildren();
   const title = ($("doc-title").value || "").trim();
-  const body = docText();
+  const text = docText();
+  //: **The properties are not prose.** Rendered as markdown, a frontmatter
+  //: block is a horizontal rule, a paragraph of `key: value` lines and
+  //: another rule, which is what the preview showed until now for every
+  //: document this app's own vault import wrote. They come out of the body
+  //: and go back in above it as the same rows the panel draws, read-only.
+  const fm = docFrontmatterParse(text);
+  const body = fm ? docFrontmatterStrip(text) : text;
   renderMarkdown(preview, title ? `# ${title}\n\n${body}` : body);
+  if (fm) {
+    //: After the title, which is the document's name rather than part of its
+    //: text, and before the first thing its author wrote.
+    preview.insertBefore(docPropsReadNode(fm), preview.children[title ? 1 : 0] || null);
+  }
   layerDocWikiLinks(preview);
+}
+
+//: The properties as they read rather than as they are edited: the same rows,
+//: without the fields. Read view has no editing surface at all, so a panel of
+//: inputs there would be a form that saves into a document you are not in.
+function docPropsReadNode(fm) {
+  const box = document.createElement("div");
+  box.className = "doc-props doc-props-read";
+  for (const entry of fm.entries) {
+    const row = document.createElement("div");
+    row.className = "doc-prop-row";
+    const key = document.createElement("span");
+    key.className = "doc-prop-key";
+    key.textContent = entry.key;
+    const value = document.createElement("div");
+    value.className = "doc-prop-value";
+    if (entry.kind === "list") {
+      for (const item of entry.items) {
+        const chipEl = document.createElement("span");
+        chipEl.className = "chip doc-prop-chip";
+        chipEl.textContent = item.text;
+        value.appendChild(chipEl);
+      }
+    } else {
+      value.textContent = entry.value.text;
+    }
+    row.append(key, value);
+    box.appendChild(row);
+  }
+  return box;
 }
 
 // [[Document title]] as clickable links in the preview, the same idea as a
@@ -3203,6 +3251,446 @@ function docFrontmatterFields(text) {
 
 // DOC-FRONTMATTER-END
 
+// -----------------------------------------------------------------------------
+// The properties panel: the model above, as fields
+// -----------------------------------------------------------------------------
+//
+// **Why this is DOM outside the editor rather than a widget inside it.** A
+// `Decoration.replace` from a view plugin may not contain a line break:
+// CodeMirror throws "Decorations that replace line breaks may not be specified
+// via plugin" and the whole view stops updating. Frontmatter is three lines at
+// the very least, so the panel cannot be a block widget over it. It is built
+// here and inserted as the first child of `#doc-editor`, which is a flex
+// column, so it sits above the view and shares its column. (Not as a sibling
+// *before* `#doc-editor`: `.doc-source-wrap` is a flex **row**, because the
+// line-number gutter sits beside the text, so a sibling there would be a
+// column to the left of the writing rather than a panel above it.)
+//
+// The frontmatter lines themselves hide in Live the way a table's delimiter
+// row does: one `Decoration.line` per line with `height: 0` plus a per-line
+// `hide()`, and each of those replacements is inside a single line, which is
+// what makes them legal from a plugin.
+//
+// **Writes happen on `change`, not on `input`**, and that is a decision rather
+// than an oversight: `input` would put one transaction per keystroke into the
+// undo history, so Ctrl+Z would take back a letter of a tag at a time, and it
+// would re-enter this function mid-typing on every one of them. `change`
+// fires on Enter and on blur, which is one undo step per edited value: the
+// same granularity the table commands chose for the same reason.
+//
+// **Live only.** Source shows the YAML itself, so a panel there would be two
+// editable copies of one thing on screen at once; Read renders the properties
+// as a block through the preview (`renderDocPreview`). The panel is markdown
+// only, because a `.py` file whose first line is `---` is not a document with
+// properties.
+
+//: One list of edits, one transaction, through the editor's own dispatch: the
+//: caret, the undo step and the fallback textarea are all handled there.
+function docPropsDispatch(edits) {
+  if (!edits || !edits.length) return false;
+  return docTableDispatch({ surface: docSurface(), text: docText() }, edits);
+}
+
+//: The frontmatter as it is *now*. Every write re-parses rather than closing
+//: over the parse the row was built from: between building a row and blurring
+//: its field the document may have been typed in, and an edit dispatched at
+//: stale offsets lands in the middle of somebody's sentence.
+function docPropsNow() {
+  return docFrontmatterParse(docText());
+}
+
+function docPropsShowing() {
+  return docView === "live" && docFileType().previewable;
+}
+
+//: The panel's host, made once and kept. No id: `tests/test_frontend_ids.py`
+//: pairs every `$("...")` in the scripts with an element in index.html, and
+//: index.html cannot hold this one (it is another agent's file, and an empty
+//: host for a panel that only some documents have is markup that lies).
+function docPropsHost(create = false) {
+  const editor = $("doc-editor");
+  if (!editor) return null;
+  let host = editor.querySelector(".doc-props");
+  if (!host && create) {
+    host = document.createElement("div");
+    host.className = "doc-props";
+    host.setAttribute("role", "group");
+    host.setAttribute("aria-label", "Document properties");
+    editor.insertBefore(host, editor.firstChild);
+  }
+  return host;
+}
+
+//: What the panel was last drawn from, so typing in the document does not
+//: rebuild a panel that already says the right thing. The whole block's text,
+//: not a hash of it: it is a few dozen characters and comparing it is exact.
+let docPropsDrawn = null;
+
+//: A row's remove button, and the panel's own small buttons, all from the
+//: app's icon-only ghost recipe rather than from three hand-rolled ones.
+function docPropsIconButton(icon, label) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "ghost small icon-only doc-prop-btn";
+  button.title = label;
+  button.setAttribute("aria-label", label);
+  const glyph = document.createElement("i");
+  glyph.className = `ph ph-${icon}`;
+  glyph.setAttribute("aria-hidden", "true");
+  button.appendChild(glyph);
+  return button;
+}
+
+//: One value of a list property. A chip is a fact (DESIGN.md's recipe index
+//: says so), and the button beside it inside the chip is the action: removing
+//: this value. The pair is what every tag field in this app already looks
+//: like.
+function docPropsChip(key, value) {
+  const box = document.createElement("span");
+  box.className = "chip doc-prop-chip";
+  const label = document.createElement("span");
+  label.textContent = value;
+  const remove = docPropsIconButton("x", `Remove ${value}`);
+  remove.addEventListener("click", () => {
+    const fm = docPropsNow();
+    const entry = fm && docFrontmatterEntry(fm, key);
+    if (!entry) return;
+    const values = entry.items.map((item) => item.text).filter((text) => text !== value);
+    docPropsDispatch(docFrontmatterSetListEdits(fm, key, values));
+    renderDocProperties(true);
+  });
+  box.append(label, remove);
+  return box;
+}
+
+//: The field that adds a value to a list. Enter commits, and the panel is
+//: rebuilt with the focus back in this same field, because adding three tags
+//: in a row is one gesture and having to click back into the box between them
+//: is not.
+function docPropsAdder(key) {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "doc-prop-add";
+  input.placeholder = "Add";
+  input.setAttribute("aria-label", `Add a value to ${key}`);
+  const commit = () => {
+    const value = input.value.trim();
+    if (!value) return;
+    const fm = docPropsNow();
+    const entry = fm && docFrontmatterEntry(fm, key);
+    if (!entry) return;
+    input.value = "";
+    docPropsDispatch(docFrontmatterSetListEdits(fm, key, [...entry.items.map((item) => item.text), value]));
+    renderDocProperties(true);
+    const again = docPropsHost();
+    const field = again && again.querySelector(`[data-doc-prop-add="${CSS.escape(key)}"]`);
+    if (field) field.focus();
+  };
+  input.dataset.docPropAdd = key;
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    commit();
+  });
+  input.addEventListener("change", commit);
+  return input;
+}
+
+//: A scalar's field. `change` rather than `input`, for the reason at the top
+//: of this section.
+function docPropsField(key, value) {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "doc-prop-input";
+  input.value = value;
+  input.setAttribute("aria-label", key);
+  input.addEventListener("change", () => {
+    const fm = docPropsNow();
+    if (!fm) return;
+    docPropsDispatch(docFrontmatterSetEdits(fm, key, input.value));
+  });
+  return input;
+}
+
+//: "Add property": a button that becomes the field for the new key's name, so
+//: the panel never carries an empty row waiting to be filled in and there is
+//: no dialog for something that is one word long.
+function docPropsAddRow(host) {
+  const row = document.createElement("div");
+  row.className = "doc-prop-new";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "ghost small doc-prop-new-btn";
+  button.textContent = "Add property";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "doc-prop-input doc-prop-new-input hidden";
+  input.placeholder = "Property name";
+  input.setAttribute("aria-label", "New property name");
+  button.addEventListener("click", () => {
+    button.classList.add("hidden");
+    input.classList.remove("hidden");
+    input.focus();
+  });
+  const commit = () => {
+    const name = input.value.trim();
+    input.value = "";
+    input.classList.add("hidden");
+    button.classList.remove("hidden");
+    if (!name) return;
+    const fm = docPropsNow();
+    if (!fm) return;
+    docPropsDispatch(docFrontmatterAddEdits(fm, name, ""));
+    renderDocProperties(true);
+  };
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      commit();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      input.value = "";
+      commit();
+    }
+  });
+  input.addEventListener("blur", commit);
+  row.append(button, input);
+  host.appendChild(row);
+}
+
+//: Draw the panel from the document. Called on every document change, so it
+//: does as little as it can: if the frontmatter's own text has not moved, the
+//: panel already says the right thing and nothing is rebuilt.
+//:
+//: `force` is for the panel's own writes (a chip removed, a value added),
+//: which change the text the panel is drawn from and therefore have to redraw
+//: it; everything else must not, because a rebuild while a field has the
+//: focus would take the caret out of it mid-word.
+function renderDocProperties(force = false) {
+  const editor = $("doc-editor");
+  if (!editor) return;
+  const fm = docPropsShowing() ? docFrontmatterParse(docText()) : null;
+  const host = docPropsHost(Boolean(fm));
+  if (!host) return;
+  if (!fm) {
+    host.replaceChildren();
+    host.classList.add("hidden");
+    docPropsDrawn = null;
+    return;
+  }
+  host.classList.remove("hidden");
+  const drawn = docText().slice(fm.from, fm.to);
+  const holdsFocus = host.contains(document.activeElement);
+  if (drawn === docPropsDrawn && host.childElementCount) return;
+  docPropsDrawn = drawn;
+  if (holdsFocus && !force) return;
+
+  host.replaceChildren();
+  for (const entry of fm.entries) {
+    const row = document.createElement("div");
+    row.className = "doc-prop-row";
+    const key = document.createElement("span");
+    key.className = "doc-prop-key";
+    key.textContent = entry.key;
+    key.title = `The ${entry.key} property, written in this document's frontmatter`;
+    const value = document.createElement("div");
+    value.className = "doc-prop-value";
+    if (entry.kind === "list") {
+      for (const item of entry.items) value.appendChild(docPropsChip(entry.key, item.text));
+      value.appendChild(docPropsAdder(entry.key));
+    } else {
+      value.appendChild(docPropsField(entry.key, entry.value.text));
+    }
+    const remove = docPropsIconButton("trash", `Remove the ${entry.key} property`);
+    remove.addEventListener("click", () => {
+      const now = docPropsNow();
+      if (!now) return;
+      docPropsDispatch(docFrontmatterRemoveEdits(now, entry.key));
+      renderDocProperties(true);
+    });
+    row.append(key, value, remove);
+    host.appendChild(row);
+  }
+  docPropsAddRow(host);
+}
+
+//: The "/" menu's and the toolbar's way in, for a document that has no
+//: properties yet. One property (`tags`), because an empty block is a thing
+//: to delete rather than a thing to fill in, and the panel's own "Add
+//: property" covers the rest.
+function docInsertProperties() {
+  const text = docText();
+  const fm = docFrontmatterParse(text);
+  if (fm) {
+    //: Already has them: put the caret in the block rather than adding a
+    //: second one, which is what a person pressing this twice means.
+    docSurface()?.setSelectionRange(fm.bodyFrom, fm.bodyFrom);
+    docSurface()?.focus();
+    renderDocProperties(true);
+    return;
+  }
+  docPropsDispatch(docFrontmatterCreateEdits(text, "tags", "[]"));
+  renderDocProperties(true);
+  const host = docPropsHost();
+  const field = host && host.querySelector(".doc-prop-add");
+  if (field) field.focus();
+}
+
+// =============================================================================
+// Columns and image options (DOCUMENTS_PLAN Phase 3 item 5)
+// =============================================================================
+//
+// Two small parsers, both pure string work, both bracketed for
+// `tests/test_doc_columns.py` to run in node.
+//
+// **The syntax, decided here and written into the plan's decisions.**
+//
+// `:::columns` opens a block, `:::column` starts the next column inside it,
+// and `:::` closes it. Three reasons for that shape rather than another:
+// `:::` fenced divs are what Pandoc, Obsidian's community plugins and every
+// markdown-it-container setup already use, so the text stays readable
+// somewhere else; the opening word says what the block is rather than naming
+// an id the way the multi-column plugins do; and a break that is `:::column`
+// (singular) can never be confused with the `:::` that closes, which is the
+// ambiguity every other candidate had.
+//
+// An image's options are `|`-separated and recognised by *shape*, not by
+// position: `![[photo.png|300]]` is Obsidian's own width syntax and reads the
+// same here, `![[photo.png|300|center]]` adds the alignment, and any option
+// that is neither a number nor an alignment is the caption. Shape rather than
+// order, because `![[photo.png|A river at dusk|400]]` is what people actually
+// type once they know both exist, and an editor that then made the caption
+// four hundred pixels wide would be obeying its grammar instead of its author.
+// The same options work on a plain markdown image through its alt text,
+// `![A river|400|center](/media/river.jpg)`, which is the form that travels.
+
+// DOC-BLOCKS-BEGIN
+
+//: `:::columns`, `::: columns`, `:::columns 3`: the count is accepted and
+//: ignored, because the number of columns is how many there *are*, and a
+//: header that disagrees with the body is a lie the renderer would have to
+//: pick a side in.
+const DOC_COLS_OPEN = /^[ \t]*:::[ \t]*columns\b[ \t]*\d*[ \t]*$/i;
+const DOC_COLS_BREAK = /^[ \t]*:::[ \t]*column[ \t]*$/i;
+const DOC_COLS_CLOSE = /^[ \t]*:::[ \t]*$/;
+const DOC_CODE_FENCE = /^[ \t]*(?:```|~~~)/;
+
+//: Every columns block in a text, with each column's own span. Offsets are the
+//: document's, like every other model in this file, so a widget built from one
+//: can dispatch a selection into it without a second coordinate system.
+//:
+//: An unclosed block is not a block: it is somebody halfway through typing
+//: one, and rendering the rest of the document as a column while they do it is
+//: the behaviour that makes live preview feel unsafe.
+function docColumnsBlocks(text) {
+  const source = String(text == null ? "" : text);
+  const lines = source.split("\n");
+  const starts = [];
+  let at = 0;
+  for (const line of lines) {
+    starts.push(at);
+    at += line.length + 1;
+  }
+  const blocks = [];
+  let fenced = false;
+  let open = -1;
+  let breaks = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    //: A code fence wins: `:::columns` inside one is an example of the syntax,
+    //: not a use of it, and this file has already been bitten once by a
+    //: scanner that could not tell the two apart.
+    if (DOC_CODE_FENCE.test(line)) {
+      fenced = !fenced;
+      continue;
+    }
+    if (fenced) continue;
+    if (open === -1) {
+      if (DOC_COLS_OPEN.test(line)) {
+        open = i;
+        breaks = [];
+      }
+      continue;
+    }
+    if (DOC_COLS_BREAK.test(line)) {
+      breaks.push(i);
+      continue;
+    }
+    if (DOC_COLS_OPEN.test(line)) {
+      //: A second opener before the close: the first one was never a block.
+      open = i;
+      breaks = [];
+      continue;
+    }
+    if (!DOC_COLS_CLOSE.test(line)) continue;
+    const edges = [open, ...breaks, i];
+    const columns = [];
+    for (let c = 0; c < edges.length - 1; c += 1) {
+      const from = starts[edges[c]] + lines[edges[c]].length + 1;
+      const to = Math.max(from, starts[edges[c + 1]] - 1);
+      columns.push({ from, to, text: source.slice(from, to) });
+    }
+    blocks.push({
+      from: starts[open],
+      to: starts[i] + lines[i].length,
+      openLine: open,
+      closeLine: i,
+      columns,
+    });
+    open = -1;
+    breaks = [];
+  }
+  return blocks;
+}
+
+//: The block an offset is inside, or null. The whole block including its
+//: fences, because the caret being on the `:::` line is being in the block.
+function docColumnsAt(text, offset) {
+  return docColumnsBlocks(text).find((block) => offset >= block.from && offset <= block.to) || null;
+}
+
+//: The text a `/` command inserts: two columns, the caret meant for the first.
+function docColumnsTemplate() {
+  return "\n:::columns\n\n:::column\n\n:::\n";
+}
+
+//: An image's `|`-separated options, by shape rather than by position.
+//: `width` is a number of pixels, `align` is one of left/center/right, and
+//: everything else is the caption (joined with a space, so a caption with a
+//: pipe in it survives as the sentence it was).
+function docImageOptions(spec) {
+  const parts = String(spec == null ? "" : spec).split("|");
+  const name = parts.shift();
+  const options = { name: (name || "").trim(), width: null, align: null, caption: "" };
+  const caption = [];
+  for (const raw of parts) {
+    const part = raw.trim();
+    if (!part) continue;
+    if (/^\d{1,4}$/.test(part)) {
+      options.width = Number(part);
+      continue;
+    }
+    //: `x`-separated dimensions are Obsidian's too (`300x200`). The height is
+    //: read and deliberately dropped: an image with both fixed is an image
+    //: with a stretched aspect ratio, and nobody means that.
+    const pair = /^(\d{1,4})x(\d{1,4})$/i.exec(part);
+    if (pair) {
+      options.width = Number(pair[1]);
+      continue;
+    }
+    const align = /^(left|centre|center|right)$/i.exec(part);
+    if (align) {
+      options.align = align[1].toLowerCase() === "centre" ? "center" : align[1].toLowerCase();
+      continue;
+    }
+    caption.push(part);
+  }
+  options.caption = caption.join(" ");
+  return options;
+}
+
+// DOC-BLOCKS-END
+
 // =============================================================================
 // Math: a small TeX subset rendered as MathML (DOCUMENTS_PLAN Phase 3 item 2)
 // =============================================================================
@@ -4162,6 +4650,43 @@ function docLivePlugin(CM) {
       }
     }
 
+    //: **Properties.** The block is hidden in Live and drawn as the panel
+    //: above the editor (`renderDocProperties`), which is the only shape
+    //: available: a `Decoration.replace` from a plugin may not contain a line
+    //: break, and frontmatter is three lines at the very least. So each line
+    //: hides on its own, the way a table's delimiter row does, and a line the
+    //: caret is on comes back to full height like every other marker in this
+    //: view.
+    //:
+    //: **Only the lines that are actually in the viewport.** A plugin may not
+    //: change the height of a line outside it, which is the same rule the
+    //: table loop above follows; the block is at the top of the document, so
+    //: in practice this is "unless you have scrolled past it".
+    if (doc.length > 3 && doc.sliceString(0, 4) === "---\n") {
+      const fm = docFrontmatterParse(source());
+      if (fm) {
+        const lastLine = fm.closeLine + 1;
+        //: Its own set, not the table loop's: that one marks every line it has
+        //: looked at, which by this point is every visible line in the
+        //: document, and sharing it hid nothing at all (measured: five
+        //: frontmatter lines, none marked).
+        const seen = new Set();
+        for (const visible of view.visibleRanges) {
+          if (visible.from > fm.to) continue;
+          const first = doc.lineAt(Math.max(0, visible.from)).number;
+          const last = doc.lineAt(Math.min(fm.to, Math.max(0, visible.to))).number;
+          for (let n = Math.max(1, first); n <= Math.min(lastLine, last); n += 1) {
+            if (seen.has(n)) continue;
+            seen.add(n);
+            const line = doc.line(n);
+            if (touched(line.from, line.to)) continue;
+            ranges.push(Decoration.line({ class: "cm-md-frontmatter" }).range(line.from));
+            hide(line.from, line.to);
+          }
+        }
+      }
+    }
+
     //: Sorted by CodeMirror rather than by hand: the tree walk and the two
     //: regex passes produce ranges in three different orders, and a set built
     //: out of order throws rather than drawing something wrong, which is the
@@ -4549,6 +5074,10 @@ const MD_ACTIONS = {
   //: `%%…%%` is Obsidian's comment: kept in the file, never rendered.
   comment: { pre: "%%", post: "%%", placeholder: "note to self" },
   image: { custom: "image" },
+  //: Properties (DOCUMENTS_PLAN Phase 3 item 4). `custom`, because the block
+  //: goes at the top of the document rather than at the caret: it is the one
+  //: markdown construct whose position is fixed by what it means.
+  properties: { custom: "properties" },
   //: This app's own link syntax, which is the "application specific
   //: functions" half of the request, a toolbar for *this* notebook has to
   //: offer the link that resolves inside it, not only the markdown one.
@@ -4627,6 +5156,10 @@ function applyMarkdown(kind, boxId = "doc-content") {
     const at = start + alt.length + 4;
     box.setSelectionRange(at, at + url.length);
     finishMarkdownEdit(box, boxId);
+    return;
+  }
+  if (action.custom === "properties") {
+    docInsertProperties();
     return;
   }
   if (action.custom === "table") {
@@ -6605,6 +7138,10 @@ function scheduleDocFacts() {
       renderDocStats();
       renderDocOutline();
       renderDocCounts();
+      //: The properties panel is drawn from the frontmatter's own text and
+      //: redraws only when that text moves, so it costs one parse of the top
+      //: of the document per pause in the typing.
+      renderDocProperties();
     };
     if (typeof requestIdleCallback === "function") requestIdleCallback(run, { timeout: 300 });
     else requestAnimationFrame(run);
@@ -9273,6 +9810,13 @@ function docCmTheme(CM) {
       //: height the moment the caret arrives on it, which is the rule `---`
       //: has followed here since Phase 2.
       ".cm-md-table-rule": { height: "0", overflow: "hidden" },
+      //: A frontmatter line, hidden the same way and for the same reason: the
+      //: properties panel above the editor is where it is read and written.
+      //: `border: 0` as well as the height, and it is measured: the opening
+      //: fence is also a `---`, so it carries `.cm-md-rule`'s bottom border,
+      //: and a zero-high line with a border is a 1px line across the top of
+      //: the document.
+      ".cm-md-frontmatter": { height: "0", overflow: "hidden", border: "0" },
       //: Out of the grid's flow, or the menu would be a column of its own and
       //: every cell in the table would narrow to make room for it.
       ".cm-md-table-menu": {

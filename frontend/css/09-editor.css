@@ -156,3 +156,172 @@
   cursor: pointer;
   padding: var(--space-1);
 }
+
+/* =============================================================================
+   The properties panel (DOCUMENTS_PLAN Phase 3 item 4)
+   =============================================================================
+
+   The panel is built in script (documents.js, `renderDocProperties`) and
+   inserted as the first child of `.doc-editor`, which is a flex column, so it
+   sits above the CodeMirror view and shares its column. It cannot be a widget
+   inside the view: a replace decoration from a plugin may not contain a line
+   break and frontmatter is three lines at the very least.
+
+   The same rows are drawn read-only into the preview (`.doc-props-read`), so
+   Live and Read agree about what a property looks like.
+
+   The measure matches `.doc-editor .cm-editor` above, or the fields would run
+   the full width of the pane while the writing under them stops at 78ch, which
+   reads as two unrelated surfaces stacked on top of each other. */
+.doc-props {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  max-width: 78ch;
+  margin-inline: auto;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  /* Eight properties is a tall block above someone's writing, so the panel
+     scrolls rather than pushing the first line of the document off screen.
+     The cap is a line-height multiple rather than a round number: it is
+     "about five rows", which is what a document's properties usually are. */
+  max-height: 10lh;
+  overflow-y: auto;
+  flex: 0 0 auto;
+}
+
+#tab-documents.doc-wide .doc-props {
+  max-width: none;
+}
+
+.doc-props.hidden {
+  display: none;
+}
+
+/* One label column for every row, the same one every settings row in the app
+   reserves (`--form-label-col`), so the values start on one edge. */
+.doc-prop-row {
+  display: grid;
+  grid-template-columns: var(--form-label-col) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.doc-prop-key {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-prop-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* Two classes deep on purpose: the app's own `input[type="text"]` rule is
+   0,1,1 specific and would otherwise win, which is measured rather than
+   guessed (it did: 41.6px tall fields at 13.6px in a row of 28px controls,
+   and a panel 210px tall for three properties). */
+.doc-props input.doc-prop-input,
+.doc-props input.doc-prop-add {
+  font: inherit;
+  font-size: var(--text-md);
+  color: var(--text);
+  background: var(--field-inset);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  min-width: 0;
+}
+
+.doc-props input.doc-prop-input {
+  flex: 1 1 auto;
+}
+
+/* The field that adds a tag sits at the end of the chips it adds to, so it is
+   sized to the word being typed rather than to the row. */
+.doc-props input.doc-prop-add {
+  flex: 0 1 8ch;
+  background: none;
+}
+
+.doc-props input.doc-prop-input:hover,
+.doc-props input.doc-prop-add:hover {
+  border-color: var(--border);
+}
+
+.doc-props input.doc-prop-input:focus-visible,
+.doc-props input.doc-prop-add:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--field-inset);
+}
+
+.doc-prop-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* The chip's own remove button, and the row's: the app's icon-only ghost, at
+   the size a chip can carry. */
+.doc-prop-btn {
+  padding: 0;
+  min-width: 0;
+  min-height: 0;
+  line-height: 1;
+  color: var(--muted);
+  background: none;
+  border: 0;
+}
+
+.doc-prop-btn:hover {
+  color: var(--text);
+  background: none;
+}
+
+/* The row's trash button appears on hover or focus, so eight properties are
+   eight values rather than eight values and eight buttons. It stays in the
+   layout either way: revealing it by changing `display` would make every row
+   jump sideways as the pointer crossed it. */
+.doc-prop-row > .doc-prop-btn {
+  opacity: 0;
+}
+
+.doc-prop-row:hover > .doc-prop-btn,
+.doc-prop-row:focus-within > .doc-prop-btn {
+  opacity: 1;
+}
+
+.doc-prop-new {
+  display: flex;
+  align-items: center;
+}
+
+.doc-props input.doc-prop-new-input {
+  max-width: var(--form-label-col);
+}
+
+/* Read view: the same rows without the fields. */
+.doc-props-read {
+  border-bottom: 1px solid var(--border);
+  padding-inline: 0;
+}
+
+/* A phone has no room for a label column and a value side by side: the key
+   goes above its value and the whole row reads as one block. */
+@media (max-width: 600px) {
+  .doc-prop-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .doc-prop-key {
+    grid-column: 1 / -1;
+  }
+}

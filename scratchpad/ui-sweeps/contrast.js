@@ -6,7 +6,22 @@
 // samples, so glass and images do not confuse it — a translucent card is
 // composited against whatever is behind it and reported as "translucent".
 const {boot}=require('./lib.js');
-const TABS=['dashboard','notes','chat','graph','library','timeline','reminders'];
+// Every tab page, not only the seven with a button in the tab bar.
+//
+// Documents, the whiteboard and the mind map are reached from a dock or a
+// Library row rather than from `[data-tab]`, so a sweep that clicked the tab
+// bar never once measured them: three whole surfaces, one of them the
+// documents editor, had never been contrast-checked when this was found
+// (`agent-remaining/image-cards.md`, 2026-09-12). `switchTab` is how the app
+// itself gets there, so it is how this gets there.
+const TABS=['dashboard','notes','chat','graph','library','timeline','reminders','documents','whiteboard'];
+// The sub-tabs, which are whole screens wearing one tab's id. Notes has four
+// and Library has five, and only whichever was last open had ever been
+// measured.
+const SUBTABS={
+  notes:['browse','capture','writing-room','ask'],
+  library:null,  // filled in from the strip itself: its ids move with the plan
+};
 const SECTIONS=['models','appearance','account','tools','skills','tasks','data','logs','extras','about'];
 (async()=>{const {browser,page}=await boot();
 const run=async(label)=>{const r=await page.evaluate(()=>{
@@ -28,7 +43,30 @@ const run=async(label)=>{const r=await page.evaluate(()=>{
   }
   return out.slice(0,12);});
   console.log(`== ${label}: ${r.length?r.length+' low-contrast':'ok'}`);r.forEach(l=>console.log('  '+l));};
-for(const t of TABS){await page.click(`[data-tab="${t}"]`).catch(()=>{});await page.waitForTimeout(600);await run(t);}
+const go=async(t)=>{await page.evaluate((name)=>{try{switchTab(name);}catch(e){}},t);await page.waitForTimeout(700);};
+for(const t of TABS){
+  await go(t);
+  // A tab that would not open is worth saying so about, rather than being
+  // silently reported as clean.
+  const open=await page.evaluate((name)=>{const el=document.getElementById('tab-'+name);return el?!el.classList.contains('hidden'):null;},t);
+  if(open===false){console.log(`== ${t}: SKIPPED, the tab did not open`);continue;}
+  await run(t);
+  const subs=SUBTABS[t]===null
+    ? await page.evaluate(()=>[...document.querySelectorAll('#library-subtabs button')].map(b=>b.dataset.subtab||b.getAttribute('aria-controls')||b.textContent.trim()))
+    : SUBTABS[t];
+  if(!subs)continue;
+  for(const sub of subs){
+    const clicked=await page.evaluate(({tab,sub})=>{
+      const strip=document.getElementById(tab+'-subtabs');
+      if(!strip)return false;
+      const btn=[...strip.querySelectorAll('button')].find(b=>(b.dataset.section||b.dataset.subtab||b.getAttribute('aria-controls')||b.textContent.trim())===sub);
+      if(!btn)return false;btn.click();return true;
+    },{tab:t,sub});
+    if(!clicked)continue;
+    await page.waitForTimeout(600);
+    await run(`${t}/${sub}`);
+  }
+}
 await page.click('#settings-btn').catch(()=>{});await page.waitForTimeout(400);
 for(const s of SECTIONS){const ok=await page.click(`#settings-modal [data-section="${s}"]`,{timeout:1500}).then(()=>true).catch(()=>false);if(!ok)continue;await page.waitForTimeout(300);await run('settings/'+s);}
 await browser.close();})();

@@ -36,13 +36,25 @@ def test_a_finished_reading_leaves_the_list():
     assert all(not task["kind"].startswith("file-") for task in routes_tasks.collect())
 
 
+def _the_model_falls_over() -> None:
+    """What a model call does when Ollama is gone or the file cannot be read.
+
+    A function rather than a bare `raise` inside the `with` below, for two
+    reasons. It stands in for the real thing, which is always a call, and
+    CodeQL read the inline version as making the assertion after the block
+    unreachable (alert 395): `pytest.raises` swallows the exception, and
+    nothing in the `raise` statement itself says so.
+    """
+    raise ValueError("the model fell over")
+
+
 def test_a_reading_that_raises_leaves_the_list():
     # The failure mode every registry of this shape has: a model that throws
     # (no Ollama, an unreadable file) leaving a row on the panel for the rest
     # of the session.
     with pytest.raises(ValueError):
         with filejobs.reading("vision", 7, "scan.pdf", "fake-vision"):
-            raise ValueError("the model fell over")
+            _the_model_falls_over()
     assert all(not task["kind"].startswith("file-") for task in routes_tasks.collect())
 
 

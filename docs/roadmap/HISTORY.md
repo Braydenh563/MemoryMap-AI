@@ -21458,3 +21458,55 @@ it is the seventh time this project has found a listed gap already closed.
     chips did not draw. Next session: reproduce with a real model turn,
     log `known`, the matched id, and what `flashEntry` scrolls to.
 
+## Moved from the plans, 2026-09-12
+
+### From HANDOVER.md, at the 600-line ceiling
+
+### The whole-app visual pass, 2026-09-09
+
+Run once, at the end, because every batch this session was measured in its
+own area and none against the others. `scratchpad/ui-sweeps/finalqa.js`.
+
+Covered: dashboard, notes and its four sub-tabs, chat, graph, library and
+its eight sub-tabs including an opened board and an opened document,
+timeline, reminders, and all seventeen settings sections, at 1440 and 1024
+in both themes, so four full passes, plus five menus at both widths.
+
+**Zero console, JavaScript and HTTP errors in all four passes.**
+
+One real finding, written down rather than fixed: the Library's Contents
+dock wraps to two lines at 1024 in both themes (row tops 162 and 206, with
+Collapse all, refresh and help pushed under the four-way segment). `.dock`'s
+`flex-wrap: wrap` is a deliberate recipe, so narrowing the segment against
+moving the actions behind a kebab is a design call rather than a small fix.
+The boards dock met the same shape today and took the kebab, which is the
+answer this one should take too.
+
+The pass also independently observed the kebab's first click and the chat
+header holding up, which were the two "reasoned, never observed" items.
+
+### The section 6 review of this branch, run 2026-09-09
+
+CLAUDE.md section 6 names four shapes to look for in work that came from
+somewhere else, and this branch is now mostly work that came from somewhere
+else: five agents' worth. Run against the whole diff from the branch point.
+
+- **A feature that never ran once.** 287 new top-level frontend functions;
+  eight had no `name(` call site, and all eight are wired by reference
+  instead (`addEventListener(..., fn)`, an update listener, a `filter`
+  predicate, a `setTimeout`). 131 new Python functions; ten are never
+  referenced by name and all ten carry a route decorator immediately above
+  them. Nothing dead. **The grep that finds this is worth keeping**: search
+  for `name(` first, then re-check every hit for a bare-name reference,
+  because a handler passed by reference looks exactly like dead code.
+- **A policy silently refusing the work.** No inline `style=` attribute was
+  added to any HTML or JS on this branch, so nothing is being refused by the
+  CSP unnoticed. (One was written today, in a sweep, and the CSP refused it
+  on the first run: `page.addStyleTag` fails the same way, and
+  `readmeshots.js` records it.)
+- **A working thing rewritten into a riskier thing**, and **a guard removed
+  while the shape around it was kept**: both need reading rather than
+  grepping, and the merges were reviewed one at a time as they landed. The
+  one deliberate rewrite is the graph's drag, which reverses a decision the
+  code defended at length; GRAPH_PLAN carries the reversal and the reason.
+

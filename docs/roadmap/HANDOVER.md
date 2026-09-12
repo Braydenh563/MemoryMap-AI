@@ -306,7 +306,42 @@ are only just begun or half done." True; this table is the state.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
-**Now (2026-09-09 12:40 UTC, Opus orchestrating, no agents running):**
+**Now (2026-09-12, Opus orchestrating, two agents running):** the owner's
+own session, working the flagged list while they are out. Landed by the
+orchestrator this session, each measured in a live Chromium: file readings
+(describe with AI, OCR, the vision read) now appear in Settings, Background
+tasks (`core/filejobs.py`, deliberately a registry and not a job queue, see
+its docstring); the tonal button tier draws its edge again with a quiet
+variant for runs inside a frame (INBOX 113, resolved, and DESIGN.md's ramp
+rewritten); the global press cue is written as `translate`/`scale` so it can
+no longer throw away a button's own centring (the chat pill moved 68px on
+every press); the page-column rules no longer reach a top-layer `<dialog>`
+(the AI edit history dialog opened 1440px wide at the left edge, reported
+three times); the graph's suggestions panel has an inset and one scrollbar
+instead of none and two; the agent panel is on the spacing scale with its
+header run quieted. Three lints were added with those fixes, in
+`tests/test_ui_recipes.py`, so none of the four can silently come back.
+
+Two owner reports were **measured and did not reproduce**, which is a
+finding, not a fix: "this text in the files sub tab needs indenting" (the
+Files row's title, meta strip, caption field and transcription fold all
+begin at x=172 at 1440, so the alignment fix from 2026-09-09 holds and the
+report is either stale or about something the screenshot showed and the
+words do not), and "the ai skills sidebar not reaching full height" (the
+sidebar measures 711px in a 711px scroll container, exactly full, since the
+`100cqh` fix; the 61px between its bottom and the window is the status bar
+and the page's own gutter).
+
+The agents this session: the documents editor (spelling against a real
+92,972-word dictionary, autocorrect rewired, Tab in a list, the suggestion
+menu) and the mind map (its own dock, the last topic protected, the empty
+map's way back, branch colour) both reported and stopped; the second design
+batch and MINDMAP_PLAN §12.1 items 2 to 9 are running now. **The pan lag is
+not attributed**: the mind map agent A/B'd six conditions on a 201-node map
+and this sandbox is vsync-bound at ~16.7ms in every one of them, including
+with the whole card layer removed, so nothing was changed on a guess.
+
+**As of 2026-09-09 12:40 UTC (Opus orchestrating, no agents running):**
 CI and CodeQL green on every head today, all sixteen CodeQL review threads
 resolved. Every agent worktree with commits has been merged; the last four
 agents (the settings help popovers, the whole-app visual pass, the escaped
@@ -462,53 +497,16 @@ merge those and re-brief the rest from its brief.
 | `abcdedfb8d9f9f2bf` | Timeline redesign | 8817 | **Paused** to save usage after the audit; resume with SESSION_BRIEFS Brief 5 |
 | `a228ba0fe38c417dc` | Paragraphs to '?' popovers | 8818 | **Paused**; 54 paragraphs left; resume with Brief 4 |
 
-### The whole-app visual pass, 2026-09-09
+### The whole-app visual pass and the section 6 review, 2026-09-09
 
-Run once, at the end, because every batch this session was measured in its
-own area and none against the others. `scratchpad/ui-sweeps/finalqa.js`.
-
-Covered: dashboard, notes and its four sub-tabs, chat, graph, library and
-its eight sub-tabs including an opened board and an opened document,
-timeline, reminders, and all seventeen settings sections, at 1440 and 1024
-in both themes, so four full passes, plus five menus at both widths.
-
-**Zero console, JavaScript and HTTP errors in all four passes.**
-
-One real finding, written down rather than fixed: the Library's Contents
-dock wraps to two lines at 1024 in both themes (row tops 162 and 206, with
-Collapse all, refresh and help pushed under the four-way segment). `.dock`'s
-`flex-wrap: wrap` is a deliberate recipe, so narrowing the segment against
-moving the actions behind a kebab is a design call rather than a small fix.
-The boards dock met the same shape today and took the kebab, which is the
-answer this one should take too.
-
-The pass also independently observed the kebab's first click and the chat
-header holding up, which were the two "reasoned, never observed" items.
-
-### The section 6 review of this branch, run 2026-09-09
-
-CLAUDE.md section 6 names four shapes to look for in work that came from
-somewhere else, and this branch is now mostly work that came from somewhere
-else: five agents' worth. Run against the whole diff from the branch point.
-
-- **A feature that never ran once.** 287 new top-level frontend functions;
-  eight had no `name(` call site, and all eight are wired by reference
-  instead (`addEventListener(..., fn)`, an update listener, a `filter`
-  predicate, a `setTimeout`). 131 new Python functions; ten are never
-  referenced by name and all ten carry a route decorator immediately above
-  them. Nothing dead. **The grep that finds this is worth keeping**: search
-  for `name(` first, then re-check every hit for a bare-name reference,
-  because a handler passed by reference looks exactly like dead code.
-- **A policy silently refusing the work.** No inline `style=` attribute was
-  added to any HTML or JS on this branch, so nothing is being refused by the
-  CSP unnoticed. (One was written today, in a sweep, and the CSP refused it
-  on the first run: `page.addStyleTag` fails the same way, and
-  `readmeshots.js` records it.)
-- **A working thing rewritten into a riskier thing**, and **a guard removed
-  while the shape around it was kept**: both need reading rather than
-  grepping, and the merges were reviewed one at a time as they landed. The
-  one deliberate rewrite is the graph's drag, which reverses a decision the
-  code defended at length; GRAPH_PLAN carries the reversal and the reason.
+Both moved whole to [`HISTORY.md`](HISTORY.md) ("Moved from the plans,
+2026-09-12") at the 600-line ceiling. In one line each: the visual pass
+found zero console, JavaScript and HTTP errors across four full passes
+(1440 and 1024, both themes) and one real finding, the Library's Contents
+dock wrapping to two lines at 1024, which should take the kebab the boards
+dock took; the section 6 review found nothing dead, no CSP-refused inline
+styles, and one deliberate rewrite (the graph's drag), recorded in
+GRAPH_PLAN with its reason.
 
 ### Two traps an agent worktree sets (2026-09-09, both hit for real)
 

@@ -8,7 +8,7 @@ both themes, documented in HISTORY.md ("Moved from the plans, 2026-09-12",
 Nothing is half-finished and nothing is uncommitted. Merged and pushed by the
 orchestrator, not here.
 
-Five commits, `e457ba4` through the head. Gates at the head:
+Six commits, `e457ba4` through `cb776a7`. Gates at the head:
 `scripts/gate.sh --changed` green after every one of them;
 `BASE=... scripts/gate.sh --sweeps` green (errors, docks, contrast, touch);
 `docoutline.js` passes every assertion it had before this work (it did before

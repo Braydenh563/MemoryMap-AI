@@ -22290,6 +22290,18 @@ already in `GET /documents`' summary payload, so there is no second request
 and no per-row fetch, and the sweep proves it by opening a `.py` and reading
 `.py` back off its row.
 
+**The case the comment claimed, measured.** A 60-heading document wants
+1498px of outline in a 686px panel, so the deficit is shared out by
+flex-shrink and the empty References section came out 11px tall around its
+own 28px action: the way out of an empty References was a sliver of a button.
+The empty state is the one place `flex-shrink: 0` is right in this column,
+and only because it is 28px in total, so exempting it costs the outline 28px
+of a column it is already scrolling inside; the section *with* references in
+it keeps `0 1 auto` and its 4rem floor. After: the outline scrolls inside
+itself (553.9px of box against 1498px of scroll), the panel does not scroll
+(686 against 686), References is its full 28px and on screen. It is four
+assertions in `docsidebarshape.js` now rather than a claim in a comment.
+
 **Contrast, measured rather than assumed** (`contrast.js` never visits the
 documents tab: its `TABS` list has seven tabs and documents is not one of
 them, which is itself worth knowing). Light: 6.99 to 15.52 for every new

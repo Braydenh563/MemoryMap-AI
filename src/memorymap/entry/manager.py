@@ -81,8 +81,17 @@ def log_action(
     )
 
 
-def get_or_create_category(session: Session, name: str) -> Category:
-    """Categories are identified by name; create on first use.
+def get_or_create_category(
+    session: Session, name: str, workspace_id: str | None = None
+) -> Category:
+    """Categories are identified by name within a space; create on first use.
+
+    `workspace_id` is for the caller that knows which space the category
+    belongs in when the *session* does not: a background pass has no request
+    and therefore no `X-Workspace-ID`, so the row would take the column
+    default and the note's own space could not list the category it was filed
+    into. Given one, both halves use it: the lookup, or a "Research" in
+    another space would be reused, and the insert.
 
     **Two writers can reach this at the same moment**, and the naive
     check-then-insert loses that race: both see no row, both insert, and the
@@ -101,16 +110,24 @@ def get_or_create_category(session: Session, name: str) -> Category:
     the row: SQLite allows one writer at a time, so the other transaction had
     to have committed for its row to be what this one collided with.
     """
-    category = session.scalar(select(Category).where(Category.name == name))
+    def _find() -> Category | None:
+        query = select(Category).where(Category.name == name)
+        if workspace_id is not None:
+            query = query.where(Category.workspace_id == workspace_id)
+        return session.scalar(query)
+
+    category = _find()
     if category is not None:
         return category
     try:
         with session.begin_nested():
             category = Category(name=name)
+            if workspace_id is not None:
+                category.workspace_id = workspace_id
             session.add(category)
             session.flush()  # assigns category.id without committing yet
     except IntegrityError:
-        existing = session.scalar(select(Category).where(Category.name == name))
+        existing = _find()
         if existing is None:  # pragma: no cover - see the docstring's last line
             raise
         return existing
@@ -136,10 +153,15 @@ def set_category(session: Session, entry: Entry, name: str) -> Entry:
     # list is a note that has quietly left the sidebar. The link path had
     # exactly this bug and it was measured; this is the same fact stated once
     # more, at the other place a row is made for a note.
-    from memorymap.core.deps import impersonate_workspace
-
-    with impersonate_workspace(session, entry.workspace_id or "default"):
-        entry.category_id = get_or_create_category(session, name).id
+    #
+    # Passed as a value rather than by borrowing the session's ambient space
+    # (`deps.impersonate_workspace`): that import is `core.deps` from
+    # `entry.manager`, which CodeQL flagged as the start of an import cycle,
+    # and the value is the honest thing to pass anyway. It is one fact, the
+    # note's own space, travelling to the one place that needs it.
+    entry.category_id = get_or_create_category(
+        session, name, workspace_id=entry.workspace_id or "default"
+    ).id
     session.flush()
     return entry
 

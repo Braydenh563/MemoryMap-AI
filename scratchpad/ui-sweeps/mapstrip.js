@@ -494,6 +494,70 @@ async function newBoard(page, name, type) {
       && inserted.middleUnderParent,
     JSON.stringify(inserted));
 
+  // --- the text-size grip (§12.1 item 6) ------------------------------------
+  // The pointer goes somewhere else first: `:hover` is a real state, and the
+  // last click in this sweep left the cursor on a node, so reading the grip's
+  // resting opacity without this measured a hovered node twice.
+  await page.mouse.move(4, 4);
+  await page.waitForTimeout(250);
+  const gripped = await page.evaluate(async (id) => {
+    const node = document.querySelector(`.wb-object[data-id="${id}"]`);
+    const grip = node.querySelector(".wb-map-size-grip");
+    if (!grip) return null;
+    // At rest means neither hovered nor selected: this node is still selected
+    // from the checks above, so the class comes off to read the resting state
+    // and goes straight back on. Reading it while selected is what the first
+    // version of this check did, and it measured nothing.
+    node.classList.remove("wb-selected");
+    const atRest = getComputedStyle(grip).opacity;
+    node.classList.add("wb-selected");
+    const shown = getComputedStyle(grip).opacity;
+    const r = grip.getBoundingClientRect();
+    const before = getComputedStyle(node).fontSize;
+    const send = (type, y, extra) => grip.dispatchEvent(new PointerEvent(type, {
+      bubbles: true, cancelable: true, pointerId: 1, pointerType: "mouse",
+      clientX: r.left + r.width / 2, clientY: y, ...extra,
+    }));
+    send("pointerdown", r.top + r.height / 2);
+    send("pointermove", r.top + r.height / 2 + 80);
+    const live = getComputedStyle(node).fontSize;
+    send("pointerup", r.top + r.height / 2 + 80);
+    await new Promise((res) => setTimeout(res, 1200));
+    await fetchWhiteboardState();
+    const obj = (wbState.objects || []).find((o) => o.id === id);
+    return { atRest, shown, before, live, stored: obj?.data?.font_size,
+      cursor: getComputedStyle(grip).cursor };
+  }, kidId);
+  check("the corner grip is quiet until the node is, and says it drags",
+    gripped && gripped.atRest === "0" && gripped.shown === "1"
+      && gripped.cursor === "ns-resize",
+    JSON.stringify({ atRest: gripped?.atRest, shown: gripped?.shown, cursor: gripped?.cursor }));
+  check("and dragging it down grows the text and stores the size",
+    gripped && parseFloat(gripped.live) > parseFloat(gripped.before)
+      && gripped.stored === Math.round(parseFloat(gripped.live)),
+    JSON.stringify({ before: gripped?.before, live: gripped?.live, stored: gripped?.stored }));
+
+  const clamped = await page.evaluate(async (id) => {
+    const node = document.querySelector(`.wb-object[data-id="${id}"]`);
+    const grip = node.querySelector(".wb-map-size-grip");
+    const r = grip.getBoundingClientRect();
+    const send = (type, y) => grip.dispatchEvent(new PointerEvent(type, {
+      bubbles: true, cancelable: true, pointerId: 1, pointerType: "mouse",
+      clientX: r.left + r.width / 2, clientY: y,
+    }));
+    send("pointerdown", r.top);
+    send("pointermove", r.top + 4000);
+    const high = getComputedStyle(node).fontSize;
+    send("pointermove", r.top - 4000);
+    const low = getComputedStyle(node).fontSize;
+    send("pointerup", r.top - 4000);
+    await new Promise((res) => setTimeout(res, 900));
+    return { high, low };
+  }, kidId);
+  check("and it cannot be dragged past the sizes a node can read at",
+    parseFloat(clamped.high) <= 44 && parseFloat(clamped.low) >= 10,
+    JSON.stringify(clamped));
+
   await browser.close();
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

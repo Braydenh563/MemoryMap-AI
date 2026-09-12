@@ -3388,6 +3388,29 @@ function wbBuildMapNode(el, d) {
   //: hand-placed off the same corner is how they come to overlap by a few
   //: pixels that a screenshot does not show, which this file has already had
   //: to fix twice for the count badge (see `.wb-map-count`'s own comment).
+  //: **The text-size grip** (MINDMAP_PLAN.md §12.1 item 6): drag the node's
+  //: own corner and the words get bigger. The strip has four sizes, which is
+  //: the right control for "make this a heading"; this is the one for
+  //: "a little bigger than that", and mind-mapping tools all have it because
+  //: a map's hierarchy is carried as much by size as by position.
+  //:
+  //: Plain pointer events with capture, not a d3 drag: `preventDefault` on
+  //: `pointerdown` suppresses the compatibility `mousedown` that `objDrag`
+  //: listens for, so grabbing the grip cannot also be the first frame of a
+  //: node drag. The class is in `objDrag`'s own filter as well, because one
+  //: guard for this is what the resize handles already learned is not enough.
+  el.append("button")
+    .attr("type", "button")
+    .attr("class", "wb-map-size-grip")
+    .attr("title", "Drag to change the text size")
+    .attr("aria-label", "Drag to change the text size")
+    .on("pointerdown", function (event) {
+      event.stopPropagation();
+      event.preventDefault();
+      wbMapStartSizeDrag(this, event, d);
+    })
+    .append("i").attr("class", "ph ph-text-aa").attr("aria-hidden", "true");
+
   const actions = el.append("div").attr("class", "wb-map-actions");
   actions.append("button")
     .attr("type", "button")
@@ -3523,6 +3546,41 @@ function wbMapOpenLink(d) {
     return;
   }
   window.open(String(href).trim(), "_blank", "noopener,noreferrer");
+}
+
+//: The grip's drag, from pointerdown to drop.
+//:
+//: Live on the element and stored once, at the end: a PUT per pixel of drag
+//: is the flood `wbBeginTextEdit`'s own blur-save comment warns about, and the
+//: node is already showing the new size, so there is nothing to see for it.
+//: Divided by the zoom, so the gesture means the same amount of text at every
+//: scale rather than four times as much when zoomed out.
+function wbMapStartSizeDrag(grip, event, d) {
+  const node = grip.closest(".wb-object");
+  if (!node) return;
+  const container = document.getElementById("whiteboard-container");
+  const k = container ? d3.zoomTransform(container).k : 1;
+  const startY = event.clientY;
+  const startSize = d.data?.font_size || WB_MAP_TEXT_DEFAULT;
+  let size = startSize;
+  grip.setPointerCapture?.(event.pointerId);
+  const move = (moveEvent) => {
+    // Four pixels of drag to one of type: the whole useful range (10 to 44)
+    // is then about 140px of travel, which is a gesture rather than a twitch.
+    const next = startSize + ((moveEvent.clientY - startY) / k) / 4;
+    size = Math.round(Math.min(WB_MAP_TEXT_MAX, Math.max(WB_MAP_TEXT_MIN, next)));
+    node.style.fontSize = `${size}px`;
+  };
+  const done = async () => {
+    grip.removeEventListener("pointermove", move);
+    grip.removeEventListener("pointerup", done);
+    grip.removeEventListener("pointercancel", done);
+    if (size === startSize) return;
+    await wbMapSetNodeStyle(d, { font_size: size });
+  };
+  grip.addEventListener("pointermove", move);
+  grip.addEventListener("pointerup", done);
+  grip.addEventListener("pointercancel", done);
 }
 
 //: Open the library item a reference node stands for. One place, because
@@ -11107,7 +11165,9 @@ function renderWbObjects(canvas) {
     // objects, not one filter.
     .filter((event) => {
       if (WB_BRUSH_TOOLS.has(window.currentTool) || window.currentTool === "lasso") return false;
-      if (event.target.closest(".wb-resize-handle, .wb-rotate-handle, .wb-object-grip")) return false;
+      if (event.target.closest(
+        ".wb-resize-handle, .wb-rotate-handle, .wb-object-grip, .wb-map-size-grip"
+      )) return false;
       // `.wb-text-content` used to be excluded outright, which is what left a
       // text box draggable only by its grip, see `wbBeginTextEdit`. It only
       // needs to keep the pointer while it is *being edited*, for the caret

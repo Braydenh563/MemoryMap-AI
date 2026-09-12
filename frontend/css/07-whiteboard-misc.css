@@ -8105,6 +8105,48 @@ input[type="file"] {
   pointer-events: auto;
 }
 
+/* The text-size grip (MINDMAP_PLAN.md §12.1 item 6). Inside the node, at the
+   corner, and shown by the same rule the two add buttons are: it belongs to
+   the node you are pointing at, and a grip on every node on a two-hundred-node
+   map would be two hundred more marks on the canvas.
+
+   Not `button.ghost`: this is a grip, the same kind of thing as
+   `.wb-object-grip` above, and a grip is a texture to grab rather than a
+   control to press. Giving it the button ramp's fill and lift would make it
+   look like a third add button parked in the corner. */
+.wb-map-size-grip {
+  position: absolute;
+  right: var(--space-1);
+  bottom: var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1;
+  cursor: ns-resize;
+  opacity: 0;
+  pointer-events: none;
+  touch-action: none;
+}
+
+.wb-map-node:hover .wb-map-size-grip,
+.wb-map-node.wb-selected .wb-map-size-grip,
+.wb-map-size-grip:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.wb-map-size-grip:hover,
+.wb-map-size-grip:focus-visible {
+  color: var(--ink);
+}
+
 /* How much a collapsed branch is holding. On the node, in the branch's own
    colour, because the count belongs to the branch that is folded away rather
    than to the node it is folded into. */

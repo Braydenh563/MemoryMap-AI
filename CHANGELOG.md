@@ -143,6 +143,42 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Five database indexes that were missing, including both columns of the
+  link table. A note's connections, the notes list's bulk link fetch, the
+  graph build and search's two-hop walk all read `entry_links` by source or
+  target, and neither column was indexed, so each read walked the whole
+  table; a board's objects were read the same way. Every list query the app
+  issues is now served by an index, with no whole-table sort left.
+
+- A mind map's ring of controls no longer covers the topic it belongs to. It
+  was a circle drawn around the topic's centre, so on any topic wider than the
+  ring was round two of its eight buttons sat on the topic's own words: the
+  ring is now pushed clear of the topic's box, the edit strip above it stands
+  off the ring rather than the topic, and the topic's two hover buttons, which
+  the ring already offers, stand down while it is open.
+
+- The whiteboard and mind map View menu uses the whole window again. It was
+  measured with the stylesheet's own height limit still applied, so it was
+  placed lower than it needed to be and then cut to the room left under that
+  line: on a 760px-tall window it now shows all of itself where it used to
+  scroll, and on shorter windows it shows about 48px more of itself.
+
+- The "new from a template" dialog reads as a list of choices rather than six
+  outlined boxes, and its Cancel sits at the right with every other dialog's
+  actions. Ten dialogs had been asking for that alignment in their markup
+  against a rule that did not exist.
+
+- The note composer's formatting strip, and the one in a note's edit form, are
+  the composer's own tighter strip again in both toolbar layouts. The single
+  row layout was handing them the document editor's full-page padding, and the
+  edit form's strip, which is meant to wrap rather than scroll, was drawing a
+  third of its buttons outside its own box.
+
+- The agent activity panel fits its runs. A run's "Step 2 of 3" was breaking
+  across two lines beside its progress bar, which made every row a third
+  taller and pushed a third run out of sight; the panel also honours "reduce
+  motion" now.
+
 - The notes list reads the attachments table once per page instead of once
   per note. Counted on a 60-note page: 67 database statements, 60 of them
   the same attachments query, and 8 after. It is the most-requested

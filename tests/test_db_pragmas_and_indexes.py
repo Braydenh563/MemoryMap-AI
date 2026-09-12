@@ -21,7 +21,7 @@ file every fixture already relies on elsewhere in this suite
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from memorymap.core.database import (
     Attachment,
@@ -30,7 +30,9 @@ from memorymap.core.database import (
     DatabaseManager,
     Document,
     Entry,
+    EntryLink,
     MediaUpload,
+    WhiteboardObject,
 )
 
 
@@ -69,6 +71,15 @@ def test_the_new_indexes_exist_in_sqlite_master(db):
         "ix_attachments_entry_id",
         "ix_media_uploads_workspace_created",
         "ix_documents_workspace_live_updated",
+        # The 2026-09-12 pass: the link table of a linked-notes app had no
+        # index on either of its two foreign keys, a board's objects had none
+        # on the board they belong to, and the conversation and reminder
+        # lists sorted their whole table on every load.
+        "ix_entry_links_source",
+        "ix_entry_links_target",
+        "ix_whiteboard_objects_board",
+        "ix_conversations_workspace_updated",
+        "ix_reminders_workspace_due",
     ):
         assert expected in names, f"{expected} missing from a fresh database"
 
@@ -235,3 +246,84 @@ def test_a_notes_history_is_served_by_its_index(db):
     assert "ix_audit_log_entity" in plan, plan
     assert "SCAN audit_log" not in plan, plan
     assert "TEMP B-TREE" not in plan, plan
+
+
+def test_a_notes_links_are_served_by_an_index_from_either_end(db):
+    """`entry_links` is read by `source = ? OR target = ?` everywhere.
+
+    A note opening its own connections, `links_for_entries_bulk` for a page
+    of the notes list, the graph build and `search/engine._hops_from`'s
+    two-hop walk all read this table, and both its columns are plain
+    ForeignKeys, which SQLAlchemy does not index. Measured on 2,000 notes
+    with 6,000 links: "SCAN entry_links" from either end.
+
+    Two single-column indexes, not one composite: the OR lets SQLite serve
+    each side from its own index and union the rowids, where a composite on
+    (source, target) would serve the source half only.
+    """
+    with db.session() as session:
+        session.info["workspace_id"] = "default"
+        session.add_all([Entry(content=f"note {i}") for i in range(400)])
+        session.commit()
+        ids = [e.id for e in session.scalars(select(Entry)).all()]
+        session.add_all(
+            [
+                EntryLink(source_entry_id=ids[i % len(ids)], target_entry_id=ids[(i + 7) % len(ids)])
+                for i in range(2000)
+            ]
+        )
+        session.commit()
+
+    for column, index in (
+        ("source_entry_id", "ix_entry_links_source"),
+        ("target_entry_id", "ix_entry_links_target"),
+    ):
+        plan = " ".join(_plan(db, f"SELECT * FROM entry_links WHERE {column}=7"))
+        assert index in plan, plan
+        assert "SCAN entry_links" not in plan, plan
+
+
+def test_a_boards_objects_are_served_by_an_index(db):
+    """Every open of a whiteboard or mind map reads its objects by board.
+
+    `whiteboard_objects` holds every object of every board, so without an
+    index on `board_id` opening one board reads all of them. Measured on one
+    board of 3,000 objects: "SCAN whiteboard_objects", 34.38 ms.
+    """
+    with db.session() as session:
+        session.info["workspace_id"] = "default"
+        board = Entry(content="a board", is_board=True)
+        session.add(board)
+        session.commit()
+        session.add_all(
+            [WhiteboardObject(board_id=board.id, kind="card", data="{}") for _ in range(500)]
+        )
+        session.commit()
+
+    plan = " ".join(_plan(db, "SELECT * FROM whiteboard_objects WHERE board_id=1"))
+    assert "ix_whiteboard_objects_board" in plan, plan
+    assert "SCAN whiteboard_objects" not in plan, plan
+
+
+def test_the_chat_and_reminder_lists_do_not_sort_their_whole_table(db):
+    """Same shape as the media and documents list tests above.
+
+    Both order newest-first inside the workspace filter `WorkspaceMixin`
+    adds, and both reported "USE TEMP B-TREE FOR ORDER BY" before their
+    composite index existed.
+    """
+    for sql, index in (
+        (
+            "SELECT * FROM conversations WHERE workspace_id='default' "
+            "ORDER BY updated_at DESC LIMIT 50",
+            "ix_conversations_workspace_updated",
+        ),
+        (
+            "SELECT * FROM reminders WHERE workspace_id='default' "
+            "ORDER BY due_at DESC LIMIT 50",
+            "ix_reminders_workspace_due",
+        ),
+    ):
+        plan = " ".join(_plan(db, sql))
+        assert index in plan, plan
+        assert "TEMP B-TREE" not in plan, plan

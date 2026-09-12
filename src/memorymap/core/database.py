@@ -1635,6 +1635,31 @@ class DatabaseManager:
         # newest-first page is a walk backwards along it rather than a sort
         # of everything that matched.
         ("ix_audit_log_entity", "audit_log (entity_type, entity_id, id DESC)"),
+        # `EntryLink.source_entry_id` and `.target_entry_id`, the link table
+        # of a linked-notes app and the largest remaining gap. Both are plain
+        # ForeignKey columns, so neither carried an index, and every lookup
+        # is `source = ? OR target = ?`: a note opening its own connections,
+        # `links_for_entries_bulk` for a page of the notes list, the graph
+        # build, and the two-hop walk `search/engine._hops_from` does per
+        # search. Measured on 2,000 notes with 6,000 links, three per note:
+        # "SCAN entry_links", and `links_for_entries_bulk` over a 50-note
+        # page at 8.78 ms. Two single-column indexes rather than one
+        # composite, because the OR means SQLite serves each side from its
+        # own index and unions the rowids; a composite on (source, target)
+        # would only serve the source half.
+        ("ix_entry_links_source", "entry_links (source_entry_id)"),
+        ("ix_entry_links_target", "entry_links (target_entry_id)"),
+        # `WhiteboardObject.board_id`, the same shape: every open of a
+        # whiteboard or mind map reads its objects by board, and the table
+        # holds every object of every board. Measured on one board of 3,000
+        # objects: "SCAN whiteboard_objects", 34.38 ms to read that board.
+        ("ix_whiteboard_objects_board", "whiteboard_objects (board_id)"),
+        # `Conversation` and `Reminder` list newest-first inside the
+        # workspace filter the mixin adds, and both reported "USE TEMP
+        # B-TREE FOR ORDER BY": the same shape as the media and documents
+        # indexes above, which is why they take the same form.
+        ("ix_conversations_workspace_updated", "conversations (workspace_id, updated_at DESC)"),
+        ("ix_reminders_workspace_due", "reminders (workspace_id, due_at DESC)"),
     )
 
     def _ensure_indexes(self) -> None:

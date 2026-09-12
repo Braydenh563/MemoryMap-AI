@@ -52,7 +52,14 @@ the History sheet in `frontend/app.js`. All five strict-xfail markers in
    list the dashboard has already loaded, and events would list notes that
    no longer exist). **Next step:** an activity strip that polls `/events`
    with the cursor, rendering actor and action.
-6. **Sync (B6) as log shipping.** `id: events-sync`. Unstarted, and
+6. **The sheet stops at one page.** `file: frontend/app.js`
+   (`openEntryHistory`), `id: events-history-page`. The route pages with
+   `before` and returns `next_cursor`; the sheet reads the first fifty
+   events and ignores the cursor, so a note edited more than fifty times
+   shows its newest fifty with nothing saying there is more. **Next step:**
+   a "load older" row at the bottom that re-requests with `before` and
+   appends.
+7. **Sync (B6) as log shipping.** `id: events-sync`. Unstarted, and
    deliberately: it needs the retention rule above to exist first.
 
 ## Not verified

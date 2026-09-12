@@ -4884,11 +4884,17 @@ button.ghost.danger:hover {
      carry their own inset from the edge instead, so nothing has moved
      closer to the border than it was. */
   padding: 0;
-  /* The floating dock's own height, which two other things need to clear:
+  /* The floating dock's own height, which three other things need to clear:
      `--control-h-lg` for the controls in it plus this section's padding and
      the hairline. It is a calc rather than a measured pixel count so a change
-     to the density scale carries; it is only right while the dock is one row,
-     which is why the minimap rule below is scoped to the widths where it is. */
+     to the density scale carries, and it is only right while the dock is one
+     row: measured at a 700px viewport the dock wraps to 111px while this said
+     51px, and everything that clears the dock by this token was told it had
+     60px it did not have. `initGraphDockHeightToken` in graph.js overwrites
+     this with the measured height on the element, so the value below is the
+     floor for the first paint and for a browser with no ResizeObserver, and
+     the truth arrives before anything can be seen to be in the wrong place.
+     The same treatment, for the same reason, as `--header-h` in app.js. */
   --graph-dock-h: calc(var(--control-h-lg) + var(--space-2) * 2 + 2px);
   --graph-chrome-top: calc(var(--space-3) * 2 + var(--graph-dock-h));
 }
@@ -5128,9 +5134,35 @@ button.ghost.danger:hover {
 
 
 /* GRAPH_PLAN Phase 4: the selection dock floats under the graph dock, and
-   the right-click menu is a fixed action menu at the pointer. */
+   the right-click menu is a fixed action menu at the pointer.
+
+   **It floats under the dock; it was in the column above it.** Owner: "when
+   I select graphs with the multi select feature, the select panel appears in
+   the top right above the topbar and pushes the top bar down, covering the
+   minimap if it is set to the top left or right, it has to show below the
+   top bar." Measured at 1440x900 before this rule: revealing the dock moved
+   the graph dock from y=81 to y=151, and the minimap (pinned at
+   `--graph-chrome-top`, which is where the dock used to end) was left at
+   y=140 with the pushed-down dock covering it from y=151.
+
+   A transient bar is the one thing in this column that must not move what is
+   already on screen: it appears and disappears under the pointer, mid-drag,
+   several times a minute. So it leaves the flow entirely and is positioned
+   against the column instead, at the dock's own height plus the column's
+   gap, which is the same "clear the dock" offset `--graph-chrome-top` gives
+   the minimap, expressed from inside the column rather than from the card.
+
+   Centred rather than at the column's left edge, which is the one horizontal
+   position that clears *both* top corners the minimap can be set to: at
+   1440px it spans x=473 to x=967 with the minimap's corners ending at 195
+   and starting at 1237. `left`/`right`/`margin-inline` rather than a
+   translate, so the bar lands on whole pixels and its text stays crisp. */
 .graph-selection-dock {
-  margin-top: var(--space-2);
+  position: absolute;
+  top: calc(var(--graph-dock-h) + var(--space-3));
+  left: 0;
+  right: 0;
+  margin-inline: auto;
   gap: var(--space-2);
   width: max-content;
   max-width: 100%;

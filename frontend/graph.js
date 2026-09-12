@@ -1799,6 +1799,7 @@ async function renderGraphSvg() {
   graphCanvas = canvas;
   graphDims = { w: width, h: height };
   initGraphMinimap();
+  initGraphDockHeightToken();
   initGraphViews();
 
   // D3 mutates these (x/y/vx/vy), so work on copies.
@@ -4012,6 +4013,39 @@ function graphMinimapPaint() {
   ];
 }
 
+// --- the dock's real height, in the token everything clears it by ------------
+//
+// `--graph-dock-h` (02-chat-graph.css) is a calc of one row of controls, and
+// the dock is not one row at every width: measured at a 700px viewport it
+// wraps to 111px while the token still read 51px. Everything that clears the
+// dock reads that token, so at that width the minimap's top corners sat 60px
+// too high, underneath the dock they exist to stay clear of, and the options
+// panel was capped against a top that did not exist.
+//
+// The same answer, for the same reason, as `initHeaderHeightToken` in app.js:
+// a ResizeObserver writes the measured height back into the token everything
+// already reads, so nothing gains a second property to learn. Through the
+// CSSOM rather than a `style=` attribute, which this app's CSP refuses. No
+// feedback loop is possible: the dock's height comes from its own content and
+// nothing inside it is sized from this token.
+function initGraphDockHeightToken() {
+  const card = document.getElementById("graph-card");
+  const dock = card?.querySelector('.dock[data-dock-name="graph"]');
+  if (!card || !dock || typeof ResizeObserver === "undefined") return;
+  if (dock._heightWired) return;
+  dock._heightWired = true;
+  const write = () => {
+    const h = Math.round(dock.getBoundingClientRect().height);
+    // Zero while the tab is not on screen (the card is display:none until
+    // then), and a zero here would stack the minimap and the selection bar
+    // on top of the dock at the next paint. The stylesheet's own calc stands
+    // until there is a real measurement to replace it with.
+    if (h > 0) card.style.setProperty("--graph-dock-h", `${h}px`);
+  };
+  new ResizeObserver(write).observe(dock);
+  write();
+}
+
 function initGraphMinimap() {
   const svg = document.getElementById("graph-minimap-svg");
   if (!svg || svg._wired) return;
@@ -4284,3 +4318,10 @@ function initGraphViews() {
   });
   renderGraphViews();
 }
+
+// Wired at parse time as well as from the first render: the token has to be
+// right before the tab is first looked at, and the render path that calls it
+// below does not run at all while the notebook has nothing to draw. Both
+// calls are idempotent (`_heightWired`), and the observer's first callback
+// arrives with a real height as soon as the card stops being display:none.
+initGraphDockHeightToken();

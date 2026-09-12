@@ -77,6 +77,18 @@ items"): compaction with its startup job (item 1), the
    `routes_whiteboard.py` (they would have to move somewhere both can
    import, which is the only reason this was not done with item 3).
 
+5. **`/events` over-reports a compacted snapshot.** `file:
+   src/memorymap/api/routes_settings.py` (`event_feed`), `id:
+   events-feed-changed`. The feed returns `changed`, the field names an
+   event set, read off `payload["after"]`. A compaction snapshot's `after`
+   holds the whole state, so such an event reads as having changed every
+   field. Harmless today (the feed reads forwards from a cursor, so it is
+   about what just happened, and a snapshot is at least ninety days old),
+   and left rather than fixed blind: the strip that will read this does not
+   exist yet (item 2), and what it wants shown there is its decision.
+   **Next step:** when the strip is built, either report `[]` for a row
+   carrying the compaction marker or render it as "compacted".
+
 ## Not verified
 
 - No pre-Brief-7 database was upgraded. Both migrations are exercised by the

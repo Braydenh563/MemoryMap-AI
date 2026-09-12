@@ -48,28 +48,6 @@ never lost to the smaller stuff.
       belongs to, covering the formatting toolbar and the note body).
     Both sent to the agent already rebuilding the three Notes sub-tabs.
 
-118. **Fifth drop, 2026-09-12 evening, verbatim (the owner), with a
-    screenshot of six Library image cards.** "also redesign the bottom of
-    the images cards again as theyare still poorly designed and look
-    unprofessional". What the screenshot shows, read off it: each card is a
-    description paragraph of two to five lines, unclamped, so no two cards
-    are the same height and their bottoms do not align; under it a
-    full-width tinted disclosure reading "Used in 1 place · text found"
-    with a small triangle, which is the heaviest element on the card and
-    sets two unrelated facts (where it is used, and whether it has text) in
-    one control; and then dead space, most of a card's height on the
-    shortest three. Sent to the agent already redesigning these cards
-    rather than opened as a second pass. **Fixed `75a1d62` and `65cf876`**,
-    measured at 1440 dark on six seeded cards (the first pass had been
-    committed with no numbers at all). The description clamps at two lines,
-    so the six no longer run 3, 3, 3, 2, 1 and 0; the count is a line of
-    text at 11.2px with no margins, against an unstyled paragraph at 16px
-    with 32px of them; the fold is a chip sized to its words, 128.8 x 31.6
-    on a `--chip-bg` ground, against 159.1 x 32.8 at the button tier, which
-    also took its label from 3.70:1 to 5.09:1 in dark (pixels, not a
-    composite). Cards 321.1px -> 261.5px, bottoms within 0.1px of each
-    other, and the hole under the emptiest card 54.5px -> 1.0px.
-
 117. **Found by the orchestrator's hole-poking pass, 2026-09-12 evening,
     not an owner report.** Three list endpoints hand back the whole table.
     Measured with 300 rows of each seeded through the models: `/documents`
@@ -157,7 +135,7 @@ never lost to the smaller stuff.
       cards: each has a "Used in" chip, a wrapped description, a "More"
       button, a "Text in this image" fold, and a two-line "Described by
       <model> · read by <model>" footer, which is four stacked controls
-      and a model name twice). **Fixed `75a1d62` and `65cf876`** with
+      and a model name twice). **Fixed `75a1d62`, `65cf876` and `4dd3f57`** with
       INBOX 118 below, which is the same cards a pass later. The function
       half is menu rows, run rather than assumed
       (`scratchpad/ui-sweeps/imagecardmenu.js`): open full size, copy the

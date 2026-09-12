@@ -301,7 +301,7 @@ shape and was being restacked every pass.
   by X, read by Y" has been called noise twice (INBOX 56 and the second design
   batch) and is not coming back to the outside of the card.
 
-Built in `75a1d62` and `65cf876`; probed by `scratchpad/ui-sweeps/imagecardfoot.js`
+Built in `75a1d62`, `65cf876` and `4dd3f57`; probed by `scratchpad/ui-sweeps/imagecardfoot.js`
 (shape and, with `pixelcontrast.py`, contrast from the rendered pixels) and
 `imagecardmenu.js` (the menu rows, run rather than assumed).
 

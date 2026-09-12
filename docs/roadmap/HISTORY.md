@@ -21508,6 +21508,28 @@ verbatim, is triaged at the next step boundary, and leaves: fixed now (then
 What is here now is this PR's own bug list (Brief 18 section A, HANDOVER's
 done-when item 4 and 5), in priority order.
 
+118. **Fifth drop, 2026-09-12 evening, verbatim (the owner), with a
+    screenshot of six Library image cards.** "also redesign the bottom of
+    the images cards again as theyare still poorly designed and look
+    unprofessional". What the screenshot shows, read off it: each card is a
+    description paragraph of two to five lines, unclamped, so no two cards
+    are the same height and their bottoms do not align; under it a
+    full-width tinted disclosure reading "Used in 1 place · text found"
+    with a small triangle, which is the heaviest element on the card and
+    sets two unrelated facts (where it is used, and whether it has text) in
+    one control; and then dead space, most of a card's height on the
+    shortest three. Sent to the agent already redesigning these cards
+    rather than opened as a second pass. **Fixed `75a1d62`, `65cf876` and `4dd3f57`**,
+    measured at 1440 dark on six seeded cards (the first pass had been
+    committed with no numbers at all). The description clamps at two lines,
+    so the six no longer run 3, 3, 3, 2, 1 and 0; the count is a line of
+    text at 11.2px with no margins, against an unstyled paragraph at 16px
+    with 32px of them; the fold is a chip sized to its words, 128.8 x 31.6
+    on a `--chip-bg` ground, against 159.1 x 32.8 at the button tier, which
+    also took its label from 3.70:1 to 5.09:1 in dark (pixels, not a
+    composite). Cards 321.1px -> 261.5px, bottoms within 0.1px of each
+    other, and the hole under the emptiest card 54.5px -> 1.0px.
+
 ## Moved from the plans, 2026-09-12
 
 ### From CHAT_PLAN.md Phase 4 and SESSION_BRIEFS Brief 13: the skill harness and its verifier

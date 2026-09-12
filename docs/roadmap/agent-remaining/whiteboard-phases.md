@@ -1,13 +1,18 @@
-# The whiteboard: what Phases 1 to 3 left, and what Phase 4 needs
+# The whiteboard: what Phases 1 to 4 left
 
 > Companions: [WHITEBOARD_PLAN.md](../WHITEBOARD_PLAN.md) ·
 > [MINDMAP_PLAN.md](../MINDMAP_PLAN.md) · [mindmap.md](mindmap.md) ·
 > [../../DESIGN.md](../../DESIGN.md)
 >
 > Written 2026-09-12 by the agent that built WHITEBOARD_PLAN Phases 1, 2 and
-> 3. Everything below was measured in a real Chromium against the running app,
-> not read off the source. The three phases' own accounts, with their numbers,
-> are in HISTORY.md ("Moved from the plans, 2026-09-12").
+> 3, and extended the same day by the agent that built Phase 4. Everything
+> below was measured in a real Chromium against the running app, not read off
+> the source. The four phases' own accounts, with their numbers, are in
+> HISTORY.md ("Moved from the plans, 2026-09-12").
+>
+> **Phases 1 to 3 landed whole in `353aef8`, and this file landed with them**,
+> so nothing in it was stale when Phase 4 started; the six open items below are
+> the same six, re-read against the running app and still open.
 
 ## The sweeps that gate this surface
 
@@ -15,6 +20,7 @@
 | --- | --- |
 | `scratchpad/ui-sweeps/whiteboard.js` | **24**: the rail and its keys (Phase 1), the context bar and the arrange actions (Phase 2). Green at 1440x900 light, 1440x900 dark and 390x844. |
 | `scratchpad/ui-sweeps/whiteboard3.js` | **12**: the export dialog, the handle recipe and the highlighter's blend (Phase 3). Green at the same three. |
+| `scratchpad/ui-sweeps/wbphase4.js` | **19**: root placement on open and on re-open, the edge follow through three kinds of drag measured mid-drag, and Tidy with thirty nodes in all three layouts (Phase 4). Green at 1440x900 light. |
 
 Run them against a **fresh** data dir (`serve.sh <port> /tmp/mm-wbN`): both
 seed boards and objects and assert counts, so a dir left over from an earlier
@@ -115,11 +121,30 @@ the `[data-glass="off"]` list in `03-dashboard-widgets.css`. Removing it from
 those is a one-line-per-site sweep with no behaviour behind it; it was left
 because those files were being edited by another agent the same night.
 
-## What Phase 4 needs (it is a separate brief, with MINDMAP_PLAN Phases 4 to 5)
+## Phase 4: built 2026-09-12, and what it found
 
-Phase 4 is root placement, edges following drags, and Tidy measured with 30
-nodes. None of it was touched here. What these three phases change underneath
-it, and what the next agent should therefore know:
+Its account is in HISTORY.md ("Moved from the plans, 2026-09-12",
+WHITEBOARD_PLAN Phase 4). In one line each:
+
+- **Root placement and the edge follow were already built**, in
+  `wbFrameMapOnOpen` and in the three places that collect a drag's edges
+  (`wbMapEdgesFor` at `objDragStart`, `wbCaptureBulkMoveOrigin`,
+  `wbMapBranchDragOrigin`). What they lacked was a number, and
+  `scratchpad/ui-sweeps/wbphase4.js` is it: 0px worst endpoint gap over 29
+  edges, mid-drag, for a leaf, a whole branch and a marquee pair.
+- **Tidy is clean at thirty nodes** in `tree-right` and `tree-down` (0
+  overlapping pairs, minimum gap 26 board units, which is
+  `WB_MAP_GAP_BREADTH`), and was **not** in `radial`: 6 overlapping pairs, the
+  worst 38x28. Fixed in `wbMapTidyPositions` by letting the rings widen when
+  the breadth span needs more than one turn of the circle. 0 pairs after.
+- **MINDMAP_PLAN Phases 4 and 5 are not open work.** The plan's §11 records
+  them as built and moved to HISTORY on 2026-09-09; a brief that pairs them
+  with this phase is naming them by their old status. What is actually left of
+  the map is [mindmap.md](mindmap.md)'s "Left to do", which is §12.1's dock
+  menus and five sub-items, not Phases 4 to 5.
+
+What Phases 1 to 3 changed underneath Phase 4, kept here because it is still
+what an agent arriving at this surface needs to know:
 
 - **The properties drawer is gone.** `#wb-properties-panel` and
   `#wb-selection-bar` no longer exist. Anything that reached for a property

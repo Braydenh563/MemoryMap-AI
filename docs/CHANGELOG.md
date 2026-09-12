@@ -9,6 +9,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Mind map: a radial map no longer overlaps itself once it is bigger than one
+  turn of the circle. Thirty nodes in the radial layout put six pairs of
+  topics on top of each other, the worst by 38 by 28 board units, because the
+  layout normalised the whole map onto one turn however much room its nodes
+  needed. The rings widen instead, so every node keeps the arc it occupies;
+  small maps are laid out exactly as before. Root placement on open and the
+  edges that follow a drag are measured now as well: no overlap with the top
+  bar, and edge ends that stay on their two nodes through a leaf drag, a whole
+  branch drag and a multi-selected drag.
+
 - Whiteboard: export is a dialog, the selection handles are one recipe, and
   the highlighter behaves like one. Export was a list of every scope and
   format pair that ran off the bottom of the window; it is two rows of

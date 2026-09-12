@@ -4835,9 +4835,9 @@ function wbMapTidyPositions(index, layout) {
   const ring = Math.max(...perDepth.filter(Number.isFinite), WB_MAP_NODE_W) + WB_MAP_GAP_DEPTH;
   const offsets = [0];
   for (let d = 1; d < perDepth.length; d += 1) {
-    offsets[d] = layout === "radial"
-      ? d * ring
-      : offsets[d - 1] + (perDepth[d - 1] || 0) + WB_MAP_GAP_DEPTH;
+    // Radial does not use these: its radius per ring is worked out below,
+    // from the span the first walk actually produced.
+    offsets[d] = offsets[d - 1] + (perDepth[d - 1] || 0) + WB_MAP_GAP_DEPTH;
   }
 
   const flat = [];
@@ -4862,10 +4862,24 @@ function wbMapTidyPositions(index, layout) {
     const min = Math.min(...flat.map((f) => f.breadth));
     const max = Math.max(...flat.map((f) => f.breadth));
     const span = max - min + Math.min(...flat.map(extentOf)) || 1;
+    //: **The rings grow when the circle runs out of room**, and without this
+    //: a radial map overlaps itself as soon as it has more nodes than one
+    //: turn can hold. The breadth axis is normalised onto 2π, so the factor
+    //: from a breadth unit to an angle is `2π / span`, while the arc a node
+    //: needs at depth `d` is its own breadth divided by the ring spacing (the
+    //: breadths above are already divided by depth for exactly this reason).
+    //: The two agree only while `span <= 2π * ring`; past that the normalise
+    //: silently compresses every node into less arc than it occupies. So the
+    //: spacing is whichever is larger, which spreads a big map over wider
+    //: rings instead of stacking it on top of itself, and is a no-op on any
+    //: map small enough that the base spacing was already sufficient.
+    //: Measured (WHITEBOARD_PLAN Phase 4, `wbphase4.js`): 30 nodes in radial
+    //: gave 6 overlapping pairs, the worst 38x28 board units, and 0 after.
+    const ringRadius = Math.max(ring, span / (2 * Math.PI));
     for (const f of flat) {
       const size = sizes.get(f.obj.id) || { w: WB_MAP_NODE_W, h: WB_MAP_NODE_H };
       const angle = ((f.breadth - min) / span) * 2 * Math.PI - Math.PI / 2;
-      const radius = offsets[f.depth] || 0;
+      const radius = f.depth * ringRadius;
       // Centres, then back to the top-left corner an object's `x`/`y` mean.
       positions.set(f.obj.id, {
         x: radius * Math.cos(angle) - size.w / 2,

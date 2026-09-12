@@ -153,10 +153,15 @@ luminance units a pass on a light board and 3 on a dark one, which is the
 objection the pad's own comment in `app.js` already records. Both are in
 [`agent-remaining/whiteboard-phases.md`](agent-remaining/whiteboard-phases.md).
 
-### Phase 4: mind map regressions and Tidy (half a session, with
-MINDMAP_PLAN Phases 4 to 5)
-Root placement; edges follow drags; Tidy measured with 30 nodes (no
-overlaps, measured bounding boxes). Then the mindmap phases.
+### Phase 4: mind map regressions and Tidy: BUILT, 2026-09-12
+Moved to HISTORY.md ("Moved from the plans, 2026-09-12", WHITEBOARD_PLAN
+Phase 4): a plan holds open work only. Its gate lives on in
+`scratchpad/ui-sweeps/wbphase4.js` (19 checks). Root placement and the
+per-frame edge follow were already built and are now measured (0px endpoint
+gap over 29 edges, mid-drag, for a leaf, a whole branch and a marquee pair);
+Tidy with thirty nodes leaves no overlaps in any layout, which took one fix:
+a radial map past about twenty nodes compressed its rings into less arc than
+its nodes occupied.
 
 ## 6. Consistency rules
 

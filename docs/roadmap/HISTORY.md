@@ -21654,6 +21654,62 @@ done-when item 4 and 5), in priority order.
 
 ## Moved from the plans, 2026-09-12
 
+### From WHITEBOARD_PLAN Phase 4: root placement, edges that follow drags, and Tidy at thirty nodes
+
+Built 2026-09-12. The phase as it was written:
+
+> ### Phase 4: mind map regressions and Tidy (half a session, with
+> MINDMAP_PLAN Phases 4 to 5)
+> Root placement; edges follow drags; Tidy measured with 30 nodes (no
+> overlaps, measured bounding boxes). Then the mindmap phases.
+
+**Two of the three were already built, and are now measured rather than
+assumed.** That is the whole finding of the first half of this phase, and it
+is written down here because the alternative was a fourth session rebuilding
+them. `wbFrameMapOnOpen` had already fixed decision 9's first half (a map
+frames itself on open, and falls back to framing its root at 1:1 when a fit
+would land under `WB_MAP_OPEN_MIN_SCALE`), and the per-frame edge follow had
+already been written three times over: `wbMapEdgesFor` collects a dragged
+node's own edges at `objDragStart`, `wbCaptureBulkMoveOrigin` collects every
+other selected node's, and `wbMapBranchDragOrigin` collects the branch's. What
+none of them had was a number.
+
+`scratchpad/ui-sweeps/wbphase4.js` (19 checks) is that number, and it measures
+three things a screenshot cannot:
+
+- **Root placement.** On a new map the root's box is (620, 461)-(820, 505)
+  against a top bar of (24, 136)-(1416, 182): no intersection, inside the
+  canvas, and `document.elementFromPoint` at the root's own centre returns the
+  root's own text rather than a top-bar button, which is the failure mode the
+  report described. Re-opening a thirty-node map frames it at 0.57, over the
+  0.45 floor, with the root on the canvas and clickable.
+- **Edges follow drags**, with the button still down. Every drawn edge's two
+  endpoints are read back with `getPointAtLength` (so a `d` attribute written
+  and then overwritten cannot fool it) and measured against the two nodes'
+  live boxes. Worst endpoint gap over 29 edges: **0px** mid-drag and 0px after
+  the drop, for a leaf dragged alone, a branch dragged whole (the case where
+  only `wbApplyBulkMove` touches the edges further down) and a marquee-selected
+  pair. The invisible hit twin matched the visible path on every edge.
+- **Tidy with thirty nodes.** A four-level tree of 30 nodes, tidied in each
+  layout, with every rendered box compared against every other: 0 overlapping
+  pairs in `tree-right` and `tree-down`, minimum gap 26 board units, which is
+  `WB_MAP_GAP_BREADTH` exactly.
+
+**The one real bug: a radial map overlapped itself past about twenty nodes.**
+Thirty nodes in `radial` gave **6 overlapping pairs**, the worst 38x28 board
+units. The cause is a unit mismatch inside `wbMapTidyPositions` rather than
+anything to do with the tidy walk: the breadths are divided by depth so that a
+breadth unit converts to an arc at `1 / ring` radians, but the layout then
+normalises the whole breadth axis onto 2π, a factor of `2π / span`. The two
+agree only while `span <= 2π * ring`; past that every node is compressed into
+less arc than it occupies, and the first ring (whose nodes are widest in
+angle) goes first. The rings now grow instead: `ringRadius = max(ring, span /
+2π)`, which is a no-op on any map small enough that the base spacing already
+sufficed, and spreads a larger one over wider rings rather than stacking it on
+itself. Measured after: **0 overlapping pairs** at thirty nodes, minimum gap
+19.2 board units (radial's gap is angular, so it is not the flat 26 the two
+tree layouts give, and it is a gap rather than an overlap).
+
 ### From WHITEBOARD_PLAN Phase 3: the export dialog, the handles, the highlighter
 
 Built 2026-09-12. The phase as it was written:

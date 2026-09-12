@@ -333,7 +333,12 @@ function editorCommands(context) {
       label: "\u{1F4CA} Table",
       hint: "3 columns",
       keywords: ["table", "grid", "columns"],
-      run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.table),
+      //: `editorApplyNamed`, not `editorApplyAction`: the table is a `custom`
+      //: action now (it places the caret in the first header cell), and
+      //: `editorApplyAction` knows only the four insertion shapes, so it would
+      //: have matched nothing and inserted nothing, silently. Its own comment
+      //: says so.
+      run: (textarea) => editorApplyNamed(textarea, "table"),
     },
     {
       id: "codeblock",

@@ -2128,6 +2128,691 @@ function toggleDocComment(box) {
 // structure comes back, as gutter affordances over the one document rather
 // than as a second copy of it.
 
+// =============================================================================
+// Tables, as a model over the markdown rather than a second document
+// (DOCUMENTS_PLAN Phase 3 item 1)
+// =============================================================================
+//
+// **The gate this is written for, first, because it decides the whole shape.**
+// PLAN D4: a table edited in Live and then read in Source has to be the
+// markdown a person would have typed, byte for byte. The obvious
+// implementation, parse the table into a grid and print it back out, fails
+// that gate on its first keystroke: a hand-aligned table comes back with its
+// padding rebuilt, a ragged one comes back tidied, and a cell holding `\|`
+// comes back holding whatever the printer decided to do about pipes. The
+// document is then no longer the file its author wrote, which is the one
+// promise a markdown editor makes.
+//
+// So nothing here ever *prints a table*. Every operation returns a list of
+// `{from, to, insert}` edits in document coordinates, each one covering the
+// smallest span it can: setting a cell rewrites that cell's own characters
+// between its pipes and nothing else; adding a column inserts one `|` and one
+// cell per line; alignment rewrites one delimiter cell. Every byte the
+// operation did not have to touch is still the byte the author typed, which
+// is a stronger statement than "the output matches the input" and is what
+// `tests/test_doc_tables.py` measures: it applies an operation and its
+// inverse and compares the result to the original string.
+//
+// The parse is byte-exact by construction for the same reason: a row is kept
+// as its indent, whether it had a leading pipe, the raw text of each cell
+// *including its padding*, and whatever followed the last pipe.
+// `docTableJoinRow(docTableSplitRow(line)) === line` for every line, which the
+// test asserts over the awkward shapes (a pipe escaped inside a cell, a table
+// with no outer pipes, mismatched column widths, an indented table).
+//
+// This region is bracketed by `DOC-TABLE-BEGIN` / `DOC-TABLE-END` because the
+// test runs it in node, away from the browser: it is pure string work with no
+// DOM and no app globals in it, and that is a property worth keeping.
+
+// DOC-TABLE-BEGIN
+
+//: A delimiter cell is the `---`, `:---`, `---:` or `:---:` under a header.
+//: GFM wants at least one dash; the colons are the alignment.
+const DOC_TABLE_DELIM_CELL = /^[ \t]*:?-+:?[ \t]*$/;
+
+//: Split one line into the pieces that put it back together exactly.
+//: `cells` holds the raw text between the pipes, padding included, so the
+//: join below is the identity and an edit to one cell cannot disturb another.
+//: Only *unescaped* pipes split: `\|` is a pipe inside a cell, which is the
+//: one piece of table syntax people get wrong when they hand-edit.
+function docTableSplitRow(line) {
+  const text = String(line);
+  const indent = (/^[ \t]*/.exec(text) || [""])[0];
+  let body = text.slice(indent.length);
+  let lead = false;
+  if (body.startsWith("|")) {
+    lead = true;
+    body = body.slice(1);
+  }
+  const cells = [];
+  let cur = "";
+  for (let at = 0; at < body.length; at += 1) {
+    const ch = body[at];
+    if (ch === "\\" && at + 1 < body.length) {
+      cur += ch + body[at + 1];
+      at += 1;
+      continue;
+    }
+    if (ch === "|") {
+      cells.push(cur);
+      cur = "";
+      continue;
+    }
+    cur += ch;
+  }
+  //: What follows the last pipe is the trailing pipe's own tail when it is
+  //: only whitespace, and one more cell when it is not. `| a | b |   ` and
+  //: `| a | b ` differ by exactly that, and both have to come back unchanged.
+  let trail = false;
+  let tail = "";
+  if (cells.length && /^[ \t]*$/.test(cur)) {
+    trail = true;
+    tail = cur;
+  } else {
+    cells.push(cur);
+  }
+  return { indent, lead, cells, trail, tail };
+}
+
+function docTableJoinRow(row) {
+  return (
+    row.indent +
+    (row.lead ? "|" : "") +
+    row.cells.join("|") +
+    (row.trail ? `|${row.tail}` : "")
+  );
+}
+
+//: A line that could be part of a table: it has a pipe that is not escaped,
+//: and it is not blank. Deliberately loose, because what actually makes a
+//: table in GFM is the delimiter row underneath the header, which
+//: `docTableParse` checks.
+function docTableRowLike(line) {
+  const text = String(line == null ? "" : line);
+  if (!text.trim()) return false;
+  return docTableSplitRow(text).cells.length > 1 || /(?:^|[^\\])\|/.test(text);
+}
+
+function docTableIsDelimiter(line) {
+  if (line == null) return false;
+  const row = docTableSplitRow(line);
+  if (!row.cells.length) return false;
+  return row.cells.every((cell) => DOC_TABLE_DELIM_CELL.test(cell));
+}
+
+function docTableAlignOf(cell) {
+  const text = String(cell).trim();
+  const left = text.startsWith(":");
+  const right = text.endsWith(":");
+  if (left && right) return "center";
+  if (right) return "right";
+  if (left) return "left";
+  return null;
+}
+
+//: The table around a document offset, or null. Offsets are the document's,
+//: so every edit below can be dispatched without a second coordinate system.
+//:
+//: The run of pipe-bearing lines around the caret is found first and the
+//: delimiter row is then looked for *inside* it, rather than assuming it sits
+//: at the second line: a paragraph line that happens to contain a pipe sits
+//: directly above plenty of real tables, and taking the run's first line as
+//: the header would have made every such table unparseable.
+function docTableParse(text, offset) {
+  const lines = String(text == null ? "" : text).split("\n");
+  const starts = [];
+  let at = 0;
+  for (const line of lines) {
+    starts.push(at);
+    at += line.length + 1;
+  }
+  let index = 0;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (offset >= starts[i]) index = i;
+    else break;
+  }
+  if (!docTableRowLike(lines[index])) return null;
+  let first = index;
+  while (first > 0 && docTableRowLike(lines[first - 1])) first -= 1;
+  let last = index;
+  while (last + 1 < lines.length && docTableRowLike(lines[last + 1])) last += 1;
+
+  let delim = -1;
+  for (let i = first + 1; i <= last; i += 1) {
+    if (docTableIsDelimiter(lines[i])) {
+      delim = i;
+      break;
+    }
+  }
+  if (delim < 0) return null;
+  const startLine = delim - 1;
+  if (index < startLine) return null;
+  let endLine = last;
+  //: A second delimiter row means a second table underneath this one, and
+  //: its header is the line above it.
+  for (let i = delim + 1; i <= last; i += 1) {
+    if (docTableIsDelimiter(lines[i])) {
+      endLine = i - 2;
+      break;
+    }
+  }
+  if (endLine < delim || index > endLine) return null;
+
+  const rows = [];
+  for (let i = startLine; i <= endLine; i += 1) {
+    const row = docTableSplitRow(lines[i]);
+    row.from = starts[i];
+    row.to = starts[i] + lines[i].length;
+    row.line = i;
+    rows.push(row);
+  }
+  //: GFM: the delimiter row has to have as many cells as the header, or the
+  //: block is a paragraph that happens to contain dashes.
+  if (rows[1].cells.length !== rows[0].cells.length) return null;
+  return {
+    from: rows[0].from,
+    to: rows[rows.length - 1].to,
+    startLine,
+    endLine,
+    rows,
+    delim: 1,
+    columns: rows[0].cells.length,
+    aligns: rows[1].cells.map(docTableAlignOf),
+  };
+}
+
+//: Where one cell's raw text lives in the document. The sum of the cells
+//: before it plus one character per pipe between them, which is the only
+//: arithmetic in this file and the reason the row keeps its pieces.
+function docTableCellSpan(table, row, col) {
+  const line = table.rows[row];
+  if (!line || col < 0 || col >= line.cells.length) return null;
+  let from = line.from + line.indent.length + (line.lead ? 1 : 0);
+  for (let i = 0; i < col; i += 1) from += line.cells[i].length + 1;
+  return { from, to: from + line.cells[col].length };
+}
+
+function docTableCellText(table, row, col) {
+  const line = table.rows[row];
+  if (!line || col < 0 || col >= line.cells.length) return "";
+  //: `\|` is a pipe the author escaped; it reads as one.
+  return line.cells[col].trim().replace(/\\\|/g, "|");
+}
+
+//: A cell's value on the way back in. A raw pipe would end the cell and a
+//: newline would end the row, so both are neutralised rather than allowed to
+//: rewrite the table's shape from inside one of its cells.
+function docTableCellEscape(value) {
+  return String(value == null ? "" : value)
+    .replace(/\r?\n/g, " ")
+    .replace(/\\\|/g, "|")
+    .replace(/\|/g, "\\|");
+}
+
+//: The padding the cell already had is the padding it keeps: this is the
+//: whole byte-exactness promise in one function. A cell that was blank is
+//: given one space each side, which is what a person types into `| |`.
+function docTableSetCellEdits(table, row, col, value) {
+  const line = table.rows[row];
+  if (!line) return [];
+  //: **A cell the row does not have yet.** GFM lets a body row carry fewer
+  //: cells than the header and pads the rest as empty, so the last column of
+  //: a ragged table is a cell you can see in the rendered table and cannot
+  //: find in the text. Writing to it appends it rather than doing nothing,
+  //: which is the silent-refusal shape this codebase keeps recording.
+  if (col >= line.cells.length) {
+    if (col >= table.columns) return [];
+    const last = docTableCellSpan(table, row, line.cells.length - 1);
+    const at = line.trail ? last.to : line.to;
+    let insert = "";
+    for (let i = line.cells.length; i < col; i += 1) insert += `|${docTableColumnPad(table, i, "")}`;
+    const body = docTableCellEscape(value);
+    insert += `| ${body} `;
+    //: A blank cell with nothing after it is not a cell: GFM drops a row's
+    //: optional trailing pipe and anything after the last one, so the row
+    //: would come back one cell short of its header.
+    if (!line.trail && !body.trim()) insert += "|";
+    return [{ from: at, to: at, insert }];
+  }
+  const span = docTableCellSpan(table, row, col);
+  if (!span) return [];
+  const raw = line.cells[col];
+  const parts = /^([ \t]*)([\s\S]*?)([ \t]*)$/.exec(raw);
+  const blank = !raw.trim();
+  const pre = blank ? (raw.length ? " " : "") : parts[1];
+  const post = blank ? (raw.length ? " " : "") : parts[3];
+  const insert = pre + docTableCellEscape(value) + post;
+  if (insert === raw) return [];
+  return [{ from: span.from, to: span.to, insert }];
+}
+
+//: The width a *new* cell in this column is written at. A table whose column
+//: is already one width everywhere is a table somebody has been keeping
+//: aligned by hand, and a new row that breaks the alignment is a new row they
+//: have to go and fix; a ragged column gets a single space, because padding
+//: it to the widest cell would be tidying up text nobody asked to have
+//: tidied. Neither case moves a byte that already exists.
+function docTableColumnPad(table, col, body) {
+  const widths = new Set();
+  for (let i = 0; i < table.rows.length; i += 1) {
+    const cell = table.rows[i].cells[col];
+    if (cell == null) continue;
+    widths.add(cell.length);
+  }
+  const text = ` ${body} `;
+  if (widths.size !== 1) return text;
+  const width = [...widths][0];
+  return text.length >= width ? text : text + " ".repeat(width - text.length);
+}
+
+//: A new row, built from the row above it so the outer pipes and the indent
+//: match the table they are joining rather than one house style.
+function docTableAddRowEdits(table, afterRow) {
+  const like = table.rows[Math.max(afterRow, table.delim)] || table.rows[0];
+  const cells = [];
+  for (let col = 0; col < table.columns; col += 1) cells.push(docTableColumnPad(table, col, ""));
+  const line = docTableJoinRow({
+    indent: like.indent,
+    lead: like.lead,
+    cells,
+    trail: like.trail,
+    tail: "",
+  });
+  const anchor = table.rows[Math.max(afterRow, table.delim)] || table.rows[table.rows.length - 1];
+  return [{ from: anchor.to, to: anchor.to, insert: `\n${line}` }];
+}
+
+//: Only a body row can go: deleting the header or the delimiter deletes the
+//: table, which is a different command with a different name.
+function docTableRemoveRowEdits(table, row) {
+  if (row <= table.delim || row >= table.rows.length) return [];
+  const line = table.rows[row];
+  return [{ from: line.from - 1, to: line.to, insert: "" }];
+}
+
+//: One `|` and one cell per line, inserted at the same column in each. The
+//: delimiter row gets a run of dashes as long as the one already under the
+//: column it is following, so a table written with `---` does not acquire a
+//: `----------` in the middle of it.
+function docTableAddColumnEdits(table, anchorCol, before = false) {
+  const edits = [];
+  const afterCol = anchorCol;
+  const sample = Math.min(anchorCol, table.columns - 1);
+  const dashSample = table.rows[table.delim].cells[sample] || " --- ";
+  const dashes = "-".repeat(Math.max(3, (dashSample.match(/-/g) || []).length));
+  for (let row = 0; row < table.rows.length; row += 1) {
+    const line = table.rows[row];
+    const col = Math.min(afterCol, line.cells.length - 1);
+    const span = docTableCellSpan(table, row, col);
+    if (!span) continue;
+    const last = col >= line.cells.length - 1;
+    let body;
+    if (row === table.delim) body = ` ${dashes} `;
+    //: **The header's new cell is named**, and not only because Notion and
+    //: Obsidian name theirs. A blank cell at the end of a row that has no
+    //: trailing pipe is dropped by GFM, so a nameless new column in a table
+    //: written without outer pipes would leave the header one cell short of
+    //: the delimiter row and stop the whole block being a table at all.
+    else if (row === 0) body = docTableColumnPad(table, sample, "Column");
+    else body = docTableColumnPad(table, sample, "");
+    //: A body row that cannot hold a blank final cell is left alone: GFM pads
+    //: a short row out to the header's width, so the column is there in the
+    //: rendered table, and writing into it (`docTableSetCellEdits`) appends
+    //: it for real. Inserting whitespace GFM is going to drop would put bytes
+    //: in the file that nothing in the editor could ever reach again.
+    //: Inserting *before* a cell needs no such care: the new cell has a real
+    //: one after it, so nothing can drop it, and the pipe goes on its right.
+    //: A row too short to have this column is left for GFM to pad, exactly as
+    //: above, rather than having a column inserted in the wrong place in it.
+    if (before) {
+      if (anchorCol > line.cells.length - 1) continue;
+      //: **A first column needs a leading pipe, and that is markdown's rule
+      //: rather than this editor's.** GFM strips one optional pipe from each
+      //: end of a row and reads leading spaces as indentation, so there is no
+      //: way to write a blank *first* cell in a row that has no outer pipes:
+      //: `  | a | b` is an indented two-cell row, not a three-cell one with an
+      //: empty cell at the front. A table written without outer pipes
+      //: therefore gains a leading pipe on the day a column is put in front of
+      //: it, and keeps it if that column is taken away again. It is the only
+      //: byte in this file an operation adds that its inverse does not remove,
+      //: and `tests/test_doc_tables.py` asserts exactly that rather than
+      //: letting it pass as a round trip.
+      const outer = anchorCol === 0 && !line.lead ? "|" : "";
+      edits.push({ from: span.from, to: span.from, insert: `${outer}${body}|` });
+      continue;
+    }
+    if (row !== 0 && row !== table.delim && last && !line.trail) continue;
+    edits.push({ from: span.to, to: span.to, insert: `|${body}` });
+  }
+  return edits;
+}
+
+function docTableRemoveColumnEdits(table, col) {
+  if (table.columns < 2) return [];
+  const edits = [];
+  for (let row = 0; row < table.rows.length; row += 1) {
+    const line = table.rows[row];
+    if (col >= line.cells.length) continue;
+    //: The pipe that goes with the cell is the one *before* it, except for
+    //: the first column, which owns the pipe after it instead. Taking the
+    //: wrong one leaves a row with one separator too few and turns the rest
+    //: of the table into one wide cell.
+    const span = docTableCellSpan(table, row, col);
+    if (col > 0) {
+      const prev = docTableCellSpan(table, row, col - 1);
+      edits.push({ from: prev.to, to: span.to, insert: "" });
+    } else if (line.cells.length > 1) {
+      const next = docTableCellSpan(table, row, 1);
+      edits.push({ from: span.from, to: next.from, insert: "" });
+    } else {
+      edits.push({ from: span.from, to: span.to, insert: "" });
+    }
+  }
+  return edits;
+}
+
+//: The cells a row is missing, appended. GFM pads a short row out to the
+//: header's width when it renders it, so those cells are visible in the table
+//: and absent from the text; this is what makes one real, and it is called
+//: when the caret is sent into one (Tab) rather than on sight, so a ragged
+//: table nobody is editing keeps the bytes it has.
+function docTableFillRowEdits(table, row, upto) {
+  const line = table.rows[row];
+  if (!line || upto < line.cells.length) return [];
+  const last = docTableCellSpan(table, row, line.cells.length - 1);
+  const at = line.trail ? last.to : line.to;
+  let insert = "";
+  for (let col = line.cells.length; col <= upto; col += 1) insert += `|${docTableColumnPad(table, col, "")}`;
+  //: A blank cell at the end of a row with no trailing pipe is not a cell:
+  //: see `docTableSetCellEdits`.
+  if (!line.trail) insert += "|";
+  return [{ from: at, to: at, insert }];
+}
+
+//: Alignment is a property of the delimiter cell and of nothing else, so it
+//: is one edit to one cell. The dash run is kept at the length the author
+//: wrote; the colons are added or removed around it.
+function docTableAlignEdits(table, col, align) {
+  const span = docTableCellSpan(table, table.delim, col);
+  if (!span) return [];
+  const raw = table.rows[table.delim].cells[col];
+  const parts = /^([ \t]*)([\s\S]*?)([ \t]*)$/.exec(raw);
+  const dashes = "-".repeat(Math.max(3, (parts[2].match(/-/g) || []).length));
+  const body =
+    align === "center" ? `:${dashes}:` : align === "right" ? `${dashes}:` : align === "left" ? `:${dashes}` : dashes;
+  const insert = parts[1] + body + parts[3];
+  if (insert === raw) return [];
+  return [{ from: span.from, to: span.to, insert }];
+}
+
+//: The edits applied to a plain string, which is what the fallback surface
+//: and the test both need. Back to front so an earlier edit cannot move a
+//: later one's offsets.
+function docTableApplyEdits(text, edits) {
+  let out = String(text == null ? "" : text);
+  const ordered = [...edits].sort((a, b) => b.from - a.from);
+  for (const edit of ordered) out = out.slice(0, edit.from) + edit.insert + out.slice(edit.to);
+  return out;
+}
+
+//: Which cell an offset is in, for Tab and for the cell menu.
+function docTableCellAt(table, offset) {
+  for (let row = 0; row < table.rows.length; row += 1) {
+    const line = table.rows[row];
+    if (offset < line.from || offset > line.to) continue;
+    for (let col = 0; col < line.cells.length; col += 1) {
+      const span = docTableCellSpan(table, row, col);
+      if (offset >= span.from && offset <= span.to) return { row, col, ...span };
+    }
+    return { row, col: Math.max(0, line.cells.length - 1), ...docTableCellSpan(table, row, Math.max(0, line.cells.length - 1)) };
+  }
+  return null;
+}
+
+//: The cell Tab goes to, wrapping across rows. `null` at the end of the last
+//: row means "there is no next cell", which is the caller's cue to add a row:
+//: Tab at the end of a table making a new row is the behaviour every editor
+//: in the plan's competitor table has.
+function docTableStepCell(table, row, col, delta) {
+  let r = row;
+  let c = col + delta;
+  {
+    if (c < 0) {
+      r -= 1;
+      if (r === table.delim) r -= 1;
+      if (r < 0) return null;
+      c = Math.max(table.columns, table.rows[r].cells.length) - 1;
+      if (c < 0) return null;
+      return { row: r, col: c };
+    }
+    if (c >= Math.max(table.columns, table.rows[r].cells.length)) {
+      r += 1;
+      if (r === table.delim) r += 1;
+      if (r >= table.rows.length) return null;
+      c = 0;
+      if (!table.rows[r].cells.length) return null;
+      return { row: r, col: c };
+    }
+    return { row: r, col: c };
+  }
+}
+
+// DOC-TABLE-END
+
+// -----------------------------------------------------------------------------
+// The table commands: what the editor does with the model above
+// -----------------------------------------------------------------------------
+//
+// Everything here reads the caret, asks the model for a list of edits and
+// dispatches them. There is no second copy of a table anywhere in it, which is
+// what keeps Live and Source the same document rather than two renderings of
+// one.
+
+//: The table the caret is in, with the cell it is in, or null.
+function docTableContext(box = null) {
+  const surface = box || docSurface();
+  if (!surface) return null;
+  const text = surface.text;
+  const at = surface.selectionStart;
+  const table = docTableParse(text, at);
+  if (!table) return null;
+  return { surface, text, table, cell: docTableCellAt(table, at) || { row: 0, col: 0 } };
+}
+
+//: One transaction for a whole operation, so Ctrl+Z takes back "insert a
+//: column" rather than the seven cell edits it was made of.
+function docTableDispatch(context, edits) {
+  if (!edits || !edits.length) return false;
+  const surface = context.surface;
+  docUndoBreak();
+  if (docCmView && surface.kind === "codemirror") {
+    docCmView.dispatch({
+      changes: edits.map((edit) => ({ from: edit.from, to: edit.to, insert: edit.insert })),
+      scrollIntoView: true,
+      annotations: docCmIsolate(),
+    });
+    return true;
+  }
+  surface.value = docTableApplyEdits(surface.text, edits);
+  finishMarkdownEdit(surface, "doc-content");
+  return true;
+}
+
+//: Run an operation and put the caret in a named cell, with that cell's text
+//: selected so the next keystroke replaces it, which is what Tab does in every
+//: table editor the plan names.
+//:
+//: The selection is worked out *after* the edits have landed rather than
+//: predicted from the edits themselves: an insertion earlier in the table
+//: moves every offset after it, and a caret computed in the old coordinates is
+//: the classic way a table editor drops the caret a column to the left.
+function docTableGo(context, edits, row, col) {
+  docTableDispatch(context, edits);
+  const surface = context.surface;
+  let table = docTableParse(surface.text, context.table.from);
+  if (!table || !table.rows[row]) return true;
+  if (col >= table.rows[row].cells.length) {
+    //: The cell GFM pads into existence but the text does not have yet. It has
+    //: to be real before the caret can sit in it, or the next keystroke lands
+    //: at the end of the previous cell.
+    docTableDispatch({ surface, text: surface.text }, docTableFillRowEdits(table, row, col));
+    table = docTableParse(surface.text, context.table.from);
+  }
+  const span = table && docTableCellSpan(table, row, col);
+  if (!span) return true;
+  const raw = table.rows[row].cells[col];
+  const lead = (/^[ \t]*/.exec(raw) || [""])[0].length;
+  const tail = (/[ \t]*$/.exec(raw) || [""])[0].length;
+  surface.setSelectionRange(span.from + lead, Math.max(span.from + lead, span.to - tail));
+  return true;
+}
+
+//: Tab moves to the next cell and Shift+Tab to the previous one, which is the
+//: one gesture every editor in the plan's competitor table shares. Tab in the
+//: last cell adds a row, for the same reason: a table you have to reach for a
+//: menu to extend is a table people stop extending. The keydown listener at
+//: the end of this file is what calls it (`docTableTab`), because that
+//: listener already covers both surfaces.
+function docTableTabStep(backwards, from = null) {
+  const context = from || docTableContext();
+  if (!context) return false;
+  const step = docTableStepCell(context.table, context.cell.row, context.cell.col, backwards ? -1 : 1);
+  if (step) return docTableGo(context, [], step.row, step.col);
+  if (backwards) return false;
+  const rows = context.table.rows.length;
+  return docTableGo(context, docTableAddRowEdits(context.table, rows - 1), rows, 0);
+}
+
+//: The whole table, for the one command that is not an edit inside it. The
+//: newline after it goes too, or deleting a table leaves the blank line it was
+//: separated from the next paragraph by.
+function docTableRemoveEdits(context) {
+  const { table, text } = context;
+  let to = table.to;
+  if (text[to] === "\n") to += 1;
+  return [{ from: table.from, to, insert: "" }];
+}
+
+//: The commands, as data, because three things read them: the cell menu, the
+//: "/" menu's table entry and the tests. `run` takes the live context rather
+//: than closing over one, so a menu built for the cell you opened it on still
+//: acts on the cell you are in when you choose an item.
+const DOC_TABLE_COMMANDS = [
+  {
+    id: "row-above",
+    label: "Insert row above",
+    title: "Add an empty row above this one",
+    run: (context) =>
+      docTableGo(context, docTableAddRowEdits(context.table, context.cell.row - 1),
+        Math.max(context.cell.row, context.table.delim + 1), 0),
+  },
+  {
+    id: "row-below",
+    label: "Insert row below",
+    title: "Add an empty row below this one",
+    run: (context) =>
+      docTableGo(context, docTableAddRowEdits(context.table, context.cell.row),
+        Math.max(context.cell.row, context.table.delim) + 1, 0),
+  },
+  {
+    id: "row-delete",
+    label: "Delete row",
+    title: "Remove this row",
+    danger: true,
+    //: The header and the delimiter are the table's shape rather than its
+    //: contents: deleting either is "delete table", which is its own command.
+    enabled: (context) => context.cell.row > context.table.delim,
+    run: (context) =>
+      docTableGo(context, docTableRemoveRowEdits(context.table, context.cell.row),
+        Math.min(context.cell.row, context.table.rows.length - 2), context.cell.col),
+  },
+  {
+    id: "col-left",
+    label: "Insert column left",
+    title: "Add a column before this one",
+    run: (context) =>
+      docTableGo(context, docTableAddColumnEdits(context.table, context.cell.col, true),
+        context.cell.row, context.cell.col),
+  },
+  {
+    id: "col-right",
+    label: "Insert column right",
+    title: "Add a column after this one",
+    run: (context) =>
+      docTableGo(context, docTableAddColumnEdits(context.table, context.cell.col),
+        context.cell.row, context.cell.col + 1),
+  },
+  {
+    id: "col-delete",
+    label: "Delete column",
+    title: "Remove this column",
+    danger: true,
+    enabled: (context) => context.table.columns > 1,
+    run: (context) =>
+      docTableGo(context, docTableRemoveColumnEdits(context.table, context.cell.col),
+        context.cell.row, Math.max(0, context.cell.col - 1)),
+  },
+  {
+    id: "align-left",
+    label: "Align left",
+    title: "Align this column to the left",
+    run: (context) => docTableGo(context, docTableAlignEdits(context.table, context.cell.col, "left"),
+      context.cell.row, context.cell.col),
+  },
+  {
+    id: "align-centre",
+    label: "Align centre",
+    title: "Centre this column",
+    run: (context) => docTableGo(context, docTableAlignEdits(context.table, context.cell.col, "center"),
+      context.cell.row, context.cell.col),
+  },
+  {
+    id: "align-right",
+    label: "Align right",
+    title: "Align this column to the right",
+    run: (context) => docTableGo(context, docTableAlignEdits(context.table, context.cell.col, "right"),
+      context.cell.row, context.cell.col),
+  },
+  {
+    id: "table-delete",
+    label: "Delete table",
+    title: "Remove the whole table",
+    danger: true,
+    run: (context) => {
+      docTableDispatch(context, docTableRemoveEdits(context));
+      return true;
+    },
+  },
+];
+
+//: Named so the "/" menu, a shortcut or a test can run one without going
+//: through the menu's DOM.
+function docTableCommand(id) {
+  const command = DOC_TABLE_COMMANDS.find((item) => item.id === id);
+  const context = docTableContext();
+  if (!command || !context) return false;
+  if (command.enabled && !command.enabled(context)) return false;
+  const done = command.run(context);
+  context.surface.focus();
+  return done !== false;
+}
+
+//: The cell menu, built from the app's own ⋯ recipe (`kebabMenu`) rather than
+//: from scratch: DESIGN.md's index says a menu is `kebabMenu`, and a
+//: hand-built one here would be the eleventh thing in this app that opens a
+//: list of actions and the first that does it differently.
+function docTableMenu(context) {
+  if (typeof kebabMenu !== "function") return document.createElement("span");
+  const items = DOC_TABLE_COMMANDS.map((command) => ({
+    label: command.label,
+    title: command.title,
+    danger: command.danger,
+    disabled: command.enabled ? !command.enabled(context) : false,
+    run: () => docTableCommand(command.id),
+  }));
+  return kebabMenu(items, "Table row and column actions");
+}
+
 //: The compartment decision 3 names: Live is this editor with the markdown
 //: decorations on, Source is the same editor with them off. Nothing else
 //: differs between the two views, which is the whole point.
@@ -2270,6 +2955,54 @@ function docLivePlugin(CM) {
     }
   }
 
+  //: **A table cell that is empty still has to hold its column open.** The
+  //: rendered table is a CSS grid over the line, and its columns are its
+  //: children: a cell with no characters in it contributes no child, so the
+  //: row silently loses a column and every cell after it slides left. One
+  //: empty span, carrying the cell's own classes, is the whole fix.
+  class DocTableCellWidget extends WidgetType {
+    constructor(cls) {
+      super();
+      this.cls = cls;
+    }
+    eq(other) {
+      return other.cls === this.cls;
+    }
+    ignoreEvent() {
+      return false;
+    }
+    toDOM() {
+      const cell = document.createElement("span");
+      cell.className = this.cls;
+      return cell;
+    }
+  }
+
+  //: The cell menu, on the table the caret is in. Rebuilt when the caret
+  //: changes cell (`eq` on the key) because two of its rows are unavailable
+  //: in the header and in a one-column table, and a menu that says a row can
+  //: be deleted when it cannot is worse than no menu.
+  class DocTableMenuWidget extends WidgetType {
+    constructor(key, context) {
+      super();
+      this.key = key;
+      this.context = context;
+    }
+    eq(other) {
+      return other.key === this.key;
+    }
+    //: The menu is a control, not text: CodeMirror must not try to put a
+    //: caret inside it or read a selection out of it.
+    ignoreEvent() {
+      return true;
+    }
+    toDOM() {
+      const wrap = docTableMenu(this.context);
+      wrap.classList.add("cm-md-table-menu");
+      return wrap;
+    }
+  }
+
   function build(view) {
     const state = view.state;
     const doc = state.doc;
@@ -2321,6 +3054,17 @@ function docLivePlugin(CM) {
     const rangeRevealed = (from, to) =>
       touched(doc.lineAt(from).from, doc.lineAt(to).to);
     const tree = syntaxTree(state);
+    //: The document as one string, for the table model, and at most once per
+    //: build: the model works in document offsets so it needs the whole text,
+    //: and a copy per visible line would be a copy per keystroke per line.
+    let sourceText = null;
+    const source = () => {
+      if (sourceText === null) sourceText = doc.toString();
+      return sourceText;
+    };
+    //: A table is drawn once, from whichever of its lines the viewport reaches
+    //: first.
+    const tableSeen = new Set();
 
     //: **A replace decoration may not contain a line break, and this is not a
     //: style rule: CodeMirror throws "Decorations that replace line breaks may
@@ -2536,6 +3280,77 @@ function docLivePlugin(CM) {
         hide(to - 2, to);
       });
     }
+    //: **Tables, from the model at the top of this file rather than from the
+    //: syntax tree.** The tree's `Table` nodes would be enough to *find* one,
+    //: and nothing like enough to edit one: the commands need each cell's own
+    //: span with its padding intact, which is exactly what the model keeps and
+    //: what makes the round trip through Source byte-exact. Drawing from the
+    //: same parse the commands use also means what you see and what Tab moves
+    //: through can never be two different opinions about where the cells are.
+    //:
+    //: The rendering is a CSS grid over the line: the pipes are replaced (they
+    //: are syntax, like every other marker in this view), each cell is a mark,
+    //: and the line's `display: grid` makes those marks the columns. The
+    //: delimiter row is the header's underline and is drawn as one until the
+    //: caret arrives on it, which is the rule `---` already follows.
+    for (const visible of view.visibleRanges) {
+      for (let pos = visible.from; pos <= visible.to && pos <= doc.length; ) {
+        const line = doc.lineAt(pos);
+        pos = line.to + 1;
+        if (tableSeen.has(line.number)) continue;
+        tableSeen.add(line.number);
+        if (!docTableRowLike(line.text)) continue;
+        const table = docTableParse(source(), line.from);
+        if (!table) continue;
+        for (const row of table.rows) tableSeen.add(doc.lineAt(row.from).number);
+        const inTable = focused && sel.from <= table.to && sel.to >= table.from;
+        for (let r = 0; r < table.rows.length; r += 1) {
+          const row = table.rows[r];
+          const rule = r === table.delim && !touched(row.from, row.to);
+          if (rule) {
+            ranges.push(Decoration.line({ class: "cm-md-table-rule" }).range(row.from));
+            hide(row.from, row.to);
+            continue;
+          }
+          ranges.push(
+            Decoration.line({ class: r === 0 ? "cm-md-table cm-md-table-head" : "cm-md-table" }).range(row.from)
+          );
+          const body = row.from + row.indent.length;
+          hide(row.from, body);
+          if (row.lead) hide(body, body + 1);
+          for (let c = 0; c < row.cells.length; c += 1) {
+            const span = docTableCellSpan(table, r, c);
+            const align = table.aligns[c];
+            const cls = align ? `cm-md-td cm-md-td-${align}` : "cm-md-td";
+            if (span.to > span.from) {
+              ranges.push(Decoration.mark({ class: cls }).range(span.from, span.to));
+            } else {
+              ranges.push(Decoration.widget({ widget: new DocTableCellWidget(cls) }).range(span.from));
+            }
+            if (c < row.cells.length - 1) hide(span.to, span.to + 1);
+          }
+          if (row.trail) {
+            const last = docTableCellSpan(table, r, row.cells.length - 1);
+            hide(last.to, row.to);
+          }
+          //: The menu goes at the end of the header row, where a table's own
+          //: controls sit in every editor the plan names, and is drawn out of
+          //: the grid's flow by its class so it cannot become a column of its
+          //: own.
+          if (r === 0 && inTable) {
+            const cell = docTableCellAt(table, sel.from) || { row: 0, col: 0 };
+            const context = { surface: docSurface(), text: source(), table, cell };
+            ranges.push(
+              Decoration.widget({
+                widget: new DocTableMenuWidget(`${table.from}:${cell.row}:${cell.col}:${table.columns}`, context),
+                side: 1,
+              }).range(row.to)
+            );
+          }
+        }
+      }
+    }
+
     //: Sorted by CodeMirror rather than by hand: the tree walk and the two
     //: regex passes produce ranges in three different orders, and a set built
     //: out of order throws rather than drawing something wrong, which is the
@@ -2757,9 +3572,12 @@ const MD_ACTIONS = {
   quote: { line: "> " },
   link: { custom: "link" },
   codeblock: { block: "```\n", suffix: "\n```", placeholder: "your code" },
-  table: {
-    insert: "\n| Column | Column |\n| --- | --- |\n| | |\n",
-  },
+  //: **Three columns, and the caret in the first header cell.** The "/" menu
+  //: has always said "3 columns" and this table had two, which is the kind of
+  //: disagreement nobody reports and everybody notices. `custom`, because the
+  //: `insert` shape leaves the caret after the whole block: a table you have
+  //: to arrow back into is a table you retype.
+  table: { custom: "table" },
   hr: { insert: "\n---\n" },
 
   //: **The rest of the Obsidian editing-toolbar's command set**, asked for by
@@ -2865,6 +3683,17 @@ function applyMarkdown(kind, boxId = "doc-content") {
     box.value = `${value.slice(0, start)}![${alt}](${url})${value.slice(end)}`;
     const at = start + alt.length + 4;
     box.setSelectionRange(at, at + url.length);
+    finishMarkdownEdit(box, boxId);
+    return;
+  }
+  if (action.custom === "table") {
+    //: Blank cells with their outer pipes, so every one of them is a cell GFM
+    //: can see (`docTableSetCellEdits` carries the reason a blank last cell
+    //: without a trailing pipe is not a cell at all).
+    const table = "\n| Column | Column | Column |\n| --- | --- | --- |\n|  |  |  |\n|  |  |  |\n";
+    box.value = value.slice(0, start) + table + value.slice(end);
+    const at = start + table.indexOf("Column");
+    box.setSelectionRange(at, at + "Column".length);
     finishMarkdownEdit(box, boxId);
     return;
   }
@@ -6060,84 +6889,22 @@ document.addEventListener("input", (event) => {
   docToolsOnInput(box);
 });
 
-//: **Tab moves between table cells.** `/table` inserts a markdown table, but
-//: editing one meant arrowing past every `|` by hand: the one thing every
-//: editor with tables (Notion, Obsidian, Typora, Word) does for you. On a
-//: line that starts with `|`, Tab selects the next cell's contents and
-//: Shift+Tab the previous cell's; Tab in the last cell of the last row adds
-//: a row. A separator row (`| --- |`) is skipped over. Returns false on any
-//: other line so the indent behaviour below is untouched.
+//: **Tab moves between table cells**, on the one model the renderer and the
+//: cell menu also use.
+//:
+//: This was a second reading of the line before Phase 3: it found the pipes
+//: with a scan that required the row to *start* with one, so a table written
+//: without outer pipes (which GFM allows and people write) had no Tab at all;
+//: it could not tell a header from a body row except by a regex for dashes;
+//: and the row it added was `| | |` whatever the table around it looked like.
+//: All three are properties of the parse, and there is a parse now. Returns
+//: false anywhere that is not a table, so the indent behaviour below is
+//: untouched.
 function docTableTab(event, box) {
-  const value = box.value;
-  const pos = box.selectionStart;
-  const lineStart = value.lastIndexOf("\n", pos - 1) + 1;
-  let lineEnd = value.indexOf("\n", pos);
-  if (lineEnd === -1) lineEnd = value.length;
-  const line = value.slice(lineStart, lineEnd);
-  if (!/^\s*\|/.test(line)) return false;
+  const context = docTableContext(box);
+  if (!context) return false;
   event.preventDefault();
-  const pipes = [];
-  for (let i = 0; i < line.length; i += 1) if (line[i] === "|" && line[i - 1] !== "\\") pipes.push(i);
-  if (pipes.length < 2) return true;
-  const col = pos - lineStart;
-  const cells = [];
-  for (let i = 0; i < pipes.length - 1; i += 1) cells.push([pipes[i] + 1, pipes[i + 1]]);
-  const select = (from, to) => {
-    // The cell's text without its padding spaces, so typing replaces the
-    // placeholder rather than the spaces around it.
-    const raw = value.slice(from, to);
-    const lead = raw.length - raw.trimStart().length;
-    const trail = raw.length - raw.trimEnd().length;
-    const a = from + lead, b = Math.max(a, to - trail);
-    box.setSelectionRange(a, b);
-  };
-  const isSeparator = (text) => /^\s*\|?\s*:?-{2,}/.test(text);
-  if (event.shiftKey) {
-    let index = cells.findIndex(([a, b]) => col >= a && col <= b);
-    if (index <= 0) {
-      // Previous row's last cell, skipping the separator.
-      let prevEnd = lineStart - 1;
-      while (prevEnd > 0) {
-        const prevStart = value.lastIndexOf("\n", prevEnd - 1) + 1;
-        const prev = value.slice(prevStart, prevEnd);
-        if (!/^\s*\|/.test(prev)) return true;
-        if (!isSeparator(prev)) {
-          const last = prev.lastIndexOf("|"), before = prev.lastIndexOf("|", last - 1);
-          if (before >= 0) select(prevStart + before + 1, prevStart + last);
-          return true;
-        }
-        prevEnd = prevStart - 1;
-      }
-      return true;
-    }
-    select(lineStart + cells[index - 1][0], lineStart + cells[index - 1][1]);
-    return true;
-  }
-  let index = cells.findIndex(([a, b]) => col >= a && col <= b);
-  if (index === -1) index = cells.length - 1;
-  if (index < cells.length - 1) {
-    select(lineStart + cells[index + 1][0], lineStart + cells[index + 1][1]);
-    return true;
-  }
-  // Last cell: next row's first cell, skipping the separator; or a new row.
-  let nextStart = lineEnd + 1;
-  while (nextStart <= value.length) {
-    let nextEnd = value.indexOf("\n", nextStart);
-    if (nextEnd === -1) nextEnd = value.length;
-    const next = value.slice(nextStart, nextEnd);
-    if (!/^\s*\|/.test(next)) break;
-    if (!isSeparator(next)) {
-      const first = next.indexOf("|"), second = next.indexOf("|", first + 1);
-      if (second > first) select(nextStart + first + 1, nextStart + second);
-      return true;
-    }
-    nextStart = nextEnd + 1;
-  }
-  const blank = "|" + " |".repeat(cells.length);
-  const insertAt = lineEnd;
-  box.setRangeText("\n" + blank, insertAt, insertAt, "end");
-  box.setSelectionRange(insertAt + 1 + 2, insertAt + 1 + 2);
-  box.dispatchEvent(new Event("input", { bubbles: true }));
+  docTableTabStep(event.shiftKey, context);
   return true;
 }
 
@@ -7487,6 +8254,58 @@ function docCmTheme(CM) {
       },
       ".cm-md-task": { marginRight: "0.4em", verticalAlign: "middle", cursor: "pointer" },
       ".cm-md-image": { maxWidth: "100%", borderRadius: "var(--radius-sm)" },
+
+      //: --- tables ---------------------------------------------------------
+      //: **A grid over the line, not a `<table>` widget.** Replacing the block
+      //: with a rendered table is what every "table editor" in a markdown app
+      //: does and it is what forces them to have a serialiser, which is what
+      //: loses the author's own whitespace (PLAN D4's gate, and the long
+      //: comment on the model at the top of this file). Here the pipes are
+      //: hidden like every other marker in this view and each cell is a mark,
+      //: so `display: grid` on the line turns those marks into the columns:
+      //: the text on screen is still the text in the file, at the same
+      //: offsets, and the caret walks it normally.
+      //:
+      //: `minmax(0, 1fr)` rather than `1fr`, because a grid column's implicit
+      //: minimum is its content's min-content width, so one long unbroken word
+      //: in a cell would push the table wider than the editor instead of
+      //: wrapping.
+      ".cm-md-table": {
+        display: "grid",
+        gridAutoFlow: "column",
+        gridAutoColumns: "minmax(0, 1fr)",
+        borderLeft: "1px solid var(--border)",
+      },
+      ".cm-md-table-head": {
+        fontWeight: "650",
+        backgroundColor: "var(--field-inset)",
+        borderTop: "1px solid var(--border)",
+        //: The cell menu is positioned against this line.
+        position: "relative",
+      },
+      ".cm-md-td": {
+        padding: "0.05em 0.5em",
+        borderRight: "1px solid var(--border)",
+        borderBottom: "1px solid var(--border)",
+      },
+      ".cm-md-td-left": { textAlign: "left" },
+      ".cm-md-td-center": { textAlign: "center" },
+      ".cm-md-td-right": { textAlign: "right" },
+      //: The delimiter row is the header's underline, and the header's cells
+      //: already draw that. With its own text hidden it would otherwise leave
+      //: a blank line through the middle of the table; it comes back to full
+      //: height the moment the caret arrives on it, which is the rule `---`
+      //: has followed here since Phase 2.
+      ".cm-md-table-rule": { height: "0", overflow: "hidden" },
+      //: Out of the grid's flow, or the menu would be a column of its own and
+      //: every cell in the table would narrow to make room for it.
+      ".cm-md-table-menu": {
+        position: "absolute",
+        right: "2px",
+        top: "0",
+        opacity: "0.7",
+      },
+      ".cm-md-table-menu:hover, .cm-md-table-menu:focus-within": { opacity: "1" },
 
       //: --- the prose findings ---------------------------------------------
       //: Three shapes, one per kind of claim. Wavy for a spelling

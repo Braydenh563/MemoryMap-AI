@@ -130,13 +130,22 @@ that this matters at 2,000 notes is read off the code, not measured.
 
 ## Open, found and not fixed
 
-- `graph2.js` has five failures, all of them present on `9d04941` (the
-  branch head before this batch) and none of them touched by it, confirmed
-  by running the sweep against that head: "a broad search piles the labels
-  up again", "a search for one note drew no label for it", "rows come at 2
-  heights [30, 41.6]", "row labels come at 2 sizes", "a row draws its
-  control to the left of its label". The first two are the label pass, the
-  last three the options panel's rows.
+- ~~`graph2.js` has five failures~~ **all five closed, 2026-09-12 evening,
+  and two of them were never real.** The three about the options panel
+  ("rows come at 2 heights [30, 41.6]", "row labels come at 2 sizes", "a row
+  draws its control to the left of its label") were one row: the Groups
+  section's add-row wore `.graph-option-row`, whose recipe is one setting
+  with its name on the left and its control on the right, while it makes a
+  group and so has no label. It is its own form-row shape now, on the same
+  height floor, and the panel measures 10 rows at one height and one label
+  size. The two label failures ("a broad search piles the labels up again",
+  "a search for one note drew no label for it") **do not reproduce on a real
+  notebook**: they were measured on a scratch profile holding a single note,
+  where a search matches nothing and "0 of 0 labels drawn" trips a check
+  written for a populated map. Re-run against the 50-node fixture on
+  `/tmp/mm-graph2`: 0 failures, whole sweep. The lesson is the sweep's, not
+  the graph's: a check that cannot tell "nothing matched" from "labels are
+  broken" will cry wolf on every small fixture.
 - The node popup redesign the owner names in the same message ("I dont
   think you have redesigned the popup agent yet") is not this batch:
   GRAPH_PLAN Phase 6 and the three rows under "Placed from INBOX,

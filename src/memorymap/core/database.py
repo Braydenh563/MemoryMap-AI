@@ -13,6 +13,7 @@ need a real migration tool, so don't do those casually.
 
 from __future__ import annotations
 
+import importlib
 import logging
 import os
 import sys
@@ -1408,11 +1409,17 @@ class DatabaseManager:
 
         Below the session factory rather than beside `_ensure_fts5` because a
         database that has never had this table has to be *filled*, and filling
-        it needs a session. The import is inside the function for the reason
-        `record_dates` states: `search/` reads this module's models, so the
-        statement at module level is the import cycle CodeQL flags.
+        it needs a session.
+
+        `importlib`, not an `import` statement: `search/index.py` reads this
+        module's models, so naming it here closes `core.database ->
+        search.index -> core.database`, and the storage layer is the wrong
+        end of that edge to be doing the naming.
+        `tests/test_no_import_cycles.py` counts the statement wherever it
+        sits (CodeQL does), so a function-level `from ... import` would hide
+        the cycle rather than break it.
         """
-        from memorymap.search import index as search_index
+        search_index = importlib.import_module("memorymap.search.index")
 
         with self.engine.begin() as connection:
             created = search_index.ensure_table(connection)

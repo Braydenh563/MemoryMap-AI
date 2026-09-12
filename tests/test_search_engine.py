@@ -68,9 +68,16 @@ def test_an_operator_query_is_not_a_time_only_question():
 
 
 def test_a_url_is_not_an_operator():
+    """`https:` must not read as an operator, and the url must survive whole.
+
+    The assertion is on the whole subject rather than on a substring of it:
+    CodeQL flagged the substring form (incomplete URL substring
+    sanitization), and it is right that "does this text contain
+    example.com" is a different question from "is this that url".
+    """
     u = understand("https://example.com/thing")
     assert not u.has_operators
-    assert "example.com" in u.subject
+    assert u.subject == "https://example.com/thing"
 
 
 @pytest.mark.parametrize("q", ["", "   ", '"', "-", "tag:"])

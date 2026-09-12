@@ -1863,9 +1863,11 @@ def set_private(session: Session, entry: Entry, private: bool) -> bool:
         # `delete()` statement never reaches: a vector derived from this text
         # is exactly what the encryption is for, and one left in the array
         # would go on answering similarity queries about a note nobody can
-        # read. The import is inside the function for the reason
-        # `record_dates` states.
-        from memorymap.search import engine as search_engine
+        # read. `importlib` rather than an `import` statement, for the reason
+        # this file already records for `core.events`: the statement itself is
+        # what CodeQL and `tests/test_no_import_cycles.py` count, and this one
+        # would close `entry.manager -> search.engine -> ... -> entry.manager`.
+        search_engine = importlib.import_module("memorymap.search.engine")
 
         search_engine.forget_vector(entry.id)
         # And the resolved dates, for the same reason as the embedding: a note

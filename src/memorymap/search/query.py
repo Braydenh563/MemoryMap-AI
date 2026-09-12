@@ -532,3 +532,38 @@ _FILLER = frozenset(
 def _has_content(subject: str) -> bool:
     words = [w for w in re.split(r"\W+", subject.lower()) if w]
     return any(word not in _FILLER for word in words)
+
+
+# --- the words worth matching on ----------------------------------------------
+#
+# Here rather than in `search_manager`, where these lived, because both the
+# fusion search and the retrieval engine need them and the engine importing
+# `search_manager` for one private helper drew an import edge that closed a
+# cycle (`search.engine -> search.search_manager -> ai.embeddings ->
+# ai.model_manager -> entry.manager -> search.engine`, caught by
+# `tests/test_no_import_cycles.py`). This module imports nothing but
+# `entry.timewords`, which imports nothing at all, so it is the right floor
+# for anything both searches share. `search_manager._meaningful_terms` is
+# still the name its own callers use; it passes through to this.
+
+#: Words that carry no signal in a search. Matching on them is worse than
+#: useless: "a" appears in nearly every note ever written, so a broad question
+#: would return the whole notebook ranked by noise.
+STOPWORDS = frozenset(
+    """a an and are as at be been but by can did do does for from had has have
+    how i if in into is it its me my of on or our so than that the their them
+    then there these they this to was we were what when where which who why
+    will with would you your""".split()
+)
+
+
+def search_terms(text: str) -> list[str]:
+    """The words worth matching on, in the order they were typed.
+
+    Single characters and stopwords are dropped. If that leaves nothing, the
+    caller gets an empty list rather than a match against everything: an
+    all-stopword query ("how do I") has no keywords in it, and inventing some
+    from the raw words is how a search box answers with the whole notebook.
+    """
+    words = [w for w in re.split(r"\W+", (text or "").lower()) if w]
+    return [w for w in words if len(w) > 1 and w not in STOPWORDS]

@@ -216,28 +216,16 @@ def _corrected_terms(session: Session, terms: list[str]) -> list[str]:
     return corrected
 
 
-# Words that carry no signal in a search. Matching on them is worse than
-# useless: "%a%" matches nearly every note ever written, so a broad question
-# would return the whole notebook ranked by noise.
-_STOPWORDS = frozenset(
-    """a an and are as at be been but by can did do does for from had has have
-    how i if in into is it its me my of on or our so than that the their them
-    then there these they this to was we were what when where which who why
-    will with would you your""".split()
-)
+#: The stopword list and the term splitter both moved to `search/query.py`,
+#: which is the floor both searches share (see its own comment on the import
+#: cycle that made the move necessary). Kept here under the name eighty lines
+#: of this file and `ai/grounding.py` already use.
+_STOPWORDS = query_understanding.STOPWORDS
 
 
 def _meaningful_terms(query: str) -> list[str]:
-    """Search words worth matching on, in order.
-
-    Single characters and stopwords are dropped. If that leaves nothing, the
-    caller gets an empty list rather than a match against everything.
-    """
-    words = [w for w in re.split(r"\W+", (query or "").lower()) if w]
-    kept = [w for w in words if len(w) > 1 and w not in _STOPWORDS]
-    # An all-stopword query ("how do I") has no keywords in it; don't invent
-    # some by falling back to the raw words.
-    return kept
+    """Search words worth matching on, in order. See `query.search_terms`."""
+    return query_understanding.search_terms(query)
 
 
 def configured_thresholds() -> tuple[float, float]:

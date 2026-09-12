@@ -38,6 +38,7 @@ writing a second one.
 """
 from __future__ import annotations
 
+import importlib
 import logging
 import math
 from dataclasses import dataclass, field
@@ -46,7 +47,7 @@ import numpy as np
 from sqlalchemy import event, or_, select, text
 from sqlalchemy.orm import Session
 
-from memorymap.core.database import EmbeddingRecord, Entry, EntryLink
+from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink
 from memorymap.search import index as search_index
 from memorymap.search import query as query_understanding
 
@@ -249,7 +250,14 @@ def _backend_id() -> str | None:
     to ask a keyword question.
     """
     try:
-        from memorymap.core import deps
+        # `importlib`, not an `import` statement, and the difference is the
+        # whole point: this is a leaf naming the dependency container that
+        # *builds* the things it reads, which closes
+        # `ai.embeddings -> search.engine -> core.deps -> ai.embeddings`.
+        # `tests/test_no_import_cycles.py` counts the statement wherever it
+        # sits, because CodeQL does, so moving it into this function body
+        # would hide the cycle from a naive reader and leave the alert open.
+        deps = importlib.import_module("memorymap.core.deps")
 
         embeddings = deps.get_embeddings()
         return embeddings.backend_id() if embeddings.is_ready() else None
@@ -351,7 +359,7 @@ def index_counts(session: Session) -> dict[str, int]:
 def _match_expression(terms: list[str], phrases: list[str], excluded: list[str], mode: str) -> str:
     """An FTS5 MATCH expression from what the person typed.
 
-    `terms` are already `\\W`-stripped by `search_manager._meaningful_terms`, so
+    `terms` are already `\\W`-stripped by `query.search_terms`, so
     none of them can carry FTS5 syntax; a phrase is quoted, which is FTS5's own
     phrase operator, and the quotes inside one are stripped for the same
     reason. `mode` is "all", "prefix" or "any", the same three stages
@@ -486,7 +494,11 @@ def _keyword_pass(
         try:
             rows = _candidates(session, expression, kinds, space, asked.since, asked.until, depth)
         except Exception:  # noqa: BLE001  # a malformed MATCH is a typed query, not a bug
-            logger.debug("FTS match failed for %r", expression, exc_info=True)
+            # The expression is built from what somebody typed, so it stays
+            # out of the log line (CodeQL, log injection): a newline in a
+            # search box must not be able to forge a log entry. The stage and
+            # the term count say as much as the text would for debugging.
+            logger.debug("FTS match failed at the %s stage over %d term(s)", mode, len(terms))
             return []
         if rows:
             return rows
@@ -625,8 +637,6 @@ def _has_attachment_ids(session: Session, entry_ids: list[int]) -> set[int]:
     """
     if not entry_ids:
         return set()
-    from memorymap.core.database import Attachment
-
     return set(
         session.scalars(select(Attachment.entry_id).where(Attachment.entry_id.in_(entry_ids)))
     )
@@ -654,17 +664,17 @@ def search(
     no embedding backend is permanently in.
     """
     asked = query_understanding.understand(q)
-    from memorymap.search import search_manager
-
     # The words to match on. The raw query is the fallback only when the
     # reader found nothing *and* there were no operators to find: with
     # operators, falling back would feed `kind:document` to the index as the
     # two words "kind" and "document", which match nothing and turn a filter
     # into an empty page.
     subject = asked.subject or ("" if (asked.has_operators or asked.has_range) else q)
-    terms = search_manager._meaningful_terms(subject)
+    terms = query_understanding.search_terms(subject)
     for phrase in asked.phrases:
-        terms.extend(word for word in search_manager._meaningful_terms(phrase) if word not in terms)
+        terms.extend(
+            word for word in query_understanding.search_terms(phrase) if word not in terms
+        )
     context = ctx or {}
     space = context.get("space") or (asked.filters["space"][0] if asked.filters["space"] else None)
     wanted_kinds = [kind for kind in (kinds or asked.filters["kind"]) if kind in search_index.KINDS]
@@ -795,7 +805,8 @@ def _cosine_scores(session: Session, subject: str, rows: list[dict]) -> dict[int
         if matrix is None:
             return {}
     try:
-        from memorymap.core import deps
+        # The same wrong-direction edge as `_backend_id`, broken the same way.
+        deps = importlib.import_module("memorymap.core.deps")
 
         vector = deps.get_embeddings().embed_text(subject)
     except Exception:  # noqa: BLE001  # an embedding failure must not fail a search

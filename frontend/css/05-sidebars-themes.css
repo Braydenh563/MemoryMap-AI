@@ -3562,6 +3562,13 @@ textarea.autogrow {
   z-index: 1210;
   min-width: 15rem;
   max-width: 22rem;
+  /* The menu grew when the dictionary landed: five real suggestions, the AI
+     row and three actions measured 335px tall. `placeDocSuggest` flips it
+     above the word when it will not fit below, but it cannot shrink it, so a
+     short window would have clipped the actions off the bottom with nothing
+     to say they were there. */
+  max-height: min(24rem, 70vh);
+  overflow-y: auto;
   padding: var(--space-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -3604,6 +3611,12 @@ textarea.autogrow {
 .doc-suggest-item {
   display: flex;
   align-items: center;
+  /* A menu row reads down its left edge, the way `.menu-item` does. These
+     inherited the shell's `justify-content: center` from the base button and
+     measured their icons at 29, 30 and 31px from the row's left edge
+     depending on how long the label was: nine rows, no column, nothing for
+     the eye to run down. */
+  justify-content: flex-start;
   width: 100%;
   padding: var(--space-1) var(--space-2);
   border: 1px solid transparent;

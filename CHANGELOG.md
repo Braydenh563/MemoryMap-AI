@@ -7,7 +7,49 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added
+
+- A mind map has its own controls now, not the whiteboard's. Selecting a
+  topic puts a strip above it with bold, italic, four text sizes, alignment,
+  colour and a link, in the place the board's own selection bar would take;
+  right-clicking a topic opens a ring of eight branch actions around it (add
+  a branch, add one beside it, fold, lay the branch out again, copy it, label
+  the line into it, cut it free, back to the branch), with Alt turning the
+  two add slots into the two remove slots; and right-clicking a line opens
+  the same ring on the line (turn it around, label it, curve, elbow,
+  straight, dash, colour, cut).
+
+- A topic can carry an icon and point at a page, a line can say what it
+  means, and both are stored with the map.
+
+- The middle of every line has a `+` that puts a topic between the two it
+  joins, and a topic's own corner drags its text size between 10 and 44px.
+
+- Dragging a topic takes its branch with it, and dropping it on another topic
+  moves the branch there, with the topic you are aiming at outlined. Ctrl
+  held moves the topic alone and lets its children up to its old parent.
+
+- A folded branch's count is a button: clicking the number opens the branch
+  again, and the map menu has "Open every folded branch".
+
+- `C` folds and unfolds the selected branch on a map. Space stays the
+  canvas pan, and works on a fold control itself when that has the focus.
+
 ### Fixed
+
+- A right-click on a mind map topic, or on an idle text box, opened nothing
+  at all. The guard that protects a text box's own native menu while you are
+  typing in it matched every box that was *not* being typed in as well.
+
+- A trunk can carry its own colour. The picker refused it on the grounds that
+  a colour paints the line into a node and a trunk has none, which is true of
+  the line and false of the card the colour was already painting.
+
+- Panning a board or a map writes the canvas layers in the event that moved
+  them rather than a frame later. The per-frame work (the grid, the overview,
+  the selection bar) is still done once a frame, which is what that deferral
+  was for.
+
 
 - The view toggles are one size again. The same two-button icon switch drew
   its icons at 15.64px on Notes and 14.72px on Library, the Timeline and

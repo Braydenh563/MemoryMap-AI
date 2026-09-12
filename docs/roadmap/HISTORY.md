@@ -21510,6 +21510,96 @@ done-when item 4 and 5), in priority order.
 
 ## Moved from the plans, 2026-09-12
 
+### From MINDMAP_PLAN.md, §12.1 items 2 to 9 (the map's own controls)
+
+The owner: "the mindmap is still very much a basic demo ... it needs to be
+more separated with its own controls and differences from the whiteboard ...
+the mindmap can keep important and usable parts of the whiteboard." Eight
+items, eight commits, each measured in a real Chromium against the running
+app. What each one said, and what was built for it:
+
+2. **The node edit strip** (Coggle's four: text, link, image, icon). Built
+   as `#wb-map-strip`, which stands in the board selection bar's place on a
+   map node rather than beside it: two absolutely-positioned bars computed
+   from one box is how they come to overlap, and the board's bar offers
+   duplicate, copy style and the z-order pair, none of which a topic in a
+   tree has a use for. Bold, italic, size (S, M, L, XL), alignment (auto,
+   left, centre, right), colour and a link. "M" stores no size at all rather
+   than the number the stylesheet happens to compute. Weight and slant are
+   booleans in `data`, which §12.0 asked for and which keeps a bold marker
+   from fighting the emphasis someone typed. An icon is one of twelve
+   Phosphor names; a link is http, https or mailto, refused at the schema
+   and again at the click. Measured: the strip 392x38 at 44px clear above
+   the node and centred on it to 0px; bold computed 700; XL 13.6px to 25px;
+   every field read back from the server; `javascript:` refused with a 422.
+3. **The node radial**. Right-click a topic or hold it on a touch screen:
+   eight slots in a ring around it (add a branch, add a topic beside it,
+   fold, lay this branch out again, copy the branch, label the line into it,
+   cut it free, back to the branch), with Alt turning the two add slots into
+   the two remove slots and re-labelling them while it is held. Copy branch
+   walks the subtree parents-first and carries the original's look, stopping
+   at 120 topics because there is no bulk create. The radial is a new recipe,
+   so DESIGN.md's index gained its row and `tests/test_ui_recipes.py` two
+   lints in the same commit: a slot is placed with `left`/`top` and never
+   `translate` (the press cue owns that property), and the ring is
+   `role="toolbar"`, not a menu. Measured: eight slots on one circle at
+   radius 67 to 69px, spread 2px; copy 3 nodes to 5 with the twin carrying
+   its icon, weight and size.
+4. **The link radial**, the same ring on a line: reverse, label, curve,
+   elbow, straight, dash, colour, cut. Every slot writes to the child, which
+   is the end of a tree edge with exactly one incoming line. Turning a line
+   around is two moves in one order: the child is lifted to the grandparent
+   first, because moving the parent under the child while the child is still
+   under the parent is exactly the ring `/move` refuses. Coggle's plain
+   left-click-opens-the-colour-wheel was deliberately not copied: a
+   left-click on this canvas clears the selection. Measured: the hit stroke
+   16px over a 2px line inside a group at `pointer-events: none`; the elbow
+   redrawn as `M200 22 L100 22 L100 92 L0 92`; the dash `3px, 4px`.
+5. **The mid-line add**: a `+` at the middle of every visible line puts a
+   topic between the two it joins. Drawn in `#wb-html-layer` so it pans and
+   zooms with the lines and can be a real `button.ghost.small.icon-only`
+   rather than a control drawn in SVG. Invisible until pointed at, and it
+   forwards `contextmenu` to the link ring, because it sits exactly where
+   you would right-click the line. Measured: four pluses for four lines,
+   opacity 0 at rest, each 2px from the nearest line.
+6. **The text-size grip**: the node's own corner, `ns-resize`, 10 to 44px,
+   divided by the zoom so the text follows the cursor by the same number of
+   screen pixels at any scale. Pointer events with capture and
+   `preventDefault`, so grabbing it cannot also start a node drag.
+   Measured: an 80px drag 13.6px to 44px live and stored; 4000px either way
+   clamped at 44 and 10.
+7. **Uncollapse**: the count badge became a button, so clicking the number
+   opens the branch and Space and Enter work on it once focused; "Open every
+   folded branch" joined the map menu. Measured: the badge a BUTTON reading
+   "1" with the right label, its click clearing `collapsed`, and the menu
+   item taking 3 folded branches to 0.
+8. **Drag to transplant**: a topic's branch follows it, a topic under the
+   pointer lights up, the drop re-parents the branch, and Ctrl moves the
+   topic alone with its children going up to its old parent. The target is
+   found by geometry rather than `elementFromPoint` (the dragged node is the
+   element under the pointer for the whole gesture), and a node's own
+   descendants are never offered. Measured: the grandchild moved 70px with
+   its parent, exactly one node carried the cue, the drop left the branch
+   under its new parent with `pinned` false.
+9. **Sever**: a slot on both rings, cutting a topic free as a trunk of its
+   own through `/move` with a null parent, offering "Put it back", and
+   dropping the colour it carried as part of the branch it left. Measured:
+   1 root to 2 with a null parent.
+
+**Found while measuring, and fixed**: a right-click on a map node opened
+nothing at all, and never had. `wbWireContextMenu` guarded with
+`closest("[contenteditable]")`, which matches `contenteditable="false"` too,
+and every text box and every map node carries exactly that attribute while it
+is not being typed into. Asked of the element (`isContentEditable`) now,
+which is the same lesson `objDrag`'s own filter already recorded.
+
+**Two decisions made** (MINDMAP_PLAN §12.0 carries them in full): Space
+stays the canvas pan and `C` folds a branch, with Space working on a fold
+control itself; and a node carries its colour on its own card, so a trunk can
+set one, without it cascading to the first-level topics that start the
+palette.
+
+
 ### From HANDOVER.md, at the 600-line ceiling
 
 ### The whole-app visual pass, 2026-09-09

@@ -406,31 +406,34 @@ extended with the numbers named.
    top bar, and the Style, Insert, Arrange, Present and Export menus are
    not written. See `agent-remaining/mindmap.md` for the measured numbers
    and the rest of the list.
-2. **The node edit strip** (Coggle's four): text (bold, italic, size S M
-   L XL, alignment auto/left/centre/right, colour), link (URL or a note
-   via `[[`), image (upload or from the Library), icon (Phosphor search).
-   The strip appears above the node on select, on the map's recipe.
-3. **The node radial** (right-click or long-press): shape (rounded,
-   pill, rectangle, parallelogram, diamond, trapezoid, cloud, none),
-   label on the link or above it, add branch, add sibling, auto-arrange
-   this branch, comment, copy branch, drag to transplant, collapse, sever
-   from parent, remove item, remove branch (Alt swaps adds for removes).
-4. **The link radial** (right-click a link): reverse, label, style
-   (curve, elbow, straight, dashed, thickness), colour wheel (left-click
-   is the wheel alone, as Coggle), delete.
-5. **Edge handles**: a + at the far end of every visible branch adds a
-   child; a small + at the mid-point adds a node between (Coggle); the
-   control points on a curve drag to reshape it and persist.
-6. **Text size handle**: the node's corner grip drags the text size
-   with a "Drag to change the text size" hint, size stored per node.
-7. **Uncollapse**: the count badge reopens on click, Space, or "Expand
-   all" from the toolbar; collapsed state persists and exports.
-8. **Move whole sections**: dragging a parent moves its branch; dragging
-   onto another node transplants the branch (drop target highlighted);
-   Ctrl+drag moves the node alone, its children re-parent upward.
-9. **Sever**: a link's radial or Shift+drag off a node cuts it into a
-   floating topic (a second root); floating topics are allowed and lay
-   out around the main tree.
+2 to 9. **Built, 2026-09-12**: the node edit strip, the node radial, the
+   link radial, the mid-line add, the text-size grip, uncollapse, drag to
+   transplant and sever. Moved whole to HISTORY.md ("Moved from the plans,
+   2026-09-12", MINDMAP_PLAN.md §12.1 items 2 to 9); a plan holds open work
+   only. What is left of those eight, with the reason each was left:
+
+   - **An image in a node** (item 2's fourth). It needs the board's upload
+     path and a node whose body is a picture rather than a label, which is a
+     second node shape, not a fourth button on a strip.
+   - **Node shape** (item 3's first): rounded, pill, rectangle,
+     parallelogram, diamond, trapezoid, cloud, none. Four of those eight
+     cannot hold a label at node size without clipping it, so the shape
+     control is a decision about which shapes a *notebook's* map offers
+     before it is a control.
+   - **Comment on a node** (item 3's sixth) is §12.2 item 6 and belongs
+     there, not here.
+   - **The control points on a curve drag to reshape it** (item 5's third).
+     A tree edge is derived from `parent_id` and has no row to store a
+     control point on; it would be two more `data` fields on the child and a
+     third hit target per line, and it now has to compose with the three
+     line shapes item 4 added.
+   - **Line thickness** (item 4's "style") was not built: the three shapes
+     and the dash carry the distinction, and a fourth axis on a 2px line is
+     a setting nobody can see.
+   - **Shift+drag off a node to sever** (item 9's second gesture). Sever is
+     on both rings; the drag gesture would collide with drag-to-transplant,
+     which took the same pointer.
+
 Gate: every action reachable by strip, radial and key (mindmap.js counts
 the three routes per action); an empty map recreates a root; 0 console
 errors; export/import round-trip of a map using every feature.

@@ -865,6 +865,16 @@ textarea.drag-over {
   background-image: linear-gradient(var(--card), var(--card)), var(--page);
 }
 
+/* The panel arrives on a 0.3s slide (`slide-up`, above). Someone who has asked
+   for less motion gets it in place instead, with everything it says intact,
+   which is DESIGN.md's rule for motion: stop the movement, keep what it was
+   telling you. Nothing else about the panel is animated. */
+@media (prefers-reduced-motion: reduce) {
+  .agent-monitor {
+    animation: none;
+  }
+}
+
 @media (max-width: 600px) {
   .agent-monitor {
     bottom: 0;
@@ -1218,9 +1228,17 @@ body.has-agent-monitor #tab-library .library-view-section {
   border-bottom: 1px solid var(--border-light);
 }
 
+/* **The size here is the card's, not this panel's.** `font-size: var(--text-lg)`
+   was declared and never applied: `.card h3` is the app's eyebrow recipe
+   (01-forms-settings.css, 12px/600/uppercase/muted) at (0,1,1), and a bare
+   `.monitor-title` at (0,1,0) loses to it, measured at 12px before and after
+   this line came out. Removed rather than out-specified: every other card and
+   dialog head in the app is that eyebrow, including the dialogs beside this
+   one, and a panel title in its own size would be the odd one. What stays is
+   the margin, which `.card .row > h3` already zeroes for a head row but which
+   this panel would otherwise inherit for its own reasons. */
 .monitor-title {
   margin: 0;
-  font-size: var(--text-lg);
 }
 
 .monitor-logs {

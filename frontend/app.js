@@ -37477,6 +37477,13 @@ function renderAgentRunSummary(run) {
   } else {
     run.metaEl.textContent = run.detail || "";
   }
+  //: **A counter is a label on the bar beside it; a detail is a sentence.**
+  //: Both go in the same slot, and the slot is allowed to wrap because of the
+  //: sentence: so "Step 2 of 3" broke across two lines next to the bar, which
+  //: is how a 60px row became 78 and three runs came to need a scroller in a
+  //: panel that could hold them. The class says which of the two this is, and
+  //: the stylesheet stops the counter wrapping without touching the sentence.
+  run.metaEl.classList.toggle("agent-run-count", Boolean(run.stepCount));
   setLabel(run.stateEl, runStateLabel(run.state));
   run.stateEl.className = `agent-run-state plan-step-${run.state}`;
   // A fraction, or nothing at all, the same rule the Tasks panel follows for

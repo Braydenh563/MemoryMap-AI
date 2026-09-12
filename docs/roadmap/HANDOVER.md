@@ -306,6 +306,19 @@ are only just begun or half done." True; this table is the state.
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)
 
+**A trap this session paid for, keep it.** In the shared worktree,
+`git add <file>` stages the *whole* file, including whatever an agent has
+half-written in it. Doing that to `frontend/index.html` committed an
+agent's mid-step removal of `#entry-document` without the matching handler
+removal in `app.js`, so a top-level `addEventListener` on a null element
+aborted the whole of `app.js`: `initAuth` never ran, the lock overlay never
+came out of `.hidden`, and the E2E suite failed on
+`waitForSelector("#lock-password")` with the element present but hidden 35
+times over 15 seconds. The app did not boot at all on that head. Stage by
+hunk, or commit only files no agent holds. The same three symptoms in the
+console are the signature: one real error, then `X is not defined` and
+`Cannot access Y before initialization` from everything declared after it.
+
 **Now (2026-09-12 evening, Fable orchestrating, the owner asleep and
 "finish absolutely everything from the plan" as the order):** four agents
 in flight, then the queue below, two Opus agents at a time, each in its

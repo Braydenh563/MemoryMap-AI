@@ -503,6 +503,13 @@ line that carried a dash.
   guard, and the guard stayed green because the browser was still being
   served the fixed file. Restart the server between a CSS change and the
   sweep that judges it, exactly as a Python change already requires.
+- **Three pytest runs in one worktree collide.** With two agents and the
+  orchestrator all running `scripts/gate.sh` in the shared checkout, a gate
+  can fail on a test that passes on its own seconds later: seen here on
+  `TestTheDesktopShortcut`, which writes a real desktop entry and then asks
+  the uninstaller to list it. Re-run the failing file alone before believing
+  a gate failure that names one of the file-writing suites, and say which of
+  the two you saw.
 - A sweep only knows about what it is pointed at. `touch.js` reported
   "PASS, 0 findings" for a month over three surfaces out of sixteen, and
   the thirteen it had never opened were holding 33 findings, one of them

@@ -19,10 +19,11 @@ the History sheet in `frontend/app.js`. All five strict-xfail markers in
    `id: events-retention`. A payload holds whole field values, so every edit
    of a note now stores that note's whole text twice (the event and the
    capped `EntryRevision`). Nothing trims `audit_log`; `DELETE /audit`
-   clears one `entity_type` by hand. **Next step:** decide the rule (keep
-   every event, but drop `payload` from events older than N days except the
-   most recent per entity, which is what replay actually needs) and run it
-   as a startup job beside `purge_expired_deleted`.
+   clears one `entity_type` by hand. **Next step:** compaction rather than
+   deletion, or replay stops working: for each entity, replace the payloads
+   of everything older than N days with one snapshot event holding the
+   state at that point, then keep the rest as they are. Run it as a startup
+   job beside `purge_expired_deleted`.
 2. **An index for a note's own history.** `file:
    src/memorymap/core/database.py`, `id: events-index`. `events_for` filters
    on `entity_type` and `entity_id`, neither indexed, so opening the History

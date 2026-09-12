@@ -7320,25 +7320,8 @@ button.connection-row {
   gap: 0;
 }
 
-.wb-topbar,
-.whiteboard-floating-panel.mid-right {
+.wb-topbar {
   margin: 0;
-}
-
-/* The properties drawer: fixed to the right edge between the top bar and
-   the zoom cluster, scrolling inside itself. Not a floating card any
-   more: a fixed strip cannot land on anything. */
-.whiteboard-floating-panel.mid-right {
-  top: calc(0.5rem + var(--wb-h-topbar) + var(--space-3));
-  right: 0.5rem;
-  /* Clears the tool row, not the zoom cluster: the dock is centred and on
-     a narrow board its wrapped rows reach under this column (measured at
-     820px: dock right edge 609, drawer left edge 584). The row is never
-     shorter than the zoom cluster, so this clears both. */
-  bottom: calc(var(--space-2) + var(--wb-h-tools) + var(--space-3));
-  width: 13.5rem;
-  max-height: none;
-  padding: var(--space-3);
 }
 
 /* The note library sidebar, the board search and the overview all clear
@@ -9688,32 +9671,12 @@ header#top-bar {
    (`clamp(11rem, 17vw, 16rem)`) already resolves to 174px at 1024 and 187px
    at 1099, both inside the cap, so there is nothing to restate here.
 
-   **The whiteboard properties drawer becomes a sheet.** As a floating column
-   it is 13.5rem wide, held 0.5rem off the right edge, with a card's rounded
-   corners on all four. At 1440 that reads as a panel over a canvas. At 1024
-   it reads as a card that has run out of room: the sliders inside it are the
-   narrowest controls in the app, and the gap behind it is 8px of canvas too
-   thin to use for anything. Flush to the edge, wider, square on the side it
-   is attached to, scrolling inside itself, it reads as part of the window
-   rather than as something dropped on it.
-
-   It stops above the tool row rather than running to the bottom of the
-   canvas, and that is deliberate: the tool dock is centred with a fit-content
-   width, so on a narrow board its wrapped rows reach under this column. The
-   existing `bottom` calc already clears it and is kept. Markup and
-   whiteboard.js are untouched. */
-@media (min-width: 820px) and (max-width: 1099.98px) {
-  .whiteboard-floating-panel.mid-right {
-    right: 0;
-    width: 17rem;
-    max-width: 55vw;
-    /* Square where it meets the window edge, rounded where it meets the
-       canvas: the shape that says "attached" rather than "floating". */
-    border-radius: var(--radius) 0 0 var(--radius);
-    border-right: none;
-    overflow-y: auto;
-  }
-}
+   **The whiteboard properties drawer became a sheet here**, flush to the
+   right edge and 17rem wide, because as a 13.5rem floating column at 1024 it
+   read as a card that had run out of room. WHITEBOARD_PLAN Phase 2 removed
+   that drawer altogether: the context bar floats over the selection and holds
+   no column of the board open at any width, so this band has nothing left to
+   say about it. */
 
 /* --- the arrange zone, once it is inside the overflow menu ----------------
    `foldDockArrange` (app.js) moves the whole `.dock-arrange` element into the

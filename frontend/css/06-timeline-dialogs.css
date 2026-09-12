@@ -2075,7 +2075,7 @@
 
 /* `#wb-canvas-view`'s own back button, top-centre, since every other
    corner is already a floating panel (board picker top-left, library
-   top-right, tools bottom-centre, zoom bottom-right, properties mid-right)
+   top-right, tools bottom-centre, zoom bottom-right)
    and a plain in-flow button before `.whiteboard-container` (absolutely
    positioned, ignores flow entirely) rendered exactly under the board
    picker panel, which then ate every click meant for it. */
@@ -2271,8 +2271,8 @@
   --wb-h-library: 6.5rem;
   --wb-h-tools: 4rem;
   --wb-w-zoom: 18rem;
-  /* The top bar and the zoom cluster: the two panels the right-hand drawer
-     (`.mid-right`) and the library sidebar clear top and bottom. */
+  /* The top bar and the zoom cluster: the two panels the library sidebar,
+     the board search and the overview all clear top and bottom. */
   --wb-h-topbar: 3rem;
   --wb-h-zoom: 2.75rem;
 }
@@ -2458,37 +2458,12 @@
   }
 }
 
-/* Below the "library"/top-right panel, so a shown properties panel never
-   overlaps it.
-
-   This was `top: 11rem`, bumped from 6rem, then from 10rem, and reported a
-   third time as the two panels overlapping. It cannot be a constant: the
-   top-right panel wraps its 8 controls onto 1-3 rows depending on the
-   board's width, so its height is a function of the viewport, and no single
-   number is right at more than one size. `--wb-h-library` is that panel's
-   real measured height, published by a ResizeObserver in whiteboard.js (CSS
-   cannot measure a sibling); the fallback is only used for the frame before
-   the first measurement lands. */
-.whiteboard-floating-panel.mid-right {
-  top: calc(1rem + var(--wb-h-library) + var(--space-3));
-  right: 1rem;
-  flex-direction: column;
-  align-items: stretch;
-  width: 11rem;
-  /* The other half of "more responsive": this panel grows with its contents
-     (a shape's properties are a longer list than a link's), and on a short
-     window it used to simply run off the bottom of the board, taking its own
-     last rows with it. Bounded by what is actually left between the panel
-     above it and the tool row below, so it scrolls instead of escaping.
-     Only what is *above* it is subtracted. A first version also subtracted
-     the tool row's height and went negative on a short window, measured at
-     900x700, where the board is 394px and the sum came to 399, collapsing
-     this panel to 18px. The tool row is bottom-*left*; this panel is 11rem
-     wide on the right, so the two do not share a column. */
-  max-height: calc(100% - var(--wb-h-library) - 3.5rem);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
+/* `.mid-right` was the properties drawer's own placement, measured against
+   the library panel above it and the tool row below. WHITEBOARD_PLAN Phase 2
+   replaced that drawer with the context bar, which floats over the selection
+   and holds no column of the board open, so the class has no element and its
+   three blocks (here, and two in 07-whiteboard-misc.css) are gone with it.
+   Their measurements are in HISTORY.md with the phase. */
 
 .wb-tool-group {
   display: flex;

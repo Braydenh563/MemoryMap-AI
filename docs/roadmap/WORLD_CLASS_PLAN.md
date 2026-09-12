@@ -1008,6 +1008,22 @@ list recipe; Opus for the Ask scope.
 
 ### I4 Resurfacing: the ideas you are about to forget, when they matter
 
+**Built, 2026-09-12.** The backend is `ai/resurface.py` with
+`routes_resurface.py` (Brief 23), and the surface is the Dashboard's
+Rediscover widget, which now leads with the three most faded notes and their
+reason ("120 days old, no links, never opened") and falls back to its shuffle
+under ten notes. Dismissing a card is a `dismiss_resurface` correction in the
+same store the filing and search corrections use. The one design decision
+taken here rather than in the plan: the scores refresh themselves on the
+first read of the day (`resurface.ensure_fresh`) rather than from the night
+shift, because the night shift only runs with the AI on and this feature
+needs no model at all; measured at 2,000 notes, 137 ms to build the table and
+4.3 ms for the read.
+
+What is still open from the entry below: the margin row in the note editor
+(I2's surface, not built) and the "Forgotten" sort in Notes. The original
+entry, for the record:
+
 **What the person sees.** Three cards a day, on the Dashboard and as a
 row in the note editor's margin (I2) when relevant: "You have not opened
 'Interview prep notes' in 94 days. It is close to what you are writing

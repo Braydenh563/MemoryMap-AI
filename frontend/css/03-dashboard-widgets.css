@@ -3477,3 +3477,45 @@ p.graph-help-panel {
     min-height: var(--target-min);
   }
 }
+
+/* --- the faded notes card (WORLD_CLASS_PLAN 15, I4) -----------------------
+   Three notes slipping out of reach, in a 306px widget column. Rows rather
+   than note cards, because what makes this panel worth reading is the reason
+   line under each title, and three note previews in this width is a wall of
+   text nobody scans. */
+.faded-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.faded-card {
+  display: grid;
+  /* The title and its reason take the row; the dismiss sits under them
+     rather than beside, so a long title never squeezes a control into two
+     characters and a wrapped ellipsis. */
+  gap: var(--space-1);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--divider);
+}
+
+.faded-card:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.faded-title {
+  /* Left, not centred: it is the first thing read in each row and three
+     centred titles down a narrow column read as a poem. */
+  text-align: left;
+  font-weight: 600;
+}
+
+.faded-why {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.faded-dismiss {
+  justify-self: start;
+}

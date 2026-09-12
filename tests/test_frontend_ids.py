@@ -155,9 +155,14 @@ def test_rediscover_never_offers_the_note_it_is_already_showing():
     two notes, and every single one when there is only one note to show.
     """
     # renderRandomNoteWidget moved to dashboard.js with the rest of the
-    # dashboard widgets (§88.3's app.js split): read from there now.
+    # dashboard widgets (§88.3's app.js split), and the shuffle it used to be
+    # is now `renderRandomShuffle`: the widget leads with the scored notes
+    # (WORLD_CLASS_PLAN 15, I4) and falls back to the shuffle under ten notes,
+    # which is where this guard still belongs. Pointed at the function that
+    # holds the behaviour rather than relaxed: the "Another" button is exactly
+    # as broken as it ever was if it can hand back the note on screen.
     app = (INDEX.parent / "dashboard.js").read_text(encoding="utf-8")
-    start = app.index("async function renderRandomNoteWidget(")
+    start = app.index("async function renderRandomShuffle(")
     body = app[start : start + 2200]
     assert "entries.filter(" in body, "the current note is not excluded from the pool"
     assert "current" in body
@@ -166,9 +171,9 @@ def test_rediscover_never_offers_the_note_it_is_already_showing():
 def test_rediscover_disables_another_when_there_is_nothing_else_to_show():
     """A live-looking button that cannot do anything is the exact shape of
     "this control is broken", trap 12, arriving by a new route."""
-    # renderRandomNoteWidget moved to dashboard.js, see the note above.
+    # renderRandomShuffle holds the shuffle now, see the note above.
     app = (INDEX.parent / "dashboard.js").read_text(encoding="utf-8")
-    start = app.index("async function renderRandomNoteWidget(")
+    start = app.index("async function renderRandomShuffle(")
     # The end of the function, not a fixed character count. A 2600-char window
     # was doing this job and a comment added inside the function pushed the
     # line being asserted past it, a lint that fails on prose is a lint people

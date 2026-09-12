@@ -96,7 +96,13 @@ const DASH_WIDGETS = {
   heatmap: { title: "ph:calendar-check Activity heatmap", description: "A calendar-style heatmap of note activity over the past months.", render: renderHeatmapWidget },
   "tag-cloud": { title: "ph:cloud Tag cloud", description: "All your tags sized by how often they're used.", render: renderTagCloudWidget },
   categories: { title: "ph:folders Categories", description: "Every category with its note count, click to filter.", render: renderCategoriesWidget },
-  random: { title: "ph:dice-five Rediscover", description: "A random older note, to resurface something you'd forgotten.", render: renderRandomNoteWidget },
+  //: The key stays `random`, it is a stored widget id and renaming it would
+  //: drop the widget off every dashboard that has it turned on. What it does
+  //: changed (WORLD_CLASS_PLAN 15, I4): over ten notes it shows the three
+  //: notes furthest out of reach, ranked by age, links and opens, with the
+  //: reason on each card; under ten it still shuffles, because "the three
+  //: most faded" out of five notes is the same three for ever.
+  random: { title: "ph:dice-five Rediscover", description: "The notes slipping out of reach: old, unlinked and unopened, with the reason for each.", render: renderRandomNoteWidget },
   //: **Four surfaces the dashboard could not see at all.**
   //:
   //: Every widget above this line reads notes. But a notebook here is also
@@ -2613,6 +2619,81 @@ function truncateMarkdownSafe(text, limit) {
 // --- rediscover a random note ------------------------------------------------
 
 async function renderRandomNoteWidget(body) {
+  // **Scored, not random, once there is enough notebook to score.**
+  // WORLD_CLASS_PLAN 15, I4: a notebook that only ever shows you what you
+  // just wrote is a diary, and the thing a notebook can do that a pile of
+  // files cannot is bring back the note you would never have thought to look
+  // for. The backend (`ai/resurface.py`) ranks by three facts a person can
+  // check, age, links and opens, and this is the surface the plan asks for.
+  //
+  // The random pick below is kept, not replaced, and it is the right answer
+  // for a small notebook: `MIN_NOTEBOOK` in resurface.py refuses to rank at
+  // all under ten notes, because "the three most faded" out of five notes is
+  // the same three for ever, which teaches people to ignore the panel. So
+  // `/resurface` answers with nothing there and this falls through to the
+  // shuffle, which is what that size actually wants.
+  const cards = await apiJson("/resurface?limit=3", { silent: true, cacheMs: 30000 }).catch(() => null);
+  const items = (cards && cards.items) || [];
+  if (items.length) {
+    paintFadedNotes(body, items);
+    return;
+  }
+  await renderRandomShuffle(body);
+}
+
+// Three notes slipping out of reach, each with the reason it was chosen and
+// a way to say "never again". The dismissal is a correction
+// (`POST /learned/corrections`), the same store the filing and search
+// corrections use, so sending a card away is a decision the notebook keeps
+// rather than a thirty-second reprieve.
+function paintFadedNotes(body, items) {
+  body.replaceChildren();
+  const list = document.createElement("div");
+  list.className = "faded-list";
+  for (const item of items) {
+    const card = document.createElement("div");
+    card.className = "faded-card";
+
+    const title = document.createElement("button");
+    title.type = "button";
+    title.className = "linklike faded-title";
+    title.textContent = item.title || "Untitled note";
+    title.title = "Open this note in the Notes tab";
+    title.addEventListener("click", () => flashEntry(item.id));
+    card.appendChild(title);
+
+    if (item.reason) {
+      const why = document.createElement("p");
+      why.className = "muted faded-why";
+      // The facts, not the score: "120 days old, no links, never opened" is
+      // checkable and "0.82" is not.
+      why.textContent = item.reason;
+      card.appendChild(why);
+    }
+
+    const dismiss = smallButton("ph:x Never again", "Stop showing this note here", async () => {
+      dismiss.disabled = true;
+      try {
+        await apiJson("/learned/corrections", {
+          method: "POST",
+          body: JSON.stringify({ kind: "dismiss_resurface", subject: { entry_id: item.id } }),
+        });
+        card.remove();
+        // Emptied by dismissals: ask again rather than leaving a blank panel,
+        // the next three are already ranked.
+        if (!list.querySelector(".faded-card")) renderRandomNoteWidget(body);
+      } catch (error) {
+        dismiss.disabled = false;
+      }
+    });
+    dismiss.classList.add("faded-dismiss");
+    card.appendChild(dismiss);
+    list.appendChild(card);
+  }
+  body.appendChild(list);
+}
+
+async function renderRandomShuffle(body) {
   const entries = allEntries.length
     ? allEntries
     : await apiJson("/entries", { cacheMs: 4000 }).catch(() => []);

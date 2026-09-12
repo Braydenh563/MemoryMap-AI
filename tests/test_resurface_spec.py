@@ -87,3 +87,37 @@ def test_the_endpoint_is_fast_because_scores_are_precomputed(ai_client):
     elapsed = time.perf_counter() - start
     assert reply.status_code == 200 and len(reply.json()["items"]) == 3
     assert elapsed < 0.05
+
+
+def test_a_first_read_computes_its_own_scores(client):
+    """**The feature has to work with the AI switched off.**
+
+    The night shift that was supposed to fill `note_scores`
+    (`ai/autonomous.py`) only runs when the AI is on, so on a notebook with
+    no model this panel would have shown nothing, for ever, with a backend
+    that tests green: the "feature that never ran once" shape. The read
+    refreshes the table itself when it is missing or a day old.
+    """
+    for index in range(12):
+        client.post("/entries", json={"content": f"Note {index}\n\nSomething written down."})
+
+    # No POST /resurface/compute anywhere in this test, deliberately.
+    items = client.get("/resurface").json()["items"]
+    assert len(items) == 3
+    assert all(item["title"] for item in items)
+    # The card says why it was chosen, in facts a person can check.
+    assert all("opened" in item["reason"] for item in items)
+
+
+def test_a_second_read_does_not_recompute(client):
+    """The scan is the expensive half and must not be on every request."""
+    from memorymap.ai import resurface
+
+    for index in range(12):
+        client.post("/entries", json={"content": f"Note {index}\n\nSomething written down."})
+    client.get("/resurface")
+
+    from memorymap.core import deps
+
+    with deps.get_db().session() as session:
+        assert resurface.ensure_fresh(session) is False

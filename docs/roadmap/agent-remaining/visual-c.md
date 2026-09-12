@@ -135,9 +135,13 @@ below was taken from the running app, not reasoned.
 
 ## Not verified
 
-- **Dark mode visually.** The glass work is measured in computed values
-  (tokens, alphas, the card's own `box-shadow` string), not looked at. No
-  screenshot of a dark surface was taken this pass.
+- **Dark mode, beyond two screenshots.** The glass work is measured in
+  computed values (tokens, alphas, the card's own `box-shadow` string). Two
+  dark captures were taken afterwards (`scratchpad/ui-sweeps/darkglassshot.js`,
+  the dashboard band and the chat dock) and both read correctly: surfaces
+  separate from the page, no ring on the composer on arrival. That is two
+  surfaces of many, and it is a look, not a measurement: the luminance column
+  `glassdepth.js` takes was not re-run after the shadow tokens changed.
 - **A real touch device**, and anything below 390px.
 - **The two suite failures in the shared worktree are not this pass's**:
   `test_whiteboard.py::test_a_text_object_round_trips_with_its_own_style` and,

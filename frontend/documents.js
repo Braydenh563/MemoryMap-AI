@@ -620,9 +620,25 @@ function renderDocList() {
     const title = document.createElement("span");
     title.className = "doc-item-title";
     title.textContent = doc.title;
+    //: The row is one line of title now, so a long one is cut with an
+    //: ellipsis rather than wrapping the row to a second line. The whole
+    //: title has to stay reachable, and the row is the thing under the
+    //: pointer, so the tooltip goes on the row rather than on the span.
+    button.title = doc.title || "Untitled";
     const meta = document.createElement("span");
     meta.className = "muted doc-item-meta";
-    meta.textContent = `${doc.words} word${doc.words === 1 ? "" : "s"} · ${relativeTime(doc.updated_at)}`;
+    //: **What kind of file this is.** The list showed a word count and a
+    //: time, so a .py and a .md were the same row: reported as part of the
+    //: sidebar redesign. `file_type` is already in `GET /documents`'s summary
+    //: (`_summary` in routes_documents.py), so this costs nothing, no second
+    //: request and no per-row fetch.
+    const type = document.createElement("span");
+    type.className = "doc-item-type";
+    type.textContent = `.${doc.file_type || "md"}`;
+    meta.append(
+      type,
+      ` · ${doc.words} word${doc.words === 1 ? "" : "s"} · ${relativeTime(doc.updated_at)}`
+    );
     button.append(title, meta);
     button.addEventListener("click", () => openDocument(doc.id));
     button.addEventListener("keydown", (event) => {

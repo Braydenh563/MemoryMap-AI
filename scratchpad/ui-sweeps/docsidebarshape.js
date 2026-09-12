@@ -188,6 +188,20 @@ function realDoc() {
     return { x: Math.floor(r.x) - 4, y: Math.floor(r.y) - 4, width: Math.ceil(r.width) + 8, height: Math.ceil(r.height) + 8 };
   }) });
 
+  // The type on a row is the document's own, not a default printed eight
+  // times: a .py document says .py. Last, because opening one changes which
+  // document every measurement above was about.
+  await openDoc(page, { title: 'A script', content: 'print("hi")\n', ext: 'py' });
+  await page.waitForTimeout(900);
+  const pyRow = await page.evaluate(() => {
+    const li = [...document.querySelectorAll('#doc-list > li')].find((x) =>
+      x.textContent.includes('A script')
+    );
+    return li ? (li.querySelector('.doc-item-type') || {}).textContent : null;
+  });
+  say('py_row_type', pyRow);
+  if (pyRow !== '.py') fail(`the .py document's row says "${pyRow}"`);
+
   console.log(bad ? `docsidebarshape: ${bad} failures` : 'docsidebarshape: all checks pass');
   await browser.close();
   process.exit(bad ? 1 : 0);

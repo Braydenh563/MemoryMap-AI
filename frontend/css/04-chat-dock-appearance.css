@@ -3001,29 +3001,55 @@ span > .chip {
   padding: 0.4rem var(--space-9) 0.4rem 0.6rem;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
-  background: none;
+  /* **Every row draws the same shape, not only the one you are in.**
+     Measured at 1440x900 with eight documents: the selected row drew a fill
+     and an accent edge and the other seven drew nothing at all, so the list
+     read as one card and seven loose blocks of text with invisible hit
+     targets. A row is a row: DESIGN.md's surface tiers group them by tone
+     (`--surface-2`), hover goes one step deeper, and the selected one is a
+     fill, which is also the rule the accent border below was breaking ("a
+     selected row is a fill, never a fill plus an accent edge"). The
+     transparent 1px border stays so the geometry does not move and
+     `[data-contrast="on"]` can colour an edge back in. */
+  background: var(--surface-2);
   color: inherit;
   cursor: pointer;
 }
 
 @media (hover: hover) {
   .doc-item-button:hover {
-    background: var(--accent-soft);
+    background: var(--surface-3);
   }
 }
 
 .doc-item.active .doc-item-button {
   background: var(--accent-soft);
-  border-color: var(--accent);
 }
 
+/* **One line, so every row is one height.** The rows came out 56.5px and
+   78.5px depending on whether the title wrapped, in a list where nothing else
+   varies, and at 0.92rem full weight the title was also the largest thing in
+   the sidebar, competing with the card's own headings. `--text-md` is the
+   scale's own size for a list row; the full title is on the row's tooltip. */
 .doc-item-title {
   font-weight: 600;
-  font-size: 0.92rem;
+  font-size: var(--text-md);
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .doc-item-meta {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
+}
+
+/* The file type, first in the meta line because it is the one fact that says
+   what the row *is*: a .py and a .md were indistinguishable before it. Weight
+   rather than colour, so it separates from the count beside it without
+   becoming a second accent in a list of eight rows. */
+.doc-item-type {
+  font-weight: 600;
 }
 
 /* Same hover/focus reveal as `.menu-wrap.doc-list-menu` below - a kebab

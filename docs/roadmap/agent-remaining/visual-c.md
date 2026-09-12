@@ -110,12 +110,11 @@ below was taken from the running app, not reasoned.
 
 ## Found, not fixed
 
-- **`.seg button` draws its label at 16px**, because it sets no `font-size`
-  and inherits the body's, while `--text-md` (13.6px) is the "one control
-  label size" UI_MODERNISATION_PLAN Phase 3 settled on. The two radio-backed
-  bars are on the token; the other twenty-eight are not. One line plus a sweep
-  of every strip holding one, which is its own pass. Written into
-  DOCUMENTS_PLAN.md's 107d section too.
+- ~~**`.seg button` draws its label at 16px**~~ **closed by `9586542`**, a
+  later pass the same day, which measured it at three sizes rather than two
+  and put every choice control on `--text-md` while leaving the tab strips
+  where they are. Re-measured after it landed: all nine segments across
+  `#doc-ai-verb`, `#doc-view-seg` and `#graph-layout` read 13.6px.
 - **The dark shadow sliders saturate earlier than the light ones.** The dark
   alphas are 7 to 11 times the light ones at the same setting (they have to
   be, over a dark ground), so scaling them proportionally means the ambient

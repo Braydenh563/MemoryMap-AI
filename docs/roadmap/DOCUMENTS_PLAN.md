@@ -472,12 +472,13 @@ groups now. Measured before and after with
 `scratchpad/ui-sweeps/segbars.js`; the numbers are in DESIGN.md and in the
 commit.
 
-**Found, not fixed.** `.seg button` draws its label at 16px because it sets no
-`font-size` and inherits the body's, while `--text-md` (13.6px) is the "one
-control label size" UI_MODERNISATION_PLAN Phase 3 settled on and is what every
-other control in a strip uses. The two bars above are on the token. Putting the
-other twenty-eight on it is a one-line change to `.seg button` and a sweep of
-every strip that holds one, which is its own pass.
+**The label size this found is closed too** (`9586542`, a later pass the same
+day). `.seg button` set no `font-size` at all, so it inherited whatever tab it
+was on: measured at three sizes across the app, 16px on the tab strips, 13.6px
+on two choice controls and 12.8px on three more. Every choice control is on
+`--text-md` now, the tab strips deliberately are not. Re-measured here: all
+nine segments across `#doc-ai-verb`, `#doc-view-seg` and `#graph-layout` read
+13.6px.
 
 ## Placed from INBOX, 2026-09-09 (the owner's evening batch)
 

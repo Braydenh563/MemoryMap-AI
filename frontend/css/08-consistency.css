@@ -1843,3 +1843,58 @@ summary > .ph-lead,
     animation: none;
   }
 }
+
+/* ==========================================================================
+   THE QUIET SIDE OF THE BUTTON RAMP: A RUN OF ROW ACTIONS
+   ==========================================================================
+
+   `button.ghost` draws its hairline and its small lift again
+   (01-forms-settings.css, and the long comment there says why). That is
+   right for a button standing on its own, and wrong for a *run* of them: a
+   note list at 1440 renders thirteen cards, each carrying four row actions
+   and a kebab, and measured after that change fifty-two outlined, shadowed
+   boxes were on screen at once. That is the same three-lines-deep texture
+   the dock rule above exists to prevent, in the one place the dock rule
+   cannot see: these are not in a bar, they are on a card.
+
+   The distinction the ramp actually turns on is not bar-or-not, it is
+   *does this control already sit inside something that frames it*. A dock
+   frames its controls. So does a note card, and a card whose own edge is
+   already drawn does not want five more inside it. The container is the
+   affordance; the tint under the pointer is the state, which is exactly the
+   grammar the dock rule states.
+
+   `:hover` on the row, not only on the button, because the whole point of a
+   row action is that it belongs to the row: bringing the set up together
+   when the pointer enters says "these act on this card" far better than
+   lighting one at a time. The individual hover stays on top of it. */
+.entry-actions > button.ghost,
+.entry-actions > .menu-wrap > button.ghost,
+.library-image-actions > button.ghost,
+.library-image-actions > .menu-wrap > button.ghost {
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+li:hover > .entry-meta .entry-actions > button.ghost,
+li:focus-within > .entry-meta .entry-actions > button.ghost,
+.entry-actions > button.ghost:hover,
+.entry-actions > button.ghost:focus-visible,
+.entry-actions > .menu-wrap > button.ghost:hover,
+.entry-actions > .menu-wrap > button.ghost:focus-visible,
+.library-image-actions > button.ghost:hover,
+.library-image-actions > button.ghost:focus-visible,
+.library-image-actions > .menu-wrap > button.ghost:hover,
+.library-image-actions > .menu-wrap > button.ghost:focus-visible {
+  background: var(--ghost-btn-bg);
+}
+
+.entry-actions > button.ghost:hover,
+.entry-actions > button.ghost:focus-visible,
+.entry-actions > .menu-wrap > button.ghost:hover,
+.entry-actions > .menu-wrap > button.ghost:focus-visible,
+.library-image-actions > button.ghost:hover,
+.library-image-actions > button.ghost:focus-visible {
+  border-color: var(--ghost-btn-border);
+}

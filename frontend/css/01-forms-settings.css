@@ -453,16 +453,45 @@ button:disabled {
    outline is what made it look like a field. The transparent 1px keeps
    every height that was measured against it, and is what high-contrast
    mode colours back in (02-chat-graph.css). */
+/* **The edge is back, third pass, and this time it is pinned by a lint.**
+   The report above ("shapes with text in them, rather than proper official
+   buttons") arrived a third time, verbatim, in the form "all the buttons
+   need to actually look like buttons with affordance, not just shapes with
+   text in them". The pass recorded in the paragraph above answered it by
+   taking the border and the shadow off and raising the fill a step, on the
+   grounds that a toolbar of 22 outlined controls is three lines of texture.
+   That reasoning was measured and it is right, but it is a reasoning about
+   *bars*, and the fix was applied to *every* tonal button in the app. A flat
+   tint with no edge is, precisely, a shape with text in it: it has a
+   silhouette but no rim, which is the cue that says "this is a surface you
+   can push".
+
+   So the ramp now splits on where a button stands rather than on what it is:
+
+   - In a bar, the bar is the affordance. `.dock > * > button.ghost`
+     (08-consistency.css) still overrides all three of these to quiet, which
+     is where the 22-in-a-strip measurement was actually taken, so nothing
+     that pass fixed comes back.
+   - Anywhere else (a card, a panel, a popover, a modal, the agent popup) a
+     button stands on its own and has to say so itself: the fill it already
+     had, plus the hairline and the small lift it used to have.
+
+   The two border tokens this reads have been sitting in 00-tokens-shell.css
+   unused-but-kept since the pass that removed them, labelled "now only read
+   by high-contrast mode". They are read here again, at the same values.
+   `tests/test_ui_recipes.py` pins the pair so a fourth pass cannot quietly
+   flatten them again. */
 button.ghost {
   background: var(--ghost-btn-bg);
-  border: 1px solid transparent;
+  border: 1px solid var(--ghost-btn-border);
   color: var(--ink);
   font-weight: 500;
-  box-shadow: none;
+  box-shadow: var(--shadow-sm);
 }
 
 button.ghost:hover {
   background: var(--ghost-btn-bg-hover);
+  border-color: var(--ghost-btn-border-hover);
 }
 
 button.small {

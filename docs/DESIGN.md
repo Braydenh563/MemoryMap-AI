@@ -496,16 +496,28 @@ Three tiers, and a view should be readable from them alone:
 | Tier | Recipe | Use |
 | --- | --- | --- |
 | **Filled** | `button`: accent fill, `--on-accent` text, the accent glow | The one action a surface is *for*. One per card or dialog, a dashboard of widgets has one per widget (Save, Start), not one for the page. |
-| **Tonal** | `button.ghost`, and any `.icon-only` button, `--ghost-btn-bg` fill, transparent 1px edge, no shadow | Every other action: toolbars, row actions, icon buttons. |
+| **Tonal** | `button.ghost`, and any `.icon-only` button, `--ghost-btn-bg` fill, a 1px `--ghost-btn-border` edge, `--shadow-sm` | Every other action that stands on its own: a card's one-off control, a panel, a popover, a dialog. |
+| **Quiet** | the same button inside something that already frames it, a dock, a card's `.entry-actions` run, a floating whiteboard panel: no fill, no edge, no shadow, a tint and an edge under the pointer | A *run* of actions. The container is the affordance; the tint is the state. |
 | **Plain** | tab-bar buttons, `.linklike`, `.status-item`: no fill at rest, a tint on hover | Navigation and inline actions that sit in running text or a strip that is already a well. |
 
-Tonal buttons carry themselves on fill, not on an outline. The outline was
-tried (it was the fix for "buttons feel like just shapes with text in them")
-and it worked by making a button look like a *field*, measured on Notes, 22
-outlined-and-shadowed buttons sat in one toolbar beside outlined inputs and
-an outlined card. The fill went up a step (`--ghost-btn-bg` 0.11→0.12 light,
-0.14→0.16 dark) when the edge came off, so the presence is the same and the
-line count is not. `[data-contrast="on"]` puts the edge back.
+**The tonal/quiet split is the answer to one report made three times**, most
+recently "all the buttons need to actually look like buttons with affordance,
+not just shapes with text in them". The edge was tried, then removed on a
+real measurement (22 outlined-and-shadowed buttons in one Notes toolbar,
+beside outlined inputs and an outlined card, is three lines of texture), then
+asked for again, because removing it left every button in the app a flat tint:
+a silhouette with no rim, which is precisely a shape with text in it.
+
+Both measurements are right and they are about different buttons. So the
+split is not what the button is, it is **whether anything already frames
+it**. On its own, a button draws its own edge and its own small lift. In a
+dock, a whiteboard panel, or a run of row actions on a card, the frame is
+already drawn and the button stays quiet until the pointer arrives. Measured
+after the split: the 52 outlined boxes a note list put on screen went to 0,
+and the largest remaining run of tonal buttons anywhere is 5.
+`[data-contrast="on"]` puts an edge on the quiet tier too.
+`tests/test_ui_recipes.py` pins the tonal recipe so a fourth pass cannot
+flatten it again.
 
 A selected toggle (`.active`) is the filled recipe: on is the accent, not a
 darker tonal.

@@ -115,3 +115,35 @@ def test_no_inline_style_attributes_in_the_page() -> None:
     """The CSP rejects them silently (CLAUDE.md, section 6, shape 4)."""
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert re.search(r"<[^>]+\sstyle=", html) is None
+
+
+def test_the_tonal_button_keeps_its_edge_and_its_lift() -> None:
+    """`button.ghost` draws a real border and a real shadow.
+
+    Third pass on one report. "control elements and buttons feel more like
+    just shapes with text in them, rather than proper official buttons" was
+    answered once with a border and a shadow; a later pass took both off and
+    raised the fill instead, on a measurement taken in a *toolbar*; the
+    report then came back a third time as "all the buttons need to actually
+    look like buttons with affordance, not just shapes with text in them".
+
+    So the base recipe is pinned here. A run of these inside something that
+    already frames them (a dock, a card's row actions) is quieted by a more
+    specific rule, which is the intended shape and is not what this guards
+    against: what it guards against is the base rule being flattened again.
+    """
+    css = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
+    body = ""
+    for selector, rule in _rules(css):
+        if selector.strip() == "button.ghost":
+            body = rule
+            break
+    assert body, "button.ghost has no rule in 01-forms-settings.css"
+    assert "border: 1px solid var(--ghost-btn-border)" in body, (
+        "button.ghost must draw a visible hairline: the edge is what makes it "
+        "read as a control rather than a tinted shape with text in it"
+    )
+    assert "box-shadow: var(--shadow-sm)" in body, (
+        "button.ghost must sit slightly proud of its surface; box-shadow: none "
+        "is what the second pass set and what the report came back about"
+    )

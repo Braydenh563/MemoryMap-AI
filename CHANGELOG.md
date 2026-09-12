@@ -7,7 +7,24 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Changed
+
+- Buttons look like buttons again. A tonal button (`button.ghost`, most of
+  the app) draws a hairline edge and sits slightly proud of its surface;
+  a flat tint with no rim reads as a shape with text in it, which is what
+  three reports in a row said. A *run* of them inside something that already
+  frames them stays quiet and lights up under the pointer: a dock, a
+  whiteboard panel, a card's row actions. Measured: a note list used to put
+  52 outlined boxes on one screen, now none, and the largest run of tonal
+  buttons anywhere is five.
+
 ### Added
+
+- Reading a file with the AI shows up in Settings, Background tasks.
+  "Describe with AI", the local OCR pass and the vision read were all
+  invisible while they ran: the button went quiet and the panel that lists
+  background work showed nothing, so on a slow local model the only evidence
+  anything was happening was that the app had not answered yet.
 
 - The documents editor checks spelling against a real dictionary. It used to
   look each word up in a hand-written table of 42 typos and treat everything

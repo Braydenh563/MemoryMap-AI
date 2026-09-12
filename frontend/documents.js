@@ -1889,7 +1889,10 @@ function renderDocPreview() {
   //: document this app's own vault import wrote. They come out of the body
   //: and go back in above it as the same rows the panel draws, read-only.
   const fm = docFrontmatterParse(text);
-  const body = fm ? docFrontmatterStrip(text) : text;
+  //: The block markers come out here rather than in the renderer: `^abc123`
+  //: is what makes a paragraph linkable and it is not what the paragraph
+  //: says, and this pane is the one a person reads and prints.
+  const body = docBlockStripIds(fm ? docFrontmatterStrip(text) : text);
   docRenderBody(preview, title ? `# ${title}\n\n${body}` : body);
   if (fm) {
     //: After the title, which is the document's name rather than part of its
@@ -1910,26 +1913,67 @@ function renderDocPreview() {
 function docRenderBody(container, text) {
   const blocks = docColumnsBlocks(text);
   if (!blocks.length) {
-    renderMarkdown(container, text);
+    container.replaceChildren();
+    docRenderFlow(container, text);
     return;
   }
   container.replaceChildren();
   let at = 0;
   for (const block of blocks) {
-    if (block.from > at) docAppendRendered(container, text.slice(at, block.from));
+    if (block.from > at) docRenderFlow(container, text.slice(at, block.from));
     const box = document.createElement("div");
     box.className = "doc-cols";
     box.style.setProperty("--doc-cols", String(Math.max(1, block.columns.length)));
     for (const column of block.columns) {
       const col = document.createElement("div");
       col.className = "doc-col";
-      renderMarkdown(col, column.text);
+      docRenderFlow(col, column.text);
       box.appendChild(col);
     }
     container.appendChild(box);
     at = block.to;
   }
-  if (at < text.length) docAppendRendered(container, text.slice(at));
+  if (at < text.length) docRenderFlow(container, text.slice(at));
+}
+
+//: `![[Document#^an-id]]` on its own line (DOCUMENTS_PLAN Phase 4 item 2).
+//: The id shape is the model's, so a `#^` that is not a block reference stays
+//: an ordinary embed and goes to the app's renderer as before.
+const DOC_BLOCK_EMBED_LINE =
+  /^[ \t]*!\[\[([^[\]\n]{1,120}#\^[A-Za-z0-9][A-Za-z0-9-]{0,31})\]\][ \t]*$/;
+
+//: A run of markdown with its block embeds drawn by `docEmbedNode` rather
+//: than by `renderMarkdown`.
+//:
+//: The app's one markdown renderer resolves an `![[name]]` through
+//: `resolveWikiTarget`, which knows notes, boards and documents and cannot
+//: know about a block: a block reference is written into a document's own
+//: text by this editor, and `Doc#^abc123` is not a name anything can look up.
+//: Left to it, a block embed rendered as "Nothing called that yet" in Read
+//: view while the same line drew the block in Live, which is the two panes
+//: disagreeing about what the document says. Split out here and handed to the
+//: same filler the Live view's widget uses, so they cannot.
+function docRenderFlow(container, text) {
+  const lines = String(text == null ? "" : text).split("\n");
+  let buffer = [];
+  const flush = () => {
+    if (!buffer.length) return;
+    docAppendRendered(container, buffer.join("\n"));
+    buffer = [];
+  };
+  for (const line of lines) {
+    const match = DOC_BLOCK_EMBED_LINE.exec(line);
+    if (!match) {
+      buffer.push(line);
+      continue;
+    }
+    flush();
+    const host = document.createElement("div");
+    host.className = "doc-embed-host";
+    docEmbedFill(host, match[1].trim());
+    container.appendChild(host);
+  }
+  flush();
 }
 
 //: `renderMarkdown` replaces its container's children, so a second call into
@@ -3920,6 +3964,309 @@ function docImageOptions(spec) {
 // DOC-BLOCKS-END
 
 // =============================================================================
+// Block references (DOCUMENTS_PLAN Phase 4 item 2)
+// =============================================================================
+//
+// A paragraph you can link to and embed, from a note, a map node or a chat.
+//
+// **The syntax is Obsidian's**, and the reason is the reason the columns fence
+// is Pandoc's: a document written here should still say the same thing
+// somewhere else. A block carries `^an-id` at the end of its last line; a link
+// to it is `[[Document title#^an-id]]` and an embed of it is the same with a
+// leading `!`, which is the form the embeds built in Phase 3 already parse the
+// left half of.
+//
+// **The id is generated, never asked for.** Obsidian asks the same way: you
+// copy a link to a block and the id appears in the text. A person naming
+// their own ids is a person maintaining them, and the one thing a block
+// reference must survive is the paragraph being rewritten around it.
+//
+// Everything between the markers below is pure string work with no DOM and no
+// app globals in it, so `tests/test_doc_blockrefs.py` runs it in node. That is
+// a property the tests enforce by existing, the same way the table and
+// frontmatter models are tested.
+
+// DOC-BLOCKREF-BEGIN
+
+//: What an id may be. Deliberately narrower than Obsidian's (which allows any
+//: non-space run): an id is generated here, so the only reason to accept more
+//: is to read somebody else's file, and a `^` followed by punctuation is far
+//: more likely to be a caret in prose ("2^31", "x ^ y") than a block id.
+const DOC_BLOCK_ID = "[A-Za-z0-9][A-Za-z0-9-]{0,31}";
+//: The trailing `^id` on a line, with the space before it, so removing the id
+//: does not leave a space behind.
+const DOC_BLOCK_ID_AT_END = new RegExp(`(?:^|[ \\t])\\^(${DOC_BLOCK_ID})[ \\t]*$`);
+//: A list item's own bullet. A block id on a list belongs to the item, not to
+//: the whole list, which is the one place "the block" is a single line.
+const DOC_BLOCK_LIST_LINE = /^\s*(?:[-*+]|\d{1,9}[.)])\s+/;
+
+//: `Document title#^an-id` split into its halves. Returns `blockId: null` for
+//: a plain name, so every caller can use this and none has to know whether a
+//: link happens to carry one.
+function docBlockRefSplit(spec) {
+  const text = String(spec == null ? "" : spec);
+  const hash = text.indexOf("#^");
+  if (hash === -1) return { name: text.trim(), blockId: null };
+  const id = text.slice(hash + 2).trim();
+  return {
+    name: text.slice(0, hash).trim(),
+    blockId: new RegExp(`^${DOC_BLOCK_ID}$`).test(id) ? id : null,
+  };
+}
+
+//: Is this position inside a fenced code block? A `^id` written in one is an
+//: example of the syntax rather than a use of it, and a block id may not be
+//: put there at all: the text inside a fence is code, and appending to it
+//: changes what the code says.
+function docBlockInFence(lines, index) {
+  let open = false;
+  for (let i = 0; i < index; i++) {
+    if (/^\s*(?:```|~~~)/.test(lines[i])) open = !open;
+  }
+  return open;
+}
+
+//: The block a position is in: `{from, to, lastFrom, lastTo}` over the text,
+//: or null when there is no block there (a blank line, or inside a fence).
+//:
+//: A block is the run of non-blank lines around the position, except in a
+//: list, where it is the item's own line. Both are what Obsidian does and
+//: both are what a person means by "this paragraph".
+function docBlockBounds(text, pos) {
+  const body = String(text == null ? "" : text);
+  const lines = body.split("\n");
+  const starts = [];
+  let at = 0;
+  for (const line of lines) {
+    starts.push(at);
+    at += line.length + 1;
+  }
+  const clamped = Math.max(0, Math.min(body.length, pos | 0));
+  let index = 0;
+  while (index + 1 < lines.length && starts[index + 1] <= clamped) index++;
+  if (!lines[index].trim()) return null;
+  if (docBlockInFence(lines, index)) return null;
+  let first = index;
+  let last = index;
+  if (!DOC_BLOCK_LIST_LINE.test(lines[index])) {
+    while (first > 0 && lines[first - 1].trim() && !DOC_BLOCK_LIST_LINE.test(lines[first - 1])) {
+      first--;
+    }
+    while (
+      last + 1 < lines.length &&
+      lines[last + 1].trim() &&
+      !DOC_BLOCK_LIST_LINE.test(lines[last + 1])
+    ) {
+      last++;
+    }
+  }
+  return {
+    from: starts[first],
+    to: starts[last] + lines[last].length,
+    lastFrom: starts[last],
+    lastTo: starts[last] + lines[last].length,
+  };
+}
+
+//: The id a block already carries, as `{id, from, to}` over the text, or null.
+//: The span includes the space before the `^`, so it round-trips: removing it
+//: gives back exactly the line that was there before the id was added.
+function docBlockIdOf(text, bounds) {
+  if (!bounds) return null;
+  const line = String(text).slice(bounds.lastFrom, bounds.lastTo);
+  const match = DOC_BLOCK_ID_AT_END.exec(line);
+  if (!match) return null;
+  return {
+    id: match[1],
+    from: bounds.lastFrom + match.index,
+    to: bounds.lastFrom + match.index + match[0].length,
+  };
+}
+
+//: Every id already in a document, so a new one cannot collide with one.
+function docBlockIds(text) {
+  const found = new Set();
+  for (const line of String(text == null ? "" : text).split("\n")) {
+    const match = DOC_BLOCK_ID_AT_END.exec(line);
+    if (match) found.add(match[1]);
+  }
+  return found;
+}
+
+//: A new id for this document. Six characters of base 36, which is 2.2 billion
+//: of them: short enough to read in the text it is appended to, and the
+//: collision check below makes the birthday problem somebody else's.
+//:
+//: `random` is a parameter so the test can make this total rather than
+//: probabilistic; nothing in the app passes it.
+function docBlockNewId(text, random) {
+  const roll = typeof random === "function" ? random : Math.random;
+  const taken = docBlockIds(text);
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const id = Math.floor(roll() * 36 ** 6)
+      .toString(36)
+      .padStart(6, "0")
+      .slice(-6);
+    if (!taken.has(id)) return id;
+  }
+  return null;
+}
+
+//: The edits that give the block at `pos` an id, and the id itself. A block
+//: that already has one is not touched: the whole point of an id is that a
+//: link written yesterday still resolves.
+//:
+//: One `{from, to, insert}` over the end of the block's last line, which is
+//: the same shape the table and frontmatter models write, and for the same
+//: reason: it keeps every other byte of the document exactly as it was.
+function docBlockEnsureIdEdits(text, pos, random) {
+  const bounds = docBlockBounds(text, pos);
+  if (!bounds) return { id: null, edits: [], reason: "no-block" };
+  const existing = docBlockIdOf(text, bounds);
+  if (existing) return { id: existing.id, edits: [], reason: "already" };
+  const id = docBlockNewId(text, random);
+  if (!id) return { id: null, edits: [], reason: "no-id" };
+  const line = String(text).slice(bounds.lastFrom, bounds.lastTo);
+  //: Trailing spaces are not kept in front of the id: two of them at the end
+  //: of a markdown line are a hard line break, and `  ^id` would move it.
+  const trimmed = line.replace(/[ \t]+$/, "");
+  return {
+    id,
+    edits: [
+      {
+        from: bounds.lastFrom + trimmed.length,
+        to: bounds.lastTo,
+        insert: ` ^${id}`,
+      },
+    ],
+    reason: "added",
+  };
+}
+
+//: The block carrying an id: `{from, to, text}` over the document, with the
+//: `^id` itself left out of the text (it is scaffolding, not content).
+//: Returns null when nothing carries it, which is what a link to a block
+//: somebody deleted looks like.
+function docBlockFind(text, id) {
+  const body = String(text == null ? "" : text);
+  if (!new RegExp(`^${DOC_BLOCK_ID}$`).test(String(id || ""))) return null;
+  const lines = body.split("\n");
+  let at = 0;
+  for (let index = 0; index < lines.length; index++) {
+    const match = DOC_BLOCK_ID_AT_END.exec(lines[index]);
+    if (match && match[1] === id && !docBlockInFence(lines, index)) {
+      const bounds = docBlockBounds(body, at);
+      if (!bounds) return null;
+      const marker = docBlockIdOf(body, bounds);
+      const whole = body.slice(bounds.from, bounds.to);
+      const clean = marker
+        ? whole.slice(0, marker.from - bounds.from) + whole.slice(marker.to - bounds.from)
+        : whole;
+      return { from: bounds.from, to: bounds.to, text: clean };
+    }
+    at += lines[index].length + 1;
+  }
+  return null;
+}
+
+//: The text as a *reader* sees it: every block marker taken out. A `^id` is
+//: scaffolding the same way `[[` and `]]` are, so it belongs in the source
+//: pane and in the file on disk, and nowhere in the rendered pane or the PDF
+//: printed from it. The Live view already hides it; this is the same rule for
+//: the pane that has no caret to bring it back.
+//:
+//: Markers inside a fence are left alone: there a `^id` is an example of the
+//: syntax rather than a use of it, and a preview that rewrites code is a
+//: preview saying something the file does not.
+function docBlockStripIds(text) {
+  let fenced = false;
+  return String(text == null ? "" : text)
+    .split("\n")
+    .map((line) => {
+      if (/^\s*(?:```|~~~)/.test(line)) {
+        fenced = !fenced;
+        return line;
+      }
+      return fenced ? line : line.replace(DOC_BLOCK_ID_AT_END, "");
+    })
+    .join("\n");
+}
+
+// DOC-BLOCKREF-END
+
+// --- block references in the running editor ----------------------------------
+
+//: Another document's text, fetched once for the embeds that need it. A page
+//: holding six embeds of one document asks for it once, and the open document
+//: is never fetched at all: its text is what is being typed.
+const docBlockTextCache = new Map();
+
+function docBlockDocumentText(doc) {
+  if (!doc) return null;
+  if (currentDoc && doc.id === currentDoc.id) return docText();
+  if (doc.content != null) return doc.content;
+  return docBlockTextCache.has(doc.id) ? docBlockTextCache.get(doc.id) : null;
+}
+
+//: Give the block the caret is in an id, and hand back the reference a person
+//: can paste. The id is written into the document, which is the point: a block
+//: reference is a promise the text itself keeps, not an index this app holds.
+function docBlockRefAtCaret() {
+  const surface = docSurface();
+  if (!surface) return null;
+  const text = docText();
+  const made = docBlockEnsureIdEdits(text, surface.selectionStart);
+  if (!made.id) return { id: null, reason: made.reason };
+  if (made.edits.length) {
+    docTableDispatch({ surface, text }, made.edits);
+    markDocDirty();
+  }
+  return { id: made.id, reason: made.reason };
+}
+
+//: The `/` menu's "Link to this block". Copies `[[Title#^id]]`, because that
+//: is the form you paste into a note, a map node or a chat, and those three
+//: are what the plan asks a block reference to reach.
+async function docCopyBlockRef() {
+  const title = (currentDoc?.title || "").trim();
+  if (!title) {
+    toast("Give the document a title first, a block link is named by it.", true);
+    return;
+  }
+  const made = docBlockRefAtCaret();
+  if (!made || !made.id) {
+    toast("Put the caret in a paragraph first.", true);
+    return;
+  }
+  const reference = `[[${title}#^${made.id}]]`;
+  //: Through the shared helper, not `navigator.clipboard`: it falls back to
+  //: the copy dialog in the contexts where the API is not there at all, which
+  //: is the desktop window's own case.
+  if (typeof copyToClipboard === "function") await copyToClipboard(reference);
+  toast(`Copied ${reference}`);
+}
+
+//: Put the caret on a block and say so. Used when a `[[Doc#^id]]` is followed:
+//: opening the document at the top and leaving the reader to find the
+//: paragraph is most of the way to not having followed the link at all.
+function docRevealBlock(blockId) {
+  const found = docBlockFind(docText(), blockId);
+  if (!found) {
+    toast("That block is not in this document any more.", true);
+    return false;
+  }
+  const surface = docSurface();
+  if (!surface) return false;
+  surface.focus();
+  //: The selection is the reveal: `setSelectionRange` on this surface already
+  //: scrolls to what it selects, and selecting the block is both "here it is"
+  //: and a sensible place to be left, because the next thing a reader does is
+  //: copy it or edit it.
+  surface.setSelectionRange(found.from, found.to);
+  return true;
+}
+
+// =============================================================================
 // Math: a small TeX subset rendered as MathML (DOCUMENTS_PLAN Phase 3 item 2)
 // =============================================================================
 //
@@ -4794,6 +5141,23 @@ function docLivePlugin(CM) {
         hide(from, idFrom);
         hide(idTo, to);
       });
+      //: **A block id, hidden like every other marker.** `^abc123` at the end
+      //: of a line is scaffolding: it is what makes the paragraph linkable and
+      //: it is not what the paragraph says. It comes back when the caret is on
+      //: its line, which is the rule the whole of this view follows, so a
+      //: person can see, select and delete one.
+      //:
+      //: The pattern is the model's `DOC_BLOCK_ID_AT_END` with `gm` on it,
+      //: which is why the narrow id shape matters here and not only there:
+      //: a `$` after any run of characters would have hidden the end of every
+      //: line ending in a caret ("2^31", "x ^ y").
+      scan(/(?:^|[ \t])\^([A-Za-z0-9][A-Za-z0-9-]{0,31})[ \t]*$/gm, (match, from, to) => {
+        if (rangeRevealed(from, to)) {
+          ranges.push(Decoration.mark({ class: "cm-md-blockid" }).range(from, to));
+          return;
+        }
+        hide(from, to);
+      });
       scan(/\[\[([^[\]\n]{1,120})\]\]/g, (match, from, to) => {
         const spec = match[1].trim();
         //: A link is its whole text; an embed's is `name|300|center|caption`,
@@ -5177,6 +5541,30 @@ function docEmbedTarget(name) {
 //: the link chip it would have been.
 function docEmbedNode(target, name) {
   if (!target) return null;
+  //: **A block embed is the block's own markdown, rendered.** Not a card: the
+  //: thing being embedded is a paragraph of this notebook's own writing, and
+  //: every other renderer here draws an *object* (a note, a map, a file). The
+  //: quote bar and the source line are what say where it came from.
+  if (target.kind === "block") {
+    const text = docBlockDocumentText(target.doc);
+    if (text == null) return null; // not fetched yet; `docEmbedFill` asks
+    const found = docBlockFind(text, target.blockId);
+    const box = document.createElement("blockquote");
+    box.className = "doc-embed-block";
+    const body = document.createElement("div");
+    body.className = "doc-embed-block-body";
+    if (found) renderMarkdown(body, found.text);
+    else body.textContent = "That block is not in the document any more.";
+    if (!found) body.classList.add("muted");
+    const source = document.createElement("button");
+    source.type = "button";
+    source.className = "linklike doc-embed-block-source";
+    source.textContent = target.doc.title || "Untitled";
+    source.title = "Open the document at this block";
+    source.addEventListener("click", () => docOpenResolvedWikiTarget(target, name));
+    box.append(body, source);
+    return box;
+  }
   if (target.kind === "note" && typeof entryItem === "function") {
     //: `entryItem` is an `<li>`, and `.entry-list li` is where a note card's
     //: whole appearance lives: handed out on its own it would render as a
@@ -5295,6 +5683,25 @@ function docEmbedFill(host, name, options = null) {
     if (node.tagName === "IMG") docApplyImageOptions(node, options);
     return;
   }
+  //: A block embed of a document nobody has opened has no text to draw yet.
+  //: One fetch per document, cached, and the widget fills itself in rather
+  //: than waiting for a repaint a document nobody is typing in will never get.
+  if (target && target.kind === "block") {
+    host.replaceChildren(docEmbedChip(name, target));
+    if (docBlockTextCache.has(target.doc.id)) return;
+    docBlockTextCache.set(target.doc.id, null);
+    apiJson(`/documents/${target.doc.id}`, { silent: true })
+      .then((doc) => {
+        docBlockTextCache.set(target.doc.id, doc.content || "");
+        if (!host.isConnected) return;
+        const later = docEmbedNode(target, name);
+        if (later) host.replaceChildren(later);
+      })
+      .catch(() => {
+        docBlockTextCache.delete(target.doc.id);
+      });
+    return;
+  }
   host.replaceChildren(docEmbedChip(name, target));
   //: The Library's index is the one thing that might not be loaded yet, so a
   //: name that is a file reads as "nothing called that" until it arrives. One
@@ -5339,6 +5746,20 @@ function docEmbedFill(host, name, options = null) {
 //: the one resolver, so the drift the old comments kept promising was
 //: impossible cannot happen again.
 function docResolveWikiTarget(name) {
+  //: **A block reference is resolved before anything else**, because
+  //: `Doc title#^abc123` is not a name and would resolve to nothing at all if
+  //: it were looked up as one. Documents only: a block id is written into a
+  //: document's own text by the command that copies the link, and a note has
+  //: no editor here to put one in. `docBlockRefSplit` of a plain name returns
+  //: a null id, so this costs every other link one comparison.
+  const ref = docBlockRefSplit(name);
+  if (ref.blockId) {
+    const base = ref.name ? docResolveWikiTarget(ref.name) : { kind: "document", doc: currentDoc };
+    if (base && base.kind === "document" && base.doc) {
+      return { kind: "block", doc: base.doc, blockId: ref.blockId };
+    }
+    return null;
+  }
   const wanted = String(name || "").trim().toLowerCase();
   if (!wanted) return null;
   const asDoc = docs.find((doc) => (doc.title || "").trim().toLowerCase() === wanted);
@@ -5351,6 +5772,7 @@ function docResolveWikiTarget(name) {
 //: text every other note list in the app labels a note with.
 function docWikiTargetLabel(target) {
   if (!target) return "";
+  if (target.kind === "block") return `${target.doc.title || ""} (a block)`;
   if (target.kind === "document") return target.doc.title || "";
   if (target.kind === "board") return target.entry.title || "";
   const entry = target.entry || {};
@@ -5369,6 +5791,15 @@ function docWikiTargetLabel(target) {
 function docOpenResolvedWikiTarget(target, name) {
   if (!target) {
     toast(`Nothing called "${name}" yet.`, true);
+    return;
+  }
+  if (target.kind === "block") {
+    //: Open the document first *then* find the block, and only when it is a
+    //: different document: opening the one you are in would throw away the
+    //: unsaved keystroke that made the link worth following.
+    const reveal = () => docRevealBlock(target.blockId);
+    if (currentDoc && currentDoc.id === target.doc.id) reveal();
+    else Promise.resolve(openDocument(target.doc.id)).then(reveal);
     return;
   }
   if (target.kind === "document") openDocument(target.doc.id);
@@ -5523,6 +5954,10 @@ const MD_ACTIONS = {
   //: goes at the top of the document rather than at the caret: it is the one
   //: markdown construct whose position is fixed by what it means.
   properties: { custom: "properties" },
+  //: A block reference (DOCUMENTS_PLAN Phase 4 item 2). `custom`, because it
+  //: inserts nothing at the caret: it gives the block the caret is in an id
+  //: and puts the link to it on the clipboard.
+  blockref: { custom: "blockref" },
   //: Two columns, with the caret in the first one. The `block`/`suffix` shape
   //: rather than `insert`, so the selection lands on the placeholder and the
   //: first thing typed replaces it, which is what the table and the code
@@ -5614,6 +6049,10 @@ function applyMarkdown(kind, boxId = "doc-content") {
   }
   if (action.custom === "properties") {
     docInsertProperties();
+    return;
+  }
+  if (action.custom === "blockref") {
+    docCopyBlockRef();
     return;
   }
   if (action.custom === "table") {
@@ -10152,6 +10591,14 @@ function docCmTheme(CM) {
         borderRadius: "4px",
         padding: "0 0.25em",
         cursor: "pointer",
+      },
+      //: A block id when the caret is on its line. Muted and monospaced, so it
+      //: reads as scaffolding the moment it appears rather than as a word
+      //: somebody typed at the end of the sentence.
+      ".cm-md-blockid": {
+        color: "var(--muted)",
+        fontFamily: "var(--mono, ui-monospace, monospace)",
+        fontSize: "0.85em",
       },
       ".cm-md-quote": {
         borderLeft: "3px solid var(--border)",

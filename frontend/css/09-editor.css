@@ -408,3 +408,37 @@
     gap: var(--space-5);
   }
 }
+
+/* An embedded block (DOCUMENTS_PLAN Phase 4 item 2).
+
+   Every other embed in this editor draws an *object* through the renderer
+   that owns it: a note card, a map chip, a file tile. A block is not an
+   object, it is a paragraph of this notebook's own writing, so it is drawn as
+   what it is: quoted text with a line saying where it came from. The quote
+   bar is the same 3px accent the callout and the blockquote use, so the three
+   quoted things in this editor agree. */
+.doc-embed-block {
+  margin: var(--space-2) 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--accent);
+  background: var(--surface-2);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.doc-embed-block-body > :first-child {
+  margin-top: 0;
+}
+
+.doc-embed-block-body > :last-child {
+  margin-bottom: 0;
+}
+
+/* The source line is a link, not a caption: it opens the document at the
+   block. Right-aligned and small, which is where a citation goes. */
+.doc-embed-block-source {
+  display: block;
+  margin-top: var(--space-1);
+  margin-left: auto;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}

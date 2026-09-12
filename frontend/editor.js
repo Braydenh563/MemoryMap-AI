@@ -521,6 +521,20 @@ function editorCommands(context) {
     //: in this editor and as three lines of literal text anywhere else, so
     //: offering it in the capture box would be offering a block that only
     //: looks like one somewhere the writer cannot see.
+    //: **Link to this block**, the copy half of a block reference. It inserts
+    //: nothing where the caret is: it gives the caret's own paragraph an id
+    //: (if it has none yet) and puts `[[Title#^id]]` on the clipboard, which
+    //: is the form you paste into a note, a map node or a chat. Documents
+    //: only, because the id has to be written into a document's text and the
+    //: capture box has no document to write it into.
+    commands.push({
+      id: "blockref",
+      group: "Links & references",
+      label: "\u{1F517} Link to this block",
+      hint: "copies [[Title#^id]]",
+      keywords: ["block", "reference", "anchor", "paragraph", "permalink", "copy link", "^"],
+      run: (textarea) => editorApplyNamed(textarea, "blockref"),
+    });
     commands.push({
       id: "columns",
       primary: true,

@@ -29,13 +29,30 @@ never lost to the smaller stuff.
       the collapsed sidebar and not in the middle. or doresnt have a gap."
       (the screenshot shows the rounded collapsed rail with the expand
       button's right edge flush against the rail's own right border).
+      **Fixed `2d280bc`**: measured 6px inside the left border and 4px
+      inside the right, because the centring halved the rail's 48px column
+      while the button is laid out in its 46px padding box; now 6/6 on all
+      three rails.
     - "and fix the placement of the '?' tooltip buttons in the settings
-      pages, maybe align them to the right with a gap..."
+      pages, maybe align them to the right with a gap..." **Fixed
+      `2d280bc`**: the marks sat at 131.1, 408, 114.1 and 241.3px from one
+      left edge, one position per heading length, while the switch rows in
+      the same card already right-aligned theirs; now 533.6px for every
+      heading row, scoped to `#settings-modal`. The one head inside a
+      `<summary>` (`#sampling-box`) ends 28px short of the column because
+      its row sits inside the summary's own padding: noted, not chased.
     - Second message, with a screenshot of the capture form's "Add to
       document" row (a `None` select beside a chip reading "Test MD
       Rendering Document" with its own remove cross): "fix the add to
       document combobox not changing. actually redesign and give each of
       the capture, write with ai, and ask tabs a new and improved look."
+      Root cause of the first half, read at `frontend/app.js` line 24941:
+      the `#entry-document` change handler does `event.target.value = ""`
+      on every pick, so the select snaps back to "None" by design and the
+      document becomes a chip beside it. A single select that resets on
+      every choice reads as broken; it is a multi-picker wearing a select.
+      Goes to the redesign brief with the three tabs (an Opus agent, once
+      the agent already in the capture form reports), not fixed piecemeal.
 
 115. **Third drop, 2026-09-12 afternoon, verbatim (the owner), three
     messages.**

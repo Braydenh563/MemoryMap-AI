@@ -3392,13 +3392,35 @@ function wireEscapedActionMenu(wrap) {
     const roomAbove = anchor.top - 4 - margin;
     if (box.height <= roomBelow) {
       top = anchor.bottom + 4;
-      menu.style.maxHeight = "";
+      //: **`none`, not `""`.** Clearing the inline cap hands the menu back to
+      //: the *stylesheet's* cap, and that is the same lie one level down that
+      //: `escapeAndCapMenu` was fixed for in 8b92164: the menu is then placed
+      //: by a height it is not drawn at. Downwards that only wastes room;
+      //: upwards, the branch below, it is the reported bug. The height was
+      //: measured a few lines up with every cap off and found to fit in the
+      //: room on this side, so keeping it is exactly what "it fits" meant.
+      menu.style.maxHeight = "none";
+      menu.style.overflowY = "";
     } else if (box.height <= roomAbove) {
       //: Upwards only when the whole menu fits there. Opening up and *then*
       //: scrolling puts the first row at the bottom of the panel, furthest
       //: from the button that opened it, which reads as a different menu.
+      //:
+      //: **This is where the cap mattered** (INBOX 119, the owner: "the let
+      //: the ai decide button popup is a massive gap above the picker").
+      //: Reproduced on :8895, 1440x900 dark, with nine categories in the
+      //: notebook (scratchpad/ui-sweeps/notesmenugap3.js): the File under menu
+      //: wanted 410.8px, `.select-menu`'s own `max-height: 18rem` drew it at
+      //: 288, and `top` was computed from the 410.8, so the menu opened at
+      //: y=99 and its bottom landed 127.1px above the opener at y=514.1, with
+      //: the gap covering the formatting toolbar and the note body. The
+      //: owner's screenshot measures the same 127. Eight categories gave 91px
+      //: of gap, ten 163, eleven 199: exactly `wants - drawn + 4` every time,
+      //: which is the signature of placing a box by a height something else
+      //: then takes away.
       top = anchor.top - 4 - box.height;
-      menu.style.maxHeight = "";
+      menu.style.maxHeight = "none";
+      menu.style.overflowY = "";
     } else {
       //: Taller than both sides: take the larger side and scroll inside it,
       //: with the cut row visible rather than sliced, which is the

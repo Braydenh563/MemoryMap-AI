@@ -23,6 +23,39 @@ never lost to the smaller stuff.
 
 ## Open items
 
+113. **Buttons with no resting affordance, measured 2026-09-12.** The
+    owner: "all the buttons need to actually look like buttons with
+    affordance, not just shapes with text in them". `buttons.js` against a
+    live app puts numbers on it. The same class renders three ways in
+    three tabs: `.ghost.small.icon-only` is `bg rgba(31,36,48,0.12)` in
+    the top bar, `bg rgb(252,253,255)` with a border and a shadow in
+    Library, and `bg rgba(0,0,0,0)` with a transparent border and no
+    shadow on Notes (`#notes-refresh`, `#search-help`). A whole family is
+    fully transparent at rest with a transparent border and no shadow:
+    every `.status-item` in the status bar, `#dash-widgets-open`,
+    `#dash-edit`, `#select-btn`, `#library-refresh`. Those are not buttons
+    that look like shapes, they are buttons that look like text.
+    **This is not a regression, it is a collision between two deliberate
+    rules**, and the codebase already says so: `--ghost-btn-bg` gives a
+    ghost button a tonal resting fill (01-forms-settings.css), while the
+    dock "quiet" rules strip it back off (08-consistency.css ~1309, added
+    to fix "why is that one button highlighted"). 08-consistency.css's own
+    comment at ~948 names the trap: "a disclosure that is invisible until
+    you find it is the problem that round was solving, and taking the
+    affordance away to make it quieter would just trade one report for
+    the other". Both reports are now in.
+    **Recommendation, to take: affordance is carried by the border, state
+    is carried by the fill.** A quiet control keeps a resting
+    `1px solid var(--border)` so it reads as pressable, and gives up only
+    the resting fill, so a filled button still means "this one is
+    active/primary" and nothing looks highlighted by accident. That
+    resolves both reports instead of trading them. Deferred from
+    2026-09-12 only because two agents were editing the same CSS files at
+    the time and this touches shared button recipes across every surface;
+    it needs one measured pass with `buttons.js` before and after, and it
+    will move `test_ui_signatures.py` ratchets, which must be re-based
+    deliberately rather than widened.
+
 112a. **The mechanism behind 112, found 2026-09-12.** The link is not a
     citation marker and not a wiki link: `CMD_NOTE_REF`
     (`/\bnotes?\s*(?:id|#)?\s*(\d{1,7})\b/gi`, app.js) rewrites a

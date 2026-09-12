@@ -1938,6 +1938,63 @@ body.resizing-sidebar {
 
 #doc-attach-bookmark {
   margin-top: var(--space-2);
+  /* A `.doc-outline-wrap` is a flex column, so a button in it was stretched
+     to the full width of the sidebar: 226px of ghost button, the heaviest
+     control on the panel, for two words. It is as wide as what it says. */
+  align-self: flex-start;
+}
+
+/* **An empty section does not reserve a heading and a button.** Measured with
+   no references attached: `#doc-bookmarks-wrap` was 69.4px of column for a
+   12px uppercase "REFERENCES" eyebrow and a full-width "Attach a link" over
+   nothing, sitting above roughly 290px of empty sidebar. Backlinks and "notes
+   it draws on" already hide themselves when they have nothing to list
+   (`renderDocBacklinks`, `renderDocNotes`); References cannot, because the
+   way to attach the first one is inside it.
+
+   So the section empties out instead: the eyebrow goes, the empty list goes,
+   the rule above it goes, the 4rem floor every section otherwise keeps goes,
+   and what is left is one quiet action at the panel's left edge, the same
+   weight and the same muted ink as the storage help below it, which is the
+   only other thing down there. Written with `:has` against the list's own
+   emptiness rather than a class from JS: the three renderers all end in
+   `replaceChildren()`, so the DOM already knows, and a class would be a
+   fourth thing to keep in step.
+
+   `#doc-outline-wrap` is deliberately not in this list. It is what the tab is
+   called, so it keeps its heading and answers with a sentence instead
+   (`#doc-outline-empty`), which `docoutline.js` asserts. */
+#doc-backlinks-wrap:has(> .doc-outline:empty) > h3,
+#doc-notes-wrap:has(> .doc-outline:empty) > h3,
+#doc-bookmarks-wrap:has(> .doc-outline:empty) > h3,
+#doc-backlinks-wrap:has(> .doc-outline:empty) > .doc-outline,
+#doc-notes-wrap:has(> .doc-outline:empty) > .doc-outline,
+#doc-bookmarks-wrap:has(> .doc-outline:empty) > .doc-outline {
+  display: none;
+}
+
+#doc-bookmarks-wrap:has(> .doc-outline:empty) {
+  margin-top: var(--space-3);
+  padding-top: 0;
+  border-top: none;
+  min-height: 0;
+}
+
+#doc-bookmarks-wrap:has(> .doc-outline:empty) #doc-attach-bookmark {
+  margin-top: 0;
+  padding-left: 0;
+  padding-right: 0;
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+#doc-bookmarks-wrap:has(> .doc-outline:empty) #doc-attach-bookmark:hover,
+#doc-bookmarks-wrap:has(> .doc-outline:empty) #doc-attach-bookmark:focus-visible {
+  color: var(--accent);
+  text-decoration: underline;
 }
 
 .outline-link {

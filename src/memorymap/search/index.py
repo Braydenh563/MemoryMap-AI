@@ -48,10 +48,10 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Callable, Iterable, Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime
 
-from sqlalchemy import event
+from sqlalchemy import event, select, text
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger("memorymap.search.index")
@@ -124,10 +124,6 @@ class Source:
     model: type
     read: Callable[[object], Row | None]
     scan: Callable[[Session], Iterable[tuple[int, Row]]]
-    #: Extra classes whose change means this source's row is stale. Nothing
-    #: uses it yet; it is the hook for "a note's attachment changed, re-index
-    #: the note" when a flag needs it.
-    watches: tuple[type, ...] = field(default_factory=tuple)
 
 
 _SOURCES: dict[str, Source] = {}
@@ -152,8 +148,6 @@ def register(source: Source) -> Source:
         raise ValueError(f"search index source {source.name!r} has kind {source.kind!r}, not in KINDS")
     _SOURCES[source.name] = source
     _BY_MODEL.setdefault(source.model, []).append(source)
-    for watched in source.watches:
-        _BY_MODEL.setdefault(watched, []).append(source)
     return source
 
 
@@ -253,17 +247,11 @@ def _table_missing(session: Session) -> bool:
     if known is None:
         known = bool(
             session.execute(
-                _text("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='search_index'")
+                text("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='search_index'")
             ).scalar()
         )
         session.info["memorymap_index_table"] = known
     return not known
-
-
-def _text(sql: str):  # noqa: ANN201
-    from sqlalchemy import text
-
-    return text(sql)
 
 
 @event.listens_for(Session, "after_flush")
@@ -361,7 +349,7 @@ def counts(session: Session) -> dict[str, int]:
     tally = {kind: 0 for kind in KINDS}
     if _table_missing(session):
         return tally
-    rows = session.execute(_text("SELECT kind, count(*) FROM search_index GROUP BY kind")).all()
+    rows = session.execute(text("SELECT kind, count(*) FROM search_index GROUP BY kind")).all()
     for kind, count in rows:
         if kind in tally:
             tally[kind] = int(count)
@@ -383,7 +371,7 @@ def _first_line(text_value: str | None, limit: int = 120) -> str:
     return ""
 
 
-def _tags_text(raw: str | None) -> str:
+def _tagstext(raw: str | None) -> str:
     try:
         parsed = json.loads(raw or "[]")
     except (TypeError, ValueError):
@@ -425,7 +413,7 @@ def _entry_row(entry, *, want_board: bool) -> Row | None:  # noqa: ANN001
     return Row(
         title=_first_line(content),
         body=content,
-        tags=_tags_text(getattr(entry, "tags", "[]")),
+        tags=_tagstext(getattr(entry, "tags", "[]")),
         space=getattr(entry, "workspace_id", "default") or "default",
         flags=" ".join(flags),
         written=_written(getattr(entry, "created_at", None)),
@@ -435,16 +423,10 @@ def _entry_row(entry, *, want_board: bool) -> Row | None:  # noqa: ANN001
 def _scan_entries(session: Session, *, want_board: bool) -> Iterator[tuple[int, Row]]:
     from memorymap.core.database import Entry
 
-    for entry in session.scalars(_select(Entry).where(Entry.is_private == False)):  # noqa: E712
+    for entry in session.scalars(select(Entry).where(Entry.is_private == False)):  # noqa: E712
         row = _entry_row(entry, want_board=want_board)
         if row is not None:
             yield entry.id, row
-
-
-def _select(model):  # noqa: ANN001, ANN201
-    from sqlalchemy import select
-
-    return select(model)
 
 
 def _register_all() -> None:
@@ -486,7 +468,7 @@ def _register_all() -> None:
             model=Document,
             read=_document_row,
             scan=lambda session: (
-                (doc.id, _document_row(doc)) for doc in session.scalars(_select(Document))
+                (doc.id, _document_row(doc)) for doc in session.scalars(select(Document))
             ),
         )
     )
@@ -498,7 +480,7 @@ def _register_all() -> None:
             model=Attachment,
             read=_attachment_row,
             scan=lambda session: (
-                (att.id, _attachment_row(att)) for att in session.scalars(_select(Attachment))
+                (att.id, _attachment_row(att)) for att in session.scalars(select(Attachment))
             ),
         )
     )
@@ -510,7 +492,7 @@ def _register_all() -> None:
             model=MediaUpload,
             read=_media_row,
             scan=lambda session: (
-                (media.id, _media_row(media)) for media in session.scalars(_select(MediaUpload))
+                (media.id, _media_row(media)) for media in session.scalars(select(MediaUpload))
             ),
         )
     )
@@ -522,7 +504,7 @@ def _register_all() -> None:
             model=Bookmark,
             read=_bookmark_row,
             scan=lambda session: (
-                (mark.id, _bookmark_row(mark)) for mark in session.scalars(_select(Bookmark))
+                (mark.id, _bookmark_row(mark)) for mark in session.scalars(select(Bookmark))
             ),
         )
     )
@@ -534,7 +516,7 @@ def _register_all() -> None:
             model=Reminder,
             read=_reminder_row,
             scan=lambda session: (
-                (rem.id, _reminder_row(rem)) for rem in session.scalars(_select(Reminder))
+                (rem.id, _reminder_row(rem)) for rem in session.scalars(select(Reminder))
             ),
         )
     )

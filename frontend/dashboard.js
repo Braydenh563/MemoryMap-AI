@@ -289,6 +289,30 @@ async function refreshAiGreeting(forced = false) {
 
 let dashClockTimer = null;
 
+function startDashClock() {
+  if (dashClockTimer) clearInterval(dashClockTimer);
+  // Nothing to tick for while nobody can see it. The repaint on return is
+  // what makes stopping safe: resuming on the next tick would leave the time
+  // it stopped at on screen for up to a second, which on a clock is the one
+  // place a person notices.
+  if (document.hidden) return;
+  dashClockTimer = setInterval(paintDashClock, 1000);
+}
+
+document.addEventListener("visibilitychange", () => {
+  // Only while the dashboard is actually drawn: `paintDashClock` returns at
+  // once when its two elements are not in the page, but an interval started
+  // on every tab would still be an interval.
+  if (!$("dash-clock-time")) return;
+  if (document.hidden) {
+    if (dashClockTimer) clearInterval(dashClockTimer);
+    dashClockTimer = null;
+    return;
+  }
+  paintDashClock();
+  startDashClock();
+});
+
 function paintDashClock() {
   const timeEl = $("dash-clock-time");
   const dateEl = $("dash-clock-date");
@@ -356,9 +380,13 @@ function renderDashboardGreeting() {
   // which is why this sits in the dashboard's own render and not in init.
   renderEmblem($("dash-hero-emblem"), 46, { animate: true });
   paintDashClock();
-  // One ticking clock, however many times the dashboard re-renders.
-  if (dashClockTimer) clearInterval(dashClockTimer);
-  dashClockTimer = setInterval(paintDashClock, 1000);
+  // One ticking clock, however many times the dashboard re-renders, and none
+  // at all while the tab is hidden. It paints HH:MM, so a hidden tab was
+  // waking the process once a second to write the string that was already
+  // there, for as long as the app stayed open (WORLD_CLASS_PLAN section 10,
+  // F6: "0 timers while hidden"). Measured with a wrapped `setInterval`: two
+  // one-second intervals survived hiding, this one and app.js's `tickClocks`.
+  startDashClock();
   renderDashSubmessage().catch(() => {});
 }
 

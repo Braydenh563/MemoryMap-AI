@@ -21753,7 +21753,42 @@ function tickClocks() {
     if (d) d.textContent = date;
   }
 }
-setInterval(tickClocks, 1000);
+// **Stopped while the tab is hidden, restarted when it comes back.**
+// This paints HH:MM, so 59 of every 60 runs wrote the string that was already
+// there, and it ran for as long as the app was open whether or not anyone
+// could see it: a background tab kept a one-second timer and a
+// `querySelectorAll` alive for hours (WORLD_CLASS_PLAN section 10, F6, whose
+// gate is "0 timers while hidden").
+//
+// Cleared rather than made to return early, because a timer that wakes the
+// process a thousand times an hour to decide it has nothing to do is the
+// thing being paid for. The repaint on return is what keeps it honest: a
+// clock that resumed on the next tick would show the time it stopped at for
+// up to a second, and "up to a second" on a clock is exactly what a person
+// notices.
+let clockTimer = null;
+
+function startClockTicker() {
+  if (clockTimer === null) clockTimer = setInterval(tickClocks, 1000);
+}
+
+function stopClockTicker() {
+  if (clockTimer !== null) {
+    clearInterval(clockTimer);
+    clockTimer = null;
+  }
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    stopClockTicker();
+  } else {
+    tickClocks();
+    startClockTicker();
+  }
+});
+
+startClockTicker();
 tickClocks();
 
 window.addEventListener("resize", () => {

@@ -6,6 +6,9 @@
 #                              # origin/main (the routine local gate)
 #   scripts/gate.sh --full     # plus the whole suite (10 to 15 minutes: CI runs
 #                              # it on push; locally once before the PR closes)
+#   scripts/gate.sh --staged   # the lint set against what is STAGED, not the
+#                              # working tree: the one that catches a commit
+#                              # that splits a pair (see below)
 #   BASE=http://127.0.0.1:8784 scripts/gate.sh --sweeps   # plus errors, docks,
 #                                                          # contrast, touch on a running app
 #
@@ -28,12 +31,13 @@ RUFF="$ROOT/.venv/bin/ruff"
 [ -x "$RUFF" ] || RUFF="$MAIN/.venv/bin/ruff"
 LOG="${GATE_LOG:-$ROOT/.gate}"
 mkdir -p "$LOG"
-FULL=0; SWEEPS=0; CHANGED=0
+FULL=0; SWEEPS=0; CHANGED=0; STAGED=0
 for arg in "$@"; do
   case "$arg" in
     --full) FULL=1 ;;
     --changed) CHANGED=1 ;;
     --sweeps) SWEEPS=1 ;;
+    --staged) STAGED=1 ;;
   esac
 done
 ran=(); passed=(); failed=(); skipped=()
@@ -56,6 +60,51 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   # second.
   tests/test_docs_site.py)
 step lints "$PY" -m pytest -q -p no:warnings "${LINTS[@]}"
+
+# --staged: the same lint set, against the *index* rather than the working
+# tree.
+#
+# Why this exists, and it cost a broken build to learn. In the shared
+# worktree two agents and the orchestrator edit at once, so `git add <file>`
+# stages the whole of a file including whatever someone else has half-written
+# in it. One commit on 2026-09-12 staged `frontend/index.html` while an agent
+# was mid-way through removing the "Add to document" select: the id went, its
+# `$("entry-document").addEventListener` in `app.js` stayed (unstaged), and a
+# top-level listener on `null` aborted the whole of `app.js`. `initAuth` never
+# ran, the lock overlay never left `.hidden`, and the app did not boot at all
+# on that head.
+#
+# `test_frontend_ids.py` would have caught it: it is in LINTS above and it
+# checks exactly that every `$("id")` exists in the markup. It passed, because
+# it ran against the *working tree*, where the pair was still whole. The gate
+# was checking something nobody was about to commit.
+#
+# `git checkout-index` writes the staged content of every tracked file into a
+# scratch tree, and the lints run there, which is what CI will see.
+staged_lints() {
+  # No RETURN trap: this script runs under `set -u` and the trap body is
+  # evaluated after the local has gone, which fails as "tmp: unbound
+  # variable" and hides the real result. Clean up on both paths instead.
+  local tmp rc
+  tmp="$(mktemp -d)"
+  if git -C "$ROOT" checkout-index -a --prefix="$tmp/"; then
+    (cd "$tmp" && "$PY" -m pytest -q -p no:warnings "${LINTS[@]}")
+    rc=$?
+  else
+    rc=1
+  fi
+  rm -rf "$tmp"
+  return "$rc"
+}
+if [ "$STAGED" = 1 ]; then
+  if git -C "$ROOT" diff --cached --quiet; then
+    skipped+=("staged-lints (nothing staged)")
+  else
+    step staged-lints staged_lints
+  fi
+else
+  skipped+=("staged-lints (--staged)")
+fi
 node_check() { local bad=0; for f in frontend/*.js; do node --check "$f" || bad=1; done; return $bad; }
 step node-check node_check
 step ruff "$RUFF" check .

@@ -246,7 +246,12 @@ new" is a fact rather than a guess.
 - `.venv/bin/ruff check .` before pushing; CI runs it and CodeQL.
 - `scripts/gate.sh` is the merge gate in one command: the lint set,
   `node --check`, ruff; `--changed` adds the tests that name the files
-  changed since `origin/main` (the routine local gate); `--full` adds
+  changed since `origin/main` (the routine local gate); **`--staged` runs
+  the lint set against the index rather than the working tree**, which is
+  the only mode that catches a commit splitting a pair (2026-09-12: staging
+  `index.html` while an agent was mid-way through removing an element took
+  the id without its `app.js` handler, and the app stopped booting; the
+  working tree was whole, so every other mode passed); `--full` adds
   the whole suite (only when absolutely needed, standing order 5a);
   `BASE=... --sweeps` adds errors,
   docks, contrast and touch against a running app. Run it before every

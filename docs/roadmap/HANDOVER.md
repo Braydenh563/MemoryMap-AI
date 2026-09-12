@@ -315,7 +315,14 @@ aborted the whole of `app.js`: `initAuth` never ran, the lock overlay never
 came out of `.hidden`, and the E2E suite failed on
 `waitForSelector("#lock-password")` with the element present but hidden 35
 times over 15 seconds. The app did not boot at all on that head. Stage by
-hunk, or commit only files no agent holds. The same three symptoms in the
+hunk, or commit only files no agent holds, and run `scripts/gate.sh
+--staged`, which exists because of this: it runs the lint set against the
+index rather than the working tree. `test_frontend_ids.py` was already in
+the lint set and already checks that every `$("id")` exists in the markup;
+it passed, because the gate was reading the working tree, where the pair
+was still whole. Proven on the same shape afterwards, with the break staged
+and the working tree clean: `lints` passed and `staged-lints` failed,
+naming the missing id. The same three symptoms in the
 console are the signature: one real error, then `X is not defined` and
 `Cannot access Y before initialization` from everything declared after it.
 

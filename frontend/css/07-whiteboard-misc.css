@@ -8143,6 +8143,30 @@ header#top-bar > #tab-bar {
   margin-bottom: var(--space-2);
 }
 
+/* **A gutter numbers a box, so a hidden box has no numbers.** Reported (INBOX
+   119, with a screenshot): "when I press preview in the capture a thought
+   formatting toolbar and possibly other places with the toolbar as well, the
+   top of the line numbers can still be hidden and is just a little dot above
+   the text panel."
+
+   The two preview toggles hide the textarea (`setEntryPreview` in the capture
+   composer, `setView` in the note edit form) and show a rendered panel in its
+   place. The gutter is the textarea's *sibling*, not its child, so nothing
+   hid it, and it kept whatever height the last sync gave it: measured on
+   :8895, 1440x900 dark, a 27.2x21.2px tinted box at y=281.4 with the preview
+   panel starting at 309 in Capture, and the same box at y=278.6 against a
+   panel at 306.1 in the note edit form. That is the dot in the screenshot.
+
+   Here rather than in either toggle, because the rule is about the pair and
+   not about one surface's button: any textarea that mounts a gutter and is
+   then hidden, by these two toggles or by a third written later, drops its
+   numbers with it. The documents editor is already right for the same reason
+   read the other way round: it hides `#doc-source-wrap`, the gutter and the
+   box together, so the gutter can never be left behind on its own. */
+.gutter-wrap:has(> textarea.hidden) > .doc-gutter {
+  display: none;
+}
+
 .gutter-wrap > .doc-gutter:not(.hidden) + textarea,
 textarea.has-gutter {
   white-space: pre;

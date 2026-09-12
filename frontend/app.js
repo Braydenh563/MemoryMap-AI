@@ -7812,12 +7812,32 @@ function renderEditForm(li, entry) {
     preview.classList.toggle("hidden", !showPreview);
     textarea.classList.toggle("hidden", showPreview);
     if (previewBtn) {
+      //: `is-active` is what the stylesheet paints a pressed toolbar toggle
+      //: with (`.doc-toolbar-toggle.is-active`, 01-forms-settings.css) and what
+      //: the capture strip's own button carries; `active` was a second name for
+      //: the same state that nothing draws, so this button looked unpressed in
+      //: preview while the capture one looked pressed. Both are written, since
+      //: the clone can arrive carrying either.
+      previewBtn.classList.toggle("is-active", showPreview);
       previewBtn.classList.toggle("active", showPreview);
       previewBtn.setAttribute("aria-pressed", String(showPreview));
     }
     if (!showPreview) textarea.focus();
   };
   previewBtn?.addEventListener("click", () => setView(previewBtn.getAttribute("aria-pressed") === "true" ? "write" : "preview"));
+  //: **The clone carries the capture strip's state, including this button's.**
+  //: This toolbar is a `cloneNode(true)` of `#note-toolbar` (see
+  //: `noteEditToolbar`), so a form opened while the capture box is in preview
+  //: arrives with Preview already pressed while showing the textarea, and the
+  //: first click on it then reads as doing nothing. Measured while
+  //: reproducing INBOX 119 on :8895: `aria-pressed="true"` on a form whose
+  //: box was visible. The state is reset rather than `setView("write")` called:
+  //: that would focus the textarea, and opening a note for editing does not
+  //: otherwise move the caret into it.
+  if (previewBtn?.getAttribute("aria-pressed") === "true") {
+    previewBtn.classList.remove("is-active", "active");
+    previewBtn.setAttribute("aria-pressed", "false");
+  }
   //: Attachment cards for whatever this note already carries: rename its
   //: caption, generate one, or remove it, and removing takes the markdown
   //: with it, in the edit form exactly as in the capture box.

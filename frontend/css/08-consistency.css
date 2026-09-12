@@ -1978,7 +1978,18 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
      rgb(74,80,93) ground, 3.70:1 at 11.2px against the 4.5 it owes. The same
      text on `--chip-bg` measures 5.10:1, and light was already 5.71:1 and
      goes up. The hover fill is untouched, so the control still answers the
-     pointer with the app's own ghost tone. */
+     pointer with the app's own ghost tone.
+
+     The *edge* carries what the fill gives up. With the ground this quiet the
+     hairline is most of what says "control", and a quieter ground is also a
+     quieter border, since a border paints over its own element's fill:
+     measured off the pixels, the chip's edge against the card fell to 2.48:1
+     in dark on the way down to `--chip-bg`, under the 3:1 a control's
+     boundary owes. One step up the same ladder of tokens puts it at 3.30:1
+     dark and 2.19:1 light, against 3.2 and 1.97 before any of this: better in
+     both themes without putting the slab back. Light stays under 3:1 because
+     every tonal control in this app does there; that is the button ramp's
+     business, not this card's. */
   background: var(--chip-bg);
-  border-color: var(--border);
+  border-color: var(--ghost-btn-border-hover);
 }

@@ -1,6 +1,8 @@
 """The retrieval engine (WORLD_CLASS_PLAN 4 B3; SESSION_BRIEFS Brief 11): the spec.
 
-Strict-xfail until Brief 11 builds it (see tests/test_events.py for why).
+Built, 2026-09-12: every marker is off and every test here passes on its own
+(`search/engine.py`, `search/index.py`). The file stays as written, as the
+contract the engine is held to rather than a record of one session.
 Specified: one `search()` over every kind; three scores per hit (bm25,
 cosine, graph) so "why this result" is a rendering; the FTS index carries a
 kind column; the operators of WORLD_CLASS_PLAN 5.1 parse; similarity no
@@ -13,8 +15,6 @@ import time
 
 import pytest
 
-BRIEF = "Brief 11: the retrieval engine is not built yet"
-
 
 @pytest.fixture
 def five_thousand(session):
@@ -26,7 +26,6 @@ def five_thousand(session):
     return session
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_every_hit_carries_three_scores(session):
     from memorymap.entry import manager
     from memorymap.search import engine
@@ -41,7 +40,6 @@ def test_every_hit_carries_three_scores(session):
         assert hit.explain, "each hit says why it matched, in words"
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_the_index_covers_every_kind(session):
     from memorymap.search import engine
 
@@ -60,7 +58,6 @@ def test_operators_parse():
     assert u.phrases == ["exact phrase"] and u.excluded == ["not"]
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_keyword_search_is_fast_on_five_thousand(five_thousand):
     from memorymap.search import engine
 
@@ -70,7 +67,6 @@ def test_keyword_search_is_fast_on_five_thousand(five_thousand):
     assert (time.perf_counter() - t) < 0.05, "FTS-only p95 must be under 50ms"
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_similarity_does_not_scan_every_vector(five_thousand, monkeypatch):
     """The matrix is built once and updated by events; a request must not
     select every EmbeddingRecord row."""

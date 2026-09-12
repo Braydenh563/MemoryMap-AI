@@ -114,10 +114,20 @@ prompt works.
 - **The pan lag is still unattributed.** Instrumented a drag pan on a
   201-node map: the frame's own JS is grid sync 0.013ms, navigator 0.02ms and
   the selection bar 0.46ms (fixed, a document-wide `querySelector` ahead of
-  the constant-time checks, now 0.011ms). The frame median stayed at 16.6 to
-  16.7ms with shadows off, glass off, edges hidden, `will-change` added, and
-  with the entire card layer removed, so this sandbox is vsync-bound and
-  cannot show what the owner sees. Nothing else was changed on a guess.
+  the constant-time checks, now 0.011ms). Then the same 60-move pan under
+  five conditions, medians in order: baseline 16.8ms, `will-change:
+  transform` on the three zoom layers 16.7, node shadows off 16.7, glass off
+  16.7, the edge layer hidden 16.6, the entire card layer removed 16.7 (p90
+  17.0 to 17.7 throughout). This sandbox is vsync-bound and cannot show what
+  the owner sees, so nothing was changed on a guess.
+- **A sweep's CSS overrides are silently refused, and the run looks
+  successful.** The first version of that A/B injected `<style>` elements;
+  the page's CSP is `style-src 'self'`, so every one was dropped with a
+  console error and six identical rows were read as a result rather than as
+  six no-ops. `el.style.x = ...` from `page.evaluate` is allowed and is how
+  the numbers above were actually taken. Same rule the app's own code
+  follows (CLAUDE.md §6, item 4); it applies to the measuring as much as to
+  the app.
 - **A map's colour is only drawn on the line into the node.** A root has no
   incoming line and its children start the palette over by design, so a root
   cannot carry a colour at all; the picker is disabled there rather than

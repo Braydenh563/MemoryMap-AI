@@ -255,11 +255,21 @@ never lost to the smaller stuff.
     pressed the jump to latest button in the chat, it jumped to the
     right for a second. same with a lot of dropdown menus and tooltips,
     they flicker into the top corner for a second then appear in the
-    right place" (not investigated, owner said focus elsewhere first:
-    likely candidate is a shared "measure at 0,0 then reposition" recipe
-    that is not synchronous with paint somewhere outside
-    `wireEscapedActionMenu`'s own `place()`, which IS synchronous inside
-    one MutationObserver callback and should not flicker) · "this text in
+    right place" (**investigated 2026-09-12, not
+    reproduced**, and the sweep that looked is now
+    `scratchpad/ui-sweeps/flicker.js`: a MutationObserver installed before
+    any page script runs samples every element that goes from not-rendered
+    to rendered on the next animation frame and again four frames later, so
+    a surface painted before it was positioned is caught by the move between
+    the two rather than by a screenshot. 50 floating surfaces opened across
+    all seven tabs plus the header's four, at 1440x900: 0 moved more than
+    24px. What that run did **not** cover, and where the report may still
+    live: the chat's own jump-to-latest pill, which needs a long streaming
+    transcript to appear at all, and the documents AI popovers, which need a
+    document open. The earlier guess, a shared "measure at 0,0 then
+    reposition" recipe, is not supported by anything measured:
+    `wireEscapedActionMenu`'s `place()` is synchronous inside one
+    MutationObserver callback and the sweep agrees it does not move.) · "this text in
     the files sub tab needs indenting, and the describe with ai feature
     needs to show in background process, same for all ocr processes"
     (not investigated) · "when I try to manually change the height of

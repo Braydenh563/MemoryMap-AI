@@ -159,6 +159,7 @@ const check = (name, ok, detail) => out.push({ name, ok: !!ok, detail });
     math.blockTags);
   check('the browser lays it out', math.width > 20 && math.height > 8,
     `${math.width}x${math.height}`);
+  console.log(`  math box: ${math.width}x${math.height}`);
   check('prices are not math', math.prices && math.prices.includes('$5 and $10'), math.prices);
 
   await browser.close();

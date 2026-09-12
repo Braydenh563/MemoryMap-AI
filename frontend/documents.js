@@ -3370,6 +3370,38 @@ function docLivePlugin(CM) {
     }
   }
 
+  //: **`![[name]]` draws the thing itself.** The card comes from whichever
+  //: renderer already owns that kind (`docEmbedNode`); this only decides where
+  //: it goes and when. `ignoreEvent` is true because the cards carry their own
+  //: controls: a file tile has Open and Save on it, and CodeMirror treating
+  //: those clicks as clicks into the text would put a caret in the middle of
+  //: a button.
+  class DocEmbedWidget extends WidgetType {
+    constructor(name) {
+      super();
+      this.name = name;
+    }
+    eq(other) {
+      return other.name === this.name;
+    }
+    ignoreEvent() {
+      return true;
+    }
+    toDOM() {
+      const host = document.createElement("span");
+      host.className = "cm-md-embed";
+      host.dataset.docEmbed = this.name;
+      docEmbedFill(host, this.name);
+      //: The card opens its target, except where the card already has a
+      //: control of its own under the pointer.
+      host.addEventListener("click", (event) => {
+        if (event.target instanceof Element && event.target.closest("button, a, input")) return;
+        docOpenWikiTarget(this.name);
+      });
+      return host;
+    }
+  }
+
   function build(view) {
     const state = view.state;
     const doc = state.doc;
@@ -3700,6 +3732,15 @@ function docLivePlugin(CM) {
       });
       scan(/\[\[([^[\]\n]{1,120})\]\]/g, (match, from, to) => {
         const name = match[1].trim();
+        //: `![[name]]` is the embed form, and the `!` is one character to the
+        //: left of what this pattern matched.
+        const embed = from > 0 && doc.sliceString(from - 1, from) === "!";
+        if (embed && !rangeRevealed(from - 1, to)) {
+          ranges.push(
+            Decoration.replace({ widget: new DocEmbedWidget(name) }).range(from - 1, to)
+          );
+          return;
+        }
         ranges.push(
           Decoration.mark({
             class: "cm-md-wiki",
@@ -3848,6 +3889,120 @@ function docLivePlugin(CM) {
     }
   );
   return docLivePluginCache;
+}
+
+// -----------------------------------------------------------------------------
+// Embeds: `![[…]]` draws the thing, not a link to it
+// -----------------------------------------------------------------------------
+//
+// DOCUMENTS_PLAN Phase 3 item 3, with the sentence that decides how it is
+// built: **one renderer per kind, app-wide.** A note embedded in a document
+// renders through `entryItem`, the same function that draws every note card in
+// the Notes tab; a map through `mapChip` and `mapPreview`, which app.js's own
+// comment already calls "one mapChip() and one mapPreview(), used by all"; a
+// file through `fileCard`, the Library's tile. Nothing here draws a card. The
+// most expensive recurring mistake in this project is building a second one of
+// something that exists, and four card renderers for one app would be exactly
+// that.
+//
+// What resolves a name is `docResolveWikiTarget`, which is what a plain
+// `[[link]]` already uses, plus the Library's own index for files: an embed
+// and a link have to point at the same thing or the two gestures disagree
+// about what a name means.
+
+//: A name to a thing. The note, board and document indexes are in the page
+//: already; the Library's file list is not, so it is fetched once and the
+//: widget fills itself in when it lands (`docEmbedFill`).
+function docEmbedTarget(name) {
+  const target = docResolveWikiTarget(name);
+  if (target) return target;
+  const wanted = String(name || "").trim().toLowerCase();
+  if (!wanted) return null;
+  const files = typeof editorFileCache !== "undefined" && editorFileCache ? editorFileCache : [];
+  const named = (row) => String(row.original_name || row.filename || "").toLowerCase();
+  const file =
+    files.find((row) => named(row) === wanted) ||
+    files.find((row) => named(row).replace(/\.[^.]+$/, "") === wanted);
+  return file ? { kind: "file", file } : null;
+}
+
+//: The card for a target, from whichever renderer already owns that kind.
+//: Returns null for a kind with no card of its own, which the caller draws as
+//: the link chip it would have been.
+function docEmbedNode(target, name) {
+  if (!target) return null;
+  if (target.kind === "note" && typeof entryItem === "function") {
+    //: `entryItem` is an `<li>`, and `.entry-list li` is where a note card's
+    //: whole appearance lives: handed out on its own it would render as a
+    //: bare list item. The list around it is the card's other half.
+    const list = document.createElement("ul");
+    list.className = "entry-list";
+    list.appendChild(entryItem(target.entry));
+    return list;
+  }
+  if (target.kind === "board" && typeof mapChip === "function") {
+    const box = document.createElement("span");
+    box.className = "doc-embed-map";
+    box.appendChild(mapChip(target.entry, { interactive: false }));
+    if (typeof mapPreview === "function") box.appendChild(mapPreview(target.entry, { size: "card" }));
+    return box;
+  }
+  if (target.kind === "file" && typeof fileCard === "function") {
+    const file = target.file;
+    const url = file.url || `/files/${file.id}`;
+    const label = file.original_name || file.filename || name;
+    if (file._isImage && typeof mediaSrc === "function") {
+      //: An image embed is the image. `fileCard` would be a tile with the
+      //: picture's *name* on it, which is what `![[photo.png]]` is asking not
+      //: to have to look at.
+      const img = document.createElement("img");
+      img.className = "cm-md-image";
+      img.src = mediaSrc(url);
+      img.alt = label;
+      img.loading = "lazy";
+      return img;
+    }
+    return fileCard(label, url);
+  }
+  return null;
+}
+
+//: The chip an embed falls back to: a name that resolves to nothing yet, and a
+//: document, which is the one link target in this app with no card of its own.
+//: Said in words rather than left blank, because an embed that draws nothing
+//: reads as a bug in the editor rather than as a name with nothing behind it.
+function docEmbedChip(name, target) {
+  const chip = document.createElement("span");
+  chip.className = "chip doc-embed-chip";
+  chip.textContent = name;
+  chip.title = target
+    ? `\u201c${name}\u201d opens in Documents; there is no inline preview for a document yet`
+    : `Nothing called \u201c${name}\u201d yet`;
+  if (!target) chip.classList.add("muted");
+  return chip;
+}
+
+function docEmbedFill(host, name) {
+  const target = docEmbedTarget(name);
+  const node = docEmbedNode(target, name);
+  if (node) {
+    host.replaceChildren(node);
+    return;
+  }
+  host.replaceChildren(docEmbedChip(name, target));
+  //: The Library's index is the one thing that might not be loaded yet, so a
+  //: name that is a file reads as "nothing called that" until it arrives. One
+  //: fetch, once, and the widget fills itself in rather than waiting for a
+  //: repaint that a document nobody is typing in will never get.
+  if (target || typeof editorLoadFiles !== "function") return;
+  if (typeof editorFileCache !== "undefined" && editorFileCache) return;
+  editorLoadFiles()
+    .then(() => {
+      if (!host.isConnected) return;
+      const later = docEmbedNode(docEmbedTarget(name), name);
+      if (later) host.replaceChildren(later);
+    })
+    .catch(() => {});
 }
 
 //: **One resolver for a `[[name]]`, and now it really is one.**
@@ -8706,6 +8861,21 @@ function docCmTheme(CM) {
       //: being linked to, so only one of them is clickable.
       //: Math sits on the text's own baseline and takes the editor's ink;
       //: MathML brings its own metrics, so nothing here sets a size.
+      //: An embedded card is a block of app inside a line of text, so it is
+      //: given the line's width to work in and nothing else: every card in it
+      //: is styled by the stylesheet that owns that card.
+      ".cm-md-embed": {
+        display: "inline-block",
+        maxWidth: "100%",
+        verticalAlign: "top",
+        cursor: "pointer",
+      },
+      //: The cards keep their own appearance and are given a width to work
+      //: in: a note card sized to its content is as wide as its longest line,
+      //: and a minimap is `width: 100%` of whatever box it is handed.
+      ".cm-md-embed .entry-list": { width: "min(420px, 100%)", margin: "0", padding: "0" },
+      ".cm-md-embed .doc-embed-map": { display: "block", width: "min(320px, 100%)" },
+      ".cm-md-embed .file-card": { maxWidth: "min(360px, 100%)" },
       ".cm-md-math": { cursor: "text" },
       ".cm-md-math-block": { display: "block", textAlign: "center", margin: "0.2em 0" },
       ".cm-md-footnote": {

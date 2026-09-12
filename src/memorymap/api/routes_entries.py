@@ -267,7 +267,7 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                 entry = session.get(Entry, entry_id)
                 if entry is None:
                     return  # deleted before filing finished, nothing to settle
-                category, confidence, _filed_by = _file_entry_now(
+                category, confidence, filed_by = _file_entry_now(
                     session, manager.readable_content(entry)
                 )
                 entry.category_id = manager.get_or_create_category(
@@ -282,7 +282,14 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                 duplicate = _find_near_duplicate(session, entry)
                 if duplicate is not None:
                     entry.filing_similar_id = duplicate.id
-                entry.filing_state = "done"
+                # `auto` rather than `done` when the AI is the one that
+                # chose (Brief 13): it is the flag that makes a later move by
+                # hand legible as a correction, and it is terminal for every
+                # reader, the composer's poller stops on anything but
+                # `pending`.
+                entry.filing_state = (
+                    manager.AUTO_FILED if janitor.is_ai_method(filed_by) else "done"
+                )
                 session.commit()
     except Exception:
         logger.warning("background filing failed for entry %s", entry_id, exc_info=True)
@@ -342,6 +349,8 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
         entry.source_title = body.source_title
     if defer:
         entry.filing_state = "pending"
+    elif janitor.is_ai_method(filed_by):
+        entry.filing_state = manager.AUTO_FILED
     session.commit()
 
     # Best effort: a failed embedding only means this entry is invisible

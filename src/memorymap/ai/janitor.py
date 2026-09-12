@@ -29,6 +29,7 @@ import numpy as np
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from memorymap.ai import librarian
 from memorymap.ai.embeddings import EmbeddingService, bytes_to_vector, cosine_similarity
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
@@ -75,6 +76,18 @@ class NeighbourMatch:
 
 
 logger = logging.getLogger("memorymap.janitor")
+
+#: The `method` values `categorise` returns when the *AI* made the choice, as
+#: opposed to the user, a parent note, or nothing being available. A note filed
+#: by one of these carries `manager.AUTO_FILED`, which is what makes a later
+#: move by hand a correction rather than an ordinary edit (Brief 13). A tuple
+#: here rather than a check at each call site so a fourth method added later
+#: has one place to be listed.
+AI_METHODS = ("semantic-match", "semantic-neighbours", "llm")
+
+
+def is_ai_method(method: str) -> bool:
+    return str(method or "") in AI_METHODS
 
 
 def categorise(
@@ -342,10 +355,12 @@ def _ask_llm(
         for name in session.scalars(select(Category.name))
         if name != UNCATEGORISED
     ]
-    user_prompt = (
-        f"Existing categories: {', '.join(existing) if existing else '(none yet)'}\n"
-        f"Note: {content}"
-    )
+    # Built by the librarian, because it now carries more than this function
+    # knows about: the corrections the user has already made for these
+    # categories (Brief 13). Filing the same kind of note into the same wrong
+    # place every week, with the user moving it every week, is the reported
+    # failure this answers.
+    user_prompt = librarian.filing_prompt(session, content, existing)
     try:
         reply = ollama.chat(
             # Filing is a quick background job, use the utility model so a

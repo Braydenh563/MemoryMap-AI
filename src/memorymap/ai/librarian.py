@@ -903,3 +903,122 @@ def propose_map_outline(
         ],
     )
     return reply["content"].strip()
+
+
+# --- filing corrections (Brief 13; WORLD_CLASS_PLAN 4 B5) ---------------------
+#
+# **The one thing the filing prompt never had: a memory of being wrong.**
+#
+# Reported directly: *"what's the point of having an ai managed notebook if it
+# is filed inaccurately and I need to manually fix it"*. The janitor's answer
+# to that was to ask the model harder (it now consults the model first rather
+# than trusting a centroid; see `ai/janitor.py`), which helps with the general
+# case and does nothing at all about the specific one: the model files work
+# notes about a side project under "Work", the user moves them to "Side
+# project" every single time, and the next note goes back under "Work",
+# because nothing anywhere records that this has already been settled.
+#
+# A correction is that record. `entry/manager.update_entry` writes one when a
+# note the AI filed is moved by hand, and the next filing prompt that could
+# land in the same category carries the last few. Which is the smallest
+# possible version of learning: no training, no embeddings, no per-user model,
+# five lines of the user's own history in the prompt that is about to make the
+# same decision again.
+
+#: How many corrections per category ride in a filing prompt. Five, because
+#: they are the *last* five and a sixth adds a repetition rather than a fact:
+#: the same correction made twice says one thing, and a prompt made of
+#: examples is a prompt with no room left for the note being filed.
+CORRECTIONS_REMEMBERED = 5
+
+#: How much of a corrected note's own text is quoted. Enough to recognise the
+#: kind of note it was, short enough that five of them are still a hint rather
+#: than a second notebook. Prompt text is budgeted (`agent.PROSE_BUDGET_CHARS`)
+#: and this is the field that would otherwise grow without limit.
+CORRECTION_EXCERPT_CHARS = 80
+
+
+def filing_corrections(session, categories: list[str]) -> list[dict]:
+    """The last corrections that moved a note *into* one of `categories`.
+
+    Keyed on where the note ended up rather than on where it came from,
+    because that is the shape of the lesson: "notes like this belong in B" is
+    usable when filing a new note, and "notes like this do not belong in A" is
+    only usable if the model was about to choose A anyway.
+    """
+    from memorymap.core.database import AuditLog
+
+    wanted = {name.strip().lower() for name in categories if str(name or "").strip()}
+    if not wanted:
+        return []
+    out: list[dict] = []
+    rows = (
+        session.query(AuditLog)
+        .filter(AuditLog.action == "correction")
+        .order_by(AuditLog.id.desc())
+        # Read more rows than are kept: the filter below is on the payload,
+        # which SQL cannot see, and a category corrected once a month would
+        # otherwise be crowded out by a busier one.
+        .limit(CORRECTIONS_REMEMBERED * 20)
+        .all()
+    )
+    for row in rows:
+        payload = row.payload if isinstance(row.payload, dict) else {}
+        to = str(payload.get("to") or "").strip()
+        if not to or to.lower() not in wanted:
+            continue
+        out.append(
+            {
+                "from": str(payload.get("from") or "").strip(),
+                "to": to,
+                "excerpt": str(payload.get("excerpt") or "").strip(),
+            }
+        )
+        if len(out) >= CORRECTIONS_REMEMBERED:
+            break
+    return out
+
+
+def corrections_note(session, categories: list[str]) -> str:
+    """The corrections block of a filing prompt, or "" when there are none."""
+    found = filing_corrections(session, categories)
+    if not found:
+        return ""
+    lines = []
+    for item in found:
+        excerpt = item["excerpt"][:CORRECTION_EXCERPT_CHARS]
+        where = f" from {item['from']}" if item["from"] else ""
+        lines.append(f'- "{excerpt}" was moved{where} to {item["to"]}')
+    return (
+        "I have corrected your filing before. Follow these unless the note "
+        "clearly says otherwise:\n" + "\n".join(lines)
+    )
+
+
+def filing_prompt(session, content: str, categories: list[str]) -> str:
+    """The user half of the filing prompt: the choices, what the person has
+    already corrected about them, and the note itself.
+
+    Lives here rather than in `ai/janitor.py` because the corrections are a
+    property of the *prompt*, not of the filing algorithm: the centroid and
+    neighbour paths in the janitor never ask a model anything and have nothing
+    to put them in.
+    """
+    parts = [f"Existing categories: {', '.join(categories) if categories else '(none yet)'}"]
+    note = corrections_note(session, categories)
+    if note:
+        parts.append(note)
+    parts.append(f"Note: {content}")
+    return "\n".join(parts)
+
+
+def filing_prompt_for_test(session, category) -> str:
+    """The filing prompt a note being considered for `category` would get.
+
+    A seam, in the spirit of `core/events.exercise_for_test`: the property
+    worth pinning is *"a correction reaches the next prompt for that
+    category"*, and asserting it through a full janitor run would be asserting
+    the janitor's routing as well, which is a different test.
+    """
+    name = getattr(category, "name", category)
+    return filing_prompt(session, "(a note being filed)", [str(name)])

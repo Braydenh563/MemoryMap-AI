@@ -305,7 +305,15 @@ def get_entry(session: Session, entry_id: int) -> Entry | None:
     return session.get(Entry, entry_id)
 
 
-@events.writes("entry", "edited")
+#: **`filing_state` when the AI chose the category and nobody has said
+#: otherwise.** The other three values (`done`, `pending`, `failed`) describe
+#: how far the *save* got; this one describes who decided, and it is the flag
+#: that makes a later move by hand legible as a correction rather than as an
+#: ordinary edit. A terminal state like `done` as far as every reader is
+#: concerned: the composer's poller stops on anything that is not `pending`.
+AUTO_FILED = "auto"
+
+
 def update_entry(
     session: Session,
     entry: Entry,
@@ -313,8 +321,57 @@ def update_entry(
     category_name: str | None = None,
     tags: list[str] | None = None,
 ) -> Entry:
-    """Manual override: the user can change anything the
-    AI decided. Only the provided fields change. Commits."""
+    """Manual override: the user can change anything the AI decided.
+
+    **A move out of an auto-filed category is a correction, and is recorded as
+    one** (Brief 13). See `ai/librarian.corrections_note` for what reads it
+    back: the point of the record is that the next filing decision for the
+    same category can see it.
+
+    The correction is written *outside* the `edited` write scope, which is
+    what this wrapper is for. `events.record` folds anything recorded inside a
+    write into that write's own event, correctly, because a category created
+    on the way past is part of the one change the user asked for. A correction
+    is not: it is a second, separately readable fact about the same moment,
+    and folded into the edit it would be invisible to the query that looks for
+    it.
+    """
+    before_category = category_name_for(session, entry)
+    was_auto = (getattr(entry, "filing_state", "") or "") == AUTO_FILED
+    excerpt = readable_content(entry) or ""
+    _update_entry_fields(session, entry, content, category_name, tags)
+    after_category = category_name_for(session, entry)
+    if was_auto and after_category != before_category:
+        entry.filing_state = "done"
+        log_action(
+            session,
+            "correction",
+            "entry",
+            entry.id,
+            f"moved from {before_category} to {after_category}",
+            payload={
+                "from": before_category,
+                "to": after_category,
+                # The note's own words, so a filing prompt can say what kind
+                # of note this rule is about. Clipped here rather than at read
+                # time: a payload is stored for ever and a whole note in one
+                # is a copy of the notebook in the audit log.
+                "excerpt": " ".join(excerpt.split())[:200],
+            },
+        )
+        session.commit()
+    return entry
+
+
+@events.writes("entry", "edited")
+def _update_entry_fields(
+    session: Session,
+    entry: Entry,
+    content: str | None = None,
+    category_name: str | None = None,
+    tags: list[str] | None = None,
+) -> Entry:
+    """The edit itself. One write, one `edited` event; see `update_entry`."""
     was = events.entry_state(entry)
     changed = []
     if content is not None and content != entry.content:

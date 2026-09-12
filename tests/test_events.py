@@ -228,7 +228,10 @@ def test_compaction_leaves_a_young_log_alone(session):
         session.commit()
 
     before = events.payload_bytes(session)
-    assert events.compact(session, keep_last=2) == {"entities": 0, "events": 0}
+    # Its own statement, not the assertion's expression: `python -O` strips
+    # asserts, and a write that only runs inside one stops running at all.
+    summary = events.compact(session, keep_last=2)
+    assert summary == {"entities": 0, "events": 0}
     assert events.payload_bytes(session) == before
 
 
@@ -277,7 +280,8 @@ def test_a_second_window_moves_the_snapshot_forward(session):
         manager.update_entry(session, entry, content=f"version {i}", tags=[])
         session.commit()
     _age_all_events(session, 200)
-    assert events.compact(session, keep_last=5)["events"] > 0
+    second = events.compact(session, keep_last=5)
+    assert second["events"] > 0
 
     session.refresh(first_snapshot)
     assert events.is_compacted(first_snapshot), "the old snapshot was not folded in"

@@ -256,6 +256,21 @@ _LOADING_HTML = """<!doctype html>
       var scaled = mmBase + (pct * (100 - mmBase) / 100);
       document.getElementById("bar").style.width = Math.max(scaled, 4) + "%";
     };
+    // The last step really does finish, and this is the moment: the server
+    // answered and the window is about to be pointed at the app. Without
+    // it nothing ever marked the step this process owns as done, so the
+    // list closed on four ticks out of five and the bar on 98.4% of its
+    // track, every launch, which is the "only ever goes to 3/5 and then it
+    // loads" report: not a step that was skipped, a step nobody ticked.
+    window.__mmSetDone = function (text) {
+      document.getElementById("status").textContent = text;
+      if (mmOwn) {
+        mmOwn.state = "done";
+        mmOwn.detail = text;
+        mmRender();
+      }
+      document.getElementById("bar").style.width = "100%";
+    };
     window.__mmSetError = function (text) {
       document.getElementById("status").textContent = text;
       document.getElementById("bar").className = "bar-fill error";
@@ -433,6 +448,22 @@ def _push_status_to_window(window, text: str) -> None:
         logger.debug("couldn't update the loading window: %s", exc)
 
 
+def _mark_start_step_done(window) -> None:
+    """Best-effort `window.__mmSetDone()`: see `_LOADING_HTML`.
+
+    Wrapped exactly like `_push_status_to_window` for the same reason, this
+    runs on the background thread that still has to swap the window over to
+    the real app, and a window someone closed during startup must not be
+    able to stop that.
+    """
+    try:
+        window.evaluate_js(
+            "window.__mmSetDone && window.__mmSetDone('Ready')"
+        )
+    except Exception as exc:
+        logger.debug("couldn't tick the last step in the loading window: %s", exc)
+
+
 def _wait_for_server_with_progress(window, timeout: float = 45.0) -> bool:
     """Same poll `_wait_for_server` does, plus pushing `startup_status`'s
     current phase to the loading window whenever it changes, see that
@@ -477,6 +508,13 @@ def _boot_and_swap(window) -> None:
     server = threading.Thread(target=_run_server, daemon=True)
     server.start()
     if _wait_for_server_with_progress(window):
+        # Tick the step this process owns *before* the swap, not after: after
+        # the swap this page no longer exists. The step is genuinely over at
+        # this line, the socket answered, so this is the real completion
+        # rather than a tick bought to fill the bar. It is on screen for the
+        # navigation only, but it is the difference between a launch that
+        # ends on a finished list and one that ends on four of five.
+        _mark_start_step_done(window)
         window.load_url(f"http://{HOST}:{PORT}")
         _focus_window(window)
     else:

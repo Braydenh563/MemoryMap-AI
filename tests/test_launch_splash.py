@@ -229,3 +229,60 @@ def test_the_progress_bar_is_not_colour_overridden():
     speed = next(line for line in bar if "MarqueeAnimationSpeed" in line)
     assert int(speed.split("=")[1].strip()) > 0
     assert any('Style' in line and 'Marquee' in line for line in bar)
+
+
+# --- the handoff window's own last step ----------------------------------------
+
+
+def test_the_loading_window_can_tick_the_step_it_owns():
+    """Reported: the bar "only ever goes to steps 3/5 and then it loads".
+
+    Measured against the real launcher's status file (a warm desktop start
+    writes five steps and only four of them ever reach `done`), the seeded
+    loading window opened on four ticks and a bar at 80% of its track, ran
+    to 98.4% as `startup_status`'s phases arrived, and was replaced by the
+    app without the fifth step ever being ticked. Nothing was skipped: the
+    step that finishes last is the one this process owns, and nothing
+    finished it.
+    """
+    assert "window.__mmSetDone" in launcher._LOADING_HTML
+
+
+def test_the_last_step_is_ticked_before_the_window_swaps_not_after():
+    """After `load_url` the loading page no longer exists, so a tick there
+    would land on a page nobody can see."""
+    import inspect
+
+    # Past the docstring, which names load_url in prose.
+    src = inspect.getsource(launcher._boot_and_swap)
+    body = src[src.index('os.environ["MEMORYMAP_DESKTOP"]') :]
+    assert body.index("_mark_start_step_done(window)") < body.index("window.load_url(")
+
+
+def test_ticking_the_last_step_never_takes_the_launch_down():
+    """Same contract as every other optional pywebview call in this file:
+    a window someone closed mid-startup must not stop the swap."""
+    import inspect
+
+    body = inspect.getsource(launcher._mark_start_step_done)
+    assert "try:" in body and "except Exception" in body
+
+
+def test_browser_mode_ticks_the_final_step_and_desktop_mode_leaves_it_alone():
+    """In desktop mode __main__.py's loading window inherits the same status
+    file and owns the Start step until the server answers, so a tick in the
+    launcher would put two Starts in one list. In browser mode nothing else
+    narrates it, and leaving it `active` is why the splash, the terminal and
+    the log all ended one step short of their own total.
+    """
+    sh = _start_sh()
+    tail = sh[sh.index("Nothing else is coming in browser mode") - 900 :]
+    assert 'mm_status "$MM_STEP_START" "Start" "Handed over to the app" "done"' in tail
+    # And not on the desktop path, which hands the file to Python instead.
+    desktop = sh[sh.index('mm_status "$MM_STEP_START" "Start" "Starting the app" "active"') :
+                 sh.index('exec "$VENV_PY" -m memorymap --desktop')]
+    assert '"done"' not in desktop
+
+    bat = _start_bat()
+    browser_tail = bat[bat.index("No second window is coming in browser mode") - 900 :]
+    assert 'call :status !MM_STEP_START! "Start" "Handed over to the app" "done"' in browser_tail

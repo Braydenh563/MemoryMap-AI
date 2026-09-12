@@ -701,6 +701,15 @@ if defined MM_DESKTOP (
   REM  checked, so it needs nothing on PATH at all, and `webbrowser` picks the
   REM  default browser the same way `start` does.
   if "!MM_NO_BROWSER!"=="0" start "" /b "%VENV_PY%" -c "import time, webbrowser; time.sleep(3); webbrowser.open('!MM_URL!')"
+  REM  The last step, ticked. In desktop mode this line is deliberately
+  REM  absent: __main__.py's loading window inherits the same file and owns
+  REM  the Start step until the server answers, so ticking it here would put
+  REM  two Starts in one list. In browser mode nothing else narrates it, and
+  REM  leaving it active was why the splash, the console and the log all
+  REM  ended one step short of their own total, reported as a bar that "only
+  REM  ever goes to 3/5 and then it loads". The launcher really has
+  REM  finished: the app starts on the next line.
+  call :status !MM_STEP_START! "Start" "Handed over to the app" "done"
   REM  No second window is coming in browser mode - the tab is the app - so
   REM  the splash closes here rather than being handed on.
   if defined MM_SPLASH_FILE del /q "!MM_SPLASH_FILE!" >nul 2>nul

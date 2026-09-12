@@ -1057,6 +1057,15 @@ if [ "$MM_NO_BROWSER" = "0" ]; then
   ) >/dev/null 2>&1 &
 fi
 
+# The last step, ticked. In desktop mode this line is deliberately absent:
+# the Python loading window inherits the same file and owns the Start step
+# until the server answers, so ticking it here would put two Starts in one
+# list. In browser mode nothing else narrates it, and leaving it active was
+# why the splash, the terminal and the log all ended one step short of their
+# own total, reported as a bar that "only ever goes to 3/5 and then it
+# loads". The launcher really has finished: the exec is the next line.
+mm_status "$MM_STEP_START" "Start" "Handed over to the app" "done"
+
 # Nothing else is coming in browser mode - the tab is the app - so the
 # splash file goes here rather than being handed on to a Python window that
 # will never open.

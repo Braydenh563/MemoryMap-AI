@@ -3999,6 +3999,24 @@ span > .chip {
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
+/* **Not while the focus is the app's own.** Reported as "chat panel shadow",
+   and measured on a freshly loaded Chat tab (`chatshadow.js`): the dock
+   computed `rgba(79,109,245,0.14) 0 0 0 3px` with an accent-mixed border
+   before anyone had touched anything, because `switchTab` focuses
+   `#chat-input` so you can arrive typing. That is a good thing for the caret
+   to do and a bad thing for the ring to do: a focus ring is feedback on what
+   the reader just did, and on arrival the reader has not done anything yet.
+
+   `switchTab` sets this marker and any key, any press inside the dock, or
+   focus leaving it takes it off again (`chatDockReleaseRing`, app.js), so a
+   deliberate click into the composer rings exactly as before. The border
+   stays at `--border` rather than being left at the accent mix: half a ring
+   is worse than none. */
+.chat-dock.ring-held:focus-within {
+  border-color: var(--border);
+  box-shadow: none;
+}
+
 /* The text row has no border of its own any more, the card is the border.
    Two nested rounded rectangles is exactly the "panel inside a panel" this
    app has already been told off for. */

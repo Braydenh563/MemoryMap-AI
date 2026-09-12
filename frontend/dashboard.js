@@ -3022,7 +3022,13 @@ function dashEmpty(body, text) {
 }
 
 async function renderBoardsWidget(body) {
-  const boards = await apiJson("/whiteboard/boards", { cacheMs: 4000, silent: true }).catch(() => null);
+  // Every board, not the first page: the widget ranks them by how much is on
+  // them, and the busiest board is not necessarily on page one. No `cacheMs`
+  // with it: `apiPagedList` goes through `api`, which has no read cache, so
+  // the option would have read as a cache that was never there. One widget
+  // asks for this list, once per dashboard render, which is what the four
+  // seconds were protecting `/entries` from and this list does not need.
+  const boards = await apiPagedList("/whiteboard/boards", 200, { silent: true }).catch(() => null);
   const usable = (boards || []).filter((b) => (b.node_count + b.sketch_count + (b.object_count || 0)) > 0);
   if (!usable.length) {
     dashEmpty(body, "Draw a board or build a concept map and it will show up here.");

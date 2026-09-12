@@ -9,6 +9,33 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Documents: a paragraph can be linked to. "Link to this block" in the "/"
+  menu gives the paragraph the caret is in a short id and copies
+  `[[Document title#^the-id]]`, which resolves from a note, a map node, a chat
+  or another document and opens the document at that paragraph rather than at
+  the top. `![[Document title#^the-id]]` embeds the paragraph itself, quoted,
+  with a line saying where it came from, in both the writing pane and the
+  reading one. The id is scaffolding, so it is hidden while you write (and
+  comes back when the caret is on its line) and never appears in the reading
+  pane or the printed PDF.
+
+- Boards and board images come back a page at a time. Both lists grew with
+  the notebook and handed back all of it in one response, and a board row
+  carries a preview, so the response grew with every board anyone drew. Each
+  takes a page size and an offset now and says how many there are in total,
+  and every surface that needs the whole list (the boards gallery, the board
+  picker, the command palette, the dashboard widget) reads to the end. Building
+  a board's preview is a query per board, and that now happens for the page
+  rather than for every board in the notebook.
+
+- Five invisible animations stopped running. The app builds six copies of its
+  generated emblem at startup and five of them sit inside a panel you are not
+  looking at, each redrawing 24 times a second for a canvas with no size on
+  screen: measured on an idle board, six canvases alive, one visible, and five
+  animation frames asked for per frame drawn. Each one now pauses while it is
+  off screen and turns again the moment it is shown, so the mark is never
+  static where you can see it and never drawn where you cannot.
+
 - Mind map: a radial map no longer overlaps itself once it is bigger than one
   turn of the circle. Thirty nodes in the radial layout put six pairs of
   topics on top of each other, the worst by 38 by 28 board units, because the

@@ -1978,10 +1978,20 @@ function mapChip(board, { onOpen = null, count = true, interactive = true } = {}
 //: this only holds the id→row index built from it, which is the part that
 //: would otherwise be rebuilt per dot.
 let mapBoardIndexCache = null;
+//: When that cache was last filled. It used to be `apiJson`'s own `cacheMs`
+//: doing this, and that stopped working when `GET /whiteboard/boards` became
+//: paged: `apiPagedList` walks pages through `api`, which has no read cache,
+//: and one first page is not an index of every board anyway. So the eight
+//: seconds moved here, onto the thing it was really protecting, which is the
+//: index rather than the response.
+let mapBoardIndexAt = 0;
+const MAP_BOARD_INDEX_MS = 8000;
 
 async function loadMapBoardIndex() {
-  const rows = await apiJson("/whiteboard/boards", { cacheMs: 8000, silent: true }).catch(() => null);
+  if (mapBoardIndexCache && Date.now() - mapBoardIndexAt < MAP_BOARD_INDEX_MS) return mapBoardIndexCache;
+  const rows = await apiPagedList("/whiteboard/boards", 200, { silent: true }).catch(() => null);
   if (!rows) return mapBoardIndexCache || new Map();
+  mapBoardIndexAt = Date.now();
   mapBoardIndexCache = new Map(rows.filter((b) => b.id != null).map((b) => [b.id, b]));
   return mapBoardIndexCache;
 }
@@ -17028,7 +17038,10 @@ async function notePickerRows(source) {
   //: the one caller §9.3 says that parameter was for: this list wants maps and
   //: no counts of the other kinds.
   if (source === "maps") {
-    const boards = await apiJson("/whiteboard/boards?type=map", { silent: true }).catch(() => []);
+    //: To the end, like the other three sources below: the filter is
+    //: server-side but the list is a page now, and a picker that cannot offer
+    //: a map is the one bug this picker must not have.
+    const boards = await apiPagedList("/whiteboard/boards?type=map", 200, { silent: true }).catch(() => []);
     notePickerCache.maps = (Array.isArray(boards) ? boards : []).filter((b) => b.id != null);
     return notePickerCache.maps;
   }
@@ -17746,8 +17759,8 @@ async function sendChatMessage(preset, opts = {}) {
           //: Every prose block of this turn, not the first: see
           //: `addInlineCitations`. A skill run has one per step.
           bubble.querySelectorAll(".bubble-answer"),
-          //: The chat turn knows its own question, so a source opened from a
-          //: live answer teaches the search the same way the Ask tab does.
+          //: The turn's own question, so opening a source here teaches the
+          //: search the same thing it learns from the Ask tab.
           question
         );
       },
@@ -27179,7 +27192,10 @@ async function openPalette() {
   //: finding, one list later).
   apiPagedList("/conversations", 200, { silent: true }).then(res => { paletteConversations = res || []; }).catch(() => { paletteConversations = []; });
   apiPagedList("/media", 200, { silent: true }).then(res => { paletteMedia = res || []; }).catch(() => { paletteMedia = []; });
-  apiJson("/whiteboard/boards", { silent: true }).then(res => { paletteBoards = res || []; }).catch(() => { paletteBoards = []; });
+  //: Boards joined them when `GET /whiteboard/boards` became a page of its
+  //: own: the palette searches boards by title, so a board past the first
+  //: page would not be findable from here.
+  apiPagedList("/whiteboard/boards", 200, { silent: true }).then(res => { paletteBoards = res || []; }).catch(() => { paletteBoards = []; });
 }
 
 function closePalette() {
@@ -32135,6 +32151,40 @@ function applyPalette(id, remember = true) {
 // recognisably the *same* mark rather than five unrelated doodles.
 const emblemSeed = Math.floor(Math.random() * 1e6);
 const emblemInstances = new Map(); // element -> p5 instance
+const emblemObservers = new Map(); // element -> IntersectionObserver
+
+//: **A mark nobody can see does not need to be drawn.** Six emblems are built
+//: at boot (`EMBLEM_SLOTS`) and five of them live inside a panel that is
+//: `display: none` almost all the time: the lock screen, the onboarding card,
+//: the chat and graph empty states, the About dialog. Each one is a p5
+//: instance with its own 24fps draw loop, and p5 keeps that loop running
+//: whether or not its canvas has a box: measured on an idle whiteboard, six
+//: canvases alive, one visible, and 5.0 `requestAnimationFrame` requests per
+//: displayed frame.
+//:
+//: This is the same shape as the hidden tab that kept two clocks ticking, and
+//: it is *not* a retreat from "whenever the generated p5.js node graph logo
+//: shows, make sure it is never static and always rotating": the loop is
+//: stopped only while the mark is not shown, and started again the moment it
+//: is. An `IntersectionObserver` is the right instrument because a
+//: `display: none` element never intersects anything, so "is this on screen"
+//: needs no polling and no per-panel wiring.
+//:
+//: Not a claim about the whiteboard's drag lag. That report is still
+//: unattributed (`agent-remaining/mindmap.md`); this is work the app was
+//: doing for nothing, found while profiling it.
+function watchEmblemVisibility(holder, instance) {
+  if (typeof IntersectionObserver === "undefined") return;
+  emblemObservers.get(holder)?.disconnect();
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) instance.loop();
+      else instance.noLoop();
+    }
+  });
+  observer.observe(holder);
+  emblemObservers.set(holder, observer);
+}
 
 // The shared emblem sketch: a small ring of linked nodes, the MemoryMap motif
 //, in the current accent. Animated only where it's worth the frames.
@@ -32144,6 +32194,11 @@ function renderEmblem(holder, size = 34, { animate = false } = {}) {
   if (existing) {
     existing.remove();
     emblemInstances.delete(holder);
+    // The observer holds the instance it was told to pause, so it has to go
+    // with it: left behind, it would call `loop()` on a removed sketch the
+    // next time its holder came into view.
+    emblemObservers.get(holder)?.disconnect();
+    emblemObservers.delete(holder);
   }
   const accentHex =
     localStorage.getItem("accent-custom") ||
@@ -32200,7 +32255,11 @@ function renderEmblem(holder, size = 34, { animate = false } = {}) {
       p.circle(0, 0, dot * 0.85); // a bright hub
     };
   };
-  emblemInstances.set(holder, new p5(sketch, holder));
+  const instance = new p5(sketch, holder);
+  emblemInstances.set(holder, instance);
+  // Only the animated ones: the still ones called `noLoop()` in their own
+  // setup and have no loop to pause.
+  if (animate && !still) watchEmblemVisibility(holder, instance);
 }
 
 // Every emblem currently on the page, keyed by element id and size.

@@ -10328,7 +10328,10 @@ async function fetchWhiteboardState() {
 async function refreshBoardList(justCreated = null) {
   const select = document.getElementById("wb-board-select");
   if (!select) return;
-  const boards = await apiJson("/whiteboard/boards", { silent: true }).catch(() => null);
+  //: To the end, not the first page: `GET /whiteboard/boards` is paged now
+  //: (`BOARDS_PAGE_SIZE`), and a picker that offers some of your boards is
+  //: worse than one that takes a second request to offer all of them.
+  const boards = await apiPagedList("/whiteboard/boards", 200, { silent: true }).catch(() => null);
   if (!boards) return;
   if (justCreated && !boards.some((b) => b.id === justCreated.id)) {
     boards.push({ ...justCreated, node_count: 0, sketch_count: 0, object_count: 0 });
@@ -12781,7 +12784,10 @@ async function renderLibraryBoardsGallery() {
   // three times to draw one row would be three round trips for one small
   // array. The server-side filter earns its place for a caller that wants only
   // maps and no counts; this one wants both.
-  const boards = await apiJson("/whiteboard/boards", { silent: true }).catch(() => null);
+  // And to the end, for the same reason `refreshBoardList` reads it that way:
+  // the chips below count what came back, so a first page would make the
+  // counts a count of the first page.
+  const boards = await apiPagedList("/whiteboard/boards", 200, { silent: true }).catch(() => null);
   if (!boards) { grid.replaceChildren(); empty?.classList.remove("hidden"); noMatch?.classList.add("hidden"); return; }
   // See `createNewBoard`'s own comment: a board with nothing on it yet
   // doesn't come back from the server at all.

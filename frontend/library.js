@@ -7105,7 +7105,10 @@ async function syncLibraryBoardsTicks() {
   }
   let boards;
   try {
-    boards = await apiJson("/whiteboard/boards", { silent: true });
+    // The same full read the gallery itself does (`wbRenderBoardGallery`):
+    // this matches rows against the cards already on screen, so a first page
+    // would leave every card past it unmatched.
+    boards = await apiPagedList("/whiteboard/boards", 200, { silent: true });
   } catch {
     return;
   }

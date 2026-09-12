@@ -255,3 +255,44 @@ next run starts past it rather than at it:
 **Nothing here is a claim that the cause is known.** It is a list of the
 three ways to waste an hour on it, and the one measurement that has ever
 produced a number worth acting on.
+
+### The fourth pass, 2026-09-12 (WHITEBOARD_PLAN Phase 4): still not reproduced, and one real thing found on the way
+
+A CDP CPU profile, which is the instrument the previous three passes did not
+use: `scratchpad/ui-sweeps/dragprofile3.js` samples the stack at 100us through
+a real 60-move `page.mouse` drag on a board of 120 objects, and rolls the
+samples up by self time. It sees the drag handlers themselves, which no
+monkey-patch can: `objDragStart`, `objDragMove`, `objDragEnd` and
+`wbAlignmentGuides` are inside an IIFE and have no global binding, which is why
+`dragprofile2.js` could only wrap the globals around them.
+
+**The lag did not reproduce, again, and the profile says why it will not
+here.** Over 60 moves on a 120-object board the app's total main-thread work
+was 33.8ms, which is **0.56ms per move** against a 16.7ms frame, and **no
+`whiteboard.js` frame reached 1ms of self time across the whole drag**. The
+same drag with 119 of the 120 objects hidden measured 0.43ms per move. There
+is nothing in this profile that could make a frame late, so the next pass
+should not spend its time on `objDragMove` on the strength of a reading taken
+here. What a profile taken on the owner's own machine would show is the open
+question, and it is the only thing that can close this report.
+
+**What the profile did find, which is real and is fixed:** the top of the
+drag's own profile was not the whiteboard at all, it was p5. Six emblem
+sketches (`EMBLEM_SLOTS` in `app.js`) are built at boot and five of them live
+inside a panel that is `display: none` almost all the time (the lock screen,
+onboarding, the chat and graph empty states, About), each running its own 24fps
+draw loop for a canvas with no box. Measured on an idle board: **six canvases
+alive, one visible, 5.0 `requestAnimationFrame` requests per displayed frame**.
+They are paused by an `IntersectionObserver` now and started again the moment
+their holder is on screen, which is what the owner's "never static and always
+rotating" asks for; A/B inside one run, `scratchpad/ui-sweeps/wbdrawloops.js`:
+**0.0 requests per frame, against 5.0 with the loops forced back on**.
+
+This is **not** a claim that the drag report is fixed. It is work the app was
+doing for nothing, found while looking for the report, and the honest status of
+the report is unchanged: four passes, not reproduced in this sandbox.
+
+**Still not looked at**, and the next thing worth trying: `paintDashClock`
+(`dashboard.js`) appeared in every drag profile taken here, on a tab that was
+not open. That is the same shape as the emblems and belongs to whoever owns
+`dashboard.js`.

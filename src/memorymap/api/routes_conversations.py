@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from memorymap.core import deps
@@ -208,43 +208,86 @@ def conversation_matches(conversation: Conversation, term: str) -> bool:
     return any(lowered in str(m.get("content", "")).lower() for m in messages)
 
 
+#: A page of the chat list, not a ceiling on how many chats a notebook may
+#: hold. 200 matches `GET /documents` and `GET /entries`, which are read the
+#: same way: a caller that wants all of them asks for the next page until
+#: `X-Total-Count` is satisfied (`apiPagedList` in documents.js).
+CONVERSATIONS_PAGE_SIZE = 200
+MAX_CONVERSATIONS_PAGE = 1000
+
+#: How deep a *search* reads before it answers. The SQL filter over-matches
+#: (the messages column is JSON, so its keys are text too), so the real
+#: matching happens in Python over what SQL returns, and that is a scan: this
+#: is the ceiling on it. High enough that a notebook with a few thousand chats
+#: searches all of them, low enough that one request cannot read a table of
+#: any size into memory.
+SEARCH_SCAN_CAP = 5000
+
+
 @router.get("")
 def list_conversations(
-    q: str = "", session: Session = Depends(get_session)
+    response: Response,
+    q: str = "",
+    limit: int = Query(default=CONVERSATIONS_PAGE_SIZE, ge=1, le=MAX_CONVERSATIONS_PAGE),
+    offset: int = Query(default=0, ge=0),
+    session: Session = Depends(get_session),
 ) -> list[dict]:
-    """Pinned first, then most recently used.
+    """Pinned first, then most recently used, one page at a time.
 
     `q` searches titles *and* message text: you remember what you asked
     about far more often than what the chat ended up being called, and
     title-only search can't find that.
+
+    **The cap this replaces made old chats unreachable.** It was a flat
+    `.limit(200)` with no offset, so the 201st chat could not be opened from
+    the sidebar, and could not be found by searching either, because the
+    search filtered *after* the limit: the post-filter ran over the 200 most
+    recent rows and everything else was never looked at. Same finding as
+    INBOX 117 on documents, reminders and media, one list later.
+
+    The id is a tiebreaker in the ordering for the same reason it is there:
+    two chats sharing an `updated_at` could otherwise swap places between two
+    pages and hide one of them.
     """
     term = (q or "").strip()
     # Archived chats are kept, but out of the way, same shape as an
     # archived note dropping out of the Notes tab. Reachable via the
     # Library's Shelved filter (routes_library._shelved), not this list.
-    query = select(Conversation).where(Conversation.archived_at.is_(None))
-    if term:
-        # A cheap SQL prefilter, it over-matches (JSON keys count as text),
-        # so everything it returns is then checked properly below.
-        like = f"%{like_escape(term)}%"
-        query = query.where(
-            Conversation.title.ilike(like, escape=LIKE_ESCAPE)
-            | Conversation.messages.ilike(like, escape=LIKE_ESCAPE)
-        )
-    # Same cap either way: browsing without a search term shouldn't see
-    # fewer conversations than searching does, a 50-row default cap with no
-    # way past it made anything older than the 50 most-recently-updated
-    # chats unreachable from the sidebar list.
-    rows = list(
-        session.scalars(
-            query.order_by(
-                Conversation.pinned.desc(), Conversation.updated_at.desc()
-            ).limit(200)
-        )
+    live = Conversation.archived_at.is_(None)
+    order = (
+        Conversation.pinned.desc(),
+        Conversation.updated_at.desc(),
+        Conversation.id.desc(),
     )
-    if term:
-        rows = [c for c in rows if conversation_matches(c, term)]
-    return [_summary(c) for c in rows]
+
+    if not term:
+        total = session.scalar(select(func.count(Conversation.id)).where(live)) or 0
+        rows = list(
+            session.scalars(
+                select(Conversation).where(live).order_by(*order).limit(limit).offset(offset)
+            )
+        )
+        response.headers["X-Total-Count"] = str(total)
+        return [_summary(c) for c in rows]
+
+    # A cheap SQL prefilter, which over-matches (JSON keys count as text), so
+    # everything it returns is then checked properly in Python. The page is
+    # taken *after* that check, never before: slicing first is what made the
+    # old version answer "nothing found" for a chat it had simply not read.
+    like = f"%{like_escape(term)}%"
+    candidates = session.scalars(
+        select(Conversation)
+        .where(
+            live,
+            Conversation.title.ilike(like, escape=LIKE_ESCAPE)
+            | Conversation.messages.ilike(like, escape=LIKE_ESCAPE),
+        )
+        .order_by(*order)
+        .limit(SEARCH_SCAN_CAP)
+    )
+    matched = [c for c in candidates if conversation_matches(c, term)]
+    response.headers["X-Total-Count"] = str(len(matched))
+    return [_summary(c) for c in matched[offset : offset + limit]]
 
 
 @router.put("/{conversation_id}/pin")

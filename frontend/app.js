@@ -27149,8 +27149,13 @@ async function openPalette() {
   //: To the end: the palette searches these by text, so a reminder past the
   //: first page would simply not be findable from the palette.
   apiPagedList("/reminders", 200, { silent: true }).then(res => { paletteReminders = res || []; }).catch(() => { paletteReminders = []; });
-  apiJson("/conversations", { silent: true }).then(res => { paletteConversations = res || []; }).catch(() => { paletteConversations = []; });
-  apiJson("/media", { silent: true }).then(res => { paletteMedia = res || []; }).catch(() => { paletteMedia = []; });
+  //: Both to the end, for the same reason as the reminders above: each is
+  //: paged server-side, and the palette searches them by text, so anything
+  //: past the first page was simply not findable from the palette. The chat
+  //: list joined them when its own flat cap became a page (INBOX 117's
+  //: finding, one list later).
+  apiPagedList("/conversations", 200, { silent: true }).then(res => { paletteConversations = res || []; }).catch(() => { paletteConversations = []; });
+  apiPagedList("/media", 200, { silent: true }).then(res => { paletteMedia = res || []; }).catch(() => { paletteMedia = []; });
   apiJson("/whiteboard/boards", { silent: true }).then(res => { paletteBoards = res || []; }).catch(() => { paletteBoards = []; });
 }
 

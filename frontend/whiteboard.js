@@ -4309,8 +4309,91 @@ async function wbMapTidyBranch(parentId) {
 //: The chip is `.library-chip`, which is the app's own filter-chip recipe
 //: (DESIGN.md, "the interactive filter chip"), not a badge invented for the
 //: canvas.
+//: The whiteboard tools a map has no use for, by the tool name the dock
+//: button carries. Freehand, the highlighter, the eraser and the fill paint on
+//: a surface a map does not have; the six shapes, the sticky, the free text
+//: box and the image place things a tree cannot hold, since everything on a
+//: map is a node with a parent. Kept as a set rather than read off the hidden
+//: sections, because this also has to answer "was the tool that is *currently*
+//: selected one of these" after a board-to-map switch.
+const WB_BOARD_ONLY_TOOLS = new Set([
+  "draw", "highlighter", "eraser", "bucket",
+  "line", "arrow", "rect", "circle", "triangle", "diamond",
+  "sticky", "text",
+]);
+
+//: Which dock sections a map shows (MINDMAP_PLAN.md §12.0).
+//:
+//: The owner: "even though it is built off the whiteboard, it isnt the white
+//: board and they needs to stay relatively separate with the mindmap having
+//: controls specific to it, but the mindmap can keep important and usable
+//: parts of the whiteboard." So this is a split, not a second dock: the
+//: sections that only make sense on a board are marked in the markup, the
+//: map's own sections are marked the other way, and the shared three (move,
+//: connect, edit) carry no marker at all and are never touched here.
+function wbSyncToolSurfaces(isMap) {
+  for (const section of document.querySelectorAll("#wb-tool-group [data-wb-surface]")) {
+    section.hidden = section.dataset.wbSurface === (isMap ? "board" : "map");
+  }
+  // A tool stays selected across a board switch, so opening a map while the
+  // pen was active would leave the pen drawing on a surface whose own button
+  // is no longer on screen: a mode with no way out, which is the exact shape
+  // of bug the hidden sections are meant to prevent.
+  if (isMap && WB_BOARD_ONLY_TOOLS.has(window.currentTool)) wbSelectToolRef?.("select");
+}
+
+//: The map controls that act on the selection, kept honest about whether
+//: there is one.
+//:
+//: Disabled rather than hidden: a control that vanishes teaches nothing, and
+//: what these need to say is "pick a topic first", which the title says while
+//: the button is still there to be read. "Add a top-level topic" is never
+//: disabled, that is the one that has to work on an empty map.
+function wbSyncMapToolState() {
+  const node = wbSelectedMapNode();
+  const collapse = document.getElementById("wb-map-collapse");
+  const colour = document.getElementById("wb-map-branch-color");
+  for (const id of ["wb-map-add-child", "wb-map-add-sibling", "wb-map-focus-here"]) {
+    const button = document.getElementById(id);
+    if (button) button.disabled = !node;
+  }
+  if (collapse) {
+    collapse.disabled = !node;
+    const folded = Boolean(node?.data?.collapsed);
+    const icon = document.getElementById("wb-map-collapse-icon");
+    if (icon) icon.className = `ph ph-caret-circle-${folded ? "right" : "down"}`;
+    const label = folded ? "Open the selected branch again" : "Fold the selected branch away";
+    collapse.title = label;
+    collapse.setAttribute("aria-label", label);
+  }
+  if (colour) {
+    //: **A trunk has no branch colour**, and the picker says so rather than
+    //: writing a value nothing draws. A node's colour paints the line coming
+    //: *into* it and everything below (`wbMapColors`, and `.wb-map-edge`'s own
+    //: custom property): a root has no incoming line, and its children start
+    //: the palette over by design, so a colour set on a root would be stored,
+    //: drawn nowhere, and inherited by nothing. Measured before deciding
+    //: this: colouring a root left its child at the palette's first colour.
+    const index = node ? wbMapIndex() : null;
+    const isRoot = Boolean(node) && !(node.parent_id != null && index.byId.has(node.parent_id));
+    colour.disabled = !node || isRoot;
+    colour.title = isRoot
+      ? "Branch colour: pick a topic inside a branch, a trunk has no line of its own"
+      : "Branch colour: it carries down to everything under this topic";
+    // The colour it is *actually drawn in*, which for most nodes is the one
+    // inherited from the branch rather than anything stored on the node: a
+    // picker that opens on white over a blue branch is a picker that lies.
+    if (node && !isRoot) {
+      const effective = wbMapColors(index).get(node.id);
+      if (effective && /^#[0-9a-f]{6}$/i.test(effective)) colour.value = effective;
+    }
+  }
+}
+
 function wbSyncMapChrome() {
   const isMap = wbIsMap();
+  wbSyncToolSurfaces(isMap);
+  wbSyncMapToolState();
   // A map that grows downward puts the branch spine on the node's top edge and
   // its chevron underneath: decided once here as a class on the view rather
   // than per node, since it is a property of the layout, not of any one node.
@@ -4388,6 +4471,9 @@ function wbApplySelectionHighlight() {
   // bounding box to hang 8 handles off, and resizing a set isn't built.
   wbRenderSketchHandles();
   wbUpdatePropertiesPanel();
+  // The map dock's own buttons act on the selected topic, so they follow the
+  // selection for the same reason the properties panel above does.
+  wbSyncMapToolState();
   for (const key of wbMultiSelection) {
     const sep = key.indexOf(":");
     const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
@@ -4855,6 +4941,17 @@ function wbBuildContextMenu(kind) {
     //: Focus (§5 item 18). On the node's own menu because focus is about one
     //: node: "show me around here" is a thing you say pointing at something.
     item("Focus here", "F", () => wbMapSetFocus(mapNode.id));
+    //: The other half of the dock's colour picker: a colour wheel can set a
+    //: colour but has no way to say "none", and without this a node that was
+    //: coloured once could never rejoin its branch.
+    if (mapNode.data?.color) {
+      item("Reset the colour to the branch", "Inherit this branch's colour again", async () => {
+        mapNode.data = { ...mapNode.data, color: null };
+        await wbSaveObject(mapNode);
+        renderWhiteboardNow();
+        wbSyncMapToolState();
+      });
+    }
   }
   // Asked for directly. Available for every kind, a sketch reorders
   // against other sketches, a card/object against both (wbZOrderPeers'
@@ -6209,6 +6306,48 @@ async function initWhiteboard() {
   //: parent is exactly what `wbMapAddChild` already means by a top-level
   //: topic, and it opens the new node for typing like every other add does.
   $("wb-map-empty-add")?.addEventListener("click", () => wbMapAddChild(null));
+  //: The map dock (MINDMAP_PLAN.md §12.1 item 1). Every one of these already
+  //: existed as a key or a hover affordance and nothing else, which is the
+  //: owner's complaint in one line: "the mindmap needs to be more separated
+  //: with its own controls". No new behaviour is written here on purpose,
+  //: these call the same functions Tab, Enter, F and the node's own chevron
+  //: call, so the two routes cannot drift.
+  $("wb-map-add-root")?.addEventListener("click", () => wbMapAddChild(null));
+  $("wb-map-add-child")?.addEventListener("click", () => {
+    const node = wbSelectedMapNode();
+    if (node) wbMapAddChild(node.id);
+  });
+  $("wb-map-add-sibling")?.addEventListener("click", () => {
+    const node = wbSelectedMapNode();
+    if (node) wbMapAddSibling(node.id);
+  });
+  $("wb-map-collapse")?.addEventListener("click", async () => {
+    const node = wbSelectedMapNode();
+    if (!node) return;
+    await wbMapToggleCollapse(node.id);
+    wbSyncMapToolState();
+  });
+  //: Focus is one key in both directions (see the F handler), so it is one
+  //: button in both directions too.
+  $("wb-map-focus-here")?.addEventListener("click", () => {
+    const node = wbSelectedMapNode();
+    if (!node) return;
+    if (wbMapFocusState && wbMapFocusState.id === node.id) wbMapClearFocus();
+    else wbMapSetFocus(node.id);
+  });
+  //: Branch colour (§12.0: "styling is per node, with inheritance down the
+  //: branch"). `wbMapColors` has read `data.color` and carried it down to
+  //: every descendant since Phase 2, and nothing in the app could write it:
+  //: the colour of a branch was whatever the palette handed out. This is that
+  //: control. `change` rather than `input` so dragging across a colour wheel
+  //: writes once, the same rule the board background picker follows.
+  $("wb-map-branch-color")?.addEventListener("change", async (e) => {
+    const node = wbSelectedMapNode();
+    if (!node) return;
+    node.data = { ...node.data, color: e.target.value };
+    await wbSaveObject(node);
+    renderWhiteboardNow();
+  });
   $("wb-map-tidy")?.addEventListener("click", async () => {
     const moved = await wbMapTidy({ quiet: true });
     toast(moved

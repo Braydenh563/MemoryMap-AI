@@ -4123,7 +4123,51 @@ Link to another note with [[its first few words]]."></textarea>
         </button>
         </div>
       </div>
-      <div class="wb-tool-section" role="group" aria-label="Draw">
+      <!-- **A map is not a whiteboard** (MINDMAP_PLAN.md §12.0, the owner:
+           "the mindmap needs to be more specialised and targeted controls,
+           yes it is built off the whiteboard but it isn't the whiteboard").
+
+           Same dock, same `.wb-tool-section` recipe, same delegated click
+           listener: what changes is which sections are in it.
+           `wbSyncMapChrome` hides every `data-wb-surface="board"` section on a
+           map (the pen, the highlighter, the eraser, the fill, the six shapes,
+           the sticky, the free text box and the image: measured at 22 tool
+           buttons on a map before this, of which 13 could not do anything a
+           map understands) and hides these two on a board. Move, Connect
+           (a cross-link between two topics is exactly a link between two
+           objects, which is how the tree endpoint reads them) and Edit are
+           shared, so they carry no marker.
+
+           These are the gestures that were keys and nothing else. Tab and
+           Enter build a map without the mouse and always will, but a key you
+           were told about once in a toast is not a control. -->
+      <div class="wb-tool-section" data-wb-surface="map" role="group" aria-label="Topics">
+        <span class="wb-tool-section-label" title="Grow the map: a trunk, a branch off the selection, or one beside it">Topic</span>
+        <div class="wb-tool-section-row">
+        <button id="wb-map-add-root" class="ghost icon-button" type="button" title="Add a top-level topic: a map can have several trunks" aria-label="Add a top-level topic">
+          <i class="ph ph-plus-square" aria-hidden="true"></i>
+        </button>
+        <button id="wb-map-add-child" class="ghost icon-button" type="button" title="Add a branch off the selected topic (Tab)" aria-label="Add a branch off the selected topic (Tab)">
+          <i class="ph ph-arrow-elbow-down-right" aria-hidden="true"></i>
+        </button>
+        <button id="wb-map-add-sibling" class="ghost icon-button" type="button" title="Add a topic beside the selected one (Enter)" aria-label="Add a topic beside the selected one (Enter)">
+          <i class="ph ph-arrow-down" aria-hidden="true"></i>
+        </button>
+        </div>
+      </div>
+      <div class="wb-tool-section" data-wb-surface="map" role="group" aria-label="Branch">
+        <span class="wb-tool-section-label" title="Fold a branch away, colour it, or read the map one branch at a time">Branch</span>
+        <div class="wb-tool-section-row">
+        <button id="wb-map-collapse" class="ghost icon-button" type="button" title="Fold the selected branch away" aria-label="Fold the selected branch away">
+          <i class="ph ph-caret-circle-down" id="wb-map-collapse-icon" aria-hidden="true"></i>
+        </button>
+        <input type="color" id="wb-map-branch-color" class="wb-color-picker" aria-label="Branch colour" title="Branch colour">
+        <button id="wb-map-focus-here" class="ghost icon-button" type="button" title="Show this branch and its neighbours only (F)" aria-label="Show this branch and its neighbours only (F)">
+          <i class="ph ph-crosshair" aria-hidden="true"></i>
+        </button>
+        </div>
+      </div>
+      <div class="wb-tool-section" data-wb-surface="board" role="group" aria-label="Draw">
         <span class="wb-tool-section-label" title="Freehand, highlighter, eraser and fill">Draw</span>
         <div class="wb-tool-section-row">
         <button class="ghost icon-button" data-tool="draw" title="Pen (P)" aria-label="Pen (P)">
@@ -4140,7 +4184,7 @@ Link to another note with [[its first few words]]."></textarea>
         </button>
         </div>
       </div>
-      <div class="wb-tool-section" role="group" aria-label="Shapes">
+      <div class="wb-tool-section" data-wb-surface="board" role="group" aria-label="Shapes">
         <span class="wb-tool-section-label" title="Lines, arrows and boxes, with their fill and stroke">Shapes</span>
         <div class="wb-tool-section-row">
         <!-- Six shape tools (line/arrow/rect/circle/triangle/diamond) collapsed
@@ -4189,7 +4233,7 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
         </div>
       </div>
-      <div class="wb-tool-section" role="group" aria-label="Add">
+      <div class="wb-tool-section" data-wb-surface="board" role="group" aria-label="Add">
         <span class="wb-tool-section-label" title="Text and pictures">Add</span>
         <div class="wb-tool-section-row">
         <button class="ghost icon-button" data-tool="sticky" title="Sticky note: click the canvas to place one" aria-label="Sticky note">

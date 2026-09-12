@@ -1173,6 +1173,12 @@
                 <option value="oldest">Oldest first</option>
                 <option value="az">A → Z</option>
                 <option value="most-used">Most used</option>
+                <!-- The fading order (WORLD_CLASS_PLAN 15, I4): oldest, least
+                     linked, least opened first. The server owns the score, so
+                     this option asks for an order rather than computing one:
+                     two places deciding what "forgotten" means is two answers
+                     that drift. -->
+                <option value="forgotten">Forgotten first</option>
               </select>
               <div class="seg notes-view-toggle" role="group" aria-label="How to show notes">
                 <button type="button" id="notes-view-rows" class="active icon-only"

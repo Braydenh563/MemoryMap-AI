@@ -9175,6 +9175,16 @@ function sortEntries(entries) {
     oldest: (a, b) => a.id - b.id,
     az: (a, b) => a.content.localeCompare(b.content),
     "most-used": (a, b) => b.access_count - a.access_count || b.id - a.id,
+    //: The server's own fading order, by position rather than by a score
+    //: recomputed here: `ai/resurface.py` weighs age, links and opens, and a
+    //: second copy of those weights in the browser is the two-answers shape
+    //: this app has paid for before. A note the ranking has not reached (it
+    //: is capped, and a dismissed note is not in it) sorts after every note
+    //: that is in it, rather than jumping to the top on a missing key.
+    forgotten: (a, b) => {
+      const far = forgottenOrder.size + 1;
+      return (forgottenOrder.get(a.id) ?? far) - (forgottenOrder.get(b.id) ?? far) || b.id - a.id;
+    },
   };
   const cmp = modes[noteSort] || modes.newest;
   return [...entries].sort((a, b) => byPinned(a, b) || cmp(a, b));
@@ -36452,9 +36462,29 @@ $("note-search").addEventListener("input", (e) => {
     refreshNoteSearchWhy();
   }, 150);
 });
-$("note-sort").addEventListener("change", (e) => {
+//: The fading order, fetched once per sort rather than per render. Empty
+//: until "Forgotten first" is chosen, so nothing pays for it otherwise, and
+//: on a notebook under ten notes the server answers with an empty list by
+//: design (`resurface.MIN_NOTEBOOK`), which leaves the list in id order and
+//: is the honest answer at that size.
+let forgottenOrder = new Map();
+
+async function loadForgottenOrder() {
+  try {
+    const body = await apiJson("/resurface/all?limit=500", { silent: true, cacheMs: 60000 });
+    forgottenOrder = new Map((body.items || []).map((item, index) => [item.id, index]));
+  } catch (error) {
+    forgottenOrder = new Map();
+  }
+}
+
+$("note-sort").addEventListener("change", async (e) => {
   noteSort = e.target.value;
   notesCurrentPage = 1; // a re-sort can move a note off whatever page it was on
+  //: Awaited before the render, not alongside it: painting the list in id
+  //: order and re-sorting it a moment later is a list that jumps under the
+  //: hand of whoever just chose the sort.
+  if (noteSort === "forgotten") await loadForgottenOrder();
   renderEntries();
 });
 $("notes-page-size").value = notesPageSize;

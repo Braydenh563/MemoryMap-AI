@@ -113,6 +113,32 @@ def today(
     return {"items": [_card(session, entry) for entry in entries]}
 
 
+@router.get("/all")
+def ranked(
+    limit: int = Query(default=200, ge=1, le=500),
+    session: Session = Depends(get_session),
+) -> dict:
+    """The whole ranking, most faded first, for the Notes tab's "Forgotten"
+    sort (WORLD_CLASS_PLAN 15, I4).
+
+    Separate from `GET /resurface` rather than a bigger `limit` on it: that
+    one answers "what are today's three", which is a rotation over the top of
+    this list and is deliberately stable within a day. A sort wants the order
+    itself, with no rotation and no daily seed, and folding the two together
+    would mean one of them quietly getting the other's behaviour.
+
+    Ids and reasons only. The Notes list already holds every note it is
+    showing, so sending their content back would be sending it twice.
+    """
+    resurface.ensure_fresh(session)
+    entries = resurface.ranked(session, limit=limit)
+    rows = []
+    for entry in entries:
+        row = session.get(NoteScore, entry.id)
+        rows.append({"id": entry.id, "reason": _reason(row)})
+    return {"items": rows}
+
+
 @router.get("/near/{entry_id}")
 def near(entry_id: int, limit: int = Query(default=resurface.DAILY, ge=1, le=20),
          session: Session = Depends(get_session)) -> dict:

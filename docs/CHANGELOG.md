@@ -243,6 +243,13 @@ below). Versioning is `0.x` while the app stabilises.
   the place that format really has for it. A Markdown outline is still plain
   text on purpose.
 
+- The dashboard's Rediscover widget now shows the three notes slipping out
+  of reach rather than a random one: oldest, least linked, least opened, with
+  the reason on each card ("120 days old, no links, never opened") and a
+  "Never again" the notebook remembers. Under ten notes it still shuffles,
+  because the three most faded out of five notes are the same three for ever.
+  Notes has a matching "Forgotten first" sort.
+
 ### Fixed
 
 - Searching for a percent sign found every note in the notebook. `%` and `_`

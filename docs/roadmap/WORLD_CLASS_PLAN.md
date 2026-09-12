@@ -1020,9 +1020,16 @@ shift, because the night shift only runs with the AI on and this feature
 needs no model at all; measured at 2,000 notes, 137 ms to build the table and
 4.3 ms for the read.
 
-What is still open from the entry below: the margin row in the note editor
-(I2's surface, not built) and the "Forgotten" sort in Notes. The original
-entry, for the record:
+The "Forgotten" sort in Notes is built too: `GET /resurface/all` hands back
+the order (not the daily three, which is a rotation over the top of it and
+stable within a day, so the two are separate routes on purpose) and the sort
+orders by position rather than recomputing the weights in the browser.
+Measured in Chromium on a notebook aged 20 to 280 days: newest-first led with
+the newest note, "Forgotten first" led with the 280-day-old one that had
+never been opened, and the reasons matched the server's.
+
+What is still open from the entry below: the margin row in the note editor,
+which is I2's surface and is not built. The original entry, for the record:
 
 **What the person sees.** Three cards a day, on the Dashboard and as a
 row in the note editor's margin (I2) when relevant: "You have not opened

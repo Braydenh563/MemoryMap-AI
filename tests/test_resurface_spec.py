@@ -121,3 +121,43 @@ def test_a_second_read_does_not_recompute(client):
 
     with deps.get_db().session() as session:
         assert resurface.ensure_fresh(session) is False
+
+
+def test_the_ranking_route_is_the_order_not_the_daily_three(client):
+    """The Notes tab's "Forgotten first" sort wants the order itself.
+
+    `GET /resurface` answers "what are today's three", which is a rotation
+    over the top of the ranking and is deliberately stable within a day.
+    Folding a sort into it by raising its limit would have given one of the
+    two the other's behaviour, so the ranking has its own route.
+    """
+    made = [
+        client.post("/entries", json={"content": f"Note {index}\n\nWritten down."}).json()["id"]
+        for index in range(14)
+    ]
+
+    rows = client.get("/resurface/all", params={"limit": 500}).json()["items"]
+    assert len(rows) == len(made)
+    assert {row["id"] for row in rows} == set(made)
+    # Every row carries the reason, so a list can say why a note is where it
+    # is without asking again per note.
+    assert all(row["reason"] for row in rows)
+
+    # No rotation: the same call twice is the same order.
+    again = client.get("/resurface/all", params={"limit": 500}).json()["items"]
+    assert [row["id"] for row in again] == [row["id"] for row in rows]
+
+
+def test_a_dismissed_note_leaves_the_forgotten_order(client):
+    """"Never again" is honoured by the sort as well as by the panel, or the
+    note it was said about comes straight back at the top of a list."""
+    for index in range(14):
+        client.post("/entries", json={"content": f"Note {index}\n\nWritten down."})
+
+    first = client.get("/resurface/all").json()["items"][0]["id"]
+    client.post(
+        "/learned/corrections",
+        json={"kind": "dismiss_resurface", "subject": {"entry_id": first}},
+    )
+    after = [row["id"] for row in client.get("/resurface/all").json()["items"]]
+    assert first not in after

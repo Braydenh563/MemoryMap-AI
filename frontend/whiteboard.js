@@ -1749,33 +1749,106 @@ async function wbAlignSelection(edge) {
 }
 
 // Distribute: asked for as part of the same "alignment tools" request.
-// Needs three or more: the first and last (by centre, along the chosen
-// axis) stay put as the two ends, and whatever's between them is spaced
-// evenly: the same behaviour as every other drawing app's "distribute".
+// Needs three or more: the first and last (by leading edge, along the chosen
+// axis) stay put as the two ends, and whatever is between them is placed so
+// that every *gap* is the same.
+//
+// **Gaps, not centres** (WHITEBOARD_PLAN.md §2 item 4, "no
+// distribute-gaps", and decision 3). This spaced centres evenly until now,
+// which is the same thing only when every item is the same size: give three
+// boxes of 100, 300 and 100 an even centre spacing and the gap on one side
+// of the wide one is 100px smaller than the gap on the other, which is
+// exactly the arrangement a person reaches for this button to fix. Figma,
+// Illustrator and tldraw all offer the gap version under this name, and it
+// is the one that makes a row of mixed-width cards look like a row.
 async function wbDistributeSelection(axis) {
   const entries = wbSelectionEntries();
   if (entries.length < 3) {
-    toast("Select three or more items to distribute them.");
+    toast("Select three or more items to space them evenly.");
     return;
   }
-  const centerOf = (e) => axis === "horizontal"
-    ? (e.bbox.minX + e.bbox.maxX) / 2
-    : (e.bbox.minY + e.bbox.maxY) / 2;
-  entries.sort((a, b) => centerOf(a) - centerOf(b));
-  const first = centerOf(entries[0]);
-  const last = centerOf(entries[entries.length - 1]);
-  const step = (last - first) / (entries.length - 1);
+  const minOf = (e) => (axis === "horizontal" ? e.bbox.minX : e.bbox.minY);
+  const maxOf = (e) => (axis === "horizontal" ? e.bbox.maxX : e.bbox.maxY);
+  entries.sort((a, b) => minOf(a) - minOf(b));
+  const first = entries[0];
+  const last = entries[entries.length - 1];
+  const span = maxOf(last) - minOf(first);
+  const used = entries.reduce((sum, e) => sum + (maxOf(e) - minOf(e)), 0);
+  // Negative when the items overlap more than the span allows; the result is
+  // then an even *overlap*, which is still the honest reading of "space these
+  // evenly between the two ends" and is what the other apps do.
+  const gap = (span - used) / (entries.length - 1);
 
   const pushed = [];
+  let cursor = maxOf(first) + gap;
   for (let i = 1; i < entries.length - 1; i++) {
     const e = entries[i];
-    const delta = first + step * i - centerOf(e);
+    const size = maxOf(e) - minOf(e);
+    const delta = cursor - minOf(e);
+    cursor += size + gap;
+    // Sub-pixel: a move that rounds to nothing is a PUT and an undo entry for
+    // no visible change.
+    if (Math.abs(delta) < 0.5) continue;
     const dx = axis === "horizontal" ? delta : 0;
     const dy = axis === "horizontal" ? 0 : delta;
-    if (dx === 0 && dy === 0) continue;
     pushed.push(await wbMoveItemBy(e.kind, e.id, e.item, dx, dy));
   }
   wbPushMoveBatch(pushed);
+}
+
+//: **Same size**, the third of WHITEBOARD_PLAN decision 3's eleven arrange
+//: actions and the one that had no function at all. Every selected item takes
+//: the largest one's width (or height); the largest rather than the
+//: first-clicked because a marquee selection has no first, and growing to the
+//: biggest never hides content the way shrinking to the smallest can.
+//:
+//: The item keeps its top-left corner: a resize that also moved things would
+//: undo the align someone almost certainly did just before this.
+async function wbSameSizeSelection(dim) {
+  const entries = wbSelectionEntries();
+  if (entries.length < 2) {
+    toast("Select two or more items to give them the same size.");
+    return;
+  }
+  const sizeOf = (e) => (dim === "width" ? e.bbox.maxX - e.bbox.minX : e.bbox.maxY - e.bbox.minY);
+  const target = Math.max(...entries.map(sizeOf));
+  const pushed = [];
+  for (const e of entries) {
+    const size = sizeOf(e);
+    if (size <= 0 || Math.abs(size - target) < 0.5) continue;
+    const done = await wbSizeItemTo(e, dim, target, target / size);
+    if (done) pushed.push(done);
+  }
+  wbPushMoveBatch(pushed);
+}
+
+//: One item resized, in `wbMoveItemBy`'s shape and for the same reason: the
+//: history's "move" entry carries the item's whole payload, so a resize
+//: undoes through exactly the same PUT a move does (see
+//: `wbApplyHistoryEntry`). A drawn shape is a path, so it scales about its own
+//: top-left corner rather than taking a width field it does not have.
+async function wbSizeItemTo(entry, dim, target, factor) {
+  const { kind, id, item, bbox } = entry;
+  const before = WB_KIND_INFO[kind].payload(item);
+  if (kind === "sketch") {
+    const parsed = wbSketchParsedData(item);
+    if (!parsed) return null;
+    const scaled = wbTransformPathD(parsed.d, {
+      sx: dim === "width" ? factor : 1,
+      sy: dim === "height" ? factor : 1,
+      anchorX: bbox.minX,
+      anchorY: bbox.minY,
+    });
+    await wbSaveSketchD(item, scaled);
+  } else {
+    // Rounded: both columns are integers on the row, and a card whose stored
+    // width is 219.99997 reads back as a different number than it was set to.
+    if (dim === "width") item.width = Math.round(target);
+    else item.height = Math.round(target);
+    if (kind === "node") await wbSaveNode(item);
+    else await wbSaveObject(item);
+  }
+  return { action: "move", kind, id, before };
 }
 
 // Extract notes (BACKLOG.md §62): the selected note cards' own content IS
@@ -8466,6 +8539,8 @@ async function initWhiteboard() {
   document.getElementById("wb-align-bottom")?.addEventListener("click", () => wbAlignSelection("bottom"));
   document.getElementById("wb-distribute-h")?.addEventListener("click", () => wbDistributeSelection("horizontal"));
   document.getElementById("wb-distribute-v")?.addEventListener("click", () => wbDistributeSelection("vertical"));
+  document.getElementById("wb-same-width")?.addEventListener("click", () => wbSameSizeSelection("width"));
+  document.getElementById("wb-same-height")?.addEventListener("click", () => wbSameSizeSelection("height"));
   document.getElementById("wb-extract-notes")?.addEventListener("click", wbExtractNotes);
   document.getElementById("wb-mindmap-tree")?.addEventListener("click", () => {
     if (wbSelectedItem?.kind === "node") wbArrangeMindMap(wbSelectedItem.id, "tree");

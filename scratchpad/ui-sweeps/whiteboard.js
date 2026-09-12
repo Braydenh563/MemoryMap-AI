@@ -276,6 +276,105 @@ async function clickCanvas(page) {
     `N: tool ${afterN.tool}, overview ${afterN.overview}; Shift+N: overview ${afterShiftN}`,
   );
 
+  // --- 6. the eleven arrange actions ----------------------------------------
+  // Three text objects of deliberately different widths, so distribute by
+  // centres and distribute by gaps cannot give the same answer: 100, 300 and
+  // 100 wide, which is exactly the case §2 item 4 of the plan is about.
+  // Objects come from the app's own `api()` (a bare fetch is 401 while the app
+  // holds the unlock token), then the board is reloaded through the UI.
+  const boardObjects = async (page, boxes) => page.evaluate(async (defs) => {
+    // `let` at the top of a classic script is a global lexical binding, not a
+    // property of `window`: `wbState` reads, `window.wbState` is undefined.
+    const board = window.currentBoardId;
+    const made = [];
+    for (const d of defs) {
+      const res = await api("/whiteboard/objects", {
+        method: "POST",
+        body: JSON.stringify({ kind: "text", board_id: board, x: d.x, y: d.y, width: d.w, height: d.h, data: { content: d.t } }),
+      });
+      made.push((await res.json()).id);
+    }
+    return made;
+  }, boxes);
+
+  const boxesNow = (ids) => page.evaluate((wanted) => wanted.map((id) => {
+    const o = wbState.objects.find((i) => i.id === id);
+    return o ? { id, x: Math.round(o.x), y: Math.round(o.y), w: Math.round(o.width), h: Math.round(o.height) } : null;
+  }), ids);
+
+  const made = await boardObjects(page, [
+    { x: 100, y: 900, w: 100, h: 80, t: "one" },
+    { x: 400, y: 900, w: 300, h: 120, t: "two" },
+    { x: 1000, y: 900, w: 100, h: 60, t: "three" },
+  ]);
+  if (made.length !== 3) {
+    ok("three test objects created", false, `got ${JSON.stringify(made)}`);
+  } else {
+    // `fetchWhiteboardState` and not `renderWhiteboard`: objects posted
+    // straight to the API are not in `wbState` until the board re-reads it,
+    // and `wbSelectAllItems` walks `wbState` (measured: 3 objects created, 0
+    // selected, until this line existed).
+    await page.evaluate(async () => { await fetchWhiteboardState(); wbSelectAllItems(); });
+    await page.waitForTimeout(500);
+    const selected = await page.evaluate(() => wbMultiSelection.size);
+
+    // Align horizontal centres: every centre lands on the selection box's own
+    // centre, which for 100..1100 is 600.
+    await page.click("#wb-align-hcenter");
+    await page.waitForTimeout(900);
+    const aligned = await boxesNow(made);
+    const centres = aligned.map((b) => b.x + b.w / 2);
+    ok(
+      "align centres puts every centre on the selection's centre",
+      selected === 3 && centres.every((c) => Math.abs(c - 600) <= 1),
+      `${selected} selected, centres ${JSON.stringify(centres)} (want 600)`,
+    );
+
+    // Put them back on a row of known, uneven positions and distribute the
+    // gaps: spans 100 to 1100, 500 of box, so each of the two gaps is 250 and
+    // the middle box starts at 100 + 100 + 250 = 450.
+    await page.evaluate(async (ids) => {
+      const put = async (id, x, y) => {
+        const o = wbState.objects.find((i) => i.id === id);
+        o.x = x; o.y = y;
+        await api(`/whiteboard/objects/${id}`, { method: "PUT", body: JSON.stringify({ kind: o.kind, data: o.data, board_id: o.board_id, x, y, z: o.z, width: o.width, height: o.height }) });
+      };
+      await put(ids[0], 100, 900);
+      await put(ids[1], 300, 900);
+      await put(ids[2], 1000, 900);
+      await fetchWhiteboardState();
+      wbSelectAllItems();
+    }, made);
+    await page.waitForTimeout(500);
+    await page.click("#wb-distribute-h");
+    await page.waitForTimeout(900);
+    const spread = await boxesNow(made);
+    const byX = [...spread].sort((a, b) => a.x - b.x);
+    const gaps = [byX[1].x - (byX[0].x + byX[0].w), byX[2].x - (byX[1].x + byX[1].w)];
+    ok(
+      "distribute leaves equal gaps, not equal centres",
+      Math.abs(gaps[0] - gaps[1]) <= 1 && Math.abs(gaps[0] - 250) <= 1,
+      `gaps ${JSON.stringify(gaps)} (want 250 and 250), boxes ${JSON.stringify(byX.map((b) => [b.x, b.w]))}`,
+    );
+
+    // Same size: the widest is 300 and the tallest 120, and every item takes
+    // it while keeping its own top-left corner.
+    const leftsBefore = (await boxesNow(made)).map((b) => b.x);
+    await page.evaluate(() => wbSelectAllItems());
+    await page.click("#wb-same-width");
+    await page.waitForTimeout(900);
+    await page.evaluate(() => wbSelectAllItems());
+    await page.click("#wb-same-height");
+    await page.waitForTimeout(900);
+    const sized = await boxesNow(made);
+    ok(
+      "same size gives every item the largest width and height, in place",
+      sized.every((b) => b.w === 300 && b.h === 120)
+        && sized.map((b) => b.x).every((x, i) => Math.abs(x - leftsBefore[i]) <= 1),
+      `sizes ${JSON.stringify(sized.map((b) => [b.w, b.h]))}, lefts ${JSON.stringify(sized.map((b) => b.x))} (were ${JSON.stringify(leftsBefore)})`,
+    );
+  }
+
   console.log(`\n${pass}/${pass + fail} checks pass at ${VW}x${VH} (${process.env.THEME || "light"})`);
   await browser.close();
   process.exit(fail ? 1 : 0);

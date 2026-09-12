@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Whiteboard: the arrange tools answer all three of their questions. Space
+  evenly now leaves equal gaps rather than equal centres, which is the same
+  thing only when every item is the same size and is not what a row of mixed
+  cards needs; and "same width" and "same height" exist at all, giving every
+  selected item the largest one's size while it keeps its own corner.
+
 - The whiteboard's tool rail says which key holds each tool, and shows the
   ink it will draw with. Every tool now names its key in its tooltip (the
   sticky note is N, the two connectors are C and Shift+C, the image is I),

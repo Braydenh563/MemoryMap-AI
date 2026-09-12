@@ -9,6 +9,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Dashboard shows something on a phone. Its "Start something" tiles were
+  a one-column grid at 390px (two columns needed 370px of the 364px
+  available, so the layout fell back to one by six pixels), which made a
+  323px tower and pushed the first widget to y=870 on an 844px screen:
+  nothing on the page was above the fold. The tiles now scroll sideways like
+  the row beneath them, and the first widget starts at y=624.
+
 - The AI edit history and document history dialogs open centred. They were
   1440px wide against the left edge of the window, because the page-column
   rules reach any direct child of a page and a dialog written there took the

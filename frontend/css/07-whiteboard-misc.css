@@ -9372,6 +9372,32 @@ header#top-bar {
   .launch-row > * {
     flex: 0 0 auto;
   }
+
+  /* **And the one that is a grid has to be told twice.** The rule above was
+     written for a flex row, and `.launch-row-start` (the "Start something"
+     tiles) is `display: grid` with `repeat(auto-fit, minmax(min(14rem, 100%),
+     1fr))`, so `flex-wrap` and `flex` meant nothing to it and only the
+     `overflow-x` landed. Measured at 390 today: 364.4px of room, a 6.4px gap
+     and a 14rem track, so two columns need 370.4px and `auto-fit` falls back
+     to one by six pixels. Five tiles at 60px became a 323px tower, and with
+     the greeting, the stats strip and the toolbar above it the first
+     dashboard widget started at y=870 on an 844px screen: nothing on the
+     Dashboard was above the fold, which is exactly the report the rule above
+     was written to fix, still true for three quarters of the height it was
+     measuring.
+
+     Back to a flex row here, so it takes the same scrolling treatment its
+     sibling row already takes. `min(15rem, 82%)` rather than `auto`: a tile
+     keeps the width its two lines of copy were set for, and the 18% left
+     over shows the edge of the next one, which is the only thing that tells
+     a reader sideways is a direction. */
+  .launch-row-start {
+    display: flex;
+  }
+
+  .launch-row-start > * {
+    flex: 0 0 min(15rem, 82%);
+  }
 }
 
 /* --- the dashboard's greeting banner, on a phone --------------------------

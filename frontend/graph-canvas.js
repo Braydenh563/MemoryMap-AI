@@ -2000,6 +2000,34 @@ Object.defineProperty(window, "__graphDebug", {
       positions: Object.freeze(
         gcNodes.slice(0, 40).map((n) => Object.freeze([Math.round(n.x), Math.round(n.y)]))
       ),
+      // Enough geometry for a sweep to check the *shape* of a computed
+      // layout rather than only that one was chosen: which node is where,
+      // how deep the hierarchy put it, and where each edge's two ends are.
+      // `positions` above cannot answer "does depth increase away from the
+      // root" or "do two edges cross", which are the two questions the tree
+      // report turns on. Capped like the labels, and for the same reason.
+      nodeGeometry: Object.freeze(
+        gcNodes.slice(0, 300).map((n) =>
+          Object.freeze({
+            id: n.id,
+            x: Math.round(n.x * 10) / 10,
+            y: Math.round(n.y * 10) / 10,
+            r: n.r,
+            depth: n.depth == null ? null : n.depth,
+            group: Boolean(n.isGroup),
+          })
+        )
+      ),
+      edgeGeometry: Object.freeze(
+        gcEdges.slice(0, 300).map((e) =>
+          Object.freeze([
+            Math.round(e.source.x * 10) / 10,
+            Math.round(e.source.y * 10) / 10,
+            Math.round(e.target.x * 10) / 10,
+            Math.round(e.target.y * 10) / 10,
+          ])
+        )
+      ),
     });
   },
 });

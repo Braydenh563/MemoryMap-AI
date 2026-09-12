@@ -697,7 +697,17 @@ function renderTraceState() {
 // Kept for the note context menu, which offers "trace from here".
 function setTraceEnd(which, noteId) {
   setTracePanelOpen(true);
-  const node = graphNodeSelection?.data().find(n => String(n.id) === String(noteId));
+  //: **`graphNodesRef`, not the d3 selection.** `graphNodeSelection` is the
+  //: SVG renderer's own `<g>` join and is null on the canvas renderer, so this
+  //: found nothing there and every Trace started from the node popup answered
+  //: "that note isn't on the map right now" whatever was on the map. Found by
+  //: `graph.js`'s own sweep once it got far enough to reach the check.
+  //: `graphNodesRef` is the live node array on both renderers, which is the
+  //: whole reason it exists, and the selection stays as the fallback for a
+  //: moment when the array has not been built yet.
+  const node =
+    (graphNodesRef || []).find((n) => String(n.id) === String(noteId)) ||
+    graphNodeSelection?.data().find((n) => String(n.id) === String(noteId));
   if (!node) {
     showTraceMessage("That note isn't on the map right now, clear filters and try again.");
     return;

@@ -412,14 +412,22 @@ const ok = (pass) => (pass ? "PASS" : "FAIL");
       }),
     4000
   );
-  await control(
-    "colour by cluster",
-    () => page.evaluate(() => document.querySelector('input[name="graph-colour"][value="cluster"]').click()),
-    5000
-  );
-  await control("colour by category", () =>
-    page.evaluate(() => document.querySelector('input[name="graph-colour"][value="category"]').click())
-  );
+  // "Colour by" became a `<select>` when Phase 3 turned it into a rule picker
+  // (category, tag, space, age, cluster, has a file). This sweep still drove
+  // the radio group it used to be and threw on a null, which stopped it three
+  // checks in: everything below here had not run since.
+  // The native <select> is hidden behind the app's enhanced select, so
+  // `selectOption` never sees a visible element: set the value and fire the
+  // change the app listens for, which is what the enhanced control does too.
+  const colourBy = (value) =>
+    page.evaluate((v) => {
+      const box = document.getElementById("graph-colour");
+      if (!box) throw new Error("#graph-colour is gone");
+      box.value = v;
+      box.dispatchEvent(new Event("change", { bubbles: true }));
+    }, value);
+  await control("colour by cluster", () => colourBy("cluster"), 5000);
+  await control("colour by category", () => colourBy("category"));
   await control("search highlight", async () => {
     await page.fill("#graph-search", "Reading");
   });
@@ -528,12 +536,15 @@ const ok = (pass) => (pass ? "PASS" : "FAIL");
     "trace between two notes",
     () =>
       page.evaluate(async () => {
-        const ids = (window.__graphDebug && window.__graphDebug.positions.length
-          ? graphNodesRef.slice(0, 2)
-          : graphNodesRef.slice(0, 2)
-        ).map((n) => n.id);
-        setTraceEnd("from", ids[0]);
-        setTraceEnd("to", ids[1]);
+        // The two ends of a real edge, not the first two nodes in the list:
+        // those are very often unconnected, and "no route between these two"
+        // then reads as "the trace did not draw" for the rest of the run.
+        const edge = (gcEdges || []).find(
+          (e) => e.source && e.target && !e.source.isGroup && !e.target.isGroup
+        );
+        if (!edge) return null;
+        setTraceEnd("from", edge.source.id);
+        setTraceEnd("to", edge.target.id);
         return runTrace();
       }),
     4000

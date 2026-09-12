@@ -197,6 +197,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A note with a saved link, a recognised person or a resurfacing score on
+  it can be deleted for good again. Emptying the bin, or destroying one such
+  note, failed outright and left it where it was.
+
 - A document with a note attached to it can be deleted again. It could not
   be deleted at all: the delete failed on a database constraint and left the
   document in place, so the feature that joins notes and documents together

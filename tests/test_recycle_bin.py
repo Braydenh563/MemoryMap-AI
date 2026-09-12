@@ -340,3 +340,63 @@ def test_expired_bin_entries_purged(client):
         assert manager.purge_expired_deleted(session, days=30) == 1
     finally:
         session.close()
+
+
+def test_every_table_pointing_at_an_entry_is_handled_when_one_is_destroyed():
+    """The list in `_hard_delete` is checked against the schema, not memory.
+
+    `test_a_note_with_every_kind_of_attached_row_can_still_be_destroyed`
+    above promises exactly this and cannot deliver it: it builds one row per
+    table **by hand**, so a table added afterwards is simply not in it and
+    the test keeps passing. That is not a hypothetical. It was written when
+    seven tables pointed at an entry; by 2026-09-12 there were ten, and
+    `EntryBookmark`, `EntityMention` and `NoteScore` were all unhandled. A
+    note with a saved link on it could not be purged: `FOREIGN KEY
+    constraint failed`, a 500, and the note still sitting in the bin.
+
+    So this one reads the foreign keys out of the metadata and asserts each
+    is accounted for in `_hard_delete`'s source. A new table referencing
+    `entries.id` fails this the moment it is declared, which is the promise
+    the docstring above was making.
+    """
+    import inspect
+
+    from memorymap.core.database import Base
+    from memorymap.entry import manager
+
+    # Comments stripped first, and that is not fussiness: the first version
+    # of this test searched the raw source, and the paragraph in
+    # `_hard_delete` *explaining* which tables it handles was enough to
+    # satisfy it. Deleting the real `NoteScore` line left the test passing.
+    # A check that a name is mentioned is not a check that it is handled.
+    source = "\n".join(
+        line.split("#", 1)[0]
+        for line in inspect.getsource(manager._hard_delete).splitlines()
+    )
+    unhandled = []
+    for table in Base.metadata.tables.values():
+        if table.name == "entries":
+            continue
+        for column in table.columns:
+            for key in column.foreign_keys:
+                if key.column.table.name != "entries":
+                    continue
+                # Handled means named in the function at all: some are
+                # deleted, some detached (a reminder outlives its note, a
+                # board's cards are not the board's to take), and which is
+                # right is a decision per table, recorded there.
+                if table.name not in source and _model_name(table) not in source:
+                    unhandled.append(f"{table.name}.{column.name}")
+    assert not unhandled, (
+        "these reference entries.id and `_hard_delete` does not mention them, so "
+        f"purging a note that has one raises FOREIGN KEY constraint failed: {sorted(set(unhandled))}"
+    )
+
+
+def _model_name(table) -> str:  # noqa: ANN001
+    from memorymap.core.database import Base
+
+    for mapper in Base.registry.mappers:
+        if mapper.local_table is table:
+            return mapper.class_.__name__
+    return table.name

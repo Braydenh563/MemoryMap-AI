@@ -24,12 +24,15 @@ from memorymap.core.database import (
     Attachment,
     Category,
     EmbeddingRecord,
+    EntityMention,
     Entry,
     DocumentLink,
+    EntryBookmark,
     EntryDate,
     EntryLink,
     EntryRevision,
     LINK_TYPES,
+    NoteScore,
     Reminder,
     WhiteboardNode,
     WhiteboardObject,
@@ -825,6 +828,22 @@ def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | Non
     session.execute(delete(EntryRevision).where(EntryRevision.entry_id.in_(ids)))
     session.execute(delete(EntryDate).where(EntryDate.entry_id.in_(ids)))
     session.execute(delete(DocumentLink).where(DocumentLink.entry_id.in_(ids)))
+    # Three more that arrived after the four above, each invisible until a
+    # note happened to have one, and each producing the same 500 with the
+    # note still in the bin. `EntryBookmark` is a saved link attached to this
+    # note and `EntityMention` a person or project found in it: both are
+    # *about* the note and have nothing to say once it is gone. `NoteScore`
+    # is a cache of how faded the note is (`ai/resurface.py`), and a cache
+    # that outlives what it describes is how a deleted note reappears in a
+    # panel.
+    #
+    # The list above is no longer kept by memory: `test_recycle_bin.py` reads
+    # every `ForeignKey("entries.id")` out of the metadata and fails if one
+    # is not handled here, because remembering is what failed the first three
+    # times.
+    session.execute(delete(EntryBookmark).where(EntryBookmark.entry_id.in_(ids)))
+    session.execute(delete(EntityMention).where(EntityMention.entry_id.in_(ids)))
+    session.execute(delete(NoteScore).where(NoteScore.entry_id.in_(ids)))
     # A whiteboard card *is* its note, with the note gone there is nothing
     # left to show, so the card goes with it, same as a sketch's own delete.
     session.execute(delete(WhiteboardNode).where(WhiteboardNode.entry_id.in_(ids)))

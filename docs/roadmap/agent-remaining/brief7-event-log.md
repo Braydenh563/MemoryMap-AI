@@ -1,8 +1,9 @@
 # Brief 7, the event log (WORLD_CLASS_PLAN B1): what is left
 
 > Companions: [HISTORY.md](../HISTORY.md) ("From WORLD_CLASS_PLAN.md B1 and
-> SESSION_BRIEFS Brief 7", and "The event log's open items" for the second
-> run) · [SESSION_BRIEFS.md](../SESSION_BRIEFS.md) Brief 7 · the spec,
+> SESSION_BRIEFS Brief 7", "the event log's open items" for the second run,
+> "the event log's last three gaps" for the third) ·
+> [SESSION_BRIEFS.md](../SESSION_BRIEFS.md) Brief 7 · the spec,
 > `tests/test_events.py`
 
 Built in the first run: `AuditLog.actor` and `AuditLog.payload` with an

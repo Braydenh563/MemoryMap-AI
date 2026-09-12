@@ -41,19 +41,22 @@ this file is only what is still open.
    - Next step: one row in the editor, tool select plus predicate select plus
      a number, and the same three fields on `save_skill`'s schema.
 
-3. **Only "Find loose ends" declares a `verify` block.** The four other
-   read-only built-ins ("Notebook health check", "Tidy suggestions", "Audit
-   link reasons", "Find where I disagreed with myself") all promise in their
-   own prompts that they change nothing, and `{"tool": "count_notes",
-   "expect": {"unchanged": true}}` is exactly that claim made checkable. The
-   write skills want a different shape ("Auto-tag my notes" wants
-   `count_notes(untagged) max 0`), which `count_notes` cannot express today:
-   it has no `untagged` argument, `list_notes` does.
+3. **Two built-ins still have no `verify` block that they could have.**
+   "Notebook health check", "Tidy suggestions" and "Find loose ends" now
+   declare `{"tool": "count_notes", "expect": {"unchanged": true}}`, which is
+   the claim their own prompts make. "Audit link reasons" declares only
+   `audit_link_reasons` and "Find where I disagreed with myself" only
+   `find_contradictions` and `link_notes`, so neither can verify with
+   `count_notes` without widening its allowlist, which is a real change to
+   what those runs may call and was not made on a guess. The *write* skills
+   want a different shape entirely ("Auto-tag my notes" wants
+   `count_notes(untagged) max 0`), which `count_notes` cannot express: it has
+   no `untagged` argument, `list_notes` does.
    - File: `src/memorymap/ai/skills.py`, `_AUDIT_SKILLS` and the list after
-     it.
-   - Next step: add the four `unchanged` blocks (one line each, no new
-     machinery); the write skills need `count_notes` to take the filters
-     `list_notes` already takes, which is its own small change.
+     it; `src/memorymap/ai/tools/__init__.py` for `_count_notes`.
+   - Next step: give `count_notes` the filters `list_notes` already takes,
+     then the write skills can declare a postcondition and the two read-only
+     ones can verify with a tool they already declare.
 
 4. **The page cap and a large notebook.** `MAX_PAGES_PER_STEP` is 6 and
    `MAX_LIST_LIMIT` is 25, so one step can see at most 150 notes. A notebook

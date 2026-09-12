@@ -214,6 +214,16 @@ def _reading(session: Session, block: dict) -> tuple[int | None, str]:
     that blows up would take a run that did all its work with it.
     """
     name = block.get("tool") or ""
+    #: **A verifier may not write.** The one thing that must never happen here
+    #: is the check changing what it is checking: `verify` names any known
+    #: tool, `_reading` runs it with no arguments twice per run (before the
+    #: first step and after the last), and a block naming `delete_note` would
+    #: therefore delete on every run of that skill, quietly, as part of
+    #: "verifying" it. Refused at the one place the call is actually made
+    #: rather than only at save time, because a skill stored before this
+    #: existed reaches here without passing `skills.normalise` again.
+    if name in tools.WRITE_TOOLS:
+        return None, f"{name} changes things, so it cannot check anything"
     try:
         result = tools.execute_tool(session, name, {})
     except Exception as exc:  # noqa: BLE001  # a broken check must not break the run

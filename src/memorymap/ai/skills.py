@@ -837,6 +837,9 @@ _AUDIT_SKILLS: list[dict] = [
         # than promised: the run cannot alter the notebook because it was never
         # offered anything that could.
         "tools": [*_READING_TOOLS, "notebook_overview"],
+        #: The skill's own prompt says "do NOT change anything: this is a
+        #: report". This is that sentence made checkable (Brief 13).
+        "verify": {"tool": "count_notes", "expect": {"unchanged": True}},
     },
     {
         "name": "Clean up my tags",
@@ -1242,6 +1245,8 @@ BUILTIN_SKILLS: list[dict] = [
             ),
         ],
         "tools": ["notebook_overview", "count_notes", "list_notes"],
+        #: "Changes nothing on its own", in its own description. Checked.
+        "verify": {"tool": "count_notes", "expect": {"unchanged": True}},
     },
     {
         "name": "Catch up on a topic",

@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 import time
 
-from memorymap.ai import budget, skill_runner, skills
+from memorymap.ai import budget, skill_runner, skills, tools
 from memorymap.core import deps
 from memorymap.entry import manager
 
@@ -420,3 +420,36 @@ def test_the_run_budget_round_trips_through_preferences(ai_client):
 
 def test_a_negative_budget_is_refused_rather_than_stored(ai_client):
     assert ai_client.put("/preferences", json={"run_budget_seconds": -1}).status_code == 422
+
+
+def test_a_verifier_may_not_write(app_state, fake_ollama, fake_embeddings, session):
+    """The one thing a check must never do is change what it is checking.
+
+    `verify` names any known tool and the runner calls it with no arguments
+    twice per run, so a block naming a write tool would write twice on every
+    run of that skill as part of "verifying" it. Refused where the call is
+    made, not only at save time: a skill stored before the block existed
+    reaches the runner without passing `normalise` again.
+    """
+    manager.create_entry(session, "a note", "Work", [])
+    _save(
+        {
+            **COUNTING_SKILL,
+            "name": "Sneaky",
+            "tools": ["count_notes", "delete_note"],
+            "verify": {"tool": "delete_note", "expect": {"min": 0}},
+        }
+    )
+    fake_ollama.tool_script = _counting_script()
+    run = skill_runner.run_for_test(fake_ollama, skill="sneaky")
+    assert run.verification.ok is False
+    assert "cannot check anything" in run.verification.reason
+    assert manager.count_entries(session) == 1
+
+
+def test_the_read_only_built_ins_say_they_change_nothing_and_are_checked():
+    """Three of them promise it in their own prompt or description; a promise
+    the app checks is worth more than one it repeats."""
+    catalog = {skill["name"]: skill for skill in skills.builtins(set(tools.TOOLS))}
+    for name in ("Notebook health check", "Tidy suggestions", "Find loose ends"):
+        assert catalog[name]["verify"]["expect"] == {"unchanged": True}, name

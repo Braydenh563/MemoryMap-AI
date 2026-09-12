@@ -969,11 +969,25 @@ async function renderContinueLink(row) {
   if (!newest) return;
   // One line of the note, short enough to sit in a pill beside three others.
   const preview = notePreviewText(newest.content || "").trim().slice(0, 42) || "your last note";
+  //: **The note's own line is the label, not the hint.** 10-responsive.css
+  //: gives this pill `flex: 2 1 0` against its neighbours' `1 1 0` and says
+  //: why: "Continue is the one pill whose text is a note's own first line, so
+  //: it is the one that needs room". It was not: the line was passed as the
+  //: hint, and `.quick-pill .quick-link-hint { display: none }` (a pill is one
+  //: line by definition) hid every pill's hint, this one included. Measured on
+  //: the dashboard: a 535.1px pill holding 68.7px of centred text reading
+  //: "Continue", beside three 281.4px pills. Double the width was being held
+  //: for a string nothing drew.
+  //:
+  //: So the line goes where the width was reserved for it, and the word the
+  //: label used to be becomes the tooltip, which is what a pill's explanation
+  //: is for everywhere else in this row. The u-turn icon and the "Jump to"
+  //: heading are what say this is a place to go back to.
   const button = quickLinkButton(
     {
       icon: "ph:arrow-u-up-left",
-      label: "Continue",
-      hint: preview,
+      label: preview,
+      hint: "Continue where you left off",
       run: () => flashEntry(newest.id),
     },
     "quick-link quick-pill quick-link-continue"

@@ -3615,6 +3615,13 @@ function wbMapEdgesFor(id) {
     const el = document.querySelector(
       `.wb-map-edges .wb-map-edge[data-parent="${parent.id}"][data-child="${child.id}"]`
     );
+    // The invisible twin has to follow the drag as well, or the line you can
+    // point at stays where the line used to be: a target that is right until
+    // the first time anything moves is worse than no target.
+    const hit = document.querySelector(
+      `.wb-map-edges .wb-map-edge-hit[data-parent="${parent.id}"][data-child="${child.id}"]`
+    );
+    if (el && hit) el._wbHitTwin = hit;
     // No element means the edge is not drawn right now (a collapsed or
     // filtered branch), which is not an error: there is simply nothing to
     // follow the drag.
@@ -3633,7 +3640,9 @@ function wbMapEdgesFor(id) {
 //: report this file already carries.
 function wbUpdateMapEdges(edges) {
   for (const { parent, child, el, layout } of edges || []) {
-    el.setAttribute("d", wbMapEdgePathD(parent, child, layout));
+    const d = wbMapEdgePathD(parent, child, layout);
+    el.setAttribute("d", d);
+    if (el._wbHitTwin) el._wbHitTwin.setAttribute("d", d);
   }
 }
 
@@ -3673,7 +3682,9 @@ function wbRenderMapEdges() {
     for (const child of index.childrenOf.get(parent.id) || []) {
       if (hidden.has(child.id)) continue;
       const path = document.createElementNS(NS, "path");
-      path.setAttribute("class", "wb-map-edge");
+      path.setAttribute("class", child.data?.edge_dashed
+        ? "wb-map-edge wb-map-edge-dashed"
+        : "wb-map-edge");
       path.setAttribute("d", wbMapEdgePathD(parent, child, layout));
       // The two ends' ids, so a drag can find *this* edge again and redraw it
       // per frame (`wbMapEdgesFor`). The render itself still replaces the
@@ -3697,6 +3708,17 @@ function wbRenderMapEdges() {
       const colour = colors.get(child.id);
       if (colour) path.style.setProperty("--wb-map-edge-colour", colour);
       next.push(path);
+      //: The same curve again, transparent and wide enough to grab (§12.1
+      //: item 4). Pushed *after* the visible path so it sits above it in the
+      //: group, which is what an SVG hit test needs; it is invisible either
+      //: way, and the visible line is inert.
+      const hit = document.createElementNS(NS, "path");
+      hit.setAttribute("class", "wb-map-edge-hit");
+      hit.setAttribute("d", path.getAttribute("d"));
+      hit.setAttribute("data-parent", String(parent.id));
+      hit.setAttribute("data-child", String(child.id));
+      wbWireMapEdgeGestures(hit, child.id);
+      next.push(hit);
       //: What the line says (§12.1 items 3 and 4), at the curve's own middle.
       //: The midpoint is exact rather than approximated: both control points
       //: of `wbMapEdgePathD`'s cubic sit on the line between the anchors'
@@ -4893,6 +4915,138 @@ async function wbMapResetToBranch(id) {
   toast("Back to the branch's own look.");
 }
 
+//: --- the link radial (MINDMAP_PLAN.md §12.1 item 4) -------------------------
+//:
+//: The same ring, on the line rather than on the topic. Every slot writes to
+//: the **child**, because a tree edge has no row of its own: it is
+//: `parent_id`, and the child is the end of it with exactly one incoming line.
+//:
+//: **Coggle's plain left-click on a line opens the colour wheel alone, and
+//: that is deliberately not copied.** A left-click on this canvas is how you
+//: clear a selection, and a tree edge is a 2px line inside a 16px target: a
+//: near-miss would open a colour picker you did not ask for, on a branch you
+//: were only trying to click past. The ring is the same gesture as the node's
+//: (right-click, or hold on a touch screen), which is one gesture to learn
+//: rather than two, and the colour well is a slot inside it.
+let wbMapLinkRadialFor = null;
+
+function wbCloseMapLinkRadial() {
+  const ring = document.getElementById("wb-map-link-radial");
+  if (!ring || ring.classList.contains("hidden")) return;
+  ring.classList.add("hidden");
+  wbMapLinkRadialFor = null;
+}
+
+//: The gestures on one edge's hit stroke. Bound at creation rather than
+//: delegated: the edge group is replaced wholesale on every render
+//: (`wbRenderMapEdges`'s own comment says why), so there is exactly one
+//: binding per element per lifetime and nothing to clean up.
+function wbWireMapEdgeGestures(hit, childId) {
+  let holdTimer = null;
+  const cancelHold = () => {
+    if (holdTimer) clearTimeout(holdTimer);
+    holdTimer = null;
+  };
+  hit.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    wbOpenMapLinkRadial(childId, event.clientX, event.clientY);
+  });
+  // Touch has no right-click, so a hold stands in, with the same 500ms and
+  // the same cancel-on-move shape the node's own menu gesture uses.
+  hit.addEventListener("pointerdown", (event) => {
+    if (event.pointerType !== "touch") return;
+    cancelHold();
+    holdTimer = setTimeout(() => {
+      holdTimer = null;
+      wbOpenMapLinkRadial(childId, event.clientX, event.clientY);
+    }, 500);
+  });
+  for (const name of ["pointerup", "pointercancel", "pointermove"]) {
+    hit.addEventListener(name, cancelHold);
+  }
+}
+
+function wbOpenMapLinkRadial(childId, clientX, clientY) {
+  const ring = document.getElementById("wb-map-link-radial");
+  const host = document.getElementById("library-view-whiteboard");
+  const index = wbMapIndex();
+  const child = index.byId.get(childId);
+  if (!ring || !host || !child) return;
+  wbCloseContextMenu();
+  wbCloseMapRadial();
+  // At the pointer, not at the line's middle: a branch edge can be hundreds of
+  // pixels long and a ring that jumped to its midpoint would open somewhere
+  // you were not looking.
+  const hostRect = host.getBoundingClientRect();
+  wbMapLinkRadialFor = childId;
+  ring.style.left = `${Math.round(clientX - hostRect.left)}px`;
+  ring.style.top = `${Math.round(clientY - hostRect.top)}px`;
+  ring.classList.remove("hidden");
+  wbSyncMapLinkRadial(child, index);
+}
+
+function wbSyncMapLinkRadial(child, index) {
+  const style = child.data?.edge_style || "curve";
+  for (const [id, name] of [
+    ["wb-link-curve", "curve"], ["wb-link-elbow", "elbow"], ["wb-link-straight", "straight"],
+  ]) {
+    document.getElementById(id)?.classList.toggle("active", style === name);
+  }
+  const dashed = document.getElementById("wb-link-dashed");
+  if (dashed) {
+    const on = Boolean(child.data?.edge_dashed);
+    dashed.classList.toggle("active", on);
+    dashed.setAttribute("aria-pressed", on ? "true" : "false");
+    dashed.title = on ? "Draw this line solid again" : "Dash this line";
+  }
+  const colour = document.getElementById("wb-link-color");
+  if (colour) {
+    // What the line is *drawn* in, which is the branch's colour unless this
+    // node carries its own: the same rule the dock and the strip follow.
+    const effective = wbMapColors(index).get(child.id);
+    if (effective && /^#[0-9a-f]{6}$/i.test(effective)) colour.value = effective;
+  }
+  const reverse = document.getElementById("wb-link-reverse");
+  if (reverse) {
+    // Turning a line around makes the parent a child of the child. If the
+    // parent is a trunk that is a clean swap; it is never possible for a line
+    // that is not there, which is the only case worth refusing.
+    const parent = index.byId.get(child.parent_id);
+    reverse.disabled = !parent;
+  }
+}
+
+//: Turn a line around: the topic below becomes the one above.
+//:
+//: Two moves, in this order, and the order is the whole of it. Moving the
+//: parent under the child while the child is still under the parent is
+//: exactly the ring `/move`'s cycle check refuses, so the child is lifted to
+//: the parent's own parent first: after that neither is a descendant of the
+//: other and the second move is an ordinary re-parent.
+async function wbMapReverseEdge(childId) {
+  const boardId = window.currentBoardId;
+  const index = wbMapIndex();
+  const child = index.byId.get(childId);
+  const parent = child ? index.byId.get(child.parent_id) : null;
+  if (!boardId || !child || !parent) return;
+  const grandparent = index.byId.has(parent.parent_id) ? parent.parent_id : null;
+  const move = (id, parentId) => apiJson(
+    `/whiteboard/boards/${boardId}/nodes/${id}/move`,
+    { method: "PUT", body: JSON.stringify({ parent_id: parentId }) }
+  );
+  try {
+    Object.assign(child, await move(child.id, grandparent));
+    Object.assign(parent, await move(parent.id, child.id));
+  } catch (err) {
+    toast(err.message || "Couldn't turn that line around.", true);
+    return;
+  }
+  await wbMapTidy({ quiet: true });
+  renderWhiteboardNow();
+  toast("Turned the line around.");
+}
+
 function wbSyncMapChrome() {
   const isMap = wbIsMap();
   wbSyncToolSurfaces(isMap);
@@ -5558,11 +5712,13 @@ document.addEventListener("click", (e) => {
   // The ring closes on a click anywhere but itself, the same rule. Its own
   // slots close it from their handlers instead, after they have acted.
   if (!e.target.closest("#wb-map-radial")) wbCloseMapRadial();
+  if (!e.target.closest("#wb-map-link-radial")) wbCloseMapLinkRadial();
 });
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     wbCloseContextMenu();
     wbCloseMapRadial();
+    wbCloseMapLinkRadial();
   }
   // Alt is a live modifier while the ring is open, so it is watched here
   // rather than read only at the click: the two add slots re-label themselves
@@ -6970,6 +7126,50 @@ async function initWhiteboard() {
   radialSlot("wb-radial-label", (node) => wbMapLabelEdge(node.id));
   radialSlot("wb-radial-sever", (node) => wbMapSever(node.id));
   radialSlot("wb-radial-reset", (node) => wbMapResetToBranch(node.id));
+
+  //: The link ring (§12.1 item 4). Same shape as the node ring's slots, one
+  //: difference: the colour well is an `<input>`, so it listens for `change`
+  //: and closes the ring itself rather than on the click that opened the
+  //: browser's own picker.
+  const linkNode = () => {
+    if (wbMapLinkRadialFor == null) return null;
+    const node = (wbState.objects || []).find((o) => o.id === wbMapLinkRadialFor);
+    if (!node) wbCloseMapLinkRadial();
+    return node || null;
+  };
+  const linkSlot = (id, run) => {
+    $(id)?.addEventListener("click", async () => {
+      const node = linkNode();
+      wbCloseMapLinkRadial();
+      if (node) await run(node);
+    });
+  };
+  linkSlot("wb-link-reverse", (node) => wbMapReverseEdge(node.id));
+  linkSlot("wb-link-label", (node) => wbMapLabelEdge(node.id));
+  for (const [id, style] of [
+    ["wb-link-curve", "curve"], ["wb-link-elbow", "elbow"], ["wb-link-straight", "straight"],
+  ]) {
+    // `curve` is stored as no value at all, the way the strip's "M" is: the
+    // default has to stay the default, or a map full of nodes pinned to
+    // "curve" would stop following a later change to how a map draws.
+    linkSlot(id, async (node) => {
+      await wbMapSetNodeStyle(node, { edge_style: style === "curve" ? null : style });
+      renderWhiteboardNow();
+    });
+  }
+  linkSlot("wb-link-dashed", async (node) => {
+    await wbMapSetNodeStyle(node, { edge_dashed: !node.data?.edge_dashed || null });
+    renderWhiteboardNow();
+  });
+  linkSlot("wb-link-cut", (node) => wbMapSever(node.id));
+  $("wb-link-color")?.addEventListener("change", async (e) => {
+    const node = linkNode();
+    wbCloseMapLinkRadial();
+    if (!node) return;
+    node.data = { ...node.data, color: e.target.value };
+    await wbSaveObject(node);
+    renderWhiteboardNow();
+  });
 
   //: The node edit strip (§12.1 item 2). Every handler reads the selection at
   //: the moment it fires rather than closing over a node: the strip is one set

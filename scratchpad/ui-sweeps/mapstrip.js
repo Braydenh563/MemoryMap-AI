@@ -340,6 +340,94 @@ async function newBoard(page, name, type) {
       && !reset.link && !reset.label,
     JSON.stringify(reset));
 
+  // --- the link radial (§12.1 item 4) ---------------------------------------
+  // Rebuild a parent/child pair: the sever above left `kidId` a trunk.
+  await page.evaluate(async (id) => {
+    const roots = wbMapIndex().roots;
+    const other = roots.find((r) => r.id !== id);
+    await window.apiJson(`/whiteboard/boards/${window.currentBoardId}/nodes/${id}/move`, {
+      method: "PUT", body: JSON.stringify({ parent_id: other.id }),
+    });
+    await fetchWhiteboardState();
+    renderWhiteboardNow();
+  }, kidId);
+  await page.waitForTimeout(900);
+
+  const hit = await page.evaluate((id) => {
+    const h = document.querySelector(`.wb-map-edge-hit[data-child="${id}"]`);
+    const line = document.querySelector(`.wb-map-edge[data-child="${id}"]`);
+    if (!h || !line) return null;
+    return {
+      width: getComputedStyle(h).strokeWidth,
+      lineWidth: getComputedStyle(line).strokeWidth,
+      events: getComputedStyle(h).pointerEvents,
+      groupEvents: getComputedStyle(document.querySelector(".wb-map-edges")).pointerEvents,
+      sameD: h.getAttribute("d") === line.getAttribute("d"),
+    };
+  }, kidId);
+  check("a line has a target wide enough to hit, over an inert group",
+    hit && hit.events === "stroke" && hit.groupEvents === "none"
+      && parseFloat(hit.width) >= 12 && parseFloat(hit.lineWidth) <= 3 && hit.sameD,
+    JSON.stringify(hit));
+
+  const box = await page.evaluate((id) => {
+    const h = document.querySelector(`.wb-map-edge-hit[data-child="${id}"]`);
+    const r = h.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  }, kidId);
+  await page.mouse.click(box.x, box.y, { button: "right" });
+  await page.waitForTimeout(500);
+  const linkRing = await page.evaluate(() => {
+    const el = document.getElementById("wb-map-link-radial");
+    return {
+      open: !el.classList.contains("hidden"),
+      slots: el.querySelectorAll(".wb-map-radial-slot").length,
+      curveActive: document.getElementById("wb-link-curve").classList.contains("active"),
+      nodeRingClosed: document.getElementById("wb-map-radial").classList.contains("hidden"),
+    };
+  });
+  check("right-click on a line opens the line's own ring",
+    linkRing.open && linkRing.slots === 8 && linkRing.curveActive && linkRing.nodeRingClosed,
+    JSON.stringify(linkRing));
+
+  await page.click("#wb-link-elbow");
+  await page.waitForTimeout(1100);
+  const elbowed = await page.evaluate((id) => {
+    const line = document.querySelector(`.wb-map-edge[data-child="${id}"]`);
+    return { stored: wbMapIndex().byId.get(id).data?.edge_style, d: line.getAttribute("d") };
+  }, kidId);
+  check("the elbow is stored and the line is redrawn with corners",
+    elbowed.stored === "elbow" && elbowed.d.includes("L") && !elbowed.d.includes("C"),
+    JSON.stringify(elbowed));
+
+  const dashed = await page.evaluate(async (id) => {
+    const node = wbMapIndex().byId.get(id);
+    await wbMapSetNodeStyle(node, { edge_dashed: true });
+    renderWhiteboardNow();
+    await new Promise((r) => setTimeout(r, 500));
+    const line = document.querySelector(`.wb-map-edge[data-child="${id}"]`);
+    return { dash: getComputedStyle(line).strokeDasharray, cls: line.getAttribute("class") };
+  }, kidId);
+  check("a dashed line is drawn dashed", /\d/.test(dashed.dash) && dashed.cls.includes("dashed"),
+    JSON.stringify(dashed));
+
+  const reversed = await page.evaluate(async (id) => {
+    const i = wbMapIndex();
+    const child = i.byId.get(id);
+    const parentId = child.parent_id;
+    await wbMapReverseEdge(id);
+    await new Promise((r) => setTimeout(r, 2000));
+    const after = wbMapIndex();
+    return {
+      parentId,
+      childNowParentOf: (after.childrenOf.get(id) || []).map((o) => o.id).includes(parentId),
+      childParent: after.byId.get(id).parent_id,
+    };
+  }, kidId);
+  check("turning a line around swaps the two topics without a cycle",
+    reversed.childNowParentOf && reversed.childParent !== reversed.parentId,
+    JSON.stringify(reversed));
+
   await browser.close();
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

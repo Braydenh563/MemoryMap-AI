@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 
 from memorymap.ai import embeddings as embeddings_module
 from memorymap.ai import model_manager as jobs
-from memorymap.core import bgtasks, deps, embedmodels, extras, taskhistory
+from memorymap.core import bgtasks, deps, embedmodels, extras, filejobs, taskhistory
 
 router = APIRouter(tags=["tasks"])
 
@@ -129,6 +129,10 @@ def collect() -> list[dict]:
                 "log": [],
             }
         )
+
+    # Reading an attached file: "Describe with AI", the local OCR pass, and
+    # the vision read. Same not-cancellable reasoning as the three above.
+    tasks.extend(filejobs.running())
 
     # Autonomous optimization task
     from memorymap.ai import autonomous

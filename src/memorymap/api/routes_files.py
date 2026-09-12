@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 from memorymap.ai import captioning, docreader, vision_ocr
 from memorymap.api.routes_entries import _existing_entry, _to_out
 from memorymap.api.schemas import EntryOut
-from memorymap.core import deps, docview, media_gc, media_process, ocr, pdfpages
+from memorymap.core import deps, docview, filejobs, media_gc, media_process, ocr, pdfpages
 from memorymap.core.database import Attachment, Entry, MediaUpload, PageRead
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
@@ -390,15 +390,20 @@ def analyse_attachment(
         # Tesseract for a picture; this app's own document extractor for
         # everything else: a .docx or a text-layer PDF has real text in it
         # that no OCR pass should be guessing at.
-        if is_image:
-            text = ocr.extract_text(path)
-        else:
-            # No `vision_reader` passed on purpose: this is the "read it
-            # locally, no model" path, and the vision kind below is the one
-            # that costs a model round trip. A scan with no text layer comes
-            # back empty here, which is the honest answer and is exactly what
-            # sends the reader to "Read with AI".
-            text = docview.extract(path).text
+        # Registered even though no model is involved: Tesseract on a long
+        # scan is one of the slowest things this app does, and "is it working
+        # or is it stuck" is the same question whether the work is a model or
+        # a binary.
+        with filejobs.reading("ocr", attachment.id, attachment.filename):
+            if is_image:
+                text = ocr.extract_text(path)
+            else:
+                # No `vision_reader` passed on purpose: this is the "read it
+                # locally, no model" path, and the vision kind below is the one
+                # that costs a model round trip. A scan with no text layer comes
+                # back empty here, which is the honest answer and is exactly what
+                # sends the reader to "Read with AI".
+                text = docview.extract(path).text
         attachment.ocr_text = (text or "").strip() or None
         session.commit()
         return _attachment_out(session, attachment)
@@ -448,7 +453,10 @@ def analyse_attachment(
             if not deps.get_ollama().is_running():
                 raise HTTPException(status_code=409, detail="The AI model isn't running.")
             models = deps.get_model_manager()
-            described = captioning.describe_document(readable, models, deps.get_ollama())
+            with filejobs.reading(
+                "describe", attachment.id, attachment.filename, models.utility_model()
+            ):
+                described = captioning.describe_document(readable, models, deps.get_ollama())
             attachment.caption = described or None
             attachment.caption_model = models.utility_model() if described else None
             attachment.caption_edited = False
@@ -479,11 +487,12 @@ def analyse_attachment(
         # `vision_reader` contract), not an object with a `.read`: calling
         # `.read(path)` on it was the reported 500 on "generate a caption" for
         # a PDF ("'function' object has no attribute 'read'").
-        text = (
-            captioning.caption_text(path, model, ollama)
-            if is_image
-            else vision_ocr.pdf_vision_reader(model, ollama)(path)
-        )
+        with filejobs.reading("describe", attachment.id, attachment.filename, model):
+            text = (
+                captioning.caption_text(path, model, ollama)
+                if is_image
+                else vision_ocr.pdf_vision_reader(model, ollama)(path)
+            )
         attachment.caption = (text or "").strip() or None
         attachment.caption_model = model if attachment.caption else None
         attachment.caption_edited = False
@@ -493,11 +502,12 @@ def analyse_attachment(
         # A PDF is rasterised page by page (`pdf_vision_reader`), which is
         # the whole point for a scan, where there is no text layer to read
         # and Tesseract has already found nothing.
-        text = (
-            vision_ocr.vision_ocr_text(path, model, ollama)
-            if is_image
-            else vision_ocr.pdf_vision_reader(model, ollama)(path)
-        )
+        with filejobs.reading("vision", attachment.id, attachment.filename, model):
+            text = (
+                vision_ocr.vision_ocr_text(path, model, ollama)
+                if is_image
+                else vision_ocr.pdf_vision_reader(model, ollama)(path)
+            )
         attachment.vision_ocr_text = (text or "").strip() or None
         attachment.vision_ocr_model = model if attachment.vision_ocr_text else None
     session.commit()

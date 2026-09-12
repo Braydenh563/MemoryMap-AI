@@ -3838,6 +3838,59 @@ function wbMapEditNode(id) {
   });
 }
 
+//: **A map always keeps one topic** (MINDMAP_PLAN.md §12.0, decided after the
+//: owner asked "should the user even be able to delete the primary core
+//: node??").
+//:
+//: Not a taste call: every way of adding a node hangs off a node that is
+//: already on the map (Tab on the selection, the hover +, the node's own
+//: right-click menu), so the delete that empties a map is the delete that
+//: removes the way to undo itself. The empty-state panel is the net under
+//: this; the refusal is the rule.
+//:
+//: Refusing without an alternative would just be a wall, so the refusal
+//: carries the action someone emptying a map actually wants: clear it and
+//: start again from one blank topic.
+function wbMapDeleteEmptiesMap(id) {
+  if (!wbIsMap()) return false;
+  const index = wbMapIndex();
+  if (!index.byId.has(id)) return false;
+  return index.nodes.length - wbMapSubtree(index, id).length <= 0;
+}
+
+function wbMapRefuseLastTopic() {
+  toastAction(
+    "A map keeps at least one topic, so this one stays.",
+    "Clear the map",
+    wbMapClearToOneTopic
+  );
+}
+
+//: The explicit version of what deleting the last node would have done by
+//: accident: take everything away, then leave one blank topic open for
+//: typing, which is the state a new map starts in.
+//:
+//: Deleting the roots is enough to delete the map: `DELETE
+//: /whiteboard/objects/{id}` takes a node's whole subtree with it (§9.1), so
+//: one request per root removes every descendant too.
+async function wbMapClearToOneTopic() {
+  if (!wbIsMap()) return;
+  const roots = wbMapIndex().roots;
+  for (const root of roots) {
+    try {
+      const res = await apiJson(`/whiteboard/objects/${root.id}`, { method: "DELETE" });
+      const gone = new Set((Array.isArray(res?.deleted) ? res.deleted : []).map((row) => row.id));
+      gone.add(root.id);
+      wbState.objects = (wbState.objects || []).filter((o) => !gone.has(o.id));
+    } catch (err) {
+      toast(err.message || "Couldn't clear the map.", true);
+      return;
+    }
+  }
+  clearWbSelection();
+  await wbMapAddChild(null);
+}
+
 //: Delete: the subtree, with a real Undo rather than a confirm dialog.
 //:
 //: `DELETE /whiteboard/objects/{id}` returns the whole deleted subtree, rows
@@ -3850,6 +3903,10 @@ async function wbMapDeleteSubtree(id) {
   const boardId = window.currentBoardId;
   const node = (wbState.objects || []).find((o) => o.id === id);
   if (!boardId || !node) return;
+  if (wbMapDeleteEmptiesMap(id)) {
+    wbMapRefuseLastTopic();
+    return;
+  }
   let deleted = [];
   try {
     const res = await apiJson(`/whiteboard/objects/${id}`, { method: "DELETE" });
@@ -9721,6 +9778,13 @@ async function wbSaveObject(d) {
 // inlined a third time.
 function renderWbObjects(canvas) {
   async function deleteObject(d) {
+    // The same rule as the map's own subtree delete, at the other door: this
+    // is what the Delete tool, the context menu's Delete and the selection
+    // bar all call, and a rule enforced at one of two doors is not a rule.
+    if (WB_MAP_KINDS.has(d.kind) && wbMapDeleteEmptiesMap(d.id)) {
+      wbMapRefuseLastTopic();
+      return;
+    }
     const deletingKey = `object:${d.id}`;
     if (wbDeleting.has(deletingKey)) return;
     wbDeleting.add(deletingKey);

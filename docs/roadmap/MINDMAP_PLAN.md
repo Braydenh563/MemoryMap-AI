@@ -340,6 +340,33 @@ extended with the numbers named.
   constant, so a hand-placed node stays put until asked.
 - Everything the map shows is in the tree endpoint and the FreeMind and
   OPML exports round-trip; a feature that cannot round-trip is not built.
+- **The last topic cannot be deleted; clearing the map is offered
+  instead** (the owner asked directly: "should the user even be able to
+  delete the primary core node??"). A map with no nodes is a dead end by
+  construction: every add gesture hangs off a node that is already there,
+  so removing the last one removes the way to make the next one. Refusing
+  the delete is a smaller surprise than silently recreating a root under
+  the same name, and "clear the map" says what it does, so the refusal
+  carries that action: it takes the whole map away and leaves one blank
+  topic ready to type into. Enforced at both delete paths (the map's own
+  subtree delete, and the generic object delete the Delete tool, the
+  context menu and the selection bar use), because a rule enforced at one
+  of two doors is not a rule.
+- **Multiple roots are allowed** ("should the user be able to make
+  multiple main core nodes??"). Yes: real maps have several trunks, and
+  nothing in the code has ever assumed one, `wbMapIndex` returns a list of
+  roots, the tidy pass lays out a forest, and Enter on a root already adds
+  another root. So this is a decision to keep and to surface, not to build:
+  "Add topic" in the map dock adds a top-level topic whatever is selected,
+  which is the only visible way to make the second trunk.
+- **There is no "sub core" node type** ("sub core nodes??"). A node with
+  children *is* the sub core: it already draws larger than its leaves
+  through the branch colour and the depth it sits at, and its subtree
+  already collapses, tidies, transplants and exports as a unit. A third
+  tier would be a concept the data model does not have (`parent_id` and
+  `kind`, nothing else), and every export format this plan commits to
+  round-tripping (FreeMind, OPML, Markdown outline) has no way to carry
+  it, so it would be a decoration that vanishes on the first export.
 
 ### 12.1 Phase 6a, the controls (1 session)
 

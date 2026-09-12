@@ -3207,11 +3207,25 @@ function restoreEscapedMenu(menu) {
 //: the escape stays conditional (a no-op when nothing clips) and only the
 //: height is decided.
 function escapeAndCapMenu(menu, opener) {
-  //: Cleared before the measurement rather than after the close: the `top`
-  //: read below has to be this open's real one, and a cap left over from the
-  //: last open changes it (a menu that would have flipped above no longer
-  //: needs to) as well as hiding the fact that the menu wants more room.
-  menu.style.maxHeight = "";
+  //: **Measured with every cap off, not just this function's own.**
+  //: The inline cap is cleared before the measurement rather than after the
+  //: close: the `top` read below has to be this open's real one, and a cap
+  //: left over from the last open changes it (a menu that would have flipped
+  //: above no longer needs to) as well as hiding the fact that the menu wants
+  //: more room.
+  //:
+  //: `none` rather than empty, because clearing the inline value only hands
+  //: the menu back to the *stylesheet's* cap, and that is the same lie one
+  //: level down. Measured on the map's View menu at 1440x760 (INBOX 114, "the
+  //: view dropdown menu in the whiteboard and mindmap is still broken", with
+  //: "Snap to grid" cut in half and a scrollbar): 714px of content, held to
+  //: 616 by `.wb-board-menu`'s own `calc(100vh - 9rem)`, so `placeEscapedMenu`
+  //: measured 616, found that it fitted under the opener, and left the menu at
+  //: top 56. It was then capped to the 696px of room under *that* line and
+  //: scrolled 18px of content it had the window height to show: placed at the
+  //: top of the window instead, all 714 fit. A menu is moved up by how tall it
+  //: really is, or it is moved for the wrong reason.
+  menu.style.maxHeight = "none";
   escapeMenuIfClipped(menu, opener);
   const margin = 8;
   //: After the escape, so the number is measured against wherever the menu
@@ -3253,7 +3267,12 @@ function escapeAndCapMenu(menu, opener) {
   const anchor = opener ? opener.getBoundingClientRect() : null;
   const laidOut = (rect) => rect && (rect.width || rect.height || rect.top);
   const top = laidOut(box) ? box.top : laidOut(anchor) ? anchor.bottom + margin : null;
-  if (top === null) return;
+  //: Nothing measurable to cap against: the stylesheet's own cap is the right
+  //: thing to fall back to, and `none` above must not be what is left behind.
+  if (top === null) {
+    menu.style.maxHeight = "";
+    return;
+  }
   //: The floor keeps a menu opened near the bottom edge a menu rather than a
   //: slit; under it, scrolling inside the panel is the affordance.
   menu.style.maxHeight = `${Math.max(120, Math.round(window.innerHeight - top - margin))}px`;

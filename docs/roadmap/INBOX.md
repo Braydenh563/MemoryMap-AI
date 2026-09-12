@@ -23,6 +23,30 @@ never lost to the smaller stuff.
 
 ## Open items
 
+115. **Third drop, 2026-09-12 afternoon, verbatim (the owner), three
+    messages.**
+    - "the files rows in files still needs some ui improvement and
+      redesign, and better function" (screenshot of one row: a filename,
+      then "PDF · 121 KB · added 04/09/2026", then a "Read · 808 words"
+      pill, on a card with a lot of empty space and no way in except the
+      title).
+    - "also whiteboards and mindmaps need to be differentiable in the
+      boards selector."
+    - "when Im on the delete tool on the mindmap and hover over a mindmap
+      text node, the cursor changes to the grabber hand. the cursor and
+      other parts of the application just need better ui and ux"
+    - "the bottom of the image cards in the library images subsaection
+      needs a desperate redesign and funection" (screenshot of six image
+      cards: each has a "Used in" chip, a wrapped description, a "More"
+      button, a "Text in this image" fold, and a two-line "Described by
+      <model> · read by <model>" footer, which is four stacked controls
+      and a model name twice).
+    - "and the documents page sidebar needs redesigning as well, both for
+      outline and documents but mostly outline."
+    - "the loading bar on the splash graphic only ever goes to steps 3/5
+      and then it loads??"
+
+
 114. **Mid-work drop, 2026-09-12 afternoon, verbatim (the owner), six
     reports across five screenshots.** In order as sent:
     - "I think the border shadow on elements like these are too strong"

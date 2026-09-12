@@ -23471,6 +23471,24 @@ function switchTab(name) {
   if (name === "chat") {
     renderChatEmptyState(); // welcome placeholder when the thread is empty
     loadChatSuggestions();
+    //: **The composer takes the caret, but not the focus ring, on arrival.**
+    //: Reported as "chat panel shadow". Measured on a freshly loaded Chat tab
+    //: (`scratchpad/ui-sweeps/chatshadow.js`): `.chat-dock` computed
+    //: `box-shadow: rgba(79,109,245,0.14) 0 0 0 3px` with an accent-mixed
+    //: border, and `dockFocusWithin: true` with `#chat-input` as the active
+    //: element, all before anyone had touched anything. It is not a shadow,
+    //: it is `.chat-dock:focus-within`'s accent ring, and the focus that
+    //: lights it is the line below, not the reader's. So every visit to Chat
+    //: opened with a permanent blue halo round the composer, the loudest
+    //: thing on the screen and the only element in the app that rings itself
+    //: on load.
+    //:
+    //: The focus stays (arriving able to type is the point of it); the ring
+    //: waits until the focus is the reader's own. `chatDockArmRing` below
+    //: takes the marker back off at the first key, the first press inside the
+    //: dock, or the moment focus leaves it, so a deliberate click into the
+    //: composer rings exactly as it did.
+    chatDockSuppressRing();
     $("chat-input").focus();
     // Nothing in a hidden tab can be measured, so the composer's fit is done
     // here rather than at startup, the window may well have changed size
@@ -25394,6 +25412,46 @@ function fitComposerToDock(box) {
 function refitComposer() {
   const box = document.getElementById("chat-input");
   if (box) autoGrow(box);
+}
+
+//: `ring-held` holds `.chat-dock:focus-within`'s accent ring off while the
+//: focus in the composer is the app's doing rather than the reader's. See the
+//: call in `switchTab` for the measurement that produced it, and
+//: `.chat-dock.ring-held` in 04-chat-dock-appearance.css for what it turns off.
+//:
+//: A class rather than a `blur()` because the caret has to stay where it is:
+//: the whole point of focusing the composer on arrival is that you can type
+//: straight away, and taking the focus back to fix the ring would undo that.
+//:
+//: **Everything here is a hoisted `function` and the class name is a literal.**
+//: `switchTab` can run before this line does (the app restores the last tab at
+//: startup), so a `const` holding the name would be in its temporal dead zone
+//: at the one moment that matters, and a module-level IIFE binding the
+//: listeners would run before `.chat-dock` is necessarily in the document. The
+//: listeners are therefore bound on the first suppression instead, which is
+//: also the first moment the dock is certain to exist.
+function chatDockSuppressRing() {
+  const dock = document.querySelector(".chat-dock");
+  if (!dock) return;
+  //: Three ways the focus becomes the reader's: they type, they press
+  //: something in the dock, or they leave and come back. `focusout` covers
+  //: the last on its own, since the ring is only ever drawn while something
+  //: in here has focus, so releasing the hold as focus leaves means the next
+  //: focus, however it arrives, rings normally. Bound once (the dock element
+  //: itself remembers), on the dock rather than per control: all three
+  //: bubble.
+  if (!dock.dataset.ringWired) {
+    dock.dataset.ringWired = "1";
+    for (const type of ["keydown", "pointerdown", "focusout"]) {
+      dock.addEventListener(type, chatDockReleaseRing);
+    }
+  }
+  dock.classList.add("ring-held");
+}
+
+function chatDockReleaseRing() {
+  const dock = document.querySelector(".chat-dock");
+  if (dock) dock.classList.remove("ring-held");
 }
 
 // The chat composer can be dragged taller, and remembers it.
@@ -37774,15 +37832,67 @@ function cmdPaletteResultRow(results) {
 //: the sentence; when it gets it wrong the disagreement is visible before
 //: the click rather than after it. `entry` is optional because a caller
 //: without one is still better off with a working link than none.
+//: **The link says which note it opens, in the sentence, before it is
+//: clicked** (INBOX 112).
+//:
+//: Reported with two screenshots: an answer that read "You only have one note
+//: (note #68) in your notebook, and its content is simply '# bubble tea'",
+//: with both chips labelled "bubble tea", and clicking "note #68" opened a
+//: Shakespeare sonnet parody. Traced: the destination is not wrong.
+//: `flashEntry` selects `li[data-id="${id}"]`, so the button opens exactly the
+//: id the text names, and the run-of-ids walk below only ever links an id this
+//: turn actually retrieved. What went wrong is upstream of the app: the model
+//: wrote an id that belonged to a different note than the one its own sentence
+//: was describing, and the app then dressed that number up as a citation, which
+//: is what made a model's mistake read as the app sending you somewhere at
+//: random.
+//:
+//: A tooltip was the first answer and it is not enough: you have to hover a
+//: thing you have no reason to distrust. So the note's own opening words go
+//: *in* the link, beside the model's own wording, which is left exactly as it
+//: was written. When the model is right the link reads "note #68 · bubble tea"
+//: and confirms itself; when it is wrong it reads "note #68 · Act I, Scene I"
+//: and the mismatch is visible in the sentence without clicking anything. The
+//: app cannot make a small local model cite correctly, and it can stop
+//: repeating the claim as though it had checked it.
+//: The first line of a note, as a name. Empty when there is nothing to show,
+//: so the caller can leave the reference bare rather than print "(empty
+//: note)" in the middle of a sentence.
+function cmdNoteName(entry) {
+  const first = String(entry?.content || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+  if (!first) return "";
+  const clean = (typeof notePreviewText === "function" ? notePreviewText(first) : first)
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!clean) return "";
+  return clean.length > 24 ? `${clean.slice(0, 23).trimEnd()}\u2026` : clean;
+}
+
 function cmdNoteLink(text, id, entry = null) {
   const link = document.createElement("button");
   link.type = "button";
   link.className = "cmd-note-link";
-  link.textContent = text;
-  const preview = entry && typeof noteLabel === "function"
-    ? noteLabel({ content: entry.content || "" }, 44)
-    : "";
-  link.title = preview ? `Open "${preview}"` : "Open this note";
+  const said = document.createElement("span");
+  said.textContent = text;
+  link.appendChild(said);
+  //: **The note's first line, not `noteLabel`'s preview of the whole note.**
+  //: `noteLabel` runs the entire content through the markdown stripper and
+  //: collapses it to one line, which is right for a card ("Act I, Scene I A
+  //: sonnet parody") and wrong here: this is a name inside a sentence, and
+  //: what a reader recognises a note by is its heading. 24 characters, not
+  //: `noteLabel`'s 40, for the same reason: three linked ids in one list at 40
+  //: each is a paragraph of titles in the middle of an answer.
+  const preview = cmdNoteName(entry);
+  if (preview) {
+    const name = document.createElement("span");
+    name.className = "cmd-note-link-name";
+    name.textContent = preview;
+    link.appendChild(name);
+  }
+  link.title = preview ? `Open note ${id}: "${preview}"` : `Open note ${id}`;
   link.addEventListener("click", () => cmdPaletteGoToNote(id));
   return link;
 }

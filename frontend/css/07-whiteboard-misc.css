@@ -5044,6 +5044,21 @@ button.connection-row {
   text-decoration-thickness: 2px;
 }
 
+/* The note's own opening words, carried inside the link beside whatever the
+   model called it (INBOX 112, and `cmdNoteLink` has the reasoning). Quieter
+   than the reference it qualifies, because it is the answer to "which note is
+   that", not a second citation; the middot is drawn here so no separator has
+   to live in a text node the run-of-ids walk would then have to step over. */
+.cmd-note-link-name {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.cmd-note-link-name::before {
+  content: " \00b7 ";
+  color: var(--muted);
+}
+
 /* --- what the turn cost and how it got there ------------------------------
    `cmdPaletteMetaRow` (app.js). Reported: "the popup agent is still missing
    many things like the semantic search, token count, thinking boxes,
@@ -8162,6 +8177,40 @@ input[type="file"] {
 
 .wb-map-strip .wb-topbar-divider {
   height: 1rem;
+}
+
+/* The colour well. The two board pickers are styled by id and the dock's map
+   picker inherits `.whiteboard-floating-panel`'s own sizing; this strip is
+   neither, so without this rule it would draw as the browser's default
+   square swatch beside seven round controls. Same disc the board's pickers
+   are, at the strip's own control height. */
+.wb-map-strip input[type="color"].wb-color-picker {
+  width: 1.75rem;
+  height: 1.75rem;
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+  padding: 0;
+  margin: 0;
+  border: 2px solid var(--muted);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.wb-map-strip input[type="color"].wb-color-picker:hover,
+.wb-map-strip input[type="color"].wb-color-picker:focus-visible {
+  border-color: var(--accent);
+}
+
+.wb-map-strip input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.wb-map-strip input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
 }
 
 /* The size selects stay small enough that the strip does not out-measure the

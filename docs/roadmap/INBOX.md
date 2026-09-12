@@ -23,37 +23,6 @@ never lost to the smaller stuff.
 
 ## Open items
 
-112. **Chat citation pointed at the wrong note, 2026-09-09 evening, verbatim
-    (the owner), with two screenshots.** "I asked the popup agent this, and
-    the bubble tea note it mentioned was my bubble tea mind map, but the
-    link it gave and grounded was my shakespeare note??" The transcript:
-    asked "What did I write about this week?", answered "You only have
-    one note (note #68) in your notebook, and its content is simply '#
-    bubble tea'", with "Found in 1 note" and "Opened 1 item" chips both
-    labelled "bubble tea" (model `granite4.1:3b`, "Librarian", 1.7k
-    tokens, 2 rounds). Clicking the "note #68" link in the answer's own
-    text opened a Shakespeare sonnet parody ("Act I, Scene I", tagged
-    "Thoughts & Ideas", "3 days ago") instead. Whatever renders an inline
-    "note #N" citation into a clickable link is resolving a different id
-    (or a different index into a different list) than the one the answer
-    text and the chips agree on and than the one actually named. Not
-    investigated: the likely site is wherever chat.js/app.js turns a
-    grounding citation into an anchor (search for how "note #" or a
-    similar citation marker becomes a link's href/data-id, and compare it
-    against the tool-call results the chips are built from in the same
-    turn). High priority: a citation that opens the wrong note is worse
-    than no citation, and this looks like a plain id/index mix-up rather
-    than a model hallucination (the model named the right note by content
-    and id in its own prose; only the link disagreed).
-
-INBOX is the intake tray, not a backlog (the owner, 2026-09-09: "it should
-just be there to help you not miss anything"). A report lands here
-verbatim, is triaged at the next step boundary, and leaves: fixed now (then
-`scratchpad/inbox_resolve.py`), or placed as a row in the plan that owns it
-("Placed from INBOX" sections). Under twenty items at any time, by lint.
-What is here now is this PR's own bug list (Brief 18 section A, HANDOVER's
-done-when item 4 and 5), in priority order.
-
 111. **End-of-session drop, 2026-09-09 evening, verbatim (the owner), fixed
     this pass in parentheses.** "the documents formatting toolbar still
     gets clipped, and can you change the editor window background for

@@ -21458,6 +21458,56 @@ it is the seventh time this project has found a listed gap already closed.
     chips did not draw. Next session: reproduce with a real model turn,
     log `known`, the matched id, and what `flashEntry` scrolls to.
 
+112. **Chat citation pointed at the wrong note, 2026-09-09 evening, verbatim
+    (the owner), with two screenshots.** "I asked the popup agent this, and
+    the bubble tea note it mentioned was my bubble tea mind map, but the
+    link it gave and grounded was my shakespeare note??" The transcript:
+    asked "What did I write about this week?", answered "You only have
+    one note (note #68) in your notebook, and its content is simply '#
+    bubble tea'", with "Found in 1 note" and "Opened 1 item" chips both
+    labelled "bubble tea" (model `granite4.1:3b`, "Librarian", 1.7k
+    tokens, 2 rounds). Clicking the "note #68" link in the answer's own
+    text opened a Shakespeare sonnet parody ("Act I, Scene I", tagged
+    "Thoughts & Ideas", "3 days ago") instead. Whatever renders an inline
+    "note #N" citation into a clickable link is resolving a different id
+    (or a different index into a different list) than the one the answer
+    text and the chips agree on and than the one actually named. Not
+    investigated: the likely site is wherever chat.js/app.js turns a
+    grounding citation into an anchor (search for how "note #" or a
+    similar citation marker becomes a link's href/data-id, and compare it
+    against the tool-call results the chips are built from in the same
+    turn). High priority: a citation that opens the wrong note is worse
+    than no citation, and this looks like a plain id/index mix-up rather
+    than a model hallucination (the model named the right note by content
+    and id in its own prose; only the link disagreed).
+    **Fixed 2026-09-12, and not in the way either reading expected.** The
+    destination was never wrong: `flashEntry` selects
+    `li[data-id="${id}"]`, so the button opens exactly the id the text
+    names, and `cmdPaletteLinkNotes` only ever links an id the turn actually
+    retrieved. The fault is upstream of the app. The model wrote an id
+    belonging to a different note than the one its own sentence described
+    (68 was in `known` because a tool had touched it), and the app then
+    dressed that number up as a citation, which is what made a model's
+    mistake read as the app sending you somewhere at random. A tooltip was
+    the first answer and it is not enough: you have to hover a thing you
+    have no reason to distrust. So the note's own first line now goes *in*
+    the link, beside the model's wording, which is left exactly as written.
+    Right, it reads "note #68 - bubble tea" and confirms itself; wrong, it
+    reads "note #68 - Act I, Scene I" and the mismatch is in the sentence
+    before anything is clicked. Measured in the page on the reported turn's
+    own shape (`scratchpad/ui-sweeps/citename.js`, 6 checks): three links
+    for 68, 12 and 43, the unretrieved 900 left as plain text, each naming
+    its real target, the name quieter than the reference, the id in the
+    tooltip.
+
+INBOX is the intake tray, not a backlog (the owner, 2026-09-09: "it should
+just be there to help you not miss anything"). A report lands here
+verbatim, is triaged at the next step boundary, and leaves: fixed now (then
+`scratchpad/inbox_resolve.py`), or placed as a row in the plan that owns it
+("Placed from INBOX" sections). Under twenty items at any time, by lint.
+What is here now is this PR's own bug list (Brief 18 section A, HANDOVER's
+done-when item 4 and 5), in priority order.
+
 ## Moved from the plans, 2026-09-12
 
 ### From HANDOVER.md, at the 600-line ceiling
@@ -21509,4 +21559,3 @@ else: five agents' worth. Run against the whole diff from the branch point.
   grepping, and the merges were reviewed one at a time as they landed. The
   one deliberate rewrite is the graph's drag, which reverses a decision the
   code defended at length; GRAPH_PLAN carries the reversal and the reason.
-

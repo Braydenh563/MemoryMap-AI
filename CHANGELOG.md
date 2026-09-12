@@ -9,6 +9,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A note reference in an answer now says which note it opens. Reported: an
+  answer described a bubble tea note, called it "note #68", and the link
+  opened a Shakespeare parody. The link was never pointing at the wrong
+  place; the model had written an id belonging to a different note, and the
+  app repeated it as a citation without saying so. The note's own first line
+  is now shown beside the reference, so a mismatch is visible in the sentence
+  rather than one click later.
+
 - The Dashboard shows something on a phone. Its "Start something" tiles were
   a one-column grid at 390px (two columns needed 370px of the 364px
   available, so the layout fell back to one by six pixels), which made a

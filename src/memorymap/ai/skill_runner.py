@@ -47,7 +47,7 @@ from itertools import chain
 
 from sqlalchemy.orm import Session
 
-from memorymap.ai import agent, skills, tools
+from memorymap.ai import agent, budget as run_budget, skills, tools
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient
 
@@ -95,7 +95,7 @@ def _touched_clause(label: str, ids: list[int]) -> str:
     return f" [{label} touched this step: {text}]"
 
 
-def _step_answer(answer: str, step_changes: list[dict]) -> str:
+def _step_answer(answer: str, step_changes: list[dict], truncated: str = "") -> str:
     """What the next step's history records for this one: the model's own
     words, plus which notes and documents it actually touched, if any did.
 
@@ -119,6 +119,12 @@ def _step_answer(answer: str, step_changes: list[dict]) -> str:
     summary = _touched_clause("Notes", _touched_ids(step_changes, "note_id")) + _touched_clause(
         "Documents", _touched_ids(step_changes, "document_id")
     )
+    # A step that could not finish paging says so here rather than only on the
+    # event, because this string is the whole of what the *next* step is told
+    # about this one: a later step that reports "every loose end in your
+    # notebook" off a sixth of it is the fabrication this run exists to avoid.
+    if truncated:
+        summary += f" [{truncated}]"
     if not summary:
         return (answer[:STEP_ANSWER_CHARS] if answer else "") or "(nothing said)"
     # Truncate the model's own words first, not the ids, a next step that
@@ -126,6 +132,154 @@ def _step_answer(answer: str, step_changes: list[dict]) -> str:
     # to lose.
     base = answer[: max(0, STEP_ANSWER_CHARS - len(summary))] if answer else ""
     return (base or "(nothing said)") + summary
+
+
+#: **What each `verify` predicate means**, keyed by the names
+#: `skills.VERIFY_PREDICATES` accepts at save time.
+#:
+#: The two halves are deliberately in different modules and checked against
+#: each other by `tests/test_harness_verifier.py`: `skills.py` is imported by
+#: everything and must stay free of app imports, so it owns the vocabulary,
+#: and this file owns the evaluation because it is the only thing that can
+#: read the notebook. A name in one and not the other is the shape of bug
+#: `core/events.py`'s driver table exists to catch: it would be accepted from
+#: the user, stored, and then pass silently on every run.
+#:
+#: `before` is the same reading taken before the first step ran, which is what
+#: makes `unchanged` answerable at all: "the notebook has as many notes as it
+#: started with" is not a property of a number, it is a property of two.
+PREDICATES = {
+    "min": lambda got, want, before: got >= want,
+    "max": lambda got, want, before: got <= want,
+    "equals": lambda got, want, before: got == want,
+    "unchanged": lambda got, want, before: (before is not None and got == before) is bool(want),
+}
+
+
+class Verification:
+    """Did the run leave the notebook in the state the skill promised?
+
+    **Why a run needs one at all.** Everything else in this file checks that
+    the *model* did something: called a tool, changed a note, said words. None
+    of that is the same as the job being done, and the gap between them is
+    where the reported failures live ("I ran a skill and it ran no tools", "it
+    only merged two categories and left it at that"). A verification is the
+    one check made against the notebook rather than against the transcript.
+
+    `ok` is False for a run that stopped early even when the skill declares no
+    postcondition: a run that did four of its nine steps has not done the job,
+    whatever the notebook says, and reporting that as verified would be the
+    same silent tick one level up.
+    """
+
+    __slots__ = ("ok", "reason", "tool", "field", "expect", "got", "before")
+
+    def __init__(
+        self,
+        ok: bool,
+        reason: str,
+        tool: str = "",
+        field: str = "",
+        expect: dict | None = None,
+        got: int | None = None,
+        before: int | None = None,
+    ) -> None:
+        self.ok = ok
+        self.reason = reason
+        self.tool = tool
+        self.field = field
+        self.expect = dict(expect or {})
+        self.got = got
+        self.before = before
+
+    def as_event(self) -> dict:
+        return {
+            "type": "verification",
+            "ok": self.ok,
+            "reason": self.reason,
+            "tool": self.tool,
+            "field": self.field,
+            "expect": self.expect,
+            "got": self.got,
+            "before": self.before,
+        }
+
+
+def _reading(session: Session, block: dict) -> tuple[int | None, str]:
+    """The one number a verify block is about, and why it is missing if it is.
+
+    Runs the tool itself rather than trusting anything the model reported: the
+    whole value of the verifier is that its answer comes from the notebook.
+    Never raises, for the reason `_record_run` does not either: a verification
+    that blows up would take a run that did all its work with it.
+    """
+    name = block.get("tool") or ""
+    try:
+        result = tools.execute_tool(session, name, {})
+    except Exception as exc:  # noqa: BLE001  # a broken check must not break the run
+        logger.warning("couldn't run the verifier tool %s", name, exc_info=True)
+        return None, f"{name} could not be run ({exc})"
+    if not isinstance(result, dict) or "error" in result:
+        return None, f"{name} answered with an error"
+    named = block.get("field")
+    keys = [named] if named else list(skills.VERIFY_COUNT_FIELDS)
+    for key in keys:
+        value = result.get(key)
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value, ""
+    return None, f"{name} returned no number to check ({', '.join(str(k) for k in keys)})"
+
+
+def verify(
+    session: Session,
+    skill: dict,
+    before: int | None,
+    stopped_reason: str,
+) -> Verification:
+    """The run's own postcondition, checked against the notebook.
+
+    `stopped_reason` is "" for a run that reached the end. Anything else short
+    circuits: there is no point reading a count back out of a notebook a run
+    never finished working on, and a `min` that happens to hold over a run
+    that stopped at step two is a pass nobody should be shown.
+    """
+    block = skill.get("verify") or None
+    if stopped_reason:
+        return Verification(False, stopped_reason, tool=(block or {}).get("tool", ""))
+    if not block:
+        # No declared postcondition. The honest verification of a skill that
+        # promised nothing specific is that every step it does have finished:
+        # which, at this point, is true.
+        return Verification(True, "every step finished")
+    got, why = _reading(session, block)
+    if got is None:
+        return Verification(False, why, tool=block["tool"], field=block.get("field") or "")
+    failures = [
+        name
+        for name, want in block["expect"].items()
+        if not PREDICATES[name](got, want, before)
+    ]
+    where = f"{block['tool']}{'.' + block['field'] if block.get('field') else ''}"
+    if failures:
+        wanted = ", ".join(f"{name} {block['expect'][name]}" for name in failures)
+        return Verification(
+            False,
+            f"{where} came back {got}, and this skill expects {wanted}",
+            tool=block["tool"],
+            field=block.get("field") or "",
+            expect=block["expect"],
+            got=got,
+            before=before,
+        )
+    return Verification(
+        True,
+        f"{where} came back {got}, as this skill expects",
+        tool=block["tool"],
+        field=block.get("field") or "",
+        expect=block["expect"],
+        got=got,
+        before=before,
+    )
 
 
 def _record_run(
@@ -221,6 +375,21 @@ STATE_RESULT_CHARS = 200
 #: accumulates in memory before it starts forgetting the oldest.
 MAX_STATE_TRACKED = 40
 
+#: How many note ids a run's `seen_ids` ledger holds (Brief 13). Deliberately
+#: far larger than `MAX_STATE_TRACKED`, because the two answer different
+#: questions: that one is "which notes is this run talking about", where a
+#: forgotten oldest id costs a little precision, and this one is "how much of
+#: the notebook has this run actually looked at", where forgetting is the
+#: failure. Ints only, and nothing but the count reaches a prompt.
+MAX_SEEN_TRACKED = 2000
+
+#: **How many times one step may call its tool to page through a read.**
+#: CHAT_PLAN decision 10's "up to N tool calls (default 6)". A step that has
+#: paged this many times and still has pages left is reading something far
+#: larger than a step was meant to cover; the run says so rather than spending
+#: the rest of its budget on page seven.
+MAX_PAGES_PER_STEP = 6
+
 #: Argument names that carry tags. A name rule rather than a per-tool table for
 #: the same reason `tools.call_example` builds itself from the schema: a tool
 #: added later is covered without anyone remembering to come back here.
@@ -283,6 +452,23 @@ def _absorb(state: dict, event: dict) -> None:
         # A failed call touched nothing and read nothing. Recording it as
         # "last tool run" would tell the next step a lie in one word.
         return
+    # Every note this read returned, uncapped by the chip limit: the ledger a
+    # paging step is judged against (`_pages_left`), and the one number the
+    # state line carries so the model can tell page one from the whole
+    # notebook.
+    #
+    # A list and a linear membership test rather than a set, deliberately:
+    # the whole `state` dict is yielded on the `result` event and serialised
+    # straight to NDJSON, and a set there is a `TypeError` at the last line of
+    # a run that did everything right. Order is also what makes the ledger
+    # readable. Two thousand ints against a page of twenty is nothing.
+    ledger = state.setdefault("seen_ids", [])
+    for note_id in event.get("seen") or []:
+        if not isinstance(note_id, int) or note_id in ledger:
+            continue
+        if len(ledger) >= MAX_SEEN_TRACKED:
+            break
+        ledger.append(note_id)
     if event.get("tool"):
         state["last_tool"] = event["tool"]
     summary = event.get("result_summary")
@@ -296,6 +482,54 @@ def _absorb_change(state: dict, change: dict) -> None:
         if isinstance(change.get(field), int):
             _remember(state, key, change[field])
             _remember(state, "touched", change[field])
+
+
+def _pages_left(spec: dict, events: list[dict]) -> dict | None:
+    """The unfinished page of a read this step made, or None if there is none.
+
+    **CHAT_PLAN decision 10, the half `skill_runner` did not have**: *"a step
+    loops until its contract is met, up to N tool calls, with paging handled
+    inside the step"*. `list_notes` has always said there is more (`has_more`,
+    `next_offset`, and a `note_to_model` spelling out the next call), and the
+    runner never read any of it: one call satisfied `tool_called`, the step
+    went green, and a "go through every note" step had seen twenty of seventy.
+
+    Judged on the **last** call of the tool rather than on any of them,
+    because that is what "have I reached the end" means: a model that paged
+    four times has three results saying "more" and a fourth saying "that is
+    all", and a rule reading "any" would keep a finished step open for ever.
+
+    Only a tool the step's contract names counts. A step that declares no
+    tools declares nothing about what it must read, and holding it open on an
+    incidental `list_notes` would stall runs that work today, which is the
+    same reason a plain string step has no contract at all.
+    """
+    named = set(spec.get("tools") or [])
+    if not named:
+        return None
+    for event in reversed(events):
+        if event.get("tool") not in named or not event.get("ok"):
+            continue
+        return event if event.get("more") else None
+    return None
+
+
+def _paging_nudge(event: dict, page: int, of: int) -> str:
+    """Tell the model to fetch the next page, with the call already written.
+
+    The same lever `skills.contract_nudge` pulls and for the same measured
+    reason: a small model does not need the concept of pagination explained,
+    it needs the next call spelled out. The offset comes from the tool's own
+    result, so this cannot name a page that does not exist.
+    """
+    tool = event.get("tool") or "the tool"
+    offset = event.get("next_offset")
+    where = f" with offset={offset}" if isinstance(offset, int) else " for the next page"
+    return (
+        f"You have not seen all of them yet: `{tool}` said there is more. "
+        f"Call `{tool}` again{where} and keep going until it says there is "
+        f"no more. This is page {page} of at most {of}."
+    )
 
 
 def _contract_met(spec: dict, called: set[str], changed: list[dict], answer: str) -> bool:
@@ -439,6 +673,37 @@ def run_skill(
     notes: list[dict],
     model_manager: ModelManager,
     ollama: OllamaClient,
+    budget: run_budget.RunBudget | None = None,
+    **kwargs,
+) -> Iterator[dict]:
+    """`_run_skill`, with the run's budget open around the whole of it.
+
+    A thin wrapper rather than a `with` inside the body, because the body is
+    four hundred lines and re-indenting it would bury this change in a diff
+    nobody could review. The scope is what makes the budget true of every
+    model call the run makes, including the ones written later by somebody
+    who has never read this file: see `ai/budget.py`.
+
+    The scope is entered by the generator, so it is set while the run is
+    executing and released when it is exhausted or closed. A `contextvar` set
+    inside a generator is visible to its caller between yields, which is
+    harmless here (the streaming route makes no model calls of its own) and is
+    the same trade `core/events.acting_as` already makes.
+    """
+    spend = budget if budget is not None else run_budget.RunBudget()
+    with run_budget.spending(spend):
+        yield from _run_skill(
+            session, skill, values, notes, model_manager, ollama, budget=spend, **kwargs
+        )
+
+
+def _run_skill(
+    session: Session,
+    skill: dict,
+    values: dict | None,
+    notes: list[dict],
+    model_manager: ModelManager,
+    ollama: OllamaClient,
     style: str = "friendly",
     profile: str = "",
     history: list[dict] | None = None,
@@ -447,6 +712,7 @@ def run_skill(
     manual: bool = False,
     manual_note: str | None = None,
     small_model: bool | None = None,
+    budget: run_budget.RunBudget | None = None,
 ) -> Iterator[dict]:
     """Yields the agent's own event types, plus three of its own:
 
@@ -496,6 +762,15 @@ def run_skill(
     only then marked `stalled`. It is never silently `done`, that was the
     reported bug, and the reason a run "ran no tools" and still ticked green.
     """
+    #: **The reading the verifier compares against, taken before any step
+    #: runs.** `unchanged` is the postcondition of every read-only skill in
+    #: the catalogue, and it is a claim about two numbers rather than one, so
+    #: the first has to be taken while the claim is still true by definition.
+    #: One extra tool call per run that declares a verify block, and none at
+    #: all for one that does not.
+    before_reading: int | None = None
+    if skill.get("verify"):
+        before_reading, _why = _reading(session, skill["verify"])
     steps = skill.get("steps") or []
     specs = skills.step_specs(skill)
     allowed = skill.get("tools") or None
@@ -570,6 +845,12 @@ def run_skill(
         # turn, and re-running it is the only way to continue it. The turn's
         # own `limit` event is still there, and the chat's Continue button
         # reads that.
+        # One turn, so the only way it can have stopped early is the budget;
+        # `_collect` has already passed the `limit` event through to the
+        # caller, and the verification is what says so in the result.
+        spent_out = bool(budget and budget.stopped)
+        checked = verify(session, skill, before_reading, budget.stopped if spent_out else "")
+        yield checked.as_event()
         _record_run(session, skill, changes, None, 0, False)
         yield {
             "type": "result",
@@ -577,6 +858,10 @@ def run_skill(
             "stopped_at": None,
             "steps": 0,
             "paused": False,
+            "truncated": False,
+            "stopped_by": "budget" if spent_out else "",
+            "verification": checked.as_event(),
+            "undo_available": all(change.get("undo") for change in changes),
             "state": state,
         }
         return
@@ -595,6 +880,13 @@ def run_skill(
     #: step event rather than by mutating what the reader was already shown.
     steps = list(steps)
     replans = 0
+    # Did any step run out of pages before its read ran out of notes? Carried
+    # to the result so the run as a whole can say it saw part of the notebook.
+    run_truncated = False
+    # Set to the sentence explaining the stop the first time a step hits the
+    # run's budget. Read after the loop, several steps later, which is why it
+    # is a run-level string rather than a per-step flag.
+    out_of_budget = ""
     for index in range(resume_from):
         # Done in the run this one is resuming, so it is neither re-run nor
         # claimed as this run's work. The plan card shows it ticked in a
@@ -623,6 +915,13 @@ def run_skill(
         )
         attempts = spec.get("retries", skills.DEFAULT_STEP_RETRIES) + 1
         attempt = 1
+        # Pages fetched for this step so far, counted apart from `attempt` on
+        # purpose: paging is the step *working*, and spending a contract retry
+        # on it would end a step that is doing exactly what it was asked to.
+        pages = 1
+        # Set when the step ran out of pages before the read ran out of notes.
+        truncated = ""
+        announced = False
         nudge: str | None = None
         outcome: str | None = None  # set when the step is over, either way
         while outcome is None:
@@ -673,13 +972,17 @@ def run_skill(
             if not started:
                 yield plan
                 started = True
-            if attempt == 1:
+            if not announced:
+                announced = True
                 yield {"type": "step", "index": index, "state": "running", "text": step}
 
             said: list[str] = []
             failures: list[str] = []
             ran_out = False
             called: set[str] = set()
+            # Every tool event of this turn, in order, so the paging check can
+            # ask what the *last* call of the step's own tool came back with.
+            tool_events: list[dict] = []
             ran_any_tool = False
             handed_over = False
             went_offline = False
@@ -694,6 +997,7 @@ def run_skill(
                         went_offline = True
                 elif event["type"] == "tool":
                     ran_any_tool = True
+                    tool_events.append(event)
                     if event.get("tool"):
                         called.add(event["tool"])
                     if not event.get("ok"):
@@ -703,6 +1007,15 @@ def run_skill(
                     # tools. Whatever it says next is a stopping notice, so it
                     # must not be read as the step's result.
                     ran_out = True
+                    #: **A budget stop is not a rounds stop**, and telling
+                    #: them apart is the whole of what the run does next. Out
+                    #: of rounds means "this step is bigger than a step":
+                    #: Resume it, split it, try again. Out of budget means the
+                    #: *run* is over, so re-planning this step and running it
+                    #: again would spend rounds the run does not have on a
+                    #: model call that would be refused before it was made.
+                    if event.get("reason") == "budget":
+                        out_of_budget = str(event.get("detail") or "the run's budget ran out")
                 elif event["type"] in _HANDOVERS:
                     # `ask_user` ends the turn by handing the question to the
                     # person. It never reaches here as a tool event, so a
@@ -736,6 +1049,23 @@ def run_skill(
                 # same model that has just gone away.
                 replannable = False
                 outcome = "failed"
+                break
+            if out_of_budget:
+                #: Checked before `ran_out`, which a budget stop also sets:
+                #: the two arrive together and only one of them is the reason.
+                yield {
+                    "type": "step",
+                    "index": index,
+                    "state": "stalled",
+                    "text": step,
+                    "reason": out_of_budget,
+                }
+                stopped_at = index
+                # Nothing to re-plan: the next attempt would be refused before
+                # it reached the model, and a rewritten step is not a cheaper
+                # one, it is another turn.
+                replannable = False
+                outcome = "stalled"
                 break
             if ran_out:
                 # **Stalled, not done.** This is the half of the reported
@@ -829,10 +1159,50 @@ def run_skill(
                 fail_reason = "the model said nothing and called no tool"
                 outcome = "failed"
                 break
+            #: **More pages to read: the step is not over** (CHAT_PLAN
+            #: decision 10). Checked before the contract rather than inside
+            #: it, because the two say different things to the reader: the
+            #: contract is "you never reached for the tool", and this is "you
+            #: reached for it and stopped a quarter of the way through". The
+            #: step event says `paging` for the same reason it says
+            #: `retrying`: what the person is watching is progress, not a
+            #: fault.
+            page = None if handed_over else _pages_left(spec, tool_events)
+            if page is not None and pages < MAX_PAGES_PER_STEP:
+                pages += 1
+                nudge = _paging_nudge(page, pages, MAX_PAGES_PER_STEP)
+                yield {
+                    "type": "step",
+                    "index": index,
+                    "state": "paging",
+                    "text": step,
+                    "page": pages,
+                    "of": MAX_PAGES_PER_STEP,
+                    "seen": len(state.get("seen_ids") or []),
+                }
+                continue
+            #: **Out of pages with more still to read.** Said out loud, three
+            #: times over: on the step event, in the step's own history so the
+            #: next step knows what it is building on, and through
+            #: `result.truncated` so the run does not report a partial pass as
+            #: a complete one. This is the same failure the contract exists to
+            #: catch, one level up: "I went through your notes" over the first
+            #: sixth of them is the sentence nobody can tell from the truthful
+            #: version unless the app says so.
+            if page is not None:
+                run_truncated = True
+                truncated = (
+                    f"stopped after {MAX_PAGES_PER_STEP} pages with more left "
+                    f"to read; {len(state.get('seen_ids') or [])} notes were seen"
+                )
             if handed_over or _contract_met(spec, called, step_changes, answer):
-                yield {"type": "step", "index": index, "state": "done", "text": step}
+                done: dict = {"type": "step", "index": index, "state": "done", "text": step}
+                if truncated:
+                    done["reason"] = truncated
+                    done["truncated"] = True
+                yield done
                 step_history.append(
-                    {"question": step, "answer": _step_answer(answer, step_changes)}
+                    {"question": step, "answer": _step_answer(answer, step_changes, truncated)}
                 )
                 outcome = "done"
                 break
@@ -909,6 +1279,34 @@ def run_skill(
 
     if not started:  # every step failed before producing anything
         yield plan
+    #: **Why the run ended, in one word for the app and one sentence for the
+    #: person.** `stopped_at` alone cannot tell a budget stop from a stalled
+    #: step from a manual pause, and all three want a different button.
+    stopped_by = (
+        "budget"
+        if out_of_budget
+        else "paused"
+        if paused
+        else "step"
+        if stopped_at is not None
+        else ""
+    )
+    checked = verify(
+        session,
+        skill,
+        before_reading,
+        out_of_budget
+        or (
+            f"the run stopped at step {stopped_at + 1} of {len(steps)}, so its "
+            "postcondition was not checked"
+            if stopped_at is not None and not paused
+            else "the run is paused part-way through, so its postcondition was "
+            "not checked"
+            if paused
+            else ""
+        ),
+    )
+    yield checked.as_event()
     _record_run(session, skill, changes, stopped_at, len(steps), paused)
     # `stopped_at` is the index the run did not get past, None when it
     # finished. The client turns it into "Resume from step N", which is the
@@ -921,6 +1319,19 @@ def run_skill(
         "stopped_at": stopped_at,
         "steps": len(steps),
         "paused": paused,
+        # A step somewhere in this run stopped paging with more to read, so
+        # the run saw part of the notebook rather than all of it.
+        "truncated": run_truncated,
+        # "" when the run reached the end; "budget", "paused" or "step"
+        # otherwise. The `verification` is repeated here as well as on its own
+        # event because a client that reads only the result (a replay, the
+        # skill log) must not have to reconstruct it.
+        "stopped_by": stopped_by,
+        "verification": checked.as_event(),
+        # Can everything this run did be put back? A run that changed nothing
+        # trivially can; a change with no undo call beside it cannot, and that
+        # is the one case where offering the button would be a lie.
+        "undo_available": all(change.get("undo") for change in changes),
         # The ids the run gathered, so whatever picks it up next, a Resume, a
         # follow-up question, Phase C's run view: can talk about "those notes"
         # with the same precision the steps did.
@@ -936,3 +1347,146 @@ def _collect(events: Iterator[dict], changes: list[dict], state: dict) -> Iterat
             _absorb_change(state, event["change"])
         _absorb(state, event)
         yield event
+
+
+#: A skill name as a test or a fixture is likely to write it: `find_loose_ends`
+#: for "Find loose ends". Not a general lookup (`skills.find` is that, and it
+#: already forgives punctuation and case); this exists so a spec can name a
+#: built-in without depending on its exact display wording, which is copy and
+#: changes.
+def _slug(name: str) -> str:
+    return "_".join(str(name or "").lower().split())
+
+
+class StepRun:
+    """One step of a run, as a fact rather than as a stream of events."""
+
+    __slots__ = ("index", "text", "state", "tool_calls", "pages", "truncated")
+
+    def __init__(self, index: int, text: str) -> None:
+        self.index = index
+        self.text = text
+        self.state = "running"
+        self.tool_calls = 0
+        self.pages = 1
+        self.truncated = False
+
+
+class RunResult:
+    """A finished run, folded up: what each step did, what changed, what the
+    verifier found, and why it stopped."""
+
+    __slots__ = (
+        "skill",
+        "steps",
+        "changes",
+        "state",
+        "stopped_at",
+        "stopped_by",
+        "verification",
+        "undo_available",
+        "truncated",
+        "budget",
+        "events",
+    )
+
+
+def run_for_test(
+    ollama,
+    *,
+    skill: str,
+    notes: int = 0,
+    budget: dict | None = None,
+    values: dict | None = None,
+) -> RunResult:
+    """Run one skill end to end against a model double, and return the run.
+
+    The seam `tests/test_harness_verifier_spec.py` drives, and the same shape
+    `core/events.exercise_for_test` already has in this codebase: a harness
+    whose whole job is to be provable needs one call that *is* a run, rather
+    than a test that reassembles one out of a hundred events and is therefore
+    testing its own reassembly.
+
+    Seeds `notes` notes first, because paging is only a behaviour over a
+    notebook large enough to have pages.
+
+    Reaches the app's own database and model manager through `importlib`
+    rather than an import statement, the same way `entry/manager.py` does and
+    for the same reason: `core.deps` builds the objects in this package, so
+    naming it here is the wrong-direction edge `tests/test_no_import_cycles.py`
+    exists to refuse.
+    """
+    import importlib
+
+    deps = importlib.import_module("memorymap.core.deps")
+    manager = importlib.import_module("memorymap.entry.manager")
+
+    spend = run_budget.RunBudget(**budget) if budget else None
+    wanted = _slug(skill)
+    with deps.get_db().session() as session:
+        for index in range(notes):
+            manager.create_entry(
+                session, f"note {index}: chase up the invoice", "Work", []
+            )
+        catalog = skills.catalog(deps.get_config(), set(tools.TOOLS))
+        found = next((s for s in catalog if _slug(s["name"]) == wanted), None)
+        if found is None:
+            raise LookupError(
+                f"no skill called {skill!r}; there are "
+                + ", ".join(sorted(_slug(s["name"]) for s in catalog))
+            )
+        run = RunResult()
+        run.skill = found["name"]
+        run.steps = []
+        run.changes = []
+        run.state = {}
+        run.stopped_at = None
+        run.stopped_by = ""
+        run.verification = Verification(False, "the run produced no result")
+        run.undo_available = False
+        run.truncated = False
+        run.budget = spend
+        run.events = []
+        current: StepRun | None = None
+        for event in run_skill(
+            session,
+            found,
+            values or {},
+            [],
+            deps.get_model_manager(),
+            ollama,
+            budget=spend,
+        ):
+            run.events.append(event)
+            kind = event.get("type")
+            if kind == "step":
+                index = event["index"]
+                while len(run.steps) <= index:
+                    run.steps.append(StepRun(len(run.steps), event.get("text") or ""))
+                current = run.steps[index]
+                current.text = event.get("text") or current.text
+                current.state = event["state"]
+                if event["state"] == "paging":
+                    current.pages = event.get("page") or current.pages
+                if event.get("truncated"):
+                    current.truncated = True
+            elif kind == "tool" and current is not None:
+                current.tool_calls += 1
+            elif kind == "verification":
+                run.verification = Verification(
+                    ok=event["ok"],
+                    reason=event["reason"],
+                    tool=event["tool"],
+                    field=event["field"],
+                    expect=event["expect"],
+                    got=event["got"],
+                    before=event["before"],
+                )
+            elif kind == "result":
+                run.changes = event["changes"]
+                run.state = event["state"]
+                run.stopped_at = event["stopped_at"]
+                run.stopped_by = event["stopped_by"]
+                run.undo_available = event["undo_available"]
+                run.truncated = event["truncated"]
+        return run

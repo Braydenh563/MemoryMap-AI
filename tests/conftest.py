@@ -152,3 +152,58 @@ def _no_test_runs_pip(monkeypatch):
 
     monkeypatch.setattr(extras.subprocess, "Popen", guard)
     yield
+
+
+# --- Brief 13: the harness fixtures (tests/test_harness_verifier_spec.py) -----
+#
+# Both are `FakeOllama` with a script, and both stand in for a *reported* small
+# model behaviour rather than for a model in general:
+#
+# - `fake_model_with_paged_list` fetches one page and stops, which is the
+#   behaviour CHAT_PLAN decision 10 is about. The run's paging nudge is what
+#   gets it to page two, and the point of the spec is that the app does the
+#   nudging rather than hoping.
+# - `fake_model_that_loops` calls the same tool for ever, which is the shape
+#   the run budget exists to bound.
+#
+# Neither says anything about what a real small model does with either prompt:
+# every provider test here runs against a fake transport (CLAUDE.md section 4).
+
+
+@pytest.fixture()
+def fake_model_with_paged_list(app_state, fake_embeddings):
+    """Pages `list_notes` twenty at a time, one page per turn, then reads one
+    note and answers."""
+    from tests.fakes import FakeOllama
+
+    fake = FakeOllama(running=True)
+    script: list[list[dict]] = []
+    for page in range(4):
+        script.append(
+            [{"name": "list_notes", "arguments": {"offset": page * 20, "limit": 20}}]
+        )
+        script.append([])  # the round that answers, ending the turn
+    script.append([{"name": "get_note", "arguments": {"note_id": 1}}])
+    script.append([])
+    fake.tool_script = script
+    deps.override_ai(ollama=fake)
+    return fake
+
+
+@pytest.fixture()
+def fake_model_that_loops(app_state, fake_embeddings):
+    """Calls one tool for ever, and reports a thousand tokens a round.
+
+    The token figures are the fixture's own, not a measurement: they are
+    chosen so the budget in the spec (2,000 tokens) is reached in two rounds
+    and the test is about the enforcement rather than about arithmetic.
+    """
+    from tests.fakes import FakeOllama
+
+    fake = FakeOllama(running=True)
+    fake.tool_script = [
+        [{"name": "notebook_overview", "arguments": {}}] for _ in range(40)
+    ]
+    fake.stats = {**fake.stats, "prompt_tokens": 600, "output_tokens": 400}
+    deps.override_ai(ollama=fake)
+    return fake

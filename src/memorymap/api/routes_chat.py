@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from memorymap.ai import budget as run_budget
 from memorymap.ai import (
     agent,
     captioning,
@@ -1539,6 +1540,12 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                     manual=body.skill_manual,
                     manual_note=body.skill_manual_note,
                     small_model=_small_model_mode(),
+                    # The run's own budget (Brief 13), read from the user's
+                    # settings here rather than inside the runner so that the
+                    # runner stays testable without app state and so a caller
+                    # with its own budget (an eval, a background job) can pass
+                    # one instead.
+                    budget=run_budget.from_settings(deps.get_config()),
                     **shared,
                 )
             else:

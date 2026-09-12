@@ -964,6 +964,25 @@ details.tool-chip[open] > .tool-chip-body {
   margin-bottom: 0.4rem;
 }
 
+/* **What the app checked after the run** (Brief 13). One line, the same size
+   as a change row, sitting under them: it is a fact about the run, not a
+   badge, so it reads as a sentence and carries its number. `--ok` and
+   `--error` are the two the rest of the app already uses for "this held" and
+   "this did not". */
+.skill-verify {
+  font-size: 0.85rem;
+  padding: var(--space-2) 0;
+  color: var(--muted);
+}
+
+.skill-verify-ok {
+  color: var(--ok);
+}
+
+.skill-verify-not-ok {
+  color: var(--error);
+}
+
 .skill-change {
   display: flex;
   align-items: center;

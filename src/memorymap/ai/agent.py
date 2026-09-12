@@ -18,7 +18,7 @@ from collections.abc import Iterator
 
 from sqlalchemy.orm import Session
 
-from memorymap.ai import cards, context, librarian, memory, tools
+from memorymap.ai import budget as run_budget, cards, context, librarian, memory, tools
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import (
     OllamaClient,
@@ -596,6 +596,52 @@ def _touched_items(result: dict) -> list[dict]:
             seen.add(("map", board_id))
             rows.append({"kind": "map", "id": board_id, "label": label})
     return rows
+
+
+#: How many ids one read may contribute to a run's `seen_ids` (Brief 13).
+#: Generous where `TOUCHED_LIMIT` is deliberately mean: `touched` draws chips
+#: in the transcript, where six is already a crowd, while this is the run's
+#: own ledger of what it has actually looked at, and the whole point of paging
+#: a notebook is that the number is larger than one page. Ints only, so the
+#: cost of carrying the full page is a few dozen bytes on the event.
+SEEN_LIMIT = 500
+
+
+def _seen_ids(result: dict) -> list[int]:
+    """Every note id one read returned, in order, without the chip cap.
+
+    **Why this is not `touched`.** `_touched_items` is the transcript's list
+    and stops at six, which is right for a row of chips and wrong for the one
+    question a paging step has to answer: *have I now seen all of them?* A
+    step told to look at every note used to have no way to know, because the
+    only record of what a page contained was capped at a quarter of a page.
+    """
+    if not isinstance(result, dict):
+        return []
+    ids: list[int] = []
+    seen: set[int] = set()
+
+    def _take(candidate: object) -> None:
+        if len(ids) >= SEEN_LIMIT or not isinstance(candidate, dict):
+            return
+        item_id = candidate.get("id")
+        # Notes only: an id here is read back as a note id by the state line
+        # and by every id-targeting tool, and a document id in that space
+        # names a different object entirely (see `_touched_kind`).
+        if not isinstance(item_id, int) or item_id in seen or "title" in candidate:
+            return
+        if "content" not in candidate:
+            return
+        seen.add(item_id)
+        ids.append(item_id)
+
+    _take(result)
+    for key in ("notes", "results", "matches", "linked", "created"):
+        value = result.get(key)
+        if isinstance(value, list):
+            for item in value:
+                _take(item)
+    return ids
 
 
 #: How many web/file sources one tool call may contribute to the answer's
@@ -1330,7 +1376,30 @@ def run_agent(
     allowance = granted
     round_number = -1
 
+    #: **The run this turn belongs to, if it belongs to one** (Brief 13).
+    #: None for an ordinary chat turn: that is bounded per turn already, by
+    #: `allowance` immediately below, and has no notion of a run to belong to.
+    #: See `ai/budget.py` for why this is a scope rather than a parameter.
+    spend = run_budget.current()
+
     while round_number + 1 < allowance:
+        #: Checked between rounds, never mid-stream: stopping inside a model
+        #: call would leave half an answer on screen and a tool result nobody
+        #: read, so the most a run can overshoot its budget by is one round.
+        if spend is not None and spend.exceeded():
+            yield {
+                "type": "limit",
+                "reason": "budget",
+                "detail": spend.exceeded(),
+                "rounds": round_number + 1,
+                "tokens": spend.spent_tokens,
+                "wrote": sorted(ran_writes),
+            }
+            yield {
+                "type": "answer",
+                "delta": f"I stopped here: {spend.exceeded()}",
+            }
+            return
         round_number += 1
         # Set by any tool call that succeeded and had not been made before, 
         # the definition of "this round got somewhere". Read at the bottom of
@@ -1387,6 +1456,11 @@ def run_agent(
         # Report what this round cost. Agent turns used to emit nothing here,
         # so switching tools on, the default, silently stripped the token
         # counts out of the message metadata line.
+        # Charged whatever the provider reported, once per round, before
+        # anything is done with the result: a round that ran is a round that
+        # cost something even if the answer it produced is thrown away.
+        if spend is not None:
+            spend.charge(reply.get("stats"))
         if reply.get("stats"):
             stats = {**reply["stats"], "round": round_number + 1}
             if round_number == 0:
@@ -1811,6 +1885,20 @@ def run_agent(
                     # What this call actually touched, for the chat's live
                     # action line: see `_touched_items`.
                     "touched": _touched_items(result),
+                    #: **The ids this read returned, and whether there are
+                    #: more pages of them** (Brief 13; CHAT_PLAN decision 10).
+                    #: A paging read already tells the *model* there is more
+                    #: (`note_to_model`, `next_offset`); nothing told the
+                    #: *app*, so `skill_runner` could only see that a tool had
+                    #: been called once and ticked the step off with four
+                    #: fifths of the notebook unread. Read off the result here
+                    #: rather than parsed back out of `result_summary` in the
+                    #: runner: the shape is this module's to know, and a
+                    #: regex over a truncated JSON blob is the version of this
+                    #: that breaks silently.
+                    "seen": _seen_ids(result),
+                    "more": bool(result.get("has_more")),
+                    "next_offset": result.get("next_offset"),
                     #: **The same call, as things with actions** (PLAN.md §4
                     #: A1). `touched` is notes and documents; this is all five
                     #: kinds: a file, a board and a reminder are equally

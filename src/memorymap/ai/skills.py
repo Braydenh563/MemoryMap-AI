@@ -390,6 +390,13 @@ def state_line(state: dict | None) -> str:
     tags = list(state.get("tags") or [])[:MAX_STATE_IDS]
     if tags:
         parts.append("tags: " + ", ".join(tags))
+    # How many notes the run has actually read, which is the fact a paging
+    # step needs and the id list cannot carry: `notes` above names twelve, and
+    # a step working through seventy has to be able to tell "I have read them
+    # all" from "I have read the first page". Five words, not seventy ids.
+    seen = len(state.get("seen_ids") or [])
+    if seen > len(notes):
+        parts.append(f"notes read so far: {seen}")
     last = str(state.get("last_tool") or "").strip()
     if last:
         parts.append(f"last tool run: {last}")
@@ -1118,11 +1125,25 @@ BUILTIN_SKILLS: list[dict] = [
         "description": "Unfinished things you wrote down and left.",
         "prompt": "Find the loose ends in my notes and list them.",
         "steps": [
+            #: **A paged pass, not a search** (Brief 13; CHAT_PLAN decision
+            #: 10). This step used to be one `search_notes` call for "todo,
+            #: need to, should", which is a top-k similarity query: it returns
+            #: the five or twenty notes that most resemble those words, and
+            #: the skill's whole claim is *the* loose ends, all of them. A
+            #: note saying "ring the landlord back" resembles nothing on that
+            #: list and is exactly what the skill is for. Paging the notebook
+            #: is the only way to make the claim true, and the runner now
+            #: holds the step open until `list_notes` says there is no more
+            #: (bounded by `skill_runner.MAX_PAGES_PER_STEP`, which says so
+            #: out loud when it runs out rather than quietly reporting a
+            #: partial answer as a complete one).
             _step(
-                "Search my notes for unfinished work, todo, need to, should, "
-                "waiting on, must, chase up, follow up.",
+                "Go through my notes page by page with list_notes, and keep "
+                "going until it says there are no more. Note which ones read "
+                "as unfinished: todo, need to, should, waiting on, must, "
+                "chase up, follow up.",
                 "tool_called",
-                "search_notes",
+                "list_notes",
             ),
             _step(
                 "Read each candidate with get_note, to check it is genuinely "
@@ -1133,6 +1154,10 @@ BUILTIN_SKILLS: list[dict] = [
             _step("List each loose end with its note id, newest first.", "answer_only"),
         ],
         "tools": _READING_TOOLS,
+        #: A report, so its postcondition is that it stayed a report: the
+        #: notebook has exactly as many notes as it started with. Cheap (one
+        #: `count_notes`) and it is the claim the skill actually makes.
+        "verify": {"tool": "count_notes", "expect": {"unchanged": True}},
     },
     {
         "name": "Auto-tag my notes",

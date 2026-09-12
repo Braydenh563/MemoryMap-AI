@@ -1341,6 +1341,18 @@ body.has-agent-monitor #tab-library .library-view-section {
   content: " ✎";
 }
 
+/* **A step working through a paged read** (CHAT_PLAN decision 10). Not warn:
+   nothing is wrong, the step is on page two of four and the run is doing
+   exactly what it was asked to. Muted, so it reads as progress rather than as
+   a fault, with its own glyph for the same reason the other two have one. */
+.plan-step-paging {
+  color: var(--muted);
+}
+
+.plan-step-paging::after {
+  content: " ⇣";
+}
+
 /* A run row's own state word borrows the same colours (`plan-step-*` is set on
    it by `renderAgentRunSummary`), and the two that only a *run* can be need
    their own: a run has no ✓/✕ suffix, because the word is already there. */
@@ -1349,6 +1361,7 @@ body.has-agent-monitor #tab-library .library-view-section {
 .agent-run-state.plan-step-stalled::after,
 .agent-run-state.plan-step-retrying::after,
 .agent-run-state.plan-step-replanned::after,
+.agent-run-state.plan-step-paging::after,
 .agent-run-state.plan-step-running::after {
   content: none;
 }

@@ -14407,13 +14407,17 @@ function agentTimeline(holder) {
     //: the state that *ends* a run, and "why did this stall?" should not need
     //: a second click.
     if (
-      (state === "failed" || state === "stalled" || state === "retrying" || state === "replanned") &&
-      (reason || state === "retrying" || state === "replanned")
+      (state === "failed" ||
+        state === "stalled" ||
+        state === "retrying" ||
+        state === "replanned" ||
+        state === "paging") &&
+      (reason || state === "retrying" || state === "replanned" || state === "paging")
     ) {
       const why = document.createElement("span");
       why.className = "plan-step-reason";
       why.textContent =
-        state === "retrying" || state === "replanned"
+        state === "retrying" || state === "replanned" || state === "paging"
           ? `, ${stepStateWords(state, { ...event, reason })}`
           : `, ${reason}`;
       item.appendChild(why);
@@ -14444,15 +14448,25 @@ function agentTimeline(holder) {
     // Prose claiming something happened is exactly what this replaces.
     result(event, options = {}) {
       const changes = event.changes || [];
-      if (!changes.length) return;
+      //: **The verification is shown even when nothing changed**, which is
+      //: most of the time: half the shipped skills are reports, and "this run
+      //: changed nothing" is exactly the claim their verify block checks
+      //: (Brief 13). A read-only run used to render nothing at all here, so
+      //: the only evidence it had done its job was its own prose.
+      const check = event.verification || null;
+      if (!changes.length && !check) return;
       const box = document.createElement("div");
       box.className = "skill-result";
       box.dataset.changes = JSON.stringify(changes);
-      const title = document.createElement("div");
-      title.className = "skill-result-title";
-      title.textContent = `What changed (${changes.length})`;
-      box.appendChild(title);
-      for (const change of changes) box.appendChild(changeRow(change, options));
+      if (check) box.dataset.verification = JSON.stringify(check);
+      if (changes.length) {
+        const title = document.createElement("div");
+        title.className = "skill-result-title";
+        title.textContent = `What changed (${changes.length})`;
+        box.appendChild(title);
+        for (const change of changes) box.appendChild(changeRow(change, options));
+      }
+      if (check) box.appendChild(verificationRow(check));
       holder.appendChild(box);
       current = null;
     },
@@ -14607,7 +14621,11 @@ function agentTimeline(holder) {
           // got rather than an untouched plan.
           if (entry) out.push({ kind: "plan", ...entry.plan });
         } else if (node.classList.contains("skill-result")) {
-          out.push({ kind: "result", changes: JSON.parse(node.dataset.changes || "[]") });
+          out.push({
+            kind: "result",
+            changes: JSON.parse(node.dataset.changes || "[]"),
+            verification: JSON.parse(node.dataset.verification || "null"),
+          });
         } else if (node.classList.contains("step-thinking")) {
           const step = thinkingSteps.find((s) => s.el === node);
           if (step?.raw) out.push({ kind: "thinking", text: step.raw });
@@ -37340,6 +37358,17 @@ function stepStateWords(state, event = {}) {
     const of = event.of || attempt;
     return `re-planned, attempt ${attempt} of ${of}${reason}`;
   }
+  //: **Paging** (CHAT_PLAN decision 10). A step that must see every note
+  //: calls its read once per page, and without this the reader watches one
+  //: step sit on "running" through four tool calls with no sign that it is
+  //: getting anywhere. The count of notes read is the progress, so it is the
+  //: half that gets said.
+  if (state === "paging") {
+    const page = event.page || 1;
+    const of = event.of || page;
+    const seen = event.seen ? `, ${event.seen} read` : "";
+    return `reading page ${page} of at most ${of}${seen}`;
+  }
   if (state === "running") return "running";
   if (state === "done") return "done";
   if (state === "earlier") return "done in the run this resumed";
@@ -37522,6 +37551,19 @@ function agentRunPaintStep(run, step, event = {}) {
   step.summary.dataset.state = step.state;
 }
 
+//: **What the app checked after the run, in the app's own words.** A skill
+//: may declare a `verify` block (a tool call plus a predicate); the runner
+//: runs it against the notebook once the last step is done and the answer
+//: lands here. Worded as a fact with the number in it, never as a badge on
+//: its own: "verified" with nothing behind it is the same reassurance the
+//: green tick on an unfinished step used to give.
+function verificationRow(check) {
+  const row = document.createElement("div");
+  row.className = `skill-verify skill-verify-${check.ok ? "ok" : "not-ok"}`;
+  row.textContent = check.ok ? `Verified: ${check.reason}` : `Not verified: ${check.reason}`;
+  return row;
+}
+
 //: One step event from the runner. `retrying` is Phase A's own state and is
 //: the reason this panel had to change: a step that is being re-prompted looks
 //: exactly like one that is running unless it says so.
@@ -37536,7 +37578,15 @@ function agentRunStep(run, event) {
   //: `replanned` is included because the step is about to be run again at the
   //: same index: the calls it makes next belong under it, not under whatever
   //: step happened to be current before it.
-  if (event.state === "running" || event.state === "retrying" || event.state === "replanned") {
+  if (
+    event.state === "running" ||
+    event.state === "retrying" ||
+    event.state === "replanned" ||
+    //: `paging` is the step still working: the next page's tool call belongs
+    //: under it, and leaving it out would file the rest of a paged read under
+    //: whatever step was current before this one.
+    event.state === "paging"
+  ) {
     run.currentStep = step;
   }
   //: A step that stopped the run opens itself. Everything else stays folded, 
@@ -37568,7 +37618,7 @@ function endAgentRun(run, { state = "done", detail = "" } = {}) {
   // Anything still marked running when the run ended did not finish. Saying so
   // is the difference between a record and a wish.
   for (const step of run.steps) {
-    if (step.state !== "running" && step.state !== "retrying") continue;
+    if (step.state !== "running" && step.state !== "retrying" && step.state !== "paging") continue;
     step.state = state === "done" ? "done" : state;
     agentRunPaintStep(run, step);
   }

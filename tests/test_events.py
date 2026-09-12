@@ -36,13 +36,11 @@ def _manager_writes():
     )
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_audit_log_carries_actor_and_payload():
     columns = {c.name for c in AuditLog.__table__.columns}
     assert {"actor", "payload"} <= columns, "extend AuditLog, do not add a table"
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_every_manager_write_records_exactly_one_event(session):
     """Enumerates the public write functions so a new one cannot be missed."""
     from memorymap.core import events  # the helper module Brief 7 adds
@@ -62,7 +60,6 @@ def test_every_manager_write_records_exactly_one_event(session):
         assert last.actor in {"user"} or last.actor.startswith(("ai:", "system:"))
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_a_notes_events_replay_to_its_current_state(session):
     from memorymap.core import events
 
@@ -90,7 +87,6 @@ def test_history_lists_and_restore_records_its_own_event(client, session):
     assert last.action == "restored"
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_a_purge_is_one_event_with_the_id_list(session):
     entries = []
     for i in range(3):

@@ -21,7 +21,6 @@ from pathlib import Path
 
 from memorymap.core.database import (
     Attachment,
-    AuditLog,
     Category,
     EmbeddingRecord,
     Entry,
@@ -36,6 +35,7 @@ from memorymap.core.database import (
     WhiteboardSketch,
     utcnow,
 )
+from memorymap.core import events
 from memorymap.entry import timewords
 
 # Where entries land when no AI is available or the AI can't decide.
@@ -48,15 +48,30 @@ def log_action(
     entity_type: str,
     entity_id: int | None = None,
     detail: str | None = None,
-) -> None:
-    """Append to the audit log. Committed with the caller's transaction."""
-    session.add(
-        AuditLog(
-            action=action,
-            entity_type=entity_type,
-            entity_id=entity_id,
-            detail=detail,
-        )
+    payload: dict | None = None,
+    actor: str | None = None,
+):
+    """Append to the audit log. Committed with the caller's transaction.
+
+    Now a thin pass to `core/events.record`, which is the only writer of
+    `AuditLog` rows (Brief 7). Kept as the name every caller in the app
+    already uses, with the same five positional arguments in the same
+    order, so that the event log arrived without eighty call sites being
+    rewritten and without any of them losing an actor: `record` fills that
+    in from the context (`events.acting_as`).
+
+    `payload` is the whole value of each field this action set, for the
+    writes that can be replayed. Returns the row, or None when the event
+    was folded into the write that contains it (`events.writes`).
+    """
+    return events.record(
+        session,
+        action,
+        entity_type,
+        entity_id,
+        detail=detail,
+        payload=payload,
+        actor=actor,
     )
 
 
@@ -71,6 +86,7 @@ def get_or_create_category(session: Session, name: str) -> Category:
     return category
 
 
+@events.writes("entry", "created")
 def create_entry(
     session: Session,
     content: str,
@@ -89,7 +105,13 @@ def create_entry(
     session.add(entry)
     session.flush()
     record_dates(session, entry)
-    log_action(session, "created", "entry", entry.id)
+    log_action(
+        session,
+        "created",
+        "entry",
+        entry.id,
+        payload={"after": events.entry_state(entry)},
+    )
     session.commit()
     return entry
 
@@ -283,6 +305,7 @@ def get_entry(session: Session, entry_id: int) -> Entry | None:
     return session.get(Entry, entry_id)
 
 
+@events.writes("entry", "edited")
 def update_entry(
     session: Session,
     entry: Entry,
@@ -292,6 +315,7 @@ def update_entry(
 ) -> Entry:
     """Manual override: the user can change anything the
     AI decided. Only the provided fields change. Commits."""
+    was = events.entry_state(entry)
     changed = []
     if content is not None and content != entry.content:
         entry.content = content
@@ -313,7 +337,14 @@ def update_entry(
         # writing "tomorrow" today.
         record_dates(session, entry)
     if changed:
-        log_action(session, "edited", "entry", entry.id, ", ".join(changed))
+        log_action(
+            session,
+            "edited",
+            "entry",
+            entry.id,
+            ", ".join(changed),
+            payload=events.changed(was, events.entry_state(entry)),
+        )
         session.commit()
     return entry
 
@@ -349,6 +380,7 @@ def entry_dates_bulk(session: Session, entry_ids: list[int]) -> dict[int, list[E
     return out
 
 
+@events.writes("entry", "dated")
 def record_dates(session: Session, entry: Entry) -> None:
     """Resolve the relative time phrases in a note and store what they meant.
 
@@ -374,6 +406,7 @@ def record_dates(session: Session, entry: Entry) -> None:
         except Exception:  # noqa: BLE001  # no app state (a script, a test)
             now = datetime.now()
         session.execute(delete(EntryDate).where(EntryDate.entry_id == entry.id))
+        resolved = []
         for mention in timewords.find(entry.content or "", now):
             session.add(
                 EntryDate(
@@ -383,6 +416,26 @@ def record_dates(session: Session, entry: Entry) -> None:
                     precision=mention.precision,
                 )
             )
+            resolved.append(
+                {
+                    "phrase": mention.phrase[:60],
+                    "at": mention.at.isoformat(),
+                    "precision": mention.precision,
+                }
+            )
+        # Recorded even when nothing was found: "this text was read for dates
+        # and had none" is the fact that explains an empty date list, and the
+        # two are indistinguishable without it. Folded into the note's own
+        # event whenever this runs as part of a save or an edit, so it only
+        # becomes a row of its own when something calls it directly.
+        log_action(
+            session,
+            "dated",
+            "entry",
+            entry.id,
+            f"{len(resolved)} date(s)",
+            payload={"dates": resolved},
+        )
         session.flush()
     except Exception:  # noqa: BLE001  # never let this stop a note being saved
         logging.getLogger("memorymap.entries").warning(
@@ -396,6 +449,7 @@ def record_dates(session: Session, entry: Entry) -> None:
 # are joined, so both sides of the relationship can never drift apart.
 
 
+@events.writes("document", "linked")
 def link_document(session: Session, document_id: int, entry_id: int) -> bool:
     """Attach a note to a document. False if it already was."""
     existing = session.scalar(
@@ -406,11 +460,19 @@ def link_document(session: Session, document_id: int, entry_id: int) -> bool:
     if existing is not None:
         return False
     session.add(DocumentLink(document_id=document_id, entry_id=entry_id))
-    log_action(session, "linked", "document", document_id, f"note {entry_id}")
+    log_action(
+        session,
+        "linked",
+        "document",
+        document_id,
+        f"note {entry_id}",
+        payload={"after": {"document_id": document_id, "entry_id": entry_id}},
+    )
     session.commit()
     return True
 
 
+@events.writes("document", "unlinked")
 def unlink_document(session: Session, document_id: int, entry_id: int) -> bool:
     removed = session.execute(
         delete(DocumentLink).where(
@@ -418,7 +480,14 @@ def unlink_document(session: Session, document_id: int, entry_id: int) -> bool:
         )
     ).rowcount
     if removed:
-        log_action(session, "unlinked", "document", document_id, f"note {entry_id}")
+        log_action(
+            session,
+            "unlinked",
+            "document",
+            document_id,
+            f"note {entry_id}",
+            payload={"before": {"document_id": document_id, "entry_id": entry_id}},
+        )
         session.commit()
     return bool(removed)
 
@@ -514,31 +583,70 @@ def entries_for_document(session: Session, document_id: int) -> list[Entry]:
     )
 
 
+@events.writes("entry", "deleted")
 def soft_delete_entry(session: Session, entry: Entry) -> None:
     """Into the recycle bin, recoverable until purged. Commits."""
     entry.is_deleted = True
     entry.deleted_at = utcnow()
-    log_action(session, "deleted", "entry", entry.id)
+    log_action(
+        session,
+        "deleted",
+        "entry",
+        entry.id,
+        payload={
+            "before": {"is_deleted": False, "deleted_at": None},
+            "after": {"is_deleted": True, "deleted_at": entry.deleted_at.isoformat()},
+        },
+    )
     session.commit()
 
 
+@events.writes("entry", "restored")
 def restore_entry(session: Session, entry: Entry) -> None:
+    was = entry.deleted_at.isoformat() if entry.deleted_at else None
     entry.is_deleted = False
     entry.deleted_at = None
-    log_action(session, "restored", "entry", entry.id)
+    log_action(
+        session,
+        "restored",
+        "entry",
+        entry.id,
+        payload={
+            "before": {"is_deleted": True, "deleted_at": was},
+            "after": {"is_deleted": False, "deleted_at": None},
+        },
+    )
     session.commit()
 
 
+@events.writes("entry", "archived")
 def archive_entry(session: Session, entry: Entry) -> None:
     """Out of the way, but never deleted, no auto-clear, no purge."""
     entry.archived_at = utcnow()
-    log_action(session, "archived", "entry", entry.id)
+    log_action(
+        session,
+        "archived",
+        "entry",
+        entry.id,
+        payload={
+            "before": {"archived_at": None},
+            "after": {"archived_at": entry.archived_at.isoformat()},
+        },
+    )
     session.commit()
 
 
+@events.writes("entry", "unarchived")
 def unarchive_entry(session: Session, entry: Entry) -> None:
+    was = entry.archived_at.isoformat() if entry.archived_at else None
     entry.archived_at = None
-    log_action(session, "unarchived", "entry", entry.id)
+    log_action(
+        session,
+        "unarchived",
+        "entry",
+        entry.id,
+        payload={"before": {"archived_at": was}, "after": {"archived_at": None}},
+    )
     session.commit()
 
 
@@ -719,6 +827,7 @@ def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | Non
     return len(ids)
 
 
+@events.writes("entry", "purged")
 def purge_entries(
     session: Session, entries: list[Entry], uploads_dir: Path | None = None
 ) -> int:
@@ -730,23 +839,44 @@ def purge_entries(
     how one of them ends up leaving an orphaned embedding behind, which is a
     note that is gone from the list and still findable by search.
     """
+    ids = [entry.id for entry in entries]
     count = _hard_delete(session, entries, uploads_dir=uploads_dir)
     if count:
-        log_action(session, "purged", "entry", entries[0].id, f"{count} entries")
+        # One event carrying the id list, never one per row: a purge is a
+        # single thing the user did, and a bin emptied of two hundred notes
+        # would otherwise bury every other event in the log under its own
+        # bookkeeping (Brief 7's contract, `tests/test_events.py`).
+        log_action(
+            session,
+            "purged",
+            "entry",
+            ids[0],
+            f"{count} entries",
+            payload={"ids": ids, "count": count},
+        )
     session.commit()
     return count
 
 
+@events.writes("recycle_bin", "purged")
 def empty_recycle_bin(session: Session, uploads_dir: Path | None = None) -> int:
     """Manual 'empty now'. Commits."""
     binned = list(session.scalars(select(Entry).where(Entry.is_deleted == True)))  # noqa: E712
+    ids = [entry.id for entry in binned]
     count = _hard_delete(session, binned, uploads_dir=uploads_dir)
     if count:
-        log_action(session, "purged", "recycle_bin", detail=f"{count} entries")
+        log_action(
+            session,
+            "purged",
+            "recycle_bin",
+            detail=f"{count} entries",
+            payload={"ids": ids, "count": count},
+        )
     session.commit()
     return count
 
 
+@events.writes("recycle_bin", "purged")
 def purge_expired_deleted(
     session: Session, days: int, uploads_dir: Path | None = None
 ) -> int:
@@ -761,9 +891,16 @@ def purge_expired_deleted(
             )
         )
     )
+    ids = [entry.id for entry in expired]
     count = _hard_delete(session, expired, uploads_dir=uploads_dir)
     if count:
-        log_action(session, "purged", "recycle_bin", detail=f"{count} expired entries")
+        log_action(
+            session,
+            "purged",
+            "recycle_bin",
+            detail=f"{count} expired entries",
+            payload={"ids": ids, "count": count, "days": days},
+        )
     session.commit()
     return count
 
@@ -1141,6 +1278,7 @@ def _deduce_reason(
     return None, None
 
 
+@events.writes("entry", "linked")
 def create_link(
     session: Session,
     source: Entry,
@@ -1218,7 +1356,22 @@ def create_link(
     session.add(link)
     session.flush()
     detail = f"-> entry {target.id}" + (f" ({link.reason})" if link.reason else "")
-    log_action(session, "linked", "entry", source.id, detail)
+    log_action(
+        session,
+        "linked",
+        "entry",
+        source.id,
+        detail,
+        payload={
+            "after": {
+                "link_id": link.id,
+                "source_entry_id": source.id,
+                "target_entry_id": target.id,
+                "reason": link.reason,
+                "link_type": link.link_type,
+            }
+        },
+    )
     session.commit()
     return link
 
@@ -1687,6 +1840,7 @@ def strip_inline_markdown(text: str) -> str:
     )
 
 
+@events.writes("entry", "edited")
 def set_private(session: Session, entry: Entry, private: bool) -> bool:
     """Encrypt or decrypt one note in place. False if the vault is locked.
 
@@ -1715,7 +1869,18 @@ def set_private(session: Session, entry: Entry, private: bool) -> bool:
             entry.content = crypto.decrypt(key, entry.content)
         entry.is_private = False
         record_dates(session, entry)  # readable again, so it can be read again
-    log_action(session, "edited", "entry", entry.id, f"private={private}")
+    # The payload carries the content as it now stands (ciphertext when the
+    # note was just made private), so a replay of this note's events rebuilds
+    # what is actually in the column rather than the plaintext it stopped
+    # being here.
+    log_action(
+        session,
+        "edited",
+        "entry",
+        entry.id,
+        f"private={private}",
+        payload={"after": {"content": entry.content, "is_private": bool(private)}},
+    )
     return True
 
 
@@ -1902,6 +2067,7 @@ def seed_example_notes(session: Session) -> int:
 MAX_REVISIONS = 20
 
 
+@events.writes("entry", "revised")
 def record_revision(session: Session, entry: Entry) -> None:
     """Save the note as it is now, before it's changed.
 
@@ -1910,10 +2076,22 @@ def record_revision(session: Session, entry: Entry) -> None:
     """
     from memorymap.core.database import EntryRevision
 
-    session.add(
-        EntryRevision(entry_id=entry.id, content=entry.content, tags=entry.tags or "[]")
+    revision = EntryRevision(
+        entry_id=entry.id, content=entry.content, tags=entry.tags or "[]"
     )
+    session.add(revision)
     session.flush()
+    # The snapshot is the state *before* whatever the caller is about to do,
+    # so the payload says `before`, not `after`: applying it during a replay
+    # would undo the very edit this row was written to protect.
+    log_action(
+        session,
+        "revised",
+        "entry",
+        entry.id,
+        f"version {revision.id}",
+        payload={"before": {"content": entry.content, "tags": tags_from_json(entry.tags)}},
+    )
 
     stale = list(
         session.scalars(

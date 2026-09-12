@@ -312,6 +312,49 @@ def test_a_compacted_version_says_so_rather_than_restoring_nothing(client, sessi
     assert compacted and compacted[0]["compacted"] is True
 
 
+def test_the_feed_calls_a_snapshot_a_snapshot(client, session):
+    """A compacted run is not an edit that happened to set every field.
+
+    The feed names the fields an event set by reading `payload["after"]`. A
+    snapshot's `after` is the entity's whole state, folded from a run of old
+    events, so read that way one row claimed to have changed the content,
+    the tags, the category and the rest at one instant, which never
+    happened. It reports what it is instead, and the rows whose values the
+    compactor took say that rather than reporting an empty edit.
+    """
+    from memorymap.core import events
+
+    entry = manager.create_entry(session, "version 0", tags=["a"])
+    session.commit()
+    for i in range(1, 12):
+        manager.update_entry(session, entry, content=f"version {i}", tags=["a"])
+        session.commit()
+    _age_all_events(session, 200)
+    events.compact(session, keep_last=5)
+
+    feed = client.get("/events?include_quiet=true&limit=500").json()["items"]
+    items = {item["id"]: item for item in feed}
+    rows = events.events_for(session, "entry", entry.id, newest_first=False)
+    snapshots = [row for row in rows if events.snapshot_span(row)]
+    stripped = [row for row in rows if events.is_compacted(row)]
+    assert len(snapshots) == 1, "one run folds into one snapshot"
+    assert stripped, "nothing was compacted, so there is nothing to report on"
+
+    reported = items[snapshots[0].id]
+    assert reported["changed"] == [], "a snapshot did not change anything"
+    assert reported["snapshot"] == len(stripped) + 1, "it stands for its whole run"
+    assert reported["compacted"] is False, "the snapshot still holds its values"
+    for row in stripped:
+        assert items[row.id]["compacted"] is True
+        assert items[row.id]["changed"] == []
+
+    # And an ordinary event still names the fields it set, which is the whole
+    # reason `changed` is there.
+    newest = items[rows[-1].id]
+    assert "content" in newest["changed"]
+    assert newest["snapshot"] is None
+
+
 # --- the board's half of the spec (Brief 7 item 3, `events-whiteboard`) ------
 #
 # B1's own wording names "`routes_whiteboard.py`'s manager" beside the entry

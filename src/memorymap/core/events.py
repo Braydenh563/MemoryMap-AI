@@ -386,6 +386,28 @@ def is_compacted(row: AuditLog) -> bool:
     return bool(payload.get(COMPACTED)) and not isinstance(payload.get("after"), dict)
 
 
+def snapshot_span(row: AuditLog) -> int | None:
+    """How many events this row stands for, or None if it stands for itself.
+
+    The other half of `is_compacted`. A snapshot is not an edit: its `after`
+    holds the whole state of the entity at that point, folded from a run of
+    events the compactor took the values out of, so a reader that treats it
+    as an ordinary event reports that one change set every field of the note
+    at once, which never happened. What is true of it is that it is a
+    snapshot and how far back it reaches, and that is what this returns.
+
+    The span is a count of events rather than a span of time because that is
+    what the compactor knows: the rows behind the snapshot keep their own
+    timestamps, so a reader wanting the dates has them, and a count is the
+    one number that is still right after a second compaction run folds more
+    events into the same snapshot.
+    """
+    payload = row.payload or {}
+    if not payload.get(COMPACTED) or not isinstance(payload.get("after"), dict):
+        return None
+    return max(int(payload.get("snapshot") or 0), 1)
+
+
 def _state_upto(rows: list[AuditLog], last: AuditLog) -> dict[str, Any]:
     """The replayed state after `last`, given this entity's events in order."""
     state: dict[str, Any] = {}

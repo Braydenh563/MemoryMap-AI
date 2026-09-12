@@ -1022,6 +1022,27 @@ def audit_log(
     ]
 
 
+def _feed_item(row: AuditLog) -> dict:
+    """One event as the feed reports it: what happened, not what it stored."""
+    span = events.snapshot_span(row)
+    return {
+        "id": row.id,
+        "action": row.action,
+        "entity_type": row.entity_type,
+        "entity_id": row.entity_id,
+        "actor": row.actor or events.ACTOR_USER,
+        "detail": row.detail,
+        # A snapshot's `after` is the whole state, not the fields this event
+        # set, so naming them would be a lie about what changed.
+        "changed": [] if span else sorted((row.payload or {}).get("after", {}) or {}),
+        #: How many events this row stands for, absent on an ordinary one.
+        "snapshot": span,
+        #: Its values were dropped by the compactor; the row is still a fact.
+        "compacted": events.is_compacted(row),
+        "created_at": row.created_at.isoformat(),
+    }
+
+
 @router.get("/events")
 def event_feed(
     since: int = Query(default=0, ge=0),
@@ -1044,6 +1065,17 @@ def event_feed(
     note is a different thing from a feed. `changed` names the fields each
     event set, which is what a strip renders, and `/entries/{id}/history`
     has the values when something actually needs them.
+
+    **A compacted event says what it is instead of naming fields.** The
+    compactor (`events.compact`) folds a run of old events into one
+    snapshot whose `after` holds the entity's whole state at that point, so
+    reading `after` off it named every field of the note and reported one
+    change as having set all of them at once, which never happened. Such a
+    row reports `changed: []` and a `snapshot` count of the events it
+    stands for; the rows behind it, whose values were dropped, report
+    `compacted: true`. Both are the honest answer to "what happened here",
+    and both are what a strip needs to render a run of folded history as
+    one line rather than as a burst of edits.
     """
     query = select(AuditLog).where(AuditLog.id > since)
     if entity_type:
@@ -1051,22 +1083,7 @@ def event_feed(
     if not include_quiet:
         query = query.where(AuditLog.action.notin_(sorted(events.QUIET_ACTIONS)))
     rows = list(session.scalars(query.order_by(AuditLog.id.asc()).limit(limit)))
-    return {
-        "items": [
-            {
-                "id": row.id,
-                "action": row.action,
-                "entity_type": row.entity_type,
-                "entity_id": row.entity_id,
-                "actor": row.actor or events.ACTOR_USER,
-                "detail": row.detail,
-                "changed": sorted((row.payload or {}).get("after", {}) or {}),
-                "created_at": row.created_at.isoformat(),
-            }
-            for row in rows
-        ],
-        "cursor": rows[-1].id if rows else since,
-    }
+    return {"items": [_feed_item(row) for row in rows], "cursor": rows[-1].id if rows else since}
 
 
 @router.delete("/audit")

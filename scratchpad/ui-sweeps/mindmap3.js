@@ -27,6 +27,21 @@ const VIEWPORT = (() => {
   return { width: w || 1440, height: h || 900 };
 })();
 
+// **The two map actions moved behind the dock's ⋯.** The Boards & maps dock
+// gained a `dock-more` menu on 2026-09-09 (the owner's "the ui at the top of
+// the boards and maps subtab dock is broken and miss wrapped" report), and
+// `#wb-boards-import` and `#wb-boards-generate` went into it. A click on a
+// button inside a closed `<details>` is a click on something invisible, which
+// Playwright reports as a thirty-second timeout rather than as "the control
+// moved": this sweep sat at that timeout from the day the dock changed.
+async function openBoardsMore(page) {
+  await page.evaluate(() => {
+    const menu = document.getElementById("library-boards-more");
+    if (menu) menu.open = true;
+  });
+  await page.waitForTimeout(250);
+}
+
 (async () => {
   const { browser, page, OUT } = await boot({ viewport: VIEWPORT });
   const narrow = VIEWPORT.width < 700;
@@ -62,6 +77,7 @@ const VIEWPORT = (() => {
   <outline text="Roots"><outline text="Alpha"/><outline text="Beta"><outline text="Beta one"/></outline></outline>
   <outline text="Second root"/>
 </body></opml>`;
+  await openBoardsMore(page);
   const importBtn = await page.$("#wb-boards-import");
   check("the boards landing offers an import action", Boolean(importBtn));
   if (importBtn) {
@@ -99,6 +115,7 @@ const VIEWPORT = (() => {
   // thing that picks it, so this is the branch that is not shared.
   await page.click("#wb-back-to-boards");
   await page.waitForTimeout(1600);
+  await openBoardsMore(page);
   await page.click("#wb-boards-import");
   await page.waitForTimeout(400);
   await page.setInputFiles("#wb-import-map-file", {
@@ -255,7 +272,15 @@ const VIEWPORT = (() => {
 
   const refNode = await page.evaluate(() => {
     const nodes = [...document.querySelectorAll(".wb-object.wb-map-node")];
-    const ref = nodes.find((el) => el.querySelector(".wb-map-node-icon"));
+    // **A shown icon, not an icon element.** Every node carries a
+    // `.wb-map-node-icon` since the node edit strip landed (a topic can wear
+    // one of twelve Phosphor icons), hidden when it has nothing to show, so
+    // "the node that has an icon element" is now every node and this found
+    // the root.
+    const ref = nodes.find((el) => {
+      const icon = el.querySelector(".wb-map-node-icon");
+      return icon && !icon.hidden;
+    });
     if (!ref) return null;
     return {
       text: ref.querySelector(".wb-map-text")?.textContent.trim() || "",
@@ -290,16 +315,27 @@ const VIEWPORT = (() => {
     JSON.stringify(stored)
   );
 
-  // The context menu is the discoverable half of the same gesture.
+  // The right-click is the discoverable half of the same gesture, and on a map
+  // node it now opens the node radial rather than the board's flat menu
+  // (MINDMAP_PLAN §12.1 item 3). Both ways to add a child are slots in it.
   const ctxItems = await page.evaluate(() => {
     const node = document.querySelector(".wb-object.wb-map-node");
     if (!node) return [];
+    selectWbItem("object", Number(node.getAttribute("data-id")));
     node.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 300, clientY: 300 }));
-    return [...document.querySelectorAll(".wb-ctx-menu .menu-item")].map((b) => b.textContent.trim());
+    const ring = document.getElementById("wb-map-radial");
+    if (ring.classList.contains("hidden")) return [];
+    return [...ring.querySelectorAll(".wb-map-radial-slot")]
+      .map((b) => b.getAttribute("aria-label"));
   });
   check(
-    "a map node's context menu offers both ways to add a child",
-    ctxItems.includes("Add a child topic") && ctxItems.includes("Add from the library…"),
+    "a map node's right-click ring offers both ways to add a child",
+    // `wbSyncMapRadialAlt` rewrites the two add slots' labels from their
+    // titles as soon as the ring opens, so the branch slot reads "Add a
+    // branch off this topic (Tab)": matched as a substring rather than whole,
+    // which is what that label is actually for.
+    ctxItems.some((l) => /Add a branch off this topic/.test(l || ""))
+      && ctxItems.some((l) => /Add a child from the library/.test(l || "")),
     ctxItems.join(" | ")
   );
   await page.keyboard.press("Escape");
@@ -738,6 +774,7 @@ const VIEWPORT = (() => {
   const boardsBefore = await page.evaluate(() =>
     window.apiJson("/whiteboard/boards").then((rows) => rows.length)
   );
+  await openBoardsMore(page);
   await page.click("#wb-boards-generate");
   await page.waitForTimeout(700);
   const picker = await page.evaluate(() => {

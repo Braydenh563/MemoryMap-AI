@@ -7463,7 +7463,13 @@ async function initWhiteboard() {
       : "This branch is already where the layout puts it.");
   });
   radialSlot("wb-radial-copy", (node) => wbMapCopyBranch(node.id));
-  radialSlot("wb-radial-label", (node) => wbMapLabelEdge(node.id));
+  //: **The library add, not the line's label.** The ring holds eight, and a
+  //: right-click on a map node used to open the flat menu, which carried
+  //: "Add from the library…": taking that away would have left the reference
+  //: node reachable only from the hover row on the node itself. The line's
+  //: label kept its own route, on the link ring, where a line's own property
+  //: belongs.
+  radialSlot("wb-radial-ref", (node) => wbMapAddReference(node.id));
   radialSlot("wb-radial-sever", (node) => wbMapSever(node.id));
   radialSlot("wb-radial-reset", (node) => wbMapResetToBranch(node.id));
 
@@ -11315,10 +11321,26 @@ function renderWbObjects(canvas) {
       await wbMapTransplant(d, dropTarget.id, alone);
       return;
     }
-    await wbSaveObject(d);
     const moveBefore = d._moveUndoBefore;
     delete d._moveUndoBefore;
-    if (moveBefore && (moveBefore.x !== d.x || moveBefore.y !== d.y)) {
+    //: **A click is not a drop, and must not save.** `objDrag` runs for a
+    //: plain click too (d3-drag listens for `mousedown`, and a click is a
+    //: mousedown with no movement), and this used to PUT the object every
+    //: time regardless. On its own that is only a wasted request; the bug is
+    //: that the PUT carries whatever `d.data` held when the gesture ended,
+    //: and a click on a control *inside* the node (the chevron, the count
+    //: badge, the two add buttons) fires its own save in the same tick. Two
+    //: PUTs to one row with no defined order: measured on the fold chevron,
+    //: one click sent `collapsed: null` and `collapsed: true` and the map
+    //: kept whichever landed second, so a branch folded on screen and came
+    //: back unfolded on the next refresh. Found by `mindmap.js`'s SVG export
+    //: check, which counted two edges where the map had four.
+    //:
+    //: The same "did it really move" test the undo entry below already used,
+    //: hoisted above the save so it governs both.
+    const reallyMoved = !moveBefore || moveBefore.x !== d.x || moveBefore.y !== d.y;
+    if (reallyMoved) await wbSaveObject(d);
+    if (moveBefore && reallyMoved) {
       wbPushUndo({ action: "move", kind: "object", id: d.id, before: moveBefore });
       // A map node that was actually moved is now pinned, see
       // `wbMapPinOnDrag`. Gated on the same "did it really move" check the

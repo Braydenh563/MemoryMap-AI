@@ -23,6 +23,20 @@ never lost to the smaller stuff.
 
 ## Open items
 
+119. **Sixth drop, 2026-09-12 evening, verbatim (the owner), two messages
+    with a screenshot each, both in the Capture form.**
+    - "when I press preview in the capture a thought formatting toolbar and
+      possibly other places with the toolbar as well, the top of the line
+      numbers can still be hidden and is just a little dot above the text
+      panel" (the screenshot shows a scrollbar-like strip, then a small
+      clipped box a few pixels tall sitting above the preview panel, then
+      the panel reading "Nothing to preview yet.").
+    - "the let the ai decide button popup is a massive gap above the
+      picker" (the screenshot shows the File under picker's menu opened
+      near the top of the form, its bottom about 127px above the opener it
+      belongs to, covering the formatting toolbar and the note body).
+    Both sent to the agent already rebuilding the three Notes sub-tabs.
+
 118. **Fifth drop, 2026-09-12 evening, verbatim (the owner), with a
     screenshot of six Library image cards.** "also redesign the bottom of
     the images cards again as theyare still poorly designed and look

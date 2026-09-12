@@ -344,57 +344,58 @@ which is its own slow cost when the next session reads it. The same three sympto
 console are the signature: one real error, then `X is not defined` and
 `Cannot access Y before initialization` from everything declared after it.
 
-**Now (2026-09-12 late evening, Opus orchestrating, the owner asleep, the
-order "finish absolutely everything from the plan" and, after it, "just
-repeat, improve ui, improve ux, fix bugs, fix security flaws, poke holes in
-the application for fixing"):** two agents in flight, which is the cap:
-DOCUMENTS Phase 3, the blocks (tables with a byte-exact Source round trip,
-callouts, footnotes, math, embeds, properties, columns; `documents.js`, with
-`scratchpad/ui-sweeps/docblocks.js` as its sweep) and WHITEBOARD Phases 1 to
-3 (tool rail and keys, context bar, export, handles, highlighter;
-`whiteboard.js`). Both hold their files; nothing else may touch them.
+**Now (2026-09-12 night, Opus orchestrating, the owner asleep, the order
+"finish absolutely everything from the plan" and, after it, "just repeat,
+improve ui, improve ux, fix bugs, fix security flaws, poke holes in the
+application for fixing"):** two agents in flight, which is the cap. One has
+DOCUMENTS Phase 4, the connected document (backlinks with context and
+unlinked mentions, block references, outline drag and breadcrumbs, the
+Ctrl+K palette with a generated shortcut sheet, daily notes and templates),
+starting by confirming Phase 3 items 4 and 5 really landed and moving their
+Built blocks to HISTORY. The other has WHITEBOARD Phase 4 with MINDMAP
+Phases 4 and 5 (root placement, edges that follow drags, Tidy measured at 30
+nodes) and one standing question: the whiteboard drag lag, unattributed
+after three passes, to be measured with a profile or declared unreproduced.
 
-Queue after them, in the owner's stated order ("all the plans worked on this
-session I mean" comes first, then the rest by impact): (1) WHITEBOARD Phase 4
-with `agent-remaining/mindmap.md` and MINDMAP Phases 4 and 5, once
-whiteboard.js is free; (2) DOCUMENTS Phases 4 to 8 and
-`agent-remaining/documents-engine.md`, once documents.js is free; (3) Brief
-23's I9, the ten markers left in `tests/test_learned_spec.py`, which
-`agent-remaining/learning-loop.md` shows is a derived-facts pipeline and
-needs its own brief rather than a Settings section; (4) GRAPH Phase 4b and
-6b and `agent-remaining/graph.md`; (5) UI Phase 11, the phone; (6)
-TIMELINE_PLAN and CHAT_PLAN Phases 2 and 3, untouched this session, last.
+**The container restarted mid-session** (2026-09-12 ~20:00). Both agents were
+killed with their work committed, and were relaunched with continuation
+briefs; nothing was lost, but their `agent-remaining/*.md` files were a round
+stale at that point, which is why both briefs start by reconciling them with
+`git log`.
 
-Landed since the previous Now line, each measured: Brief 22, the Notes
-sub-tabs (INBOX 116); the Library image-card bottoms (INBOX 115); INBOX 117
-closed end to end, all nine remaining call sites reading to the end through
-`apiPagedList`; Brief 23 steps 1 to 3, the corrections loop
-(`ai/learning.py`) and resurfacing (`ai/resurface.py`) with their two route
-files; the backend probe written up in `agent-remaining/backend-probe.md`,
-whose ten findings are all fixed (two N+1s, six missing indexes, an O(words)
-query, three delete paths that left a note undeletable, a concurrent-capture
-loss of 5 saves in 72, an unbounded tool payload, and note and tag input
-caps on create *and* update); the graph node popups and movement
-optimisation; the UI batch; splash bar, delete-tool cursor, boards selector,
-Files rows; the Documents sidebar. Sweeps on the current head: errors 0 of 0
-at 1440, 1024, 820 and 390; contrast 31 of 31 in both themes; touch PASS, 0
-findings. CI green on every head.
+Queue after them, in the owner's stated order: (1) Brief 24, the derived
+facts pipeline (I9, the ten markers left in `test_learned_spec.py`), written
+this session and ready to hand to an agent; (2) GRAPH Phase 4b and 6b and
+`agent-remaining/graph.md`; (3) UI Phase 11, the phone, whose first item is
+now measured and written down (the status bar at 320); (4) TIMELINE_PLAN and
+CHAT_PLAN Phases 2 and 3, untouched this session, last.
 
-Carried, found and not fixed: the Notes categories sidebar overflows at 390
-(`aside#sidebar` 976 > 706); the note edit form's toolbar is a clone taken at
-open time, so a change to the real one does not reach it; `touch.js` covers
-three surfaces and is the next tooling gap; the whiteboard drag lag is still
-unattributed after three passes (`agent-remaining/mindmap.md`); four owner
-reports measured and not reproduced are in INBOX 114. The hourly check-in
-re-arms itself.
+Landed by the orchestrator since the previous Now line, each measured: the
+phone band (touch.js from 3 surfaces to 16, which found 33 findings the old
+sweep could not see; the header 7px wider than a 390 screen on every tab; the
+dashboard's Edit layout half off the edge; the small-phone band at 360 and
+320); the security pass (13 LIKE sites escaping user text, a walk that asks
+every route to refuse a stranger and found `/changelog` open, and the updater
+that downloaded and ran whatever URL a release row named); a hidden tab's two
+one-second clocks, stopped; a flicker sweep that opened 50 popovers and found
+none painted before it was placed (INBOX 111, measured and not reproduced);
+and resurfacing given a surface at last (I4: the Rediscover widget now shows
+the three most faded notes with the reason on each, and Notes has a
+"Forgotten first" sort).
+
+Carried, found and not fixed: `touch.js` covers sixteen surfaces but not the
+documents editor or the whiteboard, which need a document and a board open;
+the note edit form's toolbar is a clone taken at open time; the whiteboard
+drag lag (with the whiteboard agent now); four owner reports measured and not
+reproduced are in INBOX 114. The hourly check-in re-arms itself.
 
 **After the plans (the owner, 2026-09-12 evening): "just repeat, improve ui,
 improve ux, fix bugs, fix security flaws, poke holes in the application for
 fixing."** That loop is the standing order once the queue is empty: a sweep
-pass (errors, contrast, docks, touch, finalqa), a security pass
-(WORLD_CLASS_PLAN section 6 and the CodeQL categories), a hole-poking pass
-(the flaw classes in WORLD_CLASS_PLAN section 8 with their commands), each
-finding fixed and measured, then again.
+pass (errors, contrast, docks, touch, idle, flicker, finalqa), a security
+pass (WORLD_CLASS_PLAN section 12 and the CodeQL categories), a hole-poking
+pass (the flaw classes in WORLD_CLASS_PLAN section 10 with their commands),
+each finding fixed and measured, then again.
 
 ### The agents (worktrees under `.claude/worktrees/agent-<id>`)
 

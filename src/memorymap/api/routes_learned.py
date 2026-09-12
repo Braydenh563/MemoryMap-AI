@@ -15,7 +15,7 @@ corrections themselves, and it is the next step of Brief 23.
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
 from memorymap.ai import learning
@@ -60,9 +60,24 @@ def add_correction(body: CorrectionBody, session: Session = Depends(get_session)
     return {"id": item.id, "kind": item.kind, "subject": item.subject}
 
 
+#: One page of corrections. This table only ever grows: every refile, every
+#: dismissed suggestion and every card sent away adds a row, for the life of
+#: the notebook, so "every correction" is the one answer this route must not
+#: keep giving.
+CORRECTIONS_PAGE_SIZE = 200
+
+
 @router.get("/corrections")
-def list_corrections(kind: str | None = None, session: Session = Depends(get_session)) -> list[dict]:
-    """Every correction, oldest first, optionally of one kind."""
+def list_corrections(
+    response: Response,
+    kind: str | None = None,
+    limit: int = Query(default=CORRECTIONS_PAGE_SIZE, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    """One page of corrections, oldest first, optionally of one kind."""
+    rows = learning.corrections(session, kind=kind)
+    response.headers["X-Total-Count"] = str(len(rows))
     return [
         {
             "id": item.id,
@@ -72,5 +87,5 @@ def list_corrections(kind: str | None = None, session: Session = Depends(get_ses
             "to": item.to_value,
             "excerpt": item.excerpt,
         }
-        for item in learning.corrections(session, kind=kind)
+        for item in rows[offset : offset + limit]
     ]

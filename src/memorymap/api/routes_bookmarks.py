@@ -6,10 +6,10 @@ from __future__ import annotations
 
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.core import deps
@@ -71,12 +71,32 @@ def _existing(session: Session, bookmark_id: int) -> Bookmark:
     return deps.get_or_404(session, Bookmark, bookmark_id, "Bookmark not found")
 
 
+#: One page of saved links. A notebook's bookmarks grow with use and nothing
+#: ever trimmed this list, so the response grew with the table for ever.
+BOOKMARKS_PAGE_SIZE = 200
+
+
 @router.get("")
-def list_bookmarks(session: Session = Depends(get_session)) -> list[dict]:
-    """Pinned first, then newest first within each group."""
+def list_bookmarks(
+    response: Response,
+    limit: int = Query(default=BOOKMARKS_PAGE_SIZE, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    """Pinned first, then newest first within each group, one page at a time.
+
+    The id is a tiebreaker in the ordering, not decoration: two links saved in
+    the same second could otherwise swap places between two pages and hide one
+    of them, which is the bug a paged list without a stable sort always has.
+    """
+    total = session.scalar(select(func.count(Bookmark.id))) or 0
     rows = session.scalars(
-        select(Bookmark).order_by(Bookmark.pinned.desc(), Bookmark.created_at.desc())
+        select(Bookmark)
+        .order_by(Bookmark.pinned.desc(), Bookmark.created_at.desc(), Bookmark.id.desc())
+        .limit(limit)
+        .offset(offset)
     )
+    response.headers["X-Total-Count"] = str(total)
     return [_to_out(b) for b in rows]
 
 

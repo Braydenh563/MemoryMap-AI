@@ -128,8 +128,12 @@
   gap: var(--space-2);
 }
 
+/* `--space-3`, not `0.5rem`: the same complaint the rule above this one
+   answers for the rows ("0.5/0.6/0.4rem are none of those"), one rule
+   further up and missed at the time. It computes to the same 8px today and
+   moves with the spacing scale from now on. */
 #link-suggestions {
-  margin: 0.5rem 0;
+  margin: var(--space-3) 0;
 }
 
 /* Unbounded before: a notebook with enough related-but-unlinked notes grew

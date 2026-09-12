@@ -4969,10 +4969,35 @@ button.ghost.danger:hover {
    full screen ("the suggested-links list runs off the bottom without
    scrolling"), and floating panels make that the general case rather than one
    window's bug: the column has no height of its own to push against. */
-.graph-overlay .graph-help-panel,
-.graph-overlay #link-suggestions {
+.graph-overlay .graph-help-panel {
   max-height: min(60vh, 26rem);
   overflow-y: auto;
+}
+
+/* **The suggestions panel is a surface here, so it has to have an inset.**
+   The shared rule above gives it the card ground, the edge, the radius and
+   the shadow of every other panel in this column, and nothing gave it any
+   padding, so its heading and its rows sat flush against that edge on all
+   four sides: measured on the running app, `padding: 0px` inside a 1px
+   border, with one line of text making the whole panel 26px tall. Reported
+   as "the graph suggested links panel is poorly designed and not consistent
+   with the rest of the app ui style". `--space-4` is what `.graph-help-panel`
+   beside it uses, and a panel of prose is what both of them are.
+
+   **The cap moves off the panel and on to the rows.** It used to share the
+   help panel's rule above, which caps the whole box: the heading ("Notes
+   that look related...", with the backfill and close buttons in it) scrolled
+   away with the list, and `.link-suggest-rows` exists precisely so it does
+   not (its own comment: "the heading stays put above them"). Its 55vh was
+   never reached, because the box's own 26rem cap always bound first. Capping
+   the rows here and letting the panel size to them restores the split the
+   list was built with, and leaves one scrollbar where there were two. */
+.graph-overlay #link-suggestions {
+  padding: var(--space-4);
+}
+
+.graph-overlay .link-suggest-rows {
+  max-height: min(50vh, 22rem);
 }
 
 /* The options panel is capped against the card, not the viewport, and the

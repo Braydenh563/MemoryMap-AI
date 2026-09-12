@@ -7,7 +7,55 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed
+
+- The documents formatting toolbar's single scrolling row no longer clips its
+  icons: the horizontal scrollbar's own strip was coming out of the existing
+  bottom padding rather than being added beneath it. Measured at 520px wide
+  with the scrollbar rendering: 58px tall against a 36px control, 13px under
+  the buttons, where it was 50.8px with about 2px clearing the scrollbar.
+- The wrapping toolbar no longer spills its second row over the document. A
+  `min-height` on the strip replaced the automatic content floor a flex item
+  gets from `min-height: auto`; it is now scoped to the scrolling row, where
+  the content is always one control tall and the floor can never bite.
+- An empty chat composer can be dragged taller. The rule that forgets a
+  dragged height on an empty box was firing on the release of the drag
+  itself, so the gesture undid itself and an empty composer could not be
+  resized at all.
+- Dropdowns no longer flash in the top corner before landing. Placement was
+  computed from the opener's rect without checking it had been laid out; an
+  all-zero rect collapsed the arithmetic to the margin in both axes. It now
+  retries once on the next frame, held invisible rather than painted in the
+  corner.
+- Menu heights are no longer capped from an un-laid-out rect. Measured with
+  the whiteboard tab hidden, every board menu reported `top: 0` and was
+  given an 892px cap on a 900px viewport; a stale large `top` is the same
+  bug in the direction that produces an overly short menu.
+- A dropdown inside a native `<dialog>` (the documents dictionary's spelling
+  picker) opened behind the dialog: the menu escaped to `<body>`, which is
+  outside the dialog's top layer. It now escapes to the dialog itself.
+- The dictionary dialog's spelling picker and "Add a word" button are one
+  height again.
+- `[[wiki links]]` to a document whose title has since changed, or was
+  shorter when the link was written, now resolve by prefix as note links
+  already did.
+- "Describe with AI" on a scan the AI reader had already read no longer
+  re-captions a raw page: `vision_ocr_text` was missing from the fallback
+  chain.
+- A note dragged from the Library onto a whiteboard lands where it was
+  dropped. The drop point was measured against the layer that already
+  carries the pan and zoom as a CSS transform, then had the same transform
+  applied to it a second time.
+
+### Changed
+
+- The quick-nav guide ("m") stays open until dismissed, by pressing "m"
+  again or its new close button, rather than hiding on a 900ms timer.
+- Line numbers leave the view menu: numbering is a toggle, not a view. Plain
+  view now numbers by default, since it is the view with no grammar and no
+  decorations, and an explicit off still wins.
+- Plain view gets a plain black or white ground, painted behind the editor
+  rather than fighting CodeMirror's own stylesheet.
 
 ## [0.3.0] - 2026-09-09
 

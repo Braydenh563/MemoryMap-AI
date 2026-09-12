@@ -563,3 +563,135 @@ def test_renaming_a_board_records_the_note_and_the_board(client, session):
     newest = session.query(AuditLog).order_by(AuditLog.id.desc()).limit(2).all()
     assert {row.entity_type for row in newest} == {"entry", "board"}
     assert all(row.entity_id == board for row in newest)
+
+
+# --- the boards the model builds (Brief 7 item 4) ----------------------------
+
+
+def _ai_board_writes() -> list[str]:
+    """The write tools whose handlers live in `ai/tools/whiteboard.py`.
+
+    Enumerated rather than listed, for the reason the two enumerations above
+    exist: the day somebody adds a seventh board tool, this finds it, no
+    driver is registered, and the failure says what to do.
+    """
+    from memorymap.ai import tools
+    from memorymap.ai.tools import whiteboard as wb
+
+    return sorted(
+        name
+        for name in tools.WRITE_TOOLS
+        if tools.TOOLS[name].handler.__module__ == wb.__name__
+    )
+
+
+def test_every_ai_board_write_records_a_replayable_event(session):
+    """A board the AI built has to replay the way one built by hand does.
+
+    The tools recorded a detail and no payload, so the log knew a card had
+    been placed and could not say where, which is a history that cannot put
+    anything back. Each call below is checked for its events on the way
+    past; the replay at the end is the point.
+    """
+    from memorymap.ai import tools
+    from memorymap.core import events
+    from memorymap.core.database import WhiteboardNode, WhiteboardObject, WhiteboardSketch
+
+    note = manager.create_entry(session, "a note to put on the board", tags=[])
+    second = manager.create_entry(session, "a second note", tags=[])
+    session.commit()
+
+    made: dict = {}
+
+    def run(name: str, args: dict) -> dict:
+        before = session.query(AuditLog).count()
+        result = tools.execute_tool(session, name, args)
+        session.commit()
+        assert "error" not in result, f"{name} failed: {result}"
+        written = (
+            session.query(AuditLog)
+            .order_by(AuditLog.id.asc())
+            .offset(before)
+            .all()
+        )
+        # Every tool call writes one `chat`/`ai_tool` row of its own
+        # (`execute_tool`): the trail of what the model called, naming no
+        # entity and so having nothing to replay. The writes are the rest.
+        changes = [row for row in written if row.entity_type != "chat"]
+        assert changes, f"{name} recorded nothing but the tool call itself"
+        for row in changes:
+            assert row.payload, f"{name} recorded {row.action} with no payload"
+            assert row.entity_id, f"{name} recorded {row.action} with no entity"
+            assert row.actor == f"ai:{name}", f"{name} recorded {row.actor}"
+        return result
+
+    board = run("create_mindmap", {"title": "a map the model made", "root_text": "root"})
+    made["board"] = board["board_id"]
+    made["root"] = board["root_id"]
+    made["topic"] = run(
+        "add_map_node",
+        {"board_id": made["board"], "parent_id": made["root"], "text": "a branch"},
+    )["node_id"]
+    run(
+        "link_map_nodes",
+        {"board_id": made["board"], "from_id": made["root"], "to_id": made["topic"]},
+    )
+    made["card"] = run(
+        "add_whiteboard_card",
+        {"board_id": made["board"], "note_id": note.id, "x": 120, "y": 240},
+    )["card_id"]
+    made["card2"] = run(
+        "add_whiteboard_card",
+        {"board_id": made["board"], "note_id": second.id, "x": 300, "y": 240},
+    )["card_id"]
+    run(
+        "add_whiteboard_link",
+        {"from_card_id": made["card"], "to_card_id": made["card2"]},
+    )
+    run(
+        "generate_diagram",
+        {
+            "board_id": made["board"],
+            "nodes": [
+                {"ref": "a", "title": "the root of the diagram"},
+                {"ref": "b", "title": "a child", "parent_ref": "a"},
+            ],
+        },
+    )
+
+    covered = {
+        "create_mindmap",
+        "add_map_node",
+        "link_map_nodes",
+        "add_whiteboard_card",
+        "add_whiteboard_link",
+        "generate_diagram",
+    }
+    assert set(_ai_board_writes()) == covered, (
+        "a write tool in ai/tools/whiteboard.py is not driven by this test. "
+        "Give it the @events.writes treatment (the helpers at the top of that "
+        "module), then call it here."
+    )
+
+    # The board itself, and then everything on it: a board's whole state is
+    # the union of its items' replays (Brief 7 decision 4), so this is what
+    # "an AI-built board replays" means in full.
+    replayed_board = events.replay(session, "board", made["board"])
+    assert replayed_board["title"] == "a map the model made"
+    assert replayed_board["type"] == "map"
+
+    items = 0
+    for model, entity_type, state_of in (
+        (WhiteboardNode, "whiteboard_node", events.node_state),
+        (WhiteboardSketch, "whiteboard_sketch", events.sketch_state),
+        (WhiteboardObject, "whiteboard_object", events.object_state),
+    ):
+        for row in session.query(model).filter(model.board_id == made["board"]).all():
+            assert events.replay(session, entity_type, row.id) == state_of(row), (
+                f"{entity_type} {row.id} does not replay to its current state"
+            )
+            items += 1
+    # Two map nodes, two cards, two links, and the diagram's two cards and
+    # one link: nine, and the count is here so a tool that quietly stops
+    # writing its rows cannot pass by replaying nothing.
+    assert items == 9

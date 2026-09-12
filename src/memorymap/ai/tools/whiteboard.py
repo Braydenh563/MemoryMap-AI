@@ -13,7 +13,7 @@ import json
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.core import deps
+from memorymap.core import deps, events
 from memorymap.core.database import Entry
 from memorymap.entry import manager
 
@@ -24,6 +24,127 @@ def _whiteboard_board_filter(model, board_id: int | None):
     renders as SQL `= NULL`, never true for any row, so the default board
     would read as empty however much was actually on it."""
     return model.board_id.is_(None) if board_id is None else model.board_id == board_id
+
+
+# --- the event log for the AI's own board writes (Brief 7, item 4) ----------
+#
+# The whiteboard routes record one event per write with whole field values,
+# which is what lets `events.replay` rebuild a card, a sketch or a map node
+# from its own events. These tools recorded a detail and no payload, so a
+# board the model built was in the log and did not replay, while the same
+# board built by hand did: the AI is the writer whose work a person is most
+# likely to want to read back or put back, so it was the wrong half to leave
+# out.
+#
+# The four helpers below *are* the write, rather than a `record` call each
+# tool site has to remember: each is wrapped in `@events.writes`, so a tool
+# that grows a second write inside it folds into one event instead of
+# quietly recording twice, and every payload is built by the same
+# `events.*_state` the routes use, so one entity has one idea of its state
+# whoever wrote it.
+#
+# They are helpers rather than decorators on the tool handlers because two of
+# the handlers are batches: `generate_diagram` places up to sixty cards and
+# their links, and `create_mindmap` makes a board and its root. Decorating a
+# function that loops over several writes folds the whole batch into a single
+# event (`events.writes`' own docstring says so), which is exactly the shape
+# that lost the replay here in the first place. A board's replayable entity
+# is the item, not the board (Brief 7 decision 4), so a batch records one
+# event per item.
+
+
+@events.writes("whiteboard_node", "placed")
+def _place_card(
+    session: Session,
+    entry: Entry,
+    board_id: int | None,
+    x: float,
+    y: float,
+    existing=None,
+):
+    """Put one note on one board at one position, and say so.
+
+    "placed" rather than "created", the verb the route uses and for its
+    reason: the same note dropped on the same board twice moves the card that
+    is already there, so one verb has to be honest about both.
+    """
+    from memorymap.core.database import WhiteboardNode
+
+    node = existing if existing is not None else WhiteboardNode(
+        board_id=board_id, entry_id=entry.id, z=1
+    )
+    node.x, node.y = float(x), float(y)
+    if existing is None:
+        session.add(node)
+    session.flush()  # so the event can name the card's id
+    events.record(
+        session,
+        "placed",
+        "whiteboard_node",
+        node.id,
+        f"note {entry.id} on board {board_id}",
+        payload={"after": events.node_state(node), "existing": existing is not None},
+    )
+    return node
+
+
+@events.writes("whiteboard_sketch", "created")
+def _draw_link(session: Session, board_id: int | None, data: dict):
+    """A link between two things on a board, which is a sketch row like any
+    other drawing: the same entity type the route records, so a link the AI
+    drew and one a person dragged replay through the same events."""
+    from memorymap.core.database import WhiteboardSketch
+
+    sketch = WhiteboardSketch(board_id=board_id, data=json.dumps(data), x=0, y=0, z=1)
+    session.add(sketch)
+    session.flush()  # so the event can name the link's id
+    events.record(
+        session,
+        "created",
+        "whiteboard_sketch",
+        sketch.id,
+        f"link on board {board_id}",
+        payload={"after": events.sketch_state(sketch)},
+    )
+    return sketch
+
+
+@events.writes("whiteboard_object", "created")
+def _place_object(session: Session, obj):
+    """One map node or text box, already built by the caller, recorded."""
+    session.add(obj)
+    session.flush()  # so the event can name the node's id
+    events.record(
+        session,
+        "created",
+        "whiteboard_object",
+        obj.id,
+        f"{obj.kind} on map {obj.board_id}",
+        payload={"after": events.object_state(obj)},
+    )
+    return obj
+
+
+@events.writes("board", "created")
+def _new_board(session: Session, entry: Entry, name: str, board_type: str, layout: str):
+    """A new board, built here rather than through `manager.create_entry`.
+
+    Same reason the `POST /boards` route records its own event: the note is
+    constructed directly, so without this line a board the AI made would be
+    the one thing in the app that appears with nothing anywhere saying it
+    had.
+    """
+    session.add(entry)
+    session.flush()  # so the event, and the nodes, can name the board's id
+    events.record(
+        session,
+        "created",
+        "board",
+        entry.id,
+        name[:80],
+        payload={"after": events.board_state(name, board_type, layout)},
+    )
+    return entry
 
 
 def _read_whiteboard(session: Session, args: dict) -> dict:
@@ -193,9 +314,7 @@ def _add_whiteboard_card(session: Session, args: dict) -> dict:
             "label": f"ph:folders “{_clip(entry.content, 40)}” is already on that board",
         }
 
-    node = WhiteboardNode(board_id=board_id, entry_id=entry.id, x=x, y=y, z=1)
-    session.add(node)
-    manager.log_action(session, "created", "whiteboard_node", entry.id, entry.content[:80])
+    node = _place_card(session, entry, board_id, x, y)
     session.commit()
     session.refresh(node)
     return {
@@ -213,7 +332,7 @@ def _add_whiteboard_link(session: Session, args: dict) -> dict:
     generated link is a floating one, which still terminates correctly on
     each card's own border via `wbLinkEndpoints` on the client side.
     """
-    from memorymap.core.database import WhiteboardNode, WhiteboardSketch
+    from memorymap.core.database import WhiteboardNode
 
     source = session.get(WhiteboardNode, int(args.get("from_card_id") or 0))
     target = session.get(WhiteboardNode, int(args.get("to_card_id") or 0))
@@ -232,9 +351,7 @@ def _add_whiteboard_link(session: Session, args: dict) -> dict:
         "targetId": target.id,
         "color": "#8899ff",
     }
-    sketch = WhiteboardSketch(board_id=source.board_id, data=json.dumps(data), x=0, y=0, z=1)
-    session.add(sketch)
-    manager.log_action(session, "created", "whiteboard_link", None, f"{source.id} -> {target.id}")
+    sketch = _draw_link(session, source.board_id, data)
     session.commit()
     session.refresh(sketch)
     return {
@@ -326,7 +443,7 @@ def _generate_diagram(session: Session, args: dict) -> dict:
     links: the same job `wbArrangeMindMap` already does client-side for a
     board someone arranges by hand, now reachable in one round trip.
     """
-    from memorymap.core.database import WhiteboardNode, WhiteboardSketch
+    from memorymap.core.database import WhiteboardNode
 
     raw_nodes = args.get("nodes")
     if not isinstance(raw_nodes, list) or not raw_nodes:
@@ -396,11 +513,7 @@ def _generate_diagram(session: Session, args: dict) -> dict:
                 _whiteboard_board_filter(WhiteboardNode, board_id),
             )
         )
-        node = existing or WhiteboardNode(board_id=board_id, entry_id=entry.id, z=1)
-        node.x, node.y = x, y
-        if existing is None:
-            session.add(node)
-        cards[ref] = node
+        cards[ref] = _place_card(session, entry, board_id, x, y, existing)
     session.commit()
     for card in cards.values():
         session.refresh(card)
@@ -416,9 +529,27 @@ def _generate_diagram(session: Session, args: dict) -> dict:
             "targetId": cards[ref].id,
             "color": "#8899ff",
         }
-        session.add(WhiteboardSketch(board_id=board_id, data=json.dumps(data), x=0, y=0, z=1))
+        _draw_link(session, board_id, data)
         link_count += 1
-    manager.log_action(session, "created", "whiteboard_diagram", None, f"{len(cards)} cards, root '{root_ref}'")
+    # One event more than the items' own, and on the board rather than on any
+    # of them: that this was one diagram generation, rather than sixty cards
+    # that happened to arrive together, is a fact no item's own history can
+    # hold (Brief 7 decision 4 keeps the board's own events on `board`). It
+    # carries no `after`, because nothing about the board itself changed:
+    # what it says is what ran, which is what a feed reading this wants.
+    events.record(
+        session,
+        "generated",
+        "board",
+        board_id,
+        f"{len(cards)} cards, root '{root_ref}'",
+        payload={
+            "cards": len(cards),
+            "links": link_count,
+            "layout": layout,
+            "root_ref": root_ref,
+        },
+    )
     session.commit()
 
     return {
@@ -558,18 +689,23 @@ def _create_mindmap(session: Session, args: dict) -> dict:
     # module computes is a tree-right ladder (`_next_position`), so telling
     # the client anything else would be describing a map it isn't.
     _store_board_settings(entry, "map", "tree-right")
-    session.add(entry)
-    session.flush()
-    root = WhiteboardObject(
-        board_id=entry.id,
-        kind=MAP_TOPIC_KIND,
-        data=json.dumps({"content": root_text}),
-        x=0.0,
-        y=0.0,
-        z=1,
+    # Two events, on two entities, the same pair a person creating this map
+    # by hand records (`POST /boards` then `POST /boards/{id}/nodes`): the
+    # board is one thing and the root topic on it is another, and folding
+    # them into one would leave the root with no event of its own to replay
+    # from.
+    _new_board(session, entry, title, "map", "tree-right")
+    root = _place_object(
+        session,
+        WhiteboardObject(
+            board_id=entry.id,
+            kind=MAP_TOPIC_KIND,
+            data=json.dumps({"content": root_text}),
+            x=0.0,
+            y=0.0,
+            z=1,
+        ),
     )
-    session.add(root)
-    manager.log_action(session, "created", "mindmap", entry.id, title[:80])
     session.commit()
     session.refresh(entry)
     session.refresh(root)
@@ -645,17 +781,18 @@ def _add_map_node(session: Session, args: dict) -> dict:
     data = {"content": text}
     if ref_id is not None:
         data["ref_id"] = ref_id
-    node = WhiteboardObject(
-        board_id=board_id,
-        kind=kind,
-        data=json.dumps(data),
-        x=x,
-        y=y,
-        z=1,
-        parent_id=parent.id if parent is not None else None,
+    node = _place_object(
+        session,
+        WhiteboardObject(
+            board_id=board_id,
+            kind=kind,
+            data=json.dumps(data),
+            x=x,
+            y=y,
+            z=1,
+            parent_id=parent.id if parent is not None else None,
+        ),
     )
-    session.add(node)
-    manager.log_action(session, "created", "mindmap_node", board_id, text[:80])
     session.commit()
     session.refresh(node)
     return {
@@ -678,7 +815,7 @@ def _link_map_nodes(session: Session, args: dict) -> dict:
     canvas draws it, `_forget_links_to` cleans it up when either end goes,
     and there is no second kind of edge to maintain.
     """
-    from memorymap.core.database import WhiteboardObject, WhiteboardSketch
+    from memorymap.core.database import WhiteboardObject
 
     source = session.get(WhiteboardObject, int(args.get("from_id") or 0))
     target = session.get(WhiteboardObject, int(args.get("to_id") or 0))
@@ -706,9 +843,7 @@ def _link_map_nodes(session: Session, args: dict) -> dict:
         "color": "#8899ff",
         "label": label,
     }
-    sketch = WhiteboardSketch(board_id=source.board_id, data=json.dumps(data), x=0, y=0, z=1)
-    session.add(sketch)
-    manager.log_action(session, "created", "mindmap_link", source.board_id, f"{source.id} -> {target.id}")
+    sketch = _draw_link(session, source.board_id, data)
     session.commit()
     session.refresh(sketch)
     return {

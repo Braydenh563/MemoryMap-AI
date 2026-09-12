@@ -9,6 +9,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The view toggles are one size again. The same two-button icon switch drew
+  its icons at 15.64px on Notes and 14.72px on Library, the Timeline and
+  Reminders, because the segmented control set no label size at all and each
+  strip inherited whatever was around it. Every choice control is now on the
+  one control-label size; the sub-tab strips, which are navigation rather
+  than a control, keep theirs.
+
 - The Boards & maps dashboard widget shows a board, not a box in a box. Its
   thumbnail was a 40.5px square drawing its own border and fill, with the board
   letterboxed inside it at the board's real shape: 7.6px of empty band above

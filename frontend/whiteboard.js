@@ -2985,6 +2985,25 @@ function wbSyncMapViews(index = null) {
   wbRenderMapLegend(index);
   wbRenderMapTemplates();
   wbSyncMapTemplates(index);
+  wbSyncMapEmpty(index);
+}
+
+//: The way back from an empty map.
+//:
+//: Reported: "if i delete all nodes in a mindmap, I cant make more nodes."
+//: Measured on the running app before touching anything: a map with zero
+//: nodes drew no node to press Tab against, no node to right-click, and the
+//: template offer is dismissible for good per board, so a map someone had
+//: cleared had no route to a first topic at all.
+//:
+//: Shown at zero nodes only. At one node the template offer takes over, which
+//: is the richer thing to say at that moment, and the two would otherwise
+//: stack over the same canvas.
+function wbSyncMapEmpty(passed = null) {
+  const panel = document.getElementById("wb-map-empty");
+  if (!panel) return;
+  const index = wbIsMap() ? passed || wbMapIndex() : null;
+  panel.hidden = !index || index.nodes.length > 0;
 }
 
 function wbMapTemplatesDismissedKey(boardId) {
@@ -6129,6 +6148,10 @@ async function initWhiteboard() {
   $("wb-map-focus-more")?.addEventListener("click", () => wbMapStepFocus(1));
   $("wb-map-focus-clear")?.addEventListener("click", wbMapClearFocus);
   $("wb-map-templates-dismiss")?.addEventListener("click", wbDismissMapTemplates);
+  //: A root, because there is nothing on the map to hang it off: `null` as the
+  //: parent is exactly what `wbMapAddChild` already means by a top-level
+  //: topic, and it opens the new node for typing like every other add does.
+  $("wb-map-empty-add")?.addEventListener("click", () => wbMapAddChild(null));
   $("wb-map-tidy")?.addEventListener("click", async () => {
     const moved = await wbMapTidy({ quiet: true });
     toast(moved
@@ -9053,10 +9076,15 @@ function renderWhiteboard() {
       // `wbHintForcedOpen` overrides both checks: the "?" help button's way
       // back after a dismiss, or on a board that already has content.
       !wbHintForcedOpen &&
-        ((wbState.nodes?.length || 0) +
+        // A map gets `#wb-map-empty` instead: this panel is the whiteboard's
+        // own help, and on an emptied map it was pens, shapes and the eraser
+        // sitting over a surface none of them apply to.
+        (wbIsMap() ||
+          (wbState.nodes?.length || 0) +
           (wbState.sketches?.length || 0) +
           (wbState.objects?.length || 0) >
-          0 || localStorage.getItem("wbEmptyHintDismissed") === "1")
+            0 ||
+          localStorage.getItem("wbEmptyHintDismissed") === "1")
     );
 
   // Render Sketches (SVG)

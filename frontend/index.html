@@ -3744,6 +3744,23 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="wb-map-templates-row" id="wb-map-template-row"></div>
         <button type="button" id="wb-map-templates-dismiss" class="ghost small icon-only" title="No thanks: start from the root" aria-label="Hide the template suggestions"><i class="ph ph-x" aria-hidden="true"></i></button>
       </div>
+      <!-- **A map is never a dead end** (MINDMAP_PLAN.md §12.0). Reported:
+           "if i delete all nodes in a mindmap, I cant make more nodes". It was
+           literally true: every way to make a node hung off a node that was
+           already there (Tab on the selection, the node's own hover +, the
+           node right-click menu), the template offer can be dismissed for good
+           per board, and the panel that did appear over the empty canvas was
+           the *whiteboard's* help, which talks about pens and shapes. So an
+           emptied map offered nothing that made a topic.
+
+           One sentence and one action, the `.empty-state` recipe, on a
+           floating `.card.glass` because it sits over the canvas. -->
+      <div id="wb-map-empty" class="wb-map-empty card glass empty-state" role="note" aria-label="This map is empty" hidden>
+        <span class="empty-icon" aria-hidden="true"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i></span>
+        <p class="empty-title">This map has no topics</p>
+        <p class="muted">Start it again with one topic, then Tab for a branch off it.</p>
+        <button type="button" id="wb-map-empty-add" class="ghost small"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add the first topic</button>
+      </div>
     <div class="whiteboard-container" id="whiteboard-container" tabindex="-1">
       <!-- The SVG layer for drawing, fills the container -->
       <svg id="wb-svg-layer" class="wb-svg-layer">

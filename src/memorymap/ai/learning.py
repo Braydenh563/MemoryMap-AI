@@ -46,7 +46,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.core.database import AuditLog
+from memorymap.core.database import LIKE_ESCAPE, AuditLog, like_escape
 
 #: The most any pile of corrections is allowed to be worth. A boost is a nudge
 #: to a ranking that already works, not a replacement for it: without a
@@ -180,13 +180,27 @@ def corrections(session: Session, kind: str | None = None, limit: int = 500) -> 
 
     Oldest first because every reader of these is building a history ("you
     have moved three of these"), and a history reads forwards.
+
+    **The kind narrows the query, not the page.** It used to filter in Python
+    after taking the newest `limit` rows of *every* kind, which quietly broke
+    the promise this whole module exists to keep: measured, one
+    `dismiss_resurface` followed by 600 refiles, and asking for the
+    dismissals returned none, so a card told "never again" came back the
+    moment the notebook had been filed in enough times. This table only ever
+    grows, so that was a matter of time rather than of scale.
+
+    `detail` carries the kind as its own prefix (`record` writes
+    `f"{kind}: ..."`), which is what makes the narrowing possible without a
+    column: SQLite has no JSON operator here. The payload stays the
+    authority, so the Python check below still runs; SQL only decides which
+    rows are worth reading.
     """
-    rows = session.scalars(
-        select(AuditLog)
-        .where(AuditLog.action == "correction")
-        .order_by(AuditLog.id.desc())
-        .limit(limit)
-    ).all()
+    query = select(AuditLog).where(AuditLog.action == "correction")
+    if kind is not None:
+        query = query.where(
+            AuditLog.detail.like(f"{like_escape(kind)}:%", escape=LIKE_ESCAPE)
+        )
+    rows = session.scalars(query.order_by(AuditLog.id.desc()).limit(limit)).all()
     found = [_as_correction(row) for row in rows]
     if kind is not None:
         found = [item for item in found if item.kind == kind]
@@ -214,9 +228,15 @@ def boosts(session: Session, kind: str) -> dict[tuple, float]:
     if not kinds:
         raise ValueError(f"unknown boost family {kind!r}; known: {sorted(FAMILIES)}")
     out: dict[tuple, float] = {}
-    for item in corrections(session):
-        if item.kind not in kinds:
-            continue
+    # **Read per kind, not once over everything.** `corrections()` takes the
+    # newest 500 rows, and this used to ask for all kinds at once and then
+    # keep the family's: with one dismissal followed by six hundred re-files,
+    # the dismissal was outside the window and "never again" quietly expired.
+    # This table only ever grows, so that was a matter of time rather than of
+    # scale. Asking per kind gives each its own window, and the SQL narrows
+    # before the limit rather than after it.
+    items = [item for correction_kind in kinds for item in corrections(session, kind=correction_kind)]
+    for item in sorted(items, key=lambda row: row.id):
         key: tuple | None = None
         if item.kind == "refile":
             key = (item.from_value or "", item.to_value or "")

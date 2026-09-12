@@ -161,3 +161,39 @@ def test_a_dismissed_note_leaves_the_forgotten_order(client):
     )
     after = [row["id"] for row in client.get("/resurface/all").json()["items"]]
     assert first not in after
+
+
+def test_never_again_outlives_six_hundred_later_corrections(app_state):
+    """**"Never again" has to mean never**, and it used to mean "until you
+    file six hundred notes".
+
+    `learning.corrections` takes the newest 500 rows and `boosts` asked for
+    every kind at once, keeping the family's afterwards. So a dismissal
+    followed by enough re-files fell outside the window, and the card it was
+    said about came back. The corrections table only ever grows, so this was a
+    matter of time rather than of scale.
+    """
+    from memorymap.ai import learning, resurface
+    from memorymap.core import deps
+    from memorymap.core.database import Entry
+
+    db = deps.get_db()
+    with db.session() as session:
+        note = Entry(content="A note to be dismissed")
+        session.add(note)
+        session.commit()
+        note_id = note.id
+
+        learning.record(session, kind="dismiss_resurface", subject={"entry_id": note_id})
+        for _ in range(600):
+            learning.record(
+                session, kind="refile", subject={"entry_id": note_id},
+                from_value="Inbox", to_value="Recipes",
+            )
+        session.commit()
+
+        assert (note_id,) in learning.boosts(session, kind="resurface"), (
+            "the dismissal fell out of the read window, so the card comes back"
+        )
+        # And the ranking honours it: the note is gone from the list itself.
+        assert note_id not in {entry.id for entry in resurface.ranked(session, limit=50)}

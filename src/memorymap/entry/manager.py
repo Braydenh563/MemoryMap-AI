@@ -1496,6 +1496,21 @@ def create_link(
         reason=reason,
         reason_confidence=confidence,
         link_type=kind,
+        # **The link belongs to the space its notes are in, whoever made it.**
+        # A new row usually takes its space from `session.info["workspace_id"]`
+        # (the before-flush hook in core/database.py), which is set from the
+        # request's `X-Workspace-ID` header. A background pass has no request
+        # and no header: `ai/autonomous.py` opens a plain session, so every
+        # link the librarian created was written with the column default,
+        # "default". Measured: two notes in `space-b`, a link made the way the
+        # night shift makes one, and the space that owns both notes could see
+        # zero links.
+        #
+        # Taken from the source note rather than from the session, because
+        # that is the fact that is true in both cases: in a request the note
+        # is already in the session's space, and in a background pass the note
+        # is the only thing that knows.
+        workspace_id=source.workspace_id or "default",
     )
     session.add(link)
     session.flush()

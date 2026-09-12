@@ -9,6 +9,27 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A skill step that has to go through every note now goes through every note.
+  A step that reads a page at a time keeps reading until there are no pages
+  left, instead of stopping after the first one and ticking itself off. The
+  run says which page it is on and how many notes it has read as it goes, and
+  if there is more than one step can reach, it says that too rather than
+  reporting part of your notebook as all of it.
+
+- A skill run now has a budget: how many tokens and how many seconds it may
+  spend, in Settings -> Tools, 20,000 and 90 seconds to begin with. A run that
+  reaches it stops between steps, says which limit it hit, and still shows
+  what it changed with a way to put it back. Set either to 0 for no limit.
+
+- A skill can say how to check its own work. When it finishes, the app reads
+  the answer back out of your notebook itself and shows a line saying whether
+  it holds, rather than taking the AI's word for it. "Find loose ends" uses
+  it to prove it changed nothing.
+
+- The AI learns where you actually file things. When you move a note the AI
+  filed by itself, that move is remembered, and the next few times it decides
+  where something belongs in that category it is shown what you corrected.
+
 - A board keeps a history too. Moving a card, rewriting a text box, deleting
   a branch, creating, duplicating, generating or importing a board: each one
   is recorded with who did it and what it looked like before, so a board's
@@ -118,6 +139,13 @@ below). Versioning is `0.x` while the app stabilises.
   text on purpose.
 
 ### Fixed
+
+- Tonal buttons no longer wear a panel's shadow. In dark mode every one of
+  them painted `rgba(0, 0, 0, 0.35)`, because that shadow token is seven
+  times heavier in dark (it has to be, over a near-black page) and was sized
+  for a panel rather than a 28px control, so a toolbar came out as a row of
+  dark rims. The hairline edge stays, which is what makes a tonal button read
+  as pressable.
 
 - The history sheet no longer shows a note's newest fifty changes as though
   they were all of them. It says how many it is showing and offers to load

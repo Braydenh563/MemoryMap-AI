@@ -118,6 +118,45 @@ and every run ends with a verification line and an Undo.
     cursor ends); the verifier (Brief 13) checks the postcondition. The
     owner's question is answered in the negative: one tool call per step
     is not enough; one *contract* per step is.
+10a. **A skill that declares steps needs no separate prompt** (Brief 13).
+    A numbered list of steps already says what the job is, and requiring a
+    prompt beside it is how the two drift apart: the prompt says one thing,
+    the steps do another, and the model reads both. A skill with neither is
+    still refused.
+10b. **`verify` is a declaration, not a step** (Brief 13). A skill may end
+    with `{tool, field, expect}`; the app runs it against the notebook after
+    the last step. A step saying "check it worked" is exactly the thing a 3B
+    model reports having done without doing, which is the failure the whole
+    contract mechanism exists for. Four predicates (min, max, equals,
+    unchanged), each answerable from one integer, because a postcondition a
+    small model can be graded against has to be a fact rather than a
+    judgement.
+10c. **A step's paged read is judged on its last call, and only for a tool
+    the step's contract names** (Brief 13). "Have I reached the end" is a
+    property of the last page, not of any; and holding a step open on an
+    incidental `list_notes` would stall runs that work today, the same reason
+    a plain string step has no contract at all. Capped at six pages, said out
+    loud on the step, in its history and on the result rather than reporting
+    a partial pass as a complete one.
+10d. **"Find loose ends" pages the notebook instead of searching it**
+    (Brief 13). Its first step was one `search_notes` call for "todo, need
+    to, should", which is a top-k similarity query, and the skill's claim is
+    *the* loose ends, all of them: a note saying "ring the landlord back"
+    resembles nothing on that list and is exactly what the skill is for.
+10e. **The run budget is a scope, not a parameter** (Brief 13, after
+    `core/events.py`). What has to be true is that every model call made
+    inside a run counts against that run, including the ones written later by
+    somebody who has never read `ai/budget.py`; a parameter threaded through
+    is true only of the call sites somebody remembered to change. Checked
+    between rounds, never mid-stream: stopping inside a model call leaves half
+    an answer on screen and a tool result nobody read.
+10f. **A correction is recorded outside the `edited` write scope** (Brief
+    13). `events.record` folds anything recorded inside a write into that
+    write's own event, correctly for a category created on the way past and
+    wrongly for this: a correction is a second, separately readable fact, and
+    folded it is invisible to the query that looks for it. Keyed on where the
+    note ended up, because "notes like this belong in B" is the half that is
+    usable when filing something new.
 11. **When no model is connected**, every AI control is visible, disabled,
     with a tooltip "Connect a model in Settings" and a one-click link;
     Ask falls back to search results with passages; nothing is hidden.
@@ -144,9 +183,12 @@ fake transport); twelve starters present; offline state renders disabled
 controls with tooltips.
 
 ### Phase 4: skills that finish (one session; Brief 13)
-Decision 10. **Gate:** `pytest -m evals`: the loose-ends fixture with 70
-notes finds all eight planted loose ends; zero invalid tool calls; every
-run shows verification and Undo.
+Decisions 10 and 10a to 10f. Built, 2026-09-12: see HISTORY.md, "Moved from
+the plans", Brief 13. What is left: the `evals` marker and its fixture set
+(the loose-ends fixture with eight planted loose ends, the zero-invalid-calls
+count over the built-in skills), which wants the dev model script
+(WORLD_CLASS_PLAN 9) to be worth more than a restatement of the unit tests.
+See `docs/roadmap/agent-remaining/brief-13-harness.md`.
 
 ## 6. Consistency rules
 

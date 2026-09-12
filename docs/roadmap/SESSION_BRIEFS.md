@@ -509,29 +509,14 @@ answer renderer; the composer; the empty and unsupported states.
 
 ## Brief 13 (Sun, Opus): the harness verifier, budget and corrections (B5)
 
-**Goal.** A skill run plans, acts, verifies its own postcondition, repairs
-at most twice, stays inside a budget, and learns from corrections.
-
-**Done when.** `pytest -m evals` on the eval fixtures: ≥ 80% of built-in
-skills complete with zero invalid tool calls under small-model mode; every
-run shows plan, steps, verification and an Undo (via Brief 7's events);
-a moved auto-filed note produces a `correction` event and the next filing
-prompt for that category includes it.
-
-**Decisions made.** `skill_runner._contract_met` (line ~292) is the hook:
-after the last step, run the skill's `verify` block (a tool call plus a
-predicate, declared in the skill's Markdown; add the field to
-`skills.normalise`). Budget = tokens and wall time per run in the
-settings, defaults 20k tokens / 90s, enforced in `agent.run_agent`.
-Corrections: `manager.update_entry` records `correction` when
-`category_id` changes on an entry with `filing_state == 'auto'`; the
-librarian prompt builder (`ai/librarian.py`) appends the last five for the
-target category.
-
-**Steps.** The `verify` field and its test; the verifier step; the budget;
-the correction event and prompt; the evals run against
-`scratchpad/fake_openai_server.py` plus, when available, the dev model
-(WORLD_CLASS_PLAN §9).
+**Built, 2026-09-12.** Moved to HISTORY.md, "Moved from the plans,
+2026-09-12". All four markers in `tests/test_harness_verifier_spec.py` are
+off. Decisions recorded in CHAT_PLAN 10a to 10f. What is left (the `evals`
+marker and its fixture set, which wants the dev model from WORLD_CLASS_PLAN
+9; a `verify` control in the skill editor; verify blocks on the other
+read-only built-ins; the page cap over a large notebook; `filing_state` on
+the recategorise path) is in
+[`agent-remaining/brief-13-harness.md`](agent-remaining/brief-13-harness.md).
 
 ---
 

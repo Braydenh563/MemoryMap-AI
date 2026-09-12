@@ -21510,6 +21510,81 @@ done-when item 4 and 5), in priority order.
 
 ## Moved from the plans, 2026-09-12
 
+### From CHAT_PLAN.md Phase 4 and SESSION_BRIEFS Brief 13: the skill harness and its verifier
+
+The spec (`tests/test_harness_verifier_spec.py`, strict-xfail throughout
+until now) asked for four things. All four markers are off.
+
+**What was extended rather than rebuilt.** `ai/skill_runner.py` already had
+the step contracts, the nudge, the retries, the re-plan, `_step_tools` and
+the carried state from the earlier skills reform, and `ai/skills.py` already
+validated a step's contract at save time. None of that changed. What was
+missing was the three checks that live *above* a step.
+
+**Paging inside a step** (decision 10, 10c). `list_notes` had always said
+there was more (`has_more`, `next_offset`, a `note_to_model` spelling out
+the next call) and the runner read none of it: one call satisfied
+`tool_called`, the step went green, and a "go through every note" step had
+seen twenty of seventy. The tool event now carries `seen` (every note id the
+read returned, uncapped, unlike `touched`, which stops at six because it
+draws chips), `more` and `next_offset`. `_pages_left` judges the *last*
+successful call of a tool the step's contract names; while a page is
+outstanding the step is re-prompted with the offset written out
+(`_paging_nudge`) and reported as `paging`, a new step state with its own
+words, glyph and colour in both places the app draws a run. Bounded by
+`MAX_PAGES_PER_STEP` (six, decision 10's "N tool calls"), and a step that
+runs out says so on the step event, in its own history line, and through
+`result.truncated`, rather than reporting a partial pass as a complete one.
+
+**"Find loose ends" pages instead of searching** (decision 10d). Its first
+step was one `search_notes` call, a top-k similarity query, for a skill
+whose claim is completeness.
+
+**The run budget** (decision 10e). `ai/budget.py`: a `RunBudget` held in a
+context variable, opened by `run_skill` around the whole run and charged by
+`agent.run_agent` once per round from the provider's own stats (with
+`ASSUMED_ROUND_TOKENS` for a transport that reports none, so the budget
+cannot silently become a no-op). Checked between rounds; the run stops with
+a `limit` event whose reason is `budget`, which the runner tells apart from
+a rounds stop because only one of them means the *run* is over. Defaults
+20,000 tokens and 90 seconds, both on GET/PUT `/preferences` and both with a
+control in Settings -> Tools beside small model mode.
+
+**The verifier** (decision 10b). `skills.normalise` accepts a `verify` block
+(`{tool, field, expect}`), validated against the same known-tools set and the
+same "a tool this run will not be offered can never satisfy it" rule a step's
+contract already used. `skill_runner` takes the reading before the first step
+(which is what makes `unchanged` answerable), runs the block after the last,
+and yields a `verification` event carried on the `result` as well, so a
+replay does not have to reconstruct it. A run that stopped early is never
+reported as verified. `skills.VERIFY_PREDICATES` and
+`skill_runner.PREDICATES` are asserted equal by a test: the `core/events.py`
+driver trick, so a predicate with no evaluator fails the build instead of
+passing every run that uses it.
+
+**Filing corrections** (decision 10f). `filing_state` gains `auto`, set
+wherever the AI chose the category (`janitor.is_ai_method`).
+`manager.update_entry` becomes a wrapper around the decorated
+`_update_entry_fields` so the `correction` event is recorded outside the
+`edited` write scope, where `events.record` would otherwise fold it into the
+edit and make it invisible to the query that reads it back.
+`librarian.filing_prompt` now builds the janitor's user prompt and carries
+the last five corrections whose *target* is one of the candidate categories.
+Which is the smallest possible version of learning: no training, no
+embeddings, five lines of the user's own history in the prompt about to make
+the same decision again.
+
+**A skill that declares steps needs no separate prompt** (decision 10a).
+
+**Not verified.** Every provider test here runs against a fake transport
+(CLAUDE.md section 4). Whether a real small model, handed the paging nudge
+with an offset in it, then calls the tool again is not tested anywhere and is
+not claimed; what is tested is that the app nudges rather than hopes. The
+same goes for the token figures the budget is charged: they are whatever the
+provider reports. The settings panel, the `paging` step state and the
+verification line are reasoned, not observed; no browser was driven.
+
+
 ### From MINDMAP_PLAN.md, §12.1 items 2 to 9 (the map's own controls)
 
 The owner: "the mindmap is still very much a basic demo ... it needs to be

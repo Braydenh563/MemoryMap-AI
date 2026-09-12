@@ -513,7 +513,27 @@ button.ghost {
   border: 1px solid var(--ghost-btn-border);
   color: var(--ink);
   font-weight: 500;
-  box-shadow: var(--shadow-sm);
+  /* **The edge carries the affordance; the lift is gone again, and this time
+     for a measured reason rather than a taste.** The pass above restored both
+     the hairline and `--shadow-sm`, and INBOX 113's recommendation was only
+     ever the first of those ("affordance is carried by the border, state is
+     carried by the fill"). The shadow was thrown in on top.
+
+     Reported the same day, with three dark screenshots of the top bar, a
+     Peek/Close bar and two icon buttons: "the border shadow on elements like
+     these are too strong". Measured in dark: every tonal button painted
+     `rgba(0, 0, 0, 0.35) 0 2px 8px`. That number is not a mistake in the
+     token, it is the token doing its job for something else. Dark's
+     `--shadow-sm` is seven times light's alpha, and it has to be, because a
+     shadow over a #0e1017 page has almost no contrast to work with. It was
+     sized for a *panel*. Putting it under a 28px control multiplies it across
+     a whole toolbar, and eight of them in one strip is a row of dark rims.
+
+     So the tonal tier keeps the hairline, which is what makes it read as
+     pressable, and gives up the lift, which is what made it read as heavy.
+     The filled tier keeps its accent glow: there is one of those per surface,
+     which is the whole difference. */
+  box-shadow: none;
 }
 
 button.ghost:hover {

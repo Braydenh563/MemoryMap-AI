@@ -143,9 +143,14 @@ def test_the_tonal_button_keeps_its_edge_and_its_lift() -> None:
         "button.ghost must draw a visible hairline: the edge is what makes it "
         "read as a control rather than a tinted shape with text in it"
     )
-    assert "box-shadow: var(--shadow-sm)" in body, (
-        "button.ghost must sit slightly proud of its surface; box-shadow: none "
-        "is what the second pass set and what the report came back about"
+    assert "box-shadow: var(--shadow-sm)" not in body, (
+        "button.ghost must not carry the panel shadow. `--shadow-sm` is seven "
+        "times heavier in dark than in light, because a shadow over a near "
+        "black page needs to be, and it was sized for a panel: under a 28px "
+        "control it measured rgba(0, 0, 0, 0.35) on every button in the top "
+        "bar at once, reported as \"the border shadow on elements like these "
+        "are too strong\". The edge carries the affordance; the filled tier, "
+        "one per surface, is what gets a glow"
     )
 
 

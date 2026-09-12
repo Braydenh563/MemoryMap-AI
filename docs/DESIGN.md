@@ -497,7 +497,7 @@ Three tiers, and a view should be readable from them alone:
 | Tier | Recipe | Use |
 | --- | --- | --- |
 | **Filled** | `button`: accent fill, `--on-accent` text, the accent glow | The one action a surface is *for*. One per card or dialog, a dashboard of widgets has one per widget (Save, Start), not one for the page. |
-| **Tonal** | `button.ghost`, and any `.icon-only` button, `--ghost-btn-bg` fill, a 1px `--ghost-btn-border` edge, `--shadow-sm` | Every other action that stands on its own: a card's one-off control, a panel, a popover, a dialog. |
+| **Tonal** | `button.ghost`, and any `.icon-only` button, `--ghost-btn-bg` fill, a 1px `--ghost-btn-border` edge, no shadow | Every other action that stands on its own: a card's one-off control, a panel, a popover, a dialog. |
 | **Quiet** | the same button inside something that already frames it, a dock, a card's `.entry-actions` run, a floating whiteboard panel: no fill, no edge, no shadow, a tint and an edge under the pointer | A *run* of actions. The container is the affordance; the tint is the state. |
 | **Plain** | tab-bar buttons, `.linklike`, `.status-item`: no fill at rest, a tint on hover | Navigation and inline actions that sit in running text or a strip that is already a well. |
 
@@ -519,6 +519,15 @@ and the largest remaining run of tonal buttons anywhere is 5.
 `[data-contrast="on"]` puts an edge on the quiet tier too.
 `tests/test_ui_recipes.py` pins the tonal recipe so a fourth pass cannot
 flatten it again.
+
+**The tonal tier draws no shadow, and the reason is dark mode.**
+`--shadow-sm` is seven times heavier in dark than in light, because a shadow
+over a #0e1017 page has almost no contrast to work with, and it was sized
+for a panel. Under a 28px control it measures `rgba(0, 0, 0, 0.35)`, and
+eight of those in one strip is a row of dark rims: reported as "the border
+shadow on elements like these are too strong". The hairline is what makes a
+tonal button read as pressable; a lift is what made it read as heavy. The
+filled tier keeps its glow, and there is one of those per surface.
 
 A selected toggle (`.active`) is the filled recipe: on is the accent, not a
 darker tonal.

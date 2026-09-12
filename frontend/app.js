@@ -3673,14 +3673,12 @@ async function openEntryHistory(entry) {
     list.appendChild(row);
   }
 
-  if (events.length && revisions.length) {
-    const note = document.createElement("p");
-    note.className = "muted";
-    note.textContent = "Older snapshots, kept before each edit";
-    list.appendChild(note);
-  }
-
-  for (const revision of revisions) {
+  // The snapshots are the same versions the events already show, one row
+  // earlier, so they are only worth rendering for a note whose edits predate
+  // the event log: measured on a note edited twice, both lists said "version
+  // one of the note" and the sheet showed it twice.
+  const snapshotsOnly = !events.some((item) => item.content);
+  for (const revision of snapshotsOnly ? revisions : []) {
     const item = document.createElement("div");
     item.className = "history-entry";
     const head = document.createElement("p");

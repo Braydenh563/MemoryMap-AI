@@ -123,3 +123,55 @@ def test_ensure_alembic_baseline_does_not_evict_the_app_s_own_log_handler(tmp_pa
         assert marker in root.handlers
     finally:
         root.removeHandler(marker)
+
+
+def _audit_columns(db_path):
+    conn = sqlite3.connect(str(db_path))
+    try:
+        return [row[1] for row in conn.execute('PRAGMA table_info("audit_log")')]
+    finally:
+        conn.close()
+
+
+def test_a_database_stamped_at_the_baseline_upgrades_over_the_auto_migrator(tmp_path):
+    """The two mechanisms have to agree about a column both can add.
+
+    `_add_missing_columns()` runs on every startup, before the Alembic step,
+    so by the time a database stamped at the baseline is upgraded, `actor`
+    and `payload` are already there. A migration that added them blindly
+    would fail with "duplicate column name", leave `alembic_version` stuck
+    at the baseline, and warn on every start from then on (the failure is
+    swallowed, which is what would have made it invisible).
+    """
+    db_path = tmp_path / "stamped-at-baseline.db"
+    conn = sqlite3.connect(str(db_path))
+    try:
+        conn.execute(
+            "CREATE TABLE audit_log (id INTEGER PRIMARY KEY, action VARCHAR(50) NOT NULL, "
+            "entity_type VARCHAR(50) NOT NULL, entity_id INTEGER, detail TEXT, "
+            "created_at DATETIME NOT NULL)"
+        )
+        conn.execute(
+            "INSERT INTO audit_log (action, entity_type, entity_id, detail, created_at) "
+            "VALUES ('created', 'entry', 1, 'from before the event log', '2026-01-01 00:00:00')"
+        )
+        conn.execute("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)")
+        conn.execute("INSERT INTO alembic_version VALUES ('8a8a14407cc0')")
+        conn.commit()
+    finally:
+        conn.close()
+
+    DatabaseManager(db_path)  # create_all() + the additive auto-migrator
+    assert {"actor", "payload"} <= set(_audit_columns(db_path))
+    _ensure_alembic_baseline(db_path)  # the upgrade path, over columns that exist
+
+    assert _alembic_version(db_path) != ["8a8a14407cc0"], "the upgrade did not land"
+    assert {"actor", "payload"} <= set(_audit_columns(db_path))
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        # A row written before any of this existed reads back as the user's,
+        # which is what it was.
+        assert conn.execute("SELECT actor FROM audit_log").fetchall() == [("user",)]
+    finally:
+        conn.close()

@@ -10855,7 +10855,14 @@ function renderRelatedElsewhere(target, items) {
   target.appendChild(row);
 }
 
-function renderAnswerGrounding(target, sentences, rawResults, answerEl = null) {
+//: `question`, when the caller knows it, is what turns a click into a
+//: correction: opening the third source after asking something is the one
+//: signal the search has that its own order was wrong (WORLD_CLASS_PLAN I7,
+//: and `search_manager._learned_order`, which has been reading these
+//: corrections since Brief 23 while nothing in the browser wrote one). Left
+//: optional because the third caller rebuilds an old chat from storage, and
+//: a click on a source from last week is not evidence about today's ranking.
+function renderAnswerGrounding(target, sentences, rawResults, answerEl = null, question = "") {
   if (!target) return;
   // The markers go in the answer itself; the chip row below is their key.
   // Both are built from the same `sentences`, so they cannot disagree about
@@ -10892,7 +10899,19 @@ function renderAnswerGrounding(target, sentences, rawResults, answerEl = null) {
     // through the renderer as one string (`1. ` is an ordered-list marker).
     setNoteLabel(chip, `ph:file-text ${n}.`, entry?.content || labelFor.get(noteId) || "", 30);
     chip.title = forSentences.join(" ");
-    chip.addEventListener("click", () => flashEntry(noteId));
+    chip.addEventListener("click", () => {
+      if (question) {
+        apiJson("/learned/corrections", {
+          method: "POST",
+          silent: true,
+          body: JSON.stringify({
+            kind: "open_after_ask",
+            subject: { question, entry_id: noteId },
+          }),
+        }).catch(() => {});
+      }
+      flashEntry(noteId);
+    });
     target.appendChild(chip);
   }
   target.classList.remove("hidden");
@@ -11478,7 +11497,8 @@ async function askQuestion(preset) {
           $("ai-answer-grounding"),
           event.sentences,
           groundingRawResults,
-          answerBox
+          answerBox,
+          question
         );
       },
     });
@@ -17725,7 +17745,10 @@ async function sendChatMessage(preset, opts = {}) {
           meta?.raw_results || [],
           //: Every prose block of this turn, not the first: see
           //: `addInlineCitations`. A skill run has one per step.
-          bubble.querySelectorAll(".bubble-answer")
+          bubble.querySelectorAll(".bubble-answer"),
+          //: The chat turn knows its own question, so a source opened from a
+          //: live answer teaches the search the same way the Ask tab does.
+          question
         );
       },
       onPlan: (event) => {
@@ -31820,11 +31843,32 @@ async function loadLinkSuggestions() {
         link.click();
       }
     });
+    //: **A dismissal the notebook keeps.** This used to remove the row and
+    //: nothing else, so the same pair was offered again on the next render,
+    //: the next reload, and for ever: "a suggestion that comes back after
+    //: being dismissed is the single most annoying thing a suggester can do",
+    //: as `routes_entries.link_suggestions` puts it in the comment above the
+    //: filter that was already waiting for this. The server has honoured
+    //: `dismiss_link` corrections since Brief 23; the browser never sent one,
+    //: which made the whole loop inert from the only end that can start it.
+    //:
+    //: The row goes whether or not the write lands: a dismissal that appears
+    //: to do nothing because the notebook was busy is worse than one that is
+    //: not remembered, and the pair comes back on the next render anyway if
+    //: it was not.
     const dismiss = smallButton("ph:x", "Dismiss this suggestion", () => {
       row.remove();
       if (!box.querySelector(".link-suggestion")) {
         box.classList.add("hidden");
       }
+      apiJson("/learned/corrections", {
+        method: "POST",
+        silent: true,
+        body: JSON.stringify({
+          kind: "dismiss_link",
+          subject: { a: s.source_id, b: s.target_id },
+        }),
+      }).catch(() => {});
     });
     row.append(text, reason, score, link, dismiss);
     rowsWrap.appendChild(row);

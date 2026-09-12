@@ -1039,3 +1039,81 @@ weaken a test to make it pass: if a test is wrong, change it in the same
 commit and say why in the message. No em-dashes; sentence case; commit
 trailers; never `pkill -f uvicorn`; own port through
 `scratchpad/ui-sweeps/serve.sh` if you need a server at all.
+
+## Brief 24 (Opus agent, backend only): the derived facts pipeline (I9)
+
+The ten strict-xfail markers left in `tests/test_learned_spec.py`, after
+Brief 23 built I7 and I4. Written 2026-09-12 by the orchestrator, from
+`agent-remaining/learning-loop.md`, which is the file to read first: it says
+what exists, and it is the reason this is a brief of its own.
+
+**The finding that makes it one.** I9 reads like a Settings section in
+WORLD_CLASS_PLAN 15. It is not. Every one of the ten tests drives a pipeline
+that does not exist yet: a night pass that derives facts from notes, a table
+for them carrying provenance, an edit and delete and reset lifecycle with
+tombstones, and a switch per runner. The screen is the last hour of the work,
+not the first.
+
+**Decisions, made here, so the session does not remake them:**
+
+1. **The night pass is a fourth task in `ai/autonomous.py`**, not a new
+   runtime. That module already has the scheduler, the cancel and snooze
+   protocol, `_enabled_tasks` reading a preference per task, and the
+   `system:librarian` attribution that answers "who did this". A new
+   scheduler beside it would be a second answer to every one of those.
+2. **The derived rows get their own table**, unlike corrections, which stayed
+   in `AuditLog` (Brief 23's decision, and its reason was that a store with
+   the index, retention and compaction already existed). A derived fact needs
+   columns `AuditLog` has no room for and must carry: `entry_id`, `kind`,
+   `text`, `span_start`, `span_end`, `model`, `confidence`, `computed_at`,
+   `edited_by_user`, `original_text`, `deleted_at`. The last two are the
+   lifecycle: an edited row is never overwritten by a re-run, a deleted row
+   is never re-derived, and both have to survive `force=True`.
+3. **A delete is also a correction.** `test_a_deleted_fact_is_not_rederived`
+   asserts a `delete_fact` kind in `GET /learned/corrections`, so the
+   tombstone is the derived table's own `deleted_at` *and* a
+   `learning.record` row: the first stops the re-derivation, the second is
+   what the loop learns from.
+4. **Private notes are filtered at the read, not at the write.** The spec
+   makes a note private *after* its facts are derived and expects them gone
+   from the listing. Filtering only on the way in would leave them listed.
+5. **"Forget everything" touches the derived tables only.** The spec hashes
+   `entries` and `entry_revisions` before and after and requires them byte
+   identical, which is the whole promise: what the app learned is separable
+   from what you wrote.
+
+**Tests first**, in this order, removing a marker only when its test passes on
+its own: list with span, edit survives a re-run, delete is not re-derived,
+reset, the per-runner switch, the master switch, forget everything, private
+notes, export. Never weaken a test to make it pass; if one is wrong, change it
+in the same commit and say why.
+
+**Files.** `src/memorymap/ai/autonomous.py` (the fourth task),
+`src/memorymap/ai/facts.py` (new: derive, store, lifecycle),
+`src/memorymap/core/database.py` (the table and its index),
+`src/memorymap/api/routes_learned.py` (the routes: `POST /night/run`,
+`GET /learned`, `GET|PATCH|DELETE /learned/{id}`, `POST /learned/{id}/reset`,
+`GET|PUT /learned/switches`, `DELETE /learned`, `GET /learned/export`), and
+`tests/test_learned_spec.py`. `ai/extractor.py` and `ai/tensions.py` already
+pull statements out of a note's text and are where to look before writing a
+third way to do it. The frontend is not in this brief: ask the orchestrator
+before touching `index.html` or `app.js`, and expect the answer to be no
+while the documents and whiteboard agents hold them.
+
+**Traps.**
+
+- The specs run on `ai_client` and `fake_ollama`, so whatever the fake
+  transport returns *is* the model's answer. Read `tests/fakes.py` before
+  designing the prompt: a pipeline that only derives facts from a real
+  model's phrasing cannot pass its own tests.
+- The span is asserted against the note's own text
+  (`content[span[0]:span[1]].endswith("?")`), so the derivation has to carry
+  offsets out of the text it read, not re-find the sentence afterwards.
+- `budget` is a real limit, not decoration: `POST /night/run` takes one and
+  the pass has to stop inside it.
+- Standing order 4 (CLAUDE.md): own port and data dir if a server is needed,
+  never `pkill -f uvicorn`, `git commit -- <paths>` and never `git add`, no
+  em-dashes, commit trailers, `scripts/gate.sh --changed` per step, the full
+  suite once before the final report, never push.
+- Before stopping: `agent-remaining/learning-loop.md` updated to the state it
+  is actually in, and a five-line report.

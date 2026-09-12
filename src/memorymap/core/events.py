@@ -263,11 +263,18 @@ def events_for(
     newest_first: bool = True,
     limit: int | None = None,
     before_id: int | None = None,
+    skip_actions: frozenset[str] | None = None,
 ) -> list[AuditLog]:
-    """This entity's events. Ascending is replay order; descending is history."""
+    """This entity's events. Ascending is replay order; descending is history.
+
+    `skip_actions` hides rows from a *listing* only. Never pass it when
+    replaying: an event left out of a replay is a note rebuilt wrong.
+    """
     query = select(AuditLog).where(
         AuditLog.entity_type == entity_type, AuditLog.entity_id == entity_id
     )
+    if skip_actions:
+        query = query.where(AuditLog.action.notin_(sorted(skip_actions)))
     if before_id is not None:
         query = query.where(AuditLog.id < before_id)
     query = query.order_by(AuditLog.id.desc() if newest_first else AuditLog.id.asc())

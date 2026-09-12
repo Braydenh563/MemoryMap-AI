@@ -1,9 +1,9 @@
 """The event log (WORLD_CLASS_PLAN 4 B1; SESSION_BRIEFS Brief 7): the spec.
 
-Every test here is strict-xfail until Brief 7 builds the feature: the suite
-stays green today, and the moment the behaviour exists the xfail markers
-must be removed (a strict xfail that starts passing fails the build, which
-is the point: the spec cannot be quietly ignored).
+Every test here was strict-xfail until Brief 7 built the feature. All five
+now pass and their markers are gone, which is what a strict xfail is for: it
+fails the build the moment the behaviour exists, so the spec cannot be
+quietly ignored and cannot quietly stay "pending" either.
 
 What is being specified, in the words of the plan: every write through the
 managers records exactly one event in the same transaction, with an actor
@@ -16,12 +16,8 @@ from __future__ import annotations
 
 import inspect
 
-import pytest
-
 from memorymap.core.database import AuditLog
 from memorymap.entry import manager
-
-BRIEF = "Brief 7: the event log is not built yet"
 
 WRITE_PREFIXES = (
     "create_", "update_", "soft_delete_", "restore_", "archive_", "unarchive_",
@@ -72,7 +68,6 @@ def test_a_notes_events_replay_to_its_current_state(session):
     assert rebuilt["tags"] == ["a", "b"]
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_history_lists_and_restore_records_its_own_event(client, session):
     entry = manager.create_entry(session, "v1", tags=[])
     session.commit()

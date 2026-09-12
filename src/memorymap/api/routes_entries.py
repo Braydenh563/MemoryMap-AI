@@ -11,6 +11,7 @@ import json
 import logging
 import re
 import threading
+from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
@@ -31,8 +32,9 @@ from memorymap.api.schemas import (
     LinkOut,
     SimilarOut,
 )
-from memorymap.core import deps, vault
+from memorymap.core import deps, events, vault
 from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_suggestions)
+    AuditLog,
     Bookmark,
     Document,
     DocumentLink,
@@ -1434,21 +1436,148 @@ class PrivacyBody(BaseModel):
     private: bool
 
 
+#: How many events one request of a note's history returns. A note edited
+#: every day for a year has a history worth paging through rather than
+#: sending whole to a sheet that shows a dozen rows at a time.
+HISTORY_PAGE = 50
+
+
+def _readable(content: str) -> str:
+    """Decrypt stored content for display, the same way a note itself is.
+
+    `manager.readable_content` reads one attribute, so an event's stored
+    content can borrow it without a row to hang it on.
+    """
+    return manager.readable_content(SimpleNamespace(content=content or ""))
+
+
 @router.get("/{entry_id}/history")
-def entry_history(entry_id: int, session: Session = Depends(get_session)) -> list[dict]:
-    """Past versions of this note, newest first."""
+def entry_history(
+    entry_id: int,
+    before: int | None = Query(default=None, ge=1),
+    session: Session = Depends(get_session),
+) -> dict:
+    """This note's history, as events and as past versions.
+
+    Two lists because they answer two questions and Brief 7 deliberately
+    kept both. `items` is the event log (Brief 7, WORLD_CLASS_PLAN B1):
+    everything that ever happened to this note, who did it, and the state
+    it left the note in, which is what the History sheet renders and what
+    `POST /entries/{id}/restore/{event_id}` replays. `revisions` is the
+    older per-edit snapshot list (`EntryRevision`, capped at
+    `manager.MAX_REVISIONS`), still written, still restorable through its
+    own route, and still the only thing that holds a version of a note
+    whose events predate the log.
+
+    `before` pages backwards through the events by id, newest first.
+    """
     entry = _existing_entry(session, entry_id)
-    return [
-        {
-            "id": revision.id,
-            # Decrypted for display exactly like the note itself, so a private
-            # note's history is readable while unlocked and not otherwise.
-            "content": manager.readable_content(revision),
-            "tags": json.loads(revision.tags or "[]"),
-            "created_at": revision.created_at.isoformat(),
-        }
-        for revision in manager.revisions_for(session, entry)
-    ]
+
+    # One ascending pass rebuilds the note at every point in its history, so
+    # a row can show what the note said after that change without replaying
+    # the whole log again per row.
+    state: dict = {}
+    rebuilt: dict[int, dict] = {}
+    for row in events.events_for(session, "entry", entry.id, newest_first=False):
+        after = (row.payload or {}).get("after")
+        if isinstance(after, dict):
+            state.update(after)
+        rebuilt[row.id] = dict(state)
+
+    rows = events.events_for(
+        session,
+        "entry",
+        entry.id,
+        newest_first=True,
+        limit=HISTORY_PAGE + 1,
+        before_id=before,
+        # The bookkeeping events (a version snapshotted, the dates
+        # re-resolved) always accompany the edit that caused them and say the
+        # same thing twice in a list a person reads. They are still in the
+        # log, still in /audit, and still replayed: hidden here, not dropped.
+        skip_actions=events.QUIET_ACTIONS,
+    )
+    more = len(rows) > HISTORY_PAGE
+    rows = rows[:HISTORY_PAGE]
+    items = []
+    for row in rows:
+        at_the_time = rebuilt.get(row.id, {})
+        items.append(
+            {
+                "id": row.id,
+                "action": row.action,
+                "actor": row.actor or events.ACTOR_USER,
+                "detail": row.detail,
+                "created_at": row.created_at.isoformat(),
+                # Decrypted for display exactly like the note itself, so a
+                # private note's history is readable while unlocked and not
+                # otherwise.
+                "content": _readable(at_the_time.get("content") or ""),
+                "tags": at_the_time.get("tags") or [],
+            }
+        )
+
+    return {
+        "items": items,
+        "next_cursor": rows[-1].id if (more and rows) else None,
+        "revisions": [
+            {
+                "id": revision.id,
+                "content": manager.readable_content(revision),
+                "tags": json.loads(revision.tags or "[]"),
+                "created_at": revision.created_at.isoformat(),
+            }
+            for revision in manager.revisions_for(session, entry)
+        ],
+    }
+
+
+@router.post("/{entry_id}/restore/{event_id}", response_model=EntryOut)
+def restore_event(
+    entry_id: int, event_id: int, session: Session = Depends(get_session)
+) -> EntryOut:
+    """Put this note back the way one of its events left it.
+
+    Replay rather than a stored copy: the state after an event is every
+    `after` payload up to and including it, applied in order, which is the
+    same definition the History sheet shows and the same one a note rebuilt
+    from scratch would get. Restoring is itself an edit, so the current text
+    is snapshotted first and the restore records its own event: undoing an
+    undo has to work, or this is a trap rather than a safety net.
+    """
+    entry = _existing_entry(session, entry_id)
+    row = session.get(AuditLog, event_id)
+    if row is None or row.entity_type != "entry" or row.entity_id != entry.id:
+        raise HTTPException(status_code=404, detail="That version no longer exists")
+
+    state = events.replay(session, "entry", entry.id, upto_event_id=event_id)
+    if "content" not in state and "tags" not in state:
+        raise HTTPException(
+            status_code=400, detail="That event did not change the note's text"
+        )
+
+    manager.record_revision(session, entry)
+    if "content" in state:
+        entry.content = state["content"]
+    if "tags" in state:
+        entry.tags = json.dumps(state["tags"])
+    manager.log_action(
+        session,
+        "restored",
+        "entry",
+        entry.id,
+        f"back to event {event_id}",
+        payload={
+            "from_event": event_id,
+            "after": {
+                "content": entry.content,
+                "tags": manager.tags_from_json(entry.tags),
+            },
+        },
+    )
+    session.commit()
+    session.refresh(entry)
+    return _to_out(session, entry)
 
 
 @router.post("/{entry_id}/history/{revision_id}/restore", response_model=EntryOut)

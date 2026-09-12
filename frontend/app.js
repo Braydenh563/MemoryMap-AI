@@ -3559,11 +3559,41 @@ $("connections-close")?.addEventListener("click", () =>
 );
 
 // The ⋯ overflow menu on each note card (Wave L rework).
-// Earlier versions of one note, with a way back to any of them.
+// Everything that ever happened to one note, with a way back to any of it.
+//
+// The rows are the event log (Brief 7): every write through the managers
+// records one event with an actor and the whole value of each field it set,
+// so a row can say who changed the note, what it became, and put it back by
+// replaying the log to that point. `revisions` is the older per-edit snapshot
+// list, still written and still restorable, and it is what a note whose
+// history predates the event log has instead of rows.
+const HISTORY_ACTION_WORDS = {
+  created: "Written",
+  edited: "Edited",
+  restored: "Restored",
+  deleted: "Moved to the bin",
+  archived: "Archived",
+  unarchived: "Taken out of the archive",
+  linked: "Linked",
+  unlinked: "Unlinked",
+  purged: "Deleted for good",
+};
+
+function historyActorLabel(actor) {
+  // "ai:summarise" and "system:auto-file" carry the half worth reading after
+  // the colon; "user" is everything a person did and needs no chip at all.
+  if (!actor || actor === "user") return "";
+  const [kind, rest] = [actor.slice(0, actor.indexOf(":")), actor.slice(actor.indexOf(":") + 1)];
+  if (kind === "ai") return `AI: ${rest}`;
+  if (kind === "system") return `Background: ${rest}`;
+  return actor;
+}
+
 async function openEntryHistory(entry) {
   const overlay = $("history-overlay");
   const list = $("history-list");
   $("history-status").textContent = "";
+  $("history-status").classList.remove("error");
   list.replaceChildren();
   overlay.classList.remove("hidden");
   $("history-close").focus();
@@ -3576,13 +3606,29 @@ async function openEntryHistory(entry) {
     $("history-status").textContent = error.message;
     return;
   }
-  if (!history.length) {
+  const events = history?.items || [];
+  const revisions = history?.revisions || [];
+  if (!events.length && !revisions.length) {
     const p = document.createElement("p");
     p.className = "muted";
-    p.textContent = "This note hasn't been edited yet, so there's nothing to go back to.";
+    p.textContent = "Nothing has happened to this note yet, so there's nothing to go back to.";
     list.appendChild(p);
     return;
   }
+
+  const restoreTo = async (url, message) => {
+    if (!(await confirmDialog("Replace the note with this version?\n\nThe current text is kept in the history, so this is undoable."))) return;
+    try {
+      await apiJson(url, { method: "POST" });
+      overlay.classList.add("hidden");
+      toast(message);
+      await loadEntries();
+      flashEntry(entry.id);
+    } catch (error) {
+      $("history-status").classList.add("error");
+      $("history-status").textContent = error.message;
+    }
+  };
 
   // The current text first, so you can see what you'd be replacing.
   const current = document.createElement("div");
@@ -3595,7 +3641,46 @@ async function openEntryHistory(entry) {
   current.append(currentHead, currentBody);
   list.appendChild(current);
 
-  for (const revision of history) {
+  for (const item of events) {
+    const row = document.createElement("div");
+    row.className = "history-entry";
+    const head = document.createElement("p");
+    head.className = "muted";
+    head.textContent = `${HISTORY_ACTION_WORDS[item.action] || item.action} ${relativeTime(item.created_at)}`;
+    const actor = historyActorLabel(item.actor);
+    if (actor) {
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      chip.textContent = actor;
+      head.append(" ", chip);
+    }
+    row.appendChild(head);
+    if (item.content) {
+      const body = document.createElement("p");
+      body.textContent = notePreviewText(item.content);
+      row.appendChild(body);
+      // Only a version that differs from what is on screen is worth putting
+      // back: offering "restore" on the state the note is already in reads as
+      // a broken button rather than a safe one.
+      if (item.content !== entry.content) {
+        row.appendChild(
+          smallButton("ph:arrow-u-up-left Put this back", "Restore this version", () =>
+            restoreTo(`/entries/${entry.id}/restore/${item.id}`, "Earlier version restored.")
+          )
+        );
+      }
+    }
+    list.appendChild(row);
+  }
+
+  if (events.length && revisions.length) {
+    const note = document.createElement("p");
+    note.className = "muted";
+    note.textContent = "Older snapshots, kept before each edit";
+    list.appendChild(note);
+  }
+
+  for (const revision of revisions) {
     const item = document.createElement("div");
     item.className = "history-entry";
     const head = document.createElement("p");
@@ -3603,19 +3688,9 @@ async function openEntryHistory(entry) {
     head.textContent = `Before ${new Date(revision.created_at).toLocaleString()}`;
     const body = document.createElement("p");
     body.textContent = notePreviewText(revision.content);
-    const restore = smallButton("ph:arrow-u-up-left Put this back", "Restore this version", async () => {
-      if (!(await confirmDialog("Replace the note with this version?\n\nThe current text is kept in the history, so this is undoable."))) return;
-      try {
-        await apiJson(`/entries/${entry.id}/history/${revision.id}/restore`, { method: "POST" });
-        overlay.classList.add("hidden");
-        toast("Earlier version restored.");
-        await loadEntries();
-        flashEntry(entry.id);
-      } catch (error) {
-        $("history-status").classList.add("error");
-        $("history-status").textContent = error.message;
-      }
-    });
+    const restore = smallButton("ph:arrow-u-up-left Put this back", "Restore this version", () =>
+      restoreTo(`/entries/${entry.id}/history/${revision.id}/restore`, "Earlier version restored.")
+    );
     item.append(head, body, restore);
     list.appendChild(item);
   }

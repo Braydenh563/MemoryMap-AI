@@ -3307,7 +3307,25 @@ header#top-bar.tabs-wrapped #tab-bar {
 /* The content column. `width: 100%` alongside the cap so a child that would
    otherwise size to its content still fills the column, and `margin-inline:
    auto` centres it once the window is wider than the cap. */
-.tab-page > * {
+/* **`:not(dialog)`, because a modal dialog is not page content.** A native
+   `<dialog>` shown with `showModal()` is drawn in the top layer, and the UA
+   centres it with `position: fixed; inset: 0; width: fit-content;
+   margin: auto`. Both of these column rules are (0,1,1) or (0,2,0) and beat
+   the `.space-dialog { margin: auto }` that exists to protect exactly this,
+   so any dialog that happens to be written as a direct child of a page took
+   the column's `width: 100%` and the rhythm rule's `margin: 0 0 16px`
+   instead. Measured at 1440 on `#doc-ai-history-dialog` and
+   `#doc-history-dialog`, the two dialogs in the markup that sit directly
+   inside `#tab-documents`: 1440px wide at `left: 0`, against the identically
+   classed `#doc-template-dialog`, one wrapper deeper, at 480px and centred.
+   Reported three times as "the ai edit history popover still not centering",
+   and carried across two sessions as found-not-fixed, because the earlier
+   `margin: auto` fix is real and simply loses the cascade here.
+
+   Excluded rather than out-specified: where a dialog sits in the markup is an
+   authoring detail, and a page-layout rule has no business reaching a
+   top-layer element at any depth. */
+.tab-page > *:not(dialog) {
   max-width: var(--content-max);
   width: 100%;
   /* `align-self`, not `margin-inline: auto`. `.tab-page` is a **column** flex
@@ -3331,8 +3349,8 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 /* Direct children of a page are already inside the gutter, so they carry only
    the rhythm between them. */
-.tab-page>.card,
-.tab-page>.card.placeholder {
+.tab-page>.card:not(dialog),
+.tab-page>.card.placeholder:not(dialog) {
   margin: 0 0 var(--space-6);
 }
 

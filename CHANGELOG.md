@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The AI edit history and document history dialogs open centred. They were
+  1440px wide against the left edge of the window, because the page-column
+  rules reach any direct child of a page and a dialog written there took the
+  column's width and margins instead of the centring every other dialog gets.
+  Reported three times.
+
 - Pressing a button that centres itself no longer makes it jump. The chat's
   jump-to-latest pill moved 68px to the right for as long as the mouse was
   down, measured; so did anything else placed with a transform, because the

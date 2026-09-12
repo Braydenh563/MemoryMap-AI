@@ -173,3 +173,26 @@ def test_the_press_cue_does_not_use_the_transform_property() -> None:
         "`transform` replaces a button's own centring and makes it jump"
     )
     assert "translate:" in body and "scale:" in body
+
+
+def test_the_page_column_rules_do_not_reach_a_dialog() -> None:
+    """A modal `<dialog>` is drawn in the top layer, not in the page column.
+
+    `.tab-page > *` caps and fills the content column, and `.tab-page > .card`
+    sets the rhythm between stacked cards. Both are more specific than the
+    `.space-dialog { margin: auto }` that keeps a dialog centred, so a dialog
+    written as a direct child of a page took `width: 100%` and a real
+    `margin-bottom` and landed full-width at the left edge. Measured on the
+    two such dialogs in the markup, then reported three times as "the ai edit
+    history popover still not centering".
+    """
+    css = (ROOT / "frontend" / "css" / "00-tokens-shell.css").read_text(encoding="utf-8")
+    for selector, _ in _rules(css):
+        for part in selector.split(","):
+            part = part.strip().replace(" ", "")
+            if not part.startswith(".tab-page>"):
+                continue
+            assert ":not(dialog)" in part, (
+                f"{part} reaches a top-layer dialog; page-column rules must "
+                "exclude `dialog`"
+            )

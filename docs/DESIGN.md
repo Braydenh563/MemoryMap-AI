@@ -339,6 +339,7 @@ this table and its lint in the same commit as the feature, never after.
 | A brief confirmation | `toast(text)`; with one action, `toastAction(text, label, fn)` | |
 | A dialog | `.card.modal-card` (settings-sized) or `.card.space-dialog` (small), opened through the app's modal helpers, never a bare `<dialog>` with its own chrome | `tests/test_ui_signatures.py` |
 | A floating panel over a canvas | `.card.glass` plus the panel on the `[data-glass="off"]` list | `tests/test_ui_recipes.py` |
+| A ring of actions around a canvas item (a radial) | `.wb-map-radial` with `.wb-map-radial-slot` children: `role="toolbar"` (a ring is not a list you walk with the arrows), no surface behind the ring so the item it acts on stays visible, each slot placed with `left`/`top` from `--wb-radial-r` and **never** with `translate`, which the press cue owns | `tests/test_ui_recipes.py` |
 | Any surface that blurs | on the `[data-glass="off"]` list, radius from `--glass-blur`, never a px | `tests/test_ui_recipes.py`, `tests/test_style_scale.py` |
 | A button | the ramp below: filled (one per surface), ghost, icon-only with `aria-label` | `tests/test_dock_grammar.py` |
 | A chip | `.chip`; a chip is a fact, never an action (an action is a button) | |

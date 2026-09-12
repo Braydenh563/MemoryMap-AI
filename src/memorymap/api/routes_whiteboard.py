@@ -185,6 +185,12 @@ class WhiteboardObjectData(BaseModel):
     #: again at the click (a stored value predating this validator, or one
     #: written by a tool, is still not a hole).
     link: str | None = Field(default=None, max_length=500)
+    #: What the line *into* this node says (MINDMAP_PLAN.md §12.1 items 3 and
+    #: 4, "label on the link"). Stored on the child rather than anywhere else
+    #: because a tree edge has no row of its own: it is `parent_id`, so the
+    #: only thing that can carry its label is one of its two ends, and the
+    #: child is the end that has exactly one incoming edge.
+    edge_label: str | None = Field(default=None, max_length=80)
 
     @field_validator("link")
     @classmethod

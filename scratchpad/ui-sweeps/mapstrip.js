@@ -193,6 +193,153 @@ async function newBoard(page, name, type) {
   }, kidId);
   check("and a javascript: link is refused by the schema", refused === "refused", refused);
 
+  // --- the node radial (§12.1 item 3) ---------------------------------------
+  // Opened by the gesture, not by calling the function: the point of the ring
+  // is that right-click reaches it.
+  await page.evaluate((id) => selectWbItem("object", id), kidId);
+  await page.waitForTimeout(300);
+  await page.click(`.wb-object[data-id="${kidId}"]`, { button: "right" });
+  await page.waitForTimeout(500);
+  const ring = await page.evaluate((id) => {
+    const el = document.getElementById("wb-map-radial");
+    const node = document.querySelector(`.wb-object[data-id="${id}"]`);
+    const n = node.getBoundingClientRect();
+    const slots = [...el.querySelectorAll(".wb-map-radial-slot")].map((b) => {
+      const r = b.getBoundingClientRect();
+      return { id: b.id, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
+    });
+    const cx = n.left + n.width / 2, cy = n.top + n.height / 2;
+    const radii = slots.map((sl) => Math.round(Math.hypot(sl.cx - cx, sl.cy - cy)));
+    return {
+      open: !el.classList.contains("hidden"),
+      role: el.getAttribute("role"),
+      flat: document.querySelector(".wb-ctx-menu:not(.hidden)") === null,
+      n: slots.length,
+      radii,
+      spread: Math.max(...radii) - Math.min(...radii),
+    };
+  }, kidId);
+  check("right-click on a topic opens the ring, not the board's flat menu",
+    ring.open && ring.flat && ring.n === 8 && ring.role === "toolbar",
+    JSON.stringify({ open: ring.open, flat: ring.flat, n: ring.n, role: ring.role }));
+  check("its eight slots sit on one circle around the node",
+    ring.spread <= 2 && Math.min(...ring.radii) > 40,
+    JSON.stringify({ radii: ring.radii, spread: ring.spread }));
+
+  // Alt re-labels the two add slots rather than keeping the swap a secret.
+  await page.keyboard.down("Alt");
+  await page.waitForTimeout(250);
+  const alted = await page.evaluate(() => ({
+    icon: document.querySelector("#wb-radial-child i").className,
+    danger: document.getElementById("wb-radial-child").classList.contains("wb-map-radial-danger"),
+    title: document.getElementById("wb-radial-sibling").title,
+  }));
+  await page.keyboard.up("Alt");
+  await page.waitForTimeout(250);
+  const unalted = await page.evaluate(() =>
+    document.querySelector("#wb-radial-child i").className);
+  check("Alt turns the add slots into the remove slots, and says so",
+    alted.icon.includes("ph-trash") && alted.danger
+      && /Remove this topic only/.test(alted.title)
+      && unalted.includes("elbow"),
+    JSON.stringify({ alted, unalted }));
+
+  // A trunk cannot be severed, and the slot says so instead of doing nothing.
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+  const rootId = await page.evaluate(() => wbMapIndex().roots[0].id);
+  await page.evaluate((id) => selectWbItem("object", id), rootId);
+  await page.click(`.wb-object[data-id="${rootId}"]`, { button: "right" });
+  await page.waitForTimeout(400);
+  const severState = await page.evaluate(() => {
+    const b = document.getElementById("wb-radial-sever");
+    return { disabled: b.disabled, title: b.title };
+  });
+  check("sever is refused on a trunk and says why",
+    severState.disabled === true && /already a trunk/.test(severState.title),
+    JSON.stringify(severState));
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+
+  // Copy a branch: a grandchild first, so there is a shape to copy.
+  await page.evaluate(async (id) => {
+    await wbMapAddChild(id);
+  }, kidId);
+  await page.waitForTimeout(1700);
+  await page.keyboard.press("Escape");
+  const before = await page.evaluate(() => wbMapIndex().nodes.length);
+  await page.evaluate((id) => selectWbItem("object", id), kidId);
+  await page.click(`.wb-object[data-id="${kidId}"]`, { button: "right" });
+  await page.waitForTimeout(400);
+  await page.click("#wb-radial-copy");
+  await page.waitForTimeout(3000);
+  const copied = await page.evaluate((id) => {
+    const i = wbMapIndex();
+    const source = i.byId.get(id);
+    const siblings = i.childrenOf.get(source.parent_id) || [];
+    const twin = siblings.find((o) => o.id !== id && o.data?.icon === "star");
+    return {
+      n: i.nodes.length,
+      twin: Boolean(twin),
+      twinKids: twin ? (i.childrenOf.get(twin.id) || []).length : 0,
+      style: twin ? { icon: twin.data?.icon, bold: twin.data?.bold, size: twin.data?.font_size } : null,
+    };
+  }, kidId);
+  check("copy branch duplicates the whole branch beside it, styling and all",
+    copied.n === before + 2 && copied.twin && copied.twinKids === 1
+      && copied.style.bold === true && copied.style.size === 25,
+    JSON.stringify(copied));
+
+  // Label the line into a topic, and see it drawn.
+  const labelled = await page.evaluate(async (id) => {
+    const node = wbMapIndex().byId.get(id);
+    await wbMapSetNodeStyle(node, { edge_label: "because" });
+    renderWhiteboardNow();
+    await new Promise((r) => setTimeout(r, 400));
+    const text = document.querySelector(".wb-map-edges .wb-map-edge-label");
+    const edge = document.querySelector(`.wb-map-edge[data-child="${id}"]`);
+    if (!text || !edge) return { drawn: false };
+    const t = text.getBoundingClientRect(), e = edge.getBoundingClientRect();
+    return {
+      drawn: true,
+      words: text.textContent,
+      onTheEdge: t.left > e.left - 40 && t.right < e.right + 40,
+      size: getComputedStyle(text).fontSize,
+    };
+  }, kidId);
+  check("a line's label is drawn on the line it belongs to",
+    labelled.drawn && labelled.words === "because" && labelled.onTheEdge,
+    JSON.stringify(labelled));
+
+  // Sever, then put it back: the map keeps one more trunk and then loses it.
+  const severed = await page.evaluate(async (id) => {
+    const roots = wbMapIndex().roots.length;
+    await wbMapSever(id);
+    await new Promise((r) => setTimeout(r, 1200));
+    const after = wbMapIndex();
+    return {
+      roots, now: after.roots.length,
+      parent: after.byId.get(id).parent_id,
+      colour: after.byId.get(id).data?.color,
+    };
+  }, kidId);
+  check("sever makes a topic a trunk of its own, branch and all",
+    severed.now === severed.roots + 1 && severed.parent === null, JSON.stringify(severed));
+
+  // Back to the branch clears everything the strip and the ring can set.
+  const reset = await page.evaluate(async (id) => {
+    await wbMapResetToBranch(id);
+    await new Promise((r) => setTimeout(r, 900));
+    await fetchWhiteboardState();
+    const obj = (wbState.objects || []).find((o) => o.id === id);
+    return { bold: obj.data?.bold, icon: obj.data?.icon, size: obj.data?.font_size,
+      align: obj.data?.align, link: obj.data?.link, label: obj.data?.edge_label };
+  }, kidId);
+  check("back to the branch drops every look the strip and the ring can set",
+    reset && !reset.bold && !reset.icon && !reset.size && !reset.align
+      && !reset.link && !reset.label,
+    JSON.stringify(reset));
+
   await browser.close();
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

@@ -385,6 +385,7 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         "italic": None,
         "icon": None,
         "link": None,
+        "edge_label": None,
     }
 
     moved = board_client.put(

@@ -3678,6 +3678,24 @@ function wbRenderMapEdges() {
       const colour = colors.get(child.id);
       if (colour) path.style.setProperty("--wb-map-edge-colour", colour);
       next.push(path);
+      //: What the line says (§12.1 items 3 and 4), at the curve's own middle.
+      //: The midpoint is exact rather than approximated: both control points
+      //: of `wbMapEdgePathD`'s cubic sit on the line between the anchors'
+      //: midpoints, so the curve at t=0.5 passes through
+      //: ((x1+x2)/2, (y1+y2)/2) in both orientations. Worked out rather than
+      //: measured off a screenshot, which is what an offset that looks right
+      //: on one layout and wrong on the other comes from.
+      const label = child.data?.edge_label;
+      if (label) {
+        const a = wbMapEdgeAnchors(parent, child, layout);
+        const text = document.createElementNS(NS, "text");
+        text.setAttribute("class", "wb-map-edge-label");
+        text.setAttribute("x", String((a.x1 + a.x2) / 2));
+        text.setAttribute("y", String((a.y1 + a.y2) / 2));
+        text.setAttribute("dy", "-0.4em");
+        text.textContent = String(label);
+        next.push(text);
+      }
     }
   }
   // Replaced wholesale rather than joined: an edge has no identity of its own
@@ -4567,6 +4585,295 @@ async function wbMapSetNodeStyle(node, patch) {
   wbUpdateSelectionBar();
 }
 
+//: --- the node radial (MINDMAP_PLAN.md §12.1 item 3) ------------------------
+//:
+//: Coggle's idiom, and the reason §12.1 exists: the controls appear on the
+//: thing you picked. Opened by the same two gestures the board's own context
+//: menu uses (`wbOpenContextMenuFor` hands a map node here), so right-click
+//: and touch-and-hold both reach it without a second gesture to learn.
+//:
+//: Eight slots, in the markup's own order, clockwise from the top. The ring
+//: is not a menu in the ARIA sense and does not claim to be one: a menu is a
+//: list you walk with the arrows, this is a toolbar arranged in a circle, and
+//: `role="toolbar"` is what a screen reader can do something useful with.
+//: (It is also why this adds no hand-built `role="menu"`, which
+//: `tests/test_ui_recipes.py` counts.)
+
+//: The node the open ring belongs to. Read at click time by every slot, so a
+//: ring left open across a render acts on the node it was opened for rather
+//: than on whatever is selected now.
+let wbMapRadialFor = null;
+
+function wbCloseMapRadial() {
+  const ring = document.getElementById("wb-map-radial");
+  if (!ring || ring.classList.contains("hidden")) return;
+  ring.classList.add("hidden");
+  wbMapRadialFor = null;
+  wbSyncMapRadialAlt(false);
+}
+
+//: Alt held turns the two add slots into the two remove slots (Coggle). The
+//: swap is drawn, not just honoured: a modifier that changes what a button
+//: does without saying so is the "secret" this file's own space-pan comment
+//: warns about.
+function wbSyncMapRadialAlt(alt) {
+  const pairs = [
+    ["wb-radial-child", alt
+      ? ["ph-trash", "Remove this branch: this topic and everything under it"]
+      : ["ph-arrow-elbow-down-right", "Add a branch off this topic (Tab). Hold Alt to remove the branch instead"]],
+    ["wb-radial-sibling", alt
+      ? ["ph-minus-circle", "Remove this topic only: its branches move up to its parent"]
+      : ["ph-arrow-down", "Add a topic beside this one (Enter). Hold Alt to remove this topic and keep its branch"]],
+  ];
+  for (const [id, [icon, title]] of pairs) {
+    const button = document.getElementById(id);
+    if (!button) continue;
+    button.classList.toggle("wb-map-radial-danger", alt);
+    button.title = title;
+    button.setAttribute("aria-label", title.split(".")[0]);
+    const glyph = button.querySelector("i");
+    if (glyph) glyph.className = `ph ${icon}`;
+  }
+}
+
+function wbOpenMapRadial(node) {
+  const ring = document.getElementById("wb-map-radial");
+  const container = document.getElementById("whiteboard-container");
+  const host = document.getElementById("library-view-whiteboard");
+  if (!ring || !container || !host || !node) return false;
+  const box = wbItemBBox("object", node);
+  if (!box) return false;
+  // The node's centre in the view's own coordinates, through the live zoom
+  // transform: the same route `wbUpdateSelectionBar` takes, because a ring
+  // placed from the pointer instead would sit off-centre on every node whose
+  // edge you happened to right-click.
+  const t = d3.zoomTransform(container);
+  const rect = container.getBoundingClientRect();
+  const hostRect = host.getBoundingClientRect();
+  const cx = rect.left - hostRect.left + t.applyX((box.minX + box.maxX) / 2);
+  const cy = rect.top - hostRect.top + t.applyY((box.minY + box.maxY) / 2);
+  wbMapRadialFor = node.id;
+  ring.style.left = `${Math.round(cx)}px`;
+  ring.style.top = `${Math.round(cy)}px`;
+  ring.classList.remove("hidden");
+  wbSyncMapRadialAlt(false);
+  const collapse = document.getElementById("wb-radial-collapse");
+  if (collapse) {
+    const folded = Boolean(node.data?.collapsed);
+    const label = folded ? "Open this branch again (C)" : "Fold this branch away (C)";
+    collapse.title = label;
+    collapse.setAttribute("aria-label", label);
+    const glyph = collapse.querySelector("i");
+    if (glyph) glyph.className = `ph ph-caret-circle-${folded ? "right" : "down"}`;
+  }
+  const sever = document.getElementById("wb-radial-sever");
+  // A trunk has no parent to be cut from, and a slot that cannot act says so
+  // rather than doing nothing (the same rule the dock's own controls follow).
+  if (sever) {
+    const rooted = node.parent_id == null || !wbMapIndex().byId.has(node.parent_id);
+    sever.disabled = rooted;
+    sever.title = rooted
+      ? "This topic is already a trunk of its own"
+      : "Cut this topic free of its parent, as a trunk of its own";
+  }
+  return true;
+}
+
+//: The node an open ring acts on, or null. Every slot goes through this so a
+//: ring whose node has since been deleted closes instead of throwing.
+function wbMapRadialNode() {
+  if (wbMapRadialFor == null) return null;
+  const node = (wbState.objects || []).find((o) => o.id === wbMapRadialFor);
+  if (!node || !WB_MAP_KINDS.has(node.kind)) {
+    wbCloseMapRadial();
+    return null;
+  }
+  return node;
+}
+
+//: Copy a branch: this topic and everything under it, as a sibling of itself.
+//:
+//: Built from the node endpoint rather than from the board's copy/paste,
+//: which works on a flat selection and would paste ten unrelated boxes where
+//: a branch was. Parents before children (`wbMapSubtree` returns them in that
+//: order), so every child's new parent already exists by the time it is
+//: created: an old id maps to a new one exactly once.
+async function wbMapCopyBranch(id) {
+  const index = wbMapIndex();
+  const source = index.byId.get(id);
+  if (!source) return;
+  const subtree = wbMapSubtree(index, id);
+  if (subtree.length > WB_MAP_COPY_MAX) {
+    toast(`That branch has ${subtree.length} topics: copying stops at ${WB_MAP_COPY_MAX}.`, true);
+    return;
+  }
+  const mapped = new Map();
+  for (const node of subtree) {
+    const parentId = node.id === id
+      ? (index.byId.has(node.parent_id) ? node.parent_id : null)
+      : mapped.get(node.parent_id);
+    // A child whose parent failed to copy has nowhere to go: stop rather than
+    // scattering the rest of the branch at the top level.
+    if (node.id !== id && parentId == null) break;
+    const created = await wbMapCreateNode({
+      parentId: parentId ?? null,
+      kind: node.kind,
+      text: wbMapLabel(node),
+      refId: node.data?.ref_id ?? null,
+    });
+    if (!created) break;
+    // The copy looks like the original: the styling lives in `data` and the
+    // create endpoint only takes a label, so it is written straight after.
+    const style = {};
+    for (const key of WB_MAP_STYLE_KEYS) {
+      if (node.data?.[key] != null) style[key] = node.data[key];
+    }
+    if (Object.keys(style).length) {
+      created.data = { ...created.data, ...style };
+      await wbSaveObject(created);
+    }
+    mapped.set(node.id, created.id);
+  }
+  await wbMapTidy({ quiet: true });
+  renderWhiteboardNow();
+  const rootCopy = mapped.get(id);
+  if (rootCopy) selectWbItem("object", rootCopy);
+  toast(`Copied ${mapped.size} topic${mapped.size === 1 ? "" : "s"}.`);
+}
+
+//: A branch big enough that copying it is a mistake rather than an intention.
+//: One POST per node (there is no bulk create), so a thousand-node branch
+//: would be a thousand requests: the same shape `wbSaveBulkMove` already
+//: pays for, and the reason a cap is kinder than a progress bar here.
+const WB_MAP_COPY_MAX = 120;
+
+//: Everything the strip and the radial can set on a node, in one list, so a
+//: copy carries what the original wore and "reset to the branch" clears
+//: exactly the same set. A key added to one and not the other is how a copy
+//: quietly loses its colour.
+const WB_MAP_STYLE_KEYS = [
+  "color", "bold", "italic", "font_size", "align", "icon", "link", "edge_label",
+];
+
+//: Remove this topic and keep its branch: the children move up to its parent
+//: first, then the node goes. Through `/move`, which is the only endpoint
+//: that runs the cycle check (`wbMapOutdent`'s own comment), and children
+//: first so a failure leaves the branch attached to something rather than
+//: orphaned under a node that no longer exists.
+async function wbMapRemoveKeepingBranch(id) {
+  const boardId = window.currentBoardId;
+  const index = wbMapIndex();
+  const node = index.byId.get(id);
+  if (!boardId || !node) return;
+  const children = index.childrenOf.get(id) || [];
+  // The last-topic rule, at this door too: removing the only topic on the map
+  // empties it, and §12.0 says a map is never empty.
+  if (!children.length && wbMapDeleteEmptiesMap(id)) {
+    wbMapRefuseLastTopic();
+    return;
+  }
+  const parentId = index.byId.has(node.parent_id) ? node.parent_id : null;
+  try {
+    for (const child of children) {
+      const moved = await apiJson(`/whiteboard/boards/${boardId}/nodes/${child.id}/move`, {
+        method: "PUT",
+        body: JSON.stringify({ parent_id: parentId }),
+      });
+      Object.assign(child, moved);
+    }
+  } catch (err) {
+    toast(err.message || "Couldn't move that branch up.", true);
+    return;
+  }
+  await wbMapDeleteSubtree(id);
+  await wbMapTidyBranch(parentId);
+}
+
+//: Sever (§12.1 item 9): cut a topic free of its parent so it becomes a trunk
+//: of its own, branch and all. `parent_id: null` is a move the endpoint
+//: already supports; floating topics are allowed by §12.0 ("multiple roots
+//: are allowed"), so this needs no new rule, only a way to ask for it.
+async function wbMapSever(id) {
+  const boardId = window.currentBoardId;
+  const index = wbMapIndex();
+  const node = index.byId.get(id);
+  if (!boardId || !node) return;
+  if (node.parent_id == null || !index.byId.has(node.parent_id)) {
+    toast("This topic is already a trunk of its own.");
+    return;
+  }
+  const oldParent = node.parent_id;
+  try {
+    const moved = await apiJson(`/whiteboard/boards/${boardId}/nodes/${id}/move`, {
+      method: "PUT",
+      body: JSON.stringify({ parent_id: null }),
+    });
+    Object.assign(node, moved);
+  } catch (err) {
+    toast(err.message || "Couldn't cut that topic free.", true);
+    return;
+  }
+  // A severed topic keeps the colour it had as part of the branch it left,
+  // which would be a lie about where it belongs: it is its own trunk now, so
+  // it starts the palette again like every other trunk's children do.
+  if (node.data?.color) await wbMapSetNodeStyle(node, { color: null });
+  await wbMapTidyBranch(oldParent);
+  renderWhiteboardNow();
+  toastAction("Cut free as its own trunk.", "Put it back", async () => {
+    try {
+      const back = await apiJson(`/whiteboard/boards/${boardId}/nodes/${id}/move`, {
+        method: "PUT",
+        body: JSON.stringify({ parent_id: oldParent }),
+      });
+      Object.assign(node, back);
+      await wbMapTidyBranch(oldParent);
+      renderWhiteboardNow();
+    } catch (err) {
+      toast(err.message || "Couldn't put it back.", true);
+    }
+  });
+}
+
+//: What the line into a topic says. Stored on the child, which is the end of
+//: a tree edge that has exactly one of them (see the schema's own comment),
+//: and drawn by `wbRenderMapEdges`.
+async function wbMapLabelEdge(id) {
+  const index = wbMapIndex();
+  const node = index.byId.get(id);
+  if (!node) return;
+  if (!index.byId.has(node.parent_id)) {
+    toast("A trunk has no line into it to label.");
+    return;
+  }
+  const current = node.data?.edge_label || "";
+  const answer = await promptDialog(
+    "What does the line into this topic say?",
+    current,
+    { confirmLabel: current ? "Change the label" : "Add the label" }
+  );
+  const text = String(answer ?? "").trim();
+  // Same rule as the strip's link: `promptDialog` cannot tell Escape from an
+  // empty field, so an empty answer changes nothing. Clearing a label is
+  // "Back to the branch" on this same ring.
+  if (!text) return;
+  await wbMapSetNodeStyle(node, { edge_label: text.slice(0, 80) });
+  renderWhiteboardNow();
+}
+
+//: "Back to the branch" (§12.0: "'Reset to branch' on any node"). Drops every
+//: key the strip and the radial can set, in one list rather than one button
+//: per property, which is what makes it usable as the way out of a node you
+//: have over-decorated.
+async function wbMapResetToBranch(id) {
+  const node = (wbState.objects || []).find((o) => o.id === id);
+  if (!node) return;
+  const patch = {};
+  for (const key of WB_MAP_STYLE_KEYS) patch[key] = null;
+  await wbMapSetNodeStyle(node, patch);
+  renderWhiteboardNow();
+  toast("Back to the branch's own look.");
+}
+
 function wbSyncMapChrome() {
   const isMap = wbIsMap();
   wbSyncToolSurfaces(isMap);
@@ -5195,6 +5502,18 @@ function wbCloseContextMenu() {
 function wbOpenContextMenuFor(kind, id, clientX, clientY) {
   const key = wbMultiKey(kind, id);
   if (!wbMultiSelection.has(key)) wbHandleItemClick(kind, id, { shiftKey: false });
+  //: **A map node gets the ring, not the list** (MINDMAP_PLAN.md §12.1 item
+  //: 3). Routed here rather than at the two gestures because right-click and
+  //: touch-and-hold both already arrive at this one function: splitting the
+  //: decision across both is how one of them ends up opening the other thing.
+  //: A multi-selection keeps the flat menu, which is the only one of the two
+  //: whose actions mean anything for more than one item.
+  const ringNode = wbMultiSelection.size === 0 ? wbSelectedMapNode() : null;
+  if (ringNode && ringNode.id === id) {
+    wbCloseContextMenu();
+    if (wbOpenMapRadial(ringNode)) return;
+  }
+  wbCloseMapRadial();
   // Copy/Cut only ever act on a single-item selection (`wbCopySelection`'s
   // own `wbSelectedItem` check): a multi-selection gets the same "node"
   // treatment as a card, which is "Delete only", rather than two buttons
@@ -5217,9 +5536,23 @@ document.addEventListener("click", (e) => {
   if (wbCtxMenuEl && !wbCtxMenuEl.classList.contains("hidden") && !e.target.closest(".wb-ctx-menu")) {
     wbCloseContextMenu();
   }
+  // The ring closes on a click anywhere but itself, the same rule. Its own
+  // slots close it from their handlers instead, after they have acted.
+  if (!e.target.closest("#wb-map-radial")) wbCloseMapRadial();
 });
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") wbCloseContextMenu();
+  if (e.key === "Escape") {
+    wbCloseContextMenu();
+    wbCloseMapRadial();
+  }
+  // Alt is a live modifier while the ring is open, so it is watched here
+  // rather than read only at the click: the two add slots re-label themselves
+  // the moment it goes down. `e.altKey` rather than `e.key === "Alt"` so the
+  // ring is right even when Alt arrives with another key held.
+  if (wbMapRadialFor != null) wbSyncMapRadialAlt(e.altKey);
+});
+document.addEventListener("keyup", (e) => {
+  if (wbMapRadialFor != null) wbSyncMapRadialAlt(e.altKey);
 });
 
 //: Wires the gesture onto one item type's `enter()` selection: called
@@ -5227,6 +5560,14 @@ document.addEventListener("keydown", (e) => {
 //: needs binding once per element the same way click already is (d3 keeps
 //: the same DOM node across a keyed re-render, so a handler bound on enter
 //: persists without needing to be re-applied on every update/merge).
+//: Is this pointer target inside something that is *actually* being typed
+//: into? One place, because the attribute-versus-element mistake below has
+//: now been made twice in this file for two different gestures.
+function wbIsEditingTarget(target) {
+  const editable = target?.closest?.("[contenteditable]");
+  return Boolean(editable && editable.isContentEditable);
+}
+
 function wbWireContextMenu(selection, kind) {
   let holdTimer = null;
   const cancelHold = () => {
@@ -5240,7 +5581,18 @@ function wbWireContextMenu(selection, kind) {
       // A text object's own editable body needs its native context menu
       // (cut/copy/paste, spellcheck): hijacking it here would make the
       // text box's contenteditable unusable with the mouse.
-      if (event.target.closest("[contenteditable]")) return;
+      //
+      // **Asked of the element, not of the attribute.** `closest(
+      // "[contenteditable]")` matches `contenteditable="false"` too, because
+      // an attribute selector tests that the attribute is *there*. Every text
+      // box and every map node on this board carries exactly that attribute
+      // while it is not being edited (`wbBuildMapNode`, and the object render
+      // below), so this guard fired on all of them and a right-click on a
+      // topic opened nothing at all: found by opening the node radial's own
+      // sweep and watching the ring never appear. Same lesson `objDrag`'s own
+      // filter records a hundred lines further down, in the same words: ask
+      // whether it *is* editable.
+      if (wbIsEditingTarget(event.target)) return;
       event.preventDefault();
       event.stopPropagation();
       wbOpenContextMenuFor(kind, d.id, event.clientX, event.clientY);
@@ -5250,7 +5602,7 @@ function wbWireContextMenu(selection, kind) {
     // long-press (wbWireToggleGestures, a few hundred lines up).
     .on("pointerdown.wbctx", (event, d) => {
       if (event.pointerType !== "touch") return;
-      if (event.target.closest("[contenteditable]")) return;
+      if (wbIsEditingTarget(event.target)) return;
       cancelHold();
       holdTimer = setTimeout(() => {
         holdTimer = null;
@@ -6569,6 +6921,37 @@ async function initWhiteboard() {
     await wbSaveObject(node);
     renderWhiteboardNow();
   });
+  //: The node radial (§12.1 item 3). Each slot reads the node the ring was
+  //: opened for, acts, and closes: a ring that stayed open over a map that has
+  //: just been re-laid-out would be pointing at empty canvas.
+  const radialSlot = (id, run) => {
+    $(id)?.addEventListener("click", async (event) => {
+      const node = wbMapRadialNode();
+      wbCloseMapRadial();
+      if (node) await run(node, event);
+    });
+  };
+  radialSlot("wb-radial-child", (node, event) => (
+    // Alt swaps the adds for the removes, which is Coggle's gesture. Read
+    // from the event rather than from a flag the ring kept, so a keyboard
+    // activation with Alt held is the same as a click with Alt held.
+    event.altKey ? wbMapDeleteSubtree(node.id) : wbMapAddChild(node.id)
+  ));
+  radialSlot("wb-radial-sibling", (node, event) => (
+    event.altKey ? wbMapRemoveKeepingBranch(node.id) : wbMapAddSibling(node.id)
+  ));
+  radialSlot("wb-radial-collapse", (node) => wbMapToggleCollapse(node.id));
+  radialSlot("wb-radial-tidy", async (node) => {
+    const moved = await wbMapTidy({ onlyBranch: node.id, quiet: true });
+    toast(moved
+      ? `Laid out ${moved} topic${moved === 1 ? "" : "s"}.`
+      : "This branch is already where the layout puts it.");
+  });
+  radialSlot("wb-radial-copy", (node) => wbMapCopyBranch(node.id));
+  radialSlot("wb-radial-label", (node) => wbMapLabelEdge(node.id));
+  radialSlot("wb-radial-sever", (node) => wbMapSever(node.id));
+  radialSlot("wb-radial-reset", (node) => wbMapResetToBranch(node.id));
+
   //: The node edit strip (§12.1 item 2). Every handler reads the selection at
   //: the moment it fires rather than closing over a node: the strip is one set
   //: of controls that moves between nodes, so a captured node is a control

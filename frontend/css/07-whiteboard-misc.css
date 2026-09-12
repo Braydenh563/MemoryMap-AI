@@ -8221,6 +8221,115 @@ input[type="file"] {
   padding-inline: var(--space-2);
 }
 
+/* --- the node radial (MINDMAP_PLAN.md §12.1 item 3) -------------------------
+   Eight buttons in a ring around the topic they act on, which is Coggle's own
+   idiom and the point of the whole section: the controls appear on the thing
+   you picked, not only in a bar at the top.
+
+   **No surface behind the ring.** A disc centred on the node covers the node
+   the ring is about; a translucent one covers it and tints it. So the ring's
+   own box is transparent and inert, and only its buttons take the pointer.
+   That also settles which button recipe applies: nothing frames these, so each
+   keeps the base tonal look (fill, hairline, lift) rather than the quieted run
+   a dock or a floating panel gets.
+
+   **Placed with `left`/`top`, never `translate`.** The app's press cue is
+   `translate` plus `scale` (01-forms-settings.css, pinned by
+   tests/test_ui_recipes.py), and `translate` is one property holding a list:
+   a slot placed with it would be thrown back to the ring's centre on every
+   press, which is the exact bug that lint exists to stop. Half the button's
+   own width comes off each offset so the *centre* of the button lands on the
+   ring rather than its top-left corner. */
+.wb-map-radial {
+  position: absolute;
+  z-index: 23;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.wb-map-radial-slot {
+  --wb-radial-r: 4.25rem;
+  /* 0.7071 is cos 45 degrees: the four diagonals sit on the same circle as
+     the four axes, which is what makes the ring read as a ring. */
+  --wb-radial-diag: calc(var(--wb-radial-r) * 0.7071);
+  --wb-radial-half: 0.875rem;
+  position: absolute;
+  left: calc(50% + var(--wb-radial-dx) - var(--wb-radial-half));
+  top: calc(50% + var(--wb-radial-dy) - var(--wb-radial-half));
+  width: 1.75rem;
+  height: 1.75rem;
+  min-width: 0;
+  border-radius: var(--radius-pill);
+  pointer-events: auto;
+}
+
+/* Clockwise from the top. The order in the markup is the order in the ring,
+   so a reader of either can find the other. */
+.wb-map-radial-slot:nth-child(1) {
+  --wb-radial-dx: 0rem;
+  --wb-radial-dy: calc(var(--wb-radial-r) * -1);
+}
+
+.wb-map-radial-slot:nth-child(2) {
+  --wb-radial-dx: var(--wb-radial-diag);
+  --wb-radial-dy: calc(var(--wb-radial-diag) * -1);
+}
+
+.wb-map-radial-slot:nth-child(3) {
+  --wb-radial-dx: var(--wb-radial-r);
+  --wb-radial-dy: 0rem;
+}
+
+.wb-map-radial-slot:nth-child(4) {
+  --wb-radial-dx: var(--wb-radial-diag);
+  --wb-radial-dy: var(--wb-radial-diag);
+}
+
+.wb-map-radial-slot:nth-child(5) {
+  --wb-radial-dx: 0rem;
+  --wb-radial-dy: var(--wb-radial-r);
+}
+
+.wb-map-radial-slot:nth-child(6) {
+  --wb-radial-dx: calc(var(--wb-radial-diag) * -1);
+  --wb-radial-dy: var(--wb-radial-diag);
+}
+
+.wb-map-radial-slot:nth-child(7) {
+  --wb-radial-dx: calc(var(--wb-radial-r) * -1);
+  --wb-radial-dy: 0rem;
+}
+
+.wb-map-radial-slot:nth-child(8) {
+  --wb-radial-dx: calc(var(--wb-radial-diag) * -1);
+  --wb-radial-dy: calc(var(--wb-radial-diag) * -1);
+}
+
+/* Alt held: the two add slots are the two remove slots, so they say so. The
+   app's own danger colour, on the button rather than only in the title,
+   because a gesture that deletes a branch must not look like the one that
+   grows it. */
+.wb-map-radial-slot.wb-map-radial-danger {
+  color: var(--error);
+  border-color: color-mix(in srgb, var(--error) 45%, transparent);
+}
+
+/* What the line into a topic says (§12.1 items 3 and 4). Drawn in the edge
+   layer, which takes no pointer events, so the label is a caption rather than
+   a control: it is edited from the radial that put it there. Stroked in the
+   canvas colour under the fill (`paint-order`) so it stays readable where it
+   crosses its own line. */
+.wb-map-edge-label {
+  fill: var(--ink);
+  stroke: var(--card);
+  stroke-width: 3;
+  paint-order: stroke;
+  font-size: var(--text-xs);
+  text-anchor: middle;
+  pointer-events: none;
+}
+
 /* What the strip sets, drawn on the node. Weight and slant sit on the text
    rather than on the node so a node's icon and its count badge keep their own
    weight; alignment is the text's own, which is the only thing on the node

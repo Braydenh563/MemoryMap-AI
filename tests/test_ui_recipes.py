@@ -217,3 +217,49 @@ def test_no_dialog_is_a_direct_child_of_a_page() -> None:
         "these dialogs are direct children of a page and will take the content "
         "column's width and margins: " + ", ".join(offenders)
     )
+def test_a_radial_places_its_slots_without_the_transform_properties() -> None:
+    """A ring of actions is placed with `left`/`top`, never with `translate`.
+
+    DESIGN.md's recipe index gained the radial with MINDMAP_PLAN §12.1 item 3
+    (the map's node ring). The rule it needs a lint for is the one that is
+    invisible in a diff and obvious on screen: the app's press cue is
+    `translate` plus `scale` (pinned by the test above), and `translate` is one
+    property holding a list, so a slot placed with it is thrown back to the
+    ring's centre on every press. Same failure class as the lightbox arrows and
+    the chat jump-to-latest pill, both of which were reported before the cue
+    was rewritten; this stops the ring re-learning it.
+    """
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    placed = False
+    for selector, body in _rules(css):
+        if ".wb-map-radial-slot" not in selector:
+            continue
+        assert "transform:" not in body and "translate:" not in body, (
+            f"{selector.strip()} places a radial slot with a transform; the "
+            "recipe is `left`/`top` from --wb-radial-r (DESIGN.md, the recipe "
+            "index), because the press cue owns `translate`"
+        )
+        if "left:" in body and "top:" in body:
+            placed = True
+    assert placed, (
+        "the radial recipe has lost its `left`/`top` placement rule; "
+        "DESIGN.md's recipe index says a slot is placed that way"
+    )
+
+
+def test_the_radial_is_a_toolbar_rather_than_a_menu() -> None:
+    """A ring claims the role a screen reader can do something with.
+
+    `role="menu"` promises a list walked with the arrow keys; a radial is a
+    toolbar arranged in a circle. Claiming the wrong one is worse than
+    claiming nothing, and it would also be a hand-built menu, which the
+    ratchet above counts.
+    """
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    start = html.find('id="wb-map-radial"')
+    assert start != -1, "the node radial has gone missing from index.html"
+    opening = html[html.rfind("<div", 0, start): html.find(">", start) + 1]
+    assert 'role="toolbar"' in opening, (
+        "the node radial must be role=toolbar, not a menu (DESIGN.md, the "
+        "recipe index)"
+    )

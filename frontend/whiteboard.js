@@ -214,9 +214,45 @@ const wbDeleting = new Set();
 // used to write three transforms, three grid variables and the navigator
 // synchronously. Only the last transform in a frame can be painted, so the
 // rest was work the compositor threw away. One pending write per frame.
+//
+//: **The split: the layers move now, the rest waits for the frame.**
+//: Reported as "when I pan the whiteboard and mindmap around, it is still
+//: laggy and the shapes and links and everything feels like it lags behind a
+//: bit", and the first attempt at it A/B'd six conditions and found identical
+//: frame times (this sandbox is vsync-bound), which is the wrong end of the
+//: problem: nothing about the *shape* of the work above depended on how long
+//: the work took.
+//:
+//: What the coalescing above is right about is the *cost* half: grid
+//: variables, the selection bar and the navigator are per-frame work and
+//: three wheel events in one frame should not do them three times. What it
+//: was also doing is deferring the transform itself, which is the one write
+//: with nothing to save: the compositor can only paint the last value of a
+//: frame either way, so writing it on every event costs three style
+//: invalidations and no layout, and writing it late can only ever be later.
+//:
+//: Honest about what that does and does not prove. What is measured
+//: (`scratchpad/ui-sweeps/panlag.js`) is that the layer transform is now the
+//: new matrix in the same task as the input event, while the grid variables
+//: are still written once per frame. What is *not* measured, and cannot be
+//: on this box, is a frame of latency: Chromium dispatches coalesced input at
+//: the start of a frame and runs `requestAnimationFrame` later in that same
+//: frame, so for input that arrives on that path the old code was already
+//: painting in the right frame. This removes a deferral that had nothing to
+//: gain, for input on any other path; it is not a claim that the report is
+//: fixed.
 let wbZoomFrame = 0;
 let wbZoomPending = null;
+
+function wbApplyZoomTransform(t) {
+  const css = `translate(${t.x}px, ${t.y}px) scale(${t.k})`;
+  d3.select("#wb-html-layer").style("transform", css);
+  d3.select("#wb-zoom-group").style("transform", css);
+  d3.select("#wb-overlay-zoom-group").style("transform", css);
+}
+
 function handleWbZoom(e) {
+  wbApplyZoomTransform(e.transform);
   wbZoomPending = e.transform;
   if (wbZoomFrame) return;
   wbZoomFrame = requestAnimationFrame(() => {
@@ -224,10 +260,6 @@ function handleWbZoom(e) {
     const t = wbZoomPending;
     wbZoomPending = null;
     if (!t) return;
-    const css = `translate(${t.x}px, ${t.y}px) scale(${t.k})`;
-    d3.select("#wb-html-layer").style("transform", css);
-    d3.select("#wb-zoom-group").style("transform", css);
-    d3.select("#wb-overlay-zoom-group").style("transform", css);
     wbSyncGridToTransform(t);
     wbUpdateSelectionBar();
     // The navigator's viewport rectangle is only true for one transform, so

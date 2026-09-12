@@ -8,11 +8,12 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap.core import deps
-from memorymap.core.database import Bookmark
+from memorymap.core.database import Bookmark, DocumentBookmark, EntryBookmark
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import log_action
 
@@ -117,8 +118,22 @@ def update_bookmark(
 
 @router.delete("/{bookmark_id}")
 def delete_bookmark(bookmark_id: int, session: Session = Depends(get_session)) -> dict:
+    """Delete a saved link, and the two join tables that attach it.
+
+    `EntryBookmark` and `DocumentBookmark` hold real foreign keys with no
+    cascade, and `PRAGMA foreign_keys=ON` is set, so a bookmark attached to a
+    note or a document could not be deleted at all: the delete raised
+    `FOREIGN KEY constraint failed`, answered 500, and the link stayed in the
+    list. Attaching it is what made it permanent, which is the same shape
+    that made a document with a note on it undeletable, one table over.
+
+    The join row goes, not the thing at the other end of it: a note does not
+    disappear because a link saved on it did.
+    """
     bookmark = _existing(session, bookmark_id)
     log_action(session, "deleted", "bookmark", bookmark.id)
+    session.execute(sa_delete(EntryBookmark).where(EntryBookmark.bookmark_id == bookmark.id))
+    session.execute(sa_delete(DocumentBookmark).where(DocumentBookmark.bookmark_id == bookmark.id))
     session.delete(bookmark)
     session.commit()
     return {"deleted": True}

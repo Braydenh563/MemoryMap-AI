@@ -197,6 +197,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A saved link attached to a note or a document can be deleted again.
+  Attaching it was what made it permanent: the delete failed and left it in
+  the list.
+
 - A note with a saved link, a recognised person or a resurfacing score on
   it can be deleted for good again. Emptying the bin, or destroying one such
   note, failed outright and left it where it was.

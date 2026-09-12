@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A board keeps a history too. Moving a card, rewriting a text box, deleting
+  a branch, creating, duplicating, generating or importing a board: each one
+  is recorded with who did it and what it looked like before, so a board's
+  parts can be rebuilt from their own history the way a note already could.
+
 - One search across the whole notebook. Notes, boards, documents, the text
   read out of files, bookmarks and reminders are in one index, so a word you
   wrote in a document is found by the same search that finds it in a note.
@@ -26,6 +31,19 @@ below). Versioning is `0.x` while the app stabilises.
   answers the app's own search box gets.
 
 ### Changed
+
+- The history of a note no longer keeps a copy of its whole text for ever.
+  Changes older than ninety days keep the record of what happened and who
+  did it, and let go of the text, apart from the five most recent changes to
+  anything, which are always kept. On a notebook of 150 notes edited 40
+  times each this took the history from 9.9 MB to 1.5 MB, and the file
+  itself from 13.5 MB to 3.0 MB. Putting a note back the way it was still
+  works for everything inside the window, and a change whose text is no
+  longer kept says so rather than looking empty.
+
+- Opening a note's history is no longer slower the more the notebook has
+  been used: it is served from an index rather than by reading the whole
+  log. Measured on 60,000 recorded changes, 6.390 ms became 0.082 ms.
 
 - Finding notes similar to the one you are reading no longer reads every
   stored vector for every note opened. They are held in one array, built
@@ -85,6 +103,13 @@ below). Versioning is `0.x` while the app stabilises.
   text on purpose.
 
 ### Fixed
+
+- The history sheet no longer shows a note's newest fifty changes as though
+  they were all of them. It says how many it is showing and offers to load
+  the older ones.
+
+- Deleting a card no longer fails on a board that holds a drawing saved in
+  an older shape.
 
 - A ring of actions opened on a topic near the edge of the window no longer
   loses the slots that fall past the edge, or puts them under the top bar.

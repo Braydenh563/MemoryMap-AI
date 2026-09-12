@@ -21974,3 +21974,93 @@ number comes from the 4-dimensional fake and the widths, the anisotropy and
 the real cost of `embed_text` per query are untested. The startup warm was
 exercised by the suite, not by watching a cold desktop launch. No notebook
 larger than 5,000 entries was built.
+
+### From `agent-remaining/brief7-event-log.md`: the event log's open items
+
+Four of the seven items Brief 7 left. What is still open, with its next
+step, stays in that file; the decisions are there too, since they are the
+kind a later run must not remake.
+
+**The log stopped growing by a copy of every note (item 1).** A payload
+holds whole field values, which is what makes replay meaningful, and the
+cost was an `audit_log` that grew on every edit and never shrank.
+Compaction rather than deletion, which is the decision the plan had already
+made: deleting old events would break the log's one promise. A run of
+events older than ninety days folds into one snapshot, the newest event of
+the run keeping a payload with the whole state at that point, the events
+behind it keeping their row (action, actor, detail, time, so `/audit` and
+the feed do not move) and losing only their values. Replay starts from the
+snapshot and applies everything after it, landing where it landed before.
+The newest five events of anything are kept whatever their age: five, not
+twenty, because `EntryRevision` already keeps the last twenty versions of
+every note for ever, and keeping twenty here as well collapsed nothing on
+an ordinary notebook. It runs at startup beside the recycle-bin clear
+(`_compact_event_log` in `api/app.py`, window from the `event_log_days`
+preference) and is idempotent by construction: a second pass finds the
+stripped rows stripped and recomputes the same snapshot.
+
+Measured on a database built by the app's own managers, 150 notes of about
+700 characters each edited 40 times (6,150 events): payloads 9,892,755 ->
+1,456,100 bytes (85.3% smaller), the file 13,504,512 -> 3,039,232 (77.5%),
+the pass 0.39 s, replay landing on the current state for 150 notes out of
+150. Before it, the log grew by about 1,600 payload bytes per edit of a
+700-character note, the text twice over. Measured again on a real running
+app: the startup job took one notebook's payloads from 24,975 to 5,844
+bytes with its 247 rows untouched. No `VACUUM` here: the freed pages are
+reused at once and `ai/autonomous.py`'s `_vacuum` hands them back on its
+own schedule.
+
+What it gives up, it says out loud: restoring a version whose values are
+gone answers 410 with the reason, and the History sheet renders "The text
+from this change is no longer kept." in that row rather than a blank one.
+
+**A note's history stopped scanning the whole log (item 2).**
+`events.events_for` filtered `entity_type` and `entity_id` with neither
+indexed. `ix_audit_log_entity (entity_type, entity_id, id DESC)` went into
+`DatabaseManager._INDEXES`, which is what reaches an existing notebook, and
+into an Alembic migration for a database upgraded through Alembic alone;
+both IF NOT EXISTS, so they cannot disagree. Raw DDL in the migration
+because Alembic has no portable way to say `id DESC`, and without the
+direction SQLite sorts rather than walking. Measured on 60,000 events over
+2,000 notes: "SCAN audit_log" at 6.390 ms per request became "SEARCH
+audit_log USING INDEX ix_audit_log_entity" at 0.082 ms. The migration's own
+test disables `_INDEXES` for the build and stands the database at the
+baseline, and fails when the migration's body is removed.
+
+**The History sheet stopped silently truncating (item 6).** The route pages
+with `before` and returns `next_cursor`; the sheet read the first page and
+dropped the cursor, so a note edited more than fifty times showed its
+newest fifty and looked complete. The bottom row now says what is on screen
+and carries "Load older changes", which inserts the next page above itself
+so the list stays newest-first; when there is nothing older it says so, and
+on a note whose history fits in one page it is not rendered at all.
+Measured in a browser (`scratchpad/ui-sweeps/historypage.js`, one note with
+60 edits): 52 rows and "Showing the 50 most recent changes to this note."
+with one button, then 62 rows and "That is all 60 changes to this note."
+with none, no console errors. Existing recipes only, so no new CSS and no
+new row in DESIGN.md's index.
+
+**A board has a history too (item 3).** B1's wording names
+"`routes_whiteboard.py`'s manager" beside the entry managers, and that
+module recorded nothing at all: a card could be moved, a text box rewritten
+and a branch deleted with no record of who did it or what it said before.
+Every write route there is wrapped in `@events.writes` with a whole-field
+payload: nodes placed, edited and deleted, sketches and objects the same,
+map nodes created and moved, a board created, duplicated, generated and
+imported. Deleting a branch is one event carrying every row that went, the
+shape `purge_entries` already uses. The replayable entity is the item
+rather than the board (a board is a note plus everything on it), so a
+board's whole state is the union of its items' replays and `replay` stays
+one function. `rename_board` is the deliberate exception: its title change
+goes through `manager.update_entry`, and a scope there would fold the
+note's own edit into the board's event and take it out of that note's
+history, so it records the board's settings beside the note's edit instead,
+two events on two entities. The spec now enumerates that module the way it
+enumerates the entry manager: sixteen write routes driven through the API,
+each with its own setup so the enumeration cannot depend on alphabetical
+order, and a new write route fails the test until it records.
+
+Found and fixed on the way: `_forget_links_to` called `.get` on whatever
+`json.loads` returned for a sketch's `data`, so a drawing stored as a bare
+JSON array (which the API accepts, and an import can produce) turned an
+unrelated card's deletion into a 500.

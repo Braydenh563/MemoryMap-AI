@@ -1016,7 +1016,23 @@ function gcWireInteraction() {
 
   gcCanvas.addEventListener("click", (event) => {
     const [x, y] = gcWorldPoint(event);
-    if (gcNodeAtWorld(x, y)) return; // handled by the drag's own end
+    const hit = gcNodeAtWorld(x, y);
+    if (hit) {
+      //: **A node is clicked here in every layout but force.** Reported:
+      //: "the note node popups dont show on any of the graph views when I
+      //: click on a node except for the force view." In a force layout a
+      //: click on a node is a zero-distance drag, and d3-drag's `end`
+      //: turns it into one (`gcClickNode`), which is why this used to
+      //: return. But a computed layout has no drag at all: `subject()`
+      //: deliberately returns null for tree, radial and arc so a node
+      //: cannot be pulled out of a shape that *is* the meaning, and with
+      //: no drag there is no `end` and nothing ever opened the popup.
+      //: The click event is the only thing those three layouts get, so it
+      //: is where their click lives.
+      if (gcLayoutKind === "force") return;
+      gcClickNode(event, hit);
+      return;
+    }
     const edge = gcEdgeAtWorld(x, y);
     if (edge) {
       openGraphLinkPanel(edge, gcNodes);

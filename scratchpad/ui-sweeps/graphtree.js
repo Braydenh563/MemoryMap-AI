@@ -111,7 +111,18 @@ function crosses(a, b) {
     console.log(`  depth bands ${JSON.stringify(bands)} monotonic=${monotonic}`);
     console.log(`  click node ${target ? target.id : '-'} -> popup ${popup}`);
     if (layout !== 'force' && geo.layout !== layout) fails.push(`${layout}: __graphDebug says layout=${geo.layout}`);
-    if (layout !== 'force' && !monotonic) fails.push(`${layout}: depth does not increase away from the root`);
+    // The arc is the exception by design: it puts *every* node, whatever its
+    // depth, on one baseline in pre-order, so depth maps to nothing on x. Its
+    // own invariant is that single baseline, checked instead.
+    if ((layout === 'tree' || layout === 'radial') && !monotonic) {
+      fails.push(`${layout}: depth does not increase away from the root`);
+    }
+    if (layout === 'arc') {
+      const ys = geo.n.map((n) => n.y);
+      const spread = Math.max(...ys) - Math.min(...ys);
+      console.log(`  arc baseline spread ${spread.toFixed(1)}`);
+      if (spread > 0.5) fails.push(`arc: nodes are ${spread.toFixed(1)}px off one baseline`);
+    }
     if (layout === 'tree' && cross) fails.push(`${layout}: ${cross} pairs of links cross`);
     if (!String(popup).startsWith('open')) fails.push(`${layout}: clicking a node did not open the popup (${popup})`);
   }

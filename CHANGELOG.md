@@ -30,6 +30,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The bottom tab bar on a phone says which tab you are on. Below 480 all seven
+  captions were hidden, so the bar was seven unlabelled glyphs with the selected
+  one marked by colour alone; from 360 up the selected tab keeps its caption and
+  the other six are icons, which is the shape the 820 to 1100 band already uses.
+  Every column also has a 44px floor now: with "Chat" selected the selected
+  column had been shrinking to 41.9px.
+
 - A picture in the Library can be opened from the keyboard. The thumbnail and the
   filename both opened the picture on click, and neither was focusable: measured,
   the only controls a keyboard could reach on a resting card were the selection

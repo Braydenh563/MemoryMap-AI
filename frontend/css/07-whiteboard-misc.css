@@ -10286,7 +10286,15 @@ header#top-bar {
 
   #tab-bar button {
     flex: 1 1 0;
-    min-width: 0;
+    /* **A 44px floor, not zero.** `min-width: 0` was right while every column
+       was a seventh of the window and therefore 45.7px at the narrowest width
+       the shell holds; it stopped being right the moment one column could take
+       its own content width (the caption rule below). Measured at 360, 390 and
+       430 with "Chat" selected: the selected column shrank to 41.9px, because
+       "Chat" is the shortest caption in the set and the column was free to be
+       as narrow as its contents. A tab is the one control in the app you aim at
+       without looking. */
+    min-width: var(--target-min);
     height: 100%;
     padding: 0;
     display: flex;
@@ -10370,9 +10378,52 @@ header#top-bar {
   }
 }
 
-@media (max-width: 479.98px) {
+/* **The third option, which is the one the app already uses one band up.**
+   Measured at 360 and 390 (2026-09-13, UI_MODERNISATION_PLAN Phase 11): with the
+   blanket rule above, all seven captions were hidden and the bottom of a phone
+   was seven unlabelled glyphs, with which tab you are on carried by colour
+   alone. The reasoning above rules out two answers and it is right about both:
+   seven whole captions do not fit (476px of them), and an ellipsis on two of
+   seven reads as damage.
+
+   It does not consider the third, and the third is not an invention here: band 2
+   (820 to 1100, 10-responsive.css) already keeps the caption on the *selected*
+   tab and drops the other six, citing the HIG's own tab-bar guidance, because a
+   bar that says where you are is worth more than a bar that names everywhere you
+   could go. The same shape, at the other end of the scale, costs one rule and no
+   copy decision (the "Dashboard" to "Home" question the note above defers is
+   still deferred, and still the better answer).
+
+   The selected tab takes its own content width and the other six share what is
+   left. Measured after, at 320, 360 and 390: the strip fits on one row with no
+   sideways scroll at all three, and the caption on the selected tab is whole. */
+/* **Below 360 the caption goes after all, and the arithmetic is why.** Seven
+   columns at the 44px floor need 308px, which fits in 320. Give one of them its
+   caption and the widest case, "Reminders" selected, needs 80.2px plus six 44px
+   columns: 344.2px, which does not. Measured at 320 with Timeline and then
+   Reminders selected, before this split: the other six columns fell to 42.2px
+   and then 40px, so the caption was bought with the hit target of every tab
+   beside it. Seven icons at 45.7px is the better trade at that width, and 320 is
+   the width the shell is held to rather than the width it is used at. */
+@media (max-width: 359.98px) {
   .tab-label {
     display: none;
+  }
+}
+
+@media (min-width: 360px) and (max-width: 479.98px) {
+
+  #tab-bar button:not(.active) .tab-label {
+    display: none;
+  }
+
+  /* `0 1 auto`, not `0 0 auto`: at 320 with the longest caption selected the
+     strip is within a few pixels of the window, and a column that may not
+     shrink is how a bar starts scrolling sideways. It shrinks last, because
+     every other column is `1 1 0` and gives up space first. */
+  #tab-bar button.active {
+    flex: 0 1 auto;
+    padding-inline: var(--space-2);
   }
 }
 

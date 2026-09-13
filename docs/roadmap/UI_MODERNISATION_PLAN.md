@@ -600,6 +600,25 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
    scroll up (INBOX 104), never hidden; More is a sheet with the rest of
    the tabs and Settings; the top bar keeps the title, the AI dot and one
    action.
+
+   **Part built, 2026-09-13: the bar says where you are.** The five-item shape
+   is still the target and is still open; what landed is the measured defect
+   underneath it. From 360 to 479.98 the selected tab keeps its caption and the
+   other six are icons, which is not an invention but the shape band 2 (820 to
+   1100) already uses, citing the HIG. Below 360 every caption still goes, and
+   that is arithmetic: seven columns at the 44px floor need 308px and fit 320,
+   while one of them carrying "Reminders" needs 344.2px and does not. Every
+   column also gained a `--target-min` floor, because a column free to take its
+   own content width shrank to 41.9px with the shortest caption ("Chat")
+   selected. Measured with `scratchpad/ui-sweeps/phonetabs.js`, seven tabs at
+   each of 320, 360, 390 and 430: one caption shown, never clipped, no column
+   under 44px, no sideways scroll in the strip or the page, the bar flush to the
+   bottom edge. `touch.js` at 390: 17 surfaces, 0 findings.
+
+   What is left of item 1, in order: the five items themselves (which needs the
+   More sheet, and the sheet needs a recipe row and a lint in DESIGN.md's index,
+   since there is none for a sheet and two surfaces already build one by hand),
+   then the recede-on-scroll (INBOX 104), then the top bar's own reduction.
 2. **Notes.** Capture as a full-height sheet from the floating + button;
    the list as full-width rows with swipe actions (pin, bin) matched to
    the row's menu (the HIG rule); filters in a sheet; the note view as a
@@ -637,6 +656,41 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
     and 360 in 360, and every width from 320 to 1024 is clean. The second
     option, one action and a sheet, is still the right end state and is this
     phase's own item 1.
+
+**What is actually open here, measured (2026-09-13, at 360, 390 and 820).**
+Before building any of the ten items above, the running app was measured, because
+two of them turned out to be mostly done and one of them turned out to be a
+different problem than the list says.
+
+- **The bottom tab bar exists** (`dockTabBar`, app.js; the phone band in
+  07-whiteboard-misc.css). At 360 and 390 it is `position: fixed` on the body,
+  pinned flush to the bottom edge, 57.6px tall, seven equal columns, no sideways
+  scroll. At 820 the strip is back in the header, as band 2 says it should be.
+- **What is wrong with it is item 1, and the measurement is blunt: at phone
+  widths every caption is hidden.** Seven columns of 51.4px at 360 and 55.7px at
+  390, with `.tab-label` `display: none` on all seven (the rule below 480, which
+  is there because seven captions need 476px). So the bottom of a phone is seven
+  unlabelled glyphs, and which tab you are on is carried by colour alone. Five
+  items (Notes, Chat, Graph, Library, More) give 72px a column at 360, which
+  fits every caption in the set with room over: the five-item bar is not a
+  nicety, it is what makes the bar readable at all.
+- **Touch is already clean.** `touch.js` at 390x844 with `hasTouch` and
+  `isMobile`: 17 surfaces, 0 controls under 44px, 0 covered, 0 overlapping taps,
+  the bar pinned, no sideways scroll on any of the seven tabs, `--target-min`
+  2.75rem. Item 9 is met for everything the sweep reaches.
+- **The sheets are half built.** `#sidebar`, `#chat-sidebar` and `#doc-sidebar`
+  become edge sheets below 600 (`.sidebar-sheet-open`, 07-whiteboard-misc.css)
+  and the graph's dock becomes `.graph-popup-sheet`. What is missing is the
+  recipe: DESIGN.md's index has no row for a sheet, so the next one will be
+  built by hand. Item 1's More sheet is the moment to add the row and its lint.
+- **A finding at 820, which is not a phone at all.** The header is 108.2px
+  there: two rows, a wrapped tab strip, on a band whose own rule (band 2,
+  10-responsive.css) says "the tabs are icons, and the header is one row". The
+  strip needs 440px at 820 (the active tab keeps its caption at 146.2px, the
+  other six are 49px) and it is still wrapping. And the buttons are 36px tall,
+  under the 44px `--target-min` the band below it raises them to, because 820 is
+  the first width *outside* the touch band. Both are band-2 faults rather than
+  phone ones, and neither is in the list above.
 
 11. **Gates.** A phone sweep (`scratchpad/ui-sweeps/phone.js`) at 390 x 844
     and 430 x 932 per tab: no horizontal scroll, no control under 44px,

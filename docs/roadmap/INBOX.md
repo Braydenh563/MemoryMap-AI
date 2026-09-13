@@ -52,6 +52,93 @@ measured or built in earlier commits and is marked there.
 
 ## Open items
 
+169. **Mid-work drop, 2026-09-13 ~07:00, verbatim (the owner), the chat's
+    ask-user tool (four screenshots).** "when the ask user tool is used, the
+    message {"The model finished without writing anything. That usually
+    means it ran out of context or the model is struggling with this
+    question, try again, or rephrase it."} shows above, also should ask user
+    have a textbox in it for the "other" option?? and the ask user tool
+    should be select and submit, not instant submit when clicked" · "it
+    asked me another question, I decided to write something else in the
+    chat bar and submit that as an answer but the ask user message didnt
+    update instead it stayed there, so I pressed the "other" option and i t
+    started generating two responses??"
+
+170. **Mid-work drop, 2026-09-13, verbatim (the owner), the context
+    window.** "is there a way to improve or make managable the 8.2k model
+    window in chats and other ai features??" With the agent run logs:
+    "context budget: 8192 tok window -> system=1477 tools=7912 results=7912
+    notes=6594 history=3956 reply=4915 chars / prompt composition:
+    system=1766 history=0 notes+question=4225 tool_schemas=4738 chars (14
+    tools offered)" (four such lines, tool_schemas up to 6389 chars with 18
+    tools). The header badge read 2.2k / 8.2k then 3.8k / 8.2k on
+    granite4.1:3b.
+
+171. **Mid-work drop, 2026-09-13, verbatim (the owner), the chat
+    transcript (two screenshots: every Librarian bubble empty under its
+    label, the last one holding only a "Next:" suggestion chip).** "all the
+    ai responses dissappeared 😭😭". Each empty bubble followed a turn in
+    which the model had asked a question through the ask-user tool.
+
+172. **Mid-work drop, 2026-09-13, verbatim (the owner), what the AI
+    writes.** "I want to be able to export, copy, or save etc things such as
+    tables, code blocks etc that the ai generates, maybe even view them in
+    the lightbox?? it's just that scrollable tables in responses are good
+    but sometimes hard or annoying to read, maybe the user cna toggle how to
+    view the table in chat responses??" · "<br> md tags arent rendered
+    properly and I want better and more modern cool web link rendering"
+
+173. **Mid-work drop, 2026-09-13, verbatim (the owner), Settings > Logs
+    (three screenshots of the top bar's trailing button: a chevron drawn
+    over the three dots, with a focus ring).** "the dropdown in the settings
+    logs page top bar is visually broken" · "more like the button not the
+    dropdown menu itself".
+
+174. **Mid-work drop, 2026-09-13, verbatim (the owner), the Library's
+    Images sub-tab (three screenshots: a board thumbnail as a pale card with
+    faint strokes and the note titles run over the edge; the image grid
+    with one card's caption expanded and its neighbours' thumbnails
+    stretched to match; the same grid with a card's underlined filename
+    poking past the card).** "some of the preview items go outside of the
+    background border, when I extend the text in image cards, the images of
+    other ones extend and the design of the images cards in the images
+    subtab in the library just still isnt professional" · "exported images
+    from the whiteboard/mind map straight to the library dont have a
+    metadata area below for image and ocr captioning".
+
+175. **Mid-work drop, 2026-09-13, verbatim (the owner), the whiteboard's
+    keyboard.** "also I want to be able to hold shift and use arrows when
+    moving items on teh whiteboard and move them further distance
+    increments when if just using arrows like in adobe software and other
+    common software".
+
+176. **Mid-work drop, 2026-09-13, verbatim (the owner), boards chrome
+    (screenshots: the Name the new board dialog with neither Board nor Mind
+    map selected; a mind map's top bar with the fullscreen button hanging
+    off its right end; the Arrange menu two rows tall with a scrollbar).**
+    "when I go to make a new board, no option is selected by default" ·
+    "in the mindmap, the fullscreen button in the top right of the top bar
+    is off the bar and half off the screen" · "the arrange dropdown in the
+    whiteboard and mindmap is really short compared to the other dropdown
+    menus".
+
+177. **Mid-work drop, 2026-09-13, verbatim (the owner), mind map design
+    (screenshots: the radial ring of grey circles around a selected topic
+    on the dark canvas; two coggle.io captures of thick tapered coloured
+    branches ending in arrowheads; a topic whose "Aa" button overlaps the
+    popup buttons).** "fix and redesign the style of the item radials in
+    the mindmap as they are hard to see. also I feel like the style of the
+    links in mindmaps needs to be improved, like in coggle.io the links are
+    really refined, thicker, and have a clear direction they are going" ·
+    "make the ability to make core mindmap nodes, make core mindmap nodes
+    able to have different styles and shapes etc, allow the style of the
+    left edge of each mindmap node to be adjustable like if it is solid or
+    dashed etc. allow managing of connection line styles. the "Aa" font
+    size button placement clashes with the popup buttons, and I cant resize
+    mindmap notes like with objects and notes in the whiteboard" · "one of
+    my mindmap nodes isnt linked to anything, so I tried to use the link
+    tools like the curbved link tools and they didnt work".
+
 168. **Mid-work drop, 2026-09-13 16:41, verbatim (the owner), the document
     editor, one screenshot (the word popup for "tets" drawn at the window's
     right edge, its suggestion column cut off past the viewport, the

@@ -1006,9 +1006,18 @@ EXPORTS_LIST_LIMIT = 50
 
 
 @router.get("/files/exports")
-def list_exports() -> dict:
+def list_exports(
+    response: Response,
+    limit: int = Query(EXPORTS_LIST_LIMIT, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+) -> dict:
+    """The exports folder, newest first, paged like every other growing list
+    (`limit`/`offset`, `X-Total-Count` for the whole). Sorted on the raw mtime
+    with the name as the tie-break: two files saved within one second, which
+    CI's disks manage easily, would otherwise come back in either order."""
     exports = _exports_dir()
     if not exports.is_dir():
+        response.headers["X-Total-Count"] = "0"
         return {"path": str(exports), "files": []}
     rows = []
     for entry in exports.iterdir():
@@ -1016,14 +1025,19 @@ def list_exports() -> dict:
             continue
         stat = entry.stat()
         rows.append(
-            {
-                "filename": entry.name,
-                "bytes": stat.st_size,
-                "modified_at": datetime.fromtimestamp(stat.st_mtime).isoformat(timespec="seconds"),
-            }
+            (
+                stat.st_mtime,
+                entry.name,
+                {
+                    "filename": entry.name,
+                    "bytes": stat.st_size,
+                    "modified_at": datetime.fromtimestamp(stat.st_mtime).isoformat(timespec="seconds"),
+                },
+            )
         )
-    rows.sort(key=lambda row: row["modified_at"], reverse=True)
-    return {"path": str(exports), "files": rows[:EXPORTS_LIST_LIMIT]}
+    rows.sort(key=lambda row: (row[0], row[1]), reverse=True)
+    response.headers["X-Total-Count"] = str(len(rows))
+    return {"path": str(exports), "files": [row[2] for row in rows[offset : offset + limit]]}
 
 
 @router.get("/files/exports/{filename}")

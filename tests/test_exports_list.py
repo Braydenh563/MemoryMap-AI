@@ -11,6 +11,8 @@ so a browser tab gets its exports back as well.
 from __future__ import annotations
 
 import base64
+import os
+from pathlib import Path
 
 from memorymap.api.routes_files import EXPORTS_DIRNAME, EXPORTS_LIST_LIMIT
 
@@ -31,7 +33,14 @@ def test_an_empty_or_missing_folder_lists_nothing(client, app_state):
 def test_saved_files_are_listed_newest_first_with_their_size(client, app_state):
     _save(client, "first.md", b"one")
     _save(client, "second.png", b"\x89PNG....")
-    body = client.get("/files/exports").json()
+    # CI's disks write both inside one mtime tick; the order under test is
+    # "newest first", so the ages are set rather than raced.
+    exports = Path(client.get("/files/exports").json()["path"])
+    os.utime(exports / "first.md", (1_700_000_000, 1_700_000_000))
+    os.utime(exports / "second.png", (1_700_000_100, 1_700_000_100))
+    response = client.get("/files/exports")
+    assert response.headers["X-Total-Count"] == "2"
+    body = response.json()
     names = [row["filename"] for row in body["files"]]
     assert names[0] == "second.png"
     assert set(names) == {"first.md", "second.png"}

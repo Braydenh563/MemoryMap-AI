@@ -32316,6 +32316,23 @@ function renderStatusBar() {
     const meta = STATUS_META_KEY.startsWith("⌘") ? "⌘" : "Ctrl";
     agent.title = `Ask the agent anything, from any tab (${meta}+Shift+A)`;
   }
+
+  //: The Guide, built the same way one control along (INBOX 207): it left the
+  //: header cluster with the wand, and the pair belongs together, one does
+  //: things to your notes and the other explains the app. A compass rather
+  //: than the header's '?', because a '?' beside a labelled word reads as
+  //: help about the word.
+  const guide = $("status-guide");
+  if (guide) {
+    guide.replaceChildren();
+    const glyph = document.createElement("i");
+    glyph.className = "ph ph-compass";
+    glyph.setAttribute("aria-hidden", "true");
+    const word = document.createElement("span");
+    word.textContent = "Guide";
+    guide.append(glyph, word);
+    guide.title = "Ask the guide how this app works, from any tab";
+  }
 }
 
 // Hover is handled in CSS. This is the click half, needed for touch, where
@@ -36901,6 +36918,12 @@ $("status-reminders").addEventListener("click", () => switchTab("reminders"));
 $("status-task").addEventListener("click", () => openSettingsModal("tasks"));
 $("status-command").addEventListener("click", () => openPalette());
 $("status-agent")?.addEventListener("click", () => toggleAgentPalette());
+//: settings.js owns the Guide sheet and loads after this file, so the lookup
+//: is deferred to the click rather than taken now. The same shape the phone's
+//: More sheet already uses for the same function.
+$("status-guide")?.addEventListener("click", () => {
+  if (typeof openHelpChat === "function") openHelpChat();
+});
 
 // Paint it before any poll lands, so the bar is furniture from the first frame
 // rather than four boxes that pop into existence a second later.
@@ -40326,6 +40349,14 @@ const STATUS_SLOTS = [
     label: "Ask the agent",
     hint: "Open the agent over whatever you are doing, from any tab",
   },
+  //: Added with INBOX 207, when the Guide left the header cluster. A slot
+  //: added later appears by default for everyone, which is what storing the
+  //: hidden set rather than the shown one buys (the note above).
+  {
+    key: "guide",
+    label: "Guide",
+    hint: "Ask the guide how this app works, from any tab",
+  },
 ];
 
 function hiddenStatusSlots() {
@@ -41493,10 +41524,9 @@ cmdPaletteOverlay.addEventListener("click", (e) => {
 // offers a control you can see and this one asked you to know a key.
 $("command-palette-close").addEventListener("click", () => toggleAgentPalette());
 
-//: The header's wand: the palette's one visible way in (INBOX 190). The chord
-//: still works and is named in the button's tooltip, which is how anybody
-//: finds out a chord exists.
-$("agent-btn")?.addEventListener("click", () => toggleAgentPalette());
+//: The header's wand moved to the status bar with INBOX 207; the slot's own
+//: listener sits beside the rest of the bar's, and the chord is named in its
+//: tooltip, which is how anybody finds out a chord exists.
 
 //: **The agent bar keeps a conversation, and says so.** Reported: "the popup
 //: agent needs more features, capability, and learnability, there's no way to

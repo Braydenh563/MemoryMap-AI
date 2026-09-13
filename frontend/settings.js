@@ -3472,5 +3472,7 @@ function openHelpChat() {
   return close;
 }
 
-$("guide-btn")?.addEventListener("click", () => openHelpChat());
+//: The header's '?' became the status bar's Guide slot with INBOX 207;
+//: app.js binds that one, because the status bar is its markup and it can
+//: reach this function through `window` by the time a click happens.
 $("settings-guide-btn")?.addEventListener("click", () => openHelpChat());

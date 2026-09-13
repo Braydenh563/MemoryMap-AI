@@ -24947,6 +24947,38 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     the editor in place; the popup agent's label now names the thing that
     is open rather than saying "the open note".
 
+207. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the header
+    (screenshot: the header's five icon buttons: bell, magic wand, '?',
+    theme, gear).** "move the help bot to the bottom bar instead of having
+    it in the top bar buttons, also the popup agent is already accessible in
+    the bottom bar so it doesnt need to be in the top bar buttons either".
+    The wand (`#command-palette-btn` or equivalent) and the '?' (`#guide-btn`)
+    leave `.header-controls`; the Guide joins the bottom bar (the status bar
+    on desktop, `#phone-tab-dock`'s More sheet on a phone) beside the agent.
+    Owner: orchestrator.
+    **Fixed.** Both buttons left `.header-controls`; the Guide is
+    `#status-guide` in the status bar beside `#status-agent`, same shape, its
+    own `data-status-slot` so it can be hidden from Settings like the rest.
+    Measured (`scratchpad/ui-sweeps/chromehelp.js`, `chrome207.js`, 1440x900
+    then 390x844): the header cluster is three buttons (bell, theme, gear),
+    was five; the status bar shows Ask and Guide; the Ask slot opens the
+    palette and the Guide slot opens the Guide sheet; at 390 the page's
+    scrollWidth is 390 against a 390px client, the header overflows by 0px,
+    and the More sheet still lists Ask the agent and Guide at 44px a row.
+    **And the half the owner added once the two had left** ("it feels out of
+    place"): the segmented wells are gone. A tinted shell with hairline seams
+    says its items are one control in several positions, which was a stretch
+    at five items and wrong at three. The bell, theme and gear, and the lock
+    and power pair, are plain icon-only ghost buttons on the header's own
+    ground, one spacing step apart, at the tab strip's own height token; the
+    grouping is distance again (`.header-cluster-end`'s margin and
+    `.header-divider`). Measured (`scratchpad/ui-sweeps/chromehdr.js`, light
+    and dark): 0 seam shadows and 0 shells, was 5 seams and 2 shells; cluster
+    height 36px against a tab button's 36px, was 40px; gap 6.4px (one step);
+    header overflow 0px. The one button reading a background in the dark pass
+    is `#theme-btn` under the pointer that had just switched the theme, which
+    is the hover tint.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

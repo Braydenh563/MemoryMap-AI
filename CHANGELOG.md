@@ -15,7 +15,10 @@ below). Versioning is `0.x` while the app stabilises.
   backticks while the caret is elsewhere; the graph node popup opens rendered
   and no longer repeats the note's own pictures (198). Today's note is one
   press, one note, and jumps to it (199). Every sheet has a close button in
-  its title row (204).
+  its title row (204). The agent and the Guide leave the header for the
+  bottom bar, which takes the header cluster from five buttons to three, and
+  the header's icon buttons lose their segmented wells for the header's own
+  ground (207).
 
 ### Added
 

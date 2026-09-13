@@ -2622,16 +2622,6 @@ function startBgArt() {
       p.noStroke();
       p.fill(0, 0, dark ? 12 : 98, dark ? 0.10 : 0.12);
       p.rect(0, 0, p.width, p.height);
-      //: **A trail has to end.** A 10% wash never quite reaches the ground:
-      //: once a pixel is within a couple of steps of it, the blend rounds
-      //: back to where it was, and every path ever drawn stayed as a faint
-      //: residue (INBOX 210, "the trails never end"). Every sixth frame the
-      //: wash is strong enough to round those last steps away; the trails
-      //: keep their length, the residue does not.
-      if (p.frameCount % 6 === 0) {
-        p.fill(0, 0, dark ? 12 : 98, 0.32);
-        p.rect(0, 0, p.width, p.height);
-      }
       style.frame(t);
     };
 

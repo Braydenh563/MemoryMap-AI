@@ -95,10 +95,14 @@ measured or built in earlier commits and is marked there.
     agent.
     **Aurora: fixed. The switch: it exists.** The ring is drawn on its own
     layer and composited each frame, so it no longer stamps itself into the
-    trail buffer; every sixth frame the wash is strong enough to round the
-    last steps of a trail away. Measured (`scratchpad/aurora.js`, dark): a
-    full-white mark on the canvas is 18 levels from the ground after half a
-    second and 0 after one, where a 10% wash alone never reaches it. The
+    trail buffer; the stronger sixth-frame wash that made a mark reach the
+    ground in a second was **reverted the same hour**: at 30 frames a second
+    it pulsed five times a second ("there's a flashing", "the flashing is
+    everywhere"). The residue is arithmetic (a 10% blend cannot move a pixel
+    that is within three levels of the ground), so the fix has to be a
+    different technique, not a stronger wash: the trails on their own
+    layer, cleared and redrawn from a short history of positions, which
+    ends a trail by construction. Open, for the agent. The
     background's own movement is Settings, Appearance, Background,
     Movement: Still, separate from Reduce motion; "everything else moves"
     is what that choice already does. Left open: the pass over bubbles and

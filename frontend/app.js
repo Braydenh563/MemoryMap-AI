@@ -11251,11 +11251,62 @@ function addInlineCitations(answerEl, sentences, rawResults, orderedSources = nu
         event.stopPropagation();
         flashEntry(g.note_id);
       });
+      //: **Hover shows the passage, not the whole note** (CHAT_PLAN decision
+      //: 2, the last step of `agent-remaining/chat-timeline-skills.md` item
+      //: 1). The span has been on every grounding row since the passage
+      //: scorer landed and nothing on screen read it, so a mark said "note 4"
+      //: where it could say which forty words of note 4. The card is the
+      //: place for it rather than a tooltip: it is already the thing that
+      //: says what this source is, and a tooltip cannot hold a paragraph.
+      const passage =
+        Number.isInteger(g.start) && Number.isInteger(g.end) && g.end > g.start
+          ? (entry?.content || "").slice(g.start, g.end)
+          : "";
+      if (passage) {
+        for (const name of ["mouseenter", "focus"]) {
+          link.addEventListener(name, () => showCitedPassage(g.note_id, passage));
+        }
+        for (const name of ["mouseleave", "blur"]) {
+          link.addEventListener(name, clearCitedPassage);
+        }
+      }
       marker.appendChild(link);
       tail.parentNode.insertBefore(marker, tail);
       placed.add(key);
       break; // this node is now split; its tail is at the head of the queue
     }
+  }
+}
+
+//: The passage a citation came from, shown on its own card while the mark is
+//: hovered or focused. Focus as well as hover, because a person moving
+//: through an answer with Tab reaches these markers and would otherwise get
+//: the one thing this adds only with a mouse.
+function showCitedPassage(noteId, passage) {
+  clearCitedPassage();
+  for (const card of document.querySelectorAll(`.chat-source-card[data-note-id="${noteId}"]`)) {
+    //: A closed disclosure cannot show anything, and the mark is the reader
+    //: asking to see this source: opened, and left open, because closing it
+    //: again the moment the pointer moves would be the panel flickering at
+    //: every mark passed over on the way down an answer.
+    card.closest("details")?.setAttribute("open", "");
+    card.classList.add("is-cited");
+    const box = document.createElement("p");
+    box.className = "chat-source-passage";
+    const mark = document.createElement("mark");
+    //: `textContent`, not the markdown renderer: this is a slice taken at
+    //: character offsets, so it can begin mid-emphasis, and rendering half a
+    //: `**` is how a highlight starts eating the rest of the card.
+    mark.textContent = passage;
+    box.appendChild(mark);
+    card.appendChild(box);
+  }
+}
+
+function clearCitedPassage() {
+  for (const box of document.querySelectorAll(".chat-source-passage")) box.remove();
+  for (const card of document.querySelectorAll(".chat-source-card.is-cited")) {
+    card.classList.remove("is-cited");
   }
 }
 
@@ -16573,6 +16624,11 @@ function chatSourcesPanel(input) {
       card = document.createElement("div");
     }
     card.className = `chat-source-card${source.url || source.open ? " is-openable" : ""}`;
+    //: Which note this card is, so a citation marker in the answer can find
+    //: its own card and show the passage it came from (`showCitedPassage`).
+    //: An id rather than the index, because the panel caps its rows and the
+    //: numbering falls back past the cap.
+    if (source.kind === "note" && source.id != null) card.dataset.noteId = String(source.id);
     const head = document.createElement("span");
     head.className = "chat-source-head";
     const number = document.createElement("span");

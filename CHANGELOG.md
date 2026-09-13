@@ -9,6 +9,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A citation mark in a chat answer now shows the exact passage it came from on
+  that source's card when hovered or focused, rather than only naming the note.
+
 - The Guide is told which tab the question came from and what the controls on
   it are called, so "how does this work?" is answered about the surface in
   front of you rather than with "I'm not sure". It still cannot read a note:

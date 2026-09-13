@@ -24,9 +24,22 @@ green and its Built block is in `HISTORY.md` ("Moved from the plans,
    "a threshold calibrated on the eval fixtures (Brief 12)", and those
    fixtures do not exist; changing what counts as supported without them would
    be a judgement dressed as a measurement. Next steps, in order: the ten-
-   question fixture set, then the threshold, then the renderer (hover
-   highlights `note.content.slice(start, end)`, about ten lines, in
-   `frontend/app.js` which four agents were editing today).
+   question fixture set, then the threshold, then the renderer.
+   **The renderer is done (2026-09-13, chat agent).** Hovering or focusing a
+   citation mark shows that sentence's passage on its own source card:
+   `showCitedPassage` in `frontend/app.js` slices the note at the offsets the
+   grounding row already carried, the card carries `data-note-id` so a mark
+   can find it, and the disclosure opens so there is something to see.
+   Measured (`scratchpad/ui-sweeps/citepassage.js`, which shims
+   `/chat/stream` with a real answer, a real retrieval row and a real
+   grounding event): the card shows 76 characters that equal
+   `content.slice(start, end)` exactly, on the card whose `data-note-id` is
+   the cited note, inside an opened panel, drawn on
+   `rgba(79, 109, 245, 0.14)` and 37.2px tall, and gone again on mouse-out
+   (0 passages, 0 cited cards), with 0 page errors. Focus is wired as well as
+   hover, so a reader moving through an answer with Tab gets it too.
+   What is still open here is the half above it: the fixtures and the
+   threshold, which decide *which note* grounds a sentence.
 
 2. **Ask's answer object was measured on the offline branch only.** The sweep
    runs against a server with no model, so `sentences` was empty in every
@@ -40,7 +53,21 @@ green and its Built block is in `HISTORY.md` ("Moved from the plans,
    request a chip causes, not the model's choice of question. Nothing to fix;
    worth knowing before reading the sweep as proof of the whole feature.
 
-4. **`chatSourcesPanel` is shared, the renderer is not.** Decision 3 says "the
+4. **`chatSourcesPanel` is shared, the renderer is not.** **Judged not worth
+   it, 2026-09-13 (chat agent), and this line is the answer either way.** The
+   case for it is decision 3's words, "the renderer is one function". The case
+   against is what the three surfaces actually are: the Chat bubble carries a
+   thinking box, a step fold, a persona label and a per-answer action strip;
+   Ask carries a history panel and follow-up chips; the palette's row is 293px
+   wide and has no room for either. What they share is already shared, the
+   three components (`chatSourcesPanel`, `renderAnswerGrounding`,
+   `renderInlineCitations`), and every one of the three fixes landed this
+   session (the passage highlight above, the table bar, the link menu) went
+   into a shared component and reached all three surfaces at once, which is
+   the property the unification was for. Folding the frames together would be
+   a large edit to the most-edited function in the file, for no behaviour, on
+   a branch where four agents have been editing `app.js` in parallel. Left
+   deliberately; reopen it only if a fourth surface appears. Decision 3 says "the
    renderer is one function" for Chat, Ask and the agent. What was built is one
    *object* and three shared components; the Chat tab still assembles its own
    bubble and the popup agent still has `cmdPaletteResultRow`. Next step, if it

@@ -4924,6 +4924,32 @@ mark.lightbox-hit {
   overflow: hidden;
 }
 
+/* **The passage a citation came from** (CHAT_PLAN decision 2: "hover
+   highlights the passage"). Shown under the card's own two-line preview while
+   a mark in the answer is hovered or focused, and removed when it is not, so
+   the panel at rest is the list of sources it was. Not clamped: the point of
+   it is to be readable, and a passage is forty words. The accent rail is what
+   ties it to the mark that opened it, the same rail an active row wears
+   elsewhere in this app. */
+.chat-source-passage {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--accent);
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
+.chat-source-passage mark {
+  background: var(--accent-soft);
+  color: inherit;
+  border-radius: var(--radius-sm);
+  padding: 0 2px;
+}
+
+.chat-source-card.is-cited {
+  border-color: var(--accent);
+}
+
 .chat-source-foot {
   font-size: var(--text-xs);
   overflow: hidden;

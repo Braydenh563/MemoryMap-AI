@@ -78,11 +78,20 @@ horizontally and 4px below, and closed once the word leaves.
   every uncommitted change). Anyone committing from the shared index should
   stage their own paths into a private `GIT_INDEX_FILE` instead, as the briefs
   ask.
-- `spellwide.js` flags its words with "idk", so a data directory whose
-  `writing_dictionary` contains "idk" (this session's persistence probe put it
-  there) silently reduces the sweep to one finding and every case reports "no
-  mark". Run it against a fresh data dir, or teach the sweep to clear the
-  preference first.
+- `spellwide.js` flagged its words with "idk", so a data directory whose
+  `writing_dictionary` contains "idk" silently reduced the sweep to one finding
+  and every case reported "no mark". **Fixed** (2026-09-13), and not by
+  clearing the preference (a sweep that edits a notebook's settings to make
+  itself work is a sweep nobody can run on a real one): it now seeds a probe
+  document with twelve candidate words, reads back which of them this notebook
+  actually marks, and spells its cases with three of those, printing the
+  dictionary beside the answer. A case that finds no mark is a failure now
+  rather than a skip, which is what let the old run report "all cases flush"
+  having measured nothing. Measured: with the dictionary holding teh,
+  seperate, recieve, definately and wierd, the sweep picks occured, thier and
+  quozzle and all 18 cases pass with 0 console errors; the old sweep on the
+  same notebook with "idk" added reported "no mark" in 15 of its 18 cases and
+  counted none of them as a failure.
 - The dictionary half of INBOX 128 could not be reproduced: adding a word
   persists here across a server restart and a fresh browser profile
   (`writing_dictionary` reads `["idk"]`, the word is not flagged). The

@@ -12,17 +12,38 @@ const { boot } = require("./lib.js");
 // with the same word twice, filler so the editor really scrolls, and a flagged
 // word on the very last line.
 const FILL = "The quick brown fox jumped over the lazy dog and then went home again. ";
-const CONTENT = [
+
+// **The words are chosen, not written in.** This sweep used to spell its cases
+// with "teh", "idk" and "seperate", and the dictionary is a user preference on
+// the server: a data dir where somebody once pressed "Add to dictionary" on
+// one of them (this project's own persistence probe did exactly that with
+// "idk") stops it being flagged, every case that looks for it reports "no
+// mark", and the run passes having measured nothing. A sweep that can be
+// silently emptied by the state of the machine it runs on is worse than no
+// sweep: it reports "all cases flush" either way.
+//
+// So the first thing it does is prove which candidates this notebook actually
+// flags, and it spells the cases with three of those. A missing mark is a
+// failure from here on, never a skip.
+const CANDIDATES = [
+  "teh", "seperate", "recieve", "definately", "wierd", "occured", "thier",
+  // Nonsense, as the fallback that cannot plausibly be in anybody's
+  // dictionary: a run on a notebook where every common typo has been added
+  // still has three words to work with.
+  "quozzle", "sproggle", "vimberlot", "frimbly", "glorptak",
+];
+
+const contentFor = (mid, many, last) => [
   "Draft notes",
   "",
-  "A short line with teh first typo in it.",
-  `${FILL}${FILL}Then at the end of this one sits idk`,
+  `A short line with ${mid} first typo in it.`,
+  `${FILL}${FILL}Then at the end of this one sits ${many}`,
   "",
-  `Another paragraph that mentions idk twice, and again idk near the end of ${FILL}`,
+  `Another paragraph that mentions ${many} twice, and again ${many} near the end of ${FILL}`,
   "",
   ...Array.from({ length: 40 }, (_, i) => `Filler paragraph ${i + 1}. ${FILL}`),
   "",
-  "The last line of all ends with seperate",
+  `The last line of all ends with ${last}`,
 ].join("\n");
 
 (async () => {
@@ -33,7 +54,48 @@ const CONTENT = [
   await page.waitForTimeout(900);
   await page.click('[data-target="library-view-documents"]').catch(() => {});
   await page.waitForTimeout(1200);
-  const made = await page.evaluate(async (content) => {
+  // --- which words does THIS notebook flag? ---------------------------------
+  // One document with every candidate in it, opened, and the marks read off.
+  // The dictionary is printed beside the answer, because "the sweep found
+  // nothing" and "this data dir has learned the word" are the same symptom and
+  // the reader needs to be able to tell them apart at a glance.
+  const probe = await page.evaluate(async (candidates) => {
+    const headers = { "X-Auth-Token": localStorage.getItem("token") || "", "Content-Type": "application/json" };
+    const content = ["Flag probe", ""].concat(
+      candidates.map((word, i) => `Probe line ${i + 1} puts ${word} in a sentence.`)
+    ).join("\n\n");
+    const doc = await (await fetch("/documents", {
+      method: "POST", headers, body: JSON.stringify({ title: "Flag word probe", content }),
+    })).json();
+    switchTab("documents");
+    await new Promise((res) => setTimeout(res, 400));
+    await openDocument(doc.id);
+    await new Promise((res) => setTimeout(res, 2500));
+    const marked = [...document.querySelectorAll("[data-doc-finding]")]
+      .map((n) => (n.textContent || "").trim().toLowerCase());
+    let dictionary = "unreadable";
+    try {
+      const prefs = await (await fetch("/preferences", { headers })).json();
+      dictionary = (prefs.writing_dictionary || []).join(", ") || "(empty)";
+    } catch (e) { dictionary = "unreadable: " + e.message; }
+    // The probe document is a fixture, not a finding: leave the notebook as it
+    // was found, or the next run's probe reads this one's marks too.
+    await fetch(`/documents/${doc.id}`, { method: "DELETE", headers });
+    return { marked, dictionary };
+  }, CANDIDATES);
+
+  const flagged = CANDIDATES.filter((word) => probe.marked.some((text) => text.includes(word)));
+  console.log(`dictionary: ${probe.dictionary}`);
+  console.log(`flagged here: ${flagged.join(", ") || "(none)"} of ${CANDIDATES.length} candidates`);
+  if (flagged.length < 3) {
+    console.log("FAIL: fewer than three candidate words are flagged in this notebook, so the "
+      + "cases below would measure nothing. Run against a fresh data dir, or add candidates.");
+    await browser.close();
+    process.exit(1);
+  }
+  const [MID, MANY, LAST] = flagged;
+
+  const made = await page.evaluate(async ({ content, words }) => {
     const r = await fetch("/documents", {
       method: "POST",
       headers: { "X-Auth-Token": localStorage.getItem("token") || "", "Content-Type": "application/json" },
@@ -44,9 +106,15 @@ const CONTENT = [
     await new Promise((res) => setTimeout(res, 400));
     await openDocument(doc.id);
     await new Promise((res) => setTimeout(res, 2500));
+    // The words the cases below pick by, in the page, so a matcher stays a
+    // one-liner and cannot drift from the words the document was written with.
+    window.__words = words;
+    window.__pick = (word, nth = 0) =>
+      [...document.querySelectorAll("[data-doc-finding]")]
+        .filter((n) => (n.textContent || "").toLowerCase().includes(word))[nth];
     return { id: doc.id, findings: docProseFound.length, view: docView };
-  }, CONTENT);
-  console.log("seeded: " + JSON.stringify(made));
+  }, { content: contentFor(MID, MANY, LAST), words: { mid: MID, many: MANY, last: LAST } });
+  console.log(`seeded: ${JSON.stringify(made)} with ${MID} / ${MANY} / ${LAST}`);
 
   // One case: pick a mark by a matcher, press the fragment a reader would
   // press, and report both boxes. Everything is measured, nothing is looked at.
@@ -120,42 +188,48 @@ const CONTENT = [
       if (out.pastCard) bad.push(`${out.pastCard}px past the card`);
       if (out.gapX > 0) bad.push(`gapX ${out.gapX}`);
       if (out.gapY > 6) bad.push(`gapY ${out.gapY}`);
-    } else if (!out.skip) bad.push("menu did not open");
+    } else if (out.skip) {
+      // **Never a skip.** A case that cannot find its word measured nothing,
+      // and the run that reports it as a skip reads exactly like the run that
+      // measured every case and found them flush. That is how a dictionary
+      // holding one of these words emptied this sweep silently.
+      bad.push(`no mark for the flagged word (${out.marks} mark(s) on screen)`);
+    } else bad.push("menu did not open");
     console.log(`${name}: ${JSON.stringify(out)} ${bad.length ? "  <<< " + bad.join(", ") : ""}`);
     return bad.length ? 1 : 0;
   };
 
   let bad = 0;
-  bad += await one("mid-line (the old probe's case)", null, (m) => m.find((n) => /teh/.test(n.textContent)));
-  bad += await one("end of a long line", null, (m) => m.find((n) => /idk/.test(n.textContent)));
+  bad += await one("mid-line (the old probe's case)", null, () => window.__pick(window.__words.mid));
+  bad += await one("end of a long line", null, () => window.__pick(window.__words.many));
   bad += await one("second occurrence of the same word", null,
-    (m) => m.filter((n) => /idk/.test(n.textContent))[2] || m.filter((n) => /idk/.test(n.textContent))[1]);
+    () => window.__pick(window.__words.many, 2) || window.__pick(window.__words.many, 1));
   bad += await one("last line, editor scrolled to the end",
     () => { const s = document.querySelector(".cm-scroller"); if (s) s.scrollTop = s.scrollHeight; },
-    (m) => m.find((n) => /seperate/.test(n.textContent)));
+    () => window.__pick(window.__words.last));
   bad += await one("split view, end of a long line",
     () => setDocView("split"),
-    (m) => m.find((n) => /idk/.test(n.textContent)));
+    () => window.__pick(window.__words.many));
   bad += await one("source view, end of a long line",
     () => setDocView("source"),
-    (m) => m.find((n) => /idk/.test(n.textContent)));
-  bad += await one("live view again", () => setDocView("live"), (m) => m.find((n) => /idk/.test(n.textContent)));
+    () => window.__pick(window.__words.many));
+  bad += await one("live view again", () => setDocView("live"), () => window.__pick(window.__words.many));
 
   await page.setViewportSize({ width: 1100, height: 760 });
   await page.waitForTimeout(700);
-  bad += await one("1100x760, end of a long line", null, (m) => m.find((n) => /idk/.test(n.textContent)));
+  bad += await one("1100x760, end of a long line", null, () => window.__pick(window.__words.many));
   await page.setViewportSize({ width: 820, height: 700 });
   await page.waitForTimeout(700);
-  bad += await one("820x700, end of a long line", null, (m) => m.find((n) => /idk/.test(n.textContent)));
+  bad += await one("820x700, end of a long line", null, () => window.__pick(window.__words.many));
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.waitForTimeout(700);
   bad += await one("large text + spacious", () => {
     document.documentElement.setAttribute("data-fontsize", "large");
     document.documentElement.setAttribute("data-density", "spacious");
-  }, (m) => m.find((n) => /idk/.test(n.textContent)));
+  }, () => window.__pick(window.__words.many));
   bad += await one("large text + spacious, last line",
     () => { const s = document.querySelector(".cm-scroller"); if (s) s.scrollTop = s.scrollHeight; },
-    (m) => m.find((n) => /seperate/.test(n.textContent)));
+    () => window.__pick(window.__words.last));
   await page.evaluate(() => {
     document.documentElement.removeAttribute("data-fontsize");
     document.documentElement.removeAttribute("data-density");
@@ -170,13 +244,13 @@ const CONTENT = [
   // geometry as the cases above it, with the art on.
   await page.evaluate(() => document.documentElement.setAttribute("data-bg-art", "on"));
   await page.waitForTimeout(500);
-  bad += await one("background art on, end of a long line", null, (m) => m.find((n) => /idk/.test(n.textContent)));
+  bad += await one("background art on, end of a long line", null, () => window.__pick(window.__words.many));
   bad += await one("background art on, last line scrolled",
     () => { const s = document.querySelector(".cm-scroller"); if (s) s.scrollTop = s.scrollHeight; },
-    (m) => m.find((n) => /seperate/.test(n.textContent)));
+    () => window.__pick(window.__words.last));
   await page.setViewportSize({ width: 1100, height: 760 });
   await page.waitForTimeout(500);
-  bad += await one("background art on, 1100x760", null, (m) => m.find((n) => /idk/.test(n.textContent)));
+  bad += await one("background art on, 1100x760", null, () => window.__pick(window.__words.many));
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.waitForTimeout(500);
   // The belt to that fix: a transform on body traps a body-level fixed popup
@@ -186,7 +260,7 @@ const CONTENT = [
   await page.evaluate(() => { document.body.style.transform = "translate(31px, 17px)"; });
   await page.waitForTimeout(400);
   bad += await one("a transformed body, end of a long line", null,
-    (m) => m.find((n) => /idk/.test(n.textContent)), { trapOk: true });
+    () => window.__pick(window.__words.many), { trapOk: true });
   await page.evaluate(() => {
     document.body.style.transform = "";
     document.documentElement.setAttribute("data-bg-art", "off");
@@ -206,14 +280,14 @@ const CONTENT = [
     closeDocSuggest();
     scroller.scrollTop = 0;
     await new Promise((r) => setTimeout(r, 400));
-    const mark = [...document.querySelectorAll("[data-doc-finding]")].find((n) => /idk/.test(n.textContent));
+    const mark = window.__pick(window.__words.many);
     const f = [...mark.getClientRects()][0];
     mark.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: f.left + f.width / 2, clientY: f.top + f.height / 2 }));
     await new Promise((r) => setTimeout(r, 600));
     const at = box(menu.getBoundingClientRect());
     scroller.scrollBy(0, 80);
     await new Promise((r) => setTimeout(r, 400));
-    const word = [...document.querySelectorAll("[data-doc-finding]")].find((n) => /idk/.test(n.textContent));
+    const word = window.__pick(window.__words.many);
     const w = word ? box([...word.getClientRects()][0]) : null;
     const after = menu.classList.contains("hidden") ? "closed" : box(menu.getBoundingClientRect());
     // Now take the word off the top of the editor entirely.

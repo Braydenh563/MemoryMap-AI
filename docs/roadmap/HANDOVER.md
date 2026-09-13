@@ -344,6 +344,23 @@ which is its own slow cost when the next session reads it. The same three sympto
 console are the signature: one real error, then `X is not defined` and
 `Cannot access Y before initialization` from everything declared after it.
 
+**Now (2026-09-13 night, Fable orchestrating): PR #144 is ready to merge.**
+All six agents finished their lists and were merged with `--no-ff` (backend
+`e7bd26f`, chat `112aac1`, phone `4d4a632`, documents `303db81`, graph
+`c2b4f01`, mind map `28068cf`); CI is green on `0e88c93` on all seven checks
+(three Python suites, ruff, CodeQL, Analyze, E2E) and the PR is mergeable
+clean. Local on that head: `errors.js` 0 errors and 0 layout findings at
+1440/1024/820/390 in both themes, `contrast.js`, `docks.js` and `touch.js`
+clean in both themes. INBOX holds seven older batches with every sub-report
+marked; no Fixed items. What each agent could not verify or left is in its
+`agent-remaining` file (mindmap, ui-phase-11, documents-phases, graph,
+chat-timeline-skills, chat-popup-agent, backend-probe); the app.js split
+(gzip bound raised to 700 KB), the graph options panel's height, `.segmented-
+control` radii and F3/F7/F10 are the named leftovers, all placed. **After the
+merge: Brief 33** (SESSION_BRIEFS), in the owner's words. The `agent/wip-*`
+branches on origin are merged and can be deleted from the GitHub UI (the git
+proxy here refuses deletes).
+
 **Now (2026-09-13 evening, Fable orchestrating, the owner at 97% usage: "when
 the agents cut off because of usage, make sure they all pick back up again
 after, and everything else continues. FINISH THE PR").** Six Opus agents run in

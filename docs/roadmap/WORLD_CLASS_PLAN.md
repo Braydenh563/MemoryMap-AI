@@ -301,7 +301,17 @@ round-trips through the API, FTS finds it, the graph colours by it.
 
 ### D6 Daily notes and the journal (S, Sonnet)
 
-Exists: nothing. Target: `Ctrl+D` opens today's note (created from the
+**The backend is built, 2026-09-13 evening.** `GET /entries/daily/{date}`
+creates or returns (which is what makes the key safe to press from anywhere:
+`startTodaysNote` posted a new note every time, so a day opened twice had two
+notes and its writing split between them), and `GET /entries/daily?through=&days=`
+answers the calendar strip and the streak in one query.
+`tests/test_daily_journal.py`. What is left is frontend: Ctrl+D from every
+tab, the strip itself, and the yesterday/tomorrow pair in the note head.
+
+Exists: the daily-note convention (a note whose first line is `# <ISO date>`)
+and the Today action, from timeline Phase 4; and now the endpoints above.
+Originally: nothing. Target: `Ctrl+D` opens today's note (created from the
 Journal template if missing), a calendar strip on the Timeline dock to jump
 between days, a "yesterday / tomorrow" pair of links in the note head, a
 streak that counts days with a daily note. Brief: `/entries/daily/{date}`

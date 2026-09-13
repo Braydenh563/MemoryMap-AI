@@ -9,6 +9,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The journal has a day that opens twice. `GET /entries/daily/{date}` returns
+  that day's note and makes it only if it is not there yet, so pressing
+  "today's note" a second time no longer leaves two notes headed with the same
+  date and the day's writing split between them. `GET /entries/daily` says
+  which of the last days were written and how many in a row, counting back
+  from the caller's own today and allowing today to still be empty.
+
 - The guard that refuses to fetch a URL pointing back at this machine is one
   function now, `core.security.public_addresses`, rather than a private one
   inside the web reader. A new test walks `src/` for outbound HTTP calls and

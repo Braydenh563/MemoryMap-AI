@@ -11,6 +11,7 @@ import json
 import logging
 import re
 import threading
+from datetime import date, timedelta
 from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -415,6 +416,171 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
 
     return out
 
+
+
+# --- D6: the journal's daily note (WORLD_CLASS_PLAN section 13, D6) ----------
+#
+# The convention came first and stays: a daily note is an ordinary note whose
+# first line is `# <ISO date>` (`dailyNoteTitle` in app.js). Nothing about it
+# is special, which is the point: it is searchable, it is in the graph, it
+# exports, and a notebook opened in another editor still has it.
+#
+# **What was missing is the "or returns" half.** `startTodaysNote` posts a new
+# note every time it is pressed, so opening today's journal twice in a day
+# leaves two notes both headed with today's date and the writing split between
+# them. D6's brief asks for `/entries/daily/{date}` "that creates or returns",
+# and that is what makes the key safe to press from anywhere, which is the
+# rest of D6 (Ctrl+D, the calendar strip, the streak) built on top.
+#
+# **The date is the caller's, never the server's.** "Today" is a fact about
+# where the person is sitting, and this process may be in another timezone
+# (`entry/timewords.py` makes the same argument at length). So the day is a
+# path parameter and the server never guesses it.
+#
+# **The template body is not written here.** The four built-in templates'
+# markdown only ever lived in the frontend (`BUILTIN_TEMPLATE_NAMES` in
+# routes_settings.py records that, and why). The server writes the heading
+# that makes the note findable; anything under it is the person's to type or
+# the frontend's to prefill on the first open.
+
+#: The day heading, and the only thing that makes a note a daily note.
+DAILY_HEADING = "# {date}"
+
+#: A `LIKE` pattern for "starts with a day heading". `_` is LIKE's
+#: single-character wildcard and is meant here, which is why this one pattern
+#: is written by hand rather than through `like_escape`: it narrows the scan
+#: to headings before the exact match is confirmed in Python.
+DAILY_LIKE = "# ____-__-__%"
+
+#: How far back the journal window looks by default. A month is what a
+#: calendar strip shows and what a streak has to count over to be honest.
+DAILY_WINDOW_DAYS = 31
+DAILY_WINDOW_MAX = 366
+
+
+class DailyDayOut(BaseModel):
+    date: str
+    written: bool
+
+
+class DailyJournalOut(BaseModel):
+    #: The caller's today, echoed, so a client that let the server default it
+    #: can see which day the answer is about.
+    through: str
+    #: Oldest first, one entry per day in the window.
+    days: list[DailyDayOut]
+    #: Days written in a row, counting back from `through`.
+    streak: int
+
+
+def _daily_date(raw: str) -> date:
+    try:
+        return date.fromisoformat(raw)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422, detail="A journal date is written as YYYY-MM-DD"
+        ) from exc
+
+
+def _first_line(entry) -> str:  # noqa: ANN001
+    content = entry.content or ""
+    return content.split("\n", 1)[0].strip()
+
+
+def _daily_notes(session: Session) -> list:
+    """Every note whose first line is a day heading.
+
+    Narrowed in SQL by the heading's *shape* and confirmed in Python on the
+    first line: a note that merely mentions `# 2026-09-13` further down is not
+    the journal entry for that day, and a prefix match alone cannot tell a
+    heading from a line that happens to start the same way.
+    """
+    rows = session.scalars(
+        select(Entry)
+        .where(Entry.is_deleted.is_(False), Entry.content.like(DAILY_LIKE))
+        .order_by(Entry.id)
+    ).all()
+    return [entry for entry in rows if _DAY_HEADING.match(_first_line(entry))]
+
+
+_DAY_HEADING = re.compile(r"^# \d{4}-\d{2}-\d{2}$")
+
+
+def _daily_note(session: Session, day: date):  # noqa: ANN202
+    heading = DAILY_HEADING.format(date=day.isoformat())
+    for entry in _daily_notes(session):
+        if _first_line(entry) == heading:
+            return entry
+    return None
+
+
+@router.get("/daily", response_model=DailyJournalOut)
+def daily_journal(
+    through: str | None = None,
+    days: int = Query(default=DAILY_WINDOW_DAYS, ge=1, le=DAILY_WINDOW_MAX),
+    session: Session = Depends(get_session),
+) -> DailyJournalOut:
+    """Which of the last `days` days have a journal entry, and the streak.
+
+    Declared before `/{entry_id}` so FastAPI does not match "daily" as an
+    entry id and answer 422 instead (the ordering trap `/media/orphans` in
+    routes_files.py carries the same comment about).
+
+    The streak counts back from `through` and **allows today to be empty**: a
+    person who has written nine days running and has not yet opened today's
+    note has a streak of nine, not zero. Breaking it at the first missing day
+    including today would make the number drop every midnight and reappear
+    when they wrote, which is a counter that punishes the morning.
+    """
+    last = _daily_date(through) if through else date.today()
+    window = [last - timedelta(days=offset) for offset in range(days)]
+    heading_of = {DAILY_HEADING.format(date=day.isoformat()): day for day in window}
+    written = {
+        heading_of[_first_line(entry)]
+        for entry in _daily_notes(session)
+        if _first_line(entry) in heading_of
+    }
+    streak = 0
+    for offset, day in enumerate(window):
+        if day in written:
+            streak += 1
+        elif offset > 0 or streak:
+            break
+    return DailyJournalOut(
+        through=last.isoformat(),
+        days=[
+            DailyDayOut(date=day.isoformat(), written=day in written)
+            for day in reversed(window)
+        ],
+        streak=streak,
+    )
+
+
+@router.get("/daily/{day}", response_model=EntryOut)
+def daily_note(day: str, session: Session = Depends(get_session)) -> EntryOut:
+    """One day's journal entry, made if it is not there yet.
+
+    A GET that can write, deliberately and narrowly: "open today's note" is
+    one intention, and splitting it into a lookup plus a conditional create
+    puts the race between two windows of the same app (or two presses of the
+    key) back exactly where this endpoint exists to remove it. Nothing else
+    about the note is decided here, which is what keeps a journal entry an
+    ordinary note.
+    """
+    wanted = _daily_date(day)
+    existing = _daily_note(session, wanted)
+    if existing is not None:
+        return _to_out(session, existing)
+    entry = manager.create_entry(
+        session,
+        DAILY_HEADING.format(date=wanted.isoformat()) + "\n\n",
+        category_name=manager.UNCATEGORISED,
+    )
+    # Re-read rather than trusting the insert: two callers pressing the key at
+    # the same moment both reach here, and the one that lost should hand back
+    # the note that won rather than its own duplicate.
+    settled = _daily_note(session, wanted)
+    return _to_out(session, settled if settled is not None else entry)
 
 @router.get("/{entry_id}/filing")
 def filing_status(entry_id: int, session: Session = Depends(get_session)) -> dict:

@@ -84,11 +84,14 @@ green and its Built block is in `HISTORY.md` ("Moved from the plans,
    count line under the dock said "188 notes" for a feed of reminders and says
    "188 items" now.
 
-8. **WORLD_CLASS D6 is only part built.** Phase 4 gave the journal its daily
-   note (a convention: a note whose first line is `# <ISO date>`) and the
-   Today action. D6's calendar strip on the dock, `Ctrl+D` from every tab and
-   the streak are untouched. Next step: `Ctrl+D` is the cheapest and reuses
-   `startTodaysNote` in `frontend/app.js` directly.
+8. **WORLD_CLASS D6: the backend is built (2026-09-13 evening), the frontend
+   is not.** `GET /entries/daily/{date}` creates or returns, and
+   `GET /entries/daily?through=&days=` gives the calendar strip its days and
+   the streak (`tests/test_daily_journal.py`). Next step, all frontend:
+   `startTodaysNote` in `frontend/app.js` should call
+   `/entries/daily/${key}` instead of posting a new note, which fixes the
+   duplicate it makes today; then `Ctrl+D` on that, then the strip and the
+   yesterday/tomorrow pair.
 
 9. **SKILLS Phase D: no model ran any of it.** The fake transport answers every
    step, so "a rewritten step fixes a run a 3B model stalled on" is the claim

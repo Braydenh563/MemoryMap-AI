@@ -75,3 +75,20 @@ looks like and what the seeded six are not: in that case every card is already
 pixel-identical (240.7px, a 144px picture, a 95.7px foot). If it is reported a
 fourth time, seed six captioned images, measure, and the answer will be about
 the *filename on the photograph* or the picture's aspect, not about the foot.
+
+## INBOX 145 overlaps this work, and is not covered by it
+
+Filed while this agent was building (`18ec138`), on the same cards: the
+selection tick floating over the picture with no ground, the filename band
+sitting on grey on some cards and on open sky on others, a caption that is the
+picture's own OCR text rather than a description, and an opened fold growing
+its card to 620px beside a 260px neighbour. None of those is the foot, and
+none of them is fixed here.
+
+One number for whoever takes it: an opened fold adds up to 288px, because
+`.library-image-card-fold > .library-image-reading-body` caps its scroller at
+18rem, and every card in the *same grid row* grows with it (measured at 1440:
+six cards 240.7px, all six 390.7px with one fold open, the opened card's body
+159px wide inside a 180px tile). A 620px card beside a 260px one is therefore
+two cards in different rows, not a card that failed to line up, and the lever
+if that reads badly is the 18rem cap rather than the layout.

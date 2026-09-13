@@ -9,6 +9,23 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- With no model connected, the app says so where you are and offers one click
+  that fixes it. The Ask tab keeps working and explains that it is answering
+  from your notes alone, with the matching records beside it; the popup agent,
+  which has nothing to fall back on, disables its field and its starters
+  rather than hiding them. Every AI-only button now says "Connect a model in
+  Settings" instead of naming Ollama, which was the wrong instruction for the
+  two other kinds of model this app can use.
+
+- Twelve starters in the popup agent, grouped by what they do: capture, find,
+  summarise, remind and do. Each is a verb with a slot ("Remind me to…") that
+  drops into the box with the caret after it, or a whole instruction ("Tag my
+  untagged notes.") that runs on the press; the three you used last are
+  offered first. Beside them is "Use the open note", which sends whatever note
+  or document you have open with what you ask, so "summarise this" works from
+  a panel that floats over every tab. The card now has a ceiling and scrolls
+  inside it, so Start over and Stop stay on screen on a laptop and a phone.
+
 - The Ask tab answers the way the Chat tab does. Under an answer there is now
   a Sources disclosure listing what the answer drew on, an "Elsewhere in your
   notebook" row, and follow-up questions: press one and it is asked with the

@@ -7616,7 +7616,7 @@ function selectionMenuItems() {
     makeMenuItem(
       "ph:scissors Extract notes…",
       aiOff
-        ? "Extracting notes needs the local AI, start Ollama to use this."
+        ? `Extracting notes needs the local AI. ${AI_OFFLINE_HINT}.`
         : "Split this into one or more linked notes, with a preview first",
       () => {
         if (aiOff) {
@@ -11003,7 +11003,15 @@ function announce(message) {
 
 // Jump to an entry in the Notes tab and flash it, shared by search
 // results, most-used, and related-notes chips.
+//: What the popup agent's "Use the open note" toggle reads when nothing is
+//: being edited: the last note this session actually opened. `flashEntry` is
+//: every route to a note there is (a search result, a citation, the graph, a
+//: wiki link), which is why the tracking sits here rather than at the dozen
+//: call sites.
+let lastOpenedEntryId = null;
+
 function flashEntry(id) {
+  lastOpenedEntryId = id;
   switchTab("notes");
   // The Notes tab is split into sub-tabs, and the note list lives in "browse".
   // Without this the card is found and scrolled to while its whole section is
@@ -30930,10 +30938,22 @@ const AI_ONLY_CONTROLS = [
   ["wb-extract-notes", "Extracting notes needs the local AI"],
 ];
 
+//: **The one sentence a disabled AI control says** (CHAT_PLAN.md decision 11:
+//: "every AI control is visible, disabled, with a tooltip 'Connect a model in
+//: Settings' and a one-click link"). It named Ollama before,
+//: which is one of the three providers this app supports and tells somebody
+//: running llama.cpp or an OpenAI-compatible server to start the wrong thing. Settings is where all three are set up, so Settings is what a
+//: control points at.
+const AI_OFFLINE_HINT = "Connect a model in Settings";
+
+//: Unknown status (locked, still loading) is available: better to let a click
+//: fail than to grey out a working button on a slow start.
+function aiIsOff() {
+  return modelStatus ? modelStatus.ollama_running === false : false;
+}
+
 function syncAiOnlyControls() {
-  // Unknown status (locked, still loading) is treated as available: better to
-  // let a click fail than to grey out a working button on a slow start.
-  const off = modelStatus ? modelStatus.ollama_running === false : false;
+  const off = aiIsOff();
   for (const [id, reason] of AI_ONLY_CONTROLS) {
     const button = $(id);
     if (!button) continue;
@@ -30941,10 +30961,59 @@ function syncAiOnlyControls() {
     button.classList.toggle("ai-unavailable", off);
     if (off) {
       if (!button.dataset.enabledTitle) button.dataset.enabledTitle = button.title || "";
-      button.title = `${reason}: start Ollama to use this.`;
+      button.title = `${reason}. ${AI_OFFLINE_HINT}.`;
     } else if (button.dataset.enabledTitle !== undefined) {
       button.title = button.dataset.enabledTitle;
     }
+  }
+  //: The link half of decision 11. A tooltip on a disabled control is read by
+  //: somebody who already suspects the answer; a person who does not know why
+  //: half the app went quiet needs a sentence they can act on, in the place
+  //: they are looking. Two surfaces, because those are the two that are
+  //: nothing but AI: Ask keeps working (it falls back to the search results
+  //: beside it) and says so, the popup agent cannot and says that.
+  renderAiOfflineNotice(
+    $("ask-offline"),
+    "No model is connected, so this answers from your notes alone: the matching records are below."
+  );
+  renderAiOfflineNotice($("command-palette-offline"), "No model is connected, so the agent cannot run.");
+  syncAgentPaletteAvailability();
+}
+
+//: One line and one button, in a named container, or nothing at all. Rebuilt
+//: rather than toggled because the status poll calls this every tick and a
+//: stale sentence is worse than none.
+function renderAiOfflineNotice(container, what) {
+  if (!container) return;
+  container.replaceChildren();
+  const off = aiIsOff();
+  container.classList.toggle("hidden", !off);
+  if (!off) return;
+  const text = document.createElement("span");
+  text.className = "muted";
+  text.textContent = what;
+  const link = document.createElement("button");
+  link.type = "button";
+  link.className = "ghost small";
+  setLabel(link, `ph:plugs ${AI_OFFLINE_HINT}`);
+  link.title = "Open Settings at Models, where a local or remote model is connected";
+  link.addEventListener("click", () => openSettingsModal("models"));
+  container.append(text, link);
+}
+
+//: The popup agent is the one surface with nothing to fall back to, so its
+//: field and its starters are disabled with the rest (decision 11's "visible,
+//: disabled": never hidden, so a reader can still see what it would offer).
+function syncAgentPaletteAvailability() {
+  const off = aiIsOff();
+  const input = $("command-palette-input");
+  if (input) {
+    input.disabled = off;
+    input.title = off ? `${AI_OFFLINE_HINT}.` : "";
+  }
+  for (const chip of document.querySelectorAll("#command-palette-starters [data-example]")) {
+    chip.disabled = off;
+    if (off) chip.title = `${AI_OFFLINE_HINT}.`;
   }
 }
 
@@ -39883,6 +39952,159 @@ window.startApp = async function() {
 }
 
 // --- Global Command Palette (Ctrl+K) ---
+
+//: **The popup agent's twelve starters** (CHAT_PLAN.md decision 9). Four was
+//: the count before, and the owner's report was not that they were wrong but
+//: that they were all there was: "just defaults to one of the sentence
+//: starters", because the things actually wanted of an agent that floats over
+//: every tab (make a note of this, remind me, find, summarise the open note,
+//: what changed today) were not offered and typing them out is slower than
+//: doing the job by hand.
+//:
+//: Grouped by verb, and each one is a verb with a slot rather than a finished
+//: sentence: CHAT_PLAN's research section, from Raycast, where a starter that
+//: reads "Remind me to ___" is picked far more often than the same action
+//: written as a question. A starter whose text ends in a space is a stem: it
+//: is put in the box with the caret after it and waits. One that does not is
+//: complete and runs on the press.
+const AGENT_STARTERS = [
+  { group: "Capture", label: "Make a note of…", text: "Make a note of " },
+  { group: "Capture", label: "Add to today's note…", text: "Add to today's note: " },
+  { group: "Find", label: "Notes about…", text: "Find my notes about " },
+  { group: "Find", label: "What did I write this week?", text: "What did I write this week?" },
+  { group: "Find", label: "Open the note about…", text: "Open the note about " },
+  { group: "Summarise", label: "The open note", text: "Summarise the note I have open." },
+  { group: "Summarise", label: "My week", text: "Summarise what I wrote this week." },
+  { group: "Summarise", label: "This conversation", text: "Summarise this conversation." },
+  { group: "Remind", label: "Remind me to…", text: "Remind me to " },
+  { group: "Remind", label: "What is due?", text: "What is due?" },
+  { group: "Do", label: "Tag my untagged notes", text: "Tag my untagged notes." },
+  { group: "Do", label: "Link related notes", text: "Link notes that belong together." },
+];
+
+//: The three most recently used, offered first (the same research note: a
+//: quick-action panel that does not remember makes you re-find the one thing
+//: you always do). Per browser, in `localStorage`, because it is a habit of
+//: this window rather than a fact about the notebook.
+const AGENT_STARTERS_RECENT_KEY = "agentStartersRecent";
+const AGENT_STARTERS_RECENT_MAX = 3;
+
+function agentStarterRecents() {
+  let texts = [];
+  try {
+    texts = JSON.parse(localStorage.getItem(AGENT_STARTERS_RECENT_KEY) || "[]");
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(texts)) return [];
+  //: Resolved against the table rather than replayed from storage, so a
+  //: starter whose wording changed comes back with the new wording, and one
+  //: that was removed disappears instead of lingering as a dead chip.
+  return texts
+    .map((text) => AGENT_STARTERS.find((starter) => starter.text === text))
+    .filter(Boolean)
+    .slice(0, AGENT_STARTERS_RECENT_MAX);
+}
+
+function rememberAgentStarter(text) {
+  if (!AGENT_STARTERS.some((starter) => starter.text === text)) return;
+  const kept = [text, ...agentStarterRecents().map((s) => s.text).filter((t) => t !== text)];
+  try {
+    localStorage.setItem(
+      AGENT_STARTERS_RECENT_KEY,
+      JSON.stringify(kept.slice(0, AGENT_STARTERS_RECENT_MAX))
+    );
+  } catch {
+    /* a browser refusing storage is not a reason to refuse the starter */
+  }
+}
+
+function renderAgentStarters() {
+  const box = $("command-palette-starters");
+  if (!box) return;
+  box.replaceChildren();
+  const groups = [];
+  const recent = agentStarterRecents();
+  if (recent.length) groups.push(["Recent", recent]);
+  for (const starter of AGENT_STARTERS) {
+    const last = groups[groups.length - 1];
+    if (last && last[0] === starter.group) last[1].push(starter);
+    else groups.push([starter.group, [starter]]);
+  }
+  for (const [name, items] of groups) {
+    const label = document.createElement("p");
+    //: `.eyebrow` is the app's one small-label recipe (01-forms-settings.css,
+    //: DESIGN.md's recipe index); `.starter-verb` only makes it span the two
+    //: columns of the starter grid.
+    label.className = "starter-verb eyebrow";
+    label.textContent = name;
+    box.appendChild(label);
+    for (const item of items) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "ghost small";
+      button.textContent = item.label;
+      button.dataset.example = item.text;
+      button.title = /\s$/.test(item.text)
+        ? `Start a message: ${item.text.trim()}…`
+        : `Ask: ${item.text}`;
+      box.appendChild(button);
+    }
+  }
+}
+
+//: **What "the open note" means** (decision 9's "Use the open note" toggle,
+//: which scopes a run to the entry on screen). In order: the document open in
+//: the editor while the Library's document pane is showing, then the note
+//: being edited, then the last note opened in this session. The palette floats
+//: over every tab, so "on screen" has to be answered from what the app knows
+//: rather than from what happens to be scrolled into view.
+function agentOpenSubject() {
+  const showing = (name) => !$(`tab-${name}`)?.classList.contains("hidden");
+  if (showing("documents") && typeof currentDoc !== "undefined" && currentDoc?.id) {
+    return { kind: "document", id: currentDoc.id, label: currentDoc.title || "this document" };
+  }
+  const noteId = editingId || lastOpenedEntryId;
+  if (!noteId) return null;
+  const entry = (typeof allEntries !== "undefined" ? allEntries : []).find(
+    (row) => row.id === noteId
+  );
+  return { kind: "note", id: noteId, label: entry ? noteLabel(entry, 40) : `note ${noteId}` };
+}
+
+//: What the toggle actually sends. A document and a note go to different
+//: fields, because `_attached_documents` and `_attached_notes` read different
+//: tables and a document sent as a note reaches the model as a title.
+function agentScopeForRun() {
+  const box = $("command-palette-use-note");
+  if (!box || !box.checked) return {};
+  const subject = agentOpenSubject();
+  if (!subject) return {};
+  return subject.kind === "document"
+    ? { documentIds: [subject.id] }
+    : { noteIds: [subject.id] };
+}
+
+//: Enabled only when there is something to use, and the label says what that
+//: something is: a tick box offering to scope a run to nothing is the "control
+//: that does nothing when pressed" this app has been told about before.
+function syncAgentOpenNoteToggle() {
+  const box = $("command-palette-use-note");
+  const label = $("command-palette-use-note-label");
+  //: The words live in a span inside the label, not in the label itself: a
+  //: label's `textContent` includes the checkbox, so writing the new wording
+  //: onto the label would delete the control it is labelling.
+  const text = $("command-palette-use-note-text");
+  if (!box || !label || !text) return;
+  const subject = agentOpenSubject();
+  box.disabled = !subject;
+  if (!subject) box.checked = false;
+  text.textContent = subject ? `Use ${subject.label}` : "Use the open note";
+  label.title = subject
+    ? `Send this ${subject.kind} with what you ask, so the agent works on it`
+    : "Open a note or a document first, then the agent can work on it";
+}
+
 const cmdPaletteOverlay = $("command-palette-overlay");
 const cmdPaletteInput = $("command-palette-input");
 const cmdPaletteResults = $("command-palette-results");
@@ -39895,6 +40117,12 @@ const cmdPaletteResults = $("command-palette-results");
 function toggleAgentPalette() {
   if (cmdPaletteOverlay.classList.contains("hidden")) {
     cmdPaletteOverlay.classList.remove("hidden");
+    //: Both on open rather than once at boot: which starters are recent and
+    //: what counts as the open note are answers about the moment the palette
+    //: is reached for, and it is reached for from every tab.
+    renderAgentStarters();
+    syncAgentPaletteAvailability();
+    syncAgentOpenNoteToggle();
     cmdPaletteInput.focus();
   } else {
     cmdPaletteOverlay.classList.add("hidden");
@@ -39945,7 +40173,11 @@ function cmdPaletteReset() {
 }
 
 function cmdPaletteBusy(busy) {
-  cmdPaletteInput.disabled = busy;
+  //: `|| aiIsOff()`: this runs at the end of every turn, and without it the
+  //: field a disconnected model had disabled comes back enabled the first time
+  //: anything ran, which is the "guard removed while the shape around it was
+  //: kept" failure in CLAUDE.md section 6, arriving by accident.
+  cmdPaletteInput.disabled = busy || aiIsOff();
   $("command-palette-stop")?.classList.toggle("hidden", !busy);
   $("command-palette-clear")?.classList.toggle("hidden", busy);
   $("command-palette-status").textContent = busy ? "Working…" : "";
@@ -40458,6 +40690,11 @@ async function cmdPaletteAsk(text) {
       // for a follow-up to mean something, short enough that a small local
       // model is not re-reading a transcript every turn.
       history: cmdPaletteTurns.slice(-MAX_CLIENT_HISTORY),
+      //: **"Use the open note"** (decision 9). The subject is resolved at send
+      //: time, not when the box was ticked: the palette stays open across a
+      //: conversation and the person may well have opened something else
+      //: between turns, and the tick means "whatever I am looking at".
+      ...agentScopeForRun(),
       useTools: true, // the palette is meant to act on the notebook, like Chat
       signal: cmdPaletteRun.signal,
       //: `raw_results` is the notes retrieval surfaced for this turn. It used
@@ -40613,15 +40850,19 @@ $("command-palette-stop")?.addEventListener("click", () => cmdPaletteRun?.abort(
 $("command-palette-intro")?.addEventListener("click", (e) => {
   const example = e.target.closest("[data-example]");
   if (!example) return;
-  cmdPaletteInput.value = example.dataset.example;
+  const starter = example.dataset.example;
+  rememberAgentStarter(starter);
+  cmdPaletteInput.value = starter;
   cmdPaletteGrow();
   cmdPaletteInput.focus();
-  // A complete question runs; a stem ("Make a note: ") is left for the user
-  // to finish, with the caret already after it.
-  if (example.dataset.example.trim().endsWith("?")) {
-    const text = cmdPaletteInput.value.trim();
+  //: A complete starter runs; a stem ("Make a note of ") is left for the
+  //: person to finish, with the caret already after it. The test is the
+  //: trailing space, not the question mark it used to be: half the twelve are
+  //: instructions rather than questions ("Tag my untagged notes."), and every
+  //: one of those sat in the box waiting for an Enter that said nothing.
+  if (!/\s$/.test(starter)) {
     cmdPaletteInput.value = "";
-    cmdPaletteAsk(text);
+    cmdPaletteAsk(starter.trim());
   }
 });
 

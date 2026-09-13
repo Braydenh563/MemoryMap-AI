@@ -342,19 +342,33 @@
            trying one costs nothing; they are replaced by the conversation the
            moment there is one, and come back when it is cleared. -->
       <div id="command-palette-intro" class="command-palette-intro">
+        <!-- The popup agent is the one surface with nothing to fall back to,
+             so it says so here and disables its field and its starters rather
+             than hiding them (decision 11: visible, disabled, with the way to
+             fix it beside them). -->
+        <div id="command-palette-offline" class="ai-offline-note hidden"></div>
         <p class="muted">
           It can read and search your notes, write and file new ones, set
           reminders, and answer from what you have written, the same tools
           the Chat tab uses. It remembers this conversation until you clear it.
         </p>
-        <div class="command-palette-examples">
-          <button type="button" class="ghost small" data-example="What did I write about this week?">What did I write about this week?</button>
-          <button type="button" class="ghost small" data-example="Make a note: ">Make a note…</button>
-          <button type="button" class="ghost small" data-example="Remind me to ">Remind me to…</button>
-          <button type="button" class="ghost small" data-example="Find my notes about ">Find my notes about…</button>
-        </div>
+        <!-- Twelve, grouped by verb, and built by `renderAgentStarters`
+             (app.js) rather than written out here: the group a starter belongs
+             to and the three most recently used are both decided at open time,
+             and a table in the file that knows the wording is one place to
+             change rather than two that drift. -->
+        <div id="command-palette-starters" class="command-palette-examples"></div>
       </div>
       <div class="command-palette-foot">
+        <!-- "Use the open note" (CHAT_PLAN.md decision 9): the run is scoped to
+             whatever note or document is open when you send, so "summarise
+             this" and "tag this" mean something from a panel that floats over
+             every tab. Disabled, with a reason, when nothing is open: the
+             label is written by `syncAgentOpenNoteToggle`, which names the
+             thing rather than saying "the open note" over an empty notebook. -->
+        <label id="command-palette-use-note-label" class="row align-center checkbox-label small">
+          <input type="checkbox" id="command-palette-use-note">
+          <span id="command-palette-use-note-text">Use the open note</span></label>
         <span id="command-palette-status" class="muted text-sm" role="status"></span>
         <button type="button" id="command-palette-clear" class="ghost small"
           title="Forget this conversation and start over"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Start over</button>
@@ -1058,6 +1072,14 @@
             <button id="ask-btn">Ask</button>
             <button id="stop-btn" class="ghost danger hidden" title="Stop the answer"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
           </div>
+          <!-- What the Ask box does with no model connected (CHAT_PLAN.md
+               decision 11). Ask is deliberately not among the controls that
+               grey out: it still searches, and the matching records beside the
+               answer are the fallback. This row says that, and offers the one
+               click that fixes it, rather than leaving a reader to work out
+               why the answer column went quiet. Written by
+               `renderAiOfflineNotice` on every status tick. -->
+          <div id="ask-offline" class="ai-offline-note hidden"></div>
           <div id="suggested-questions" class="recent hidden"></div>
           <div id="recent-questions" class="recent hidden"></div>
           <!-- Question history (personal-notes-browser feature): every

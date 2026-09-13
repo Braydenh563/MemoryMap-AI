@@ -1797,6 +1797,18 @@ header#top-bar select,
   margin-top: var(--space-4);
 }
 
+/* "No model is connected", with the one click that changes it (CHAT_PLAN.md
+   decision 11). A quiet row, not a warning: running with no AI is a supported
+   way to use this app, the same judgement the AI status pill makes when it
+   colours an offline setup amber rather than red. */
+.ai-offline-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
 /* The Ask tab's answer foot (CHAT_PLAN.md Phase 3): "Elsewhere in your
    notebook", the sources disclosure and the follow-up chips as one stack under
    the answer, each in its own container so that one renderer clearing its own

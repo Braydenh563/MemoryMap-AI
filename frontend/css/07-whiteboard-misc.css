@@ -7929,6 +7929,37 @@ button.connection-row {
   white-space: nowrap;
 }
 
+/* **The bar gives up width in the order it can least afford to lose it**
+   (INBOX 183: "the mindmap top bar controls breach the topbar and overflow
+   off the edge on the right"). Measured on a map with the Layout controls
+   already in the dock: `#wb-topbar` scrollWidth 1092 against clientWidth 981
+   at 1024, and 836 against 782 at 820, with the Library button and Full
+   screen hanging past the right edge of the window in both.
+
+   Where the width was: the board picker at 190px and the Library button at
+   98px, against menu toggles of 56 to 84px. A board's name is the one thing
+   the bar cannot be read without, so it keeps a name's worth of room (8rem
+   still shows about fifteen characters, and the whole name is in the picker
+   itself), and the Library button drops its word before any menu drops
+   theirs, because it is the one control whose icon already says what it
+   does. */
+@media (max-width: 68rem) {
+  /* The shell as well as the select: `enhanceSelect` (app.js) puts every
+     native select inside a `.select-shell`, and that shell is what the bar
+     actually lays out, so a cap on the select alone measured as no change at
+     all (212px before and after). */
+  .wb-topbar #wb-board-select,
+  .wb-topbar .select-shell {
+    max-width: 8rem;
+  }
+}
+
+@media (max-width: 64rem) {
+  .wb-topbar #wb-add-note .wb-menu-label {
+    display: none;
+  }
+}
+
 /* Narrow boards: the menus keep their carets and the Library its icon;
    the words go, so the bar stays one row down to ~40rem. */
 @media (max-width: 56rem) {
@@ -11223,6 +11254,18 @@ header#top-bar {
   /* The swatch is an `<input>` among buttons; without this it sits on the
      text baseline of the row rather than on the buttons' centre line. */
   align-items: center;
+}
+
+/* The layout picker came down from the top bar (index.html, the Layout
+   section) and is the only `<select>` in the rail. Measured at 1px wide on
+   arrival: the rail's rows are flex and a select's own intrinsic width is
+   its longest option, which flex was free to crush to nothing. A floor, and
+   no growing past what its longest option needs. */
+.wb-rail #wb-map-layout,
+.wb-rail .select-shell {
+  flex: 0 0 auto;
+  min-width: 9rem;
+  height: var(--target-min);
 }
 
 /* The swatch reads as the pen's nib: a round well of the colour with the same

@@ -168,6 +168,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The map's top bar no longer runs off the right of the window. Layout and
+  Tidy moved into the tool dock's own Layout section, the board picker keeps
+  a name's worth of width on a narrow window, and the Library button drops
+  its word before any menu drops theirs: 0 controls past the edge at 1440,
+  1024 and 820 (INBOX 183).
 - Shapes, lines and connectors no longer trail the note cards during a pan.
   The pan transform moved from the `<g>` inside each board SVG onto the
   `<svg>` root, because `will-change` on a `<g>` promotes nothing: measured

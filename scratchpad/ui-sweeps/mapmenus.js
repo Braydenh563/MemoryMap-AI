@@ -94,9 +94,13 @@ const MENUS = ["wb-insert-menu", "wb-edit-menu", "wb-arrange-menu", "wb-view-men
   if (arr && !arr.hiddenToggle) {
     check("the Arrange menu shows all of its own content",
       arr.scrollH <= arr.clientH + 1, `scrollHeight ${arr.scrollH} in clientHeight ${arr.clientH}`);
-    check("the Arrange menu is as wide as the other board menus",
-      Math.abs(arr.w - (boxes["wb-view-menu"]?.w || arr.w)) < 2,
-      `Arrange ${arr.w}px, View ${boxes["wb-view-menu"]?.w}px`);
+    // Not "as tall as View": View is two columns by an explicit decision
+    // (07-whiteboard-misc.css, `#wb-view-menu`) and is meant to be a different
+    // shape. What the report can actually mean is a menu cut short, so that is
+    // what is asserted: no board menu shows less than it holds.
+    const clipped = MENUS.map((m) => boxes[m]).filter((b) => b && !b.hiddenToggle && b.scrollH > b.clientH + 1);
+    check("no board menu is cut short of its own content", clipped.length === 0,
+      `${clipped.length} clipped; heights ${MENUS.map((m) => `${m.replace("wb-", "").replace("-menu", "")} ${boxes[m]?.h}`).join(", ")}`);
     const others = MENUS.filter((m) => m !== "wb-arrange-menu").map((m) => boxes[m]).filter((b) => b && !b.hiddenToggle);
     const perRow = others.map((b) => (b.rows ? b.h / b.rows : 0)).filter(Boolean);
     const mine = arr.rows ? arr.h / arr.rows : 0;
@@ -104,6 +108,33 @@ const MENUS = ["wb-insert-menu", "wb-edit-menu", "wb-arrange-menu", "wb-view-men
     check("an Arrange row is the same height as a row in the other menus",
       avg === 0 || Math.abs(mine - avg) < 8, `${mine.toFixed(1)}px a row against ${avg.toFixed(1)}px`);
   }
+
+  // The map's Layout controls left the top bar for the dock's own Layout
+  // section: both have to be there, and shown, or the move lost them.
+  const dock = await page.evaluate(() => {
+    const sel = document.getElementById("wb-map-layout");
+    const tidy = document.getElementById("wb-map-tidy");
+    const inRail = (el) => Boolean(el && el.closest("#wb-tools-panel"));
+    const box = (el) => (el ? Math.round(el.getBoundingClientRect().width) : 0);
+    return {
+      layoutInRail: inRail(sel), tidyInRail: inRail(tidy),
+      layoutShown: sel ? !sel.hidden : false, tidyShown: tidy ? !tidy.hidden : false,
+      // The shell, not the select: `enhanceSelect` (app.js) hides the native
+      // control and lays out a `.select-shell` in its place, so the select's
+      // own box is 1px wide everywhere in this app and measuring it says
+      // nothing about what is on screen.
+      layoutW: box(sel ? sel.closest(".select-shell") || sel : null), tidyW: box(tidy),
+      // Only what is on the bar itself: the View menu holds map rows too, and
+      // those are not what "in the top bar" means here.
+      inTopbar: [...document.querySelectorAll("#wb-topbar [id^=wb-map-]")].filter((e) => !e.closest(".wb-board-menu")).map((e) => e.id),
+    };
+  });
+  console.log("  dock:", JSON.stringify(dock));
+  check("the map's Layout controls live in the dock, not the top bar",
+    dock.layoutInRail && dock.tidyInRail && dock.inTopbar.join() === "wb-map-chip",
+    `layout in rail ${dock.layoutInRail}, tidy in rail ${dock.tidyInRail}, map ids left in the bar: ${dock.inTopbar.join(", ") || "none"}`);
+  check("and are visible on a map", dock.layoutShown && dock.tidyShown && dock.layoutW > 40,
+    `layout ${dock.layoutW}px, tidy ${dock.tidyW}px`);
 
   // The top bar against the window, at three widths.
   for (const w of [1440, 1024, 820]) {
@@ -119,6 +150,11 @@ const MENUS = ["wb-insert-menu", "wb-edit-menu", "wb-arrange-menu", "wb-view-men
         right: Math.round(r.right), width: Math.round(r.width), win: window.innerWidth,
         scrollW: el.scrollWidth, clientW: el.clientWidth,
         past: past.slice(0, 6), pastCount: past.length,
+        // Where the width goes, so a bar that does not fit says which control
+        // to move rather than needing a second run to find out.
+        parts: [...el.querySelectorAll(":scope > * > *")]
+          .filter((c) => c.getBoundingClientRect().width > 0)
+          .map((c) => `${c.id || c.tagName.toLowerCase()}:${Math.round(c.getBoundingClientRect().width)}`),
       };
     });
     console.log(`  topbar @${w}: ${JSON.stringify(bar)}`);

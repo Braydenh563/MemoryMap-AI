@@ -189,6 +189,28 @@ measured or built in earlier commits and is marked there.
     during a pan. `mindmap.js` 68/76 and `mapdock.js` 25/26, the same numbers
     as before the change; `marqlink.js` unchanged.
 
+    **The top bar's overflow: fixed. The Arrange menu's height: not
+    reproduced.** Both measured on a map board by
+    `scratchpad/ui-sweeps/mapmenus.js` (11 checks). The bar was real: at 1024
+    its scrollWidth was 1176 against a clientWidth of 981, with eight controls
+    past the right edge of the window, and 895 against 782 at 820. Three
+    changes, in the order the bar can least afford to lose the width: Layout
+    and Tidy left the bar for the tool dock's own Layout section (which is
+    MINDMAP_PLAN §12.1 item 1's first half), the board picker's shell is capped
+    at 8rem below 68rem, and the Library button drops its word below 64rem.
+    After: 0 controls past the edge and scrollWidth equal to clientWidth at
+    1440, 1024 and 820.
+
+    The Arrange menu is not short. Opened on a map at 1440x900 and at
+    1024x768 it measured 493px tall against View's 453, Insert's 382, Edit's
+    310 and Board's 232, with its own content fully shown (scrollHeight 491 in
+    a clientHeight of 491) and every menu's cap the same 705px. It is the
+    tallest single-column menu of the five. What is true is that View is 512px
+    wide in two columns while the other four are 272px in one, which is a
+    decision in `07-whiteboard-misc.css` (five sections and 714px of content)
+    rather than an accident. If the report recurs, the window size it was seen
+    at is what will find it.
+
 182. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), links.**
     "I want to be able to right click or hold with a touch on a link and
     have a popup show to let me copy the link address". App-wide: every

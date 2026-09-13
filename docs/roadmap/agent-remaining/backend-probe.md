@@ -37,6 +37,54 @@ written down so it costs nobody else any.
 - verified against a running server on 8796 (`/tmp/mm-back`), not only tests: POST /entries/daily twice returns id 1 both times; the window reports streak 1; the night pass derived 2 facts in 8 tokens; PATCH, force re-run (derived 0), reset and export all behaved. The auth header is `X-Auth-Token`, not `Authorization`.
 - done: an N+1 in my own night pass, found by reading the loop after the list endpoints came back clean. 9 statements over 5 notes and 44 over 45 before, flat after (`test_the_night_pass_does_not_cost_a_query_per_note`). next: the full suite, then the report.
 
+## Left for the next session, and what is not verified
+
+**Next, in order.**
+
+1. **The Settings section for I9** (frontend, not this agent's files). The
+   backend it sits on is complete and the shapes are in
+   `agent-remaining/learning-loop.md`: `GET /learned?kind=&q=&limit=&offset=`
+   returns `{items, total}` with `X-Total-Count`, every row carries `span` as
+   `[start, end]` into `entries.content`, so "open the note scrolled to the
+   sentence" needs no further backend work.
+2. **D6's frontend.** `startTodaysNote` in `frontend/app.js` still posts a new
+   note to `/entries`; pointing it at `POST /entries/daily/${key}` fixes the
+   duplicate it makes today and is the whole of the next step. Then Ctrl+D,
+   then the strip, then yesterday/tomorrow.
+3. **F2's frontend half**, placed in WORLD_CLASS's "Placed from INBOX,
+   2026-09-13": five `apiJson` readers of `/files/gallery` move to
+   `apiPagedList`, then `GALLERY_PAGE_SIZE` drops to 200.
+4. **F4**, the 52 silent broad handlers, with the mechanical agent whose remit
+   ruff is.
+5. **F3, F7, F10** are each their own brief in the plan and were not started.
+
+**Not verified.**
+
+- **No real model has run the night pass.** What a small local model keeps
+  when asked to narrow a candidate list is untested, which is CLAUDE.md
+  section 4's standing caveat. The pass is built so a reply it cannot parse
+  keeps the local candidates rather than emptying the table, and that is the
+  path the fake transport exercises; the other one has never run.
+- **No completed full-suite run exists on this head.** One was run to its
+  short summary and reported exactly one failure,
+  `test_like_escaping.py::test_every_like_call_site_escapes_or_is_a_literal_pattern`,
+  against the journal's `LIKE` pattern; that cause is fixed at `73d14ef` and
+  the file passes on its own, but the run was cut off before its count line
+  and a second was not affordable. `scripts/gate.sh --changed` is green
+  (lints, node-check, ruff, and the three tests that name the changed files),
+  and every test file this session added or touched was run: 62 green across
+  `test_derived_facts`, `test_learned_spec`, `test_daily_journal`,
+  `test_list_limits`, `test_list_paging_f2`, `test_outbound_fetch_guard`,
+  `test_scale_query_counts`, `test_every_route_is_locked` and
+  `test_no_import_cycles`. **CI on the next push is what closes this.**
+- **`gate.sh --staged` does not run `test_like_escaping.py`.** It is not in
+  the lint set, which is why eleven green staged gates did not see the one
+  thing the suite found. Worth knowing before trusting a staged gate on a
+  change that writes SQL.
+- Nothing here was measured past 121 notes. The night pass is O(notes) with
+  one query for the whole known set, which is the shape that scales; the
+  constant was not measured on a real notebook.
+
 ## The security review's open rows, checked before building (section 12)
 
 - **S5, the outbound guard: done** (`5aab24c`), above.

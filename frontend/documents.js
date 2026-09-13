@@ -734,6 +734,7 @@ function showNoDocument() {
   renderDocStats();
   renderDocOutline();
   renderDocProperties();
+  renderDocComments();
 }
 
 async function openDocument(id) {
@@ -778,6 +779,7 @@ async function openDocument(id) {
   renderDocNotes();
   renderDocBacklinks();
   renderDocBookmarks();
+  renderDocComments();
   renderDocList();
 }
 
@@ -2001,7 +2003,13 @@ function renderDocPreview() {
   //: The block markers come out here rather than in the renderer: `^abc123`
   //: is what makes a paragraph linkable and it is not what the paragraph
   //: says, and this pane is the one a person reads and prints.
-  const body = docBlockStripIds(fm ? docFrontmatterStrip(text) : text);
+  //: **The remarks come out of the rendered pane** (Phase 5 item 1): a comment
+  //: is a note to the author, and Read view is the document as it reads. In a
+  //: print they become footnotes instead, so a PDF handed to somebody carries
+  //: them rather than dropping them silently, which is what `docPrintComments`
+  //: is set for by `exportDocumentPdf`.
+  const remarks = docPrintComments ? docCommentFootnotes : docCommentStrip;
+  const body = remarks(docBlockStripIds(fm ? docFrontmatterStrip(text) : text));
   docRenderBody(preview, title ? `# ${title}\n\n${body}` : body);
   if (fm) {
     //: After the title, which is the document's name rather than part of its
@@ -4589,6 +4597,218 @@ function docCommentFootnotes(text, prefix = "c") {
 
 // DOC-COMMENT-END
 
+// --- the comments panel -------------------------------------------------------
+//
+// **Where a comment is listed, and why it is not a right-hand panel.** The plan
+// asked for "a right panel"; this is a section of the document sidebar's Outline
+// tab, and the reason is the same one Phase 1 item 5 settled for the outline:
+// this editor has *one* panel width. A second vertical column at 1100px leaves
+// the measure under 500px, and the sidebar is already where every "about this
+// document" list lives (the outline, what links here, the notes it draws on).
+// Phase 6 turns that one panel into a sheet at narrow widths, so a right panel
+// would have needed a second responsive story for the same content. The phrase
+// in Phase 5 item 1 is superseded by this paragraph and nothing else about it
+// is.
+//
+// It was a third tab for one measurement's worth of time, and the measurement is
+// why it is not: "Documents", "Outline" and "Comments" want 257px of label in a
+// strip with 180px of content box, so the strip wrapped and stood 75px tall
+// against 29px. The markup for the backlinks had already written the rule down
+// ("the sidebar already has two tabs too many for the space it has"), which is
+// the kind of decision this project keeps in the file it applies to precisely so
+// that the next session does not have to rediscover it with a ruler.
+//
+// A row does its work in place, which is DOCUMENTS_PLAN 12 D3's rule for the
+// writing panel arrived at from the other end: pressing a row jumps the
+// document to the remark and marks the row as where you are
+// (`aria-current="location"`), and Resolve is a button on the row rather than a
+// popover over the sentence.
+
+//: The remark the reader is looking at, so the row can be painted as current
+//: without re-parsing to find out which one it was.
+let docCommentCurrent = null;
+
+//: **True only while a print is being prepared** (`exportDocumentPdf`), which
+//: is the one moment the rendered pane carries the remarks rather than hiding
+//: them: a PDF handed to somebody should carry them as footnotes, and Read view
+//: should not, and both are drawn by `renderDocPreview` from one place. A flag
+//: rather than an argument because the render is also reached from the debounce
+//: and from `setDocView`, neither of which knows anything about printing.
+let docPrintComments = false;
+
+function docComments() {
+  return docCommentsParse(docText());
+}
+
+//: The words a comment is about, or the line it sits on when it is a standing
+//: remark: a row that showed only the note would read as a list of loose
+//: sentences with no idea what any of them is about.
+function docCommentContext(comment) {
+  if (comment.target) return comment.target;
+  const text = docText();
+  const from = text.lastIndexOf("\n", Math.max(0, comment.from - 1)) + 1;
+  const to = text.indexOf("\n", comment.to);
+  const line = text.slice(from, to === -1 ? text.length : to);
+  const rest = (line.slice(0, comment.from - from) + line.slice(comment.to - from)).trim();
+  return rest || `Line ${comment.line}`;
+}
+
+function docCommentRow(comment) {
+  const item = document.createElement("li");
+  item.className = "doc-comment-item";
+  item.dataset.comment = comment.id;
+  if (comment.id === docCommentCurrent) item.setAttribute("aria-current", "location");
+
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "outline-link doc-comment-open";
+  open.title = "Show this in the document";
+  const context = document.createElement("span");
+  context.className = "doc-comment-context";
+  context.textContent = docCommentContext(comment);
+  //: The kind of thing this is, in the same place the writing panel puts a
+  //: finding's kind: a dot, then the words, then what was said about them.
+  const mark = document.createElement("i");
+  mark.className = comment.target ? "ph ph-highlighter doc-comment-kind" : "ph ph-chat-teardrop-text doc-comment-kind";
+  mark.setAttribute("aria-hidden", "true");
+  open.append(mark, context);
+  open.addEventListener("click", () => docGoToComment(comment));
+
+  const body = document.createElement("p");
+  body.className = "doc-comment-body";
+  body.textContent = comment.body;
+  //: The whole remark, for the row that shows three lines of it.
+  body.title = comment.body;
+
+  //: **Resolve rides on the subject line, not on a footer of its own.** It was
+  //: a footer with the word on it first, and that is the measurement that moved
+  //: it: 113px per row in a 226px column, so a document with four remarks in it
+  //: could show two. `.doc-outline-row` is this sidebar's own recipe for a link
+  //: that shares its line with one action (References and the attach row use
+  //: it), and the icon-only form is the one every other "take this off" in the
+  //: panel already takes. The words are on the `title` and the `aria-label`.
+  const head = document.createElement("div");
+  head.className = "doc-outline-row doc-comment-head";
+  const resolve = smallButton(
+    "ph:check",
+    comment.target
+      ? "Resolve: take the remark and its highlight out, leaving the words"
+      : "Resolve: take the remark out",
+    () => docResolveComment(comment)
+  );
+  resolve.classList.add("doc-outline-row-action", "doc-comment-action");
+  head.append(open, resolve);
+
+  item.append(head, body);
+  return item;
+}
+
+//: Drawn from the document's own text on every facts pass, like the outline:
+//: there is no comment store and there must not be one, or a document copied
+//: into this app from anywhere else would arrive with its remarks invisible.
+function renderDocComments() {
+  const wrap = $("doc-comments-wrap");
+  const list = $("doc-comments");
+  const count = $("doc-comments-count");
+  if (!wrap || !list) return;
+  const comments = currentDoc ? docComments() : [];
+  if (docCommentCurrent && !comments.some((c) => c.id === docCommentCurrent)) {
+    docCommentCurrent = null;
+  }
+  list.replaceChildren();
+  for (const comment of comments) list.appendChild(docCommentRow(comment));
+  //: The whole section goes when there is nothing in it, which is what the two
+  //: sections under it already do (`renderDocBacklinks`, `renderDocNotes`) and
+  //: what this panel's own stylesheet measured the cost of not doing: 69px of
+  //: column for an eyebrow over nothing. A sentence explaining what a comment
+  //: is would be the right answer for a tab that carries the word in its name;
+  //: a section is allowed to be absent.
+  wrap.classList.toggle("hidden", !comments.length);
+  if (count) count.textContent = comments.length ? String(comments.length) : "";
+}
+
+//: The document scrolls to the remark and selects it, which is both "here it
+//: is" and a sensible place to be left: the next thing anyone does with a
+//: comment is read the sentence around it or edit it. Same choice
+//: `docRevealBlock` made, for the same reason.
+function docGoToComment(comment) {
+  const surface = docSurface();
+  if (!surface) return;
+  docCommentCurrent = comment.id;
+  for (const row of document.querySelectorAll("#doc-comments .doc-comment-item")) {
+    if (row.dataset.comment === comment.id) row.setAttribute("aria-current", "location");
+    else row.removeAttribute("aria-current");
+  }
+  //: Read view has no editing surface, so there is nothing to put a caret in
+  //: and no reason to leave the reader looking at a page with no remark on it.
+  if (docView === "rendered") setDocView("live");
+  surface.focus();
+  surface.setSelectionRange(comment.anchorFrom, comment.anchorTo);
+}
+
+//: Opening the panel *at* a remark, which is what the pin in the text does.
+//: The offset rather than the id, because the widget knows where it is in the
+//: document and ids are derived from exactly that.
+function docShowComment(offset) {
+  const comment = docComments().find((c) => c.from === offset) || null;
+  showDocSidebarSection("outline");
+  if (!comment) {
+    renderDocComments();
+    return;
+  }
+  docCommentCurrent = comment.id;
+  renderDocComments();
+  const row = document.querySelector(`#doc-comments [data-comment="${comment.id}"]`);
+  //: The panel's own scrollTop, never `scrollIntoView`: the recipe index's
+  //: rule for a list that says where you are, because `scrollIntoView` walks
+  //: every scrolling ancestor and takes the page with it.
+  if (row) keepOutlineRowInView(row);
+}
+
+function docResolveComment(comment) {
+  const surface = docSurface();
+  if (!surface) return;
+  const edit = docCommentResolveEdit(surface.text, comment);
+  if (!edit) return;
+  docReplaceRange(surface, edit.from, edit.to, edit.insert);
+  if (docCommentCurrent === comment.id) docCommentCurrent = null;
+  markDocDirty();
+  renderDocComments();
+  scheduleDocPreview();
+  renderDocCounts();
+  //: Says where it went rather than only that it happened: the remark is gone
+  //: from the text and the undo that brings it back is the ordinary one.
+  toast("Resolved. Ctrl+Z puts it back.");
+}
+
+//: A remark on the selection, which is the way a comment is made. `custom` in
+//: `MD_ACTIONS` rather than a `pre`/`post` pair, because what it inserts
+//: depends on what is selected: words become `==words== %%|%%` with the caret
+//: in the remark, and nothing selected becomes a standing `%%|%%` on the line.
+function docAnnotateSelection(box, boxId = "doc-content") {
+  const surface = asSurface(box);
+  if (!surface) return;
+  const { from, to } = surface.selection();
+  const selected = surface.text.slice(from, to);
+  const insert = selected ? `==${selected}== %%%%` : "%%%%";
+  docReplaceRange(surface, from, to, insert);
+  //: The caret between the two `%%` pairs, so the first thing typed is the
+  //: remark itself. Counted from the end of what was inserted rather than
+  //: forward from the start: the selection's own length is in the middle of it.
+  const caret = from + insert.length - 2;
+  surface.setSelectionRange(caret, caret);
+  //: Through the same finish every other action in `MD_ACTIONS` uses, rather
+  //: than `markDocDirty` by hand. Two reasons, and the first is a bug this
+  //: avoids: this table is shared with the notes composer, so a remark left in
+  //: a *note* would otherwise mark the open *document* unsaved and autosave it.
+  //: Only `finishMarkdownEdit` knows which box the press came from. The second
+  //: is that the panel needs no nudge from here: the document path ends in
+  //: `markDocDirty` -> `scheduleDocFacts` -> `renderDocComments`, and an empty
+  //: `%%%%` is not a comment yet anyway (`docCommentsParse` skips it), so the
+  //: row is drawn by the first word typed into it rather than before it.
+  finishMarkdownEdit(surface, boxId);
+}
+
 // =============================================================================
 // Math: a small TeX subset rendered as MathML (DOCUMENTS_PLAN Phase 3 item 2)
 // =============================================================================
@@ -5073,6 +5293,45 @@ function docLivePlugin(CM) {
     }
   }
 
+  //: **A remark is a pin, not a span of purple text** (Phase 5 item 1). The
+  //: `%%…%%` hides like every other marker and a small control takes its place,
+  //: because a comment has to be *visible* in the document without being *read*
+  //: in it: that is the whole difference between a margin note and the prose.
+  //: Pressing it opens the Comments panel at that remark rather than a popover
+  //: over the sentence, which is DESIGN.md's one-surface-at-a-time rule and the
+  //: decision DOCUMENTS_PLAN 12 D3 made for the writing panel.
+  class DocCommentWidget extends WidgetType {
+    constructor(body, at) {
+      super();
+      this.body = body;
+      this.at = at;
+    }
+    eq(other) {
+      return other.body === this.body && other.at === this.at;
+    }
+    //: A control, not text: CodeMirror must not put a caret inside it.
+    ignoreEvent() {
+      return true;
+    }
+    toDOM() {
+      const pin = document.createElement("button");
+      pin.type = "button";
+      pin.className = "doc-comment-pin";
+      pin.title = this.body;
+      pin.setAttribute("aria-label", `Comment: ${this.body}`);
+      const icon = document.createElement("i");
+      icon.className = "ph ph-chat-teardrop-text";
+      icon.setAttribute("aria-hidden", "true");
+      pin.appendChild(icon);
+      const at = this.at;
+      pin.addEventListener("click", (event) => {
+        event.preventDefault();
+        docShowComment(at);
+      });
+      return pin;
+    }
+  }
+
   //: **Math, rendered where it was written.** The renderer is the MathML one
   //: at the top of this file, so what Live draws and what an export would draw
   //: come from one place. The widget replaces the `$…$` only while the caret
@@ -5402,9 +5661,27 @@ function docLivePlugin(CM) {
       };
       scan(/==([^=\n]{1,200})==/g, (match, from, to) => {
         ranges.push(Decoration.mark({ class: "cm-md-highlight" }).range(from, to));
+        //: A highlight with a remark after it is a comment's subject, and it is
+        //: drawn differently from a highlight somebody made to find their place
+        //: again: the underline is what says "there is something to read about
+        //: these words". The lookahead is the model's own rule (at most one
+        //: space, one line) rather than a second opinion about it.
+        if (/^ ?%%[^\n]*?[^%\n]%%/.test(text.slice(match.index + match[0].length))) {
+          ranges.push(Decoration.mark({ class: "cm-md-commented" }).range(from, to));
+        }
         if (rangeRevealed(from, to)) return;
         hide(from, from + 2);
         hide(to - 2, to);
+      });
+      //: The remark itself. Revealed as its own text when the caret is on its
+      //: line, which is how every marker in this view is edited.
+      scan(/%%([^\n]*?)%%/g, (match, from, to) => {
+        const note = match[1].trim();
+        if (!note) return;
+        if (rangeRevealed(from, to)) return;
+        ranges.push(
+          Decoration.replace({ widget: new DocCommentWidget(note, from) }).range(from, to)
+        );
       });
       //: **Math.** `$$…$$` first and `$…$` second, with the ranges the first
       //: took recorded: `$$x$$` contains `$x$`, so an inline pass run on its
@@ -6293,6 +6570,11 @@ const MD_ACTIONS = {
   math: { wrap: "$", placeholder: "x^2" },
   //: `%%…%%` is Obsidian's comment: kept in the file, never rendered.
   comment: { pre: "%%", post: "%%", placeholder: "note to self" },
+  //: A remark *on* something, which is the comment the panel lists (Phase 5
+  //: item 1). `custom`, because a `pre`/`post` pair cannot do it: what it
+  //: inserts depends on whether anything is selected, and the caret has to
+  //: land between the two `%%` pairs rather than after the whole insertion.
+  annotate: { custom: "annotate" },
   image: { custom: "image" },
   //: Properties (DOCUMENTS_PLAN Phase 3 item 4). `custom`, because the block
   //: goes at the top of the document rather than at the caret: it is the one
@@ -6408,6 +6690,10 @@ function applyMarkdown(kind, boxId = "doc-content") {
     const at = start + table.indexOf("Column");
     box.setSelectionRange(at, at + "Column".length);
     finishMarkdownEdit(box, boxId);
+    return;
+  }
+  if (action.custom === "annotate") {
+    docAnnotateSelection(box, boxId);
     return;
   }
   if (action.custom === "footnote") {
@@ -6622,11 +6908,20 @@ async function exportDocumentMarkdown() {
 // engine would add a heavy dependency to produce a worse-looking result.
 function exportDocumentPdf() {
   if (!currentDoc) return;
+  //: Set *before* `withDocPreviewShown`, which renders the pane on the way in:
+  //: the whole point of the flag is that the render it triggers is the one that
+  //: carries the footnotes (DOCUMENTS_PLAN Phase 5 item 1, "exported as
+  //: footnotes"). Cleared in the same place the print class is, and the pane is
+  //: drawn once more on the way out so what is left on screen after the dialog
+  //: closes is Read view again, without the remarks in it.
+  docPrintComments = true;
   withDocPreviewShown((restore) => {
     document.body.classList.add("printing-doc");
     const cleanup = () => {
       document.body.classList.remove("printing-doc");
+      docPrintComments = false;
       restore();
+      renderDocPreview();
       window.removeEventListener("afterprint", cleanup);
     };
     window.addEventListener("afterprint", cleanup);
@@ -7212,6 +7507,11 @@ function showDocSidebarSection(name) {
   if (wanted === "outline") {
     docOutlineMarked = -1;
     markDocOutline();
+    //: The comments section is in this tab and is drawn from the document's own
+    //: text on every facts pass, so the same argument applies to it: a hidden
+    //: list has nothing to draw into, and the pass that ran while the Documents
+    //: tab was showing left it with nothing in it.
+    renderDocComments();
   }
 }
 
@@ -8329,7 +8629,11 @@ function renderDocCaret() {
 function renderDocCounts() {
   const counts = $("doc-counts");
   if (!counts) return;
-  const text = docText();
+  //: **A remark is not prose you wrote for a reader**, so it is not in the
+  //: count, the character total or the reading time. Measured on a 128-word
+  //: document with two comments in it: 134 words counted before this, 128
+  //: after, which is the number the same document's Read view shows.
+  const text = docCommentStrip(docText());
   const words = (text.match(/\S+/g) || []).length;
   const chars = text.length;
   const minutes = words / DOC_READING_WPM;
@@ -8379,6 +8683,7 @@ function scheduleDocFacts() {
       renderDocStats();
       renderDocOutline();
       renderDocCounts();
+      renderDocComments();
       //: The properties panel is drawn from the frontmatter's own text and
       //: redraws only when that text moves, so it costs one parse of the top
       //: of the document per pause in the typing.
@@ -11215,6 +11520,39 @@ function docCmTheme(CM) {
         padding: "0 0.25em",
       },
       ".cm-md-highlight": { backgroundColor: "var(--accent-soft)", borderRadius: "3px" },
+      //: **A commented span, told apart from a plain highlight** (Phase 5 item
+      //: 1). A hairline under the words rather than a fourth underline *shape*:
+      //: the three the findings own (wavy in the error ink, wavy in the accent,
+      //: dotted in the muted) are all `text-decoration`, and a fourth one would
+      //: be a fourth thing for a reader to decode in the same channel. A border
+      //: is a different channel, and it reads correctly against the highlight's
+      //: own ground, which is doing half the work already.
+      ".cm-md-commented": { borderBottom: "1px solid var(--accent)" },
+      //: **The remark itself, as a pin rather than as purple text.** A comment
+      //: has to be visible in the document without being read in it, which is
+      //: the whole difference between a margin note and the prose, so the
+      //: `%%…%%` hides like every other marker and this takes its place. Sized
+      //: in `em` and aligned on the text's own middle so a line with a pin in it
+      //: is the same height as a line without one: measured, 24px either way.
+      //: Every longhand a bare `button` would otherwise bring (the accent fill,
+      //: the shadow, the 0.5rem of padding) is turned off here rather than in
+      //: the stylesheet, because this element exists only inside the view and a
+      //: widget split across two files is a widget that drifts.
+      ".doc-comment-pin": {
+        display: "inline-flex",
+        verticalAlign: "middle",
+        margin: "0 0.15em",
+        padding: "0 0.25em",
+        border: "0",
+        borderRadius: "var(--radius-pill)",
+        background: "var(--accent-soft)",
+        boxShadow: "none",
+        color: "var(--accent)",
+        fontSize: "0.8em",
+        lineHeight: "1.6",
+        cursor: "pointer",
+      },
+      ".doc-comment-pin:hover": { background: "var(--accent)", color: "var(--on-accent)" },
       ".cm-md-link": { color: "var(--accent)", textDecoration: "underline", cursor: "pointer" },
       ".cm-md-wiki": {
         color: "var(--accent)",

@@ -242,6 +242,9 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   $("about-restart-row").classList.toggle("hidden", !isDesktop);
   $("open-exports-row").classList.toggle("hidden", !isDesktop);
   $("export-save-dir-row").classList.toggle("hidden", !isDesktop);
+  //: The exports list is for every shell, not only the desktop: on a browser
+  //: tab it is the only way back to a file the app saved (INBOX 159).
+  renderExportsList();
   if (isDesktop) $("pref-export-dir").value = prefsCache?.export_save_dir || "";
   if (isDesktop) {
     $("pref-show-console").checked = Boolean(prefsCache?.show_console_on_startup);

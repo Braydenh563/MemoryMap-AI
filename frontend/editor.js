@@ -544,6 +544,20 @@ function editorCommands(context) {
       keywords: ["columns", "column", "two", "side", "split", "grid", "layout"],
       run: (textarea) => editorApplyNamed(textarea, "columns"),
     });
+    //: **Comment on this**, the anchored form of "Private comment" above, and
+    //: documents only for the same reason `blockref` is: what makes it worth
+    //: more than a bare `%%…%%` is the panel that lists it, jumps to it and
+    //: resolves it, and that panel is the document sidebar's third tab. In the
+    //: capture box the remark would be written into a note with nothing
+    //: anywhere to show it again.
+    commands.push({
+      id: "annotate",
+      group: "Links & references",
+      label: "\u{1F4AC} Comment on this",
+      hint: "==words== %%remark%%, listed in the sidebar",
+      keywords: ["comment", "annotate", "remark", "review", "note on", "feedback", "margin"],
+      run: (textarea) => editorApplyNamed(textarea, "annotate"),
+    });
   }
 
   // --- AI actions ---

@@ -9,6 +9,17 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Comments in a document. Select a phrase, choose Comment in the toolbar's
+  Highlight menu or "Comment on this" in the "/" menu, and the remark is
+  written into the document's own text as `==words== %%remark%%`: there is no
+  comment store, so a document written in another editor arrives with its
+  remarks already listed, and one written here stays readable anywhere else.
+  The remark hides behind a pin in the text, the words it is about carry a
+  hairline under the highlight, and the sidebar's Outline tab lists every
+  remark with the phrase it is on: press one to jump to it, resolve one to
+  take it out and leave the words. Read view shows the document without them;
+  a PDF export carries them as footnotes.
+
 - A context window per model. Settings > Models has a Context window box
   beside the model's spec: empty is auto (the window the model file or the
   server reports), a number is what that model runs at, and the choice is

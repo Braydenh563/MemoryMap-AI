@@ -285,8 +285,10 @@ the same thing.
 
 ### Phase 5 — review, history and AI (1 session)
 
-1. **Comments and annotations** on a range (`==highlight== %%comment%%`),
-   listed in a right panel, resolvable, exported as footnotes.
+1. **Comments and annotations**: built 2026-09-13. Moved to HISTORY.md
+   ("Moved from the plans, 2026-09-13", DOCUMENTS_PLAN.md); listed in the
+   sidebar's Outline tab rather than in a right panel, with the measurement
+   that decided it.
 2. **Version history UI**: a timeline of revisions with a diff view and
    Restore (PLAN D8); an "AI changed this" filter using the per-document AI
    edit log that exists.

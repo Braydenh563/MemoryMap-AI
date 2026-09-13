@@ -986,6 +986,57 @@ def save_generated_file(body: SaveFileBody) -> dict:
     return {"path": str(target), "filename": target.name, "bytes": len(data)}
 
 
+#: **What is in the exports folder, and each file back out of it.**
+#:
+#: Asked for directly (INBOX 159): "exported or downloaded files and images
+#: etc should appear in the notifications to be accessible, maybe there should
+#: also be an area somewhere maybe in settings to open the exports folder
+#: location and access exported or downloaded files". `save_generated_file`
+#: above wrote the files and `open_exports_folder` below reveals the folder,
+#: but only on the desktop, and only if you remembered a toast. This is the
+#: list Settings draws and the download link each row carries, so a browser
+#: tab can get its exports back too: a file the app wrote is served from the
+#: folder it wrote it to, contained by `_within_exports` exactly as the write
+#: was.
+#:
+#: Newest first and capped, because the folder grows one file per export for
+#: as long as the app is used and a settings screen is not a file manager;
+#: the folder itself is one click away for the rest.
+EXPORTS_LIST_LIMIT = 50
+
+
+@router.get("/files/exports")
+def list_exports() -> dict:
+    exports = _exports_dir()
+    if not exports.is_dir():
+        return {"path": str(exports), "files": []}
+    rows = []
+    for entry in exports.iterdir():
+        if not entry.is_file() or entry.name.startswith("."):
+            continue
+        stat = entry.stat()
+        rows.append(
+            {
+                "filename": entry.name,
+                "bytes": stat.st_size,
+                "modified_at": datetime.fromtimestamp(stat.st_mtime).isoformat(timespec="seconds"),
+            }
+        )
+    rows.sort(key=lambda row: row["modified_at"], reverse=True)
+    return {"path": str(exports), "files": rows[:EXPORTS_LIST_LIMIT]}
+
+
+@router.get("/files/exports/{filename}")
+def download_export(filename: str) -> FileResponse:
+    """One exported file, as a download. `safe_filename` and `_within_exports`
+    are the same two locks the write went through, in the same order."""
+    exports = _exports_dir()
+    target = _within_exports(exports, safe_filename(filename))
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="That export is no longer there.")
+    return FileResponse(str(target), filename=target.name)
+
+
 @router.post("/files/open-exports-folder")
 def open_exports_folder() -> dict:
     """Reveal the exports folder in the OS file manager.

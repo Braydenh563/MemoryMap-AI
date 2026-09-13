@@ -2790,6 +2790,28 @@
             <ul id="doc-outline" class="doc-outline"></ul>
           </div>
 
+          <!-- **Comments** (DOCUMENTS_PLAN Phase 5 item 1). Drawn from the
+               document's own `==words== %%remark%%` on every facts pass, like
+               the outline above: there is no comment store and there must not
+               be one, or a document written in another editor and dropped into
+               this folder would arrive with its remarks invisible.
+
+               A section in this tab rather than a tab of its own, and that is a
+               measurement rather than a preference. It was a third tab first:
+               "Documents", "Outline" and "Comments" want 257px of label in the
+               strip's 180px of content box, so the strip wrapped to two lines
+               and stood 75px tall against 29px. The rule it breaks is already
+               written three paragraphs down, for the backlinks: a list that
+               answers "what is this document" joins this tab, because "the
+               sidebar already has two tabs too many for the space it has".
+               Second in the stack, under the outline and above what links here,
+               because it is the one of the four that changes while you write.
+               Absent when there is nothing in it, like the two below it. -->
+          <div id="doc-comments-wrap" class="doc-outline-wrap doc-comments-wrap hidden">
+            <h3>Comments <span class="doc-outline-count" id="doc-comments-count"></span></h3>
+            <ul id="doc-comments" class="doc-outline doc-comments"></ul>
+          </div>
+
           <!-- What links *here*. The reverse of a [[wiki link]], and the
                single most-used panel in tools of this shape, you can always
                see what a page points at, and almost never what points at it.
@@ -3100,9 +3122,16 @@
                query, so nesting them changes nothing about how they fire. -->
           <details class="doc-dock-menu doc-toolbar-menu" id="doc-toolbar-colour">
             <summary class="doc-dock-menu-btn doc-toolbar-menu-btn"
-              title="Highlight and colour" aria-label="Highlight and colour"><i class="ph ph-highlighter ph-lead" aria-hidden="true"></i> Highlight <i class="ph ph-caret-down doc-toolbar-menu-caret" aria-hidden="true"></i></summary>
+              title="Highlight, colour and comment" aria-label="Highlight, colour and comment"><i class="ph ph-highlighter ph-lead" aria-hidden="true"></i> Highlight <i class="ph ph-caret-down doc-toolbar-menu-caret" aria-hidden="true"></i></summary>
             <div class="doc-dock-menu-list">
               <button type="button" class="doc-dock-menu-item" data-md="highlight" title="Highlight (yellow)"><i class="ph ph-highlighter ph-lead" aria-hidden="true"></i> Highlight</button>
+              <!-- Comment sits in this menu rather than in Insert because what
+                   it writes is a highlight with a remark after it, and the
+                   underline the editor draws on a commented span is drawn on
+                   the highlight itself. Insert is blocks (quote, table, code,
+                   divider); a remark on the words you have selected is not
+                   one. -->
+              <button type="button" class="doc-dock-menu-item" data-md="annotate" title="Highlight the selection and leave a remark on it"><i class="ph ph-chat-teardrop-text ph-lead" aria-hidden="true"></i> Comment</button>
               <select class="md-colour-select" data-md-colour="highlight"
                 aria-label="Highlight colour" title="Highlight in a colour">
                 <option value="">Highlight…</option>
@@ -7781,6 +7810,22 @@
                 <button id="pref-export-dir-reset" class="ghost small" type="button">Reset to default</button>
               </div>
               <p class="muted hidden" id="export-save-dir-status"></p>
+              <!-- What has been exported, newest first, with a download each.
+                   Asked for directly (INBOX 159): "an area somewhere maybe in
+                   settings to open the exports folder location and access
+                   exported or downloaded files and images". The folder button
+                   above is desktop only; this list is the browser tab's way
+                   to the same files, and the desktop's way to see what is
+                   there without leaving the app. -->
+              <div class="row help-head settings-row-spaced" id="exports-recent">
+                <h4>Recent exports</h4>
+                <button id="exports-refresh" class="ghost small icon-only" type="button"
+                  title="Refresh the list" aria-label="Refresh the list of exports">
+                  <i class="ph ph-arrows-clockwise" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted" id="exports-empty">Nothing exported yet.</p>
+              <ul id="exports-list" class="exports-list"></ul>
             </div>
 
             <div class="settings-group">

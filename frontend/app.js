@@ -22007,6 +22007,18 @@ async function saveFile(filename, blob) {
           toast(error.message || "Couldn't open the exports folder.", true);
         });
       });
+      //: **A saved file is a notification, not only a toast.** Asked for
+      //: (INBOX 159): "exported or downloaded files and images etc should
+      //: appear in the notifications to be accessible". A toast is gone in
+      //: seconds and the path in it was the only record of where the file
+      //: went; the notification stays, and opening it opens the folder.
+      recordNotification({
+        kind: "export",
+        title: `Saved ${saved.filename}`,
+        detail: saved.path,
+        key: `export:${saved.path}`,
+        action: { exports: true },
+      });
       return saved;
     } catch (error) {
       toast(`Couldn't save ${filename}: ${error.message}`, true);
@@ -22024,6 +22036,16 @@ async function saveFile(filename, blob) {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+  //: The browser's own downloads shelf has the file; this is the record of
+  //: it inside the app, so the notifications list says the same thing on a
+  //: browser tab as it does on the desktop (INBOX 159).
+  recordNotification({
+    kind: "export",
+    title: `Downloaded ${filename}`,
+    detail: "In your browser's downloads folder",
+    key: `download:${filename}:${Date.now()}`,
+    action: { exports: true },
+  });
   return { filename };
 }
 
@@ -26475,6 +26497,8 @@ const AUTOGROW_MAX_PX = 480;
 // above it. The cap is the *smaller* of the two, so a tall screen keeps the
 // familiar 340 and a short one keeps its conversation.
 const AUTOGROW_MAX_VIEWPORT = 0.35;
+//: The most of the window a hand-dragged composer may take (INBOX 111).
+const COMPOSER_DRAG_MAX_VIEWPORT = 0.7;
 
 //: Where a hand-dragged composer height is remembered. A preference about how
 //: you write, so it outlives the session that set it.
@@ -26533,32 +26557,22 @@ function autoGrow(el) {
   //: able to be lowered in height manually and should go back to normal
   //: when empty or the text reduces." A fixed hand-set height (the previous
   //: rule) is exactly what stopped the box expanding. Now a drag *below*
-  //: the automatic height is a cap, a drag *above* it is a floor, and an
-  //: empty box forgets the drag altogether.
-  //: One-shot, read and cleared here rather than inside the branch below:
-  //: when the drag happens on a box that *has* text the branch never runs,
-  //: so a flag cleared only there would still be set the next time the box
-  //: was emptied and would suppress the forget it exists to allow once.
-  const keptDrag = Boolean(el.dataset.keepDrag);
-  delete el.dataset.keepDrag;
-  if (!el.value.trim() && el.dataset.maxPx) {
-    //: **Except on the release of the drag that just set it.** Reported:
-    //: "when I try to manually change the height of the chat bar, it snaps
-    //: back to what it was with or without text in it." Reproduced: with
-    //: text the drag holds at 240px, on an empty box it snapped straight
-    //: back to 44 and the height was never kept. `record()` sets `maxPx`
-    //: on pointerup and then asks for this function on the next frame, so
-    //: this branch was undoing the drag as part of performing it, and an
-    //: empty composer could not be resized at all. "Go back to normal when
-    //: empty" is about a box you *clear* after dragging it, not about
-    //: refusing the drag itself, so that one call is exempt.
-    if (!keptDrag) {
-      delete el.dataset.maxPx;
-      try { localStorage.removeItem(COMPOSER_HEIGHT_KEY); } catch { /* storage may be unavailable */ }
-    }
-  }
+  //: the automatic height is a cap, a drag *above* it is a floor.
+  //: **Revised again (INBOX 111)**: "when I drag the height of the chat bar,
+  //: it snaps back to what it was with or without text in it." The earlier
+  //: rule also forgot the drag the moment the box was empty, exempting only
+  //: the release of the drag itself; the next `input` event on an empty box
+  //: (a keystroke, then backspace) forgot it anyway, which from the chair
+  //: is the same snap-back one keystroke later. A dragged height is a
+  //: preference and is kept until the next drag; what "go back to normal
+  //: when empty" still gets is the *automatic* growth collapsing, which
+  //: `chosen < auto` below already does for a drag under the automatic
+  //: height.
   const chosen = Number(el.dataset.maxPx || 0);
   const viewportLimit = Math.min(AUTOGROW_MAX_PX, Math.round(window.innerHeight * AUTOGROW_MAX_VIEWPORT));
+  //: A drag may exceed the automatic ceiling (that is what the drag is for),
+  //: but not the window: past this the conversation above is gone entirely.
+  const dragLimit = Math.round(window.innerHeight * COMPOSER_DRAG_MAX_VIEWPORT);
   const auto = Math.min(el.scrollHeight, viewportLimit);
   //: **INBOX 37: an empty box is pinned to its CSS floor, not measured.**
   //: Reported with a screenshot: Reminders' Magic add field taller than its
@@ -26578,7 +26592,7 @@ function autoGrow(el) {
   //: takes back over below, which is the box actually growing to fit typed
   //: text rather than a static height with nothing behind it.
   const next = chosen > 0
-    ? (chosen < auto ? chosen : Math.max(auto, Math.min(chosen, viewportLimit)))
+    ? (chosen < auto ? chosen : Math.max(auto, Math.min(chosen, dragLimit)))
     : !el.value.trim()
       //: An empty box is its own natural height (`rows` and the placeholder,
       //: measured at height:auto above), floored at min-height, never *just*
@@ -26763,10 +26777,6 @@ function initComposerResize() {
     if (!height || Math.abs(height - automatic) <= 2) return;
     box.dataset.maxPx = String(height);
     try { localStorage.setItem(COMPOSER_HEIGHT_KEY, String(height)); } catch { /* private mode */ }
-    //: Read and cleared by `autoGrow`'s "an empty box forgets the drag"
-    //: branch, so the height this just recorded survives the very call
-    //: that applies it. See that branch for the report.
-    box.dataset.keepDrag = "1";
     requestAnimationFrame(() => autoGrow(box));
   };
   box.addEventListener("pointerdown", (event) => {
@@ -29557,12 +29567,16 @@ async function openNotifications({ keepWatermark = false } = {}) {
     row.append(readToggle);
 
     // A notification you cannot act on is a notification you learn to ignore.
-    if (item.action && item.action.tab) {
+    if (item.action && (item.action.tab || item.action.exports)) {
       row.classList.add("notif-actionable");
       row.tabIndex = 0;
-      row.title = "Open";
+      row.title = item.action.exports ? "Open the exports folder" : "Open";
       const go = () => {
         closeNotifications();
+        if (item.action.exports) {
+          openExportsFromNotification();
+          return;
+        }
         switchTab(item.action.tab);
       };
       row.addEventListener("click", go);
@@ -33997,6 +34011,72 @@ $("pref-close-to-tray")?.addEventListener("change", (e) => {
       : "Closing the window will quit MemoryMap."
   );
 });
+
+//: **Where an export lands, from a notification.** On the desktop the OS file
+//: manager opens on the folder; a browser tab has no file manager to hand
+//: this to, so it gets the Settings list below, where every export has a
+//: download link of its own.
+async function openExportsFromNotification() {
+  if (await desktopShell()) {
+    apiJson("/files/open-exports-folder", { method: "POST" }).catch((error) => {
+      toast(error.message || "Couldn't open the exports folder.", true);
+    });
+    return;
+  }
+  openSettingsModal("data", "exports-recent");
+}
+
+//: **The exports folder, as a list in Settings** (INBOX 159: "an area
+//: somewhere maybe in settings to open the exports folder location and access
+//: exported or downloaded files and images"). Fed by `GET /files/exports`,
+//: newest first; each row downloads its file through `GET
+//: /files/exports/{name}`, fetched with the app's own auth header and handed
+//: to the browser as a download, since a bare link cannot carry the token.
+async function renderExportsList() {
+  const list = $("exports-list");
+  const empty = $("exports-empty");
+  if (!list || !empty) return;
+  const body = await apiJson("/files/exports", { silent: true }).catch(() => null);
+  const files = (body && body.files) || [];
+  list.replaceChildren();
+  empty.classList.toggle("hidden", files.length > 0);
+  empty.textContent = body
+    ? `Nothing exported yet. Files land in ${body.path}.`
+    : "The exports folder could not be read.";
+  for (const file of files) {
+    const row = document.createElement("li");
+    row.className = "row exports-row";
+    const name = document.createElement("span");
+    name.className = "exports-name";
+    name.textContent = file.filename;
+    name.title = file.filename;
+    const facts = document.createElement("span");
+    facts.className = "muted text-sm exports-facts";
+    const size = typeof formatFileSize === "function" ? formatFileSize(file.bytes) : `${file.bytes} B`;
+    facts.textContent = `${size} · ${relativeTime(file.modified_at)}`;
+    const get = smallButton("ph:download-simple Download", `Download ${file.filename}`, async () => {
+      try {
+        const response = await api(`/files/exports/${encodeURIComponent(file.filename)}`);
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = file.filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        toast(error.message || `Couldn't fetch ${file.filename}.`, true);
+      }
+    });
+    get.classList.add("ghost");
+    row.append(name, facts, get);
+    list.appendChild(row);
+  }
+}
+
+$("exports-refresh")?.addEventListener("click", renderExportsList);
 
 $("open-exports-folder").addEventListener("click", async () => {
   try {

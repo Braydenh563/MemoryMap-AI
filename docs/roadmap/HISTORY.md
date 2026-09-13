@@ -23738,6 +23738,82 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing
 order 10). Origin file named on each.
 
+### From DOCUMENTS_PLAN.md
+
+### Built, Phase 5 item 1: comments and annotations, 2026-09-13
+
+`==words== %%remark%%` in the document's own text, listed in the sidebar,
+resolvable, and footnotes in an export. There is no comment store and there must
+not be one: a document written in another editor and dropped into the folder
+arrives with its remarks already listed, and one written here stays readable
+anywhere else.
+
+**The model** (`documents.js`, between `DOC-COMMENT-BEGIN` and
+`DOC-COMMENT-END`, landed 2026-09-13 as `eaf0d6d`): `docCommentsParse` returns
+every remark in document order with the span of the remark, the span of the words
+it is about and the span a reader should be shown; `docCommentResolveEdit`
+returns the one edit that takes the remark and its highlight markers out and
+leaves the words; `docCommentStrip` is what Read view and the word count see;
+`docCommentFootnotes` is what an export carries. Pure string work, no DOM,
+tested in node against `src/memorymap/core/docexport.py`'s copy over one fixture
+(`tests/test_doc_comments.py`).
+
+**Where it is listed, and the measurement that decided it.** A section of the
+sidebar's Outline tab, second in the stack, under the outline and above what
+links here, because it is the one of the four "about this document" lists that
+changes while you write. It was a third tab first, and that lasted exactly one
+measurement: "Documents", "Outline" and "Comments" want 257px of label in a strip
+with 180px of content box, so the strip wrapped to two lines and stood 75px tall
+against 29px. The rule it broke was already written in the markup for the
+backlinks ("the sidebar already has two tabs too many for the space it has"),
+which is why this project keeps that kind of decision in the file it applies to.
+The plan's own phrase, "listed in a right panel", is superseded: this editor has
+one panel width, a second column at 1100px leaves the measure under 500px, and
+Phase 6 turns that one panel into a sheet at narrow widths, so a right panel
+would have needed a second responsive story for the same content.
+
+**The row** (`docCommentRow`): the quoted subject on one line in the muted ink
+with a kind icon (the highlighter for a remark anchored to a highlight, a speech
+bubble for a standing note on a line), an icon-only Resolve sharing that line
+through this sidebar's own `.doc-outline-row` recipe, and the remark itself under
+it in the document's ink, three lines at most. Resolve had the word on it and a
+footer of its own first: 113px per row in a 226px column, so a document with four
+remarks could show two. It is 85px now, 66px for a one-line remark.
+
+**In the text** (`docLivePlugin`): the `%%…%%` hides like every other marker and
+a pin takes its place, so a comment is visible in the document without being read
+in it; pressing the pin opens the tab at that remark rather than a popover over
+the sentence (DESIGN.md's one-surface rule, and the decision 12 D3 made for the
+writing panel). A commented highlight is told apart from a plain one by a
+hairline under the words rather than by a fourth underline *shape*: the three the
+findings own are all `text-decoration`, and a border is a different channel.
+
+**Making one**: `annotate` in `MD_ACTIONS`, offered as Comment in the toolbar's
+Highlight menu (it writes a highlight with a remark after it; Insert is blocks)
+and as "Comment on this" in the "/" menu, documents only. The caret lands between
+the two `%%` pairs, so the first thing typed is the remark.
+
+**Two bugs in the half that arrived uncommitted, both found by grepping the call
+site** (CLAUDE.md section 6): `docPrintComments` was read by `renderDocPreview`
+and declared nowhere, so every preview render would have thrown; and
+`docAnnotateSelection` had no call site at all and called `markDocDirty` by hand,
+which would have marked the open *document* unsaved for a remark left in a
+*note*, since `MD_ACTIONS` is shared with the notes composer. It finishes through
+`finishMarkdownEdit` now, like every other action in the table.
+
+**Measured** (`scratchpad/ui-sweeps/doccomments.js`, 1440x900, both themes):
+three remarks listed for three in the text, the section second in the stack and
+absent at 0px when there is nothing in it, rows 85/85/66px with the subject and
+its action on one line, 3 pins and 2 commented highlights, a line with a pin in
+it 26px against 26px for a line without, pressing a row selects the remark in the
+editor with no floating surface opened and paints the row from `aria-current`,
+Read view carries the words and none of the remarks or their markers, the word
+count 23 against the 23 words a reader sees, resolving leaves the words and drops
+the row and the count with it, the tab strip back to one line at 38px, and the
+caret inside the new remark from the toolbar. Contrast from the painted pixels
+6.75:1 at worst in light and 6.79:1 at worst in dark, the tightest being the
+count beside the heading. 0 console errors in every run.
+
 ### From TIMELINE_PLAN.md
 
 ### Built, Phase 1: the row model and the feed, 2026-09-13

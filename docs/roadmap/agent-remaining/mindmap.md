@@ -31,7 +31,17 @@
 
 | Sweep | Checks |
 | --- | --- |
-| `scratchpad/ui-sweeps/mindmap.js` | **76**, re-run and green |
+| `scratchpad/ui-sweeps/mindmap.js` | **74 of 76** at 1440 after the eighth run repaired three stale checks in it. It was **68 of 76** at the start of that run, and the seventh run's "76, re-run and green" had stopped being true: see the eighth run's log at the foot of this file. Takes `VIEWPORT` now. |
+| `scratchpad/ui-sweeps/mappan.js` | **11**, new: the middle-button pan and the layer sync under the hand tool |
+| `scratchpad/ui-sweeps/panlayers.js` | new, a probe: which of the board's layers the compositor actually promotes |
+| `scratchpad/ui-sweeps/mapmenus.js` | **11**, new: all five board menus, and the top bar against the window at 1440, 1024 and 820 |
+| `scratchpad/ui-sweeps/newboard.js` | **6**, new: what the New board dialog has chosen when it opens |
+| `scratchpad/ui-sweeps/mapring.js` | **4**, new: the ground under the node ring, by pixel, light and dark |
+| `scratchpad/ui-sweeps/mapexportcard.js` | **3**, new: what the card of a map exported to the library says |
+| `scratchpad/ui-sweeps/mapnarrow.js` | **3**, new: the fold chevron and the template offer at 390x844 |
+| `scratchpad/ui-sweeps/maptidy.js` | **5**, new: a tidy's requests, its persistence, node size against the screen, and the framing after it |
+| `scratchpad/ui-sweeps/mapperspective.js` | **12**, new: the perspectives on a map of twenty note nodes, light and dark |
+| `scratchpad/ui-sweeps/wbrail.js` | **6**, new: the rail and the board's floating panels against the dock recipe |
 | `scratchpad/ui-sweeps/mindmap3.js` | **57**, re-run and green after two repairs to the sweep itself (see below) |
 | `scratchpad/ui-sweeps/mindmap-theme.js` (`THEME=dark`) | **9** (was 7), re-run: 9/9 dark at 1440, 8/9 dark at 390 (the one failure is the shell's own 7px overflow, below) |
 | `scratchpad/ui-sweeps/mapdock.js` | **26** (was 25): the dock split, the delete doors, the empty map, the two §12.0 decisions, the three ways out of a fold, and the dock's reach at phone width |

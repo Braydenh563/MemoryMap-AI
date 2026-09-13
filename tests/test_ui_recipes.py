@@ -855,3 +855,100 @@ def test_every_selection_bar_is_one_sticky_recipe() -> None:
         "`--accent-soft` alone is a 14% wash and the list shows straight "
         "through it while it scrolls"
     )
+
+
+def test_a_viewport_popup_leaves_the_surfaces_that_can_blur() -> None:
+    """DESIGN.md's recipe index: a popup placed in window coordinates lives in
+    the window's own frame, and proves it landed there.
+
+    The report that earned the recipe (INBOX 168, with a screenshot): the word
+    menu for "tets" drawn at the right edge of the window with its column cut
+    off past it and its list under the bottom bar. The arithmetic was never
+    wrong: `placeDocSuggest` clamps unconditionally, so the menu cannot leave
+    the viewport by adding up badly. It was being laid out against something
+    that is not the viewport. A `position: fixed` element takes its containing
+    block from the nearest ancestor with a `filter`, `transform` or
+    `backdrop-filter`, and `:root[data-bg-art="on"]:not([data-glass="off"])
+    .card` gives the document card one whenever the background art is on.
+    Measured at 1440x900 with the art on: the menu asked for `left 952, top
+    322` and drew at `1245..1485, 399`, 45px past the right edge of the window
+    and 53px from its word.
+
+    Two halves, either of which a later session could drop without seeing
+    anything move on a machine with the art switched off:
+
+    1. the popup leaves the card while it is open and goes back on the way out;
+    2. the placement measures what was drawn and corrects the difference, which
+       is cause-agnostic: the next property CSS invents that creates a
+       containing block is covered the day it ships.
+    """
+    js = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+
+    lifts = {
+        "openDocSuggest": "docLiftToViewport(",
+        "renderDocComplete": "docLiftToViewport(",
+        "closeDocSuggest": "docReturnFromViewport(",
+        "hideDocComplete": "docReturnFromViewport(",
+    }
+    for name, call in lifts.items():
+        assert call in _function_body(js, name), (
+            f"{name} must call {call.rstrip('(')}: a popup placed in window "
+            "coordinates cannot be a descendant of a surface that blurs "
+            "(DESIGN.md, the recipe index)"
+        )
+
+    # The placement goes through the helper rather than writing the numbers
+    # itself, or the correction below is one function away from the code that
+    # needs it.
+    place = _function_body(js, "placeDocSuggest")
+    assert "docPlaceFixed(" in place and "style.left" not in place, (
+        "placeDocSuggest must place the menu through docPlaceFixed, which "
+        "checks the menu landed where it was put (DESIGN.md, the recipe index)"
+    )
+
+    # Both of the app's viewport popups measure after placing. Compared by
+    # position rather than by name: what matters is that the rect is read
+    # *after* the first write, which is the whole of the correction.
+    for text, name in ((js, "docPlaceFixed"), (app, "clampToolbarMenu")):
+        body = _function_body(text, name)
+        wrote = body.index(".style.left")
+        assert "getBoundingClientRect()" in body[wrote:], (
+            f"{name} sets a fixed popup's position and never checks it landed "
+            "there: measure the rect after writing and correct by the "
+            "difference (DESIGN.md, the recipe index)"
+        )
+
+
+def test_one_writing_finding_is_drawn_by_one_builder() -> None:
+    """DESIGN.md's recipe index: the four surfaces of the writing suggestions
+    draw one object one way.
+
+    The report (INBOX 142): "the whole editor intelligence and auto correct and
+    dictionary stuff needs a whole ux redesign". Four surfaces had grown
+    separately and described one finding in three orders under five names. The
+    line is built once (`docFindingLine`: dot, words, reason) and the answers
+    are built once (`docSuggestAnswers`), so the panel row and the floating menu
+    cannot drift apart again by being edited one at a time.
+    """
+    js = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+
+    for name in ("docProseGroupList", "openDocSuggest"):
+        assert "docFindingLine(" in _function_body(js, name), (
+            f"{name} must draw its finding with docFindingLine: one object, one "
+            "drawing, in the panel and in the menu (DESIGN.md, the recipe index)"
+        )
+    for name in ("docProseRowAnswers", "openDocSuggest"):
+        assert "docSuggestAnswers(" in _function_body(js, name), (
+            f"{name} must take its answers from docSuggestAnswers: a second copy "
+            "of those actions is how the panel came to have none (DESIGN.md, "
+            "the recipe index)"
+        )
+    # The pieces of the line are made in exactly one place. A second
+    # `doc-finding-dot` somewhere else is a second drawing of the same object,
+    # whatever it looks like on the day it is written.
+    for piece in ("doc-finding-dot", "doc-finding-words", "doc-finding-why"):
+        assert js.count(f'"{piece}') + js.count(f"`{piece}") == 1, (
+            f"{piece} is built in more than one place: a finding is drawn by "
+            "docFindingLine alone (DESIGN.md, the recipe index)"
+        )

@@ -8958,10 +8958,30 @@ function docProseGroupList(findings) {
     jump.title = "Show me this in the document, and what can be done about it";
     jump.addEventListener("click", (event) => {
       docProseJump(finding);
-      //: The row *is* the flagged word as far as this panel is concerned, so
-      //: pressing it opens the same menu the word itself does, anchored to
-      //: the row, which is the thing the pointer is on.
-      openDocSuggest(finding, event.currentTarget.getBoundingClientRect());
+      //: **Anchored to the word, not to the row that named it.** This used to
+      //: anchor to the row, reasoning that the row "is the flagged word as far
+      //: as this panel is concerned" and that the pointer was on it. Reported:
+      //: "when I click on the issue from the suggestions thing, the box just
+      //: appears right there in my face." Both things are true: the pointer is
+      //: on the row, and the row is at the foot of the window, so a menu
+      //: opened there lands over the panel it came from and over the text it
+      //: is discussing.
+      //:
+      //: The click has just scrolled the document to the word
+      //: (`docProseJump`), which is the whole point of pressing the row, so
+      //: the word is on screen and is the honest anchor: the menu appears
+      //: beside the thing it is about, exactly as it does when the word itself
+      //: is clicked, and the two ways in stop behaving differently.
+      //:
+      //: A frame later, because the jump moves the editor and a decoration's
+      //: box is the previous scroll position's until it has been laid out
+      //: again. The row's own rect is the fallback for a finding whose mark is
+      //: not rendered (a Live-view construct the editor has folded away), so
+      //: pressing a row always opens something.
+      const rowRect = event.currentTarget.getBoundingClientRect();
+      requestAnimationFrame(() => {
+        if (!docOpenSuggestFor(finding)) openDocSuggest(finding, rowRect);
+      });
     });
     li.appendChild(jump);
     if (finding.replacement !== null) {

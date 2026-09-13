@@ -3511,11 +3511,21 @@ textarea.autogrow {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--inner);
-  /* Reported: "waaayy too small". 16rem showed four rows of a list that
-     routinely has twenty, so the panel was a scroller from the moment it
-     opened. `min` against the viewport keeps it from swallowing a short
-     window: it is a panel under the document, not a second page. */
-  max-height: min(60vh, 32rem);
+  /* **Twice reported, from opposite directions, which is the useful part.**
+     First "waaayy too small": 16rem showed four rows of a list that routinely
+     has twenty, so the panel was a scroller the moment it opened. It went to
+     `min(60vh, 32rem)`, and then: "the suggestions box at the bottom takes up
+     a lot of my screen and it makes the text editor really small." Sixty
+     percent of the window is not a panel under the document, it is a second
+     page, and the document is what the suggestions are about: a reader who
+     cannot see the sentence cannot judge the advice about it.
+
+     A third of the window is the settle. It is more than double the four rows
+     of the original complaint and it leaves the editor the clear majority of
+     the screen, which is the thing being edited. Past that the panel scrolls,
+     which is correct for a list whose length is the notebook's business
+     rather than the layout's. */
+  max-height: min(33vh, 22rem);
   min-height: 8rem;
   overflow-y: auto;
 }

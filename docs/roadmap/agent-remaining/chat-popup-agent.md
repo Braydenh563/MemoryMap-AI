@@ -55,6 +55,27 @@ The chat agent's run against INBOX 181, 182, 183, 187, 188, 189, 190 and
   it reached before its own browser closed; `chatphase3.js` green with the
   superseded starter line rewritten.
 
+## Found, not fixed: one full-suite failure, and it is not about this work
+
+`tests/test_static_compression.py::test_a_stamped_asset_is_immutable_and_gzipped`
+fails: "gzipped app.js is 609068 bytes, expected under 600 KB". The number in
+that assertion is a smoke bound written when the file's own docstring recorded
+"515 KB on the wire for a 1.6 MB app.js"; nothing in it argues for 600 KB as a
+budget. **It was already 4.8 KB from firing before this agent started**: the
+branch head's own `frontend/app.js` gzips to 595,215 bytes against a 600,000
+cap, and the file is 1.93 MB of source. This run added 15.4 KB of code and
+18.4 KB of comments to it; deleting every comment of mine would still leave it
+over, so trimming prose is not the fix and is not what the bound is pointing
+at.
+
+Two real options, both above a single agent's remit, hence this note rather
+than a commit: raise the bound with the reason recorded beside it (the file is
+served gzipped and revalidated, and 600 KB was never a measured budget), or
+split `frontend/app.js`, which is the thing the number is really measuring.
+Whoever owns the branch's CI should take one. Everything else in the suite
+passed, every test this work touched is green, and `scripts/gate.sh --staged`
+passed before every commit here.
+
 ## Next
 
 1. `chat-timeline-skills.md` item 1's remaining half, which is not the

@@ -134,3 +134,47 @@ def test_a_note_with_no_claim_in_it_derives_nothing(ai_client, fake_ollama):
     _entry(ai_client, "milk, bread, eggs, coffee, a birthday card for Sam")
     ai_client.post("/night/run", json={"budget": 2000})
     assert ai_client.get("/learned").json()["items"] == []
+
+
+def test_the_night_pass_does_not_cost_a_query_per_note(ai_client, fake_ollama, session):
+    """The pass asks "have I already derived this" once, not once per note.
+
+    Found by reading this module's own loop after the list endpoints came back
+    clean: the check was a `SELECT ... WHERE entry_id = ?` inside the loop,
+    which is invisible on a fixture of three notes and is one round trip per
+    note on a real notebook, every time the pass runs. The number that matters
+    is not the count but whether it moves when the notebook gets bigger.
+    """
+    from sqlalchemy import event
+
+    def statements(fn) -> int:
+        seen = []
+
+        def before(*args, **kwargs):  # noqa: ANN002, ANN003, ARG001
+            seen.append(1)
+
+        engine = session.get_bind()
+        event.listen(engine, "before_cursor_execute", before)
+        try:
+            fn()
+        finally:
+            event.remove(engine, "before_cursor_execute", before)
+        return len(seen)
+
+    # Measured on a re-run with nothing new to derive, so the inserts (which
+    # are real work and should scale with what is found) are out of the way
+    # and what is left is the reading.
+    for i in range(5):
+        _entry(ai_client, f"note {i}. The deployment window should always be a Tuesday morning.")
+    ai_client.post("/night/run", json={"budget": 100_000})
+    small = statements(lambda: ai_client.post("/night/run", json={"budget": 100_000, "force": True}))
+
+    for i in range(40):
+        _entry(ai_client, f"more {i}. The deployment window should always be a Tuesday morning.")
+    ai_client.post("/night/run", json={"budget": 100_000})
+    large = statements(lambda: ai_client.post("/night/run", json={"budget": 100_000, "force": True}))
+
+    assert large <= small + 2, (
+        f"the night pass costs {small} statements over 5 notes and {large} over 45: "
+        "the already-known check belongs outside the loop"
+    )

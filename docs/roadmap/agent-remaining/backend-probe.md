@@ -20,6 +20,7 @@ security review's open rows, D6, and the performance probes.
 - done: the flaw classes re-run and recorded, `scratchpad/probe_excepts.py` added (147 broad, 52 silent). next: nothing queued; the full suite is running before the final report.
 - done: D6's writing half moved from GET to POST; the GET is read-only and 404s, because a GET that makes a row sits outside the method-judging CSRF defence. next: the full suite, then the report.
 - verified against a running server on 8796 (`/tmp/mm-back`), not only tests: POST /entries/daily twice returns id 1 both times; the window reports streak 1; the night pass derived 2 facts in 8 tokens; PATCH, force re-run (derived 0), reset and export all behaved. The auth header is `X-Auth-Token`, not `Authorization`.
+- done: an N+1 in my own night pass, found by reading the loop after the list endpoints came back clean. 9 statements over 5 notes and 44 over 45 before, flat after (`test_the_night_pass_does_not_cost_a_query_per_note`). next: the full suite, then the report.
 
 ## The flaw classes, re-run 2026-09-13 evening (WORLD_CLASS section 10)
 

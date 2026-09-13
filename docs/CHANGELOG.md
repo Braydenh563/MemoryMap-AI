@@ -9,6 +9,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The night pass reads what it already knows in one query instead of one per
+  note. Measured on a re-run with nothing new to derive: 9 statements over 5
+  notes and 44 over 45 before, flat after.
+
 - `scratchpad/probe_list_queries.py` drives every list endpoint at a page of 5
   and a page of 100 over the same notebook and says which ones cost a query
   per row. None do, measured at 121 notes with 40 attachments; the three

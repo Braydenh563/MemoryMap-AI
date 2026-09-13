@@ -356,6 +356,15 @@ def run(
     scanned = 0
     derived = 0
     stopped = "done"
+    # **One query for what is already known, not one per note.** This read
+    # asks "has this note already produced this fact", and asking it inside
+    # the loop is a query per note: invisible on a fixture, and a thousand
+    # round trips on a real notebook every time the pass runs. Tombstones are
+    # included, because "already known" has to mean a deleted fact too or the
+    # next pass brings back everything the person threw away.
+    known_by_entry: dict[int, set[str]] = {}
+    for row in session.scalars(select(DerivedFact)).all():
+        known_by_entry.setdefault(row.entry_id, set()).add(fingerprint_of(row))
     for entry in _entries_to_read(session, force):
         if spent + TOKENS_PER_NOTE > budget:
             stopped = "budget"
@@ -367,12 +376,7 @@ def run(
         if not proposed:
             continue
 
-        known = {
-            fingerprint_of(row)
-            for row in session.scalars(
-                select(DerivedFact).where(DerivedFact.entry_id == entry.id)
-            ).all()
-        }
+        known = known_by_entry.setdefault(entry.id, set())
         # `known` grows as this note's candidates are taken, not only from what
         # was already stored: a note that says the same sentence twice has two
         # spans and one fact, and without this it would get a row per

@@ -24295,6 +24295,103 @@ driven by building the renderer's own markup in `#chat-messages` and by the
 streaming class, not by an answer from a local model, and the composer was
 measured at rest rather than with five attachment rows open.
 
+### Built, Phase 3: Ask unified, the popup agent, and links, 2026-09-13
+
+Decisions 8, 9, 11 and 12 (12 is new, taken here, and is INBOX 172's remaining
+half: see the plan).
+
+**The answer object is real now** (decision 3, which Phase 1 declared and
+nothing built). `answerObject` returns
+`{question, text, sentences, sources, related, next, stats, verification}`,
+where a sentence is `{text, marks: [{note_id, start, end, score}]}`. Grounding
+arrives from the backend as one row per *(sentence, note)* pair, which is the
+shape the scorer produces and the wrong shape to render from: a sentence backed
+by two notes arrives twice, and a renderer walking the rows draws the sentence
+twice with one mark each. Folding it is four lines that had been written
+differently, or not at all, in each of the three places that needed them.
+`start`/`end` are decision 2's passage span and are carried through as `null`
+until Phase 1 computes one, never defaulted to 0, because a start of 0 is a
+claim that the passage begins at the note's first word and a renderer would
+highlight it.
+
+**Ask draws it with the Chat tab's own components**, not with copies:
+`renderRelatedElsewhere`, `chatSourcesPanel` and a follow-up strip. The
+sources an answer names are therefore numbered by one builder in both places
+rather than by two that agree until they do not.
+
+**The bug that restructuring found, and it was invisible.** Related items and
+grounding chips were both written into `#ai-answer-grounding`, and
+`renderAnswerGrounding` opens with `replaceChildren()`. The `related` event
+arrives before `grounding` on every stream that has both, so "Elsewhere in
+your notebook" was built and deleted again within a frame, on every answer,
+for as long as both have existed. Each component has its own container now.
+
+**Follow-ups carry context by the path Ask already took.** The chips are
+`/chat/followups`, the same second model call the Chat tab makes after a turn
+is on screen, and pressing one calls `askQuestion`, which sends `conversation`
+as history. So there is no second path to keep in step, which is how the
+context would have ended up living on exactly one of them.
+
+**The popup agent's twelve starters** (decision 9). Four was the count, and the
+owner's report was not that they were wrong but that they were all there was.
+Twelve now, in five groups, built from one table in `app.js` rather than
+written into the markup, so the three most recently used can lead (CHAT_PLAN's
+research note, from Raycast). A starter ending in a space is a stem and waits
+with the caret after it; anything else runs on the press. That is a change of
+*rule* as well as of count: the old handler ran a starter only if it ended in a
+question mark, so every instruction among the new twelve ("Tag my untagged
+notes.") would have sat in the box waiting for an Enter that said nothing.
+"Use the open note" resolves its subject when the message is sent rather than
+when the box was ticked, because the palette stays open while you move around
+the app; a document goes as a document and a note as a note.
+
+**Offline** (decision 11). Every AI-only control already disabled itself with a
+reason; what the reason said was "start Ollama to use this", which names one of
+the three kinds of model this app can talk to and tells somebody running
+llama.cpp or an OpenAI-compatible server to start the wrong thing. One
+sentence now, pointing at Settings. The link half of the decision is two rows,
+in the two surfaces that are nothing but AI: Ask keeps working and says it is
+answering from the notes alone, the popup agent cannot and says so, disabling
+its field and its starters rather than hiding them. `cmdPaletteBusy` sets that
+field's `disabled` itself at the end of every turn, so it honours the same
+state: without that the guard comes off the first time anything runs.
+
+**The gate, measured** (`scratchpad/ui-sweeps/chatphase3.js`, against a server
+with no model, which is what makes line 4 measurable and still lets a real Ask
+turn stream from the search results):
+
+- **The answer object.** 3 source cards under the answer with the summary
+  "Sources: 3 notes · meaning + keywords", foot visible, and 3 matching records
+  still in the column beside it.
+- **Follow-ups.** 2 chips; pressing one sends a request whose `history` carries
+  the previous question and the previous answer verbatim, read off the wire
+  rather than off the renderer. The transport half is
+  `tests/test_ask_answer_object.py`: the same two facts as their own turns in
+  the messages the model is given, with `system` first and both `user` and
+  `assistant` after it, so a history folded into the system prompt would fail.
+- **Starters.** 12 chips in 5 groups (Capture, Find, Summarise, Remind, Do), 0
+  without a tooltip, 5 of them stems.
+- **Offline.** 4 AI-only controls, 4 disabled, 4 carrying "Connect a model in
+  Settings"; both notices shown with their button; the agent's field disabled
+  and 12 of 12 starters disabled. 0 page errors.
+
+**One thing measuring caught that no test would have.** Twelve chips took the
+palette card from 420px to 668px tall, and the overlay drops it 15vh down the
+screen: at 1024x768 the card ran 15px past the bottom of the window and at
+390x844 it ran 136px past, putting Start over and Stop off screen with nothing
+to scroll, because the overlay does not scroll. The card is a column with a
+ceiling now and the two regions that can grow scroll inside it: 752 of 768 and
+828 of 844 after, head, input and foot fixed.
+
+**Not verified.** No model answered any of this: the Ask turn measured above is
+the offline branch, so the answer object was exercised with sources and related
+but with an empty `sentences` list, and the grounding chips and inline marks
+were not re-measured here (they are Phase 1's gate and were built before). The
+follow-up chips were stubbed at the route, because `/chat/followups` answers
+`[]` with no model; what was measured is the request the chip causes, not the
+model's choice of question. The link card was measured on three links in one
+rendered answer, not in a chat bubble or a note body.
+
 ### From DOCUMENTS_PLAN.md
 
 ### Built, Phase 5 item 1: comments and annotations, 2026-09-13

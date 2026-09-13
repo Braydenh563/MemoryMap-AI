@@ -3998,6 +3998,42 @@ let graphMinimapProjection = null; // the last full paint's placement, reused by
 const GRAPH_MINIMAP_W = 168;
 const GRAPH_MINIMAP_H = 112;
 
+//: **The links, which the minimap did not draw at all** (INBOX 164: "the graph
+//: minimap needs an upgrade"). Measured on a 172-note map: 172 dots, 0 edges.
+//: A scatter of points says where the notes are; what makes one part of a graph
+//: recognisable from another is what is joined to what, and that was the half
+//: the overview left out. The note beside `graphMinimapPaint` saying the minimap
+//: "has no edges" was a cost decision, and this is the cost: built once per
+//: render rather than once per paint (a cooling layout paints every eighth
+//: tick), drawn at a hard cap, and a line is two coordinates with no hit
+//: testing, which is a different thing from the canvas's own edge pass.
+const GRAPH_MINIMAP_MAX_EDGES = 600;
+let graphMinimapPairs = null;
+let graphMinimapPairsFrom = null; // the adjacency map those pairs were built from
+
+//: Every link once, as `[aId, bId]`. `graphAdjacency` holds both directions, so
+//: a naive walk draws every line twice, which at 600 lines of 0.5px is visibly
+//: heavier ink for no more information. Keyed on the adjacency map's own
+//: identity: `renderGraph` replaces it whenever the set of notes or links
+//: changes, so this recomputes exactly then and never on a pan.
+function graphMinimapEdgePairs() {
+  if (graphMinimapPairsFrom === graphAdjacency && graphMinimapPairs) return graphMinimapPairs;
+  const pairs = [];
+  if (graphAdjacency) {
+    for (const [from, neighbours] of graphAdjacency) {
+      for (const to of neighbours) {
+        //: One direction only, by a stable comparison rather than a `Set` of
+        //: joined keys: String() because an id can arrive as a number from the
+        //: API and as a string from a tree layout's own copies.
+        if (String(from) < String(to)) pairs.push([from, to]);
+      }
+    }
+  }
+  graphMinimapPairs = pairs;
+  graphMinimapPairsFrom = graphAdjacency;
+  return pairs;
+}
+
 // Where the nodes are, scaled into the minimap box. Recomputed on every paint
 // rather than cached: the force layout keeps moving until it cools, so a
 // cached extent would be wrong for the first few seconds, which is exactly
@@ -4032,11 +4068,42 @@ function graphMinimapPaint() {
   const frame = document.getElementById("graph-minimap-frame");
   if (!dots || !frame) return;
 
-  // One <circle> per node is the whole minimap. Deliberately not reusing the
-  // main render path: the minimap has no labels, no edges and no hit-testing,
-  // so an SVG of plain dots is both cheaper and clearer than a scaled clone
-  // of a canvas that is already too dense to read, which is the problem this
-  // is here to solve, not to reproduce in miniature.
+  //: **The links, under the dots.** Strided for the same reason the dots are,
+  //: and with the same kind of stride: evenly, so a dense notebook draws the
+  //: whole shape faintly rather than one corner of it solidly. A line whose
+  //: other end is not in this render (a filtered-out note) is skipped rather
+  //: than drawn to the origin, which is the obvious way for this to produce a
+  //: starburst out of the top-left corner.
+  const edgesGroup = document.getElementById("graph-minimap-edges");
+  if (edgesGroup) {
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    const pairs = graphMinimapEdgePairs();
+    const edgeStride = Math.max(1, Math.ceil(pairs.length / GRAPH_MINIMAP_MAX_EDGES));
+    const lines = document.createDocumentFragment();
+    for (let i = 0; i < pairs.length; i += edgeStride) {
+      const from = byId.get(pairs[i][0]);
+      const to = byId.get(pairs[i][1]);
+      if (!from || !to) continue;
+      const [ax, ay] = toMini(from.x, from.y);
+      const [bx, by] = toMini(to.x, to.y);
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("class", "graph-minimap-edge");
+      line.setAttribute("x1", ax.toFixed(1));
+      line.setAttribute("y1", ay.toFixed(1));
+      line.setAttribute("x2", bx.toFixed(1));
+      line.setAttribute("y2", by.toFixed(1));
+      lines.appendChild(line);
+    }
+    edgesGroup.replaceChildren(lines);
+  }
+
+  // One <circle> per node, over the lines above. Deliberately not reusing the
+  // main render path: the minimap has no labels, no arrowheads, no halos and no
+  // hit-testing, so a flat SVG of lines and dots is both cheaper and clearer
+  // than a scaled clone of a canvas that is already too dense to read, which is
+  // the problem this is here to solve, not to reproduce in miniature. The edges
+  // came back because the *shape* of a graph is its links (INBOX 164); the rest
+  // of that list stays out.
   //: **One dot per note stops being one dot per note past a few hundred.**
   //: The box is 168x112 with a 1.6px dot: about 700 dots is the point at which
   //: another one lands on top of an existing one and adds nothing but a DOM
@@ -4060,6 +4127,39 @@ function graphMinimapPaint() {
     fragment.appendChild(dot);
   }
   dots.replaceChildren(fragment);
+
+  //: **Where you are, and not only what you can see.** The viewport rectangle
+  //: answers "which part of the map is on screen"; it cannot answer "where is
+  //: the note I am reading", which on a 172-dot cloud is the question someone
+  //: opens an overview to ask. A ring around the note that is selected, or the
+  //: one the keyboard is on: the two ways a note becomes "the one in hand", and
+  //: both of them already have state this can read rather than a new one to
+  //: keep in step. Drawn after the dots so the ring is not buried under one.
+  const here = document.getElementById("graph-minimap-here");
+  if (here) {
+    const marked = new Set();
+    if (typeof gcSelected !== "undefined" && gcSelected) {
+      for (const id of gcSelected) marked.add(id);
+    }
+    if (graphKeyboardId != null) marked.add(graphKeyboardId);
+    const rings = document.createDocumentFragment();
+    //: A cap, because a lasso can select hundreds and a hundred rings is a
+    //: second, brighter dot cloud over the first. Past a handful the selection
+    //: is the shape of the map rather than a place in it.
+    let drawn = 0;
+    for (const node of nodes) {
+      if (!marked.has(node.id) || drawn >= 12) continue;
+      const [mx, my] = toMini(node.x, node.y);
+      const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      ring.setAttribute("class", "graph-minimap-here");
+      ring.setAttribute("cx", mx.toFixed(1));
+      ring.setAttribute("cy", my.toFixed(1));
+      ring.setAttribute("r", "3.4");
+      rings.appendChild(ring);
+      drawn += 1;
+    }
+    here.replaceChildren(rings);
+  }
 
   // Clicking the minimap centres the map on that point. Stored on the element
   // so the handler (wired once, below) can invert the projection without

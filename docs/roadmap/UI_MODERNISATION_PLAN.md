@@ -819,5 +819,30 @@ glass. What is left is below.
     its 5 edges; contrast 4.77:1), `boardsthumb.js` unchanged at 72x40 with a
     fill ratio of 0.852, `errors.js` 0 errors and 0 layout findings.
 
-    Still open here: the graph minimap, and the picture cards' fourth report.
+    **The graph minimap: built** (2026-09-13), measured with
+    `scratchpad/ui-sweeps/graphminimap.js`, which seeds a hub-and-spokes notebook
+    and asks five questions of the panel.
+
+    Before, on a 192-note map with 39 links: 192 dots, **0 edges**, 0 marks for
+    the note in hand. The viewport rectangle and drag-to-pan were already right
+    (the frame moved 8.8px on a 260px pan; a drag across the panel moved the
+    canvas centre 23.6px) and are untouched. What was missing is the half that
+    makes an overview an overview: a scatter of points says where the notes are
+    and nothing about what is joined to what. The links are drawn under the dots
+    now, deduped (the adjacency map holds both directions) and built once per
+    render rather than once per paint, because a cooling layout paints every
+    eighth tick; the list is strided to a cap of 600 lines, evenly, for the same
+    reason the dots already are. And the note that is selected, or the one the
+    keyboard is on, takes a ring in `--ink`: the two pieces of state that already
+    mean "the one in hand", read rather than duplicated. After: 39 edges, 1 ring,
+    in both themes, 0 console errors.
+
+    Not verified: the drag-fps gate in `graph.js` reports 43.9 fps against its
+    own 55, with the renderer drawing in 5.30ms of a 16ms budget. That is the
+    sandbox limit HISTORY.md records under "What the gate does not meet, and why"
+    (7.9 fps with the layout hot, 59.2 with the worker stopped and nothing else
+    changed), not a cost of this change, but it was not measured against the base
+    branch this session.
+
+    Still open here: the picture cards' fourth report.
 

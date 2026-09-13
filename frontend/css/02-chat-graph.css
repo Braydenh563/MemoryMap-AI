@@ -4317,6 +4317,30 @@ mark.lightbox-hit {
 
 /* The current viewport, drawn over the dots. Stroke only: a fill would
    dim the very nodes it is meant to point at. */
+/* **The links, as the shape of the map** (INBOX 164: "the graph minimap needs
+   an upgrade"; measured before, 172 dots and 0 edges on a 172-note map). Under
+   the dots, and much lighter than them: at this size the lines are a texture
+   that says "this cluster is dense and that one is a chain", and drawn at the
+   dots' own weight they swamp the notes they join. `currentColor` so they take
+   the panel's accent with everything else in it. */
+.graph-minimap-edge {
+  stroke: currentColor;
+  stroke-width: 0.5;
+  opacity: 0.3;
+}
+
+/* The note in hand: selected, or the one the keyboard is on. A ring rather than
+   a brighter dot, because a dot in another colour is a different note and a ring
+   around one is the same note, marked. `--ink` rather than the panel's accent:
+   every dot in here is already the accent, so an accent ring is the one mark on
+   the picture that has to be found against its own colour. */
+.graph-minimap-here {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.2;
+  opacity: 0.85;
+}
+
 .graph-minimap-frame {
   fill: none;
   stroke: var(--accent);

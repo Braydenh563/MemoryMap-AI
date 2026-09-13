@@ -30,6 +30,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The graph's minimap shows the graph's shape and where you are in it. It drew
+  one dot per note and nothing else, measured at 172 dots and 0 edges on a
+  172-note map: a cloud of points cannot say which part of the map is the dense
+  cluster and which the chain, which is what an overview is for. The links are
+  drawn under the dots now, at a hard cap and sampled evenly on a big notebook,
+  and the note you have selected or have the keyboard on takes a ring, so the
+  minimap answers "where is the note I am reading" as well as "what can I see".
+
 - The document editor's AI assistant dialog. It opened as a 717px card whose
   largest element was an empty 309px box for the answer it had not been asked
   for yet, under a label for text that was not there and over a Replace button
@@ -123,6 +131,9 @@ below). Versioning is `0.x` while the app stabilises.
   package name with its badges pushed Reinstall and Remove onto a second
   line (and one row onto three); the name wraps now and the buttons stay
   on its first line at every width.
+- The graph's suggested-links rows have one control height: the reason
+  field was 42px beside 28px buttons, so every row ran to 69px; it is 56px
+  with the field at the buttons' height.
 
 - The lock screen could fail to appear on a slow first start. The embedding
   warm-up began importing torch the instant the server was up, and that import

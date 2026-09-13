@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A dock zone that cannot shrink any further now says so instead of spilling
+  its last control under the one beside it, and the dashboard's category rows
+  are a target rather than 1.2px under the floor. The touch sweep also reads
+  the floor off the band it is run in, so it says something true above 820
+  rather than asserting a phone's 44px on a desktop.
+
 - Every control on a phone is a 44px target, and a tab's title gets a line of
   its own there. Seven surfaces were walked whole rather than dock by dock:
   the Library and Reminders filter chips were 36px and 22.4px, the sidebar

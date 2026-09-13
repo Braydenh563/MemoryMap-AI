@@ -1220,3 +1220,32 @@ header#top-bar,
     flex-basis: 100%;
   }
 }
+
+/* --- a zone that cannot shrink says so, instead of spilling ---------------
+   Found by `touch.js` at 820 after the Timeline's kind filter became one well:
+   "button.active at 527,130 hits i.ph.ph-sliders-horizontal", which is a
+   segment of the kinds control sitting *under* the Options button. Measured,
+   the same dock at 820: the find zone runs 243 to 488 and the well inside it
+   runs 390 to 549, so 61px of a control was outside its own zone and the
+   arrange group started at 497, on top of it.
+
+   The cause is a pair of rules that were both right while the zone's contents
+   could wrap. `.dock-group` carries `min-width: 0` so a search box can shrink,
+   and the zone's width comes from `flex: 1 1 14rem` against the other three
+   zones. A row of chips could wrap inside that and take a second line; a `.seg`
+   well cannot wrap, by its own rule, so once it is the widest thing in the zone
+   the zone is simply told to be narrower than its content and the content
+   leaves through the side.
+
+   `min-content` is the honest floor: the zone asks for what it cannot give up,
+   the dock's own `flex-wrap: wrap` then moves a whole zone onto a second row
+   when the four of them do not fit, and a row of whole controls is what a dock
+   is supposed to do when it runs out of width. Only below 1100, because above
+   it every dock in the app fits on one row and this would be a floor nothing
+   ever reaches. */
+@media (max-width: 1099.98px) {
+
+  .dock .dock-find {
+    min-width: min-content;
+  }
+}

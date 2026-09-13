@@ -1693,6 +1693,11 @@ header#top-bar select,
   align-items: center;
   gap: 0.5rem;
   width: 100%;
+  /* A row you press is a target, and this one was 26.8px: 1.2px under the app's
+     own global floor, at every width, which is what `touch.js` reports on the
+     Dashboard at 820, 1024 and 1440. The height comes from a bar and two labels
+     and nothing had ever declared it, so it moves with the type scale. */
+  min-height: var(--target-min);
   padding: 0.25rem 0.25rem;
   background: none;
   border: none;

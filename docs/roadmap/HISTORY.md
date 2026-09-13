@@ -24244,6 +24244,48 @@ order 10). Origin file named on each.
 
 ### From UI_MODERNISATION_PLAN.md
 
+### The end-of-session sweeps, and the two things they found, 2026-09-13
+
+`touch.js`, `contrast.js`, `docks.js` and `errors.js` at 390, 820, 1024 and 1440
+in both themes.
+
+**Clean:** `errors.js` 0 errors and 0 layout findings at all four widths in both
+themes; `contrast.js` 0 low-contrast items on every tab and every Settings
+section in both themes; `docks.js` all seven docks, the Timeline's at 5 controls
+and one height; `phone.js` 0 findings at 390x844 and 430x932; `phonetabs.js`,
+`phonemore.js`, `timelinedock.js`, `sheetdismiss.js` and `selectflag.js` all
+green.
+
+**A defect this session had introduced, which is exactly why the sweeps run at
+the end.** `touch.js` at 820: "button.active at 527,130 hits
+i.ph.ph-sliders-horizontal", a segment of the Timeline's new kind filter sitting
+under the Options button. Measured: the find zone ran 243 to 488 and the well
+inside it ran 390 to 549, so 61px of a control was outside its own zone and the
+arrange group started at 497, on top of it.
+
+Two rules that were both right while the zone's contents could wrap.
+`.dock-group` carries `min-width: 0` so a search box can shrink, and the zone's
+width comes from `flex: 1 1 14rem` against the other three zones. A row of chips
+could wrap inside that and take a second line; a `.seg` well cannot wrap, by its
+own rule, so once it is the widest thing in the zone, the zone is told to be
+narrower than its content and the content leaves through the side.
+`min-width: min-content` below 1100 is the honest floor: the zone asks for what
+it cannot give up, and the dock's own `flex-wrap: wrap` then moves a whole zone
+onto a second row, which is what a dock is supposed to do when it runs out of
+width. After: the find zone 243 to 644 with the well inside it at 485 to 644,
+and no control covered at 820, 1024 or 1440.
+
+**And one that was always there:** `.cat-row` on the Dashboard is 26.8px tall,
+1.2px under the app's global 28px floor, at every width. Its height came from a
+bar and two labels and had never been declared, so it moved with the type scale;
+it is on `--target-min` now.
+
+**A sweep fix rather than an app fix, and worth recording as one.** `touch.js`
+asserted 44px at every width, so running it at 820 and 1024 reported 130 and 129
+findings against 0 at 390, every one of them a control sized exactly as its band
+says (`--target-min` is 2.75rem below 820 and 1.75rem above it). It reads the
+floor off the band now, which is what makes a run above 820 mean anything.
+
 ### Built, Phase 11 item 9 and its gate: the phone walked whole, 2026-09-13
 
 `touch.js` walks the docks and has reported 0 findings at 390 for a while. The

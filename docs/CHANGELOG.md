@@ -9,6 +9,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A mind map topic can be marked as a core idea. Beside bold and italic in
+  the topic strip there is a crown now: a marked topic draws with a heavier
+  outline, a wider spine in its branch's own colour and heavier type, so the
+  idea a branch hangs off reads as that from across the canvas. The shape
+  picker has gained the ellipse that goes with it, so a core idea can be a
+  rounded card, a pill or an ellipse. The mark travels with a copied branch
+  and "back to the branch" clears it with everything else.
+
 - A mind map topic resizes like a card on a board. Point at a topic and there
   are two grips in its corner now: the "Aa" one that has always set the text
   size, and a new one that drags the topic itself wider and taller. The map's

@@ -4909,6 +4909,12 @@
     <div id="wb-map-strip" class="wb-map-strip card glass hidden" role="toolbar" aria-label="Topic">
       <button type="button" id="wb-map-bold" class="ghost small icon-only" title="Bold" aria-label="Bold" aria-pressed="false"><i class="ph ph-text-b" aria-hidden="true"></i></button>
       <button type="button" id="wb-map-italic" class="ghost small icon-only" title="Italic" aria-label="Italic" aria-pressed="false"><i class="ph ph-text-italic" aria-hidden="true"></i></button>
+      <!-- **A core idea** (MINDMAP_PLAN.md item 177). Beside bold and italic
+           because it is the same kind of thing: how much this topic weighs
+           against the ones around it. Not a third node type, which §12.0
+           refused for good reasons; a mark the node wears, which the shape
+           picker beside it then has a wider set for. -->
+      <button type="button" id="wb-map-core" class="ghost small icon-only" title="Mark this topic as a core idea" aria-label="Mark this topic as a core idea" aria-pressed="false"><i class="ph ph-crown-simple" aria-hidden="true"></i></button>
       <select id="wb-map-text-size" class="ghost small" aria-label="Text size" title="How big this topic reads">
         <option value="12">S</option>
         <option value="">M</option>
@@ -4942,6 +4948,7 @@
         <option value="">Rounded</option>
         <option value="pill">Pill</option>
         <option value="rect">Box</option>
+        <option value="ellipse">Ellipse</option>
         <option value="none">Plain</option>
       </select>
     </div>

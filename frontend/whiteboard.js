@@ -3775,6 +3775,11 @@ function wbPaintMapNodeStyle(node, d) {
   const data = d.data || {};
   node.classList.toggle("wb-map-bold", Boolean(data.bold));
   node.classList.toggle("wb-map-italic", Boolean(data.italic));
+  //: A core idea (MINDMAP_PLAN.md item 177). A class rather than a data
+  //: attribute because it is not one of a set of exclusive values the way the
+  //: shape and the alignment are: it is on or it is off, and it composes with
+  //: whichever shape the node is wearing.
+  node.classList.toggle("wb-map-core", Boolean(data.core));
   //: The shape is a data attribute rather than four classes for the same
   //: reason `align` is: they are exclusive, and a class per value is a class
   //: somebody forgets to remove. The stylesheet holds the four looks; an
@@ -5405,7 +5410,10 @@ function wbSyncMapStrip(node) {
   const data = node.data || {};
   wbMapStripSyncing = true;
   try {
-    for (const [id, on] of [["wb-map-bold", data.bold], ["wb-map-italic", data.italic]]) {
+    for (const [id, on] of [
+      ["wb-map-bold", data.bold], ["wb-map-italic", data.italic],
+      ["wb-map-core", data.core],
+    ]) {
       const button = document.getElementById(id);
       if (!button) continue;
       button.classList.toggle("active", Boolean(on));
@@ -5827,7 +5835,7 @@ const WB_MAP_COPY_MAX = 120;
 //: quietly loses its colour.
 const WB_MAP_STYLE_KEYS = [
   "color", "bold", "italic", "font_size", "align", "icon", "link", "edge_label",
-  "shape",
+  "shape", "core",
 ];
 
 //: Remove this topic and keep its branch: the children move up to its parent
@@ -8459,6 +8467,15 @@ async function initWhiteboard() {
   $("wb-map-italic")?.addEventListener("click", () => {
     const node = wbSelectedMapNode();
     if (node) wbMapSetNodeStyle(node, { italic: !node.data?.italic });
+  });
+  //: **A core idea, stored as nothing at all when it is off.** `|| null`
+  //: rather than `false` for the same reason "M" stores no font size: a map
+  //: made before core nodes existed and one whose node was marked and then
+  //: unmarked are the same map, and neither should carry the field into an
+  //: export.
+  $("wb-map-core")?.addEventListener("click", () => {
+    const node = wbSelectedMapNode();
+    if (node) wbMapSetNodeStyle(node, { core: !node.data?.core || null });
   });
   $("wb-map-text-size")?.addEventListener("change", (e) => {
     if (wbMapStripSyncing) return;

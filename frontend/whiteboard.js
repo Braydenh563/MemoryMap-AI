@@ -288,6 +288,21 @@ function wbSyncGridToTransform(transform) {
   el.style.setProperty("--wb-grid-size", `${WB_GRID_SPACING * t.k}px`);
   el.style.setProperty("--wb-grid-offset-x", `${t.x}px`);
   el.style.setProperty("--wb-grid-offset-y", `${t.y}px`);
+  //: **And the inverse scale, for anything that must not grow with the board.**
+  //: The grid is not the only thing that has to be told what the zoom is. A
+  //: grip is a target for a finger rather than part of the drawing, and
+  //: measured on a real board, every handle on this canvas was 20px across at
+  //: 2x and 5px at 0.5x: the card handles ride `#wb-html-layer`'s CSS scale,
+  //: and the sketch and link handles are SVG geometry inside `#wb-zoom-group`,
+  //: so both kinds are multiplied by `k`. One `scale(1 / k)` on the handle
+  //: cancels that exactly, which is what `--wb-inv-zoom` is for (see the grip
+  //: rules in 07-whiteboard-misc.css).
+  //:
+  //: Published here, once per zoom frame, rather than read per element:
+  //: `d3.zoomTransform` per handle would put work back into the pan path this
+  //: file has twice been cleared of, and one custom property reaches all
+  //: twenty-odd of them through inheritance.
+  el.style.setProperty("--wb-inv-zoom", String(1 / (t.k || 1)));
 }
 
 function wbGridType() {
@@ -11074,8 +11089,15 @@ function wbRenderSketchHandles() {
   // instead of just being the shape's own coordinates.
   const centerX = (bbox.minX + bbox.maxX) / 2, centerY = (bbox.minY + bbox.maxY) / 2;
   const handleY = bbox.minY - 28;
+  //: The anchor both halves of this control are scaled about, in board units:
+  //: the point where the stem meets the shape. See the grip rules in
+  //: 07-whiteboard-misc.css: the circle and the stem are siblings rather than
+  //: an element and its pseudo-element, so the shared origin cannot be written
+  //: as a percentage of either one and has to come from the bbox here.
+  const rotateAnchor = `${centerX}px ${bbox.minY}px`;
   group.append("line")
     .attr("class", "wb-rotate-handle-stem")
+    .style("transform-origin", rotateAnchor)
     .attr("x1", centerX).attr("y1", bbox.minY).attr("x2", centerX).attr("y2", handleY);
   // Absolute, not incremental: the handle sits straight above the shape's
   // centre (0°, the same reference `wbAngleFromCenterDeg` uses), so the
@@ -11089,6 +11111,7 @@ function wbRenderSketchHandles() {
     // (`.wb-rotate-handle`), and 14 against 12 was the one measured difference
     // left between the two recipes.
     .attr("cx", centerX).attr("cy", handleY).attr("r", 6)
+    .style("transform-origin", rotateAnchor)
     .style("cursor", "grab")
     .call(
       d3.drag()

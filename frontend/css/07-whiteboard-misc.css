@@ -10525,3 +10525,67 @@ header#top-bar {
     display: none;
   }
 }
+
+/* ==================== GRIPS AT A CONSTANT SIZE ON SCREEN ==================
+   Measured on a real board: every handle on this canvas was 20px across at
+   2x zoom and 5px at 0.5x. The card and text-box handles are HTML children of
+   `#wb-html-layer`, which carries the board's CSS scale; the sketch and link
+   handles are SVG geometry inside `#wb-zoom-group`, which carries the same
+   scale as an SVG transform. Both kinds are therefore multiplied by `k`, and a
+   grip is a target for a finger rather than part of the drawing: 5px is not
+   grabbable and 20px covers the shape it belongs to.
+
+   The rule this settles, so the next handle added follows it: **a grip is a
+   constant size on screen, and it stays anchored to the point it grips.**
+   `--wb-inv-zoom` (published once per zoom frame by `wbSyncGridToTransform`,
+   inherited from `#whiteboard-container`) is `1 / k`, so one `scale()` per
+   handle cancels the board's scale exactly. The anchor is whichever point must
+   not move, which differs per family and is the only thing each rule below has
+   to say:
+
+   - a resize handle is centred on the corner or edge midpoint it moves, so its
+     own centre is the anchor;
+   - a link endpoint handle is centred on the endpoint, likewise;
+   - a rotate handle hangs above the object on a stem whose foot touches the
+     object's top edge, so the foot is the anchor: scaling about the handle's
+     own centre would leave the stem too short to reach, which is the shape of
+     bug that makes a control look detached at one zoom level only. */
+
+/* 10px box centred on its corner by the `-5px` offsets above, so `center` is
+   the corner in layer space and the scale leaves it there. */
+.wb-resize-handle {
+  transform: scale(var(--wb-inv-zoom));
+}
+
+/* 12px circle at `top: -28px` with a 16px stem below it: the stem's foot sits
+   28px down from the handle's own top edge, which is exactly the object's top
+   edge, and that is the origin the scale has to keep still. Written as a
+   length rather than a percentage because the foot is outside the handle's own
+   border box, where `100%` cannot reach. */
+.wb-rotate-handle {
+  transform-origin: 50% 28px;
+  transform: scale(var(--wb-inv-zoom));
+}
+
+/* The SVG half. `transform-box: fill-box` is what makes `center` mean the
+   element's own middle rather than the SVG view box's origin, which is where
+   an SVG transform-origin otherwise resolves and would fling the handle across
+   the board. */
+.wb-sketch-resize-handle,
+.wb-link-endpoint-handle {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(var(--wb-inv-zoom));
+}
+
+/* A sketch's rotate handle and its stem are two sibling elements rather than
+   one element with a pseudo-element, so their shared anchor (the point on the
+   shape's own top edge where the stem meets it) is a pair of board
+   coordinates only the code that draws them knows. `wbRenderSketchHandles`
+   sets `transform-origin` on both from the bbox it already has; this rule is
+   the other half, and `transform-box` stays at its `view-box` default so that
+   origin is read in the same user units the bbox is in. */
+.wb-sketch-rotate-handle,
+.wb-rotate-handle-stem {
+  transform: scale(var(--wb-inv-zoom));
+}

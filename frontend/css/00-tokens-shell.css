@@ -85,6 +85,12 @@ select optgroup {
      `wbSyncGridToTransform`, which is what makes the ruling pan and zoom
      with the board. */
   --wb-grid-layer: none;
+  /* The board's zoom, and its inverse. Both are rewritten per zoom frame by
+     `wbSyncGridToTransform` on `#whiteboard-container`; declared here at the
+     identity values so the grid and the grips render correctly on the first
+     paint, before any zoom has happened, and so a rule that reads one is
+     reading a token that exists. */
+  --wb-inv-zoom: 1;
   --wb-grid-size: 24px;
   --wb-grid-offset-x: 0;
   --wb-grid-offset-y: 0;

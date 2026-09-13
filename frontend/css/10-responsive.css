@@ -676,3 +676,49 @@ header#top-bar,
     min-height: 2.75rem;
   }
 }
+
+/* --- band 4: an icon-only chip is still a target (Phase 11) ---------------
+
+   `touch.js` at 390x844, the one failure on the whole sweep before this: the
+   Timeline dock's four `kind=` chips at 34.0x44.0, 33.0x44.0, 33.0x44.0 and
+   34.0x44.0, against the 44px floor the other sixteen surfaces meet.
+
+   The cause is a pair of rules that each did the right thing on their own.
+   07-whiteboard-misc.css hides `.dock-chip-label` below 600 so four labelled
+   chips stop wrapping onto four lines, and the dock's touch block in the same
+   file gives every control in a dock `min-height: var(--target-min)`. Height,
+   not width: everything else in a dock carries text and is wider than 44px
+   without being told, so nothing had ever needed the other axis. A chip whose
+   label has just been taken away is the first control in a dock that is only
+   as wide as one glyph and its padding.
+
+   So the floor is squared where the label goes, not everywhere: a blanket
+   `min-width` on `.dock button` would also reach the find zone's own input
+   and the dock menus' summaries, which are wide already and whose widths are
+   computed from their content elsewhere. Written here rather than beside the
+   label rule because three agents are in 07 this session, and this file loads
+   last, so the two rules meet at the same specificity with source order
+   deciding. */
+/* And the line the chips were promised. 07's phone block gives the row
+   `flex-basis: 100%` so it "takes a line of its own", with the measurement
+   that said why: sharing one with the search box left it 127px of the find
+   zone's 309. Measured here at 390 after the floor above, with the row's
+   computed `flex-basis` reading exactly the 100% that block asks for: the row
+   was still beside the search box at x=187 in 162.6px, two chips to a line,
+   and the Timeline dock stood 196.4px tall on an 844px screen. The reason is
+   one property on the parent rather than anything wrong with that rule.
+   `.dock .dock-find` computes `flex-wrap: nowrap`, and a basis of 100% in a
+   row that may not wrap is not a line break, it is a request that is then
+   shrunk to whatever is left. So the zone wraps in this band, which is the
+   only band where it has a second line's worth of things to hold. */
+@media (max-width: 599.98px) {
+
+  .dock .dock-find {
+    flex-wrap: wrap;
+  }
+
+  .dock-chip-row .library-chip {
+    min-width: var(--target-min);
+    justify-content: center;
+  }
+}

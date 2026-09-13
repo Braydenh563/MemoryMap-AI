@@ -89,6 +89,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- On a phone the Timeline's kind filters are a finger's size and take a line of
+  their own. Below 600 the four chips are their icons, which left them 33px
+  wide against the 44px every other control in the app meets there, and the
+  line they were meant to have was never given to them: their zone does not
+  wrap, so at 320 they stacked four deep and the dock took 297px of an 844px
+  screen. One row of 44px chips at 320, 360 and 390 now, and the dock is the
+  same height at all three.
+
 - A red test log no longer ends in a budget error that was never the fault. A
   skill run holds its token budget open across the generator that streams it,
   and a generator is closed by whoever happens to be running at the time, so a

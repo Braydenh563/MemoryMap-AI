@@ -246,9 +246,16 @@ function gcEnsureCanvas() {
 //: The cost is bounded by construction: at most two nodes are ever mid-ease,
 //: the animation is 140ms, and when nothing is easing `gcHoverEase` is exactly
 //: 1 and no frames are requested at all.
-const GC_HOVER_GROW = 6;       // exactly the gap from a core to its own halo
-const GC_HOVER_HALO_GROW = 3;  // and the halo keeps half that much clear
-const GC_HOVER_MS = 140;
+//: **Toned down after the first version was shown.** The owner: "the halo
+//: growth on the nodes is a bit visually jarring tbh". It was the full 6, so
+//: the smallest nodes jumped 67% wider in 140ms while their halo pushed out
+//: another 3 and brightened by half again: three things moving at once, and
+//: the smaller the node the louder it read. Half the distance, half the light
+//: and a little longer to travel it keeps the gesture (the node comes forward
+//: under the pointer) without the pop.
+const GC_HOVER_GROW = 3;         // half the gap from a core to its own halo
+const GC_HOVER_HALO_GROW = 1.5;  // and the halo keeps clear by the same half
+const GC_HOVER_MS = 190;
 let gcHoverTo = null;          // the node id growing
 let gcHoverFrom = null;        // the node id shrinking back
 let gcHoverStart = 0;
@@ -624,12 +631,12 @@ function gcDraw() {
   //: give it a different alpha would cost a fill per colour rather than a fill
   //: per hovered node, and there are at most two of those.
   //:
-  //: 0.33 over the batch's 0.18 composites to 0.45: `1 - (1 - 0.18)(1 - 0.33)`.
+  //: 0.16 over the batch's 0.18 composites to 0.31: `1 - (1 - 0.18)(1 - 0.16)`.
   //: Multiplying by `heat` is what makes it ease in and out with the size,
   //: including on the node being left, whose `heat` is counting down.
   for (const hot of hotHalos) {
     if (hot.node._dim) continue;
-    ctx.globalAlpha = 0.33 * hot.heat;
+    ctx.globalAlpha = 0.16 * hot.heat;
     ctx.fillStyle = hot.node.colour;
     ctx.beginPath();
     ctx.arc(

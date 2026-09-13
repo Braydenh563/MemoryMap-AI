@@ -113,6 +113,14 @@ function settleNoteClamps() {
 //: either cap below changed.
 const GRAPH_NODE_MAX_RADIUS = 21;
 
+//: How far a hovered node grows, in the same world units as its radius. Half
+//: the distance out to its own halo (which is drawn at `r + 6`): the whole
+//: distance was the first version and was shown to the owner, who called the
+//: growth "a bit visually jarring". `GC_HOVER_GROW` in graph-canvas.js is the
+//: same number for the other renderer, and the two must not drift apart: a
+//: reader switching renderers would see the same map behave differently.
+const GRAPH_HOVER_GROW = 3;
+
 function graphNodeRadius(node) {
   //: The canvas renderer sizes a node by its *degree* (GRAPH_PLAN.md §5 Phase
   //: 1: `4 + 2·√degree`, clamped) and stores the answer on the node, because
@@ -2092,7 +2100,7 @@ async function renderGraphSvg() {
     //: element, which it allows.
     .style("--graph-hover-scale", (d) => {
       const r = graphNodeRadius(d);
-      return r > 0 ? (r + 6) / r : 1;
+      return r > 0 ? (r + GRAPH_HOVER_GROW) / r : 1;
     })
     // A pin restored above (fx/fy set from graph_pin_x/graph_pin_y) needs
     // the same held-look the dblclick handler gives a pin made live, 

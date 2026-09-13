@@ -8322,8 +8322,16 @@ header#top-bar > #tab-bar {
    Spacious density change what that comes to. The `0px` is what applies before
    the script has measured, and on any editor outside the Notes tab, where
    there is no strip and the bar's own `top: 0` is right. */
+#tab-notes {
+  /* Declared so the token has a live value of its own, and replaced with the
+     measured one by `initNotesSubtabHeightToken` in app.js. `0px` is what
+     applies for the frame before that measurement lands, and is also the right
+     answer if the strip is ever not there. */
+  --notes-sticky-top: 0px;
+}
+
 #tab-notes .doc-toolbar {
-  top: var(--notes-sticky-top, 0px);
+  top: var(--notes-sticky-top);
 }
 
 .doc-statusbar {

@@ -23597,6 +23597,26 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
 
     **Deferred out of this PR by the owner the same day**: "put the templates idea in the roadmap, not for this pr". Brief 32 says so at the top, and BACKLOG.md section 4b carries the standing row. Nothing is being built for it now.
 
+150. **Fixed, 2026-09-13, same day as 149.** **Mid-work drop, verbatim (the
+    owner), the graph.** "the halo growth on the nodes is a bit visually
+    jarring tbh". The first version took the core the whole six units out to
+    its halo in 140ms while the halo pushed out another three and brightened by
+    half again: three things moving at once, and the smaller the node the
+    louder it read (a 9px leaf jumped 67% wider). Halved to three units, the
+    extra halo light cut from a composited 0.45 to 0.31, and the travel
+    lengthened to 190ms. Measured: 2.0px of growth per node at k=0.56 against
+    the 3.3px that three world units come to, 0 console errors.
+
+144. **Fixed, 2026-09-13 (both halves, measured).** **Mid-work drop, verbatim (the owner), the note edit form (one
+    screenshot).** "when I open the edit form for a note and scroll down, only
+    the bottom of the formatting bar sticks to the top of the screen and the
+    bar is clear so it is hard to see"
+
+    The screenshot shows the toolbar's icons overlapping a line of the note's
+    own text, both legible through each other, with the Notes sub-tab strip
+    above it: the bar has no ground of its own, so what sticks is a row of
+    glyphs floating over the writing, and only part of the bar's height is
+    held at the top.
 
 ## Moved from the plans, 2026-09-13
 
@@ -23727,3 +23747,57 @@ alone left six of the eight labels drawn in the middle of their columns.
 scroll; 0 horizontal scroll at 1440 and 390; all eight columns ordered
 correctly in both directions with `aria-sort` flipping; the bulk tag applied to
 both selected notes; two data columns (date and title) at 390.
+
+### Built, Phase 3: the density strip and paging, 2026-09-13
+
+**`MAX_NOTES` is gone** (decision 9). It was a hard cap of 1,500 rows with
+nothing after it and nothing on screen to say so: a notebook past it lost its
+older notes off the end of the view, silently, because a grid of bands against
+buckets has no "next". `/timeline` takes `limit` and `cursor` now and says
+`has_more` and `next_cursor`; the feed asks for the next page 600px before the
+reader reaches the end of this one.
+
+**The cursor is `created_at|id`, base64url.** An offset shifts under a note
+saved while someone is reading, which shows a row twice or skips one; the pair
+is what the order is by, so it names an exact place in it. Base64url because
+the plain form ends in a `+00:00` offset for any row saved with a timezone, and
+a `+` in a query string is a space by the time it arrives: a 422 on the second
+page of a notebook and on nothing else, which is the kind of fault found in a
+week rather than in a test. `tests/test_timeline.py` covers the pages, the
+duplicate-free join between them, and the three refusals (a cursor it cannot
+read, limit 0, limit 5000).
+
+**`density` is the whole range, whatever page is loaded**: counts per day,
+resolved the same way the rows are (a note sits on the date it talks about
+where it has one), from two id-and-date queries with no content in them. The
+view aggregates it to whatever bucket it is drawing, so the scale stays the
+reader's choice and costs no request. It is also what "auto" now counts: the
+range's own size rather than the rows loaded so far, which otherwise picked day
+buckets for a three-year notebook and re-cut every header when the second page
+arrived.
+
+**The strip** (decision 7) is 40px at the right edge, one SVG path, with a
+marker for where the reader is and a click or drag to jump. Three things were
+measured rather than assumed:
+
+- **It hides under 200 notes in range.** Section 7 asked for the threshold to
+  be measured: on the 48-note seed the strip is 40 slots each one note tall, a
+  row of identical marks saying nothing the headers do not say better.
+- **The marker comes from the rows on screen, not from `scrollTop`.** A feed is
+  linear in rows and the strip is linear in time, so a marker computed from the
+  scroll drifts further from the truth the more uneven the notebook is, which
+  is the notebook the strip exists for. It probes for a row at four heights and
+  two widths: a single probe at the top centre found the sticky bucket header,
+  or the gap between the two columns of a month view, and pinned the marker to
+  y=0 whatever the reader had scrolled past (measured after a 16,000px jump).
+- **Rows are appended in chunks of 60 across frames.** A page is 300 rows of
+  eight elements each and building them in one go measured a 117ms frame during
+  paging, over the plan's 100ms line. 50ms worst frame after.
+
+**Gate** (`scratchpad/ui-sweeps/timelinepaging.js`, against
+`seed-timeline-bulk.py`'s 2,048 notes over three years): 300 rows on the first
+page; the strip drawn from a 3,105-character path; 0 horizontal scroll before
+and after paging; 300 rows to 1,500 by scrolling; worst frame 50ms over 267
+frames; a click at 20% landing on a May row with the marker following it to
+y=108 of 1000; a drag past the loaded rows bringing the next 300 in. Seven
+`/timeline` requests for the whole session.

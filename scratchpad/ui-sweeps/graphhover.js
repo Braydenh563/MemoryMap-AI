@@ -9,8 +9,8 @@
 //
 //   BASE=http://127.0.0.1:8931 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node graphhover.js
 //
-// Expected: the run grows from 2*r*k to 2*(r+6)*k, which is exactly the core
-// reaching its own halo (the halo is drawn at r+6).
+// Expected: the run grows from 2*r*k to 2*(r+3)*k, the core travelling half
+// way out to its own halo (which is drawn at r+6).
 const { boot } = require("./lib.js");
 
 (async () => {
@@ -100,7 +100,7 @@ const { boot } = require("./lib.js");
     await page.waitForTimeout(400);
     const hot = await runAt(node);
     const wantRest = 2 * node.r * node.k;
-    const wantHot = 2 * (node.r + 6) * node.k;
+    const wantHot = 2 * (node.r + 3) * node.k;
     // **The growth is what is asserted, not the two diameters.** Each of those
     // reads about 3px narrow, and for a reason that is not a fault: the ring
     // (`lineWidth = 2 / k`, so 2 CSS px however far the map is zoomed) is
@@ -108,11 +108,14 @@ const { boot } = require("./lib.js");
     // each side, and antialiasing a 5px disc takes a further fraction. Both
     // erosions are the same at rest and hovered, so they cancel in the
     // difference, which is the number the report is actually about: the core
-    // has to travel exactly the 6 world units out to its own halo, or
-    // `2 * 6 * k` on screen.
+    // has to travel exactly `GRAPH_HOVER_GROW` (3) world units, half way out
+    // to its own halo, or `2 * 3 * k` on screen. It was the full 6 first and
+    // the owner called that jarring.
     const grew = hot.px - rest.px;
-    const wantGrowth = 12 * node.k;
-    const ok = Math.abs(grew - wantGrowth) <= 2.5;
+    const wantGrowth = 6 * node.k;
+    // Tighter than the growth itself at this zoom, so a change back to the
+    // full distance fails here rather than passing quietly.
+    const ok = Math.abs(grew - wantGrowth) <= 2;
     if (!ok) bad += 1;
     console.log(
       `node ${String(node.id).slice(0, 10)}`.padEnd(18),

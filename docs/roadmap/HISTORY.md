@@ -6636,10 +6636,15 @@ contract: the suite must not need the extra), plus
 `scratchpad/ui-sweeps/docexports.js` in a browser, 6 of 6, including the five
 rows of the export menu in order and the 501 message reaching the status line.
 
-**Not verified:** the Word *writer* itself. This sandbox has no python-docx, so
-the two tests that open the generated .docx skip here and run in CI only if the
-extra is installed there. What is verified on every install is that the
-endpoint refuses cleanly and says which package is missing.
+**The Word writer was then measured for real**, in a scratch virtualenv with
+python-docx in it (not the project's, which must stay able to prove the suite
+does not need the extra): 36,842 bytes of valid .docx from one document, with
+`Heading1`, `Heading2`, `ListBullet`, `ListNumber` and `IntenseQuote` styles
+used, "An essay" as the title, bold, italic and code runs carrying their text
+with **no markdown markers left in it**, a table line preserved as the text it
+was, and a comment arriving as its `[^c1]` footnote. **Still not verified:**
+what Word itself makes of the file, and the two tests that open it stay skipped
+on an install without the extra, which is the contract.
 
 ### From UI_MODERNISATION_PLAN.md
 

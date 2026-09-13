@@ -30,6 +30,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The bar of actions for a selection stays with the selection. Tick something
+  in the Library, the Notes list or the timeline table and the bar that appears
+  now sticks to the top of the list it governs instead of scrolling away with
+  it: measured before, the Notes bar sat at y=-465 with its list scrolled to
+  the end, 677px of scroll putting every action for the selection out of reach.
+  It is one component everywhere now rather than five near-copies, so the Notes
+  and timeline bars wear the same accent strip as the Library's, and the bar
+  under the Notes sub-tab strip stops below it rather than behind it.
+
 - Six chat-surface reports. The user's bubble ran its words at 16px on a
   diagonal gradient with a 12px glow under a white label, beside an answer at
   14.72px; it is one flat accent surface, the answer's size, and a label in

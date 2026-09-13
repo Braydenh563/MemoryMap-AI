@@ -1643,6 +1643,67 @@ header#top-bar.tabs-wrapped #tab-bar {
   display: none;
 }
 
+/* --- `.selectbar`: the bar stays with you while the selection does ----------
+   INBOX 165, verbatim: "I want the selected bars to be sticky to the top of
+   the screen when scrolling". Reported against the Library's own "1 selected,
+   Open, Delete, Done" bar, and it is the same fault on all seven of them: the
+   bar sits above the list it governs, so the moment you scroll far enough to
+   tick a second item the actions for the first are off the screen. Measured
+   before, with `scratchpad/ui-sweeps/selstick.js`: the Notes bar started at
+   y=212 and was at y=-465 with the list scrolled to its end, 677px of scroll
+   putting the whole bar out of reach.
+
+   One class for every one of them, and it is the whole recipe (DESIGN.md,
+   "A bar of actions for the things you have selected"): the Library's five
+   bars, the Notes list's `#batch-bar` and the timeline table's own, which
+   were a bare `.row` and now wear the same accent-bordered strip as the
+   rest. A selection is a selection wherever you make it.
+
+   **The ground is stacked, not tinted, and that is the bug this recipe has
+   already been through once.** `--accent-soft` is a 14% wash (20% in dark):
+   at rest it sits on a card and reads as a tint, but a sticky bar has the
+   list's own text moving under it, and a 14% wash over moving text is a
+   window. `.doc-toolbar` (07-whiteboard-misc.css) was reported for exactly
+   this, "the bar is clear so it is hard to see", and its answer is the one
+   taken here: the tint stacked over an opaque base, so the resting tone is
+   unchanged and the strip is never see-through.
+
+   **`top` is a token, because two sticky things in one scroller park in the
+   same band.** Commit 27167e3 records the cost of missing it: the note
+   editor's formatting bar and the Notes sub-tab strip both took `top: 0` in
+   the same scroller and the strip, twenty layers higher, painted over two
+   thirds of the bar. `--selectbar-top` defaults to zero, which is right for
+   every bar whose scroller starts below its sub-tab strip (measured: the
+   Library's sections are their own scrollers, the strip is a sibling above
+   them, so nothing is above the section's own top edge), and `#tab-notes`
+   sets it to the strip height `initNotesSubtabHeightToken` already measures.
+
+   The z-index is one below the sub-tab strips' 20 for the same reason the
+   formatting bar is: the strip is navigation and belongs on top. */
+:root {
+  /* Zero is right for every scroller whose own top edge is already below its
+     sub-tab strip, which is all of them except Notes: the Library's sections
+     are each their own scroller and the strip is a sibling above them. */
+  --selectbar-top: 0px;
+}
+
+.selectbar {
+  position: sticky;
+  top: var(--selectbar-top);
+  z-index: 19;
+  background:
+    linear-gradient(var(--accent-soft), var(--accent-soft)),
+    var(--modal-bg-opaque);
+}
+
+/* The bar that stops below the Notes sub-tab strip. `--notes-sticky-top` is
+   written onto this page by `initNotesSubtabHeightToken` (app.js) and carries
+   the strip's measured height plus its bottom margin; the `0px` that stylesheet
+   declares for the token is what applies for the frame before that lands. */
+#tab-notes {
+  --selectbar-top: var(--notes-sticky-top);
+}
+
 .library-contextbar-end {
   display: flex;
   gap: var(--space-2);

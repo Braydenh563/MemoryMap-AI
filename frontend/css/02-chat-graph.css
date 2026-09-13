@@ -4162,29 +4162,21 @@ mark.lightbox-hit {
   right: var(--space-6);
 }
 
-/* Same control-height mismatch as `.capture-field-row`/`.draft-controls`
-   (see DESIGN.md): the category select (45.19px, the global form-field
-   rule), `.small` `Move` (28.39px) and `.ghost.small` `Tag`/`Delete`/`Done`
-   (30.39px, the border) measured as three heights on one row. `2rem`
-   (32px) rather than the 2.5rem used for Notes' other rows, since every
-   control here is already `.small`. */
-#batch-bar {
-  margin: 0 0 0.8rem;
-  padding: 0.5rem 0.8rem;
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-lg);
-  background: var(--accent-soft);
-  flex-wrap: wrap;
-  --control-h: 2rem;
-}
+/* **The paint this bar used to carry by hand is the recipe now** (INBOX 165,
+   DESIGN.md "A bar of actions for the things you have selected"). It had its
+   own accent border, radius, tint and control height here, which is how it
+   came to be a near-copy of the Library's five bars rather than the same
+   component: the two drifted by a radius step and 8px of control height, and
+   only this bar stayed put while its list scrolled. It wears
+   `.library-contextbar.selectbar` in the markup instead, and that rule owns
+   the strip, the stacked ground and the stickiness. The control-height
+   mismatch the comment here used to describe (a 45.19px select beside a 28px
+   `.small` button) is fixed by the shared `.library-contextbar button` rule,
+   at the same height as every other selection bar.
 
-#batch-bar select,
-#batch-bar button {
-  height: var(--control-h);
-  padding-block: 0;
-  margin: 0;
-}
-
+   What is left is the one thing particular to this bar: the category menu's
+   host can hold a long category name, and without a cap it pushes the three
+   actions off the end of a narrow list. */
 #batch-bar select {
   max-width: 11rem;
 }

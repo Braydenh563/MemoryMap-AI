@@ -757,6 +757,28 @@ glass. What is left is below.
 165. **Mid-work drop, 2026-09-13, verbatim (the owner), the Library's selection
     bar, one screenshot ("1 selected" with Open, Delete, Done).** "I want the
     selected bars to be sticky to the top of the screen when scrolling".
+
+    **Built** (2026-09-13). One recipe for all seven bars, `.library-contextbar`
+    plus the new `.selectbar`, in DESIGN.md's recipe index with
+    `tests/test_ui_recipes.py` holding it: sticky at `--selectbar-top`, the
+    accent tint stacked over `--modal-bg-opaque` so the list cannot show
+    through it, and the Notes and timeline bars moved off their own hand-built
+    paint onto the shared strip. `--selectbar-top` is zero for every bar whose
+    scroller starts below its sub-tab strip, and `var(--notes-sticky-top)` on
+    `#tab-notes`, which is the trap commit 27167e3 records. The Library's own
+    "All" bar moved out of the controls card to be a child of the scrolling
+    section: sticky only travels as far as its own parent, and that card ends
+    above the grid. Measured with `scratchpad/ui-sweeps/selstick.js` in both
+    themes: before, the Notes bar at y=-465 with 677px of list scrolled; after,
+    four bars parked at their scroller's top edge (offset 0, and 56 under the
+    Notes strip) through 7,136px, 1,552px, 5,025px and 2,701px of scroll, and
+    the timeline's bar sticky over a table that pages rather than scrolls. 0
+    console errors, contrast.js 31 surfaces ok.
+
+    Found, not fixed: `selectMode` in app.js is one flag shared by the Notes
+    list and the timeline table, so leaving Notes in select mode turns the
+    timeline's own Select off on the first press. The sweep works round it and
+    records why.
 164. **Mid-work drop, 2026-09-13, verbatim (the owner), three surfaces, one
     screenshot of a board card's preview (a wash of rounded blobs and one
     squiggle over "3 cards, 8 sketches, 1 item").** "board previews need

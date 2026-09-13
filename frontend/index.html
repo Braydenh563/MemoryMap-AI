@@ -1271,16 +1271,18 @@
             </div>
           </div>
           <!-- Batch actions bar: appears in select mode -->
-          <div id="batch-bar" class="row hidden">
-            <span id="batch-count" class="muted" role="status">0 selected</span>
+          <div id="batch-bar" class="row library-contextbar selectbar hidden">
+            <span id="batch-count" class="library-selected-count" role="status">0 selected</span>
             <!-- The move menu is built by fillBatchCategories(); its items are
                  the categories themselves, so picking one performs the move.
                  That replaced a <select> plus a separate "Move" button, which
                  was three clicks and had a failure state of its own. -->
-            <span id="batch-category-host"></span>
-            <button id="batch-tag" class="ghost small"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Tag</button>
-            <button id="batch-delete" class="ghost small"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
-            <button id="batch-cancel" class="ghost small">Done</button>
+            <span class="library-contextbar-end">
+              <span id="batch-category-host"></span>
+              <button id="batch-tag" class="ghost small"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Tag</button>
+              <button id="batch-delete" class="ghost small"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
+              <button id="batch-cancel" class="ghost small">Done</button>
+            </span>
           </div>
           <!-- Filters you've named and kept. -->
           <div id="saved-searches" class="saved-searches hidden"
@@ -2143,15 +2145,17 @@
            actions (`batchMove`, `batchTag`, `batchDelete` in app.js) over the
            same `selectedIds` set, so a note moved from here and a note moved
            from the Notes tab take exactly the same path. -->
-      <div id="timeline-batch-bar" class="row hidden">
-        <span id="timeline-batch-count" class="muted" role="status">0 selected</span>
+      <div id="timeline-batch-bar" class="row library-contextbar selectbar hidden">
+        <span id="timeline-batch-count" class="library-selected-count" role="status">0 selected</span>
         <!-- Built by the same `fillBatchCategories()` the Notes bar uses, into
              this host: its items are the categories themselves, so picking one
              performs the move. -->
-        <span id="timeline-batch-category-host"></span>
-        <button id="timeline-batch-tag" class="ghost small" type="button"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Tag</button>
-        <button id="timeline-batch-delete" class="ghost small" type="button"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
-        <button id="timeline-batch-done" class="ghost small" type="button">Done</button>
+        <span class="library-contextbar-end">
+          <span id="timeline-batch-category-host"></span>
+          <button id="timeline-batch-tag" class="ghost small" type="button"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Tag</button>
+          <button id="timeline-batch-delete" class="ghost small" type="button"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
+          <button id="timeline-batch-done" class="ghost small" type="button">Done</button>
+        </span>
       </div>
       <!-- The feed and the density strip beside it (TIMELINE_PLAN Phase 3).
            The strip is the overview: how much was written across the whole
@@ -2847,6 +2851,7 @@
                lives in #doc-storage-dialog and this is just the door to it. -->
           <button type="button" id="doc-storage-toggle" class="linklike doc-storage-toggle"><i class="ph ph-question ph-lead" aria-hidden="true"></i> Where are my documents kept?</button>
         </div>
+
       </aside>
 
       <section class="card doc-main">
@@ -3631,17 +3636,17 @@
                 title="Permanently delete everything in the bin"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Empty the bin</button>
             </span>
           </div>
-          <div id="library-selectbar" class="library-contextbar hidden" role="group"
-            aria-label="Actions for the selected items">
-            <span id="library-selected-count" class="library-selected-count"></span>
-            <span class="library-contextbar-end">
-              <button id="library-bulk-open" class="ghost small" type="button"><i class="ph ph-arrow-square-out ph-lead" aria-hidden="true"></i> Open</button>
-              <button id="library-bulk-restore" class="ghost small hidden" type="button"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Restore</button>
-              <button id="library-bulk-delete" class="ghost small" type="button"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
-              <button id="library-clear-selection" class="ghost small" type="button">Done</button>
-            </span>
-          </div>
         </section>
+        <div id="library-selectbar" class="library-contextbar selectbar hidden" role="group"
+          aria-label="Actions for the selected items">
+          <span id="library-selected-count" class="library-selected-count"></span>
+          <span class="library-contextbar-end">
+            <button id="library-bulk-open" class="ghost small" type="button"><i class="ph ph-arrow-square-out ph-lead" aria-hidden="true"></i> Open</button>
+            <button id="library-bulk-restore" class="ghost small hidden" type="button"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Restore</button>
+            <button id="library-bulk-delete" class="ghost small" type="button"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
+            <button id="library-clear-selection" class="ghost small" type="button">Done</button>
+          </span>
+        </div>
         <div id="library-grid" class="library-grid"></div>
         <div id="library-pagination" class="row notes-pagination hidden" role="navigation" aria-label="Library pages">
           <button id="library-page-prev" class="ghost small" type="button" aria-label="Previous page"><i class="ph ph-caret-left ph-lead" aria-hidden="true"></i> Prev</button>
@@ -3733,7 +3738,7 @@
              ⋯ menu (built in whiteboard.js) are this view's own scoped copy
              of the same three actions, not routed through the "All" view's
              shared state (which this section never populates). -->
-        <div id="library-docs-selectbar" class="library-contextbar hidden" role="group"
+        <div id="library-docs-selectbar" class="library-contextbar selectbar hidden" role="group"
           aria-label="Actions for the selected documents">
           <span id="library-docs-selected-count" class="library-selected-count"></span>
           <span class="library-contextbar-end">
@@ -5032,7 +5037,7 @@
            files, whiteboards, links etc, there is no way to multi select".
            Hidden until something is ticked, so a gallery nobody is selecting
            in looks exactly as it did. -->
-      <div id="library-media-selectbar" class="library-contextbar hidden" role="group"
+      <div id="library-media-selectbar" class="library-contextbar selectbar hidden" role="group"
         aria-label="Actions for the selected files">
         <span id="library-media-selected-count" class="library-selected-count"></span>
         <span class="library-contextbar-end">

@@ -794,3 +794,64 @@ def test_a_list_row_answers_in_place_rather_than_opening_a_popover() -> None:
         "the open row's paint must hang off [aria-current] so the mark and its "
         "announcement are one thing (DESIGN.md, the recipe index)"
     )
+
+
+def test_every_selection_bar_is_one_sticky_recipe() -> None:
+    """DESIGN.md's recipe index: a bar of actions for a selection sticks.
+
+    INBOX 165, verbatim: "I want the selected bars to be sticky to the top of
+    the screen when scrolling". Reported against the Library's own bar, and it
+    was the same fault on all seven: the bar sits above the list it governs, so
+    the moment you scroll far enough to tick a second item the actions for the
+    first are off the screen (measured: the Notes bar at y=-465 with its list
+    scrolled 677px).
+
+    Two things a later diff could undo without anyone noticing, which is why
+    they are a lint rather than a note:
+
+    1. a new selection bar built without `selectbar` scrolls away again, and
+       it will look right in every screenshot taken before the list is long
+       enough to scroll;
+    2. the sticky ground has to be stacked over an opaque base. The tint alone
+       is a 14% wash, which reads correctly at rest on a card and turns into a
+       window the moment the list moves under it. `.doc-toolbar` was reported
+       for exactly that ("the bar is clear so it is hard to see").
+    """
+    markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    library = (ROOT / "frontend" / "library.js").read_text(encoding="utf-8")
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+
+    # Every bar in the markup that shows a selection count, by the two id
+    # shapes the app uses for them. A bar built in JS is covered below.
+    bars = re.findall(r'<div id="([\w-]*(?:selectbar|batch-bar))" class="([^"]*)"', markup)
+    assert len(bars) >= 5, f"the selection bars have moved or been renamed: {bars}"
+    for name, classes in bars:
+        assert "selectbar" in classes.split(), (
+            f"#{name} is a bar of actions for a selection and must carry the "
+            "`selectbar` class (DESIGN.md, the recipe index): without it the bar "
+            "scrolls away from the list it governs"
+        )
+        assert "library-contextbar" in classes.split(), (
+            f"#{name} must wear the one selection-bar strip, not a bare .row: "
+            "a selection is a selection wherever you make it"
+        )
+
+    assert 'bar.className = "library-contextbar selectbar hidden"' in library, (
+        "createLibrarySelectbar builds the Boards and Links bars: they need the "
+        "same recipe class as the ones in the markup"
+    )
+
+    sticky = re.search(r"\n\.selectbar \{(.*?)\n\}", css, re.S)
+    assert sticky, ".selectbar's own rule is missing: the recipe has no sticky half"
+    body = sticky.group(1)
+    assert "position: sticky" in body, ".selectbar must be sticky (INBOX 165)"
+    assert "--selectbar-top" in body, (
+        "`top` must come from `--selectbar-top`: two sticky things in one "
+        "scroller park in the same band (commit 27167e3), so a bar under a "
+        "sub-tab strip has to stop below it"
+    )
+    assert "linear-gradient(var(--accent-soft), var(--accent-soft))" in body, (
+        "the sticky ground must stack the tint over an opaque base: "
+        "`--accent-soft` alone is a 14% wash and the list shows straight "
+        "through it while it scrolls"
+    )

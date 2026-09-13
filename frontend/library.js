@@ -7183,7 +7183,10 @@ function syncSelectbarCount(idPrefix, n) {
 function createLibrarySelectbar(idPrefix, ariaLabel) {
   const bar = document.createElement("div");
   bar.id = `${idPrefix}-selectbar`;
-  bar.className = "library-contextbar hidden";
+  //: `selectbar` is the recipe's sticky half (DESIGN.md, "A bar of actions
+  //: for the things you have selected"): every bar that appears with a
+  //: selection stays at the top of its scroller while the selection lasts.
+  bar.className = "library-contextbar selectbar hidden";
   bar.setAttribute("role", "group");
   bar.setAttribute("aria-label", ariaLabel);
   const count = document.createElement("span");

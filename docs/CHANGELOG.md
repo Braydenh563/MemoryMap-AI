@@ -168,6 +168,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A middle-button pan on the board now says it is a pan while it runs: the
+  grabbing cursor the hand tool uses, no text selection dragged out behind it,
+  and the release no longer fires an `auxclick` (INBOX 183).
 - Every image in a document's Live view drew "no longer in this notebook" over
   a file that was still there. The Live view's image widget set the raw
   `/media/…` path, and an `<img>` cannot send an unlock header, so the load

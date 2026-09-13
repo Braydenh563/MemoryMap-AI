@@ -5055,8 +5055,23 @@ summary:not(.icon-only):not(.icon-button) {
 }
 
 .whiteboard-container.wb-space-pan:active,
-.whiteboard-container.wb-space-pan:active * {
+.whiteboard-container.wb-space-pan:active *,
+/* The middle-button pan (INBOX 183). It is the same gesture as the two
+   above and had no cursor of its own, so the board moved under an arrow
+   pointer. `wb-mid-pan` is set on the mousedown that prevents the browser's
+   autoscroll and cleared on the release, see initWhiteboard. */
+.whiteboard-container.wb-mid-pan,
+.whiteboard-container.wb-mid-pan * {
   cursor: grabbing !important;
+}
+
+/* A middle drag must not leave a trail of selected text behind it: the
+   browser's own selection is what makes the gesture feel broken rather than
+   merely undecorated. */
+.whiteboard-container.wb-mid-pan,
+.whiteboard-container.wb-mid-pan * {
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* --- the board panel, sorted into the questions it answers ---------------

@@ -8280,7 +8280,34 @@ async function initWhiteboard() {
   //: the event's target was a layer over the board and the container's own
   //: capture listener never saw it, while a synthetic press on the container
   //: was prevented. Anything inside the boards view counts.
+  //: The second half of the same report (INBOX 183: "panning ... by pressing
+  //: down the scrollwheel with a mouse is horrible and doesnt work"). The
+  //: autoscroll guard below was already here and is not enough on its own,
+  //: because nothing else about the gesture said it was a pan: the cursor
+  //: stayed an arrow over the board while the board moved under it, and the
+  //: release fired an `auxclick`, which on Linux is also the primary-selection
+  //: paste. A hand tool drag says "grabbing" the whole time; this now says the
+  //: same thing through the same class the held-space pan uses, so the three
+  //: ways to pan look identical while they run.
+  const midPanClass = (on) => document.getElementById("whiteboard-container")?.classList.toggle("wb-mid-pan", on);
   window.addEventListener("mousedown", (event) => {
+    if (event.button === 1 && event.target?.closest?.("#library-view-whiteboard")) {
+      event.preventDefault();
+      midPanClass(true);
+    }
+  }, true);
+  //: On the window, not the container: a pan that ends with the pointer over
+  //: the top bar or off the window would otherwise leave the grabbing cursor
+  //: on for good, which is exactly the shape the stray marquee had.
+  for (const end of ["mouseup", "blur", "pointercancel"]) {
+    window.addEventListener(end, (event) => {
+      if (end !== "mouseup" || event.button === 1) midPanClass(false);
+    }, true);
+  }
+  //: The middle release itself: an `auxclick` inside the board is the tail of
+  //: a pan and never a command, and letting it through is what makes a pan
+  //: paste on Linux or open a link in a card in a new tab.
+  window.addEventListener("auxclick", (event) => {
     if (event.button === 1 && event.target?.closest?.("#library-view-whiteboard")) event.preventDefault();
   }, true);
   container.call(wbZoom).on("dblclick.zoom", null);

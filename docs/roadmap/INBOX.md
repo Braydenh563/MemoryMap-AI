@@ -160,6 +160,18 @@ measured or built in earlier commits and is marked there.
     menu's height, the default board type and the map top bar's overflow
     (mind map agent).
 
+    **Middle-button pan: fixed, and what could not be reproduced.** Driven
+    with a real `page.mouse` middle press and six moves
+    (`scratchpad/ui-sweeps/mappan.js`, 11 checks): the board already tracked
+    the pointer 1:1 (dx -120 for a -120 move, 6/6 moves landed where the
+    pointer was), so the autoscroll guard INBOX 167 added is doing its job and
+    the gesture is not broken in this sandbox. What was missing is everything
+    that tells you it is a pan: the cursor stayed an arrow while the board
+    moved, and the release fired an `auxclick`, which on Linux is the
+    primary-selection paste. The container carries `wb-mid-pan` for the length
+    of the press now (cursor `grabbing`, `user-select: none`, both measured,
+    and dropped on release) and the `auxclick` is prevented.
+
 182. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), links.**
     "I want to be able to right click or hold with a touch on a link and
     have a popup show to let me copy the link address". App-wide: every

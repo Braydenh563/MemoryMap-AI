@@ -259,3 +259,15 @@ and `gcWorldFor`'s constant at 35 and 300 notes.
   says to record one rather than guess: the recommendation is that Groups and
   Minimap become one collapsed `details` each, the way the Time section's
   read-out already hides until it is wanted.
+
+## The pane arrives with the note (2026-09-13, after `errors.js`)
+
+`#graph-pane` is `hidden` until something is open, rather than sitting in the
+sidebar saying "No note open". `errors.js` measured the Notes sidebar at 968
+inside 761 at 1440 with an always-present pane, against 705 without it: the
+column has about 130px of room once Categories (424) and Most used (169) have
+had theirs, so a map of nothing cost the whole of it. The column has
+`overflow-y: auto` and scrolls either way, so this is a judgement about what
+is worth scrolling past, not a clip. The sidebar's own finding at 820 (825
+inside 763) and 390 (1010 inside 686) predates this batch and is not the
+graph's to fix.

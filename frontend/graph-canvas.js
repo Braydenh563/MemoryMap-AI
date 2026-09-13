@@ -2582,15 +2582,26 @@ function graphPaneFollow() {
   const host = document.getElementById(hostId);
   if (!host) return;
   if (pane.parentElement !== host) host.appendChild(pane);
-  pane.hidden = false;
   const wanted =
     tab === "notes"
       ? typeof lastOpenedEntryId === "number"
         ? lastOpenedEntryId
         : null
       : graphPaneDocumentNote();
-  const focus = document.getElementById("graph-pane-focus");
-  if (focus) focus.hidden = wanted == null;
+  //: **The pane arrives with the thing it is about, and leaves with it.** A
+  //: panel headed "Local map" reading "No note open" is 263px of chrome with
+  //: nothing in it, and the sidebar it hangs in has about 130px of room at
+  //: 1440 once the categories and Most used have had theirs: measured with
+  //: `errors.js`, an always-present pane put the column at 968 inside 761, so
+  //: a reader who had opened nothing paid the whole cost of a map of nothing.
+  //: The column scrolls either way (`overflow-y: auto`), so this is about
+  //: what is worth scrolling past rather than about a clip.
+  pane.hidden = wanted == null;
+  if (pane.hidden) {
+    if (graphPaneSurface) gcStop(graphPaneSurface);
+    graphPaneShownId = null;
+    return;
+  }
   if (wanted === graphPaneShownId && graphPaneSurface && graphPaneSurface.nodes.length) {
     gcRequestDraw(graphPaneSurface);
     return;

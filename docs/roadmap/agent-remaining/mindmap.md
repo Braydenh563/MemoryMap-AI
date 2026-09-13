@@ -312,3 +312,12 @@ the report is unchanged: four passes, not reproduced in this sandbox.
 (`dashboard.js`) appeared in every drag profile taken here, on a tab that was
 not open. That is the same shape as the emblems and belongs to whoever owns
 `dashboard.js`.
+
+## The eighth run, in order, as it lands
+
+Written after every commit so a run cut off mid-item is resumable from this
+list plus `git log`.
+
+- done `8733578`: INBOX 183a, the middle-button pan. `scratchpad/ui-sweeps/mappan.js`, 11 checks.
+- done `5280e63`: INBOX 183b, the pan desync. Transform on the `<svg>` roots; `scratchpad/ui-sweeps/panlayers.js` reads the layer tree.
+- next: INBOX 183c and 183e plus item 1 of "Left to do", which are one piece of work: `#wb-topbar` (index.html 4307 to 4513) overflows by 152px at 1024 and 113px at 820, measured by `scratchpad/ui-sweeps/mapmenus.js`.

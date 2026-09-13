@@ -87,29 +87,6 @@ measured or built in earlier commits and is marked there.
     Two items: the ring's ground (mind map agent); the live table view of
     the documents list, which needs reproducing first (documents agent).
 
-190. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the popup
-    agent and the help chat.** "the popup agent needs more ui, ux and
-    functionality refinements to be more professional. it needs to be more
-    versatile and usable across the whole app, the user should be able to
-    use it as the guiding hand and everything. also I was wondering if there
-    is a way to make the help chat bot more accessible throughout the
-    settings modal and also even accessible application wide?? maybe give
-    it more knowledge and capabilitie/function and give it a fitting
-    name??" And, on the same surface: "what does 'the open note' mean??
-    what does opening a note even entail?? how does one open a note??" The
-    label `#command-palette-use-note-text` is written by
-    `syncAgentOpenNoteToggle` and says "the open note" when it should name
-    the thing that is open, or say what would count. Owner: chat agent.
-    **The label half is fixed (this commit);** the popup agent and the help
-    chat are the rest of this entry and are still open. The label named a
-    category where it could name the thing, and said "the open note" even with
-    nothing open, which is a checkbox describing something that does not exist.
-    It now reads "Use this note: <title>", "Use this document: <title>", "Use
-    this mind map: <name>" or "Use this board: <name>", and with nothing open
-    "Nothing open to use (open a note, document, board or map first)" with the
-    box disabled and unchecked. All five measured in
-    `scratchpad/ui-sweeps/agentsubject.js`.
-
 186. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the
     timeline dock (one screenshot: the kind chips and the Show: all button
     across the top of the dock).** "these buttons in the top of the

@@ -24353,6 +24353,62 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     in `scratchpad/ui-sweeps/agentwide.js`: the sheet's title reads "Guide"
     from three tabs and two Settings panes.
 
+190. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the popup
+    agent and the help chat.** "the popup agent needs more ui, ux and
+    functionality refinements to be more professional. it needs to be more
+    versatile and usable across the whole app, the user should be able to
+    use it as the guiding hand and everything. also I was wondering if there
+    is a way to make the help chat bot more accessible throughout the
+    settings modal and also even accessible application wide?? maybe give
+    it more knowledge and capabilitie/function and give it a fitting
+    name??" And, on the same surface: "what does 'the open note' mean??
+    what does opening a note even entail?? how does one open a note??" The
+    label `#command-palette-use-note-text` is written by
+    `syncAgentOpenNoteToggle` and says "the open note" when it should name
+    the thing that is open, or say what would count. Owner: chat agent.
+    **Built (this commit and the two before it).** The label half first: it
+    named a category where it could name the thing, and said "the open note"
+    with nothing open. The label named a
+    category where it could name the thing, and said "the open note" even with
+    nothing open, which is a checkbox describing something that does not exist.
+    It now reads "Use this note: <title>", "Use this document: <title>", "Use
+    this mind map: <name>" or "Use this board: <name>", and with nothing open
+    "Nothing open to use (open a note, document, board or map first)" with the
+    box disabled and unchecked. All five measured in
+    `scratchpad/ui-sweeps/agentsubject.js`.
+    **The agent, app-wide** (`c052eb6`, measured in
+    `scratchpad/ui-sweeps/agentwide.js`): a wand in the header opens it from
+    all 7 tabs with one icon and one tooltip carrying the chord, which is the
+    reading of "usable across the whole app" that does not put seven copies of
+    one control into seven docks two agents are both editing (CHAT_PLAN
+    decision 14). Its starters depend on the tab: 7 distinct opening pairs over
+    7 tabs, under a group named for the tab you are on. The keyboard reaches
+    them: the caret opens in the box, Down walks in and on, Up walks back,
+    Escape returns the caret and a second Escape closes. The state line says
+    what it is working on ("Working on: file everything about beans and tag
+    it"), which tool is running ("Listed notes (12) …") and what the turn came
+    to ("Done, 1 step, last: Listed notes (12)"), with the typed tool cards
+    still folded under the answer ("Finished 1 step"). A `data-help-for` line
+    carries the rest.
+    **The Guide** (`c052eb6` and this commit): named (INBOX 193, CHAT_PLAN
+    decision 13), reachable from the header's '?' on every tab and from the
+    head the fifteen Settings panes share, as one `openSheet` that moves the
+    existing chat into it rather than building a second one. Measured: the
+    sheet opens titled "Guide" from 3 tabs and 2 Settings panes, focus lands
+    in its field every time, Escape closes it, puts the chat back in the Help
+    pane and returns focus to the button that opened it. Its knowledge: the
+    request now carries the tab and the tab's own control labels, so "how does
+    this work?", which matches no keyword and used to get "I'm not sure", is
+    answered from that tab's `HELP_TOPICS` entries (`TAB_TOPICS`,
+    `help_chat.py`) plus 337 to 563 characters of the app's own words for the
+    controls on screen. Attributes only, never text: this chat promises it
+    cannot read the notebook, and the sweep asserts no note it planted appears
+    in what is sent. 21 tests in `tests/test_help_chat.py`.
+    **Found, not fixed**: `data-help-for` popovers exist 41 times in this app
+    and every one is in the Settings modal or a dialog. Not one of the seven
+    tabs has a single one, which is why the tab's control labels are what the
+    Guide sends. A tab that grows one is picked up with no further change.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

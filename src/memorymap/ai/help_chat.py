@@ -474,6 +474,34 @@ HELP_TOPICS: list[dict] = [
 #: A tight window: this is guidance, not a conversation to reminisce in.
 MAX_HISTORY_TURNS = 6
 MAX_MESSAGE_CHARS = 1000
+#: **Where the question was asked from** (INBOX 190: "maybe give it more
+#: knowledge and capabilitie/function"). The Guide is reachable from every tab
+#: now, so "how do I do this" is asked with something specific on screen, and
+#: until this it answered as though the question had arrived from nowhere.
+#: A tab pulls in its own topics whether or not the question names them, which
+#: is what lets "how does this work?" on the Graph tab be a question about the
+#: graph. The ids are `HELP_TOPICS` ids; a tab with no entry simply adds
+#: nothing, which is the correct behaviour for a surface the topics do not
+#: cover yet.
+TAB_TOPICS: dict[str, tuple[str, ...]] = {
+    "dashboard": ("dashboard",),
+    "notes": ("capture", "memory"),
+    "chat": ("ask-chat", "skills"),
+    "graph": ("graph",),
+    "library": ("library", "files-images", "whiteboard"),
+    "documents": ("documents",),
+    "timeline": ("timeline",),
+    "reminders": ("reminders",),
+}
+
+#: How much of the surface's own help copy the client may send with a
+#: question. The caller passes the `.help-body` text of whatever is on screen
+#: (frontend/settings.js), which is the app's own wording for the thing being
+#: asked about and therefore the best possible reference note: it is also
+#: user-supplied input on the wire, so it is capped here rather than trusted
+#: to have been capped there.
+MAX_CONTEXT_CHARS = 1200
+
 #: How many reference entries to hand the model for one question. Kept
 #: small on purpose: item 40 asked for "a tight prompt/context budget",
 #: and a guidance answer is about one or two features, not a syllabus.
@@ -526,29 +554,80 @@ def badges_for(topics: list[dict]) -> list[dict]:
     return out
 
 
+def topics_for(question: str, tab: str | None = None) -> list[dict]:
+    """The reference entries for one question, asked from one tab.
+
+    What the question names comes first, because a person who asks about
+    reminders from the Graph tab is asking about reminders. The tab's own
+    topics follow, and they are what makes "how does this work?" answerable at
+    all: with no keyword in it, that question matched nothing and the model was
+    told to say it was not sure.
+    """
+    topics = _matching_topics(question)
+    if not tab:
+        return topics
+    seen = {topic["id"] for topic in topics}
+    by_id = {topic["id"]: topic for topic in HELP_TOPICS}
+    for topic_id in TAB_TOPICS.get(tab, ()):
+        if len(topics) >= MAX_TOPICS:
+            break
+        if topic_id in seen or topic_id not in by_id:
+            continue
+        topics.append(by_id[topic_id])
+        seen.add(topic_id)
+    return topics
+
+
 def answer(
     question: str,
     model_manager: ModelManager,
     ollama: Provider,
     history: list[dict] | None = None,
+    tab: str | None = None,
+    context: str | None = None,
 ) -> dict:
     """One turn of the help chat.
 
     `history` is whatever the caller is holding client-side for the current
     session (see module docstring): never read from or written to the
-    database. Returns `{"content": str, "badges": list[dict]}`."""
+    database. `tab` is the surface the question was asked from and `context`
+    that surface's own help copy, both optional and both only ever used to
+    choose and extend the reference notes. Returns
+    `{"content": str, "badges": list[dict]}`."""
     question = question.strip()[:MAX_MESSAGE_CHARS]
     if not question:
         return {"content": "", "badges": []}
     if not ollama.is_running():
         return {"content": OFFLINE_MESSAGE, "badges": []}
 
-    topics = _matching_topics(question)
+    topics = topics_for(question, tab)
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    if tab:
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    f"The person asking has the {tab} tab open. Prefer the answer "
+                    "that applies to what is in front of them, and say which tab "
+                    "or setting anything else is on."
+                ),
+            }
+        )
     if topics:
         reference = "\n".join(f"- {topic['body']}" for topic in topics)
         messages.append(
             {"role": "system", "content": f"Reference notes for this question:\n{reference}"}
+        )
+    on_screen = (context or "").strip()[:MAX_CONTEXT_CHARS]
+    if on_screen:
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "The app's own help text for what is on screen right now, "
+                    "which you may answer from as well:\n" + on_screen
+                ),
+            }
         )
     for turn in (history or [])[-MAX_HISTORY_TURNS:]:
         role = turn.get("role")

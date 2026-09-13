@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The Guide is told which tab the question came from and what the controls on
+  it are called, so "how does this work?" is answered about the surface in
+  front of you rather than with "I'm not sure". It still cannot read a note:
+  only control labels are sent, never text on screen.
+
 - The popup agent and the help chat are reachable from every tab: a wand and a
   '?' in the header, and the '?' also sits in the head every Settings pane
   shares. The help chat has a name, the Guide, and opens as one shared sheet.

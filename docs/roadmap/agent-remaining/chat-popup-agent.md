@@ -34,7 +34,23 @@ The chat agent's run against INBOX 181, 182, 183, 187, 188, 189, 190 and
   own control labels; `TAB_TOPICS` grounds a question that names nothing.
   INBOX 190 closed.
 
+- `27cc1f3` CHAT_PLAN decision 2's last half: a citation mark shows the
+  passage it came from on that source's card, hover and focus
+  (`scratchpad/ui-sweeps/citepassage.js`). Closes
+  `chat-timeline-skills.md` item 1's renderer step; item 4 judged not worth
+  doing and the reasoning is written into that file.
+
 ## Next
 
-1. `chat-timeline-skills.md` item 1's last step: the hover highlight of
-   `note.content.slice(start, end)` in the sources panel.
+1. `chat-timeline-skills.md` item 1's remaining half, which is not the
+   renderer: the ten-question eval fixture set and the "supported" threshold,
+   which decide *which note* grounds a sentence (CHAT_PLAN decision 2). Needs
+   Brief 12's fixtures before anything can be claimed about it.
+2. Found, not fixed: `data-help-for` popovers exist 41 times and every one is
+   in the Settings modal or a dialog; not one of the seven tabs carries one.
+   The Guide sends the tab's control labels instead, and a tab that grows a
+   popover is picked up with no further change.
+3. Not verified: every AI path here ran against a shimmed `/chat/stream` and a
+   stubbed `/models/status`. No model answered anything, so what a real small
+   model does with the Guide's new tab context is untested (CLAUDE.md section
+   4's standing caveat).

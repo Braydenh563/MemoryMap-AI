@@ -9,6 +9,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A sheet closes the same way wherever it is built. The three sidebars and
+  the graph's panel become sheets in place rather than being built by the
+  sheet recipe, and they now share its dismissal: a captured Escape, a press
+  outside, and focus back on the control that opened it. The sidebar sheet's
+  Escape used to bubble, so a handler inside the page that stopped one took
+  it first.
+
 - The timeline dock's kind filter is one control rather than four. The four
   kinds were four filter chips at four widths, which wrapped to three lines
   at 1024 and four at 820 and took the dock to 181.2px; they are a toggle

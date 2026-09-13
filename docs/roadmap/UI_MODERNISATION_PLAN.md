@@ -663,12 +663,24 @@ different problem than the list says.
   (fixed 2026-09-13, 10-responsive.css); the same squash is there at every
   width and is invisible above 360 because the head does not wrap, so the
   general fix is open work for whoever owns that surface.
-- **The sheets: one recipe, two still hand-built.** `openSheet` and DESIGN.md's
-  "A sheet" row landed with the More sheet, and `tests/test_ui_recipes.py`
-  freezes the two that predate it (`.sidebar-sheet-open` for the three
-  sidebars, `.graph-popup-sheet` for the graph's dock) so a third cannot be
-  built by hand. Moving those two onto the recipe is open work and belongs with
-  items 3 and 4 rather than with item 1.
+- **The sheets: one recipe, two in place, and the boundary between them is now
+  written down** (2026-09-13). `openSheet` builds a *modal bottom* sheet out of
+  nothing; the two that predate it are *in-place* sheets, elements already on
+  the page that become one inside a band. They are not being moved onto
+  `openSheet`, and that is a decision rather than a postponement: each would
+  lose the thing it was built for (the sidebar keeps a rail on screen carrying
+  its own opener, which is the way back; the graph's is deliberately not modal,
+  so the map it came from stays visible as the sheet's origin), and it would
+  mean moving a live subtree in and out of a dialog on every open. What they do
+  share, from this session, is the dismissal: `wireInPlaceSheetDismissal` in
+  app.js gives both a captured Escape, a press outside and focus back on the
+  opener. DESIGN.md's "A sheet" row carries the boundary;
+  `tests/test_ui_recipes.py` holds the ratchet at two and the shared dismissal.
+  Measured with `scratchpad/ui-sweeps/sheetdismiss.js` at 390: the sidebar
+  sheet opens from its rail, a captured Escape closes it past a handler on
+  `document.body` that stops Escape (the bubbling one it had never saw that
+  event at all), a press outside closes it, and focus lands back on the toggle
+  with `aria-expanded="false"`; the More sheet the same.
 - **A finding at 820, which is not a phone at all.** The header is 108.2px
   there: two rows, a wrapped tab strip, on a band whose own rule (band 2,
   10-responsive.css) says "the tabs are icons, and the header is one row". The

@@ -161,6 +161,23 @@ def test_the_sheet_recipe_keeps_its_dialog_semantics_and_its_bottom_inset() -> N
     )
 
 
+# And the two that predate the recipe keep its dismissal even though they do not
+# keep its construction (DESIGN.md, "A sheet"): an in-place sheet goes through
+# `wireInPlaceSheetDismissal`, so Escape is captured, a press outside closes it
+# and focus lands back on the opener. Those three are the half a hand-built
+# sheet has always got wrong, and the half that can be shared without moving a
+# live subtree in and out of a dialog.
+def test_an_in_place_sheet_shares_the_recipe_dismissal() -> None:
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    start = app.index("function wireInPlaceSheetDismissal(")
+    body = app[start : app.index("\n}\n", start)]
+    for needed in ('"keydown"', '"pointerdown"', "true)", "stopPropagation"):
+        assert needed in body, f"wireInPlaceSheetDismissal no longer carries {needed}"
+    assert "wireInPlaceSheetDismissal({" in app[app.index("function initSidebarSheetDismissal(") :], (
+        "the sidebar sheet has gone back to its own dismissal"
+    )
+
+
 # A fixed set of filter toggles is one well (DESIGN.md, "Two to four toggles
 # that belong to one question"), not a row of chips. INBOX 186 is what a row of
 # chips looks like once there are four of them at four widths: measured at 820,

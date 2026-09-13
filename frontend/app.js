@@ -19925,22 +19925,57 @@ function applySidebarSheetMode(stacked) {
   });
 }
 
+// --- the dismissal every sheet keeps, wherever it is built -------------------
+// UI_MODERNISATION_PLAN.md Phase 11. `openSheet` builds a modal bottom sheet
+// out of nothing and owns its own listeners for the life of that one overlay.
+// The two sheets that predate it are a different object: an element that is
+// already on the page and *becomes* a sheet inside a band (the three sidebars
+// below 600, the graph's popup at the bottom of the map). Those cannot be built
+// by `openSheet` without losing what each was built for, and the reason is
+// written in DESIGN.md's index rather than rediscovered: the sidebar sheet
+// keeps a rail on screen with its own opener on it, which is the way back, and
+// the graph's is deliberately not modal, because the map it came from has to
+// stay visible for the sheet to have an origin.
+//
+// What they must share is the *dismissal*, which is the half a hand-built sheet
+// always gets wrong: Escape, a press outside, and the focus going back to the
+// control that opened it. This is that half, in one place, so a third in-place
+// sheet inherits all three rather than inventing them.
+//
+// Captured, both of them, which is the one behavioural change this extraction
+// makes: the sidebar sheet's Escape was a bubbling listener, so any handler
+// bound further down the page that stops an Escape took it first. `openSheet`
+// has always captured for exactly that reason.
+function wireInPlaceSheetDismissal({ find, close }) {
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const open = find();
+    if (!open) return;
+    event.stopPropagation();
+    close(open);
+  }, true);
+  document.addEventListener("pointerdown", (event) => {
+    const open = find();
+    if (!open || open.contains(event.target)) return;
+    close(open);
+  }, true);
+}
+
 // Escape closes an open sheet, and a tap on the content behind it does too.
 // Both are what a sheet means; without them the only way back is the rail,
 // which is the half of the panel the sheet is covering.
 function initSidebarSheetDismissal() {
-  document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape") return;
-    const open = document.querySelector(".sidebar-sheet-open");
-    if (!open) return;
-    open.classList.remove("sidebar-sheet-open");
-    open.querySelector(".sidebar-collapse-toggle")?.focus();
+  wireInPlaceSheetDismissal({
+    find: () => document.querySelector(".sidebar-sheet-open"),
+    close: (open) => {
+      open.classList.remove("sidebar-sheet-open");
+      //: The rail's own button is the opener, so focus goes back to it: the
+      //: same contract `openSheet`'s `returnFocus` keeps.
+      const opener = open.querySelector(".sidebar-collapse-toggle");
+      opener?.setAttribute("aria-expanded", "false");
+      opener?.focus();
+    },
   });
-  document.addEventListener("pointerdown", (event) => {
-    const open = document.querySelector(".sidebar-sheet-open");
-    if (!open || open.contains(event.target)) return;
-    open.classList.remove("sidebar-sheet-open");
-  }, true);
 }
 
 function makeSidebarResizable(aside) {

@@ -7051,8 +7051,7 @@ button.connection-row {
    (where the picture is used, and the fold for what was read out of it). Both
    reports behind them are the same report, a column of short statements each
    given a row of its own, so they get the same answer and the same numbers. */
-.library-file-meta,
-.library-image-meta {
+.library-file-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;

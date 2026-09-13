@@ -628,3 +628,100 @@ def test_a_panel_head_is_identity_one_fact_and_actions_that_do_not_wrap() -> Non
     assert "flex-wrap: nowrap" in head_rule, (
         "the answer head wraps again. The badge ellipsises; the row does not break"
     )
+
+
+#: Every list row built on the list-row step, with the container whose rows
+#: they are. DESIGN.md's recipe index names the shape; this is what has been
+#: brought onto it. A new list joins the map rather than picking its own
+#: height, and a row that drops the token fails here.
+LIST_ROWS = {
+    ".timeline-row": ".timeline-rows",
+    ".bookmark-row": ".bookmark-list",
+}
+
+
+def test_a_list_row_sits_on_the_list_row_tokens() -> None:
+    """DESIGN.md's recipe index: a row in a list is `--row-h` and `--row-gap`.
+
+    `--row-h` was declared for the Timeline and nothing else reached for it,
+    so the next list picked its own numbers: the Library's saved links stood
+    at 67.2px, or 89.2px once a link had a group, in a list whose gap was a
+    spacing step chosen by hand. The token exists precisely so that two lists
+    in one app do not answer "how tall is a row" differently.
+
+    Both halves are checked, because a row height without the list's own gap
+    is half the recipe: the row is the step and the gap between rows is the
+    spacing that goes with it.
+    """
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+    rows = {
+        _leading_name(selector)
+        for selector, body in _rules(css)
+        if "var(--row-h)" in body
+    }
+    assert rows == set(LIST_ROWS), (
+        f"rules using --row-h: {sorted(rows)}; rows this lint knows about: "
+        f"{sorted(LIST_ROWS)}: a new list row joins LIST_ROWS (DESIGN.md, the "
+        "recipe index)"
+    )
+    for row, container in LIST_ROWS.items():
+        gaps = [
+            body
+            for selector, body in _rules(css)
+            if _leading_name(selector) == container and "var(--row-gap)" in body
+        ]
+        assert gaps, (
+            f"{row} sits on --row-h but {container} does not space its rows "
+            "with --row-gap: the two are one recipe"
+        )
+
+
+#: The facts line: one short statement per fact, dot separated, on one rank.
+#: The Files rows earned it, the picture cards and the saved links share it.
+#: Each carries `.library-file-meta` for the rank and a handle of its own for
+#: whatever its layout needs, so this is the set of handles.
+FACTS_LINES = {".library-image-meta", ".bookmark-meta"}
+
+
+def test_the_facts_line_is_one_rule_rather_than_three() -> None:
+    """DESIGN.md's recipe index: a line of facts is `.library-file-meta`.
+
+    Three surfaces in the Library say several short things about one object:
+    a file row (kind, size, pages, added), a picture card (where it is used,
+    what was read out of it) and a saved link (the site, the group, the note).
+    Each report behind them was the same report, a column of one-line blocks
+    each given a row of its own, so they get one answer. A copy of the rule
+    under a second name is how the three drift apart again, and a copy always
+    starts by restating the size.
+
+    So: one rule sets the rank, every facts line is built by `metaLine()`, and
+    a handle may position its line but never resize it.
+    """
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+    shared = [
+        selector
+        for selector, body in _rules(css)
+        if _leading_name(selector) == ".library-file-meta" and "font-size" in body
+    ]
+    assert len(shared) == 1, (
+        "the facts line's rank should come from exactly one rule; found "
+        f"{len(shared)}: {shared}"
+    )
+    js = "\n".join(path.read_text(encoding="utf-8") for path in JS)
+    for line in FACTS_LINES:
+        name = line[1:]
+        beside = re.search(rf'"library-file-meta {name}"', js)
+        through = re.search(rf'metaLine\([^;]*?"{name}"', js, re.S)
+        assert beside or through, (
+            f"{line} is a facts line but nothing builds it with the shared "
+            "class: either pass the handle to metaLine() or put "
+            f'"library-file-meta {name}" on the element, so the rank comes '
+            "from the one rule (DESIGN.md, the recipe index)"
+        )
+    for line in FACTS_LINES:
+        for selector, body in _rules(css):
+            if _leading_name(selector) == line:
+                assert "font-size" not in body, (
+                    f"{selector.strip()} sets its own font size: a facts line "
+                    "takes the shared rule's rank (DESIGN.md, the recipe index)"
+                )

@@ -6873,16 +6873,20 @@ function filterLibraryImagesGallery() {
     //: `fields` was built above for the Files rows, which stack the same two
     //: blocks unconditionally; an image card composes its own.
     fields.replaceChildren(captionField);
-    const metaLine = document.createElement("div");
-    metaLine.className = "library-image-meta";
-    if (links.length || image.usage_incomplete) metaLine.append(uses);
+    const metaRow = document.createElement("div");
+    //: The shared class plus a handle of its own, which is how all three of
+    //: the Library's facts lines are built (`metaLine` above does the same for
+    //: the Files rows and the saved links): the rank comes from the one rule,
+    //: the handle carries only what this layout needs.
+    metaRow.className = "library-file-meta library-image-meta";
+    if (links.length || image.usage_incomplete) metaRow.append(uses);
     if ((image.vision_ocr_text || "").trim() || (image.ocr_text || "").trim()) {
-      metaLine.append(visionField);
+      metaRow.append(visionField);
     }
     //: Nothing to say, no line: a picture nobody has used and nothing has read
     //: keeps the short foot it has now rather than an empty row holding the
     //: rhythm open.
-    if (metaLine.children.length) fields.append(metaLine);
+    if (metaRow.children.length) fields.append(metaRow);
 
     fig.append(frame, actions, fields);
     grid.appendChild(fig);

@@ -74,6 +74,105 @@ measured or built in earlier commits and is marked there.
 
 ## Open items
 
+192. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the
+    document editor's AI row (one screenshot: the Edit, Write, Remove
+    segmented row above the AI assistant).** "also change the style of and
+    redesign this edit, write, remove ai assistant toggle row as it is ugly
+    and needs a better visual and more modern look". Owner: documents agent.
+
+191. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the mind
+    map's rings and the documents table view.** "can you put an opaque
+    background or smth behind the item radials in the mindmap?? they still
+    feel disconnected. also the documents live table view is broken."
+    Two items: the ring's ground (mind map agent); the live table view of
+    the documents list, which needs reproducing first (documents agent).
+
+190. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the popup
+    agent and the help chat.** "the popup agent needs more ui, ux and
+    functionality refinements to be more professional. it needs to be more
+    versatile and usable across the whole app, the user should be able to
+    use it as the guiding hand and everything. also I was wondering if there
+    is a way to make the help chat bot more accessible throughout the
+    settings modal and also even accessible application wide?? maybe give
+    it more knowledge and capabilitie/function and give it a fitting
+    name??" And, on the same surface: "what does 'the open note' mean??
+    what does opening a note even entail?? how does one open a note??" The
+    label `#command-palette-use-note-text` is written by
+    `syncAgentOpenNoteToggle` and says "the open note" when it should name
+    the thing that is open, or say what would count. Owner: chat agent.
+
+189. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the popup
+    agent's subject.** "I think the test note the popup agent is referring
+    to is the mind map I just made called test". The open-thing scope
+    resolved a board as a note; a map, a board and a document each need
+    naming as what they are. Owner: chat agent.
+
+188. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the table
+    bar in an AI answer.** "the table button option rendering needs to be
+    fixed or refined, especially in the popup agent, maybe just make it a
+    copy button with an ellipse/kebab dropdown menu button next to it for
+    the other options". Recommendation, taken: one Copy button and a
+    `kebabMenu` for the rest, in both the chat and the popup agent. Owner:
+    chat agent.
+
+187. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the popup
+    agent's caret.** "the writing carette shows on the popup agent when the
+    3-dot animation is showing and it is waiting for a model response which
+    it shouldnt". Owner: chat agent.
+
+186. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the
+    timeline dock (one screenshot: the kind chips and the Show: all button
+    across the top of the dock).** "these buttons in the top of the
+    timeline dock are ugly and need a redesign/restructuring". The row is
+    `#timeline-kinds` plus `#timeline-filter-clear`; the dock grammar
+    (UI_MODERNISATION Phase 8) is the recipe. Owner: phone and chrome agent.
+
+185. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the
+    graph's show toggles.** "Things that I have turned off in the graph for
+    not showing them like the mindmap and entities still show anyway".
+    Owner: graph agent.
+
+184. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), a map
+    exported to the board (one screenshot: the image card with an empty
+    strip under the picture).** "my exported png from the mindmap straight
+    to the whiteboard still doesnt have anything at the bottom of its card,
+    its just blank". A board export is a direct upload since `598f12e`, so
+    the card should carry its description once the read finishes; reproduce
+    against a fresh export before theorising. Owner: mind map agent.
+
+183. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), seven
+    reports with screenshots (the chat's context badge off centre; a graph
+    node popup for an image with no picture in it; the Arrange menu open at
+    a third of the View menu's height; the map's top bar with its right-hand
+    controls past the window's edge).** "the context window badge at the top
+    of the chat isnt centred, the graph popups dont render images or files,
+    and idk what entities are... also panning on the whiteboard by pressing
+    down the scrollwheel with a mouse is horrible and doesnt work. and when
+    I drag around and pan using the hand tool, the note objects are fine,
+    but all shapes, lines and connections lagg behind in position and arent
+    synched like the notes seem to be. the arrange dropdown menut in the
+    whiteboard and mindmap seems to be very short in height compared to the
+    other menus. still no default board type selected. the mindmap top bar
+    controls breach the topbar and overflow off the edge on the right".
+    Split: the badge (chat agent); the popups and what an entity is, which
+    wants a line of help copy as much as a fix (graph agent); middle-button
+    pan, the lag of every non-note object under the hand tool, the Arrange
+    menu's height, the default board type and the map top bar's overflow
+    (mind map agent).
+
+182. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), links.**
+    "I want to be able to right click or hold with a touch on a link and
+    have a popup show to let me copy the link address". App-wide: every
+    rendered markdown link (chat, popup agent, notes, documents) gets one
+    `kebabMenu`-shaped menu on contextmenu and long-press with Copy link
+    address and Open. Owner: chat agent.
+
+181. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), tables in
+    an AI answer.** "the actual size/fit to panel button in ai written
+    tables doesnt work when not in the full view, also I want the table row
+    and column widths and heights to be adjustable by the user in the full
+    view." Owner: chat agent.
+
 180. **Mid-work drop, 2026-09-13, verbatim (the owner), the whiteboard and
     the mind map, two screenshots (a dark board with four objects, every one
     of them showing eight round lilac handles plus a stalk handle above it,

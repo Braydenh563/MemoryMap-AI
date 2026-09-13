@@ -3171,6 +3171,22 @@
                      other four export actions use. -->
                 <button id="doc-export-html" class="menu-item doc-dock-menu-item" type="button"
                   title="Download as one self-contained .html file, images and all"><i class="ph ph-file-html ph-lead" aria-hidden="true"></i> Download as .html</button>
+                <!-- **The markdown with its pictures beside it**
+                     (DOCUMENTS_PLAN Phase 7). `Download as .md` hands over the
+                     text alone, and a document with images in it then opens
+                     somewhere else with `/media/…` links that resolve to
+                     nothing. This is the same markdown in a zip with every
+                     image in `assets/` and the links rewritten to match, built
+                     on the server because the files are on the server. -->
+                <button id="doc-export-zip" class="menu-item doc-dock-menu-item" type="button"
+                  title="Download the markdown and its images as one zip"><i class="ph ph-file-zip ph-lead" aria-hidden="true"></i> Download with images (.zip)</button>
+                <!-- Word, when this install has python-docx. Offered whatever
+                     the answer is: a menu that hides what an install cannot do
+                     leaves a person wondering whether the app can do it at
+                     all, and the endpoint's own 501 says which package is
+                     missing and what is available instead. -->
+                <button id="doc-export-docx" class="menu-item doc-dock-menu-item" type="button"
+                  title="Download as a Word .docx file"><i class="ph ph-file-doc ph-lead" aria-hidden="true"></i> Download as .docx</button>
                 <button id="doc-export-pdf" class="menu-item doc-dock-menu-item" type="button"
                   title="Print or save as PDF"><i class="ph ph-file-pdf ph-lead" aria-hidden="true"></i> Print or save as PDF</button>
                 <!-- Asked for directly: "there should be the option to have
@@ -3342,6 +3358,42 @@
             title="Focus mode: hide everything but the page (Esc to leave)" aria-pressed="false"
             aria-label="Focus mode: hide everything but the page"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
         </div>
+        <!-- **The phone's formatting, where a thumb is** (DOCUMENTS_PLAN
+             Phase 6 item 1). The toolbar above is a 25-control strip that
+             wraps twice at 390px and sits at the top of the pane, which is
+             the one place a thumb holding a phone cannot reach; below 600
+             this bar takes the six actions people actually reach for plus
+             the "/" that opens everything else, and rides above the
+             on-screen keyboard on `--keyboard-inset` (the property app.js
+             already writes from `visualViewport` for the two bottom docks:
+             a second listener for the same number is how two surfaces end
+             up disagreeing about where the keyboard is).
+
+             `data-md-target` is all the wiring it needs: `initMarkdownToolbars`
+             finds it by that attribute and `applyMarkdown` already takes the
+             box id. `data-md-extras="1"` is `mountEditorToolbarExtras`'s own
+             idempotence flag, set here so the mount adds nothing: undo, redo,
+             indent and outdent are four more controls on the surface with the
+             least room for them, and a phone has no Ctrl+Z to match them to. -->
+        <div class="thumb-bar doc-phone-bar" id="doc-phone-bar" role="toolbar"
+          aria-label="Formatting" data-md-target="doc-content" data-md-extras="1">
+          <button type="button" class="icon-only" data-md="bold" title="Bold"
+            aria-label="Bold"><i class="ph ph-text-b" aria-hidden="true"></i></button>
+          <button type="button" class="icon-only" data-md="italic" title="Italic"
+            aria-label="Italic"><i class="ph ph-text-italic" aria-hidden="true"></i></button>
+          <button type="button" class="icon-only" data-md="h2" title="Heading"
+            aria-label="Heading"><i class="ph ph-text-h-two" aria-hidden="true"></i></button>
+          <button type="button" class="icon-only" data-md="ul" title="Bulleted list"
+            aria-label="Bulleted list"><i class="ph ph-list-bullets" aria-hidden="true"></i></button>
+          <button type="button" class="icon-only" data-md="task" title="Task list"
+            aria-label="Task list"><i class="ph ph-check-square" aria-hidden="true"></i></button>
+          <button type="button" class="icon-only" data-md="link" title="Link"
+            aria-label="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
+          <button type="button" class="icon-only" id="doc-phone-insert"
+            title="Insert something (the / menu)" aria-label="Insert something">
+            <i class="ph ph-plus" aria-hidden="true"></i>
+          </button>
+        </div>
         <!-- A textarea's own content is never in the DOM as searchable text
              (that's why the browser's native Ctrl+F can't reach into one),
              so a document past a screen or two of text had no way to find
@@ -3464,7 +3516,19 @@
       aria-modal="true" aria-label="AI assistant">
       <div class="card modal-card doc-ai-card">
         <div class="row space-between">
-          <h2>AI assistant</h2>
+          <div class="row help-head">
+            <h2>AI assistant</h2>
+            <!-- One line of description under the verbs, the rest behind the
+                 '?' (DESIGN.md's help recipe): what each of the three does to
+                 the document is three sentences, and three sentences above a
+                 text field is a wall. -->
+            <button type="button" class="icon-only ghost small graph-help-toggle"
+              data-help-for="doc-ai-verb-help" aria-controls="doc-ai-verb-help"
+              aria-expanded="false" title="About the three verbs"
+              aria-label="About the three verbs">
+              <i class="ph ph-question" aria-hidden="true"></i>
+            </button>
+          </div>
           <div class="row">
             <button id="doc-ai-history" class="ghost small" type="button" title="See and undo past AI edits to this document">
               <i class="ph ph-clock-counter-clockwise ph-lead" aria-hidden="true"></i> History
@@ -3487,6 +3551,15 @@
           <label><input type="radio" name="doc-ai-verb" value="edit" checked><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i> Edit</label>
           <label><input type="radio" name="doc-ai-verb" value="write"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Write</label>
           <label><input type="radio" name="doc-ai-verb" value="remove"><i class="ph ph-eraser ph-lead" aria-hidden="true"></i> Remove</label>
+        </div>
+        <div class="help-body hidden" id="doc-ai-verb-help" role="dialog"
+          aria-label="About the three verbs">
+          <p>Edit rewrites what is selected, or the whole document when
+            nothing is.</p>
+          <p>Write adds new text at the caret, or at the end of the document.</p>
+          <p>Remove takes out what you name, and shows you what it took.</p>
+          <p>All three arrive as a suggestion you accept or discard; nothing is
+            written into the file until you accept it.</p>
         </div>
         <p class="muted doc-ai-scope" id="doc-ai-scope"></p>
         <!-- The instruction and the button that acts on it are one row, the

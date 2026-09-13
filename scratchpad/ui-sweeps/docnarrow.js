@@ -113,6 +113,38 @@ const CONTENT = [
         dockRows,
         statusItems,
         overflowing,
+        // The phone formatting bar (DOCUMENTS_PLAN Phase 6 item 1): shown
+        // only in band 4, above the keyboard, and with nothing of the
+        // document left underneath it.
+        thumb: (() => {
+          const bar = document.getElementById("doc-phone-bar");
+          if (!bar) return null;
+          const cs = getComputedStyle(bar);
+          const b = bar.getBoundingClientRect();
+          const buttons = [...bar.querySelectorAll("button")].map((el) => {
+            const r = el.getBoundingClientRect();
+            return { id: el.id || el.dataset.md, w: +r.width.toFixed(1), h: +r.height.toFixed(1) };
+          });
+          const wrap = document.querySelector("#tab-documents .doc-source-wrap");
+          return {
+            display: cs.display,
+            shown: cs.display !== "none",
+            actions: buttons.length,
+            smallest: buttons.length ? Math.min(...buttons.map((x) => Math.min(x.w, x.h))) : null,
+            bottom: +b.bottom.toFixed(1),
+            top: +b.top.toFixed(1),
+            h: +b.height.toFixed(1),
+            // With no keyboard open `--keyboard-inset` is 0px, so this reads
+            // the property rather than a gap: the keyboard half of this bar
+            // cannot be verified in a headless browser at all.
+            inset: getComputedStyle(document.documentElement)
+              .getPropertyValue("--keyboard-inset").trim() || "(unset)",
+            padBottom: cs.paddingBottom,
+            clearsTheText: wrap
+              ? wrap.getBoundingClientRect().bottom - b.height <= b.top + 1
+              : null,
+          };
+        })(),
         under44: small.length,
         under44worst: small.sort((a, b) => a.h - b.h).slice(0, 4),
       };
@@ -125,7 +157,59 @@ const CONTENT = [
     if (band === "phone") {
       if (m.under44 > 0) fails.push(`390: ${m.under44} targets under 44px (worst ${JSON.stringify(m.under44worst)})`);
       if (m.toolbarRows > 1) fails.push(`390: the formatting strip is ${m.toolbarRows} rows`);
+      if (!m.thumb) fails.push("390: there is no phone formatting bar in the page");
+      else {
+        if (!m.thumb.shown) fails.push("390: the phone formatting bar is not shown");
+        if (m.thumb.actions < 7) fails.push(`390: the phone bar carries ${m.thumb.actions} actions`);
+        if (m.thumb.smallest < 44) fails.push(`390: a phone bar target is ${m.thumb.smallest}px`);
+        if (Math.abs(m.thumb.bottom - h) > 1) fails.push(`390: the phone bar's foot is at ${m.thumb.bottom} in an ${h}px window`);
+        if (!m.thumb.padBottom || parseFloat(m.thumb.padBottom) <= 0) {
+          fails.push(`390: the phone bar's foot padding is ${m.thumb.padBottom}`);
+        }
+      }
     }
+    // The bar is only worth its room if its buttons do what the toolbar's do.
+    // Two of the seven, one of each kind: a `data-md` button through
+    // `applyMarkdown`, and the "/" that has to type a character for the slash
+    // menu to open off (`openDocPhoneInsert`).
+    if (band === "phone" && m.thumb && m.thumb.shown) {
+      const before = await page.evaluate(() => {
+        const s = docSurface();
+        const at = s.text.indexOf("first line");
+        s.focus();
+        s.setSelectionRange(at, at + 5);
+        return s.text;
+      });
+      await page.click('#doc-phone-bar [data-md="bold"]');
+      await page.waitForTimeout(250);
+      const bolded = await page.evaluate(() => docSurface().text);
+      if (bolded !== before.replace("first", "**first**")) {
+        fails.push(`390: the phone bar's bold button wrote ${JSON.stringify(bolded.slice(0, 60))}`);
+      }
+      await page.evaluate(() => {
+        const s = docSurface();
+        s.focus();
+        s.setSelectionRange(s.text.length, s.text.length);
+      });
+      await page.click("#doc-phone-insert");
+      await page.waitForTimeout(400);
+      const slash = await page.evaluate(() => {
+        const menu = document.getElementById("editor-menu");
+        return {
+          // `offsetParent` is null for a fixed element, so the class is what
+          // says whether this menu is on screen (one earlier probe read the
+          // wrong one and reported a working menu as closed).
+          open: menu ? !menu.classList.contains("hidden") : false,
+          items: menu ? menu.querySelectorAll(".editor-menu-item").length : 0,
+          tail: docSurface().text.slice(-2),
+        };
+      });
+      console.log("   phone bar -> " + JSON.stringify(slash));
+      if (!slash.open || slash.items < 5) {
+        fails.push(`390: the phone bar's insert button left the menu ${JSON.stringify(slash)}`);
+      }
+    }
+
     //: One column from 820 down, which is the sheet doing its job rather than
     //: the sidebar being gone: what has to be true is that the layout's first
     //: track is the only one, and that the sheet is parked.
@@ -134,6 +218,9 @@ const CONTENT = [
       if (!m.sheetParked) fails.push(`${w}: the sidebar sheet is not parked off the left edge`);
     }
     if (m.measure !== null && m.measure < 240) fails.push(`${w}: the measure is ${m.measure}px`);
+    if (band !== "phone" && m.thumb && m.thumb.shown) {
+      fails.push(`${w}: the phone formatting bar is on screen outside band 4`);
+    }
   }
 
   console.log("console errors: " + errs.length + (errs.length ? " " + JSON.stringify(errs.slice(0, 3)) : ""));

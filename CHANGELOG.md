@@ -110,6 +110,41 @@ below). Versioning is `0.x` while the app stabilises.
   words in above 1200 and the icons alone below it, 44px cells on a phone.
   The band filter's way out is the one chip beside it, which is the one
   filter here you can take off. The dock is 54px at 1440, 1024 and 820.
+- A document can leave with its pictures, as a Word file, and come back from
+  one. "Download with images (.zip)" is the markdown plus every image it
+  references in `assets/` with the links rewritten to match, so it opens with
+  its pictures showing in any markdown reader; "Download as .docx" is a Word
+  file where this install has python-docx, and a message naming the package
+  where it does not. Importing a .docx now works without any converter
+  installed (a Word file is a zip with one XML part in it), and a saved web
+  page imports as prose rather than as tags. Measured:
+  `tests/test_docexport_bundle.py` and `tests/test_docview_import.py` (14
+  tests, 2 skipped without the optional extra), and
+  `scratchpad/ui-sweeps/docexports.js` in a browser, 6 of 6 with 0 unexpected
+  console errors.
+
+- Every note editor in the app is the same editor. The capture box, the note
+  edit form, the graph's node popup and new-note box and the two Write-with-AI
+  panes mount the document editor's engine on their first focus: markdown that
+  renders as you write, the same Ctrl+B / Ctrl+I / Ctrl+E / Tab chords, the
+  same "/" menu and the same toolbar, with the textarea still underneath as
+  the value every save path reads and as the fallback if the engine cannot
+  load. Measured with `scratchpad/ui-sweeps/notesurface.js`, 22 of 22 checks
+  and 0 console errors: six boxes mounted, the typed text in the textarea
+  under each, bold from the toolbar and from the keyboard, the "/" menu with
+  14 commands in a note, and a script clearing the box clearing the view with
+  it.
+
+- A phone gets the formatting it can reach. Below 600px the documents editor
+  carries a bar at the bottom edge with bold, italic, heading, list, task,
+  link and the "/" menu, sized for a thumb and riding above the on-screen
+  keyboard on the inset the app already measures. The 25-control strip at the
+  top of the pane is still there for a wider window. Measured with
+  `scratchpad/ui-sweeps/docnarrow.js` at 390x820: 7 actions, the smallest
+  target 44px, the bar's foot on the window's own edge, the last line of the
+  document clear of it, bold writing `**first**` from a selection, the "/"
+  button opening the 19-item insert menu, and the bar absent at 800, 1024 and
+  1440.
 
 - A document can be downloaded as one self-contained HTML file. Images become
   data URIs, the stylesheet is written into the file, comments travel as
@@ -303,6 +338,31 @@ below). Versioning is `0.x` while the app stabilises.
   `is-streaming` from the moment the request went out, so the caret's
   `> :last-child::after` arm landed on the dots; the class now goes on with
   the first token, which is what the Ask box has always done.
+- The document assistant's Edit / Write / Remove row is drawn as the choice
+  control it is. It carried a 11.2px track corner and a 6px segment corner
+  where every other choice control on the same screen is 15.4px, and its three
+  segments were 73.4 / 82.7 / 101.2px wide, so the widest verb read as the
+  important one. The track takes `.seg`'s own radius, the segment sits
+  concentric inside it at 10.4px, the three are one width (101.2px each) on a
+  grid, the chosen one keeps `--accent-surface` behind `--on-accent`, a
+  keyboard focus is visible on the segment for the first time, and what the
+  three verbs do is behind the row's new '?' rather than above the field.
+  Measured with `scratchpad/ui-sweeps/aiedit.js`, light and dark: seams 2.4px
+  against a 2.4px gap, ends 5px and 5px, chosen segment 20.98:1 light and
+  7.5:1 dark.
+
+- The Live view drew a markdown table as a row of squeezed columns with wide
+  empty gaps between them, and every cell wrapped its words one or two to a
+  line. Each hidden pipe leaves three zero-width elements behind in the line
+  (two CodeMirror widget buffers and the replacement's own empty span), and
+  the line's `grid-auto-flow: column` gave every one of them a column: fifteen
+  tracks for a three-column table, the cells at 51.6px. The cells are placed by
+  index now and everything else is pinned into the first track at zero width,
+  so a cell is a third of the row (257.9px of 794) whatever else a decoration
+  leaves in the line. A spelling underline also used to be drawn outside the
+  cell and split it into five (measured: 21 cells in one three-cell row); it
+  nests inside now. Measured with `scratchpad/ui-sweeps/doctable.js`, 24 of 24
+  in both themes.
 
 - Every image in a document's Live view drew "no longer in this notebook" over
   a file that was still there. The Live view's image widget set the raw

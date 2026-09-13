@@ -26,6 +26,14 @@ const TABLE = [
 // every other byte of the table exactly as it was written above.
 const TABLE_EXPECTED_TYPED = TABLE.replace('| Two |', '| Deux |');
 
+const WRAPPED = [
+  '| Name | Notes | Count |',
+  '| --- | --- | --- |',
+  '| One | a very long stretch of ordinary words that should wrap inside its own cell | 1 |',
+  '| Two | mispeled wrods here | 2 |',
+  '',
+].join('\n');
+
 const out = [];
 const check = (name, ok, detail) => out.push({ name, ok: !!ok, detail });
 
@@ -51,6 +59,15 @@ const check = (name, ok, detail) => out.push({ name, ok: !!ok, detail });
       headWeight: row(2) ? getComputedStyle(row(2)).fontWeight : null,
       delimHeight: row(3) ? +row(3).getBoundingClientRect().height.toFixed(2) : null,
       delimText: row(3) ? row(3).textContent : null,
+      tracks: row(2) ? getComputedStyle(row(2)).gridTemplateColumns.split(' ').length : null,
+      fill: row(2)
+        ? +[...row(2).querySelectorAll('.cm-md-td')]
+            .reduce((sum, el) => sum + el.getBoundingClientRect().width, 0)
+            .toFixed(1)
+        : null,
+      lineWidth: row(2) ? +row(2).getBoundingClientRect().width.toFixed(1) : null,
+      headHeight: row(2) ? +row(2).getBoundingClientRect().height.toFixed(1) : null,
+      lineHeight: row(7) ? +row(7).getBoundingClientRect().height.toFixed(1) : null,
       head: cells(2),
       body1: cells(4),
       body2: cells(5),
@@ -66,8 +83,29 @@ const check = (name, ok, detail) => out.push({ name, ok: !!ok, detail });
   const lefts = (r) => r.map((c) => c.left).join(',');
   check('the columns line up', lefts(shape.head) === lefts(shape.body1) &&
     lefts(shape.head) === lefts(shape.body2), `${lefts(shape.head)} vs ${lefts(shape.body1)}`);
-  check('the columns are equal width',
-    new Set(shape.head.map((c) => c.width)).size === 1, shape.head.map((c) => c.width).join(','));
+  // Within a pixel, not identical: three `1fr` tracks over a 794px line are
+  // 257.9/257.9/258 after the browser's sub-pixel rounding, and the first
+  // version of this check asked for one number and would have failed on any
+  // width that does not divide by three.
+  const widths = shape.head.map((c) => c.width);
+  check('the columns are equal width', Math.max(...widths) - Math.min(...widths) <= 1,
+    widths.join(','));
+  // INBOX 191, "the documents live table view is broken". A hidden pipe
+  // leaves three zero-width children in the line (two `cm-widgetBuffer`
+  // images and the replacement's own empty span) and `grid-auto-flow: column`
+  // gave each of them a track: fifteen tracks for a three-column table, the
+  // cells at 51.6px, every word wrapped. These three are the shape of that
+  // bug, and none of the checks above could see it: the cells were still
+  // equal and still lined up, three columns apart.
+  check('the line has one track per column', shape.tracks === 3, shape.tracks);
+  check('the cells fill the row', shape.fill >= shape.lineWidth - 8,
+    `${shape.fill} of ${shape.lineWidth}`);
+  // Plus the cell's own padding and the two rules it draws: a header row is
+  // 29.2 where a paragraph is 25.6, and that is the table's chrome, not a
+  // wrap. Anything past one wrapped line (two of them plus the chrome) is the
+  // squeezed-column bug again.
+  check('a short row is one line high', shape.headHeight <= shape.lineHeight + 5,
+    `${shape.headHeight} vs ${shape.lineHeight}`);
   check('the header is bold', Number(shape.headWeight) >= 600, shape.headWeight);
   check('alignment reaches the cells',
     shape.head[1] && shape.head[1].align === 'center' && shape.head[2].align === 'right',
@@ -172,6 +210,38 @@ const check = (name, ok, detail) => out.push({ name, ok: !!ok, detail });
   });
   check('align right rewrites one delimiter cell',
     aligned.includes('| ---: | :---: | ---: |'), aligned.split('\n')[3]);
+
+  // A second table, for the two shapes the tidy one above cannot show: a cell
+  // long enough to wrap, and a cell holding a word the spelling checker
+  // underlines. The underline is a mark from another plugin, and it used to
+  // be drawn *outside* the cell mark, which split one cell into five siblings
+  // and five tracks (measured: 21 `.cm-md-td` in one row). The fix is a
+  // precedence, so the check is the count.
+  await openDoc(page, { title: 'Table sweep 2', content: WRAPPED });
+  await page.evaluate(() => setDocView('live'));
+  await page.waitForTimeout(600);
+  const wrap = await page.evaluate(() => {
+    const lines = [...document.querySelectorAll('#doc-editor .cm-content .cm-line')];
+    const cellsIn = (i) => [...lines[i].querySelectorAll('.cm-md-td')];
+    const box = (el) => el.getBoundingClientRect();
+    return {
+      longCells: cellsIn(2).length,
+      longHeight: +box(lines[2]).height.toFixed(1),
+      longLefts: cellsIn(2).map((c) => +box(c).left.toFixed(1)).join(','),
+      spellCells: cellsIn(3).length,
+      spellLefts: cellsIn(3).map((c) => +box(c).left.toFixed(1)).join(','),
+      findings: lines[3].querySelectorAll('.cm-finding').length,
+      headLefts: cellsIn(0).map((c) => +box(c).left.toFixed(1)).join(','),
+    };
+  });
+  check('a wrapping cell is still three cells', wrap.longCells === 3, wrap.longCells);
+  check('a wrapping cell wraps inside its column rather than pushing the row down',
+    wrap.longHeight > 0 && wrap.longHeight < 120, wrap.longHeight);
+  check('a spelling underline does not split the cell', wrap.spellCells === 3,
+    `${wrap.spellCells} cells, ${wrap.findings} findings`);
+  check('every row keeps the same column edges',
+    wrap.headLefts === wrap.longLefts && wrap.headLefts === wrap.spellLefts,
+    `${wrap.headLefts} / ${wrap.longLefts} / ${wrap.spellLefts}`);
 
   await browser.close();
   const failed = out.filter((c) => !c.ok);

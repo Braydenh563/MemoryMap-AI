@@ -329,16 +329,22 @@ the reasoning; `docnarrow.js` asserts it.
 
 **What is left, in order:**
 
-1. **The phone formatting bar** (< 600): a bottom bar above the on-screen
-   keyboard (`env(keyboard-inset-height)` where available, `visualViewport`
-   otherwise, which app.js already writes to a custom property for the two
-   bottom docks) with the six most-used actions and a `/` button. New UI, so it
-   needs its row in DESIGN.md's recipe index and its lint in the same commit
-   (standing order 11). Today a phone's formatting is the opt-in wrapping strip
-   plus the `/` menu, both reachable, neither placed for a thumb.
-2. **The outline as a sheet from the bottom** (< 600). The sidebar sheet from
-   the left already carries the outline, so this is a judgement about whether a
-   second sheet earns itself on a phone, not a gap.
+1. **The phone formatting bar** (< 600): **built 2026-09-13**, see HISTORY.md
+   "Moved from the plans, 2026-09-13".
+2. **The outline as a sheet from the bottom** (< 600): **decided against,
+   2026-09-13, and the decision is not remade.** Measured at 390x820 before
+   deciding (`scratchpad/ui-sweeps/outline390.js` numbers, run once rather than
+   kept: the probe is two clicks and an assertion the sweeps above already
+   cover): the outline is two taps away and both targets are the size this band
+   asks for. The rail's toggle is a 44x44 button at x=7, y=71, the tap opens the
+   sidebar sheet whole (left 0, width 320 of a 390px window), and the Outline
+   tab in it lists all eighteen headings from y=189 with no scrolling. A second
+   sheet would be a third way to the same list, built from a recipe that says a
+   sheet is a modal dialog: it would cover the document exactly as the first one
+   does, and the only thing it would save is the tab tap. What would earn itself
+   instead, if the reach is ever reported, is the sidebar sheet *opening on the
+   Outline tab* while a document is open, which is one line in the opener and no
+   new surface. Left unbuilt on purpose.
 3. **"The first line of text is on screen with the keyboard open"** is asserted
    without a keyboard: the sandbox has no soft keyboard, so `docnarrow.js`
    measures the first line at 318px with the viewport at its full height and
@@ -386,32 +392,35 @@ in monospace) and the document (`#doc-content`: the engine after Phase 2).
 - The chat composer is not a note editor: it gets `[[` and `/` only, and
   keeps its own recipe (send on Enter).
 
-**8a, capture and the inline note edit** (½ session): `#entry-content` and
-the two script-made edit boxes mount the surface (`size: box` and
-`inline`); the capture's formatting strip becomes the selection toolbar
-with the strip opt-in; attachments, dictate and improve stay. Gate: every
-capture test passes; typing in capture with 2,000 notes loaded keeps
-keydown to paint under 30 ms; errors.js clean.
+**8a, capture and the inline note edit**: **built 2026-09-13**, see
+HISTORY.md "Moved from the plans, 2026-09-13".
 
-**8b, the graph's popups and Write with the AI** (¼ session): the node
-popup's editor (GRAPH Phase 6 sizes it four lines minimum) and the
-new-note box mount `size: box`; Write with the AI's two panes mount the
-surface with `live` on for the draft (no monospace). Gate: graph4b.js
-and the write panel's own test.
+**8b, the graph's popups and Write with the AI**: **built 2026-09-13**, same
+entry.
 
 **8c, the rest** (¼ session): whiteboard note cards edit in a `size:
 inline` surface in place of the canvas text field; reminders' magic box
-stays plain (it is a sentence, not a note); the skill editor's steps box
-gets the `/` menu only. Gate: touch.js and mindmap.js unchanged.
+stays plain (it is a sentence, not a note, and that half is done by being
+decided); the skill editor's steps box gets the `/` menu only. Gate: touch.js
+and mindmap.js unchanged.
 
-### Phase 7 — export and interchange (½ session)
+*Open, and not for the documents agent:* both remaining halves live in files
+the documents work does not own. The board's note card is `whiteboard.js`'s
+canvas text field, and the skill box's "/" is one line in `editor.js`'s
+`EDITOR_SURFACES`. The factory they both need is built and in the page
+(`noteSurface(host, options)`, `NOTE_SURFACES` in `documents.js`): adding a
+box is one row in that table, and `tests/test_note_surface.py` is the lint
+that says so.
 
-PDF (via the print stylesheet), Markdown and **HTML (self-contained, built
-2026-09-13, section 13 for the decision)** are done. What is left: DOCX
-(server-side via `docview`'s existing readers reversed, or `python-docx` as an
-optional extra, and the suite must not depend on the extra being installed),
-Markdown with assets, and import of `.docx`/`.html` to markdown. A document's
-export options live in the ⋯, with the same names everywhere.
+### Phase 7 — export and interchange: **built 2026-09-13**
+
+PDF (the print stylesheet), markdown, self-contained HTML, the markdown bundle
+with its images, the Word export behind an optional extra, and import of
+`.docx` and `.html` to markdown are all built; see HISTORY.md "Moved from the
+plans, 2026-09-13". What is left is one row for whoever owns
+`core/extras.py`: **python-docx has no entry in the extras catalogue**, so the
+Word export's 501 names the package rather than pointing at a button in
+Settings. One `Extra(...)` there and the message can point at it.
 
 ## 6. Competitor matrix (what the plan takes from whom)
 

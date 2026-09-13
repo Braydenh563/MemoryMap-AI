@@ -6457,6 +6457,205 @@ a highlight button belongs, and would carry the colour picker with it.
 
 Every "Built" block the plans carried, moved here whole so a plan holds open work only (CLAUDE.md standing order 10). Origin file named on each.
 
+### From DOCUMENTS_PLAN.md
+
+### Built, Phase 6 item 1: the phone formatting bar, 2026-09-13
+
+A bar at the bottom edge below 600px: bold, italic, heading, bulleted list,
+task, link, and the "/" that opens the insert menu. The formatting a phone had
+before this was the same 25-control strip a desktop has, at the top of the
+pane, which is the one part of a phone screen a thumb holding it cannot reach.
+
+**It is a recipe, not a one-off** (standing order 11). `.thumb-bar` is
+DESIGN.md's row for a bar above the on-screen keyboard, and it landed with the
+feature: fixed to the bottom edge, `role="toolbar"` with its own label, shown
+by a `max-width: 600px` block and nothing else, every control at 44px (this
+phase's own target rule for the layout's controls, not DESIGN.md's 28px global
+floor, which is unchanged), and a foot padded with a `max()` of
+`env(keyboard-inset-height)`, `var(--keyboard-inset)` and
+`env(safe-area-inset-bottom)`. `tests/test_ui_recipes.py` holds both halves of
+it: the foot must read the inset, and **nothing but `initKeyboardInset` may
+listen to `visualViewport`**, because the number is written once for every
+surface that wants it and two listeners are how two bars come to disagree about
+where the keyboard is on every resize.
+
+**The six buttons needed no code at all.** `data-md-target="doc-content"` is
+what `initMarkdownToolbars` looks for and `applyMarkdown` already takes a box
+id, so the bar is markup. `data-md-extras="1"` is `mountEditorToolbarExtras`'s
+own idempotence flag, set in the markup so the mount adds nothing: undo, redo,
+indent and outdent are four more controls on the surface with the least room
+for them.
+
+**The "/" button has to type the character, and the caret is why.** The slash
+menu is editor.js's, and `editorTokenAt` looks only at the text *before* the
+selection, so calling `editorOpenMenu` directly would leave a menu open over a
+document with no "/" in it for an item to replace. So the button inserts one
+(with a space in front of it when the character before is not whitespace, which
+is what the token wants) through `docReplaceRange`, the engine's own
+transaction. That alone did not open the menu, and the measurement said so: the
+character landed and nothing happened. `docCmUpdate` calls `editorHandleInput`
+*during* the update that inserted the slash, when the caret is still in front
+of it and there is no token to find. The caret is set after the transaction, so
+`openDocPhoneInsert` calls `editorHandleInput` a second time itself.
+
+Measured, `scratchpad/ui-sweeps/docnarrow.js` (extended here) at 390x820: the
+bar shown, 7 actions, smallest target 44px, its foot at 820 in an 820px window,
+the document's last line clear of it, bold writing `**first**` from a
+selection, the insert button opening the menu with 19 items in it, 0 console
+errors, and the bar `display: none` at 800, 1024 and 1440. **Not verified:** the
+keyboard half. Headless Chromium has no soft keyboard, so `--keyboard-inset` is
+0px in every measurement here and what the bar does when a keyboard opens is
+reasoned, not observed.
+
+### Built, Phase 8a and 8b: one editor everywhere, 2026-09-13
+
+`noteSurface(host, options)` over the Phase 2 adapter, and six boxes on it:
+the capture box, the note edit form, the graph's node popup and new-note box,
+and Write with the AI's draft and thoughts panes. Each had its own feature set
+before; each has the engine now, on its first focus.
+
+**The textarea stays, and every decision here follows from that.** It is the
+form's value carrier, the thing every existing handler and test holds, and the
+fallback when the bundle cannot load. So the view is mounted beside it and the
+two are kept in step *in both directions*: the view mirrors its text into the
+textarea and raises the `input` event the draft save, the character count and
+the autosize all hang off, and a script that writes `box.value` (saving a note
+clears the capture box) is pushed back into the view through an own-property
+setter installed on that one element. `box.setSelectionRange(6, 11)` followed
+by "make that bold" is the same shape and needed the same treatment: without
+it the action ran against the view's own caret, and bold arrived at position 0
+with its placeholder text instead of around the word.
+
+**Laid over the view at zero opacity, not hidden.** `display: none` takes two
+things away silently: `setSelectionRange` on an unrendered textarea, and every
+popup that positions itself from the textarea's own rectangle (app.js's `[[`
+suggest). Over the view, its rectangle is the editor's rectangle: measured,
+box left/top 319/286.4 against the wrapper's 318/285.4.
+
+**Three things the document's own configuration got wrong in a note box**, all
+found by measuring rather than by reading:
+- `docCmKeymap` is written against `doc-content`, so Ctrl+B in a note would
+  have emboldened a word in whatever document was last open and Ctrl+S saved
+  it. `noteSurfaceKeymap(host)` is the same actions with this box named, minus
+  the find panel and the save a note does not have.
+- The theme's `&` sets `height: 100%` and `.cm-content` carries `40vh` of
+  "scroll past the end" padding. In the capture box that rendered three short
+  lines as 446px of content and grew the composer from 290px to 562px. The
+  overrides are in `09-editor.css` at two classes plus one, because
+  CodeMirror's constructed stylesheets sort after every document stylesheet
+  and only specificity can win that argument.
+- The app binds single characters as global shortcuts ("/" focuses search) and
+  a contenteditable is not a textarea, so `docGuardGlobalShortcuts` has to be
+  put on the note view's own content DOM as well. Measured without it: typing
+  "/" in a note put no slash in the note.
+
+**What a note does not get**, and it is the plan's own option rather than an
+omission: the findings plugin. `docProseFound` holds the *document's* findings
+at the document's offsets; drawn over a note it would underline whatever words
+sat at those positions.
+
+Measured, `scratchpad/ui-sweeps/notesurface.js`, 22 of 22 with 0 console
+errors: the engine mounts on the first focus and the caret lands in it, the
+textarea carries what was typed, `asSurface` resolves it to the view
+(codemirror/entry-content), Live renders (`**markdown**` drawn bold with the
+marks hidden), Ctrl+B and the capture toolbar both write into the view, the
+"/" menu opens with 14 commands, clearing the textarea clears the view, the
+edit form mounts the `inline` size, and the four 8b boxes mount with Live on
+for the draft and off for the thoughts pane. `cm-notes.js`, `cm-editor.js` and
+`cm-live.js` all still pass.
+
+`tests/test_note_surface.py` is the lint the plan names: a note textarea is in
+`NOTE_SURFACES` or in the test's own list of boxes that are not note editors,
+with the reason; the factory keeps both directions of the mirror; the recipe
+keeps its three rules; and a note surface may not reach the document's change
+handlers or its findings.
+
+### Built, Phase 7: export and interchange, 2026-09-13
+
+The plan's own text is folded in below; what it asked for and what landed:
+
+### Phase 7 — export and interchange (½ session)
+
+PDF (via the print stylesheet), Markdown and **HTML (self-contained, built
+2026-09-13, section 13 for the decision)** are done. What is left: DOCX
+(server-side via `docview`'s existing readers reversed, or `python-docx` as an
+optional extra, and the suite must not depend on the extra being installed),
+Markdown with assets, and import of `.docx`/`.html` to markdown. A document's
+export options live in the ⋯, with the same names everywhere.
+
+**What was built on 2026-09-13, on top of the PDF, markdown and HTML exports
+that already existed.**
+
+*The bundle* (`GET /documents/{id}/export.zip`, `docexport.bundle`). The same
+markdown `export.md` gives, with every image the document references in
+`assets/` beside it and its links rewritten to match. A name that is not on
+disk keeps its `/media/` link rather than being rewritten to a folder entry
+that does not exist: a bundle that lies about what is in it is worse than one
+honestly short of a picture, and `X-Assets` on the response says how many
+travelled so the app can say so too. The names come out of a document's own
+text, which is user input, so each one is resolved and checked for containment
+in the media folder before it is read: `test_a_name_cannot_climb_out_of_the_media_folder`
+is that check. Markdown only; a zip of one .py file is a worse download than
+the file.
+
+*The Word export* (`GET /documents/{id}/export.docx`). python-docx is an
+optional extra by decision: a .docx writer is a dependency most people who keep
+their notes in markdown will never want. Absent, the endpoint answers **501
+with the package named and the formats that do work listed**, not a 500 and not
+a silent empty file, and the app puts that sentence in the document's own
+status line. The converter itself is deliberately small (headings, bullets,
+numbers, quotes, and bold/italic/code runs): a .docx export is for handing a
+draft to somebody whose editor is Word, and a converter that quietly
+half-rendered tables and callouts would be worse than one whose limits are
+written down. What it does not know stays the paragraph it was, which is a
+test.
+
+*Import, without installing anything* (`docview.docx_to_markdown`,
+`docview.html_to_markdown`). Both exist because this is an offline notebook and
+"install a converter first" is a poor answer to "open the file I just saved".
+markitdown stays first for a .docx where it is present (it understands tables
+and footnotes); the built-in reader is what happens when it is not, and a .docx
+is a zip with one XML part in it, read here with defusedxml because an upload
+is somebody else's file. A saved web page now imports as prose rather than as
+tags: headings, lists, quotes, emphasis, code and links, with `<script>` and
+`<style>` content dropped and a `javascript:` href refused while the words of
+the link stay. A converted file is stored as markdown whatever its name was,
+or a web page would open in the editor as HTML source with every markdown
+feature off.
+
+**And once by the suite, which is the point of running it.** The first version
+converted `.html` inside `docview.extract`, and `extract` is what the viewer's
+HTML *preview pane* reads: an attached page is served as its own markup inside
+a sandboxed response with `script-src 'none'`, the app's one stated exception
+to "nothing new is served inline". The preview pane therefore started showing
+`# Hi` instead of the page (`tests/test_file_editing.py`, "the preview serves
+the file's own html"). The conversion belongs to the import, which is where it
+is now, and `test_extracting_a_saved_page_keeps_its_own_markup` is the
+regression test.
+
+**Found by measuring, twice.** `html.parser` calls `handle_starttag` for void
+elements like `<meta>` and never calls the matching end tag, so the "skip what
+is inside this" counter went up at `<meta charset>` and never came back down:
+the first fixture came back as its own HTML. And the first bundle test asserted
+lowercase filenames because `_safe_filename` was read rather than run; the
+route keeps the title's case.
+
+Measured: `tests/test_docexport_bundle.py` and `tests/test_docview_import.py`,
+14 tests with 2 skipped on an install without python-docx (which is the
+contract: the suite must not need the extra), plus
+`scratchpad/ui-sweeps/docexports.js` in a browser, 6 of 6, including the five
+rows of the export menu in order and the 501 message reaching the status line.
+
+**The Word writer was then measured for real**, in a scratch virtualenv with
+python-docx in it (not the project's, which must stay able to prove the suite
+does not need the extra): 36,842 bytes of valid .docx from one document, with
+`Heading1`, `Heading2`, `ListBullet`, `ListNumber` and `IntenseQuote` styles
+used, "An essay" as the title, bold, italic and code runs carrying their text
+with **no markdown markers left in it**, a table line preserved as the text it
+was, and a comment arriving as its `[^c1]` footnote. **Still not verified:**
+what Word itself makes of the file, and the two tests that open it stay skipped
+on an install without the extra, which is the contract.
+
 ### From UI_MODERNISATION_PLAN.md
 
 ### Built, Phase 9's tablet remainder and Phase 10 items 100, 101 and 103, 2026-09-09
@@ -24443,6 +24642,21 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     the well 441.4px with words and 159.2px without, cells 44x44 at 390, and
     the band's "Show: …" the zone's one chip. `docks.js`: the timeline dock is
     5 controls at one height (36px) with one filled button.
+192. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the
+    document editor's AI row (one screenshot: the Edit, Write, Remove
+    segmented row above the AI assistant).** "also change the style of and
+    redesign this edit, write, remove ai assistant toggle row as it is ugly
+    and needs a better visual and more modern look". **Fixed.** Not a fourth
+    treatment: DESIGN.md already says this radio-backed row is the same
+    object as `.seg` and is drawn the same way, and it was not. Measured
+    before, beside `#doc-view-seg` on the same screen: track corner 11.2px
+    against 15.4px, segment corner 6px against 15.4px, and segments
+    73.4/82.7/101.2px wide. After (`scratchpad/ui-sweeps/aiedit.js`, light
+    and dark): track 15.4px, segment 10.4px and concentric, three segments
+    101.2px each on a grid, seams 2.4px against the 2.4px gap, ends 5px and
+    5px, the chosen segment 20.98:1 (7.5:1 dark) on `--accent-surface`, a
+    focus ring on the segment for a keyboard, and the three verbs explained
+    behind a `data-help-for` '?' (58 words) instead of above the field.
 
 ## Moved from the plans, 2026-09-13
 

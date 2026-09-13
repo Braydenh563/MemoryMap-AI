@@ -74,6 +74,67 @@ const { boot } = require("./lib.js");
         const ls = [...card.querySelectorAll("#doc-ai-verb label")].map((l) => l.getBoundingClientRect());
         return ls.every((l) => l.left >= t.left - 1 && l.right <= t.right + 1);
       })(),
+      // INBOX 192, "this edit, write, remove ai assistant toggle row ... is
+      // ugly and needs a better visual and more modern look". The row is a
+      // choice control, and DESIGN.md says a choice control is drawn one way,
+      // so what this reads is the row against the nearest other one on the
+      // same screen (`#doc-view-seg`, in the dock behind the panel) and
+      // against its own track.
+      verbs: (() => {
+        const track = card.querySelector("#doc-ai-verb");
+        const t = track.getBoundingClientRect();
+        const cs = getComputedStyle(track);
+        const pad = parseFloat(cs.paddingTop);
+        const border = parseFloat(cs.borderTopWidth);
+        const labels = [...track.querySelectorAll("label")];
+        const rs = labels.map((l) => l.getBoundingClientRect());
+        const other = document.querySelector("#doc-view-seg");
+        const chosen = labels.find((l) => l.querySelector("input:checked"));
+        const ink = (value) => (value.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+        const lum = ([r, g, b]) => {
+          const f = (v) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : Math.pow((v / 255 + 0.055) / 1.055, 2.4));
+          return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+        };
+        // The selected segment paints an opaque `--accent-surface`, so its own
+        // computed colours are the pixels; the translucent cases in this repo
+        // are read from a screenshot instead.
+        const ratio = (() => {
+          if (!chosen) return null;
+          const g = getComputedStyle(chosen);
+          const el = document.createElement("span");
+          el.style.color = g.backgroundColor;
+          document.body.appendChild(el);
+          const bg = ink(getComputedStyle(el).color);
+          el.style.color = g.color;
+          const fg = ink(getComputedStyle(el).color);
+          el.remove();
+          const l1 = lum(fg);
+          const l2 = lum(bg);
+          return +((Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05)).toFixed(2);
+        })();
+        return {
+          widths: rs.map((r) => +r.width.toFixed(1)),
+          heights: rs.map((r) => +r.height.toFixed(1)),
+          inner: +(t.height - 2 * pad - 2 * border).toFixed(1),
+          trackRadius: cs.borderRadius,
+          segRadius: getComputedStyle(labels[0]).borderRadius,
+          otherRadius: other ? getComputedStyle(other).borderRadius : null,
+          seams: rs.slice(1).map((r, i) => +(r.left - rs[i].right).toFixed(1)),
+          gap: +parseFloat(cs.columnGap || cs.gap).toFixed(1),
+          firstInset: +(rs[0].left - t.left).toFixed(1),
+          lastInset: +(t.right - rs[rs.length - 1].right).toFixed(1),
+          ratio,
+          help: (() => {
+            const trigger = card.querySelector('[data-help-for="doc-ai-verb-help"]');
+            const panel = document.getElementById("doc-ai-verb-help");
+            return {
+              trigger: !!trigger,
+              words: panel ? panel.textContent.trim().split(/\s+/).length : 0,
+              hidden: panel ? panel.classList.contains("hidden") : null,
+            };
+          })(),
+        };
+      })(),
       scope: box("#doc-ai-scope"),
       instruction: box("#doc-ai-instruction"),
       resultLabel: box('label[for="doc-ai-result"]'),
@@ -94,6 +155,32 @@ const { boot } = require("./lib.js");
   console.log("head -> " + JSON.stringify(dialog.head) + " title <" + dialog.headTitleTag + ">");
   console.log("segment -> " + JSON.stringify(dialog.seg) + " class " + dialog.segClass);
   console.log("segment labels -> " + JSON.stringify(dialog.segLabels) + " inside track: " + dialog.segTrackFits);
+  console.log("verbs -> " + JSON.stringify(dialog.verbs));
+  {
+    const v = dialog.verbs;
+    if (Math.max(...v.widths) - Math.min(...v.widths) > 1) {
+      fails.push(`the three verbs are ${v.widths.join("/")}px wide`);
+    }
+    if (Math.max(...v.heights) - v.inner > 1 || v.inner - Math.min(...v.heights) > 1) {
+      fails.push(`a segment is ${v.heights.join("/")}px in a ${v.inner}px track`);
+    }
+    if (v.otherRadius && v.trackRadius !== v.otherRadius) {
+      fails.push(`the track's corner is ${v.trackRadius} beside ${v.otherRadius} on the same screen`);
+    }
+    const concentric = parseFloat(v.trackRadius) - v.firstInset;
+    if (Math.abs(parseFloat(v.segRadius) - concentric) > 0.6) {
+      fails.push(`the segment's corner is ${v.segRadius}, not concentric (${concentric.toFixed(1)}px)`);
+    }
+    if (v.seams.some((seam) => Math.abs(seam - v.gap) > 0.5)) {
+      fails.push(`the seams are ${v.seams.join("/")}px against a ${v.gap}px gap`);
+    }
+    if (Math.abs(v.firstInset - v.lastInset) > 0.5) {
+      fails.push(`the track's ends are ${v.firstInset}px and ${v.lastInset}px`);
+    }
+    if (v.ratio !== null && v.ratio < 4.5) fails.push(`the chosen verb reads at ${v.ratio}:1`);
+    if (!v.help.trigger || v.help.words < 20) fails.push("the row's help is not behind a '?'");
+    if (v.help.hidden === false) fails.push("the row's help popover is open before it is asked for");
+  }
   console.log("scope -> " + JSON.stringify(dialog.scope));
   console.log("instruction -> " + JSON.stringify(dialog.instruction));
   console.log("result label -> " + JSON.stringify(dialog.resultLabel));

@@ -23362,6 +23362,19 @@ agent's file. The properties are parsed and editable, and nothing filters on
 them. It is written up in `agent-remaining/documents-phase4.md`.
 ## INBOX resolved, 2026-09-13
 
+159. **Mid-work drop, 2026-09-13, verbatim (the owner), exports.** "also
+    exported or downloaded files and images etc should appear in the
+    notifications to be accessible, maybe there should also be an area
+    somewhere maybe in settings to open the exports folder location and access
+    exported or downloaded files and images etc."
+    **Fixed (ec2f276)**: every export `saveFile` writes is recorded as
+    a notification whose click opens the exports folder on the desktop and
+    Settings > Import & export in a browser tab; that section lists the
+    folder's files newest first (`GET /files/exports`), each with a Download
+    that fetches through `GET /files/exports/{name}` with the app's auth.
+    Measured (`scratchpad/ui-sweeps/exports.js`): 1 row at 44px, name
+    ellipsis, 36px button, download 200 with the bytes, 0 console errors.
+
 125. **Mid-work drop, 2026-09-13, verbatim (the owner), on the OCR
     workspace.** "when I open a pdf file in the lighbox and press the read
     text with ai, it opens the ocr workspace but behind the lightbox so the
@@ -23732,6 +23745,14 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     "Jump to" chip, one screenshot (the chip reading "Why did the student eat
     his homework? Beca", cut at the pill's edge with no ellipsis).** "the open
     where you last left off button doesnt cut off with an ellipse".
+
+166. **Mid-work drop, 2026-09-13, verbatim (the owner), the repository.** "clean
+    up the repo and make sure there are no left over temp files and that ther
+    eis no dross slowing the repo down or taking up space". **Fixed**: the
+    only tracked dross was two unused Phosphor build files (`Phosphor.svg`
+    and `selection.json`, 5 MB, referenced by nothing; `style.css` now ends
+    its `src` list at the .ttf); `git status --ignored` shows no stray temp
+    files, the scratch data dirs live under /tmp, the pack is 21.7 MB.
 
 ## Moved from the plans, 2026-09-13
 

@@ -1536,9 +1536,4 @@ undone.
     a lot of the heavy lifting for the ai and user to make their life easier
     adn take the load and burden off. like notes with no tags or other things
     arent highlighted".
-159. **Mid-work drop, 2026-09-13, verbatim (the owner), exports.** "also
-    exported or downloaded files and images etc should appear in the
-    notifications to be accessible, maybe there should also be an area
-    somewhere maybe in settings to open the exports folder location and access
-    exported or downloaded files and images etc."
 

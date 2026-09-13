@@ -54,6 +54,17 @@ below). Versioning is `0.x` while the app stabilises.
   "Opened" badges start at the left with an ellipsis instead of being cut at
   both ends.
 
+- Exports are reachable again after the save. Every file the app saves
+  (a graph image, a chat export, a download) now appears in the notifications
+  with a click that opens the exports folder on the desktop or the new Recent
+  exports list under Settings > Import & export in a browser tab, where each
+  file has its own Download.
+- The chat composer keeps the height it was dragged to. It forgot the drag
+  whenever the box was empty, so a keystroke and a backspace snapped it back
+  to one line; a dragged height now holds until the next drag, capped at 70%
+  of the window.
+- Two unused Phosphor build files (5 MB) left the repository.
+
 - The lock screen could fail to appear on a slow first start. The embedding
   warm-up began importing torch the instant the server was up, and that import
   holds the interpreter for seconds on a small machine, long enough for the

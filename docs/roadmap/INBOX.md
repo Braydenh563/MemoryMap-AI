@@ -60,10 +60,6 @@ open and half finished stuff?"), which is a decision, not work.
 
 ## Open items
 
-166. **Mid-work drop, 2026-09-13, verbatim (the owner), the repository.** "clean
-    up the repo and make sure there are no left over temp files and that ther
-    eis no dross slowing the repo down or taking up space".
-
 160. **Mid-work drop, 2026-09-13, verbatim (the owner), the Files sub-tab, one
     screenshot (a PDF row: the name on one line, "PDF, 121 KB, added" and the
     Read and Open reader controls on the next, starting under the name's left
@@ -286,7 +282,11 @@ open and half finished stuff?"), which is a decision, not work.
     needs to show in background process, same for all ocr processes"
     (not investigated) · "when I try to manually change the height of
     the chat bar, it snaps back to what it was with or without text in
-    it" (not investigated) · "the ai edit history popover still not
+    it" (**fixed, ec2f276**: `autoGrow` forgot a dragged height whenever the
+    box was empty, exempting only the release that set it, so the next
+    keystroke-and-backspace undid the drag; a drag is now kept until the
+    next drag, capped at 70% of the window; measured 220px empty, typed
+    and cleared, `scratchpad/ui-sweeps/exports.js`) · "the ai edit history popover still not
     centering" (carried from 107a, still found-not-fixed) · "fix the ui
     spacing and padding in the graph suggested links tab, make it
     consistent with the rest of the app" (not investigated). 107c

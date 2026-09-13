@@ -3312,26 +3312,48 @@
             <button id="doc-ai-close" class="ghost small icon-only" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
           </div>
         </div>
-        <div id="doc-ai-verb" class="segmented-control" aria-label="What should the AI do">
-          <label><input type="radio" name="doc-ai-verb" value="edit" checked> Edit</label>
-          <label><input type="radio" name="doc-ai-verb" value="write"> Write</label>
-          <label><input type="radio" name="doc-ai-verb" value="remove"> Remove</label>
+        <!-- **The three verbs, with the icon each one already has elsewhere in
+             the app** (INBOX 158, "redesign the edit write remove toggle, it is
+             ugly"). Still `.segmented-control` and still a radio group: INBOX
+             101 settled that this control and `.seg` are the same thing drawn
+             the same way, and the radios are what give the native arrow-key
+             walk between options that a run of buttons does not, so the answer
+             to "ugly" is not a fourth treatment (standing order 11). What was
+             measured wrong was the fit: a 38px track beside a 42px field and
+             40px buttons, and labels a size larger than the field under them.
+             `role="radiogroup"` because the `aria-label` had nothing to label. -->
+        <div id="doc-ai-verb" class="segmented-control" role="radiogroup"
+          aria-label="What should the AI do">
+          <label><input type="radio" name="doc-ai-verb" value="edit" checked><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i> Edit</label>
+          <label><input type="radio" name="doc-ai-verb" value="write"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Write</label>
+          <label><input type="radio" name="doc-ai-verb" value="remove"><i class="ph ph-eraser ph-lead" aria-hidden="true"></i> Remove</label>
         </div>
-        <p class="muted" id="doc-ai-scope"></p>
-        <input id="doc-ai-instruction" type="text" maxlength="500"
-          placeholder="e.g. “tighten this”, “make it more formal”, “add a conclusion”"
-          aria-label="What should the AI do?">
-        <div class="row">
+        <p class="muted doc-ai-scope" id="doc-ai-scope"></p>
+        <!-- The instruction and the button that acts on it are one row, the
+             same shape the reminders' magic add uses: a field on its own line
+             above a button on its own line is two controls where there is one
+             action, and 40px of dialog for nothing. -->
+        <div class="row doc-ai-ask">
+          <input id="doc-ai-instruction" type="text" maxlength="500"
+            placeholder="e.g. “tighten this”, “make it more formal”"
+            aria-label="What should the AI do?">
           <button id="doc-ai-run"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Suggest an edit</button>
           <button id="doc-ai-cancel-run" class="ghost hidden" type="button"
             title="Stop the AI: the document is untouched"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
-          <span id="doc-ai-status" class="status" role="status"></span>
         </div>
-        <label for="doc-ai-result" class="muted">The AI's version: edit it before accepting if you like</label>
-        <textarea id="doc-ai-result" rows="12" aria-label="The AI's suggested text"></textarea>
-        <div class="row">
-          <button id="doc-ai-accept">Replace with this</button>
-          <button id="doc-ai-cancel" class="ghost">Cancel</button>
+        <span id="doc-ai-status" class="status" role="status"></span>
+        <!-- **The result area exists once there is a result**, and not before
+             (INBOX 158). Measured at 1440x900 before this: an empty 309px
+             textarea, 43% of a 717px dialog, under a label describing text that
+             was not there, over a "Replace with this" for nothing. The dialog is
+             a question until it has an answer. -->
+        <div id="doc-ai-result-block" class="doc-ai-result-block hidden">
+          <label for="doc-ai-result" class="muted">The AI's version, yours to edit before you accept it</label>
+          <textarea id="doc-ai-result" rows="10" aria-label="The AI's suggested text"></textarea>
+          <div class="row doc-ai-result-actions">
+            <button id="doc-ai-cancel" class="ghost">Cancel</button>
+            <button id="doc-ai-accept">Replace with this</button>
+          </div>
         </div>
       </div>
     </div>

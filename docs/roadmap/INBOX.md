@@ -251,7 +251,11 @@ measured or built in earlier commits and is marked there.
     keystroke-and-backspace undid the drag; a drag is now kept until the
     next drag, capped at 70% of the window; measured 220px empty, typed
     and cleared, `scratchpad/ui-sweeps/exports.js`) · "the ai edit history popover still not
-    centering" (carried from 107a, still found-not-fixed) · "fix the ui
+    centering" (carried from 107a; **fixed and now measured**: the dialog opens
+    480x262 and 0px off the viewport centre on both axes, above the AI panel
+    that opens it, in `scratchpad/ui-sweeps/aiedit.js`. What fixed it was moving
+    both dialogs out of `#tab-documents`, recorded in index.html's own comment;
+    what kept the report alive was that nothing had measured the result) · "fix the ui
     spacing and padding in the graph suggested links tab, make it
     consistent with the rest of the app" (not investigated). 107c
     (whiteboard View/Arrange, Ctrl+S feedback, the dashboard band) and

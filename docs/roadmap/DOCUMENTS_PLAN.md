@@ -841,8 +841,8 @@ twelve cases flush, 0px horizontal gap to the fragment pressed, 4px below it,
 `scratchpad/ui-sweeps/prosepanel.js`: pressing a row opens no floating surface,
 the open row says so (`aria-expanded`, `aria-current`) and sits inside the
 panel's box, the word lands 0px off the middle of the editor, one row is open at
-a time, a candidate pressed in the panel rewrites the text, the panel is 14% of
-the window with no row open against the editor's 45% and 20% with one open (the
+a time, a candidate pressed in the panel rewrites the text, the panel is 16% of
+the window with no row open against the editor's 44% and 24% with one open (the
 open row costs 77px, its answers lying along it rather than down it), and the
 word menu is 248px tall against 335px before. Contrast from the painted
 pixels (the compositing walk reads these translucent surfaces wrong: it puts the
@@ -862,6 +862,21 @@ fixing for every other dialog.
 Moved to HISTORY.md ("Moved from the plans, 2026-09-12", DOCUMENTS_PLAN.md) on
 2026-09-12: a plan holds open work only. What is left open is in
 `agent-remaining/doc-sidebar.md`.
+
+### Met again, 2026-09-13, with INBOX 157
+
+The panel's two shares above are what `scratchpad/ui-sweeps/prosefit.js` settled
+when the owner asked "can this popup be displayed better??" over a screenshot of
+one finding in a panel with the rest of it empty. The reasoning and every number
+are in the stylesheet's own comment on `.doc-prose-panel`; the short version is
+that an 8rem floor under a greedy editor meant the panel was always the floor,
+whatever was in it, so one finding sat in 128px of panel around 97px of content.
+It is its content height now, with the old floors kept as ceilings
+(`min(16vh, 10rem)`, and `min(24vh, 15rem)` while a row is open, which is 4vh
+more than the floor was because an open row is 100px under Large text with
+Spacious on and the floor never cleared it). Measured: one finding 109px around
+97px, sixty findings 144px and scrolling, one open row 158px and inside the
+panel's box in every appearance setting.
 
 ## Placed from INBOX, 2026-09-13
 

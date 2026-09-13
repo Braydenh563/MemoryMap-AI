@@ -30,6 +30,18 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The document editor's AI assistant dialog. It opened as a 717px card whose
+  largest element was an empty 309px box for the answer it had not been asked
+  for yet, under a label for text that was not there and over a Replace button
+  for nothing; it is 250px now, and the answer, its label and Replace arrive
+  together when there is one. The Edit/Write/Remove toggle, the instruction
+  field and the buttons are one height instead of five, the toggle's labels are
+  the size of the field rather than larger than it, each verb carries its own
+  icon, and the instruction and the button that acts on it share a row.
+  Switching verb no longer leaves the previous verb's suggestion on screen
+  under the new verb's accept button, which would have applied a rewrite as a
+  removal.
+
 - Board previews draw what is on the board. Every sketch on a board was drawn in
   the same corner at the same size, because a stroke is stored with x=0, y=0 and
   its path in board coordinates, so eight shapes previewed as one squiggle

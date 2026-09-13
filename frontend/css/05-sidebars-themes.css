@@ -3626,36 +3626,73 @@ textarea.autogrow {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--inner);
-  /* **Twice reported, from opposite directions, which is the useful part.**
-     First "waaayy too small": 16rem showed four rows of a list that routinely
-     has twenty, so the panel was a scroller the moment it opened. It went to
-     `min(60vh, 32rem)`, and then: "the suggestions box at the bottom takes up
-     a lot of my screen and it makes the text editor really small." Sixty
-     percent of the window is not a panel under the document, it is a second
-     page, and the document is what the suggestions are about: a reader who
-     cannot see the sentence cannot judge the advice about it.
+  /* **Three times reported, from opposite directions, which is the useful
+     part.** First "waaayy too small": 16rem showed four rows of a list that
+     routinely has twenty, so the panel was a scroller the moment it opened. It
+     went to `min(60vh, 32rem)`, and then: "the suggestions box at the bottom
+     takes up a lot of my screen and it makes the text editor really small."
+     Sixty percent of the window is not a panel under the document, it is a
+     second page, and the document is what the suggestions are about: a reader
+     who cannot see the sentence cannot judge the advice about it. That was
+     answered with a `min(33vh, 22rem)` ceiling over an 8rem floor, and in
+     practice the floor was the number that showed: the editor beside this panel
+     is `flex: 1 1 auto` with `height: 100%`, so it is the greedy one, the column
+     ran a deficit, and the panel was shrunk back to 8rem whatever was in it.
+     Measured: panel 14% of the window against the editor's 45%.
 
-     A third of the window is the settle. It is more than double the four rows
-     of the original complaint and it leaves the editor the clear majority of
-     the screen, which is the thing being edited. Past that the panel scrolls,
-     which is correct for a list whose length is the notebook's business
-     rather than the layout's. */
-  max-height: min(33vh, 22rem);
-  min-height: 8rem;
+     **Then, third: "can this popup be displayed better??"** (INBOX 157), a
+     screenshot of one finding in a panel with the rest of it empty. Measured at
+     1440x900 (`scratchpad/ui-sweeps/prosefit.js`): one finding, 97px of content
+     in 128px of panel; one finding with its answers open, 145px in 180px. So
+     29px and 33px of panel with nothing in it, under a list with one thing in
+     it, which is exactly what the report shows.
+
+     Three shapes were measured before this one. Taking the floor off alone made
+     it worse: the deficit is still there, so the panel shrank to 62px around the
+     same 97px and put a one-finding list behind a scrollbar. Putting a 45vh
+     floor on `#doc-panes` instead fixed the long list (panel 15%, editor 45%)
+     and left the short one squeezed to 62px, because proportional shrink does
+     not care that there was room. And `flex: 0 0 auto` under the old 33vh
+     ceiling gave the panel its content height and took the editor with it:
+     measured at five findings, panel 30% and editor 30%, which is the complaint
+     above coming back.
+
+     **So: no floor, no shrink, and the old floors become ceilings.** The panel
+     is its content height; what was the number it got shrunk *to* is now the
+     number it may grow to, which keeps every share the last round settled and
+     spends the difference on the case that had nothing in it. Measured at
+     1440x900: one finding 109px (12% of the window, editor up from 45% to 47%),
+     sixty findings 144px (16%, editor 44%, the list scrolling inside), one
+     finding with its answers open 158px (18%, editor 42%).
+
+     The 33vh ceiling is collected rather than remade: it was only reachable in a
+     window tall enough for the deficit to vanish, so the decision it carries
+     ("the editor keeps the clear majority") is the one these two numbers keep,
+     and they keep it at every list length rather than on average. */
+  max-height: min(16vh, 10rem);
+  /* A flex item's automatic minimum is `min-content`, which for this panel is
+     the whole list, so the ceiling above would have been a suggestion. Stated
+     rather than left to the default for that reason. */
+  min-height: 0;
+  /* The panel is its content height: shrink is what the deficit above used to
+     spend on it. */
+  flex: 0 0 auto;
   overflow-y: auto;
 }
 
 /* **Room for an open row, and only while one is open** (DOCUMENTS_PLAN 12 D3).
-   The panel is a flex item in `.doc-main` and the editor is the greedy one, so
-   the column squeezes the panel back to the `min-height` above: measured with a
-   row expanded, a 164px row inside a 130px panel, with the answers a press had
-   just opened behind a scrollbar. Lifting the floor only for the state that
-   needs it keeps the settled numbers for the state that does not (panel 14% of
-   the window against the editor's 45%, which is what the owner's "it makes the
-   text editor really small" was answered with), and `flex: none` would have
-   thrown both away: measured at panel 30%, editor 30%. */
+   An open row costs 77px against a closed row's 28px, so the ceiling above would
+   put the thing a press just opened behind a scrollbar, which is the bug the
+   floor this replaces existed to avoid. Lifting it only for the state that needs
+   it keeps the settled share for the state that does not.
+
+   `min(24vh, 15rem)` rather than the 20vh the floor used, and the 4vh is a
+   measurement: an open row is 100px under Large text with Spacious on, so its
+   row plus the panel's head and padding want 185px, and 20vh of a 900px window
+   is 180. The old floor had the same shortfall and nothing measured it; Large
+   text is not an edge case, it is the accessibility setting. */
 .doc-prose-panel:has(.doc-prose-row[aria-current]) {
-  min-height: min(24vh, 16rem);
+  max-height: min(24vh, 15rem);
 }
 
 .doc-prose-head {
@@ -3824,36 +3861,6 @@ textarea.autogrow {
   font-weight: 650;
 }
 
-/* **The answers, under the row that asked** (DOCUMENTS_PLAN 12 D3): the same
-   controls the floating menu draws, laid out along the row rather than down it,
-   because the panel is the width of the editor and a column of five candidates
-   inside a 33vh box is a scroller inside a scroller. Indented to the width of
-   the dot and its gap, so the answers hang off the finding they belong to. */
-.doc-prose-answers {
-  margin: var(--space-1) 0 var(--space-3) calc(var(--space-3) + var(--space-4));
-  padding-left: var(--space-4);
-  border-left: 1px solid var(--divider);
-}
-
-.doc-suggest-list-inline,
-.doc-suggest-actions-inline {
-  flex-flow: row wrap;
-  gap: var(--space-1);
-}
-
-.doc-suggest-actions-inline {
-  margin-top: var(--space-1);
-  padding-top: var(--space-1);
-}
-
-/* A candidate in a row of candidates is the width of its word, not the width of
-   the panel. */
-.doc-suggest-list-inline > .doc-suggest-item,
-.doc-suggest-actions-inline > .doc-suggest-item {
-  width: auto;
-  border-color: var(--glass-border);
-}
-
 /* The completion popup. `position: fixed` because it is placed in viewport
    coordinates against the caret, an absolutely-positioned list would be
    offset by every scrolling ancestor between it and the textarea, which in
@@ -3987,6 +3994,48 @@ textarea.autogrow {
   margin-top: var(--space-1);
   padding-top: var(--space-1);
   border-top: 1px solid var(--border);
+}
+
+/* **The answers, under the row that asked** (DOCUMENTS_PLAN 12 D3): the same
+   controls the floating menu draws, laid out along the row rather than down it,
+   because the panel is the width of the editor and a column of five candidates
+   inside a 33vh box is a scroller inside a scroller. Indented to the width of
+   the dot and its gap, so the answers hang off the finding they belong to. */
+.doc-prose-answers {
+  margin: var(--space-1) 0 var(--space-3) calc(var(--space-3) + var(--space-4));
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--divider);
+}
+
+.doc-suggest-list-inline,
+.doc-suggest-actions-inline {
+  flex-flow: row wrap;
+  gap: var(--space-1);
+}
+
+.doc-suggest-actions-inline {
+  margin-top: var(--space-1);
+  padding-top: var(--space-1);
+}
+
+/* A candidate in a row of candidates is the width of its word, not the width of
+   the panel, and it is the tonal recipe: side by side with no edge, five words
+   read as a sentence rather than as five choices, which is the one thing the
+   list has to say. The menu's own rows stay the quiet full-width kind, where the
+   menu itself is the frame and each row owns a line. */
+.doc-suggest-list-inline > .doc-suggest-item,
+.doc-suggest-actions-inline > .doc-suggest-item {
+  width: auto;
+  background: var(--ghost-btn-bg);
+  border-color: var(--ghost-btn-border);
+}
+
+.doc-suggest-list-inline > .doc-suggest-item:hover,
+.doc-suggest-actions-inline > .doc-suggest-item:hover,
+.doc-suggest-list-inline > .doc-suggest-item:focus-visible,
+.doc-suggest-actions-inline > .doc-suggest-item:focus-visible {
+  background: var(--ghost-btn-bg-hover);
+  border-color: var(--accent);
 }
 
 .doc-suggest-item {

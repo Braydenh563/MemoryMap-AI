@@ -3864,6 +3864,119 @@ span > .chip {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  /* **One control height, declared on the card** (INBOX 158: "redesign and
+     improve the ui and modernise the ui of the ai assistent ai edit popup").
+     This is the failure DESIGN.md's own control-height section describes, and
+     measured here it was worse than the four pixels it names: the verb toggle
+     38px, the instruction field 42px, the two primary buttons 40px and the head
+     row's pair 28px, five heights in one column of six controls. `--control-h`
+     is what the Library head, the chat dock and the Settings rows already
+     declare for exactly this, so the rules below are those rules' shape rather
+     than a sixth opinion.
+
+     2.5rem, the tier the dashboard's own control row uses, and it is the one
+     number that squashes nothing: a plain `button` is 40px by its own padding
+     (`0.5rem` twice over a 24px line), so pinning the field and the track to 40
+     brings the three into line without taking a button's padding away, and
+     `0.5rem` of padding is what stops a wrapped label touching its own border
+     in a narrow dialog. `--control-h-lg` was measured first and left the
+     buttons 4px over the rest, which is the failure this is fixing. */
+  --control-h: 2.5rem;
+}
+
+/* The field is single-line by nature and is pinned to the strip height; the
+   buttons give up their vertical padding and take a floor instead, which is
+   DESIGN.md's own rule for a control that has to line up with its neighbours
+   ("keep it horizontally, give it up vertically, and let the declared height
+   decide") and what `button.small` already does for the same reason. It takes
+   both halves: measured with the padding left alone, the ghost Cancel stood at
+   42px against the filled Replace's 40, because a tonal button carries a 1px
+   edge and a filled one does not, and with `box-sizing: border-box` that is two
+   pixels the floor cannot take back.
+
+   The head row's two `.small` buttons are left out on purpose: they are the
+   app's `small` tier here as everywhere, and a head row is not the control
+   column. `.doc-ai-result-actions` is in, so Cancel and Replace stand at the
+   same height as the Suggest button that produced them. */
+.doc-ai-card > .doc-ai-ask input[type="text"] {
+  height: var(--control-h);
+  margin-bottom: 0;
+  padding-block: 0;
+}
+
+.doc-ai-card > .doc-ai-ask button,
+.doc-ai-card .doc-ai-result-actions button {
+  min-height: var(--control-h);
+  padding-block: 0;
+  margin-bottom: 0;
+}
+
+/* The track is the strip height, and its segments fill it rather than floating
+   inside a taller well: measured, a 28px label in a 38px track. `--space-1` of
+   padding is what leaves the segment concentric with the track at
+   `--radius-inner`, which is the relationship INBOX 101 picked that token for. */
+.doc-ai-card > #doc-ai-verb {
+  height: var(--control-h);
+  padding: var(--space-1);
+}
+
+.doc-ai-card > #doc-ai-verb label {
+  /* The label's own height comes from the track less its padding, so one number
+     decides the strip and nothing restates it. */
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding-block: 0;
+}
+
+/* **The choice was louder than the question.** Measured: the options rendered
+   at 16px, the instruction field under them at 13.6px, so the toggle was the
+   largest type in the dialog and the field a reader types into was the
+   smallest. One size for both, and it is the field's: a toggle states a mode,
+   it does not need to shout. */
+.doc-ai-card > #doc-ai-verb label,
+.doc-ai-card > .doc-ai-scope {
+  font-size: var(--text-md);
+}
+
+/* One action, one row: the field takes the room and the buttons keep their own
+   size, the same division `.doc-outline-row` makes in the sidebar. */
+.doc-ai-ask > input[type="text"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.doc-ai-ask > button {
+  flex: 0 0 auto;
+}
+
+/* The answer, once there is one. A column rather than three loose children of
+   the card, so the label, the text and the two actions appear and disappear as
+   one thing and the card's own `gap` does not leave a hole where they were. */
+.doc-ai-result-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+}
+
+.doc-ai-result-block.hidden {
+  display: none;
+}
+
+.doc-ai-result-block > textarea {
+  margin-bottom: 0;
+}
+
+/* Cancel then the primary, at the right edge, which is where `.confirm-actions`
+   and `.space-dialog-actions` put a dialog's actions. Stated here rather than by
+   adding `right` to the markup: there is no `.right` rule anywhere in the app
+   (07-whiteboard-misc.css records finding ten rows written that way and drawing
+   left), so a class that looks like alignment and is not would be the same trap
+   a third time. */
+.doc-ai-result-actions {
+  justify-content: flex-end;
+  gap: var(--space-3);
 }
 
 /* Extract notes (BACKLOG.md §62): another "read the AI's proposal before

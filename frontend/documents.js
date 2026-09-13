@@ -7017,6 +7017,24 @@ function docAiVerb() {
   return $("doc-ai-panel").querySelector('input[name="doc-ai-verb"]:checked')?.value || "edit";
 }
 
+//: **The result area is shown by the result arriving, and by nothing else**
+//: (INBOX 158). One function rather than a `classList` call at each of the four
+//: places that change the answer's state (opening, running, switching verb,
+//: clearing), because the bug this replaces was not a missing class, it was four
+//: places disagreeing about whether there was an answer: an empty 309px textarea
+//: under a label describing text that was not there, over a Replace button for
+//: nothing, in 43% of the dialog.
+function showDocAiResult(text) {
+  const block = $("doc-ai-result-block");
+  const result = $("doc-ai-result");
+  if (!block || !result) return;
+  result.value = text || "";
+  //: A "remove" whose answer is the passage with nothing left in it is still an
+  //: answer, and `acceptDocAiEdit` already treats that case as valid, so the
+  //: block is shown for an empty string and hidden only for nothing at all.
+  block.classList.toggle("hidden", text === null || text === undefined);
+}
+
 // The run button, the instruction placeholder, and the scope hint all read
 // differently per verb: kept in one place so switching verbs updates all
 // three together rather than three separate change listeners drifting.
@@ -7055,6 +7073,22 @@ function syncDocAiPanel() {
   $("doc-ai-accept").textContent = acceptLabel;
 }
 
+//: Switching verb throws the proposal away, and that is a fix rather than a
+//: tidy-up: the panel used to keep it, so a passage the model rewrote for "Edit"
+//: stayed on screen with "Remove it" under it, and pressing that button deleted
+//: the selection and replaced it with the rewrite. The status line says so,
+//: because a proposal vanishing with no explanation reads as a failure.
+function docAiVerbChanged() {
+  const had = !$("doc-ai-result-block").classList.contains("hidden");
+  showDocAiResult(null);
+  syncDocAiPanel();
+  if (had) {
+    const status = $("doc-ai-status");
+    status.classList.remove("error");
+    status.textContent = "Ask again: the last suggestion was for a different job.";
+  }
+}
+
 function openDocAiPanel() {
   if (!currentDoc) return;
   const box = docSurface();
@@ -7066,7 +7100,7 @@ function openDocAiPanel() {
   // previous document's choice.
   const editRadio = $("doc-ai-panel").querySelector('input[name="doc-ai-verb"][value="edit"]');
   if (editRadio) editRadio.checked = true;
-  $("doc-ai-result").value = "";
+  showDocAiResult(null);
   $("doc-ai-status").textContent = "";
   syncDocAiPanel();
   $("doc-ai-panel").classList.remove("hidden");
@@ -7123,7 +7157,7 @@ async function runDocAiEdit() {
       signal: docAiController.signal,
       body: JSON.stringify({ instruction, selection, verb }),
     });
-    $("doc-ai-result").value = body.revised;
+    showDocAiResult(body.revised);
     status.textContent = body.message || "Read it over, then accept or cancel.";
     if (body.message) status.classList.add("error");
   } catch (error) {
@@ -8044,7 +8078,7 @@ $("doc-ai-instruction").addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); runDocAiEdit(); }
 });
 for (const radio of document.querySelectorAll('input[name="doc-ai-verb"]')) {
-  radio.addEventListener("change", syncDocAiPanel);
+  radio.addEventListener("change", docAiVerbChanged);
 }
 $("doc-ai-history").addEventListener("click", openDocAiHistory);
 $("doc-extract").addEventListener("click", openDocExtractPreview);

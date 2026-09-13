@@ -9549,6 +9549,33 @@ input[type="file"] {
   cursor: context-menu;
 }
 
+/* **Per-branch thickness** (MINDMAP_PLAN.md item 177: "connection line styles:
+   per-branch thickness, dash and arrowhead"). Only the three stroked line
+   shapes are written here; the ribbon's width lives in the path it is drawn
+   from (`wbMapRibbonD`), because a filled shape has no stroke to widen.
+
+   The two numbers are 3px, the default above, times the same multipliers
+   `WB_MAP_EDGE_WEIGHTS` scales the ribbon by, so a map with one branch thinned
+   and one thickened reads the same whichever line shape each of them is in.
+   Written as classes rather than as a `stroke-width` attribute: an attribute
+   is a declaration at the bottom of the cascade and `.wb-map-edge`'s own
+   `stroke-width` would win, which is exactly how the branch colour was lost
+   once already. */
+.wb-map-edge.wb-map-edge-thin {
+  stroke-width: 1.65;
+}
+
+.wb-map-edge.wb-map-edge-thick {
+  stroke-width: 5.1;
+}
+
+/* A stroked line has ended in an arrowhead since the branch-direction report;
+   this is how one branch says otherwise. The ribbon's own head is part of its
+   path, so nothing here touches it. */
+.wb-map-edge.wb-map-edge-headless {
+  marker-end: none;
+}
+
 /* Dashed, from the link radial. Deliberately a different dash from the
    cross-link's below: a dashed *tree* edge is still part of the tree and says
    "this connection is softer", while a cross-link is not part of the tree at

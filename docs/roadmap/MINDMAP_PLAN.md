@@ -550,8 +550,17 @@ candidates. Placed here:
   x); downward the choice is on the top edge instead. A server restart was
   needed for the round trip to pass: the field is dropped by a stale process,
   which is the `WhiteboardObjectData` trap wearing its other hat.
-- **Connection line styles**: per-branch thickness, dash and arrowhead,
-  managed from the map strip rather than by one global rule.
+- **Connection line styles**: built. `edge_width` (`thin`, `thick`) and
+  `edge_arrow` (`on`, `off`) join `edge_dashed` on the child, and all three
+  are in the strip's line group, which a trunk is not shown. Measured,
+  `scratchpad/ui-sweeps/mapline.js`, 13/13 at 1440 light, 1440 dark and
+  390x844: the ribbon goes 6.5 units at the parent to 11 thick and 3.6 thin
+  while its sibling stays 6.5, the stroked shapes 3px to 5.1px, a head added
+  to a ribbon takes its path from 50 to 53 points and its far end from 3.4 to
+  11.5 units, a head comes off a stroked line as `marker-end: none`, and all
+  three survive the round trip. The line group measures 0px on a trunk and
+  1/117/28/28px on a child. The strip is now 853px inside a 1408px canvas at
+  1440 and wraps to 348x150 inside 364px at 390.
 - **Resize a topic**: built, commit `3c9b874`. Measured,
   `scratchpad/ui-sweeps/mapresize.js`: 170x44 dragged to 290x100, stored as
   `width` 290 / `height` 100 / `sized` true, still 290x100 after a tidy.

@@ -4268,6 +4268,40 @@ const WB_MAP_RIBBON_STEPS = 24;
 const WB_MAP_RIBBON_WIDE = 6.5;
 const WB_MAP_RIBBON_THIN = 2;
 
+//: **Per-branch thickness** (MINDMAP_PLAN.md item 177, "connection line
+//: styles: per-branch thickness, dash and arrowhead"). A multiplier rather
+//: than a width, because the same value has to scale two different drawings:
+//: the ribbon, whose two ends are 6.5 and 2 units apart, and the stroke the
+//: other three line shapes keep, which is 3px in the stylesheet. A number of
+//: pixels would have to be written twice and would drift.
+//:
+//: Three steps and not a slider: a map's lines are read against each other, so
+//: what matters is that one branch is heavier than its neighbour, and a
+//: continuum of widths nobody can tell apart is a control that only makes
+//: maps inconsistent. Medium is stored as nothing at all, like every other
+//: default this strip writes.
+const WB_MAP_EDGE_WEIGHTS = { thin: 0.55, thick: 1.7 };
+
+function wbMapEdgeWeight(child) {
+  return WB_MAP_EDGE_WEIGHTS[child?.data?.edge_width] || 1;
+}
+
+//: Whether *this* line ends in an arrowhead.
+//:
+//: The default differs by drawing, which is why this is a function and not a
+//: boolean field: a ribbon carries its direction in the taper and gets no
+//: head (a marker on a closed outline would be placed at the end of the
+//: outline, back at the parent), while a plain stroke has no taper and has
+//: had a head since the branch-direction report. `edge_arrow` overrides
+//: whichever default applies, so the strip's toggle can add a head to a
+//: ribbon and take one off a straight line.
+function wbMapEdgeHasArrow(child) {
+  const set = child?.data?.edge_arrow;
+  if (set === "on") return true;
+  if (set === "off") return false;
+  return !wbMapEdgeIsRibbon(child);
+}
+
 function wbMapCubicAt(t, p0, c0, c1, p1) {
   const u = 1 - t;
   const x = u * u * u * p0.x + 3 * u * u * t * c0.x + 3 * u * t * t * c1.x + t * t * t * p1.x;
@@ -4288,26 +4322,50 @@ function wbMapRibbonD(parent, child, layout) {
   const p1 = { x: a.x2, y: a.y2 };
   const c0 = a.horizontal ? { x: mx, y: a.y1 } : { x: a.x1, y: my };
   const c1 = a.horizontal ? { x: mx, y: a.y2 } : { x: a.x2, y: my };
+  const weight = wbMapEdgeWeight(child);
+  //: An arrowhead on a ribbon is part of the ribbon, not a marker: the shape
+  //: is closed, so a `marker-end` would be placed at the end of the outline,
+  //: which is back at the parent. The body therefore stops short and the last
+  //: sixth of the run becomes a barb and a tip, which is also the only way the
+  //: head can taper out of a shape whose width is already varying.
+  const arrow = wbMapEdgeHasArrow(child);
+  const bodyEnd = arrow ? 0.84 : 1;
   const left = [];
   const right = [];
+  const halfAt = (t) => weight * (WB_MAP_RIBBON_THIN
+    + (WB_MAP_RIBBON_WIDE - WB_MAP_RIBBON_THIN) * (1 - t) * (1 - t)) / 2;
   for (let i = 0; i <= WB_MAP_RIBBON_STEPS; i += 1) {
-    const t = i / WB_MAP_RIBBON_STEPS;
+    //: Eased rather than linear, so the branch keeps its weight for the first
+    //: part of its run and tapers over the second, which is how a real branch
+    //: (and Coggle's) looks; a straight ramp reads as a wedge.
+    const t = (i / WB_MAP_RIBBON_STEPS) * bodyEnd;
     const point = wbMapCubicAt(t, p0, c0, c1, p1);
     const length = Math.hypot(point.dx, point.dy) || 1;
     const nx = -point.dy / length;
     const ny = point.dx / length;
-    //: Eased rather than linear, so the branch keeps its weight for the first
-    //: part of its run and tapers over the second, which is how a real branch
-    //: (and Coggle's) looks; a straight ramp reads as a wedge.
-    const half = (WB_MAP_RIBBON_THIN
-      + (WB_MAP_RIBBON_WIDE - WB_MAP_RIBBON_THIN) * (1 - t) * (1 - t)) / 2;
+    const half = halfAt(t);
     left.push([point.x + nx * half, point.y + ny * half]);
     right.push([point.x - nx * half, point.y - ny * half]);
   }
+  let tip = null;
+  if (arrow) {
+    const barb = wbMapCubicAt(bodyEnd, p0, c0, c1, p1);
+    const length = Math.hypot(barb.dx, barb.dy) || 1;
+    const nx = -barb.dy / length;
+    const ny = barb.dx / length;
+    // Wide enough to read as a head against the body it grew out of, and
+    // scaled with the branch so a thin line does not get a fat point.
+    const wide = Math.max(halfAt(bodyEnd) * 2.4, 3.4 * weight);
+    left.push([barb.x + nx * wide, barb.y + ny * wide]);
+    right.push([barb.x - nx * wide, barb.y - ny * wide]);
+    const end = wbMapCubicAt(1, p0, c0, c1, p1);
+    tip = [end.x, end.y];
+  }
   const at = ([x, y]) => `${Math.round(x * 10) / 10} ${Math.round(y * 10) / 10}`;
   const forward = left.map((pt, i) => `${i ? "L" : "M"}${at(pt)}`).join("");
+  const point = tip ? `L${at(tip)}` : "";
   const back = right.reverse().map((pt) => `L${at(pt)}`).join("");
-  return `${forward}${back}Z`;
+  return `${forward}${point}${back}Z`;
 }
 
 //: Which of the two drawings this edge gets. One place, because the render,
@@ -4412,11 +4470,21 @@ function wbRenderMapEdges() {
       if (hidden.has(child.id)) continue;
       const path = document.createElementNS(NS, "path");
       const ribbon = wbMapEdgeIsRibbon(child);
-      path.setAttribute("class", ribbon
-        ? "wb-map-edge wb-map-edge-ribbon"
-        : child.data?.edge_dashed
-          ? "wb-map-edge wb-map-edge-dashed"
-          : "wb-map-edge");
+      //: The line's own classes (MINDMAP_PLAN.md item 177). Thickness is a
+      //: class rather than a `stroke-width` attribute for the same reason the
+      //: colour is a custom property: a presentation attribute sits below
+      //: every author rule, so `.wb-map-edge`'s own `stroke-width` would win
+      //: and the control would do nothing. The ribbon needs no thickness
+      //: class, since its width is in the path it is drawn from, and no arrow
+      //: class, since its head is too.
+      const classes = ["wb-map-edge"];
+      if (ribbon) classes.push("wb-map-edge-ribbon");
+      else {
+        if (child.data?.edge_dashed) classes.push("wb-map-edge-dashed");
+        if (child.data?.edge_width) classes.push(`wb-map-edge-${child.data.edge_width}`);
+        if (!wbMapEdgeHasArrow(child)) classes.push("wb-map-edge-headless");
+      }
+      path.setAttribute("class", classes.join(" "));
       path.setAttribute("d", ribbon
         ? wbMapRibbonD(parent, child, layout)
         : wbMapEdgePathD(parent, child, layout));
@@ -5441,6 +5509,42 @@ function wbSyncMapStrip(node) {
     setSelect("wb-map-strip-icon", data.icon || "");
     setSelect("wb-map-shape", data.shape || "");
     setSelect("wb-map-spine", data.spine || "");
+    //: The line into this topic (item 177). A trunk has none, so the group is
+    //: put away rather than shown as three controls that write a field
+    //: nothing draws: `wbMapEdgeHasArrow` and the rest all read the *child*
+    //: of an edge, and a trunk is nobody's child.
+    const parented = node.parent_id != null;
+    for (const el of document.querySelectorAll("#wb-map-strip [data-wb-map-line]")) {
+      //: The shell, where there is one: `enhanceSelect` leaves the real
+      //: `<select>` in the DOM at 1px and draws its own opener *beside* it
+      //: inside a `.select-shell`, so hiding the select alone would put away
+      //: the invisible half and leave the visible one on a trunk that has no
+      //: line to style.
+      (el.closest(".select-shell") || el).classList.toggle("hidden", !parented);
+    }
+    if (parented) {
+      setSelect("wb-map-edge-width", data.edge_width || "");
+      const dash = document.getElementById("wb-map-edge-dashed");
+      if (dash) {
+        const on = Boolean(data.edge_dashed);
+        dash.classList.toggle("active", on);
+        dash.setAttribute("aria-pressed", on ? "true" : "false");
+        dash.title = on ? "Draw the line into this topic solid again" : "Dash the line into this topic";
+      }
+      const arrow = document.getElementById("wb-map-edge-arrow");
+      if (arrow) {
+        //: The *effective* state, not the stored one: an unset line has a head
+        //: when it is a stroke and none when it is a ribbon, so a button
+        //: reading the field alone would show "off" on a line that visibly
+        //: ends in an arrow.
+        const on = wbMapEdgeHasArrow(node);
+        arrow.classList.toggle("active", on);
+        arrow.setAttribute("aria-pressed", on ? "true" : "false");
+        arrow.title = on
+          ? "Take the arrowhead off the line into this topic"
+          : "Put an arrowhead on the line into this topic";
+      }
+    }
     const link = document.getElementById("wb-map-strip-link");
     if (link) {
       const has = Boolean(data.link);
@@ -5839,9 +5943,17 @@ const WB_MAP_COPY_MAX = 120;
 //: copy carries what the original wore and "reset to the branch" clears
 //: exactly the same set. A key added to one and not the other is how a copy
 //: quietly loses its colour.
+//:
+//: The line's own four (`edge_style`, `edge_dashed`, `edge_width`,
+//: `edge_arrow`) belong here for the same reason its label always did: they
+//: are written from the strip and the link ring onto the node, so a branch
+//: copied without them comes out drawn differently from the one it was copied
+//: from. The first two were missing until item 177 added the other two, which
+//: is what made the gap worth closing rather than recording again: half a
+//: line's look travelling with a copy is worse than none of it.
 const WB_MAP_STYLE_KEYS = [
   "color", "bold", "italic", "font_size", "align", "icon", "link", "edge_label",
-  "shape", "core", "spine",
+  "shape", "core", "spine", "edge_style", "edge_dashed", "edge_width", "edge_arrow",
 ];
 
 //: Remove this topic and keep its branch: the children move up to its parent
@@ -8516,6 +8628,36 @@ async function initWhiteboard() {
     if (wbMapStripSyncing) return;
     const node = wbSelectedMapNode();
     if (node) wbMapSetNodeStyle(node, { spine: e.target.value || null });
+  });
+  //: The line into the selected topic (item 177). All three re-render the
+  //: board rather than only the node, the way the link ring's own slots do: an
+  //: edge belongs to two nodes and is drawn in the shared `.wb-map-edges`
+  //: layer, so repainting one node cannot redraw it.
+  $("wb-map-edge-width")?.addEventListener("change", async (e) => {
+    if (wbMapStripSyncing) return;
+    const node = wbSelectedMapNode();
+    if (!node) return;
+    await wbMapSetNodeStyle(node, { edge_width: e.target.value || null });
+    renderWhiteboardNow();
+  });
+  $("wb-map-edge-dashed")?.addEventListener("click", async () => {
+    const node = wbSelectedMapNode();
+    if (!node) return;
+    await wbMapSetNodeStyle(node, { edge_dashed: !node.data?.edge_dashed || null });
+    renderWhiteboardNow();
+  });
+  $("wb-map-edge-arrow")?.addEventListener("click", async () => {
+    const node = wbSelectedMapNode();
+    if (!node) return;
+    //: Stored only when it differs from what this line would draw anyway, so
+    //: a map does not fill up with fields pinning every branch to today's
+    //: default: a ribbon has no head and a plain stroke has one.
+    const want = !wbMapEdgeHasArrow(node);
+    const fallback = !wbMapEdgeIsRibbon(node);
+    await wbMapSetNodeStyle(node, {
+      edge_arrow: want === fallback ? null : (want ? "on" : "off"),
+    });
+    renderWhiteboardNow();
   });
   $("wb-map-strip-color")?.addEventListener("change", async (e) => {
     const node = wbSelectedMapNode();

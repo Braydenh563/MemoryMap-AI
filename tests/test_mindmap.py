@@ -678,6 +678,8 @@ MAP_STYLE = {
     "edge_label": "because",
     "edge_style": "elbow",
     "edge_dashed": True,
+    "edge_width": "thick",
+    "edge_arrow": "off",
     "color": "#4f46e5",
 }
 
@@ -752,6 +754,7 @@ def test_freemind_carries_a_styled_node_out_and_back(client):
     # FreeMind that another reader would choke on.
     assert '_core="true"' in exported
     assert '_spine="dashed"' in exported
+    assert '_edge_width="thick"' in exported and 'WIDTH="4"' in exported
     assert '_icon="lightbulb"' in exported
     assert '_edge_label="because"' in exported
     assert '_edge_dashed="true"' in exported
@@ -829,6 +832,49 @@ def test_a_core_idea_can_be_an_ellipse(client):
         },
     )
     assert refused.status_code == 422
+
+
+def test_a_lines_thickness_and_arrowhead_are_kept_per_branch(client):
+    """MINDMAP_PLAN.md item 177: "connection line styles: per-branch thickness,
+    dash and arrowhead, managed from the map strip rather than by one global
+    rule".
+
+    Both live on the child, with the label and the line shape, because a tree
+    edge is `parent_id` and has no row of its own. Both are also fields
+    `WhiteboardObjectData` has to name: an undeclared one is dropped on the way
+    in and the control looks like a frontend bug.
+    """
+    board = _map(client, name="Lines")
+    root = _node(client, board["id"], text="Root")
+    kid = _node(client, board["id"], text="A heavy branch")
+    moved = client.put(
+        f"/whiteboard/boards/{board['id']}/nodes/{kid['id']}/move",
+        json={"parent_id": root["id"]},
+    )
+    assert moved.status_code == 200, moved.text
+
+    def put(data):
+        return client.put(
+            f"/whiteboard/objects/{kid['id']}",
+            json={
+                "kind": kid["kind"],
+                "board_id": board["id"],
+                "data": {**kid["data"], **data},
+                "x": kid["x"],
+                "y": kid["y"],
+                "z": kid["z"],
+            },
+        )
+
+    assert put({"edge_width": "thick", "edge_arrow": "on"}).status_code == 200
+    tree = client.get(f"/whiteboard/boards/{board['id']}/tree").json()
+    style = tree["roots"][0]["children"][0]["style"]
+    assert style["edge_width"] == "thick" and style["edge_arrow"] == "on"
+
+    # A step nobody draws, and a third state for a two-word field, are refused
+    # rather than stored: the frontend turns both straight into a class name.
+    assert put({"edge_width": "hairline"}).status_code == 422
+    assert put({"edge_arrow": "maybe"}).status_code == 422
 
 
 def test_the_bar_on_a_topics_edge_is_kept_and_is_a_closed_set(client):

@@ -9,6 +9,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A mind map's lines are styled one branch at a time. Select a topic and the
+  strip carries the line coming into it: thin, normal or thick, dashed or
+  solid, and an arrowhead on or off. The thickness scales the branch itself
+  rather than a line width, so a thick branch is a wider ribbon at the parent
+  and still tapers to its topic, and a thin one recedes. A trunk, which has no
+  line above it, is shown none of these.
+
 - A citation knows which passage of a note it came from. Grounding scored a
   sentence against a whole note, so a mark could only say "somewhere in here",
   which is no help on a note that mentions its subject in three paragraphs.

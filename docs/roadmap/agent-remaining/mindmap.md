@@ -3,8 +3,13 @@
 > Companions: [MINDMAP_PLAN.md](../MINDMAP_PLAN.md) ·
 > [HANDOVER.md](../HANDOVER.md) · [../../DESIGN.md](../../DESIGN.md)
 >
-> Rewritten after the sixth run, which closed the three things the fifth
-> left: the exports now carry everything the strip and the rings set, both
+> Rewritten after the seventh run, which closed INBOX 177's four node-styling
+> requests: a topic resizes (`3c9b874`), a topic can be a core idea and an
+> ellipse, the bar down its edge is solid, dashed or none, and a branch's line
+> carries its own thickness, dash and arrowhead. Their numbers are in
+> MINDMAP_PLAN's "Placed from INBOX, 2026-09-13" and in the three sweeps
+> below. Everything before that came from the sixth run, which closed the
+> three things the fifth left: the exports now carry everything the strip and the rings set, both
 > rings stay inside the canvas, and all of it has been measured in dark mode
 > and at 390x844. Their account is in HISTORY.md ("Moved from the plans,
 > 2026-09-12"). Everything below was checked in a real Chromium against the
@@ -32,6 +37,10 @@
 | `scratchpad/ui-sweeps/mapdock.js` | **26** (was 25): the dock split, the delete doors, the empty map, the two §12.0 decisions, the three ways out of a fold, and the dock's reach at phone width |
 | `scratchpad/ui-sweeps/mapstrip.js` | **39** (was 33): the edit strip, both radials, the mid-line add, the grip, transplant, sever, the strip's own box, both rings against the edge of the canvas, and the four node shapes |
 | `scratchpad/ui-sweeps/panlag.js` | **5**, new: where a pan's work happens |
+| `scratchpad/ui-sweeps/mapresize.js` | the resize grip (item 177), from the sixth run's end |
+| `scratchpad/ui-sweeps/mapcore.js` | **10**, new: the core mark, the ellipse, the weight against a plain sibling, the round trip |
+| `scratchpad/ui-sweeps/mapspine.js` | **9**, new: the bar on a topic's edge, against the core weight, the plain shape and a downward map |
+| `scratchpad/ui-sweeps/mapline.js` | **13**, new: per-branch thickness on the ribbon and on a stroke, the arrowhead both ways, the dash, and the group a trunk is not shown |
 
 Run them against a **fresh** data dir (`serve.sh <port> /tmp/mm-mapN`): the
 sweeps assert board-gallery contents and tree shapes, so a dir left over from
@@ -109,6 +118,13 @@ driven from the UI in five runs.
 
 ## Found while measuring, and fixed
 
+- **`WB_MAP_STYLE_KEYS` carries the line's own four now** (`edge_style`,
+  `edge_dashed`, `edge_width`, `edge_arrow`). The first two had been missing
+  since the link ring was built, so a copied branch came out drawn
+  differently from the one it was copied from; recorded by the sixth run and
+  left, then closed with item 177's two new fields, because half a line's
+  look travelling with a copy is worse than none of it. The reset slot's
+  tooltip says so too.
 - **The two XML exports carry a node's look now, and read it back.** What
   each format got, and why the four fields FreeMind has no word for ride as
   private attributes rather than as invented FreeMind, is in HISTORY
@@ -140,14 +156,14 @@ driven from the UI in five runs.
 
 ## Found while measuring, not fixed
 
-- **`WB_MAP_STYLE_KEYS` does not carry the two fields the link ring writes.**
-  `edge_style` and `edge_dashed` are missing from that list in
-  `whiteboard.js`, whose own comment says it is "everything the strip and the
-  radial can set on a node", so copying a branch loses its line shape and its
-  dash and "back to the branch" leaves them behind. Not fixed here because
-  "back to the branch" enumerates what it drops in its own tooltip and adding
-  a line's shape to that list is a small design call, not a typo. One line
-  plus the tooltip when it is taken.
+- **`mapstrip.js` has not run since 2026-09-12** and is not a mind map
+  regression: it asks for `#wb-selection-bar`, which `5796258` replaced with
+  the single `#wb-context`, and dies on line 91 with "Cannot read properties
+  of null". The other five map sweeps are unaffected. Left alone here because
+  the bar is another agent's live work this session; the repair is that one
+  id, and the checks around it need reading against what `#wb-context` now
+  holds rather than renaming blindly.
+
 
 - **The app shell scrolls sideways by 7px at 390x844**, on every tab, not
   just the map: `document.documentElement.scrollWidth` 397 in a 390 window,

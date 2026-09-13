@@ -5002,6 +5002,27 @@
         <option value="dashed">Dashed bar</option>
         <option value="none">No bar</option>
       </select>
+      <!-- **The line into this topic** (MINDMAP_PLAN.md item 177,
+           "connection line styles: per-branch thickness, dash and arrowhead,
+           managed from the map strip rather than by one global rule"). A tree
+           edge has no row of its own, it *is* `parent_id`, so every control
+           here writes to the topic that is selected, which is the end of its
+           one incoming line. `data-wb-map-line` marks the group so a trunk,
+           which has no line above it, is shown none of it.
+
+           The colour and the dash are on the link ring as well, and that is
+           deliberate rather than an oversight: the ring is a right-click
+           nobody finds by accident (the owner's words about the rings: "soooo
+           annoying and unintuitive to use"), and the strip is the surface
+           that is simply there when a topic is selected. -->
+      <span class="wb-topbar-divider" data-wb-map-line aria-hidden="true"></span>
+      <select id="wb-map-edge-width" class="ghost small" data-wb-map-line aria-label="How thick the line into this topic is" title="How thick the line into this topic is">
+        <option value="thin">Thin line</option>
+        <option value="">Line</option>
+        <option value="thick">Thick line</option>
+      </select>
+      <button type="button" id="wb-map-edge-dashed" class="ghost small icon-only" data-wb-map-line title="Dash the line into this topic" aria-label="Dash the line into this topic" aria-pressed="false"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
+      <button type="button" id="wb-map-edge-arrow" class="ghost small icon-only" data-wb-map-line title="Put an arrowhead on the line into this topic" aria-label="Put an arrowhead on the line into this topic" aria-pressed="false"><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
     </div>
 
     <!-- **The node radial** (MINDMAP_PLAN.md §12.1 item 3, Coggle's own
@@ -5029,7 +5050,7 @@
       <button type="button" id="wb-radial-copy" class="ghost small icon-only wb-map-radial-slot" title="Copy this branch beside itself" aria-label="Copy this branch beside itself"><i class="ph ph-copy" aria-hidden="true"></i></button>
       <button type="button" id="wb-radial-ref" class="ghost small icon-only wb-map-radial-slot" title="Add a child that points at a note, document, file or link" aria-label="Add a child from the library"><i class="ph ph-bookmarks-simple" aria-hidden="true"></i></button>
       <button type="button" id="wb-radial-sever" class="ghost small icon-only wb-map-radial-slot" title="Cut this topic free of its parent, as a trunk of its own" aria-label="Cut this topic free of its parent"><i class="ph ph-scissors" aria-hidden="true"></i></button>
-      <button type="button" id="wb-radial-reset" class="ghost small icon-only wb-map-radial-slot" title="Back to the branch: drop this topic's own colour, size, weight, alignment, shape, icon and link" aria-label="Reset this topic to its branch"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
+      <button type="button" id="wb-radial-reset" class="ghost small icon-only wb-map-radial-slot" title="Back to the branch: drop this topic's own colour, size, weight, alignment, shape, icon, link and the look of the line into it" aria-label="Reset this topic to its branch"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
       <span class="wb-map-radial-caption" aria-hidden="true"></span>
     </div>
 

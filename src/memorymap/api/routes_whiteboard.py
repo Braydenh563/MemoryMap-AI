@@ -235,6 +235,24 @@ class WhiteboardObjectData(BaseModel):
     #: exactly as it did.
     edge_style: str | None = Field(default=None, pattern="^(curve|elbow|straight)$")
     edge_dashed: bool | None = None
+    #: **How heavy that line is, and whether it ends in a head**
+    #: (MINDMAP_PLAN.md item 177: "connection line styles: per-branch
+    #: thickness, dash and arrowhead, managed from the map strip rather than
+    #: by one global rule"). On the child with the rest of the edge's
+    #: properties, for the reason `edge_label` gives above.
+    #:
+    #: Three thicknesses rather than a number of pixels: the value has to
+    #: scale two drawings, the tapered ribbon the default curve is and the
+    #: stroke the other shapes keep, so it is a step the frontend turns into
+    #: each, and a map is read by one branch being heavier than its neighbour
+    #: rather than by any absolute width.
+    #:
+    #: The arrowhead is three-valued on purpose, `on`, `off` and unset: a
+    #: ribbon carries its direction in its taper and draws no head, a plain
+    #: stroke has had one since the branch-direction report, so "unset" means
+    #: "whatever this line shape does" and the two words are the override.
+    edge_width: str | None = Field(default=None, pattern="^(thin|thick)$")
+    edge_arrow: str | None = Field(default=None, pattern="^(on|off)$")
 
     @field_validator("link")
     @classmethod
@@ -2303,6 +2321,8 @@ MAP_STYLE_FIELDS = (
     "edge_label",
     "edge_style",
     "edge_dashed",
+    "edge_width",
+    "edge_arrow",
 )
 
 
@@ -2823,6 +2843,8 @@ _FREEMIND_PRIVATE = {
     "icon": "_icon",
     "edge_label": "_edge_label",
     "edge_dashed": "_edge_dashed",
+    "edge_width": "_edge_width",
+    "edge_arrow": "_edge_arrow",
     "align": "_align",
 }
 #: OPML 2.0 defines `text`, `type`, `url`, `isComment`, `isBreakpoint`,
@@ -2842,6 +2864,8 @@ _OPML_PRIVATE = {
     "edge_label": "_edge_label",
     "edge_style": "_edge_style",
     "edge_dashed": "_edge_dashed",
+    "edge_width": "_edge_width",
+    "edge_arrow": "_edge_arrow",
 }
 
 
@@ -2961,6 +2985,15 @@ def _export_freemind(title: str, roots: list[dict]) -> str:
         edge = {}
         if style.get("edge_style") in _FREEMIND_EDGE_STYLE:
             edge["STYLE"] = _FREEMIND_EDGE_STYLE[style["edge_style"]]
+        #: FreeMind's own `<edge WIDTH>`, alongside the private `_edge_width`
+        #: that carries the step back: WIDTH is a number of pixels or the word
+        #: `thin`, which is a lossy home for a three-step scale, so it is
+        #: written for the reader that opens the file and read back from the
+        #: private attribute. Same bargain as `STYLE` and `_shape` above.
+        if style.get("edge_width") == "thin":
+            edge["WIDTH"] = "thin"
+        elif style.get("edge_width") == "thick":
+            edge["WIDTH"] = "4"
         if node.get("color"):
             # A map's node colour paints the spine down the node's leading
             # edge and the line coming into it (§12.0, "a node carries its

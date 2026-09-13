@@ -52,11 +52,22 @@ and Spacious, with the art on, and with a transform on `body`.
    measured sat at the 15rem minimum), and harmless while it does: the clamp
    errs left. Next step if a report arrives: measure at `left: 8px` first, then
    place.
-4. **Nothing re-places the menu when the window resizes** while it is open.
-   `clampToolbarMenu` has `replaceOpenToolbarMenus` on `resize` and `scroll`;
-   the word menu has neither, and the editor scrolling under it is the common
-   case. `placeDocSuggest` is already the reflow hook, so this is two
-   listeners and a guard.
+4. **A finding below the editor's visible box gets a menu drawn over its own
+   word.** Measured in `spellwide2.js`'s table-cell case: the word sits at
+   `655..707` in an editor whose visible box ends at `572`, and the menu is
+   placed at `440..717`, so the word is inside the menu's own vertical range.
+   The sweep reads that as a 0px gap and passes, because it measures the gap
+   between the two boxes and an overlap has no gap. Two things to decide: why
+   `docRevealForSuggest` did not bring that word in (a table cell's mark may
+   measure outside the scroller the reveal scrolls), and that a placement must
+   never cover the rect it is anchored to, which is worth an assertion of its
+   own in both sweeps.
+
+**Done since this file was first written** (commit `e07d173`): the menu now
+follows its word on scroll and resize and closes when the word leaves the
+editor's box. Before, an 80px scroll left it 84px from its word and it stayed
+open after the word had scrolled off the surface entirely; after, 0px
+horizontally and 4px below, and closed once the word leaves.
 
 ## Found, not fixed, not mine
 
@@ -67,6 +78,11 @@ and Spacious, with the art on, and with a transform on `body`.
   every uncommitted change). Anyone committing from the shared index should
   stage their own paths into a private `GIT_INDEX_FILE` instead, as the briefs
   ask.
+- `spellwide.js` flags its words with "idk", so a data directory whose
+  `writing_dictionary` contains "idk" (this session's persistence probe put it
+  there) silently reduces the sweep to one finding and every case reports "no
+  mark". Run it against a fresh data dir, or teach the sweep to clear the
+  preference first.
 - The dictionary half of INBOX 128 could not be reproduced: adding a word
   persists here across a server restart and a fresh browser profile
   (`writing_dictionary` reads `["idk"]`, the word is not flagged). The

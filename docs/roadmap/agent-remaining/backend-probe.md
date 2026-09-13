@@ -19,6 +19,7 @@ security review's open rows, D6, and the performance probes.
 - done: the list-query probe (`scratchpad/probe_list_queries.py`), 13 endpoints flat at 121 notes, three pinned in `test_scale_query_counts.py`. next: F4/F7/F10 measured and left to the mechanical agent; the full suite before the final report.
 - done: the flaw classes re-run and recorded, `scratchpad/probe_excepts.py` added (147 broad, 52 silent). next: nothing queued; the full suite is running before the final report.
 - done: D6's writing half moved from GET to POST; the GET is read-only and 404s, because a GET that makes a row sits outside the method-judging CSRF defence. next: the full suite, then the report.
+- verified against a running server on 8796 (`/tmp/mm-back`), not only tests: POST /entries/daily twice returns id 1 both times; the window reports streak 1; the night pass derived 2 facts in 8 tokens; PATCH, force re-run (derived 0), reset and export all behaved. The auth header is `X-Auth-Token`, not `Authorization`.
 
 ## The flaw classes, re-run 2026-09-13 evening (WORLD_CLASS section 10)
 

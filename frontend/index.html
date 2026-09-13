@@ -2047,10 +2047,15 @@
           <button id="timeline-filter-clear" class="ghost small hidden" type="button" title="Show everything again"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Show: all</button>
         </div>
         <div class="dock-group dock-arrange">
-          <!-- The grid/line segment went with the grid view (TIMELINE_PLAN
-               decision 1): there is one view here now, so there is nothing to
-               switch. The table view brings the segment back, with an icon per
-               option, in Phase 2. -->
+          <!-- Two views of one array (TIMELINE_PLAN decision 2): the feed for
+               reading, the table for finding and for acting on several notes
+               at once. Switching is a repaint, not a reload. The old grid/line
+               pair went with the grid view; this is the same control with the
+               two views that earn a place. -->
+          <div class="seg seg-compact timeline-view-seg" id="timeline-view-seg" role="group" aria-label="Feed or table">
+            <button type="button" class="icon-only active" id="timeline-view-feed" data-timeline-view="feed" title="Feed: newest first, grouped by date" aria-label="Feed view"><i class="ph ph-list-dashes" aria-hidden="true"></i></button>
+            <button type="button" class="icon-only" id="timeline-view-table" data-timeline-view="table" title="Table: every column, sortable" aria-label="Table view"><i class="ph ph-table" aria-hidden="true"></i></button>
+          </div>
           <details class="doc-dock-menu dock-menu" id="timeline-options-menu">
             <summary class="ghost small doc-dock-menu-btn" title="Bucket size, bands and how far back to show"><i class="ph ph-sliders-horizontal ph-lead" aria-hidden="true"></i> Options <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
             <div class="doc-dock-menu-list dock-menu-list" id="timeline-options" role="group" aria-label="Timeline display options">
@@ -2087,6 +2092,13 @@
                   <option value="">Everything</option>
                 </select>
               </div>
+              <!-- Selecting several rows is a mode, and a mode lives in the
+                   menu once a dock is at its seven-control ceiling: the same
+                   move `#select-btn` and `#graph-trace-toggle` made. It only
+                   appears in the table view, which is the one with rows you
+                   can tick. -->
+              <button id="timeline-select-btn" class="doc-dock-menu-item hidden" type="button"
+                title="Select several notes to move, tag or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Select</button>
               <div class="dock-menu-section">
                 <label class="muted dock-menu-label" for="timeline-days">Show</label>
                 <select id="timeline-days" aria-label="How far back to show">
@@ -2127,8 +2139,43 @@
            built by `timelineRowElement` from `timelineRow`, and the table view
            reads the same array, so a search can never match in one and not the
            other. -->
+      <!-- Selecting rows in the table drives the Notes list's own batch
+           actions (`batchMove`, `batchTag`, `batchDelete` in app.js) over the
+           same `selectedIds` set, so a note moved from here and a note moved
+           from the Notes tab take exactly the same path. -->
+      <div id="timeline-batch-bar" class="row hidden">
+        <span id="timeline-batch-count" class="muted" role="status">0 selected</span>
+        <!-- Built by the same `fillBatchCategories()` the Notes bar uses, into
+             this host: its items are the categories themselves, so picking one
+             performs the move. -->
+        <span id="timeline-batch-category-host"></span>
+        <button id="timeline-batch-tag" class="ghost small" type="button"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Tag</button>
+        <button id="timeline-batch-delete" class="ghost small" type="button"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
+        <button id="timeline-batch-done" class="ghost small" type="button">Done</button>
+      </div>
       <div id="timeline-scroll" class="timeline-scroll">
         <div id="timeline-feed" class="timeline-feed" data-density="full"></div>
+        <!-- The table view (TIMELINE_PLAN decision 6). A real `<table>`: the
+             columns are a header row a screen reader can announce, the sort is
+             on the header cells where a person looks for it, and `aria-sort`
+             says which way. The head is sticky inside the same scrolling box
+             the feed uses. -->
+        <table id="timeline-table" class="timeline-table hidden">
+          <thead>
+            <tr id="timeline-table-head">
+              <th scope="col" class="timeline-col-select hidden"><span class="visually-hidden">Selected</span></th>
+              <th scope="col" aria-sort="descending"><button type="button" class="timeline-sort" data-sort="when">Date</button></th>
+              <th scope="col"><button type="button" class="timeline-sort" data-sort="title">Title</button></th>
+              <th scope="col" class="timeline-col-wide"><button type="button" class="timeline-sort" data-sort="kind">Kind</button></th>
+              <th scope="col" class="timeline-col-wide"><button type="button" class="timeline-sort" data-sort="category">Category</button></th>
+              <th scope="col" class="timeline-col-wide"><button type="button" class="timeline-sort" data-sort="space">Space</button></th>
+              <th scope="col" class="timeline-col-wide"><button type="button" class="timeline-sort" data-sort="tags">Tags</button></th>
+              <th scope="col" class="timeline-col-wide timeline-col-number"><button type="button" class="timeline-sort" data-sort="words">Words</button></th>
+              <th scope="col" class="timeline-col-wide timeline-col-number"><button type="button" class="timeline-sort" data-sort="links">Links</button></th>
+            </tr>
+          </thead>
+          <tbody id="timeline-table-body"></tbody>
+        </table>
       </div>
       <div id="timeline-empty" class="empty-state hidden">
         <span class="empty-icon" aria-hidden="true"><i class="ph ph-clock" aria-hidden="true"></i></span>
@@ -4237,7 +4284,19 @@
               </div>
               <div class="wb-menu-row">
                 <span>Everything on it</span>
-                <button id="wb-clear-board" class="ghost small wb-panel-danger" type="button" title="Clear this board"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Clear</button>
+                <button id="wb-clear-board" class="ghost small wb-panel-danger" type="button" title="Clear this board"><i class="ph ph-eraser ph-lead" aria-hidden="true"></i> Clear</button>
+              </div>
+              <!-- Reported: "there's no way to delete a board while in that
+                   board on the whiteboard and mindmap". Deleting one existed
+                   only on the gallery card's kebab, so the way to throw away
+                   the board you are looking at was to leave it first and then
+                   find it again in the list. The action belongs on the board
+                   as well as beside it. Clear takes the eraser icon here, so
+                   the two are not one trash can each: Clear empties the board
+                   and keeps it, Delete takes the board with it. -->
+              <div class="wb-menu-row">
+                <span>This board itself</span>
+                <button id="wb-delete-board" class="ghost small wb-panel-danger" type="button" title="Delete this board and everything on it"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
               </div>
               <div class="wb-menu-row">
                 <span>Help &amp; shortcuts</span>

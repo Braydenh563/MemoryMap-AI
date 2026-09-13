@@ -60,6 +60,26 @@ open and half finished stuff?"), which is a decision, not work.
 
 ## Open items
 
+149. **Mid-work drop, 2026-09-13, verbatim (the owner), the graph.** "can you
+    make graph nodes temporarily expand to fill their glow bubble when I hover
+    over them or smth?? I feel like the graph nodes could look slightly nicer,
+    cooler, more professional and more modern. visually". A visual ask, not a
+    bug: the node's hit area already carries a soft halo larger than the dot,
+    and the dot does not use it. Belongs in GRAPH_PLAN.md.
+
+148. **Mid-work drop, 2026-09-13, verbatim (the owner), the New board dialog,
+    one screenshot.** "also redesign that whiteboard and mindmap toggle in the
+    popup, its ugly". The screenshot shows the Board / Mind map segmented
+    control as a full-width pill with both options crowded into its left end
+    and the right half of the track empty, and nothing naming what the choice
+    is for.
+
+147. **Mid-work drop, 2026-09-13, verbatim (the owner), the whiteboard and
+    mindmap canvas.** "there's no way to delete a board while in that board on
+    the whiteboard and mindmap." Deleting a board existed only on the gallery
+    card's kebab menu.
+
+
 146. **Mid-work drop, 2026-09-13, verbatim (the owner), the timeline feed, two
     screenshots (one full-width, one zoomed on the card's left edge).** "when i
     expand timeline items, the top text and stuff gets pushed up slightly and

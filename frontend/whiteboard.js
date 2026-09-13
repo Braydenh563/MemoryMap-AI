@@ -6920,6 +6920,45 @@ async function wbCreateTextBox(x, y) {
 // pushes, one per item, rather than inventing a second "bulk" undo shape: 
 // so Ctrl+Z after Clear brings items back one at a time, exactly like an
 // eraser swipe over the same items would.
+//: Delete the board you are standing on.
+//:
+//: Reported: "there's no way to delete a board while in that board on the
+//: whiteboard and mindmap". The action existed only on the gallery card's
+//: kebab menu, so removing the board in front of you meant leaving it, finding
+//: it again in the list, and opening a menu on its card.
+//:
+//: The default board (`id === null`) is the one board that cannot go: it
+//: always exists, it is what the canvas falls back to, and the gallery
+//: already draws it without a kebab for the same reason. Saying so is better
+//: than hiding the row, which would leave the menu a different shape on that
+//: one board with nothing to explain the gap.
+//:
+//: `DELETE /entries/{id}` and not a whiteboard route, because a board **is**
+//: an Entry (MINDMAP_PLAN.md §4 option B) and that is the same call the
+//: gallery's own Delete makes. Afterwards the canvas has no board to show, so
+//: it goes back to the gallery rather than sitting on a board that is gone.
+async function wbDeleteCurrentBoard() {
+  const boardId = window.currentBoardId ?? null;
+  if (boardId === null) {
+    toast("The default board cannot be deleted. Use Clear to empty it.");
+    return;
+  }
+  const select = $("wb-board-select");
+  const title =
+    select?.options?.[select.selectedIndex]?.textContent?.trim() || "this board";
+  if (!(await confirmDialog(`Delete "${title}"? This cannot be undone.`))) return;
+  try {
+    await apiJson(`/entries/${boardId}`, { method: "DELETE" });
+  } catch (err) {
+    toast(err.message || "Couldn't delete that board.", true);
+    return;
+  }
+  window.currentBoardId = null;
+  wbShowBoardsLanding();
+  await refreshBoardList();
+  toast(`Deleted "${title}".`);
+}
+
 async function wbClearBoard() {
   const total = wbState.nodes.length + wbState.sketches.length + (wbState.objects?.length || 0);
   if (total === 0) {
@@ -8429,6 +8468,7 @@ async function initWhiteboard() {
   wbApplyBgImage();
 
   $("wb-clear-board")?.addEventListener("click", wbClearBoard);
+  $("wb-delete-board")?.addEventListener("click", wbDeleteCurrentBoard);
   $("wb-export")?.addEventListener("click", wbExportBoard);
 
   // Tool Selection
@@ -10470,9 +10510,19 @@ async function createNewBoard(preset = "board") {
     segment: {
       label: "What kind of board",
       value: preset,
+      // The icons are the same two the boards picker groups by and the Board
+      // menu's Kind row uses, so the shape means the same thing everywhere.
       options: [
-        { value: "board", label: "Board", title: "A free canvas: notes, sketches, images" },
-        { value: "map", label: "Mind map", title: "A tree: topics, branches and keyboard editing" },
+        {
+          value: "board",
+          label: "ph:squares-four Board",
+          title: "A free canvas: notes, sketches, images",
+        },
+        {
+          value: "map",
+          label: "ph:tree-structure Mind map",
+          title: "A tree: topics, branches and keyboard editing",
+        },
       ],
     },
   });

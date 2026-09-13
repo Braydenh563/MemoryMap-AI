@@ -1378,15 +1378,41 @@ function promptDialog(message, initial = "", { confirmLabel = "Save", segment = 
     //: pickers use: so this is a control the user has already met.
     let chosen = segment?.value ?? segment?.options?.[0]?.value ?? null;
     let segRow = null;
+    let segField = null;
     if (segment?.options?.length) {
+      //: **The choice is named, and the two options fill their track.**
+      //: Reported: "also redesign that whiteboard and mindmap toggle in the
+      //: popup, its ugly", with a screenshot of the New board dialog. Two
+      //: things were wrong in it and both are about the track. `.seg` is
+      //: `display: inline-flex`, which in this card (a flex column that
+      //: stretches its children) makes the *track* full width while the two
+      //: buttons keep their content width: the right half of the pill was
+      //: empty, so the control read as a stray bar with two words in it. And
+      //: nothing on screen said what the choice was for, because
+      //: `segment.label` only ever reached `aria-label`, which a sighted
+      //: reader cannot see.
+      //:
+      //: The label is now drawn, the buttons share the track equally (the CSS
+      //: in 06-timeline-dialogs.css), and each option can carry an icon
+      //: through `setLabel`'s "ph:name Label" contract, so Board and Mind map
+      //: are told apart by shape before they are read.
+      segField = document.createElement("div");
+      segField.className = "confirm-seg-field";
+      if (segment.label) {
+        const segLabel = document.createElement("span");
+        segLabel.className = "confirm-seg-label";
+        segLabel.textContent = segment.label;
+        segField.appendChild(segLabel);
+      }
       segRow = document.createElement("div");
-      segRow.className = "seg seg-compact";
+      segRow.className = "seg seg-compact confirm-seg";
       segRow.setAttribute("role", "group");
       segRow.setAttribute("aria-label", segment.label || message);
+      segField.appendChild(segRow);
       for (const option of segment.options) {
         const button = document.createElement("button");
         button.type = "button";
-        button.textContent = option.label;
+        setLabel(button, option.label);
         button.dataset.value = option.value;
         if (option.title) button.title = option.title;
         button.classList.toggle("active", option.value === chosen);
@@ -1453,7 +1479,7 @@ function promptDialog(message, initial = "", { confirmLabel = "Save", segment = 
       smallButton(confirmLabel, confirmLabel, () => close(input.value.trim()), false)
     );
     card.append(head, input);
-    if (segRow) card.append(segRow);
+    if (segField) card.append(segField);
     card.append(row);
     overlay.appendChild(card);
     wireBackdropClose(overlay, () => close(""));
@@ -21911,6 +21937,9 @@ const selectedIds = new Set();
 function updateBatchCount() {
   const n = selectedIds.size;
   $("batch-count").textContent = `${n} selected`;
+  // The Timeline's table selects into the same set through the same actions
+  // (TIMELINE_PLAN decision 6), so there are two bars showing one count.
+  $("timeline-batch-count").textContent = `${n} selected`;
 }
 
 // **One step, not three.** This used to be a `<select>` of categories beside
@@ -21920,8 +21949,8 @@ function updateBatchCount() {
 // categories removes the second control and the failure state with it:
 // choosing a category is the move. It also puts the list in the app's own
 // menu styling instead of the operating system's select popup.
-function fillBatchCategories() {
-  const host = $("batch-category-host");
+function fillBatchCategories(hostId = "batch-category-host") {
+  const host = $(hostId);
   if (!host) return;
   const names = [...new Set(allEntries.map((e) => e.category))].filter(Boolean).sort();
   const items = names.map((name) =>
@@ -21938,13 +21967,26 @@ function fillBatchCategories() {
   host.replaceChildren(labelledMenu("ph:folder-open Move to", items, "Move selected notes to a category"));
 }
 
+//: **One selection, two surfaces.** The Timeline's table ticks rows into this
+//: same `selectedIds` set and runs the same `batchMove`/`batchTag`/
+//: `batchDelete` (TIMELINE_PLAN decision 6: "the Notes selection bar drives
+//: bulk actions"), so a note moved from the table takes exactly the path a
+//: note moved from the Notes list takes, including the undo. Each surface has
+//: its own bar because each lives in its own tab; both read one count and one
+//: set, which is what stops the two from disagreeing.
 function enterSelectMode() {
   selectMode = true;
   selectedIds.clear();
   fillBatchCategories();
+  fillBatchCategories("timeline-batch-category-host");
   updateBatchCount();
   show("batch-bar");
   $("select-btn").classList.add("active");
+  syncTimelineSelectUi();
+  // The table's tick column only exists while the mode is on, so entering or
+  // leaving the mode is a repaint of it. Measured the other way: after a bulk
+  // action the table kept a column of boxes for a mode that had ended.
+  paintTimeline();
   renderEntries();
 }
 
@@ -21953,6 +21995,8 @@ function exitSelectMode() {
   selectedIds.clear();
   hide("batch-bar");
   $("select-btn").classList.remove("active");
+  syncTimelineSelectUi();
+  paintTimeline();
   renderEntries();
 }
 
@@ -24326,6 +24370,9 @@ function switchTab(name) {
     // left on Month that comes back on Auto is a control that lies about the
     // feed beside it, which is the same bug the graph's layout picker had.
     $("timeline-scale").value = timelineScaleChoice();
+    // Same for which view: a saved choice the segment does not show is a
+    // control that lies about the thing under it.
+    syncTimelineViewSeg();
     renderTimeline();
   }
   if (name === "documents") {
@@ -24534,7 +24581,7 @@ async function renderTimeline() {
     timelineFilter = null;
   }
   fillTimelineBandOptions();
-  paintTimelineFeed();
+  paintTimeline();
 }
 
 // What a row belongs to under the current grouping: the value the band filter
@@ -24613,19 +24660,34 @@ function timelineVisibleRows() {
   return rows;
 }
 
-function paintTimelineFeed() {
-  const feed = $("timeline-feed");
+//: Everything that is true of both views, in one place: which of them is
+//: showing, the two empty states, and the rows they share. A view change, a
+//: sort, a search keystroke, a filter and a change of bucket all land here, and
+//: none of them fetches anything (TIMELINE_PLAN decision 2).
+function paintTimeline() {
   const rows = timelineVisibleRows();
+  const table = timelineViewMode() === "table";
+  const nothingLoaded = timelineRows.length === 0;
+  $("timeline-empty").classList.toggle("hidden", !nothingLoaded);
+  $("timeline-no-match").classList.toggle("hidden", nothingLoaded || rows.length > 0);
+  $("timeline-scroll").classList.toggle("hidden", rows.length === 0);
+  $("timeline-feed").classList.toggle("hidden", table);
+  $("timeline-table").classList.toggle("hidden", !table);
+  // Selecting rows is the table's affordance: the feed has no tick boxes, and
+  // offering the mode where it cannot be used is a control that does nothing.
+  $("timeline-select-btn").classList.toggle("hidden", !table);
+  syncTimelineSelectUi();
+  if (table) paintTimelineTable(rows);
+  else paintTimelineFeed(rows);
+}
+
+function paintTimelineFeed(rows) {
+  const feed = $("timeline-feed");
   const scale = timelineResolvedScale(timelineRows.length);
   const density = TIMELINE_DENSITY[scale];
   feed.dataset.scale = scale;
   feed.dataset.density = density;
   feed.replaceChildren();
-
-  const nothingLoaded = timelineRows.length === 0;
-  $("timeline-empty").classList.toggle("hidden", !nothingLoaded);
-  $("timeline-no-match").classList.toggle("hidden", nothingLoaded || rows.length > 0);
-  $("timeline-scroll").classList.toggle("hidden", rows.length === 0);
 
   // Buckets in the order the rows are in, so the grouping is one pass and the
   // feed's order is the array's order: the two cannot drift.
@@ -24677,7 +24739,9 @@ function paintTimelineFeed() {
 // top of the feed each time takes the focus away mid-typing: the same reason
 // `applyEntryListTabOrder` keeps the Notes list's stop where it was.
 function applyTimelineRowTabOrder() {
-  const rows = [...$("timeline-feed").querySelectorAll(".timeline-row")];
+  // Whichever view is showing: `.timeline-row` is the class both a feed row
+  // and a table row wear, so the keyboard behaves the same in both.
+  const rows = [...$("timeline-scroll").querySelectorAll(".timeline-row")];
   const current = document.activeElement;
   const keepId = rows.some((row) => row === current) ? current.dataset.id : null;
   for (const row of rows) {
@@ -24800,12 +24864,12 @@ function timelineRowElement(row, density) {
 // `scrollIntoView` takes the page with it (DESIGN.md's rule for a list that
 // says where you are), and the feed is a box inside a card.
 function focusTimelineRow(id) {
-  const row = $("timeline-feed").querySelector(`.timeline-row[data-id="${id}"]`);
+  const row = $("timeline-scroll").querySelector(`.timeline-row[data-id="${id}"]`);
   if (!row) return;
   const box = $("timeline-scroll");
   const offset = row.getBoundingClientRect().top - box.getBoundingClientRect().top;
   box.scrollTop += offset - box.clientHeight / 3;
-  for (const other of $("timeline-feed").querySelectorAll(".timeline-row")) other.tabIndex = -1;
+  for (const other of $("timeline-scroll").querySelectorAll(".timeline-row")) other.tabIndex = -1;
   row.tabIndex = 0;
   row.focus();
 }
@@ -24823,27 +24887,41 @@ function focusTimelineRow(id) {
 //: uses)". There is no such panel: Notes opens a note by expanding the row it
 //: is already in (`expandedRows`, `entryItem`). This is that affordance, built
 //: on the same idea, and the plan's wording is the thing that is out of date.
-function toggleTimelineRow(li, row) {
-  if (li.getAttribute("aria-expanded") === "true") {
-    closeTimelineRow(li);
+function toggleTimelineRow(el, row) {
+  if (el.getAttribute("aria-expanded") === "true") {
+    closeTimelineRow(el);
     return;
   }
   if (timelineOpenId !== null) {
-    const open = $("timeline-feed").querySelector(`.timeline-row[data-id="${timelineOpenId}"]`);
+    const open = $("timeline-scroll").querySelector(
+      `.timeline-row[data-id="${timelineOpenId}"][aria-expanded="true"]`
+    );
     if (open) closeTimelineRow(open);
   }
   timelineOpenId = row.id;
-  li.setAttribute("aria-expanded", "true");
+  el.setAttribute("aria-expanded", "true");
+  // A table row cannot hold a block: its detail is a row of its own with one
+  // cell across every column (`openTimelineTableDetail`). Everything inside
+  // that cell is what the feed builds, from the same function.
+  if (el.tagName === "TR") {
+    openTimelineTableDetail(el, row);
+    return;
+  }
   const detail = document.createElement("div");
   detail.className = "timeline-row-detail";
-  li.appendChild(detail);
+  el.appendChild(detail);
   openTimelineRowDetail(detail, row);
 }
 
-function closeTimelineRow(li) {
-  li.setAttribute("aria-expanded", "false");
-  li.querySelector(".timeline-row-detail")?.remove();
-  if (String(timelineOpenId) === li.dataset.id) timelineOpenId = null;
+function closeTimelineRow(el) {
+  el.setAttribute("aria-expanded", "false");
+  if (el.tagName === "TR") {
+    const next = el.nextElementSibling;
+    if (next && next.classList.contains("timeline-detail-row")) next.remove();
+  } else {
+    el.querySelector(".timeline-row-detail")?.remove();
+  }
+  if (String(timelineOpenId) === el.dataset.id) timelineOpenId = null;
 }
 
 async function openTimelineRowDetail(detail, row) {
@@ -24939,10 +25017,10 @@ function renderTimelineRowMedia(entry, box) {
 //: Guarded on the row itself being the target: a chip inside a row is its own
 //: `role="button"` with its own Enter, and an arrow pressed inside one should
 //: not steal the key from it.
-$("timeline-feed").addEventListener("keydown", (event) => {
+$("timeline-scroll").addEventListener("keydown", (event) => {
   const row = event.target.closest?.(".timeline-row");
   if (!row || event.target !== row) return;
-  const rows = [...$("timeline-feed").querySelectorAll(".timeline-row")];
+  const rows = [...$("timeline-scroll").querySelectorAll(".timeline-row")];
   const at = rows.indexOf(row);
   const go = (index) => {
     const next = rows[Math.max(0, Math.min(rows.length - 1, index))];
@@ -24955,6 +25033,12 @@ $("timeline-feed").addEventListener("keydown", (event) => {
   if (event.key === "ArrowUp") return go(at - 1);
   if (event.key === "Home") return go(0);
   if (event.key === "End") return go(rows.length - 1);
+  if (event.key === " " && selectMode && row.tagName === "TR") {
+    event.preventDefault();
+    const model = timelineById.get(Number(row.dataset.id));
+    if (model) setTimelineRowSelected(row, model, !selectedIds.has(model.id));
+    return;
+  }
   if (event.key === "Enter" || event.key === " ") {
     event.preventDefault();
     const model = timelineById.get(Number(row.dataset.id));
@@ -24998,6 +25082,263 @@ function shortDate(iso) {
     : date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
+//: **The table** (TIMELINE_PLAN Phase 2, decision 6). The same rows the feed
+//: draws, in the shape you want when the question is "which of these" rather
+//: than "what happened then": every column at once, sortable, and several rows
+//: at a time. It is a real `<table>`, so the columns are a header row a screen
+//: reader announces, the sort lives on the header cells where a person looks
+//: for it, and `aria-sort` says which way round it is.
+//:
+//: Switching views is a repaint of the array, never a fetch: the two views
+//: cannot disagree about what a search matched, because they read the same
+//: `timelineVisibleRows()`.
+function timelineViewMode() {
+  return localStorage.getItem("timeline-view") === "table" ? "table" : "feed";
+}
+
+// The columns, in the order decision 6 sets them out, with how each one sorts.
+// `kind` and the counts are the reason this is a table at all: they are facts
+// about a note that a feed row has no room for.
+const TIMELINE_COLUMNS = [
+  { key: "when", label: "Date", type: "time" },
+  { key: "title", label: "Title", type: "text" },
+  { key: "kind", label: "Kind", type: "text" },
+  { key: "category", label: "Category", type: "text" },
+  { key: "space", label: "Space", type: "text" },
+  { key: "tags", label: "Tags", type: "text" },
+  { key: "words", label: "Words", type: "number" },
+  { key: "links", label: "Links", type: "number" },
+];
+
+// Newest first is the timeline's own order, so it is the table's default too.
+let timelineSort = { key: "when", dir: "desc" };
+
+function timelineSortValue(row, key) {
+  if (key === "when") return row.when.getTime();
+  if (key === "tags") return row.tags.join(", ");
+  if (key === "kind") return row.kind === "board" ? "Map" : "Note";
+  if (key === "words" || key === "links") return row[key];
+  return row[key] || "";
+}
+
+function timelineSortedRows(rows) {
+  const { key, dir } = timelineSort;
+  const column = TIMELINE_COLUMNS.find((c) => c.key === key) || TIMELINE_COLUMNS[0];
+  const sign = dir === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    const left = timelineSortValue(a, key);
+    const right = timelineSortValue(b, key);
+    // A column the endpoint has not filled in yet (`words` and `links` are
+    // null on an old payload) sorts last in both directions rather than
+    // pretending to be zero, which would put every unknown note at one end and
+    // read as a fact.
+    if (left === null || left === undefined) return 1;
+    if (right === null || right === undefined) return -1;
+    if (column.type === "text") return sign * String(left).localeCompare(String(right));
+    return sign * (left - right);
+  });
+}
+
+function paintTimelineTable(rows) {
+  const body = $("timeline-table-body");
+  body.replaceChildren();
+  const filtered = rows.length !== timelineRows.length;
+  const column = TIMELINE_COLUMNS.find((c) => c.key === timelineSort.key);
+  $("timeline-count").textContent = rows.length
+    ? `${filtered ? `${rows.length} of ${timelineRows.length}` : rows.length} note${
+        rows.length === 1 ? "" : "s"
+      } · by ${(column ? column.label : "date").toLowerCase()}`
+    : "";
+  const sorted = timelineSortedRows(rows);
+  const fragment = document.createDocumentFragment();
+  for (const row of sorted) fragment.appendChild(timelineTableRow(row));
+  body.appendChild(fragment);
+
+  // The head says what it is sorted by, to the eye and to a screen reader.
+  for (const button of $("timeline-table-head").querySelectorAll(".timeline-sort")) {
+    const on = button.dataset.sort === timelineSort.key;
+    button.classList.toggle("is-on", on);
+    button.closest("th").setAttribute(
+      "aria-sort",
+      on ? (timelineSort.dir === "asc" ? "ascending" : "descending") : "none"
+    );
+  }
+  for (const cell of document.querySelectorAll(".timeline-col-select")) {
+    cell.classList.toggle("hidden", !selectMode);
+  }
+  applyTimelineRowTabOrder();
+}
+
+function timelineTableRow(row) {
+  const tr = document.createElement("tr");
+  tr.className = "timeline-row timeline-trow";
+  tr.dataset.id = row.id;
+  tr.dataset.kind = row.kind;
+  if (row.placedBy === "mentioned") tr.dataset.placed = "mentioned";
+  tr.tabIndex = -1;
+  tr.setAttribute("aria-expanded", "false");
+
+  // The tick box only exists while the mode is on, the way the Notes list's
+  // does: a column of empty boxes down a table nobody is selecting in is a
+  // column of noise.
+  const select = document.createElement("td");
+  select.className = `timeline-col-select${selectMode ? "" : " hidden"}`;
+  if (selectMode) {
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.className = "select-check";
+    check.checked = selectedIds.has(row.id);
+    check.setAttribute("aria-label", `Select ${row.title}`);
+    check.addEventListener("change", () => {
+      setTimelineRowSelected(tr, row, check.checked);
+    });
+    select.appendChild(check);
+  }
+  tr.appendChild(select);
+
+  const when = document.createElement("td");
+  const time = document.createElement("time");
+  time.dateTime = row.whenIso;
+  time.textContent = shortDate(row.whenIso);
+  time.title =
+    row.placedBy === "mentioned"
+      ? `“${row.phrase}” in this note meant ${shortDate(row.whenIso)}. Written ${shortDate(row.writtenAt)}.`
+      : `Written ${new Date(row.writtenAt).toLocaleString()}`;
+  when.appendChild(time);
+  tr.appendChild(when);
+
+  const title = document.createElement("td");
+  title.className = "timeline-col-title";
+  title.textContent = row.title;
+  title.title = row.title;
+  tr.appendChild(title);
+
+  const kind = document.createElement("td");
+  kind.className = "timeline-col-wide";
+  kind.textContent = row.kind === "board" ? "Map" : "Note";
+  tr.appendChild(kind);
+
+  const category = document.createElement("td");
+  category.className = "timeline-col-wide";
+  category.textContent = row.category || "";
+  tr.appendChild(category);
+
+  const space = document.createElement("td");
+  space.className = "timeline-col-wide";
+  space.textContent = row.space || "";
+  tr.appendChild(space);
+
+  const tags = document.createElement("td");
+  tags.className = "timeline-col-wide timeline-col-tags";
+  tags.textContent = row.tags.join(", ");
+  tags.title = row.tags.join(", ");
+  tr.appendChild(tags);
+
+  for (const key of ["words", "links"]) {
+    const cell = document.createElement("td");
+    cell.className = "timeline-col-wide timeline-col-number";
+    // An em dash is not allowed and a 0 would be a claim: a blank cell with a
+    // title is what "the endpoint did not say" looks like.
+    cell.textContent = row[key] === null || row[key] === undefined ? "" : String(row[key]);
+    if (row[key] === null || row[key] === undefined) cell.title = "Not known for this note";
+    tr.appendChild(cell);
+  }
+
+  tr.addEventListener("click", (event) => {
+    if (event.target.closest("a, button, input, textarea, .chip, img")) return;
+    if (window.getSelection()?.toString()) return;
+    if (selectMode) {
+      setTimelineRowSelected(tr, row, !selectedIds.has(row.id));
+      return;
+    }
+    toggleTimelineRow(tr, row);
+  });
+  if (selectedIds.has(row.id)) tr.setAttribute("aria-selected", "true");
+  return tr;
+}
+
+function setTimelineRowSelected(tr, row, on) {
+  if (on) selectedIds.add(row.id);
+  else selectedIds.delete(row.id);
+  tr.setAttribute("aria-selected", on ? "true" : "false");
+  const check = tr.querySelector(".select-check");
+  if (check) check.checked = on;
+  updateBatchCount();
+}
+
+// Opening a row in a table is a row of its own: a `<td>` spanning every
+// column, under the row it belongs to, which is the table's version of the
+// feed's detail box and uses the same builder.
+function openTimelineTableDetail(tr, row) {
+  const holder = document.createElement("tr");
+  holder.className = "timeline-detail-row";
+  const cell = document.createElement("td");
+  cell.colSpan = TIMELINE_COLUMNS.length + 1;
+  const detail = document.createElement("div");
+  detail.className = "timeline-row-detail";
+  cell.appendChild(detail);
+  holder.appendChild(cell);
+  tr.after(holder);
+  openTimelineRowDetail(detail, row);
+}
+
+//: The Select mode, in the Options menu because the row is at its
+//: seven-control ceiling. It is the app's one selection mode, not a second
+//: one: `enterSelectMode` clears the set, fills both bars and repaints both
+//: surfaces.
+function syncTimelineSelectUi() {
+  const table = timelineViewMode() === "table";
+  $("timeline-batch-bar").classList.toggle("hidden", !(selectMode && table));
+  $("timeline-select-btn").classList.toggle("is-on", selectMode);
+  $("timeline-select-btn").setAttribute("aria-pressed", String(selectMode));
+}
+
+$("timeline-select-btn").addEventListener("click", () => {
+  if (selectMode) exitSelectMode();
+  else enterSelectMode();
+});
+
+$("timeline-batch-tag").addEventListener("click", batchTag);
+$("timeline-batch-delete").addEventListener("click", batchDelete);
+$("timeline-batch-done").addEventListener("click", exitSelectMode);
+
+//: Sorting is a click on the column head, and clicking the column you are
+//: already sorted by turns it around. Time starts newest first and text starts
+//: A to Z, because those are the two orders a person means by "sort by this".
+$("timeline-table-head").addEventListener("click", (event) => {
+  const button = event.target.closest(".timeline-sort");
+  if (!button) return;
+  const key = button.dataset.sort;
+  const column = TIMELINE_COLUMNS.find((c) => c.key === key);
+  if (!column) return;
+  timelineSort =
+    timelineSort.key === key
+      ? { key, dir: timelineSort.dir === "asc" ? "desc" : "asc" }
+      : { key, dir: column.type === "text" ? "asc" : "desc" };
+  paintTimeline();
+});
+
+$("timeline-view-seg").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-timeline-view]");
+  if (!button) return;
+  const mode = button.dataset.timelineView;
+  if (mode === timelineViewMode()) return;
+  localStorage.setItem("timeline-view", mode);
+  syncTimelineViewSeg();
+  // A repaint, not a reload: `timelineRows` is already in memory and both
+  // views render from it.
+  paintTimeline();
+});
+
+function syncTimelineViewSeg() {
+  const mode = timelineViewMode();
+  for (const button of $("timeline-view-seg").querySelectorAll("[data-timeline-view]")) {
+    const on = button.dataset.timelineView === mode;
+    button.classList.toggle("active", on);
+    button.setAttribute("aria-pressed", String(on));
+  }
+}
+
 //: Scale is a repaint, not a request (see `timelineBucketKey`), and it is
 //: remembered the way the graph's layout is: which bucket suits a notebook is
 //: a property of the notebook rather than of one visit. "Auto" is stored like
@@ -25005,7 +25346,7 @@ function shortDate(iso) {
 //: its own headers without anyone touching the control.
 $("timeline-scale").addEventListener("change", (event) => {
   localStorage.setItem("timeline-scale", event.target.value);
-  paintTimelineFeed();
+  paintTimeline();
 });
 
 //: Grouping decides what the band filter offers, so it rebuilds the options
@@ -25014,7 +25355,7 @@ $("timeline-scale").addEventListener("change", (event) => {
 $("timeline-group").addEventListener("change", () => {
   timelineFilter = null;
   fillTimelineBandOptions();
-  paintTimelineFeed();
+  paintTimeline();
 });
 
 //: **The bands are a filter now, not lanes** (TIMELINE_PLAN decision 5). As
@@ -25024,14 +25365,14 @@ $("timeline-group").addEventListener("change", () => {
 $("timeline-band").addEventListener("change", (event) => {
   timelineFilter = event.target.value || null;
   syncTimelineFilterChip();
-  paintTimelineFeed();
+  paintTimeline();
 });
 
 $("timeline-filter-clear").addEventListener("click", () => {
   timelineFilter = null;
   $("timeline-band").value = "";
   syncTimelineFilterChip();
-  paintTimelineFeed();
+  paintTimeline();
 });
 
 const timelineDays = $("timeline-days");
@@ -25078,12 +25419,12 @@ $("timeline-jump-today")?.addEventListener("click", () => {
 let timelineSearchDebounceTimeout;
 $("timeline-search").addEventListener("input", () => {
   clearTimeout(timelineSearchDebounceTimeout);
-  timelineSearchDebounceTimeout = setTimeout(paintTimelineFeed, 150);
+  timelineSearchDebounceTimeout = setTimeout(paintTimeline, 150);
 });
 
 $("timeline-clear-search")?.addEventListener("click", () => {
   $("timeline-search").value = "";
-  paintTimelineFeed();
+  paintTimeline();
   $("timeline-search").focus();
 });
 

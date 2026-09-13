@@ -97,33 +97,44 @@
   background: var(--divider);
 }
 
+/* The row, in both views: one list-row step (`--row-h`, DESIGN.md's recipe
+   index) and one thing to press. A table row wears this class too, because the
+   keyboard, the tab order and "open in place" are the same behaviour in both
+   and they find their rows by it. */
 .timeline-row {
+  min-height: var(--row-h);
+  cursor: pointer;
+}
+
+/* **The layout is the feed's alone.** `display: grid` on a `<tr>` takes it out
+   of the table's own layout entirely, which is what it did while this rule was
+   unscoped: measured as a 128px row of stacked 47px cells beside a correctly
+   laid out 1,358px header. */
+.timeline-feed .timeline-row {
   position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-3);
-  min-height: var(--row-h);
   padding: var(--space-2) var(--space-3);
   /* A transparent border rather than none: a row that gains a border on hover
      would move every row below it by a pixel. */
   border: 1px solid transparent;
   border-radius: var(--radius-md);
-  cursor: pointer;
 }
 
-.timeline-row:hover {
+.timeline-feed .timeline-row:hover {
   background: var(--surface-2);
   border-color: var(--divider);
 }
 
 /* The same ring the Notes list's rows use for the same keyboard navigation. */
-.timeline-row:focus-visible {
+.timeline-feed .timeline-row:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-.timeline-row[aria-expanded="true"] {
+.timeline-feed .timeline-row[aria-expanded="true"] {
   background: var(--surface-2);
   border-color: var(--divider);
   align-items: start;
@@ -257,7 +268,7 @@
 
   /* An opened row takes the full width, or the note reads in a half-width
      column while the other half sits empty. */
-  .timeline-feed[data-density="dense"] .timeline-row[aria-expanded="true"] {
+  .timeline-feed[data-density="dense"] .timeline-feed .timeline-row[aria-expanded="true"] {
     grid-column: 1 / -1;
   }
 }
@@ -266,7 +277,7 @@
    title instead of squeezing it to nothing. Measured at 390: the title keeps
    246px of a 358px row rather than 96px. */
 @media (max-width: 40rem) {
-  .timeline-row {
+  .timeline-feed .timeline-row {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
@@ -274,6 +285,180 @@
     grid-column: 2;
     flex-wrap: wrap;
   }
+}
+
+/* --- Timeline: the table view (TIMELINE_PLAN.md Phase 2) --------------------
+   The same rows the feed draws, in the shape for "which of these" rather than
+   "what happened then". A real table, so the head is a head: sticky inside the
+   feed's own scrolling box, sortable from the column labels, and announced as
+   a header row rather than as eight more pieces of text. */
+
+/* **`table-layout: fixed`, and every column but the title has a width.**
+   Measured the other way round first: with the browser's own auto layout and a
+   `max-width: 0` on each cell (the usual ellipsis trick, which needs fixed
+   layout to mean anything), Chromium collapsed eight of the nine columns to
+   nothing and drew one readable column at 1440. Fixed layout is also what
+   makes the head's widths agree with the body's while the body scrolls under
+   it. The title is the one column with no width: it takes whatever is left. */
+.timeline-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--text-md);
+}
+
+.timeline-table th,
+.timeline-table td {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--divider);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-table th:nth-child(2) {
+  width: 8rem;
+}
+
+.timeline-table th:nth-child(4) {
+  width: 5rem;
+}
+
+.timeline-table th:nth-child(5) {
+  width: 9rem;
+}
+
+.timeline-table th:nth-child(6) {
+  width: 8rem;
+}
+
+.timeline-table th:nth-child(7) {
+  width: 11rem;
+}
+
+.timeline-table th:nth-child(8),
+.timeline-table th:nth-child(9) {
+  width: 5rem;
+}
+
+.timeline-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  /* Opaque base, then the card's own wash over it: `--card` is glass, and a
+     sticky head painted in it alone has the rows sliding through the labels.
+     Same composite the feed's bucket headers use. */
+  background-color: var(--bg);
+  background-image: linear-gradient(var(--card), var(--card));
+  border-bottom: 2px solid var(--accent-soft);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  padding: 0;
+}
+
+/* The sort control *is* the column label: a separate arrow button beside the
+   word would be a second thing to hit, and the label is where a person aims. */
+.timeline-sort {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--muted);
+  /* **Both, because a button in this app is a flex container.** `text-align`
+     alone changed nothing visible: measured as `text-align: left` on a button
+     whose label still drew in the middle of a 542px column, which is the same
+     centred-child trap this file's old note cards hit. `justify-content` is
+     what a flex box actually reads. */
+  text-align: left;
+  justify-content: flex-start;
+  cursor: pointer;
+}
+
+.timeline-sort:hover {
+  color: var(--ink);
+}
+
+.timeline-sort.is-on {
+  color: var(--ink);
+}
+
+/* Which way round it is, drawn from the `aria-sort` the head already carries,
+   so the mark and the announcement can never disagree. */
+.timeline-table th[aria-sort="ascending"] .timeline-sort::after {
+  content: " \2191";
+}
+
+.timeline-table th[aria-sort="descending"] .timeline-sort::after {
+  content: " \2193";
+}
+
+.timeline-table tbody tr {
+  cursor: pointer;
+}
+
+.timeline-table tbody tr:hover td {
+  background: var(--surface-2);
+}
+
+.timeline-trow:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.timeline-trow[aria-selected="true"] td {
+  background: var(--accent-soft);
+}
+
+.timeline-col-title {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Numbers line up on the right, which is the only way a column of them can be
+   compared at a glance. Written at the same weight as the rule above it
+   (`.timeline-table th, .timeline-table td`), which sets every cell to the
+   left and would otherwise win: measured as a Words column of left-ragged
+   figures. */
+.timeline-table th.timeline-col-number,
+.timeline-table td.timeline-col-number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-col-number .timeline-sort {
+  text-align: right;
+  justify-content: flex-end;
+}
+
+.timeline-col-select {
+  width: var(--control-h);
+}
+
+/* The detail row: one cell across every column, holding what the feed's own
+   detail box holds. */
+.timeline-detail-row > td {
+  max-width: none;
+  white-space: normal;
+  background: var(--surface-2);
+  padding: 0 var(--space-3) var(--space-3);
+}
+
+.timeline-detail-row .timeline-row-detail {
+  margin-top: 0;
+  border-top: 0;
+}
+
+/* **Below 600px the table is two columns** (decision 6). Eight columns on a
+   phone is either a horizontal scrollbar or eight unreadable slivers; date and
+   title are the two that answer "which note is this". */
+@media (max-width: 37.5rem) {
+  .timeline-table .timeline-col-wide {
+    display: none;
+  }
+
 }
 
 
@@ -809,6 +994,46 @@
 .seg-compact button {
   padding: 0.25rem 0.6rem;
   font-size: 0.8rem;
+}
+
+/* --- a segmented choice inside a dialog -----------------------------------
+   Reported: "also redesign that whiteboard and mindmap toggle in the popup,
+   its ugly", with a screenshot of the New board dialog showing a full-width
+   pill whose right half was empty.
+
+   `.seg` is `display: inline-flex`, which is right where it sits in a row
+   beside other controls. `.prompt-card` is a flex column with the default
+   `align-items: stretch`, and stretch beats inline: the *track* took the
+   card's whole width while the two buttons kept their content width, so the
+   control was a wide bar with two words shoved into its left end. Making the
+   buttons share the track is the fix rather than shrinking the track, because
+   two equal halves is what a two-option segmented control looks like
+   everywhere else in the app and it gives each option a target the width of
+   half the dialog.
+
+   `min-width: 0` on the buttons so a long option label (a translation, Large
+   text) shortens rather than pushing the track wider than the card. */
+.confirm-seg-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.confirm-seg-label {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.confirm-card .seg.confirm-seg {
+  display: flex;
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.confirm-card .seg.confirm-seg > button {
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: center;
 }
 
 /* (`.chat-skill-hint` lived here: the sentence of description that used to sit

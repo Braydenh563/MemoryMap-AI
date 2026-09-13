@@ -19,6 +19,21 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Six chat-surface reports. The user's bubble ran its words at 16px on a
+  diagonal gradient with a 12px glow under a white label, beside an answer at
+  14.72px; it is one flat accent surface, the answer's size, and a label in
+  the body's own ink. Every bubble and the action row under it carried a soft
+  8px shadow, three stacked in a band a few pixels tall; they lift by one
+  pixel now. The Jump to latest pill's hover was a translucent tint over the
+  transcript; it sits on an opaque ground. A bare URL the model writes shows
+  as its site and page ("goodreads.com / … / the-page") with the full address
+  as the tooltip, and a markdown link whose words are its own address gets the
+  same. The dashboard's Continue pill ends in an ellipsis instead of stopping
+  mid-word. The popup agent shows the writing caret while an answer streams,
+  folds its tool calls under "Finished N steps" as the Chat tab does, and its
+  "Opened" badges start at the left with an ellipsis instead of being cut at
+  both ends.
+
 - The lock screen could fail to appear on a slow first start. The embedding
   warm-up began importing torch the instant the server was up, and that import
   holds the interpreter for seconds on a small machine, long enough for the

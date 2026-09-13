@@ -8721,6 +8721,32 @@ function expandAngleAutolinks(text) {
   );
 }
 
+//: What a bare URL is shown as: the host without its `www.`, then the path
+//: shortened to its last meaningful segment, so
+//: `https://www.goodreads.com/series/319859-he-who-fights-with-monsters`
+//: reads "goodreads.com / …he-who-fights-with-monsters". The query string and
+//: fragment are dropped from the label (never from the link): they are
+//: tracking and position, not identity. A string the URL parser refuses comes
+//: back as it was, so a malformed address is still shown rather than hidden.
+const READABLE_URL_SEGMENT = 40;
+
+function readableUrl(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return url;
+  }
+  const host = parsed.hostname.replace(/^www\./i, "");
+  const segments = parsed.pathname.split("/").filter(Boolean);
+  if (!segments.length) return host;
+  let last = decodeURIComponent(segments[segments.length - 1]);
+  if (last.length > READABLE_URL_SEGMENT) last = last.slice(0, READABLE_URL_SEGMENT - 1) + "\u2026";
+  //: An ellipsis stands in for the middle of a deep path, so "site / … / page"
+  //: still says there was more between them.
+  return segments.length > 1 ? `${host} / \u2026 / ${last}` : `${host} / ${last}`;
+}
+
 function renderInlineMarkdown(element, text, terms, compact = false, options = {}) {
   const {
     dismissible = true,
@@ -8893,7 +8919,14 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
             a.target = "_blank";
             a.rel = "noopener noreferrer";
           }
-          highlightInto(a, linkText, terms);
+          //: `[https://x.com/a/b](https://x.com/a/b)` is how a model writes a
+          //: bare URL when it has been told to use markdown: the same address
+          //: twice, and the same wall of slug on screen. Shown as the bare
+          //: form is (see `readableUrl` below); a link whose words differ from
+          //: its address is a real label and is left alone.
+          const labelIsTheUrl = linkText.trim() === linkUrl.trim();
+          if (labelIsTheUrl) a.title = linkUrl;
+          highlightInto(a, labelIsTheUrl ? readableUrl(linkUrl) : linkText, terms);
           element.appendChild(a);
         }
       } else {
@@ -8908,7 +8941,17 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
         a.href = bareUrl;
         a.target = "_blank";
         a.rel = "noopener noreferrer";
-        highlightInto(a, bareUrl, terms);
+        //: The address is the tooltip; the words are the site and the path.
+        //: Asked for with a screenshot of an answer that tabulated five
+        //: results by their raw URLs, each one a hundred characters of
+        //: `https://www.` and slug, overflowing the bubble sideways: "is it
+        //: possible to better render the links that the ai writes??" A model
+        //: writes bare URLs constantly and nobody reads a URL; they read where
+        //: it goes. `readableUrl` keeps the host and a shortened path, which
+        //: is what a browser's own address bar shows, and the full address
+        //: stays one hover (and the click) away.
+        a.title = bareUrl;
+        highlightInto(a, readableUrl(bareUrl), terms);
         element.appendChild(a);
       } else {
         const span = document.createElement("span");
@@ -39626,7 +39669,55 @@ async function cmdPaletteAsk(text) {
   //: (01-forms-settings.css). It goes on the bubble that is filling, not on a
   //: spinner parked elsewhere, so what pulses is the thing being waited for.
   agentMsg.className = "msg assistant is-generating";
-  agentMsg.appendChild(typingDots());
+  //: **What the tools did, as the same fold the Chat tab shows.** Reported:
+  //: "tool calls dont show" in the popup agent. The palette answered every
+  //: tool event with one word on the status line ("Working…") and threw the
+  //: event away, so a turn that read three notes and edited one looked, once
+  //: it had finished, exactly like a turn that had done nothing. The Chat
+  //: tab's answer bubble folds its calls under "Finished N steps"
+  //: (`agent-step-group`); this is that fold, fed by the same `toolChip`
+  //: builder, so a call reads the same in both places. It is created on the
+  //: first tool event rather than up front: a turn with no calls has nothing
+  //: to fold and should not show an empty one.
+  let stepsFold = null;
+  let stepCount = 0;
+  const foldSummary = (done) => {
+    if (!stepsFold) return;
+    const word = stepCount === 1 ? "step" : "steps";
+    setLabel(
+      stepsFold.querySelector("summary"),
+      done ? `ph:check-circle Finished ${stepCount} ${word}` : `ph:circle-notch Working: ${stepCount} ${word}`,
+    );
+  };
+  const addStep = (event) => {
+    if (!stepsFold) {
+      stepsFold = document.createElement("details");
+      stepsFold.className = "agent-step agent-step-group";
+      const summary = document.createElement("summary");
+      summary.className = "agent-step-group-summary";
+      const body = document.createElement("div");
+      body.className = "agent-step-group-body";
+      stepsFold.append(summary, body);
+      agentMsg.insertBefore(stepsFold, answerBox);
+    }
+    stepCount += 1;
+    stepsFold.querySelector(".agent-step-group-body").appendChild(
+      toolChip(event?.label || "Tool call", event?.ok !== false, event),
+    );
+    foldSummary(false);
+  };
+  //: **The answer has a box of its own, and the caret rides that box.**
+  //: Reported: "there's no writing caret when the message is streaming in
+  //: the popup agent". The Chat tab's caret is `.is-streaming > :last-child
+  //: ::after` (01-forms-settings.css) on the answer's own element; the
+  //: palette rendered its answer straight into the bubble, whose last child
+  //: is the action row, so the class had nowhere to sit that would put the
+  //: caret after the words. The answer box is the last thing before the
+  //: actions, and `is-streaming` comes off with `is-generating` below.
+  const answerBox = document.createElement("div");
+  answerBox.className = "bubble-answer is-streaming";
+  answerBox.appendChild(typingDots());
+  agentMsg.appendChild(answerBox);
   cmdPaletteResults.appendChild(agentMsg);
   //: The answer's own row, added now and reading `answerRaw` at click time: 
   //: the text does not exist yet, and binding a copy of an empty string is
@@ -39706,6 +39797,7 @@ async function cmdPaletteAsk(text) {
         if (event.usage_source === "estimated") stats.usage_source = "estimated";
       },
       onTool: (event) => {
+        addStep(event);
         // Something visible while a tool runs, so a long silence reads as
         // work rather than as nothing happening.
         //: `setLabel`, not `textContent`. A tool event's label carries this
@@ -39740,11 +39832,13 @@ async function cmdPaletteAsk(text) {
       onAnswer: (delta) => {
         answered = true;
         answerRaw += delta;
-        renderMarkdown(agentMsg, answerRaw);
+        renderMarkdown(answerBox, answerRaw);
         cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
       },
     });
-    if (!answered) agentMsg.textContent = "(no answer)";
+    answerBox.classList.remove("is-streaming");
+    foldSummary(true);
+    if (!answered) answerBox.textContent = "(no answer)";
     else {
       //: Linked once, at the end, rather than on every delta: mid-stream the
       //: text can be "note id 4" on its way to "note id 43", and a link built
@@ -39780,15 +39874,17 @@ async function cmdPaletteAsk(text) {
     cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
   } catch (err) {
     if (err?.name === "AbortError") {
-      agentMsg.textContent = answerRaw || "(stopped)";
+      answerBox.textContent = answerRaw || "(stopped)";
     } else {
       // The message, not a euphemism for it. A failing model's real reason
       // arrives here (see `describe_http_error` in ai/ollama_client.py) and
       // "Error communicating with agent." threw all of it away.
-      agentMsg.textContent = err?.message || "The agent could not be reached.";
+      answerBox.textContent = err?.message || "The agent could not be reached.";
       agentMsg.classList.add("error");
     }
   } finally {
+    answerBox.classList.remove("is-streaming");
+    foldSummary(true);
     agentMsg.classList.remove("is-generating");
     cmdPaletteRun = null;
     cmdPaletteBusy(false);

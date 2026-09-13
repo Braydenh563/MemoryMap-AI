@@ -64,14 +64,6 @@ open and half finished stuff?"), which is a decision, not work.
     up the repo and make sure there are no left over temp files and that ther
     eis no dross slowing the repo down or taking up space".
 
-161. **Mid-work drop, 2026-09-13, verbatim (the owner), the popup agent, three
-    screenshots (an answer with a "Note #67" link, the "Opened 1 item" badge
-    reading "ct I, Scene I Two noble knights of wit, let us partak", and the
-    round's chips).** "there's no writing caret when the message is streaming
-    in the popup agent, tool calls dont show. the responses are poor for ux
-    with the user, and opened items badges have centered text that gets cut
-    off at either side."
-
 160. **Mid-work drop, 2026-09-13, verbatim (the owner), the Files sub-tab, one
     screenshot (a PDF row: the name on one line, "PDF, 121 KB, added" and the
     Read and Open reader controls on the next, starting under the name's left
@@ -92,34 +84,6 @@ open and half finished stuff?"), which is a decision, not work.
     this popup be displayed better??" The writing-intelligence agent was mid
     way through this panel when it was cut off; its uncommitted answers-inline
     CSS is in the tree.
-
-155. **Mid-work drop, 2026-09-13, verbatim (the owner), the chat's "Jump to
-    latest" pill, one zoomed screenshot (the pill translucent over a line of
-    body text).** "make the hover state of the jump to latest button and
-    potentially others it shares a common style with opaque or pearly instead
-    of clear because it clashes with the stuff behind it".
-
-154. **Mid-work drop, 2026-09-13, verbatim (the owner), chat answers, one
-    screenshot (a table of five raw URLs in a "Link" column, overflowing the
-    bubble with a horizontal scrollbar).** "is it possible to better render the
-    links that the ai writes??"
-
-153. **Mid-work drop, 2026-09-13, verbatim (the owner), chat bubbles, one
-    screenshot (an assistant answer, its Sources fold, the Next chips and the
-    five action buttons under it).** "also there seems to be excessive shadow
-    around the ai message bubbles and popup buttons below them."
-
-152. **Mid-work drop, 2026-09-13, verbatim (the owner), the user's chat
-    bubble, one screenshot ("YOU" with an avatar ring over "what are the
-    commonalities in my notes??", dark on the accent fill).** "also the text in
-    the user message bubble is ugly and doesnt look professional for somre
-    reason I cant place".
-
-151. **Mid-work drop, 2026-09-13, verbatim (the owner), the command palette's
-    "Jump to" chip, one screenshot (the chip reading "Why did the student eat
-    his homework? Beca", cut at the pill's edge with no ellipsis).** "the open
-    where you last left off button doesnt cut off with an ellipse".
-
 
 142. **Mid-work drop, 2026-09-13, verbatim (the owner), the document editor's
     writing intelligence (two screenshots).** "the suggestions box at the

@@ -225,7 +225,10 @@
   padding: 0.15rem;
   border-radius: var(--radius-md);
   background: var(--panel);
-  box-shadow: var(--shadow-sm);
+  /* A hairline, not `--shadow-sm`: this row hangs two pixels under a bubble
+     that has a shadow of its own, and the two stacked into the "excessive
+     shadow" the owner reported (03-dashboard-widgets.css, `.msg`). */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
   opacity: 0;
   /* Not clickable while invisible, an unhovered bubble must not swallow a
      click aimed at the text under this. */
@@ -5091,8 +5094,37 @@ mark.lightbox-hit {
   cursor: pointer;
 }
 
+/* **Opaque on hover, because the pill floats over text.** Reported with a
+   zoomed screenshot of the pill mid-hover with a line of the answer showing
+   through it: "make the hover state of the jump to latest button and
+   potentially others it shares a common style with opaque or pearly instead
+   of clear because it clashes with the stuff behind it". `--accent-soft` is a
+   translucent tint meant for a control sitting on a surface; over a
+   transcript it let the words underneath through. The tint is stacked over
+   the same opaque ground the resting pill uses, so the hover is the same
+   colour it was and nothing behind it reaches the eye. */
 .chat-jump-latest:hover {
-  background: var(--accent-soft);
+  background:
+    linear-gradient(var(--accent-soft), var(--accent-soft)),
+    var(--modal-bg-opaque);
+}
+
+/* The chip's text lives in the span `setNoteLabel` builds, a flex child of a
+   `<button>`, and this app's buttons centre their content. A label longer than
+   the chip was therefore cut at both ends (reported with a screenshot reading
+   "ct I, Scene I Two noble knights of wit, let us partak"): the button's own
+   `text-overflow` cannot reach a child, so the child gets it, and the row
+   starts at the left like every other list row here. */
+.cmd-source-row {
+  justify-content: flex-start;
+}
+
+.cmd-source-row > span,
+.cmd-source-row > .ph-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* The dots only exist while a turn is running; an empty span must not open a

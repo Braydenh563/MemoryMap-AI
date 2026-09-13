@@ -1383,6 +1383,30 @@ header#top-bar select,
   display: none;
 }
 
+/* **A pill that carries a note's opening words ends in an ellipsis.**
+   Reported with a screenshot of the Continue pill reading "Why did the
+   student eat his homework? Beca", the words simply stopping at the pill's
+   edge: "the open where you last left off button doesnt cut off with an
+   ellipse". The pill is a flex row (icon, text) and `text-overflow` on the
+   button never reaches the span the words are in; the span itself has to be
+   the thing that is too narrow, and a flex child's automatic minimum is its
+   content, so it is not narrow until told it may be. The label inside it is a
+   block for the same reason: an inline span has no width of its own to run
+   out of. */
+.quick-link-continue {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.quick-link-continue .quick-link-text,
+.quick-link-continue .quick-link-label {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* A skill costs a model round-trip, so it is marked rather than merely listed
    - the dotted edge is the same "this runs something" cue the chat's ⚡ group
    uses. */
@@ -2233,17 +2257,51 @@ header#top-bar select,
   }
 }
 
+/* **A bubble sits on the transcript; it does not float over it.** Reported
+   with a screenshot of an answer, its Sources fold and the action row under
+   it: "there seems to be excessive shadow around the ai message bubbles and
+   popup buttons below them". Measured in the dark theme: every bubble carried
+   `--shadow-sm` (0 2px 8px at 35% black), the user's bubble a 12px accent glow
+   on top of that, and the action row its own `--shadow-sm` two pixels below
+   the bubble's, so three soft shadows stacked in a band a few pixels tall.
+   The bubbles are already told apart by fill and border; the shadow was
+   saying it a third time. A hairline is kept so a bubble still lifts off a
+   translucent panel by one pixel, which is the amount a card in this app
+   lifts (`--shadow-xs` where it exists, the same figure written out here). */
 .msg {
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
   line-height: 1.55;
   animation: msg-in 0.18s ease-out;
 }
 
-/* Give the two voices real visual identity rather than two grey boxes. */
+/* Give the two voices real visual identity rather than two grey boxes.
+
+   **The user's words at the same size and rank as the answer's.** Reported:
+   "the text in the user message bubble is ugly and doesnt look professional
+   for some reason I cant place". Measured against the assistant bubble beside
+   it: the user's body ran at 16px where the answer's ran at `--text-md`
+   (14.72px), on a diagonal accent-to-violet gradient with a 12px glow, with a
+   white 85% "YOU" label over the same lavender that carries near-black body
+   text. Three things the answer bubble does not do, and none of them named
+   by the reader because all of them are small. One flat accent surface, the
+   body at the answer's size, and the label in the same ink as the body at
+   reduced strength, so the two bubbles read as two voices in one typeface
+   rather than one voice and one advert. */
 .msg.user {
   border-radius: var(--radius) var(--radius) var(--radius-sm) var(--radius);
-  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 78%, #7c3aed));
-  box-shadow: 0 2px 12px color-mix(in srgb, var(--accent) 32%, transparent);
+  background: var(--accent-surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
+}
+
+.msg.user .msg-body {
+  /* The answer body's own size (`.msg.assistant .bubble-answer` below writes
+     it as 0.92rem, which is `--text-lg`): the two voices at one size. */
+  font-size: var(--text-lg);
+}
+
+.msg.user .msg-role {
+  color: var(--on-accent);
+  opacity: 0.72;
 }
 
 .msg.assistant {

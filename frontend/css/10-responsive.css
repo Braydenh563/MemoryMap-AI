@@ -940,3 +940,31 @@ header#top-bar,
     background: var(--accent-soft);
   }
 }
+
+/* --- band 4: the settings sheet's head may wrap, but not be squashed ------
+
+   `touch.js` at 320x844, the only finding left in the band after the bar:
+   `#settings-nav-back` and `#settings-close` both land on `#settings-search`
+   at y=86, so the two controls that leave a settings section were unreachable
+   on the narrowest phone the shell holds. Clean at 360 and 390.
+
+   Measured: at 320 the head row (`.row.space-between`: the title, then Back,
+   Forward, the history button and Close) wraps onto two lines, and the title
+   takes 24px of them while the control row takes 44. Its box stays 36px tall.
+   It is a flex item in the card's own column with the card capped at 88vh, so
+   the head shrinks to make room for the body below it, and the 44px control
+   row hangs 27px past the bottom of a 36px box, over the search field that
+   starts at y=81.5. Both controls are the right size and are drawn where you
+   see them; the field is simply painted after them.
+
+   `flex: 0 0 auto`, which is a head's own height rather than what is left
+   over. Only in this band: the same squash happens at every width (the
+   control row is 44px in a 36px head at 390 too) and is invisible above 360
+   because the head does not wrap, so the general fix belongs with whoever
+   owns the settings surface rather than in a responsive file. */
+@media (max-width: 599.98px) {
+
+  #settings-modal > .modal-card > .row.space-between {
+    flex: 0 0 auto;
+  }
+}

@@ -159,6 +159,24 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Every image in a document's Live view drew "no longer in this notebook" over
+  a file that was still there. The Live view's image widget set the raw
+  `/media/…` path, and an `<img>` cannot send an unlock header, so the load
+  answered 401 and the app's missing-media handler replaced it. It goes through
+  `mediaSrc` now, like every other image in the app.
+
+- The Timeline's automatic scale looks at the days you wrote on, not at how
+  many things are in range. A week of writing with two hundred reminders due in
+  it was being drawn in month buckets, so the whole week sat in one column: it
+  keeps day buckets now, and a notebook spread over years still buckets by month.
+  The count line under the dock says "items" rather than "notes", because the
+  feed holds documents, boards and reminders too.
+
+- Back and Close in Settings can be pressed on a 320px phone. The head of the
+  sheet wrapped onto two lines there while keeping the height of one, so both
+  controls were drawn over the search field below them and every tap reached
+  the field instead.
+
 - The Timeline's rows are called `rows`. The endpoint has called its list
   `notes` since before it held anything else, and it holds documents, boards
   and reminders now, so `notes[3]` could be a reminder. `notes` still carries

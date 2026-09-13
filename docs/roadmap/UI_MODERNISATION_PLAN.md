@@ -657,11 +657,12 @@ different problem than the list says.
   10-responsive.css; `dockTabBar`, app.js). Measured at 390, 360 and 320: five
   columns, every caption whole, one row, flush to the bottom edge, no sideways
   scroll. The block is in HISTORY.md.
-- **Touch is already clean.** `touch.js` with `hasTouch` and `isMobile`: 17
-  surfaces, 0 findings at 390 and at 360. At 320 two controls in the Settings
-  sheet still cover `#settings-search` (`#settings-nav-back` and
-  `#settings-close`, both at y=86), which is the one touch finding left in the
-  band and is not in any item above.
+- **Touch is clean across the band.** `touch.js` with `hasTouch` and
+  `isMobile`: 17 surfaces, 0 findings at 390, 360 and 320. The last of them was
+  the settings sheet's head being squashed to 36px around a 44px control row
+  (fixed 2026-09-13, 10-responsive.css); the same squash is there at every
+  width and is invisible above 360 because the head does not wrap, so the
+  general fix is open work for whoever owns that surface.
 - **The sheets: one recipe, two still hand-built.** `openSheet` and DESIGN.md's
   "A sheet" row landed with the More sheet, and `tests/test_ui_recipes.py`
   freezes the two that predate it (`.sidebar-sheet-open` for the three

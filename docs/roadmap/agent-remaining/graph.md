@@ -208,3 +208,10 @@ below 820 where `errors.js` measured the Notes sidebar at 825 inside 763).
 next: INBOX 183's graph half, `frontend/graph.js` `renderGraphPopupMedia`
 (line ~3432) and `renderGraphPopupInfo`: the image/file popup, and one line
 of help copy saying what an entity is.
+
+done: e12726f, INBOX 183's graph half (the popup draws markdown-named
+pictures and files, a file card carries its size, and one sentence says what
+an entity is in three places; `scratchpad/ui-sweeps/graphmedia.js`).
+next: graph.md's own "Open, found and not fixed" and "Not verified" lines,
+the Groups row's control-left-of-label, touch and pinch on the map at 390,
+and `gcWorldFor`'s constant at 35 and 300 notes.

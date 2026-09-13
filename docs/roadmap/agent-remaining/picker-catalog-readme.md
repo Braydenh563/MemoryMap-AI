@@ -84,3 +84,19 @@ Gates: `bash scripts/gate.sh --changed`, plus
   worktree: the Timeline rewrite in flight there has taken the element out of
   `index.html` while `app.js` still looks it up. Not this agent's change, and
   not touched; it belongs to whoever is mid-way through that plan.
+
+## Closed by the orchestrator, 2026-09-13: the `<rect> ... "NaN"` errors
+
+Left here as "not reproduced at human speed, so not attributed". Checked on
+the head carrying every commit of this session, against a seeded notebook:
+
+- all seven tabs at human speed (900ms apart): **0 console errors**;
+- then three rounds of all seven at 40ms apart, which is what produced them in
+  the catalogue sweep: **0 new**;
+- and a walk of every element's every attribute afterwards looking for the
+  string `NaN`, which is the trap this app has hit before (two missing
+  appearance defaults once wrote `NaN` into CSS and flattened every card):
+  **none**.
+
+So it is an artifact of that sweep's own driving, not a fault in the app.
+Nothing to fix; recorded so the next reader does not spend a session on it.

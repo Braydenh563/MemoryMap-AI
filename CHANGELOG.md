@@ -168,6 +168,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- `SpaceResponse`'s Pydantic V1-style `class Config: from_attributes = True`
+  warned `PydanticDeprecatedSince20` on every request that returned a space.
+  Moved to `model_config = ConfigDict(from_attributes=True)`; it was the only
+  class-based config left in the codebase (checked all 43 `BaseModel`
+  subclasses). Verified with
+  `pytest tests/test_api*.py tests/test_whiteboard.py tests/test_spaces.py
+  tests/test_space_delete_cascades.py -W error::pydantic.warnings.PydanticDeprecatedSince20`,
+  clean.
+
 - Every image in a document's Live view drew "no longer in this notebook" over
   a file that was still there. The Live view's image widget set the raw
   `/media/…` path, and an `<img>` cannot send an unlock header, so the load

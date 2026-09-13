@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 
@@ -28,14 +28,13 @@ class SpaceUpdate(BaseModel):
     hidden_from_all: bool | None = None
 
 class SpaceResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     name: str
     icon: str
     #: True when this space's contents are kept out of "All spaces".
     hidden_from_all: bool = False
-    
-    class Config:
-        from_attributes = True
 
 #: The longest a note may be, and the longest a tag may be.
 #:

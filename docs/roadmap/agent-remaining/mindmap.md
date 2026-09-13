@@ -15,6 +15,77 @@
 > 2026-09-12"). Everything below was checked in a real Chromium against the
 > running app, not read off the source.
 
+## The ninth run (INBOX 200 and 201): the control audit, first
+
+This is the brief for everything under it. Measured, not read off the
+source: `scratchpad/ui-sweeps/mapaudit.js` opens a map of **twelve topics**
+(a trunk, four branches, seven below them) at 1440x900 and enumerates every
+control that is actually on screen or one press away, skipping the option
+buttons `enhanceSelect` adds so a four-value picker counts as one control.
+
+### What a user meets, per surface
+
+| Surface | Controls | What they do |
+| --- | --- | --- |
+| Top bar `#wb-topbar` | **13 visible**, 47 more inside its five menus (**60** total) | Back, which board, rename, new board, find, overview, then Insert (8), Edit (7), Arrange (10), View (17), Board (5), then the library toggle and full screen. |
+| Bottom rail `#wb-tool-group` | **16** in six sections | Move (select, hand, lasso), Topic (add root, add child, add sibling), Branch (fold, branch colour, focus here), Layout (the layout picker, tidy), Connect (straight link, curved link), Edit (delete tool, undo, redo). |
+| Node strip `#wb-map-strip` | **13**, in a box of 810x38 | Bold, italic, core, text size, alignment, topic colour, link to a page, icon, shape, spine, line thickness, line dash, line arrowhead. |
+| Node ring `#wb-map-radial` | **8** slots, 28x28 each, **no label drawn** (each slot's `textContent` is empty; the caption span is empty at rest) | Add child, add sibling, fold, tidy this branch, copy this branch, add from the library, sever, reset to branch. |
+| Link ring `#wb-map-link-radial` | **8** slots | Reverse, label, curve, elbow, straight, dash, line colour, cut. |
+| The node itself | **7** buttons, 4 of them showing on a leaf | Link chip (hidden unless the node points somewhere), count badge (hidden unless folded), fold chevron (hidden unless it has children), text-size grip, resize grip, `+` add child, add from the library. |
+| Context menu | **8** items, and **none of them reachable on a map node** | Copy, cut, add a child topic, add from the library, focus here, bring to front, send to back, delete. `wbOpenContextMenuFor` routes a single map node to the ring and returns before the menu is ever built. |
+| Keyboard | **17** bindings | Tab child, Shift+Tab outdent, Enter sibling, F2 edit, C fold, F focus, Delete subtree, four arrows walk the tree, Ctrl+D, Ctrl+Z, Ctrl+Y, Ctrl+A, Ctrl+Alt+C/V, `[`/`]`, Escape. |
+
+**112 controls on one surface**, before the context menu's eight.
+
+### The duplicates: one action, three or more doors
+
+| Action | Reachable from | Count |
+| --- | --- | --- |
+| Add a child | rail Topic, ring, the node's own `+`, Tab, context menu | **5** |
+| Fold this branch | rail Branch, ring, the node's chevron, C | **4** |
+| A colour | rail "Branch colour", strip "Topic colour", link ring's wheel, context menu's "reset the colour" | **4** |
+| Delete | top bar Edit menu, rail's delete tool, Delete key, context menu | **4** |
+| Add a sibling | rail Topic, ring, Enter | **3** |
+| Add from the library | the node's own row, ring, context menu | **3** |
+| Focus here | rail Branch, F, context menu | **3** |
+| Cut a topic free of its parent | ring "sever", link ring "cut" (the same edit from the two ends of one line) | **2** |
+| Dash the line into a topic | strip, link ring | **2** |
+| Tidy | rail (the whole map), ring (this branch) | **2** |
+| Reset to the branch | ring, context menu (colour only) | **2** |
+
+### The orphans: one door, and not an obvious one
+
+- **Everything on the link ring** (reverse, label, curve, elbow, straight,
+  line colour): right-click a line, which nothing on screen says you can do.
+- **Copy this branch**: the node ring only.
+- **Add a top-level topic** (the only way to a second trunk, a §12.0
+  decision): the rail's Topic section only.
+- **Open every folded branch** and **what this map is made of** (the
+  perspective legend): inside the View menu only.
+- **The node's context menu, entire**: built, wired, and dead on a map node.
+
+### What is on a map that a map has no use for
+
+The Insert menu's eight (sticky, text box, image, note card, rectangle,
+circle, arrow, connector), the Arrange menu's ten (align, distribute, z
+order: a laid-out tree owns x and y), and View's board background and grid
+style. **Twenty-one board controls in the top bar of a map**, against the
+rail's own count of thirteen board-only tools already hidden there.
+
+### The judgement this audit produces
+
+Three of the four complaints in INBOX 200 are visible in the table above.
+"What controls are available and where" has no rule: colour is in three
+places, add-a-child in five, and the one control that makes a second trunk
+is in none of the obvious ones. "How the item radials are used" is the ring
+of eight unlabelled 28x28 icons, which is a memory test. And the ring is the
+**only** door to six of its own actions while it silently eats the context
+menu that was meant to be the discoverable one.
+
+The fix is a place per action, written into MINDMAP_PLAN §12.5, and it is
+the rest of this run.
+
 ## Closed, with where the numbers are
 
 | Was | Now |

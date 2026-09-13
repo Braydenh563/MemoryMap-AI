@@ -836,31 +836,41 @@ progress {
   gap: 0.4rem;
 }
 
-/* **The title and the actions are one flex item each, not four.** Reported
-   "at 100% and 95% zoom on my laptop, the ai answer with the ai model badge
-   and the retry, copy and dictate read out loud buttons are misalligned
-   because of wrap": at 1280px (half the already-narrow chat-grid column) a
-   real model id ("answered by llama3.1:8b-instruct-q4_K_M", nothing exotic)
-   measured wrapping to *three* lines: "AI answer" alone, the badge flush
-   left on its own line, the buttons flush right on a third, none of them
-   aligned with any other. Four independent flex children let the browser
-   fragment them into whatever fit; grouped, `.answer-title` wraps or
-   doesn't as one unit, so the worst case still reads as two rows (title
-   above, actions right-aligned beneath it) and never three unrelated ones.
-   `min-width: 0` is required on a flex item for its text content to be
-   allowed to wrap/shrink at all, rather than forcing the row wider. */
+/* **The answer head does not wrap: the badge shrinks instead.**
+   Two reports, one shape. First: "at 100% and 95% zoom on my laptop, the ai
+   answer with the ai model badge and the retry, copy and dictate read out loud
+   buttons are misalligned because of wrap", answered by grouping the label and
+   the badge so the head broke into two tidy rows rather than three ragged
+   ones. Then, with a screenshot of that two-row result: "these buttons and
+   badges wrap onto a new line and I want them restructured some other way".
+
+   Measured before this rule (`scratchpad/ui-sweeps/askhead.js`, at 1440, 1024
+   and 820 with the reported `granite4.1:3b` and with a real long id,
+   `hf.co/unsloth/Qwen2.5-14B-Instruct-GGUF:Q4_K_M`): the actions sat 27px
+   below the label at every width even with the short name, and with the long
+   one the badge alone wrapped to two lines at 1440 and to three at 1024, where
+   the head stood 91.6px tall against a 21.2px line of text.
+
+   So the head takes the dock grammar's three zones (identity, one fact, the
+   actions), `nowrap`, and the badge is the only zone that may shrink, because
+   it is the only one whose width is not ours to choose: a model id is whatever
+   the person pulled.
+
+   **The three declarations that decide it live in 08-consistency.css**, family
+   8, not here. Each of them has to beat a rule that comes later than this file:
+   `flex-wrap` against `.panel-head` (07) and `.chat-half h3` (above), the
+   badge's `display` against `.chip` (further down this same file), and the
+   buttons' height against the icon-only floor at the end of 07. Every one of
+   those ties is on equal specificity and was measured being lost here first;
+   08 is the file that exists to win them by source order honestly. What stays
+   here is only where the zones sit. */
 .answer-title {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-/* A long Ollama model id (e.g. hf.co/…) must wrap, not force the row wider. */
-#answered-by {
-  max-width: 100%;
-  overflow-wrap: anywhere;
+  /* Not `1 1 auto`: the label is two words and they are never the thing that
+     should give way. The badge beside it is. */
+  flex: 0 0 auto;
 }
 
 /* It sits in the ask row now (see index.html on why it left the results
@@ -1091,19 +1101,20 @@ progress {
   color: var(--accent);
 }
 
-/* margin-left:auto pushes the buttons to the right edge of the heading;
-   they wrap onto their own line when the title/chip get long, and never
-   overlap the answer box the way the old float did. */
+/* margin-left:auto pushes the buttons to the right edge of the heading. They no
+   longer wrap onto their own line when the badge gets long: `.answer-head`
+   above is `nowrap` and the badge ellipsises instead, so this group keeps its
+   own width whatever answered the question. */
 .answer-actions {
   margin-left: auto;
   display: inline-flex;
-  gap: 0.4rem;
+  gap: var(--space-2);
+  flex: 0 0 auto;
 }
 
-.answer-actions button {
-  padding: 0.15rem 0.5rem;
-  font-size: 0.8rem;
-}
+/* Their height is family 8 in 08-consistency.css: the icon-only floor at the
+   end of 07 is (0,1,1) like this selector and comes later, so a height set here
+   never reached the screen (measured). */
 
 /* --- entry lists ---------------------------------------------------------- */
 .entry-list {

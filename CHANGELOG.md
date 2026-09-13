@@ -171,6 +171,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The popup agent looks like the rest of the app. The Ctrl+Shift+A surface had
+  no title and no visible way out (Escape and a click on the backdrop both
+  worked, and neither is something you can see), its four example prompts wrapped
+  three-then-one, its content was inset 8px further left than every other dialog
+  in the app, and its two internal hairlines were drawn in two different weights.
+  It now opens with the same head every panel here has, the examples sit in two
+  columns that are the same shape at every width, and the insets and the rules
+  are the card's own.
+
 - The quick sketch pad's controls are grouped and named. The toolbar was one
   pill holding four runs of unequal density: twelve controls at five heights
   across five rows at 1440 and at 1024, with the pen, highlighter and eraser
@@ -299,6 +308,21 @@ below). Versioning is `0.x` while the app stabilises.
   Notes has a matching "Forgotten first" sort.
 
 ### Fixed
+
+- The Ask sub-tab's answer head no longer wraps. The "AI answer" label, the
+  model badge and the Retry / Copy / read-aloud buttons were four items
+  competing for one width with no rule about which of them gives way: measured
+  at 1440, 1024 and 820 the actions always sat a line below the label, and with
+  a real long model id the head grew to 91.6px around a 21.2px line of text. It
+  is one 36px row at all three widths now, whatever answered the question: the
+  badge is the only zone that shrinks, it carries the model id alone with
+  "answered by ..." on its tooltip, and the three actions became an all-icon
+  group on the app's own control height.
+
+- Opening the page reader from a PDF in the lightbox closes the lightbox. The
+  reader opened underneath it (`.lightbox` is z-index 1020, the reader is a
+  modal at 1010), so every click landed on the lightbox's dismiss backdrop and
+  the reader could not be reached until the lightbox was closed by hand.
 
 - Searching for a percent sign found every note in the notebook. `%` and `_`
   are wildcards in the query the search builds, and nothing in the search box

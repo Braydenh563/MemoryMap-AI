@@ -11015,15 +11015,31 @@ function renderAskHint(box, hint) {
   box.appendChild(card);
 }
 
+//: **The badge in the answer head, and the sentence behind it.**
+//: The chip ellipsises now rather than wrapping the head onto a second line
+//: (01-forms-settings.css, `.answer-model`, records the measurements), and an
+//: ellipsis cuts the end off a model id, which is where the useful part of one
+//: lives: `…Qwen2.5-14B-Instruct-GGUF:Q4_K_M`. So the full phrase always goes
+//: on the `title` even when the visible text is complete, and the visible text
+//: is as short as the fact allows: "answered by" spent about 100px of a 356px
+//: column saying what a chip beside the words "AI answer" already says.
+function setAnsweredBy(text, full) {
+  const chip = $("answered-by");
+  chip.textContent = text;
+  //: Removed rather than emptied: an empty `title` is still a title, and a
+  //: tooltip that opens blank reads as a broken one.
+  if (full) chip.title = full;
+  else chip.removeAttribute("title");
+}
+
 function renderChatMeta(meta) {
   $("search-mode").textContent = SEARCH_MODE_LABELS[meta.search_mode] || meta.search_mode;
   // "offline" only when Ollama is genuinely down, not merely because a
   // question found nothing to answer from.
-  $("answered-by").textContent = meta.answered_by
-    ? `answered by ${meta.answered_by}`
-    : meta.ollama_running === false
-      ? "chat model offline"
-      : "";
+  if (meta.answered_by) setAnsweredBy(meta.answered_by, `Answered by ${meta.answered_by}`);
+  else if (meta.ollama_running === false) {
+    setAnsweredBy("chat model offline", "The chat model is not running, so nothing answered this");
+  } else setAnsweredBy("", "");
   const rawList = $("raw-results");
   rawList.replaceChildren();
   if (meta.raw_results.length === 0 && meta.search_mode === "none") {
@@ -11791,7 +11807,10 @@ async function viewAskHistoryTurn(id) {
   $("ai-answer-grounding").classList.add("hidden");
   $("thinking-box").classList.add("hidden");
   $("ai-thinking").textContent = "";
-  $("answered-by").textContent = `asked ${relativeTime(turn.created_at)}`;
+  //: A remembered turn says *when* rather than *what by*: the model that
+  //: answered it may not even be installed any more. The tooltip carries the
+  //: same fact spelled out, since the chip is ellipsised.
+  setAnsweredBy(`asked ${relativeTime(turn.created_at)}`, `Asked ${relativeTime(turn.created_at)}`);
   $("search-mode").textContent = SEARCH_MODE_LABELS[turn.search_mode] || turn.search_mode;
   const rawList = $("raw-results");
   rawList.replaceChildren();
@@ -38404,6 +38423,12 @@ cmdPaletteOverlay.addEventListener("click", (e) => {
     cmdPaletteOverlay.classList.add("hidden");
   }
 });
+
+// The head's Close. Escape and a click on the backdrop both already closed this
+// surface and neither is visible, which is the half of "redesigned with the
+// consistent modern look" that is not paint: every other dialog in the app
+// offers a control you can see and this one asked you to know a key.
+$("command-palette-close").addEventListener("click", () => toggleAgentPalette());
 
 //: **The agent bar keeps a conversation, and says so.** Reported: "the popup
 //: agent needs more features, capability, and learnability, there's no way to

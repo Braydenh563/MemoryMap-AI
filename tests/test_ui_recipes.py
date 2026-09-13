@@ -20,6 +20,7 @@ a fix removes an entry, a new offender fails the build.
 from __future__ import annotations
 
 import re
+from html.parser import HTMLParser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -503,3 +504,127 @@ def test_a_tool_palette_is_all_sections_or_none() -> None:
             "palette of many tools is `.wb-tool-section` wrapping a "
             "`.wb-tool-section-label` and a `.wb-tool-section-row`)"
         )
+
+
+class _PanelHeads(HTMLParser):
+    """Every `.panel-head` in the page, with the chips and buttons inside it.
+
+    A stack walker rather than a regex: a head holds nested spans, and what
+    matters is which element a button or a chip is *inside*, not which line it
+    sits on.
+    """
+
+    VOID = {"input", "img", "br", "hr", "meta", "link"}
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.stack: list[dict] = []
+        self.heads: list[dict] = []
+
+    def handle_starttag(self, tag, attrs) -> None:
+        a = dict(attrs)
+        classes = set((a.get("class") or "").split())
+        head = None
+        if "panel-head" in classes:
+            head = {
+                "id": a.get("id") or "",
+                "classes": classes,
+                "chips": 0,
+                "buttons": [],
+            }
+            self.heads.append(head)
+        else:
+            for frame in reversed(self.stack):
+                if frame["head"] is not None:
+                    head = frame["head"]
+                    break
+        if head is not None and "panel-head" not in classes:
+            if "chip" in classes:
+                head["chips"] += 1
+            if tag == "button":
+                head["buttons"].append(
+                    {
+                        "id": a.get("id") or "(no id)",
+                        "classes": classes,
+                        "label": a.get("aria-label") or "",
+                    }
+                )
+        if tag not in self.VOID:
+            self.stack.append({"tag": tag, "head": head if "panel-head" in classes else None})
+
+    def handle_endtag(self, tag) -> None:
+        for index in range(len(self.stack) - 1, -1, -1):
+            if self.stack[index]["tag"] == tag:
+                del self.stack[index:]
+                return
+
+
+def _panel_heads() -> list[dict]:
+    parser = _PanelHeads()
+    parser.feed((ROOT / "frontend" / "index.html").read_text(encoding="utf-8"))
+    return parser.heads
+
+
+def test_a_panel_head_is_identity_one_fact_and_actions_that_do_not_wrap() -> None:
+    """DESIGN.md's recipe index, the row for a panel head.
+
+    Reported twice about the same head, the Ask sub-tab's "AI answer": first
+    "the ai answer with the ai model badge and the retry, copy and dictate read
+    out loud buttons are misalligned because of wrap", then, about the tidier
+    two-row result that answered it, "these buttons and badges wrap onto a new
+    line and I want them restructured some other way".
+
+    The recipe is the dock grammar applied to a panel head: identity, then at
+    most one fact, then the actions, and the row does not wrap. What this lint
+    holds is the two halves a future head is most likely to get wrong, because
+    each of them looks harmless on its own:
+
+    - **One chip.** A head's width is decided by the facts in it, and a second
+      variable-length fact is a second thing with no rule about which of them
+      gives way, which is precisely how the reported head came apart.
+    - **One kind of control.** DESIGN.md, from the HIG: a group is all icons or
+      all text, never mixed. The reported head was mixed (Retry and Copy
+      carried labels, the speak button did not), and taking the labels off is
+      what let the row fit a 356px column at 1024 (measured,
+      `scratchpad/ui-sweeps/askhead.js`). An icon with no `aria-label` is not a
+      control, so that is checked with it.
+
+    The `nowrap` itself is checked in the stylesheet: it is one declaration and
+    it has to be in 08-consistency.css, because `.chat-half h3` sets
+    `flex-wrap: wrap` at (0,1,1) and a bare class in an earlier file loses to
+    it whatever the source order (measured: the head stayed 88px tall).
+    """
+    heads = _panel_heads()
+    assert heads, "no .panel-head found: this lint is looking at the wrong markup"
+    for head in heads:
+        name = head["id"] or "+".join(sorted(head["classes"] - {"panel-head"})) or "a .panel-head"
+        assert head["chips"] <= 1, (
+            f"{name} carries {head['chips']} chips. A panel head states one fact; "
+            "a second one is a second claim on a width nobody has ruled on "
+            "(DESIGN.md, the recipe index)"
+        )
+        labelled = [b for b in head["buttons"] if "icon-only" in b["classes"] or "icon-button" in b["classes"]]
+        if head["buttons"]:
+            assert len(labelled) == len(head["buttons"]), (
+                f"{name} mixes icon-only and labelled buttons: "
+                + ", ".join(b["id"] for b in head["buttons"] if b not in labelled)
+                + " carry words. A group is all icons or all text (DESIGN.md, from the HIG)"
+            )
+        for button in labelled:
+            assert button["label"], (
+                f"{name}: {button['id']} is an icon with no aria-label, which is not a control"
+            )
+
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    head_rule = next(
+        (body for selector, body in _rules(css) if "h3.answer-head" in selector),
+        None,
+    )
+    assert head_rule is not None, (
+        "the answer head's rule left 08-consistency.css. It has to be in the last "
+        "stylesheet and it has to name the element: `.chat-half h3` sets "
+        "flex-wrap: wrap at (0,1,1)"
+    )
+    assert "flex-wrap: nowrap" in head_rule, (
+        "the answer head wraps again. The badge ellipsises; the row does not break"
+    )

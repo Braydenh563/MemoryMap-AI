@@ -1993,3 +1993,121 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   background: var(--chip-bg);
   border-color: var(--ghost-btn-border-hover);
 }
+
+/* ---------------------------------------------------------------------------
+   8. A panel head is identity, one fact, then the actions, and it does not
+      wrap
+   ---------------------------------------------------------------------------
+
+   Reported twice about the same head, the Ask sub-tab's "AI answer". First:
+   "at 100% and 95% zoom on my laptop, the ai answer with the ai model badge
+   and the retry, copy and dictate read out loud buttons are misalligned because
+   of wrap", which was answered by grouping the label with the badge so the row
+   broke into two tidy lines rather than three ragged ones. Then, with a
+   screenshot of that two-line result: "these buttons and badges wrap onto a new
+   line and I want them restructured some other way".
+
+   Measured before this family (`scratchpad/ui-sweeps/askhead.js`, at 1440, 1024
+   and 820, with the reported model name and with a real long one,
+   hf.co/unsloth/Qwen2.5-14B-Instruct-GGUF:Q4_K_M):
+
+     width  model name   head height   actions vs label
+     1440   granite      55.6px        27px lower
+     1440   long         73.6px        45px lower
+     1024   granite      55.6px        28px lower
+     1024   long         91.6px        64px lower
+     820    granite      55.6px        28px lower
+     820    long         73.6px        46px lower
+
+   A 21.2px line of text in a 91.6px head is not a head that wrapped, it is a
+   head that came apart. The cause is that the row had four items competing for
+   one width and no rule about which of them gives way, so the browser decided,
+   differently at every width.
+
+   The recipe, which is the dock grammar (DESIGN.md) applied to a panel head:
+   **identity, then at most one fact, then the actions; the row never wraps; and
+   the fact is the only zone allowed to shrink**, because it is the only one
+   whose width is not the app's to choose (a model id is whatever the person
+   pulled). An ellipsised fact with the whole phrase on its tooltip is a
+   deliberate loss of the tail of a string; a head that reflows every time the
+   model changes is not a design at all.
+
+   Each declaration here has to be in this file rather than beside its family in
+   01: `flex-wrap` loses to `.panel-head` (07) and `.chat-half h3`, the badge's
+   `display` loses to `.chip`, and the buttons' height loses to the icon-only
+   floor at the end of 07. All three ties are on equal specificity, all three
+   were measured being lost, and this is the file whose job is to win them by
+   coming last.
+
+   `.chat-half h3.answer-head` rather than `.answer-head` alone, and the reason
+   is worth the two extra words: `.chat-half h3` (01) declares `flex-wrap: wrap`
+   at (0,1,1), which beats a bare class at (0,1,0) whatever the file order, so
+   the first version of this rule changed nothing at all and was measured doing
+   it (the head still stood 88px tall with a long model id). Source order only
+   settles a tie; it does not win an argument against a more specific rule. */
+.chat-half h3.answer-head {
+  flex-wrap: nowrap;
+  gap: var(--space-2);
+}
+
+/* **A zone can only shrink if every box above it lets it.** With the head set
+   to `nowrap` the badge still refused to ellipsise and the head measured 669.4px
+   inside a 356.4px column at 1024: a grid item's `min-width` is `auto`, which
+   floors it at its own max-content contribution, so the column simply grew past
+   its track and took the card and the page with it. `min-width: 0` on the two
+   halves is what hands the shrinking back to the badge, and it is the half of
+   this recipe that is easiest to leave out, because nothing about the symptom
+   points at the grid. */
+.chat-grid > .chat-half {
+  min-width: 0;
+}
+
+/* **The one shrinking zone.** `display: inline-block` overrides `.chip`'s
+   `inline-flex`: `text-overflow` applies to a block container's own text, not
+   to the anonymous flex item that text becomes inside a flex box, so an
+   ellipsis on the flex version silently does nothing. Nothing is ever appended
+   to this chip (`renderChatMeta` writes `textContent` and no icon), so it loses
+   no icon slot by leaving flex layout.
+
+   `text-transform: none` because `.card h3` is the app's eyebrow recipe and is
+   uppercase, and a model id's own case is part of the id: `Q4_K_M` and `q4_k_m`
+   are different strings to whoever typed one of them. */
+.answer-model {
+  display: inline-block;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* **The actions are on the app's control height, not on a padding of their
+   own.** They measured 28px at a 12.8px font, which is `--target-min`'s floor
+   rather than a height anyone chose: the two rem values that produced it said
+   nothing about the row they were in. `--control-h-lg`, the height every head
+   row in the app takes (`.library-head` borrowed it first, for the same
+   complaint one card over), and never `--control-h`, which has no root value
+   and resolves to whichever surface a rule lands inside (see family 1). */
+.answer-actions button {
+  min-height: var(--control-h-lg);
+  min-width: var(--control-h-lg);
+}
+
+/* **This head joins family 4 while we are here**, and it pays for itself in the
+   measurement above. `.answer-title` set its own `gap: 0.4rem` and the sparkle
+   also carried `.ph-lead`'s `margin-inline-end: 0.35em`, the exact
+   double-counting family 4 was written for: 6.4 + 4.8 = 11.2px between an icon
+   and the two words it leads, against the app's 6.4px everywhere else. Taking
+   the margin off is 4.8px back in a row that was four pixels short of fitting
+   `granite4.1:3b` uncut at 1024, so the ellipsis is now reserved for ids that
+   genuinely are long. */
+.answer-title {
+  gap: var(--space-2);
+}
+
+.answer-title > .ph-lead {
+  margin-inline-end: 0;
+}

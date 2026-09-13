@@ -568,24 +568,18 @@ def _boot_and_swap(window) -> None:
         # rather than a tick bought to fill the bar. It is on screen for the
         # navigation only, but it is the difference between a launch that
         # ends on a finished list and one that ends on four of five.
+        # Ticked, then swapped immediately. A quarter-second hold was tried
+        # here first, to make this window's own finished list visible, and the
+        # owner asked for it back: "remove the delay on the other splash
+        # loading screen in the main window". They are right, and the reason is
+        # that the hold was solving the wrong window's problem. The list a
+        # person actually watches finish is the launcher's splash, which now
+        # ticks its own last step before it closes
+        # (`_finish_splash_start_step`); by the time this page could show
+        # anything, the app is what they are waiting for. Nothing is lost: the
+        # step is still marked done, so a `Details` pane or a log read after
+        # the fact tells the truth about what happened.
         _mark_start_step_done(window)
-        # **And it stays on screen long enough to be seen.** Reported a third
-        # time: "the splash bar goes to 4/5 but not 5/5 before it loads." The
-        # first two rounds were real bugs in start.bat; this one is not a bug
-        # at all, which is why it survived them. The launcher owns four steps
-        # and hands the fifth to this window on purpose (its own comment: two
-        # Starts in one list would be worse), so the PowerShell splash always
-        # ends on four of five, and the tick above happens on the line before
-        # `load_url` replaces the page. The completed list is therefore correct
-        # and on screen for a frame or two, which is indistinguishable from
-        # never happening.
-        #
-        # A quarter of a second, once, at the end of a launch that has just
-        # spent seconds on a pip check: cheap enough not to argue about, and
-        # the difference between a launch that ends on a finished list and one
-        # that appears to give up a step short. Not conditional on anything:
-        # the swap is the only thing waiting on it.
-        time.sleep(0.25)
         window.load_url(f"http://{HOST}:{PORT}")
         _focus_window(window)
     else:

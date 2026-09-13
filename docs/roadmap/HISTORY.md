@@ -23408,3 +23408,98 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     the right places. The PDF rasteriser extra (pypdfium2) had to be installed
     in the sandbox to get a PDF into the lightbox's page view at all.
 
+139. **Mid-work drop, 2026-09-13, verbatim (the owner), the keyboard chord
+    guide.** "also make these popup options when I press m, actual clickable
+    nav buttons"
+
+    Screenshot of the "m then" sheet: two labelled groups, GO TO (Dashboard,
+    Notes, Chat, Graph, Library, Timeline, Reminders) and DO (Settings, Quick
+    sketch, Meeting notes), each drawn as a pill with its key in a chip. They
+    look exactly like buttons and are not: the sheet only listens for the
+    second keystroke.
+
+    **Fixed `9eb9af5`.** Ten rows, every one a real button, all tabbable; clicking Graph moves the tab and hides the guide, and `m` then `n` still goes to Notes.
+137. **Mid-work drop, 2026-09-13, verbatim (the owner), the launcher.**
+    "also the splash ps1 graphic still only loads up to step 3/5 and then it
+    loads, the bar doesnt actually reacy 5/5"
+
+    The PowerShell launcher's progress bar stops at 3 of 5 and the app opens
+    from there, so the last two steps either never report or are done after
+    the window is handed over. Either way the bar is telling the truth about
+    nothing, which is worse than no bar.
+
+    **Fixed `6cfbbe6` and `577e971`.** Two causes. Two exits from the update block (no git, not a checkout) left without ticking the step, and the relaunched child re-ran the seed line and overwrote its own parent's finished Update with an active one. Every launch path the owner listed is now a case in `tests/test_launch_status.py`.
+136. **Mid-work drop, 2026-09-13, verbatim (the owner), one screenshot of the
+    boards dropdown.** "and when I press the boards dropdown to change
+    boards, I cant tell which one is a whiteboard and which one is a
+    mindmap"
+
+    The screenshot shows two rows, "bubble tea (4 items)" and "Default
+    board", with nothing to say which kind either is. The whiteboard tab
+    holds both kinds and they open into different surfaces.
+
+    **Fixed `7c4ce50`.** The picker groups by kind and could only group boards that say which kind they are; every board that predates maps reads as a whiteboard. The View menu now carries the switch the route has accepted all along.
+135. **Mid-work drop, 2026-09-13, verbatim (the owner), one screenshot of the
+    whiteboard View menu.** "the whoteboard view dropdown is STILL BROKEN
+    FIX IT, IT CANT BE THAT HARD"
+
+    Third report on this control. The screenshot shows the menu open with
+    only its "LOOK" header, the Background row and the Grid row visible, cut
+    off mid-row with a scroll thumb at the top of a tall track, so most of
+    the menu is unreachable without scrolling inside a panel that does not
+    look scrollable.
+
+    **Fixed `c76cb8b`.** Not a placement bug, which is why two placement fixes did not help: 714px of content on a map board in a 272px column. Two columns, 453px tall, nothing clipped at 900, 700, 640 or 600.
+133. **Mid-work drop, 2026-09-13, verbatim (the owner).** "the opens a note
+    you opened or edited most recently button doesnt update and just shows
+    my latest note"
+
+    The Continue control is meant to be "where you were", and it is showing
+    "what is newest", which are the same thing only until you open something
+    old.
+
+    **Fixed `208235b`.** There was no "opened" timestamp at all, only a count; `last_opened_at` is stamped on the same path under the same bin guard, and the pill takes whichever of opened, edited and created is later.
+132. **Mid-work drop, 2026-09-13, verbatim (the owner), two screenshots of
+    the Chat tab, one at phone width and one at desktop.** "also there needs
+    to be more responsive design, especially for the chat page and main chat
+    panel. the bottom chat dock is horrendous and takes up half the screen
+    on mobile"
+
+    In the phone screenshot the composer dock is four stacked rows (the four
+    icon buttons and Send; Skills; Web and Plan; Ask, Agent and the gear)
+    filling roughly the bottom third, with the empty-state text squeezed
+    above it, and the chat head's title and model name overlap
+    ("New cha" over "granite4.1:3b"). The desktop screenshot shows the same
+    head overlap at full width.
+
+    **Fixed `0775b28`.** Dock 321px (38% of the window) to 168px (20%), transcript 278x239 at left 82 to 330x392 at left 30, measured at 360, 390, 600, 700, 819 and 1440 with no sideways scroll at any of them.
+130. **Mid-work drop, 2026-09-13, verbatim (the owner), two screenshots of
+    the selection kebab.** "when I highlight text and the popup kebab button
+    appears, the first time I click it, a little collapsed line appears
+    below it, then I need to click the button to close the popup and reopen
+    it for it to actually show, also the popup sitll has the left corner
+    screen flicker before it shows in the right place."
+
+    First screenshot: a thin empty strip where the menu should be. Second:
+    the menu drawn correctly on the second open. Two bugs in one control,
+    the second of which (a frame at the top left before it is positioned)
+    has been reported before.
+
+    **Fixed `3dc125b`.** `.menu-flip-up` is `top: auto; bottom: calc(100% + 4px)`, and on a menu that has escaped to `<body>` that `100%` is the viewport: measured, the menu went 303px to 15px when the class was applied by hand. The clamp leaves an escaped menu alone. The flicker was the menu being revealed before it was positioned; it is measured under `visibility: hidden` now.
+124. **Mid-work drop, 2026-09-13, verbatim (the owner), on the note capture
+    tab (one screenshot, the Capture a thought panel at desktop width).**
+    "on the note capture tab, the title and main note textbox have a large
+    border on them, also the dictate a note button begins with a microphone
+    icon and the word dictate, then the word dictate disappears and stays
+    like that after I click record and end it."
+
+    Two things, both visible in the screenshot: `#note-title` and the
+    editor pane below the formatting toolbar are each drawn with a thick
+    near-white outline, which no other input in this app has; and the
+    "Dictate" button in the "Add to this note" row loses its label
+    permanently after one record-and-stop cycle (three crops sent: the
+    label present, the button mid-record as a bare stop square, then the
+    button afterwards as a bare microphone).
+
+    **Fixed `bfd04ad`.** The border was `border: none` leaving the width at its initial `medium` (3px) for the Appearance rule to make visible again; `border: 0` stores the width. The Dictate label is read once before the first `setLabel` and restored after, and the chat mic stays icon-only.
+

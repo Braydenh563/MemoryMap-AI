@@ -34,16 +34,6 @@ never lost to the smaller stuff.
     group that is a slider with a bare numeral rather than a row of controls.
     Sent back to the agent that built it.
 
-139. **Mid-work drop, 2026-09-13, verbatim (the owner), the keyboard chord
-    guide.** "also make these popup options when I press m, actual clickable
-    nav buttons"
-
-    Screenshot of the "m then" sheet: two labelled groups, GO TO (Dashboard,
-    Notes, Chat, Graph, Library, Timeline, Reminders) and DO (Settings, Quick
-    sketch, Meeting notes), each drawn as a pill with its key in a chip. They
-    look exactly like buttons and are not: the sheet only listens for the
-    second keystroke.
-
 138. **Mid-work drop, 2026-09-13, verbatim (the owner), the README.** "and
     also the screenshots on the readme page need updating and they need to
     show more parts of the application than what is there."
@@ -51,34 +41,6 @@ never lost to the smaller stuff.
     The shots predate most of this session's surfaces (the docks, the
     documents editor, the mind maps, the timeline), and there are fewer of
     them than the app has places worth showing.
-
-137. **Mid-work drop, 2026-09-13, verbatim (the owner), the launcher.**
-    "also the splash ps1 graphic still only loads up to step 3/5 and then it
-    loads, the bar doesnt actually reacy 5/5"
-
-    The PowerShell launcher's progress bar stops at 3 of 5 and the app opens
-    from there, so the last two steps either never report or are done after
-    the window is handed over. Either way the bar is telling the truth about
-    nothing, which is worse than no bar.
-
-136. **Mid-work drop, 2026-09-13, verbatim (the owner), one screenshot of the
-    boards dropdown.** "and when I press the boards dropdown to change
-    boards, I cant tell which one is a whiteboard and which one is a
-    mindmap"
-
-    The screenshot shows two rows, "bubble tea (4 items)" and "Default
-    board", with nothing to say which kind either is. The whiteboard tab
-    holds both kinds and they open into different surfaces.
-
-135. **Mid-work drop, 2026-09-13, verbatim (the owner), one screenshot of the
-    whiteboard View menu.** "the whoteboard view dropdown is STILL BROKEN
-    FIX IT, IT CANT BE THAT HARD"
-
-    Third report on this control. The screenshot shows the menu open with
-    only its "LOOK" header, the Background row and the Grid row visible, cut
-    off mid-row with a scroll thumb at the top of a tall track, so most of
-    the menu is unreachable without scrolling inside a panel that does not
-    look scrollable.
 
 134. **Mid-work drop, 2026-09-13, verbatim (the owner), one screenshot of the
     Tools and features dialog.** "the tools and features popup content is
@@ -91,27 +53,6 @@ never lost to the smaller stuff.
     coverage question: the dialog says "105 things MemoryMap can do", and a
     great deal has been built since that list was last touched.
 
-133. **Mid-work drop, 2026-09-13, verbatim (the owner).** "the opens a note
-    you opened or edited most recently button doesnt update and just shows
-    my latest note"
-
-    The Continue control is meant to be "where you were", and it is showing
-    "what is newest", which are the same thing only until you open something
-    old.
-
-132. **Mid-work drop, 2026-09-13, verbatim (the owner), two screenshots of
-    the Chat tab, one at phone width and one at desktop.** "also there needs
-    to be more responsive design, especially for the chat page and main chat
-    panel. the bottom chat dock is horrendous and takes up half the screen
-    on mobile"
-
-    In the phone screenshot the composer dock is four stacked rows (the four
-    icon buttons and Send; Skills; Web and Plan; Ask, Agent and the gear)
-    filling roughly the bottom third, with the empty-state text squeezed
-    above it, and the chat head's title and model name overlap
-    ("New cha" over "granite4.1:3b"). The desktop screenshot shows the same
-    head overlap at full width.
-
 131. **Mid-work drop, 2026-09-13, verbatim (the owner), one screenshot of
     the Settings logs page.** "can you also redesign the top dock at the top
     of the settings logs page to be more consistent with the rest of the
@@ -121,18 +62,6 @@ never lost to the smaller stuff.
     segmented control, two selects and a filter box on the first, and a
     Follow switch, a "live" dot, Copy all, Support bundle and Clear on the
     second, none of it on the `.dock` grammar every other tab head uses.
-
-130. **Mid-work drop, 2026-09-13, verbatim (the owner), two screenshots of
-    the selection kebab.** "when I highlight text and the popup kebab button
-    appears, the first time I click it, a little collapsed line appears
-    below it, then I need to click the button to close the popup and reopen
-    it for it to actually show, also the popup sitll has the left corner
-    screen flicker before it shows in the right place."
-
-    First screenshot: a thin empty strip where the menu should be. Second:
-    the menu drawn correctly on the second open. Two bugs in one control,
-    the second of which (a frame at the top left before it is positioned)
-    has been reported before.
 
 129. **Mid-work drop, 2026-09-13, verbatim (the owner), two screenshots.**
     "also note links have inline md not rendered or suppressed, when an ai
@@ -199,21 +128,6 @@ never lost to the smaller stuff.
     - "also I want the popup agent better redesigned with the consistent
       modern look"
     - "same with the meeting notes popup"
-
-124. **Mid-work drop, 2026-09-13, verbatim (the owner), on the note capture
-    tab (one screenshot, the Capture a thought panel at desktop width).**
-    "on the note capture tab, the title and main note textbox have a large
-    border on them, also the dictate a note button begins with a microphone
-    icon and the word dictate, then the word dictate disappears and stays
-    like that after I click record and end it."
-
-    Two things, both visible in the screenshot: `#note-title` and the
-    editor pane below the formatting toolbar are each drawn with a thick
-    near-white outline, which no other input in this app has; and the
-    "Dictate" button in the "Add to this note" row loses its label
-    permanently after one record-and-stop cycle (three crops sent: the
-    label present, the button mid-record as a bare stop square, then the
-    button afterwards as a bare microphone).
 
 114. **Mid-work drop, 2026-09-12 afternoon, verbatim (the owner), six
     reports across five screenshots.** In order as sent:

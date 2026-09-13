@@ -344,18 +344,33 @@ which is its own slow cost when the next session reads it. The same three sympto
 console are the signature: one real error, then `X is not defined` and
 `Cannot access Y before initialization` from everything declared after it.
 
-**Now (2026-09-12 night, Opus orchestrating, the owner asleep, the order
-"finish absolutely everything from the plan" and, after it, "just repeat,
-improve ui, improve ux, fix bugs, fix security flaws, poke holes in the
-application for fixing"):** two agents in flight, which is the cap. One has
-DOCUMENTS Phase 4, the connected document (backlinks with context and
-unlinked mentions, block references, outline drag and breadcrumbs, the
-Ctrl+K palette with a generated shortcut sheet, daily notes and templates),
-starting by confirming Phase 3 items 4 and 5 really landed and moving their
-Built blocks to HISTORY. The other has WHITEBOARD Phase 4 with MINDMAP
-Phases 4 and 5 (root placement, edges that follow drags, Tidy measured at 30
-nodes) and one standing question: the whiteboard drag lag, unattributed
-after three passes, to be measured with a profile or declared unreproduced.
+**Now (2026-09-13, Opus orchestrating, the owner awake and flagging reports
+live, the order "file and log all my requests so you dont miss anything ...
+fix them all and then finish the rest of the pr").** Three agents have been
+through their first briefs; one is on a second pass. What the owner flagged
+today is INBOX 124 to 140, and most of it is closed: the capture panel's 3px
+border, the Dictate label, the writing dictionary (which was overwriting the
+whole saved list on the first add after any reload), the `#` leaking into
+`[[wiki link]]` labels, the `apiPagedList` crash that killed the Notes tab at
+boot, the Continue pill, the whiteboard View menu (714px of content in a 272px
+column, now two columns at 453px), board kinds, the selection kebab (a flip
+class collapsing an escaped menu from 303px to 15px), the Tools and features
+alignment, the splash bar's two separate causes, the chat on a phone (dock 38%
+to 20% of the window), and the chord guide's pills becoming real buttons.
+
+**Still open from that batch:** the spelling popup's "wide gap", which measures
+flush with the word here (0px horizontal, 4px below) and is therefore NOT
+reproduced, with `scratchpad/ui-sweeps/spellanchor.js` committed so the next
+report starts from a number.
+
+**The trap this session found, and it matters for the PR:** every CI run on
+this branch is coming back `cancelled`, not `failed` and not `success`. Four
+writers (the orchestrator and three agents) push often enough that each push
+cancels the run in flight, so **the test suite has not completed on any head
+since the failure at `0a7c2ab`**, which was fixed but never confirmed by a
+finished run. CodeQL completes and passes. Before this PR closes, the pushes
+have to stop long enough for one CI run to finish, or the suite has to be run
+locally end to end (HANDOVER done-when item 7 already says the latter).
 
 **The container restarted mid-session** (2026-09-12 ~20:00). Both agents were
 killed with their work committed, and were relaunched with continuation

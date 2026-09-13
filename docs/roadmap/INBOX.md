@@ -74,6 +74,18 @@ measured or built in earlier commits and is marked there.
 
 ## Open items
 
+208. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the popup
+    agent's foot (screenshot: the "Use the open note" toggle with its label
+    wrapped to two lines, "Nothing open to use (open a note, document, board
+    or map first)", beside a "Start over" button whose caption also wraps
+    to two lines).** "can you fix the ui of and redesign the ui of these
+    buttons at the bottom of the popup agent??" The foot row
+    (`.command-palette-foot`): the disabled state's copy is too long for a
+    toggle's label (one short line, the long reason behind the toggle's
+    `title` or a `data-help-for`), and Start over is an icon-only ghost
+    button with a tooltip, or a menu item, not a two-line pill. Owner:
+    chrome agent, with 205.
+
 207. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the header
     (screenshot: the header's five icon buttons: bell, magic wand, '?',
     theme, gear).** "move the help bot to the bottom bar instead of having

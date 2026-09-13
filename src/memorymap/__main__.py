@@ -425,10 +425,64 @@ def _close_launch_splash() -> None:
     path = os.environ.get("MM_SPLASH_FILE")
     if not path:
         return
+    _finish_splash_start_step(path)
     try:
         os.remove(path)
     except OSError as exc:
         logger.debug("couldn't close the launch splash: %s", exc)
+
+
+def _finish_splash_start_step(path: str) -> None:
+    """Tick the launcher's last step before its window goes, so the splash
+    ends on a finished list rather than on four of five.
+
+    Reported three times, the last with a screenshot of exactly this window:
+    Update, Python, Dependencies and Desktop window all ticked, Start on a blue
+    dot, "4 of 5 steps done", and then the app. The two rounds before this one
+    were real bugs in start.bat; this is not one. start.bat deliberately leaves
+    Start active in desktop mode, because this process's own loading window
+    inherits the same list and owns that step until the server answers, and
+    ticking it in both would put two Starts in one list. So the splash was
+    always going to end one step short, correctly, and that is still what a
+    person sees: a progress bar that gives up a step from the end.
+
+    The launcher's *own* Start step really is finished at this line, though.
+    It has built the environment, started this process, and this process has a
+    window ready to show: the handover is the completion, which is exactly what
+    browser mode has always written ("Handed over to the app"). Desktop mode
+    can say the same thing to the same file.
+
+    **Appended here rather than in start.bat**, and the ordering is the whole
+    trick: `_loading_html()` has already read this file by the time this runs
+    (see `_run_desktop`, the window is created first), so the list this process
+    seeds itself with still says Start is active, and its own row re-activates
+    and finishes on its own. The two windows tell one continuous story instead
+    of two Starts.
+
+    A beat before the delete, because splash.ps1 polls at 250ms: written and
+    removed in the same instant, the finished state would never be rendered.
+
+    Never raises, for the same reason the delete below does not: a missing
+    file, a permission error on TEMP, a malformed history, none of them are
+    reasons to fail a launch that has otherwise got this far.
+    """
+    try:
+        steps = launch_status.summarise(launch_status.read_file(path))
+        if not steps:
+            return
+        last = steps[-1]
+        if last.done or last.failed:
+            return
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write(f"{last.step}|{last.total}|{last.title}|Handed over to the app|done\n")
+        # Two of the splash's own poll ticks, so the completed list is drawn
+        # and read rather than flashed. The window is the only thing on screen
+        # at this point (`webview.start()` has not run yet), so this cannot
+        # leave two windows stacked, which is the failure the delete below is
+        # timed to avoid.
+        time.sleep(0.5)
+    except (OSError, ValueError, IndexError) as exc:
+        logger.debug("couldn't tick the launcher's last step: %s", exc)
 
 
 def _push_status_to_window(window, text: str) -> None:

@@ -335,3 +335,96 @@ class TestEveryLaunchPathFinishesItsSteps:
             "the seed line runs in the relaunched child again, which overwrites "
             "the parent's finished Update step with an active one"
         )
+
+
+class TestTheSplashEndsOnAFinishedList:
+    """Reported three times, the last with a screenshot of the splash itself:
+    Update, Python, Dependencies and Desktop window ticked, Start on a blue
+    dot, "4 of 5 steps done", and then the app.
+
+    The two rounds before were real bugs in start.bat. This is not one.
+    start.bat leaves Start active in desktop mode on purpose, because the
+    app's own loading window inherits the same list and owns that step until
+    the server answers; ticking it in both would put two Starts in one list.
+    Correct, and still a bar that gives up a step from the end.
+
+    The launcher's own Start step is finished at the handover, which is what
+    browser mode has always written. `_finish_splash_start_step` says the same
+    thing in desktop mode, to the same file, *after* `_loading_html` has read
+    it, so the window this process seeds still shows Start active and finishes
+    it itself.
+    """
+
+    def _history(self, tmp_path, lines):
+        path = tmp_path / "splash.txt"
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return path
+
+    def test_the_last_step_is_ticked_before_the_file_goes(self, tmp_path, monkeypatch):
+        from memorymap import __main__ as main
+        from memorymap.core import launch_status as ls
+
+        monkeypatch.setattr(main.time, "sleep", lambda _s: None)
+        path = self._history(
+            tmp_path,
+            [
+                "1|5|Update|Up to date|done",
+                "2|5|Python|Using the existing environment|done",
+                "3|5|Dependencies|Already up to date|done",
+                "4|5|Desktop window|Ready|done",
+                "5|5|Start|Starting the app|active",
+            ],
+        )
+        assert ls.percent(ls.parse(path.read_text(encoding="utf-8"))) == 80
+
+        main._finish_splash_start_step(str(path))
+
+        after = ls.parse(path.read_text(encoding="utf-8"))
+        assert ls.percent(after) == 100, "the splash still ends short of its own total"
+        last = ls.summarise(after)[-1]
+        assert last.title == "Start" and last.done
+        assert last.detail == "Handed over to the app"
+
+    def test_a_failed_launch_is_not_quietly_completed(self, tmp_path, monkeypatch):
+        """The one thing this must never do: a launch that broke has to keep
+        showing where it broke."""
+        from memorymap import __main__ as main
+        from memorymap.core import launch_status as ls
+
+        monkeypatch.setattr(main.time, "sleep", lambda _s: None)
+        path = self._history(
+            tmp_path,
+            [
+                "1|5|Update|Up to date|done",
+                "2|5|Python|Too old|failed",
+            ],
+        )
+        main._finish_splash_start_step(str(path))
+        rows = ls.summarise(ls.parse(path.read_text(encoding="utf-8")))
+        assert rows[-1].failed
+        assert ls.percent(ls.parse(path.read_text(encoding="utf-8"))) == 20
+
+    def test_an_already_finished_list_is_left_alone(self, tmp_path, monkeypatch):
+        """Browser mode already ticks its own last step. Appending a second
+        done row for it would be harmless but dishonest about what happened."""
+        from memorymap import __main__ as main
+
+        monkeypatch.setattr(main.time, "sleep", lambda _s: None)
+        lines = [
+            "1|4|Update|Up to date|done",
+            "2|4|Python|Using the existing environment|done",
+            "3|4|Dependencies|Already up to date|done",
+            "4|4|Start|Handed over to the app|done",
+        ]
+        path = self._history(tmp_path, lines)
+        before = path.read_text(encoding="utf-8")
+        main._finish_splash_start_step(str(path))
+        assert path.read_text(encoding="utf-8") == before
+
+    def test_a_missing_file_is_not_an_error(self, tmp_path, monkeypatch):
+        """A launch that got this far must not fail on a splash that is
+        already gone."""
+        from memorymap import __main__ as main
+
+        monkeypatch.setattr(main.time, "sleep", lambda _s: None)
+        main._finish_splash_start_step(str(tmp_path / "never-existed.txt"))

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 
@@ -28,14 +28,13 @@ class SpaceUpdate(BaseModel):
     hidden_from_all: bool | None = None
 
 class SpaceResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     name: str
     icon: str
     #: True when this space's contents are kept out of "All spaces".
     hidden_from_all: bool = False
-    
-    class Config:
-        from_attributes = True
 
 class EntryCreate(BaseModel):
     content: str = Field(min_length=1, description="The thought to store")

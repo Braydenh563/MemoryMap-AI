@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai import facts, learning
 from memorymap.core import deps
+from memorymap.core.database import utcnow
 from memorymap.core.deps import get_session
 
 router = APIRouter(prefix="/learned", tags=["learned"])
@@ -139,8 +140,40 @@ def list_facts(
 @router.get("/export")
 def export_learned(session: Session = Depends(get_session)) -> dict:
     """Everything learned, as one JSON document the person can read outside
-    the app. Declared before `/{fact_id}` so that path does not swallow it."""
-    return facts.export(session, deps.get_config())
+    the app. Declared before `/{fact_id}` so that path does not swallow it.
+
+    Assembled here rather than in either store because it is the one answer
+    that needs both, and `ai/learning.py` already asks `ai/facts.py` whether
+    its runner is on: a reader in `facts` that named `learning` would close
+    that loop. Read-only and complete on purpose, with no import beside it:
+    a file the person can open in any editor is the point, and an import path
+    would be a second way for rows to appear that nothing in the app derived.
+    """
+    rows, _total = facts.listing(session, limit=10_000)
+    boosts: dict[str, list[dict]] = {}
+    for family in learning.FAMILIES:
+        for key, weight in learning.boosts(session, family).items():
+            boosts.setdefault(family, []).append(
+                {"key": [str(part) for part in key], "weight": weight}
+            )
+    return {
+        "exported_at": utcnow().isoformat(),
+        "switches": facts.switches(deps.get_config()),
+        "facts": [facts.as_json(row) for row in rows],
+        "corrections": [
+            {
+                "id": item.id,
+                "kind": item.kind,
+                "subject": item.subject,
+                "from": item.from_value,
+                "to": item.to_value,
+                "excerpt": item.excerpt,
+                "at": item.at.isoformat() if item.at else None,
+            }
+            for item in learning.corrections(session)
+        ],
+        "boosts": boosts,
+    }
 
 
 @router.get("/switches")

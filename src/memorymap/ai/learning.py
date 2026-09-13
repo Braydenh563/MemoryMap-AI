@@ -220,25 +220,6 @@ def corrections(session: Session, kind: str | None = None, limit: int = 500) -> 
     return list(reversed(found))
 
 
-def runner_enabled(name: str) -> bool:
-    """Is this runner switched on? Asked by the runner, before every pass.
-
-    Lives here rather than in `facts` so that `facts` keeps no import of
-    `deps`: this is the one place that reaches for the app's config, and a
-    runner that is called with no app state around it (a unit test of the
-    arithmetic, a script) gets True rather than an exception, because a
-    missing config is "nobody has switched this off", not "stop".
-    """
-    from memorymap.ai import facts
-
-    try:
-        from memorymap.core import deps
-
-        return facts.enabled(deps.get_config(), name)
-    except Exception:  # noqa: BLE001  # no app state: nothing has been switched off
-        return True
-
-
 def decayed(weight: float, days: float) -> float:
     """What a weight is worth `days` later. Halves every `HALF_LIFE_DAYS`."""
     return weight * math.pow(0.5, days / HALF_LIFE_DAYS)
@@ -259,6 +240,8 @@ def boosts(session: Session, kind: str) -> dict[tuple, float]:
     kinds = FAMILIES.get(kind)
     if not kinds:
         raise ValueError(f"unknown boost family {kind!r}; known: {sorted(FAMILIES)}")
+    from memorymap.ai.facts import runner_enabled
+
     if not runner_enabled("corrections"):
         # Switched off means the corrections are kept and inert (I9). The rows
         # stay, `corrections()` still reads them, and only the thing that

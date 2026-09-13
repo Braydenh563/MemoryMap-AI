@@ -36,8 +36,15 @@ two different jobs: the tombstone stops the re-derivation, and the correction
 is what the loop learns from.
 
 **The switches** are preferences, one per invention plus a master. Every
-runner asks `enabled()` before it does anything, and "off" means it computes
-nothing and shows nothing while its existing rows are kept and inert.
+runner asks `runner_enabled()` before it does anything, and "off" means it
+computes nothing and shows nothing while its existing rows are kept and inert.
+
+**Nothing here imports `ai/learning.py`,** and the export that needs both
+lives in `api/routes_learned.py` for that reason: `learning` asks this module
+whether its runner is switched on, so an import the other way would close a
+cycle (`tests/test_no_import_cycles.py` counts the statement wherever it
+sits, which is the right rule: a function-level import is still a cycle, it
+just fails later and further away).
 """
 
 from __future__ import annotations
@@ -538,37 +545,18 @@ def forget(session: Session) -> dict[str, int]:
     return {"facts": facts, "corrections": corrections, "scores": scores}
 
 
-def export(session: Session, config) -> dict:  # noqa: ANN001  # ConfigManager
-    """Everything learned, as one readable JSON document.
+def runner_enabled(name: str) -> bool:
+    """Is this runner switched on? Asked by the runner, before every pass.
 
-    Read-only and complete on purpose: there is no import. A file the person
-    can open in any editor is the point, and an import path would be a second
-    way for rows to appear that nothing in the app derived.
+    The one place in this module that reaches for the app's config, so that
+    everything above it can be called with nothing around it. A runner invoked
+    with no app state (a unit test of the arithmetic, a script) gets True
+    rather than an exception, because a missing config means "nobody has
+    switched this off", not "stop".
     """
-    from memorymap.ai import learning
+    try:
+        from memorymap.core import deps
 
-    rows, _total = listing(session, limit=10_000)
-    boosts = {}
-    for family in learning.FAMILIES:
-        for key, weight in learning.boosts(session, family).items():
-            boosts.setdefault(family, []).append(
-                {"key": [str(part) for part in key], "weight": weight}
-            )
-    return {
-        "exported_at": utcnow().isoformat(),
-        "switches": switches(config),
-        "facts": [as_json(row) for row in rows],
-        "corrections": [
-            {
-                "id": item.id,
-                "kind": item.kind,
-                "subject": item.subject,
-                "from": item.from_value,
-                "to": item.to_value,
-                "excerpt": item.excerpt,
-                "at": item.at.isoformat() if item.at else None,
-            }
-            for item in learning.corrections(session)
-        ],
-        "boosts": boosts,
-    }
+        return enabled(deps.get_config(), name)
+    except Exception:  # noqa: BLE001  # no app state: nothing has been switched off
+        return True

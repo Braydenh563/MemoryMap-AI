@@ -79,7 +79,7 @@ def compute_scores(session: Session) -> int:
     Switched off (I9) means it computes nothing and writes nothing; the scores
     already stored are kept, so turning it back on does not start from zero.
     """
-    from memorymap.ai.learning import runner_enabled
+    from memorymap.ai.facts import runner_enabled
 
     if not runner_enabled("resurfacing"):
         return 0

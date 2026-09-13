@@ -139,6 +139,15 @@ here is pushed to `agent/wip-documents`, so CI has them too.
 
 ## Traps this session paid for
 
+- **`docview.extract` is read by the HTML preview pane, not only by the
+  importer.** Converting `.html` to markdown inside it turned the pane that
+  serves an attached page's own markup (sandboxed, `script-src 'none'`, the
+  app's one stated exception to "nothing new is served inline") into a page
+  showing `# Hi`. The full suite caught it; the targeted tests could not,
+  because the endpoint is in `routes_files.py`. Fixed in `e7e9e06`: the
+  conversion is the import's, and `test_extracting_a_saved_page_keeps_its_own_markup`
+  holds it there.
+
 - **A patch script that asserts before it writes leaves nothing behind.** Two
   of this session's edit scripts asserted on three anchors and wrote at the
   end; the third anchor failed, so the first two edits were silently not

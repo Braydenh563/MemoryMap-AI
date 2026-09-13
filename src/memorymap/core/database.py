@@ -57,7 +57,11 @@ LIKE_ESCAPE = "\\"
 
 
 def like_escape(text: str) -> str:
-    """User text, made safe to put inside a LIKE pattern.
+    # Raw, because the docstring below quotes `\%` as the pattern a caller
+    # ends up with, and a plain docstring makes that an invalid escape
+    # sequence: a SyntaxWarning on every import, in a file every module
+    # imports.
+    r"""User text, made safe to put inside a LIKE pattern.
 
     `%` and `_` are wildcards in LIKE, and nothing in a search box says so.
     Searching for `100%` matched every row in the table, `a_b` matched `axb`,

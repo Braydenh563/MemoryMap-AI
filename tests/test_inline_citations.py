@@ -39,20 +39,71 @@ def test_it_is_actually_called(app_js):
     assert "addInlineCitations(answerEl, sentences, rawResults)" in app_js
 
 
+def _grounding_call_args(app_js: str) -> list[list[str]]:
+    """The argument list of every `renderAnswerGrounding` call, one list of
+    trimmed source expressions per call site, the definition excluded.
+
+    Read positionally rather than grepped for a needle, because the first
+    version of this test asserted the literal text `"answerBox\n"`: true only
+    while the answer element happened to be the *last* argument. Adding a
+    fifth argument (the turn's question, so opening a source teaches the
+    search) broke the assertion without breaking anything it was protecting.
+    A test whose failure does not mean the bug it names is a test that gets
+    widened next time, so it reads the position instead.
+    """
+    calls = []
+    needle = "renderAnswerGrounding("
+    at = app_js.find(needle)
+    while at != -1:
+        start = at + len(needle)
+        depth, end = 1, start
+        while depth:
+            char = app_js[end]
+            depth += {"(": 1, ")": -1}.get(char, 0)
+            end += 1
+        # Comments explaining an argument sit on their own lines above it, and
+        # they contain commas and parentheses of their own, so they go before
+        # anything is split.
+        body = "\n".join(
+            line
+            for line in app_js[start : end - 1].splitlines()
+            if not line.strip().startswith("//")
+        )
+        # The definition, not a call: its argument list names the parameters.
+        if "target" not in body.split(",")[0]:
+            args, depth, current = [], 0, []
+            for char in body:
+                if char in "([{":
+                    depth += 1
+                elif char in ")]}":
+                    depth -= 1
+                if char == "," and depth == 0:
+                    args.append("".join(current))
+                    current = []
+                else:
+                    current.append(char)
+            args.append("".join(current))
+            calls.append([" ".join(arg.split()) for arg in args])
+        at = app_js.find(needle, end)
+    return calls
+
+
 def test_every_grounding_call_site_passes_the_answer_element(app_js):
     """Three surfaces render grounding, the Ask box, a live chat turn, and a
     reopened conversation. A call site that forgets the fourth argument gets
     the chips and silently no markers, which is exactly the half-wired state
     this file exists to prevent."""
-    calls = app_js.count("renderAnswerGrounding(")
-    # One definition plus three call sites.
-    assert calls == 4, f"expected 4 mentions, found {calls}"
-    for needle in (
-        "answerBox\n",
-        'bubble.querySelectorAll(".bubble-answer")',
-        'handles.bubble?.querySelectorAll(".bubble-answer")',
-    ):
-        assert needle in app_js
+    calls = _grounding_call_args(app_js)
+    assert len(calls) == 3, f"expected 3 call sites, found {len(calls)}"
+    fourth = sorted(args[3] for args in calls if len(args) > 3)
+    assert len(fourth) == 3, f"a call site passes no answer element: {calls}"
+    assert fourth == sorted(
+        [
+            "answerBox",
+            'bubble.querySelectorAll(".bubble-answer")',
+            'handles.bubble?.querySelectorAll(".bubble-answer") || null',
+        ]
+    ), fourth
 
 
 def test_a_chat_turn_hands_over_all_of_its_prose_blocks(app_js):

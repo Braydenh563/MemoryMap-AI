@@ -24244,6 +24244,48 @@ order 10). Origin file named on each.
 
 ### From UI_MODERNISATION_PLAN.md
 
+### Built, Phase 11's two band-2 faults: one row at 820, and 44px tabs, 2026-09-13
+
+Measured with `scratchpad/ui-sweeps/tabfit.js`. Before, at 820x1180: the header
+112px, the tab strip wrapped onto a row of its own, and seven tab buttons 36px
+tall on the first band outside the touch band's 44px floor. Band 2's own rule
+opens "the tabs are icons, and the header is one row", so half of it was not
+true anywhere in the band's lower half.
+
+**The wrap was arithmetic, not a rule failing to reach.** The strip needed 505px
+and the room beside the wordmark, the space switcher and the header controls is
+448px at 820. Those three plus their gaps are a fixed 372px at every width in
+the band, so the captioned strip fits from about 877 up and not below it, which
+is why this was invisible at 900 and above.
+
+Three changes closed 57px and then some, and each is worth having on its own:
+
+- **The padding was most of the width.** An icon-only button was 49px of which
+  33px was air. The buttons take the same `--space-4` step and the same
+  `--text-xs` caption band 3 already takes.
+- **So they get a floor instead**, on both axes, which is the second fault fixed
+  by the first one's cure: `--target-min` redeclared as 2.75rem **on `#tab-bar`
+  only**. 820 to 1100 is an iPad in landscape and the tabs are what a finger
+  lands on there. Scoped to the strip rather than to `:root` deliberately:
+  raising every dock control in the band to 44px is a real change with its own
+  measurements to take, and this was the strip's fault rather than the band's.
+  That is the answer to the open question the plan carried ("worth deciding
+  whether the touch band should include 820 itself"): for the tab strip, yes;
+  for the rest of the band, not on this evidence.
+- **The due-reminders count sits on its glyph.** It was a pill in the flow, so
+  the Reminders tab was 80.2px against 49px for every other icon in the row.
+  Below 1100 it is absolutely placed on the button's corner, which is what a
+  badge on an icon is everywhere else, and it is worth 31px in band 3 too (the
+  tab went from 110px to 79px at 600 and 819).
+
+After, at 820: seven buttons 44x44 (the selected one 111.8x44 with its caption),
+the strip 408px in 448, the header 72px, one row. At 900, 1024 and 1099 the same
+408 to 409px strip and a 72px header, up from 64 because the buttons are now
+44px tall, which is the price of the target and is paid once for the band. Band
+3 (600 and 819) and band 1 (1440) are unchanged except for the badge.
+`tests/test_style_scale.py`, `test_css_braces.py` and `test_ui_signatures.py`
+green.
+
 ### Built, INBOX 104: the phone tab bar recedes on the way down, 2026-09-13
 
 DESIGN.md's Liquid Glass rule 10, and Phase 11 item 1's last open bullet. The

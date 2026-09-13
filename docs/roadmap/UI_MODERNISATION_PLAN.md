@@ -677,14 +677,10 @@ different problem than the list says.
   `document.body` that stops Escape (the bubbling one it had never saw that
   event at all), a press outside closes it, and focus lands back on the toggle
   with `aria-expanded="false"`; the More sheet the same.
-- **A finding at 820, which is not a phone at all.** The header is 108.2px
-  there: two rows, a wrapped tab strip, on a band whose own rule (band 2,
-  10-responsive.css) says "the tabs are icons, and the header is one row". The
-  strip needs 440px at 820 (the active tab keeps its caption at 146.2px, the
-  other six are 49px) and it is still wrapping. And the buttons are 36px tall,
-  under the 44px `--target-min` the band below it raises them to, because 820 is
-  the first width *outside* the touch band. Both are band-2 faults rather than
-  phone ones, and neither is in the list above.
+- **A finding at 820, which is not a phone at all: fixed** (2026-09-13). The
+  header was 112px there, two rows, on a band whose own rule says "the tabs are
+  icons, and the header is one row", and the buttons were 36px tall. The block,
+  with its arithmetic, is in HISTORY.md ("Moved from the plans, 2026-09-13").
 
 11. **Gates.** A phone sweep (`scratchpad/ui-sweeps/phone.js`) at 390 x 844
     and 430 x 932 per tab: no horizontal scroll, no control under 44px,

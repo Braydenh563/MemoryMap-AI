@@ -9,6 +9,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- On a tablet in landscape the header is one row again and the tabs are a
+  finger's target. It was two rows (112px at 820) on the band whose own rule
+  says one, with 36px tab buttons; the strip needed 505px against 448px of
+  room. The buttons take the narrower padding and smaller caption the band
+  below uses, a 44px floor on both axes instead, and the due-reminders count
+  sits on its glyph rather than beside it. The strip is 385px in 448 and the
+  header 72px.
+
 - The phone's tab bar recedes to its icons while you read down a list and
   takes its words back the moment you turn round. It is never hidden: 57.6px
   of bar with captions becomes 44px of icons, still five columns and still

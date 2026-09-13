@@ -106,6 +106,72 @@
   #tab-bar button {
     gap: var(--space-2);
   }
+
+  /* --- and the band's own promise, kept: one row, and a finger's target -----
+     UI_MODERNISATION_PLAN.md Phase 11, the two band-2 faults. Measured at 820
+     with `scratchpad/ui-sweeps/tabfit.js`: the header was 112px, two rows, on
+     the band whose first line is "the header is one row", and the seven tab
+     buttons were 36px tall, under the 44px floor every control one band down
+     meets.
+
+     The wrap was arithmetic rather than a rule failing to reach: the strip
+     needed 505px and the room beside the wordmark, the space switcher and the
+     header controls is 448px at 820 (the three of them plus gaps are a fixed
+     372px at every width in this band, so the strip fits from about 877 up and
+     not below it). Three things closed 57px and then some, and each is worth
+     having on its own:
+
+     - The buttons take the same padding step band 3 takes, `--space-4`, and
+       the same `--text-xs` caption. In a strip of icons the padding is most of
+       the width: measured, an icon-only button was 49px of which 33 was air.
+     - So they get a floor instead, on both axes, which is the second fault
+       fixed by the first one's cure: `--target-min` redeclared **on the strip
+       only**, because 820 to 1100 is an iPad in landscape and the tabs are the
+       thing a finger lands on there. Scoped to `#tab-bar` rather than `:root`
+       deliberately: raising every dock control in the band to 44px is a real
+       change with its own measurements to take, and this is the strip's fault,
+       not the band's.
+     - The due-reminders badge stops standing beside its glyph and sits on its
+       corner, which is what a badge on an icon is (measured: the Reminders tab
+       was 80.2px against 49px for every other icon in the row, entirely
+       because of a count pill in the flow).
+
+     After, at 820: seven buttons at 44px tall, the strip 385px in 448, the
+     header 64px and one row. */
+  #tab-bar {
+    --target-min: 2.75rem;
+  }
+
+  #tab-bar button {
+    min-height: var(--target-min);
+    min-width: var(--target-min);
+    padding-inline: var(--space-4);
+    justify-content: center;
+  }
+
+  #tab-bar .tab-label {
+    font-size: var(--text-xs);
+  }
+}
+
+/* A count on a tab is a badge on its glyph, not a word beside it, wherever the
+   strip is narrow enough to care (everything below 1100: band 2's icons, band
+   3's small captions, band 4's five columns). In the flow it cost 31px of a
+   448px row; on the corner it costs nothing and is the shape a badge on an icon
+   has everywhere else. `position: relative` on the button rather than on the
+   strip: the badge belongs to the tab it counts. */
+@media (max-width: 1099.98px) {
+
+  #tab-bar button {
+    position: relative;
+  }
+
+  #tab-bar .tab-badge {
+    position: absolute;
+    top: var(--space-1);
+    right: var(--space-1);
+    margin-left: 0;
+  }
 }
 
 /* --- Phase 10, INBOX 100: the scroll edge effect --------------------------

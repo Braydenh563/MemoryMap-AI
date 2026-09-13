@@ -5436,7 +5436,24 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     //: it: a fifteen-page scan opened at its first page from page nine is a
     //: navigation the reader has to redo by hand, every time.
     if (lightboxOcrTarget && typeof window.openOcrWorkspace === "function") {
-      window.openOcrWorkspace(lightboxOcrTarget, [], docPageCount ? docPage : 0);
+      //: **The lightbox goes before the workspace arrives.** Reported: *"when
+      //: I open a pdf file in the lightbox and press the read text with ai, it
+      //: opens the ocr workspace but behind the lightbox so the lightbox needs
+      //: to close when the workspace opens."* Measured: `.lightbox` is
+      //: `z-index: 1020` (raised there to clear the CSS full-screen graph, see
+      //: its own comment) and the workspace is a `.modal-overlay` at 1010, so
+      //: the workspace really did open underneath and every click landed on
+      //: the lightbox's zoom-out backdrop instead. The fix is the one the
+      //: gallery kebab's "See text on the page" row already uses ten lines
+      //: down, `close()` first: two stacked overlays leave the page behind
+      //: unreachable whichever of them wins the stacking contest, so raising
+      //: the workspace above the lightbox would answer the z-index and not the
+      //: report. The target and the page are read into locals before the
+      //: dismiss because `close()` empties the lightbox's own state.
+      const target = lightboxOcrTarget;
+      const atPage = docPageCount ? docPage : 0;
+      close();
+      window.openOcrWorkspace(target, [], atPage);
       return;
     }
     lightboxLoadExtractedText?.();
@@ -27871,6 +27888,22 @@ async function toggleDictation(button, targetInput) {
     toast("Microphone access was blocked, allow it in your browser.", true);
     return;
   }
+  //: **The button's resting label, read once and kept.** Reported: the word
+  //: "Dictate" disappears the first time you record and never comes back.
+  //: `setLabel` replaces every child of the button, so the two calls below
+  //: were swapping the glyph and dropping the word with it; the stop handler
+  //: then restored a bare microphone, which is the state the report describes.
+  //:
+  //: Read here rather than inside the stop handler because by then the only
+  //: label on the button is "Stop", and kept on the element rather than in a
+  //: closure because a second recording starts a new one. The chat mic
+  //: (`#mic-chat`) is `icon-only` and has no `.ph-text` at all: it reads as an
+  //: empty string and must stay that way, or it gains a word and stops being
+  //: square.
+  if (button.dataset.restLabel === undefined) {
+    button.dataset.restLabel = button.querySelector(".ph-text")?.textContent?.trim() || "";
+  }
+  const resting = button.dataset.restLabel;
   const chunks = [];
   recorder = new MediaRecorder(stream);
   recorderTarget = targetInput;
@@ -27880,7 +27913,7 @@ async function toggleDictation(button, targetInput) {
     stream.getTracks().forEach((t) => t.stop());
     stopLevelMeter();
     button.classList.remove("recording");
-    setLabel(button, "ph:microphone");
+    setLabel(button, resting ? `ph:microphone ${resting}` : "ph:microphone");
     recorder = null;
     const blob = new Blob(chunks, { type: chunks[0]?.type || "audio/webm" });
     const form = new FormData();
@@ -27903,7 +27936,7 @@ async function toggleDictation(button, targetInput) {
   });
   recorder.start();
   button.classList.add("recording");
-  setLabel(button, "ph:stop");
+  setLabel(button, resting ? "ph:stop Stop" : "ph:stop");
   // Appended after setLabel, not before: setLabel's replaceChildren() wipes
   // every child on the button, and the bar meter startMicLevelMeter() builds
   // is one: appending it earlier just got it discarded a line later.

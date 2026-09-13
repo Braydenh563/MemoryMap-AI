@@ -2843,7 +2843,27 @@ dialog::backdrop {
 .note-composer > textarea,
 .note-composer > .gutter-wrap > textarea,
 .note-composer > .entry-preview {
-  border: none;
+  /* **`0`, not `none`, and the difference is three visible pixels.** Reported:
+     "the title and main note textbox have a large border on them", measured as
+     `3px solid` on `#entry-title` and `#entry-content` while this rule said
+     `border: none` and no other rule anywhere set a border on either.
+
+     `border: none` sets the *style* to none and leaves the *width* at its
+     initial `medium`, which is 3px; a computed width of 0 is a consequence of
+     the style, not a stored value. The Appearance rule in 00-tokens-shell.css
+     then forces `border-style` back to `solid` with `!important` on every
+     input, textarea and select, and `medium` reappears in whatever colour
+     `border-color` inherits, which on this composer is the text colour. That
+     is why the report says the border is large and near-white in dark mode.
+
+     The same cause was found and fixed once before for the command palette and
+     the file pickers (see that rule's own comment); this composer was the
+     other half nobody swept. `border: 0` stores the width, so the Appearance
+     rule can force the style back all it likes and there is nothing to draw.
+     `scratchpad/ui-sweeps/medium3.js` is the sweep that says whether a third
+     one exists, and `tests/test_ui_recipes.py` fails on a new `border: none`
+     on any element the Appearance rule reaches. */
+  border: 0;
   border-radius: 0;
   background: none;
   box-shadow: none;

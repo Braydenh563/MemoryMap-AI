@@ -9861,19 +9861,50 @@ function docVariantLookup() {
 //: the middle of one.
 let docDictionarySet = null;
 
+//: **The array the set was last built from, compared by identity.** This pair
+//: is the fix for a report that was worse than it read: *"I swear I added
+//: 'idk' to the dictionary last night, make sure it is persistent."*
+//:
+//: The set used to be memoised with `if (!docDictionarySet)`, and an empty
+//: `Set` is truthy, so the first call won for the rest of the session. The
+//: first call happens at the bottom of this file, which runs `renderDocTools`
+//: at parse time; `prefsCache` is filled by an async fetch in app.js that has
+//: not resolved yet. So the dictionary was built empty, every saved word was
+//: unknown for the whole session, and, worse, `docDictionaryWrite` below sends
+//: `[...docDictionary(), newWord]`: the first word you added after a reload
+//: replaced your entire saved dictionary with that one word. Silent data loss,
+//: and it is why a word added last night was being offered again today.
+//:
+//: Identity rather than a dirty flag, because `apiJson` returns a fresh object
+//: on every read and `prefsCache` is reassigned in a dozen places across
+//: app.js. Anything that reloads preferences therefore rebuilds this set
+//: without having to know it exists, which is the property that stops the same
+//: bug coming back through a new caller.
+let docDictionarySource = null;
+
 function docDictionary() {
-  if (!docDictionarySet) {
-    docDictionarySet = new Set(
-      ((prefsCache && prefsCache.writing_dictionary) || []).map((word) =>
-        String(word).toLowerCase()
-      )
-    );
+  const source = (prefsCache && prefsCache.writing_dictionary) || null;
+  if (!docDictionarySet || docDictionarySource !== source) {
+    docDictionarySource = source;
+    docDictionarySet = new Set((source || []).map((word) => String(word).toLowerCase()));
+    //: A rebuilt dictionary means every cached per-word answer was answered
+    //: against the old one, including the "not a word" answers that put the
+    //: underlines on screen.
+    docKnownWordsCache = null;
+    docSpellCache = new Map();
   }
   return docDictionarySet;
 }
 
 async function docDictionaryWrite(words) {
   docDictionarySet = new Set(words.map((word) => word.toLowerCase()));
+  //: Pinned to the preferences this set now speaks for, so the optimistic add
+  //: above survives any read between here and the response: without it, the
+  //: next `docDictionary()` would see the old array still on `prefsCache`,
+  //: decide the set was stale and rebuild it without the word just added. When
+  //: the PUT below replaces `prefsCache`, the identity changes and the set is
+  //: rebuilt from what the server actually stored, which is the right answer.
+  docDictionarySource = (prefsCache && prefsCache.writing_dictionary) || null;
   //: The ranked suggestions are drawn from this list, so a word added here has
   //: to be offerable on the very next menu rather than after a reload, and
   //: the per-word answers have to forget the word that has just been accepted.

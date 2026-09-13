@@ -1185,11 +1185,31 @@ Built block to HISTORY. Then Phase 5 (review, history and AI), 6 (responsive,
 which is mostly done by UI Phase 9 and this session's work: measure first), 7
 (export and interchange) and 8 (one editor everywhere, the owner's own ask).
 
-### Brief 29 (Opus): GRAPH Phase 4 part two and 6b
+### Brief 29 (Opus): GRAPH Phase 4 part two, the local pane
 
-Phases 1 to 6 are built. What is left is named in `GRAPH_PLAN.md`: the second
-half of Phase 4 (utility) and 6b, the minimap. Small enough to pair with
-Brief 31 in one agent's session.
+**6b is built** (2026-09-13, `scratchpad/ui-sweeps/minimap6b.js`): the drag,
+click-to-jump, wheel zoom and cluster colours landed earlier, and the size
+toggle and the fade-when-everything-fits landed with the measurement. Of
+Phase 4's second half, **Play on the time slider and the 2x PNG export of the
+visible frame with the legend are also built** (`#graph-time-play`,
+`gcExportPng(2)`).
+
+So this brief is one item: **the graph beside an open note or document**, the
+same renderer at `size: "pane"`. Read this before starting, it is the whole
+difficulty and the reason it was left: `graph.js` keeps the renderer's state
+in module-level singletons (`graphDims`, `graphSvg`, `graphZoom`,
+`graphNodesRef`, `graphMinimapProjection`), so a second live instance beside a
+note would fight the tab's own. Two honest routes:
+
+1. Lift those into a context object the renderer is called with, the tab
+   passing the one it already has. Correct, and it touches every function in
+   the file that reads them.
+2. Give the pane its own module-level set behind a `size` switch, which is a
+   second copy of the state with all that implies.
+
+Recommendation, and take it unless measurement says otherwise: route 1, in its
+own commit, with no behaviour change to the tab, proved by the existing graph
+sweeps passing unchanged before the pane is written at all.
 
 ### Brief 30 (Opus): MINDMAP section 12
 

@@ -3772,45 +3772,13 @@ html.modal-open body {
 /* Someone who asked for less motion still needs to know the answer is
    live: so the caret stays and only its blink stops. Removing it outright
    would take the information away from exactly the people least able to
-   infer it from text quietly appearing.
-
-   **The list of selectors here has to mirror the one above, one for one.** It
-   carried two of the four, and both of those lose on specificity to the
-   longer rules above: `.is-streaming > :last-child::after` is (0,2,1) against
-   `.is-streaming > :last-child:not(:is(ul, ol, blockquote))::after` at
-   (0,2,2). So the commonest case of all, an answer ending in a paragraph,
-   blinked straight through `prefers-reduced-motion`, and a later pass
-   extending the caret down into lists is what quietly broke it. Measured
-   before the fix (`scratchpad/ui-sweeps/chatphase2.js`): computed
-   animation-name `answer-caret` on the caret with the platform asking for
-   reduce and this app's own switch on `auto`.
-
-   The `:root` guard carries the other half of the same decision, the owner's
-   *"make sure the animations run even with prefer reduced motion on"*: on
-   `always` this block does not apply at all. That is what the `!important`
-   counter-rule in 02-chat-graph.css has been doing for one of the four
-   selectors, and doing it from the wrong end, a rule that has to shout to be
-   heard is a rule whose neighbours are wrong. */
+   infer it from text quietly appearing. */
 @media (prefers-reduced-motion: reduce) {
 
-  :root:not([data-progress-motion="always"]) .is-streaming:not(:has(*))::after,
-  :root:not([data-progress-motion="always"]) .is-streaming > :last-child:not(:is(ul, ol, blockquote))::after,
-  :root:not([data-progress-motion="always"]) .is-streaming > :last-child:is(ul, ol) > li:last-child::after,
-  :root:not([data-progress-motion="always"]) .is-streaming > :last-child:is(blockquote) > :last-child::after {
+  .is-streaming:not(:has(*))::after,
+  .is-streaming > :last-child::after {
     animation: none;
   }
-}
-
-/* `progress-motion: still` is the same request made in the app rather than in
-   the OS, so it gets the same answer: the caret stays, the blink stops. There
-   was no rule for it at all, so the one setting whose entire job is to stop
-   the progress animations ("Still", in the Progress indicators select) left
-   the one indicator that runs for the whole answer still blinking. */
-:root[data-progress-motion="still"] .is-streaming:not(:has(*))::after,
-:root[data-progress-motion="still"] .is-streaming > :last-child:not(:is(ul, ol, blockquote))::after,
-:root[data-progress-motion="still"] .is-streaming > :last-child:is(ul, ol) > li:last-child::after,
-:root[data-progress-motion="still"] .is-streaming > :last-child:is(blockquote) > :last-child::after {
-  animation: none;
 }
 
 /* The animated indicator and the sentence that says what it is doing, on one

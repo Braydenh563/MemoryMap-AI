@@ -30,14 +30,6 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
-- The writing caret in an answer stops blinking when you ask for less motion.
-  It honoured neither the platform's reduce-motion setting nor the app's own
-  "Progress indicators: Still", because the rule that stops it carried two of
-  the caret's four selectors and both lost on specificity to the longer ones
-  that place it after a paragraph, a list item or a quote. The caret itself
-  stays either way, still 8px wide: an answer arriving with nothing on screen
-  saying it is live is worse than a still caret.
-
 - The bottom tab bar on a phone says which tab you are on. Below 480 all seven
   captions were hidden, so the bar was seven unlabelled glyphs with the selected
   one marked by colour alone; from 360 up the selected tab keeps its caption and

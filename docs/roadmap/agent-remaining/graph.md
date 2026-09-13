@@ -194,3 +194,10 @@ next: GRAPH Phase 4's local pane, `frontend/index.html` (#sidebar, after
 `#most-used-box`), `frontend/graph-canvas.js` (end of file),
 `frontend/css/02-chat-graph.css`; the four things to prove are in
 `scratchpad/ui-sweeps/graphpane.js`.
+
+done: 28b728d, GRAPH Phase 4's local pane (`#graph-pane`, `renderGraphPane`
+in graph-canvas.js), Phase 4 complete and its Built block in HISTORY.
+next: INBOX 185, the Show toggles. A board *is* an `Entry`
+(`routes_graph.py` line 236, no `is_board` filter), so a mind map is a node
+whether or not `include_maps` is on; `include_maps` only marks it and adds
+its edges. Entities not yet reproduced.

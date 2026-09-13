@@ -23989,6 +23989,69 @@ function mdEmbedElement(name, depth) {
 // nothing.
 const MD_MAX_DEPTH = 4;
 
+//: **A table the model wrote is something you can take away** (INBOX 172:
+//: "export, copy, or save etc things such as tables, code blocks etc that
+//: the ai generates ... scrollable tables in responses are good but
+//: sometimes hard or annoying to read, maybe the user can toggle how to
+//: view the table"). The same bar the code blocks wear: Copy puts
+//: tab-separated cells on the clipboard (what a spreadsheet pastes), Markdown
+//: copies the table as written, CSV saves it through the exports route, and
+//: Full view lifts the block into a viewport-sized panel (Escape or the same
+//: button puts it back) so a wide table reads without the bubble's scroll.
+function buildTableBlock(scroller, headers, bodyRows, rawTable) {
+  const block = document.createElement("div");
+  block.className = "code-block md-table-block";
+  const bar = document.createElement("div");
+  bar.className = "code-bar";
+  const label = document.createElement("span");
+  label.className = "code-lang";
+  label.textContent = `table · ${bodyRows.length} row${bodyRows.length === 1 ? "" : "s"}`;
+  const cells = (row) => headers.map((_, c) => (row[c] || "").trim());
+  const rows = [cells(headers), ...bodyRows.map(cells)];
+  const tsv = rows.map((row) => row.map((v) => v.replace(/\t/g, " ")).join("\t")).join("\n");
+  const csv = rows.map((row) => row.map((v) => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n");
+  const button = (text, title, onClick) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "ghost small code-copy";
+    b.textContent = text;
+    b.title = title;
+    if (onClick) b.addEventListener("click", onClick);
+    return b;
+  };
+  const full = button("Full view", "Show this table on its own, at the window's width");
+  const leave = () => {
+    block.classList.remove("is-full");
+    full.textContent = "Full view";
+    document.removeEventListener("keydown", onKey, true);
+  };
+  const onKey = (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      leave();
+    }
+  };
+  full.addEventListener("click", () => {
+    if (block.classList.contains("is-full")) return leave();
+    block.classList.add("is-full");
+    full.textContent = "Back";
+    document.addEventListener("keydown", onKey, true);
+  });
+  const actions = document.createElement("span");
+  actions.className = "code-actions";
+  actions.append(
+    button("⧉ Copy", "Copy the cells, tab-separated, for a spreadsheet", (event) => copyToClipboard(tsv, event.currentTarget)),
+    button("Markdown", "Copy the table as markdown", (event) => copyToClipboard(rawTable.join("\n"), event.currentTarget)),
+    button("CSV", "Save this table as a CSV file in the exports folder", () =>
+      saveFile(`table-${Date.now()}.csv`, new Blob([csv], { type: "text/csv" }))
+    ),
+    full
+  );
+  bar.append(label, actions);
+  block.append(bar, scroller);
+  return block;
+}
+
 function renderMarkdown(container, text, depth = 0) {
   container.replaceChildren();
   const lines = unlatex(text).replace(/\r\n/g, "\n").split("\n");
@@ -24036,7 +24099,22 @@ function renderMarkdown(container, text, depth = 0) {
       copy.addEventListener("click", (event) =>
         copyToClipboard(text, event.currentTarget)
       );
-      bar.append(label, copy);
+      //: Save as a file too (INBOX 172: "export, copy, or save etc things
+      //: such as tables, code blocks etc that the ai generates"): through
+      //: the app's own save route, so it lands in the exports folder and in
+      //: the bell like every other export.
+      const save = document.createElement("button");
+      save.type = "button";
+      save.className = "ghost small code-copy";
+      save.textContent = "Save";
+      save.title = "Save this code block to the exports folder";
+      save.addEventListener("click", () =>
+        saveFile(`code-${Date.now()}.${language || "txt"}`, new Blob([text], { type: "text/plain" }))
+      );
+      const actions = document.createElement("span");
+      actions.className = "code-actions";
+      actions.append(copy, save);
+      bar.append(label, actions);
 
       const pre = document.createElement("pre");
       const codeEl = document.createElement("code");
@@ -24058,9 +24136,11 @@ function renderMarkdown(container, text, depth = 0) {
       closeList();
       const headers = splitTableRow(line);
       const aligns = splitTableRow(lines[i + 1]).map(columnAlign);
+      const rawTable = [line, lines[i + 1]]; // as written, for "copy as markdown"
       i += 2; // consume header + separator
       const bodyRows = [];
       while (i < lines.length && lines[i].includes("|") && lines[i].trim() !== "") {
+        rawTable.push(lines[i]);
         bodyRows.push(splitTableRow(lines[i]));
         i++;
       }
@@ -24092,7 +24172,7 @@ function renderMarkdown(container, text, depth = 0) {
       const scroller = document.createElement("div");
       scroller.className = "md-table-wrap";
       scroller.appendChild(table);
-      container.appendChild(scroller);
+      container.appendChild(buildTableBlock(scroller, headers, bodyRows, rawTable));
       continue;
     }
 

@@ -52,17 +52,6 @@ measured or built in earlier commits and is marked there.
 
 ## Open items
 
-172. **Mid-work drop, 2026-09-13, verbatim (the owner), what the AI
-    writes.** "I want to be able to export, copy, or save etc things such as
-    tables, code blocks etc that the ai generates, maybe even view them in
-    the lightbox?? it's just that scrollable tables in responses are good
-    but sometimes hard or annoying to read, maybe the user cna toggle how to
-    view the table in chat responses??" · "<br> md tags arent rendered
-    properly and I want better and more modern cool web link rendering"
-    **Part fixed**: `<br>` inside a paragraph renders as a line break. Open:
-    copy/export for tables and code blocks, a table view toggle, the link
-    rendering (bare URLs already show as host / page since `fda8c9d`).
-
 174. **Mid-work drop, 2026-09-13, verbatim (the owner), the Library's
     Images sub-tab (three screenshots: a board thumbnail as a pale card with
     faint strokes and the note titles run over the edge; the image grid

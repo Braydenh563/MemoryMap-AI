@@ -24038,6 +24038,24 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     **Fixed.** Arrows move one grid cell (snap on) or 1px; Shift moves five
     cells or 10px (the earlier rule let Shift do nothing while snap was on).
 
+172. **Mid-work drop, 2026-09-13, verbatim (the owner), what the AI
+    writes.** "I want to be able to export, copy, or save etc things such as
+    tables, code blocks etc that the ai generates, maybe even view them in
+    the lightbox?? it's just that scrollable tables in responses are good
+    but sometimes hard or annoying to read, maybe the user cna toggle how to
+    view the table in chat responses??" · "<br> md tags arent rendered
+    properly and I want better and more modern cool web link rendering"
+    **Fixed** (`<br>` as a line break; tables carry a bar with Copy
+    (tab-separated, for a spreadsheet), Markdown, CSV (saved through the
+    exports route) and Full view (a viewport-sized panel, Escape or the
+    button puts it back); code blocks gain Save beside Copy. Measured
+    (`scratchpad/ui-sweeps/mdtable.js`): the four buttons and the two, one
+    `<br>`, a CSV download with the quoted cell intact, full view fixed at
+    58,46 to 1382,854 in 1440x900 and back on Escape). Link rendering:
+    bare URLs already show as host / page with the address as tooltip
+    (`fda8c9d`); "more modern cool" wants a design decision (a favicon is
+    a network fetch this app does not make), placed as a CHAT_PLAN row.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

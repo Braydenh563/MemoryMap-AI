@@ -246,6 +246,11 @@ session that builds the phase should confirm it in the product first.
 
 ## Placed from INBOX, 2026-09-09
 
+172 (part). **Web links the AI writes, "better and more modern cool".** Bare
+URLs show as host / page with the full address as tooltip (`fda8c9d`). What
+is left is a decision: a link card (title, host, no favicon: the app fetches
+nothing) versus the current inline form. Owner: Phase 3's answer object.
+
 The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
 
 45. **The Ask sub-tab**: extra scroll, overflow, and the owner wants a

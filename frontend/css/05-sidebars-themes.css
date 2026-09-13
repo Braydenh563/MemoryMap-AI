@@ -1882,6 +1882,38 @@ body.resizing-sidebar {
   font-size: 0.75rem;
 }
 
+.code-actions {
+  display: inline-flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* A table block in full view (INBOX 172): the same block, lifted to a
+   viewport-sized panel over the page, its own scroll inside. Opaque, so it
+   is not on the glass list; the same button or Escape puts it back. */
+.md-table-block.is-full {
+  position: fixed;
+  inset: 4vh 4vw;
+  z-index: 1300;
+  display: flex;
+  flex-direction: column;
+  background: var(--modal-bg-opaque);
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-lg);
+}
+
+.md-table-block.is-full > .md-table-wrap {
+  flex: 1 1 auto;
+  overflow: auto;
+  margin: 0;
+  padding: var(--space-3);
+}
+
+.md-table-block > .md-table-wrap {
+  margin: 0;
+}
+
 .code-block pre {
   margin: 0;
   padding: 0.8rem 0.8rem;

@@ -178,6 +178,9 @@ below). Versioning is `0.x` while the app stabilises.
 - Picture cards in the Library keep their thumbnails one size. Opening one
   card's text fold used to stretch every picture beside it to match the row;
   the pictures stay put and the row grows only by the fold's own bounded height.
+- A table the AI writes can be taken away: Copy (for a spreadsheet),
+  Markdown, CSV (saved like any export) and a Full view that lifts the table
+  into a window-sized panel; code blocks gain Save beside Copy.
 
 - The lock screen could fail to appear on a slow first start. The embedding
   warm-up began importing torch the instant the server was up, and that import

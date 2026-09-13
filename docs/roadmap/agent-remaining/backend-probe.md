@@ -1,3 +1,31 @@
+# The backend refinement pass, 2026-09-13 evening
+
+The owner's order was "refine the backend", worked as the list in the brief:
+the strict-xfail specs first, then WORLD_CLASS_PLAN's flaw classes, the
+security review's open rows, D6, and the performance probes.
+
+## Landed
+
+| What | Measured | Commit |
+| --- | --- | --- |
+| The derived facts pipeline (I9's whole backend, I1's first pass) | `tests/test_learned_spec.py` from 9 strict-xfail markers to 0, 14 of 14 green; 11 new tests in `tests/test_derived_facts.py` | `50398cb` |
+
+## The specs, read
+
+`test_events.py`, `test_search_engine_spec.py`, `test_harness_verifier_spec.py`
+and `test_resurface_spec.py` have **no markers left**: all four were finished
+by Briefs 7, 11, 13 and 23, and their headers still say "strict-xfail until
+built" because the sentence was never updated. Only `test_learned_spec.py`
+still had any, nine of them, every one naming I9, and they are now gone.
+
+## Decisions filed and taken
+
+- INBOX 194 (resolved in the same pass): the I9 switches default **on**, and
+  "off by default" stays where it has always lived, `autonomous_tasks_enabled`.
+  Reason in `ai/facts.SWITCHES` and in HISTORY.
+
+---
+
 # The backend hole-poking pass, 2026-09-12 evening
 
 What the orchestrator probed while agents worked the surfaces, what it

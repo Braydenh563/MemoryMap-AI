@@ -1221,6 +1221,14 @@ plumbing and a table).
 
 ### I9 What the notebook learned: one place to see, edit, delete and switch it all off
 
+**Built (the backend), 2026-09-13 evening: HISTORY.md, "Built, I9's whole
+backend and the first pass of I1".** `derived_facts`, `ai/facts.py`, the
+lifecycle, the switches, every endpoint below, and the night pass as a
+fourth task in `ai/autonomous.py`. What is still open here is the Settings
+section itself (frontend) and the kinds I1's later passes add (tensions,
+duplicates, entities, dates). The text below is kept because it is the
+spec for both.
+
 Added by direct instruction: "give the user the ability to see what the
 notebook has learned and to be able to edit, delete and manage it so in
 case the AI models get things wrong the user can fix it, also a way to

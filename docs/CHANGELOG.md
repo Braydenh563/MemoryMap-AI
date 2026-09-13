@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- What the notebook learned, as a table you can correct (WORLD_CLASS_PLAN 15,
+  I1 and I9). A night pass reads each note, keeps the claims it makes and the
+  questions it leaves open, and records for every one of them the note and the
+  exact span it came from, who decided (a model by name, or `local`), when and
+  how sure. Each can be edited (and is then never overwritten by a later run),
+  deleted (and then never re-derived), reset to what the model said, exported
+  as JSON, or forgotten entirely, which leaves notes and revisions untouched.
+  One switch per runner plus a master switch, read before every pass.
+
 - A document can be downloaded as one self-contained HTML file. Images become
   data URIs, the stylesheet is written into the file, comments travel as
   footnotes, controls that only work inside the app are dropped (a `[[link]]`

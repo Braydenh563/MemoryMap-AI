@@ -2702,6 +2702,168 @@ def move_map_node(
     return _object_to_out(node)
 
 
+class MapNodeMoveOne(BaseModel):
+    """One node's new place: whose child it is, and where it sits."""
+
+    id: int
+    #: Absent means "leave the parent alone", which is what a tidy wants: a
+    #: tidy moves every node's box and re-parents none of them. `None` is a
+    #: real value here and means "promote this node to a root", so the two
+    #: cannot share one sentinel and the field is a string-tagged optional
+    #: rather than a bare `int | None`.
+    reparent: bool = False
+    parent_id: int | None = None
+    x: float | None = None
+    y: float | None = None
+
+
+class MapNodesMove(BaseModel):
+    #: 400 rather than no cap: a tidy of the largest map anyone has built here
+    #: is a few hundred nodes, and an unbounded list is a request body that can
+    #: be made to hold anything.
+    moves: list[MapNodeMoveOne] = Field(default_factory=list, max_length=400)
+
+
+def _parent_map(db: Session, board_id: int) -> dict[int, int | None]:
+    """Every node on the board as `id -> parent_id`, in one query."""
+    rows = db.execute(
+        select(WhiteboardObject.id, WhiteboardObject.parent_id).where(
+            _board_filter(WhiteboardObject, board_id)
+        )
+    ).all()
+    return {row[0]: row[1] for row in rows}
+
+
+def _first_cycle(parents: dict[int, int | None], changed: set[int]) -> int | None:
+    """The first node in `changed` that can reach itself by walking up.
+
+    Walking up is safe here, unlike in `_is_descendant`, precisely because the
+    walk is over a dict this function owns rather than over rows another
+    request may be editing: the whole batch is checked against the shape it
+    *would* produce, before a single row is written. A seen set rather than a
+    depth cap alone, because a ring that does not contain the node it was
+    entered from is still a ring, and the walk would otherwise spin until the
+    cap and report the wrong node.
+    """
+    for node_id in changed:
+        seen = {node_id}
+        current = parents.get(node_id)
+        steps = 0
+        while current is not None and steps <= MAX_MAP_DEPTH:
+            if current in seen:
+                return node_id
+            seen.add(current)
+            current = parents.get(current)
+            steps += 1
+        if current is not None:
+            # Deeper than any tree this app draws: treated as a ring rather
+            # than walked further, which is the same refusal for the same
+            # reason.
+            return node_id
+    return None
+
+
+@router.put("/boards/{board_id}/nodes/move-many", response_model=list[WhiteboardObjectOut])
+@events.writes("whiteboard_object", "edited")
+def move_map_nodes(
+    board_id: int, body: MapNodesMove, db: Session = Depends(get_session)
+) -> list[WhiteboardObjectOut]:
+    """Move a set of nodes in one request, one transaction, one cycle check.
+
+    **Why this exists.** Tidy persists one node at a time, transplanting a
+    branch is one `/move` per child, and opening every folded branch is one PUT
+    per folded node: a tidy of two hundred nodes is two hundred round trips,
+    two hundred transactions, and a map that is half arranged for as long as
+    they take. Any one of them failing leaves the map in a shape nobody asked
+    for, because there is nothing to roll back to.
+
+    The batch is all or nothing. Every id is checked against the board, every
+    new parent is checked against the board, and the cycle check runs once
+    against the shape the whole batch *would* produce rather than per move:
+    checking each move against the map as it stands would pass a pair of moves
+    that are each innocent and together make a ring.
+    """
+    _require_board(db, board_id)
+    if not body.moves:
+        return []
+    seen_ids: set[int] = set()
+    for move in body.moves:
+        if move.id in seen_ids:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Node {move.id} is in this batch twice; each node moves once.",
+            )
+        seen_ids.add(move.id)
+
+    nodes = {
+        node.id: node
+        for node in db.scalars(
+            select(WhiteboardObject).where(
+                WhiteboardObject.id.in_(seen_ids),
+                _board_filter(WhiteboardObject, board_id),
+            )
+        )
+    }
+    missing = sorted(seen_ids - set(nodes))
+    if missing:
+        raise HTTPException(
+            status_code=404, detail=f"No node with id {missing[0]} on this board"
+        )
+
+    parents = _parent_map(db, board_id)
+    reparented: set[int] = set()
+    for move in body.moves:
+        if not move.reparent:
+            continue
+        if move.parent_id is not None:
+            if move.parent_id == move.id:
+                raise HTTPException(
+                    status_code=422,
+                    detail="A node can't be its own parent, that makes it a descendant of itself.",
+                )
+            if move.parent_id not in parents:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No node with id {move.parent_id} on this board",
+                )
+        parents[move.id] = move.parent_id
+        reparented.add(move.id)
+
+    offender = _first_cycle(parents, reparented)
+    if offender is not None:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"That would make node {offender} a descendant of itself, "
+                "move the branch out first."
+            ),
+        )
+
+    out: list[WhiteboardObjectOut] = []
+    for move in body.moves:
+        node = nodes[move.id]
+        before = _object_state(node)
+        if move.reparent:
+            node.parent_id = move.parent_id
+        if move.x is not None:
+            node.x = move.x
+        if move.y is not None:
+            node.y = move.y
+        events.record(
+            db,
+            "edited",
+            "whiteboard_object",
+            node.id,
+            f"moved under {node.parent_id}" if node.parent_id else "moved to a root",
+            payload={"after": _object_state(node), "before": before},
+        )
+        out.append(node)
+    db.commit()
+    for node in out:
+        db.refresh(node)
+    return [_object_to_out(node) for node in out]
+
+
 # --- export and import: text formats, so a map is not a lock-in -------------
 #
 # MINDMAP_PLAN.md §5 items 16-17. PNG/SVG/PDF come from the canvas and are the

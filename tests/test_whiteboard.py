@@ -799,3 +799,131 @@ def test_deleting_a_card_survives_a_sketch_whose_data_is_a_list(client, session)
     # on this branch).
     removed = client.delete(f"/whiteboard/nodes/{node['id']}")
     assert removed.status_code == 200
+
+
+# --- moving a set of nodes at once ------------------------------------------
+#
+# Tidy persisted one node at a time, transplanting a branch was one `/move` per
+# child, and opening every folded branch was one PUT per folded node. Each of
+# those is a map that is half arranged for as long as the round trips take, and
+# nothing to roll back to when one of them fails.
+
+
+def _map_board(board_client, name="Move map"):
+    board = board_client.post(
+        "/whiteboard/boards", json={"name": name, "type": "map", "layout": "tree-right"}
+    )
+    assert board.status_code == 201, board.text
+    return board.json()
+
+
+def _map_node(board_client, board_id, *, parent_id=None, text=""):
+    created = board_client.post(
+        f"/whiteboard/boards/{board_id}/nodes",
+        json={"kind": "topic", "parent_id": parent_id, "text": text},
+    )
+    assert created.status_code == 201, created.text
+    return created.json()
+
+
+def test_a_tidy_moves_every_node_in_one_request(board_client):
+    """The shape a tidy actually sends: new boxes, no re-parenting."""
+    board = _map_board(board_client)
+    root = _map_node(board_client, board["id"], text="Root")
+    kids = [
+        _map_node(board_client, board["id"], parent_id=root["id"], text=f"Kid {i}")
+        for i in range(3)
+    ]
+
+    moved = board_client.put(
+        f"/whiteboard/boards/{board['id']}/nodes/move-many",
+        json={
+            "moves": [
+                {"id": kid["id"], "x": 100.0 * index, "y": 40.0 * index}
+                for index, kid in enumerate(kids)
+            ]
+        },
+    )
+    assert moved.status_code == 200, moved.text
+    assert [node["x"] for node in moved.json()] == [0.0, 100.0, 200.0]
+    # The parent is untouched by a move that did not ask to re-parent: a tidy
+    # that quietly promoted every node it laid out would empty the tree.
+    assert all(node["parent_id"] == root["id"] for node in moved.json())
+
+
+def test_a_transplant_reparents_a_whole_branch_in_one_request(board_client):
+    board = _map_board(board_client)
+    root = _map_node(board_client, board["id"], text="Root")
+    other = _map_node(board_client, board["id"], text="Other trunk")
+    kids = [
+        _map_node(board_client, board["id"], parent_id=root["id"], text=f"Kid {i}")
+        for i in range(2)
+    ]
+
+    moved = board_client.put(
+        f"/whiteboard/boards/{board['id']}/nodes/move-many",
+        json={
+            "moves": [
+                {"id": kid["id"], "reparent": True, "parent_id": other["id"]}
+                for kid in kids
+            ]
+        },
+    )
+    assert moved.status_code == 200, moved.text
+    assert {node["parent_id"] for node in moved.json()} == {other["id"]}
+
+
+def test_a_batch_that_would_make_a_ring_writes_nothing(board_client):
+    """The check that this endpoint exists for.
+
+    Neither move here is a cycle on its own: hanging the root under its own
+    grandchild is only a ring once the grandchild has been hung under the root,
+    and the grandchild already is. A per-move check against the map as it
+    stands passes both and leaves a map no walk can leave, which is why the
+    batch is checked once against the shape it would produce.
+    """
+    board = _map_board(board_client)
+    root = _map_node(board_client, board["id"], text="Root")
+    kid = _map_node(board_client, board["id"], parent_id=root["id"], text="Kid")
+    grandkid = _map_node(board_client, board["id"], parent_id=kid["id"], text="Grandkid")
+
+    refused = board_client.put(
+        f"/whiteboard/boards/{board['id']}/nodes/move-many",
+        json={
+            "moves": [
+                {"id": root["id"], "reparent": True, "parent_id": grandkid["id"]},
+                {"id": kid["id"], "x": 999.0},
+            ]
+        },
+    )
+    assert refused.status_code == 422, refused.text
+    # Nothing at all was written, including the innocent half of the batch.
+    state = board_client.get(f"/whiteboard/?board_id={board['id']}").json()
+    by_id = {obj["id"]: obj for obj in state["objects"]}
+    assert by_id[root["id"]]["parent_id"] is None
+    assert by_id[kid["id"]]["x"] != 999.0
+
+
+def test_a_batch_naming_a_node_on_another_board_is_refused(board_client):
+    board = _map_board(board_client)
+    elsewhere = _map_board(board_client, name="Somewhere else")
+    stranger = _map_node(board_client, elsewhere["id"], text="Not yours")
+
+    refused = board_client.put(
+        f"/whiteboard/boards/{board['id']}/nodes/move-many",
+        json={"moves": [{"id": stranger["id"], "x": 10.0}]},
+    )
+    assert refused.status_code == 404, refused.text
+
+
+def test_one_node_twice_in_a_batch_is_refused(board_client):
+    """Two entries for one node is a caller bug with no right answer: the
+    last one wins is a silent guess, and both applying is nonsense."""
+    board = _map_board(board_client)
+    root = _map_node(board_client, board["id"], text="Root")
+
+    refused = board_client.put(
+        f"/whiteboard/boards/{board['id']}/nodes/move-many",
+        json={"moves": [{"id": root["id"], "x": 1.0}, {"id": root["id"], "x": 2.0}]},
+    )
+    assert refused.status_code == 422, refused.text

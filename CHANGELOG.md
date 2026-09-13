@@ -171,6 +171,17 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The meeting recorder holds its controls the way the rest of the app does.
+  Three sentences of explanation stood between the title and the one button the
+  dialog is for, and are now one line with the rest behind the app's own '?'.
+  The Record button, the clock and the wave that moves while you talk were
+  three loose siblings of the card, so the clock read as a stray number and the
+  wave pushed the transcript 5rem down the moment recording started: they are
+  one panel now, on the same inner corner the sketch pad's bars take. The four
+  buttons under the transcript were 40px and 42px in the same row, and Discard
+  sat one slip away from Save; they are one height now, with Discard at the far
+  end.
+
 - The popup agent looks like the rest of the app. The Ctrl+Shift+A surface had
   no title and no visible way out (Escape and a click on the backdrop both
   worked, and neither is something you can see), its four example prompts wrapped

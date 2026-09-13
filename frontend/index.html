@@ -8602,41 +8602,72 @@
   <div id="meeting-overlay" class="modal-overlay hidden" role="dialog"
     aria-modal="true" aria-label="Meeting notes">
     <div class="card modal-card" id="meeting-card">
+      <!-- **One line in place, the rest behind the '?'** (INBOX 126, "same with
+           the meeting notes popup", and standing order 6, which says exactly
+           this). Three sentences of explanation stood between the title and the
+           one control this dialog is for, on a surface you open when you are
+           already late to start recording. The '?' is the app's own
+           `data-help-for` pair, markup only: `initHelpToggles` wires every one
+           of them at load. -->
       <div class="row space-between">
-        <h2><i class="ph ph-microphone ph-lead" aria-hidden="true"></i> Meeting notes</h2>
+        <div class="row help-head">
+          <h2><i class="ph ph-microphone ph-lead" aria-hidden="true"></i> Meeting notes</h2>
+          <button type="button" class="icon-only ghost small graph-help-toggle"
+            data-help-for="meeting-help" aria-controls="meeting-help" aria-expanded="false"
+            title="About meeting notes" aria-label="About meeting notes">
+            <i class="ph ph-question" aria-hidden="true"></i>
+          </button>
+        </div>
         <button id="meeting-close" class="ghost small">Close</button>
       </div>
-      <p class="muted">
-        Record a meeting, a lecture, or anything longer than a quick note, 
-        transcribed locally with Whisper, the same engine behind the mic
-        button. Nothing leaves this machine.
-      </p>
+      <p class="muted">Record anything longer than a quick note, transcribed on this machine.</p>
+      <div class="help-body hidden" id="meeting-help" role="dialog" aria-label="About meeting notes">
+        <p>
+          A meeting, a lecture, or anything the mic button in the composer is
+          too short for. Whisper does the transcription, the same engine behind
+          that button, and nothing leaves this machine.
+        </p>
+        <p>
+          The transcript comes back for you to read and trim before anything is
+          saved. An hour of talking is a document rather than a note, which is
+          what the second save button is for.
+        </p>
+      </div>
       <label class="meeting-title-label" for="meeting-title">What is this recording?</label>
       <input type="text" id="meeting-title" maxlength="120" class="meeting-title"
         placeholder="e.g. Tuesday standup, Lecture 4, thermodynamics"
         aria-label="A name for this recording">
-      <div class="row" id="meeting-controls">
-        <button id="meeting-record" type="button"><i class="ph ph-record ph-lead" aria-hidden="true"></i> Record</button>
-        <button id="meeting-pause" type="button" class="ghost hidden"><i class="ph ph-pause ph-lead" aria-hidden="true"></i> Pause</button>
-        <span id="meeting-timer" class="meeting-timer muted" aria-live="polite">0:00</span>
-      </div>
-      <!-- The line that moves while you talk. Reported twice: "there is still
-           no line animation that visually picks up the user's voice when
-           recording in the meeting notes section." There *was* a meter, six
-           small bars appended to the Record button by `startMicLevelMeter`, 
-           and at that size, on a button, next to a word, it does not read as
-           anything. A recording with no visible response to your voice is
-           indistinguishable from a broken microphone, which is the actual
-           thing being reported: not "I would like a nicer meter" but "I
-           cannot tell whether this is listening."
+      <!-- **The recorder is one object, not three loose ones.** The button, the
+           clock and the line that moves while you talk were three siblings of
+           the dialog with nothing to join them, so the clock read as a number
+           someone had left beside a button and the wave, when it appeared,
+           pushed everything below it down by 5rem. They share one surface now,
+           on the inner radius the sketch pad's two bars take, and the wave
+           grows inside it instead of between two unrelated things. -->
+      <div class="meeting-stage">
+        <div class="row" id="meeting-controls">
+          <button id="meeting-record" type="button"><i class="ph ph-record ph-lead" aria-hidden="true"></i> Record</button>
+          <button id="meeting-pause" type="button" class="ghost hidden"><i class="ph ph-pause ph-lead" aria-hidden="true"></i> Pause</button>
+          <span id="meeting-timer" class="meeting-timer" aria-live="polite">0:00</span>
+        </div>
+        <!-- The line that moves while you talk. Reported twice: "there is still
+             no line animation that visually picks up the user's voice when
+             recording in the meeting notes section." There *was* a meter, six
+             small bars appended to the Record button by `startMicLevelMeter`, 
+             and at that size, on a button, next to a word, it does not read as
+             anything. A recording with no visible response to your voice is
+             indistinguishable from a broken microphone, which is the actual
+             thing being reported: not "I would like a nicer meter" but "I
+             cannot tell whether this is listening."
 
-           A canvas, not DOM bars: this draws ~120 points at 60fps, and 120
-           elements each taking a style write per frame is a layout cost for
-           no benefit. Hidden until recording starts, an empty flat line
-           sitting there when nothing is happening is the "frozen" reading the
-           bar meter's own comment already warns about. -->
-      <canvas id="meeting-wave" class="meeting-wave hidden" width="960" height="120"
-        aria-hidden="true"></canvas>
+             A canvas, not DOM bars: this draws ~120 points at 60fps, and 120
+             elements each taking a style write per frame is a layout cost for
+             no benefit. Hidden until recording starts, an empty flat line
+             sitting there when nothing is happening is the "frozen" reading the
+             bar meter's own comment already warns about. -->
+        <canvas id="meeting-wave" class="meeting-wave hidden" width="960" height="120"
+          aria-hidden="true"></canvas>
+      </div>
       <p id="meeting-status" class="status" role="status"></p>
       <!-- Editable, not saved straight away: a raw transcript carries every
            "um" and false start, and the app's whole capture pattern is
@@ -8645,6 +8676,12 @@
       <textarea id="meeting-transcript" rows="10" class="hidden"
         placeholder="The transcript will appear here once recording stops, review and trim it before saving."
         aria-label="Transcript: edit before saving"></textarea>
+      <!-- The save row is a dock's action zone by another name: the one filled
+           control first, the other two ways of keeping the transcript beside
+           it, and the one that throws it away pushed to the far end by
+           `margin-left: auto` rather than sitting fourth in a run of four.
+           DESIGN.md's ramp: a destructive action is never the filled one, and
+           it should not be a slip of the hand away from the primary either. -->
       <div class="row hidden" id="meeting-save-row">
         <button id="meeting-save">Save as a note</button>
         <!-- A lecture or a long meeting is not a note. Asked for as part of
@@ -8654,7 +8691,7 @@
              can open, edit, extract notes from and export. -->
         <button id="meeting-save-doc" class="ghost">Save as a document</button>
         <button id="meeting-copy" class="ghost" title="Copy the transcript">Copy</button>
-        <button id="meeting-discard" class="ghost">Discard</button>
+        <button id="meeting-discard" class="ghost meeting-discard">Discard</button>
       </div>
     </div>
   </div>

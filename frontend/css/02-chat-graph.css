@@ -2115,11 +2115,44 @@ button.recording.live-level {
    picks up the user's voice", because at button size it does not read as one.
    A recording with no visible response to your voice is indistinguishable
    from a broken microphone. */
+/* **The recorder, as one surface.** The Record button, the clock and the wave
+   were three siblings of the dialog with nothing joining them: the clock read
+   as a stray number and the wave, appearing on the first frame of a recording,
+   pushed the transcript box 5rem down the card. One panel on the inner radius,
+   the same the sketch pad's toolbar and foot take, so the two dialogs the
+   owner reported together now hold their controls the same way. */
+.meeting-stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-inner);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+/* One height for both rows of this dialog, and it is the app's control height
+   rather than either of the two the browser was handing out: a filled button
+   carries `border: none` and a `.ghost` a 1px edge, so "Save as a note" stood
+   40px beside three 42px neighbours in the same row. Pinned here rather than
+   in the base button recipe, which would move every filled button in the app
+   by 2px, see the report for the measurement. */
+#meeting-controls > button,
+#meeting-save-row > button {
+  height: var(--control-h-lg);
+  padding-block: 0;
+}
+
+/* Away from the primary, not fourth in a run of four. */
+.meeting-discard {
+  margin-left: auto;
+}
+
 .meeting-wave {
   display: block;
   width: 100%;
   height: 5rem;
-  margin: var(--space-4) 0;
   border-radius: var(--radius-md);
   background: var(--inner);
   border: 1px solid var(--border);
@@ -2136,10 +2169,15 @@ button.recording.live-level {
   margin-bottom: var(--space-4);
 }
 
+/* The clock is a readout, so it is drawn as one: `--ink` rather than the
+   `muted` it carried, which put the one number on this surface a step quieter
+   than the label above it. */
 .meeting-timer {
   font-variant-numeric: tabular-nums;
   /* mm:ss must not shift width every second */
   font-size: var(--text-h3);
+  color: var(--ink);
+  margin-left: var(--space-2);
 }
 
 #meeting-transcript {

@@ -5084,6 +5084,40 @@ summary:not(.icon-only):not(.icon-button) {
   cursor: pointer;
 }
 
+/* **Over a picture, the tick's ground cannot be a theme colour.** Reported on
+   2026-09-13, the third report on these cards: "the selection checkbox is a
+   dark square floating over the top-left of every picture with no ground of
+   its own, hardest to see on the dark thumbnails".
+
+   The shared recipe above gives it `--modal-bg-opaque`, which was itself the
+   fix for a translucent tick reading differently on two backdrops, and it is
+   right everywhere the tick sits on the app's own surface. On a photograph the
+   app's surface is not the backdrop: in the dark theme that token is
+   `rgb(24, 27, 37)`, so the control is a dark square on a dark thumbnail, and
+   the drop shadow that keeps it legible on a busy picture is also dark.
+
+   A picture is the same backdrop in both themes, so the treatment here is the
+   same in both: a near-white ground whatever the theme, a dark hairline to
+   separate it from a pale photograph, and a white outer ring outside that to
+   separate it from a dark one. Ticked, it goes back to the accent like every
+   other tick in the app, which is the state that has to match across surfaces;
+   only the resting ground differs, and only where the backdrop does. */
+.library-image-tile:has(> .library-image-frame) .library-tile-tick:not(:checked) {
+  background: rgba(252, 253, 255, 0.96);
+  border-color: rgba(0, 0, 0, 0.45);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.5),
+    0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.library-image-tile:has(> .library-image-frame) .library-tile-tick:checked {
+  /* The same outer ring on the ticked state: the accent fill is dark enough to
+     vanish into a dark photograph on its own. */
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.5),
+    0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
 .library-image-tile {
   position: relative;
 }

@@ -23618,6 +23618,34 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     glyphs floating over the writing, and only part of the bar's height is
     held at the top.
 
+146. **Mid-work drop, 2026-09-13, verbatim (the owner), the timeline feed, two
+    screenshots (one full-width, one zoomed on the card's left edge).** "when i
+    expand timeline items, the top text and stuff gets pushed up slightly and
+    the vertical line on the right clashes with the other text and elements".
+    The screenshots show an expanded note card: the title row and its tag
+    chips sit hard against the card's top edge with a hairline rule directly
+    under them, and a vertical rule (the timeline spine) runs down *inside*
+    the card's left edge, crossing the title, the body line and the "Open in
+    editor" button. Two separate faults: the expanded card loses the top
+    padding the collapsed one has, and the spine is drawn over the card
+    rather than beside it. A timeline agent (TIMELINE Phases 1 to 4) was in
+    flight when this landed; it is sent there.
+
+145. **Mid-work drop, 2026-09-13, verbatim (the owner), the Library images
+    sub-tab, third report on these cards (two screenshots, one at rest and one
+    with a fold open).** "The ui and ux and ux in the images cards needs
+    improving"
+
+    The two-rank rebuild has landed since the last report, and the screenshots
+    are of that. What they show: the selection checkbox is a dark square
+    floating over the top-left of every picture with no ground of its own,
+    hardest to see on the dark thumbnails; the filename band sits on a grey
+    strip across the bottom of the picture on some cards and over open sky on
+    others, depending on the image; one card's caption is a wall of the
+    picture's own OCR text rather than a description; and opening "Text" on
+    one card grows it well past its neighbours, so the row's cards are 260px
+    and 620px side by side.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

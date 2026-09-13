@@ -52,10 +52,24 @@ def running_captions() -> list[dict]:
 #: instruction rather than a persona-flavoured prompt on purpose: a caption
 #: written in the librarian's voice would be a strange thing to find surfaced
 #: back in a *different* persona's answer later.
+#: **"any visible text worth naming" is how a caption became a transcription.**
+#: Reported on 2026-09-13, the third report on these cards: "one card's caption
+#: is a wall of the picture's own OCR text rather than a description". The
+#: prompt asked for a description *and* for the visible text, and a small
+#: vision model handed a screenshot answers the easier half: it reads the words
+#: out. The document prompt below learned to say "do not transcribe" in
+#: September after the same report about files; this one had not, and a picture
+#: of a page is exactly the case where the two jobs look alike to the model.
+#:
+#: The text in a picture already has two homes on the card, the OCR field and
+#: the vision-OCR field, both behind the fold, both labelled. The caption is
+#: the one line that says what the picture *is*, which is the thing neither of
+#: those answers, so it names the kind of thing and its subject and stops.
 CAPTION_PROMPT = (
-    "Describe this image in one or two short, factual sentences, what it "
-    "shows, and any visible text worth naming. No preamble, no opinions, "
-    "just the description."
+    "Describe this image in one or two short, factual sentences: what kind of "
+    "image it is and what it shows. Do not transcribe or quote the text in "
+    "the image; if it is a page or a screenshot, say what it is a page or "
+    "screenshot of. No preamble, no opinions, just the description."
 )
 
 #: The same job for a document, and deliberately the same shape of answer, so

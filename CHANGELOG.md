@@ -9,6 +9,21 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Library's picture cards, on the third report about them. The selection
+  tick took the app's own surface colour, which over a photograph is a dark
+  square on a dark thumbnail; it now has a near-white ground and a ring in both
+  themes, because a picture is the same backdrop in both. The filename band was
+  a gradient, so it vanished into a dark photograph and read as a grey strip
+  across a light one; it is one flat ground of one height on every card (33.2px
+  measured across nine). An open transcription could take a card to twice its
+  neighbours' height and the grid gave the whole row that height; the fold
+  scrolls at 11rem, so an open card measures 411px against a shut 241px.
+- A picture's description could come back as a wall of the picture's own text.
+  The caption prompt asked for the description "and any visible text worth
+  naming", and a small vision model handed a screenshot answers the easier half
+  by reading the words out. It now says not to transcribe, which is what the
+  document prompt beside it already said.
+
 - **The writing suggestions read as one feature, and the word menu stays next
   to its word.** Four surfaces (the underlines, the word menu, the panel at the
   foot, the dictionary) had grown separately: one finding was described in two

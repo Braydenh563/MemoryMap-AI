@@ -2736,19 +2736,30 @@ header#top-bar.tabs-wrapped #tab-bar {
    3.6:1 against white and under AA for text this size. Held at full strength
    for the bottom two thirds (which is the whole padded text band) it
    measures dark enough to clear it, and the fade still hides the edge. */
+/* **And the fade is gone, because a scrim that fades is a different band on
+   every picture.** Reported on 2026-09-13, the third report on these cards:
+   "the filename band sits on a grey strip across the bottom of the picture on
+   some cards and over open sky on others, depending on the image". Both of
+   those were this one rule. Over a dark photograph the ramp disappears into
+   the picture and the name looks like it is floating on the sky; over a light
+   one the same ramp reads as a grey strip someone has laid across the bottom.
+   The band is doing its job in both cases and looking like two different
+   components while it does it, which on a wall of twenty thumbnails is the
+   thing the eye actually picks up.
+
+   One flat, near-opaque ground instead, so the band is the same shape, the
+   same tone and the same height on every card whatever is behind it. It is
+   still built from `--scrim` mixed towards black for the contrast reason
+   below, just held at one value from top edge to bottom instead of ramping
+   through the text. */
 .library-image-frame figcaption {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  padding: var(--space-5) var(--space-3) var(--space-2);
+  padding: var(--space-2) var(--space-3);
   color: #fff;
-  background: linear-gradient(
-    to top,
-    color-mix(in srgb, var(--scrim) 60%, #000 40%) 0%,
-    color-mix(in srgb, var(--scrim) 60%, #000 40%) 68%,
-    transparent 100%
-  );
+  background: color-mix(in srgb, var(--scrim) 45%, #000 55%);
 }
 
 .library-image-frame figcaption:hover {
@@ -2856,8 +2867,15 @@ header#top-bar.tabs-wrapped #tab-bar {
    tallest card, so one opened reading of a dense page would otherwise set the
    height of every card beside it. It scrolls at about a card's worth instead.
    Images only: a Files row is full width and stands on its own. */
+/* **18rem was still enough to double the row.** Reported on 2026-09-13:
+   "opening 'Text' on one card grows it well past its neighbours, so the row's
+   cards are 260px and 620px side by side". 18rem is 288px of transcription on
+   top of a 260px card, and the grid gives every card in the row the tallest
+   one's height. 11rem keeps enough of the reading visible to tell whether it
+   is the page you wanted (about six lines) and scrolls the rest, which is what
+   the fold is for; the whole transcription is one click away in the reader. */
 .library-image-card-fold > .library-image-reading-body {
-  max-height: 18rem;
+  max-height: 11rem;
   overflow-y: auto;
 }
 

@@ -83,6 +83,29 @@ const CONTENT = [
     return flag ? 1 : 0;
   };
 
+  // A panel row answers inside the panel since DOCUMENTS_PLAN 12 D3, so the
+  // thing to check here is that nothing floats over the text and that the word
+  // the row names is visible in the editor. prosepanel.js is the full probe.
+  const panelRow = async (label) => {
+    const out = await page.evaluate(() => {
+      const menu = document.getElementById("doc-suggest-menu");
+      const sel = document.querySelector(".cm-selectionBackground")?.getBoundingClientRect();
+      const ed = document.querySelector(".cm-editor").getBoundingClientRect();
+      const open = document.querySelectorAll('#doc-prose-panel .doc-prose-jump[aria-expanded="true"]').length;
+      return {
+        floatingOpen: menu ? !menu.classList.contains("hidden") : false,
+        openRows: open,
+        word: sel ? { top: Math.round(sel.top), bottom: Math.round(sel.bottom) } : null,
+        wordVisible: sel ? sel.top >= ed.top && sel.bottom <= ed.bottom : null,
+      };
+    });
+    let flag = "";
+    if (out.floatingOpen) flag += "  <<< A POPOVER OPENED FROM A ROW";
+    if (!out.wordVisible) flag += "  <<< the word is not visible";
+    console.log(`${label}: ${JSON.stringify(out)}${flag}`);
+    return flag ? 1 : 0;
+  };
+
   let lastFragment = null;
   let bad = 0;
   // Case A: press the panel row of the LAST finding while the editor sits at
@@ -105,7 +128,7 @@ const CONTENT = [
       return label;
     });
     lastFragment = null;
-    return geom(`panel row for the last finding (${which})`);
+    return panelRow(`panel row for the last finding (${which})`);
   })();
 
   // Case B: same row again, now that the editor is already there.
@@ -119,7 +142,7 @@ const CONTENT = [
     });
     await page.waitForTimeout(300);
     lastFragment = null;
-    return geom("the same row pressed a second time");
+    return panelRow("the same row pressed a second time");
   })();
 
   // Case C..: click each shape's mark where it sits.

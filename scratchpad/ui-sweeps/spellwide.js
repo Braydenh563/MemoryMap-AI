@@ -140,26 +140,31 @@ const CONTENT = [
     document.documentElement.removeAttribute("data-fontsize");
     document.documentElement.removeAttribute("data-density");
   });
-  // The panel's row route, which the owner also reported.
-  bad += await one("row in the suggestions panel", () => {
-    document.querySelector("[aria-controls='doc-prose-panel']")?.click();
-  }, () => null);
+  // The panel's row route, which the owner also reported. Since
+  // DOCUMENTS_PLAN 12 D3 a row answers inside the panel and opens nothing over
+  // the text, so that is what this asserts; prosepanel.js is the full probe.
   const rowCase = await page.evaluate(async () => {
-    const row = document.querySelector("#doc-prose-panel .doc-prose-list button");
+    // The previous case left a menu open on a word; this one is about what a
+    // row does, not about what is already on screen.
+    closeDocSuggest();
+    document.querySelector("[aria-controls='doc-prose-panel']")?.click();
+    await new Promise((r) => setTimeout(r, 700));
+    const row = document.querySelector("#doc-prose-panel .doc-prose-jump");
     if (!row) return "no row";
     row.click();
     await new Promise((r) => setTimeout(r, 800));
     const menu = document.getElementById("doc-suggest-menu");
-    if (!menu || menu.classList.contains("hidden")) return "menu did not open";
-    const m = menu.getBoundingClientRect();
+    const answers = row.closest(".doc-prose-row").querySelector(".doc-prose-answers");
     const sel = document.querySelector(".cm-selectionBackground")?.getBoundingClientRect();
+    const ed = document.querySelector(".cm-editor").getBoundingClientRect();
     return JSON.stringify({
-      menu: { left: Math.round(m.left), top: Math.round(m.top), right: Math.round(m.right), bottom: Math.round(m.bottom) },
-      selection: sel ? { left: Math.round(sel.left), top: Math.round(sel.top), bottom: Math.round(sel.bottom) } : null,
-      inView: m.left >= 0 && m.top >= 0 && m.right <= window.innerWidth + 1 && m.bottom <= window.innerHeight + 1,
+      floatingOpen: menu ? !menu.classList.contains("hidden") : false,
+      answerRows: answers.querySelectorAll("button").length,
+      wordVisible: sel ? sel.top >= ed.top && sel.bottom <= ed.bottom : null,
     });
   });
   console.log("panel row -> " + rowCase);
+  if (/"floatingOpen":true/.test(rowCase)) bad += 1;
   console.log("console errors: " + (errs.length ? errs.join(" | ") : "0"));
   console.log(bad ? `FAIL: ${bad} case(s) off` : "all cases flush");
   await browser.close();

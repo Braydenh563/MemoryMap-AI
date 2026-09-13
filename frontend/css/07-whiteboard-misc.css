@@ -1087,11 +1087,25 @@ body.has-agent-monitor #tab-library .library-view-section {
   padding: 0;
 }
 
+/* The title and the way out. No hairline under it: the head and the input
+   below it are one unit (this is what the surface is, then the thing you type
+   into), and the bar's own bottom border is what separates that unit from the
+   conversation. */
+.command-palette-head {
+  padding: var(--space-3) var(--card-pad-x) 0;
+}
+
 .command-palette-bar {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-6);
+  /* **The card's own inset, not a number of this surface's own.** Every
+     section of this card was inset by `--space-6` (16px) while every other
+     dialog in the app insets its content by `--card-pad-x` (24px, and one step
+     down under 820px), so the palette's content started 8px left of where the
+     same content starts in the settings sheet, the meeting recorder or the
+     sketch pad. The token also carries the responsive step for free. */
+  padding: var(--space-4) var(--card-pad-x);
   border-bottom: 1px solid var(--border-light);
 }
 
@@ -1174,7 +1188,7 @@ body.has-agent-monitor #tab-library .library-view-section {
   flex-direction: column;
   gap: var(--space-3);
   max-height: 25rem;
-  padding: var(--space-6);
+  padding: var(--space-4) var(--card-pad-x);
   /* Both axes named: `overflow-y` alone leaves x at `visible`, which CSS
      computes to `auto` beside a scrolling axis, a second, horizontal bar
      nobody asked for. Same trap as #chat-messages. */
@@ -1203,16 +1217,22 @@ body.has-agent-monitor #tab-library .library-view-section {
    told a reader how to operate the box and nothing about what the box is
    for, which is the half that was reported missing. */
 .command-palette-intro {
-  padding: 0 var(--space-6) var(--space-4);
+  padding: var(--space-4) var(--card-pad-x);
 }
 
 .command-palette-intro p {
   margin: 0 0 var(--space-3);
 }
 
+/* **Two columns, not a wrap.** Four example prompts in a wrapping flex row
+   came out three on the first line and one on the second, ragged at both
+   1440 and 1024 (the card is 600px at either), which reads as four things
+   that did not fit rather than as four things offered. A two-column grid is
+   the same four buttons in a shape that is the same at every width the card
+   has. */
 .command-palette-examples {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
 }
 
@@ -1220,8 +1240,11 @@ body.has-agent-monitor #tab-library .library-view-section {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-6);
-  border-top: 1px solid var(--border);
+  padding: var(--space-3) var(--card-pad-x);
+  /* `--border-light`, the same hairline the bar above draws. One card drew its
+     two internal rules in two different weights, which is the kind of thing
+     that reads as "not quite right" without ever being seen. */
+  border-top: 1px solid var(--border-light);
 }
 
 /* The status pushes the buttons right; Stop takes Start-over's place while

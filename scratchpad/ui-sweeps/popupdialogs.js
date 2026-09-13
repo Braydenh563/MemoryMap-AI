@@ -104,17 +104,30 @@ const probe = ([cardSel, containerSels]) => {
     b: fg.b * fg.a + bg.b * (1 - fg.a),
     a: 1,
   });
+  // The background a piece of text is actually read against, and whether
+  // anything translucent was crossed on the way to it. That second half
+  // matters: these three dialogs are `.card.glass`, so a strict composite
+  // says the text sits on the scrim and the page behind it, while what the
+  // eye gets is a backdrop-filter that blurs AND lifts the luminosity of all
+  // that, which no computed style can report. Measured on the palette's intro
+  // line: composited 2.52:1, the rendered pixels (scratchpad/pngpixel.py on a
+  // capture) 4.75:1. So a translucent chain is reported, never failed, which
+  // is the same call contrast.js makes.
   const bgOf = (el) => {
     let n = el;
     let acc = null;
+    let translucent = false;
     while (n && n !== document.documentElement) {
       const c = parse(getComputedStyle(n).backgroundColor);
-      if (c && c.a > 0) acc = acc ? over(acc, c) : c;
-      if (acc && acc.a >= 0.999) return acc;
+      if (c && c.a > 0) {
+        if (c.a < 0.999) translucent = true;
+        acc = acc ? over(acc, c) : c;
+      }
+      if (acc && acc.a >= 0.999) return { bg: acc, translucent };
       n = n.parentElement;
     }
     const root = parse(getComputedStyle(document.body).backgroundColor) || { r: 255, g: 255, b: 255, a: 1 };
-    return acc ? over(acc, root) : root;
+    return { bg: acc ? over(acc, root) : root, translucent };
   };
   for (const el of card.querySelectorAll('*')) {
     if (!vis(el)) continue;
@@ -123,7 +136,7 @@ const probe = ([cardSel, containerSels]) => {
     const cs = getComputedStyle(el);
     const fg = parse(cs.color);
     if (!fg) continue;
-    const bg = bgOf(el);
+    const { bg, translucent } = bgOf(el);
     const f = fg.a < 1 ? over(fg, bg) : fg;
     const l1 = lum(f);
     const l2 = lum(bg);
@@ -131,7 +144,16 @@ const probe = ([cardSel, containerSels]) => {
     const size = parseFloat(cs.fontSize);
     const large = size >= 18.66 || (size >= 14 && Number(cs.fontWeight) >= 700);
     const need = large ? 3 : 4.5;
-    if (ratio < need) out.contrast.push({ text: text.slice(0, 40), ratio: ratio.toFixed(2), need, size });
+    if (ratio < need) {
+      out.contrast.push({
+        text: text.slice(0, 40),
+        ratio: ratio.toFixed(2),
+        need,
+        size,
+        // An estimate, not a verdict: settle it from the pixels.
+        on: translucent ? 'translucent' : 'opaque',
+      });
+    }
   }
   out.overflow = { scroll: card.scrollHeight, client: card.clientHeight };
   return out;

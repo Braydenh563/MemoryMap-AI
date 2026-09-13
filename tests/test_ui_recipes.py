@@ -725,3 +725,72 @@ def test_the_facts_line_is_one_rule_rather_than_three() -> None:
                     f"{selector.strip()} sets its own font size: a facts line "
                     "takes the shared rule's rank (DESIGN.md, the recipe index)"
                 )
+
+
+def _function_body(text: str, name: str) -> str:
+    """The source of one top-level function, from its `function` to the next one.
+
+    Crude on purpose: these lints ask what a named function *mentions*, and a
+    brace-matching parse of 11,000 lines of JS to answer that would be a second
+    thing to get wrong.
+    """
+    start = text.index(f"function {name}(")
+    rest = text.index("\nfunction ", start + 1)
+    return text[start:rest]
+
+
+def test_a_list_row_answers_in_place_rather_than_opening_a_popover() -> None:
+    """DESIGN.md's recipe index: a row you can act on expands, it does not pop.
+
+    The report that earned the recipe (INBOX 142): "when I click on the issue
+    from the suggestions thing, the box just appears right there in my face."
+    The writing panel's rows had no answers of their own, so acting on one
+    opened the floating word menu: measured at 1440x900, 335px of menu drawn
+    over the 297px panel that asked for it, 70% of the window's height spent on
+    one misspelled word, with the sentence being discussed behind both.
+
+    Three halves of the fix, each one a thing a later session could undo
+    without noticing:
+
+    1. the panel's row builder must not reach for the floating menu again;
+    2. the open row has to say so in the markup (`aria-expanded` on the
+       control, `aria-current` on the row) and be painted from the attribute,
+       or the mark is a colour and a colour is not a position;
+    3. the answers must come from the one builder the menu also uses, because
+       two sets of the same four actions is how the panel came to have none.
+    """
+    js = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+
+    for name in ("docProseGroupList", "docProseRowAnswers"):
+        body = _function_body(js, name)
+        assert "openDocSuggest" not in body, (
+            f"{name} opens the floating word menu: a list row answers inside the "
+            "list (DESIGN.md, the recipe index), it does not draw a popover over "
+            "the text it is about"
+        )
+
+    rows = _function_body(js, "docProseGroupList")
+    assert 'setAttribute("aria-expanded"' in rows, (
+        "the writing panel's row control must carry aria-expanded: a row that "
+        "opens something has to say whether it is open"
+    )
+    answers = _function_body(js, "docProseRowAnswers")
+    assert 'aria-current", "location"' in answers, (
+        "the open row must take aria-current=\"location\", the recipe index's "
+        "mark for where you are inside a document"
+    )
+    assert "docSuggestAnswers(" in answers, (
+        "the row's answers must come from docSuggestAnswers, the same builder "
+        "the word menu uses: a second copy of those actions is how the two "
+        "surfaces drifted apart in the first place"
+    )
+    assert "scrollIntoView(" not in answers, (
+        "bring the open row into view with the panel's own scrollTop: "
+        "scrollIntoView walks every scrolling ancestor, the page included "
+        "(DESIGN.md, the recipe index)"
+    )
+    assert ".doc-prose-row[aria-current]" in css, (
+        "the open row's paint must hang off [aria-current] so the mark and its "
+        "announcement are one thing (DESIGN.md, the recipe index)"
+    )

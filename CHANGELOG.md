@@ -9,6 +9,31 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- **The writing suggestions read as one feature, and the word menu stays next
+  to its word.** Four surfaces (the underlines, the word menu, the panel at the
+  foot, the dictionary) had grown separately: one finding was described in two
+  orders, and acting on a row in the panel opened a 335px popup over the very
+  sentence it was about, measured at 70% of a 1440x900 window spent on one
+  misspelled word. A row now answers inside the panel (the same candidates and
+  actions the menu offers, from one builder), the word it names is scrolled to
+  the middle of the editor instead of just inside its bottom edge, the panel
+  keeps its settled share when no row is open (14% of the window against the
+  editor's 45%) and grows to 24% only while one is, and both the row and the
+  menu's head draw the finding the same way: a dot in the colour of its
+  underline, the words, the reason.
+
+- **A flagged word that wraps no longer opens its menu somewhere else.** The
+  menu was anchored to `getBoundingClientRect()`, which for a mark drawn as two
+  fragments is the union of them: measured on a doubled "the the" at a wrap
+  point, fragments at 1187..1218 and 471..497 and a union of 471..1218, so the
+  menu opened 716px to the left of the words that were clicked, and a click
+  anywhere in those 747px claimed the finding. Both questions are asked of
+  `getClientRects()` now, so the menu opens against the fragment under the
+  pointer. The menu is also clamped to the editor's own card rather than to the
+  window (a word at the end of a long line had put 146px of it in the window's
+  gutter, clear of the document), clamped on all four sides, and it scrolls a
+  word it cannot see into view before pointing at it.
+
 - The note edit form's formatting bar was see-through and hid behind the Notes
   sub-tab strip. Its background was a 4%-opaque tint meant to sit on a pane,
   which on a sticky strip left the note's own text showing through it, and it

@@ -36,24 +36,26 @@ const { boot } = require("./lib.js");
     });
   }));
 
-  // Press a row in the panel, then ask where the menu landed.
+  // Press a row in the panel. Since DOCUMENTS_PLAN 12 D3 the row answers in
+  // place, so the thing to measure is that nothing floats over the text and
+  // that the answers are inside the panel's own box. prosepanel.js is the full
+  // probe for that contract; this one keeps the share-of-the-window numbers.
   const where = await page.evaluate(async () => {
-    const row = document.querySelector("#doc-prose-panel .doc-prose-list button");
+    const row = document.querySelector("#doc-prose-panel .doc-prose-jump");
     if (!row) return "no row";
-    const rowRect = row.getBoundingClientRect();
     row.click();
-    await new Promise((r) => setTimeout(r, 700));
+    await new Promise((r) => setTimeout(r, 800));
     const menu = document.getElementById("doc-suggest-menu");
-    if (!menu || menu.classList.contains("hidden")) return "menu did not open";
-    const m = menu.getBoundingClientRect();
-    const mark = [...document.querySelectorAll("[data-doc-finding]")][0];
-    const k = mark?.getBoundingClientRect();
+    const li = row.closest(".doc-prose-row");
+    const answers = li.querySelector(".doc-prose-answers");
+    const panel = document.getElementById("doc-prose-panel").getBoundingClientRect();
+    const a = answers.getBoundingClientRect();
     return JSON.stringify({
-      rowTop: Math.round(rowRect.top),
-      menu: { left: Math.round(m.left), top: Math.round(m.top), w: Math.round(m.width), h: Math.round(m.height) },
-      word: k ? { left: Math.round(k.left), top: Math.round(k.top), bottom: Math.round(k.bottom) } : null,
-      gapFromWord: k ? Math.round(m.left - k.left) : null,
-      onScreen: m.left >= 0 && m.top >= 0 && m.right <= window.innerWidth && m.bottom <= window.innerHeight,
+      floatingOpen: menu ? !menu.classList.contains("hidden") : false,
+      answersOpen: !answers.classList.contains("hidden"),
+      answerRows: answers.querySelectorAll("button").length,
+      answersInsidePanel: a.top >= panel.top - 1 && a.bottom <= panel.bottom + 1,
+      panelPctNow: Math.round((panel.height / window.innerHeight) * 100),
     });
   });
   console.log("row click -> " + where);

@@ -48,10 +48,20 @@ const CONTENT = [
   }, CONTENT);
   console.log("seeded: " + JSON.stringify(made));
 
-  // One case: pick a mark by a matcher, click it where it is, report the
-  // geometry of both boxes. Everything is measured, nothing is looked at.
+  // One case: pick a mark by a matcher, press the fragment a reader would
+  // press, and report both boxes. Everything is measured, nothing is looked at.
   const one = async (name, setup, pick) => {
-    await page.evaluate(() => document.getElementById("doc-suggest-menu")?.classList.add("hidden"));
+    // A live selection makes the plain-click route bail out (it reads as a
+    // drag), and a previous case's jump leaves one; a previous case's scroll
+    // leaves the rest of the document unrendered.
+    await page.evaluate(() => {
+      closeDocSuggest();
+      const box = docSurface();
+      if (box) box.setSelection(0, 0);
+      const s = document.querySelector(".cm-scroller");
+      if (s) s.scrollTop = 0;
+    });
+    await page.waitForTimeout(400);
     if (setup) { await page.evaluate(setup); await page.waitForTimeout(700); }
     const out = await page.evaluate(async (pickSrc) => {
       /* eslint no-new-func: 0 */
@@ -59,39 +69,40 @@ const CONTENT = [
       const marks = [...document.querySelectorAll("[data-doc-finding]")];
       const el = choose(marks);
       if (!el) return { skip: "no mark", marks: marks.length };
-      el.scrollIntoView({ block: "center" });
-      await new Promise((r) => setTimeout(r, 300));
-      const before = el.getBoundingClientRect();
-      el.dispatchEvent(new MouseEvent("click", {
-        bubbles: true, clientX: before.left + before.width / 2, clientY: before.top + before.height / 2,
-      }));
-      await new Promise((r) => setTimeout(r, 600));
+      const rects = [...el.getClientRects()];
+      const f = rects[0] || el.getBoundingClientRect();
+      const at = { x: f.left + f.width / 2, y: f.top + f.height / 2 };
+      el.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: at.x, clientY: at.y }));
+      await new Promise((r) => setTimeout(r, 700));
       const menu = document.getElementById("doc-suggest-menu");
       const open = menu && !menu.classList.contains("hidden");
-      // Re-read the word's box after the menu opened: the jump may have moved it.
-      const live = [...document.querySelectorAll("[data-doc-finding]")]
-        .find((n) => n.dataset.docFinding === el.dataset.docFinding) || el;
-      const w = live.getBoundingClientRect();
       const m = open ? menu.getBoundingClientRect() : null;
       const card = document.querySelector(".cm-editor")?.getBoundingClientRect();
+      // The word's box as it is now: a reveal may have scrolled it.
+      const live = [...document.querySelectorAll("[data-doc-finding]")]
+        .find((n) => n.dataset.docFinding === el.dataset.docFinding);
+      const w = live ? (([...live.getClientRects()][0]) || live.getBoundingClientRect()) : f;
+      const box = (r) => ({ left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom) });
       return {
-        word: { text: live.textContent, left: Math.round(w.left), right: Math.round(w.right), top: Math.round(w.top), bottom: Math.round(w.bottom) },
-        menu: m ? { left: Math.round(m.left), top: Math.round(m.top), right: Math.round(m.right), bottom: Math.round(m.bottom) } : "closed",
+        word: { text: el.textContent, ...box(w) },
+        menu: m ? box(m) : "closed",
         editor: card ? { left: Math.round(card.left), right: Math.round(card.right) } : null,
         win: { w: window.innerWidth, h: window.innerHeight },
-        dx: m ? Math.round(m.left - w.left) : null,
-        dy: m ? Math.round(m.top - w.bottom) : null,
+        gapX: m ? Math.max(0, Math.round(w.left - m.right), Math.round(m.left - w.right)) : null,
+        gapY: m ? Math.max(0, Math.round(w.top - m.bottom), Math.round(m.top - w.bottom)) : null,
+        pastCard: m && card ? Math.max(0, Math.round(m.right - card.right)) : null,
         inView: m ? (m.left >= 0 && m.top >= 0 && m.right <= window.innerWidth + 1 && m.bottom <= window.innerHeight + 1) : null,
       };
     }, pick.toString());
     const bad = [];
     if (out.menu && out.menu !== "closed") {
       if (!out.inView) bad.push("OUT OF BOUNDS");
-      if (Math.abs(out.dx) > 24) bad.push(`dx ${out.dx}`);
-      if (out.dy !== null && (out.dy < -10 || out.dy > 40) && Math.abs(out.menu.bottom - out.word.top) > 40) bad.push(`dy ${out.dy}`);
+      if (out.pastCard) bad.push(`${out.pastCard}px past the card`);
+      if (out.gapX > 0) bad.push(`gapX ${out.gapX}`);
+      if (out.gapY > 6) bad.push(`gapY ${out.gapY}`);
     } else if (!out.skip) bad.push("menu did not open");
     console.log(`${name}: ${JSON.stringify(out)} ${bad.length ? "  <<< " + bad.join(", ") : ""}`);
-    return bad.length;
+    return bad.length ? 1 : 0;
   };
 
   let bad = 0;

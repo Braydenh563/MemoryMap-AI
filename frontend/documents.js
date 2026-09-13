@@ -8932,68 +8932,99 @@ const DOC_FINDING_GROUPS = [
 //: applied per group would let three kinds multiply it by three.
 const DOC_PROSE_ROWS = 60;
 
+//: **The row of the panel, and the answers under it** (DOCUMENTS_PLAN 12 D3).
+//:
+//: Reported: "when I click on the issue from the suggestions thing, the box
+//: just appears right there in my face." The row used to open the floating
+//: menu, first at the row (which is at the foot of the window, under the
+//: pointer) and then at the word, and both readings of "where" were answers to
+//: the wrong question: a list at the foot of the window had no answers of its
+//: own, so acting on any row meant drawing a 335px popup over the text being
+//: discussed, on top of the 297px panel that asked. Measured: 70% of the
+//: window's height spent on one misspelled word.
+//:
+//: So the row expands under itself, inside the panel, with the same answers the
+//: menu offers (`docSuggestAnswers`), and the document scrolls the word to the
+//: middle of the editor so the sentence is readable while its row is open. One
+//: surface at a time, which is DESIGN.md's popover rule: a panel that has to
+//: open a popover to be useful was breaking it structurally.
+function docProseRowAnswers(row, control, finding) {
+  const panel = $("doc-prose-panel");
+  const answers = row.querySelector(".doc-prose-answers");
+  if (!panel || !answers) return;
+  const wasOpen = control.getAttribute("aria-expanded") === "true";
+  //: One open row, like one open popover. Two sets of answers in one list is
+  //: two places the next press could mean something.
+  for (const other of panel.querySelectorAll('.doc-prose-jump[aria-expanded="true"]')) {
+    other.setAttribute("aria-expanded", "false");
+    const li = other.closest(".doc-prose-row");
+    li?.removeAttribute("aria-current");
+    li?.querySelector(".doc-prose-answers")?.classList.add("hidden");
+  }
+  //: Pressing the row always takes you to the word, open or closing: that is
+  //: what the row is for, and it is the half of this the owner asked for
+  //: ("it should auto scroll to the issue and temporarily highlight it").
+  docProseJump(finding);
+  if (wasOpen) return;
+  control.setAttribute("aria-expanded", "true");
+  //: The open row is where you are in the document, so it says so with
+  //: `aria-current` and is painted from that attribute (DESIGN.md's recipe for
+  //: a list that says where you are), not with a class a screen reader cannot
+  //: see.
+  row.setAttribute("aria-current", "location");
+  answers.replaceChildren(
+    docSuggestAnswers(finding, {
+      inline: true,
+      close: () => {
+        control.setAttribute("aria-expanded", "false");
+        row.removeAttribute("aria-current");
+        answers.classList.add("hidden");
+        answers.replaceChildren();
+      },
+      current: () => control.getAttribute("aria-expanded") === "true",
+    })
+  );
+  answers.classList.remove("hidden");
+  //: Brought into view by the panel's own `scrollTop`, never `scrollIntoView`,
+  //: which walks every scrolling ancestor including the page (DESIGN.md).
+  const box = row.getBoundingClientRect();
+  const frame = panel.getBoundingClientRect();
+  if (box.bottom > frame.bottom) panel.scrollTop += box.bottom - frame.bottom + 8;
+  else if (box.top < frame.top) panel.scrollTop -= frame.top - box.top + 8;
+}
+
 function docProseGroupList(findings) {
   const list = document.createElement("ul");
   list.className = "doc-prose-list";
   for (const finding of findings.slice(0, DOC_PROSE_ROWS)) {
     const li = document.createElement("li");
     li.className = "doc-prose-row";
+    const head = document.createElement("div");
+    head.className = "row doc-prose-rowhead";
     const jump = document.createElement("button");
     jump.type = "button";
     jump.className = "doc-prose-jump";
-    const what = document.createElement("span");
-    what.className = "doc-prose-what";
-    what.textContent = finding.message;
-    const where = document.createElement("span");
-    where.className = "doc-prose-where muted";
-    //: The words themselves, trimmed, a row reading only "a very long
-    //: sentence" makes you go and find it, which is the work the row was
-    //: supposed to save. `docFindingLabel` for the same reason the menu's
-    //: heading uses it: a spacing finding's own text is whitespace, and a row
-    //: with a blank second half reads as a row that failed to load.
-    where.textContent = finding.text.trim()
-      ? finding.text.replace(/\s+/g, " ").slice(0, 80)
-      : docFindingLabel(finding);
-    jump.append(what, where);
+    jump.setAttribute("aria-expanded", "false");
+    //: The words, then why: one drawing of a finding, shared with the menu's
+    //: own head (`docFindingLine`).
+    jump.appendChild(docFindingLine(finding, "row"));
     jump.title = "Show me this in the document, and what can be done about it";
-    jump.addEventListener("click", (event) => {
-      docProseJump(finding);
-      //: **Anchored to the word, not to the row that named it.** This used to
-      //: anchor to the row, reasoning that the row "is the flagged word as far
-      //: as this panel is concerned" and that the pointer was on it. Reported:
-      //: "when I click on the issue from the suggestions thing, the box just
-      //: appears right there in my face." Both things are true: the pointer is
-      //: on the row, and the row is at the foot of the window, so a menu
-      //: opened there lands over the panel it came from and over the text it
-      //: is discussing.
-      //:
-      //: The click has just scrolled the document to the word
-      //: (`docProseJump`), which is the whole point of pressing the row, so
-      //: the word is on screen and is the honest anchor: the menu appears
-      //: beside the thing it is about, exactly as it does when the word itself
-      //: is clicked, and the two ways in stop behaving differently.
-      //:
-      //: A frame later, because the jump moves the editor and a decoration's
-      //: box is the previous scroll position's until it has been laid out
-      //: again. The row's own rect is the fallback for a finding whose mark is
-      //: not rendered (a Live-view construct the editor has folded away), so
-      //: pressing a row always opens something.
-      const rowRect = event.currentTarget.getBoundingClientRect();
-      requestAnimationFrame(() => {
-        if (!docOpenSuggestFor(finding)) openDocSuggest(finding, rowRect);
-      });
-    });
-    li.appendChild(jump);
+    jump.addEventListener("click", () => docProseRowAnswers(li, jump, finding));
+    head.appendChild(jump);
     if (finding.replacement !== null) {
       const fix = document.createElement("button");
       fix.type = "button";
       fix.className = "ghost small doc-prose-fix";
       setLabel(fix, "ph:check");
-      fix.title = `Change it to “${finding.replacement}”`;
+      fix.title = `Change it to \u201c${finding.replacement}\u201d`;
       fix.setAttribute("aria-label", fix.title);
       fix.addEventListener("click", () => docProseFix(finding));
-      li.appendChild(fix);
+      head.appendChild(fix);
     }
+    li.appendChild(head);
+    const answers = document.createElement("div");
+    answers.className = "doc-prose-answers hidden";
+    li.appendChild(answers);
     list.appendChild(li);
   }
   return list;
@@ -9026,7 +9057,21 @@ function docProseJump(finding) {
   if (!box) return;
   box.focus();
   box.setSelection(finding.start, finding.end);
-  if (box.kind === "codemirror") return;
+  if (box.kind === "codemirror") {
+    //: **To the middle, not just inside the edge** (DOCUMENTS_PLAN 12 D3).
+    //: `setSelection` scrolls the minimum that reveals the range, which puts a
+    //: word reached from the panel hard against the bottom of the editor, the
+    //: one place where everything that follows (the row's own answers, a menu)
+    //: has to be drawn over the text being discussed. Measured before this:
+    //: the word at `564..583` in an editor ending at `588`.
+    const CM = window.CM6;
+    if (CM) {
+      docCmView.dispatch({
+        effects: CM.view.EditorView.scrollIntoView(finding.start, { y: "center" }),
+      });
+    }
+    return;
+  }
   box.blur();
   box.focus();
   box.classList.remove("doc-selection-flash");
@@ -9532,14 +9577,44 @@ function docFindingMarks() {
   return marks;
 }
 
+//: **A mark is one element and can be several boxes, and this is the whole of
+//: INBOX 128.** A finding that crosses a soft wrap is drawn as two fragments of
+//: one inline element, and `getBoundingClientRect()` answers with the *union*
+//: of them, which is a box neither fragment occupies: measured on a doubled
+//: "the the" at a wrap point, fragments at `1187..1218` on one line and
+//: `471..497` on the next, union `471..1218`, 747px wide and two lines tall.
+//: Anchoring a menu to that opened it 716px to the left of the words that were
+//: clicked ("the popup didnt appear right next to it but off to the side with a
+//: wide gap"), and hit-testing against it claimed every unrelated word inside
+//: those 747px as well. `getClientRects()` is the per-fragment answer, so both
+//: the question "is the pointer on this finding" and the question "where do I
+//: put the menu" are asked of the box the reader can actually see.
+function docMarkRects(mark) {
+  const rects = [...mark.getClientRects()].filter((rect) => rect.width || rect.height);
+  return rects.length ? rects : [mark.getBoundingClientRect()];
+}
+
+function docRectHolds(rect, x, y) {
+  return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+}
+
+//: The fragment the pointer is in, or, for a route with no pointer (the
+//: keyboard, a panel row), the first one: a finding is read from its start, so
+//: its first line is where someone looking for it will be looking.
+function docMarkAnchor(mark, point) {
+  const rects = docMarkRects(mark);
+  if (point && rects.length > 1) {
+    const hit = rects.find((rect) => docRectHolds(rect, point.x, point.y));
+    if (hit) return hit;
+  }
+  return rects[0];
+}
+
 function docFindingAtPoint(x, y) {
   if (typeof x !== "number" || typeof y !== "number") return null;
   for (const mark of docFindingMarks()) {
     if (!mark._docFinding) continue;
-    const rect = mark.getBoundingClientRect();
-    if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
-      return mark._docFinding;
-    }
+    if (docMarkRects(mark).some((rect) => docRectHolds(rect, x, y))) return mark._docFinding;
   }
   return null;
 }
@@ -9547,10 +9622,40 @@ function docFindingAtPoint(x, y) {
 //: Anchored to the word, not to the caret, wherever the word is a real
 //: element. A menu that opens at the caret when the pointer is on the word is
 //: a menu you have to look away to find.
-function docOpenSuggestFor(finding, focus = true) {
+//: **Put the word on screen before opening a menu about it** (DOCUMENTS_PLAN 12
+//: D4). A mark's box is where the text *is laid out*, which is not the same as
+//: where it can be seen: the editor clips its own overflow, so a finding one
+//: screen below the fold measures at `top 651` inside an editor whose visible
+//: box ends at `588`, and a menu anchored there is a menu pointing at nothing.
+//: Centred rather than scrolled minimally, for the same reason the panel centres
+//: (D3): a word brought just inside the bottom edge leaves the menu nowhere to
+//: open but over the panel that asked for it.
+//:
+//: Returns whether it moved, because CodeMirror applies a scroll effect in its
+//: own measure cycle: the mark's box is the old one until the next frame, and
+//: the caller has to re-measure rather than trust what it just read.
+function docRevealForSuggest(anchor, finding) {
+  const host = docCmView ? docCmView.dom.getBoundingClientRect() : null;
+  const CM = window.CM6;
+  if (!host || !CM || !docCmView) return false;
+  if (anchor.top >= host.top && anchor.bottom <= host.bottom) return false;
+  docCmView.dispatch({
+    effects: CM.view.EditorView.scrollIntoView(finding.start, { y: "center" }),
+  });
+  return true;
+}
+
+function docOpenSuggestFor(finding, focus = true, point = null, revealed = false) {
   const mark = docFindingMarks().find((el) => el._docFinding === finding);
   if (mark) {
-    openDocSuggest(finding, mark.getBoundingClientRect(), focus);
+    const anchor = docMarkAnchor(mark, point);
+    //: Once only: a finding the editor cannot bring into view (a folded
+    //: construct, a zero-height line) would otherwise ask for a frame forever.
+    if (!revealed && docRevealForSuggest(anchor, finding)) {
+      requestAnimationFrame(() => docOpenSuggestFor(finding, focus, null, true));
+      return true;
+    }
+    openDocSuggest(finding, anchor, focus);
     return true;
   }
   const box = docActiveBox() || docSurface();
@@ -9570,7 +9675,7 @@ function docOpenSuggestAtCaret(box, point = null, focus = true) {
     finding = docFindingAtOffset(offset);
   }
   if (!finding) return false;
-  return docOpenSuggestFor(finding, focus);
+  return docOpenSuggestFor(finding, focus, point);
 }
 
 document.addEventListener("dblclick", (event) => {
@@ -9608,7 +9713,7 @@ document.addEventListener("click", (event) => {
     if (!finding) return;
     //: Already open on this one (a double-click's first click got here first).
     if (docSuggestOpenFor === finding) return;
-    docOpenSuggestFor(finding, false);
+    docOpenSuggestFor(finding, false, point);
   });
 });
 
@@ -9626,7 +9731,7 @@ document.addEventListener("contextmenu", (event) => {
   if (flag) docFindingMarks(); // resolves the engine's marks back to findings
   if (flag && flag._docFinding) {
     event.preventDefault();
-    openDocSuggest(flag._docFinding, flag.getBoundingClientRect());
+    openDocSuggest(flag._docFinding, docMarkAnchor(flag, { x: event.clientX, y: event.clientY }));
     return;
   }
   const box = docToolsBoxFor(event.target);
@@ -10155,28 +10260,62 @@ function docSuggestAlternatives(finding) {
   return out.slice(0, DOC_SUGGEST_MAX);
 }
 
-function openDocSuggest(finding, anchorRect, focus = true) {
-  const menu = $("doc-suggest-menu");
-  if (!menu) return;
-  docSuggestOpenFor = finding;
-  menu.replaceChildren();
-
-  const head = document.createElement("div");
-  head.className = "doc-suggest-head";
-  const word = document.createElement("strong");
-  //: A spacing finding's text *is* whitespace, so the heading rendered as an
-  //: empty bold nothing above a sentence about it. Said in words instead:
-  //: "three spaces" is a thing you can look for in the line, an empty heading
-  //: is not.
-  word.textContent = docFindingLabel(finding);
+//: **One drawing of a finding, wherever one is drawn** (DOCUMENTS_PLAN 12 D1).
+//: The panel row said the reason and then the words, the menu's head said the
+//: words and then the reason, and the underline said neither, so one object was
+//: described three ways and a reader had to re-read the list to match a row to
+//: the word it was about. Here it is one line in one order: a dot in the same
+//: colour as that kind's underline, the words, the reason. The dot is the link
+//: back to the text, and it is the one mark the three surfaces share.
+function docFindingLine(finding, variant = "row") {
+  const line = document.createElement("span");
+  line.className = `doc-finding-line doc-finding-line-${variant}`;
+  const dot = document.createElement("span");
+  dot.className = `doc-finding-dot doc-finding-dot-${docFindingKind(finding)}`;
+  dot.setAttribute("aria-hidden", "true");
+  const words = document.createElement("span");
+  words.className = "doc-finding-words";
+  //: A spacing finding's text *is* whitespace, so a heading built from it
+  //: rendered as an empty bold nothing. Said in words instead: "three spaces"
+  //: is a thing you can look for in the line, an empty heading is not.
+  words.textContent = docFindingLabel(finding);
   const why = document.createElement("span");
-  why.className = "muted doc-suggest-why";
+  why.className = "doc-finding-why";
   why.textContent = finding.message;
-  head.append(word, why);
-  menu.appendChild(head);
+  line.append(dot, words, why);
+  return line;
+}
+
+//: **Is this finding a passage or a word?** (DOCUMENTS_PLAN 12 D2.) A
+//: misspelling's other wordings *are* the candidate list above it, and
+//: "translate this passage" over one word is a dictionary lookup wearing the
+//: wrong label: both rows belong to a finding that is a run of words (a
+//: repeat, a long sentence), and offering them on every spelling made the
+//: common menu nine rows deep. Whitespace-only findings (a double space) are
+//: not passages either: there is nothing in them to rephrase.
+function docFindingIsPassage(finding) {
+  return /\s/.test(String(finding.text || "").trim());
+}
+
+//: **The answers to a finding, built once and drawn in two places**
+//: (DOCUMENTS_PLAN 12 D2 and D3): the floating menu over the word, and the
+//: expanded row in the panel. They were two code paths offering the same four
+//: things, which is how the panel ended up with no answers of its own and had
+//: to open the menu over the text to have any.
+//:
+//: `close` dismisses whichever surface this was drawn into, `current` says
+//: whether that surface is still showing this finding (the AI round-trip takes
+//: seconds and the reader may have moved on), and `reflow` lets a surface that
+//: positions itself do so again after the answers change size.
+function docSuggestAnswers(finding, opts = {}) {
+  const close = opts.close || (() => {});
+  const current = opts.current || (() => true);
+  const reflow = opts.reflow || (() => {});
+  const inline = opts.inline === true;
+  const frag = document.createDocumentFragment();
 
   const list = document.createElement("div");
-  list.className = "doc-suggest-list";
+  list.className = inline ? "doc-suggest-list doc-suggest-list-inline" : "doc-suggest-list";
   const alternatives = docSuggestAlternatives(finding);
   //: **A candidate word is a word, not an action, and it used to be drawn as
   //: one.** Every row carried the same `ph:check`, so five suggestions read as
@@ -10194,10 +10333,10 @@ function openDocSuggest(finding, anchorRect, focus = true) {
     item.type = "button";
     item.className = index === 0 ? "doc-suggest-item doc-suggest-best" : "doc-suggest-item";
     item.textContent = option === " " ? "one space" : option;
-    item.title = `Replace with “${option}”`;
+    item.title = `Replace with \u201c${option}\u201d`;
     item.addEventListener("click", () => {
       docProseFix({ ...finding, replacement: option });
-      closeDocSuggest();
+      close();
     });
     list.appendChild(item);
   });
@@ -10210,70 +10349,17 @@ function openDocSuggest(finding, anchorRect, focus = true) {
     none.textContent = "No single answer for this one, it is a place to look, not a correction.";
     list.appendChild(none);
   }
-  menu.appendChild(list);
-
-  //: **"Ask the AI for wordings", where the app itself has no answer.** Asked
-  //: for directly: "the listed errors in suggestions have no way to have the
-  //: ai write a suggested replacement or multiple for the user to choose."
-  //:
-  //: A row rather than an automatic call: this costs a model round-trip of
-  //: several seconds, and firing one every time a menu opens would make the
-  //: menu feel broken on a small local model. It replaces itself with the
-  //: options when they arrive, so the menu that asked is the menu that
-  //: answers: pressing an option applies it exactly as a built-in fix does,
-  //: through `docProseFix`, which re-checks the document before writing.
-  const askAi = document.createElement("button");
-  askAi.type = "button";
-  askAi.className = "doc-suggest-item doc-suggest-ai";
-  setLabel(askAi, "ph:magic-wand Ask the AI for wordings…");
-  askAi.title = "Have the local model suggest two or three other ways to put this";
-  askAi.addEventListener("click", async () => {
-    if (!currentDoc || !currentDoc.id) return toast("Save the document first.", true);
-    setLabel(askAi, "ph:hourglass Thinking…");
-    askAi.disabled = true;
-    const body = await apiJson(`/documents/${currentDoc.id}/rephrase`, {
-      method: "POST",
-      body: JSON.stringify({ passage: finding.text, note: finding.message || "" }),
-    }).catch(() => null);
-    //: The menu may have been closed, or opened on something else, while the
-    //: model was thinking. Writing into it then would put one finding's
-    //: suggestions under another finding's heading.
-    if (docSuggestOpenFor !== finding) return;
-    const options = (body && body.options) || [];
-    if (!options.length) {
-      setLabel(askAi, "ph:magic-wand Ask the AI for wordings…");
-      askAi.disabled = false;
-      return toast(
-        (body && body.message) || "No other wordings came back for that one.",
-        true
-      );
-    }
-    askAi.remove();
-    for (const option of options) {
-      const item = document.createElement("button");
-      item.type = "button";
-      item.className = "doc-suggest-item doc-suggest-ai-option";
-      setLabel(item, `ph:magic-wand ${option}`);
-      item.title = `Replace with “${option}”`;
-      item.addEventListener("click", () => {
-        docProseFix({ ...finding, replacement: option });
-        closeDocSuggest();
-      });
-      list.appendChild(item);
-    }
-    placeDocSuggest();
-  });
-  list.appendChild(askAi);
+  frag.appendChild(list);
 
   const actions = document.createElement("div");
-  actions.className = "doc-suggest-actions";
+  actions.className = inline ? "doc-suggest-actions doc-suggest-actions-inline" : "doc-suggest-actions";
   if (finding.rule === "spelling" || finding.rule === "variant") {
     const add = document.createElement("button");
     add.type = "button";
     add.className = "doc-suggest-item";
-    setLabel(add, `ph:book-open-text Add “${finding.text}” to dictionary`);
+    setLabel(add, `ph:book-open-text Add \u201c${finding.text}\u201d to dictionary`);
     add.addEventListener("click", async () => {
-      closeDocSuggest();
+      close();
       await docDictionaryAdd(finding.text);
     });
     actions.appendChild(add);
@@ -10285,31 +10371,115 @@ function openDocSuggest(finding, anchorRect, focus = true) {
   ignore.title = "Stop flagging this wording in this document until MemoryMap is restarted";
   ignore.addEventListener("click", () => {
     docProseIgnored.add(docProseKey(finding));
-    closeDocSuggest();
+    close();
     renderDocProse();
     renderDocProsePanel();
   });
   actions.appendChild(ignore);
 
-  //: **Translation, through the chat rather than behind it.** There is no
-  //: offline translator in this app and inventing one would be a lie; what
-  //: there *is* is a local model that can translate, and the honest way to
-  //: offer that is to hand the passage to it with the question already
-  //: written, where the answer is visible and correctable, not to silently
-  //: rewrite the document with something nobody checked.
-  const translate = document.createElement("button");
-  translate.type = "button";
-  translate.className = "doc-suggest-item";
-  setLabel(translate, "ph:translate Translate this passage…");
-  translate.addEventListener("click", () => {
-    closeDocSuggest();
-    docTranslatePassage(finding.text);
-  });
-  actions.appendChild(translate);
-  menu.appendChild(actions);
+  if (docFindingIsPassage(finding)) {
+    //: **"Ask the AI for wordings", where the app itself has no answer.** Asked
+    //: for directly: "the listed errors in suggestions have no way to have the
+    //: ai write a suggested replacement or multiple for the user to choose."
+    //:
+    //: A row rather than an automatic call: this costs a model round-trip of
+    //: several seconds, and firing one every time a menu opens would make the
+    //: menu feel broken on a small local model. It replaces itself with the
+    //: options when they arrive, so the menu that asked is the menu that
+    //: answers: pressing an option applies it exactly as a built-in fix does,
+    //: through `docProseFix`, which re-checks the document before writing.
+    const askAi = document.createElement("button");
+    askAi.type = "button";
+    askAi.className = "doc-suggest-item doc-suggest-ai";
+    setLabel(askAi, "ph:magic-wand Ask the AI for wordings\u2026");
+    askAi.title = "Have the local model suggest two or three other ways to put this";
+    askAi.addEventListener("click", async () => {
+      if (!currentDoc || !currentDoc.id) return toast("Save the document first.", true);
+      setLabel(askAi, "ph:hourglass Thinking\u2026");
+      askAi.disabled = true;
+      const body = await apiJson(`/documents/${currentDoc.id}/rephrase`, {
+        method: "POST",
+        body: JSON.stringify({ passage: finding.text, note: finding.message || "" }),
+      }).catch(() => null);
+      //: The surface may have been closed, or opened on something else, while
+      //: the model was thinking. Writing into it then would put one finding's
+      //: suggestions under another finding's heading.
+      if (!current()) return;
+      const options = (body && body.options) || [];
+      if (!options.length) {
+        setLabel(askAi, "ph:magic-wand Ask the AI for wordings\u2026");
+        askAi.disabled = false;
+        return toast(
+          (body && body.message) || "No other wordings came back for that one.",
+          true
+        );
+      }
+      askAi.remove();
+      for (const option of options) {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "doc-suggest-item doc-suggest-ai-option";
+        setLabel(item, `ph:magic-wand ${option}`);
+        item.title = `Replace with \u201c${option}\u201d`;
+        item.addEventListener("click", () => {
+          docProseFix({ ...finding, replacement: option });
+          close();
+        });
+        list.appendChild(item);
+      }
+      reflow();
+    });
+    actions.appendChild(askAi);
+
+    //: **Translation, through the chat rather than behind it.** There is no
+    //: offline translator in this app and inventing one would be a lie; what
+    //: there *is* is a local model that can translate, and the honest way to
+    //: offer that is to hand the passage to it with the question already
+    //: written, where the answer is visible and correctable, not to silently
+    //: rewrite the document with something nobody checked.
+    const translate = document.createElement("button");
+    translate.type = "button";
+    translate.className = "doc-suggest-item";
+    setLabel(translate, "ph:translate Translate this passage\u2026");
+    translate.addEventListener("click", () => {
+      close();
+      docTranslatePassage(finding.text);
+    });
+    actions.appendChild(translate);
+  }
+  frag.appendChild(actions);
+  return frag;
+}
+
+function openDocSuggest(finding, anchorRect, focus = true) {
+  const menu = $("doc-suggest-menu");
+  if (!menu) return;
+  docSuggestOpenFor = finding;
+  menu.replaceChildren();
+
+  const head = document.createElement("div");
+  head.className = "doc-suggest-head";
+  head.appendChild(docFindingLine(finding, "head"));
+  menu.appendChild(head);
+  menu.appendChild(
+    docSuggestAnswers(finding, {
+      close: closeDocSuggest,
+      current: () => docSuggestOpenFor === finding,
+      reflow: placeDocSuggest,
+    })
+  );
 
   menu.classList.remove("hidden");
-  docSuggestAnchor = anchorRect;
+  //: Copied rather than kept by reference, and with a right edge filled in:
+  //: `DOMRect`s are live for some sources and stale for others, and the caret
+  //: fallback hands over a point with no `right` at all, which the
+  //: right-alignment below would otherwise read as NaN and place nowhere.
+  docSuggestAnchor = {
+    left: anchorRect.left,
+    right: anchorRect.right ?? anchorRect.left,
+    top: anchorRect.top,
+    bottom: anchorRect.bottom,
+  };
   placeDocSuggest();
   //: Only when the gesture asked for the menu. A plain click on a word is
   //: someone putting the caret in it, and taking the focus then sends their
@@ -10323,6 +10493,37 @@ function openDocSuggest(finding, anchorRect, focus = true) {
 //: unreachable.
 let docSuggestAnchor = null;
 
+//: The gap the menu keeps from the word, and from every edge it is clamped to.
+const DOC_SUGGEST_GAP = 4;
+const DOC_SUGGEST_EDGE = 8;
+
+//: **The band the menu is allowed to occupy: the editor's own box first, the
+//: window second** (DOCUMENTS_PLAN 12 D4).
+//:
+//: Reported as "the popup edit suggestions menu screws upn the screen and make
+//: sit go out of bounds", and measured: a flagged word at the end of a long
+//: line sits at `left 1161` in a card whose right edge is `1255`, and clamping
+//: to the *window* put the menu at `1161..1401`, so 146 of its 240px hung past
+//: the card into the window's own gutter, pointing at a document it was no
+//: longer over. The window is not the frame this menu belongs to; the text is.
+//:
+//: Only when the card is actually wide enough to hold it: below that the band
+//: would be narrower than the menu and every placement inside it would be a
+//: lie, so a narrow window falls back to the viewport, which is the one frame
+//: that always exists.
+function docSuggestBand(width) {
+  const band = {
+    min: DOC_SUGGEST_EDGE,
+    max: window.innerWidth - DOC_SUGGEST_EDGE,
+  };
+  const host = docCmView ? docCmView.dom.getBoundingClientRect() : docSurface()?.rect?.();
+  if (host && host.right - host.left >= width + 2) {
+    band.min = Math.max(band.min, host.left);
+    band.max = Math.min(band.max, host.right);
+  }
+  return band;
+}
+
 function placeDocSuggest() {
   const menu = $("doc-suggest-menu");
   if (!menu || !docSuggestAnchor || menu.classList.contains("hidden")) return;
@@ -10330,12 +10531,33 @@ function placeDocSuggest() {
   //: a menu positioned against zero opens in the corner.
   const width = menu.offsetWidth;
   const height = menu.offsetHeight;
-  const left = Math.min(docSuggestAnchor.left, window.innerWidth - width - 8);
-  const below = docSuggestAnchor.bottom + 4;
-  const top =
-    below + height > window.innerHeight - 8 ? docSuggestAnchor.top - height - 4 : below;
-  menu.style.left = `${Math.max(8, left)}px`;
-  menu.style.top = `${Math.max(8, top)}px`;
+  const band = docSuggestBand(width);
+
+  //: Left edge against the word's left edge, which is where a menu about a word
+  //: reads from. When that would cross the band's right edge the menu is
+  //: *right-aligned to the word* instead of slid back along it: the two boxes
+  //: then share an edge, which still reads as "this belongs to that word", and
+  //: the menu ends up beside the word rather than hanging off the card.
+  let left = docSuggestAnchor.left;
+  if (left + width > band.max) left = (docSuggestAnchor.right ?? docSuggestAnchor.left) - width;
+  left = Math.max(band.min, Math.min(left, band.max - width));
+
+  //: Below the word, above it when there is no room below, and clamped to the
+  //: window in both directions. The old version clamped the *top* only, so an
+  //: anchor low in a short window flipped to a negative top, was pulled back to
+  //: 8, and drew its bottom rows off the end of the screen.
+  let top = docSuggestAnchor.bottom + DOC_SUGGEST_GAP;
+  if (top + height > window.innerHeight - DOC_SUGGEST_EDGE) {
+    const above = docSuggestAnchor.top - height - DOC_SUGGEST_GAP;
+    top = above >= DOC_SUGGEST_EDGE ? above : top;
+  }
+  top = Math.max(
+    DOC_SUGGEST_EDGE,
+    Math.min(top, window.innerHeight - DOC_SUGGEST_EDGE - height)
+  );
+
+  menu.style.left = `${Math.round(left)}px`;
+  menu.style.top = `${Math.round(top)}px`;
 }
 
 //: A passage, a language, and the local model, asked in the chat so the

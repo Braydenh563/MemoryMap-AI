@@ -3534,6 +3534,19 @@ textarea.autogrow {
   overflow-y: auto;
 }
 
+/* **Room for an open row, and only while one is open** (DOCUMENTS_PLAN 12 D3).
+   The panel is a flex item in `.doc-main` and the editor is the greedy one, so
+   the column squeezes the panel back to the `min-height` above: measured with a
+   row expanded, a 164px row inside a 130px panel, with the answers a press had
+   just opened behind a scrollbar. Lifting the floor only for the state that
+   needs it keeps the settled numbers for the state that does not (panel 14% of
+   the window against the editor's 45%, which is what the owner's "it makes the
+   text editor really small" was answered with), and `flex: none` would have
+   thrown both away: measured at panel 30%, editor 30%. */
+.doc-prose-panel:has(.doc-prose-row[aria-current]) {
+  min-height: min(24vh, 16rem);
+}
+
 .doc-prose-head {
   align-items: center;
   justify-content: space-between;
@@ -3616,18 +3629,118 @@ textarea.autogrow {
   background: var(--chip-bg);
 }
 
-.doc-prose-what {
-  flex: none;
+/* The row's own line: the jump, and the one-press fix beside it. */
+.doc-prose-rowhead {
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
-/* The offending words, so the row says what it is about rather than only what
-   kind of thing it is. */
-.doc-prose-where {
+/* **One drawing of a finding** (DOCUMENTS_PLAN 12 D1), used by the panel row
+   and by the menu's head, so the two cannot describe one object in two orders
+   again: a dot in the colour of that kind's underline, the words, the reason. */
+.doc-finding-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* The head of the menu says the same three things stacked, because the menu is
+   a column 15rem wide and the reason is a sentence. */
+.doc-finding-line-head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: var(--space-2);
+  row-gap: 2px;
+}
+
+.doc-finding-line-head .doc-finding-why {
+  grid-column: 2;
+}
+
+/* The link back to the text. The same three colours the squiggles use, solid
+   rather than 80% mixed: a 0.5rem dot has no room to lose contrast. */
+.doc-finding-dot {
+  flex: none;
+  align-self: center;
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--muted);
+}
+
+.doc-finding-dot-spelling {
+  background: var(--error);
+}
+
+.doc-finding-dot-style {
+  background: var(--accent);
+}
+
+.doc-finding-dot-repeat {
+  background: var(--muted);
+}
+
+/* The words carry the identity, so they hold the weight and they are the half
+   that ellipsises: the reason is a sentence and can be read from the title. */
+.doc-finding-words {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 600;
+}
+
+.doc-finding-why {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
   font-size: var(--text-xs);
+}
+
+/* **The open row is where you are**, painted from `aria-current` so the mark
+   and its announcement are one thing (DESIGN.md's recipe index), a fill plus a
+   weight step and never an accent edge as well. */
+.doc-prose-row[aria-current] > .doc-prose-rowhead > .doc-prose-jump {
+  background: var(--accent-soft);
+  border-color: transparent;
+}
+
+.doc-prose-row[aria-current] .doc-finding-words {
+  font-weight: 650;
+}
+
+/* **The answers, under the row that asked** (DOCUMENTS_PLAN 12 D3): the same
+   controls the floating menu draws, laid out along the row rather than down it,
+   because the panel is the width of the editor and a column of five candidates
+   inside a 33vh box is a scroller inside a scroller. Indented to the width of
+   the dot and its gap, so the answers hang off the finding they belong to. */
+.doc-prose-answers {
+  margin: var(--space-1) 0 var(--space-3) calc(var(--space-3) + var(--space-4));
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--divider);
+}
+
+.doc-suggest-list-inline,
+.doc-suggest-actions-inline {
+  flex-flow: row wrap;
+  gap: var(--space-1);
+}
+
+.doc-suggest-actions-inline {
+  margin-top: var(--space-1);
+  padding-top: var(--space-1);
+}
+
+/* A candidate in a row of candidates is the width of its word, not the width of
+   the panel. */
+.doc-suggest-list-inline > .doc-suggest-item,
+.doc-suggest-actions-inline > .doc-suggest-item {
+  width: auto;
+  border-color: var(--glass-border);
 }
 
 /* The completion popup. `position: fixed` because it is placed in viewport
@@ -3733,18 +3846,20 @@ textarea.autogrow {
 }
 
 /* The word, and why it is flagged. Both, because "recieve" with no reason is a
-   scold and a reason with no word makes you go and look. */
+   scold and a reason with no word makes you go and look. The two are drawn by
+   `docFindingLine`, the same function the panel row uses, so this rule only has
+   to place the line and divide it from the answers below. */
 .doc-suggest-head {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
   padding: var(--space-1) var(--space-2) var(--space-2);
   border-bottom: 1px solid var(--border);
   margin-bottom: var(--space-1);
 }
 
-.doc-suggest-why {
-  font-size: var(--text-xs);
+/* In the menu the reason is a sentence with room to be one: it is the only
+   place in the app where a finding's why is allowed to wrap. */
+.doc-suggest-head .doc-finding-why {
+  overflow: visible;
+  white-space: normal;
 }
 
 .doc-suggest-list,

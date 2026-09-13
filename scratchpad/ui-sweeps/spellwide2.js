@@ -62,22 +62,28 @@ const CONTENT = [
         editor: ed ? { left: Math.round(ed.left), top: Math.round(ed.top), right: Math.round(ed.right), bottom: Math.round(ed.bottom) } : null,
         win: { w: window.innerWidth, h: window.innerHeight },
         inView: m ? (m.left >= 0 && m.top >= 0 && m.right <= window.innerWidth + 1 && m.bottom <= window.innerHeight + 1) : null,
+        pastCard: m && ed ? Math.max(0, Math.round(m.right - ed.right)) : null,
       };
     });
     let flag = "";
     if (out.menu !== "closed") {
       if (!out.inView) flag += "  <<< OUT OF BOUNDS";
-      if (out.selection) {
-        const dx = out.menu.left - out.selection.left;
-        const dy = out.menu.top - out.selection.bottom;
-        out.dx = dx; out.dy = dy;
-        if (Math.abs(dx) > 24 || dy < -400 || dy > 40) flag += `  <<< ANCHOR OFF dx=${dx} dy=${dy}`;
+      if (out.pastCard) flag += `  <<< ${out.pastCard}px PAST THE CARD`;
+      const ref = lastFragment || out.selection;
+      if (ref) {
+        // Attachment, not alignment: the two boxes must touch. A menu
+        // right-aligned to a word it cannot start beside is still beside it.
+        const gapX = Math.max(0, ref.left - out.menu.right, out.menu.left - ref.right);
+        const gapY = Math.max(0, ref.top - out.menu.bottom, out.menu.top - ref.bottom);
+        out.gapX = gapX; out.gapY = gapY;
+        if (gapX > 0 || gapY > 6) flag += `  <<< DETACHED gapX=${gapX} gapY=${gapY}`;
       }
     } else flag += "  <<< did not open";
     console.log(`${label}: ${JSON.stringify(out)}${flag}`);
     return flag ? 1 : 0;
   };
 
+  let lastFragment = null;
   let bad = 0;
   // Case A: press the panel row of the LAST finding while the editor sits at
   // the top, so the jump has to scroll a long way to reach it.
@@ -98,6 +104,7 @@ const CONTENT = [
       await new Promise((r) => setTimeout(r, 900));
       return label;
     });
+    lastFragment = null;
     return geom(`panel row for the last finding (${which})`);
   })();
 
@@ -111,6 +118,7 @@ const CONTENT = [
       await new Promise((r) => setTimeout(r, 900));
     });
     await page.waitForTimeout(300);
+    lastFragment = null;
     return geom("the same row pressed a second time");
   })();
 
@@ -130,13 +138,23 @@ const CONTENT = [
       const el = [...document.querySelectorAll("[data-doc-finding]")].find((n) => rx.test(n.textContent || ""));
       if (!el) return { skip: "no mark", have: [...document.querySelectorAll("[data-doc-finding]")].map((n) => n.textContent) };
       const r = el.getBoundingClientRect();
-      const boxes = [...el.getClientRects()].map((b) => `${Math.round(b.left)}..${Math.round(b.right)}@${Math.round(b.top)}`);
-      el.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: r.left + 2, clientY: r.top + r.height / 2 }));
+      const rects = [...el.getClientRects()];
+      const boxes = rects.map((b) => `${Math.round(b.left)}..${Math.round(b.right)}@${Math.round(b.top)}`);
+      // The point a reader would actually press: the middle of the first
+      // fragment, not the middle of the union of a wrapped mark's two boxes.
+      const f = rects[0] || r;
+      const at = { x: f.left + f.width / 2, y: f.top + f.height / 2 };
+      el.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: at.x, clientY: at.y }));
       await new Promise((res) => setTimeout(res, 700));
-      return { rect: { left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom) }, fragments: boxes };
+      return {
+        rect: { left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom) },
+        clickedFragment: { left: Math.round(f.left), right: Math.round(f.right), top: Math.round(f.top), bottom: Math.round(f.bottom) },
+        fragments: boxes,
+      };
     }, re);
     if (res.skip) { console.log(`${label}: ${JSON.stringify(res)}`); return 0; }
-    console.log(`${label}: mark ${JSON.stringify(res.rect)} fragments=${res.fragments.join(" ")}`);
+    console.log(`${label}: union ${JSON.stringify(res.rect)} clicked ${JSON.stringify(res.clickedFragment)} fragments=${res.fragments.join(" ")}`);
+    lastFragment = res.clickedFragment;
     return geom(`  ${label} menu`);
   };
 

@@ -653,8 +653,8 @@ function ok(name, condition, detail) {
     const first = menu.querySelector(".doc-suggest-item");
     return {
       open: !menu.classList.contains("hidden"),
-      word: menu.querySelector(".doc-suggest-head strong")?.textContent,
-      why: menu.querySelector(".doc-suggest-why")?.textContent,
+      word: menu.querySelector(".doc-suggest-head .doc-finding-words")?.textContent,
+      why: menu.querySelector(".doc-suggest-head .doc-finding-why")?.textContent,
       first: first?.textContent.trim(),
       // The caret stays in the text on a plain click, so typing carries on.
       focusIsMenu: menu.contains(document.activeElement),
@@ -884,7 +884,7 @@ function ok(name, condition, detail) {
     const jump = document.querySelector(".doc-prose-jump");
     return {
       rowLeft: jump.getBoundingClientRect().left,
-      wordLeft: jump.querySelector(".doc-prose-what").getBoundingClientRect().left,
+      wordLeft: jump.querySelector(".doc-finding-words").getBoundingClientRect().left,
     };
   });
   ok("P0 panel rows start at the left of the list, not the middle",

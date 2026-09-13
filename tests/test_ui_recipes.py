@@ -161,6 +161,51 @@ def test_the_sheet_recipe_keeps_its_dialog_semantics_and_its_bottom_inset() -> N
     )
 
 
+# A fixed set of filter toggles is one well (DESIGN.md, "Two to four toggles
+# that belong to one question"), not a row of chips. INBOX 186 is what a row of
+# chips looks like once there are four of them at four widths: measured at 820,
+# four lines and a 181.2px dock. `.dock-chip-row` was that shape's class and now
+# has no user in the page; the count may only stay at zero.
+def test_a_fixed_filter_set_is_one_well_rather_than_a_row_of_chips() -> None:
+    page = re.sub(
+        r"<!--.*?-->", "", (ROOT / "frontend" / "index.html").read_text(encoding="utf-8"), flags=re.S
+    )
+    assert "dock-chip-row" not in page, (
+        "a row of filter chips is back in the page: a filter set that is always "
+        "all of its members is `.seg.seg-multi` (DESIGN.md's recipe index), and "
+        "a chip is only for a filter you can take off"
+    )
+
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+    bodies = [body for selector, body in _rules(css) if ".seg-multi" in selector]
+    assert bodies, ".seg-multi is in DESIGN.md's index but not in the stylesheet"
+    # The one property that separates it from `.seg`, and the whole reason the
+    # variant exists: `.seg` wraps, and a well in a dock row that wraps is the
+    # four-line chip row this replaced.
+    assert any("flex-wrap: nowrap" in body for body in bodies), (
+        ".seg-multi must declare `flex-wrap: nowrap`: `.seg` itself wraps, and a "
+        "wrapping well in a dock row is the shape INBOX 186 reported"
+    )
+
+
+# And the other half of the same recipe, which is behaviour rather than paint:
+# every segment of a multi-toggle well says whether it is on, because no single
+# segment is "the" answer the way it is in an exclusive one.
+def test_every_segment_of_a_multi_toggle_well_says_whether_it_is_on() -> None:
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    start = app.index("function renderTimelineKinds(")
+    body = app[start : app.index("\n}\n", start)]
+    assert 'setAttribute("aria-pressed"' in body, (
+        "renderTimelineKinds builds the segments of a `.seg-multi` and must set "
+        "`aria-pressed` on each: without it a screen reader hears four buttons "
+        "and no states"
+    )
+    assert '"seg-label"' in body, (
+        "the word in a segment is a `.seg-label` span so 10-responsive.css can "
+        "hide it below 1200 without taking the accessible name with it"
+    )
+
+
 def test_no_inline_style_attributes_in_the_page() -> None:
     """The CSP rejects them silently (CLAUDE.md, section 6, shape 4)."""
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")

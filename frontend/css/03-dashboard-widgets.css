@@ -277,6 +277,47 @@
   color: var(--on-accent);
 }
 
+/* --- `.seg-multi`: one well, independent toggles ---------------------------
+   DESIGN.md's index had one row for a well of choices, "two to four exclusive
+   choices", and the Timeline's kind filter is the other kind of set: four
+   toggles that are all on by default, at least one of which is always on, and
+   none of which is removable. It was four loose `.library-chip`s (INBOX 186,
+   "these buttons in the top of the timeline dock are ugly"), which the dock
+   grammar already rules out: a chip is a filter you can take off.
+
+   So the well is the same well, and the only differences are the ones the
+   semantics force:
+
+   - every segment carries its own `aria-pressed`, rather than one of them
+     being the answer (`tests/test_ui_recipes.py` holds both halves);
+   - it never wraps. `.seg` wraps because a settings-screen well may have to;
+     a well in a dock row that wraps is the four-line chip row this replaces
+     (measured at 820 before: four rows, a 181.2px dock).
+
+   The icon and the word sit in the segment together, and the word is hidden
+   below 1200 (10-responsive.css) rather than dropped, so the accessible name
+   is the same at every width. */
+.seg-multi {
+  flex-wrap: nowrap;
+  margin-bottom: 0;
+}
+
+.seg-multi > button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+/* A segment that cannot be turned off (the last kind still showing) is still
+   the active segment, so it keeps the accent and only loses the pointer: a
+   greyed-out *selected* segment reads as "this is off", which is the opposite
+   of what it means. */
+.seg-multi > button:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
 /* `.seg`'s own `margin-bottom` is for a segmented control sitting above the
    thing it filters (the dashboard's, which is what it was written for). In
    a toolbar row it just pushes this one control off the shared baseline. */

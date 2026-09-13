@@ -24228,6 +24228,70 @@ order 10). Origin file named on each.
 
 ### From UI_MODERNISATION_PLAN.md
 
+### Built, INBOX 186: the timeline dock's kind filter, 2026-09-13
+
+The owner, with one screenshot of the kind chips and the Show: all button
+across the top of the dock: "these buttons in the top of the timeline dock are
+ugly and need a redesign/restructuring".
+
+**Measured before, `scratchpad/ui-sweeps/timelinedock.js` at 1440 / 1024 / 820
+/ 390.** Four `.library-chip`s in a `.dock-chip-row`, 121.1, 102.4, 161.6 and
+158.5px wide at 1440: four widths, because each chip was sized by its own word
+and its own count in brackets. The row wrapped inside the find zone, so at 1024
+the four chips stood on three rows and the dock was 138.8px, and at 820 they
+stood on four rows and the dock was 181.2px, which is a quarter of a 900px
+window spent on a filter before a single row of the journal.
+
+**The decision, which is the part worth keeping.** The dock grammar already
+separates the two things: a `.seg` is a set of choices, and a chip is a filter
+you can take off. These four kinds are always all four, cannot be removed, and
+cannot all be off (the last one on disables itself), so they were never chips.
+They are now one `.seg.seg-multi` well: the same well as every other segmented
+control, with `aria-pressed` on *every* segment rather than on one, because no
+single segment is the answer. `.seg-multi` is a new row in DESIGN.md's recipe
+index with `tests/test_ui_recipes.py` holding both halves (the well never wraps;
+the builder sets `aria-pressed` and puts the word in a `.seg-label`).
+
+The one filter in that zone that *is* removable, the band ("Show: Work"), keeps
+its job and stops being a ghost button standing among chips: it is the zone's
+one `.library-chip`, sitting after the well.
+
+**The word, and the width that decides it.** The dock's other three zones want
+about 460px at every width and do not shrink with the window, so the find zone
+gets 778px at 1440, 447px at 1024 and 288px at 820. The search box will not go
+below 8rem, and four segments with their words in measure 441.4px: 128 + 441
+fits at 1440 and does not fit at 1024 or 820. So the words are in above 1200 and
+the icons stand alone below it, with the word hidden rather than dropped so the
+accessible name is the same at every width and the tooltip carries the count
+("Notes, 10 in view"). 1200 rather than the 1150 the arithmetic gives, for the
+reason `#graph-concept-maps`'s own label rule gives in 08-consistency.css: a
+word that appears and disappears twice across one drag of a window edge reads as
+a glitch.
+
+**Measured after.** One row at every width. The dock 54px at 1440, 1024 and 820
+(from 54, 138.8 and 181.2). The well 441.4px with the words and 159.2px without.
+At 390 the well is 44px with four 44x44 cells, which took a rule of its own: the
+well's `--space-1` padding plus the touch band's 44px floor on dock controls
+made a 44px cell inside a 36px well, 4px proud of its own ground, so below 820
+the cells are the well (no padding, the well on the same 44px floor as the
+search box). `docks.js`: the timeline dock is 5 controls at one height, 36px,
+with one filled button. The kind filter still refetches (20 rows to 9 with notes
+off) and the last kind on is still disabled.
+
+Two lint amendments this needed, each because the lint could not see what the
+markup means. `tests/test_dock_grammar.py` counted the band clear as a second
+filled button, because `.library-chip` carries neither `ghost` nor `icon-only`:
+a chip is not a primary action, and the classifier now says so. And it failed a
+`.seg` with no options in the markup, which is what a well built at runtime
+looks like; those now have to be named by app.js instead, with the runtime shape
+gated by `timelinedock.js`.
+
+Found, not fixed: `.dock-chip-row` in 07-whiteboard-misc.css (and its band-4
+rule in 10-responsive.css) now has no user in the page. It is written as a
+general recipe rather than as the Timeline's, and three agents were in that file
+this session, so it is left for whoever owns it next; `test_ui_recipes.py` holds
+the page at zero uses either way.
+
 ### Built, Phase 11 item 1: the five-item bar and its More sheet, 2026-09-13
 
 The measurement the phase opens with, and the one the previous pass halved:

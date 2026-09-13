@@ -794,6 +794,14 @@ glass. What is left is below.
 
 ## Placed from INBOX, 2026-09-13
 
+186. **The timeline dock's kind buttons.** Built (2026-09-13); the block, with
+    its numbers, is in HISTORY.md ("Moved from the plans, 2026-09-13"). One
+    decision made here and not to be remade: a fixed filter set is a `.seg`
+    well and not a row of chips, because a chip is a filter you can take off
+    and these four are always all four. The variant is `.seg-multi` in
+    DESIGN.md's recipe index, with `tests/test_ui_recipes.py` holding it.
+
+
 165. **Mid-work drop, 2026-09-13, verbatim (the owner), the Library's selection
     bar, one screenshot ("1 selected" with Open, Delete, Done).** "I want the
     selected bars to be sticky to the top of the screen when scrolling".

@@ -723,6 +723,75 @@ header#top-bar,
   }
 }
 
+/* --- `.seg-multi`'s word, and the width that decides it -------------------
+   UI_MODERNISATION_PLAN.md Phase 11, INBOX 186. Measured on the running app
+   at 1440 / 1024 / 820 / 390, Timeline dock, after the four chips became one
+   well:
+
+   The dock's other three zones (identity, arrange, actions) want about 460px
+   at every width and do not shrink with the window, so the find zone gets
+   what is left: 778px at 1440, 447px at 1024, 288px at 820. The search box
+   will not go below 8rem (128px), and the four segments with their words in
+   measure about 430px. 128 + 430 is 558, which fits at 1440 and does not fit
+   at 1024 or at 820: with the words in, this control wraps everywhere below
+   about 1150, which is the four-line chip row it was built to end.
+
+   1200 rather than 1150, and for the reason `#graph-concept-maps`'s own label
+   rule gives nine lines away in 08-consistency.css: the margin at 1150 is a
+   handful of pixels, the zones do not shrink, and a word that appears and
+   disappears twice across one drag of a window edge reads as a glitch.
+
+   Not `display: none`: the segment's accessible name is its text, and a
+   hidden name is a button a screen reader announces as "button". */
+@media (max-width: 1199.98px) {
+
+  .seg-multi .seg-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* Square, so four icons read as four cells of one well rather than four
+     pills with air between them. */
+  .seg-multi > button {
+    justify-content: center;
+    min-width: var(--control-h-lg);
+    padding-inline: var(--space-3);
+  }
+}
+
+/* And in the touch band a segment is a target like any other control, which
+   takes the well's padding off rather than adding it to the well's height.
+
+   Measured at 390 before this rule: the well 36px tall with four 44x44 cells
+   inside it, so the accent-filled cell stood 4px proud of its own ground top
+   and bottom. Two rules meeting, each right on its own: `.dock .seg > button`
+   (08-consistency) insets a cell by the well's `--space-1` padding, and the
+   dock's touch block gives every control in a dock `min-height:
+   var(--target-min)`, which below 820 is 44px. Padding plus a 44px floor is a
+   52px well, and 52 is taller than every other control in the bar.
+
+   So below 820 the cells *are* the well: no padding, the well on the same
+   44px floor as the search box beside it, and the cell's own radius stepped
+   up to the well's so the run reads as one block rather than four pills.
+   `.dock` in the selector for specificity against 08-consistency's `.dock
+   .seg`, not because it is only true in a dock. */
+@media (max-width: 819.98px) {
+
+  .dock .seg-multi {
+    height: var(--target-min);
+    padding: 0;
+  }
+
+  .dock .seg-multi > button {
+    min-width: var(--target-min);
+    border-radius: var(--radius-md);
+  }
+}
+
 /* --- band 4: five columns, and the fifth is a sheet -----------------------
    UI_MODERNISATION_PLAN.md Phase 11, item 1.
 

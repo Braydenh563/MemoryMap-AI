@@ -9,6 +9,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The timeline dock's kind filter is one control rather than four. The four
+  kinds were four filter chips at four widths, which wrapped to three lines
+  at 1024 and four at 820 and took the dock to 181.2px; they are a toggle
+  set, so they are now a `.seg.seg-multi` well, one row at every width, the
+  words in above 1200 and the icons alone below it, 44px cells on a phone.
+  The band filter's way out is the one chip beside it, which is the one
+  filter here you can take off. The dock is 54px at 1440, 1024 and 820.
+
 - A document can be downloaded as one self-contained HTML file. Images become
   data URIs, the stylesheet is written into the file, comments travel as
   footnotes, controls that only work inside the app are dropped (a `[[link]]`

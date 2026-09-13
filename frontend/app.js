@@ -25523,12 +25523,21 @@ function timelineIsDailyNote(row) {
   return row.kind === "note" && row.title.trim() === dailyNoteTitle(timelineBucketKey(row.when, "day"));
 }
 
-//: The chips themselves, in the dock's find zone beside the search, on
-//: `.library-chip`: the app's own filter-chip recipe (DESIGN.md's index), the
-//: same control the Library's boards filter and the chat composer's toggles
-//: use. Each carries its count, the Library's rule and for its reason: a
-//: filter you have to press to find out is empty wastes the press.
-function renderTimelineKindChips() {
+//: **One control, not four** (INBOX 186: "these buttons in the top of the
+//: timeline dock are ugly and need a redesign/restructuring"). The four kinds
+//: were four `.library-chip`s at four different widths (121 / 102 / 162 / 158px
+//: measured at 1440), which is the dock grammar's own counter-example: a chip
+//: is a filter you can take *off*, and these four are always all four, never
+//: removable and never empty. They are a toggle set, so they are a `.seg`
+//: well: `.seg-multi`, the independent-toggles variant, where every segment
+//: carries its own `aria-pressed` rather than one of them being the choice.
+//:
+//: The count leaves the visible label for the title and the accessible name.
+//: The reason for having it at all is kept ("a filter you have to press to
+//: find out is empty wastes the press"); what is dropped is the width a
+//: parenthesised number costs, which is the difference between labels that fit
+//: a dock row and labels that do not (10-responsive.css has the arithmetic).
+function renderTimelineKinds() {
   const box = $("timeline-kinds");
   if (!box) return;
   const chosen = timelineKindChoice();
@@ -25539,13 +25548,14 @@ function renderTimelineKindChips() {
     const on = chosen.includes(kind.key);
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `library-chip${on ? " active" : ""}`;
+    if (on) button.className = "active";
     button.dataset.timelineKind = kind.key;
     button.setAttribute("aria-pressed", String(on));
     const count = counts.get(kind.key);
+    const held = count === undefined ? "" : `, ${count} in view`;
     button.title = on
-      ? `Stop showing ${kind.label.toLowerCase()}`
-      : `Show ${kind.label.toLowerCase()} in the timeline`;
+      ? `Stop showing ${kind.label.toLowerCase()}${held}`
+      : `Show ${kind.label.toLowerCase()} in the timeline${held}`;
     //: The last one on cannot be turned off: see `timelineKindChoice`.
     if (on && chosen.length === 1) {
       button.disabled = true;
@@ -25554,10 +25564,20 @@ function renderTimelineKindChips() {
     const icon = document.createElement("span");
     icon.className = `ph ${kind.glyph}`;
     icon.setAttribute("aria-hidden", "true");
+    //: The word is hidden by CSS below 1200 rather than dropped, so a segment's
+    //: accessible name is the word at every width and the icon-only state is
+    //: not a button a screen reader announces as "button".
     const label = document.createElement("span");
-    label.className = "dock-chip-label";
-    label.textContent = count === undefined ? kind.label : `${kind.label} (${count})`;
+    label.className = "seg-label";
+    label.textContent = kind.label;
     button.append(icon, label);
+    //: And the count for a reader who never sees the tooltip.
+    if (count !== undefined) {
+      const read = document.createElement("span");
+      read.className = "visually-hidden";
+      read.textContent = held;
+      button.appendChild(read);
+    }
     box.appendChild(button);
   }
 }
@@ -25574,7 +25594,7 @@ async function toggleTimelineKind(key) {
   } catch {
     /* a browser refusing storage still gets the filter for this visit */
   }
-  renderTimelineKindChips();
+  renderTimelineKinds();
   await renderTimeline();
 }
 
@@ -25687,7 +25707,7 @@ async function renderTimeline() {
     timelineFilter = null;
   }
   fillTimelineBandOptions();
-  renderTimelineKindChips();
+  renderTimelineKinds();
   paintTimeline();
   drawTimelineScrubber();
 }

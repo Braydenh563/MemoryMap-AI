@@ -127,6 +127,15 @@ measured or built in earlier commits and is marked there.
     `#timeline-kinds` plus `#timeline-filter-clear`; the dock grammar
     (UI_MODERNISATION Phase 8) is the recipe. Owner: phone and chrome agent.
 
+    **Fixed HASH.** Measured with `scratchpad/ui-sweeps/timelinedock.js` at
+    1440 / 1024 / 820 / 390: before, four `.library-chip`s 121 / 102 / 162 /
+    158px wide that wrapped to three rows at 1024 and four at 820, taking the
+    dock to 138.8px and 181.2px. After, one `.seg.seg-multi` well, four
+    segments on one row at every width, the dock 54px at 1440, 1024 and 820,
+    the well 441.4px with words and 159.2px without, cells 44x44 at 390, and
+    the band's "Show: …" the zone's one chip. `docks.js`: the timeline dock is
+    5 controls at one height (36px) with one filled button.
+
 185. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the
     graph's show toggles.** "Things that I have turned off in the graph for
     not showing them like the mindmap and entities still show anyway".

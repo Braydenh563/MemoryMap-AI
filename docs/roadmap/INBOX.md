@@ -257,7 +257,11 @@ measured or built in earlier commits and is marked there.
     both dialogs out of `#tab-documents`, recorded in index.html's own comment;
     what kept the report alive was that nothing had measured the result) · "fix the ui
     spacing and padding in the graph suggested links tab, make it
-    consistent with the rest of the app" (not investigated). 107c
+    consistent with the rest of the app" (**measured and fixed
+    2026-09-13**: the panel's own spacing was already tokens; what was off
+    was the row, a 42px reason field beside 28px buttons and a 23px chip,
+    three heights on one line making every row 69px; the field takes the
+    small buttons' height now, rows are 56px, one control height). 107c
     (whiteboard View/Arrange, Ctrl+S feedback, the dashboard band) and
     107d (the segmented mini-bar redesign) remain not started. The
     second batch's own remaining items (boards & maps widget visual

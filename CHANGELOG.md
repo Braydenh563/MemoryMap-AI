@@ -513,6 +513,17 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- **The canvas graph's forty module globals are one surface object.** The
+  renderer kept its node array, camera, worker, hover and selection in
+  module-level `let`s, which is exactly right for one canvas and impossible
+  for two. Every drawing function now takes the surface it is working on
+  (`s = gcTab` by default, so every existing caller and sweep reads as it
+  did), and `size: "full" | "pane"` says whether it owns the Graph tab's
+  chrome. Behaviour-neutral: `graph.js`, `graph4.js`, `graph4b.js`,
+  `graphhover.js`, `graphminimap.js` and `graphcold.js` measured before and
+  after on one fixture, same node counts, camera, canvas size, hover and
+  minimap.
+
 - **The Timeline is a feed.** It was two views and a popup: a grid of one
   column per bucket (8,800px wide against a 1,358px viewport, 79% of its cells
   empty) and an SVG line chart with 14 text nodes for 48 notes, no titles and

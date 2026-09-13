@@ -38,6 +38,20 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The document editor's word menu and word completion popup no longer open off
+  the screen when the background art is on. Both are placed in the window's own
+  coordinates, and both lived inside the document card, which carries a blur
+  whenever the art is on; a blurred surface becomes the frame a fixed popup is
+  laid out against, so the menu asked for `left 952, top 322` and drew at
+  `1245..1485, 399`, 45px past the right edge of a 1440px window, 53px from the
+  word it belonged to, and under the bars outside the card. Both popups now
+  leave the card while they are open and go back on the way out, and the
+  placement measures what was drawn and corrects itself, so any surface that
+  gains a blur or a transform later cannot take them with it. Measured at 1440,
+  1100 and 820 wide: 0px gap to the word, 0px past the card, nothing outside
+  the window; the completion popup opened 294px from the caret before and 0px
+  after.
+
 - The writing caret in an answer stops blinking when you ask for less motion.
   It honoured neither the platform's reduce-motion setting nor the app's own
   "Progress indicators: Still", because the rule that stops it carried two of

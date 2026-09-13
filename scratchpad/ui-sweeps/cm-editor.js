@@ -147,6 +147,44 @@ function ok(name, condition, detail) {
   ok("Tab completes the word", /\bquick\b/.test((await text()).split("\n").pop() || ""),
     JSON.stringify((await text()).split("\n").pop()));
 
+  // The completion popup is placed in viewport coordinates too, so it is trapped
+  // by a blurred card exactly as the word menu was (INBOX 168): with
+  // `data-bg-art="on"` every `.card` carries a backdrop-filter, which makes it
+  // the frame a `position: fixed` child is laid out against. It has to leave
+  // the card while it is open, and land beside the caret when it does.
+  await page.evaluate(() => document.documentElement.setAttribute("data-bg-art", "on"));
+  await page.waitForTimeout(400);
+  await page.keyboard.type(" qui");
+  await page.waitForTimeout(700);
+  const complete = await page.evaluate(() => {
+    const list = document.getElementById("doc-complete-list");
+    if (!list || list.classList.contains("hidden")) return { open: false };
+    const r = list.getBoundingClientRect();
+    const caret = document.querySelector(".cm-cursor-primary")?.getBoundingClientRect();
+    let trap = null;
+    for (let n = list.parentElement; n && n !== document.documentElement; n = n.parentElement) {
+      const cs = getComputedStyle(n);
+      if (cs.transform !== "none" || cs.filter !== "none" ||
+          (cs.backdropFilter && cs.backdropFilter !== "none")) {
+        trap = (n.id || n.className || n.tagName).toString().slice(0, 40);
+        break;
+      }
+    }
+    return {
+      open: true,
+      parent: list.parentElement.tagName,
+      trap,
+      rect: { l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top), b: Math.round(r.bottom) },
+      caret: caret ? { l: Math.round(caret.left), b: Math.round(caret.bottom) } : null,
+      inView: r.left >= 0 && r.top >= 0 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1,
+      offCaret: caret ? Math.round(Math.abs(r.left - caret.left)) : null,
+    };
+  });
+  ok("the completion popup leaves the blurred card and stays on the caret",
+    complete.open && complete.parent === "BODY" && !complete.trap && complete.inView &&
+    complete.offCaret !== null && complete.offCaret <= 8, JSON.stringify(complete));
+  await page.evaluate(() => document.documentElement.setAttribute("data-bg-art", "off"));
+
   ok("no console errors", errors.length === 0, errors.join(" | "));
   console.log(failures === 0 ? "ALL PASS" : `${failures} FAILED`);
   await browser.close();

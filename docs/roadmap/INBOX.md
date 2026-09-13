@@ -121,12 +121,6 @@ measured or built in earlier commits and is marked there.
     a per-node left edge style, connection-line style management, and
     resizing a topic the way a card resizes.
 
-168. **Mid-work drop, 2026-09-13 16:41, verbatim (the owner), the document
-    editor, one screenshot (the word popup for "tets" drawn at the window's
-    right edge, its suggestion column cut off past the viewport, the
-    correction list "test, tet, teats, tents, tests" running under the
-    bottom bar).** "document autocorrect popups go offscreen"
-
 142. **Mid-work drop, 2026-09-13, verbatim (the owner), the document editor's
     writing intelligence (two screenshots).** "the suggestions box at the
     bottom takes up a lot of my screen and it makes the text editor really

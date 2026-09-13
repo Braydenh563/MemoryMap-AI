@@ -9751,7 +9751,9 @@ function docWordFragment(box) {
 }
 
 function hideDocComplete() {
-  $("doc-complete-list")?.classList.add("hidden");
+  const list = $("doc-complete-list");
+  list?.classList.add("hidden");
+  docReturnFromViewport(list);
   docCompleteMatches = [];
   docCompleteBox = null;
 }
@@ -9793,15 +9795,26 @@ function renderDocComplete(box) {
   const point = docCaretPoint(box);
   //: Kept on screen: a popup at the caret near the right edge or the bottom of
   //: the window would otherwise open off it, which is the app-wide rule for
-  //: every menu here.
+  //: every menu here. Out of the card first, for the reason `docLiftToViewport`
+  //: gives: this list is placed in viewport coordinates too, so a blurred
+  //: ancestor moves it exactly as it moved the word menu.
+  docLiftToViewport(list);
   list.classList.remove("hidden");
   const width = list.offsetWidth;
   const height = list.offsetHeight;
   const left = Math.min(point.left, window.innerWidth - width - 8);
   const below = point.bottom + 4;
-  const top = below + height > window.innerHeight - 8 ? point.top - height - 4 : below;
-  list.style.left = `${Math.max(8, left)}px`;
-  list.style.top = `${Math.max(8, top)}px`;
+  const flipped = below + height > window.innerHeight - 8 ? point.top - height - 4 : below;
+  //: Clamped at both ends, not just at the top. A caret low in a short window
+  //: flips the list above itself, and a list taller than the space above lands
+  //: at a negative top, is pulled back to 8, and then draws its last rows off
+  //: the bottom of the screen: the bug `placeDocSuggest` already records
+  //: fixing on the word menu, in the one other popup that never got it.
+  const top = Math.min(
+    Math.max(8, flipped),
+    Math.max(8, window.innerHeight - 8 - height)
+  );
+  docPlaceFixed(list, Math.max(8, left), top);
 }
 
 function applyDocComplete(box, word) {
@@ -10609,7 +10622,9 @@ function docProseKey(finding) {
 let docSuggestOpenFor = null;
 
 function closeDocSuggest() {
-  $("doc-suggest-menu")?.classList.add("hidden");
+  const menu = $("doc-suggest-menu");
+  menu?.classList.add("hidden");
+  docReturnFromViewport(menu);
   docSuggestOpenFor = null;
 }
 
@@ -11019,6 +11034,7 @@ function openDocSuggest(finding, anchorRect, focus = true) {
     })
   );
 
+  docLiftToViewport(menu);
   menu.classList.remove("hidden");
   //: Copied rather than kept by reference, and with a right edge filled in:
   //: `DOMRect`s are live for some sources and stale for others, and the caret
@@ -11035,6 +11051,67 @@ function openDocSuggest(finding, anchorRect, focus = true) {
   //: someone putting the caret in it, and taking the focus then sends their
   //: next keystroke to a button (see the `click` listener below).
   if (focus) menu.querySelector("button")?.focus();
+}
+
+//: **A popup placed in viewport coordinates has to live in the viewport's own
+//: frame, and inside this tab it did not.** INBOX 168, with a screenshot: the
+//: word menu for "tets" drawn at the right edge of the window with its column
+//: cut off past it and its list under the bottom bar. Every clamp in
+//: `placeDocSuggest` is unconditional, so the menu cannot leave the viewport
+//: by arithmetic; what it can do is be laid out against something that is not
+//: the viewport. A `position: fixed` element is laid out against the nearest
+//: ancestor carrying a `filter`, `transform` or `backdrop-filter`, and
+//: `.card.doc-main` is exactly that whenever the background art is on
+//: (`:root[data-bg-art="on"]:not([data-glass="off"]) .card`, which is the
+//: default pair of settings the moment someone turns the art on). Measured at
+//: 1440x900 with the art on, before this: the menu asked for `left 952, top
+//: 322` and rendered at `1245..1485, 399`, 45px past the right edge of the
+//: window and 53px away from the word it belongs to, which is also INBOX 128's
+//: "wide gap". The same blur makes the card a stacking context, so no z-index
+//: could lift the menu over the bars outside it either.
+//:
+//: So the popup leaves the card while it is open and goes back on a comment
+//: placeholder on the way out, the same move `buildTableBlock`'s full view
+//: makes for the same reason. It has to be a move rather than a stylesheet
+//: change: the card's blur is a deliberate part of the background-art look,
+//: and a viewport popup has no business being a descendant of a surface that
+//: can be blurred, transformed or scaled at any time.
+const docLiftedHome = new WeakMap();
+
+function docLiftToViewport(el) {
+  if (!el || el.parentElement === document.body) return el;
+  const home = document.createComment(`${el.id || "popup"} while it is open`);
+  el.replaceWith(home);
+  docLiftedHome.set(el, home);
+  document.body.appendChild(el);
+  return el;
+}
+
+function docReturnFromViewport(el) {
+  const home = el && docLiftedHome.get(el);
+  if (!home || !home.parentNode) return;
+  home.replaceWith(el);
+  docLiftedHome.delete(el);
+}
+
+//: **Ask for a viewport position, then check the popup landed there.** The
+//: belt to the braces above: body itself can carry a transform (a page
+//: animation, a future shell), and one ancestor with a filter anywhere in the
+//: chain silently turns every number here into an offset from somewhere else.
+//: Measuring what was drawn and correcting by the difference costs one rect
+//: read and is exact for any containing block that only translates the frame,
+//: which is what a filter, a backdrop-filter and a translate all do. It is a
+//: no-op, and reads as one, when the frame is the viewport.
+function docPlaceFixed(el, left, top) {
+  el.style.left = `${Math.round(left)}px`;
+  el.style.top = `${Math.round(top)}px`;
+  const at = el.getBoundingClientRect();
+  const dx = left - at.left;
+  const dy = top - at.top;
+  if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+    el.style.left = `${Math.round(left + dx)}px`;
+    el.style.top = `${Math.round(top + dy)}px`;
+  }
 }
 
 //: Kept so the menu can be re-placed after it changes size, the AI wordings
@@ -11106,8 +11183,7 @@ function placeDocSuggest() {
     Math.min(top, window.innerHeight - DOC_SUGGEST_EDGE - height)
   );
 
-  menu.style.left = `${Math.round(left)}px`;
-  menu.style.top = `${Math.round(top)}px`;
+  docPlaceFixed(menu, left, top);
 }
 
 //: A passage, a language, and the local model, asked in the chat so the

@@ -24110,6 +24110,30 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     only appeared when both kinds were present, so a list of maps said
     nothing. 14 options, every one labelled.
 
+168. **Mid-work drop, 2026-09-13 16:41, verbatim (the owner), the document
+    editor, one screenshot (the word popup for "tets" drawn at the window's
+    right edge, its suggestion column cut off past the viewport, the
+    correction list "test, tet, teats, tents, tests" running under the
+    bottom bar).** "document autocorrect popups go offscreen"
+
+    **Fixed, 2026-09-13, and the condition is the background art.** Not the
+    arithmetic: every clamp in `placeDocSuggest` is unconditional, which is why
+    `spellwide.js` read every case it tried as flush. A `position: fixed`
+    element is laid out against the nearest ancestor carrying a filter,
+    transform or backdrop-filter rather than against the window, and
+    `:root[data-bg-art="on"]:not([data-glass="off"]) .card` puts a
+    backdrop-filter on the document card, so with the art on the menu was
+    measured against the card and drawn wherever that put it. Reproduced at
+    1440x900: it asked for `left 952, top 322` and drew at `1245..1485, 399`,
+    45px past the right edge of the window, 53px from the word (which is also
+    128's "wide gap"), with the card's own stacking context holding it under
+    the bars. The word menu and the word completion popup both leave the card
+    while they are open now, and `docPlaceFixed` measures what was drawn and
+    corrects the difference, so a surface that gains a blur later cannot take
+    them with it. Fifteen cases in `spellwide.js`, four of them new, and one in
+    `cm-editor.js`: 0px gap to the word, 0px past the card, nothing outside the
+    window, the completion popup 294px from the caret before and 0px after.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

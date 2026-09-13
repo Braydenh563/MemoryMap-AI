@@ -60,6 +60,48 @@ open and half finished stuff?"), which is a decision, not work.
 
 ## Open items
 
+142. **Mid-work drop, 2026-09-13, verbatim (the owner), the document editor's
+    writing intelligence (two screenshots).** "the suggestions box at the
+    bottom takes up a lot of my screen and it makes the text editor really
+    small. also the popup edit suggestions menu screws upn the screen and
+    make sit go out of bounds.and when I click on the issue from the
+    suggestions thing, the box just appears right there in my face. the whole
+    editor intelligence and auto correct and dictionary stuff needs a whole
+    ux redesign and improvement"
+
+    **This also settles INBOX 128**, which could not be reproduced: the first
+    screenshot shows the word popup drawn at the far right of the window,
+    clear of the document card altogether, while the flagged word sits at the
+    end of line 4 inside it. So the "wide gap" is real; the probe
+    (`scratchpad/ui-sweeps/spellanchor.js`) simply measured a case where the
+    anchoring happens to be right, which means the bug is conditional and the
+    condition is what has to be found.
+
+    Four things in the report, and the last is the shape of the work:
+    - the suggestions panel at the foot takes a large share of the window and
+      shrinks the editor it is advising;
+    - the word popup goes out of bounds;
+    - opening a suggestion from the panel puts the popup over the text being
+      discussed rather than beside it;
+    - and taken together, the spelling, autocorrect, dictionary and suggestion
+      surfaces want one redesign rather than four fixes.
+
+141. **Mid-work drop, 2026-09-13, verbatim (the owner), the Write with AI
+    sub-tab (four screenshots, two pairs of before and after a click).**
+    "when I clcik on the text box in the \"write with ai\" subtab, the
+    structure goes all funky. and also the bottom elements under the right
+    text part need visual improvements and restructuring, aligning and
+    spacing etc"
+
+    Pair one: Undo, the hint "Optional: make it shorter, add a summary" and
+    Draft it sit on one row; after a click they become three stacked rows,
+    left-aligned, with the hint on its own line. Pair two: the Tags field
+    shows its label and placeholder on one line, and after a click the label
+    sits above the placeholder with the caret on the second line. So a click
+    changes the layout rather than just the focus. The second half of the
+    report is that this bottom area needs restructuring, alignment and
+    spacing regardless of the bug.
+
 138. **Mid-work drop, 2026-09-13, verbatim (the owner), the README.** "and
     also the screenshots on the readme page need updating and they need to
     show more parts of the application than what is there."

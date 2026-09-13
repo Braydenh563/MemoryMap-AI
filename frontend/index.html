@@ -5697,17 +5697,55 @@
        otherwise silence a real typo forever with no way to find out why.
        The spelling variant lives here too, because it is the same decision
        from the other end: which words this notebook considers spelled right. -->
-  <dialog id="doc-dictionary-dialog" class="card doc-dictionary-dialog"
-    aria-label="Your writing dictionary">
+  <!-- The standing rules of the writing suggestions (DOCUMENTS_PLAN 12 D2): the
+       words this notebook accepts and which spelling it prefers. The two
+       as-you-type switches stay in the document's own menu, where Phase 0 item 3
+       put them; the help popover says so, because "where is autocorrect" was one
+       of the five names this one feature answered to. -->
+  <!-- `.space-dialog` as well as `.card`, which is the app's small-dialog recipe
+       (DESIGN.md's index) and not decoration: `.card` sets a longhand
+       `margin-bottom`, which takes the UA's `margin: auto` off every edge and
+       drops a modal out of the centre. Measured on this one, the only dialog in
+       the app that had never joined the class: top 686 for a 198px box in a
+       900px window, against the 351 a centred one takes. The same bug
+       07-whiteboard-misc.css records fixing for every other dialog. -->
+  <dialog id="doc-dictionary-dialog" class="card space-dialog doc-dictionary-dialog"
+    aria-label="Writing dictionary">
     <div class="row space-between">
-      <h2>Your dictionary</h2>
+      <div class="row help-head">
+        <h2>Writing dictionary</h2>
+        <span id="doc-dictionary-count" class="chip"></span>
+        <button type="button" class="icon-only ghost small graph-help-toggle"
+          data-help-for="doc-dictionary-help" aria-controls="doc-dictionary-help"
+          aria-expanded="false" title="About the writing suggestions"
+          aria-label="About the writing suggestions">
+          <i class="ph ph-question" aria-hidden="true"></i>
+        </button>
+      </div>
       <button id="doc-dictionary-close" class="ghost small icon-only" type="button"
         aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
     </div>
     <p class="muted">
-      Words here are never flagged as typos, in any document. They are stored
-      with your notebook, not in this browser.
+      Words here are never flagged as typos, in any document.
     </p>
+    <div class="help-body hidden" id="doc-dictionary-help" role="dialog"
+      aria-label="About the writing suggestions">
+      <p>
+        These words are stored with your notebook rather than in this browser, so
+        they survive a cleared cache and they are the same in the desktop window
+        and in a tab. Adding one here is the same as pressing "Add to dictionary"
+        on a flagged word.
+      </p>
+      <p>
+        The checks themselves are spelling, spacing, repeated words and sentence
+        length: they read the text, not its meaning. "Check with AI" in the
+        suggestions panel is what reads for meaning.
+      </p>
+      <p>
+        Autocorrect as you type and word suggestions are per document, in the
+        editor's ⋯ menu.
+      </p>
+    </div>
     <div class="row doc-dictionary-controls">
       <label class="doc-dictionary-variant" for="doc-spelling-variant">Spelling</label>
       <select id="doc-spelling-variant"

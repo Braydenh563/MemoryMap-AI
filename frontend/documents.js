@@ -10690,6 +10690,16 @@ async function openDocDictionary() {
   }
   const variant = $("doc-spelling-variant");
   if (variant) variant.value = docSpellingVariant();
+  //: The count as a fact beside the title, not as a sentence in the copy: a
+  //: dictionary you cannot see the size of is one nobody believes is being kept
+  //: (the report this whole surface answers was "I swear I added 'idk' to the
+  //: dictionary last night").
+  const count = $("doc-dictionary-count");
+  if (count) {
+    count.textContent = words.length
+      ? `${words.length} word${words.length === 1 ? "" : "s"}`
+      : "empty";
+  }
   dialog.showModal();
 }
 

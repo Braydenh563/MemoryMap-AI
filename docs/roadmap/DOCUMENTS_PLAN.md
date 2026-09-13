@@ -832,6 +832,28 @@ and Split, with Large text and Spacious on; pressing a panel row opens no
 floating surface at all and leaves the word visible; 0 console errors; contrast
 passes.
 
+**Met 2026-09-13.** `scratchpad/ui-sweeps/spellwide.js` and `spellwide2.js`: all
+twelve cases flush, 0px horizontal gap to the fragment pressed, 4px below it,
+0px past the card, nothing outside the viewport, in Live, Source and Split at
+1440, 1100 and 820 wide and with Large text plus Spacious.
+`scratchpad/ui-sweeps/prosepanel.js`: pressing a row opens no floating surface,
+the open row says so (`aria-expanded`, `aria-current`) and sits inside the
+panel's box, the word lands 0px off the middle of the editor, one row is open at
+a time, a candidate pressed in the panel rewrites the text, the panel is 14% of
+the window with no row open against the editor's 45% and 24% with one open, and
+the word menu is 248px tall against 335px before. Contrast from the painted
+pixels (the compositing walk reads these translucent surfaces wrong: it puts the
+app's own `.doc-hint` at 2.24:1, which nobody has ever seen) 6.13:1 at worst in
+light and 4.52:1 at worst in dark, the tightest being the open row's reason on
+`--accent-soft`. 0 console errors in every run.
+
+One thing found while doing this and fixed with it: the dictionary dialog was the
+only `<dialog>` in the app that had never joined the `.space-dialog` recipe, so
+`.card`'s longhand `margin-bottom` took the UA's `margin: auto` off every edge
+and the modal sat on the floor of the window (measured top 686 for a 198px box in
+a 900px viewport, against 332 after). The same bug 07-whiteboard-misc.css records
+fixing for every other dialog.
+
 ## Built, the sidebar redesign (INBOX 115), 2026-09-12
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-12", DOCUMENTS_PLAN.md) on

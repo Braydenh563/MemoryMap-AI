@@ -24301,72 +24301,6 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
   return block;
 }
 
-//: One link and nothing else on the line, as a markdown link, an
-//: angle-bracket autolink or a bare address. Bounded lengths throughout: this
-//: runs over model output, and an unbounded `[^\]]*` against a paragraph that
-//: opens a bracket and never closes it is a scan of the whole answer per line.
-const LONE_LINK =
-  /^\s*(?:\[([^\]]{1,300})\]\((https?:\/\/[^\s)]{1,500})\)|<?(https?:\/\/[^\s<>]{1,500})>?)\s*$/;
-
-//: The path of an address, as words, for a card whose host is already on its
-//: own line: "articles / s41586-024-07123-4". The query string and fragment
-//: are dropped (tracking and position, not identity), and an address with no
-//: path at all falls back to the host, because a card with an empty title is
-//: worse than one that repeats itself.
-function linkCardPath(url) {
-  let parsed;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return url;
-  }
-  const segments = parsed.pathname.split("/").filter(Boolean).map((piece) => {
-    let decoded = piece;
-    try {
-      decoded = decodeURIComponent(piece);
-    } catch {
-      //: A stray percent in a path is not a reason to show nothing.
-    }
-    return decoded;
-  });
-  if (!segments.length) return parsed.hostname.replace(/^www\./i, "");
-  const last = segments[segments.length - 1];
-  const shown =
-    last.length > READABLE_URL_SEGMENT ? `${last.slice(0, READABLE_URL_SEGMENT - 1)}\u2026` : last;
-  return segments.length > 1 ? `${segments[0]} / ${shown}` : shown;
-}
-
-//: The card itself. **No favicon, and that is a decision rather than an
-//: omission** (CHAT_PLAN decision 12): fetching one would be the first time
-//: this app asked the web for anything nobody had asked it to, on an app whose
-//: first line of description is that it is offline. So the host is written in
-//: words, which is the half of a favicon that carries the meaning anyway.
-//:
-//: `target="_blank"` with `rel="noopener noreferrer"`, the same pair the
-//: source cards use: without `noopener` the opened page gets a handle on this
-//: window and can navigate it.
-function linkCard(url, text) {
-  const card = document.createElement("a");
-  card.className = "link-card";
-  card.href = url;
-  card.target = "_blank";
-  card.rel = "noopener noreferrer";
-  card.title = url;
-  const title = document.createElement("span");
-  title.className = "link-card-title";
-  //: The link's own words when it has any; otherwise the address without its
-  //: host, because the host is written on the line directly below. Using
-  //: `readableUrl` here (the inline form) printed "arxiv.org / … / 2401.12345"
-  //: over "arxiv.org", which is the card saying the same thing twice in the
-  //: two lines it has.
-  title.textContent = text || linkCardPath(url);
-  const host = document.createElement("span");
-  host.className = "link-card-host";
-  setLabel(host, `ph:globe ${sourceHost(url) || url}`);
-  card.append(title, host);
-  return card;
-}
-
 function renderMarkdown(container, text, depth = 0) {
   container.replaceChildren();
   const lines = unlatex(text).replace(/\r\n/g, "\n").split("\n");
@@ -24628,20 +24562,6 @@ function renderMarkdown(container, text, depth = 0) {
     ) {
       para.push(lines[i]);
       i++;
-    }
-    //: **A link on a line of its own is a card** (CHAT_PLAN.md decision 12,
-    //: INBOX 172: web links the AI writes, "better and more modern cool").
-    //: A link inside a sentence stays inline, because a card in the middle of
-    //: a sentence breaks the sentence; a link a model puts on its own line is
-    //: a thing being handed to you, and it deserves a title, its host and a
-    //: hit area rather than eleven characters of underlined prose.
-    const lone = para.length === 1 ? LONE_LINK.exec(para[0]) : null;
-    if (lone) {
-      const url = lone[2] || lone[3];
-      if (isRenderableUrl(url)) {
-        container.appendChild(linkCard(url, lone[1] || ""));
-        continue;
-      }
     }
     const p = document.createElement("p");
     //: `<br>` is the one tag models write inside prose that means something

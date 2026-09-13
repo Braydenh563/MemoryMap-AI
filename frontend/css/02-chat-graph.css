@@ -4739,46 +4739,6 @@ mark.lightbox-hit {
   gap: var(--space-2);
 }
 
-/* **A link the AI wrote on a line of its own** (CHAT_PLAN.md decision 12).
-   The source card's recipe, deliberately: this is the same object (something
-   from the web, with a title and a host, that opens in a new tab), and giving
-   it a second look would put two kinds of web card in one answer. `--inner`
-   and `--radius-inner`, because it is always drawn inside something: a chat
-   bubble, the Ask answer panel or a note's rendered body. */
-.link-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: var(--space-3) 0;
-  padding: var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-inner);
-  background: var(--inner);
-  color: var(--ink);
-  text-decoration: none;
-  transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease;
-}
-
-.link-card:hover,
-.link-card:focus-visible {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.link-card-title {
-  font-weight: 600;
-  /* One line: a title is what this is, and a model that pasted a sentence into
-     the link text must not turn a card into a paragraph. */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.link-card-host {
-  color: var(--muted);
-  font-size: var(--text-sm);
-}
-
 .chat-source-card {
   display: flex;
   flex-direction: column;

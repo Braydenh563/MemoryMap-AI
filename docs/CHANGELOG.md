@@ -9,13 +9,6 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
-- A web link the AI writes on a line of its own now renders as a card: the
-  link's own words as the title, the site under it, and the whole thing is the
-  target rather than a few underlined characters. A link inside a sentence is
-  unchanged, because a card in the middle of a sentence breaks the sentence.
-  No favicon: this app fetches nothing from the web that you did not ask it
-  to, and the site's name in words says the same thing.
-
 - With no model connected, the app says so where you are and offers one click
   that fixes it. The Ask tab keeps working and explains that it is answering
   from your notes alone, with the matching records beside it; the popup agent,

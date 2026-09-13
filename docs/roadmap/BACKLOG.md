@@ -307,6 +307,32 @@ being built as the home for "everything that isn't a note."
 
 ---
 
+## 4b. Templates and base layouts (boards, maps, documents)
+
+Asked for 2026-09-13, looking at a board an agent had built to photograph for
+the README: *"add the ability to save whiteboard templates and base layouts, Im
+inspired by this example whiteboard png the agent took and it can be like canva
+templates, same with the mindmap and documents."* Deferred out of the 0.3.0 PR
+by the owner the same day: *"put the templates idea in the roadmap, not for
+this pr."*
+
+**Most of this exists and must not be rebuilt.** Notes already have templates
+(`BUILTIN_TEMPLATES` in app.js, with a "Yours" group beside a "Built-in" one,
+offered through `#entry-template`) and that grouping is the shape the request
+describes. Documents already have "new from template" with `{{date}}` and
+`{{title}}` substitution, and DOCUMENTS_PLAN Phase 5 item 5 already specifies
+the gallery. Boards can already be copied whole through
+`POST /whiteboard/boards/{board_id}/duplicate`, and `BoardOut` already carries
+`preview_items`, `preview_edges` and `preview_aspect`, which is what draws the
+board cards in the Library, so the gallery's thumbnails are solved.
+
+So the feature is one idea: a board, map or document *marked* as a template,
+shown in a gallery with a preview, copied on use. The full brief, including the
+decision to record first (where the mark lives: `board_settings` on the board's
+own note, the way `type` and `layout` already do, against a separate table) and
+the build order (boards, then maps, then documents, each end to end), is
+SESSION_BRIEFS.md Brief 32.
+
 ## 5. Documents
 
 Checked against the running app, not assumed:

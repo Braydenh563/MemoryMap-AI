@@ -1206,6 +1206,14 @@ take: the fix is named in the plan and verifiable without design judgement.
 
 ## Brief 32 (Opus): templates and base layouts, for boards, maps and documents
 
+> **Not for this PR.** The owner, an hour after asking for it: *"put the
+> templates idea in the roadmap, not for this pr"*. It is a feature, this PR is
+> a release, and the difference matters. Kept here in full because the research
+> below is what stops it being built a fourth time; the standing backlog row is
+> in BACKLOG.md section 4b. Do not start it from a "take the next brief"
+> instruction.
+
+
 The owner, 2026-09-13, looking at a board an agent had built to photograph for
 the README: *"add the ability to save whiteboard templates and base layouts, Im
 inspired by this example whiteboard png the agent took and it can be like canva

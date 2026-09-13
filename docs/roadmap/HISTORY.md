@@ -23572,3 +23572,28 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
 
     **Fixed `99cdde1` and `b74b273`.** Two passes. The first gave the bar six named groups where it had one pill. The second found why it still wrapped, and it was not the width: the card is capped in pixels (`min(900px, 96vw)`) while everything in it is sized in rem, so Large text or Spacious density buys the contents width the card never gets. Ten of twelve width-and-setting combinations wrapped; the owner's screenshot is the Spacious case. Now one row and one shared `offsetTop` for all five groups in every setting at 1440 and 1024, with 1px of slack at each end. Edit and Paper merged into one Canvas group, and Size became a single tonal field holding the slider and its value.
 
+143. **Mid-work drop, 2026-09-13, verbatim (the owner), a feature request with
+    one screenshot (the "Website relaunch" board an agent built for the README:
+    a titled banner, three labelled columns and seven coloured cards).** "add
+    the ability to save whiteboard templates and base layouts, Im inspired by
+    this example whiteboard png the agent took and it can be like canva
+    templates, same with the mindmap and documents."
+
+    A feature, so it becomes a brief rather than something built ad hoc
+    (standing order 3). Placed as **Brief 32** in SESSION_BRIEFS.md.
+
+    **What already exists, so none of it gets rebuilt:** notes have templates
+    today (`BUILTIN_TEMPLATES` and a "Yours" group in app.js, offered through
+    `#entry-template`); documents have "new from template" with `{{date}}` and
+    `{{title}}` substitution, and DOCUMENTS_PLAN Phase 5 item 5 already
+    specifies a templates gallery storing them as documents tagged `template`;
+    and a board can already be copied whole (`POST
+    /whiteboard/boards/{id}/duplicate`). So the request is one idea short of
+    being built three times over: a template is a board (or map, or document)
+    marked as one, shown in a gallery with a preview, and copied on use. The
+    board preview machinery for that gallery also exists (`preview_items`,
+    `preview_edges`, `preview_aspect` on `BoardOut`, which is what draws the
+    board cards in the Library today).
+
+    **Deferred out of this PR by the owner the same day**: "put the templates idea in the roadmap, not for this pr". Brief 32 says so at the top, and BACKLOG.md section 4b carries the standing row. Nothing is being built for it now.
+

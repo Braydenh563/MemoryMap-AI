@@ -60,29 +60,6 @@ open and half finished stuff?"), which is a decision, not work.
 
 ## Open items
 
-143. **Mid-work drop, 2026-09-13, verbatim (the owner), a feature request with
-    one screenshot (the "Website relaunch" board an agent built for the README:
-    a titled banner, three labelled columns and seven coloured cards).** "add
-    the ability to save whiteboard templates and base layouts, Im inspired by
-    this example whiteboard png the agent took and it can be like canva
-    templates, same with the mindmap and documents."
-
-    A feature, so it becomes a brief rather than something built ad hoc
-    (standing order 3). Placed as **Brief 32** in SESSION_BRIEFS.md.
-
-    **What already exists, so none of it gets rebuilt:** notes have templates
-    today (`BUILTIN_TEMPLATES` and a "Yours" group in app.js, offered through
-    `#entry-template`); documents have "new from template" with `{{date}}` and
-    `{{title}}` substitution, and DOCUMENTS_PLAN Phase 5 item 5 already
-    specifies a templates gallery storing them as documents tagged `template`;
-    and a board can already be copied whole (`POST
-    /whiteboard/boards/{id}/duplicate`). So the request is one idea short of
-    being built three times over: a template is a board (or map, or document)
-    marked as one, shown in a gallery with a preview, and copied on use. The
-    board preview machinery for that gallery also exists (`preview_items`,
-    `preview_edges`, `preview_aspect` on `BoardOut`, which is what draws the
-    board cards in the Library today).
-
 142. **Mid-work drop, 2026-09-13, verbatim (the owner), the document editor's
     writing intelligence (two screenshots).** "the suggestions box at the
     bottom takes up a lot of my screen and it makes the text editor really

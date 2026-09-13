@@ -190,12 +190,27 @@ class WhiteboardObjectData(BaseModel):
     #: has no business arriving here.
     icon: str | None = Field(default=None, max_length=40, pattern=r"^[a-z0-9-]+$")
     #: How a topic is drawn (MINDMAP_PLAN.md §12.1 item 3, decided in §12.0).
-    #: Four values and not the plan's eight: `None` is the rounded card this
-    #: map has always drawn, and `pill`, `rect` and `none` are the three that
-    #: can be had from a border-radius and a surface. Parallelogram,
+    #: Five values and not the plan's eight: `None` is the rounded card this
+    #: map has always drawn, and `pill`, `rect`, `ellipse` and `none` are the
+    #: four that can be had from a border-radius and a surface. Parallelogram,
     #: trapezoid, cloud and diamond want a clip-path that cuts into the box
     #: the label sits in, which at node size clips the label.
-    shape: str | None = Field(default=None, pattern="^(pill|rect|none)$")
+    #:
+    #: `ellipse` arrived with the core node (item 177 names "rounded
+    #: rectangle, pill, ellipse" as a core idea's own shape set) and is
+    #: offered to every topic rather than only to a core one: a shape that
+    #: appears and disappears from the picker depending on another toggle is
+    #: a second rule to remember, and the three shapes are all just a radius.
+    shape: str | None = Field(default=None, pattern="^(pill|rect|ellipse|none)$")
+    #: **A core idea** (MINDMAP_PLAN.md item 177: "a node marked as a core
+    #: idea, with its own shape set and a heavier weight"). A mark on the
+    #: node, not a third tier in the data model: §12.0 refused a "sub core"
+    #: node *type* because `parent_id` and `kind` are all a node has and no
+    #: export format this plan round-trips could carry a third one. This is
+    #: the other thing that request wanted, which a style field can carry and
+    #: both XML exports can write: the node draws heavier and says "start
+    #: here", and a map that loses the flag still has every node it had.
+    core: bool | None = None
     #: Where a topic points. Held to the three schemes a link on a page may
     #: safely have: `javascript:` and `data:` are the two this rejects by
     #: existing, and the frontend's own `wbMapOpenLink` refuses anything else
@@ -2275,6 +2290,7 @@ MAP_STYLE_FIELDS = (
     "font_size",
     "align",
     "shape",
+    "core",
     "icon",
     "link",
     "edge_label",
@@ -2795,6 +2811,7 @@ _FREEMIND_PRIVATE = {
     #: what makes the file look right where it is opened; `_shape` is what
     #: makes it come back as itself.
     "shape": "_shape",
+    "core": "_core",
     "icon": "_icon",
     "edge_label": "_edge_label",
     "edge_dashed": "_edge_dashed",
@@ -2807,6 +2824,7 @@ _FREEMIND_PRIVATE = {
 #: knows none of them still sees the outline it came for.
 _OPML_PRIVATE = {
     "shape": "_shape",
+    "core": "_core",
     "bold": "_bold",
     "italic": "_italic",
     "font_size": "_font_size",

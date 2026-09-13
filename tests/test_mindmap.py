@@ -671,6 +671,7 @@ MAP_STYLE = {
     "font_size": 22,
     "align": "center",
     "shape": "pill",
+    "core": True,
     "icon": "lightbulb",
     "link": "https://example.org/paper",
     "edge_label": "because",
@@ -748,6 +749,7 @@ def test_freemind_carries_a_styled_node_out_and_back(client):
     assert 'STYLE="horizontal"' in exported and 'COLOR="#4f46e5"' in exported
     # And the four it does not, as private attributes rather than as invented
     # FreeMind that another reader would choke on.
+    assert '_core="true"' in exported
     assert '_icon="lightbulb"' in exported
     assert '_edge_label="because"' in exported
     assert '_edge_dashed="true"' in exported
@@ -775,6 +777,7 @@ def test_opml_carries_a_styled_node_out_and_back(client):
     # honouring it drops the children underneath.
     assert 'type="link"' not in exported
     assert '_bold="true"' in exported and '_edge_style="elbow"' in exported
+    assert '_core="true"' in exported
     assert '_color="#4f46e5"' in exported
 
     back = client.post(
@@ -785,6 +788,45 @@ def test_opml_carries_a_styled_node_out_and_back(client):
     assert child["style"] == {
         key: value for key, value in MAP_STYLE.items() if key != "color"
     }
+
+
+def test_a_core_idea_can_be_an_ellipse(client):
+    """MINDMAP_PLAN.md item 177: a core node's shape set is "rounded
+    rectangle, pill, ellipse". The first two were already there; `ellipse` is
+    the one the validator would have refused, and a pattern that refuses a
+    value the picker offers is a control that silently does nothing."""
+    board = _map(client, name="Core")
+    node = _node(client, board["id"], text="The whole idea")
+    saved = client.put(
+        f"/whiteboard/objects/{node['id']}",
+        json={
+            "kind": node["kind"],
+            "board_id": board["id"],
+            "data": {**node["data"], "shape": "ellipse", "core": True},
+            "x": node["x"],
+            "y": node["y"],
+            "z": node["z"],
+        },
+    )
+    assert saved.status_code == 200, saved.text
+    root = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]
+    assert root["style"]["shape"] == "ellipse"
+    assert root["style"]["core"] is True
+
+    # And a shape nobody drew is still refused, which is what keeps the class
+    # this string is written into a closed set.
+    refused = client.put(
+        f"/whiteboard/objects/{node['id']}",
+        json={
+            "kind": node["kind"],
+            "board_id": board["id"],
+            "data": {**node["data"], "shape": "cloud"},
+            "x": node["x"],
+            "y": node["y"],
+            "z": node["z"],
+        },
+    )
+    assert refused.status_code == 422
 
 
 def test_a_topic_with_no_box_is_freeminds_own_fork_node(client):

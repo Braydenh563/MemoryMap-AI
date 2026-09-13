@@ -8751,6 +8751,50 @@ input[type="file"] {
   box-shadow: none;
 }
 
+/* The fourth, and the one the core node brought with it (MINDMAP_PLAN.md item
+   177 names "rounded rectangle, pill, ellipse" as a core idea's shape set).
+   A radius, like the three above it, so it still holds any label: what an
+   ellipse needs beyond that is room at its own narrow ends, which is what the
+   wider inline padding buys. Centred text for the same reason: a label ranged
+   left inside an ellipse sits against the curve rather than inside it. */
+.wb-map-node[data-shape="ellipse"] {
+  border-radius: 50%;
+  padding-inline: var(--space-7);
+  text-align: center;
+}
+
+/* **A core idea** (MINDMAP_PLAN.md item 177: "a node marked as a core idea,
+   with its own shape set and a heavier weight"). Weight, in all three senses
+   the word carries on a map: the type is heavier, the node's own outline is
+   heavier, and the spine that carries the branch colour is wider, so a core
+   node reads as the thing a branch hangs off from across the whole canvas
+   rather than only when you are next to it.
+
+   Deliberately *not* a fill in the branch colour, which is the obvious way to
+   do this and the wrong one: `.wb-map-node`'s own comment says why, a node
+   filled with a palette entry makes its label fight its background at every
+   colour, and the spine already states the grouping.
+
+   Placed above `.wb-map-bold` on purpose: the two set the same property on
+   the same element at the same specificity, so source order decides, and a
+   node someone explicitly made bold should be bold rather than merely core. */
+.wb-map-node.wb-map-core {
+  border-width: 2px;
+  border-left-width: 6px;
+  box-shadow: var(--glass-shadow), 0 0 0 1px color-mix(in srgb, var(--wb-branch-edge) 45%, transparent);
+}
+
+.wb-map-node.wb-map-core .wb-map-text {
+  font-weight: 600;
+}
+
+/* A map that grows downward carries the spine on the top edge (see below), so
+   a core node thickens that one instead. */
+.wb-map-down .wb-map-node.wb-map-core {
+  border-left-width: 2px;
+  border-top-width: 6px;
+}
+
 /* A map that grows downward reads top-to-bottom, so the spine belongs on the
    top edge: a left bar on a node whose parent is directly above it points at
    nothing. */

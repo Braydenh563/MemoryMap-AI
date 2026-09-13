@@ -25,9 +25,16 @@ The chat agent's run against INBOX 181, 182, 183, 187, 188, 189, 190 and
   a board, and scopes the run to `board_ids`
   (`scratchpad/ui-sweeps/agentsubject.js`).
 
+- `c052eb6` INBOX 190 and 193: the wand and the '?' in the header and the
+  Settings head, the Guide as one shared `openSheet`, per-tab starters, arrow
+  keys through them, a state line naming the tool
+  (`scratchpad/ui-sweeps/agentwide.js`). CHAT_PLAN decisions 13 and 14.
+
 ## Next
 
-1. INBOX 190: the popup agent app-wide and the help chat (CHAT_PLAN decision
-   9, section 4), including INBOX 193 for the help chat's name.
+1. INBOX 190's last part: the Guide's knowledge. It answers from
+   `HELP_TOPICS` in `src/memorymap/ai/help_chat.py` only; the brief asks for
+   the README (there is no `docs/USER_GUIDE.md`) plus the current tab's help
+   lines, which means `/help/ask` taking a `tab` and the client sending it.
 2. `chat-timeline-skills.md` item 1's last step: the hover highlight of
    `note.content.slice(start, end)` in the sources panel.

@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Opening a picture card's fold no longer stretches the six cards beside it.
+  It used to take every card in the row from 240.7px to 411.1px, leaving 213px
+  of empty card under each of the others; now only the card you opened grows.
+  The row is still equalised at rest, which is the recorded decision.
+
 - On a tablet in landscape the header is one row again and the tabs are a
   finger's target. It was two rows (112px at 820) on the band whose own rule
   says one, with 36px tab buttons; the strip needed 505px against 448px of

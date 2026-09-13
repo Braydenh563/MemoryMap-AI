@@ -24244,6 +24244,33 @@ order 10). Origin file named on each.
 
 ### From UI_MODERNISATION_PLAN.md
 
+### Built: an open fold stops inflating its row-mates, 2026-09-13
+
+The INBOX 164 block's leftover, and the one thing in it that was a defect rather
+than a trade. Measured at 1440 with `scratchpad/ui-sweeps/imagefold.js` on seven
+seeded picture cards in one row: at rest each is 240.7px with a 144px picture
+and 42.6px of tail; open one card's fold and every card in the row becomes
+411.1px and six of them carry 213px of empty card under their last line.
+
+The recorded decision is **not** remade. It is about the row at rest, where the
+cards are equalised and the leftover goes under the shortest one, because the
+alternatives (a bigger picture, unequal cards) were measured and rejected. What
+was never chosen is the second effect of the same stretch: one card's disclosure
+copied onto its six neighbours. So the stretch stops only while a fold in that
+grid is open,
+`.library-image-grid:has(.library-image-card-fold[open]) .library-image-tile {
+align-self: start }`, one selector, no JS, and it reverts the moment the fold
+shuts.
+
+Measured after, same sweep: shut, unchanged at 240.7px with a 42.6px tail; with
+one fold open, the opened card 411.1px and the other six at their own 199.1px
+with a 1px tail. `imagecard3.js` still passes (its open-to-shut ratio is
+row-scoped and still 1.71).
+
+Also corrected, because it was wrong in the handover: the pictures do **not**
+grow to their `max-height` ceiling when the row grows. They are 144px open and
+shut, so all 213px of the hole was empty card.
+
 ### Built, Phase 11's two band-2 faults: one row at 820, and 44px tabs, 2026-09-13
 
 Measured with `scratchpad/ui-sweeps/tabfit.js`. Before, at 820x1180: the header

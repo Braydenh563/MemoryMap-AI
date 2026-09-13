@@ -5382,8 +5382,39 @@ async function wbMapTidy({ onlyBranch = null, quiet = false } = {}) {
   // layout as well as a rigid drag.
   wbApplyBulkMove(origin, 0, 0);
   renderWhiteboardNow();
+  //: **A tidy that pushed the map off the canvas frames it again.** Recorded
+  //: by the seventh run and left as a decision rather than a bug: measured at
+  //: 390x844 after a tidy, the trunk's own box sat at x=-95 and
+  //: `elementFromPoint` at its centre returned the shell behind the canvas, so
+  //: the one node a person would reach for was not on screen. §12.0 says
+  //: auto-arrange is a command and not a constant, which is why this does not
+  //: frame on every tidy: it frames only a *whole-map* tidy, and only when
+  //: something has actually gone past an edge. A branch tidy is the silent
+  //: half of pressing Tab and must never move the view while someone is
+  //: typing, and a tidy whose result already fits is a view nobody asked to
+  //: have changed.
+  if (onlyBranch == null && wbMapSpillsOffCanvas()) wbZoomToFit({ animate: false });
   await wbSaveBulkMove(origin);
   return origin.size;
+}
+
+//: Is any part of the map outside the canvas right now? Read off the rendered
+//: boxes rather than off the stored coordinates, because what matters is what
+//: is on screen at the zoom in force, which is the thing the report was about.
+function wbMapSpillsOffCanvas() {
+  const container = document.getElementById("whiteboard-container");
+  if (!container) return false;
+  const box = container.getBoundingClientRect();
+  let spilled = false;
+  for (const el of document.querySelectorAll("#wb-html-layer .wb-object")) {
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) continue;
+    if (r.left < box.left || r.top < box.top || r.right > box.right || r.bottom > box.bottom) {
+      spilled = true;
+      break;
+    }
+  }
+  return spilled;
 }
 
 //: Re-tidy one branch after a node was added to it, when the layout asks for
@@ -6014,12 +6045,26 @@ async function wbMapRemoveKeepingBranch(id) {
   }
   const parentId = index.byId.has(node.parent_id) ? node.parent_id : null;
   try {
-    for (const child of children) {
-      const moved = await apiJson(`/whiteboard/boards/${boardId}/nodes/${child.id}/move`, {
+    //: The whole branch in one request when there is more than one child: the
+    //: half-moved branch a failure used to leave behind is the reason
+    //: `move-many` exists. One child is still one `/move`, which says what it
+    //: did in its own event rather than as a batch of one.
+    if (children.length > 1) {
+      const moved = await apiJson(`/whiteboard/boards/${boardId}/nodes/move-many`, {
         method: "PUT",
-        body: JSON.stringify({ parent_id: parentId }),
+        body: JSON.stringify({
+          moves: children.map((child) => ({ id: child.id, reparent: true, parent_id: parentId })),
+        }),
       });
-      Object.assign(child, moved);
+      for (const after of moved || []) Object.assign(index.byId.get(after.id) || {}, after);
+    } else {
+      for (const child of children) {
+        const after = await apiJson(`/whiteboard/boards/${boardId}/nodes/${child.id}/move`, {
+          method: "PUT",
+          body: JSON.stringify({ parent_id: parentId }),
+        });
+        Object.assign(child, after);
+      }
     }
   } catch (err) {
     toast(err.message || "Couldn't move that branch up.", true);
@@ -6723,8 +6768,51 @@ function wbApplyBulkMove(origin, dx, dy) {
   }
 }
 
-async function wbSaveBulkMove(origin) {
+//: **A map's own nodes go in one request.** A tidy of a two hundred node map
+//: was two hundred PUTs, two hundred transactions and a map half arranged for
+//: as long as they took, with nothing to roll back to when one of them failed
+//: (recorded as "Tidy still persists one node at a time"). `move-many` takes
+//: the whole set, so the batch either lands or does not. Everything that is
+//: not a map node on a map board still goes one at a time: a sketch's `d` and
+//: an image's box are not what that endpoint moves.
+//:
+//: Chunked at 200 against the endpoint's own 400, so a map twice the size of
+//: anything built here still goes in two requests rather than in four hundred.
+//: A failure falls back to the per-object path rather than surfacing: the
+//: caller has already painted the new positions, and the fallback is the code
+//: that was doing this until now.
+const WB_MOVE_MANY_CHUNK = 200;
+
+async function wbSaveMapBulkMove(origin) {
+  const boardId = window.currentBoardId;
+  if (!boardId || !wbIsMap()) return null;
+  const batched = [];
   for (const entry of origin.values()) {
+    if (entry.kind === "object" && WB_MAP_KINDS.has(entry.item?.kind)) batched.push(entry);
+  }
+  //: One node is not a batch: a single PUT says more in its own event log and
+  //: costs the same.
+  if (batched.length < 2) return null;
+  try {
+    for (let at = 0; at < batched.length; at += WB_MOVE_MANY_CHUNK) {
+      const slice = batched.slice(at, at + WB_MOVE_MANY_CHUNK);
+      await apiJson(`/whiteboard/boards/${boardId}/nodes/move-many`, {
+        method: "PUT",
+        body: JSON.stringify({
+          moves: slice.map((entry) => ({ id: entry.item.id, x: entry.item.x, y: entry.item.y })),
+        }),
+      });
+    }
+  } catch (err) {
+    return null;
+  }
+  return new Set(batched);
+}
+
+async function wbSaveBulkMove(origin) {
+  const done = await wbSaveMapBulkMove(origin);
+  for (const entry of origin.values()) {
+    if (done && done.has(entry)) continue;
     if (entry.kind === "sketch") {
       if (entry.item._liveD) {
         const d = entry.item._liveD;

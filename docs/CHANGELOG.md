@@ -168,6 +168,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A tidy writes the whole map in one request instead of one per node, and a
+  tidy that pushed part of the map off the canvas frames it again.
 - On a phone-width map, a branch can be folded again: the node's own action
   row had been sitting on top of its fold chevron, and the template offer on
   a new map covered the only topic that map had.

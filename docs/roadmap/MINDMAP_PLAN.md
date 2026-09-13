@@ -314,6 +314,18 @@ extended with the numbers named.
 
 ### 12.0 Decisions made (do not remake)
 
+- **A whole-map tidy frames the map again, and only when it has to**
+  (decided 2026-09-13, the option the seventh run left open). Auto-arrange
+  is a command and not a constant, so nothing frames on its own; but a
+  command that leaves the trunk off the canvas has not finished. Measured
+  at 390x844 before this: after a tidy the root's box sat at x=-95 and
+  `elementFromPoint` at its centre returned the shell behind the canvas.
+  So a tidy with `onlyBranch` null calls `wbZoomToFit` when, and only when,
+  some node's rendered box is outside the container. A branch tidy is the
+  silent half of pressing Tab and never moves the view, and a tidy whose
+  result already fits leaves the view alone. Gated by
+  `scratchpad/ui-sweeps/maptidy.js`, 5 checks at 1440x900 and at 390x844.
+
 - A map is a board of `type: "map"`; it keeps the whiteboard's storage,
   undo, export and previews, and gets its **own toolbar, its own context
   menus and its own keys**. The whiteboard's tool rail is hidden on a map;

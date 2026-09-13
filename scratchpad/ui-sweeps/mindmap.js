@@ -274,14 +274,17 @@ function check(label, ok, detail) {
   await page.waitForTimeout(500);
   await page.click("#wb-export");
   await page.waitForTimeout(500);
+  // The export is a dialog, not a popover, and has been since WHITEBOARD_PLAN
+  // decision 4: two segmented rows, scope and format. `#wb-export-menu` has
+  // not existed for some time and this check read an empty list from it.
   const menu = await page.evaluate(() =>
-    [...document.querySelectorAll("#wb-export-menu button")].map((b) => b.textContent.trim())
+    [...document.querySelectorAll(".confirm-overlay .seg button")].map((b) => b.textContent.trim())
   );
-  check("the export menu offers Markdown and OPML on a map",
-    menu.includes("Markdown (.md)") && menu.includes("OPML (.opml)"),
+  check("the export dialog offers Markdown and OPML on a map",
+    menu.includes("Markdown") && menu.includes("OPML"),
     menu.join(" | "));
   await page.keyboard.press("Escape");
-  await page.evaluate(() => document.getElementById("wb-export-menu")?.remove());
+  await page.evaluate(() => document.querySelector(".confirm-overlay")?.remove());
   await page.waitForTimeout(300);
 
   // The server's own outline, through the endpoint the menu entry calls.
@@ -1154,6 +1157,17 @@ function check(label, ok, detail) {
     JSON.stringify(focusClear)
   );
 
+  // The app's own selection popup follows a text selection, and an earlier
+  // step in this file drags inside a node's editor, which makes one. It floats
+  // over the canvas and intercepted this click as a thirty-second timeout
+  // (a click that hangs is a z-order problem, not a slow app). Cleared rather
+  // than clicked around: the popup is correct behaviour, the leftover is not.
+  await page.evaluate(() => {
+    const sel = window.getSelection();
+    if (sel) sel.removeAllRanges();
+    document.querySelector(".selection-popup")?.classList.add("hidden");
+  });
+  await page.waitForTimeout(250);
   await page.click("#wb-map-focus-more");
   await page.waitForTimeout(700);
   const atTwo = await drawn();

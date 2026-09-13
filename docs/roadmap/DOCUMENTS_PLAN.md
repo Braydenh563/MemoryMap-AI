@@ -406,10 +406,12 @@ gets the `/` menu only. Gate: touch.js and mindmap.js unchanged.
 
 ### Phase 7 — export and interchange (½ session)
 
-PDF (via the print stylesheet), HTML (self-contained), DOCX (server-side
-via `docview`'s existing readers reversed, or `python-docx` as an optional
-extra), Markdown with assets; import of `.docx`/`.html` to markdown. A
-document's export options live in the ⋯, with the same names everywhere.
+PDF (via the print stylesheet), Markdown and **HTML (self-contained, built
+2026-09-13, section 13 for the decision)** are done. What is left: DOCX
+(server-side via `docview`'s existing readers reversed, or `python-docx` as an
+optional extra, and the suite must not depend on the extra being installed),
+Markdown with assets, and import of `.docx`/`.html` to markdown. A document's
+export options live in the ⋯, with the same names everywhere.
 
 ## 6. Competitor matrix (what the plan takes from whom)
 
@@ -762,6 +764,67 @@ open work only. The rules that outlive the pass are two rows in
 `docs/DESIGN.md`'s recipe index (a viewport popup, and one feature drawn on
 several surfaces), kept by `tests/test_ui_recipes.py`. What is left open is
 in `agent-remaining/editor-intelligence.md`.
+
+## 13. What a self-contained HTML export is: decided 2026-09-13
+
+The decision this plan owed since Phase 7 was written, taken here so it is not
+re-derived: **the file is rendered in the browser, from the pane that is
+already rendered, with a stylesheet of its own and its images as `data:` URIs.**
+
+**Why not on the server.** There is no markdown-to-HTML renderer in
+`src/memorymap/` (checked again before this was written) and this plan forbids
+adding a dependency for one. Writing a second renderer in Python would mean two
+renderers that have to agree about tables, callouts, columns, embeds, block ids
+and comments-as-footnotes, and the one on the server would be the one nobody
+looks at. The browser already holds the only faithful rendering of a document,
+in `#doc-preview`, so the export takes it from there. It is the same route the
+whiteboard's PNG export takes for the same reason: the drawing exists, export
+what is drawn.
+
+**What "self-contained" is taken to mean**, because the word is doing all the
+work: the file opens on a machine with no network, no MemoryMap and no account.
+That is one assertion and everything below follows from it.
+
+- **The stylesheet is written out, not borrowed.** The app's eleven sheets are
+  four hundred kilobytes of tokens, docks, dialogs and responsive bands for a
+  page that has none of those in it, and half of it resolves against custom
+  properties that would not be there. `DOC_EXPORT_CSS` is a reading stylesheet:
+  measure, rhythm, headings, code, tables, quotes, and a `prefers-color-scheme`
+  block, because a file has no settings in it and the reader's system is the
+  only preference there is.
+- **Images become `data:` URIs**, fetched through the app's own token, with an
+  8MB budget. Past the budget, or when a file cannot be read, the image becomes
+  its alt text in words: a page that says "[image: the floor plan]" is honest,
+  a broken frame is not.
+- **Controls are dropped, and their words are not.** Buttons, selects, icon
+  elements and the code block's copy/save group only work inside a running app.
+  A `[[wikilink]]`, though, renders here as a `button.wiki-link`, so removing it
+  with the rest took the document's own words out of the sentence (measured: "A
+  link into the app: ."). A wiki link keeps its text; everything else goes.
+- **A link back into this app loses its `href` and keeps its text**; an
+  `https:`, `mailto:` or same-page link is untouched. `data-` attributes are
+  stripped with them, one of which is a note id: data about somebody's notebook
+  travelling inside a document they meant to share.
+- **Headings shift up by two.** The rendered pane starts at `h3` because the
+  app's page already has an `h1` above it; a file on its own has no such page,
+  so `h3` becomes `h1` and `h6` stops at `h4`.
+- **No `h1` of the title is added**: the pane already prints the document's
+  title as its first heading, and the name also travels in `<title>`, which is
+  what names a tab, a bookmark and the saved file.
+- **Comments travel as footnotes**, exactly as they do in the PDF export: a
+  document handed to somebody carries what was said about it.
+
+**What holds the line**: `tests/test_document_export_html.py` runs the document
+shell in node and fails on a host name, a `<link>`, an `@import`, a `url()` or a
+`<script>` anywhere in it, and `scratchpad/ui-sweeps/docexporthtml.js` exports a
+real document, opens the saved file in a second browser context with every
+network request refused, and measures what renders: 0 network attempts, 1
+decoded inline image, the table, the disabled task boxes and the reading
+measure.
+
+**Not decided here, and deliberately still open**: DOCX both ways, Markdown
+with its assets, and import of `.html`. The first needs a dependency decision
+this session did not have a reason to force.
 
 ## Built, the sidebar redesign (INBOX 115), 2026-09-12
 

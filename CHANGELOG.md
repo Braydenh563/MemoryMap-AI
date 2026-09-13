@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A document can be downloaded as one self-contained HTML file. Images become
+  data URIs, the stylesheet is written into the file, comments travel as
+  footnotes, controls that only work inside the app are dropped (a `[[link]]`
+  keeps its words), and a link back into the app keeps its text without its
+  address. Measured with `scratchpad/ui-sweeps/docexporthtml.js`, which opens
+  the saved file in a browser with every network request refused: 0 network
+  attempts, 1 inline image decoded, the table, the task boxes and the reading
+  measure all intact.
+
 - A mind map's lines are styled one branch at a time. Select a topic and the
   strip carries the line coming into it: thin, normal or thick, dashed or
   solid, and an arrowhead on or off. The thickness scales the branch itself

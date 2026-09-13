@@ -3109,6 +3109,15 @@
                   title="Turn this document, or the text you have selected, into one or more notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
                 <button id="doc-export-md" class="menu-item doc-dock-menu-item" type="button"
                   title="Download as a .md file"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Download as .md</button>
+                <!-- **One HTML file that needs nothing else**
+                     (DOCUMENTS_PLAN Phase 7). Rendered in the browser from the
+                     pane that is already rendered, with its images as data
+                     URIs and a stylesheet of its own, because there is no
+                     server-side markdown renderer here and the plan forbids
+                     adding one. The glyph is the download arrow the app's
+                     other four export actions use. -->
+                <button id="doc-export-html" class="menu-item doc-dock-menu-item" type="button"
+                  title="Download as one self-contained .html file, images and all"><i class="ph ph-file-html ph-lead" aria-hidden="true"></i> Download as .html</button>
                 <button id="doc-export-pdf" class="menu-item doc-dock-menu-item" type="button"
                   title="Print or save as PDF"><i class="ph ph-file-pdf ph-lead" aria-hidden="true"></i> Print or save as PDF</button>
                 <!-- Asked for directly: "there should be the option to have

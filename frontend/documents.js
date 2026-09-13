@@ -5164,7 +5164,16 @@ function docLivePlugin(CM) {
     toDOM() {
       const img = document.createElement("img");
       img.className = "cm-md-image";
-      img.src = this.src;
+      //: **Through `mediaSrc`, like every other image in this app.** An
+      //: `<img>` cannot send a header, so `/media/…` and `/files/…` carry the
+      //: unlock token as a query parameter; this widget set the raw path and
+      //: every image in Live view answered 401, which the app's own missing
+      //: media handler then drew as "no longer in this notebook" over a file
+      //: that was still there. Measured against this branch before the fix:
+      //: two console 401s per image, `naturalWidth` 0 in Live and 1 in the
+      //: rendered pane beside it, which is the same file through the two
+      //: paths. The embed path below already did this; this one never did.
+      img.src = typeof mediaSrc === "function" ? mediaSrc(this.src) : this.src;
       img.alt = this.options.caption || this.options.name || "";
       return docApplyImageOptions(img, this.options);
     }
@@ -6901,6 +6910,319 @@ async function exportDocumentMarkdown() {
     $("doc-status").classList.add("error");
     $("doc-status").textContent = error.message;
   }
+}
+
+// DOC-EXPORT-HTML-BEGIN
+//: **A document as one HTML file that needs nothing else**
+//: (DOCUMENTS_PLAN Phase 7, the decision recorded in that plan's section 13).
+//:
+//: The short version, because the shape of this code only makes sense with it:
+//: there is no server-side markdown renderer in this app and the plan forbids
+//: adding one, so the only faithful source of a rendered document is the
+//: rendered document, which lives in `#doc-preview` in the browser. The export
+//: is therefore built here, from that DOM, exactly the way the whiteboard's PNG
+//: export is built from the canvas that is already drawn.
+//:
+//: "Self-contained" is the whole requirement and it is what most of this file
+//: is about: the page that lands in somebody's downloads folder must open with
+//: no network, no app, and no account. So the stylesheet is written out in
+//: full below rather than the app's eleven sheets being inlined (they are 400KB
+//: of tokens, docks and dialogs for a page with none of those in it), images
+//: become `data:` URIs, icons and controls are dropped rather than shipped
+//: broken, and a link that points back into this app loses its href and keeps
+//: its words. `tests/test_document_export_html.py` is what holds that line.
+
+//: Deliberately small and deliberately not the app's. The one thing it has to
+//: get right is the reading measure and the vertical rhythm; everything else
+//: is the browser's own defaults doing their job. Dark is a media query rather
+//: than a choice, because the file has no settings in it and the reader's
+//: system is the only preference there is.
+const DOC_EXPORT_CSS = `
+:root {
+  color-scheme: light dark;
+  --ink: #1c1d22;
+  --muted: #5b6070;
+  --ground: #ffffff;
+  --rule: #e2e4eb;
+  --inner: #f5f6f9;
+  --accent: #4f6df5;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e8e9ee;
+    --muted: #a2a7b8;
+    --ground: #16171b;
+    --rule: #2c2e36;
+    --inner: #1e2026;
+    --accent: #8ea2ff;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 3rem 1.5rem 6rem;
+  background: var(--ground);
+  color: var(--ink);
+  font: 16px/1.65 "Iowan Old Style", Palatino, Georgia, "Times New Roman", serif;
+}
+main { max-width: 42rem; margin: 0 auto; }
+h1, h2, h3, h4, h5, h6 {
+  margin: 2.2em 0 0.6em;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.25;
+}
+h1 { font-size: 2rem; margin-top: 0; }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.2rem; }
+p, ul, ol, blockquote, table, pre { margin: 0 0 1.1em; }
+a { color: var(--accent); }
+img { max-width: 100%; height: auto; border-radius: 4px; }
+figure { margin: 1.5em 0; }
+figcaption { color: var(--muted); font-size: 0.9rem; text-align: center; }
+blockquote {
+  margin-left: 0;
+  padding: 0.2em 0 0.2em 1em;
+  border-left: 3px solid var(--rule);
+  color: var(--muted);
+}
+code, pre, kbd { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.92em; }
+code { padding: 0.1em 0.3em; border-radius: 3px; background: var(--inner); }
+pre {
+  padding: 1em;
+  overflow-x: auto;
+  border-radius: 6px;
+  background: var(--inner);
+}
+pre code { padding: 0; background: none; }
+table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
+th, td { padding: 0.45em 0.7em; border: 1px solid var(--rule); text-align: left; }
+th { background: var(--inner); }
+hr { height: 1px; margin: 2.5em 0; border: 0; background: var(--rule); }
+ul.task-list, .task-list { list-style: none; padding-left: 1.2em; }
+input[type="checkbox"] { margin-right: 0.4em; }
+.doc-callout {
+  margin: 1.5em 0;
+  padding: 0.8em 1em;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  background: var(--inner);
+}
+.doc-footnotes {
+  margin-top: 3em;
+  padding-top: 1em;
+  border-top: 1px solid var(--rule);
+  color: var(--muted);
+  font-size: 0.9em;
+}
+.doc-export-missing { color: var(--muted); font-style: italic; }
+.doc-export-link { border-bottom: 1px dotted var(--rule); }
+.doc-export-meta {
+  margin: 0 0 2.5em;
+  color: var(--muted);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 0.85rem;
+}
+`;
+
+function docExportEscape(text) {
+  return String(text == null ? "" : text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+//: No `<h1>` of the title above the body: a document here almost always opens
+//: with its own heading, and printing the title again would give every
+//: exported page a duplicated first line. The name travels in `<title>`, which
+//: is what names a tab, a bookmark and a saved file.
+//:
+//: The meta line is one line and it is the provenance: what this was and when
+//: it was taken. Without it an exported page is undated, and a document that
+//: is edited weekly becomes several undated files with the same name.
+function docExportHtmlDocument(title, bodyHtml, savedOn) {
+  const name = docExportEscape(title || "Untitled document");
+  const meta = savedOn ? `<p class="doc-export-meta">${docExportEscape(savedOn)}</p>\n` : "";
+  return (
+    "<!doctype html>\n" +
+    '<html lang="en">\n<head>\n<meta charset="utf-8">\n' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
+    `<title>${name}</title>\n<style>${DOC_EXPORT_CSS}</style>\n</head>\n` +
+    `<body>\n<main>\n${meta}${bodyHtml}\n</main>\n</body>\n</html>\n`
+  );
+}
+// DOC-EXPORT-HTML-END
+
+//: What comes out of the app and what does not. Everything in this list is
+//: something that works only inside a running MemoryMap: a button with a
+//: listener that no longer exists, an icon whose font is not in the file, a
+//: link to `/documents/12`. Shipped as-is they would be an empty square, a
+//: dead control and a 404; dropped, the page reads.
+const DOC_EXPORT_STRIP = ".code-actions, select, textarea, script, iframe, object, embed, i.ph, .ph-lead";
+
+//: **A control goes; the words it was wrapped around stay.** A `[[wikilink]]`
+//: renders as a `button.wiki-link` here, because in the app it opens the thing
+//: it names. Removing it with the other controls took the name out of the
+//: sentence: an exported page read "A link into the app: ." Measured, and it
+//: is the reason this is two rules rather than one selector.
+function docExportUnwrapControls(root) {
+  for (const node of [...root.querySelectorAll("button")]) {
+    const words = (node.textContent || "").trim();
+    if (!words || !node.classList.contains("wiki-link")) {
+      node.remove();
+      continue;
+    }
+    const span = document.createElement("span");
+    span.className = "doc-export-link";
+    span.textContent = words;
+    node.replaceWith(span);
+  }
+}
+
+//: **The rendered pane's headings start at `h3`**, because the app's page
+//: already has an `h1` and an `h2` above the document and a pane that shouted
+//: over them would be wrong on screen. A file on its own has no such page: its
+//: first heading is the top of the only document there is. So the levels shift
+//: by two on the way out, which is the same hierarchy with its top where a
+//: standalone page expects it. The map is written out rather than computed so
+//: that `h6`, which has nowhere lower to go, is a decision rather than an
+//: arithmetic accident.
+const DOC_EXPORT_HEADINGS = { H3: "h1", H4: "h2", H5: "h3", H6: "h4" };
+
+function docExportPromoteHeadings(root) {
+  //: The list is taken before anything is replaced: promoting in place while
+  //: iterating a live list would walk into the `h1`s it has just made.
+  for (const node of [...root.querySelectorAll("h3, h4, h5, h6")]) {
+    const tag = DOC_EXPORT_HEADINGS[node.tagName];
+    if (!tag) continue;
+    const swap = document.createElement(tag);
+    for (const attribute of [...node.attributes]) swap.setAttribute(attribute.name, attribute.value);
+    while (node.firstChild) swap.appendChild(node.firstChild);
+    node.replaceWith(swap);
+  }
+}
+
+function docExportClean(root) {
+  for (const node of root.querySelectorAll(DOC_EXPORT_STRIP)) node.remove();
+  docExportUnwrapControls(root);
+  docExportPromoteHeadings(root);
+  for (const box of root.querySelectorAll('input:not([type="checkbox"])')) box.remove();
+  //: A task box stays, because an unticked box in a list is part of what the
+  //: document says. Disabled, because ticking it in an exported file would
+  //: change nothing anywhere and a control that does nothing is a lie.
+  for (const box of root.querySelectorAll('input[type="checkbox"]')) {
+    box.setAttribute("disabled", "disabled");
+    box.removeAttribute("onclick");
+  }
+  for (const link of root.querySelectorAll("a[href]")) {
+    const href = link.getAttribute("href") || "";
+    const external = /^(https?:|mailto:|#)/i.test(href);
+    if (!external) link.removeAttribute("href");
+  }
+  //: Every `data-` attribute in the preview is a handle for this app's own
+  //: listeners (a finding's index, a block id, a note id). None of them mean
+  //: anything in a file, and one of them, a note id, is data about somebody's
+  //: notebook travelling inside a document they meant to share.
+  for (const node of root.querySelectorAll("*")) {
+    for (const attribute of [...node.attributes]) {
+      if (attribute.name.startsWith("data-") || attribute.name.startsWith("on")) {
+        node.removeAttribute(attribute.name);
+      }
+      //: The CSP refuses an inline style in this app's own page and an
+      //: exported file has no CSP at all, which is exactly why they are
+      //: stripped rather than kept: a style attribute here would be the app's
+      //: own token vocabulary (`var(--accent-soft)`) resolving to nothing.
+      if (attribute.name === "style") node.removeAttribute("style");
+    }
+  }
+  return root;
+}
+
+//: Eight megabytes of data URIs is a file that opens; eighty is one that
+//: hangs the tab it is dropped into. Past the budget an image becomes its own
+//: alt text, which says what was there rather than drawing a broken frame.
+const DOC_EXPORT_IMAGE_BUDGET = 8 * 1024 * 1024;
+
+async function docExportInlineImages(root) {
+  let spent = 0;
+  let inlined = 0;
+  let dropped = 0;
+  for (const img of [...root.querySelectorAll("img")]) {
+    const src = img.getAttribute("src") || "";
+    if (src.startsWith("data:")) {
+      inlined++;
+      continue;
+    }
+    let dataUri = null;
+    if (src && !/^https?:/i.test(src) && spent < DOC_EXPORT_IMAGE_BUDGET) {
+      try {
+        const response = await fetch(src, { headers: { "X-Auth-Token": authToken() } });
+        if (response.ok) {
+          const blob = await response.blob();
+          if (spent + blob.size <= DOC_EXPORT_IMAGE_BUDGET) {
+            dataUri = `data:${blob.type || "application/octet-stream"};base64,${await blobToBase64(blob)}`;
+            spent += blob.size;
+          }
+        }
+      } catch {
+        // A file that cannot be read is a file that cannot be embedded; the
+        // alt text below says so rather than the export failing over it.
+      }
+    }
+    if (dataUri) {
+      img.setAttribute("src", dataUri);
+      img.removeAttribute("srcset");
+      img.removeAttribute("loading");
+      inlined++;
+    } else {
+      const note = document.createElement("span");
+      note.className = "doc-export-missing";
+      note.textContent = `[image: ${img.getAttribute("alt") || "not included"}]`;
+      img.replaceWith(note);
+      dropped++;
+    }
+  }
+  return { inlined, dropped, bytes: spent };
+}
+
+async function exportDocumentHtml() {
+  if (!currentDoc) return;
+  const status = $("doc-status");
+  //: The remarks travel as footnotes, exactly as they do in a PDF: a document
+  //: handed to somebody carries what was said about it rather than dropping it
+  //: silently. Set before `withDocPreviewShown`, which renders on the way in.
+  docPrintComments = true;
+  let done;
+  const finished = new Promise((resolve) => {
+    done = resolve;
+  });
+  withDocPreviewShown(async (restore) => {
+    try {
+      const clone = $("doc-preview").cloneNode(true);
+      clone.removeAttribute("id");
+      clone.removeAttribute("class");
+      docExportClean(clone);
+      const images = await docExportInlineImages(clone);
+      const savedOn = `${currentDoc.title || "Untitled"} · exported ${new Date().toLocaleDateString()}`;
+      const html = docExportHtmlDocument(currentDoc.title, clone.innerHTML, savedOn);
+      const name = (currentDoc.title || "document").replace(/[^\w. -]+/g, "").trim() || "document";
+      await saveFile(`${name}.html`, new Blob([html], { type: "text/html" }));
+      if (images.dropped) {
+        toast(`Saved. ${images.dropped} image(s) could not be embedded and are named in the text.`);
+      }
+    } catch (error) {
+      if (status) {
+        status.classList.add("error");
+        status.textContent = error.message || "Couldn't export this document.";
+      }
+    } finally {
+      docPrintComments = false;
+      restore();
+      renderDocPreview();
+      done();
+    }
+  });
+  return finished;
 }
 
 // PDF via the browser's own print dialog: it renders the preview exactly as
@@ -8739,6 +9061,7 @@ $("doc-connections").addEventListener("click", () => {
   openConnections("documents", currentDoc.id, currentDoc.title || "This document");
 });
 $("doc-export-md").addEventListener("click", exportDocumentMarkdown);
+$("doc-export-html").addEventListener("click", exportDocumentHtml);
 $("doc-export-pdf").addEventListener("click", exportDocumentPdf);
 $("doc-delete").addEventListener("click", deleteCurrentDocument);
 $("doc-attach-bookmark").addEventListener("click", attachBookmarkToDocument);

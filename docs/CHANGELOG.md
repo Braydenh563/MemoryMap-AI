@@ -7,6 +7,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Background work is bounded. Every upload used to spawn up to three threads of
+  its own (Tesseract, the caption, the vision read) plus a document read, so a
+  folder of 200 pictures was 600 threads against one Tesseract and one local
+  model. `core/jobs.py` is now one pool with two lanes: the CPU lane is the core
+  count capped at four, the model lane is one worker, and every
+  `*_in_background` enqueues on it. The activity panel lists what is queued, and
+  shutdown drops the queue inside a deadline instead of draining it.
+
 - Boot is lighter: p5 (1 MB, decoration only) loads in idle time on first use
   rather than as a blocking script, and the dashboard's seven widgets share one
   `/insights/stats` fetch (44 boot fetches to 35). The audit these came from is

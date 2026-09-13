@@ -26,6 +26,8 @@ import threading
 import time
 from pathlib import Path
 
+from memorymap.core import jobs
+
 logger = logging.getLogger("memorymap.captioning")
 
 #: Captions in flight right now, keyed by upload id → the file's own name.
@@ -324,9 +326,4 @@ def caption_in_background(upload_id: int, image_path: Path) -> None:
     even more here than for `ocr.extract_in_background`, the upload is
     already done by the time this runs, and there is nothing about it that
     should make the person who just attached a photo wait."""
-    threading.Thread(
-        target=caption_and_store,
-        args=(upload_id, image_path),
-        daemon=True,
-        name="caption-extract",
-    ).start()
+    jobs.enqueue("caption", caption_and_store, upload_id, image_path, name=image_path.name)

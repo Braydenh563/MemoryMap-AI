@@ -34,8 +34,9 @@ import re
 import shutil
 import subprocess  # noqa: S404  # fixed args from a hardcoded table below, no shell, no user input
 import sys
-import threading
 from pathlib import Path
+
+from memorymap.core import jobs
 
 logger = logging.getLogger("memorymap.ocr")
 
@@ -358,12 +359,7 @@ def extract_in_background(upload_id: int, image_path: Path) -> None:
     already done by the time this runs, the same "don't make the caller
     wait for something that isn't the point of the request" reasoning as
     `ai/embeddings.py`'s background reinstall-and-retry."""
-    threading.Thread(
-        target=extract_and_store,
-        args=(upload_id, image_path),
-        daemon=True,
-        name="ocr-extract",
-    ).start()
+    jobs.enqueue("ocr", extract_and_store, upload_id, image_path, name=image_path.name)
 
 
 #: Per platform, the first package manager found on PATH gets tried. Every

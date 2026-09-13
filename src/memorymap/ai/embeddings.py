@@ -155,6 +155,12 @@ def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # 
                     "could not warm the retrieval matrix", exc_info=True
                 )
 
+    # **Not on `core/jobs.py`'s pool, deliberately** (WORLD_CLASS_PLAN A3).
+    # The pool bounds the jobs that *multiply*: one per upload, three per
+    # picture, so a folder of 200 is 600 threads. This is one thread per
+    # process, it runs once at startup, and putting it on the shared queue
+    # would make the first search of a session wait behind whatever OCR a
+    # bulk import had already queued. One is not a concurrency problem.
     threading.Thread(target=run, name="embedding-warmup", daemon=True).start()
 
 
@@ -621,6 +627,11 @@ class EmbeddingService:
                 importlib.invalidate_caches()
                 self.reset_failure_state()
 
+        # Also not on the pool, and this one would be an outright bug there:
+        # it waits on someone else's pip process, which is minutes. A bounded
+        # pool worker held that long with captions queued behind it is the
+        # pool starving itself, the exact failure a queue is supposed to
+        # prevent. One per process, at most once ever (`_auto_install_attempted`).
         threading.Thread(
             target=_retry_once_installed, name="embedding-auto-install-watch", daemon=True
         ).start()

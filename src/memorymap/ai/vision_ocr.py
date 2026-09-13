@@ -31,7 +31,7 @@ import threading
 import time
 from pathlib import Path
 
-from memorymap.core import pdfpages
+from memorymap.core import jobs, pdfpages
 
 #: Page reads in flight right now, keyed by an opaque id -> what is being read.
 #:
@@ -359,12 +359,7 @@ def pdf_vision_ocr_in_background(upload_id: int, pdf_path: Path) -> None:
     """Fire-and-forget, exactly as `vision_ocr_in_background`, and more
     necessary here, since a scan is up to `pdfpages.MAX_PAGES` model round
     trips rather than one."""
-    threading.Thread(
-        target=pdf_vision_ocr_and_store,
-        args=(upload_id, pdf_path),
-        daemon=True,
-        name="vision-ocr-pdf",
-    ).start()
+    jobs.enqueue("vision-pdf", pdf_vision_ocr_and_store, upload_id, pdf_path, name=pdf_path.name)
 
 
 def vision_ocr_in_background(upload_id: int, image_path: Path) -> None:
@@ -372,9 +367,4 @@ def vision_ocr_in_background(upload_id: int, image_path: Path) -> None:
     Same shape as `captioning.caption_in_background`, a real model round
     trip is far slower than the request itself, and nothing about "was the
     upload accepted" should wait on it."""
-    threading.Thread(
-        target=vision_ocr_and_store,
-        args=(upload_id, image_path),
-        daemon=True,
-        name="vision-ocr-extract",
-    ).start()
+    jobs.enqueue("vision", vision_ocr_and_store, upload_id, image_path, name=image_path.name)

@@ -24,8 +24,9 @@ running, and its absence costs the reader nothing they had before.
 from __future__ import annotations
 
 import logging
-import threading
 from pathlib import Path
+
+from memorymap.core import jobs
 
 logger = logging.getLogger("memorymap.docreader")
 
@@ -120,9 +121,4 @@ def read_in_background(attachment_id: int) -> None:
     A document extraction is fast and a model round trip is not, and neither
     is anything the person who just attached a file should wait behind.
     """
-    threading.Thread(
-        target=read_document_and_store,
-        args=(attachment_id,),
-        daemon=True,
-        name="document-read",
-    ).start()
+    jobs.enqueue("document", read_document_and_store, attachment_id)

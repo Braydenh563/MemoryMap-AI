@@ -1,3 +1,17 @@
+# The audit's backend rows, 2026-09-13 night (A3 to A9)
+
+Brief: WORLD_CLASS_PLAN "Audit, 2026-09-13 night", rows A3, A4, A5, A6, A9 in
+that order. One commit per row (A5 one per function), `gate.sh --changed` after
+each, tests first.
+
+| Row | State | Commit |
+| --- | --- | --- |
+| A3 bounded job pool | done | (below) |
+| A4 small-model agent | next | |
+| A5 five functions split | not started | |
+| A6 nine silent excepts | not started | |
+| A9 CI skips | not started | |
+
 # The backend refinement pass, 2026-09-13 evening
 
 The owner's order was "refine the backend", worked as the list in the brief:

@@ -3047,6 +3047,21 @@ window.wireHelpPopover = wireHelpPopover;
 
 function openActionMenu(menu, opener) {
   closeActionMenus(); // only one open at a time
+  //: **Measured while invisible, revealed once.** Reported alongside the
+  //: collapsed menu above: "the popup sitll has the left corner screen flicker
+  //: before it shows in the right place". Everything below this line needs the
+  //: menu laid out to do its job (the flip test reads its rect, and
+  //: `escapeMenuIfClipped` reparents it to `<body>` and writes a `top` only
+  //: after measuring), and `hidden` is `display: none`, so the menu has to be
+  //: shown before any of it can run. That leaves at least one painted frame
+  //: where a menu about to be moved is visible where it started, which for an
+  //: escaped menu is wherever `<body>` puts an unpositioned child.
+  //:
+  //: `visibility: hidden` is the difference: the box is laid out and
+  //: measurable, and it paints nothing until the last line puts it back. The
+  //: same two-step `showSelectionPopupAt` uses, and for the same reason.
+  const wasVisibility = menu.style.visibility;
+  menu.style.visibility = "hidden";
   menu.classList.remove("hidden", "action-menu-flip");
   opener.setAttribute("aria-expanded", "true");
   // Whichever ancestor is the stacking context this menu is trapped in. On a
@@ -3076,6 +3091,9 @@ function openActionMenu(menu, opener) {
   //: a menu that fits, and a menu that does not gets the same reparent-to-body
   //: treatment rather than being clipped.
   escapeMenuIfClipped(menu, opener);
+  //: Placed, so it can be seen. Restored rather than cleared, in case a caller
+  //: had its own reason to hide this menu.
+  menu.style.visibility = wasVisibility;
   focusMenuItem(menu.querySelector("button"), menu);
 }
 
@@ -7408,6 +7426,33 @@ function hideSelectionPopup() {
 // measure-then-classify shape rather than a second mechanism.
 function clampSelectionMenu(menu) {
   menu.classList.remove("menu-flip-up", "menu-flip-left");
+  //: **A menu that has left its box is already placed, and flipping it here
+  //: collapses it.** Reported: "when I highlight text and the popup kebab
+  //: button appears, the first time I click it, a little collapsed line
+  //: appears below it, then I need to click the button to close the popup and
+  //: reopen it for it to actually show".
+  //:
+  //: `openActionMenu` calls `escapeMenuIfClipped` first, which reparents a
+  //: clipped menu to `<body>`, makes it `position: fixed` and writes an
+  //: explicit `top`. `.menu-flip-up` is `top: auto; bottom: calc(100% + 4px)`,
+  //: written for a menu positioned against its own offset parent; on an
+  //: escaped menu that `100%` resolves against the viewport, so the rule asks
+  //: for a box whose bottom edge is four pixels above the top of the screen
+  //: and the auto-height box collapses to its own padding. That is the strip
+  //: in the report, and it is the same over-constraint
+  //: `escapeMenuIfClipped` already guards against for `action-menu-flip`,
+  //: one line of which says so: "Both at once over-constrains an auto-height
+  //: box, which reproduced as the menu collapsing to its own padding."
+  //:
+  //: The second click appears to fix it because by then `_escapedHome` is set,
+  //: `escapeMenuIfClipped` returns early, and whichever branch runs next
+  //: happens not to add the class.
+  //:
+  //: Nothing is lost by leaving early: `placeEscapedMenu` positions the menu
+  //: against the viewport directly, which is strictly better than choosing
+  //: between two fixed anchors, and it is what this function is trying to
+  //: approximate.
+  if (menu.classList.contains("action-menu-escaped") || menu._escapedHome) return;
   const margin = 8;
   let rect = menu.getBoundingClientRect();
   if (rect.bottom > window.innerHeight - margin) menu.classList.add("menu-flip-up");
@@ -27208,6 +27253,18 @@ function paletteCommands() {
       // is exactly the friction that means it does not get started at all.
       label: "ph:microphone Record a meeting or lecture",
       run: openMeetingRecorder,
+    },
+    {
+      // The same ask about the page reader, in the same words: "I want an
+      // easier and more accessible way to access the ocr workspace as a proper
+      // and more central feature." It had four doors and every one of them
+      // started from a file you had already found, which is no answer to "I
+      // want to read something". `openPageReader` (library.js) opens it on what
+      // you were last reading, else your newest readable file; the decision and
+      // what was deliberately not built is in UI_MODERNISATION_PLAN.md, "how
+      // the page reader is reached".
+      label: "ph:book-open-text Read a document or image with AI",
+      run: () => window.openPageReader?.(),
     },
     {
       // Asked for directly: "add creating a new board to the command

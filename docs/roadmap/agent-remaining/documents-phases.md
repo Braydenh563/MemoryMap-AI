@@ -32,7 +32,15 @@ commit.
   `documents.js` (NOTE-SURFACE-BEGIN/END), six boxes, `tests/test_note_surface.py`,
   `scratchpad/ui-sweeps/notesurface.js` 22/22. 8c's two halves are in
   `whiteboard.js` and `editor.js`, which this agent does not own.
-- **Next:** Phase 7's rest (markdown with assets as a zip, DOCX export as an
+- **Phase 7's rest.** `db80a66`. `GET /documents/{id}/export.zip` (markdown
+  plus `assets/`), `export.docx` behind the optional python-docx with a 501
+  that names it, `docview.docx_to_markdown` and `html_to_markdown` (no
+  converter needed), `tests/test_docexport_bundle.py`,
+  `tests/test_docview_import.py`, `scratchpad/ui-sweeps/docexports.js` 6/6.
+  Left for whoever owns `core/extras.py`: one `Extra(...)` row for
+  python-docx so the Word export can point at a button.
+- **Next:** the "Found, not fixed" lines below and the plan's "Not verified
+  until built". Was: Phase 7's rest (markdown with assets as a zip, DOCX export as an
   optional extra, import of `.docx`/`.html` through `docview`), then the
   "Found, not fixed" lines below.
 

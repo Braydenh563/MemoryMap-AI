@@ -344,6 +344,16 @@ which is its own slow cost when the next session reads it. The same three sympto
 console are the signature: one real error, then `X is not defined` and
 `Cannot access Y before initialization` from everything declared after it.
 
+**Now (2026-09-14 early, Fable orchestrating): four more agents on the
+owner's night reports and the audit.** INBOX 195 to 199, 211 and the aurora
+half of 210 landed (`ea7b370`, `6437125`, `3440988`); chrome, mapux, backend2
+and boot run on the rest, each pushing to `origin/agent/wip-<name>` after
+every commit. **Their briefs and the resume recipe are in
+`agent-remaining/briefs-2026-09-13-night.md`** with `agent_common.md` beside
+it; the hourly routine merges each as it reports. Done when their lists are
+empty, the sweeps and `boottime.js` are re-run on the merged head, and the
+owner is told to merge.
+
 **Now (2026-09-13 night, Fable orchestrating): PR #144 is ready to merge.**
 All six agents finished their lists and were merged with `--no-ff` (backend
 `e7bd26f`, chat `112aac1`, phone `4d4a632`, documents `303db81`, graph

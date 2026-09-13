@@ -412,14 +412,15 @@ canvas text field, and the skill box's "/" is one line in `editor.js`'s
 box is one row in that table, and `tests/test_note_surface.py` is the lint
 that says so.
 
-### Phase 7 — export and interchange (½ session)
+### Phase 7 — export and interchange: **built 2026-09-13**
 
-PDF (via the print stylesheet), Markdown and **HTML (self-contained, built
-2026-09-13, section 13 for the decision)** are done. What is left: DOCX
-(server-side via `docview`'s existing readers reversed, or `python-docx` as an
-optional extra, and the suite must not depend on the extra being installed),
-Markdown with assets, and import of `.docx`/`.html` to markdown. A document's
-export options live in the ⋯, with the same names everywhere.
+PDF (the print stylesheet), markdown, self-contained HTML, the markdown bundle
+with its images, the Word export behind an optional extra, and import of
+`.docx` and `.html` to markdown are all built; see HISTORY.md "Moved from the
+plans, 2026-09-13". What is left is one row for whoever owns
+`core/extras.py`: **python-docx has no entry in the extras catalogue**, so the
+Word export's 501 names the package rather than pointing at a button in
+Settings. One `Extra(...)` there and the message can point at it.
 
 ## 6. Competitor matrix (what the plan takes from whom)
 

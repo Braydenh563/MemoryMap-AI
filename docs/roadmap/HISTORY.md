@@ -6570,6 +6570,77 @@ with the reason; the factory keeps both directions of the mirror; the recipe
 keeps its three rules; and a note surface may not reach the document's change
 handlers or its findings.
 
+### Built, Phase 7: export and interchange, 2026-09-13
+
+The plan's own text is folded in below; what it asked for and what landed:
+
+### Phase 7 — export and interchange (½ session)
+
+PDF (via the print stylesheet), Markdown and **HTML (self-contained, built
+2026-09-13, section 13 for the decision)** are done. What is left: DOCX
+(server-side via `docview`'s existing readers reversed, or `python-docx` as an
+optional extra, and the suite must not depend on the extra being installed),
+Markdown with assets, and import of `.docx`/`.html` to markdown. A document's
+export options live in the ⋯, with the same names everywhere.
+
+**What was built on 2026-09-13, on top of the PDF, markdown and HTML exports
+that already existed.**
+
+*The bundle* (`GET /documents/{id}/export.zip`, `docexport.bundle`). The same
+markdown `export.md` gives, with every image the document references in
+`assets/` beside it and its links rewritten to match. A name that is not on
+disk keeps its `/media/` link rather than being rewritten to a folder entry
+that does not exist: a bundle that lies about what is in it is worse than one
+honestly short of a picture, and `X-Assets` on the response says how many
+travelled so the app can say so too. The names come out of a document's own
+text, which is user input, so each one is resolved and checked for containment
+in the media folder before it is read: `test_a_name_cannot_climb_out_of_the_media_folder`
+is that check. Markdown only; a zip of one .py file is a worse download than
+the file.
+
+*The Word export* (`GET /documents/{id}/export.docx`). python-docx is an
+optional extra by decision: a .docx writer is a dependency most people who keep
+their notes in markdown will never want. Absent, the endpoint answers **501
+with the package named and the formats that do work listed**, not a 500 and not
+a silent empty file, and the app puts that sentence in the document's own
+status line. The converter itself is deliberately small (headings, bullets,
+numbers, quotes, and bold/italic/code runs): a .docx export is for handing a
+draft to somebody whose editor is Word, and a converter that quietly
+half-rendered tables and callouts would be worse than one whose limits are
+written down. What it does not know stays the paragraph it was, which is a
+test.
+
+*Import, without installing anything* (`docview.docx_to_markdown`,
+`docview.html_to_markdown`). Both exist because this is an offline notebook and
+"install a converter first" is a poor answer to "open the file I just saved".
+markitdown stays first for a .docx where it is present (it understands tables
+and footnotes); the built-in reader is what happens when it is not, and a .docx
+is a zip with one XML part in it, read here with defusedxml because an upload
+is somebody else's file. A saved web page now imports as prose rather than as
+tags: headings, lists, quotes, emphasis, code and links, with `<script>` and
+`<style>` content dropped and a `javascript:` href refused while the words of
+the link stay. A converted file is stored as markdown whatever its name was,
+or a web page would open in the editor as HTML source with every markdown
+feature off.
+
+**Found by measuring, twice.** `html.parser` calls `handle_starttag` for void
+elements like `<meta>` and never calls the matching end tag, so the "skip what
+is inside this" counter went up at `<meta charset>` and never came back down:
+the first fixture came back as its own HTML. And the first bundle test asserted
+lowercase filenames because `_safe_filename` was read rather than run; the
+route keeps the title's case.
+
+Measured: `tests/test_docexport_bundle.py` and `tests/test_docview_import.py`,
+14 tests with 2 skipped on an install without python-docx (which is the
+contract: the suite must not need the extra), plus
+`scratchpad/ui-sweeps/docexports.js` in a browser, 6 of 6, including the five
+rows of the export menu in order and the 501 message reaching the status line.
+
+**Not verified:** the Word *writer* itself. This sandbox has no python-docx, so
+the two tests that open the generated .docx skip here and run in CI only if the
+extra is installed there. What is verified on every install is that the
+endpoint refuses cleanly and says which package is missing.
+
 ### From UI_MODERNISATION_PLAN.md
 
 ### Built, Phase 9's tablet remainder and Phase 10 items 100, 101 and 103, 2026-09-09

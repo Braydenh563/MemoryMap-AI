@@ -9,6 +9,19 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A document can leave with its pictures, as a Word file, and come back from
+  one. "Download with images (.zip)" is the markdown plus every image it
+  references in `assets/` with the links rewritten to match, so it opens with
+  its pictures showing in any markdown reader; "Download as .docx" is a Word
+  file where this install has python-docx, and a message naming the package
+  where it does not. Importing a .docx now works without any converter
+  installed (a Word file is a zip with one XML part in it), and a saved web
+  page imports as prose rather than as tags. Measured:
+  `tests/test_docexport_bundle.py` and `tests/test_docview_import.py` (14
+  tests, 2 skipped without the optional extra), and
+  `scratchpad/ui-sweeps/docexports.js` in a browser, 6 of 6 with 0 unexpected
+  console errors.
+
 - Every note editor in the app is the same editor. The capture box, the note
   edit form, the graph's node popup and new-note box and the two Write-with-AI
   panes mount the document editor's engine on their first focus: markdown that

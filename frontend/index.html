@@ -3118,6 +3118,22 @@
                      other four export actions use. -->
                 <button id="doc-export-html" class="menu-item doc-dock-menu-item" type="button"
                   title="Download as one self-contained .html file, images and all"><i class="ph ph-file-html ph-lead" aria-hidden="true"></i> Download as .html</button>
+                <!-- **The markdown with its pictures beside it**
+                     (DOCUMENTS_PLAN Phase 7). `Download as .md` hands over the
+                     text alone, and a document with images in it then opens
+                     somewhere else with `/media/…` links that resolve to
+                     nothing. This is the same markdown in a zip with every
+                     image in `assets/` and the links rewritten to match, built
+                     on the server because the files are on the server. -->
+                <button id="doc-export-zip" class="menu-item doc-dock-menu-item" type="button"
+                  title="Download the markdown and its images as one zip"><i class="ph ph-file-zip ph-lead" aria-hidden="true"></i> Download with images (.zip)</button>
+                <!-- Word, when this install has python-docx. Offered whatever
+                     the answer is: a menu that hides what an install cannot do
+                     leaves a person wondering whether the app can do it at
+                     all, and the endpoint's own 501 says which package is
+                     missing and what is available instead. -->
+                <button id="doc-export-docx" class="menu-item doc-dock-menu-item" type="button"
+                  title="Download as a Word .docx file"><i class="ph ph-file-doc ph-lead" aria-hidden="true"></i> Download as .docx</button>
                 <button id="doc-export-pdf" class="menu-item doc-dock-menu-item" type="button"
                   title="Print or save as PDF"><i class="ph ph-file-pdf ph-lead" aria-hidden="true"></i> Print or save as PDF</button>
                 <!-- Asked for directly: "there should be the option to have

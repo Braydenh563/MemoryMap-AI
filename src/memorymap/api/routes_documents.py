@@ -457,7 +457,17 @@ def import_document(
         # The extracted text is markdown-ish prose whatever it came from, so
         # it opens in the editor that suits it. A code file keeps its own type
         # so the gutter and comment toggle work on it.
-        file_type=filetypes.normalise(suffix.lstrip(".")),
+        #
+        #: And a *converted* file is markdown now whatever its name was: a
+        #: saved web page comes out of `docview` as markdown (Phase 7), and
+        #: stored as "html" it would open in the editor as HTML source with
+        #: every markdown feature off, which is the file's old shape being
+        #: described rather than its new one.
+        file_type=(
+            "md"
+            if viewed.kind == "markdown" and viewed.source == "converted"
+            else filetypes.normalise(suffix.lstrip("."))
+        ),
     )
     session.add(document)
     session.flush()
@@ -950,6 +960,86 @@ def export_markdown(
         headers={
             "Content-Disposition": (
                 f'attachment; filename="{_safe_filename(document.title, kind.ext)}"'
+            )
+        },
+    )
+
+
+@router.get("/{document_id}/export.zip")
+def export_bundle(
+    document_id: int, session: Session = Depends(get_session)
+) -> Response:
+    """The document and its pictures, as one zip (DOCUMENTS_PLAN Phase 7).
+
+    `export.md` hands over the text, and a document with images in it then
+    arrives somewhere else with `/media/…` links that resolve to nothing: the
+    pictures live in this notebook and the file does not. This is the same
+    markdown with every resolvable image beside it in `assets/` and its links
+    rewritten to match, so it opens with its pictures showing in any markdown
+    reader and needs this app for nothing.
+
+    Markdown only. A .py or .json document has no image links to carry and a
+    zip of one file is a worse download than the file.
+    """
+    from memorymap.core.media_gc import referenced_names
+
+    document = _existing(session, document_id)
+    kind = filetypes.get(document.file_type)
+    if kind.ext != "md":
+        raise HTTPException(
+            status_code=400,
+            detail="A bundle is for a markdown document; this one is "
+            f"{kind.label}. Use the plain download instead.",
+        )
+    media_dir = deps.get_config().data_dir / "media"
+    names = referenced_names(document.content or "")
+    data, carried = docexport.bundle(document.title, document.content or "", media_dir, names)
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{_safe_filename(document.title, "zip")}"'
+            ),
+            #: What travelled, for the frontend's own message and for a test
+            #: that wants the answer without opening the archive.
+            "X-Assets": str(len(carried)),
+        },
+    )
+
+
+@router.get("/{document_id}/export.docx")
+def export_docx(document_id: int, session: Session = Depends(get_session)) -> Response:
+    """The document as a Word file, when this install has the extra.
+
+    python-docx is an optional extra by decision (Phase 7): a .docx writer is
+    a dependency most people who keep their notes in markdown will never want,
+    and nothing else in the app needs it. Absent, this is a 501 with the name
+    of the extra in it rather than a 500: the request was fine, the install
+    cannot answer it.
+    """
+    document = _existing(session, document_id)
+    kind = filetypes.get(document.file_type)
+    if kind.ext != "md":
+        raise HTTPException(
+            status_code=400,
+            detail=f"A Word export is for a markdown document; this one is {kind.label}.",
+        )
+    if not docexport.docx_available():
+        raise HTTPException(
+            status_code=501,
+            detail="This install has no Word exporter: python-docx is not "
+            "installed. Markdown, the zip bundle and HTML are available now.",
+        )
+    data = docexport.to_docx(document.title, document.content or "")
+    return Response(
+        content=data,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ),
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{_safe_filename(document.title, "docx")}"'
             )
         },
     )

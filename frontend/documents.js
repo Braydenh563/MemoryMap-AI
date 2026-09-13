@@ -6936,6 +6936,51 @@ function wrapDocSelection(marker, placeholder = "", boxId = "doc-content") {
   finishMarkdownEdit(box, boxId);
 }
 
+//: **One download, four routes to it.** The markdown, the bundle and the Word
+//: file are the same three steps (ask the server, read the filename off the
+//: header, save the blob) and differed only in the path, which is how the
+//: second one grows a subtly different error path from the first. The message
+//: on a refusal is the server's own `detail` where there is one: "this install
+//: has no Word exporter" is worth reading, and "Export failed (501)" is not.
+async function downloadDocumentExport(path, fallbackName) {
+  if (!currentDoc) return;
+  //: Fetched rather than navigated to. A plain link carries no X-Auth-Token,
+  //: so the server answers 401 and the browser renders that error *in place of
+  //: the app*: it navigates away instead of downloading.
+  try {
+    const response = await fetch(`/documents/${currentDoc.id}/${path}`, {
+      headers: { "X-Auth-Token": authToken() },
+    });
+    if (!response.ok) {
+      let detail = "";
+      try {
+        detail = (await response.json()).detail || "";
+      } catch (error) {
+        detail = "";
+      }
+      throw new Error(detail || `Export failed (${response.status})`);
+    }
+    const disposition = response.headers.get("content-disposition") || "";
+    const match = disposition.match(/filename="([^"]+)"/);
+    await saveFile(match ? match[1] : fallbackName, await response.blob());
+    const assets = Number(response.headers.get("X-Assets") || 0);
+    if (assets > 0) {
+      toast(`Saved with ${assets} image${assets === 1 ? "" : "s"} beside it`);
+    }
+  } catch (error) {
+    $("doc-status").classList.add("error");
+    $("doc-status").textContent = error.message;
+  }
+}
+
+function exportDocumentBundle() {
+  return downloadDocumentExport("export.zip", "document.zip");
+}
+
+function exportDocumentDocx() {
+  return downloadDocumentExport("export.docx", "document.docx");
+}
+
 async function exportDocumentMarkdown() {
   if (!currentDoc) return;
   // Fetched rather than navigated to. A plain link carries no X-Auth-Token, so
@@ -9481,6 +9526,8 @@ $("doc-connections").addEventListener("click", () => {
 });
 $("doc-export-md").addEventListener("click", exportDocumentMarkdown);
 $("doc-export-html").addEventListener("click", exportDocumentHtml);
+$("doc-export-zip").addEventListener("click", exportDocumentBundle);
+$("doc-export-docx").addEventListener("click", exportDocumentDocx);
 $("doc-export-pdf").addEventListener("click", exportDocumentPdf);
 $("doc-delete").addEventListener("click", deleteCurrentDocument);
 $("doc-attach-bookmark").addEventListener("click", attachBookmarkToDocument);

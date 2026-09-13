@@ -24342,6 +24342,17 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     `{noteIds:[12]}`, a document "Use this document: Lease agreement" and
     `{documentIds:[99]}`.
 
+193. **A missing decision, filed by the chat agent, 2026-09-13** (standing
+    order 3: "a missing decision becomes an INBOX entry with a one-line
+    recommendation, which is then taken"). INBOX 190 asks for the help chat to
+    be given "a fitting name" and no plan decides one. Recommendation: **the
+    Guide**, because it explains the app rather than answering from the
+    notebook, and its own heading already said "Ask the guide".
+    **Taken (this commit)**: recorded as CHAT_PLAN decision 13, and the sheet,
+    the header control and the Settings control all carry the name. Measured
+    in `scratchpad/ui-sweeps/agentwide.js`: the sheet's title reads "Guide"
+    from three tabs and two Settings panes.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

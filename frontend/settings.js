@@ -3356,3 +3356,54 @@ $("help-chat-clear")?.addEventListener("click", () => {
   if (list) list.replaceChildren();
   $("help-chat-input")?.focus();
 });
+
+//: **The Guide, and it has a name now** (INBOX 190, the owner: "maybe give it
+//: more knowledge and capabilitie/function and give it a fitting name??";
+//: INBOX 193 recorded the recommendation and CHAT_PLAN section 4 decision 13
+//: took it). "Guide" rather than a person's name or a mascot: it explains the
+//: app and nothing else, it has no access to the notebook, and a name that
+//: implies a personality would be the second thing in this app claiming to be
+//: an assistant. The heading it already carried said "Ask the guide", so the
+//: name was half-chosen and only needed saying out loud.
+//:
+//: **One instance, moved, not a second one built.** The chat is a stateful
+//: surface (a running transcript held in `helpChatHistory`, a form, a clear
+//: button, three handlers bound by id), and the way to make it reachable from
+//: two more places without any of that drifting is to move the one that
+//: exists into the sheet and put it back afterwards. Duplicating the markup
+//: would duplicate the ids, which the frontend lints refuse for good reason.
+let helpChatHome = null;
+
+function openHelpChat() {
+  const group = $("help-chat-group");
+  if (!group) return null;
+  //: Already open: put the caret back in the field rather than stacking a
+  //: second sheet over the first, which is what two entry points into one
+  //: surface otherwise produce.
+  if (document.querySelector('[data-sheet="guide"]')) {
+    $("help-chat-input")?.focus();
+    return null;
+  }
+  helpChatHome = { parent: group.parentNode, next: group.nextSibling };
+  const close = openSheet({
+    label: "Guide",
+    name: "guide",
+    build: (card) => {
+      card.appendChild(group);
+    },
+    onClose: () => {
+      //: Back exactly where it was, so the Help pane is whole the next time
+      //: it is opened. `insertBefore` with a null `next` appends, which is
+      //: the correct behaviour when it was the last child.
+      if (helpChatHome) helpChatHome.parent.insertBefore(group, helpChatHome.next);
+      helpChatHome = null;
+    },
+  });
+  //: `openSheet` focuses the first focusable in the card, which here is the
+  //: head's '?' toggle. The field is what a person opening a chat wants.
+  $("help-chat-input")?.focus();
+  return close;
+}
+
+$("guide-btn")?.addEventListener("click", () => openHelpChat());
+$("settings-guide-btn")?.addEventListener("click", () => openHelpChat());

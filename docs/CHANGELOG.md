@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The popup agent and the help chat are reachable from every tab: a wand and a
+  '?' in the header, and the '?' also sits in the head every Settings pane
+  shares. The help chat has a name, the Guide, and opens as one shared sheet.
+- The agent's starters now depend on the tab you opened it over, its arrow keys
+  walk them, and its state line says what it is working on and which tool ran.
+
 - Right-clicking or long-pressing a link now opens a menu with Copy link
   address and Open in new tab, anywhere a link is drawn. An internal
   `[[link]]` offers Copy title and Open instead.

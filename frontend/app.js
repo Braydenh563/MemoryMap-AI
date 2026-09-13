@@ -40921,6 +40921,78 @@ const AGENT_STARTERS = [
   { group: "Do", label: "Link related notes", text: "Link notes that belong together." },
 ];
 
+//: **And the ones that only make sense where you are** (INBOX 190: "it needs
+//: to be more versatile and usable across the whole app, the user should be
+//: able to use it as the guiding hand"). The twelve above are the agent's
+//: whole repertoire wherever it is opened, which is right for a panel that
+//: floats over everything and wrong as the *first* thing offered: opened over
+//: a document, "Tag my untagged notes" is the least likely thing anybody
+//: wants, and "summarise this document" was not on the list at all.
+//:
+//: So each tab names two, shown first under the tab's own name, and the
+//: twelve follow unchanged. Two rather than five: a starter list long enough
+//: to read is a starter list nobody reads, and the box is right there.
+const AGENT_TAB_STARTERS = {
+  dashboard: [
+    { label: "What changed today?", text: "What changed in my notebook today?" },
+    { label: "What should I pick up?", text: "What loose ends should I pick up next?" },
+  ],
+  notes: [
+    { label: "Summarise what I have open", text: "Summarise the note I have open." },
+    { label: "Tag this note", text: "Suggest tags for the note I have open." },
+  ],
+  chat: [
+    { label: "Summarise this conversation", text: "Summarise this conversation." },
+    { label: "File the last answer", text: "Save the last answer as a note." },
+  ],
+  graph: [
+    { label: "What links to this?", text: "What is linked to the note I have open?" },
+    { label: "Link related notes", text: "Link notes that belong together." },
+  ],
+  library: [
+    { label: "Summarise what I have open", text: "Summarise the document or board I have open." },
+    { label: "What is in here?", text: "What is in the board or map I have open?" },
+  ],
+  documents: [
+    { label: "Summarise this document", text: "Summarise the document I have open." },
+    { label: "Pull out the key points", text: "List the key points of the document I have open." },
+  ],
+  timeline: [
+    { label: "What did I write this week?", text: "What did I write this week?" },
+    { label: "What changed today?", text: "What changed in my notebook today?" },
+  ],
+  reminders: [
+    { label: "What is due?", text: "What is due?" },
+    { label: "Remind me to…", text: "Remind me to " },
+  ],
+};
+
+//: Which tab the palette is floating over. `switchTab` keeps this in
+//: `localStorage` (it is also how the app restores the last tab on a reload),
+//: and Documents is its own surface inside the Library tab, so it is asked
+//: for separately: a starter offering to summarise "the document I have open"
+//: is only sensible where a document actually is open.
+function agentCurrentTab() {
+  if (!$("tab-documents")?.classList.contains("hidden")) return "documents";
+  const tab = (() => {
+    try {
+      return localStorage.getItem("activeTab");
+    } catch {
+      return null;
+    }
+  })();
+  return AGENT_TAB_STARTERS[tab] ? tab : "notes";
+}
+
+//: The tab's own name, taken from the tab strip rather than written out a
+//: second time here: the strip is what the reader is looking at, and two
+//: copies of a name are two names as soon as one is renamed.
+function agentTabLabel(tab) {
+  if (tab === "documents") return "Documents";
+  const label = document.querySelector(`[data-tab="${tab}"] .tab-label`);
+  return (label?.textContent || tab).trim();
+}
+
 //: The three most recently used, offered first (the same research note: a
 //: quick-action panel that does not remember makes you re-find the one thing
 //: you always do). Per browser, in `localStorage`, because it is a habit of
@@ -40963,6 +41035,10 @@ function renderAgentStarters() {
   if (!box) return;
   box.replaceChildren();
   const groups = [];
+  //: Where you are, first: see AGENT_TAB_STARTERS for why.
+  const tab = agentCurrentTab();
+  const here = AGENT_TAB_STARTERS[tab];
+  if (here) groups.push([`On ${agentTabLabel(tab)}`, here]);
   const recent = agentStarterRecents();
   if (recent.length) groups.push(["Recent", recent]);
   for (const starter of AGENT_STARTERS) {
@@ -41154,6 +41230,11 @@ cmdPaletteOverlay.addEventListener("click", (e) => {
 // offers a control you can see and this one asked you to know a key.
 $("command-palette-close").addEventListener("click", () => toggleAgentPalette());
 
+//: The header's wand: the palette's one visible way in (INBOX 190). The chord
+//: still works and is named in the button's tooltip, which is how anybody
+//: finds out a chord exists.
+$("agent-btn")?.addEventListener("click", () => toggleAgentPalette());
+
 //: **The agent bar keeps a conversation, and says so.** Reported: "the popup
 //: agent needs more features, capability, and learnability, there's no way to
 //: clear the chat and start over, idk what it can do, and even if it works".
@@ -41187,7 +41268,14 @@ function cmdPaletteBusy(busy) {
   cmdPaletteInput.disabled = busy || aiIsOff();
   $("command-palette-stop")?.classList.toggle("hidden", !busy);
   $("command-palette-clear")?.classList.toggle("hidden", busy);
-  $("command-palette-status").textContent = busy ? "Working…" : "";
+  //: **The state line is written by the run, not by this** (INBOX 190: the
+  //: agent should say "what it is working on and which tool ran"). This used
+  //: to write "Working…" on the way in and blank on the way out, which is a
+  //: status line that has never once said anything a person could not see
+  //: from the spinner. `cmdPaletteAsk` now writes the question, then each
+  //: tool as it runs, then what the turn came to; all this does is clear a
+  //: line left over from the run before.
+  if (busy) setLabel($("command-palette-status"), "ph:circle-notch Working…");
   if (!busy) cmdPaletteInput.focus();
 }
 
@@ -41698,8 +41786,18 @@ async function cmdPaletteAsk(text) {
   let meta = null;
   let stats = null;
   let thinkingRaw = "";
+  //: Which tool ran last, for the line the run ends on. The label is the
+  //: harness's own (`ph:books Listed notes (…)`), so the icon token has to be
+  //: stripped before it can be quoted inside another label.
+  let lastToolLabel = "";
   cmdPaletteRun = new AbortController();
   cmdPaletteBusy(true);
+  //: What it is working on, in the person's own words, cut to a line. A
+  //: status that says "Working…" over a thirty-second run is the app saying
+  //: it is busy; this is the app saying what it is busy with, which is the
+  //: difference between waiting and wondering.
+  const shortAsk = text.length > 48 ? `${text.slice(0, 47).trimEnd()}…` : text;
+  setLabel($("command-palette-status"), `ph:circle-notch Working on: ${shortAsk}`);
   try {
     await streamChat({
       question: text,
@@ -41756,6 +41854,7 @@ async function cmdPaletteAsk(text) {
           $("command-palette-status"),
           event?.label ? `${event.label} …` : "Working…",
         );
+        lastToolLabel = (event?.label || "").replace(/^ph:[\w-]+\s*/, "");
         for (const item of event?.touched || []) {
           touched.set(`${item.kind}:${item.id}`, item);
         }
@@ -41836,6 +41935,18 @@ async function cmdPaletteAsk(text) {
     agentMsg.classList.remove("is-generating");
     cmdPaletteRun = null;
     cmdPaletteBusy(false);
+    //: The end of the run, said once and left there: what the turn did is
+    //: still the answer to "what happened" a minute later, and a line that
+    //: blanks itself the moment it could be read is a line nobody reads.
+    const word = stepCount === 1 ? "step" : "steps";
+    setLabel(
+      $("command-palette-status"),
+      stepCount
+        ? `ph:check-circle Done, ${stepCount} ${word}, last: ${lastToolLabel || "a tool"}`
+        : answered
+          ? "ph:check-circle Answered"
+          : "ph:warning-circle Nothing came back",
+    );
   }
 }
 
@@ -41855,7 +41966,56 @@ function cmdPaletteGrow() {
 
 cmdPaletteInput.addEventListener("input", cmdPaletteGrow);
 
+//: **The starters are reachable from the keyboard** (INBOX 190's "more ui, ux
+//: and functionality refinements to be more professional"). A command bar
+//: whose suggestions can only be clicked is a command bar that makes you
+//: reach for the mouse in the middle of typing, which is the one thing this
+//: surface exists to avoid. Down from the box enters the list, Up and Down
+//: walk it, Enter runs the one in hand (a `<button>` does that itself), and
+//: Escape hands the caret back to the box rather than closing the panel from
+//: under a person who was only browsing.
+function agentStarterButtons() {
+  return [...document.querySelectorAll("#command-palette-starters [data-example]:not([disabled])")];
+}
+
+function agentFocusStarter(delta) {
+  const buttons = agentStarterButtons();
+  if (!buttons.length) return false;
+  const at = buttons.indexOf(document.activeElement);
+  //: From the box, Down opens at the top and Up at the bottom, which is what
+  //: every menu in this app does and what a person reaching for the last
+  //: starter expects.
+  const next = at === -1 ? (delta > 0 ? 0 : buttons.length - 1) : at + delta;
+  if (next < 0) {
+    cmdPaletteInput.focus();
+    return true;
+  }
+  buttons[Math.min(next, buttons.length - 1)].focus();
+  return true;
+}
+
+$("command-palette-starters")?.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    if (agentFocusStarter(e.key === "ArrowDown" ? 1 : -1)) e.preventDefault();
+    return;
+  }
+  if (e.key === "Escape") {
+    //: Not `stopPropagation` on the way out of the panel: Escape twice should
+    //: still close it, and the second press arrives with the caret in the box.
+    e.stopPropagation();
+    cmdPaletteInput.focus();
+  }
+});
+
 cmdPaletteInput.addEventListener("keydown", (e) => {
+  if ((e.key === "ArrowDown" || e.key === "ArrowUp") && !e.shiftKey) {
+    //: Only when the box is empty, or the arrows would stop being the arrows
+    //: of a multi-line field halfway through writing a paragraph in it.
+    if (!cmdPaletteInput.value && agentFocusStarter(e.key === "ArrowDown" ? 1 : -1)) {
+      e.preventDefault();
+      return;
+    }
+  }
   if (e.key !== "Enter" || e.shiftKey || e.isComposing || e.keyCode === 229) return;
   e.preventDefault(); // or the newline lands in the box we are about to clear
   if (!cmdPaletteInput.value.trim()) return;

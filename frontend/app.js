@@ -24020,8 +24020,23 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
     return b;
   };
   const full = button("Full view", "Show this table on its own, at the window's width");
+  //: **The panel leaves the bubble to be full screen** (reported on the first
+  //: cut, with a screenshot: "the table full view is behind a lot of stuff").
+  //: A `position: fixed` element is laid out against the nearest ancestor
+  //: with a filter, transform or backdrop-filter rather than against the
+  //: viewport, and the chat card is a blurred surface: the panel was
+  //: therefore trapped inside the card, under its own header, and no
+  //: z-index could lift it out of that stacking context. So the block is
+  //: moved to `document.body` while it is open and put back exactly where
+  //: it was on the way out; `placeholder` is what keeps its place in the
+  //: answer, since the surrounding prose has no other mark for it.
+  let placeholder = null;
   const leave = () => {
     block.classList.remove("is-full");
+    if (placeholder && placeholder.parentNode) {
+      placeholder.replaceWith(block);
+      placeholder = null;
+    }
     full.textContent = "Full view";
     document.removeEventListener("keydown", onKey, true);
   };
@@ -24033,6 +24048,9 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
   };
   full.addEventListener("click", () => {
     if (block.classList.contains("is-full")) return leave();
+    placeholder = document.createComment("table in full view");
+    block.replaceWith(placeholder);
+    document.body.appendChild(block);
     block.classList.add("is-full");
     full.textContent = "Back";
     document.addEventListener("keydown", onKey, true);

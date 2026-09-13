@@ -14,8 +14,13 @@ const { boot } = require('./lib.js');
   await page.evaluate(() => switchTab('chat'));
   await page.waitForTimeout(400);
   const r = await page.evaluate(() => {
+    // Inside a real message bubble, which is what makes this a test: the chat
+    // card is a blurred surface and a backdrop-filter ancestor traps
+    // position: fixed, which is what put the panel under the card's header.
     const host = document.createElement('div'); host.className = 'bubble-answer';
-    document.getElementById('chat-messages').appendChild(host);
+    const bubble = document.createElement('div'); bubble.className = 'msg assistant';
+    bubble.appendChild(host);
+    document.getElementById('chat-messages').appendChild(bubble);
     renderMarkdown(host, '| A | B |\n| --- | --- |\n| 1 | 2 |');
     const block = host.querySelector('.md-table-block');
     const bar = block.querySelector('.code-bar');
@@ -37,6 +42,14 @@ const { boot } = require('./lib.js');
     // chrome, and whether anything paints above it at the panel's centre.
     const top = document.elementFromPoint(Math.round(rect.left + rect.width / 2), Math.round(rect.top + 4));
     const inPanel = block.contains(top);
+    // Laid out against the viewport, not against the card it came from.
+    // Against the viewport, not against the bubble: a trapped panel is the
+    // width of the message it came from (a few hundred px), a freed one is
+    // most of the window. The margin is loose on purpose, the failure this
+    // guards against is an order of magnitude, not a pixel.
+    const viewportSized = rect.width > innerWidth * 0.8 && rect.height > innerHeight * 0.8;
+    const parentIsBody = block.parentElement === document.body;
+    const filtered = (() => { let el = bubble; while (el && el !== document.body) { const cs = getComputedStyle(el); if (cs.backdropFilter !== 'none' || cs.filter !== 'none' || cs.transform !== 'none') return `${el.id || el.className}`.slice(0, 30); el = el.parentElement; } return null; })();
     block.classList.remove('is-full');
     const clusters = [...document.querySelectorAll('#top-bar .header-cluster, header .header-cluster')];
     const cluster = clusters[0] ? getComputedStyle(clusters[0]) : null;
@@ -48,16 +61,18 @@ const { boot } = require('./lib.js');
       groupGap: groupCs.gap, groupBg: groupCs.backgroundColor, groupRadius: groupCs.borderRadius,
       btnBorder: btnCs.borderTopWidth, btnBg: btnCs.backgroundColor, seams, buttons: buttons.length,
       z: full.z, position: full.position, topAtPanel: top ? `${top.tagName}.${(top.className || '').toString().split(' ')[0]}` : null, inPanel,
-      scrimBg, barSticky,
+      scrimBg, barSticky, viewportSized, parentIsBody, filtered,
+      rect: { w: Math.round(rect.width), h: Math.round(rect.height), l: Math.round(rect.left), t: Math.round(rect.top) }, vw: innerWidth, vh: innerHeight,
       clusters: clusters.length, clusterBg: cluster && cluster.backgroundColor, clusterPad: cluster && cluster.padding,
       clusterBtnBorders: [...new Set(clusterBtns)],
     };
   });
   console.log(`table bar    ${r.buttons} buttons in one shell: gap ${r.groupGap}, ground ${r.groupBg}, radius ${r.groupRadius}; per button border ${r.btnBorder}, ground ${r.btnBg}, ${r.seams} hairline seam(s)`);
-  console.log(`full view    ${r.position} z ${r.z}, top element at its head ${r.topAtPanel} (inside the panel ${r.inPanel}), scrim ${r.scrimBg}, bar ${r.barSticky}`);
+  console.log(`full view    ${r.position} z ${r.z}, parent is body ${r.parentIsBody}, viewport-sized ${r.viewportSized}, top element at its head ${r.topAtPanel} (inside the panel ${r.inPanel}), scrim ${r.scrimBg}, bar ${r.barSticky}`);
+  console.log(`             the bubble's nearest filtered/transformed ancestor: ${r.filtered}; rect ${JSON.stringify(r.rect)} in ${r.vw}x${r.vh}`);
   console.log(`top bar      ${r.clusters} cluster(s), ground ${r.clusterBg}, padding ${r.clusterPad}, button borders ${JSON.stringify(r.clusterBtnBorders)}`);
   if (r.groupGap !== '0px' || r.groupBg === 'rgba(0, 0, 0, 0)' || r.btnBorder !== '0px' || r.seams !== r.buttons - 1) bad.push('table bar is not one control');
-  if (Number(r.z) < 2000 || !r.inPanel) bad.push('full view is not above the app chrome');
+  if (Number(r.z) < 2000 || !r.inPanel || !r.parentIsBody || !r.viewportSized) bad.push('full view is not above the app chrome');
   if (r.clusters !== 2 || r.clusterBg === 'rgba(0, 0, 0, 0)' || r.clusterBtnBorders.join() !== '0px') bad.push('top bar clusters');
   console.log(`console errors ${errs.length}${errs.length ? ' ' + errs.join(' | ') : ''}`);
   await browser.close();

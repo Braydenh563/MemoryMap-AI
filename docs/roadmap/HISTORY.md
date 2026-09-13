@@ -24077,6 +24077,16 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     0px per-button borders, full view fixed at 2400 with the panel itself
     the top element at its own head, scrim rgba(5, 7, 14, 0.6), two header
     clusters with 0px button borders.
+    **Second cut, the same evening**: the owner's next screenshot showed the
+    panel still under the chat card's header. The z-index was not the cause:
+    a `position: fixed` element is laid out against the nearest ancestor with
+    a filter, transform or backdrop-filter, and `.msg.assistant` is one
+    (measured: the sweep names it), so the panel was confined to the bubble's
+    own stacking context and no z-index could lift it out. The block is moved
+    to `document.body` while it is open and put back on a comment placeholder
+    on the way out. Measured in a real bubble
+    (`scratchpad/ui-sweeps/tablefull.js`): parent is body, 1325x809 of a
+    1440x900 window, the panel itself the top element at its head.
 
 ## Moved from the plans, 2026-09-13
 

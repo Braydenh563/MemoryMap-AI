@@ -9,6 +9,21 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A citation knows which passage of a note it came from. Grounding scored a
+  sentence against a whole note, so a mark could only say "somewhere in here",
+  which is no help on a note that mentions its subject in three paragraphs.
+  Each mark now carries the span of the best-matching 40-word passage, scored
+  with BM25 over the note's own passages, with the figures a claim quotes
+  pulling the span towards the paragraph that holds them. The hover highlight
+  that uses the span is the renderer's half and is not in yet.
+
+- The phone's bottom bar is five columns instead of seven, and every one of
+  them is named. Notes, Chat, Graph and Library are a tap away; Dashboard,
+  Timeline, Reminders and Settings are behind More, which opens a sheet from
+  the bottom of the screen. Nothing is hidden and nothing is more than two taps
+  away. The bar also says where you are while you are on one of the three
+  tabs behind More, which it could not before.
+
 - Three ways to change what is in front of you while you write, in the
   document's ⋯ menu and remembered: "Dim all but this paragraph" fades every
   line outside the one you are in, "Keep this line centred" scrolls the pane so

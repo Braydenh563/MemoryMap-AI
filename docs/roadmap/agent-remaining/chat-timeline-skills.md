@@ -9,14 +9,24 @@ green and its Built block is in `HISTORY.md` ("Moved from the plans,
 
 ## 1. Left open, with the file and the next step
 
-1. **CHAT_PLAN Phase 1 is still the gap under Phase 3.** The answer object
-   (`answerObject`, `frontend/app.js`) has a `sentences` list whose marks carry
-   `start`/`end` as `null`, because decision 2's passage scoring does not
-   exist: `src/memorymap/ai/grounding.py` still scores a sentence against a
-   whole note by bag of words and returns `{sentence, note_id}`. Next step:
-   Phase 1 itself (BM25 over a 40-word window, the span on the mark), at which
-   point hover-highlights-the-passage becomes a renderer change of about ten
-   lines because the shape is already carried.
+1. **CHAT_PLAN Phase 1: the span is in, the highlight is not.** Half of
+   decision 2 is built (2026-09-13): `grounding.best_passage` scores a
+   sentence against each of a note's own overlapping 40-word passages with
+   BM25, document frequency counted within the note (which is what makes it
+   able to choose between three paragraphs that all say "starter"), with a
+   bonus for a passage holding a figure the sentence quotes; every grounding
+   row now carries `start`, `end` and `score` in character offsets, which is
+   the shape `answerObject` already reads. Four tests in
+   `tests/test_grounding.py`; 26 tests there and in `test_inline_citations.py`
+   green, 32 in `test_chat_api.py` and `test_ask_answer_object.py`.
+   **What is deliberately not done**: BM25 does not choose *which note*
+   grounds a sentence, only where inside it. Decision 2 asks for that too, at
+   "a threshold calibrated on the eval fixtures (Brief 12)", and those
+   fixtures do not exist; changing what counts as supported without them would
+   be a judgement dressed as a measurement. Next steps, in order: the ten-
+   question fixture set, then the threshold, then the renderer (hover
+   highlights `note.content.slice(start, end)`, about ten lines, in
+   `frontend/app.js` which four agents were editing today).
 
 2. **Ask's answer object was measured on the offline branch only.** The sweep
    runs against a server with no model, so `sentences` was empty in every

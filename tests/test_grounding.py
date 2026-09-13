@@ -208,3 +208,74 @@ def test_a_private_note_read_by_a_tool_is_never_cited(ai_client, fake_ollama, se
     )
     events = _stream_events(ai_client, "remind me what my kitchen routine was")
     assert not [e for e in events if e["type"] == "grounding"]
+
+
+# --- the passage, not the note (CHAT_PLAN decision 2) -------------------------
+
+
+LONG_NOTE = (
+    "Kitchen notes for the month.\n\n"
+    "The sourdough starter lives in the fridge and comes out on a Friday. "
+    "It is fed twice with strong white flour before it is used, and it doubles "
+    "in about five hours on the counter when the kitchen is warm.\n\n"
+    "The rye loaf is a different thing altogether: it takes 180 grams of rye "
+    "flour, no kneading at all, and it bakes in a covered tin at 200C for "
+    "fifty minutes.\n\n"
+    "The pizza dough is the same starter, more water, and a cold prove of two "
+    "days in the fridge before it is stretched out and topped.\n\n"
+    "Bread bins are useless. A paper bag and a cut face down on the board keeps "
+    "a loaf for two days without turning the crust to leather."
+)
+
+
+def test_a_mark_points_at_the_passage_the_claim_came_from():
+    """A whole-note mark says "it is in here somewhere", which is what the
+    citation was doing before: this note says "starter" in three of its five
+    paragraphs, so word counting cannot pick between them and BM25 over the
+    note's own passages can."""
+    notes = [{"id": 7, "content": LONG_NOTE}]
+    answer = "The rye loaf takes 180 grams of rye flour and bakes at 200C for fifty minutes."
+    row = ground_answer_sentences(answer, notes)[0]
+    assert row["note_id"] == 7
+    passage = LONG_NOTE[row["start"] : row["end"]]
+    assert "rye" in passage and "covered tin" in passage
+    # The passage is a passage, not the note, and not a fragment of one word.
+    assert 20 < len(passage) < len(LONG_NOTE)
+    assert row["score"] > 0
+
+
+def test_the_number_a_claim_quotes_pulls_the_passage_to_it():
+    """Decision 2's second check. "Two days" appears in two paragraphs here,
+    and only one of them is about the dough."""
+    notes = [{"id": 7, "content": LONG_NOTE}]
+    answer = "The pizza dough gets a cold prove of two days in the fridge before stretching."
+    row = ground_answer_sentences(answer, notes)[0]
+    assert "pizza" in LONG_NOTE[row["start"] : row["end"]]
+
+
+def test_a_short_note_is_its_own_passage():
+    """Highlighting the whole of a two-line note is the honest answer, not a
+    window padded out to forty words."""
+    notes = [
+        {"id": 1, "content": "The sourdough starter needs feeding daily in the morning."},
+        {"id": 2, "content": "Bought new hiking boots for the weekend trip."},
+    ]
+    row = ground_answer_sentences("Your sourdough starter needs feeding daily.", notes)[0]
+    assert (row["start"], row["end"]) == (0, 56)
+
+
+def test_the_spans_are_offsets_into_the_note_that_was_sent():
+    """The span has to be usable by the caller without re-finding the text: a
+    highlight computed against different characters is a highlight in the wrong
+    place, and every note here says "starter" more than once."""
+    notes = [{"id": 7, "content": LONG_NOTE}]
+    answer = (
+        "The starter is fed twice with strong white flour before it is used. "
+        "A paper bag keeps a cut loaf for two days without the crust turning to leather."
+    )
+    rows = ground_answer_sentences(answer, notes)
+    assert len(rows) == 2
+    first, second = rows
+    assert "strong white flour" in LONG_NOTE[first["start"] : first["end"]]
+    assert "paper bag" in LONG_NOTE[second["start"] : second["end"]]
+    assert first["start"] < second["start"]

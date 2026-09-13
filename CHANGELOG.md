@@ -7,6 +7,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The agent's turn reads as three stages rather than one long one. `run_agent`
+  was 875 lines and 68 branches by the same AST ruler the audit used
+  (`scratchpad/probe_complexity.py`); it is now 279 and 37, with the setup in
+  `_prepare_turn` (248 lines), one tool call and its guards in `_dispatch_call`
+  (405), and the ledgers the rounds share on a `_TurnState` record. No
+  behaviour changed: the same 306 agent, chat and skill tests pass before and
+  after.
+
 - The agent knows how big its model is. `run_agent` now asks
   `model_manager.is_small_model` about the model it is actually going to call,
   the same predicate the skills path uses, and a small model gets the core

@@ -15,6 +15,7 @@ import json
 import logging
 import re
 from collections.abc import Iterator
+from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session
 
@@ -1148,38 +1149,61 @@ def _focus(question: str, history: list[dict] | None = None) -> list[str] | None
     return tools.focus_for(question, _recent_text(history))
 
 
-def run_agent(
+@dataclass(slots=True)
+class _TurnPlan:
+    """Everything decided before the first model call of a turn.
+
+    A record rather than sixteen locals, because the decisions are what the
+    stage below is *for*: which model, how big it is, what the window affords,
+    which messages, which tools, how many rounds. Reading them off one object
+    is how a reader tells what the turn was set up to do without stepping
+    through 190 lines of setup first (WORLD_CLASS_PLAN A5).
+    """
+
+    agent_model: str
+    small_model: bool
+    #: The model's usable context, or None when the provider does not say.
+    #: Passed to each tool call so a tool can size its own result.
+    window: int | None
+    budget: object
+    messages: list[dict]
+    offered: list[dict]
+    every_tool: list[dict]
+    focused_only: bool
+    permitted: set[str] | None
+    barred: set[str]
+    composition_tokens: dict[str, int]
+    granted: int
+    ceiling: int
+
+
+def _prepare_turn(
     session: Session,
     question: str,
     notes: list[dict],
     model_manager: ModelManager,
     ollama: OllamaClient,
-    style: str = "friendly",
-    profile: str = "",
-    history: list[dict] | None = None,
-    persona_prompt: str | None = None,
-    allowed_tools: list[str] | None = None,
-    blocked_tools: frozenset[str] | set[str] | None = None,
-    max_rounds: int = MAX_ROUNDS,
-    earned_rounds: int = EARNED_ROUNDS,
-    exhausted_note: str | None = None,
-    mode: str | None = None,
-    use_utility_model: bool = False,
-    images: list[str] | None = None,
-    model_override: str | None = None,
-    image_context: str | None = None,
-) -> Iterator[dict]:
-    """Yields event dicts:
-    {"type": "unsupported"}, model can't do tools; caller
-                                                 should fall back to plain Q&A
-                                                 (always the first and only event)
-    {"type": "thinking", "delta": str}
-    {"type": "tool", "label": str, "ok": bool, "error": str|None}
-    {"type": "confirm", "name", "arguments", "label"}
-    {"type": "limit", "reason": "rounds", ...}, ran out of rounds mid-job;
-                                                 the answer that follows is a
-                                                 stopping notice, not a result
-    {"type": "answer", "delta": str}: the final text
+    *,
+    style: str,
+    profile: str,
+    history: list[dict] | None,
+    persona_prompt: str | None,
+    allowed_tools: list[str] | None,
+    blocked_tools: frozenset[str] | set[str] | None,
+    max_rounds: int,
+    earned_rounds: int,
+    mode: str | None,
+    use_utility_model: bool,
+    images: list[str] | None,
+    model_override: str | None,
+    image_context: str | None,
+) -> _TurnPlan:
+    """Stage one: decide everything the round loop will run on.
+
+    Lifted whole out of `run_agent`, which the audit measured at 875 lines
+    (WORLD_CLASS_PLAN A5). No behaviour is changed here and none may be: the
+    existing agent tests are the only gate this split has, and they check the
+    loop, so a stage that quietly reorders a decision would pass them.
     """
     # Size the whole turn against the window before building any of it.
     #
@@ -1374,49 +1398,6 @@ def run_agent(
         "notes": notes_chars // context.CHARS_PER_TOKEN,
         "tool_schemas": tool_schema_chars // context.CHARS_PER_TOKEN,
     }
-    permitted = set(allowed_tools) if allowed_tools else None
-    did_write = False  # did any real write tool run this turn?
-    # *Which* ones ran, so a claim can be checked against the action that
-    # would have made it true rather than against the turn as a whole. A
-    # turn that legitimately linked one pair and then claimed four more
-    # passed the old boolean on the strength of the one that was real.
-    ran_writes: set[str] = set()
-    spent = 0  # characters of tool output added to the conversation so far
-    # (tool, arguments) pairs that have already failed, so a model looping on
-    # the same broken call can be told so rather than burning every round.
-    failed_calls: set[tuple[str, str]] = set()
-    # **How many times each tool has failed this turn, regardless of its
-    # arguments.** `failed_calls` above only catches a model repeating the
-    # *identical* call, and the loop this exists for never does that.
-    #
-    # Reported with a live log: the agent called `merge_categories` over and
-    # over, alternating between "There is no category called X" and "X and X
-    # are the same category", different arguments every round, so the
-    # signature guard never fired once, and the turn burned every round it
-    # had before telling the user nothing. The tool's own error message even
-    # listed the real category names (see `_find_category`), so this is not
-    # fixable by explaining harder: a small model that has misunderstood
-    # *what the tool is for* will keep producing fresh wrong arguments for it
-    # indefinitely. The only thing that ends that is taking the tool away.
-    tool_failures: dict[str, int] = {}
-    # Destructive calls parked for the user's approval this turn, per tool.
-    parked: dict[str, int] = {}
-
-    def _count_failure(tool_name: str) -> int:
-        tool_failures[tool_name] = tool_failures.get(tool_name, 0) + 1
-        return tool_failures[tool_name]
-
-    # …and the ones that have already *succeeded*, which is the other half of
-    # the same idea: a repeat of a call that worked is not progress either. The
-    # model has that result in its context already.
-    done_calls: set[tuple[str, str]] = set()
-
-    # Reads whose result is already in this turn's messages and still current.
-    # Separate from `done_calls` on purpose: that one is the earned-round
-    # ledger and must never be cleared, while this is a freshness cache and is
-    # emptied the moment a write makes the notebook different from what these
-    # reads saw.
-    fresh_reads: set[tuple[str, str]] = set()
 
     # Rounds are granted, then earned (see EARNED_ROUNDS). `allowance` is what
     # this turn has so far; a round that does something new adds one to it, up
@@ -1429,6 +1410,539 @@ def run_agent(
         # put the total straight back to twelve: see SMALL_MODEL_MAX_ROUNDS.
         granted = min(granted, SMALL_MODEL_MAX_ROUNDS)
         ceiling = min(ceiling, SMALL_MODEL_MAX_ROUNDS)
+    return _TurnPlan(
+        agent_model=agent_model,
+        small_model=small_model,
+        window=window,
+        budget=budget,
+        messages=messages,
+        offered=offered,
+        every_tool=every_tool,
+        focused_only=focused_only,
+        permitted=set(allowed_tools) if allowed_tools else None,
+        barred=barred,
+        composition_tokens=composition_tokens,
+        granted=granted,
+        ceiling=ceiling,
+    )
+
+
+
+@dataclass(slots=True)
+class _TurnState:
+    """The ledgers one turn carries from round to round.
+
+    `_TurnPlan` above is what was decided before the turn started and never
+    changes; this is everything the turn *learns* while it runs, and it is a
+    record for one reason: the per-call stage below has to be able to write to
+    all of it. Sixteen locals in a closure could do that too, and did, but only
+    as long as the whole loop stayed inside `run_agent` (WORLD_CLASS_PLAN A5).
+
+    The three that look alike are not, and mixing them up is how a real bug
+    gets in: `done_calls` is the earned-round ledger and is never cleared;
+    `fresh_reads` is a freshness cache and is emptied by any write;
+    `failed_calls` is the repeat-suppression and outlives a write on purpose
+    (a call that failed on its own arguments fails again for the same reason).
+    """
+
+    #: The conversation as the model will next see it. Tool results are
+    #: appended here; the round loop appends the assistant's own turns.
+    messages: list[dict]
+    #: The tool schemas offered on the next round. Emptied when the tool-result
+    #: budget runs out, which is what forces the round after that to answer.
+    offered: list[dict]
+    did_write: bool = False
+    #: Which write tools ran, so a claim can be checked against the action that
+    #: would have made it true rather than against the turn as a whole.
+    ran_writes: set[str] = field(default_factory=set)
+    #: Characters of tool output added to the conversation so far.
+    spent: int = 0
+    #: (tool, arguments) pairs that have already failed.
+    failed_calls: set[tuple[str, str]] = field(default_factory=set)
+    #: How many times each tool has failed this turn, whatever the arguments.
+    tool_failures: dict[str, int] = field(default_factory=dict)
+    #: Destructive calls parked for the user's approval this turn, per tool.
+    parked: dict[str, int] = field(default_factory=dict)
+    #: Calls that already succeeded: a repeat of one is not progress either.
+    done_calls: set[tuple[str, str]] = field(default_factory=set)
+    #: Reads whose result is already in `messages` and still current.
+    fresh_reads: set[tuple[str, str]] = field(default_factory=set)
+    #: Did this round do something new? Reset at the top of each round.
+    progressed: bool = False
+
+    def count_failure(self, tool_name: str) -> int:
+        self.tool_failures[tool_name] = self.tool_failures.get(tool_name, 0) + 1
+        return self.tool_failures[tool_name]
+
+
+def _dispatch_call(
+    session: Session,
+    plan: _TurnPlan,
+    state: _TurnState,
+    call: dict,
+    history: list[dict] | None,
+) -> Iterator[dict]:
+    """Stage three: one tool call, from the guards to the result in `messages`.
+
+    Yields the same events `run_agent` yields and **returns True when the turn
+    is over** (the handover tools, `ask_user` and `run_skill`, which end it by
+    design); False to carry on with the next call. Callers say
+    `if (yield from _dispatch_call(...)): return`, which is why the return
+    value is a bool rather than a raised signal: the caller has a `finally`-less
+    loop and reads better for having the stop be an ordinary value.
+
+    Lifted whole out of `run_agent`'s round loop with no behaviour change
+    (WORLD_CLASS_PLAN A5). The order of the guards is load-bearing, each
+    branch's comment says why it is where it is, and the existing agent tests
+    are the only gate on this split.
+    """
+    name, arguments = call["name"], call.get("arguments") or {}
+    spec = tools.TOOLS.get(name)
+    signature = (name, json.dumps(arguments, sort_keys=True))
+    if name in plan.barred:
+        # A run trying to start a run. Refused with the reason, not
+        # silently: the model asked for this because it has decided the
+        # job is bigger than one step, and the useful answer is "you
+        # are already inside the mechanism you are reaching for".
+        state.failed_calls.add(signature)
+        state.count_failure(name)
+        state.messages.append(
+            {
+                "role": "tool",
+                "tool_name": name,
+                "content": json.dumps(
+                    {
+                        "error": f"{name} cannot be used inside a run",
+                        "what_to_do": _RECOVERY_HINTS["already_running"],
+                    }
+                ),
+            }
+        )
+        yield {
+            "type": "tool",
+            "label": f"ph:warning {name.replace('_', ' ')} isn't available here",
+            "ok": False,
+            "error": f"{name} cannot be used inside a run",
+        }
+        return False
+    if plan.permitted is not None and name not in plan.permitted:
+        # The allowlist is a safety property, not only a prompt: a
+        # model that calls a tool it was never offered does not get to
+        # run it just because the registry has one by that name.
+        result = {"error": f"{name} is not part of this skill's tools"}
+        result["what_to_do"] = (
+            REPEATED_CALL_NOTE
+            if signature in state.failed_calls
+            else _RECOVERY_HINTS["not_in_skill"]
+        )
+        state.failed_calls.add(signature)
+        state.count_failure(name)
+        yield {
+            "type": "tool",
+            "label": f"ph:warning {name} isn't part of this skill",
+            "ok": False,
+            "error": result["error"],
+        }
+    elif spec is not None and spec.ends_turn:
+        # `ask_user` and `run_skill`. The turn stops here, and in both
+        # cases that is the feature rather than a limitation: the model
+        # asked because it does not know what to do next, or it handed
+        # the job to a skill that will do it step by step. Carrying on
+        # after either would mean carrying on with the guess the
+        # handover exists to avoid.
+        #
+        # No state is parked on the server. The user's choice: or the
+        # skill run: is sent as the next message, which means it
+        # arrives through the ordinary history the model already reads:
+        # nothing to expire, nothing to lose on a reload, and the
+        # exchange is visible in the saved conversation like any other.
+        try:
+            handover = tools.handoff_event(name, arguments, history)
+        except tools.ToolError as exc:
+            # A malformed question, or a skill named that doesn't
+            # exist. Recoverable mistakes, not dead turns: hand the
+            # model the reason and let it try again or answer directly.
+            state.failed_calls.add(signature)
+            state.count_failure(name)
+            state.messages.append(
+                {
+                    "role": "tool",
+                    "tool_name": name,
+                    "content": json.dumps(
+                        {
+                            "error": str(exc),
+                            "what_to_do": _HANDOFF_RECOVERY.get(
+                                name, _ASK_RECOVERY
+                            ),
+                        }
+                    ),
+                }
+            )
+            yield {
+                "type": "tool",
+                "label": f"ph:warning couldn't {name.replace('_', ' ')}",
+                "ok": False,
+                "error": str(exc),
+            }
+            return False
+        yield handover
+        return True
+    elif spec is not None and spec.destructive and state.parked.get(name, 0) >= MAX_PARKED_CONFIRMS:
+        # **A destructive tool cannot paper the turn with confirm
+        # cards.** Parking one hands the model `AWAITING_CONFIRMATION`
+        # rather than a result, which is honest but is not a *stop*:
+        # a model that has misread the job re-parks the same tool with
+        # fresh arguments, and every round of that is another card in
+        # front of the user for something they never asked for. Two is
+        # enough for a genuine "delete this, and that" turn; past that
+        # the model is guessing, and guessing at destructive calls is
+        # the one place this app should be least willing to keep up.
+        result = {
+            "error": (
+                f"{name} is already waiting for the user's approval "
+                f"{state.parked[name]} times in this turn. Nothing more can be "
+                "queued for them."
+            ),
+            "what_to_do": (
+                "Stop. The user has to approve what is already waiting "
+                "before anything else destructive can be prepared. Tell "
+                "them what is queued and why, and do not call this tool again."
+            ),
+        }
+        state.count_failure(name)
+        yield {
+            "type": "tool",
+            "label": f"ph:prohibit {name.replace('_', ' ')}, too many waiting for approval",
+            "ok": False,
+            "error": result["error"],
+        }
+    elif spec is not None and spec.destructive:
+        # Park it for the user, never auto-run a destructive tool.
+        # The confirm card is the honest signal, so count it as an
+        # action (don't fire the "nothing happened" safety net): the
+        # user can see for themselves that it is waiting on them.
+        state.did_write = True
+        state.ran_writes.add(name)
+        state.parked[name] = state.parked.get(name, 0) + 1
+        yield {
+            "type": "confirm",
+            "name": name,
+            "arguments": arguments,
+            "label": tools.confirm_label(name, arguments),
+        }
+        result = AWAITING_CONFIRMATION
+    elif state.tool_failures.get(name, 0) >= MAX_TOOL_FAILURES:
+        # **The tool is spent for this turn.** Unlike the signature
+        # check just below, this fires however much the arguments
+        # change: which is the whole point, since the loop it was
+        # written for produced fresh wrong arguments every round (see
+        # `tool_failures`). Blocked *before* execution, so a tool that
+        # writes cannot land a change on a fourth guess either.
+        result = {
+            "error": (
+                f"{name} has failed {state.tool_failures[name]} times in this "
+                "turn and is no longer available for it"
+            ),
+            "what_to_do": TOOL_EXHAUSTED_NOTE,
+        }
+        yield {
+            "type": "tool",
+            "label": f"ph:prohibit {name.replace('_', ' ')}, stopped after repeated failures",
+            "ok": False,
+            "error": result["error"],
+        }
+    elif signature in state.failed_calls:
+        # --- NEW INTERCEPTION: Duplicate Failed Calls ---
+        # The model is looping on a broken call. Intercept before execution.
+        # Counted as a failure too, so a model that alternates between
+        # repeating a call and inventing new arguments for the same
+        # tool still reaches MAX_TOOL_FAILURES rather than ping-ponging
+        # between the two interceptions forever.
+        state.count_failure(name)
+        result = {
+            "error": (
+                f"You already called {name} with these exact arguments "
+                "and it failed. You must try a different approach, "
+                "change your arguments, or stop and ask the user."
+            ),
+            "what_to_do": REPEATED_CALL_NOTE,
+        }
+        yield {
+            "type": "tool",
+            "label": f"ph:warning {name.replace('_', ' ')}, repeated failure",
+            "ok": False,
+            "error": "Repeated failure intercepted",
+        }
+    elif signature in state.done_calls and name in _WRITE_TOOLS:
+        # --- NEW INTERCEPTION: Duplicate Writes ---
+        # A write that already succeeded this turn. Intercept before executing again.
+        result = {
+            "error": (
+                f"You already called {name} with these exact arguments "
+                "earlier in this turn and it succeeded. Do not run the same "
+                "write tool twice with the same arguments."
+            ),
+            "what_to_do": "Move on to the next step of your plan.",
+        }
+        yield {
+            "type": "tool",
+            "label": f"ph:warning {name.replace('_', ' ')}, already done",
+            "ok": False,
+            "error": "Duplicate write intercepted",
+        }
+    # --- OLD: elif (name, json.dumps(arguments, sort_keys=True)) in fresh_reads: ---
+    elif (name, json.dumps(arguments, sort_keys=True)) in state.fresh_reads:
+        # note's context in full, after no changes."*
+        #
+        # Re-running it is not merely wasted time, the result is
+        # identical and gets appended to the prompt a second time, so
+        # the round that repeats a read costs the window twice and
+        # brings back nothing. Handing back a pointer instead is
+        # cheaper than the data by an order of magnitude and says the
+        # one thing the model needs to hear: you already have this,
+        # move on.
+        #
+        # `done_calls` is emptied whenever a write succeeds (below), so
+        # this can never serve a stale read of something the turn
+        # itself just changed: which is the only way a cache here
+        # could produce a wrong answer rather than a slow one.
+        result = {
+            "already_done": True,
+            "note": (
+                f"You already called {name} with these exact arguments. "
+                "The information was provided in your previous tool calls "
+                "above. Please refer to your chat history to find it, rather "
+                "than running the tool again, and move on."
+            ),
+        }
+        yield {
+            "type": "tool",
+            "label": f"↩︎ {name.replace('_', ' ')}, already read",
+            "ok": True,
+        }
+    else:
+        result = tools.execute_tool(session, name, arguments, context_tokens=plan.window)
+        # What changed, and the call that would put it back. Popped
+        # rather than read: `undo` is for the user, and every field
+        # left in the result is resent to the model on every later
+        # round of the turn.
+        undo = result.pop("undo", None)
+        change = None
+        signature = (name, json.dumps(arguments, sort_keys=True))
+        if "error" not in result and signature not in state.done_calls:
+            # Something new worked. That is what buys another round, 
+            # see EARNED_ROUNDS. Reads and writes both count: paging
+            # through a notebook to find the right note is the work,
+            # not a preamble to it.
+            state.done_calls.add(signature)
+            state.progressed = True
+        if "error" not in result and name not in _WRITE_TOOLS:
+            # Its result is now in the messages above, and stays valid
+            # until something writes.
+            state.fresh_reads.add(signature)
+        if "error" not in result and name in _WRITE_TOOLS:
+            state.did_write = True
+            state.ran_writes.add(name)
+            # The notebook just changed, so every read taken before now
+            # may be out of date. Clearing this is what keeps the
+            # repeat-suppression above from ever serving a stale
+            # answer: after a write, re-reading is legitimate work
+            # rather than a loop, and it has to be allowed through.
+            #
+            # Deliberately *not* `done_calls`, which is the earned-round
+            # ledger: clearing that would let a model repeating one
+            # identical write buy a fresh round every time it did so,
+            # which is the exact loop EARNED_ROUNDS exists to starve.
+            #
+            # Deliberately not `failed_calls` either, for the same
+            # reason one step removed. A write briefly cleared it here,
+            # which sounds symmetrical and is not: a call that failed on
+            # its own arguments, a bad note id, a malformed date, fails
+            # again for exactly the same reason after an unrelated note
+            # is written, and forgetting it hands the model back the
+            # infinite retry that `_RECOVERY_HINTS` and the repeat
+            # interception exist to break. Only a read can go stale.
+            state.fresh_reads.clear()
+            change = {
+                "tool": name,
+                "label": result.get("label") or name,
+                "note_id": _change_note_id(name, result),
+                "document_id": _change_document_id(name, result),
+                "reminder_id": _change_reminder_id(name, result),
+                "category_name": _change_category_name(name, result),
+                "undo": undo,
+            }
+        if "error" in result:
+            # Hand back advice with the error, not just the error.
+            repeated = signature in state.failed_calls
+            state.failed_calls.add(signature)
+            exhausted = state.count_failure(name) >= MAX_TOOL_FAILURES
+            result = {
+                **result,
+                "what_to_do": (
+                    # Said on the failure that *reaches* the cap, not
+                    # only on the blocked call after it, otherwise the
+                    # model spends one more round discovering a rule it
+                    # could have been told here.
+                    TOOL_EXHAUSTED_NOTE
+                    if exhausted
+                    else REPEATED_CALL_NOTE
+                    if repeated
+                    else _recovery_hint(name, str(result["error"]))
+                ),
+            }
+        event = {
+            "type": "tool",
+            #: **The tool's own name.** The front end has always tried
+            #: to read it (`SOURCE_TOOLS[event.tool || event.name]`,
+            #: app.js) and it was never sent, so every web page and
+            #: every file this app read was silently missing from the
+            #: answer's Sources panel: a feature that could not have
+            #: worked once.
+            "tool": name,
+            "label": result.get("label") or name,
+            "ok": "error" not in result,
+            "error": result.get("error"),
+            "arguments": arguments,
+            #: Titles, addresses and one line each of what was read, 
+            #: see `_tool_sources`. This is what the Sources panel
+            #: draws its cards, previews and links from.
+            "sources": _tool_sources(name, result),
+            # UI display only: the version fed back to the model as
+            # conversation context is `payload` below, with its own
+            # separate, real token budget (`result_cap`). This is just
+            # what the chat transcript's tool-call disclosure shows,
+            # and that box already scrolls (.tool-chip-result, 12rem
+            # max-height): 300 chars cut it down to a couple of
+            # lines for no reason tied to cost. Reported live: "make
+            # the tool call output view a scrollable text box rather
+            # than it being truncated", the box already was one;
+            # this is what was starving it. 4000 is generous enough
+            # that raw JSON from a typical note/search/fetch result
+            # reads in full, while still bounding a pathological
+            # single result (a huge page fetch) from bloating the
+            # SSE event.
+            "result_summary": _result_summary(result),
+            # What this call actually touched, for the chat's live
+            # action line: see `_touched_items`.
+            "touched": _touched_items(result),
+            #: **The ids this read returned, and whether there are
+            #: more pages of them** (Brief 13; CHAT_PLAN decision 10).
+            #: A paging read already tells the *model* there is more
+            #: (`note_to_model`, `next_offset`); nothing told the
+            #: *app*, so `skill_runner` could only see that a tool had
+            #: been called once and ticked the step off with four
+            #: fifths of the notebook unread. Read off the result here
+            #: rather than parsed back out of `result_summary` in the
+            #: runner: the shape is this module's to know, and a
+            #: regex over a truncated JSON blob is the version of this
+            #: that breaks silently.
+            "seen": _seen_ids(result),
+            "more": bool(result.get("has_more")),
+            "next_offset": result.get("next_offset"),
+            #: **The same call, as things with actions** (PLAN.md §4
+            #: A1). `touched` is notes and documents; this is all five
+            #: kinds: a file, a board and a reminder are equally
+            #: openable and had no representation at all. Kept beside
+            #: `touched` rather than replacing it because a saved
+            #: transcript from before this existed has only `touched`,
+            #: and `skill_runner._absorb` reads it to carry ids across
+            #: a run's steps.
+            "cards": cards.result_cards(name, result),
+        }
+        if change:
+            event["change"] = change
+        if result.get("proposal"):
+            # `save_user_preference` no longer saves anything: it asks.
+            # The row exists but is inactive and flagged `proposed`, and
+            # it stays out of every system prompt until somebody says
+            # yes. Carrying the id and the text on the event is what
+            # lets the chat draw the accept/decline card next to the
+            # tool chip, so the answer is given where the suggestion was
+            # made rather than three clicks away in Settings.
+            event["proposal"] = result["proposal"]
+        yield event
+    payload = json.dumps(result)
+    # The window's share, but never more than the absolute ceiling, 
+    # a 128k model would otherwise be allowed tens of thousands of
+    # tokens of tool output, which is prefill time on every subsequent
+    # round for material the model has usually finished with.
+    result_cap = min(plan.budget.tool_result_chars, TOOL_RESULT_BUDGET_CHARS)
+    if state.spent + len(payload) > result_cap:
+        # Over budget. Hand back the notice instead of the result and
+        # withdraw the tools, so the next round has to be an answer.
+        # Dropping the result rather than truncating it is deliberate:
+        # half a JSON object is worse than none, the model reads it
+        # as data and answers from a note that got cut mid-sentence.
+        payload = json.dumps(BUDGET_EXHAUSTED)
+        state.offered = []
+    state.spent += len(payload)
+    state.messages.append(
+        {"role": "tool", "tool_name": name, "content": payload}
+    )
+
+
+def run_agent(
+    session: Session,
+    question: str,
+    notes: list[dict],
+    model_manager: ModelManager,
+    ollama: OllamaClient,
+    style: str = "friendly",
+    profile: str = "",
+    history: list[dict] | None = None,
+    persona_prompt: str | None = None,
+    allowed_tools: list[str] | None = None,
+    blocked_tools: frozenset[str] | set[str] | None = None,
+    max_rounds: int = MAX_ROUNDS,
+    earned_rounds: int = EARNED_ROUNDS,
+    exhausted_note: str | None = None,
+    mode: str | None = None,
+    use_utility_model: bool = False,
+    images: list[str] | None = None,
+    model_override: str | None = None,
+    image_context: str | None = None,
+) -> Iterator[dict]:
+    """Yields event dicts:
+    {"type": "unsupported"}, model can't do tools; caller
+                                                 should fall back to plain Q&A
+                                                 (always the first and only event)
+    {"type": "thinking", "delta": str}
+    {"type": "tool", "label": str, "ok": bool, "error": str|None}
+    {"type": "confirm", "name", "arguments", "label"}
+    {"type": "limit", "reason": "rounds", ...}, ran out of rounds mid-job;
+                                                 the answer that follows is a
+                                                 stopping notice, not a result
+    {"type": "answer", "delta": str}: the final text
+    """
+    plan = _prepare_turn(
+        session,
+        question,
+        notes,
+        model_manager,
+        ollama,
+        style=style,
+        profile=profile,
+        history=history,
+        persona_prompt=persona_prompt,
+        allowed_tools=allowed_tools,
+        blocked_tools=blocked_tools,
+        max_rounds=max_rounds,
+        earned_rounds=earned_rounds,
+        mode=mode,
+        use_utility_model=use_utility_model,
+        images=images,
+        model_override=model_override,
+        image_context=image_context,
+    )
+    agent_model = plan.agent_model
+    every_tool = plan.every_tool
+    focused_only = plan.focused_only
+    composition_tokens = plan.composition_tokens
+    state = _TurnState(messages=plan.messages, offered=plan.offered)
+
+    # Granted, then earned: see `_prepare_turn` for the two caps.
+    granted, ceiling = plan.granted, plan.ceiling
     allowance = granted
     round_number = -1
 
@@ -1449,7 +1963,7 @@ def run_agent(
                 "detail": spend.exceeded(),
                 "rounds": round_number + 1,
                 "tokens": spend.spent_tokens,
-                "wrote": sorted(ran_writes),
+                "wrote": sorted(state.ran_writes),
             }
             yield {
                 "type": "answer",
@@ -1460,7 +1974,7 @@ def run_agent(
         # Set by any tool call that succeeded and had not been made before, 
         # the definition of "this round got somewhere". Read at the bottom of
         # the loop, where it buys the next round.
-        progressed = False
+        state.progressed = False
         # Streamed: the model's prose reaches the user as it's written. The
         # non-streamed call this used to make is why an agent answer landed in
         # one lump after a visible pause (user-reported): every other chat
@@ -1468,7 +1982,7 @@ def run_agent(
         reply: dict = {}
         streamed_any = False
         try:
-            for piece in ollama.chat_tools_stream(agent_model, messages, offered, mode=mode):
+            for piece in ollama.chat_tools_stream(agent_model, state.messages, state.offered, mode=mode):
                 if "thinking_delta" in piece:
                     yield {"type": "thinking", "delta": piece["thinking_delta"]}
                 elif "content_delta" in piece:
@@ -1533,7 +2047,7 @@ def run_agent(
             # Safety net: if the model claims it saved/created something but no
             # write tool actually ran, it hallucinated, say so instead of
             # letting the user believe a note exists that doesn't.
-            unsupported = unsupported_claims(answer, ran_writes)
+            unsupported = unsupported_claims(answer, state.ran_writes)
             if unsupported:
                 # Named, not vague. "It looks like I didn't actually save it"
                 # is useless when the answer claimed five different things, 
@@ -1549,7 +2063,7 @@ def run_agent(
                         "and I'll do it properly."
                     ),
                 }
-            elif not did_write and _CLAIM_PATTERN.search(answer):
+            elif not state.did_write and _CLAIM_PATTERN.search(answer):
                 # The looser net, for a claim with no recognisable action in
                 # it ("new note titled…"). Only when nothing at all was
                 # written, since it can't say which action it means.
@@ -1587,7 +2101,7 @@ def run_agent(
             if len(reasoning) > THINKING_CARRIED_CHARS:
                 clipped += "…"
             replay = f"[my reasoning so far: {clipped}]{chr(10) if replay else ''}{replay}"
-        messages.append(
+        state.messages.append(
             {
                 "role": "assistant",
                 "content": replay,
@@ -1599,8 +2113,8 @@ def run_agent(
         # working from the same misreading. Widening is deliberately one-way
         # and lasts the rest of the turn: a request whose subject the words did
         # not carry does not become readable later in the same turn.
-        if focused_only and offered is not every_tool:
-            shown = {t["function"]["name"] for t in offered}
+        if focused_only and state.offered is not every_tool:
+            shown = {t["function"]["name"] for t in state.offered}
             reached_past = [c["name"] for c in calls if c["name"] not in shown]
             if reached_past:
                 logging.getLogger("memorymap.agent").info(
@@ -1608,395 +2122,14 @@ def run_agent(
                     "words did not suggest, offering the full set from here",
                     ", ".join(sorted(set(reached_past))[:5]),
                 )
-                offered = every_tool
+                state.offered = every_tool
 
         for call in calls:
-            name, arguments = call["name"], call.get("arguments") or {}
-            spec = tools.TOOLS.get(name)
-            signature = (name, json.dumps(arguments, sort_keys=True))
-            if name in barred:
-                # A run trying to start a run. Refused with the reason, not
-                # silently: the model asked for this because it has decided the
-                # job is bigger than one step, and the useful answer is "you
-                # are already inside the mechanism you are reaching for".
-                failed_calls.add(signature)
-                _count_failure(name)
-                messages.append(
-                    {
-                        "role": "tool",
-                        "tool_name": name,
-                        "content": json.dumps(
-                            {
-                                "error": f"{name} cannot be used inside a run",
-                                "what_to_do": _RECOVERY_HINTS["already_running"],
-                            }
-                        ),
-                    }
-                )
-                yield {
-                    "type": "tool",
-                    "label": f"ph:warning {name.replace('_', ' ')} isn't available here",
-                    "ok": False,
-                    "error": f"{name} cannot be used inside a run",
-                }
-                continue
-            if permitted is not None and name not in permitted:
-                # The allowlist is a safety property, not only a prompt: a
-                # model that calls a tool it was never offered does not get to
-                # run it just because the registry has one by that name.
-                result = {"error": f"{name} is not part of this skill's tools"}
-                result["what_to_do"] = (
-                    REPEATED_CALL_NOTE
-                    if signature in failed_calls
-                    else _RECOVERY_HINTS["not_in_skill"]
-                )
-                failed_calls.add(signature)
-                _count_failure(name)
-                yield {
-                    "type": "tool",
-                    "label": f"ph:warning {name} isn't part of this skill",
-                    "ok": False,
-                    "error": result["error"],
-                }
-            elif spec is not None and spec.ends_turn:
-                # `ask_user` and `run_skill`. The turn stops here, and in both
-                # cases that is the feature rather than a limitation: the model
-                # asked because it does not know what to do next, or it handed
-                # the job to a skill that will do it step by step. Carrying on
-                # after either would mean carrying on with the guess the
-                # handover exists to avoid.
-                #
-                # No state is parked on the server. The user's choice: or the
-                # skill run: is sent as the next message, which means it
-                # arrives through the ordinary history the model already reads:
-                # nothing to expire, nothing to lose on a reload, and the
-                # exchange is visible in the saved conversation like any other.
-                try:
-                    handover = tools.handoff_event(name, arguments, history)
-                except tools.ToolError as exc:
-                    # A malformed question, or a skill named that doesn't
-                    # exist. Recoverable mistakes, not dead turns: hand the
-                    # model the reason and let it try again or answer directly.
-                    failed_calls.add(signature)
-                    _count_failure(name)
-                    messages.append(
-                        {
-                            "role": "tool",
-                            "tool_name": name,
-                            "content": json.dumps(
-                                {
-                                    "error": str(exc),
-                                    "what_to_do": _HANDOFF_RECOVERY.get(
-                                        name, _ASK_RECOVERY
-                                    ),
-                                }
-                            ),
-                        }
-                    )
-                    yield {
-                        "type": "tool",
-                        "label": f"ph:warning couldn't {name.replace('_', ' ')}",
-                        "ok": False,
-                        "error": str(exc),
-                    }
-                    continue
-                yield handover
+            # One call, its guards and its result; True when the tool ended the
+            # turn (the handover tools). See `_dispatch_call`.
+            if (yield from _dispatch_call(session, plan, state, call, history)):
                 return
-            elif spec is not None and spec.destructive and parked.get(name, 0) >= MAX_PARKED_CONFIRMS:
-                # **A destructive tool cannot paper the turn with confirm
-                # cards.** Parking one hands the model `AWAITING_CONFIRMATION`
-                # rather than a result, which is honest but is not a *stop*:
-                # a model that has misread the job re-parks the same tool with
-                # fresh arguments, and every round of that is another card in
-                # front of the user for something they never asked for. Two is
-                # enough for a genuine "delete this, and that" turn; past that
-                # the model is guessing, and guessing at destructive calls is
-                # the one place this app should be least willing to keep up.
-                result = {
-                    "error": (
-                        f"{name} is already waiting for the user's approval "
-                        f"{parked[name]} times in this turn. Nothing more can be "
-                        "queued for them."
-                    ),
-                    "what_to_do": (
-                        "Stop. The user has to approve what is already waiting "
-                        "before anything else destructive can be prepared. Tell "
-                        "them what is queued and why, and do not call this tool again."
-                    ),
-                }
-                _count_failure(name)
-                yield {
-                    "type": "tool",
-                    "label": f"ph:prohibit {name.replace('_', ' ')}, too many waiting for approval",
-                    "ok": False,
-                    "error": result["error"],
-                }
-            elif spec is not None and spec.destructive:
-                # Park it for the user, never auto-run a destructive tool.
-                # The confirm card is the honest signal, so count it as an
-                # action (don't fire the "nothing happened" safety net): the
-                # user can see for themselves that it is waiting on them.
-                did_write = True
-                ran_writes.add(name)
-                parked[name] = parked.get(name, 0) + 1
-                yield {
-                    "type": "confirm",
-                    "name": name,
-                    "arguments": arguments,
-                    "label": tools.confirm_label(name, arguments),
-                }
-                result = AWAITING_CONFIRMATION
-            elif tool_failures.get(name, 0) >= MAX_TOOL_FAILURES:
-                # **The tool is spent for this turn.** Unlike the signature
-                # check just below, this fires however much the arguments
-                # change: which is the whole point, since the loop it was
-                # written for produced fresh wrong arguments every round (see
-                # `tool_failures`). Blocked *before* execution, so a tool that
-                # writes cannot land a change on a fourth guess either.
-                result = {
-                    "error": (
-                        f"{name} has failed {tool_failures[name]} times in this "
-                        "turn and is no longer available for it"
-                    ),
-                    "what_to_do": TOOL_EXHAUSTED_NOTE,
-                }
-                yield {
-                    "type": "tool",
-                    "label": f"ph:prohibit {name.replace('_', ' ')}, stopped after repeated failures",
-                    "ok": False,
-                    "error": result["error"],
-                }
-            elif signature in failed_calls:
-                # --- NEW INTERCEPTION: Duplicate Failed Calls ---
-                # The model is looping on a broken call. Intercept before execution.
-                # Counted as a failure too, so a model that alternates between
-                # repeating a call and inventing new arguments for the same
-                # tool still reaches MAX_TOOL_FAILURES rather than ping-ponging
-                # between the two interceptions forever.
-                _count_failure(name)
-                result = {
-                    "error": (
-                        f"You already called {name} with these exact arguments "
-                        "and it failed. You must try a different approach, "
-                        "change your arguments, or stop and ask the user."
-                    ),
-                    "what_to_do": REPEATED_CALL_NOTE,
-                }
-                yield {
-                    "type": "tool",
-                    "label": f"ph:warning {name.replace('_', ' ')}, repeated failure",
-                    "ok": False,
-                    "error": "Repeated failure intercepted",
-                }
-            elif signature in done_calls and name in _WRITE_TOOLS:
-                # --- NEW INTERCEPTION: Duplicate Writes ---
-                # A write that already succeeded this turn. Intercept before executing again.
-                result = {
-                    "error": (
-                        f"You already called {name} with these exact arguments "
-                        "earlier in this turn and it succeeded. Do not run the same "
-                        "write tool twice with the same arguments."
-                    ),
-                    "what_to_do": "Move on to the next step of your plan.",
-                }
-                yield {
-                    "type": "tool",
-                    "label": f"ph:warning {name.replace('_', ' ')}, already done",
-                    "ok": False,
-                    "error": "Duplicate write intercepted",
-                }
-            # --- OLD: elif (name, json.dumps(arguments, sort_keys=True)) in fresh_reads: ---
-            elif (name, json.dumps(arguments, sort_keys=True)) in fresh_reads:
-                # note's context in full, after no changes."*
-                #
-                # Re-running it is not merely wasted time, the result is
-                # identical and gets appended to the prompt a second time, so
-                # the round that repeats a read costs the window twice and
-                # brings back nothing. Handing back a pointer instead is
-                # cheaper than the data by an order of magnitude and says the
-                # one thing the model needs to hear: you already have this,
-                # move on.
-                #
-                # `done_calls` is emptied whenever a write succeeds (below), so
-                # this can never serve a stale read of something the turn
-                # itself just changed: which is the only way a cache here
-                # could produce a wrong answer rather than a slow one.
-                result = {
-                    "already_done": True,
-                    "note": (
-                        f"You already called {name} with these exact arguments. "
-                        "The information was provided in your previous tool calls "
-                        "above. Please refer to your chat history to find it, rather "
-                        "than running the tool again, and move on."
-                    ),
-                }
-                yield {
-                    "type": "tool",
-                    "label": f"↩︎ {name.replace('_', ' ')}, already read",
-                    "ok": True,
-                }
-            else:
-                result = tools.execute_tool(session, name, arguments, context_tokens=window)
-                # What changed, and the call that would put it back. Popped
-                # rather than read: `undo` is for the user, and every field
-                # left in the result is resent to the model on every later
-                # round of the turn.
-                undo = result.pop("undo", None)
-                change = None
-                signature = (name, json.dumps(arguments, sort_keys=True))
-                if "error" not in result and signature not in done_calls:
-                    # Something new worked. That is what buys another round, 
-                    # see EARNED_ROUNDS. Reads and writes both count: paging
-                    # through a notebook to find the right note is the work,
-                    # not a preamble to it.
-                    done_calls.add(signature)
-                    progressed = True
-                if "error" not in result and name not in _WRITE_TOOLS:
-                    # Its result is now in the messages above, and stays valid
-                    # until something writes.
-                    fresh_reads.add(signature)
-                if "error" not in result and name in _WRITE_TOOLS:
-                    did_write = True
-                    ran_writes.add(name)
-                    # The notebook just changed, so every read taken before now
-                    # may be out of date. Clearing this is what keeps the
-                    # repeat-suppression above from ever serving a stale
-                    # answer: after a write, re-reading is legitimate work
-                    # rather than a loop, and it has to be allowed through.
-                    #
-                    # Deliberately *not* `done_calls`, which is the earned-round
-                    # ledger: clearing that would let a model repeating one
-                    # identical write buy a fresh round every time it did so,
-                    # which is the exact loop EARNED_ROUNDS exists to starve.
-                    #
-                    # Deliberately not `failed_calls` either, for the same
-                    # reason one step removed. A write briefly cleared it here,
-                    # which sounds symmetrical and is not: a call that failed on
-                    # its own arguments, a bad note id, a malformed date, fails
-                    # again for exactly the same reason after an unrelated note
-                    # is written, and forgetting it hands the model back the
-                    # infinite retry that `_RECOVERY_HINTS` and the repeat
-                    # interception exist to break. Only a read can go stale.
-                    fresh_reads.clear()
-                    change = {
-                        "tool": name,
-                        "label": result.get("label") or name,
-                        "note_id": _change_note_id(name, result),
-                        "document_id": _change_document_id(name, result),
-                        "reminder_id": _change_reminder_id(name, result),
-                        "category_name": _change_category_name(name, result),
-                        "undo": undo,
-                    }
-                if "error" in result:
-                    # Hand back advice with the error, not just the error.
-                    repeated = signature in failed_calls
-                    failed_calls.add(signature)
-                    exhausted = _count_failure(name) >= MAX_TOOL_FAILURES
-                    result = {
-                        **result,
-                        "what_to_do": (
-                            # Said on the failure that *reaches* the cap, not
-                            # only on the blocked call after it, otherwise the
-                            # model spends one more round discovering a rule it
-                            # could have been told here.
-                            TOOL_EXHAUSTED_NOTE
-                            if exhausted
-                            else REPEATED_CALL_NOTE
-                            if repeated
-                            else _recovery_hint(name, str(result["error"]))
-                        ),
-                    }
-                event = {
-                    "type": "tool",
-                    #: **The tool's own name.** The front end has always tried
-                    #: to read it (`SOURCE_TOOLS[event.tool || event.name]`,
-                    #: app.js) and it was never sent, so every web page and
-                    #: every file this app read was silently missing from the
-                    #: answer's Sources panel: a feature that could not have
-                    #: worked once.
-                    "tool": name,
-                    "label": result.get("label") or name,
-                    "ok": "error" not in result,
-                    "error": result.get("error"),
-                    "arguments": arguments,
-                    #: Titles, addresses and one line each of what was read, 
-                    #: see `_tool_sources`. This is what the Sources panel
-                    #: draws its cards, previews and links from.
-                    "sources": _tool_sources(name, result),
-                    # UI display only: the version fed back to the model as
-                    # conversation context is `payload` below, with its own
-                    # separate, real token budget (`result_cap`). This is just
-                    # what the chat transcript's tool-call disclosure shows,
-                    # and that box already scrolls (.tool-chip-result, 12rem
-                    # max-height): 300 chars cut it down to a couple of
-                    # lines for no reason tied to cost. Reported live: "make
-                    # the tool call output view a scrollable text box rather
-                    # than it being truncated", the box already was one;
-                    # this is what was starving it. 4000 is generous enough
-                    # that raw JSON from a typical note/search/fetch result
-                    # reads in full, while still bounding a pathological
-                    # single result (a huge page fetch) from bloating the
-                    # SSE event.
-                    "result_summary": _result_summary(result),
-                    # What this call actually touched, for the chat's live
-                    # action line: see `_touched_items`.
-                    "touched": _touched_items(result),
-                    #: **The ids this read returned, and whether there are
-                    #: more pages of them** (Brief 13; CHAT_PLAN decision 10).
-                    #: A paging read already tells the *model* there is more
-                    #: (`note_to_model`, `next_offset`); nothing told the
-                    #: *app*, so `skill_runner` could only see that a tool had
-                    #: been called once and ticked the step off with four
-                    #: fifths of the notebook unread. Read off the result here
-                    #: rather than parsed back out of `result_summary` in the
-                    #: runner: the shape is this module's to know, and a
-                    #: regex over a truncated JSON blob is the version of this
-                    #: that breaks silently.
-                    "seen": _seen_ids(result),
-                    "more": bool(result.get("has_more")),
-                    "next_offset": result.get("next_offset"),
-                    #: **The same call, as things with actions** (PLAN.md §4
-                    #: A1). `touched` is notes and documents; this is all five
-                    #: kinds: a file, a board and a reminder are equally
-                    #: openable and had no representation at all. Kept beside
-                    #: `touched` rather than replacing it because a saved
-                    #: transcript from before this existed has only `touched`,
-                    #: and `skill_runner._absorb` reads it to carry ids across
-                    #: a run's steps.
-                    "cards": cards.result_cards(name, result),
-                }
-                if change:
-                    event["change"] = change
-                if result.get("proposal"):
-                    # `save_user_preference` no longer saves anything: it asks.
-                    # The row exists but is inactive and flagged `proposed`, and
-                    # it stays out of every system prompt until somebody says
-                    # yes. Carrying the id and the text on the event is what
-                    # lets the chat draw the accept/decline card next to the
-                    # tool chip, so the answer is given where the suggestion was
-                    # made rather than three clicks away in Settings.
-                    event["proposal"] = result["proposal"]
-                yield event
-            payload = json.dumps(result)
-            # The window's share, but never more than the absolute ceiling, 
-            # a 128k model would otherwise be allowed tens of thousands of
-            # tokens of tool output, which is prefill time on every subsequent
-            # round for material the model has usually finished with.
-            result_cap = min(budget.tool_result_chars, TOOL_RESULT_BUDGET_CHARS)
-            if spent + len(payload) > result_cap:
-                # Over budget. Hand back the notice instead of the result and
-                # withdraw the tools, so the next round has to be an answer.
-                # Dropping the result rather than truncating it is deliberate:
-                # half a JSON object is worse than none, the model reads it
-                # as data and answers from a note that got cut mid-sentence.
-                payload = json.dumps(BUDGET_EXHAUSTED)
-                offered = []
-            spent += len(payload)
-            messages.append(
-                {"role": "tool", "tool_name": name, "content": payload}
-            )
-
-        if progressed and allowance < ceiling:
+        if state.progressed and allowance < ceiling:
             # This round did something new, so the turn gets another one. The
             # cap that stops a runaway is still there, a round that repeats
             # itself or errors buys nothing, so a loop never reaches `ceiling`.
@@ -2012,7 +2145,7 @@ def run_agent(
         "type": "limit",
         "reason": "rounds",
         "rounds": round_number + 1,
-        "wrote": sorted(ran_writes),
+        "wrote": sorted(state.ran_writes),
     }
     yield {
         "type": "answer",

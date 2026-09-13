@@ -8,7 +8,7 @@ each, tests first.
 | --- | --- | --- |
 | A3 bounded job pool | done | `8b9da9e` |
 | A4 small-model agent | done | (this commit) |
-| A5 five functions split | next: `run_agent` first | |
+| A5 five functions split | `run_agent` done, `_run_skill` next | (this commit) |
 | A6 nine silent excepts | not started | |
 | A9 CI skips | not started | |
 
@@ -277,3 +277,13 @@ session spends its probes somewhere new.
   one) rather than refused, because a save that fails over one long tag
   throws the note away, and a tag list past 200 is a paste rather than a set
   of labels.
+
+## Running log, the audit rows (append only, newest last)
+
+- done: A5's first function. `run_agent` 875 lines / 68 branches to 279 / 37 by
+  `scratchpad/probe_complexity.py`, split into `_prepare_turn` (248), a
+  `_TurnState` record of the ledgers a turn carries, and `_dispatch_call` (405,
+  one tool call and its guards, returning True when the tool ended the turn).
+  306 tests across the six agent files plus chat, skills and tool cards pass
+  either side. next: A5's `_run_skill` (`src/memorymap/ai/skill_runner.py`,
+  682 lines / 82 branches).

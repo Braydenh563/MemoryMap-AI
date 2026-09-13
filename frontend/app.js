@@ -23119,6 +23119,63 @@ function markScrollEdge(region) {
   else if (best) best.removeAttribute("data-scrolled");
 }
 
+// --- the phone's tab bar recedes on the way down (INBOX 104) ----------------
+//
+// DESIGN.md's Liquid Glass rule 10: the bar over a scrolling region gives its
+// space back while you are reading and takes it again the moment you turn
+// round. **Never hidden**, which is the half of the rule that is easy to lose:
+// a bar that disappears is a navigation people hunt for, so what recedes is the
+// caption, not the bar. 57.6px of bar with words becomes 44px of icons, which
+// is still a full row of 44px targets.
+//
+// It rides on the scroll-edge listener above rather than bringing one of its
+// own, which is that block's own warning taken seriously: one capture-phase
+// listener, coalesced with `requestAnimationFrame`, choosing its target by
+// measuring rather than by name. A per-surface listener here would be seven
+// listeners reading layout on every scroll event on a phone.
+//
+// The page's reservation for the bar (`#status-bar`'s bottom margin, and
+// `--page-viewport`) deliberately does *not* change with it. A fixed bar that
+// shrinks while the space reserved for it shrinks too moves the content under
+// it, which moves the scroll position, which fires the scroll event that
+// shrank it: the reservation stays at the full height and the bar is simply
+// shorter inside it.
+const PHONE_BAR_RECEDE_PX = 12;
+//: Per region, because two lists on two tabs are two reading positions, and
+//: coming back to one mid-page should not read as a scroll up.
+const phoneBarLastTop = new WeakMap();
+
+function markTabBarRecede(region) {
+  const dock = document.getElementById("phone-tab-dock");
+  if (!dock) return;
+  //: The bar only exists in the phone band; above it there is nothing to
+  //: recede, and an attribute left behind would be waiting for the next
+  //: resize down.
+  if (!window.matchMedia(PHONE_TABS).matches) {
+    dock.removeAttribute("data-receded");
+    return;
+  }
+  const top = region.scrollTop;
+  const last = phoneBarLastTop.get(region);
+  phoneBarLastTop.set(region, top);
+  //: At the top of anything the bar is always whole. Arriving at the top of a
+  //: list with the captions still folded away is the state nobody asked for,
+  //: and it is the state a threshold alone leaves you in.
+  if (top <= PHONE_BAR_RECEDE_PX) {
+    dock.removeAttribute("data-receded");
+    return;
+  }
+  //: The first scroll event a region ever sends has no previous reading, and
+  //: zero is the honest one to compare it with: the event only exists because
+  //: something moved, and a region starts at the top. Without this the first
+  //: flick of a list is swallowed and the bar recedes on the second.
+  const delta = top - (last ?? 0);
+  //: A dead band in both directions, so a finger resting on a list does not
+  //: flicker the bar between its two heights.
+  if (delta > PHONE_BAR_RECEDE_PX) dock.setAttribute("data-receded", "1");
+  else if (delta < -PHONE_BAR_RECEDE_PX) dock.removeAttribute("data-receded");
+}
+
 let scrollEdgeFrame = 0;
 function onScrollEdge(event) {
   const region = event.target === document ? document.scrollingElement : event.target;
@@ -23129,6 +23186,15 @@ function onScrollEdge(event) {
   scrollEdgeFrame = requestAnimationFrame(() => {
     scrollEdgeFrame = 0;
     markScrollEdge(region);
+    //: The same guard the edge effect uses: a menu, a dialog or a sheet
+    //: scrolls *over* the page, and the bar it is covering has no business
+    //: reacting to it.
+    if (
+      !region.closest ||
+      !region.closest(".action-menu, .help-popover, .modal-overlay, #settings-modal, [role='menu']")
+    ) {
+      markTabBarRecede(region);
+    }
   });
 }
 
@@ -23154,6 +23220,10 @@ function syncScrollEdges() {
   for (const bar of document.querySelectorAll("[data-scrolled]")) {
     bar.removeAttribute("data-scrolled");
   }
+  //: And a tab you have just arrived on shows its bar whole, whatever the tab
+  //: you left was scrolled to. `syncScrollEdges` already runs on a tab change
+  //: and on a resize, which are the two moments this is true of.
+  document.getElementById("phone-tab-dock")?.removeAttribute("data-receded");
 }
 
 window.addEventListener("resize", syncScrollEdges, { passive: true });

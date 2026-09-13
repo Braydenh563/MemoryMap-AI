@@ -848,6 +848,9 @@ header#top-bar,
     border-top: 1px solid var(--glass-border);
     backdrop-filter: blur(var(--glass-blur)) saturate(150%);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    /* Height, because that is the only thing that changes when it recedes.
+       The reduced-motion block in this file turns every transition off. */
+    transition: height var(--motion-slow) ease;
   }
 
   /* Four parts to the strip against one to More is five equal columns: the
@@ -912,8 +915,25 @@ header#top-bar,
      with four columns in the strip every caption is whole at 360 and above.
      `display: block` rather than `revert`, which would revert past the author
      origin entirely: the labels are flex children and blockified already, so
-     this is the value they compute to when nothing hides them. */
-  #tab-bar button:not(.active) .tab-label,
+     this is the value they compute to when nothing hides them.
+
+     **And `button`, not `button:not(.active)`, because of what the exception
+     did at 320.** The hide-everything rule under 360 in the same file is
+     `.tab-label` at (0,1,0); this one at (1,2,1) beat it for the six inactive
+     columns and left the *selected* tab as the only one with no word, which is
+     the exact inverse of what the bar is for. Measured with
+     `phonetabs.js` at 320: four of five columns captioned, the selected one
+     0px wide. With five columns at 64px and the longest caption 44.9px, the
+     words fit at 320 as they do at 360, so the right fix is the rule reaching
+     every column rather than the exception being widened.
+
+     Two ids, because dropping `:not(.active)` drops the specificity with it:
+     the 360-to-479.98 rule in the same file is `#tab-bar button:not(.active)
+     .tab-label`, (1,2,1), which this used to tie with and beat on source
+     order. At (1,1,1) it lost and three of the five captions went out across
+     that whole band; `#phone-tab-dock` in front makes it (2,1,1), and an id
+     count of two settles it before either of the others is read. */
+  #phone-tab-dock #tab-bar button .tab-label,
   .phone-tab-more .tab-label {
     display: block;
   }
@@ -921,6 +941,32 @@ header#top-bar,
   #tab-bar button.active {
     flex: 1 1 0;
     padding-inline: 0;
+  }
+
+  /* --- the recede on the way down (INBOX 104) -----------------------------
+     DESIGN.md's Liquid Glass rule 10, and the half of it that is easy to lose
+     is in the rule itself: what goes is the caption, not the bar. 57.6px of
+     bar with words becomes 44px of icons, which is still a full row of 44px
+     targets and still says which tab you are on. `markTabBarRecede` (app.js)
+     sets the attribute, off the one scroll listener the edge effect already
+     owns.
+
+     The page's reservation for the bar does not move with it: `#status-bar`'s
+     bottom margin and `--page-viewport` stay on the full `--bottom-tabs-h`,
+     so the content under the bar never moves, so shrinking the bar cannot
+     fire the scroll that shrank it.
+
+     Two selectors rather than one, and both carry `#tab-bar` or
+     `.phone-tab-more` for specificity: the rule that puts the captions back
+     twenty lines up is (1,2,1), and a bare `#phone-tab-dock[data-receded]
+     .tab-label` is (1,2,0), which loses. */
+  #phone-tab-dock[data-receded] {
+    height: calc(var(--target-min) + env(safe-area-inset-bottom, 0px));
+  }
+
+  #phone-tab-dock[data-receded] #tab-bar button .tab-label,
+  #phone-tab-dock[data-receded] .phone-tab-more .tab-label {
+    display: none;
   }
 }
 

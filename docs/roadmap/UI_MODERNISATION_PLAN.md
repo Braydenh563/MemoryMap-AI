@@ -599,13 +599,9 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
    the block, with its numbers, is in HISTORY.md, "Moved from the plans,
    2026-09-13"). What is left of item 1, in order:
 
-   - **The recede to icons on scroll down and back on scroll up (INBOX 104).**
-     The listener shape to copy is the scroll-edge one in app.js (search
-     `SCROLL_EDGE_BARS`): one capture-phase `scroll` listener that picks its
-     target by measuring rather than by name, coalesced with
-     `requestAnimationFrame`. Per-surface listeners are what that block's own
-     comment exists to warn against. Never hidden, which is the rule this item
-     carries from DESIGN.md's Liquid Glass rule 10.
+   - **The recede to icons on scroll down and back on scroll up (INBOX 104):
+     built** (2026-09-13); the block, with its numbers, is in HISTORY.md
+     ("Moved from the plans, 2026-09-13").
    - **The top bar's own reduction**: the title, the AI dot and one action. It
      is two rows at some widths and has never been measured at 320 with the
      wordmark, the space switcher and the two control clusters in it.
@@ -739,8 +735,8 @@ menus that open out of their opener.
     measurement asks for it. Rule 4 in DESIGN.md stays as the principle.
 
 104. **The phone tab bar recedes on scroll** (icons only on scroll down,
-    full on scroll up), never hidden. Moved to Phase 11: it is phone work
-    and the phone gets its own session.
+    full on scroll up), never hidden. Built (2026-09-13); the block is in
+    HISTORY.md ("Moved from the plans, 2026-09-13").
 
 94. **Background animations: fix, refine and improve.** Owner: UI Phase 3
     follow-up (Opus): each style gets a measured frame cost, a still frame

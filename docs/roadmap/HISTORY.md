@@ -24244,6 +24244,58 @@ order 10). Origin file named on each.
 
 ### From UI_MODERNISATION_PLAN.md
 
+### Built, INBOX 104: the phone tab bar recedes on the way down, 2026-09-13
+
+DESIGN.md's Liquid Glass rule 10, and Phase 11 item 1's last open bullet. The
+half of the rule that is easy to lose is in the implementation: what recedes is
+the caption, not the bar. A bar that disappears is a navigation people hunt for.
+
+On the scroll-edge listener's own shape, which is what the plan asked for and
+what that block's comment exists to insist on: one capture-phase `scroll`
+listener, coalesced with `requestAnimationFrame`, choosing its target by
+measuring rather than by name. `markTabBarRecede` runs in the same frame as
+`markScrollEdge` and behind the same guard (a menu, a dialog or a sheet scrolls
+*over* the page, and the bar it covers has no business reacting).
+
+Three decisions worth keeping:
+
+- **The page's reservation does not move with the bar.** `#status-bar`'s bottom
+  margin and `--page-viewport` stay on the full `--bottom-tabs-h`. A fixed bar
+  that shrinks while the space reserved for it shrinks too moves the content
+  under it, which moves the scroll position, which fires the scroll event that
+  shrank it.
+- **A dead band in both directions** (12px), so a finger resting on a list does
+  not flicker the bar between its two heights, and the bar is always whole
+  within 12px of the top of anything: arriving at the top of a list with the
+  captions folded away is the state nobody asked for.
+- **The first scroll event a region sends counts from zero.** The event only
+  exists because something moved and a region starts at the top, so comparing
+  against "no previous reading" and returning swallowed the first flick and
+  receded on the second. Measured before the fix: `{top: 400, receded: false}`,
+  then `{top: 800, receded: true}`.
+
+**Measured, `scratchpad/ui-sweeps/phonetabs.js` at 390x844** (the recede cases
+are new there, driven by scrolling the region rather than by setting the
+attribute, so the listener is gated as much as the CSS): at rest 57.6px with
+five captions; after 400px down, 44px with 0 captions and all five icons still
+on screen, the bar still flush to the bottom edge at y=844; after 300px back up,
+57.6px and five captions. Two taps to each of the three tabs the More sheet
+holds, in the same run.
+
+**And a fault the recede cases found at 320**, which is the inverse of what the
+bar is for: four of the five columns carried a caption and the *selected* one
+did not, measured 0px wide. Under 360 the whole-strip rule
+(`.tab-label { display: none }`, 07-whiteboard-misc.css) is (0,1,0) and the
+five-column rule that puts the words back was
+`#tab-bar button:not(.active) .tab-label` at (1,2,1), so every column except the
+active one won. Five columns are 64px at 320 and the longest caption is 44.9px,
+so the words fit there as they do at 360: the rule now reaches every column,
+as `#phone-tab-dock #tab-bar button .tab-label`, (2,1,1), which is what it takes
+to beat both the (0,1,0) hide below 360 and the (1,2,1) selected-only rule
+between 360 and 480. `phonetabs.js` at 320 after: five columns at 64px, five
+captions, nothing clipped, no sideways scroll. `phonemore.js` unchanged, 0
+findings.
+
 ### Built, INBOX 186: the timeline dock's kind filter, 2026-09-13
 
 The owner, with one screenshot of the kind chips and the Show: all button

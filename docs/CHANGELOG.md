@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The phone's tab bar recedes to its icons while you read down a list and
+  takes its words back the moment you turn round. It is never hidden: 57.6px
+  of bar with captions becomes 44px of icons, still five columns and still
+  44px targets. And the selected tab keeps its caption at 320, where it was
+  the one column of five without a word.
+
 - A sheet closes the same way wherever it is built. The three sidebars and
   the graph's panel become sheets in place rather than being built by the
   sheet recipe, and they now share its dismissal: a captured Escape, a press

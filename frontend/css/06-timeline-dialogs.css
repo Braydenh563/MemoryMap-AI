@@ -2675,6 +2675,29 @@
   max-width: calc(100% - var(--wb-w-zoom) - 2rem - var(--space-3));
 }
 
+/* **The zoom cluster is the same shape as the tools row, and was drawn as a
+   different one** (INBOX 43's second half). Both are a single line of
+   icon-only ghost buttons floating on the board's bottom edge, a few
+   centimetres apart; measured with a board open
+   (`scratchpad/ui-sweeps/wbrail.js`): the tools row at a 999px radius with
+   4px/6.4px of inset, the zoom cluster at 14px with 4px all round. Two
+   surfaces doing the same job in the same place have to be the same object,
+   and the rule that decides which shape is written directly below this: a
+   pill is a single row of controls. The zoom cluster is three buttons and
+   cannot become anything else, so it needs no wrapped case of its own. */
+.whiteboard-floating-panel.whiteboard-floating-panel.bottom-right {
+  border-radius: var(--radius-pill);
+  /* Three classes, and the panel's own repeated rather than `.card` added.
+     The inset this replaces is set at (0,2,0), so a two-class selector here
+     ties with it and loses on file order (measured: the radius took and the
+     padding did not). `.card` would have won it too, and would have enrolled
+     this pill in the card family whose radii `tests/test_ui_signatures.py`
+     counts, which is that lint finding something real rather than getting in
+     the way: a pill is not a fifth card radius. Repeating the class buys the
+     specificity and claims no family. */
+  padding: var(--space-1) var(--space-2);
+}
+
 /* A pill is a single row of controls. Once it has wrapped it is a block of
    them, and the fully-rounded ends read as a mistake rather than a shape. */
 .whiteboard-floating-panel.bottom-center:has(> :last-child:not(:first-child)) {

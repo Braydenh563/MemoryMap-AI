@@ -168,6 +168,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The board's zoom cluster is the same shape as the tool row it shares an
+  edge with: one pill, one inset, instead of a rounded rectangle beside a
+  pill (INBOX 43).
 - A tidy writes the whole map in one request instead of one per node, and a
   tidy that pushed part of the map off the canvas frames it again.
 - On a phone-width map, a branch can be folded again: the node's own action

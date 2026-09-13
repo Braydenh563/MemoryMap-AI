@@ -23843,6 +23843,51 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     Settings > Models with Auto (the model file's value) or a number, sent
     on every request; the badge shows "used / window".
 
+158. **Fixed, 2026-09-13** (`scratchpad/ui-sweeps/aiedit.js`, 1440x900 and 390
+    wide, both themes). The dialog asked its question inside 717px of card, 309px
+    of which was an empty result textarea (43%) under a label describing text
+    that was not there and over a "Replace with this" for nothing. It is 250px
+    now, and 596px once there is something to read. Its control column was five
+    heights in six controls (head 28, toggle 38, field 42, buttons 40 and 42);
+    it is one, 40px, with the head row's pair at the app's `small` tier.
+
+    The toggle keeps `.segmented-control` and its radios, because INBOX 101
+    already settled that this control and `.seg` are one thing drawn one way and
+    the radios are what give the native arrow-key walk (standing order 11: not a
+    fourth treatment). What was measured wrong was its fit: a 38px track holding
+    28px segments beside a 42px field, and labels at 16px over a field at
+    13.6px, so the choice was the largest type in the dialog and the box you
+    type in the smallest. Track 40px, segments 30px, one type size, and each verb
+    carries the icon it already has elsewhere in the app.
+
+    Two bugs found while measuring: switching verb kept the previous verb's
+    proposal on screen under the new verb's accept button, so "Remove it" on a
+    rewrite would have deleted the selection and inserted the rewrite; and the
+    actions row was written `class="row right"`, which 07-whiteboard-misc.css
+    records as a class with no rule anywhere in the app (ten rows drawing left
+    while asking to draw right).
+
+    **Mid-work drop, 2026-09-13, verbatim (the owner), the document editor's
+    AI assistant dialog, two screenshots (the whole dialog, and the
+    Edit/Write/Remove segment).** "also redesign and improve the ui and
+    modernise the ui of the ai assistent ai edit popup, and redesign the edit
+    write remove toggle, it is ugly".
+
+167. **Mid-work drop, 2026-09-13, verbatim (the owner), the whiteboard.**
+    "when I push down my middle scroll wheel on my mouse to pan the
+    whiteboard, it is very glitch and jittery." **Fixed** (reasoned, not
+    observed: this sandbox has no autoscroll): on Windows, Chromium and Edge
+    start their own autoscroll on a middle-button press over anything
+    scrollable unless the `mousedown` is default-prevented, so the page
+    scrolled with the pointer while d3-zoom panned the board with it. The
+    press is prevented from the window's capture phase for anything inside
+    the boards view (a container listener never saw the real event, and a
+    bubbling one registered after d3-zoom's never runs at all: d3 stops
+    immediate propagation). Measured (`scratchpad/ui-sweeps/wbpan.js`): a
+    middle drag still pans 150px and the mousedown reports
+    `defaultPrevented` true. If it still jitters on the owner's machine, the
+    next suspect is the pan itself, profiled as vsync-bound here.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

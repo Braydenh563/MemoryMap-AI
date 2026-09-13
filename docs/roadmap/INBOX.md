@@ -52,12 +52,6 @@ measured or built in earlier commits and is marked there.
 
 ## Open items
 
-158. **Mid-work drop, 2026-09-13, verbatim (the owner), the document editor's
-    AI assistant dialog, two screenshots (the whole dialog, and the
-    Edit/Write/Remove segment).** "also redesign and improve the ui and
-    modernise the ui of the ai assistent ai edit popup, and redesign the edit
-    write remove toggle, it is ugly".
-
 142. **Mid-work drop, 2026-09-13, verbatim (the owner), the document editor's
     writing intelligence (two screenshots).** "the suggestions box at the
     bottom takes up a lot of my screen and it makes the text editor really

@@ -7857,6 +7857,28 @@ async function initWhiteboard() {
   wbInitialized = true;
   
   const container = d3.select("#whiteboard-container");
+  //: **Middle button: the pan, and nothing else** (INBOX 167: "when I push
+  //: down my middle scroll wheel on my mouse to pan the whiteboard, it is
+  //: very glitch and jittery"). On Windows, Chromium and Edge start their
+  //: own autoscroll on a middle-button press over anything scrollable unless
+  //: the `mousedown` is default-prevented, so the page scrolled with the
+  //: pointer while d3-zoom panned the board with it: two scrolls of one
+  //: gesture, fighting. `mousedown`, not `pointerdown`: preventing the
+  //: pointer event would also suppress the compatibility mouse event d3-zoom
+  //: listens for and the pan would never start. Reasoned from the browser's
+  //: documented behaviour; this sandbox has no autoscroll to observe.
+  //: Registered in the capture phase and before the zoom behaviour: d3-zoom's
+  //: own mousedown handler stops immediate propagation, so a bubbling
+  //: listener added after it on the same element never runs at all
+  //: (measured: the first version of this, added below `call(wbZoom)`,
+  //: prevented nothing).
+  //: On the window rather than the container: measured with a real press,
+  //: the event's target was a layer over the board and the container's own
+  //: capture listener never saw it, while a synthetic press on the container
+  //: was prevented. Anything inside the boards view counts.
+  window.addEventListener("mousedown", (event) => {
+    if (event.button === 1 && event.target?.closest?.("#library-view-whiteboard")) event.preventDefault();
+  }, true);
   container.call(wbZoom).on("dblclick.zoom", null);
   // Plain wheel pans (Shift+wheel pans sideways); Ctrl/⌘+wheel is left to
   // d3-zoom's own handler by `wbZoomFilter`. `passive: false` so the page

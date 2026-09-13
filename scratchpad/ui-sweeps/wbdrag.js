@@ -5,13 +5,14 @@
 const { boot } = require('./lib.js');
 (async () => {
   const { page, browser } = await boot({});
-  await page.evaluate(() => switchTab('library'));
-  await page.click('#library-subtabs button[data-target="library-view-whiteboard"]');
+  await page.click('[data-tab="library"]');
+  await page.waitForTimeout(800);
+  await page.click('#library-subtabs [data-target="library-view-whiteboard"]');
   await page.waitForTimeout(1500);
   const vis = await page.evaluate(async () => {
     const v = document.getElementById('library-view-whiteboard');
     if (v.classList.contains('hidden') || !v.offsetParent) { for (const s of document.querySelectorAll('[id^="library-view-"]')) s.classList.toggle('hidden', s !== v); }
-    await initWhiteboard(); await fetchWhiteboardState(); await new Promise((r) => setTimeout(r, 500));
+    await initWhiteboard(); wbShowCanvasView(); await fetchWhiteboardState(); await new Promise((r) => setTimeout(r, 400)); await fetchWhiteboardState(); await new Promise((r) => setTimeout(r, 500));
     const c = document.getElementById('whiteboard-container').getBoundingClientRect();
     return { w: Math.round(c.width), h: Math.round(c.height), tool: window.currentTool, board: window.currentBoardId };
   });

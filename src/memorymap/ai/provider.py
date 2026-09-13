@@ -371,10 +371,9 @@ class Provider:
         if not model:
             return None
         try:
-            import importlib
-
             # The same deferred import the ceiling below uses, for the reason
-            # its comment gives at length.
+            # its comment gives at length; `importlib` itself is imported at
+            # module level (CodeQL flagged a redundant local import here).
             deps = importlib.import_module("memorymap.core.deps")
             windows = deps.get_config().get_preference("model_context_windows", {})
         except Exception:  # noqa: BLE001  # a bad preference must not stop a chat

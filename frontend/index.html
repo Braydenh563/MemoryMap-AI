@@ -5978,6 +5978,45 @@
                    discoverable only by trying it. -->
               <dl id="model-spec" class="model-spec hidden"></dl>
               <p id="model-spec-health" class="muted hidden"></p>
+              <!-- The context window, per model, set by hand. Asked for
+                   directly (INBOX 77): "the window itself should be manageable
+                   by the user and auto when set ... a num_ctx preference per
+                   model in Settings > Models with Auto (the model file's
+                   value) or a number, sent on every request".
+
+                   Beside the spec list rather than in a list of its own,
+                   because the spec above is where the window is already
+                   reported: the number you are about to change and the number
+                   it is now belong next to each other. The box edits whichever
+                   chat model is selected, and the app keeps one entry per
+                   model, so switching models switches the box. -->
+              <div class="row align-center" id="model-context-row">
+                <label for="model-context-window">Context window</label>
+                <input type="number" id="model-context-window" min="0" step="1024"
+                  placeholder="Auto" inputmode="numeric"
+                  aria-describedby="model-context-note"
+                  title="Tokens this model is run at. Leave empty for the model file's own value.">
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="model-context-help" aria-controls="model-context-help" aria-expanded="false"
+                  title="About the context window" aria-label="About the context window">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p id="model-context-note" class="muted"></p>
+              <div class="help-body hidden" id="model-context-help" role="dialog" aria-label="About the context window">
+                <p>
+                  The context window is how much of your conversation and notes
+                  the model can hold at once, counted in tokens. Empty means
+                  auto: the app uses what the model file or your server reports.
+                </p>
+                <p>
+                  Set a number when you know better than the file does, for
+                  example when you started llama.cpp with a larger window, or
+                  when you want to hold a big model to a smaller one so it
+                  loads faster and uses less memory. The setting is remembered
+                  per model, so a small model and a large one can differ.
+                </p>
+              </div>
               <div class="row help-head">
                 <h3>Utility model (filing, digest &amp; writing fixes)</h3>
                 <button type="button" class="icon-only ghost small graph-help-toggle"

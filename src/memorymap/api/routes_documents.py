@@ -20,7 +20,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import drafter, vision_ocr
-from memorymap.core import deps, docview, filetypes
+from memorymap.core import deps, docexport, docview, filetypes
 from memorymap.core.database import (
     LIKE_ESCAPE,
     Bookmark,
@@ -930,7 +930,13 @@ def export_markdown(
     document = _existing(session, document_id)
     kind = filetypes.get(document.file_type)
     if kind.ext == "md":
-        body = f"# {document.title}\n\n{document.content}"
+        #: A comment leaves as a footnote (DOCUMENTS_PLAN Phase 5 item 1): the
+        #: remarks in `==words== %%about them%%` are part of the work, and a
+        #: download that dropped them would be the one copy of this document
+        #: that silently says less than the editor does. Markdown only, for the
+        #: same reason the `# Title` preamble is markdown only: `%%` is not a
+        #: comment in python, so in a code file it is text somebody typed.
+        body = f"# {document.title}\n\n{docexport.comments_to_footnotes(document.content or '')}"
         media_type = "text/markdown; charset=utf-8"
     else:
         body = document.content

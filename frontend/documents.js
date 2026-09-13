@@ -4379,6 +4379,217 @@ function docRevealBlock(blockId) {
 }
 
 // =============================================================================
+// Comments and annotations (DOCUMENTS_PLAN Phase 5 item 1)
+// =============================================================================
+//
+// **The syntax is two constructs this editor already wrote, joined.**
+// `==highlighted text==` has rendered as a highlight since Phase 2 and
+// `%%a note to self%%` has been in the Insert menu just as long, kept in the
+// file and never rendered. A comment is the pair: the highlight says *which
+// words* and the `%%…%%` immediately after it says *what about them*. Nothing
+// new goes into the file, so a document written here still opens in Obsidian
+// (same two constructs, same meaning) and a document written there arrives
+// with its comments already understood.
+//
+// **A bare `%%…%%` is still a comment**, on the line it sits in rather than on
+// a span of words: that is what the Insert menu has always inserted, and a
+// feature that made yesterday's notes to self invisible to the panel listing
+// comments would be a feature that lost them.
+//
+// **Resolving removes the comment from the document**, and unwraps the
+// highlight it was attached to, leaving the words themselves. The alternative
+// (a resolved marker left in the text) was considered and refused: it is a
+// second state to render, a second thing for Live and Read to agree about, and
+// a file whose `%%` spans mean two different things depending on a flag
+// somewhere else. What makes removal safe here is that this editor already
+// keeps every version of a document (`/documents/{id}/revisions`) and the
+// engine's own undo covers the keystroke, so a resolve is recoverable twice
+// over.
+//
+// **In an export, a comment becomes a footnote** (`docCommentFootnotes`), so a
+// PDF handed to somebody carries the remarks rather than dropping them. In
+// Read and Split they are hidden: the document as it reads is the document
+// without the margin notes in it.
+//
+// The model is pure string work with no DOM and no app globals, so
+// `tests/test_doc_comments.py` runs it in node, the same way the table,
+// frontmatter, columns and block-reference models are tested. The footnote
+// conversion exists twice, here and in `src/memorymap/core/docexport.py`
+// (the server exports cannot call into this file), and that test runs both
+// over one fixture and asserts the two agree byte for byte.
+
+// DOC-COMMENT-BEGIN
+
+//: Where a `%%…%%` is not a comment: inside a fence or inline code it is an
+//: example of the syntax, and in frontmatter it is a property's value. The
+//: three patterns are the subset of `DOC_PROSE_SKIP` that applies (an address
+//: or a link destination cannot contain a `%%` pair and a wiki link has its
+//: own brackets), repeated here rather than shared because everything between
+//: these markers has to run in node with nothing else loaded.
+const DOC_COMMENT_SKIP = [
+  /(^|\n)[ \t]*(```|~~~)[^\n]*\n[\s\S]*?(\n[ \t]*\2[^\n]*|$)/g, // fenced code
+  /`[^`\n]+`/g, // inline code
+  /^---\n[\s\S]*?\n---/g, // frontmatter
+];
+
+function docCommentSkipMask(text) {
+  const mask = new Uint8Array(text.length);
+  for (const source of DOC_COMMENT_SKIP) {
+    //: A fresh regex per pass: these carry `g`, and `lastIndex` survives on a
+    //: shared object, which silently skips half the document on every second
+    //: call. The same note is on `docProseSkipMask`, for the same reason.
+    const pattern = new RegExp(source.source, source.flags);
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      if (!match[0].length) {
+        pattern.lastIndex += 1;
+        continue;
+      }
+      mask.fill(1, match.index, match.index + match[0].length);
+    }
+  }
+  return mask;
+}
+
+//: One line only, on purpose. A comment is a remark, Obsidian's multi-line
+//: `%%` block is a way of commenting *out* a passage, and a replace decoration
+//: that contains a line break is one CodeMirror throws on (the same constraint
+//: the math renderer records). A comment long enough to need two lines is a
+//: note, and this app has notes.
+const DOC_COMMENT_RE = /%%([^\n]*?)%%/g;
+
+//: The highlight a comment is attached to, matched at the end of the text in
+//: front of it. `[^=\n]` rather than `[\s\S]` so `==a== and ==b== %%note%%`
+//: attaches to `==b==` and not to the whole sentence.
+const DOC_COMMENT_TARGET_RE = /==([^=\n]{1,400})==$/;
+
+//: Every comment in a document, in document order, each with the span of the
+//: comment itself, the span of the words it is about, and the span a reader
+//: should be shown (`anchorFrom`..`anchorTo`, which is the pair together).
+//: The spans are what let the panel jump to a comment and resolve it without
+//: searching for its text again, which would find the wrong occurrence in a
+//: document that says the same thing twice.
+function docCommentsParse(text) {
+  const body = typeof text === "string" ? text : "";
+  if (!body) return [];
+  const skip = docCommentSkipMask(body);
+  const out = [];
+  const pattern = new RegExp(DOC_COMMENT_RE.source, DOC_COMMENT_RE.flags);
+  let match;
+  let line = 1;
+  let scanned = 0;
+  while ((match = pattern.exec(body)) !== null) {
+    const from = match.index;
+    const to = from + match[0].length;
+    if (skip[from] === 1) continue;
+    const note = match[1].trim();
+    //: `%%%%` is a typo, not an empty remark, and a comment with nothing in it
+    //: would draw a row in the panel that says nothing at all.
+    if (!note) continue;
+    //: Lines counted forward from where the last match left off rather than by
+    //: splitting the document per comment: a 20,000-word document with forty
+    //: comments in it would otherwise walk the whole text forty times.
+    for (let at = scanned; at < from; at += 1) if (body[at] === "\n") line += 1;
+    scanned = from;
+    const head = body.slice(0, from).replace(/[ \t]$/, "");
+    const gap = from - head.length;
+    const mark = DOC_COMMENT_TARGET_RE.exec(head);
+    //: At most one space between the words and the remark about them. Two, or
+    //: a line break, and they are two separate things that happen to be near
+    //: each other, which is what the bare form is for.
+    const anchored = mark && gap <= 1;
+    out.push({
+      id: `c${from}`,
+      from,
+      to,
+      body: note,
+      target: anchored ? mark[1] : "",
+      targetFrom: anchored ? head.length - mark[0].length : from,
+      targetTo: anchored ? head.length : from,
+      anchorFrom: anchored ? head.length - mark[0].length : from,
+      anchorTo: to,
+      line,
+    });
+  }
+  return out;
+}
+
+//: The one edit that resolves a comment: the remark goes, the highlight's
+//: markers go with it, and the words stay. Returned rather than applied so
+//: both surfaces can dispatch it through their own history (the engine's
+//: `replaceRange`, the fallback textarea's `docReplaceRange`) and Ctrl+Z
+//: therefore puts it back.
+function docCommentResolveEdit(text, comment) {
+  const body = typeof text === "string" ? text : "";
+  if (!comment) return null;
+  const keep = comment.target || "";
+  let from = keep ? comment.targetFrom : comment.from;
+  let to = comment.to;
+  //: The space the remark was written after it belongs to the remark. Left
+  //: behind it reads as a typo in the sentence the comment was about, which is
+  //: the one thing a resolve must not do to a finished passage.
+  if (!keep && body[from - 1] === " ") from -= 1;
+  else if (!keep && body[to] === " ") to += 1;
+  const lineStart = body.lastIndexOf("\n", Math.max(0, from - 1)) + 1;
+  const lineBreak = body.indexOf("\n", to);
+  const lineEnd = lineBreak === -1 ? body.length : lineBreak;
+  //: A line that was nothing but a comment goes whole, newline included:
+  //: otherwise resolving the last remark in a document leaves a blank line
+  //: that renders as a paragraph break nobody wrote.
+  if (!keep && !body.slice(lineStart, from).trim() && !body.slice(to, lineEnd).trim()) {
+    return { from: lineStart, to: Math.min(lineEnd + 1, body.length), insert: "" };
+  }
+  return { from, to, insert: keep };
+}
+
+//: The document without its remarks: what Read and Split show, and what the
+//: word count has always counted (a comment is not prose you wrote for a
+//: reader). The highlights stay, because a highlight is something the author
+//: did to their own text and renders as one.
+function docCommentStrip(text) {
+  const body = typeof text === "string" ? text : "";
+  if (!body) return "";
+  const comments = docCommentsParse(body);
+  let out = body;
+  //: Backwards, so every span is still at the offset it was parsed at.
+  for (let index = comments.length - 1; index >= 0; index -= 1) {
+    const edit = docCommentResolveEdit(out, { ...comments[index], target: "" });
+    out = out.slice(0, edit.from) + edit.insert + out.slice(edit.to);
+  }
+  return out;
+}
+
+//: The document with its remarks as footnotes: what an export carries.
+//: `[^c1]` where the remark was, the remark itself in a definition block at
+//: the foot, in the markdown every renderer this app's exports pass through
+//: already understands (`docNextFootnote` writes the same shape by hand).
+//:
+//: The prefix is a parameter because a document may already have footnotes of
+//: its own; `c1` collides with nothing a person writes, and the caller can
+//: pass something else if it ever does.
+function docCommentFootnotes(text, prefix = "c") {
+  const body = typeof text === "string" ? text : "";
+  if (!body) return "";
+  const comments = docCommentsParse(body);
+  if (!comments.length) return body;
+  let out = body;
+  const notes = [];
+  for (let index = comments.length - 1; index >= 0; index -= 1) {
+    const comment = comments[index];
+    const label = `${prefix}${index + 1}`;
+    notes.unshift(`[^${label}]: ${comment.body}`);
+    //: The reference replaces the remark and nothing else: the highlight in
+    //: front of it stays highlighted, so the footnote marker sits against the
+    //: words it is about rather than at the end of the sentence.
+    out = `${out.slice(0, comment.from)}[^${label}]${out.slice(comment.to)}`;
+  }
+  const tail = out.endsWith("\n") ? "" : "\n";
+  return `${out}${tail}\n${notes.join("\n")}\n`;
+}
+
+// DOC-COMMENT-END
+
+// =============================================================================
 // Math: a small TeX subset rendered as MathML (DOCUMENTS_PLAN Phase 3 item 2)
 // =============================================================================
 //

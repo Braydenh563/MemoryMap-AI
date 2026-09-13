@@ -74,6 +74,21 @@ measured or built in earlier commits and is marked there.
 
 ## Open items
 
+210. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the
+    background art.** "oh! can you fix the aurora flowing ribbons
+    animation?? it needs refining and fixing, the trails never end and the
+    trails get reset by the rotating middle graphic. I like the waves graphic
+    and the constelations one isnt bad either but the others could do with
+    some improvements." The styles live in `frontend/settings.js`
+    (`startBgArt`, one `style.frame(t)` per name) and the dashboard's copy in
+    `dashboard.js`. Aurora: the translucent wash never clears a trail fully
+    (the alpha floor leaves a residue), and the emblem's redraw clears a
+    rectangle through it. Fix: a fade that reaches the ground within N
+    frames (measure the pixel after the ribbon has passed with
+    `pngpixel.py`), and the emblem drawn on its own canvas layer above the
+    art rather than clearing into it. Then a pass over each style but waves
+    and constellations. Owner: orchestrator, then an agent.
+
 209. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the whole
     application.** "ok fable, I want to make the most of you now, I need you
     to poke holes in this application, find weakness, find poor backend

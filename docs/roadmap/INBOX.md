@@ -66,6 +66,21 @@ measured or built in earlier commits and is marked there.
 
     Six things, and they are not one fix:
     - the marquee (drag on empty canvas to select) does not select;
+      **found and fixed, 2026-09-13.** Every connector carries a transparent
+      20px hit band so it can be clicked, that band is inside a
+      `.sketch-group`, and `wbIsEmptyCanvasTarget` reads any sketch group as
+      "this gesture belongs to something", so a rubber-band drag begun
+      anywhere near a connector never started. On a board whose links sweep
+      across the middle, which is where a person starts such a drag, that is
+      most of the canvas. A link is canvas for this test now (it cannot be
+      dragged by its body in any case), and the rectangle and its pointer
+      capture are taken on the first real movement rather than on the press,
+      because a capture re-targets the click and a connector would otherwise
+      have stopped being clickable. Measured (`scratchpad/ui-sweeps/marqlink.js`):
+      before, the point over a connector reported `blocked=sketch-group` and
+      the drag selected nothing; now it reports empty canvas, the drag selects
+      the object it swept, no stray rectangle is left, and a plain click on
+      the connector still selects the connector;
     - reconnecting something that has come adrift on a map is not possible
       in practice;
     - a map's connections should not look or behave like a board's;

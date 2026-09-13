@@ -64,6 +64,12 @@ below). Versioning is `0.x` while the app stabilises.
   0px horizontally and 4px below the word after the scroll, closed after the
   word leaves the box.
 
+- Drag-select on a whiteboard or mind map works where the connectors are. Every
+  link carries a wide invisible band so it can be clicked, and a rubber-band
+  drag that began anywhere on that band did nothing at all, which on a board
+  whose links cross the middle is most of the canvas. A connector no longer
+  swallows the gesture, and clicking one still selects it.
+
 - A picture card in the Library shows its selection tick when you are near it,
   not on every card all the time. The tick keeps the ground that makes it
   legible over a dark photograph, and stays visible on a card you have ticked,

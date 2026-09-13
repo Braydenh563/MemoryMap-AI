@@ -9842,8 +9842,13 @@ async function initWhiteboard() {
   // families cannot cancel each other, so the target check is the only place
   // this can be fixed.
   function wbIsEmptyCanvasTarget(target) {
+    // `.sketch-group:not(.wb-link-sketch)`: see the class's own note in the
+    // sketch render. A drawn shape claims the gesture (it can be moved by its
+    // body); a link cannot be, and its 20px hit band was swallowing the
+    // marquee wherever a connector crossed the canvas.
     return !target.closest?.(
-      ".node-card, .sketch-group, .wb-object, .wb-sketch-handle-group, .wb-resize-handle",
+      ".node-card, .sketch-group:not(.wb-link-sketch), .wb-object,"
+      + " .wb-sketch-handle-group, .wb-resize-handle",
     );
   }
   function rectsIntersect(ax, ay, aw, ah, bx, by, bw, bh) {
@@ -9872,13 +9877,17 @@ async function initWhiteboard() {
     // the reference to the first rect and left it on the canvas forever.
     wbEndMarqueeDrag();
     const [x, y] = getLogicalMouse(e);
-    wbMarqueeStart = { x, y, shiftKey: e.shiftKey, pointerId: e.pointerId };
-    wbMarqueeEl = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-    wbMarqueeEl.setAttribute("class", "wb-marquee");
-    wbMarqueeEl.setAttribute("x", x);
-    wbMarqueeEl.setAttribute("y", y);
-    wbMarqueeEl.setAttribute("width", 0);
-    wbMarqueeEl.setAttribute("height", 0);
+    //: **Nothing is claimed until the pointer actually travels.** The
+    //: rectangle and the pointer capture used to be taken here, on the press,
+    //: and a capture re-targets the compatibility `click` at the capturing
+    //: element: harmless while this only ever began over bare canvas, fatal
+    //: the moment it also begins over a link (see `wbIsEmptyCanvasTarget`),
+    //: because the link's own click, which is what selects it, was delivered
+    //: to the container instead and a connector could no longer be clicked.
+    //: Deferring both to the first real movement keeps the press a press: a
+    //: click reaches whatever was under it, and a drag is still a drag from
+    //: the point it started at.
+    wbMarqueeStart = { x, y, shiftKey: e.shiftKey, pointerId: e.pointerId, pending: true };
     //: **The overlay layer, above the cards.** INBOX 84: "whiteboard
     //: rectangle selection draws behind objects." `#wb-zoom-group` lives in
     //: `#wb-svg-layer`, which is *under* `#wb-html-layer` by DOM order, on
@@ -9887,21 +9896,39 @@ async function initWhiteboard() {
     //: hidden behind the very things it is selecting says nothing. The lasso
     //: has always gone to `#wb-overlay-zoom-group` for exactly this reason
     //: (see its own append below); the rectangle never did.
+  });
+  //: The rectangle itself, made on the first movement past the threshold the
+  //: completed gesture is judged by anyway. Split out so both the press and
+  //: the move can read it.
+  function wbBeginMarqueeRect(pointerId) {
+    wbMarqueeEl = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    wbMarqueeEl.setAttribute("class", "wb-marquee");
+    wbMarqueeEl.setAttribute("x", wbMarqueeStart.x);
+    wbMarqueeEl.setAttribute("y", wbMarqueeStart.y);
+    wbMarqueeEl.setAttribute("width", 0);
+    wbMarqueeEl.setAttribute("height", 0);
     document.getElementById("wb-overlay-zoom-group").appendChild(wbMarqueeEl);
     // **The capture is the fix.** Without it every pointermove and pointerup
     // outside the container went to whatever element was under the cursor,
     // so a drag that ended over the top bar, over the left rail or off the
     // window simply never finished, and left its rectangle behind.
     try {
-      containerEl.setPointerCapture(e.pointerId);
+      containerEl.setPointerCapture(pointerId);
     } catch (err) {
       // A synthetic pointerdown (a test, an assistive tool) has no real
       // pointer to capture. The window-level listeners below still end it.
     }
-  });
+  }
   window.addEventListener("pointermove", (e) => {
     if (!wbMarqueeStart) return;
     const [x, y] = getLogicalMouse(e);
+    if (wbMarqueeStart.pending) {
+      // The same 4 units the completed gesture is measured against below, so
+      // a press that never becomes a drag draws nothing and claims nothing.
+      if (Math.abs(x - wbMarqueeStart.x) < 4 && Math.abs(y - wbMarqueeStart.y) < 4) return;
+      wbMarqueeStart.pending = false;
+      wbBeginMarqueeRect(wbMarqueeStart.pointerId);
+    }
     const mx = Math.min(wbMarqueeStart.x, x), my = Math.min(wbMarqueeStart.y, y);
     const w = Math.abs(x - wbMarqueeStart.x), h = Math.abs(y - wbMarqueeStart.y);
     wbMarqueeEl.setAttribute("x", mx);
@@ -11612,6 +11639,27 @@ function renderWhiteboard() {
   const crossLinkIds = new Set(
     wbIsMap() ? (window.wbMapState?.crossLinks || []).map((l) => `${l.from_id}:${l.to_id}`) : []
   );
+  //: **A link's body is canvas, as far as starting a selection goes** (INBOX
+  //: 180: "I cant drag highlight to select shapes"). Every link carries a
+  //: transparent 20px hit band so it can be clicked, and that band is inside
+  //: a `.sketch-group`, which `wbIsEmptyCanvasTarget` reads as "something is
+  //: here, this gesture belongs to it". On a board whose connectors sweep
+  //: across the middle, which is where anyone starts a rubber-band drag, the
+  //: marquee therefore refused to begin and the drag did nothing at all.
+  //: Nothing is lost by allowing it: a link cannot be dragged by its body
+  //: (its own drag handler returns immediately, a link has no path data of
+  //: its own to move), and a plain click still selects it, because a gesture
+  //: under the marquee's 4px threshold ends without touching the selection.
+  //: This class is what the test reads; it is set here rather than at enter
+  //: so a sketch reclassified by an edit cannot keep a stale one.
+  sketchUpdate.classed("wb-link-sketch", (d) => {
+    try {
+      return String(JSON.parse(d.data)?.type || "").startsWith("link-");
+    } catch {
+      return false;
+    }
+  });
+
   sketchUpdate.classed("wb-map-crosslink", (d) => {
     if (!crossLinkIds.size) return false;
     let parsed;

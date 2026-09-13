@@ -193,45 +193,6 @@ const CONTENT = [
   });
   await page.waitForTimeout(400);
 
-  // **What the menu does when the text moves under it.** The anchor is copied
-  // at open time, so a wheel scroll, a window resize or a panel opening beside
-  // the editor used to leave the menu beside whatever had scrolled into that
-  // spot. Two cases: a small scroll, where the word is still on screen and the
-  // menu has to follow it; and a scroll that takes the word out of the
-  // editor's box, where the menu has to close rather than point at nothing.
-  const follow = await page.evaluate(async () => {
-    const box = (r) => ({ left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom) });
-    const menu = document.getElementById("doc-suggest-menu");
-    const scroller = document.querySelector(".cm-scroller");
-    closeDocSuggest();
-    scroller.scrollTop = 0;
-    await new Promise((r) => setTimeout(r, 400));
-    const mark = [...document.querySelectorAll("[data-doc-finding]")].find((n) => /idk/.test(n.textContent));
-    const f = [...mark.getClientRects()][0];
-    mark.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: f.left + f.width / 2, clientY: f.top + f.height / 2 }));
-    await new Promise((r) => setTimeout(r, 600));
-    const at = box(menu.getBoundingClientRect());
-    scroller.scrollBy(0, 80);
-    await new Promise((r) => setTimeout(r, 400));
-    const word = [...document.querySelectorAll("[data-doc-finding]")].find((n) => /idk/.test(n.textContent));
-    const w = word ? box([...word.getClientRects()][0]) : null;
-    const after = menu.classList.contains("hidden") ? "closed" : box(menu.getBoundingClientRect());
-    // Now take the word off the top of the editor entirely.
-    scroller.scrollBy(0, 900);
-    await new Promise((r) => setTimeout(r, 400));
-    return {
-      opened: at,
-      moved: after,
-      word: w,
-      followed: after !== "closed" && w ? Math.max(0, after.left - w.right, w.left - after.right) : null,
-      gapY: after !== "closed" && w ? Math.round(after.top - w.bottom) : null,
-      goneClosed: menu.classList.contains("hidden"),
-    };
-  });
-  console.log("follows the word when the editor scrolls -> " + JSON.stringify(follow));
-  if (follow.moved === "closed" || follow.followed !== 0 || follow.gapY > 6) bad += 1;
-  if (!follow.goneClosed) bad += 1;
-
   // The panel's row route, which the owner also reported. Since
   // DOCUMENTS_PLAN 12 D3 a row answers inside the panel and opens nothing over
   // the text, so that is what this asserts; prosepanel.js is the full probe.

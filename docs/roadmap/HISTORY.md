@@ -23888,6 +23888,91 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     `defaultPrevented` true. If it still jitters on the owner's machine, the
     next suspect is the pan itself, profiled as vsync-bound here.
 
+107. **The 0.3.0 blocker list (the owner, 2026-09-09 23:25, verbatim).**
+    "should I leave this pr open until we can finish the rest of the still
+    open and half finished stuff?? otherwise I need to to absolutely make
+    sure that finishing this list of unfinished items and half finishe
+    items in the number one priority, I need them finished, this pr is
+    v0.3.0 and I dont want to merge it if things arent complete... work
+    through these bugs really fast: can you make the live view on
+    documents the default if it isnt already?? also when I click on the
+    plain and line numbers view nothing happens and they dont do anything.
+    note in the redesign documents and where it is supposed to that I want
+    to get rid of and redesign these mini menu bars as they are in a couple
+    popups around the place and they desperately need a modern redesign or
+    alternative, the ai assistant popup blurred background in the documents
+    doesnt reach the full height of the scree, leaving a clear strip at the
+    top and bottom, and the ai history popup goes to the left of the
+    screen, should it be in the middle?? I put in a link to a note in the
+    document, but when I clicked it, it didnt take me to the note and
+    instead a notification showed saying no document by that name exists
+    yet. fix the formatting bar in the documents tab, it is crushed
+    bertically and has a vertical scrollbar. I cant open the reader ai
+    dropdown combobox at the top of the ocr workspace. I scroll to the
+    bottom of the ocr text in the files row in the files subtab, and the
+    whole \"extracted text from this file\" dropdown closes. the same
+    happens when I scroll to the bottom and expand, and click see more the
+    \"text in this image\" dropdown in the images tab. I cant click on the
+    file name header in the files subtab file rows to open the file up in
+    the lightbox or ocr workspace. the view dropdown in the whiteboard
+    opens on top of the top bar, not under it, and it is overly short, the
+    arrange dropdown is also very short, there's no visula feedback when I
+    press ctrl + s in settings. the pckage headers, badges and buttons
+    still get displaced onto separate rows did you make changes to the
+    section between the hero section and the widgets on the dashboard? they
+    look the same..."
+    Screenshots: a bolded run showing literal `**` markers in a document; the
+    Edit/Write/Remove segmented bar; the AI assistant dialog with its
+    backdrop; the AI edit history popover at the left edge; a document with
+    an `Act I, Scene I` link and two identical "No document called ... yet"
+    toasts.
+    **Split, 2026-09-09**: 107a documents (live default, the plain and
+    line-number views, the assistant backdrop, the history popover
+    placement, the note link, the formatting bar) · 107b files and images
+    (the reader combobox, the two dropdowns closing on scroll, the file
+    title click) · 107c the rest (whiteboard View and Arrange, Ctrl+S
+    feedback, the packages row, the dashboard band) · 107d the segmented
+    mini bars, a redesign recorded in DOCUMENTS_PLAN and DESIGN.md.
+    **Status, 2026-09-09 evening.** 107a: five of six closed (`9a2ddf1`),
+    the AI history popover still found-not-fixed. 107b: **done, merged
+    and pushed (`b24836d`)**, all four items closed plus two bonus finds
+    (a select offering a hidden option; focusing a menu's first row
+    scrolling the page enough to close the menu itself).
+    **Status, 2026-09-12.** 107c: three of four closed. The whiteboard View
+    and Arrange menus were capped from the opener's bottom while
+    `placeEscapedMenu` had already moved them higher up the window, so at
+    1440x700 the View menu scrolled 594px of content through a 505px port
+    with 89px of window to spare; it now takes the room under where it
+    actually sits. Ctrl+S in settings never reached the settings-aware code
+    written for it at all, because `shortcuts` carries a `save` binding on the
+    same keys that answers first; it does now, it rings the section's own Save
+    button or the nav button for a section that saves as you change it, and
+    the ring composes with the control's resting shadow instead of replacing
+    it. The dashboard band had not in fact been changed (the redesign
+    dispatched for it landed no commits); its one measurable defect, a
+    Continue pill holding double width for a note line a later rule hid, is
+    fixed. **The packages row** (headers, badges and buttons displaced
+    onto separate rows): **reproduced and fixed 2026-09-13**. In the 880px
+    settings modal the head is 566px; a long name with its badges filled it
+    and Reinstall/Remove (192px) dropped to a second line on 2 of 7 rows at
+    1440 and 4 of 7 at 820 (one on three lines). An earlier rule (INBOX 82,
+    08-consistency.css) assumed the actions were the row's own child and
+    told the head to wrap, which was the cause. The head no longer wraps,
+    the title is the shrinking column, the actions keep their width at the
+    right: buttons below the name on 0 of 7 rows at 1440, 1024 and 820
+    (`scratchpad/ui-sweeps/packages.js`). With that, every part of 107a to
+    107d is closed or measured; the owner's question in this entry (leave
+    the PR open until the rest is finished) was answered by doing so.
+    107d: **done**, recorded in `docs/DESIGN.md` and pointed at from
+    DOCUMENTS_PLAN.md.
+    **The owner's live error, confirmed as this exact fix.** A console
+    trace at `library.js:3291` ("Cannot set properties of null (setting
+    'src')", from `openThisRow`/`ocrOpenSibling`) matched the pre-fix
+    line for line at the previous head. `git pull` plus a server restart
+    is what picks this up; the boot-token cache fix (`dd2d843`) stops the
+    *browser* from serving old code once the server has new code on
+    disk, it does not substitute for actually pulling the branch.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

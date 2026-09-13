@@ -1416,6 +1416,32 @@ header#top-bar.tabs-wrapped #tab-bar {
    -- the badges no longer have to act as the spacer between the two. */
 .extras-row .entry-meta {
   gap: var(--space-3);
+  /* **The buttons never leave the title's line** (INBOX 107c, "the packages
+     row: headers, badges and buttons displaced onto separate rows").
+     Measured in an 880px settings modal at 1440: the head is 566px, a long
+     name with two badges filled it, and Reinstall/Remove (192px) dropped to
+     a second line; at 820 the "Search by meaning" row ran to three lines,
+     name, badges, buttons. The head no longer wraps: the title is the
+     shrinking column (its own name and chips wrap inside it) and the
+     actions keep their width at the right edge, so every row's buttons sit
+     on its first line whatever the name's length. */
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+
+.extras-row .entry-title {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.extras-row .entry-actions {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 /* The name and its "Installed"/"Not ready yet" chip are one flex item, not

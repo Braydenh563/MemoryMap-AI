@@ -119,6 +119,10 @@ below). Versioning is `0.x` while the app stabilises.
   on a large board).
 - Middle-button panning on the whiteboard fought the browser's own
   autoscroll on Windows; the press is now the pan and nothing else.
+- Settings > Packages rows keep their buttons beside the name. A long
+  package name with its badges pushed Reinstall and Remove onto a second
+  line (and one row onto three); the name wraps now and the buttons stay
+  on its first line at every width.
 
 - The lock screen could fail to appear on a slow first start. The embedding
   warm-up began importing torch the instant the server was up, and that import

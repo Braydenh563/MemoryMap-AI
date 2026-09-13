@@ -2634,8 +2634,18 @@
           <!-- Floats over the canvas, bottom-right. Inside #graph-box rather
                than beside it so it moves with the map in fullscreen too. -->
           <div id="graph-minimap" class="graph-minimap" aria-hidden="true">
-            <svg id="graph-minimap-svg" viewBox="0 0 168 112" width="168" height="112">
+            <!-- Four layers, bottom to top, and the order is the whole of why
+                 they are separate groups: the links are the shape of the map
+                 and belong under the notes, the ring marking the note in hand
+                 has to sit over its own dot rather than under it, and the
+                 viewport rectangle is a lid over all three. Each group is
+                 replaced on its own, so a pan repaints none of them (see
+                 `graphMinimapFrame` in graph.js). -->
+            <svg id="graph-minimap-svg" viewBox="0 0 168 112" width="168" height="112"
+              title="Drag to move around the map, scroll to zoom">
+              <g id="graph-minimap-edges"></g>
               <g id="graph-minimap-dots"></g>
+              <g id="graph-minimap-here"></g>
               <rect id="graph-minimap-frame" class="graph-minimap-frame"
                 x="0" y="0" width="0" height="0"></rect>
             </svg>

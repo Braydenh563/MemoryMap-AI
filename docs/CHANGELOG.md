@@ -9,6 +9,24 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- An AI edit arrives as a change you can take apart. The assistant's answer is
+  shown as a diff against what it was asked to rewrite, one head per change,
+  and any change can be skipped: skipping puts the old lines back rather than
+  dropping them, and the text under the diff is always exactly what accepting
+  would apply. Editing that text by hand rebuilds the diff against the same
+  target. A pure insertion ("write") draws no diff, because a diff of an
+  insertion is the insertion. Measured with
+  `scratchpad/ui-sweeps/docaidiff.js`: a two-change proposal draws two heads,
+  skipping the second restores its original line in the answer and dims its two
+  rows to 0.45, and putting it back restores the answer exactly.
+
+- The bar down a mind map topic's edge is now the topic's own choice. The
+  strip has a picker beside the shape: solid, dashed or no bar. The bar is what
+  carries the branch's colour, so quieting it on a topic lets a dense map read
+  as text rather than as a wall of colour, and a dashed one says "this one is
+  provisional" without a second control. On a map that grows downward the
+  choice moves to the top edge with the bar itself.
+
 - The document history says what changed, not just when. Any version in a
   document's history opens a diff in its own row now: the lines it added and
   the lines it lost, in the app's two diff colours, with the untouched runs

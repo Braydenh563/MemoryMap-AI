@@ -540,8 +540,16 @@ candidates. Placed here:
   `/whiteboard/boards/<id>/tree` keeps `core` (the `WhiteboardObjectData`
   drop trap). The strip is 540px in a 1408px canvas at 1440 and wraps to
   348x102 in 364px at 390.
-- **Per-node left edge**: solid, dashed or none, saved in the node's
-  `style` blob beside the fields `MAP_STYLE_FIELDS` already carries.
+- **Per-node left edge**: built. The strip's second picker writes `spine`
+  (`dashed`, `none`, absent for solid). Measured,
+  `scratchpad/ui-sweeps/mapspine.js`, 9/9 at 1440 light, 1440 dark and
+  390x844: 4px solid to 4px dashed to a 1px hairline at the same 55% alpha
+  the other three sides carry, the label moving 3px with it; the choice beats
+  a core node's 6px bar (6px to 1px) and the node stays core; a plain topic,
+  whose box is transparent on purpose, is untouched (4px, label at the same
+  x); downward the choice is on the top edge instead. A server restart was
+  needed for the round trip to pass: the field is dropped by a stale process,
+  which is the `WhiteboardObjectData` trap wearing its other hat.
 - **Connection line styles**: per-branch thickness, dash and arrowhead,
   managed from the map strip rather than by one global rule.
 - **Resize a topic**: built, commit `3c9b874`. Measured,

@@ -211,6 +211,12 @@ class WhiteboardObjectData(BaseModel):
     #: both XML exports can write: the node draws heavier and says "start
     #: here", and a map that loses the flag still has every node it had.
     core: bool | None = None
+    #: **The bar down a topic's leading edge** (MINDMAP_PLAN.md item 177:
+    #: "per-node left edge: solid, dashed or none"). Two values, because the
+    #: third is the absence of the field: a map drawn before this existed and
+    #: one whose topic was set back to solid are the same map, and neither
+    #: should carry the field into an export.
+    spine: str | None = Field(default=None, pattern="^(dashed|none)$")
     #: Where a topic points. Held to the three schemes a link on a page may
     #: safely have: `javascript:` and `data:` are the two this rejects by
     #: existing, and the frontend's own `wbMapOpenLink` refuses anything else
@@ -2291,6 +2297,7 @@ MAP_STYLE_FIELDS = (
     "align",
     "shape",
     "core",
+    "spine",
     "icon",
     "link",
     "edge_label",
@@ -2812,6 +2819,7 @@ _FREEMIND_PRIVATE = {
     #: makes it come back as itself.
     "shape": "_shape",
     "core": "_core",
+    "spine": "_spine",
     "icon": "_icon",
     "edge_label": "_edge_label",
     "edge_dashed": "_edge_dashed",
@@ -2825,6 +2833,7 @@ _FREEMIND_PRIVATE = {
 _OPML_PRIVATE = {
     "shape": "_shape",
     "core": "_core",
+    "spine": "_spine",
     "bold": "_bold",
     "italic": "_italic",
     "font_size": "_font_size",

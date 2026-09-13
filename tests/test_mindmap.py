@@ -672,6 +672,7 @@ MAP_STYLE = {
     "align": "center",
     "shape": "pill",
     "core": True,
+    "spine": "dashed",
     "icon": "lightbulb",
     "link": "https://example.org/paper",
     "edge_label": "because",
@@ -750,6 +751,7 @@ def test_freemind_carries_a_styled_node_out_and_back(client):
     # And the four it does not, as private attributes rather than as invented
     # FreeMind that another reader would choke on.
     assert '_core="true"' in exported
+    assert '_spine="dashed"' in exported
     assert '_icon="lightbulb"' in exported
     assert '_edge_label="because"' in exported
     assert '_edge_dashed="true"' in exported
@@ -827,6 +829,40 @@ def test_a_core_idea_can_be_an_ellipse(client):
         },
     )
     assert refused.status_code == 422
+
+
+def test_the_bar_on_a_topics_edge_is_kept_and_is_a_closed_set(client):
+    """MINDMAP_PLAN.md item 177: "per-node left edge: solid, dashed or none".
+
+    The check that matters is the round trip, not the 200: `WhiteboardObjectData`
+    drops any field it does not name, so a `spine` the schema had not declared
+    would have saved without complaint and come back missing, which is exactly
+    what made an earlier toggle look like a frontend bug.
+    """
+    board = _map(client, name="Spine")
+    node = _node(client, board["id"], text="A quiet topic")
+    put = lambda data: client.put(  # noqa: E731 - one line, read three times below
+        f"/whiteboard/objects/{node['id']}",
+        json={
+            "kind": node["kind"],
+            "board_id": board["id"],
+            "data": {**node["data"], **data},
+            "x": node["x"],
+            "y": node["y"],
+            "z": node["z"],
+        },
+    )
+    for value in ("dashed", "none"):
+        assert put({"spine": value}).status_code == 200
+        root = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]
+        assert root["style"]["spine"] == value
+
+    # Solid is the absence of the field, so nothing pins a map to today's
+    # stylesheet, and a value nothing draws is refused rather than stored.
+    assert put({"spine": None}).status_code == 200
+    root = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"][0]
+    assert "spine" not in root["style"]
+    assert put({"spine": "dotted"}).status_code == 422
 
 
 def test_a_topic_with_no_box_is_freeminds_own_fork_node(client):

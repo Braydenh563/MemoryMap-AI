@@ -8803,6 +8803,46 @@ input[type="file"] {
   border-top: 4px solid var(--wb-branch);
 }
 
+/* **The bar itself, per topic** (MINDMAP_PLAN.md item 177, "per-node left
+   edge: solid, dashed or none"). The spine is the strongest thing a node
+   wears, and on a dense map of one colour it is also the loudest: a person
+   who wants the boxes to recede needs to be able to quiet it on the topic
+   rather than only on the whole board.
+
+   Placed after the core and the downward rules on purpose. All three write
+   the same edge at the same specificity, so source order decides, and the
+   explicit choice must win over the weight a mark gave it: a core node whose
+   bar is set to none is still core, in its type, its outline and its ring.
+
+   `:not([data-shape="none"])` because a plain topic has no box at all
+   (`border-color: transparent` above): a colour written here would paint an
+   edge back on the one shape whose whole point is not having one, and the
+   width would move its label by the 2.5px that rule keeps still. */
+.wb-map-node[data-spine="dashed"]:not([data-shape="none"]) {
+  border-left-style: dashed;
+}
+
+.wb-map-node[data-spine="none"]:not([data-shape="none"]) {
+  /* Not `border-left: none`: the node's own comment says the layout, the edge
+     anchors and the ring's centring all measure this box, so the bar becomes
+     the same hairline the other three sides are rather than disappearing. */
+  border-left-width: 1.5px;
+  border-left-color: color-mix(in srgb, var(--wb-branch-edge) 55%, transparent);
+}
+
+/* Downward, where the bar is the top edge (see above), the choice has to move
+   with it: the left edge goes back to the hairline it is in that layout and
+   the top carries the dash or the quiet. */
+.wb-map-down .wb-map-node[data-spine="dashed"]:not([data-shape="none"]) {
+  border-left-style: solid;
+  border-top-style: dashed;
+}
+
+.wb-map-down .wb-map-node[data-spine="none"]:not([data-shape="none"]) {
+  border-top-width: 1.5px;
+  border-top-color: color-mix(in srgb, var(--wb-branch-edge) 55%, transparent);
+}
+
 .wb-map-node-body {
   display: flex;
   align-items: center;

@@ -4962,6 +4962,17 @@
         <option value="ellipse">Ellipse</option>
         <option value="none">Plain</option>
       </select>
+      <!-- **The bar down the topic's edge** (MINDMAP_PLAN.md item 177,
+           "per-node left edge: solid, dashed or none"). Beside the shape
+           because it is the other half of how a topic is drawn: the shape is
+           the box, this is the one edge of it that carries the branch's
+           colour. A select rather than a toggle because there are three
+           values and a three-state button is a button nobody can read. -->
+      <select id="wb-map-spine" class="ghost small" aria-label="The bar on this topic's edge" title="The bar that carries the branch colour down this topic's edge">
+        <option value="">Solid bar</option>
+        <option value="dashed">Dashed bar</option>
+        <option value="none">No bar</option>
+      </select>
     </div>
 
     <!-- **The node radial** (MINDMAP_PLAN.md §12.1 item 3, Coggle's own

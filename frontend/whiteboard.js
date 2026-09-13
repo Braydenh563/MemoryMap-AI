@@ -3786,6 +3786,11 @@ function wbPaintMapNodeStyle(node, d) {
   //: unset shape is the rounded card this map has always drawn.
   if (data.shape) node.dataset.shape = data.shape;
   else delete node.dataset.shape;
+  //: The bar down the node's leading edge (MINDMAP_PLAN.md item 177), an
+  //: attribute for the same reason the shape is: three exclusive values, and
+  //: an unset one is the solid bar every map has always drawn.
+  if (data.spine) node.dataset.spine = data.spine;
+  else delete node.dataset.spine;
   if (data.align) node.dataset.align = data.align;
   else delete node.dataset.align;
   // Px through CSSOM, which is what a text box's own `font_size` already
@@ -5435,6 +5440,7 @@ function wbSyncMapStrip(node) {
     setSelect("wb-map-align", data.align || "");
     setSelect("wb-map-strip-icon", data.icon || "");
     setSelect("wb-map-shape", data.shape || "");
+    setSelect("wb-map-spine", data.spine || "");
     const link = document.getElementById("wb-map-strip-link");
     if (link) {
       const has = Boolean(data.link);
@@ -5835,7 +5841,7 @@ const WB_MAP_COPY_MAX = 120;
 //: quietly loses its colour.
 const WB_MAP_STYLE_KEYS = [
   "color", "bold", "italic", "font_size", "align", "icon", "link", "edge_label",
-  "shape", "core",
+  "shape", "core", "spine",
 ];
 
 //: Remove this topic and keep its branch: the children move up to its parent
@@ -8502,6 +8508,14 @@ async function initWhiteboard() {
     // stores no font size: a map made before shapes existed and one somebody
     // set back to rounded are the same map, and neither should carry a field.
     if (node) wbMapSetNodeStyle(node, { shape: e.target.value || null });
+  });
+  //: The bar on the node's edge (item 177). Same empty-is-the-default rule as
+  //: the shape above it: solid is what a map has always drawn, so choosing it
+  //: stores nothing rather than pinning the node to today's stylesheet.
+  $("wb-map-spine")?.addEventListener("change", (e) => {
+    if (wbMapStripSyncing) return;
+    const node = wbSelectedMapNode();
+    if (node) wbMapSetNodeStyle(node, { spine: e.target.value || null });
   });
   $("wb-map-strip-color")?.addEventListener("change", async (e) => {
     const node = wbSelectedMapNode();

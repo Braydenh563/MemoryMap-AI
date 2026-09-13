@@ -380,6 +380,38 @@ def _optimization_pass(started: float) -> None:
             except Exception as exc:
                 logger.error("stale/orphaned review failed: %s", exc, exc_info=True)
 
+        # The night shift's derived facts (WORLD_CLASS_PLAN 15, I1 and I9).
+        # A fourth task here rather than a second scheduler: this module
+        # already owns the interval, the battery guard above, the cancel and
+        # snooze protocol and the `system:librarian` attribution, and every
+        # one of those would need a second answer beside it otherwise.
+        # Its own switch is `learn.night_shift.enabled` (read by `facts.run`),
+        # which is what Settings shows; getting this far already means
+        # `autonomous_tasks_enabled` is on, so nothing here runs unattended
+        # unless the person said it could.
+        try:
+            from memorymap.ai import facts
+
+            db = deps.get_db()
+            with db.session() as session:
+                outcome = facts.run(
+                    session,
+                    budget=int(config.get_preference("night_shift_budget_tokens", 20_000) or 20_000),
+                    provider=deps.get_ollama(),
+                    model=deps.get_model_manager().utility_model(),
+                    config=config,
+                )
+                session.commit()
+            if outcome.get("derived"):
+                logger.info(
+                    "night shift: %d fact(s) from %d note(s), stopped: %s",
+                    outcome["derived"],
+                    outcome["scanned"],
+                    outcome["stopped_reason"],
+                )
+        except Exception as exc:  # noqa: BLE001  # top of a worker thread
+            logger.error("night shift failed: %s", exc, exc_info=True)
+
         if _cancel.is_set():
             logger.info("stopped before the agent pass, someone quit this pass")
             return

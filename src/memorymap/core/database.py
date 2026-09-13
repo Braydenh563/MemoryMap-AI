@@ -810,6 +810,62 @@ class NoteScore(Base, WorkspaceMixin):
     computed_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class DerivedFact(Base):
+    """One thing the app worked out about a note, rather than something the
+    person wrote (WORLD_CLASS_PLAN 15, I1 and I9).
+
+    **Why this gets a table when corrections did not.** `ai/learning.py`
+    keeps corrections in `AuditLog`, and its docstring says why: one store
+    already existed with the index, retention and compaction a second would
+    need again. A derived fact is the opposite case. It carries a span into
+    the note it came from, the model that produced it, a confidence, and a
+    lifecycle (edited, deleted, reset) that a log of things that happened has
+    no room for and should not grow: an audit row is a fact about the past
+    and is never edited, and every column below exists to be edited.
+
+    **The lifecycle is the whole feature**, so it is worth naming what each
+    column is for rather than leaving it to be inferred:
+
+    - `edited_by_user` plus `original_text`: the person's correction wins over
+      every later run, and "reset to what the model said" needs the model's
+      own words kept beside it. A run never overwrites a row with this set.
+    - `deleted_at`: a tombstone rather than a `DELETE`, because a deleted fact
+      must not be re-derived by the next run, and the only way to know that a
+      second time is to remember the first. `learning.record(kind=
+      "delete_fact")` is written at the same moment, which is the half the
+      corrections loop learns from; this half is what stops the re-derivation.
+    - `span_start`/`span_end`: offsets into the note's content as it was read,
+      carried out of the derivation rather than re-found afterwards. Re-finding
+      a sentence in a note that contains it twice lands on the wrong one, and
+      a span that does not point at its own text is a provenance claim the app
+      cannot keep.
+
+    Not workspace-scoped: every row points at an entry, and `Entry` carries
+    `WorkspaceMixin`, so the listing joins the note and inherits the filter
+    (and the private and binned filters with it) instead of keeping a second
+    copy of the answer that can disagree with the first.
+    """
+
+    __tablename__ = "derived_facts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"), index=True)
+    #: `claim` or `question` today; `tension`, `duplicate`, `entity` and
+    #: `date` are the kinds I1's later passes add to the same table.
+    kind: Mapped[str] = mapped_column(String(20), index=True)
+    text: Mapped[str] = mapped_column(Text)
+    span_start: Mapped[int] = mapped_column(Integer, default=0)
+    span_end: Mapped[int] = mapped_column(Integer, default=0)
+    #: Which model decided this, or `local` when the pass needed none. Never
+    #: empty: "who said this" is the first question anyone asks of a derived
+    #: row, and a blank answer is worse than an honest "no model was involved".
+    model: Mapped[str] = mapped_column(String(80), default="local")
+    confidence: Mapped[float] = mapped_column(Float, default=0.0)
+    computed_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    edited_by_user: Mapped[bool] = mapped_column(Boolean, default=False)
+    original_text: Mapped[str | None] = mapped_column(Text, default=None)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+
 class EntryRevision(Base):
     """A note's text as it was before an edit.
 

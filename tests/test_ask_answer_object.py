@@ -212,35 +212,3 @@ def test_the_agents_field_is_disabled_rather_than_hidden_and_stays_that_way():
     start = APP.index("function cmdPaletteBusy(")
     busy = APP[start : APP.index("\n}\n", start)]
     assert "busy || aiIsOff()" in busy
-
-
-# --- links the AI writes (CHAT_PLAN.md decision 12, INBOX 172) ----------------
-
-
-def test_a_link_on_its_own_line_is_a_card_and_one_in_a_sentence_is_not():
-    start = APP.index("function renderMarkdown(")
-    body = APP[start : APP.index("\n// --- tabs", start)]
-    assert "LONE_LINK" in body
-    #: Only when the paragraph is that one line: a link on the third line of a
-    #: paragraph is inside a sentence whatever it looks like on its own.
-    assert "para.length === 1 ? LONE_LINK.exec(para[0]) : null" in body
-
-
-def test_the_card_never_asks_the_web_for_anything():
-    """The decision, as a test: an app that fetches nothing must not start by
-    fetching a favicon."""
-    start = APP.index("function linkCard(")
-    body = APP[start : APP.index("\n}\n", start)]
-    for fetched in ("favicon", "google.com/s2", "<img", 'createElement("img")'):
-        assert fetched not in body, fetched
-    assert 'rel = "noopener noreferrer"' in body
-
-
-def test_the_cards_two_lines_do_not_say_the_same_thing():
-    """`readableUrl` (the inline form) opens with the host, and the card writes
-    the host on its second line: using it as the title printed "arxiv.org / … /
-    2401.12345" over "arxiv.org"."""
-    start = APP.index("function linkCard(")
-    body = APP[start : APP.index("\n}\n", start)]
-    assert "linkCardPath(url)" in body
-    assert "readableUrl(url)" not in body

@@ -55,6 +55,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The document editor's word menu follows its word, or closes. The menu copied
+  the word's position when it opened and nothing re-measured it, so scrolling
+  the editor under an open menu left it beside whatever had scrolled into that
+  spot, 84px from the word it was about after an 80px scroll, and it stayed
+  open after the word had left the editor entirely. It is re-measured on scroll
+  and on resize now, and closes when the word is no longer visible: measured
+  0px horizontally and 4px below the word after the scroll, closed after the
+  word leaves the box.
+
 - A picture card in the Library shows its selection tick when you are near it,
   not on every card all the time. The tick keeps the ground that makes it
   legible over a dark photograph, and stays visible on a card you have ticked,

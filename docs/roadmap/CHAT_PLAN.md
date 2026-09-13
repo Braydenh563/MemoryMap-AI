@@ -157,21 +157,6 @@ and every run ends with a verification line and an Undo.
     folded it is invisible to the query that looks for it. Keyed on where the
     note ended up, because "notes like this belong in B" is the half that is
     usable when filing something new.
-12. **A link the AI writes is a card when it is the whole line, and stays
-    inline otherwise** (INBOX 172, decided 2026-09-13 in Phase 3). The two
-    forms answer two different questions and the plan had been reading them as
-    one. A link inside a sentence is a reference: a card in the middle of a
-    sentence breaks the sentence, so it keeps the inline "host / page" form
-    with the full address on hover. A link a model puts on a line of its own is
-    a thing being handed to you, and it gets a card: the link's own words as
-    the title (a bare address falls back to its path, because the host is
-    already the second line), the host under it, the source card's own recipe,
-    and a hit area rather than eleven characters of underlined prose.
-    **No favicon, and that is the decision rather than an omission**: fetching
-    one would be the first time this app asked the web for something nobody had
-    asked it to, in an app whose first line of description is that it is
-    offline. The host in words is the half of a favicon that carries meaning.
-
 11. **When no model is connected**, every AI control is visible, disabled,
     with a tooltip "Connect a model in Settings" and a one-click link;
     Ask falls back to search results with passages; nothing is hidden.
@@ -189,11 +174,11 @@ note); a skill run cites the notes it read; hover highlights the passage;
 (`scratchpad/ui-sweeps/chatphase2.js`), with one gate line superseded by the
 owner's own later instructions and said so there.
 
-### Phase 3: Ask unified, popup agent: **built 2026-09-13**, see
-[HISTORY.md](HISTORY.md) "Moved from the plans, 2026-09-13". Decisions 8, 9,
-11 and 12. Gate green in both halves it has
-(`scratchpad/ui-sweeps/chatphase3.js` for the browser,
-`tests/test_ask_answer_object.py` for the transport).
+### Phase 3: Ask unified, popup agent (half a session)
+Decisions 8, 9, 11. **Gate:** Ask renders the answer object; follow-ups
+carry context (the second answer references the first, asserted on the
+fake transport); twelve starters present; offline state renders disabled
+controls with tooltips.
 
 ### Phase 4: skills that finish (one session; Brief 13)
 Decisions 10 and 10a to 10f. Built, 2026-09-12: see HISTORY.md, "Moved from
@@ -261,9 +246,10 @@ session that builds the phase should confirm it in the product first.
 
 ## Placed from INBOX, 2026-09-09
 
-172 (part). **Web links the AI writes, "better and more modern cool".**
-Decided and built in Phase 3: decision 12 below. Both forms, chosen by where
-the link sits.
+172 (part). **Web links the AI writes, "better and more modern cool".** Bare
+URLs show as host / page with the full address as tooltip (`fda8c9d`). What
+is left is a decision: a link card (title, host, no favicon: the app fetches
+nothing) versus the current inline form. Owner: Phase 3's answer object.
 
 The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
 

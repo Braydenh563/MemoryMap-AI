@@ -1224,6 +1224,47 @@ switch (`#wb-board-kind`, whiteboard.js), which is the control section 12's
 against its own spec tests, so it is the one brief here a Sonnet agent can
 take: the fix is named in the plan and verifiable without design judgement.
 
+## Brief 33 (the PR after #144, Fable orchestrating): the rest of WORLD_CLASS_PLAN, every untouched plan, then professional use
+
+> **Not for PR #144.** The owner, 2026-09-13, while seven agents were finishing
+> that PR: *"I want to cover the rest of the world class plan and any other
+> untouched plan after this pr. and after this pr I intend to do a full lot of
+> fixes and refinements for professional use as well."* Recorded here so the
+> next PR starts from a line the owner wrote rather than from a guess; nothing
+> below is started from a "take the next brief" instruction while #144 is open.
+
+**Goal.** Three passes, in this order, each its own PR or its own gated batch:
+
+1. **WORLD_CLASS_PLAN.md, the rest.** Walk sections 3 (the fifteen dossiers
+   D1 to D15), 4 (B1 to B8), 5 (abilities without AI), 6 (measuring
+   professional) and 7 (the small things) row by row; for each row, `grep` the
+   running app first (section 1 of CLAUDE.md), mark what is built with its
+   commit, and brief an agent per dossier for what is not. Section 8's
+   execution order governs. The consistency contract (section 1) is the gate
+   for every merge: a lint per rule already exists; a rule without one gets it
+   in the same commit.
+2. **Every plan with an open section.** At that session's start, list the
+   eleven plans (ROADMAP.md's opening table) and every phase, "Not verified
+   until built" line and "Placed from INBOX" row not marked built; then
+   agent-remaining/*.md "left" lists; then ROADMAP's live list and BACKLOG by
+   impact. Brief 32 (templates) stays in BACKLOG 4b until the owner says
+   otherwise.
+3. **Professional use: fixes and refinements.** The owner's own list, dropped
+   into INBOX as it comes (standing order 2), plus the measures in
+   WORLD_CLASS_PLAN section 6 run against the merged head: every surface at
+   the four widths in both themes with `errors.js`, `contrast.js`, `docks.js`,
+   `touch.js`; the full suite once; a real model driven through the map, help
+   chat and skills paths that section 4 of CLAUDE.md says no fake transport
+   covers.
+
+**Done when.** Each of the three has a five-line report (status, commits,
+numbers, not verified, found-not-fixed), the plans hold open work only, and
+the owner has said which PR to merge.
+
+**Decisions made.** Nothing here reopens a plan's "Decisions made" section.
+Agents by specialty as standing order 4, with the cap lifted only when the
+owner lifts it again.
+
 ## Brief 32 (Opus): templates and base layouts, for boards, maps and documents
 
 > **Not for this PR.** The owner, an hour after asking for it: *"put the

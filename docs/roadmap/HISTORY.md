@@ -24697,6 +24697,152 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     displaced and the card's own Describe button still replaces it. After: 2 of
     3 blocks shown, the foot 75px, carrying that sentence.
 
+191. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the mind
+    map's rings and the documents table view.** "can you put an opaque
+    background or smth behind the item radials in the mindmap?? they still
+    feel disconnected. also the documents live table view is broken."
+    Two items: the ring's ground (mind map agent); the live table view,
+    which is the Live editor's rendering of a markdown table and **was
+    broken, found and fixed**. Each hidden pipe leaves three zero-width
+    children in the line and `grid-auto-flow: column` gave each of them a
+    track, so a three-column table was drawn as fifteen columns with its
+    cells at 51.6px and every word wrapped; a spelling underline was drawn
+    outside the cell mark and split one cell into five. Cells are placed by
+    index now, everything else is pinned into the first track at zero width,
+    and the underline nests inside the cell. Measured,
+    `scratchpad/ui-sweeps/doctable.js` (light and dark, 24 of 24): three
+    tracks for three columns, cells 257.9px of a 794px row, a row 29.2px
+    high where it was 80.4px, one cell where there were 21, and every row on
+    the same column edges. The ring's ground is still open.
+    Two items: the ring's ground (mind map agent); the live table view of
+    the documents list, which needs reproducing first (documents agent).
+
+    **The ring's ground: done, 2026-09-13.** A band rather than a disc: the
+    ring is centred on the node's own centre and its radius is raised only far
+    enough to clear that node, so a filled circle would cover the topic the
+    ring acts on. One `::before` with a 2.25rem border and a 50% radius is that
+    band in one element, with the hole exactly where the node is. Not in
+    `--card`, which measured as `rgba(255, 255, 255, 0.55)` and painted 254,254,255
+    over a canvas of 252,253,255, two levels and no ground at all: it is the
+    opaque popover surface the slots already use, one step towards the ink.
+    Measured with `scratchpad/pngpixel.py` through
+    `scratchpad/ui-sweeps/mapring.js`, 4 checks in each theme: the pixel
+    halfway between two slots reads 237,238,241 in light against the canvas's
+    252,253,255 and 38,41,51 in dark against 23,26,37, a slot still reads
+    against the band (252,253,255 and 24,27,37), and the topic in the middle
+    is the same pixel it was before the ring opened.
+
+183. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), seven
+    reports with screenshots (the chat's context badge off centre; a graph
+    node popup for an image with no picture in it; the Arrange menu open at
+    a third of the View menu's height; the map's top bar with its right-hand
+    controls past the window's edge).** "the context window badge at the top
+    of the chat isnt centred, the graph popups dont render images or files,
+    and idk what entities are... also panning on the whiteboard by pressing
+    down the scrollwheel with a mouse is horrible and doesnt work. and when
+    I drag around and pan using the hand tool, the note objects are fine,
+    but all shapes, lines and connections lagg behind in position and arent
+    synched like the notes seem to be. the arrange dropdown menut in the
+    whiteboard and mindmap seems to be very short in height compared to the
+    other menus. still no default board type selected. the mindmap top bar
+    controls breach the topbar and overflow off the edge on the right".
+    Split: the badge (chat agent); the popups and what an entity is, which
+    wants a line of help copy as much as a fix (graph agent); middle-button
+    pan, the lag of every non-note object under the hand tool, the Arrange
+    menu's height, the default board type and the map top bar's overflow
+    (mind map agent).
+    **The badge: found and fixed (this commit).** It is not off its line, and
+    measuring that first is what found the real fault: at 1440, 1280, 1024,
+    820 and 390 the badge's centre is 0.0px from the subline's centre and all
+    four chips (`#chat-active-model`, `#chat-turns`, `#chat-context`,
+    `#chat-usage`) share one centre line to 0.0px. What is off is inside the
+    pill. Every chip after the first carries the row's middle-dot separator as
+    its own `::before`, which is invisible on a bare span and wrong on the one
+    chip that draws a box: the dot and its 8px of margin sat inside the pill's
+    border box, so the number sat 9.2px right of the box's centre, with 25.7px
+    of space on its left against 7.3px on its right. At rest the border is
+    transparent; past 70% of the window `.is-warn` paints it, which is the
+    state the screenshot was taken in. The separator is now an absolutely
+    positioned box in the gap the pill's own left margin opens, so it is still
+    drawn ("·", 20.8px wide, centred in that gap) and no longer inside the
+    pill: measured 0.0px off centre with 7.4/7.4px insets in a 78.5px pill
+    (was 96.8px) at all five widths, `scratchpad/ui-sweeps/chatbadge.js`.
+    (mind map agent). **The graph half is done (this commit); the chat and
+    mind map halves are still open, so this item stays here.** The popup was
+    blind to the commonest kind of image note: a note carrying an
+    *attachment* drew its thumbnail, and a note whose picture is a library
+    upload named in its own markdown drew nothing, the media box hidden with
+    0 children. Measured after (`scratchpad/ui-sweeps/graphmedia.js`): both
+    shapes draw one image at natural width 2 on a 2x2 probe, and a file card
+    reads "PDF · 3.9 KB" where it used to say "PDF" alone. What an entity
+    is is now one sentence written once, given in the Show section's '?'
+    popover, in a legend entry the map never had (the entity nodes' category
+    is added after `data.categories` is built, so nothing named them), and in
+    an entity node's own tooltip.
+
+    **Middle-button pan: fixed, and what could not be reproduced.** Driven
+    with a real `page.mouse` middle press and six moves
+    (`scratchpad/ui-sweeps/mappan.js`, 11 checks): the board already tracked
+    the pointer 1:1 (dx -120 for a -120 move, 6/6 moves landed where the
+    pointer was), so the autoscroll guard INBOX 167 added is doing its job and
+    the gesture is not broken in this sandbox. What was missing is everything
+    that tells you it is a pan: the cursor stayed an arrow while the board
+    moved, and the release fired an `auxclick`, which on Linux is the
+    primary-selection paste. The container carries `wb-mid-pan` for the length
+    of the press now (cursor `grabbing`, `user-select: none`, both measured,
+    and dropped on release) and the `auxclick` is prevented.
+
+    **Shapes, lines and connectors lagging behind the notes: found and fixed.**
+    Two earlier passes moved the three pan transforms into one place and gave
+    them one `will-change`, and the report came back both times, because
+    `will-change: transform` on an SVG `<g>` promotes nothing: Chromium paints
+    an SVG fragment into whatever layer the `<svg>` root lives in. Measured
+    through the CDP layer tree on a live board
+    (`scratchpad/ui-sweeps/panlayers.js`): before, the composited layers held
+    `div.wb-object` (a note card) and `svg#wb-overlay-layer`, and
+    `svg#wb-svg-layer`, which holds every shape, line and stroke, was not in
+    the list at all, so a pan moved the cards on the compositor and re-rastered
+    the shapes on the main thread. The transform is on the two `<svg>` roots
+    now, which can be composited, with `overflow: visible` so the viewport no
+    longer clips what the pan brings in (probed: a rectangle 2200px outside
+    paints, pixel 255,0,255, and hit-tests). After: both roots COMPOSITED
+    during a pan. `mindmap.js` 68/76 and `mapdock.js` 25/26, the same numbers
+    as before the change; `marqlink.js` unchanged.
+
+    **The top bar's overflow: fixed. The Arrange menu's height: not
+    reproduced.** Both measured on a map board by
+    `scratchpad/ui-sweeps/mapmenus.js` (11 checks). The bar was real: at 1024
+    its scrollWidth was 1176 against a clientWidth of 981, with eight controls
+    past the right edge of the window, and 895 against 782 at 820. Three
+    changes, in the order the bar can least afford to lose the width: Layout
+    and Tidy left the bar for the tool dock's own Layout section (which is
+    MINDMAP_PLAN §12.1 item 1's first half), the board picker's shell is capped
+    at 8rem below 68rem, and the Library button drops its word below 64rem.
+    After: 0 controls past the edge and scrollWidth equal to clientWidth at
+    1440, 1024 and 820.
+
+    The Arrange menu is not short. Opened on a map at 1440x900 and at
+    1024x768 it measured 493px tall against View's 453, Insert's 382, Edit's
+    310 and Board's 232, with its own content fully shown (scrollHeight 491 in
+    a clientHeight of 491) and every menu's cap the same 705px. It is the
+    tallest single-column menu of the five. What is true is that View is 512px
+    wide in two columns while the other four are 272px in one, which is a
+    decision in `07-whiteboard-misc.css` (five sections and 714px of content)
+    rather than an accident. If the report recurs, the window size it was seen
+    at is what will find it.
+
+    **"Still no default board type selected": a kind was selected, and the
+    wrong one.** Measured on open (`scratchpad/ui-sweeps/newboard.js`, 6
+    checks): exactly one of the two halves carried `active` and
+    `aria-pressed="true"`, filled with the accent against a transparent
+    sibling, and the button could be pressed without touching the segment. So
+    the dialog was not failing to choose. What it did was choose Board every
+    single time, which for someone building maps is a control to change on
+    every board they make. It opens on the kind last created now (remembered
+    per browser, Board when there is nothing remembered, and the Library's "New
+    mind map" still overrides it), and its button says Create rather than
+    Save.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

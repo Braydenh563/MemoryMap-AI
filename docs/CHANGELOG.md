@@ -9,6 +9,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A skill run that stops on a step can have that step rewritten and run on its
+  own. Beside Resume there is now "Edit step N": change the wording, press Run
+  this step, and only that step runs, with the earlier ones left alone and the
+  rest of the skill still there to carry on with. The step's contract is not
+  editable from there, so rewording an instruction cannot quietly drop the
+  condition it has to meet.
+
 - The Timeline is the whole notebook, not only its notes. Documents you
   started, boards you drew and reminders that fell due are rows in the feed
   and the table, each with its own marker, and four chips in the dock turn any

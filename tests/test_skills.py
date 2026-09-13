@@ -12,10 +12,13 @@ four tool schemas instead of twenty-six (§11a).
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
 from memorymap.ai import agent, skill_runner, skills, tools
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def _known() -> set[str]:
@@ -966,3 +969,116 @@ def test_a_skill_description_is_not_clipped_to_one_line():
     assert 'note.className = "muted skill-blurb"' in app_js
     blurb = css[css.index(".skill-blurb {") :][: css[css.index(".skill-blurb {") :].index("}")]
     assert "white-space: normal" in blurb
+
+
+# --- recovery: re-running one step, reworded (AGENT_SKILLS_REFORM.md Phase D) --
+#
+# The other two thirds of Phase D were already built and are checked elsewhere:
+# `skill_from_step` resumes a stalled run (above, and `test_long_runs.py`), and
+# `_unmet_reason` puts the contract that was not met on the stalled step event
+# in one sentence (`test_contracts.py`, and the plan card renders it). This is
+# the third: a run that stalled on step 4 because the step was written for a
+# bigger model is fixed by rewriting step 4, and without this the only way to
+# find out whether the rewrite works is to run the whole skill again, every
+# earlier step of which writes to the notebook.
+
+
+def test_only_step_runs_that_step_and_nothing_after_it(ai_client, fake_ollama):
+    events = _stream_events(ai_client, "run", skill=_bench(ai_client), skill_only_step=2)
+    steps = [e for e in events if e["type"] == "step"]
+    earlier = [s["index"] for s in steps if s["state"] == "earlier"]
+    ran = [s["index"] for s in steps if s["state"] in ("running", "done")]
+
+    #: Steps before it are marked as done in an earlier run rather than re-run,
+    #: which is what `start_at` already does; the difference is that the run
+    #: stops after the one step instead of carrying on to the end.
+    assert earlier == [0, 1]
+    assert set(ran) == {2}
+
+
+def test_a_single_step_run_reads_as_waiting_rather_than_broken(ai_client, fake_ollama):
+    """It is a pause, not a failure: the person asked for this step and got it,
+    and the rest of the skill is still there to carry on with."""
+    events = _stream_events(ai_client, "run", skill=_bench(ai_client), skill_only_step=1)
+    result = [e for e in events if e["type"] == "result"][0]
+    assert result["paused"] is True
+    assert result["stopped_at"] == 2
+    assert not any(
+        e["state"] in ("failed", "stalled") for e in events if e["type"] == "step"
+    )
+
+
+def test_re_running_the_last_step_ends_the_run(ai_client, fake_ollama):
+    events = _stream_events(ai_client, "run", skill=_bench(ai_client), skill_only_step=4)
+    result = [e for e in events if e["type"] == "result"][0]
+    assert result["stopped_at"] is None and result["paused"] is False
+
+
+def test_a_reworded_step_is_what_actually_runs(ai_client, fake_ollama):
+    events = _stream_events(
+        ai_client,
+        "run",
+        skill=_bench(ai_client),
+        skill_only_step=1,
+        skill_step_text="Tag the note about beans with `garden`",
+    )
+    sent = fake_ollama.tool_rounds[-1][-1]["content"]
+    assert "Tag the note about beans with `garden`" in sent
+
+    #: And the plan card carries the step that is about to run, not the one
+    #: that failed: a card showing the old wording beside a step running the
+    #: new one is exactly the drift this reform exists to stop.
+    plan = [e for e in events if e["type"] == "plan"][0]
+    assert plan["steps"][1] == "Tag the note about beans with `garden`"
+    assert plan["start_at"] == 1
+
+
+def test_rewording_a_step_does_not_drop_its_contract(ai_client, fake_ollama):
+    """The one thing a step edit must not be able to do. An instruction is
+    words; a contract is what has to be true when the step is finished, and a
+    reworded step that quietly stopped being checked would put the reform's
+    whole mechanism one text box away from being switched off."""
+    events = _stream_events(
+        ai_client,
+        "run",
+        skill=_bench(ai_client),
+        skill_only_step=1,
+        skill_step_text="Do the tagging",
+    )
+    plan = [e for e in events if e["type"] == "plan"][0]
+    before = skills.normalise(BENCH_SKILL)["step_specs"][1]
+    after = plan["step_specs"][1]
+    assert after["expects"] == before["expects"]
+    assert after["tools"] == before["tools"]
+    assert after["text"] == "Do the tagging"
+
+
+def test_a_step_index_past_the_end_runs_the_last_step_rather_than_nothing(
+    ai_client, fake_ollama
+):
+    """A stale card in an open tab naming step 9 of a skill that now has five
+    is not a reason to run nothing and say nothing."""
+    events = _stream_events(ai_client, "run", skill=_bench(ai_client), skill_only_step=9)
+    ran = [e["index"] for e in events if e["type"] == "step" and e["state"] == "running"]
+    assert ran == [4]
+
+
+def test_the_chat_offers_to_edit_the_step_a_run_stopped_on():
+    """The DOM-blind half: the runner's `only_step` is reachable from the place
+    a stopped run is actually looked at, beside the Resume it belongs with."""
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    start = app.index("const editStepAction = (index) => ({")
+    body = app[start : app.index("\n  };\n", start)]
+    assert "skillOnlyStep: index" in body
+    assert "skillStepText: text.trim()" in body
+    #: The box opens on the instruction that actually ran, which for a
+    #: re-planned step is not the one in the catalogue.
+    assert "timeline.stepText?.(index)" in body
+
+    #: On both of the stopped-run controls, not only one: a run you stopped and
+    #: a run that stalled are the same question ("now what") with the same two
+    #: answers.
+    assert app.count("also: editStepAction(stoppedAtStep)") == 2
+    #: And it reaches the wire. `!= null` rather than truthiness, or step 0
+    #: would be dropped as falsy.
+    assert "if (skillOnlyStep != null) body.skill_only_step = skillOnlyStep;" in app

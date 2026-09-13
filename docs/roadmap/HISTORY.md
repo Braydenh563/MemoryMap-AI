@@ -24473,6 +24473,69 @@ caret inside the new remark from the toolbar. Contrast from the painted pixels
 6.75:1 at worst in light and 6.79:1 at worst in dark, the tightest being the
 count beside the heading. 0 console errors in every run.
 
+### From AGENT_SKILLS_REFORM.md
+
+### Built, Phase D: recovery, 2026-09-13
+
+**Two of the three were already standing, and finding that out was the first
+half of the work.** Resume from a stalled step is `skill_from_step` and the
+runner's `start_at`, with three Resume controls in the chat and a notification
+naming the step it got to; "why did this stall?" is `_unmet_reason`, one
+sentence naming the contract that was not met, on the `stalled` step event and
+rendered by `markStep` as `.plan-step-reason` beside the step. Neither is new
+here. Written down because the plan listed all three as open and a session that
+believed it would have built them a second time, which is this project's most
+expensive recurring mistake.
+
+**The third is new: edit a step's text and run just that step.** A run that
+stalled on step 4 because the step was written for a bigger model is fixed by
+rewriting step 4, and until now the only way to find out whether the rewrite
+worked was to run the whole skill again, every earlier step of which writes to
+the notebook. `skill_only_step` and `skill_step_text` on `/chat/stream` reach
+`_run_skill`'s `only_step`/`step_text`: steps before it are marked `earlier`,
+exactly as a resume marks them, the named step runs with the new wording, and
+the run stops there.
+
+**It reports as a pause, not as a stop**, because that is what it is: the
+person asked for this step and got it, and the rest of the skill is still there
+to carry on with. `paused = True` with `stopped_at = index + 1` is the same
+field manual mode sets, so the app's existing Resume appears without a second
+mechanism, and a single-step run is never drawn as a run that broke.
+
+**The contract is not editable from there, and that is the point of separating
+the two.** An instruction is words; a contract is what has to be true when the
+step is finished. A reworded step that quietly stopped being checked would put
+the whole of Phase A one text box away from being switched off, so the text is
+replaced and `expects`, `tools` and `retries` are carried through untouched
+(`tests/test_skills.py::test_rewording_a_step_does_not_drop_its_contract`).
+
+**The `plan` event carries the step that is about to run**, not the one in the
+catalogue, and its `start_at` is the step being re-run. A plan card showing the
+old wording beside a step running the new one is the drift this whole reform
+exists to stop, and the card draws its "done earlier" steps from `start_at`, so
+a card reading 0 while the run started at step 2 would show two steps as
+pending that were never going to run.
+
+**In the chat**, the action sits on the same row as Resume, on both of the
+stopped-run controls (a run you stopped and a run that stalled are the same
+question with the same two answers). The box opens on the instruction that
+actually ran, which for a re-planned step is not the one in the catalogue
+(`timeline.stepText`), and dismissing it without a rewrite re-enables the
+button, because nothing ran.
+
+**Measured:** `tests/test_skills.py`, six new tests: only that step runs (steps
+0 and 1 `earlier`, 2 running), the result reads as paused at the next step, the
+last step ends the run, the reworded text is what reaches the model, the
+contract survives the rewording, and an index past the end runs the last step
+rather than nothing (a stale card in an open tab naming step 9 of a
+five-step skill is not a reason to run nothing and say nothing).
+
+**Not verified.** No model ran any of this: the fake transport answers every
+step, so "the rewrite fixes a step a 3B model stalled on" is the claim the
+mechanism is for and not one these tests make. The chat control was not
+exercised in a browser either, because reaching it needs a run that stops,
+which needs a model; it is asserted statically against `app.js` instead.
+
 ### From TIMELINE_PLAN.md
 
 ### Built, Phase 4: kinds and the journal, 2026-09-13

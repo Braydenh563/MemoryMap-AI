@@ -317,6 +317,15 @@ class ChatRequest(BaseModel):
     # them write to the notebook, so "restart" meant tagging and linking the
     # same notes a second time.
     skill_from_step: int = Field(default=0, ge=0, le=skills.MAX_STEPS)
+    # Re-running one step, optionally reworded (AGENT_SKILLS_REFORM.md Phase D).
+    # A run that stalled on step 4 because the step was written for a bigger
+    # model is fixed by rewriting step 4, and without this the only way to find
+    # out whether the rewrite works is to run the whole skill again, every
+    # earlier step of which writes to the notebook. The step's contract is not
+    # editable from here on purpose: rewording an instruction must not quietly
+    # drop the condition it has to meet.
+    skill_only_step: int | None = Field(default=None, ge=0, le=skills.MAX_STEPS)
+    skill_step_text: str | None = Field(default=None, max_length=skills.MAX_STEP)
     # Manual (step-through) mode, asked for directly: a pause after every
     # completed step with a Continue button and a text box, rather than a
     # skill running straight through unattended. `skill_manual_note` is what
@@ -1615,6 +1624,8 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                     model_manager,
                     ollama,
                     start_at=body.skill_from_step,
+                    only_step=body.skill_only_step,
+                    step_text=body.skill_step_text,
                     manual=body.skill_manual,
                     manual_note=body.skill_manual_note,
                     small_model=_small_model_mode(),

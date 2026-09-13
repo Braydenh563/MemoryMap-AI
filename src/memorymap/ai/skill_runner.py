@@ -719,6 +719,8 @@ def _run_skill(
     history: list[dict] | None = None,
     persona_prompt: str | None = None,
     start_at: int = 0,
+    only_step: int | None = None,
+    step_text: str | None = None,
     manual: bool = False,
     manual_note: str | None = None,
     small_model: bool | None = None,
@@ -783,6 +785,29 @@ def _run_skill(
         before_reading, _why = _reading(session, skill["verify"])
     steps = skill.get("steps") or []
     specs = skills.step_specs(skill)
+    #: **Run one step, optionally reworded** (AGENT_SKILLS_REFORM.md Phase D:
+    #: "edit a step's text and re-run just that step"). The other two thirds of
+    #: recovery were already here, `start_at` resumes and `_unmet_reason` says
+    #: in one sentence which contract was not met, and this is the third: a run
+    #: that stalled on step 4 because the step was written for a bigger model
+    #: is fixed by rewriting step 4, and the only way to find out whether the
+    #: rewrite works was to run the whole skill again, every earlier step of
+    #: which writes to the notebook.
+    #:
+    #: The text is overridden here rather than in the caller so the `plan` event
+    #: below carries the step that is actually about to run: a plan card
+    #: showing the old wording beside a step running the new one is the drift
+    #: this reform exists to stop. The step's *contract* is untouched, which is
+    #: the point of separating the two: rewording an instruction must not
+    #: quietly drop the condition it has to meet.
+    if only_step is not None:
+        only_step = min(max(0, only_step), len(steps) - 1) if steps else None
+    if only_step is not None and step_text:
+        steps = list(steps)
+        steps[only_step] = step_text
+        specs = list(specs)
+        specs[only_step] = {**specs[only_step], "text": step_text}
+        skill = {**skill, "steps": steps, "step_specs": specs}
     allowed = skill.get("tools") or None
     if small_model is None:
         # "Auto": the model's own name is the only size hint available before a
@@ -803,7 +828,11 @@ def _run_skill(
         # Which shape of run this is, so the UI can title it. A saved skill and
         # a plan the model drew for one request (§35K) both run through here.
         "kind": skill.get("kind") or "skill",
-        "start_at": max(0, start_at),
+        #: Where this run actually begins, which a single-step re-run moves
+        #: (Phase D): the plan card draws its earlier steps from this, so a
+        #: card that read 0 while the run started at step 2 would show two
+        #: steps as pending that were never going to run.
+        "start_at": only_step if only_step is not None else max(0, start_at),
     }
     changes: list[dict] = []
     # What the run knows so far, as ids rather than as prose, carried into
@@ -880,7 +909,9 @@ def _run_skill(
     started = False
     stopped_at: int | None = None
     paused = False
-    resume_from = min(max(0, start_at), len(steps))
+    #: A single-step run starts at that step, whatever `start_at` said: the two
+    #: are the same mechanism and naming a step is the more specific request.
+    resume_from = only_step if only_step is not None else min(max(0, start_at), len(steps))
     #: **A copy**, because re-planning rewrites a step in place and
     #: `skill["steps"]` belongs to the caller, a built-in skill's list *is*
     #: the module-level catalogue's own list, so mutating it here would
@@ -1284,6 +1315,17 @@ def _run_skill(
         if manual and index + 1 < len(steps):
             stopped_at = index + 1
             paused = True
+            break
+        #: **One step, and then stop.** Reported as a pause rather than as a
+        #: stop, because that is what it is: the person asked for this step and
+        #: got it, and the rest of the skill is still there to carry on with.
+        #: `paused` is what makes the app offer Resume instead of drawing a run
+        #: that looks broken, and it is the same field manual mode sets for the
+        #: same reason.
+        if only_step is not None:
+            if index + 1 < len(steps):
+                stopped_at = index + 1
+                paused = True
             break
         index += 1
 

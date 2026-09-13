@@ -11691,6 +11691,8 @@ async function streamChat({
   skill,
   skillInputs,
   skillFromStep,
+  skillOnlyStep,
+  skillStepText,
   skillManual,
   skillManualNote,
   plan,
@@ -11764,6 +11766,10 @@ async function streamChat({
     // not repeated. Sent as an index rather than as a list of what to skip,
     // so the server stays the one place that knows what the steps are.
     if (skillFromStep) body.skill_from_step = skillFromStep;
+    //: Re-running one step, optionally reworded (AGENT_SKILLS_REFORM.md Phase
+    //: D). `!= null` rather than truthiness: step 0 is a step.
+    if (skillOnlyStep != null) body.skill_only_step = skillOnlyStep;
+    if (skillStepText) body.skill_step_text = skillStepText;
   }
   // A plan the model just made. Carries its own steps because nothing saved
   // it: that is the only way it differs from a skill run, here and on the
@@ -12696,7 +12702,12 @@ async function reminderFromChatAnswer(answer) {
 // to continue: so continuing meant typing the request out again from memory,
 // and resuming a six-step skill meant re-running the three steps that had
 // already changed the notebook. This is one button for each case.
-function continueRunControls({ label, hint, onClick }) {
+//: `also` is a second, quieter action on the same row (Phase D's "edit a
+//: step's text and re-run just that step"). A row rather than a menu because
+//: there are two of them and both are the answer to the same question, "this
+//: run stopped, now what": one carries on, the other changes the step that
+//: stopped it and tries that alone.
+function continueRunControls({ label, hint, onClick, also = null }) {
   const row = document.createElement("div");
   row.className = "run-continue";
   const button = document.createElement("button");
@@ -12711,6 +12722,23 @@ function continueRunControls({ label, hint, onClick }) {
     onClick();
   });
   row.appendChild(button);
+  if (also) {
+    const second = document.createElement("button");
+    second.type = "button";
+    second.className = "ghost small";
+    setLabel(second, also.label);
+    second.title = also.title || "";
+    second.addEventListener("click", () => {
+      second.disabled = true;
+      //: Re-enabled when the dialog is dismissed without a rewrite, because
+      //: nothing ran and the offer is still good. The primary above cannot do
+      //: this: pressing it starts a run there and then.
+      Promise.resolve(also.onClick()).then((ran) => {
+        if (!ran) second.disabled = false;
+      });
+    });
+    row.appendChild(second);
+  }
   if (hint) {
     const why = document.createElement("span");
     why.className = "muted";
@@ -15301,6 +15329,15 @@ function agentTimeline(holder) {
 
   return {
     holder,
+    //: What a step currently says, for Phase D's "edit a step's text and
+    //: re-run just that step": the re-planned wording when the runner rewrote
+    //: it, the original otherwise, so the box opens on the instruction that
+    //: actually ran rather than on the one in the catalogue.
+    stepText(index) {
+      const entry = plans.at(-1);
+      if (!entry) return "";
+      return entry.plan.states?.[index]?.text || entry.plan.steps?.[index] || "";
+    },
     plan(event) {
       startPlan(event);
     },
@@ -18610,6 +18647,8 @@ async function sendChatMessage(preset, opts = {}) {
       skill: opts.skill,
       skillInputs: opts.skillInputs,
       skillFromStep: opts.skillFromStep,
+      skillOnlyStep: opts.skillOnlyStep,
+      skillStepText: opts.skillStepText,
       // Read live rather than captured at launch: a run that started
       // straight-through and is now being Resumed can still be switched to
       // step-by-step, and vice versa.
@@ -19019,9 +19058,39 @@ async function sendChatMessage(preset, opts = {}) {
   //: "throw away the six steps that already ran". Resuming a stopped run is
   //: the same call as resuming one that hit the round limit, and the step it
   //: reached was already being tracked for the other case.
+  //: **Phase D's third third.** Resuming carries on from the step that stopped
+  //: the run; this changes that step first. A run that stalled on step 4
+  //: because the step was written for a bigger model is fixed by rewriting
+  //: step 4, and without this the only way to find out whether the rewrite
+  //: works is to run the whole skill again, every earlier step of which writes
+  //: to the notebook. It runs that step and stops, so the rest of the skill is
+  //: still there to resume afterwards.
+  const editStepAction = (index) => ({
+    label: `ph:pencil-simple Edit step ${index + 1}`,
+    title: "Rewrite this step and run just it, leaving the rest for afterwards",
+    onClick: async () => {
+      const text = await promptDialog(
+        `Rewrite step ${index + 1} and run just that step. Earlier steps are ` +
+          "not repeated, and the rest of the skill is left to resume afterwards.",
+        timeline.stepText?.(index) || "",
+        { confirmLabel: "Run this step" }
+      );
+      if (!text || !text.trim()) return false;
+      sendChatMessage(`${opts.skill}: step ${index + 1}`, {
+        skill: opts.skill,
+        skillInputs: opts.skillInputs || {},
+        skillOnlyStep: index,
+        skillStepText: text.trim(),
+        skipPlanMode: true,
+      });
+      return true;
+    },
+  });
+
   if (stopped && stoppedAtStep !== null && opts.skill) {
     bubble.appendChild(
       continueRunControls({
+        also: editStepAction(stoppedAtStep),
         label: `ph:play Resume from step ${stoppedAtStep + 1}`,
         hint: "You stopped this. Earlier steps are not repeated.",
         onClick: () =>
@@ -19067,6 +19136,7 @@ async function sendChatMessage(preset, opts = {}) {
   } else if (!stopped && stoppedAtStep !== null && opts.skill) {
     bubble.appendChild(
       continueRunControls({
+        also: editStepAction(stoppedAtStep),
         label: `ph:arrow-clockwise Resume from step ${stoppedAtStep + 1}`,
         hint: "Earlier steps are not repeated.",
         onClick: () =>

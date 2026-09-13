@@ -4362,3 +4362,102 @@ input.doc-title-input::placeholder {
 #chat-input {
   max-height: min(480px, 40vh);
 }
+
+/* ============== THE CHAT ON A PHONE, MEASURED ==============================
+   Reported: "there needs to be more responsive design, especially for the chat
+   page and main chat panel. the bottom chat dock is horrendous and takes up
+   half the screen on mobile".
+
+   Measured at 390x844 before any of this:
+
+     .chat-composer        152px   (the input and four buttons on two lines)
+     .chat-dock-controls   145px   (skills, tools, web, plan, the mode
+                                    segment and the gear, on three lines)
+     .scroll-top            44px
+     the dock               321px, 38% of the window
+     #chat-messages         278px wide of 390, starting 82px from the left
+
+   Two separate faults. The dock wraps because every control in it is allowed
+   to, and the transcript is narrow because 52px of the window is reserved for
+   the sidebar's collapse toggle by `main .sidebar-panel ~ *`, on a screen with
+   no room to spare and where the sidebar is not a column anyway. */
+
+@media (max-width: 599.98px) {
+  /* **The reserve moves to the one row that needs it.** The collapse toggle is
+     absolutely positioned over the top-left corner, so something has to keep
+     clear of it, but that is the chat's own toolbar, not the transcript and
+     not the dock. Measured at 390: `main` carried 52px of left padding for it,
+     which with the tab's 12.8px and the card's 16px left the transcript 278px
+     of a 390px window.
+
+     `.sidebar-panel ~ main`, because `main` is the sidebar's *sibling*: the
+     rule that pays for the toggle is written for the elements after the panel,
+     and `main` is the one that matters here. */
+  #tab-chat .sidebar-panel ~ main {
+    padding-left: 0;
+  }
+
+  #tab-chat .chat-toolbar {
+    padding-left: var(--sidebar-toggle-lane);
+  }
+}
+
+/* **The dock's own band is wider than the phone's.** Measured with the phone
+   rules at 599.98: the dock was 168px of 844 at 599 and 271px at 600, because
+   600 to 819 is a real width (a small tablet, a phone in landscape, a narrow
+   window) where the controls still wrap onto three lines and the composer
+   still shares a line it cannot fit on. The sidebar reserve above stays on the
+   phone, where the panel is not a column; here there is room for it. */
+@media (max-width: 819.98px) {
+  /* One line, because five controls and a segmented switch cannot be three
+     lines above a keyboard. Scrolled sideways rather than folded away: the
+     controls are the ones that decide what the next message does, and a person
+     who cannot see that Web is on will not think to look for it behind a
+     chevron. `.edge-fade` is wired for this strip in app.js. */
+  .chat-dock-controls {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .chat-dock-controls::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Nothing in the strip may shrink below its own label, or "Web" and "Plan"
+     compress into unreadable slivers instead of scrolling. */
+  .chat-dock-controls > * {
+    flex: 0 0 auto;
+  }
+
+  /* The spacer exists to push the mode segment to the right edge on a wide
+     dock. On one scrolling line it would push it off the end. */
+  .chat-dock-controls-spacer {
+    display: none;
+  }
+
+  /* **The text gets its own line, and the buttons share the next one.**
+     Forcing this row to `nowrap` was tried first and was worse: the textarea
+     is `autogrow`, so squeezed to 26px wide beside four icon buttons and Send
+     it grew to 295px *tall*, and the dock went from 321px to 367px. A phone is
+     the one width where the message and the controls genuinely do not fit on
+     one line, so they do not share one. */
+  .chat-composer {
+    flex-wrap: wrap;
+  }
+
+  .chat-composer #chat-input {
+    flex: 1 1 100%;
+    min-width: 0;
+    order: -1;
+    /* Autogrow has no ceiling of its own; on a phone a pasted paragraph would
+       otherwise take the window. Past this it scrolls, which is what every
+       messaging app does. */
+    max-height: 7rem;
+  }
+
+  .chat-composer > button,
+  .chat-composer > label {
+    flex: 0 0 auto;
+  }
+}

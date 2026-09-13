@@ -609,31 +609,27 @@
 
 /* --- the log console (§1) ------------------------------------------------ */
 
-.log-toolbar {
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  align-items: center;
+/* **The one dock that lives in a 578px column.** Every other dock spans a tab,
+   so `.dock .dock-find`'s 14rem basis (08-consistency.css) is a floor it never
+   has to argue with; a settings screen is 599.6px wide whatever the window is,
+   578.4px inside the dock's own padding, and 470.4px at an 820px window. The
+   zones around find need 94px of identity, 77px of view segment, 221px of
+   actions and 28.8px of gaps, so a 224px basis breaks the row onto two lines
+   at every width. 8rem is the search box's own `min-width`, which is what this
+   dock can promise it: the zone still grows into whatever is spare (169px at
+   1440, 136px at 820), and there is nothing else in the zone to crush.
+   Measured: two lines at 1440 and 820 before, one at all three widths after. */
+.dock[data-dock-name="settings-logs"] .dock-find {
+  flex-basis: 8rem;
 }
 
-/* A flex item's automatic minimum size does NOT protect a <select>: it will
-   happily shrink to the width of its arrow and show none of its options, which
-   is exactly what it did here, two empty boxes where the source and level
-   pickers should be. Both need a floor of their own. */
-#log-source,
-#log-level {
-  flex: 0 0 auto;
-  min-width: 9rem;
-  /* Capped as well as floored. Without a ceiling a <select> in a flex row
-     stretches to fill whatever is spare, #log-source only looked settled
-     because it already had a max-width of its own from an earlier change,
-     and its neighbour grew to 656px beside it. */
-  max-width: 11rem;
-}
-
-#log-filter {
-  min-width: 8rem;
-  flex: 1 1 8rem;
-}
+/* The head is a `.dock` now, and the dock recipe owns every rule this file
+   used to state for it: the wrap and the two gaps, one control height, the
+   `<select>` floor and ceiling (`.dock select`, 9rem to 14rem, which is the
+   same floor the three rules removed from here had found by hand), and the
+   filter growing into what is left of the row (`.dock-find input[type=
+   "search"]`). Keeping local copies would be two answers to one question, and
+   the one here would be the one nobody thought to update. */
 
 /* The live pill. Colour carries the state, but so does the text, a pill that
    only differed by colour would say nothing to anyone who cannot separate

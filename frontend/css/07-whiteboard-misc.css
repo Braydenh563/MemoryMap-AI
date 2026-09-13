@@ -9262,13 +9262,13 @@ input[type="file"] {
 }
 
 /* Search grows into what is left of the row and never drops below a
-   readable width; the row wraps under it before it does. The basis is what
-   decides *when* a dock wraps, and the value and the measurement behind it
-   are at `.dock .dock-find` in 08-consistency.css, which restates this rule
-   at a specificity that beats it; the two are kept on the same number so a
-   reader of either finds the truth. */
+   readable width; the row wraps under it before it does. The basis is also
+   what decides *when* a row wraps (flexbox breaks lines on the basis and only
+   shrinks what is left on a line afterwards), and `.dock .dock-find` in
+   08-consistency.css restates this rule at a specificity that beats it, so
+   that is the declaration to read and to change. */
 .dock-find {
-  flex: 1 1 12rem;
+  flex: 1 1 14rem;
 }
 
 .dock-find input[type="search"] {

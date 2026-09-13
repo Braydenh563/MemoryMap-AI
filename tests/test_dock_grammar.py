@@ -63,6 +63,11 @@ ON_THE_GRAMMAR = {
     "notes",
     "timeline",
     "reminders",
+    # The one dock that is not a tab head: the Settings screen's Logs console,
+    # reported as the last control row still built by hand. It lives inside the
+    # settings modal, which is why `scratchpad/ui-sweeps/docks.js` (which walks
+    # the seven tabs) does not see it and `logsdock.js` measures it instead.
+    "settings-logs",
 }
 
 

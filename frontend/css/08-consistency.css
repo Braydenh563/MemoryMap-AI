@@ -577,7 +577,17 @@
 
 /* Search takes the slack, with a ceiling. Measured on the Library at 1440
    the search field was 760px wide - a single-line query in a box wide enough
-   for a paragraph, with the rest of the row crowded into the last third. */
+   for a paragraph, with the rest of the row crowded into the last third.
+
+   14rem is a basis, and a basis is what decides when the row wraps: flexbox
+   breaks a wrapping row into lines on each item's flex basis and only shrinks
+   what is left on a line afterwards, so a zone asking for 224px before anyone
+   has asked it to shrink can push the actions zone onto a second line even
+   where the search box inside it would have fitted at 135px. That is the right
+   default for a dock that spans a tab; a dock in a narrow column overrides the
+   basis for itself (the Logs console, 06-timeline-dialogs.css) rather than
+   moving this number for everybody, because shrinking it here trades a wrap
+   for the possibility of a zone narrower than the controls inside it. */
 .dock .dock-find {
   flex: 1 1 14rem;
 }

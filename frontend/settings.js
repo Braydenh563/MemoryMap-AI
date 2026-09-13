@@ -936,7 +936,12 @@ function renderCopyLogsLabel() {
   if (!button) return;
   const shown = logRecords.filter(logMatchesFilters).length;
   const filtering = shown !== logRecords.length;
-  button.textContent = filtering ? `Copy ${shown} shown` : "Copy all";
+  //: `setLabel`, not `textContent`: this is a row in the Logs dock's kebab
+  //: now, so the label carries an icon, and writing the text directly would
+  //: delete it the first time a filter changed. The same trap the Support
+  //: bundle button was already in (it restored `textContent` after a run and
+  //: dropped its own icon), fixed the same way.
+  setLabel(button, filtering ? `ph:copy Copy ${shown} shown` : "ph:copy Copy all");
   button.title = filtering
     ? "Copies only the records the filters are showing"
     : "Copies every record in this list, tracebacks included";
@@ -963,8 +968,12 @@ async function clearLogs() {
 async function downloadSupportBundle() {
   const button = $("logs-bundle");
   button.disabled = true;
-  const original = button.textContent;
-  button.textContent = "Collecting…";
+  //: The label is an icon plus words, so it is saved and restored as one:
+  //: `textContent` alone read back "Support bundle" and put it back without
+  //: the glyph, so the button lost its icon the first time anyone built a
+  //: bundle and never got it back until a reload.
+  const original = button.textContent.trim();
+  setLabel(button, "ph:hourglass-medium Collecting…");
   try {
     const response = await fetch("/support-bundle", {
       headers: { "X-Auth-Token": localStorage.getItem("token") || "" },
@@ -976,7 +985,7 @@ async function downloadSupportBundle() {
     toast(error.message || "Couldn't build the support bundle.", true);
   } finally {
     button.disabled = false;
-    button.textContent = original;
+    setLabel(button, `ph:download-simple ${original}`);
   }
 }
 

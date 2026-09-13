@@ -19,7 +19,7 @@ from collections.abc import Iterator
 from sqlalchemy.orm import Session
 
 from memorymap.ai import budget as run_budget, cards, context, librarian, memory, tools
-from memorymap.ai.model_manager import ModelManager
+from memorymap.ai.model_manager import ModelManager, is_small_model
 from memorymap.ai.ollama_client import (
     OllamaClient,
     OllamaError,
@@ -28,6 +28,18 @@ from memorymap.ai.ollama_client import (
 
 # A runaway model must not loop forever on a local machine.
 MAX_ROUNDS = 6
+
+#: The whole allowance, granted plus earned, for a model under
+#: `model_manager.SMALL_MODEL_PARAMS_B` (WORLD_CLASS_PLAN A4).
+#:
+#: Six granted plus six earned is twelve chances to go wrong, and a 3B that
+#: has not finished the job in four rounds is not finishing it in twelve: what
+#: it is doing by then is re-reading what it already read, and each of those
+#: rounds costs a whole prompt on a machine where a prompt is seconds. The
+#: number is the same four the skills reform settled on for the same models
+#: and the same reason. Nothing is capped for a model the name does not size:
+#: see `is_small_model`, where None means off.
+SMALL_MODEL_MAX_ROUNDS = 4
 
 # Rounds a turn can *earn* beyond MAX_ROUNDS, one per round that got somewhere.
 #
@@ -1181,6 +1193,19 @@ def run_agent(
         model_manager.utility_model() if use_utility_model else model_manager.chat_model()
     )
     window = report(agent_model) if callable(report) else None
+    #: **How big the model is, asked about the model this turn will actually
+    #: call** (WORLD_CLASS_PLAN A4). The window above and this are two
+    #: different facts and the app had been using the first as a proxy for the
+    #: second: a 3B served with a 32k window got the full registry, twelve
+    #: rounds and the long descriptions, because the *window* was roomy. What
+    #: the schemas cost is a window question; whether the model can choose
+    #: between twenty of them is not.
+    #:
+    #: `is_small_model` is the predicate the skills path already uses
+    #: (`chat_model_is_small` calls it), so there is one rule in one place, and
+    #: None ("the name does not say") is off: narrowing a capable model on a
+    #: guess is the worse of the two mistakes.
+    small_model = is_small_model(agent_model) is True
     persona = memory.persona_with_memory(session, persona_prompt)
 
     system_chars = len(
@@ -1218,6 +1243,24 @@ def run_agent(
     focus_names = (
         allowed_tools if allowed_tools is not None else _focus(question, history)
     )
+    if small_model and allowed_tools is None:
+        # **One stable toolbox for a small model, not a per-question guess.**
+        # `_focus` is an economy: it reads the question's words and adds the
+        # groups they hint at, so the same model sees a different set every
+        # turn and the set is usually larger than the core. Both halves are
+        # wrong here. A small model does better with a short list it sees
+        # every time than with a longer one tuned to the question, and the
+        # orchestration three (`make_plan`, `run_skill`, `save_skill`) are the
+        # ones it reaches for instead of answering: `ORCHESTRATION_TOOLS`
+        # already documents that, and `within_budget` already drops them on a
+        # small *window*. This is the same judgement made on the model's size.
+        #
+        # A skill's declared list is exempt (`allowed_tools is not None`): it
+        # asked for exactly those tools, and dropping one breaks the run
+        # rather than simplifying it.
+        focus_names = [
+            name for name in tools.CORE_TOOLS if name not in tools.ORCHESTRATION_TOOLS
+        ]
     offered = tools.ollama_tools(focus_names)
     # Tools this turn may not use whatever it was offered. The one caller is a
     # run refusing to start another run (`tools.RUN_STARTERS`): each run brings
@@ -1240,7 +1283,7 @@ def run_agent(
     # Safe for a skill's declared list too (hence above the `allowed_tools`
     # branch): compaction never removes a tool, so nothing a skill asked for
     # can go missing this way.
-    if budget is not None and budget.window_tokens <= SMALL_WINDOW_TOKENS:
+    if small_model or (budget is not None and budget.window_tokens <= SMALL_WINDOW_TOKENS):
         offered = tools.compact_schemas(offered)
     # Then fit what is left to the window the model actually has, rather than
     # to a constant. See tools.within_budget: 4096 is Ollama's fallback, not a
@@ -1271,7 +1314,15 @@ def run_agent(
     if focused_only and focus_names is not None and messages:
         messages[0]["content"] += FOCUS_NOTE
     if allowed_tools is None:
-        every_tool = tools.ollama_tools()
+        # What the turn widens to if the model reaches for something it was not
+        # shown (the correction below). For a small model that is the ordinary
+        # question-focused set, **not** the whole registry: the narrowing above
+        # is a judgement about the model rather than a guess about the
+        # question, so a miss is evidence the focus was wrong, not evidence
+        # that a 3B can suddenly choose between twenty-two schemas.
+        every_tool = tools.ollama_tools(
+            _focus(question, history) if small_model else None
+        )
         if barred:
             every_tool = [
                 t for t in every_tool if t["function"]["name"] not in barred
@@ -1373,6 +1424,11 @@ def run_agent(
     # flat cap always stopped it.
     granted = max(1, max_rounds)
     ceiling = granted + max(0, earned_rounds)
+    if small_model:
+        # The cap is on the ceiling as well as the grant, or the earned rounds
+        # put the total straight back to twelve: see SMALL_MODEL_MAX_ROUNDS.
+        granted = min(granted, SMALL_MODEL_MAX_ROUNDS)
+        ceiling = min(ceiling, SMALL_MODEL_MAX_ROUNDS)
     allowance = granted
     round_number = -1
 

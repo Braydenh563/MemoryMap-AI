@@ -7,6 +7,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The agent knows how big its model is. `run_agent` now asks
+  `model_manager.is_small_model` about the model it is actually going to call,
+  the same predicate the skills path uses, and a small model gets the core
+  tools without the orchestration three, the short descriptions, and four
+  rounds rather than six plus six earned. Measured on one turn with a 32k
+  window: 11 tools and 3,828 schema bytes against 56 and 27,250. A model whose
+  name does not say its size is left alone.
+
 - Background work is bounded. Every upload used to spawn up to three threads of
   its own (Tesseract, the caption, the vision read) plus a document read, so a
   folder of 200 pictures was 600 threads against one Tesseract and one local

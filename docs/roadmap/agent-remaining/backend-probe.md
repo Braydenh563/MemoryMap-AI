@@ -6,9 +6,9 @@ each, tests first.
 
 | Row | State | Commit |
 | --- | --- | --- |
-| A3 bounded job pool | done | (below) |
-| A4 small-model agent | next | |
-| A5 five functions split | not started | |
+| A3 bounded job pool | done | `8b9da9e` |
+| A4 small-model agent | done | (this commit) |
+| A5 five functions split | next: `run_agent` first | |
 | A6 nine silent excepts | not started | |
 | A9 CI skips | not started | |
 

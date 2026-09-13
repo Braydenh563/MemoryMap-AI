@@ -401,8 +401,29 @@ REM  and the flags now make the entry conditions three questions rather
 REM  than one.
 if defined MM_CHILD goto :after_update
 if "!MM_NO_UPDATE!"=="1" goto :no_update
-where git >nul 2>nul || goto :after_update
-if not exist ".git" goto :after_update
+REM  **A skipped step is still a step, and these two jumps are the whole of
+REM  the "only loads up to step 3/5 and then it loads" report.** The splash's
+REM  bar is a count of steps that reached `done` over the total
+REM  (`launch_status.percent`, and it counts `done` on purpose so the bar
+REM  cannot claim 100% while the last and longest phase is running). Both
+REM  lines below leave before anything is written for step 1, so on a machine
+REM  with no git, or an install that is a downloaded copy rather than a
+REM  checkout, the history holds steps 2, 3 and 4 done with 5 active: three of
+REM  five, for ever, and then the app opens. Nothing was wrong with the launch;
+REM  the bar was counting a step nobody had told it about.
+REM
+REM  Ticked with the reason instead. "Skipped" is a real outcome for this step
+REM  and the list has always shown the others that way ("Offline, skipped",
+REM  "Skipped, --no-update"); these two were the only exits that said nothing
+REM  at all.
+where git >nul 2>nul || (
+  call :status !MM_STEP_UPDATE! "Update" "Skipped, git is not installed" "done"
+  goto :after_update
+)
+if not exist ".git" (
+  call :status !MM_STEP_UPDATE! "Update" "Skipped, not a git checkout" "done"
+  goto :after_update
+)
 set "MM_CHILD=1"
 echo  Checking for updates...
 call :status !MM_STEP_UPDATE! "Update" "Checking for updates on GitHub" "active"

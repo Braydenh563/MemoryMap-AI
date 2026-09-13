@@ -119,3 +119,85 @@ class TestReadFile:
         path = tmp_path / "splash.txt"
         path.write_bytes(b"\xff\xfe|4|Update|x|done\n1|4|Update|Up to date|done\n")
         assert len(ls.read_file(str(path))) >= 1
+
+
+class TestTheBarReachesTheEnd:
+    """Reported: *"the splash ps1 graphic still only loads up to step 3/5 and
+    then it loads, the bar doesnt actually reacy 5/5"*.
+
+    `percent` counts steps that reached `done`, deliberately, so the bar
+    cannot claim 100% while the last and longest phase is still running. That
+    makes a step nobody writes indistinguishable from a step that never
+    finished, and start.bat had two exits from the update step that wrote
+    nothing at all: no git on PATH, and an install that is a downloaded copy
+    rather than a checkout. Either one leaves steps 2, 3 and 4 done with 5
+    active: three of five, for ever, on a launch where nothing went wrong.
+    """
+
+    def test_a_step_that_is_never_written_holds_the_bar_back(self):
+        from memorymap.core import launch_status as ls
+
+        without_update = ls.parse(
+            "\n".join(
+                [
+                    "2|5|Python|Using the existing environment|done",
+                    "3|5|Dependencies|Already up to date|done",
+                    "4|5|Desktop window|Ready|done",
+                    "5|5|Start|Starting the app|active",
+                ]
+            )
+        )
+        assert ls.percent(without_update) == 60, (
+            "three of five, which is the reported symptom: the arithmetic is "
+            "right and the history is missing a step"
+        )
+
+        with_update = ls.parse(
+            "\n".join(
+                [
+                    "1|5|Update|Skipped, git is not installed|done",
+                    "2|5|Python|Using the existing environment|done",
+                    "3|5|Dependencies|Already up to date|done",
+                    "4|5|Desktop window|Ready|done",
+                    "5|5|Start|Starting the app|active",
+                ]
+            )
+        )
+        assert ls.percent(with_update) == 80
+        finished = ls.parse(
+            "\n".join(
+                [
+                    "1|5|Update|Skipped, git is not installed|done",
+                    "2|5|Python|Using the existing environment|done",
+                    "3|5|Dependencies|Already up to date|done",
+                    "4|5|Desktop window|Ready|done",
+                    "5|5|Start|Handed over to the app|done",
+                ]
+            )
+        )
+        assert ls.percent(finished) == 100
+
+    def test_every_exit_from_the_update_step_ticks_it(self):
+        """The launcher half, read from the script, because there is no
+        Windows here to run it on. Every `goto :after_update` that leaves the
+        update block must tick step 1 first; the one exception is the
+        relaunched child, whose parent already wrote it into the same file."""
+        import re
+        from pathlib import Path
+
+        script = (Path(__file__).resolve().parents[1] / "start.bat").read_text(encoding="utf-8")
+        block = script[script.index("if defined MM_CHILD goto :after_update") : script.index(":after_update\n")]
+        untick = []
+        for match in re.finditer(r"^(.*goto :after_update.*)$", block, re.M):
+            line = match.group(1)
+            if "MM_CHILD" in line:
+                continue  # the parent wrote step 1 before relaunching
+            before = block[: match.start()]
+            # The tick has to be the statement immediately before the jump.
+            if "MM_STEP_UPDATE!" not in before[-400:]:
+                untick.append(line.strip())
+        assert not untick, (
+            "these exits from the update step leave without marking it done, "
+            "so the splash bar counts one step fewer than the total for the "
+            "whole launch: " + "; ".join(untick)
+        )

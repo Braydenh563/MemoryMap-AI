@@ -9261,10 +9261,52 @@ input[type="file"] {
    geometry off it. */
 .wb-map-radial {
   --wb-radial-r: 4.25rem;
+  /* The band under the slots: a slot is 1.75rem across, so a 2.25rem band
+     centred on the ring's own radius covers every one of them with an eighth
+     of a rem to spare on each side. */
+  --wb-radial-band: 2.25rem;
   position: absolute;
   z-index: 23;
   width: 0;
   height: 0;
+  pointer-events: none;
+}
+
+/* **A ground under the ring** (INBOX 191: "can you put an opaque background or
+   smth behind the item radials in the mindmap?? they still feel
+   disconnected"). Eight circles floating over whatever the canvas happens to
+   hold read as eight separate things, and on a busy map the lines behind them
+   run between the slots and through the gap.
+
+   A band, not a disc. A disc would be the obvious reading of "a background
+   behind the radial" and it is the wrong one: the ring is centred on the
+   node's own centre and `wbPlaceMapRadial` raises its radius only far enough
+   to clear that node, so a filled circle of the ring's diameter covers the
+   topic the ring is acting on. A thick border with a 50% radius is an annulus
+   in one element, with the hole exactly where the node is.
+
+   Not `--card`, which is what "a disc in the card colour" would ask for and
+   what this was written as first: measured, `--card` computes to
+   `color-mix(in srgb, rgba(255, 255, 255, 0.55) 100%, transparent)`, an alpha
+   of 0.55, so a band painted in it read 254,254,255 against a canvas of
+   252,253,255, which is two levels and no ground at all. The band is the
+   opaque popover surface the slots and the caption already use, taken one
+   step towards the ink so that a slot sitting on it is still a slot on a
+   surface rather than a hairline on one flat field. */
+.wb-map-radial::before {
+  content: "";
+  position: absolute;
+  box-sizing: border-box;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--wb-radial-r) * 2 + var(--wb-radial-band));
+  height: calc(var(--wb-radial-r) * 2 + var(--wb-radial-band));
+  margin-left: calc((var(--wb-radial-r) + var(--wb-radial-band) / 2) * -1);
+  margin-top: calc((var(--wb-radial-r) + var(--wb-radial-band) / 2) * -1);
+  border: var(--wb-radial-band) solid
+    color-mix(in srgb, var(--ink) 7%, var(--modal-bg-opaque));
+  border-radius: 50%;
+  box-shadow: var(--shadow-md);
   pointer-events: none;
 }
 

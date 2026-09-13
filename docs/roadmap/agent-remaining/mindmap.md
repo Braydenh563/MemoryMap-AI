@@ -325,3 +325,6 @@ list plus `git log`.
 - next: INBOX 183d, no default board type in the new-board dialog. Grep `wb-boards-new` in `whiteboard.js` for the dialog that `mapmenus.js`'s `newBoard` drives.
 - done `5544284`: INBOX 183d. The dialog did pre-select a kind; it now opens on the kind last made, and its button says Create (`scratchpad/ui-sweeps/newboard.js`, 6 checks).
 - next: INBOX 191's first half, an opaque ground behind `#wb-map-radial` and `#wb-map-link-radial`.
+- done `PENDING3`: INBOX 191's first half, the ring's ground (`scratchpad/ui-sweeps/mapring.js`, 4 checks light and 4 dark).
+- found, not fixed: **a right-click on a map node did not open the node ring** in `mapring.js` (state at the moment of the click: `wbSelectedItem` the node, `wbMultiSelection.size` 0, `wbSelectedMapNode()` the same id, the node on the canvas, and the ring still `hidden`). The sweep falls back to `wbOpenMapRadial` and says which route opened it ("opened by: direct"). `mapstrip.js` uses the same gesture and was green on 2026-09-13, so this wants reproducing against `#wb-context`'s rebuild before anything is changed.
+- next: INBOX 184, a map exported as PNG to the board shows nothing at the foot of its image card.

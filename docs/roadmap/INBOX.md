@@ -87,6 +87,21 @@ measured or built in earlier commits and is marked there.
     Two items: the ring's ground (mind map agent); the live table view of
     the documents list, which needs reproducing first (documents agent).
 
+    **The ring's ground: done, 2026-09-13.** A band rather than a disc: the
+    ring is centred on the node's own centre and its radius is raised only far
+    enough to clear that node, so a filled circle would cover the topic the
+    ring acts on. One `::before` with a 2.25rem border and a 50% radius is that
+    band in one element, with the hole exactly where the node is. Not in
+    `--card`, which measured as `rgba(255, 255, 255, 0.55)` and painted 254,254,255
+    over a canvas of 252,253,255, two levels and no ground at all: it is the
+    opaque popover surface the slots already use, one step towards the ink.
+    Measured with `scratchpad/pngpixel.py` through
+    `scratchpad/ui-sweeps/mapring.js`, 4 checks in each theme: the pixel
+    halfway between two slots reads 237,238,241 in light against the canvas's
+    252,253,255 and 38,41,51 in dark against 23,26,37, a slot still reads
+    against the band (252,253,255 and 24,27,37), and the topic in the middle
+    is the same pixel it was before the ring opened.
+
 190. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the popup
     agent and the help chat.** "the popup agent needs more ui, ux and
     functionality refinements to be more professional. it needs to be more

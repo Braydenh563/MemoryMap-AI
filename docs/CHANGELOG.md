@@ -168,6 +168,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Both of the mind map's radial rings sit on a ground of their own now, so a
+  ring reads as one control rather than eight circles over the canvas
+  (INBOX 191).
 - The New board dialog opens on the kind of board you made last, and its
   button says Create rather than Save (INBOX 183).
 - The map's top bar no longer runs off the right of the window. Layout and

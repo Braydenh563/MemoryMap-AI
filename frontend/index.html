@@ -2093,6 +2093,12 @@
                dimming them in place (TIMELINE_PLAN decision 2). -->
           <input type="search" id="timeline-search" class="timeline-search" placeholder="Find notes…" aria-label="Find matching notes">
           <button id="timeline-filter-clear" class="ghost small hidden" type="button" title="Show everything again"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Show: all</button>
+          <!-- Which kinds of thing the journal holds (TIMELINE_PLAN.md Phase 4,
+               decision 9). `.library-chip`, the app's own filter-chip recipe,
+               built by `renderTimelineKindChips` so each chip can carry its
+               count: unlike the search and the band filter, a kind is a server
+               filter, so pressing one refetches. -->
+          <div id="timeline-kinds" class="dock-chip-row" role="group" aria-label="Kinds of thing to show"></div>
         </div>
         <div class="dock-group dock-arrange">
           <!-- Two views of one array (TIMELINE_PLAN decision 2): the feed for

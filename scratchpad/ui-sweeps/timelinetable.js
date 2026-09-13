@@ -115,7 +115,12 @@ const check = (label, ok, detail) => {
     document.getElementById('timeline-options-menu').open = true;
     document.getElementById('timeline-select-btn').click();
     await new Promise((r) => setTimeout(r, 400));
-    const rows = [...document.querySelectorAll('#timeline-table-body tr')].slice(0, 2);
+    // Only a row backed by an `Entry` has a tick box: the selection bar runs
+    // the Notes list's batch actions, and a document or a reminder ticked into
+    // it would be an id handed to the wrong table (TIMELINE_PLAN Phase 4).
+    const rows = [...document.querySelectorAll('#timeline-table-body tr')]
+      .filter((row) => row.querySelector('.select-check'))
+      .slice(0, 2);
     for (const row of rows) row.querySelector('.select-check').click();
     await new Promise((r) => setTimeout(r, 200));
     return {

@@ -9,6 +9,25 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The Timeline is the whole notebook, not only its notes. Documents you
+  started, boards you drew and reminders that fell due are rows in the feed
+  and the table, each with its own marker, and four chips in the dock turn any
+  of them off. A reminder sits on the day it is due, the way a note sits on a
+  date it talks about; a document sits where it was started, so it does not
+  walk forwards through the feed every time you open it.
+
+- Today is always in the journal, even before you have written anything in it,
+  and offers to start the day's note. The note is an ordinary note whose first
+  line is the date, so it is searchable, it is in the graph, it exports, and a
+  notebook opened in another editor still has it.
+
+- A web link the AI writes on a line of its own now renders as a card: the
+  link's own words as the title, the site under it, and the whole thing is the
+  target rather than a few underlined characters. A link inside a sentence is
+  unchanged, because a card in the middle of a sentence breaks the sentence.
+  No favicon: this app fetches nothing from the web that you did not ask it
+  to, and the site's name in words says the same thing.
+
 - With no model connected, the app says so where you are and offers one click
   that fixes it. The Ask tab keeps working and explains that it is answering
   from your notes alone, with the matching records beside it; the popup agent,

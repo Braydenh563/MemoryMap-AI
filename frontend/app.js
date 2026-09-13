@@ -24301,6 +24301,72 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
   return block;
 }
 
+//: One link and nothing else on the line, as a markdown link, an
+//: angle-bracket autolink or a bare address. Bounded lengths throughout: this
+//: runs over model output, and an unbounded `[^\]]*` against a paragraph that
+//: opens a bracket and never closes it is a scan of the whole answer per line.
+const LONE_LINK =
+  /^\s*(?:\[([^\]]{1,300})\]\((https?:\/\/[^\s)]{1,500})\)|<?(https?:\/\/[^\s<>]{1,500})>?)\s*$/;
+
+//: The path of an address, as words, for a card whose host is already on its
+//: own line: "articles / s41586-024-07123-4". The query string and fragment
+//: are dropped (tracking and position, not identity), and an address with no
+//: path at all falls back to the host, because a card with an empty title is
+//: worse than one that repeats itself.
+function linkCardPath(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return url;
+  }
+  const segments = parsed.pathname.split("/").filter(Boolean).map((piece) => {
+    let decoded = piece;
+    try {
+      decoded = decodeURIComponent(piece);
+    } catch {
+      //: A stray percent in a path is not a reason to show nothing.
+    }
+    return decoded;
+  });
+  if (!segments.length) return parsed.hostname.replace(/^www\./i, "");
+  const last = segments[segments.length - 1];
+  const shown =
+    last.length > READABLE_URL_SEGMENT ? `${last.slice(0, READABLE_URL_SEGMENT - 1)}\u2026` : last;
+  return segments.length > 1 ? `${segments[0]} / ${shown}` : shown;
+}
+
+//: The card itself. **No favicon, and that is a decision rather than an
+//: omission** (CHAT_PLAN decision 12): fetching one would be the first time
+//: this app asked the web for anything nobody had asked it to, on an app whose
+//: first line of description is that it is offline. So the host is written in
+//: words, which is the half of a favicon that carries the meaning anyway.
+//:
+//: `target="_blank"` with `rel="noopener noreferrer"`, the same pair the
+//: source cards use: without `noopener` the opened page gets a handle on this
+//: window and can navigate it.
+function linkCard(url, text) {
+  const card = document.createElement("a");
+  card.className = "link-card";
+  card.href = url;
+  card.target = "_blank";
+  card.rel = "noopener noreferrer";
+  card.title = url;
+  const title = document.createElement("span");
+  title.className = "link-card-title";
+  //: The link's own words when it has any; otherwise the address without its
+  //: host, because the host is written on the line directly below. Using
+  //: `readableUrl` here (the inline form) printed "arxiv.org / … / 2401.12345"
+  //: over "arxiv.org", which is the card saying the same thing twice in the
+  //: two lines it has.
+  title.textContent = text || linkCardPath(url);
+  const host = document.createElement("span");
+  host.className = "link-card-host";
+  setLabel(host, `ph:globe ${sourceHost(url) || url}`);
+  card.append(title, host);
+  return card;
+}
+
 function renderMarkdown(container, text, depth = 0) {
   container.replaceChildren();
   const lines = unlatex(text).replace(/\r\n/g, "\n").split("\n");
@@ -24562,6 +24628,20 @@ function renderMarkdown(container, text, depth = 0) {
     ) {
       para.push(lines[i]);
       i++;
+    }
+    //: **A link on a line of its own is a card** (CHAT_PLAN.md decision 12,
+    //: INBOX 172: web links the AI writes, "better and more modern cool").
+    //: A link inside a sentence stays inline, because a card in the middle of
+    //: a sentence breaks the sentence; a link a model puts on its own line is
+    //: a thing being handed to you, and it deserves a title, its host and a
+    //: hit area rather than eleven characters of underlined prose.
+    const lone = para.length === 1 ? LONE_LINK.exec(para[0]) : null;
+    if (lone) {
+      const url = lone[2] || lone[3];
+      if (isRenderableUrl(url)) {
+        container.appendChild(linkCard(url, lone[1] || ""));
+        continue;
+      }
     }
     const p = document.createElement("p");
     //: `<br>` is the one tag models write inside prose that means something
@@ -25201,13 +25281,23 @@ function timelineRow(entry) {
   const cut = flat.indexOf("\n");
   const head = (cut === -1 ? flat : flat.slice(0, cut)).trim();
   const rest = cut === -1 ? "" : flat.slice(cut + 1).replace(/\s+/g, " ").trim();
+  //: **The kind comes from the endpoint now** (TIMELINE_PLAN Phase 4). It used
+  //: to be "board if the map index knows this id, note otherwise", which was
+  //: the whole truth while the feed was Entry rows and is two of four kinds
+  //: now. The map lookup stays because a board's *title* still comes from the
+  //: map index rather than from its note text.
+  const kind = entry.kind || (board ? "board" : "note");
   return {
     id: entry.id,
-    kind: board ? "board" : "note",
+    //: Identity across kinds: note 3 and document 3 are two different things,
+    //: and this is what the feed keys its rows, its open row and its keyboard
+    //: focus on. `id` is what a row opens.
+    key: entry.key || `${kind}:${entry.id}`,
+    kind,
     board,
     // The first line of a note is what a person calls it, heading or not.
-    title: (board ? board.title : head) || "Untitled note",
-    snippet: rest,
+    title: entry.title || (board ? board.title : head) || "Untitled note",
+    snippet: entry.kind === "note" || !entry.kind ? rest : entry.preview || "",
     when: parseServerTime(entry.at) || new Date(entry.at),
     whenIso: entry.at,
     writtenAt: entry.written_at,
@@ -25223,7 +25313,29 @@ function timelineRow(entry) {
     links: entry.links ?? null,
     pinned: Boolean(entry.pinned),
     parentId: entry.parent_id ?? null,
+    //: Kind-specific facts, carried rather than fetched: a reminder row says
+    //: whether it is done, and a document row what kind of file it is.
+    done: entry.done ?? null,
+    priority: entry.priority || "",
+    fileType: entry.file_type || "",
+    entryId: entry.entry_id ?? null,
   };
+}
+
+//: **A daily note is a convention, not a table** (TIMELINE_PLAN Phase 4,
+//: WORLD_CLASS_PLAN D6). Its first line is the day in ISO form, `# 2026-09-13`,
+//: which means a journal entry is an ordinary note: it is searchable, it is in
+//: the graph, it exports, and a notebook opened in another editor still has
+//: it. A store for it would buy nothing and would have to be migrated. ISO
+//: rather than "Friday 13 September" because the app has to be able to find
+//: today's note without parsing a date in the reader's own language.
+function dailyNoteTitle(bucketKey) {
+  return bucketKey;
+}
+
+function timelineDailyNote(bucketKey, rows) {
+  const wanted = dailyNoteTitle(bucketKey);
+  return rows.find((row) => row.kind === "note" && row.title.trim() === wanted) || null;
 }
 
 //: **The buckets are computed here, not fetched.** `/timeline` labels every
@@ -25291,6 +25403,109 @@ function timelineBucketLabel(key, scale) {
 //:
 //: It counts what the *range* holds rather than what the search left, so
 //: typing in the search box never re-cuts the headers under the reader.
+//: **The four kinds a row can be** (TIMELINE_PLAN Phase 4, decision 9), the
+//: label on their filter chip, and the glyph the row's marker wears. One table,
+//: because the chips, the marker and the `kind=` the endpoint is asked for have
+//: to agree, and three copies of a list of four is how they stop agreeing.
+const TIMELINE_KINDS = [
+  { key: "note", label: "Notes", glyph: "ph-note" },
+  { key: "board", label: "Boards", glyph: "ph-tree-structure" },
+  { key: "document", label: "Documents", glyph: "ph-file-text" },
+  { key: "reminder", label: "Reminders", glyph: "ph-bell" },
+];
+const TIMELINE_KIND_GLYPHS = Object.fromEntries(
+  TIMELINE_KINDS.map((kind) => [kind.key, kind.glyph])
+);
+//: The singular, for the table's Kind column. "Map" rather than "Board"
+//: because that is the word the rest of the app uses for the thing a board
+//: holds (MINDMAP_PLAN.md), and this column used to say it.
+const TIMELINE_KIND_NAMES = {
+  note: "Note",
+  board: "Map",
+  document: "Document",
+  reminder: "Reminder",
+};
+const TIMELINE_KINDS_STORE = "timeline-kinds";
+
+//: All four unless this browser has been told otherwise. Stored rather than
+//: reset per visit: which kinds you read the journal for is a preference, and
+//: re-ticking three chips on every visit to the tab is the kind of thing that
+//: makes a filter not worth having.
+function timelineKindChoice() {
+  let chosen = null;
+  try {
+    chosen = JSON.parse(localStorage.getItem(TIMELINE_KINDS_STORE) || "null");
+  } catch {
+    chosen = null;
+  }
+  const kept = Array.isArray(chosen)
+    ? TIMELINE_KINDS.map((kind) => kind.key).filter((key) => chosen.includes(key))
+    : [];
+  //: Never empty. A feed with every kind switched off is a blank tab whose
+  //: cause is four chips the reader cannot see the state of from the rows, so
+  //: the last one cannot be turned off (the chip disables itself, see below).
+  return kept.length ? kept : TIMELINE_KINDS.map((kind) => kind.key);
+}
+
+function timelineIsDailyNote(row) {
+  return row.kind === "note" && row.title.trim() === dailyNoteTitle(timelineBucketKey(row.when, "day"));
+}
+
+//: The chips themselves, in the dock's find zone beside the search, on
+//: `.library-chip`: the app's own filter-chip recipe (DESIGN.md's index), the
+//: same control the Library's boards filter and the chat composer's toggles
+//: use. Each carries its count, the Library's rule and for its reason: a
+//: filter you have to press to find out is empty wastes the press.
+function renderTimelineKindChips() {
+  const box = $("timeline-kinds");
+  if (!box) return;
+  const chosen = timelineKindChoice();
+  const counts = new Map();
+  for (const row of timelineRows) counts.set(row.kind, (counts.get(row.kind) || 0) + 1);
+  box.replaceChildren();
+  for (const kind of TIMELINE_KINDS) {
+    const on = chosen.includes(kind.key);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `library-chip${on ? " active" : ""}`;
+    button.dataset.timelineKind = kind.key;
+    button.setAttribute("aria-pressed", String(on));
+    const count = counts.get(kind.key);
+    button.title = on
+      ? `Stop showing ${kind.label.toLowerCase()}`
+      : `Show ${kind.label.toLowerCase()} in the timeline`;
+    //: The last one on cannot be turned off: see `timelineKindChoice`.
+    if (on && chosen.length === 1) {
+      button.disabled = true;
+      button.title = "At least one kind has to be shown";
+    }
+    const icon = document.createElement("span");
+    icon.className = `ph ${kind.glyph}`;
+    icon.setAttribute("aria-hidden", "true");
+    const label = document.createElement("span");
+    label.className = "dock-chip-label";
+    label.textContent = count === undefined ? kind.label : `${kind.label} (${count})`;
+    button.append(icon, label);
+    box.appendChild(button);
+  }
+}
+
+//: A kind is a *server* filter (the rows are not loaded at all), so toggling
+//: one refetches rather than repainting: the opposite of the band filter and
+//: the search box, which both run over the array already in hand.
+async function toggleTimelineKind(key) {
+  const chosen = timelineKindChoice();
+  const next = chosen.includes(key) ? chosen.filter((k) => k !== key) : [...chosen, key];
+  if (!next.length) return;
+  try {
+    localStorage.setItem(TIMELINE_KINDS_STORE, JSON.stringify(next));
+  } catch {
+    /* a browser refusing storage still gets the filter for this visit */
+  }
+  renderTimelineKindChips();
+  await renderTimeline();
+}
+
 const TIMELINE_SCALES = ["day", "week", "month", "year"];
 // Density follows the bucket, and nothing else decides it: a day's rows carry
 // the snippet, a week's drop it, a month's and a year's are a title and a date
@@ -25336,7 +25551,7 @@ let timelineRows = [];
 let timelineById = new Map();
 let timelineGroupNames = [];
 let timelineFilter = null;
-let timelineOpenId = null;
+let timelineOpenKey = null;
 
 //: The range, as a query. One place, because the first page and every page
 //: after it have to ask the same question: a cursor into a different range is
@@ -25356,6 +25571,11 @@ function timelineQuery() {
   } else {
     url += `&days=${daysVal}`;
   }
+  //: Only when it is narrowing something: a URL that always names all four
+  //: kinds is a longer URL saying nothing, and the endpoint's own default is
+  //: the same four.
+  const kinds = timelineKindChoice();
+  if (kinds.length < TIMELINE_KINDS.length) url += `&kind=${kinds.join(",")}`;
   return url;
 }
 
@@ -25372,14 +25592,15 @@ async function renderTimeline() {
   // ordered by one and bucketed by the other, so a note about next Friday
   // arrived in Friday's column behind notes written after it.
   timelineRows.sort((a, b) => b.when - a.when);
-  timelineById = new Map(timelineRows.map((row) => [row.id, row]));
-  timelineOpenId = null;
+  timelineById = new Map(timelineRows.map((row) => [row.key, row]));
+  timelineOpenKey = null;
   if (timelineFilter && !timelineRows.some((row) => timelineRowGroups(row).includes(timelineFilter))) {
     // A filter naming a category that is not in the new range would hide
     // everything with no way to tell why.
     timelineFilter = null;
   }
   fillTimelineBandOptions();
+  renderTimelineKindChips();
   paintTimeline();
   drawTimelineScrubber();
 }
@@ -25404,9 +25625,9 @@ async function timelineLoadMore() {
     timelineNextCursor = body.next_cursor || null;
     const fresh = body.notes.map(timelineRow);
     for (const row of fresh) {
-      if (timelineById.has(row.id)) continue;
+      if (timelineById.has(row.key)) continue;
       timelineRows.push(row);
-      timelineById.set(row.id, row);
+      timelineById.set(row.key, row);
     }
     timelineRows.sort((a, b) => b.when - a.when);
     // Appended rather than repainted: a repaint of every loaded row on every
@@ -25435,11 +25656,11 @@ function appendTimelineRows(fresh, from = 0) {
   const feed = $("timeline-feed");
   const scale = feed.dataset.scale || "day";
   const density = feed.dataset.density || "full";
-  const visible = new Set(timelineVisibleRows().map((row) => row.id));
+  const visible = new Set(timelineVisibleRows().map((row) => row.key));
   let section = feed.lastElementChild;
   const slice = fresh.slice(from, from + TIMELINE_APPEND_CHUNK);
   for (const row of slice) {
-    if (!visible.has(row.id)) continue;
+    if (!visible.has(row.key)) continue;
     const key = timelineBucketKey(row.when, scale);
     if (!section || section.dataset.bucket !== key) {
       section = document.createElement("section");
@@ -25611,27 +25832,89 @@ function paintTimelineFeed(rows) {
     : "";
 
   const fragment = document.createDocumentFragment();
+  //: **Today's own day, whether or not anything is in it** (TIMELINE_PLAN
+  //: Phase 4, WORLD_CLASS_PLAN D6). A journal whose today is missing until you
+  //: have written something is a journal you have to go elsewhere to start, and
+  //: the feed's newest header being a date three days ago is the reading that
+  //: makes the tab feel out of date rather than empty. Only on the day scale:
+  //: "this week" and "this month" already contain today by definition.
+  const todayKey = timelineBucketKey(new Date(), "day");
+  const showsToday = scale === "day" && !timelineFilter && !$("timeline-search").value.trim();
+  if (showsToday && !buckets.some((bucket) => bucket.key === todayKey)) {
+    fragment.appendChild(timelineBucketSection({ key: todayKey, rows: [] }, scale, density));
+  }
   for (const bucket of buckets) {
-    const section = document.createElement("section");
-    section.className = "timeline-bucket";
-    section.dataset.bucket = bucket.key;
-    const head = document.createElement("h3");
-    head.className = "timeline-bucket-head";
-    const label = document.createElement("span");
-    label.className = "timeline-bucket-label";
-    label.textContent = timelineBucketLabel(bucket.key, scale);
-    const count = document.createElement("span");
-    count.className = "muted timeline-bucket-count";
-    count.textContent = `${bucket.rows.length}`;
-    head.append(label, count);
-    const list = document.createElement("ul");
-    list.className = "timeline-rows";
-    for (const row of bucket.rows) list.appendChild(timelineRowElement(row, density));
-    section.append(head, list);
-    fragment.appendChild(section);
+    fragment.appendChild(timelineBucketSection(bucket, scale, density, showsToday && bucket.key === todayKey));
   }
   feed.appendChild(fragment);
   applyTimelineRowTabOrder();
+}
+
+//: One bucket: its header, its rows, and, on today, the journal's own action.
+function timelineBucketSection(bucket, scale, density, isToday = bucket.rows.length === 0) {
+  const section = document.createElement("section");
+  section.className = "timeline-bucket";
+  section.dataset.bucket = bucket.key;
+  if (!bucket.rows.length) section.dataset.empty = "1";
+  const head = document.createElement("h3");
+  head.className = "timeline-bucket-head";
+  const label = document.createElement("span");
+  label.className = "timeline-bucket-label";
+  label.textContent = timelineBucketLabel(bucket.key, scale);
+  const count = document.createElement("span");
+  count.className = "muted timeline-bucket-count";
+  count.textContent = `${bucket.rows.length}`;
+  head.append(label, count);
+  //: **The action is on the day, and only when the day has none.** A "start
+  //: today's note" button beside a today that already has one is a second way
+  //: to make the same thing, and the second one would make a note whose first
+  //: line is a date that is already taken.
+  if (isToday && bucket.key === timelineBucketKey(new Date(), "day")) {
+    const existing = timelineDailyNote(bucket.key, bucket.rows);
+    head.appendChild(
+      existing
+        ? smallButton("ph:calendar-dot Today's note", "Open today's journal note", () =>
+            focusTimelineRow(existing.key)
+          )
+        : smallButton("ph:plus Start today's note", "Make today's journal note and open it", () =>
+            startTodaysNote()
+          )
+    );
+  }
+  const list = document.createElement("ul");
+  list.className = "timeline-rows";
+  for (const row of bucket.rows) list.appendChild(timelineRowElement(row, density));
+  section.append(head, list);
+  if (!bucket.rows.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted timeline-bucket-empty";
+    empty.textContent = "Nothing written today yet.";
+    section.appendChild(empty);
+  }
+  return section;
+}
+
+//: The journal note itself: an ordinary note whose first line is the day
+//: (`dailyNoteTitle`). Nothing else about it is special, which is the point:
+//: it is searchable, it is in the graph, it exports, and a notebook opened in
+//: another editor still has it.
+async function startTodaysNote() {
+  const key = timelineBucketKey(new Date(), "day");
+  const made = await apiJson("/entries", {
+    method: "POST",
+    body: JSON.stringify({ content: `# ${dailyNoteTitle(key)}\n\n` }),
+  }).catch((error) => {
+    toast(error.message || "Couldn't make today's note.", true);
+    return null;
+  });
+  if (!made) return;
+  toast("Today's note is ready.");
+  await renderTimeline();
+  //: Straight into the editor, because the note is empty and the only reason
+  //: to make one is to write in it.
+  switchTab("notes");
+  showNotesSection("browse");
+  flashEntry(made.id);
 }
 
 // One Tab stop for the feed, kept on the row the reader was on. A repaint
@@ -25643,11 +25926,11 @@ function applyTimelineRowTabOrder() {
   // and a table row wear, so the keyboard behaves the same in both.
   const rows = [...$("timeline-scroll").querySelectorAll(".timeline-row")];
   const current = document.activeElement;
-  const keepId = rows.some((row) => row === current) ? current.dataset.id : null;
+  const keepKey = rows.some((row) => row === current) ? current.dataset.key : null;
   for (const row of rows) {
-    row.tabIndex = keepId ? (row.dataset.id === keepId ? 0 : -1) : -1;
+    row.tabIndex = keepKey ? (row.dataset.key === keepKey ? 0 : -1) : -1;
   }
-  if (!keepId && rows.length) rows[0].tabIndex = 0;
+  if (!keepKey && rows.length) rows[0].tabIndex = 0;
 }
 
 // A row. The order you read it in: what kind of thing this is and whether it
@@ -25657,6 +25940,7 @@ function timelineRowElement(row, density) {
   const li = document.createElement("li");
   li.className = "timeline-row";
   li.dataset.id = row.id;
+  li.dataset.key = row.key;
   li.dataset.kind = row.kind;
   if (row.placedBy === "mentioned") li.dataset.placed = "mentioned";
   if (row.pinned) li.dataset.pinned = "1";
@@ -25680,12 +25964,14 @@ function timelineRowElement(row, density) {
   //: for category tokens, and this app has none: the Library's chips are
   //: accent-and-surface, not one hue per category), so the marker takes its
   //: colour from `--accent` or `--ink-soft` and the icon does the work.
-  glyph.className =
-    row.kind === "board"
-      ? "ph ph-tree-structure"
-      : row.placedBy === "mentioned"
-        ? "ph ph-clock-countdown"
-        : "ph ph-note";
+  //: One glyph per kind (TIMELINE_PLAN Phase 4), with the two placement cases
+  //: keeping theirs: a note plotted on a Friday it mentions and a reminder due
+  //: on that Friday are both "here for what it is about", and the clock is
+  //: what says so. A document and a board are always plotted where they were
+  //: made, so their own glyph is free to say what they are.
+  glyph.className = `ph ${TIMELINE_KIND_GLYPHS[row.kind] || "ph-note"}`;
+  if (row.kind === "note" && row.placedBy === "mentioned") glyph.className = "ph ph-clock-countdown";
+  if (row.kind === "note" && timelineIsDailyNote(row)) glyph.className = "ph ph-calendar-dot";
   mark.appendChild(glyph);
 
   const main = document.createElement("span");
@@ -25744,7 +26030,7 @@ function timelineRowElement(row, density) {
       link.title = `Continues “${parent.title}”`;
       link.addEventListener("click", (event) => {
         event.stopPropagation();
-        focusTimelineRow(parent.id);
+        focusTimelineRow(parent.key);
       });
       main.appendChild(link);
     }
@@ -25763,8 +26049,8 @@ function timelineRowElement(row, density) {
 // Focus, and scroll into view without walking every scrolling ancestor:
 // `scrollIntoView` takes the page with it (DESIGN.md's rule for a list that
 // says where you are), and the feed is a box inside a card.
-function focusTimelineRow(id) {
-  const row = $("timeline-scroll").querySelector(`.timeline-row[data-id="${id}"]`);
+function focusTimelineRow(key) {
+  const row = $("timeline-scroll").querySelector(`.timeline-row[data-key="${key}"]`);
   if (!row) return;
   const box = $("timeline-scroll");
   const offset = row.getBoundingClientRect().top - box.getBoundingClientRect().top;
@@ -25792,13 +26078,13 @@ function toggleTimelineRow(el, row) {
     closeTimelineRow(el);
     return;
   }
-  if (timelineOpenId !== null) {
+  if (timelineOpenKey !== null) {
     const open = $("timeline-scroll").querySelector(
-      `.timeline-row[data-id="${timelineOpenId}"][aria-expanded="true"]`
+      `.timeline-row[data-key="${timelineOpenKey}"][aria-expanded="true"]`
     );
     if (open) closeTimelineRow(open);
   }
-  timelineOpenId = row.id;
+  timelineOpenKey = row.key;
   el.setAttribute("aria-expanded", "true");
   // A table row cannot hold a block: its detail is a row of its own with one
   // cell across every column (`openTimelineTableDetail`). Everything inside
@@ -25821,12 +26107,54 @@ function closeTimelineRow(el) {
   } else {
     el.querySelector(".timeline-row-detail")?.remove();
   }
-  if (String(timelineOpenId) === el.dataset.id) timelineOpenId = null;
+  if (timelineOpenKey === el.dataset.key) timelineOpenKey = null;
 }
 
 async function openTimelineRowDetail(detail, row) {
   const actions = document.createElement("div");
   actions.className = "row timeline-row-actions";
+
+  //: A document's body is not a note's: it is long, it is `file_type`-shaped,
+  //: and loading it into a row would put a thousand lines inside a feed. The
+  //: row says what it is and opens the editor, which is where a document is
+  //: read (TIMELINE_PLAN Phase 4).
+  if (row.kind === "document") {
+    const line = document.createElement("p");
+    line.className = "timeline-row-body";
+    line.textContent = row.snippet || "This document is empty.";
+    detail.appendChild(line);
+    actions.appendChild(
+      smallButton("ph:file-text Open this document", "Open it in the editor", () => {
+        switchTab("documents");
+        openDocument(row.id);
+      })
+    );
+    detail.appendChild(actions);
+    return;
+  }
+
+  if (row.kind === "reminder") {
+    const line = document.createElement("p");
+    line.className = "timeline-row-body";
+    line.textContent = row.done ? "Done." : "Not done yet.";
+    detail.appendChild(line);
+    //: A reminder attached to a note can reach it, which is the one link the
+    //: Reminders tab has that a row here would otherwise lose.
+    if (row.entryId) {
+      actions.appendChild(
+        smallButton("ph:note The note this is about", "Open the note this reminder is on", () => {
+          flashEntry(row.entryId);
+        })
+      );
+    }
+    actions.appendChild(
+      smallButton("ph:bell Open in reminders", "Show this in the Reminders tab", () => {
+        switchTab("reminders");
+      })
+    );
+    detail.appendChild(actions);
+    return;
+  }
 
   if (row.kind === "board") {
     // A map has no prose to render. Its own chip says what it is and how big
@@ -25926,7 +26254,7 @@ $("timeline-scroll").addEventListener("keydown", (event) => {
     const next = rows[Math.max(0, Math.min(rows.length - 1, index))];
     if (next) {
       event.preventDefault();
-      focusTimelineRow(next.dataset.id);
+      focusTimelineRow(next.dataset.key);
     }
   };
   if (event.key === "ArrowDown") return go(at + 1);
@@ -25935,13 +26263,16 @@ $("timeline-scroll").addEventListener("keydown", (event) => {
   if (event.key === "End") return go(rows.length - 1);
   if (event.key === " " && selectMode && row.tagName === "TR") {
     event.preventDefault();
-    const model = timelineById.get(Number(row.dataset.id));
-    if (model) setTimelineRowSelected(row, model, !selectedIds.has(model.id));
+    const model = timelineById.get(row.dataset.key);
+    //: Space selects, and only where a tick box exists: see `timelineTableRow`.
+    if (model && (model.kind === "note" || model.kind === "board")) {
+      setTimelineRowSelected(row, model, !selectedIds.has(model.id));
+    }
     return;
   }
   if (event.key === "Enter" || event.key === " ") {
     event.preventDefault();
-    const model = timelineById.get(Number(row.dataset.id));
+    const model = timelineById.get(row.dataset.key);
     if (model) toggleTimelineRow(row, model);
     return;
   }
@@ -26074,7 +26405,7 @@ function drawTimelineWindow() {
     for (let i = 0; i < 4; i++) {
       for (const x of [box.left + box.width / 4, box.left + box.width / 2]) {
         const el = document.elementFromPoint(x, y + i * step)?.closest?.(".timeline-row");
-        const row = el && timelineById.get(Number(el.dataset.id));
+        const row = el && timelineById.get(el.dataset.key);
         if (row) return row.when.getTime();
       }
     }
@@ -26121,7 +26452,7 @@ function timelineScrubTo(clientY) {
     timelineLoadMore();
     return;
   }
-  focusTimelineRow(row.id);
+  focusTimelineRow(row.key);
   drawTimelineWindow();
 }
 
@@ -26171,7 +26502,10 @@ let timelineSort = { key: "when", dir: "desc" };
 function timelineSortValue(row, key) {
   if (key === "when") return row.when.getTime();
   if (key === "tags") return row.tags.join(", ");
-  if (key === "kind") return row.kind === "board" ? "Map" : "Note";
+  //: The same word the cell shows, or the column sorts by one string and
+  //: displays another: a document sorted as "Note" and shown as "Document" is
+  //: a column that looks broken (`timelinetable.js` caught exactly that).
+  if (key === "kind") return TIMELINE_KIND_NAMES[row.kind] || "Note";
   if (key === "words" || key === "links") return row[key];
   return row[key] || "";
 }
@@ -26228,6 +26562,7 @@ function timelineTableRow(row) {
   const tr = document.createElement("tr");
   tr.className = "timeline-row timeline-trow";
   tr.dataset.id = row.id;
+  tr.dataset.key = row.key;
   tr.dataset.kind = row.kind;
   if (row.placedBy === "mentioned") tr.dataset.placed = "mentioned";
   tr.tabIndex = -1;
@@ -26238,7 +26573,14 @@ function timelineTableRow(row) {
   // column of noise.
   const select = document.createElement("td");
   select.className = `timeline-col-select${selectMode ? "" : " hidden"}`;
-  if (selectMode) {
+  //: **Only a row that is a note can be selected.** The selection bar is the
+  //: Notes list's (`#select-btn`'s code path, TIMELINE_PLAN decision 6), and
+  //: every action on it, delete, tag, move, is an action on an `Entry`. A
+  //: reminder ticked into that bar would be an id handed to the wrong table,
+  //: which is the shape of bug that deletes the wrong thing. A board is an
+  //: Entry and can be selected; a document and a reminder cannot.
+  const selectable = row.kind === "note" || row.kind === "board";
+  if (selectMode && selectable) {
     const check = document.createElement("input");
     check.type = "checkbox";
     check.className = "select-check";
@@ -26270,7 +26612,7 @@ function timelineTableRow(row) {
 
   const kind = document.createElement("td");
   kind.className = "timeline-col-wide";
-  kind.textContent = row.kind === "board" ? "Map" : "Note";
+  kind.textContent = TIMELINE_KIND_NAMES[row.kind] || "Note";
   tr.appendChild(kind);
 
   const category = document.createElement("td");
@@ -26421,6 +26763,15 @@ $("timeline-band").addEventListener("change", (event) => {
   timelineFilter = event.target.value || null;
   syncTimelineFilterChip();
   paintTimeline();
+});
+
+//: One delegated handler on the row, not one per chip: the chips are rebuilt
+//: after every fetch, and a listener bound per chip would accumulate with them
+//: (`tests/test_frontend_handlers.py` exists because of exactly that shape).
+$("timeline-kinds")?.addEventListener("click", (event) => {
+  const chip = event.target.closest("[data-timeline-kind]");
+  if (!chip || chip.disabled) return;
+  toggleTimelineKind(chip.dataset.timelineKind);
 });
 
 $("timeline-filter-clear").addEventListener("click", () => {

@@ -9600,6 +9600,50 @@ input[type="file"] {
   min-width: 8rem;
 }
 
+/* A row of filter chips inside a dock zone (TIMELINE_PLAN.md Phase 4's `kind=`
+   chips). The chips are `.library-chip`, which already carries the height every
+   other control in a dock has, so this only has to lay them out and let them
+   wrap onto a second line on a phone rather than push the zone wider than the
+   bar. */
+.dock-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* **On a phone the chips are their icons.** Measured at 390 with the words in:
+   the find zone is 14rem wide there, so four labelled chips wrapped to four
+   lines, the chip row stood 195px tall and the Timeline dock went from 146px to
+   297px, a third of the screen before a single row of the journal. Icon-only,
+   they are one 36px row. The label stays in the tooltip and in the accessible
+   name, so nothing is lost but the width. */
+@media (max-width: 599.98px) {
+  .dock-chip-row .dock-chip-label {
+    /* Not `display: none`: the chip's accessible name is its text content, and
+       a hidden name is a button a screen reader announces as "button". */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .dock-chip-row .library-chip {
+    padding: 0 var(--space-3);
+  }
+
+  /* And the row takes a line of its own. Sharing one with the search box left
+     it 127px of the find zone's 309, which is two of the four chips: the four
+     icons want 154px and there is a whole line free under a 164px search
+     field. */
+  .dock-chip-row {
+    flex-basis: 100%;
+  }
+}
+
 .dock-actions {
   margin-left: auto;
   flex: 0 0 auto;

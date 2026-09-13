@@ -24295,6 +24295,103 @@ driven by building the renderer's own markup in `#chat-messages` and by the
 streaming class, not by an answer from a local model, and the composer was
 measured at rest rather than with five attachment rows open.
 
+### Built, Phase 3: Ask unified, the popup agent, and links, 2026-09-13
+
+Decisions 8, 9, 11 and 12 (12 is new, taken here, and is INBOX 172's remaining
+half: see the plan).
+
+**The answer object is real now** (decision 3, which Phase 1 declared and
+nothing built). `answerObject` returns
+`{question, text, sentences, sources, related, next, stats, verification}`,
+where a sentence is `{text, marks: [{note_id, start, end, score}]}`. Grounding
+arrives from the backend as one row per *(sentence, note)* pair, which is the
+shape the scorer produces and the wrong shape to render from: a sentence backed
+by two notes arrives twice, and a renderer walking the rows draws the sentence
+twice with one mark each. Folding it is four lines that had been written
+differently, or not at all, in each of the three places that needed them.
+`start`/`end` are decision 2's passage span and are carried through as `null`
+until Phase 1 computes one, never defaulted to 0, because a start of 0 is a
+claim that the passage begins at the note's first word and a renderer would
+highlight it.
+
+**Ask draws it with the Chat tab's own components**, not with copies:
+`renderRelatedElsewhere`, `chatSourcesPanel` and a follow-up strip. The
+sources an answer names are therefore numbered by one builder in both places
+rather than by two that agree until they do not.
+
+**The bug that restructuring found, and it was invisible.** Related items and
+grounding chips were both written into `#ai-answer-grounding`, and
+`renderAnswerGrounding` opens with `replaceChildren()`. The `related` event
+arrives before `grounding` on every stream that has both, so "Elsewhere in
+your notebook" was built and deleted again within a frame, on every answer,
+for as long as both have existed. Each component has its own container now.
+
+**Follow-ups carry context by the path Ask already took.** The chips are
+`/chat/followups`, the same second model call the Chat tab makes after a turn
+is on screen, and pressing one calls `askQuestion`, which sends `conversation`
+as history. So there is no second path to keep in step, which is how the
+context would have ended up living on exactly one of them.
+
+**The popup agent's twelve starters** (decision 9). Four was the count, and the
+owner's report was not that they were wrong but that they were all there was.
+Twelve now, in five groups, built from one table in `app.js` rather than
+written into the markup, so the three most recently used can lead (CHAT_PLAN's
+research note, from Raycast). A starter ending in a space is a stem and waits
+with the caret after it; anything else runs on the press. That is a change of
+*rule* as well as of count: the old handler ran a starter only if it ended in a
+question mark, so every instruction among the new twelve ("Tag my untagged
+notes.") would have sat in the box waiting for an Enter that said nothing.
+"Use the open note" resolves its subject when the message is sent rather than
+when the box was ticked, because the palette stays open while you move around
+the app; a document goes as a document and a note as a note.
+
+**Offline** (decision 11). Every AI-only control already disabled itself with a
+reason; what the reason said was "start Ollama to use this", which names one of
+the three kinds of model this app can talk to and tells somebody running
+llama.cpp or an OpenAI-compatible server to start the wrong thing. One
+sentence now, pointing at Settings. The link half of the decision is two rows,
+in the two surfaces that are nothing but AI: Ask keeps working and says it is
+answering from the notes alone, the popup agent cannot and says so, disabling
+its field and its starters rather than hiding them. `cmdPaletteBusy` sets that
+field's `disabled` itself at the end of every turn, so it honours the same
+state: without that the guard comes off the first time anything runs.
+
+**The gate, measured** (`scratchpad/ui-sweeps/chatphase3.js`, against a server
+with no model, which is what makes line 4 measurable and still lets a real Ask
+turn stream from the search results):
+
+- **The answer object.** 3 source cards under the answer with the summary
+  "Sources: 3 notes · meaning + keywords", foot visible, and 3 matching records
+  still in the column beside it.
+- **Follow-ups.** 2 chips; pressing one sends a request whose `history` carries
+  the previous question and the previous answer verbatim, read off the wire
+  rather than off the renderer. The transport half is
+  `tests/test_ask_answer_object.py`: the same two facts as their own turns in
+  the messages the model is given, with `system` first and both `user` and
+  `assistant` after it, so a history folded into the system prompt would fail.
+- **Starters.** 12 chips in 5 groups (Capture, Find, Summarise, Remind, Do), 0
+  without a tooltip, 5 of them stems.
+- **Offline.** 4 AI-only controls, 4 disabled, 4 carrying "Connect a model in
+  Settings"; both notices shown with their button; the agent's field disabled
+  and 12 of 12 starters disabled. 0 page errors.
+
+**One thing measuring caught that no test would have.** Twelve chips took the
+palette card from 420px to 668px tall, and the overlay drops it 15vh down the
+screen: at 1024x768 the card ran 15px past the bottom of the window and at
+390x844 it ran 136px past, putting Start over and Stop off screen with nothing
+to scroll, because the overlay does not scroll. The card is a column with a
+ceiling now and the two regions that can grow scroll inside it: 752 of 768 and
+828 of 844 after, head, input and foot fixed.
+
+**Not verified.** No model answered any of this: the Ask turn measured above is
+the offline branch, so the answer object was exercised with sources and related
+but with an empty `sentences` list, and the grounding chips and inline marks
+were not re-measured here (they are Phase 1's gate and were built before). The
+follow-up chips were stubbed at the route, because `/chat/followups` answers
+`[]` with no model; what was measured is the request the chip causes, not the
+model's choice of question. The link card was measured on three links in one
+rendered answer, not in a chat bubble or a note body.
+
 ### From DOCUMENTS_PLAN.md
 
 ### Built, Phase 5 item 1: comments and annotations, 2026-09-13
@@ -24377,6 +24474,93 @@ caret inside the new remark from the toolbar. Contrast from the painted pixels
 count beside the heading. 0 console errors in every run.
 
 ### From TIMELINE_PLAN.md
+
+### Built, Phase 4: kinds and the journal, 2026-09-13
+
+Decision 9's second half. The feed was `Entry` rows, so a day spent writing a
+document, drawing a board and being reminded of something read as an empty day
+in the one view whose question is "what was I doing then".
+
+**Four sources, one merge, one page** (`routes_timeline.py`). `/timeline` takes
+`kind=note,board,document,reminder` and returns rows from three tables: notes
+and boards from `Entry` (a board is an `Entry` with `is_board`, so "notes only"
+and "boards only" are one query with a flag), documents from `Document` and
+reminders from `Reminder`. Each source is asked for `limit + 1` rows and the
+merge cuts the page, which is correct because the newest `limit + 1` rows of a
+union are always inside the union of each source's own newest `limit + 1`. A
+UNION in SQL over three different date columns would have been a query no index
+helps and nobody can read.
+
+**The cursor is per source.** A single `at|id` pair cannot say where a merge
+stopped: two rows from different tables can share a timestamp and an id means
+nothing across tables. Each source continues from its own last returned row, so
+the next page is exactly the rows left over, with no duplicate and no gap
+(`tests/test_timeline.py`, three kinds paged one at a time). The one-source
+cursor the endpoint issued before this is still read, so a reader half way down
+the feed when the app updates keeps their place rather than getting a 422 on
+the next scroll.
+
+**Where each kind sits, and why.** A reminder is placed by `due_at` and says
+`placed_by: "due"`, which is the same claim a note makes when it only mentions a
+date and is said the same way, so the view stays honest in one place. A document
+is placed by `created_at`, not `updated_at`: a document that plotted where it
+was last saved would walk forwards through the feed every time it was opened,
+which is the one thing a journal must not do. The density strip counts every
+kind the feed is showing, so a week spent writing one long document no longer
+reads as an empty week.
+
+**Identity, which the frontend needed before anything else.** Note 3 and
+document 3 are two different things, and the feed keyed its rows, its open row,
+its keyboard focus and its selection on the bare id. Every row carries a `key`
+(`document:3`) now and that is what the view is keyed on; `id` is what a row
+opens. Selection stays note-and-board only: the selection bar is the Notes
+list's own code path and every action on it acts on an `Entry`, so a reminder
+ticked into it would be an id handed to the wrong table, which is the shape of
+bug that deletes the wrong thing.
+
+**The daily note is a convention, not a store** (WORLD_CLASS_PLAN D6). A journal
+note is an ordinary note whose first line is the day in ISO form, `# 2026-09-13`.
+So it is searchable, it is in the graph, it exports, and a notebook opened in
+another editor still has it; there is nothing to migrate and nothing to keep in
+step. ISO rather than "Friday 13 September" because the app has to find today's
+note without parsing a date in the reader's own language. The feed draws today
+whether or not anything is in it, and the day's header carries "Start today's
+note" when the day has none and "Today's note" when it has one.
+
+**The gate, measured** (`scratchpad/ui-sweeps/timelinekinds.js`, which seeds its
+own note, document and reminder):
+
+- **Kinds.** Three kinds of row in one feed, no two kinds sharing a marker
+  (reminder `ph-bell`, document `ph-file-text`, note `ph-note`, and the note's
+  own marker still varies with its placement: `ph-clock-countdown` for a
+  mentioned date, `ph-calendar-dot` for the journal note). Three distinct keys
+  for three rows.
+- **Today.** The header reads "Today" with "Start today's note" beside it;
+  pressing it makes the note and the same header then reads "Today's note", so a
+  second press opens the note rather than making a second one with a first line
+  that is already taken.
+- **Chips.** Four in the dock, all on, each with its loaded count, 36px tall
+  against the search field's 36px. Pressing one refetches (`kind=note,board,
+  document` on the wire) and the rows of that kind go.
+- **Layout.** 0 horizontal scroll at 1440, 1024 and 390; the dock 54px, 96px and
+  146px.
+
+**What measuring caught.** With their words in, four chips wrapped to four lines
+at 390: the chip row stood 195px and the Timeline dock went from 146px to 297px,
+a third of a phone screen before a single row of the journal. Icon-only under
+600px and on a line of its own inside the find zone (sharing one with a 164px
+search field left them 127px of 309, which is two chips), the dock measures
+146px with the chips, the same as without them. The words stay in the tooltip
+and in the accessible name. `timelinetable.js` caught the other one: the Kind
+column sorted by "Note"/"Map" while displaying "Document", so sorting by kind
+put the documents in the wrong place, which is a column that looks broken.
+
+**Not verified.** The paging sweep (`timelinepaging.js`, Phase 3's 2,048-note
+seed) was not re-run against the merge, so the cross-source cursor is proved by
+`tests/test_timeline.py` at three rows rather than at scale. A board row was not
+exercised in the browser (the sweep's notebook has no map), only its glyph
+entry in the table. The "auto" scale thresholds still count all kinds as one
+number, which a notebook with many reminders may want tuned.
 
 ### Built, Phase 1: the row model and the feed, 2026-09-13
 

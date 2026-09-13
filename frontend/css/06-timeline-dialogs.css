@@ -64,6 +64,16 @@
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 
+/* Today, with nothing in it yet (TIMELINE_PLAN.md Phase 4). The section is
+   drawn so the journal always has a today to write into; the line says which
+   of "nothing happened" and "nothing loaded" this is, because an empty section
+   under a date reads as a fault otherwise. */
+.timeline-bucket-empty {
+  margin: 0 0 var(--space-4);
+  padding: 0 var(--space-3);
+  font-size: var(--text-sm);
+}
+
 .timeline-bucket-count {
   margin-left: auto;
   font-size: var(--text-xs);

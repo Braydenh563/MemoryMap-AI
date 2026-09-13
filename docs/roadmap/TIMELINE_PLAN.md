@@ -109,10 +109,11 @@ the tab draws a colour, a font or a card that the rest of the app does not.
 [HISTORY.md](HISTORY.md) "Moved from the plans, 2026-09-13". Gate green
 against a 2,048-note seed (`scratchpad/ui-sweeps/timelinepaging.js`).
 
-### Phase 4: kinds and the journal (half a session)
-Documents, boards, reminders and daily notes as rows with their own kind
-markers; the `kind=` filter chips in the dock; the daily-note row gets a
-"Today" action when the day has none (WORLD_CLASS_PLAN D6).
+### Phase 4: kinds and the journal: **built 2026-09-13**, see
+[HISTORY.md](HISTORY.md) "Moved from the plans, 2026-09-13". Gate green
+(`scratchpad/ui-sweeps/timelinekinds.js`), with the daily note defined as a
+convention rather than a store, and D6's calendar strip, `Ctrl+D` and streak
+still open in WORLD_CLASS_PLAN.
 
 ## 6. Consistency rules
 

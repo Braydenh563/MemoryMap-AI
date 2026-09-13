@@ -270,3 +270,124 @@ def test_a_cursor_it_cannot_read_is_refused_rather_than_ignored(client):
     assert client.get("/timeline?cursor=not-a-cursor").status_code == 422
     assert client.get("/timeline?limit=0").status_code == 422
     assert client.get("/timeline?limit=5000").status_code == 422
+
+
+# --- kinds: the journal is not only its notes (TIMELINE_PLAN.md Phase 4) ------
+
+
+def _document(client, title="Field notes", content="# Field notes\nthe first line"):
+    response = client.post("/documents", json={"title": title, "content": content})
+    assert response.status_code in (200, 201), response.text
+    return response.json()
+
+
+def _reminder(client, text="ring the landlord back", days=1):
+    due = (utcnow() + timedelta(days=days)).isoformat()
+    response = client.post("/reminders", json={"text": text, "due_at": due})
+    assert response.status_code in (200, 201), response.text
+    return response.json()
+
+
+def _kinds(body) -> list[str]:
+    return [row["kind"] for row in body["notes"]]
+
+
+def test_a_document_and_a_reminder_are_rows_in_the_feed(client):
+    _save(client, "a note about the roof")
+    _document(client)
+    _reminder(client)
+
+    body = client.get("/timeline").json()
+    assert sorted(set(_kinds(body))) == ["document", "note", "reminder"]
+    #: Every row says what it is and carries an identity that is unique across
+    #: kinds: note 1 and document 1 are two different things.
+    assert len({row["key"] for row in body["notes"]}) == len(body["notes"])
+    assert all(row["key"].startswith(row["kind"] + ":") for row in body["notes"])
+
+
+def test_a_reminder_sits_on_the_day_it_is_due_and_says_so(client):
+    _reminder(client, days=3)
+    row = client.get("/timeline").json()["notes"][0]
+    assert row["kind"] == "reminder"
+    #: The same claim a note makes when it only mentions a date, and the row
+    #: says it the same way, so the view can be honest in one place.
+    assert row["placed_by"] == "due"
+    assert row["at"][:10] == (utcnow() + timedelta(days=3)).date().isoformat()
+
+
+def test_a_document_sits_where_it_was_started_not_where_it_was_last_saved(client):
+    """A document that plotted at `updated_at` would walk forwards through the
+    feed every time it was opened, which is the one thing a journal must not
+    do."""
+    document = _document(client)
+    client.put(f"/documents/{document['id']}", json={"content": "# Field notes\nmore"})
+    row = [r for r in client.get("/timeline").json()["notes"] if r["kind"] == "document"][0]
+    assert row["at"] == row["written_at"]
+    assert "updated_at" in row
+
+
+def test_kind_narrows_the_feed_and_a_board_is_not_a_note(client, session):
+    note = _save(client, "an ordinary note")
+    board = _save(client, "# My map")
+    session.get(Entry, board["id"]).is_board = True
+    session.commit()
+    _document(client)
+    _reminder(client)
+
+    assert _kinds(client.get("/timeline?kind=note").json()) == ["note"]
+    assert _kinds(client.get("/timeline?kind=board").json()) == ["board"]
+    assert _kinds(client.get("/timeline?kind=document").json()) == ["document"]
+    assert sorted(_kinds(client.get("/timeline?kind=note,document").json())) == [
+        "document",
+        "note",
+    ]
+    assert client.get("/timeline?kind=note").json()["notes"][0]["id"] == note["id"]
+
+
+def test_an_unknown_kind_is_refused_rather_than_silently_empty(client):
+    """The failure that reads as "the timeline is broken"."""
+    assert client.get("/timeline?kind=notes").status_code == 422
+    assert client.get("/timeline?kind=").status_code == 200  # empty means all
+
+
+def test_paging_across_three_tables_loses_nothing_and_repeats_nothing(client):
+    _save(client, "a note about the roof")
+    _document(client)
+    _reminder(client)
+
+    seen = []
+    cursor = None
+    for _ in range(5):
+        url = "/timeline?limit=1" + (f"&cursor={cursor}" if cursor else "")
+        body = client.get(url).json()
+        seen += [row["key"] for row in body["notes"]]
+        cursor = body["next_cursor"]
+        if not cursor:
+            break
+    assert len(seen) == 3, seen
+    assert len(set(seen)) == 3, seen
+
+
+def test_a_cursor_from_before_the_other_kinds_existed_still_works(client, session):
+    """A reader half way down the feed when the app updates keeps their place
+    rather than getting a 422 on the next scroll."""
+    import base64
+
+    first = _save(client, "the older note")
+    _age(session, first["id"], 5)
+    _save(client, "the newer note")
+    entry = session.get(Entry, first["id"])
+    old_style = base64.urlsafe_b64encode(
+        f"{(entry.created_at + timedelta(days=1)).isoformat()}|{entry.id + 1}".encode()
+    ).decode()
+
+    body = client.get(f"/timeline?cursor={old_style}").json()
+    assert [row["id"] for row in body["notes"] if row["kind"] == "note"] == [first["id"]]
+
+
+def test_the_density_strip_counts_every_kind_the_feed_shows(client):
+    """A week spent writing one long document would otherwise read as empty."""
+    _document(client)
+    body = client.get("/timeline?kind=document").json()
+    assert sum(body["density"].values()) == 1
+    assert sum(client.get("/timeline?kind=note").json()["density"].values()) == 0

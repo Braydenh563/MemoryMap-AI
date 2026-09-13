@@ -25,13 +25,13 @@ from __future__ import annotations
 import base64
 import binascii
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import Select, and_, or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.core.database import Entry, EntryDate, Space, utcnow
+from memorymap.core.database import Document, Entry, EntryDate, Reminder, Space, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
 
@@ -88,6 +88,88 @@ def _decode_cursor(cursor: str) -> str:
     return base64.urlsafe_b64decode(cursor.encode()).decode()
 
 
+#: **What a timeline row can be** (TIMELINE_PLAN.md Phase 4, decision 9). A
+#: notebook's day is not only its notes: a document written, a board drawn and
+#: a reminder due are all "what was I doing then", and the feed said nothing
+#: about any of them. Boards were always here and were always shaped like
+#: notes (a board *is* an `Entry`, MINDMAP_PLAN.md §2); documents and reminders
+#: are their own tables and join the feed here.
+KINDS = ("note", "board", "document", "reminder")
+
+#: Which table each kind is read from. Notes and boards share one, which is why
+#: the cursor is per *source* rather than per kind: one query serves both.
+_SOURCE_OF = {"note": "entry", "board": "entry", "document": "document", "reminder": "reminder"}
+_SOURCES = ("entry", "document", "reminder")
+
+
+def _requested_kinds(kind: str | None) -> tuple[str, ...]:
+    """The kinds a caller asked for, or all of them.
+
+    Comma separated rather than repeated (`kind=note&kind=board`) because it is
+    what the dock's chips build and what a shared link carries; an unknown name
+    is a 422 rather than a silent empty feed, which is the failure that reads as
+    "the timeline is broken".
+    """
+    if not kind:
+        return KINDS
+    asked = tuple(part.strip() for part in kind.split(",") if part.strip())
+    unknown = [name for name in asked if name not in KINDS]
+    if unknown or not asked:
+        raise HTTPException(
+            status_code=422, detail=f"kind must be one or more of {', '.join(KINDS)}"
+        )
+    #: Deduplicated in the declared order, so `kind=board,note` and
+    #: `kind=note,board` are the same request and cache the same way.
+    return tuple(name for name in KINDS if name in asked)
+
+
+def _encode_marks(marks: dict[str, tuple[datetime, int]]) -> str:
+    """Where each source stopped, as one opaque string.
+
+    **One cursor per source, not one cursor.** The feed is a merge of three
+    tables ordered by three different columns, and a single `at|id` pair cannot
+    say where a merge stopped: two rows from different tables can share a
+    timestamp, and an id means nothing across tables. Each source continues
+    from its own last returned row, which makes the next page exactly the rows
+    that were left over, with no duplicate and no gap.
+    """
+    parts = [
+        f"{source}:{at.isoformat()}|{row_id}"
+        for source, (at, row_id) in sorted(marks.items())
+    ]
+    return base64.urlsafe_b64encode(";".join(parts).encode()).decode()
+
+
+def _decode_marks(cursor: str) -> dict[str, tuple[datetime, int]]:
+    """The inverse, and tolerant of the single-source cursor this endpoint
+    issued before documents and reminders joined the feed: a reader who was
+    half way down the page when the app updated keeps their place instead of
+    getting a 422 on the next scroll.
+    """
+    marks: dict[str, tuple[datetime, int]] = {}
+    for part in _decode_cursor(cursor).split(";"):
+        if not part:
+            continue
+        head, _, rest = part.partition(":")
+        #: An ISO timestamp is full of colons, so the prefix is only a source
+        #: name when it actually is one.
+        if head in _SOURCES and rest:
+            source, body = head, rest
+        else:
+            source, body = "entry", part
+        at_text, _, id_text = body.rpartition("|")
+        marks[source] = (datetime.fromisoformat(at_text), int(id_text))
+    return marks
+
+
+def _older_than(column, id_column, mark: tuple[datetime, int] | None):
+    """The "strictly after this row in the order" clause for one source."""
+    if mark is None:
+        return None
+    at, row_id = mark
+    return or_(column < at, and_(column == at, id_column < row_id))
+
+
 def _bucket_start(when: datetime, scale: str) -> str:
     """The label of the bucket this moment belongs to."""
     if scale == "day":
@@ -118,13 +200,19 @@ def timeline(
     #: caller before paging existed was already getting.
     limit: int = PAGE_SIZE,
     cursor: str | None = None,
+    #: Which kinds of thing the feed holds (TIMELINE_PLAN decision 9). Comma
+    #: separated, omitted for all four.
+    kind: str | None = None,
     session: Session = Depends(get_session),
 ) -> dict:
-    """Notes on a time axis, in bands.
+    """The notebook on a time axis, in bands.
 
     `scale` buckets the axis (day/week/month/year), `group` chooses the bands
-    (category/tag/thread/none), `days` is how far back to look, 0 for everything.
+    (category/tag/thread/none), `days` is how far back to look, 0 for
+    everything, `kind` is which of notes, boards, documents and reminders the
+    feed holds.
     """
+    kinds = _requested_kinds(kind)
     if scale not in SCALES:
         raise HTTPException(
             status_code=422, detail=f"scale must be one of {', '.join(SCALES)}"
@@ -141,52 +229,119 @@ def timeline(
         Entry.is_deleted == False,  # noqa: E712
         Entry.is_private == False,  # noqa: E712  # private text stays out of a view
     )
+    #: A board is an `Entry` with `is_board` set, so "notes only" and "boards
+    #: only" are one query with a flag rather than two code paths.
+    if "note" in kinds and "board" not in kinds:
+        query = query.where(Entry.is_board == False)  # noqa: E712
+    elif "board" in kinds and "note" not in kinds:
+        query = query.where(Entry.is_board == True)  # noqa: E712
+    #: **The range, once, applied to each source's own column.** The three
+    #: tables the feed reads are dated by three different columns, so a window
+    #: expressed as an `Entry` clause cannot be reused: it is computed here and
+    #: handed to each query.
+    since: datetime | None = None
+    until: datetime | None = None
     if start and end:
         try:
-            start_dt = datetime.fromisoformat(start)
-            end_dt = datetime.fromisoformat(end)
-            query = query.where(Entry.created_at >= start_dt, Entry.created_at <= end_dt)
+            since = datetime.fromisoformat(start)
+            until = datetime.fromisoformat(end)
         except ValueError:
             raise HTTPException(status_code=422, detail="Invalid date format for start/end")
     elif days > 0:
-        query = query.where(Entry.created_at >= utcnow() - timedelta(days=days))
+        since = utcnow() - timedelta(days=days)
+
+    def in_range(statement: Select, column) -> Select:
+        if since is not None:
+            statement = statement.where(column >= since)
+        if until is not None:
+            statement = statement.where(column <= until)
+        return statement
+
+    query = in_range(query, Entry.created_at)
 
     # The density strip is the whole range, however little of it this page
     # holds: it is the overview a reader drags to get somewhere, so a strip
     # drawn from one page would be a map of the part you can already see. Two
     # columns and no content, so it stays cheap as the notebook grows.
-    density = _density(session, query)
+    density = (
+        _density(session, query) if ("note" in kinds or "board" in kinds) else {}
+    )
 
-    #: **Where the last page stopped**, as `created_at|id` rather than an
+    #: **Where the last page stopped**, one mark per source rather than an
     #: offset: an offset shifts under a note saved while someone is reading,
-    #: which shows a row twice or skips one. The pair is what the order is by,
-    #: so it names an exact place in it.
+    #: which shows a row twice or skips one, and a single mark cannot describe
+    #: where a merge of three tables got to (see `_encode_marks`).
+    marks: dict[str, tuple[datetime, int]] = {}
     if cursor:
         try:
-            at_text, _, id_text = _decode_cursor(cursor).rpartition("|")
-            cursor_at = datetime.fromisoformat(at_text)
-            cursor_id = int(id_text)
-        except (ValueError, binascii.Error):
+            marks = _decode_marks(cursor)
+        except (ValueError, binascii.Error, TypeError):
             raise HTTPException(status_code=422, detail="Invalid cursor")
-        query = query.where(
-            or_(
-                Entry.created_at < cursor_at,
-                and_(Entry.created_at == cursor_at, Entry.id < cursor_id),
-            )
+
+    def page_of(statement: Select, column, id_column, source: str) -> list:
+        """One source's next `limit + 1` rows, oldest mark honoured.
+
+        One more than the page, which is how the answer knows whether there is
+        a page after this one without a second count query. Taking `limit + 1`
+        from *each* source is also what makes the merge below correct: the
+        newest `limit + 1` rows overall are always inside the union of the
+        newest `limit + 1` of each.
+        """
+        clause = _older_than(column, id_column, marks.get(source))
+        if clause is not None:
+            statement = statement.where(clause)
+        return list(
+            session.scalars(statement.order_by(column.desc(), id_column.desc()).limit(limit + 1))
         )
 
-    # One more than the page, which is how the answer knows whether there is a
-    # page after this one without a second count query.
-    found = list(
-        session.scalars(
-            query.order_by(Entry.created_at.desc(), Entry.id.desc()).limit(limit + 1)
+    entries_found: list[Entry] = []
+    if "note" in kinds or "board" in kinds:
+        entries_found = page_of(query, Entry.created_at, Entry.id, "entry")
+
+    documents_found: list[Document] = []
+    if "document" in kinds:
+        documents_found = page_of(
+            #: An archived document is "kept, out of the way" (its own model
+            #: says so), which is the one thing a journal of what you were
+            #: doing should not put back in front of you.
+            in_range(
+                select(Document).where(Document.archived_at.is_(None)), Document.created_at
+            ),
+            Document.created_at,
+            Document.id,
+            "document",
         )
-    )
-    has_more = len(found) > limit
-    entries = found[:limit]
-    next_cursor = (
-        _encode_cursor(entries[-1].created_at, entries[-1].id) if has_more and entries else None
-    )
+
+    reminders_found: list[Reminder] = []
+    if "reminder" in kinds:
+        #: Placed by `due_at`, not by when it was typed: a reminder is *about*
+        #: the day it is due, which is the same claim a note makes when it
+        #: mentions a date, and the row says so the same way (`placed_by`).
+        reminders_found = page_of(
+            in_range(select(Reminder), Reminder.due_at), Reminder.due_at, Reminder.id, "reminder"
+        )
+
+    #: The scrubber answers "how much was going on then", so it counts every
+    #: kind the feed is showing rather than only the notes: a week spent
+    #: writing one long document would otherwise read as an empty week.
+    #: Date-only queries, no content, the same shape `_density` itself uses.
+    if "document" in kinds:
+        for (created,) in session.execute(
+            in_range(
+                select(Document.created_at).where(Document.archived_at.is_(None)),
+                Document.created_at,
+            )
+        ).all():
+            day = created.date().isoformat()
+            density[day] = density.get(day, 0) + 1
+    if "reminder" in kinds:
+        for (due,) in session.execute(
+            in_range(select(Reminder.due_at), Reminder.due_at)
+        ).all():
+            day = due.date().isoformat()
+            density[day] = density.get(day, 0) + 1
+
+    entries = entries_found
 
     # What each note is *about*, where it said so. One query rather than one
     # per note: a timeline over a year of notes would otherwise be hundreds.
@@ -218,6 +373,14 @@ def timeline(
         placed.append(
             {
                 "id": entry.id,
+                #: **Identity across four kinds.** Note 3 and document 3 are
+                #: two different things, and a view that keys its rows, its
+                #: open state and its keyboard focus on the bare id would put
+                #: one of them where the other should be. The id stays (it is
+                #: what a row opens); this is what identifies the row.
+                "kind": "board" if entry.is_board else "note",
+                "key": f"{'board' if entry.is_board else 'note'}:{entry.id}",
+                "_at": _naive(at),
                 "at": at.isoformat(),
                 "bucket": _bucket_start(at, scale),
                 # Said out loud so the view can be honest: this note is here
@@ -245,11 +408,99 @@ def timeline(
             }
         )
 
+    #: **A document row.** Placed by when it was started, not by when it was
+    #: last saved: a note plots where it was written and a document that plots
+    #: at `updated_at` would walk forwards through the feed every time it was
+    #: opened, which is the one thing a journal must not do. `updated_at` rides
+    #: along for the table's column.
+    for document in documents_found:
+        placed.append(
+            {
+                "id": document.id,
+                "kind": "document",
+                "key": f"document:{document.id}",
+                "_at": _naive(document.created_at),
+                "at": document.created_at.isoformat(),
+                "bucket": _bucket_start(document.created_at, scale),
+                "placed_by": "written",
+                "phrase": "",
+                "written_at": document.created_at.isoformat(),
+                "updated_at": document.updated_at.isoformat(),
+                "category": "",
+                "tags": [],
+                "parent_id": None,
+                "pinned": False,
+                "space": spaces.get(document.workspace_id, document.workspace_id),
+                "words": len((document.content or "").split()),
+                "links": 0,
+                "preview": _clip(_first_line(document.content or "")),
+                "title": document.title or "Untitled",
+                "file_type": document.file_type,
+            }
+        )
+
+    for reminder in reminders_found:
+        placed.append(
+            {
+                "id": reminder.id,
+                "kind": "reminder",
+                "key": f"reminder:{reminder.id}",
+                "_at": _naive(reminder.due_at),
+                "at": reminder.due_at.isoformat(),
+                "bucket": _bucket_start(reminder.due_at, scale),
+                #: The same word a note gets when it sits on a date it only
+                #: talks about, because it is the same claim: this row is here
+                #: for what it is about, not for when it was typed.
+                "placed_by": "due",
+                "phrase": "",
+                "written_at": reminder.created_at.isoformat(),
+                "category": "",
+                "tags": [],
+                "parent_id": None,
+                "pinned": False,
+                "space": spaces.get(reminder.workspace_id, reminder.workspace_id),
+                "words": len((reminder.text or "").split()),
+                "links": 0,
+                "preview": _clip(reminder.text or ""),
+                "title": reminder.text or "Reminder",
+                "done": reminder.done,
+                "priority": reminder.priority,
+                "entry_id": reminder.entry_id,
+            }
+        )
+
+    #: **The merge.** Three sources, each already in order, cut to one page
+    #: here rather than in SQL: a UNION over three tables with three different
+    #: date columns is a query no index helps and one nobody can read.
+    placed.sort(key=lambda row: (row["_at"], row["id"]), reverse=True)
+    more_in_a_source = (
+        len(entries_found) > limit or len(documents_found) > limit or len(reminders_found) > limit
+    )
+    has_more = more_in_a_source or len(placed) > limit
+    placed = placed[:limit]
+
+    #: Each source continues from the oldest row of its own that made it into
+    #: this page. A source with nothing in the page keeps the mark it came in
+    #: with, so it is asked the same question again rather than skipped.
+    next_marks = dict(marks)
+    for row in placed:
+        next_marks[_SOURCE_OF[row["kind"]]] = (row["_at"], row["id"])
+    next_cursor = _encode_marks(next_marks) if has_more and next_marks else None
+    for row in placed:
+        row.pop("_at", None)
+
     return {
         "scale": scale,
         "group": group,
+        "kinds": list(kinds),
+        #: The wire name is older than the feed's contents: it has held boards
+        #: since mind maps existed, and holds documents and reminders now.
+        #: Renaming it would break every caller for nothing the `kind` on each
+        #: row does not already say.
         "notes": placed,
-        "bands": _bands(placed, group),
+        #: Bands are a property of notes (a category, a tag, a thread), so they
+        #: are counted over the rows that have those and not over the feed.
+        "bands": _bands([row for row in placed if row["kind"] in ("note", "board")], group),
         "buckets": sorted({note["bucket"] for note in placed}),
         # Counts per day for the whole range, which the view aggregates to
         # whatever bucket it is drawing: the scale is the reader's choice and
@@ -258,6 +509,25 @@ def timeline(
         "next_cursor": next_cursor,
         "has_more": has_more,
     }
+
+
+def _first_line(text: str) -> str:
+    """The opening line of a document, as its one-line preview: its title is
+    already the row's title, so repeating the heading under it would be the
+    source-card duplication in another place."""
+    for line in (text or "").splitlines():
+        stripped = line.strip().lstrip("#").strip()
+        if stripped:
+            return stripped
+    return ""
+
+
+def _naive(at: datetime) -> datetime:
+    """A comparable moment. Rows from three tables are sorted together, and
+    Python refuses to compare an aware datetime with a naive one: most rows
+    here are naive UTC, and one saved with an offset would otherwise raise a
+    500 on the merge rather than sort slightly oddly."""
+    return at.astimezone(timezone.utc).replace(tzinfo=None) if at.tzinfo else at
 
 
 def _density(session: Session, ranged: Select) -> dict[str, int]:

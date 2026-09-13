@@ -650,6 +650,38 @@
           <h2>Most used</h2>
           <ul id="most-used"></ul>
         </div>
+        <!-- GRAPH_PLAN.md Phase 4, the local map. The same canvas renderer as
+             the Graph tab at `size: "pane"`, drawn from `/graph/local` for
+             whatever note or document is open. One element, moved between this
+             sidebar and #doc-sidebar by `graphPaneFollow` in graph-canvas.js,
+             rather than one per host: two panes would be two surfaces with two
+             workers drawing the same neighbourhood. `hidden` until something is
+             open, which is also what keeps its canvas out of a 0x0 box. -->
+        <section class="graph-pane" id="graph-pane" data-collapsed="false" hidden>
+          <h3 class="panel-head graph-pane-head">
+            <span class="graph-pane-title">Local map</span>
+            <span class="chip" id="graph-pane-count">No note open</span>
+            <span class="row graph-pane-actions">
+              <button type="button" class="ghost small icon-only" id="graph-pane-focus"
+                aria-label="Open this map in the Graph tab"
+                title="Open this map in the Graph tab"><i class="ph ph-arrows-out"
+                  aria-hidden="true"></i></button>
+              <button type="button" class="ghost small icon-only" id="graph-pane-toggle"
+                aria-expanded="true" aria-controls="graph-pane-body"
+                aria-label="Hide the local map"
+                title="Hide the local map"><i class="ph ph-caret-up"
+                  aria-hidden="true"></i></button>
+            </span>
+          </h3>
+          <div id="graph-pane-body" class="graph-pane-body">
+            <div id="graph-pane-box" class="graph-pane-box">
+              <canvas id="graph-pane-canvas" class="graph-canvas graph-pane-canvas"></canvas>
+            </div>
+            <p class="muted graph-pane-empty" id="graph-pane-empty" hidden>
+              This note is not linked to anything yet.
+            </p>
+          </div>
+        </section>
       </aside>
 
       <main>

@@ -24226,6 +24226,57 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing
 order 10). Origin file named on each.
 
+### From GRAPH_PLAN.md
+
+### Built, Phase 4 (utility), part two: the local map, 2026-09-13
+
+Phase 4's last open item, and the one the phase could not have before the
+renderer's forty module-level `gc*` globals became a `gcSurface()` object
+(`cb77e2e`): the tab and the pane would have written each other's node array,
+camera, worker and hover state, and the pane would have taken the minimap, the
+legend and the labels switch with it.
+
+**One surface at `size: "pane"`, one element, two hosts.** `#graph-pane` is a
+section in `frontend/index.html` that `graphPaneFollow` moves between `#sidebar`
+on Notes and `#doc-sidebar` on Documents, rather than one pane per host: two
+panes would be two surfaces with two workers solving the same neighbourhood.
+It draws `/graph/local/{id}?depth=1` for whatever is open, which on the
+Documents tab is the first note the open document draws on (a document is not a
+node on an endpoint that walks notes). It wires none of the chrome, and a click
+on one of its notes calls `flashEntry`, the app's own "go to this note", rather
+than opening the Graph tab's popup against a canvas the reader is not looking
+at. Its colours are the tab's `colourOf` whenever the tab has drawn, so the
+same note is never two colours in one window.
+
+**How it hears that something opened.** The frontend has exactly one
+`CustomEvent` in it (an inline image), so there is no bus to subscribe to.
+`graphPaneWire` wraps `switchTab`, `flashEntry` and `openDocument` once at
+`DOMContentLoaded` and calls `graphPaneFollow` after each. The alternative was a
+poll running for the life of the page to catch three moments that announce
+themselves, and the other alternative was three edits across two files the graph
+does not own.
+
+Measured, `scratchpad/ui-sweeps/graphpane.js` at 1440x950 against a 74-node tab
+map (PASS, 0 findings):
+
+- The pane draws: box 226x176, canvas backing 226x176, 189 sampled non-blank
+  pixels, 4 labels placed. A canvas measured inside a hidden parent is 0x0 and
+  paints nothing, which is why all three are read rather than the element's
+  existence.
+- It draws the local map, not the notebook: 6 nodes and 5 edges against
+  `/graph/local`'s own 6, where the tab has 74.
+- It does not fight the tab: the tab's node count (74), edge count (73), canvas
+  (1406x811) and `graphDims` (1406x811) are identical before the pane is opened
+  and after it has drawn, `graphPaneSurface.canvas !== gcCanvas`, and the pane
+  survives a tab render.
+- It follows what is open on both surfaces: `sidebar` on Notes, `doc-sidebar`
+  on Documents, 6 notes in both, and collapsing it leaves a 0px body with
+  `aria-expanded="false"` and no sideways page scroll.
+
+Three tab-only paths gained a `size === "full"` guard while this was written,
+each of which a pane would otherwise have fired: the minimap frame on a pan, the
+link panel and node popup on a click, and the new-note form on a double click.
+
 ### From UI_MODERNISATION_PLAN.md
 
 ### Built, Phase 11 item 1: the five-item bar and its More sheet, 2026-09-13

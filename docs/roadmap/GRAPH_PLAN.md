@@ -118,14 +118,6 @@ just "hide the app chrome". Dark theme measured with `contrast.js`.
 has a map, has a file) plus **groups**: a saved search → a colour, listed
 in the legend, stored with the view. Legend entries toggle visibility.
 
-### Phase 4 — utility (1 session)
-Lasso select (Shift+drag) → a selection dock (tag, link, move to space,
-make a mind map of these, open all); right-click menu on a node (open,
-open beside, pin/unpin, hide, focus); a **local graph pane** that can sit
-beside an open note or document (the same renderer at `size: "pane"`);
-the time slider gains Play; export PNG at 2× of exactly the visible
-frame, with the legend.
-
 ### Phase 6 — the node panel (½ session, INBOX 59)
 The popup that opens on a node is a form with nine equal buttons under it.
 Target: a header (title, category chip, the confidence as a small mark
@@ -174,6 +166,10 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-09", GRAPH_PLAN.md) on 2026-
 ## Built, Phase 4 (utility), part one, 2026-09-09
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", GRAPH_PLAN.md) on 2026-09-09: a plan holds open work only.
+
+## Built, Phase 4 (utility), part two: the local map, 2026-09-13
+
+Moved to HISTORY.md ("Moved from the plans, 2026-09-13", GRAPH_PLAN.md) on 2026-09-13: a plan holds open work only. Phase 4 is complete.
 
 ## Built, Phase 3 (colour rules and groups), 2026-09-09
 

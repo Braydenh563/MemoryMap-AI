@@ -5636,3 +5636,64 @@ button.ghost.danger:hover {
   z-index: 80;
   min-width: 13rem;
 }
+
+/* GRAPH_PLAN.md Phase 4: the local map beside an open note or document.
+
+   A section inside a sidebar card, so it takes the nested-surface tone rather
+   than a second bordered pane (DESIGN.md, surface tiers): the box carries the
+   map's own wash, not a card edge. The head is the `h3.panel-head` recipe,
+   identity then one chip then an all-icon action group.
+
+   The height is fixed and the width is the column's, because this is the one
+   measurement the pane has to satisfy: a canvas in a box with no height is
+   0x0 and paints nothing, which is the failure mode every panel built this way
+   has. `min-height` rather than `height` so a wide sidebar does not squeeze it. */
+.graph-pane {
+  margin-top: var(--space-5);
+  display: block;
+}
+
+.graph-pane-head {
+  margin-bottom: var(--space-3);
+}
+
+.graph-pane-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.graph-pane-actions {
+  gap: var(--space-1);
+  flex: none;
+}
+
+.graph-pane-box {
+  position: relative;
+  min-height: 11rem;
+  height: 11rem;
+  border-radius: var(--radius-inner);
+  overflow: hidden;
+  background:
+    radial-gradient(120% 120% at 50% 0%, var(--accent-soft), transparent 60%),
+    var(--surface-2);
+}
+
+.graph-pane-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.graph-pane-empty {
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+}
+
+/* Collapsed is display:none on the body, not a height of 0: a canvas in a box
+   with a height animating towards zero keeps being measured and redrawn at
+   every step of the way, and the only thing the reader asked for is the space
+   back. */
+.graph-pane[data-collapsed="true"] .graph-pane-body {
+  display: none;
+}

@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- **A local map beside an open note or document** (GRAPH_PLAN Phase 4's last
+  item). `#graph-pane` is the Graph tab's own canvas renderer at
+  `size: "pane"`: it draws `/graph/local` at depth 1 for whatever is open, in
+  the Notes sidebar and the Documents sidebar, and clicking one of its notes
+  opens that note. Measured (`scratchpad/ui-sweeps/graphpane.js`, 1440x950):
+  6 nodes against the local payload's 6 where the tab has 74, a 226x176 box
+  that really paints, and the tab's node count, edge count, canvas and camera
+  size identical before and after.
+
 - A document can be downloaded as one self-contained HTML file. Images become
   data URIs, the stylesheet is written into the file, comments travel as
   footnotes, controls that only work inside the app are dropped (a `[[link]]`

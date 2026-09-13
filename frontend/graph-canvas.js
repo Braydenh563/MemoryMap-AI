@@ -441,6 +441,12 @@ function gcRequestDraw(s = gcTab) {
 //: event is the thing that has to: `gcTransform` is the new matrix before the
 //: handler returns, so anything reading the camera reads the current one.
 function gcRequestMinimapFrame(s = gcTab) {
+  //: There is one minimap and it belongs to the tab. A pane panning its own
+  //: camera must not move the picture of a map it is not drawing.
+  if (s.size !== "full") {
+    gcRequestDraw(s);
+    return;
+  }
   s.minimapQueued = true;
   gcRequestDraw(s);
 }
@@ -1318,6 +1324,10 @@ function gcWireInteraction(s = gcTab) {
       gcClickNode(event, hit, s);
       return;
     }
+    //: The link panel, the node popup and the new-note form are the Graph
+    //: tab's, and all three are placed against `#graph-box`. A pane that
+    //: opened one would put it over a map on another tab.
+    if (s.size !== "full") return;
     const edge = gcEdgeAtWorld(x, y, s);
     if (edge) {
       openGraphLinkPanel(edge, s.nodes);
@@ -1332,7 +1342,9 @@ function gcWireInteraction(s = gcTab) {
     const node = gcNodeAtWorld(x, y, s);
     if (!node) {
       // Grow the map: double-click empty space to add a note right there.
-      openGraphNewNote(event);
+      //: The tab only, same reason as the click above: the form is placed
+      //: against the tab's own box.
+      if (s.size === "full") openGraphNewNote(event);
       return;
     }
     //: A double click in a computed layout used to clear that one node's
@@ -2375,3 +2387,240 @@ Object.defineProperty(window, "__graphDebug", {
     });
   },
 });
+
+// --- GRAPH_PLAN Phase 4: the local map beside an open note or document ------------
+//
+//: The last open item of Phase 4, and the reason the surface object above
+//: exists. The pane is a second `gcSurface` at `size: "pane"`: its own canvas,
+//: camera, worker and hover state, so the Graph tab's node array, zoom and
+//: minimap are untouched by anything that happens in it. It draws
+//: `/graph/local` at depth 1 for whatever is open, wires none of the chrome
+//: (no legend, no minimap, no time slider, no lasso, no node menu), and a
+//: click on one of its notes opens that note rather than a popup anchored to a
+//: canvas the reader is not looking at.
+
+let graphPaneSurface = null;
+//: What the pane is drawn for. "Follow what is open" is called from three
+//: places and most calls change nothing, so this is what makes the common case
+//: a comparison rather than a fetch and a relayout.
+let graphPaneShownId = null;
+
+function graphPaneEnsure() {
+  if (graphPaneSurface) return graphPaneSurface;
+  graphPaneSurface = gcSurface({
+    size: "pane",
+    boxId: "graph-pane-box",
+    canvasId: "graph-pane-canvas",
+    //: The pane's notes open where the reader already is. `flashEntry` is the
+    //: app's own "go to this note", the same one the graph's node popup, the
+    //: search results and a wiki link use.
+    onNodeClick: (node) => {
+      if (node.isGroup || typeof flashEntry !== "function") return;
+      flashEntry(node.id);
+    },
+  });
+  return graphPaneSurface;
+}
+
+//: The pane's colours are the tab's colours when the tab has drawn, and its own
+//: category scale when it has not. A local map whose "Work" notes are a
+//: different colour from the same notes on the Graph tab is worse than no
+//: colour at all, and the tab's `colourOf` already carries the rule, the groups
+//: and the cluster structure the reader chose.
+function graphPaneColour(data) {
+  if (gcTab.nodes.length) return gcTab.colourOf;
+  const scale = d3.scaleOrdinal(data.categories, d3.schemeTableau10.concat(d3.schemeSet3));
+  return (node) => scale(node.category);
+}
+
+async function renderGraphPane(entryId) {
+  const pane = document.getElementById("graph-pane");
+  if (!pane || pane.hidden) return;
+  const s = graphPaneEnsure();
+  if (!gcEnsureCanvas(s)) return;
+  const count = document.getElementById("graph-pane-count");
+  const empty = document.getElementById("graph-pane-empty");
+  const sequence = ++s.renderSeq;
+  if (entryId == null) {
+    graphPaneShownId = null;
+    s.epoch += 1;
+    gcStop(s);
+    s.nodes = [];
+    s.edges = [];
+    s.adj = new Map();
+    s.byId = new Map();
+    s.quadtreeDirty = true;
+    if (count) count.textContent = "No note open";
+    if (empty) empty.hidden = false;
+    gcRequestDraw(s);
+    return;
+  }
+  const data = await apiJson(`/graph/local/${entryId}?depth=1`).catch(() => null);
+  if (!data || sequence !== s.renderSeq) return;
+  graphPaneShownId = entryId;
+  gcReadTokens(s);
+
+  const nodes = data.nodes.map((n) => ({ ...n }));
+  const edges = data.edges.map((e) => ({ ...e }));
+  s.byId = new Map(nodes.map((n) => [n.id, n]));
+  s.adj = new Map(nodes.map((n) => [n.id, new Set()]));
+  for (const edge of edges) {
+    const from = edge.source && edge.source.id != null ? edge.source.id : edge.source;
+    const to = edge.target && edge.target.id != null ? edge.target.id : edge.target;
+    if (s.adj.has(from)) s.adj.get(from).add(to);
+    if (s.adj.has(to)) s.adj.get(to).add(from);
+    edge.source = s.byId.get(from) || edge.source;
+    edge.target = s.byId.get(to) || edge.target;
+    edge._path2d = null;
+  }
+  const colourOf = graphPaneColour(data);
+  s.colourOf = colourOf;
+  for (const node of nodes) {
+    node.r = gcRadius(node, (s.adj.get(node.id) || { size: 0 }).size);
+    node.colour = colourOf(node);
+  }
+  gcResize(s);
+  //: The same spiral the tab lays down before the worker has said anything, and
+  //: for the same reason: without it the first frame after the payload lands is
+  //: a blank canvas.
+  const centreX = s.dims.w / 2;
+  const centreY = s.dims.h / 2;
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  nodes.forEach((node, index) => {
+    const radius = 10 * Math.sqrt(0.5 + index);
+    node.x = centreX + radius * Math.cos(index * goldenAngle);
+    node.y = centreY + radius * Math.sin(index * goldenAngle);
+  });
+  s.epoch += 1;
+  s.nodes = nodes;
+  s.edges = edges;
+  s.layoutKind = "force";
+  s.tree = null;
+  s.quadtreeDirty = true;
+  //: A pane is opened fresh at every note, so the camera frames the new
+  //: neighbourhood every time rather than keeping the last one's.
+  s.autoFitDone = false;
+  s.fittedOnce = false;
+  s.userZoomed = false;
+  if (count) {
+    count.textContent = `${nodes.length} note${nodes.length === 1 ? "" : "s"}`;
+  }
+  if (empty) empty.hidden = nodes.length > 1;
+  gcStartWorker(nodes, edges, gcWorldFor(nodes.length, s.dims.w, s.dims.h), s);
+  gcRequestDraw(s);
+}
+
+//: **Where the pane hangs, and what it is about.** Both answers change with the
+//: tab, and the app has no event that says so (one `CustomEvent` exists in the
+//: whole frontend, for an inline image), so this is called from the three
+//: places that already know: `switchTab`, `flashEntry` and `openDocument`, each
+//: wrapped once at boot by `graphPaneWire`. A poll would have to run for the
+//: life of the page to catch three moments that announce themselves.
+function graphPaneFollow() {
+  const pane = document.getElementById("graph-pane");
+  if (!pane) return;
+  const tab = localStorage.getItem("activeTab") || "notes";
+  const hostId = tab === "notes" ? "sidebar" : tab === "documents" ? "doc-sidebar" : null;
+  if (!hostId) {
+    pane.hidden = true;
+    //: A hidden pane's worker has nothing to solve for. The nodes keep their
+    //: positions, so coming back is a redraw rather than a fresh explosion.
+    if (graphPaneSurface) gcStop(graphPaneSurface);
+    return;
+  }
+  const host = document.getElementById(hostId);
+  if (!host) return;
+  if (pane.parentElement !== host) host.appendChild(pane);
+  pane.hidden = false;
+  const wanted =
+    tab === "notes"
+      ? typeof lastOpenedEntryId === "number"
+        ? lastOpenedEntryId
+        : null
+      : graphPaneDocumentNote();
+  const focus = document.getElementById("graph-pane-focus");
+  if (focus) focus.hidden = wanted == null;
+  if (wanted === graphPaneShownId && graphPaneSurface && graphPaneSurface.nodes.length) {
+    gcRequestDraw(graphPaneSurface);
+    return;
+  }
+  renderGraphPane(wanted);
+}
+
+//: A document is not a node on `/graph/local`, which walks notes. The pane
+//: beside one is the local map of the notes that document draws on, which is
+//: the same relationship the Documents sidebar already lists; the first of them
+//: is the one it centres on.
+function graphPaneDocumentNote() {
+  if (typeof currentDoc !== "object" || !currentDoc) return null;
+  const notes = currentDoc.notes || currentDoc.entries || [];
+  const first = notes[0];
+  if (first == null) return null;
+  if (typeof first !== "object") return first;
+  return first.id != null ? first.id : first.entry_id != null ? first.entry_id : null;
+}
+
+function graphPaneWire() {
+  const pane = document.getElementById("graph-pane");
+  if (!pane || pane.dataset.wired === "yes") return;
+  pane.dataset.wired = "yes";
+
+  const toggle = document.getElementById("graph-pane-toggle");
+  if (toggle) {
+    toggle.addEventListener("click", () => {
+      const collapsed = pane.dataset.collapsed === "true";
+      pane.dataset.collapsed = collapsed ? "false" : "true";
+      toggle.setAttribute("aria-expanded", collapsed ? "true" : "false");
+      toggle.title = collapsed ? "Hide the local map" : "Show the local map";
+      toggle.setAttribute("aria-label", toggle.title);
+      const icon = toggle.querySelector("i");
+      if (icon) icon.className = collapsed ? "ph ph-caret-up" : "ph ph-caret-down";
+      //: The box had no size while it was collapsed, so the canvas has to be
+      //: measured again on the way back or it paints into the dimensions it
+      //: last had.
+      if (collapsed && graphPaneSurface) {
+        gcResize(graphPaneSurface);
+        gcRequestDraw(graphPaneSurface);
+      }
+    });
+  }
+
+  const focus = document.getElementById("graph-pane-focus");
+  if (focus) {
+    focus.addEventListener("click", () => {
+      if (graphPaneShownId == null) return;
+      graphFocusModeId = graphPaneShownId;
+      switchTab("graph");
+      renderGraph();
+    });
+  }
+
+  //: Wrapped rather than called from inside each: `app.js` and `documents.js`
+  //: are not the graph's files, and three edits across two of them to announce
+  //: something the graph is the only consumer of is a worse trade than one
+  //: wrapper each here, next to the thing that needs them.
+  for (const name of ["switchTab", "flashEntry", "openDocument"]) {
+    const original = window[name];
+    if (typeof original !== "function" || original.__graphPaneWrapped) continue;
+    const wrapped = function (...args) {
+      const result = original.apply(this, args);
+      if (result && typeof result.then === "function") {
+        return result.then((value) => {
+          graphPaneFollow();
+          return value;
+        });
+      }
+      graphPaneFollow();
+      return result;
+    };
+    wrapped.__graphPaneWrapped = true;
+    window[name] = wrapped;
+  }
+  graphPaneFollow();
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", graphPaneWire);
+} else {
+  graphPaneWire();
+}

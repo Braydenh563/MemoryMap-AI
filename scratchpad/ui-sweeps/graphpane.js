@@ -37,9 +37,14 @@ const { boot } = require('./lib.js');
   console.log('graph tab before the pane ', JSON.stringify(tabBefore));
 
   // --- open a note, then look at the Notes tab -----------------------------
+  // A real note, never a layout's heading node: the tree, radial and arc
+  // layouts add `root` and one group per category, and `/graph/local/root` is a
+  // 422. `typeof id === "number"` is what tells the two apart (an entity or a
+  // document node carries a prefixed string id for the same reason).
   const noteId = await page.evaluate(() => {
-    const linked = gcNodes.filter((n) => !n.isGroup && (gcAdj.get(n.id) || { size: 0 }).size >= 2);
-    return (linked[0] || gcNodes[0]).id;
+    const notes = gcNodes.filter((n) => !n.isGroup && typeof n.id === "number");
+    const linked = notes.filter((n) => (gcAdj.get(n.id) || { size: 0 }).size >= 2);
+    return (linked[0] || notes[0]).id;
   });
   await page.evaluate((id) => { flashEntry(id); }, noteId);
   await page.waitForTimeout(2500);

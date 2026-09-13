@@ -25,9 +25,16 @@ commit.
   new DESIGN.md recipe row with its lint in the same commit. `docnarrow.js`
   extended: 7 actions, 44px smallest, foot at the window edge, bold and the
   "/" menu driven from the bar, absent above 600.
-- **Next:** documents-phases item 2 (Phase 6 item 2, the outline sheet:
-  decide, then build only if it earns itself), then item 4 (Phase 8), then
-  Phase 7's rest.
+- **Phase 6 item 2, the outline sheet.** `cecab76` (decision only): measured
+  two taps and 44px targets at 390, so a second sheet was not built; the plan
+  records why.
+- **Phase 8a and 8b, one editor everywhere.** `cb359c3`. `noteSurface()` in
+  `documents.js` (NOTE-SURFACE-BEGIN/END), six boxes, `tests/test_note_surface.py`,
+  `scratchpad/ui-sweeps/notesurface.js` 22/22. 8c's two halves are in
+  `whiteboard.js` and `editor.js`, which this agent does not own.
+- **Next:** Phase 7's rest (markdown with assets as a zip, DOCX export as an
+  optional extra, import of `.docx`/`.html` through `docview`), then the
+  "Found, not fixed" lines below.
 
 ## Landed
 

@@ -155,6 +155,22 @@ const probe = ([cardSel, containerSels]) => {
       });
     }
   }
+  // Every field and every button in the dialog, with the two things a report
+  // about "a large border" or "clumped" is usually actually about: the border
+  // width and the height. A dialog with three border widths in it reads as
+  // three different applications, and that is invisible in a capture.
+  out.fields = [];
+  for (const el of card.querySelectorAll('input, textarea, select, button')) {
+    const b = el.getBoundingClientRect();
+    if (b.width <= 0 || b.height <= 0) continue;
+    const cs = getComputedStyle(el);
+    out.fields.push({
+      sel: el.id ? '#' + el.id : el.tagName.toLowerCase() + '.' + [...el.classList].slice(0, 1).join(''),
+      h: Math.round(b.height),
+      border: cs.borderTopWidth,
+      radius: cs.borderTopLeftRadius,
+    });
+  }
   out.overflow = { scroll: card.scrollHeight, client: card.clientHeight };
   return out;
 };

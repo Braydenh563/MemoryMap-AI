@@ -10,6 +10,7 @@ landed below or still listed below. Its own history is in git and in HISTORY.md.
 | `cb8060a` | INBOX 186: the timeline dock's four kind chips become one `.seg.seg-multi` well. Dock 138.8/181.2px at 1024/820 to 54px at both. `scratchpad/ui-sweeps/timelinedock.js` |
 | `d7d8e58` | INBOX 186 moved to HISTORY |
 | `1f08ddd` | The two in-place sheets share the recipe's dismissal (`wireInPlaceSheetDismissal`); the boundary between a modal-bottom sheet and an in-place one is written into DESIGN.md. `scratchpad/ui-sweeps/sheetdismiss.js` |
+| `3bfe8d0` | Phase 11's two band-2 faults: one row at 820 (header 112px to 72px, strip 408 in 448) and 44px tab targets; the reminders badge on its glyph. `scratchpad/ui-sweeps/tabfit.js` |
 | `3af052e` | INBOX 104: the bar recedes to icons on scroll down, back on scroll up, never hidden. Also fixed: the selected tab was the one column of five with no caption at 320. `scratchpad/ui-sweeps/phonetabs.js` |
 
 ## Still open, in the order to take it
@@ -20,12 +21,10 @@ landed below or still listed below. Its own history is in git and in HISTORY.md.
    File: `frontend/css/10-responsive.css` band 4; `frontend/index.html`
    `#top-bar`. Next step: measure the header's content width at 320 before
    deciding what leaves.
-2. **Band 2 (820): the header is two rows, 108.2px, and the tab buttons are
-   36px.** Band 2's own rule says one row of icons. The strip needs 440px at
-   820 (selected tab 146.2px with its caption, the other six 49px) and
-   `syncTabOverflowFade` (app.js) still wraps it. 820 is outside the touch
-   band's `max-width: 819.98px` by one pixel of intent, so the 44px floor does
-   not reach it. Sweep: `scratchpad/ui-sweeps/tabfit.js`.
+2. **Band 3 (600 to 820): the header is still two rows, 128px at 819.** That
+   one is the band's recorded design (the strip cannot fit beside the wordmark
+   at any width in the band, and the wordmark is what was reported twice when
+   it was hidden), so it is listed as known rather than as open.
 3. **Picture cards: the hole an open fold leaves in a row-mate** (59 to 145px
    of empty card). Measured and deliberately unchanged; the ceiling that causes
    it is a recorded decision with its own rejected alternatives.

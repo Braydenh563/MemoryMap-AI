@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- `scratchpad/probe_list_queries.py` drives every list endpoint at a page of 5
+  and a page of 100 over the same notebook and says which ones cost a query
+  per row. None do, measured at 121 notes with 40 attachments; the three
+  newest and most joined are pinned in `tests/test_scale_query_counts.py` so
+  the next one cannot arrive quietly.
+
 - The journal has a day that opens twice. `GET /entries/daily/{date}` returns
   that day's note and makes it only if it is not there yet, so pressing
   "today's note" a second time no longer leaves two notes headed with the same

@@ -16,6 +16,7 @@ security review's open rows, D6, and the performance probes.
 - done: WORLD_CLASS F2, four unbounded lists bounded and the route-walking lint added. next: F4 (102 broad excepts), F7 (17 modules with threads), F10 (the three reading columns).
 - done: S5, the private-address guard moved to `core/security.public_addresses` with the outbound-fetch lint. next: item 4, D6 daily notes (`agent-remaining/chat-timeline-skills.md` item 8), then item 5, the perf probes.
 - done: D6's backend, `/entries/daily/{date}` create-or-return and `/entries/daily` for the strip and the streak. next: item 5, the perf probe and any N+1 or per-page full count it finds.
+- done: the list-query probe (`scratchpad/probe_list_queries.py`), 13 endpoints flat at 121 notes, three pinned in `test_scale_query_counts.py`. next: F4/F7/F10 measured and left to the mechanical agent; the full suite before the final report.
 
 ## The specs, read
 

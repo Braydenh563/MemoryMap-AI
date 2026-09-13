@@ -9,6 +9,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The chat composer's attach picker shows the picture. Its Images tab was five
+  checkboxes beside five generated filenames, which is not a list you can
+  choose from: reported as "images just show as their names but the user might
+  not be able to tell what those images are from their names". Every image row
+  now carries a thumbnail and the image's caption, or, for a picture with no
+  caption, the note it is used in. The "captioned" badge is gone, the caption
+  it announced is on the row instead.
+
 - The page reader has a way in that does not start from a file. It was
   reachable only from a file you had already found (a Files row, an image
   card's menu, or the lightbox), so "I want to read something" had no answer.

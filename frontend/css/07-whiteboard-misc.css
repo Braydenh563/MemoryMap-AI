@@ -9230,7 +9230,12 @@ input[type="file"] {
   min-width: 0;
 }
 
-.dock-identity h2 {
+/* The heading, whatever level the tree it sits in requires. Every dock on a
+   tab heads its own panel and uses `h2`; the Settings screens are sections
+   inside one modal whose `h2` is the modal's own title, so their heads are
+   `h3` (the Logs dock is the first of those). The rule is about the element
+   being the dock's title, not about the level. */
+.dock-identity :is(h2, h3) {
   margin: 0;
   white-space: nowrap;
 }
@@ -9257,9 +9262,13 @@ input[type="file"] {
 }
 
 /* Search grows into what is left of the row and never drops below a
-   readable width; the row wraps under it before it does. */
+   readable width; the row wraps under it before it does. The basis is what
+   decides *when* a dock wraps, and the value and the measurement behind it
+   are at `.dock .dock-find` in 08-consistency.css, which restates this rule
+   at a specificity that beats it; the two are kept on the same number so a
+   reader of either finds the truth. */
 .dock-find {
-  flex: 1 1 14rem;
+  flex: 1 1 12rem;
 }
 
 .dock-find input[type="search"] {
@@ -9326,6 +9335,20 @@ input[type="file"] {
 
 .dock select {
   width: auto;
+  min-width: 9rem;
+  max-width: 14rem;
+}
+
+/* **And the same floor for the control that is actually on screen.** Every
+   `<select>` in this app is restyled at boot by `enhanceSelect`, which leaves
+   the native element behind a `.select-shell` and draws a `.select-opener`
+   button: so the rule above has been sizing the hidden element, and the
+   visible one has had no floor anywhere since docks existed. Measured in the
+   Logs dock, whose column is 599.6px: the two pickers drew at 102px and 91px
+   with their own values cut off mid-word. Same zone scope as the segment rule
+   below, a direct child of a zone, so a select that Phase 9 has folded into
+   the menu is sized by the menu instead. */
+.dock > * > .select-shell {
   min-width: 9rem;
   max-width: 14rem;
 }
@@ -9406,6 +9429,23 @@ input[type="file"] {
   align-items: center;
   height: 100%;
   padding-block: 0;
+}
+
+/* **A view segment that has folded into a menu keeps the height it had in the
+   row.** `.dock > * > .seg > button` above stops matching the instant Phase 9
+   moves `.dock-arrange` inside the menu list, and an `.icon-only` cell carries
+   `aspect-ratio: 1` (00-tokens-shell.css), so each cell took its own stretched
+   width as its height: measured on the Notes dock at 1024, the folded view
+   toggle's two cells rendered 108.4 x 108.4 inside their own 36px well, and
+   every dock that folds a segment of icons had it. The cells fill the well's
+   content box, which is the 28px they measure in the row. */
+.dock-menu .seg {
+  height: var(--control-h);
+}
+
+.dock-menu .seg > button {
+  height: 100%;
+  aspect-ratio: auto;
 }
 
 /* A link to a sibling surface sits with the title as a quiet ghost, not as
@@ -10673,4 +10713,101 @@ header#top-bar {
 .wb-sketch-rotate-handle,
 .wb-rotate-handle-stem {
   transform: scale(var(--wb-inv-zoom));
+}
+
+/* --- The attach picker's picture rows ------------------------------------
+   Reported with a screenshot of the chat composer's attach picker on its
+   Images tab: "images just show as their names but the user might not be able
+   to tell what those images are from their names so they need to be rendered
+   in some way". Five checkboxes beside five generated filenames is a list you
+   cannot choose from, so an image row now carries the picture and its caption
+   (`renderNotePickerOtherSource` in app.js builds them; the shape table there
+   decides which sources get them).
+
+   Here rather than beside the other `.note-picker-*` rules in
+   04-chat-dock-appearance.css only because that file was being edited in
+   parallel; the picker's checkbox styling already lives in this file for the
+   same kind of reason. If the two ever get tidied back together, these belong
+   with the rest of the panel.
+
+   The whole point of the frame is that the rows stay one height: the thumb is
+   a fixed square with the picture cropped to fill it, and the two text lines
+   together are shorter than it, so a portrait photo, a landscape screenshot
+   and a deleted file all produce the same row. */
+.note-picker-thumb {
+  flex: 0 0 auto;
+  /* 2.5rem, not a spacing step: this is the size of a thing, and it is the
+     height the row is measured by. It matches the two lines of text beside it
+     (a 0.85rem name over a 0.75rem caption) so neither side decides the row's
+     height on its own. */
+  width: 2.5rem;
+  height: 2.5rem;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--divider);
+  background: var(--surface-2);
+  display: grid;
+  place-items: center;
+}
+
+.note-picker-thumb img {
+  width: 100%;
+  height: 100%;
+  /* Cropped, not letterboxed: at this size a fitted image is mostly frame,
+     and what the row needs is the middle of the picture, which is where the
+     subject of a photo or the content of a screenshot is. */
+  object-fit: cover;
+  display: block;
+}
+
+/* The file went away while the row was on screen (the `error` handler in
+   app.js removes the broken `<img>` and marks the frame). An empty frame with
+   the app's own missing-file glyph, not the browser's torn page. */
+.note-picker-thumb.is-missing::after {
+  content: "\f27f"; /* ph-image-broken, the Phosphor glyph the app ships */
+  font-family: Phosphor, sans-serif;
+  color: var(--muted);
+  font-size: var(--text-md);
+}
+
+.note-picker-lines {
+  display: flex;
+  flex-direction: column;
+  /* No gap: two line boxes, and their own line-height is the space between
+     them. A step off the scale here would show up as a row a pixel taller
+     than the thumb beside it. */
+  /* Both of these, or the column refuses to shrink and the chip is pushed off
+     the end of the row instead of the text ellipsising: the same rule the
+     panel head recipe states in DESIGN.md. */
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The name keeps the size it had as a one-line row; the caption is the
+   supporting line, one step down and muted, so the pair reads in the right
+   order at a glance. */
+.note-picker-lines .note-picker-text {
+  font-size: var(--text-md);
+}
+
+.note-picker-caption {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  /* One line, always: a caption that wrapped to two would make that row taller
+     than its neighbours, which is exactly the scan this change is for. The
+     whole sentence is on the element's `title`. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* "No caption yet" is a placeholder, not a caption: it sits back a step
+   further so a captioned row's second line is visibly the stronger of the two.
+   0.85 and not lower: measured against the panel, --muted at full strength is
+   7.4:1 in light and 7.9:1 in dark, and dimming it to 0.7 takes the light
+   theme to 3.5:1, under AA for text this size. At 0.85 it is 5.0:1 and 6.0:1,
+   and the italic carries most of the difference anyway. */
+.note-picker-caption.is-empty {
+  opacity: 0.85;
+  font-style: italic;
 }

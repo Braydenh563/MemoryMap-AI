@@ -17255,20 +17255,15 @@ function notePickerShape(source) {
   return {
     id: (row) => row.id,
     label: (row) => row.filename || row.original_name || "Image",
-    //: **The extension, not "captioned".** The badge used to say whether a
-    //: caption existed, which was the only fact on the row besides a
-    //: generated filename, and it answered a question nobody asks: reported
-    //: directly, "images just show as their names but the user might not be
-    //: able to tell what those images are from their names". Now that the
-    //: caption itself is on the row (`caption` below) a badge announcing one
-    //: exists is noise, so the chip carries what the Files source's chip
-    //: carries, the kind of file, read from the name rather than from `mime`
-    //: because only one of the two row shapes this list merges has a mime.
-    //: Read off the end of the name with a regex rather than `split(".")`,
-    //: which returns the whole string for a name with no dot at all and would
-    //: print a filename inside a chip that is supposed to hold one word.
-    note: (row) =>
-      (/\.([a-z0-9]{1,5})$/i.exec(row.filename || row.original_name || "")?.[1] || "image").toLowerCase(),
+    //: **No chip at all on an image row.** It used to read "captioned" or
+    //: "image", which was the only fact on the row besides a generated
+    //: filename and answered a question nobody asks; now that the caption
+    //: itself is on the row (`caption` below) a badge announcing one exists is
+    //: noise. The obvious replacement, the kind of file the way the Files
+    //: source chips it, would print "png" seventeen times down a list whose
+    //: every row already ends in `.png`. The renderer drops an empty chip
+    //: rather than drawing a pill with nothing in it.
+    note: () => "",
     //: The picture itself, token-gated: an `<img src>` cannot send the auth
     //: header, and `mediaSrc` is how every other image surface in the app
     //: (the Library gallery, the OCR rail, a note's own thumbnails) puts a
@@ -17279,9 +17274,19 @@ function notePickerShape(source) {
     //: The second line of the row, and the reason this source has one at all:
     //: a caption is a sentence about the picture, which is exactly what a
     //: filename like `WallpaperEngineOverride_randomODWVLK.jpg` is not. An
-    //: uncaptioned image says so rather than leaving the line out, so the
-    //: rows in the list stay one height and read as a list.
-    caption: (row) => row.caption || "",
+    //: uncaptioned image falls back to where it is used, which for a picture
+    //: that arrived on a note is often the better identifier of the two ("in
+    //: Weekly review" places it; "screenshot_20260114_113052.png" does not),
+    //: and `used_by` is already on both of the row shapes this source merges.
+    //: Failing both, the renderer says so rather than leaving the line out, so
+    //: every row in the list stays one height.
+    caption: (row) => {
+      if (row.caption) return row.caption;
+      const used = Array.isArray(row.used_by) ? row.used_by : [];
+      const first = used[0]?.label;
+      if (!first) return "";
+      return used.length > 1 ? `In ${first} and ${used.length - 1} more` : `In ${first}`;
+    },
     search: (row) => `${row.filename || ""} ${row.caption || ""}`,
     isOn: (row) => attachedImages.some((i) => i.id === row.id),
     //: An already-uploaded image is attached by *id*, with no staging step and
@@ -17464,10 +17469,14 @@ async function renderNotePickerOtherSource(query, list) {
       cap.classList.toggle("is-empty", !caption);
       if (caption) cap.title = caption;
       lines.append(text, cap);
-      label.append(lines, kind);
+      label.append(lines);
     } else {
-      label.append(text, kind);
+      label.append(text);
     }
+    //: A chip with nothing in it is a pill of empty space at the end of the
+    //: row, so a source that has no one-word fact to add (Images, whose fact
+    //: is the picture itself) simply does not get one.
+    if (kind.textContent) label.append(kind);
     li.appendChild(label);
     list.appendChild(li);
   }

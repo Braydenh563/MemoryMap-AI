@@ -1828,9 +1828,19 @@ function gcWorldFor(count, width, height) {
   // force by the note count (`densityScale`/`centreScale` in graph-worker.js),
   // so the natural spread is a good deal smaller than the room this used to
   // reserve and the gap between the two was somewhere a node could wander to
-  // and be lost. Measured at 35 and 300 notes this changes nothing at all:
-  // both are under the viewport floor below. It bites above about a thousand
-  // notes, where it is reasoned rather than measured.
+  // and be lost.
+  //: **Where it bites, measured rather than asserted**
+  //: (`scratchpad/ui-sweeps/graphtouch.js`, which reads this function at three
+  //: counts and two widths). This line used to say "measured at 35 and 300
+  //: notes this changes nothing at all: both are under the viewport floor
+  //: below", and the floor is not one number: it is 2531 on a 1440 desktop map
+  //: and 1168 on a 390 phone. At 35 notes the floor decides at both widths
+  //: (680 here against 2531 and 1168), so the change really is neutral there.
+  //: At 300 it decides only on the desktop: the count term is 1992, under the
+  //: desktop floor and over the phone's, so on a phone this constant shrank
+  //: the world from 2550 to 1992, by 22%, which is the direction it was
+  //: changed for and a smaller screen is where a lost node is hardest to find.
+  //: Above about five hundred notes it decides at every width.
   const roomy = Math.sqrt(Math.max(count, 1)) * perNode * 1.25;
   const side = Math.max(roomy, width * 1.8, height * 1.8);
   return {

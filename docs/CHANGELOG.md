@@ -529,6 +529,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- **The graph's touch gestures and its world constant are measured, not
+  assumed.** `scratchpad/ui-sweeps/graphtouch.js` drives a real touch context:
+  a 96x48 one-finger drag moves the camera 107.3px and a pinch from 80px to
+  280px between the fingers scales the map 3.5x, at 390 and at 1440, with the
+  page not scrolling sideways at either. `gcWorldFor`'s comment claimed the
+  1.6-to-1.25 change was neutral at 35 and 300 notes; it is neutral at 35 at
+  both widths, and at 300 only on a desktop, where the viewport floor is 2531
+  against a phone's 1168. The comment now says which.
+
 - **Turning "Mind maps" off on the graph now takes them off the map.** The
   switch is called Boards, it covers whiteboards as well, and off means the
   board is not a node at all rather than a node that stops saying it is one:

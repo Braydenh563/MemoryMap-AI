@@ -1591,6 +1591,144 @@ function toggleDocFindBar(open) {
 
 // A table of contents built from the document's own headings. Past a couple
 // of screens the scrollbar stops being a way to navigate a document.
+// =============================================================================
+// Breadcrumbs: where the caret is, in the document's own structure
+// =============================================================================
+//
+// DOCUMENTS_PLAN Phase 4 item 3. The outline answers "what is in this
+// document"; this answers "where am I in it", which is the question a reader
+// two screens into a section cannot answer from the text in front of them.
+// Obsidian has neither; VS Code, IntelliJ and Word all do, and all three put
+// it in the same place: one line above the writing, not in the chrome.
+//
+// It is a trail rather than a label because the useful part is the *ancestry*:
+// "Sampling" on its own says nothing, and "Method > Sampling" says which of
+// the three sections called Sampling you are in.
+
+// DOC-CRUMBS-BEGIN
+
+//: The headings a line sits under, as indexes into `headings`, outermost
+//: first. `[]` for a line above the first heading, which is a real position in
+//: most documents (the paragraph before the first `#`) rather than an error.
+//:
+//: Walked forward with a stack rather than searched backwards per level: a
+//: backwards search has to ask "is there a level 2 between here and the level
+//: 1" for every level, which is the shape that gets the skipped-level case
+//: wrong. A document that goes `#` then `###` has a two-deep trail, not a
+//: three-deep one with a hole in it, and the stack gives that for free.
+function docHeadingTrail(headings, line) {
+  const trail = [];
+  const list = headings || [];
+  const at = Number.isFinite(line) ? line : 0;
+  for (let index = 0; index < list.length; index += 1) {
+    const heading = list[index];
+    //: `>` rather than `>=`: the caret *on* a heading's own line is inside
+    //: that heading, which is what a writer editing the heading means.
+    if (heading.line > at) break;
+    while (trail.length && list[trail[trail.length - 1]].level >= heading.level) trail.pop();
+    trail.push(index);
+  }
+  return trail;
+}
+
+// DOC-CRUMBS-END
+
+//: **The headings the outline last read.** The breadcrumb needs them on every
+//: keystroke (`renderDocCaret` runs then, and the caret is what the trail is
+//: about), and finding them is a scan of the whole document: on a 20k-word
+//: file that is a 20k-element split per character typed. The outline is
+//: rebuilt on a pause in typing, so a heading written a moment ago reaches the
+//: trail on the same beat it reaches the outline, which is the beat a writer
+//: is already watching.
+let docOutlineHeadingList = [];
+
+//: The row, and its one-time wiring. It is in index.html (see the markup
+//: there for why), so this is a lookup rather than a build; what is done once
+//: here is the edge-fade, whose listeners app.js only attaches to the strips
+//: that exist when it boots, before this tab has ever been opened.
+let docCrumbsWired = false;
+
+function docCrumbsEl() {
+  const nav = $("doc-crumbs");
+  if (!nav || docCrumbsWired) return nav;
+  docCrumbsWired = true;
+  nav.addEventListener("scroll", () => window.syncEdgeFade?.(nav), { passive: true });
+  if (typeof ResizeObserver !== "undefined") {
+    //: The half that actually matters here: a trail's width changes when the
+    //: caret moves into a deeper section, with no window resize to hang a
+    //: recalculation off, and a strip whose fade is only recomputed on resize
+    //: keeps whichever mask it had when it was last measured.
+    new ResizeObserver(() => window.syncEdgeFade?.(nav)).observe(nav);
+  }
+  return nav;
+}
+
+//: What the row says, as one string, so the common case (a keystroke that
+//: moves the caret inside the same section) costs a comparison rather than a
+//: rebuild of four buttons per character typed.
+let docCrumbsKey = "";
+
+function renderDocCrumbs(line) {
+  const nav = docCrumbsEl();
+  if (!nav) return;
+  const list = nav.firstElementChild;
+  const headings = docOutlineHeadingList;
+  //: A document with no headings has nothing to say here, and a row that is
+  //: present and empty is a strip of blank space above the writing.
+  nav.classList.toggle("hidden", !headings.length);
+  if (!headings.length) {
+    list.replaceChildren();
+    docCrumbsKey = "";
+    return;
+  }
+  //: The document itself is the first crumb, and it jumps to the top. Phase
+  //: 1's own sketch of the header reads `Documents > Design system notes`, so
+  //: the trail starting at the document is the shape this plan already chose;
+  //: it also keeps the row the same height whether or not the caret is under
+  //: a heading yet, which is what stops it from jumping as you write.
+  const crumbs = [{ text: ($("doc-title")?.value || "").trim() || "Untitled", line: 0 }];
+  for (const index of docHeadingTrail(headings, line)) crumbs.push(headings[index]);
+  const key = crumbs.map((crumb) => `${crumb.line}:${crumb.text}`).join("\u0000");
+  if (key === docCrumbsKey) return;
+  docCrumbsKey = key;
+  list.replaceChildren();
+  crumbs.forEach((crumb, index) => {
+    const li = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "linklike doc-crumb";
+    button.textContent = crumb.text;
+    button.title = index ? `Jump to \u201c${crumb.text}\u201d` : "Jump to the top of the document";
+    //: The last crumb is where you are, and `aria-current="location"` is how
+    //: the recipe index says a row says so: the weight it is drawn in hangs
+    //: off this attribute in CSS, so the mark and its announcement are one
+    //: thing and cannot drift apart.
+    if (index === crumbs.length - 1) button.setAttribute("aria-current", "location");
+    button.addEventListener("click", () => jumpToDocLine(crumb.line));
+    li.appendChild(button);
+    list.appendChild(li);
+  });
+  //: After the row is built, not before: the fade is a measurement of
+  //: `scrollWidth` against `clientWidth`, and both are the previous trail's
+  //: until the new buttons are in the document.
+  window.syncEdgeFade?.(nav);
+}
+
+//: The caret's line, 0-based, for the callers that want the trail but do not
+//: already hold a set of caret stats.
+function docCaretLine() {
+  const box = docActiveBox();
+  if (!box) return 0;
+  try {
+    return box.lineAt(box.selection().from).number - 1;
+  } catch {
+    //: A surface mid-teardown (the engine swapping in under the textarea) can
+    //: answer neither, and a breadcrumb is not worth an exception in the
+    //: middle of a document open.
+    return 0;
+  }
+}
+
 function renderDocOutline() {
   const list = $("doc-outline");
   const wrap = $("doc-outline-wrap");
@@ -1726,6 +1864,11 @@ function renderDocOutline() {
   //: that never knew.
   docOutlineMarked = -1;
   markDocOutline();
+  //: The breadcrumb reads this list rather than the document, so it is set
+  //: here and the trail is redrawn on the same beat the outline is.
+  docOutlineHeadingList = headings;
+  docCrumbsKey = "";
+  renderDocCrumbs(docCaretLine());
 }
 
 //: **Where you are in the document, marked in its outline.** The owner, of
@@ -7974,6 +8117,10 @@ function renderDocCaret() {
         } selected (${stats.selected.toLocaleString()} char${stats.selected === 1 ? "" : "s"})`
       : ` · ${stats.selected.toLocaleString()} char${stats.selected === 1 ? "" : "s"} selected`;
   caret.textContent = `Ln ${stats.line}, Col ${stats.column}${selection}`;
+  //: The breadcrumb follows the caret, so it is drawn from the same stats
+  //: rather than from a listener of its own: two things that answer "where am
+  //: I" and update on different events are two things that disagree.
+  renderDocCrumbs(stats.line - 1);
 }
 
 //: The counts. A whole-document pass, which is why it is scheduled rather

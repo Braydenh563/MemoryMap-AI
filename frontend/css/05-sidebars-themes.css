@@ -4187,3 +4187,104 @@ button.ghost.doc-template-choice:focus-visible {
 .doc-mentions-wrap:has(> .doc-mentions:empty) > .doc-mentions-help {
   display: none;
 }
+
+/* ================= BREADCRUMBS: WHERE THE CARET IS =====================
+   DOCUMENTS_PLAN Phase 4 item 3. One quiet line between the find bar and the
+   panes, deliberately not a panel: the find bar has a border and a card
+   background because it is a set of controls, and this is a *location*, which
+   the writing below it should win against. Measured against the same reading
+   the toolbar got: a bordered card here put two framed rows above every
+   document and pushed the first line of text 68px down.
+
+   Not `.linklike`'s accent and underline either, even though the markup reuses
+   that class for its behaviour: fifteen accent-coloured underlined words above
+   every document is a strip that reads as louder than the heading it describes.
+   Muted until hovered, which is the same restraint the outline's own rows use. */
+.doc-crumbs {
+  margin-top: var(--space-2);
+  /* **Not shrinkable, and this row is why the rule needs saying.** The editor
+     column is a flex column, and a flex item's automatic minimum size (the
+     thing that normally stops a column from crushing an item below its own
+     content) only applies while `overflow` is `visible`. The `overflow-x: auto`
+     on the next line is therefore what let the column shrink this row: the
+     `<ol>` inside measured 44px on a phone and the `<nav>` around it measured
+     11.2px, so the crumb a finger is meant to hit was three-quarters outside
+     its own container. `flex: 0 0 auto` is the fix, and it is the pairing to
+     remember: a scrollable strip inside a flex line always needs it. */
+  flex: 0 0 auto;
+  overflow-x: auto;
+  /* A trail is one line by construction (`white-space: nowrap` on the list), so
+     there is never anything to scroll vertically; `overflow-x: auto` alone
+     computes `overflow-y` to `auto` as well and a sub-pixel row can then draw a
+     vertical scrollbar over the writing. */
+  overflow-y: hidden;
+  /* The native hint is hidden here as it is on every other strip in this app,
+     and `.edge-fade` (set on the element by `docCrumbsEl`) gives the scrollable
+     affordance back. */
+  scrollbar-width: none;
+}
+
+.doc-crumbs::-webkit-scrollbar {
+  display: none;
+}
+
+.doc-crumbs-list {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  /* A trail is one line: a document nested five headings deep scrolls
+     sideways rather than growing the row and shifting the writing down. */
+  white-space: nowrap;
+}
+
+/* The separator belongs to the list, not to the buttons: a crumb rendered
+   with a trailing character of its own would put that character inside the
+   button's hit area and read it out as part of the heading's name. */
+.doc-crumbs-list li + li::before {
+  content: "\203A";
+  color: var(--muted);
+  opacity: 0.7;
+  padding: 0 0.15rem;
+}
+
+.doc-crumb {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: var(--text-sm);
+  padding: 0.15rem 0.25rem;
+  border-radius: var(--radius-sm);
+  /* A heading can be a sentence. The trail keeps its shape and the full text
+     stays available in the button's own `title`. */
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-crumb:hover,
+.doc-crumb:focus-visible {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+/* Where you are, which is the one crumb that is not a destination you are
+   navigating *to*. Hangs off `aria-current` so the mark and the thing a
+   screen reader announces cannot drift apart. */
+.doc-crumb[aria-current="location"] {
+  color: var(--text);
+  font-weight: 600;
+}
+
+@media (max-width: 819.98px) {
+  /* The phone floor, the same one the docks and the segmented controls take:
+     a crumb is a tap target, and 0.15rem of padding around 0.75rem text is
+     22px of one. */
+  .doc-crumb {
+    min-height: var(--target-min);
+    display: inline-flex;
+    align-items: center;
+  }
+}

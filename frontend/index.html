@@ -3048,6 +3048,15 @@
           <button type="button" id="doc-replace-all" class="ghost small">Replace all</button>
           <button type="button" id="doc-find-close" class="ghost small icon-only" title="Close (Esc)" aria-label="Close find and replace"><i class="ph ph-x" aria-hidden="true"></i></button>
         </div>
+        <!-- Where the caret is, in the document's own structure. Filled by
+             `renderDocCrumbs` (documents.js) from the outline's heading list and
+             hidden whole while a document has no headings. Markup here rather
+             than built in script: a fixed row in a fixed place, and
+             `tests/test_frontend_ids.py` is the rule that an id a handler looks
+             up is an id a reader can find in this file. -->
+        <nav id="doc-crumbs" class="doc-crumbs edge-fade hidden" aria-label="Breadcrumb">
+          <ol class="doc-crumbs-list"></ol>
+        </nav>
         <div class="doc-panes" id="doc-panes">
           <!-- One editor, in every mode but Read. Live and Source are the
                same CodeMirror view with the markdown decorations on or off

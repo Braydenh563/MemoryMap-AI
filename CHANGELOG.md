@@ -168,6 +168,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The popup agent showed a blinking write caret beside the three-dot waiting
+  animation, before any of the answer had arrived. The answer box wore
+  `is-streaming` from the moment the request went out, so the caret's
+  `> :last-child::after` arm landed on the dots; the class now goes on with
+  the first token, which is what the Ask box has always done.
+
 - Every image in a document's Live view drew "no longer in this notebook" over
   a file that was still there. The Live view's image widget set the raw
   `/media/…` path, and an `<img>` cannot send an unlock header, so the load

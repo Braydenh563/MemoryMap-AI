@@ -115,11 +115,6 @@ measured or built in earlier commits and is marked there.
     `kebabMenu` for the rest, in both the chat and the popup agent. Owner:
     chat agent.
 
-187. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the popup
-    agent's caret.** "the writing carette shows on the popup agent when the
-    3-dot animation is showing and it is waiting for a model response which
-    it shouldnt". Owner: chat agent.
-
 186. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the
     timeline dock (one screenshot: the kind chips and the Show: all button
     across the top of the dock).** "these buttons in the top of the

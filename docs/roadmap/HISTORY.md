@@ -24221,6 +24221,24 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     `docDictionary`'s own comment; **not verified** is the night it
     happened, which cannot be reproduced from here.
 
+187. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the popup
+    agent's caret.** "the writing carette shows on the popup agent when the
+    3-dot animation is showing and it is waiting for a model response which
+    it shouldnt". Owner: chat agent.
+    **Fixed (this commit).** The palette put `is-streaming` on its answer box
+    before the request rather than on the first token, and the caret's
+    `> :last-child::after` arm then landed on the typing dots themselves: two
+    indicators for one state, the one meaning "text is arriving" lit while
+    none was. The class now goes on in `onAnswer`, which is the rule the Ask
+    box has followed since it was built. Measured
+    (`scratchpad/ui-sweeps/agentcaret.js`, which shims `/chat/stream` with a
+    stream it feeds a line at a time so the wait, the first token and the end
+    of the turn are three readable moments): during the wait the caret was
+    `content: "​"`, 8px wide, `rgb(70, 100, 240)` on `.typing-dots` and
+    is now `content: none`, width `auto`; after the first token it is 8px and
+    `rgb(70, 100, 240)` on the answer's last paragraph, and gone again when
+    the turn ends.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing
@@ -25018,5 +25036,3 @@ more than the floor was because an open row is 100px under Large text with
 Spacious on and the floor never cleared it). Measured: one finding 109px around
 97px, sixty findings 144px and scrolling, one open row 158px and inside the
 panel's box in every appearance setting.
-
-

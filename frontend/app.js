@@ -41231,8 +41231,18 @@ async function cmdPaletteAsk(text) {
   //: is the action row, so the class had nowhere to sit that would put the
   //: caret after the words. The answer box is the last thing before the
   //: actions, and `is-streaming` comes off with `is-generating` below.
+  //: **The class waits for the first token** (INBOX 187, the owner: "the
+  //: writing carette shows on the popup agent when the 3-dot animation is
+  //: showing and it is waiting for a model response which it shouldnt"). Set
+  //: here, the caret's `> :last-child::after` arm landed on the typing dots
+  //: themselves, so the wait was drawn as three bouncing dots with a blinking
+  //: block beside them: two indicators for one state, and the one that means
+  //: "text is arriving" lit while none was. The dots own the "nothing yet"
+  //: state and the caret owns "writing", which is the rule the Ask box has
+  //: followed since it was built (`onAnswer` there adds the same class on its
+  //: first delta, not before the request).
   const answerBox = document.createElement("div");
-  answerBox.className = "bubble-answer is-streaming";
+  answerBox.className = "bubble-answer";
   answerBox.appendChild(typingDots());
   agentMsg.appendChild(answerBox);
   cmdPaletteResults.appendChild(agentMsg);
@@ -41354,6 +41364,9 @@ async function cmdPaletteAsk(text) {
       onAnswer: (delta) => {
         answered = true;
         answerRaw += delta;
+        //: Idempotent, and cheap: `classList.add` on a class already there is
+        //: a no-op, so this costs nothing per delta and saves a flag.
+        answerBox.classList.add("is-streaming");
         renderMarkdown(answerBox, answerRaw);
         cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
       },

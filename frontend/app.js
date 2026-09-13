@@ -2421,7 +2421,17 @@ function entryItem(entry, options = {}) {
   //: spaces" is selected, or a card whose own space differs from the one
   //: picked. `spacesCache` is the same list the switcher menu reads, so a
   //: name/icon here can never disagree with the one shown there.
-  if (entry.workspace_id) {
+  //: **`spacesCache.length` is not decoration: an empty cache means "not
+  //: loaded yet", not "there are no spaces".** `loadSpaces()` fills it from
+  //: `GET /spaces` after boot, and the note list renders before that lands, so
+  //: without this guard every card drew the chip below with the name it falls
+  //: back to and said, of an ordinary note in the Default Space, that it was
+  //: "filed in a space that no longer exists". Caught in a README screenshot,
+  //: where fifty-seven cards said it at once. Saying nothing until the answer
+  //: is known is the honest state; `loadSpaces` re-renders the list once it
+  //: has it (see its own comment), so the chip appears a moment later rather
+  //: than never.
+  if (entry.workspace_id && spacesCache.length) {
     const active = activeSpaceId();
     if (active === SPACE_ALL || entry.workspace_id !== active) {
       const space = spacesCache.find((s) => s.id === entry.workspace_id);
@@ -39617,6 +39627,7 @@ function openSpaceDelete(id) {
 
 async function loadSpaces() {
   if (!$("space-switcher-btn")) return;
+  const wasEmpty = !spacesCache.length;
   try {
     spacesCache = await apiJson("/spaces", { silent: true });
   } catch {
@@ -39626,6 +39637,13 @@ async function loadSpaces() {
   }
   renderSpaceMenu();
   updateCaptureSpaceLabel();
+  //: The other half of the guard on the note card's space chip: the list is
+  //: drawn before this request comes back, and every card that drew while the
+  //: cache was empty is now missing the chip it should carry. Re-rendered only
+  //: when there is something on screen to re-render and the cache actually has
+  //: something in it, so this costs a fresh notebook nothing and cannot loop
+  //: (nothing in `renderEntries` calls back into here).
+  if (wasEmpty && spacesCache.length && $("entry-list")?.children.length) renderEntries();
 }
 
 //: INBOX 1a/38: says which space the capture form actually files into,

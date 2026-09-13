@@ -7,6 +7,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed
+
+- Every note card claimed to be filed in "a space that no longer exists". The
+  chip that names a note's workspace fell back to that wording whenever the
+  space list had not arrived yet, and the note list renders before it does, so
+  a notebook whose notes are all in the Default Space said the opposite on
+  every card. It says nothing until the list lands, and the list re-renders
+  when it does.
+
 ### Added
 
 - Both catalogues know about the app as it is now. "Tools and features" had 48

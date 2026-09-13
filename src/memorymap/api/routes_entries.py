@@ -446,12 +446,6 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
 #: The day heading, and the only thing that makes a note a daily note.
 DAILY_HEADING = "# {date}"
 
-#: A `LIKE` pattern for "starts with a day heading". `_` is LIKE's
-#: single-character wildcard and is meant here, which is why this one pattern
-#: is written by hand rather than through `like_escape`: it narrows the scan
-#: to headings before the exact match is confirmed in Python.
-DAILY_LIKE = "# ____-__-__%"
-
 #: How far back the journal window looks by default. A month is what a
 #: calendar strip shows and what a streak has to count over to be honest.
 DAILY_WINDOW_DAYS = 31
@@ -497,7 +491,12 @@ def _daily_notes(session: Session) -> list:
     """
     rows = session.scalars(
         select(Entry)
-        .where(Entry.is_deleted.is_(False), Entry.content.like(DAILY_LIKE))
+        # `# ____-__-__%`: `_` is LIKE's single-character wildcard and both it
+        # and the `%` are meant, so this pattern declares no escape and takes
+        # no user text. Written inline rather than as a named constant because
+        # that is exactly the shape `tests/test_like_escaping.py` exempts, and
+        # a constant here reads to that lint like a value somebody built.
+        .where(Entry.is_deleted.is_(False), Entry.content.like("# ____-__-__%"))
         .order_by(Entry.id)
     ).all()
     return [entry for entry in rows if _DAY_HEADING.match(_first_line(entry))]

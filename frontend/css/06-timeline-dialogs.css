@@ -301,6 +301,58 @@
   }
 }
 
+/* --- Timeline: the density strip (TIMELINE_PLAN.md Phase 3) -----------------
+   The feed and the strip share the card's remaining height; the feed takes the
+   width, the strip takes 40px of it. */
+.timeline-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: var(--space-2);
+}
+
+.timeline-scrubber {
+  flex: 0 0 auto;
+  width: 2.5rem;
+  align-self: stretch;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  cursor: pointer;
+  /* A drag down the strip is a jump through the range, not a text selection or
+     a page scroll on a touch screen. */
+  touch-action: none;
+  user-select: none;
+}
+
+.timeline-scrubber-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.timeline-density-path {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-width: 1;
+  /* The path is drawn in the viewBox's own units and stretched to the strip's
+     height, so a stroke would stretch with it: this keeps the outline one
+     pixel whatever the window does. */
+  vector-effect: non-scaling-stroke;
+}
+
+.timeline-scrubber-window {
+  fill: var(--accent);
+  opacity: 0.18;
+}
+
+/* On a phone the strip is 10% of the width, and a 390px screen has no width to
+   give to an overview. The feed's own headers are the map there. */
+@media (max-width: 40rem) {
+  .timeline-scrubber {
+    display: none;
+  }
+}
+
 /* --- Timeline: the table view (TIMELINE_PLAN.md Phase 2) --------------------
    The same rows the feed draws, in the shape for "which of these" rather than
    "what happened then". A real table, so the head is a head: sticky inside the

@@ -2153,6 +2153,14 @@
         <button id="timeline-batch-delete" class="ghost small" type="button"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
         <button id="timeline-batch-done" class="ghost small" type="button">Done</button>
       </div>
+      <!-- The feed and the density strip beside it (TIMELINE_PLAN Phase 3).
+           The strip is the overview: how much was written across the whole
+           range, not only the pages loaded, with a marker for where the reader
+           is and a click or a drag to go somewhere. `aria-hidden`, like a
+           scrollbar: it is a second way to reach rows the feed already reaches
+           with the arrow keys, and announcing a picture of density to a screen
+           reader would be noise rather than help. -->
+      <div class="timeline-body">
       <div id="timeline-scroll" class="timeline-scroll">
         <div id="timeline-feed" class="timeline-feed" data-density="full"></div>
         <!-- The table view (TIMELINE_PLAN decision 6). A real `<table>`: the
@@ -2176,6 +2184,14 @@
           </thead>
           <tbody id="timeline-table-body"></tbody>
         </table>
+      </div>
+        <div id="timeline-scrubber" class="timeline-scrubber hidden" aria-hidden="true"
+          title="How much you wrote, over the whole range. Click or drag to jump.">
+          <svg class="timeline-scrubber-svg" viewBox="0 0 40 1000" preserveAspectRatio="none">
+            <path id="timeline-density-path" class="timeline-density-path"></path>
+            <rect id="timeline-scrubber-window" class="timeline-scrubber-window" x="0" y="0" width="40" height="0"></rect>
+          </svg>
+        </div>
       </div>
       <div id="timeline-empty" class="empty-state hidden">
         <span class="empty-icon" aria-hidden="true"><i class="ph ph-clock" aria-hidden="true"></i></span>

@@ -216,3 +216,57 @@ def test_a_row_carries_what_the_table_view_puts_in_its_columns(client):
     # many notes this one is joined to.
     assert rows[second["id"]]["links"] >= 0
     assert set(rows[first["id"]]) >= {"space", "words", "links", "tags", "category"}
+
+
+def test_the_view_is_paged_rather_than_capped(client, session):
+    """TIMELINE_PLAN decision 9: `MAX_NOTES` goes, pagination replaces it.
+
+    The cap was 1,500 rows with nothing after it and nothing on screen to say
+    so: a notebook past it lost its older notes silently. A page has a cursor,
+    and the cursor is `created_at|id` rather than an offset, so a note saved
+    while someone is reading cannot shift the page under them.
+    """
+    for i in range(5):
+        note = _save(client, f"note {i}")
+        _age(session, note["id"], i)
+
+    first = client.get("/timeline?limit=2").json()
+    assert len(first["notes"]) == 2
+    assert first["has_more"] is True
+    assert first["next_cursor"]
+
+    second = client.get(f"/timeline?limit=2&cursor={first['next_cursor']}").json()
+    assert len(second["notes"]) == 2
+    seen = [note["id"] for note in first["notes"]] + [n["id"] for n in second["notes"]]
+    assert len(set(seen)) == 4, "a page repeated a note"
+    # Newest first, all the way through the pages: by when they were written,
+    # which is what the cursor orders by (the ids run the other way here,
+    # because each note is backdated one day further than the last).
+    written = [n["written_at"] for n in first["notes"]] + [n["written_at"] for n in second["notes"]]
+    assert written == sorted(written, reverse=True)
+
+    last = client.get(f"/timeline?limit=2&cursor={second['next_cursor']}").json()
+    assert last["has_more"] is False
+    assert last["next_cursor"] is None
+
+
+def test_a_page_still_carries_the_density_of_the_whole_range(client, session):
+    """The scrubber is the overview someone drags to get somewhere, so it is
+    the whole range or it is a map of the part already on screen."""
+    for i in range(6):
+        note = _save(client, f"note {i}")
+        _age(session, note["id"], i * 3)
+
+    page = client.get("/timeline?limit=2").json()
+    assert len(page["notes"]) == 2
+    # Six notes, six different days, all of them in the strip.
+    assert sum(page["density"].values()) == 6
+    assert len(page["density"]) == 6
+
+
+def test_a_cursor_it_cannot_read_is_refused_rather_than_ignored(client):
+    """A silently ignored cursor is a view that starts again at the top on
+    every page, which reads as duplicated notes rather than as an error."""
+    assert client.get("/timeline?cursor=not-a-cursor").status_code == 422
+    assert client.get("/timeline?limit=0").status_code == 422
+    assert client.get("/timeline?limit=5000").status_code == 422

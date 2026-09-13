@@ -24528,11 +24528,17 @@ function timelineScaleChoice() {
   return saved === "auto" || TIMELINE_SCALES.includes(saved) ? saved : "auto";
 }
 
-function timelineResolvedScale(countInRange) {
+function timelineResolvedScale(loaded) {
   const chosen = $("timeline-scale").value || timelineScaleChoice();
   if (TIMELINE_SCALES.includes(chosen)) return chosen;
-  if (countInRange < 60) return "day";
-  if (countInRange < 400) return "week";
+  //: "Notes in range" is the density strip's own total, not the rows loaded so
+  //: far: the view is paged now, and deciding from the first page would pick
+  //: day buckets for a three-year notebook and then re-cut every header the
+  //: moment a second page arrived. The loaded count is the fallback for a
+  //: range the endpoint sent no density for.
+  const inRange = Object.values(timelineDensity).reduce((sum, n) => sum + n, 0) || loaded;
+  if (inRange < 60) return "day";
+  if (inRange < 400) return "week";
   return "month";
 }
 
@@ -25283,22 +25289,25 @@ function drawTimelineWindow() {
   const span = timelineDensitySpan();
   if (!span) return;
   const box = $("timeline-scroll").getBoundingClientRect();
-  //: Three probes rather than one: the top of the box is a sticky bucket
-  //: header as often as it is a row, and a single probe that landed on the
-  //: header pinned the marker to the top of the strip whatever the reader had
-  //: scrolled past. Measured that way: `y=0` after a jump 60,000px down.
-  const at = (y, tries = 1) => {
-    for (let i = 0; i < tries; i++) {
-      const el = document
-        .elementFromPoint(box.left + box.width / 2, y + i * 44)
-        ?.closest?.(".timeline-row");
-      const row = el && timelineById.get(Number(el.dataset.id));
-      if (row) return row.when.getTime();
+  //: **Several probes, not one.** A single probe at the top centre of the box
+  //: misses a row in two ways, and both were measured as a marker stuck at
+  //: `y=0` after a jump tens of thousands of pixels down: the top of the box
+  //: is a sticky bucket header as often as it is a row, and the month and year
+  //: densities lay the rows out in two columns above 1024, with the gap
+  //: between them running down the centre. So: four heights inward from the
+  //: edge, at a quarter of the way across as well as at the middle.
+  const at = (y, step) => {
+    for (let i = 0; i < 4; i++) {
+      for (const x of [box.left + box.width / 4, box.left + box.width / 2]) {
+        const el = document.elementFromPoint(x, y + i * step)?.closest?.(".timeline-row");
+        const row = el && timelineById.get(Number(el.dataset.id));
+        if (row) return row.when.getTime();
+      }
     }
     return null;
   };
-  const top = at(box.top + 4, 4) ?? span.newest;
-  const bottom = at(box.bottom - 8, -1) ?? top;
+  const top = at(box.top + 4, 44) ?? span.newest;
+  const bottom = at(box.bottom - 8, -44) ?? top;
   const y = (moment) =>
     Math.min(1, Math.max(0, (span.newest - moment) / span.width)) * TIMELINE_SCRUBBER_HEIGHT;
   const from = y(top);

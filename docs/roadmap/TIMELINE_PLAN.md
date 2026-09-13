@@ -105,11 +105,9 @@ the tab draws a colour, a font or a card that the rest of the app does not.
 [HISTORY.md](HISTORY.md) "Moved from the plans, 2026-09-13". Gate green
 (`scratchpad/ui-sweeps/timelinetable.js`).
 
-### Phase 3: the scrubber and pagination (half a session)
-`density` from the backend, the SVG path, click and drag to jump,
-`cursor` paging on scroll in both views; `MAX_NOTES` removed. **Gate:** a
-2,000-note seed scrolls without a horizontal bar and without a > 100ms
-frame during paging (Playwright `requestAnimationFrame` counter).
+### Phase 3: the scrubber and pagination: **built 2026-09-13**, see
+[HISTORY.md](HISTORY.md) "Moved from the plans, 2026-09-13". Gate green
+against a 2,048-note seed (`scratchpad/ui-sweeps/timelinepaging.js`).
 
 ### Phase 4: kinds and the journal (half a session)
 Documents, boards, reminders and daily notes as rows with their own kind

@@ -40,6 +40,16 @@ below). Versioning is `0.x` while the app stabilises.
   390: 0 horizontal scroll (was 7,663px), 48 of 48 rows with a readable title
   (was 0), sticky headers pinned at 0px from the top of the feed.
 
+- **The Timeline is no longer capped at 1,500 notes, and has a density strip.**
+  It drew up to 1,500 rows and simply stopped, with nothing on screen to say
+  the rest of the notebook was missing. It pages now: 300 rows at a time,
+  fetched as you reach the end of the last page, so a notebook of any size
+  scrolls through. Beside the feed is a strip showing how much you wrote across
+  the whole range, with a marker for where you are; click or drag it to jump.
+  It appears once a range holds 200 notes, below which it is a row of identical
+  marks. Measured on a 2,048-note notebook over three years: no frame longer
+  than 50ms while paging, and no horizontal scrollbar at any point.
+
 - **The Timeline has a table view.** The same notes with every column at once:
   date, title, kind, category, space, tags, words and links, each sortable from
   its own column label, with a sticky head and two columns on a phone. Ticking

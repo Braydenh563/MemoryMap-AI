@@ -4461,3 +4461,61 @@ input.doc-title-input::placeholder {
     flex: 0 0 auto;
   }
 }
+
+/* ============ THE WRITE WITH AI ROW, ON A NARROW COLUMN ==================
+   Reported: "when I clcik on the text box in the 'write with ai' subtab, the
+   structure goes all funky", with before and after pairs showing Undo, the
+   hint and Draft it on one row and then stacked.
+
+   **The focus is not what does it, and that is worth writing down.** Measured
+   at 1440, 1200, 1024, 900 and 820, in all four appearance settings (default,
+   Large text, Spacious, both), before and after clicking into the draft box:
+   the compose row is one line and 55px in every one of those twenty
+   measurements, focused or not. What does break it is width. At 390 the row
+   wraps to two lines and 103px, because an input, Stop, Undo and Draft it do
+   not fit a phone column.
+
+   So this is the phone fix rather than a focus fix, and it is the same shape
+   the chat composer already takes there: the field gets its own line and the
+   actions share the next, deliberately, rather than flex wrapping wherever it
+   happens to run out. An arbitrary wrap is what "funky" describes.
+
+   **449.98, not the 599.98 this app uses elsewhere, and the difference was
+   measured.** The usual phone breakpoint would also have taken the row apart
+   at 500, where it measured one line and 55px and needed no help: a regression
+   bought with a rule meant as a fix. It wraps on its own at 390 and not at
+   500, so the deliberate stack starts between them.
+
+   At 360 and 320 the two buttons still take a line each, so the row is three
+   bands rather than two. `flex: 1 1 0` on them was tried and measured: it
+   changed nothing at either width, so it is not here. Three deliberate bands
+   at phone widths is where this was left; the remaining question is why the
+   buttons will not share a line, and it is in agent-remaining. */
+@media (max-width: 449.98px) {
+  .draft-compose-row.ask-composer {
+    flex-wrap: wrap;
+  }
+
+  .draft-compose-row.ask-composer > #draft-instruction {
+    flex: 1 1 100%;
+    min-width: 0;
+    order: -1;
+  }
+
+  .draft-compose-row.ask-composer > button {
+    flex: 1 1 auto;
+  }
+
+  /* The tags field and its label, likewise: a label that sits beside its input
+     on a desktop column has nowhere to sit on a phone, and the caret dropping
+     to a second line under the word "Tags" is the second half of the report's
+     screenshots. */
+  .draft-tags-row {
+    flex-wrap: wrap;
+  }
+
+  .draft-tags-row > input {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+}

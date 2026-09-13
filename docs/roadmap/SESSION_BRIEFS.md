@@ -1117,3 +1117,89 @@ while the documents and whiteboard agents hold them.
   suite once before the final report, never push.
 - Before stopping: `agent-remaining/learning-loop.md` updated to the state it
   is actually in, and a five-line report.
+
+## Briefs 25 to 31: the plans the owner asked to see finished
+
+The owner, 2026-09-13, after the flagged-bug batch was closed: *"after all
+these fixes, can you put agents on finishing all of these?? DOCUMENTS Phases
+5 to 8, CHAT Phases 2 to 3, TIMELINE 1 to 4, UI Phase 11's bottom tab bar and
+sheets, GRAPH 4b/6b, MINDMAP section 12, SKILLS Phase D."*
+
+Seven briefs, one per plan, written so an agent can take one without reading
+the conversation that produced it. They are in the order they should be taken:
+the two that unblock other work first, then the surfaces, then the ones that
+can ship alone. Two agents at a time, which is the cap and the reason for it
+(a third starts colliding on the same CSS files, and this session proved it:
+three agents' edits were swept into other sessions' commits).
+
+**Every one of these inherits the standing constraints** in section 0 and in
+CLAUDE.md: do not rebuild what exists (grep every id and class first), new UI
+comes from DESIGN.md's recipe index, no em-dashes, sentence case, no inline
+`style=` (the CSP refuses it), every id a handler looks up exists in
+index.html, `node --check` after each JS edit, `bash scripts/gate.sh --changed`
+after each step and never the full suite, `git commit -m ... -- <paths>` and
+never `git add`, the two commit trailers, and a measurement rather than a
+screenshot for every claim.
+
+### Brief 25 (Opus): TIMELINE Phases 1 to 4
+
+The whole plan is open; nothing is built. `docs/roadmap/TIMELINE_PLAN.md` has
+the phases, the gates and the row model. Phase 1 is the foundation everything
+else sits on (`timelineRow`, bucket sections with sticky headers, density by
+scale, the dock's search and filter applied to the array, the grid view and
+the popup removed), so it is one agent's whole first pass. **Gate:**
+`scratchpad/ui-sweeps/timeline.js` at 1440, 1024 and 390: sticky headers
+stick, 0 horizontal scroll, every row has a title readable without hover and a
+tab stop, arrows move focus in document order, Enter opens the split panel,
+search reduces the row count, `contrast.js` both themes, `errors.js` 0.
+
+### Brief 26 (Opus): CHAT Phases 2 and 3
+
+Phase 1 (grounding and marks) and Phase 4 (skills that finish) are built;
+2 and 3 are open. Decisions 5 to 9 and 11 are already made in
+`docs/roadmap/CHAT_PLAN.md` section 4 and are not to be re-made. **Note what
+this session already changed underneath this brief:** the composer and the
+dock controls now have phone rules in `frontend/css/04-chat-dock-appearance.css`
+(dock 168px of 844 at 390, one scrolling control line, the text on its own
+row), and the answer head is one line at every width with any model name
+(`08-consistency.css` family 8, `setAnsweredBy` in app.js). Phase 2's gate
+still asks for the composer at two rows at rest at 1024 and one at 1440;
+measure before changing anything, because part of it is done.
+
+### Brief 27 (Opus): UI Phase 11, the phone
+
+`docs/roadmap/UI_MODERNISATION_PLAN.md` Phase 11. The decisions are made
+there. What this session did is the floor, not the phase: 320 to 1024 has no
+sideways scroll, every touch target on 16 surfaces is 44px, the chat dock is
+20% of the window rather than 38%, and `errors.js` reports 0 findings at 390.
+What Phase 11 asks for and nobody has built: the five-item bottom tab bar that
+recedes to icons on scroll down and returns on scroll up, More as a sheet, and
+every panel becoming a sheet rather than a column. That is the brief.
+
+### Brief 28 (Opus): DOCUMENTS Phases 5 to 8
+
+Phases 0 to 3 are built and Phase 4 was in flight when its agent was cut off
+by a rate limit; its breadcrumbs landed (`#doc-crumbs`, `renderDocCrumbs`), so
+**confirm what Phase 4 actually shipped before starting Phase 5** and move its
+Built block to HISTORY. Then Phase 5 (review, history and AI), 6 (responsive,
+which is mostly done by UI Phase 9 and this session's work: measure first), 7
+(export and interchange) and 8 (one editor everywhere, the owner's own ask).
+
+### Brief 29 (Opus): GRAPH Phase 4 part two and 6b
+
+Phases 1 to 6 are built. What is left is named in `GRAPH_PLAN.md`: the second
+half of Phase 4 (utility) and 6b, the minimap. Small enough to pair with
+Brief 31 in one agent's session.
+
+### Brief 30 (Opus): MINDMAP section 12
+
+`MINDMAP_PLAN.md` section 12, "the map as its own tool" (INBOX 93). Phases 1
+to 5 and the previews are built. Note that this session added the board-kind
+switch (`#wb-board-kind`, whiteboard.js), which is the control section 12's
+"a map is a first-class thing" argument was missing.
+
+### Brief 31 (Opus or Sonnet): SKILLS Phase D, recovery
+
+`AGENT_SKILLS_REFORM.md` Phase D. Phases A, B and C are built. Backend work
+against its own spec tests, so it is the one brief here a Sonnet agent can
+take: the fix is named in the plan and verifiable without design judgement.

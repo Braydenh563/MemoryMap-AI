@@ -24816,27 +24816,40 @@ document.addEventListener("contextmenu", (event) => {
 //: whiteboard's own link gesture uses (`wbWireMapEdgeGestures`) so the app
 //: answers a long press at one speed. Cancelled by a move, because a hold
 //: that turns into a scroll is a scroll.
-let linkHoldTimer = null;
-const cancelLinkHold = () => {
-  if (linkHoldTimer) clearTimeout(linkHoldTimer);
-  linkHoldTimer = null;
-};
+const LINK_HOLD_CANCELS = ["pointerup", "pointercancel", "pointermove"];
 
-document.addEventListener("pointerdown", (event) => {
-  cancelLinkHold();
-  if (event.pointerType !== "touch") return;
-  const found = linkAtEvent(event);
-  if (!found) return;
-  const { clientX, clientY } = event;
-  linkHoldTimer = setTimeout(() => {
-    linkHoldTimer = null;
-    openMenuAtPoint(found.items, "Link actions", clientX, clientY);
-  }, 500);
-});
-
-for (const name of ["pointerup", "pointercancel", "pointermove"]) {
-  document.addEventListener(name, cancelLinkHold);
-}
+document.addEventListener(
+  "pointerdown",
+  (event) => {
+    if (event.pointerType !== "touch") return;
+    const found = linkAtEvent(event);
+    if (!found) return;
+    const { clientX, clientY } = event;
+    //: **The cancel listeners live only as long as the hold does.** The first
+    //: cut kept three of them on `document` for the life of the page, one of
+    //: them `pointermove`, which fires on every pixel of every drag on the
+    //: whiteboard, a surface whose per-move cost was measured down from
+    //: 7.67ms to 0.79ms by a previous session. A listener that exists for
+    //: 500ms after a touch on a link costs nothing anybody can measure;
+    //: one that exists always is a tax on the app's most expensive gesture.
+    //: `passive`, because none of them ever calls `preventDefault` and a
+    //: non-passive move listener is what makes a page scroll badly.
+    const cancel = () => {
+      clearTimeout(timer);
+      for (const name of LINK_HOLD_CANCELS) {
+        document.removeEventListener(name, cancel, true);
+      }
+    };
+    const timer = setTimeout(() => {
+      cancel();
+      openMenuAtPoint(found.items, "Link actions", clientX, clientY);
+    }, 500);
+    for (const name of LINK_HOLD_CANCELS) {
+      document.addEventListener(name, cancel, { capture: true, passive: true });
+    }
+  },
+  { passive: true }
+);
 
 function renderMarkdown(container, text, depth = 0) {
   container.replaceChildren();

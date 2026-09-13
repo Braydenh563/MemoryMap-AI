@@ -21,7 +21,9 @@ below). Versioning is `0.x` while the app stabilises.
   ground (207). A help '?' popover is capped at a reading height and scrolls
   instead of running the height of the window, and stays inside the window on
   a phone (206), and opens in front of the popup agent rather than behind it
-  (205).
+  (205). Switching light and dark is one repaint rather than a dissolve at
+  three speeds, and the background art is rebuilt after it rather than during
+  it (202).
 
 ### Added
 

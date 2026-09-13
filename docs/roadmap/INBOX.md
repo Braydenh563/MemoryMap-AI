@@ -134,12 +134,6 @@ measured or built in earlier commits and is marked there.
     then one function that toggles them all from the model status.
     Owner: orchestrator.
 
-202. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the theme
-    switch.** "switching between light and dark mode is realllly glitchy
-    and takes a bit to load". Measure the switch: time from the click to
-    the last style recalculation, how many elements transition, whether the
-    blurred surfaces repaint one by one. Owner: orchestrator.
-
 201. **Mid-work drop, 2026-09-13 night, verbatim (the owner), mind map core
     nodes.** "I want more and better ways to differentiate core idea nodes
     in the mindmap". Goes with 200's mind map sweep: a core node today is

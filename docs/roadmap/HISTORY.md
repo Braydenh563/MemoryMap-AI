@@ -25015,6 +25015,34 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     popover makes the surface clamp resolve to the card's left edge. The
     viewport is the hard bound now: x=16 at 390, right edge 374.
 
+202. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the theme
+    switch.** "switching between light and dark mode is realllly glitchy
+    and takes a bit to load". Measure the switch: time from the click to
+    the last style recalculation, how many elements transition, whether the
+    blurred surfaces repaint one by one. Owner: orchestrator.
+    **Measured, attributed and fixed.** Two causes, both counted
+    (`scratchpad/ui-sweeps/chrome202.js`, `chrome202art.js`, headless
+    1440x900). One: the click starts 24 CSS transitions, on background-color
+    and the four border colours, at 120ms, 160ms and 200ms depending on which
+    rule each surface took its transition from, so the app does not change
+    theme, it dissolves into the other one at three speeds while 79
+    `backdrop-filter` surfaces re-composite over a ground that is itself still
+    moving. Two: both generative canvases are torn down and rebuilt inside the
+    click (`startBgArt`, `refreshArtForTheme`), which is the "takes a bit to
+    load" half, and is why the cost rose from 7.4ms of synchronous work with
+    the background art off to 10.9ms with it on.
+    Now: `repaintThemeAtOnce` (settings.js) holds a `theme-switching` class on
+    `:root` while the new values are applied and painted, and
+    `00-tokens-shell.css` suppresses every transition under it, so the window
+    changes in one step; the canvas rebuilds moved to the frame after that
+    paint and are coalesced, so five presses rebuild once.
+    Measured after: transitions started by a switch 24 to 0; the click's own
+    synchronous work with the art on and the dashboard open 10.7ms to 7.2ms
+    (headless medians of six, noisy at this size, 10.1ms on a second pass); the
+    mode still flips, the suppression class is gone again a frame later, and
+    the art canvas is rebuilt. **Not verified:** the desktop webview, which is
+    the window the report came from; the numbers above are headless Chromium.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

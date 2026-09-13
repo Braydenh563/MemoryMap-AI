@@ -815,6 +815,30 @@ select,
   box-sizing: border-box;
 }
 
+/* **A theme switch is one repaint** (INBOX 202, the owner: "switching between
+   light and dark mode is realllly glitchy and takes a bit to load").
+
+   Measured (`scratchpad/ui-sweeps/chrome202.js`): a click on the theme button
+   starts 24 CSS transitions, on background-color and the four border colours,
+   at 120ms, 160ms and 200ms depending on which rule each surface took its
+   transition from. Those transitions are right for the thing they were
+   written for, a hover or a press changing one control; applied to a change
+   of every colour token at once they are a dissolve of the whole window at
+   three speeds, over a ground that is itself mid-transition, with 79
+   `backdrop-filter` surfaces re-compositing against it. That is what reads as
+   glitchy.
+
+   `settings.js` (`repaintThemeAtOnce`) holds this class for the two frames it
+   takes to apply and paint the new values, so the window changes in one step
+   and the transitions are back before anything else can want one.
+   `!important` and the universal selector are what the job needs: it has to
+   beat every transition in the app for two frames, whatever declared it. */
+:root.theme-switching *,
+:root.theme-switching *::before,
+:root.theme-switching *::after {
+  transition: none !important;
+}
+
 /* The glass backdrop lives on <html>, not <body>, so the optional
    generative-art canvas (a fixed, z-index:-1 child of <body>) can sit
    between the gradient and the app content (Wave J). */

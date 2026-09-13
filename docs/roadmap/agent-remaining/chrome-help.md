@@ -14,16 +14,16 @@ More sheet).
   buttons lose their segmented wells: `413dd5c`.
 - INBOX 206, the help popover's ceiling, its first painted frame and its
   right edge on a phone: `06f6048`.
-- INBOX 205 first half, the '?' popover's tier inside the palette: this
-  commit. The starters half is still open.
+- INBOX 205 first half, the '?' popover's tier inside the palette:
+  `af3f292`. The starters half is still open.
+- INBOX 202, the theme switch: this commit. 24 transitions to 0, the canvas
+  rebuilds off the click.
 
 ## Next, in order
 
-1. INBOX 202, the theme switch: 4,214 of 5,590 elements compute
-   `transition-property: all`, and 79 carry a `backdrop-filter`.
-2. INBOX 203: no control in the app carries `data-needs-model` yet
+1. INBOX 203: no control in the app carries `data-needs-model` yet
    (measured 0).
-3. INBOX 205 second half, 204 second half and 208: the palette's starters,
+2. INBOX 205 second half, 204 second half and 208: the palette's starters,
    the Guide's persona and knowledge, the foot row.
 
 ## Not verified

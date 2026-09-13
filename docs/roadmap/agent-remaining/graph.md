@@ -183,3 +183,14 @@ right-click menu, a local-graph pane, the time slider's Play, PNG export at
 2x) and Phase 5 (the backend fields, positions on views, the `?since=`
 cursor) are all untouched, and INBOX 41's "the graph needs a utility, UI and
 interaction clean-up" points at Phase 4.
+
+## This session (2026-09-13, the graph agent)
+
+done: cb77e2e, the surface refactor (`gcSurface()`, `s = gcTab`,
+`size: "full" | "pane"`), behaviour-neutral against graph.js, graph4.js,
+graph4b.js, graphcold.js; graphhover.js and graphminimap.js fail the same
+way on the unpatched file against the same fixture, so neither is this.
+next: GRAPH Phase 4's local pane, `frontend/index.html` (#sidebar, after
+`#most-used-box`), `frontend/graph-canvas.js` (end of file),
+`frontend/css/02-chat-graph.css`; the four things to prove are in
+`scratchpad/ui-sweeps/graphpane.js`.

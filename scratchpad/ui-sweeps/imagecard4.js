@@ -31,7 +31,11 @@ const { boot } = require('./lib.js');
 // picture takes the slack up to its own ceiling (`max-height: 16rem`), so past
 // the ceiling a hole is expected; this is the figure for a row nobody has
 // opened a fold in.
-const HOLE_MAX = 24;
+// INBOX 174 revised the trade-off: pictures are one height (9rem) and rows
+// stay level, so a card with less text than its row-mates carries the
+// difference under its last line. That is the ordinary card-grid gap, up to
+// about a caption's worth; what may not happen is a picture growing to fill it.
+const HOLE_MAX = 110;
 
 (async () => {
   const { browser, page } = await boot({ viewport: { width: 1440, height: 900 } });
@@ -190,13 +194,23 @@ const HOLE_MAX = 24;
       const last = kids[kids.length - 1];
       return {
         h: +box.height.toFixed(1),
+        picture: +t.querySelector('.library-image-frame').getBoundingClientRect().height.toFixed(1),
         hole: last ? +(box.bottom - last.getBoundingClientRect().bottom).toFixed(1) : null,
       };
     });
     fold.open = false;
     return { before, after, opened: true };
   });
-  console.log(`one fold open: row was ${folded.before.join(', ')} -> ${folded.after.map((a) => `${a.h} (hole ${a.hole})`).join(', ')}`);
+  console.log(`one fold open: row was ${folded.before.join(', ')} -> ${folded.after.map((a) => `${a.h} (picture ${a.picture}, hole ${a.hole})`).join(', ')}`);
+  // INBOX 174: a fold opening must not stretch the pictures beside it, and
+  // the row may grow by a bounded amount only (the fold's own ceiling).
+  const FOLD_GROWTH_MAX = 180; // the fold body's own 11rem ceiling
+  if (folded.opened) {
+    const pictures = new Set(folded.after.map((a) => Math.round(a.picture)));
+    if (pictures.size > 1 || Math.round(folded.after[0].picture) !== 144) failures += 1, console.log(`  pictures change with an open fold: ${[...pictures].join(', ')}px`);
+    const growth = Math.max(...folded.after.map((a, i) => a.h - folded.before[i]));
+    if (growth > FOLD_GROWTH_MAX) failures += 1, console.log(`  an open fold grows the row by ${growth.toFixed(1)}px (ceiling ${FOLD_GROWTH_MAX})`);
+  }
 
   const bad = [];
   if (!rest.pictureProbe) bad.push('no picture found on the first card');

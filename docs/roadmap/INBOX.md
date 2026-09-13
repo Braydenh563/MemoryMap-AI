@@ -74,6 +74,14 @@ measured or built in earlier commits and is marked there.
     subtab in the library just still isnt professional" · "exported images
     from the whiteboard/mind map straight to the library dont have a
     metadata area below for image and ocr captioning".
+    **Part fixed, 2026-09-13**: the pictures no longer grow. `.library-image-frame`
+    took a row-mate's extra height up to 16rem, so one open fold stretched
+    every picture beside it from 144px to 229px; the frame is one height now
+    (9rem) and the fold's own 11rem ceiling bounds the row (measured:
+    pictures 144px in every card with a fold open, row growth 170px;
+    `scratchpad/ui-sweeps/imagecard4.js`). Open: the board preview's note
+    titles running past the thumbnail's edge, exported board images without
+    the caption/OCR area, and the cards' look as a whole.
 
 176. **Mid-work drop, 2026-09-13, verbatim (the owner), boards chrome
     (screenshots: the Name the new board dialog with neither Board nor Mind

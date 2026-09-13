@@ -175,6 +175,9 @@ below). Versioning is `0.x` while the app stabilises.
 - `<br>` in an answer renders as a line break; the logs page's kebab button
   lost the fold chevron that was drawn over its dots; Shift with the arrow
   keys moves whiteboard items five grid cells (or 10px) at a time.
+- Picture cards in the Library keep their thumbnails one size. Opening one
+  card's text fold used to stretch every picture beside it to match the row;
+  the pictures stay put and the row grows only by the fold's own bounded height.
 
 - The lock screen could fail to appear on a slow first start. The embedding
   warm-up began importing torch the instant the server was up, and that import

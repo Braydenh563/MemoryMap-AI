@@ -2778,7 +2778,15 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .library-image-tile > .library-image-frame {
-  flex: 1 1 auto;
+  /* **The picture does not grow with the row** (INBOX 174, the owner: "when
+     I extend the text in image cards, the images of other ones extend").
+     The earlier rule let the frame take a row-mate's extra height up to
+     16rem, so opening one card's caption stretched every picture beside it
+     (measured 144px to 229px). A thumbnail is one size; the room a taller
+     neighbour leaves goes under the card's own text, which is what a grid
+     of cards has always done. */
+  flex: 0 0 auto;
+  height: 9rem;
   min-height: 9rem;
   /* **A ceiling, because one open card must not inflate the row.** Measured:
      with every fold open the row stood 660px and the two cards whose folds
@@ -2790,7 +2798,7 @@ header#top-bar.tabs-wrapped #tab-bar {
      exactly what every card carried before this change; the difference is
      that it now takes one opened card in the row to produce it instead of
      nothing at all. */
-  max-height: 16rem;
+  max-height: 9rem;
 }
 
 /* Filling a frame whose height its siblings decide. `inset: 0` against the
@@ -3100,6 +3108,16 @@ header#top-bar.tabs-wrapped #tab-bar {
      line that cannot wrap cannot be line-clamped either, so the same
      unbreakable string defeated "Show more" as well as the card boundary. */
   overflow-wrap: anywhere;
+}
+
+/* **An opened caption grows the card by a bounded amount** (INBOX 174, with
+   the fixed picture above): "Show more" used to let a long caption take the
+   row to 411px and every card beside it with it. Up to about six lines
+   show; a longer caption scrolls inside its own box, so a row-mate is
+   never more than that much taller than its own text needs. */
+.library-image-caption:not(.library-image-caption-clamped) {
+  max-height: 9.6rem;
+  overflow-y: auto;
 }
 
 /* **A clamp must cut between lines, never through them.** Reported: "the text

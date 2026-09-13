@@ -23,13 +23,7 @@ The chat agent's run against INBOX 181, 182, 183, 187, 188, 189, 190 and
 
 ## Next
 
-1. INBOX 182, finish: the anchor is losing to `.small.icon-only` so the menu
-   opens 28px across and 32px below the pointer rather than at it (fix the
-   `.pointer-menu-anchor` rule's specificity in `02-chat-graph.css`), and a
-   second right-click on the same link may not reopen the menu. Then the
-   DESIGN.md recipe row and the `tests/test_ui_recipes.py` ratchet, the
-   CHANGELOG line and `inbox_resolve.py 182`.
-2. INBOX 189 and 190's "open note" question: `syncAgentOpenNoteToggle` and
+1. INBOX 189 and 190's "open note" question: `syncAgentOpenNoteToggle` and
    `agentOpenSubject` in `frontend/app.js` (~40685) name a board and a map as
    notes; five label states wanted, and the run's scope must carry the kind.
 2. INBOX 190: the popup agent app-wide and the help chat (CHAT_PLAN decision

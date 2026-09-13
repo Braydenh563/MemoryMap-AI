@@ -4837,14 +4837,43 @@ summary:not(.icon-only):not(.icon-button) {
   stroke: var(--accent);
 }
 
-/* Strokes, as a stroke. Drawn rather than filled because a sketch has no
-   box: a filled rectangle here would claim it was a card. */
+/* Strokes, as a stroke. Drawn rather than filled because a sketch is a line,
+   and a filled rectangle here would claim it was a card.
+
+   **Geometry only: no `stroke` and no `stroke-width`** (INBOX 164). Both arrive
+   as presentation attributes now, the colour because a board drawn in three
+   inks previewed in one, and the weight because a constant in viewBox units
+   rendered 3.5px in a Library card and 0.48px in a dashboard row, where it
+   vanished. A CSS declaration beats a presentation attribute however specific
+   the attribute looks, which is the trap `.board-minimap-edge` already carries
+   this note about, so an uncoloured stroke takes its accent from
+   `.board-minimap-sketch-accent` instead. */
 .board-minimap-sketch {
   fill: none;
-  stroke: var(--accent);
-  stroke-width: 1.2;
   stroke-linecap: round;
-  opacity: 0.7;
+  stroke-linejoin: round;
+  opacity: 0.75;
+}
+
+.board-minimap-sketch-accent {
+  stroke: var(--accent);
+}
+
+/* A picture on the board: the one item with no words of its own, so it is the
+   one that needs a mark instead of a label. A grey block rather than an accent
+   one, which is also the second ink in a preview that was measured as one flat
+   wash across every mark on it. */
+.board-minimap-image {
+  fill: var(--muted);
+  opacity: 0.3;
+}
+
+.board-minimap-image-mark {
+  fill: none;
+  stroke: var(--muted);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.9;
 }
 
 /* **The label is the point of the preview, so it gets the real ink** and the
@@ -4862,7 +4891,10 @@ summary:not(.icon-only):not(.icon-button) {
 /* The paper is excluded: it is the board's frame, and lifting its opacity on
    hover made the card look selected rather than pointed at. */
 .library-board-card:hover .board-minimap rect:not(.board-minimap-paper, .board-minimap-branch),
-.library-board-card:hover .board-minimap path {
+.library-board-card:hover .board-minimap path,
+.library-board-card:hover .board-minimap ellipse,
+.library-board-card:hover .board-minimap polygon,
+.library-board-card:hover .board-minimap line {
   opacity: 0.8;
 }
 

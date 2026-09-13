@@ -213,3 +213,83 @@ def test_the_cached_lists_are_copied_on_the_way_out(client, session):
     first["preview_items"][0]["label"] = "mutated"
     assert _preview_fields(session, board["id"])["preview_items"][0]["label"] == "Root"
     assert _row(client, board["id"])["preview_items"][0]["label"] == "Root"
+
+
+def test_a_sketch_is_previewed_where_it_was_drawn_at_the_size_it_was_drawn():
+    """INBOX 164's "one squiggle", as the two numbers behind it.
+
+    A sketch has no width or height columns and its `x`/`y` are **zero** for
+    every stroke the drawing tools make: the path is written in absolute board
+    coordinates (see the save in whiteboard.js). So a preview that read the row
+    put every sketch on a board at the board's origin at one default size, and
+    eight shapes drawn across a board painted as a single mark in the corner.
+    Measured before the fix, on a board with eight of them: eight marks at one
+    position and one size.
+
+    `_sketch_preview` reads the path instead, the way the canvas does
+    (`wbItemBBox`), and also carries the tool and the ink, which is what lets
+    the thumbnail draw a rectangle as a rectangle rather than one generic wave.
+    """
+    from memorymap.api.routes_whiteboard import _sketch_preview
+
+    class Row:
+        def __init__(self, data, x=0.0, y=0.0):
+            self.data, self.x, self.y = data, x, y
+
+    line = _sketch_preview(
+        Row('{"d": "M340 120 L520 200", "shape": "line", "color": "#d97706"}')
+    )
+    assert line == (340.0, 120.0, 180.0, 80.0, "line", "#d97706")
+
+    # The ellipse tool's two half-arcs, the one curve shape the canvas's own
+    # bbox reader is exact for.
+    circle = _sketch_preview(
+        Row('{"d": "M600 300 a90 60 0 1 0 180 0 a90 60 0 1 0 -180 0", "shape": "circle"}')
+    )
+    assert circle[:4] == (600.0, 240.0, 180.0, 120.0)
+    assert circle[4] == "circle" and circle[5] is None
+
+    # A stroke that was dragged after it was drawn carries the offset on the
+    # row, and the canvas adds the two: so does this.
+    moved = _sketch_preview(Row('{"d": "M0 0 L40 40"}', x=100.0, y=50.0))
+    assert moved[:4] == (100.0, 50.0, 40.0, 40.0)
+
+    # A horizontal line has a zero-height box, and a zero-height box normalises
+    # to nothing and draws nothing: the floor is there so a drawing is never
+    # left out of a picture of the drawing.
+    flat = _sketch_preview(Row('{"d": "M10 10 L90 10"}'))
+    assert flat[2] == 80.0 and flat[3] >= 8.0
+
+    # Unreadable data is not a crash and not an empty board: it falls back to
+    # the row's own position and the default size, which is what every sketch
+    # used to get.
+    for bad in ("", "{", '{"d": ""}', '{"d": "nonsense"}', "null"):
+        fallback = _sketch_preview(Row(bad, x=7.0, y=9.0))
+        assert fallback[0] == 7.0 and fallback[1] == 9.0
+        assert fallback[2] > 0 and fallback[3] > 0
+
+
+def test_the_preview_carries_the_shape_a_sketch_was_drawn_with(client):
+    """The whole payload, end to end: a board with one rectangle and one pen
+    stroke previews as two marks with their own shapes, not two of one."""
+    board = client.post("/whiteboard/boards", json={"name": "Drawn on"}).json()
+    for data in (
+        '{"d": "M860 60 L1100 60 L1100 200 L860 200 Z", "shape": "rect", "color": "#d97706"}',
+        '{"d": "M100 400 L140 360 L180 420", "shape": "draw"}',
+    ):
+        made = client.post(
+            "/whiteboard/sketches",
+            json={"board_id": board["id"], "x": 0, "y": 0, "z": 5, "data": data},
+        )
+        assert made.status_code in (200, 201), made.text
+
+    items = _row(client, board["id"])["preview_items"]
+    shapes = sorted(item.get("shape") for item in items)
+    assert shapes == ["draw", "rect"], items
+    # Two different places and two different sizes, which is the report.
+    assert len({(item["x"], item["y"]) for item in items}) == 2, items
+    assert len({(item.get("w"), item.get("h")) for item in items}) == 2, items
+    # The ink travels with the stroke that has one, and is omitted for the one
+    # that does not: a twenty-board list would otherwise ship hundreds of nulls.
+    assert [item.get("color") for item in items].count("#d97706") == 1
+    assert any("color" not in item for item in items)

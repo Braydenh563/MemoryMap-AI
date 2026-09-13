@@ -30,6 +30,26 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Board previews draw what is on the board. Every sketch on a board was drawn in
+  the same corner at the same size, because a stroke is stored with x=0, y=0 and
+  its path in board coordinates, so eight shapes previewed as one squiggle
+  (measured: eight marks at one position and one size). The server reads each
+  stroke's own box now, the way the canvas does, and sends the tool it was drawn
+  with and its ink, so a rectangle previews as a rectangle, a circle as a circle,
+  a line corner to corner and a pen stroke as a scribble in its own box. Blocks
+  also stopped being blobs (a corner was 35% of a block's short side, now 8%), a
+  picture on the board gets the picture glyph instead of a third shade of the
+  same blue, and a card's title is drawn beside its block when it will not fit
+  inside, so "Retry budget" reads as "Retry budget" rather than "Retr…".
+
+- The writing suggestions panel is as tall as what is in it. A finding's
+  candidates lie along its row rather than down the panel, and the panel no
+  longer keeps a fixed floor it was always shrunk back to: one finding is 109px
+  of panel around 97px of content, against 128px before with 29px of nothing in
+  it, and the editor above it is up from 45% to 47% of the window. A row opened
+  under Large text with Spacious on now fits inside the panel, which the old
+  floor was 5px short of.
+
 - A Files row's metadata starts to the right of its filename, not to the left of
   it. The name is a `figcaption` with an 8px inset of its own, while every block
   under it sat on the row's own margin, so the kind, size, reading controls and

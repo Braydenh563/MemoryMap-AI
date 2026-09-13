@@ -141,15 +141,16 @@ def test_labels_stay_with_their_own_positions(client):
     a board whose cards all say the wrong thing. One stride, applied once."""
     from memorymap.api.routes_whiteboard import _preview_items
 
-    #: Seven fields per row since the preview started carrying each item's own
-    #: size (INBOX 68): x, y, kind, label, colour, width, height. This test
-    #: kept passing five and went red the moment a gate ran it, which is the
-    #: whole reason a call that unpacks a fixed-width row belongs in a test at
-    #: all.
+    #: Eight fields per row: x, y, kind, label, colour, width, height since the
+    #: preview started carrying each item's own size (INBOX 68), and the drawn
+    #: shape a sketch was made with since it started drawing each stroke as
+    #: itself (INBOX 164). This test kept passing five and went red the moment a
+    #: gate ran it, which is the whole reason a call that unpacks a fixed-width
+    #: row belongs in a test at all.
     items = _preview_items(
         [
-            (0.0, 0.0, "card", "left", None, 100.0, 60.0),
-            (10.0, 0.0, "card", "right", None, 100.0, 60.0),
+            (0.0, 0.0, "card", "left", None, 100.0, 60.0, None),
+            (10.0, 0.0, "card", "right", None, 100.0, 60.0, None),
         ]
     )
     assert items[0]["x"] == 0.0 and items[0]["label"] == "left"

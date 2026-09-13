@@ -1610,7 +1610,28 @@ const MAP_PREVIEW_BASE = 100;
 //: How round a node is, as a fraction of its short side. A node on the canvas
 //: is a rounded card, not a dot and not a pill, and the miniature says the
 //: same thing at a twentieth of the size.
-const MAP_PREVIEW_NODE_ROUNDING = 0.35;
+//:
+//: **Was 0.35, and 0.35 is a blob** (INBOX 164: "board previews need upgrading
+//: and fixing", with a screenshot of a wash of rounded blobs). Measured on a
+//: seeded board at 1440 (`scratchpad/ui-sweeps/boardpreview.js`): every block
+//: came out 52.9x24.7 with a rendered corner radius of 8.66px, which is 35% of
+//: its own short side. A rectangle whose corners eat a third of its height is
+//: not a rounded rectangle, and nothing on the canvas looks like that: a note
+//: card is `--radius`, 10px on a 150px side, which is 7%.
+const MAP_PREVIEW_NODE_ROUNDING = 0.22;
+
+//: And the ceiling that does the real work, in the nominal units
+//: `MAP_PREVIEW_SIZES` is written in. A fraction of the short side alone cannot
+//: be right at both sizes this preview draws at: the same 22% is a gentle
+//: corner on a 25px-tall block in a Library card and a pill on a 4px one in a
+//: dashboard row. It is divided back out by the box's own scale below, so the
+//: corner is the same size whatever shape the board is, and the fraction is
+//: left as the floor for a block too small to carry it.
+//:
+//: The nominal box is not pixels: a `card` is 100x56 here and measured 293.5px
+//: wide in the Library, so one unit is about 2.9 rendered pixels, and 0.8 of one
+//: is the 2px corner a note card has on the canvas.
+const MAP_PREVIEW_CORNER_UNITS = 0.8;
 
 //: The floor on a block's drawn size, as a multiple of the size every block
 //: used to be. A small object on a large board is a fraction of a viewBox
@@ -1700,6 +1721,88 @@ function mapPreviewEdge(NS, px, py, blockW, blockH, edge) {
     : `M${round2(x1)} ${round2(y1)} C${round2(x1)} ${round2(y1 + dy / 2)} ${round2(x2)} ${round2(y2 - dy / 2)} ${round2(x2)} ${round2(y2)}`;
   curve.setAttribute("d", d);
   return curve;
+}
+
+//: **A drawn stroke, drawn as the shape it actually is.** INBOX 164's "one
+//: squiggle": every sketch on a board used to come out as the same small wave
+//: at the same place, because the server sent every sketch at the board's
+//: origin at one default size (fixed in `_sketch_preview`) and this drew one
+//: generic mark whatever had been drawn. A board of eight shapes previewed as a
+//: single scribble in the corner.
+//:
+//: The stroke data itself is still not shipped, and deliberately: a path per
+//: sketch on a twenty-board list is the payload of a board load, for a picture
+//: 290px wide. What is shipped is the tool it was drawn with, which is enough
+//: for the thumbnail to say the true thing about each one: a rectangle is a
+//: rectangle, a circle is a circle, a line runs corner to corner, and a pen
+//: stroke is a scribble that fills its own box. Everything is at the stroke's
+//: real position and size, so eight shapes are eight marks where they were
+//: drawn.
+//:
+//: `stroke-width` and `stroke` arrive as attributes and the stylesheet must not
+//: declare either, which is the trap `mapPreviewEdge` carries the same note
+//: about: a CSS declaration beats a presentation attribute however specific the
+//: attribute looks. `.board-minimap-sketch` is geometry only; an uncoloured
+//: stroke takes `.board-minimap-sketch-accent` on top of it.
+function mapPreviewSketch(NS, x, y, w, h, shape, unit) {
+  const r2 = round2;
+  const make = (tag) => {
+    const el = document.createElementNS(NS, tag);
+    el.setAttribute("class", "board-minimap-sketch");
+    //: One weight at every size, for the reason the corner cap is in nominal
+    //: units: a constant in viewBox units rendered 3.5px in a Library card and
+    //: 0.48px in a dashboard row, where it disappeared.
+    el.setAttribute("stroke-width", String(r2(1.6 * unit)));
+    return el;
+  };
+  if (shape === "rect") {
+    const el = make("rect");
+    el.setAttribute("x", String(r2(x)));
+    el.setAttribute("y", String(r2(y)));
+    el.setAttribute("width", String(r2(w)));
+    el.setAttribute("height", String(r2(h)));
+    return el;
+  }
+  if (shape === "circle") {
+    const el = make("ellipse");
+    el.setAttribute("cx", String(r2(x + w / 2)));
+    el.setAttribute("cy", String(r2(y + h / 2)));
+    el.setAttribute("rx", String(r2(w / 2)));
+    el.setAttribute("ry", String(r2(h / 2)));
+    return el;
+  }
+  if (shape === "triangle" || shape === "diamond") {
+    const el = make("polygon");
+    const points = shape === "triangle"
+      ? [[x + w / 2, y], [x + w, y + h], [x, y + h]]
+      : [[x + w / 2, y], [x + w, y + h / 2], [x + w / 2, y + h], [x, y + h / 2]];
+    el.setAttribute("points", points.map(([px, py]) => `${r2(px)},${r2(py)}`).join(" "));
+    return el;
+  }
+  if (shape === "line" || shape === "arrow") {
+    //: Corner to corner, because that is the only thing the box knows: a
+    //: line's box is its two ends, and which diagonal it runs along is not
+    //: recoverable from a bounding box. The alternative, a horizontal rule
+    //: through the middle, says "a line was drawn" while being a different
+    //: line from the one on the board; this one is right for half of them and
+    //: the right length for all of them.
+    const el = make("line");
+    el.setAttribute("x1", String(r2(x)));
+    el.setAttribute("y1", String(r2(y)));
+    el.setAttribute("x2", String(r2(x + w)));
+    el.setAttribute("y2", String(r2(y + h)));
+    return el;
+  }
+  //: A pen or highlighter stroke: a scribble that fills the box it was drawn
+  //: in, rather than a fixed wave in the corner of the board. Three humps,
+  //: because two read as a tick and four as a wave pattern.
+  const el = make("path");
+  el.setAttribute("d", [
+    `M${r2(x)} ${r2(y + h)}`,
+    `C${r2(x + w * 0.18)} ${r2(y)} ${r2(x + w * 0.38)} ${r2(y + h)} ${r2(x + w * 0.52)} ${r2(y + h * 0.5)}`,
+    `S${r2(x + w * 0.82)} ${r2(y)} ${r2(x + w)} ${r2(y + h * 0.3)}`,
+  ].join(" "));
+  return el;
 }
 
 //: A miniature of what is actually on a board, from `preview_items` /
@@ -1858,20 +1961,30 @@ function mapPreview(board, { size = "card" } = {}) {
     const ny = py(item.y);
     const size = sizeOf(item);
     if (item.kind === "sketch") {
-      // A sketch is strokes, and the thumbnail does not have them, stroke
-      // data is the one thing `preview_items` deliberately does not ship. A
-      // squiggle says "something drawn here", which is the fact that was
-      // missing entirely: a sketch-only board previewed as an empty rectangle
-      // beside a line reading "2 sketches".
-      const mark = document.createElementNS(NS, "path");
-      mark.setAttribute("class", "board-minimap-sketch");
-      const wave = blockW / 1.8;
-      mark.setAttribute("d", `M${round2(nx)} ${round2(ny + blockH * 0.8)} q${round2(wave / 2)} ${round2(-wave)} ${round2(wave)} 0 t${round2(wave)} 0`);
+      // The shape it was drawn with, at the size and place it was drawn, in
+      // its own ink: see `mapPreviewSketch`. The stroke data itself is still
+      // not shipped, which is the one thing `preview_items` deliberately
+      // leaves out.
+      const mark = mapPreviewSketch(NS, nx, ny, size.w, size.h, item.shape, unit);
+      if (item.color) mark.setAttribute("stroke", item.color);
+      else mark.classList.add("board-minimap-sketch-accent");
       svg.appendChild(mark);
       continue;
     }
     const dot = document.createElementNS(NS, "rect");
-    const grey = item.kind === "card" ? "board-minimap-card" : "board-minimap-object";
+    //: **A picture gets its own ink and its own mark.** An image object is the
+    //: one thing on a board with no words of its own (the server sends no
+    //: label for it, and a thumbnail of a thumbnail is a different feature),
+    //: so in one flat accent wash it was indistinguishable from a text box
+    //: holding a paragraph. Measured on the seeded board: twelve marks, one
+    //: ink. It is a quieter grey block with the universal picture glyph over
+    //: it, which says "a picture is here" in the language every other surface
+    //: uses for one.
+    const grey = item.kind === "card"
+      ? "board-minimap-card"
+      : item.kind === "image"
+        ? "board-minimap-image"
+        : "board-minimap-object";
     // A branch node takes its own class rather than the grey one, for the
     // reason on `mapPreviewEdge`: the fill arrives as an attribute, and the
     // grey classes declare `fill`, which would win.
@@ -1883,13 +1996,44 @@ function mapPreview(board, { size = "card" } = {}) {
     // Rounded like the node it stands for, and rounded by its own size rather
     // than by a fixed 1.5: the block is drawn at a different number of viewBox
     // units on every board shape now, so a constant radius was a sharp corner
-    // on one card and a pill on the next.
-    dot.setAttribute("rx", String(round2(Math.min(size.w, size.h) * MAP_PREVIEW_NODE_ROUNDING)));
+    // on one card and a pill on the next. Capped at
+    // `MAP_PREVIEW_CORNER_UNITS`, which is what stopped these reading as blobs
+    // (INBOX 164): the fraction alone was 35% of a block's
+    // short side, measured.
+    dot.setAttribute("rx", String(round2(Math.min(
+      MAP_PREVIEW_CORNER_UNITS * unit,
+      Math.min(size.w, size.h) * MAP_PREVIEW_NODE_ROUNDING
+    ))));
     // The grey blocks are faded because an unlabelled box is texture; a
     // coloured node is carrying which branch it belongs to, so it is drawn at
     // full strength (`.board-minimap-branch`).
     if (item.color) dot.setAttribute("fill", item.color);
     svg.appendChild(dot);
+    if (item.kind === "image") {
+      //: The glyph, inside the block and scaled to it: a horizon line with a
+      //: sun over it, which is the picture icon everywhere else in the app.
+      //: Skipped on a block too small to hold it, where it would be two
+      //: smudges on a grey square.
+      const short = Math.min(size.w, size.h);
+      if (short > 6 * unit) {
+        const mark = document.createElementNS(NS, "path");
+        mark.setAttribute("class", "board-minimap-image-mark");
+        mark.setAttribute("stroke-width", String(round2(1.2 * unit)));
+        const x0 = nx + size.w * 0.18;
+        const x1 = nx + size.w * 0.82;
+        const base = ny + size.h * 0.72;
+        mark.setAttribute("d", [
+          `M${round2(x0)} ${round2(base)}`,
+          `L${round2(nx + size.w * 0.42)} ${round2(ny + size.h * 0.42)}`,
+          `L${round2(nx + size.w * 0.6)} ${round2(base)}`,
+          `M${round2(nx + size.w * 0.62)} ${round2(base)}`,
+          `L${round2(nx + size.w * 0.74)} ${round2(ny + size.h * 0.56)}`,
+          `L${round2(x1)} ${round2(base)}`,
+        ].join(" "));
+        svg.appendChild(mark);
+      }
+      continue;
+    }
     if (!labels || !item.label) continue;
     //: **What the item says**, which is why this stopped being a list of bare
     //: points. Reported as "the whiteboard preview is poor", and the
@@ -1925,7 +2069,17 @@ function mapPreview(board, { size = "card" } = {}) {
     //: floating between two edges reads as a third thing on the board.
     const roomFor = Math.floor((size.w - perChar * 2) / perChar);
     const tall = size.h >= fontUnits * 1.6;
-    const fits = tall && roomFor >= MAP_PREVIEW_MIN_INSIDE_CHARS;
+    //: **Inside only when nearly all of it fits.** The floor alone put a
+    //: twelve-character note title into a block with room for five and drew
+    //: "Retr…", which is less use than no label: measured on a seeded board,
+    //: three cards titled "Retry budget", "Ingest pipeline" and "Open
+    //: questions" came out as "Retr…", "Inge…" and "Open…", three cards that
+    //: cannot be told apart by the one thing on them that was supposed to tell
+    //: them apart. Beside the block there is a whole margin and a budget of 16,
+    //: so the title arrives whole; inside is kept for the case it was built
+    //: for, a map's topic, whose node is wide and whose label is short.
+    const fits = tall
+      && roomFor >= Math.max(MAP_PREVIEW_MIN_INSIDE_CHARS, item.label.length - 2);
     const budget = fits ? Math.min(roomFor, 16) : 16;
     const shown = item.label.length > budget
       ? `${item.label.slice(0, Math.max(1, budget - 1)).trimEnd()}…`

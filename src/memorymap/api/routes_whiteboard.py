@@ -797,8 +797,142 @@ def _preview_size(
     return (max(1.0, w), max(1.0, h))
 
 
+#: **A drawn stroke's own box, from its path data.** The server's copy of
+#: `wbPathBBox` (whiteboard.js), and it is a copy on purpose: the thumbnail has
+#: to be the same picture as the canvas, and the canvas measures a sketch by its
+#: path because a sketch has no width or height columns to measure instead.
+#:
+#: Why the preview needs it at all, which is the whole of INBOX 164's "one
+#: squiggle": a sketch is stored with `x = 0, y = 0` and its strokes written in
+#: absolute board coordinates (see the save in whiteboard.js: `x: 0, y: 0`), so
+#: a preview that reads `sketch.x`/`sketch.y` puts **every** sketch on a board
+#: at the board's origin, at one default size. Measured on a board with eight of
+#: them: eight marks at one position (8.8, 45.5) and one size (29.4x14.7), which
+#: paints as a single squiggle in the corner however much was drawn.
+#:
+#: The same command set the canvas handles, and no more: `M`/`L` absolute
+#: points, `C` through its control points (a bound, not the true curve extent,
+#: which is what the canvas settles for too), relative `h`/`v`, and the `a`
+#: half-arc pair the ellipse tool draws, whose own note in whiteboard.js
+#: explains why reading the chord's midpoint is exact for that one shape. An
+#: unparseable or empty path returns None and the caller falls back to the
+#: stored position and the default size, which is what every sketch got before.
+_PATH_TOKENS = re.compile(r"[MLCHVAZmlchvaz]|-?\d*\.?\d+(?:[eE]-?\d+)?")
+
+
+def _path_bbox(d: str) -> tuple[float, float, float, float] | None:
+    """`(min_x, min_y, width, height)` of an SVG path, or None."""
+    tokens = _PATH_TOKENS.findall(d or "")
+    if not tokens:
+        return None
+    i = 0
+    px = py = 0.0
+    min_x = min_y = float("inf")
+    max_x = max_y = float("-inf")
+
+    def visit(x: float, y: float) -> None:
+        nonlocal min_x, min_y, max_x, max_y
+        min_x, min_y = min(min_x, x), min(min_y, y)
+        max_x, max_y = max(max_x, x), max(max_y, y)
+
+    def number() -> float:
+        nonlocal i
+        try:
+            value = float(tokens[i])
+        except (IndexError, ValueError):
+            raise _PathEnd from None
+        i += 1
+        return value
+
+    try:
+        while i < len(tokens):
+            cmd = tokens[i]
+            i += 1
+            if cmd in ("M", "L"):
+                px, py = number(), number()
+                visit(px, py)
+            elif cmd == "C":
+                points = [number() for _ in range(6)]
+                visit(points[0], points[1])
+                visit(points[2], points[3])
+                visit(points[4], points[5])
+                px, py = points[4], points[5]
+            elif cmd == "h":
+                px += number()
+                visit(px, py)
+            elif cmd == "v":
+                py += number()
+                visit(px, py)
+            elif cmd == "a":
+                rx, ry = number(), number()
+                for _ in range(3):  # rotation and the two flags: not a bound
+                    number()
+                ex, ey = number(), number()
+                mid_x, mid_y = px + ex / 2, py + ey / 2
+                visit(mid_x - rx, mid_y - ry)
+                visit(mid_x + rx, mid_y + ry)
+                px, py = px + ex, py + ey
+            # Z/z closes back to the last M and moves nothing.
+    except _PathEnd:
+        pass
+    if min_x == float("inf"):
+        return None
+    return (min_x, min_y, max_x - min_x, max_y - min_y)
+
+
+class _PathEnd(Exception):
+    """A path that ran out of numbers mid-command: take what was read."""
+
+
+#: The floor on a drawn stroke's own extent, in board pixels. A single dot or a
+#: perfectly straight horizontal line has a zero-height box, and a zero-height
+#: box normalises to nothing and draws nothing at all: the one thing a preview
+#: of a drawing must not do is leave the drawing out.
+PREVIEW_SKETCH_MIN = 8.0
+
+
+def _sketch_preview(
+    sketch: WhiteboardSketch,
+) -> tuple[float, float, float, float, str | None, str | None]:
+    """`(x, y, w, h, shape, colour)` for one drawn stroke.
+
+    The position is the stroke's own top-left corner in board coordinates, plus
+    whatever `x`/`y` the row carries: a freshly drawn sketch has 0, 0 there and
+    a moved one has the offset a drag applied, and the canvas adds the two the
+    same way (`wbItemBBox` reads the path, the group carries the translate).
+
+    `shape` is the tool it was drawn with, which is what lets the thumbnail draw
+    a rectangle as a rectangle and a pen stroke as a scribble rather than
+    drawing one generic wave for all of them; `colour` is its own ink, so a
+    board drawn in three colours previews in three colours.
+    """
+    data: dict = {}
+    try:
+        parsed = json.loads(sketch.data or "{}")
+        data = parsed if isinstance(parsed, dict) else {}
+    except (TypeError, ValueError):
+        data = {}
+    shape = data.get("shape")
+    shape = shape if isinstance(shape, str) and shape else None
+    colour = data.get("color")
+    colour = colour if isinstance(colour, str) and colour else None
+    box = _path_bbox(str(data.get("d") or ""))
+    ox, oy = float(sketch.x), float(sketch.y)
+    if box is None:
+        w, h = _preview_size("sketch", None, None)
+        return (ox, oy, w, h, shape, colour)
+    return (
+        ox + box[0],
+        oy + box[1],
+        max(PREVIEW_SKETCH_MIN, box[2]),
+        max(PREVIEW_SKETCH_MIN, box[3]),
+        shape,
+        colour,
+    )
+
+
 def _preview_items(
-    rows: list[tuple[float, float, str, str, str | None, float, float]],
+    rows: list[tuple[float, float, str, str, str | None, float, float, str | None]],
 ) -> list[dict]:
     """The same normalisation as `_preview_points`, carrying what each item
     *is*, what it says, what colour it is and **how big it is**.
@@ -826,16 +960,20 @@ def _preview_items(
         return []
     stride = max(1, len(rows) // PREVIEW_POINTS)
     sampled = rows[::stride][:PREVIEW_POINTS]
-    points = _preview_points([(x, y) for x, y, _, _, _, _, _ in sampled])
-    xs = [x for x, _, _, _, _, _, _ in sampled]
-    ys = [y for _, y, _, _, _, _, _ in sampled]
+    points = _preview_points([(x, y) for x, y, _, _, _, _, _, _ in sampled])
+    xs = [x for x, _, _, _, _, _, _, _ in sampled]
+    ys = [y for _, y, _, _, _, _, _, _ in sampled]
     span_x = max(xs) - min(xs)
     span_y = max(ys) - min(ys)
     items = []
-    for (nx, ny), (_, _, kind, label, colour, w, h) in zip(points, sampled, strict=True):
+    for (nx, ny), (_, _, kind, label, colour, w, h, shape) in zip(points, sampled, strict=True):
         item = {"x": nx, "y": ny, "kind": kind, "label": label}
         if colour:
             item["color"] = colour
+        #: Only where there is one, for the reason `color` is omitted: a
+        #: twenty-board list would otherwise ship eight hundred nulls.
+        if shape:
+            item["shape"] = shape
         if span_x > 0 and span_y > 0:
             item["w"] = round(w / span_x, 4)
             item["h"] = round(h / span_y, 4)
@@ -881,7 +1019,11 @@ def _board_preview(
             model.board_id.is_(None) if board_id is None else model.board_id == board_id
         )
 
-    rows: list[tuple[float, float, str, str, str | None, float, float]] = []
+    #: The eighth slot is a drawn stroke's own tool (`line`, `rect`,
+    #: `ellipse`, `pen`, ...), `None` for everything that is not a sketch: a
+    #: thumbnail that draws one generic wave for every shape on the board is
+    #: the half of INBOX 164 the positions do not explain.
+    rows: list[tuple[float, float, str, str, str | None, float, float, str | None]] = []
     #: Which object each row came from, positionally, `None` for a card or a
     #: sketch, which have no tree. Only map nodes ever claim a parent, so an
     #: ordinary board leaves `parent_of` empty and pays for nothing.
@@ -914,21 +1056,19 @@ def _board_preview(
                 label,
                 None,
                 *_preview_size("card", node.width, node.height),
+                None,
             )
         )
         owners.append(None)
 
     for sketch in db.scalars(select(WhiteboardSketch).where(on(WhiteboardSketch))):
-        rows.append(
-            (
-                float(sketch.x),
-                float(sketch.y),
-                "sketch",
-                "",
-                None,
-                *_preview_size("sketch", None, None),
-            )
-        )
+        #: **From the strokes, not from the row.** A sketch's `x`/`y` are 0 for
+        #: every stroke the drawing tools make, with the path in absolute board
+        #: coordinates, so reading them put every sketch on a board at the
+        #: origin at one default size: eight of them measured as eight marks at
+        #: one position and one size, which is INBOX 164's single squiggle.
+        sx, sy, sw, sh, shape, colour = _sketch_preview(sketch)
+        rows.append((sx, sy, "sketch", "", colour, sw, sh, shape))
         owners.append(None)
 
     # Ordered by id so the branch colours fall in the same order the canvas
@@ -970,6 +1110,7 @@ def _board_preview(
                 label,
                 None,
                 *_preview_size(obj.kind or "object", obj.width, obj.height),
+                None,
             )
         )
         owners.append(obj.id)
@@ -996,8 +1137,11 @@ def _board_preview(
                 branch_colors.get(owner) if owner is not None else colour,
                 w,
                 h,
+                shape,
             )
-            for (x, y, kind, label, colour, w, h), owner in zip(rows, owners, strict=True)
+            for (x, y, kind, label, colour, w, h, shape), owner in zip(
+                rows, owners, strict=True
+            )
         ]
 
     # Sample here rather than inside `_preview_items` so the edges can be

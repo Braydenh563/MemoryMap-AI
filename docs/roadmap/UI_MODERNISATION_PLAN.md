@@ -787,3 +787,37 @@ glass. What is left is below.
     ux." The fourth report on the picture cards; the third (145) was fixed the
     same day, so this one is about what is left after it.
 
+    **Board previews: built** (2026-09-13). Three faults, each measured with
+    `scratchpad/ui-sweeps/boardpreview.js`, which seeds the owner's own board (3
+    cards, 8 sketches, 1 item) and exits non-zero on any of them.
+
+    - *The one squiggle.* A sketch is stored with `x = 0, y = 0` and its path in
+      absolute board coordinates, so the preview drew all eight at the board's
+      origin at one default size: 8 marks at 1 position, 1 size. The server
+      reads the stroke's own box now (`_sketch_preview`, the server's copy of
+      the canvas's `wbPathBBox`, and the reason it is a copy is written there)
+      and also sends the tool and the ink, so `mapPreviewSketch` draws a
+      rectangle as a rectangle, a circle as a circle, a line corner to corner
+      and a pen stroke as a scribble filling its box. After: 8 marks, 8
+      positions, 7 sizes, and 3 inks on the card where there was 1.
+    - *The blobs.* A block's corner was 0.35 of its own short side, measured at
+      8.66px on a 24.7px block, which is 35%: not a rounded rectangle and
+      nothing like the canvas's own 7%. Capped in the preview's nominal units as
+      well as by the fraction, so it is one corner at both sizes the preview
+      draws at. After: 2.35px, 8%.
+    - *The titles.* Three cards titled "Retry budget", "Ingest pipeline" and
+      "Open questions" drew "Retr…", "Inge…" and "Open…", because a label went
+      *inside* its block whenever five characters fitted. Inside is now for a
+      label that nearly all fits, which is the map topic it was built for; a
+      note's title goes beside its block, where the budget is 16 and it arrives
+      whole.
+
+    Also: a picture on the board takes the picture glyph and `--muted` rather
+    than a third shade of the same accent (it is the one item with no words of
+    its own, and the server deliberately sends no label for it). Regression
+    checks: `preview.js` on four cards (a map keeps its 6 labels, 2 inside, and
+    its 5 edges; contrast 4.77:1), `boardsthumb.js` unchanged at 72x40 with a
+    fill ratio of 0.852, `errors.js` 0 errors and 0 layout findings.
+
+    Still open here: the graph minimap, and the picture cards' fourth report.
+

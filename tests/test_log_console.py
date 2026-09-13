@@ -10,6 +10,8 @@ yourself, because you would not know to distrust it.
 
 from __future__ import annotations
 
+import re
+
 import io
 import json
 import logging
@@ -290,8 +292,7 @@ def test_the_console_does_not_authenticate_through_the_query_string():
     """The reason NDJSON was chosen over EventSource. Putting the token in the
     URL would write it into the very log being streamed."""
     source = _settings_js()
-    start = source.index("async function startLogStream(")
-    body = source[start : start + 1200]
+    body = _function_body(source, "startLogStream")
     assert "X-Auth-Token" in body
     assert "token=" not in body
 
@@ -315,6 +316,36 @@ def _settings_js() -> str:
     return (FRONTEND_DIR / "settings.js").read_text(encoding="utf-8")
 
 
+def _function_body(source: str, name: str) -> str:
+    """The whole of a top-level function, brace-matched.
+
+    Every assertion below used to slice a fixed number of characters from the
+    function's opening line: 400, 500, 600, 900, 1200, 1800, each one a guess
+    at how long that function would stay. `renderCopyLogsLabel` grew a comment
+    explaining a bug it had just been fixed for, the string the test looks for
+    moved past character 600, and the suite reported a broken Copy button on a
+    Copy button that was fine.
+
+    A test that fails when a comment is added is a test nobody trusts the
+    second time. This reads what the assertions have always meant: the body of
+    that function, however long it is.
+    """
+    match = re.search(rf"(?:async )?function {re.escape(name)}\s*\(", source)
+    assert match, f"{name} is gone or has been renamed"
+    start = match.start()
+    brace = source.index("{", match.end())
+    depth, index = 0, brace
+    while index < len(source):
+        if source[index] == "{":
+            depth += 1
+        elif source[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[start : index + 1]
+        index += 1
+    raise AssertionError(f"{name} is not brace-balanced")
+
+
 # --- getting an error OUT of the log ----------------------------------------
 #
 # "Copy all" plus a filter can technically reach one error, but that is a
@@ -334,8 +365,7 @@ def test_copying_a_record_takes_its_traceback_with_it():
     """The traceback is the half worth having, and it lives in a separate
     element: copying the row without it would be the useless half."""
     source = _settings_js()
-    start = source.index("function logRecordText(record) {")
-    body = source[start : start + 400]
+    body = _function_body(source, "logRecordText")
     assert "record.trace" in body
 
 
@@ -354,8 +384,7 @@ def test_copy_falls_back_when_the_clipboard_api_is_missing():
     "couldn't copy". Worst on this screen, where the thing being copied is the
     error you are trying to report."""
     source = _app_js()
-    start = source.index("async function copyToClipboard(")
-    body = source[start : start + 900]
+    body = _function_body(source, "copyToClipboard")
     assert "window.isSecureContext" in body
     assert "copyViaTextarea" in body
     assert "showCopyFallback" in body
@@ -365,8 +394,7 @@ def test_the_last_resort_shows_the_text_already_selected():
     """If both copy mechanisms are refused, the answer to "how do I get this
     error out" still must not be "you can't"."""
     source = _app_js()
-    start = source.index("function showCopyFallback(text) {")
-    body = source[start : start + 1800]
+    body = _function_body(source, "showCopyFallback")
     assert ".select()" in body
     assert "Ctrl+C" in body
 
@@ -398,8 +426,7 @@ def test_the_copy_button_says_what_it_will_copy():
     """"Copy all" while a filter hides 400 records is a promise it does not
     keep, and the reader would not find out until they pasted it."""
     source = _settings_js()
-    start = source.index("function renderCopyLogsLabel() {")
-    body = source[start : start + 600]
+    body = _function_body(source, "renderCopyLogsLabel")
     assert "Copy all" in body and "shown" in body
 
 
@@ -407,8 +434,7 @@ def test_the_error_badge_leads_to_the_errors():
     """The badge is the only place a failure announces itself, so it should
     also be the shortest way to reach one."""
     source = _settings_js()
-    start = source.index("function renderLogErrorBadge() {")
-    body = source[start : start + 900]
+    body = _function_body(source, "renderLogErrorBadge")
     assert 'log-level").value = "error"' in body
 
 
@@ -417,8 +443,7 @@ def test_the_live_pill_is_not_left_claiming_to_be_live():
     pill would still read "live" with nothing behind it. Found in a browser,
     not by a test, this is the test that would notice it coming back."""
     source = _settings_js()
-    start = source.index("function closeLogs() {")
-    body = source[start : start + 500]
+    body = _function_body(source, "closeLogs")
     assert "setLogLive" in body
 
 

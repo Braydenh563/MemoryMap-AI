@@ -186,6 +186,21 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Settings → Logs has the same head as every other surface in the app. It was
+  two rows of nine controls at four heights (a view segment, two pickers, a
+  filter box, a Follow switch, a live pill and three verbs), none of it on the
+  dock grammar the tab heads use: reported as "redesign the top dock at the top
+  of the settings logs page to be more consistent with the rest of the
+  application and modern". One row now, at one height, at every width: the
+  title and the live pill, the filter, list or terminal as two icons, and
+  Support bundle as the one filled action, with Follow, Copy all, Clear and the
+  two pickers in the '...' menu beside it. Three fixes came out of it that were
+  not about this screen: an enhanced select in any dock had no width floor (the
+  floor had been sizing the hidden native element behind it), a view segment
+  folded into a dock menu at narrow widths drew its cells 108px tall instead of
+  28px, and the Support bundle button dropped its own icon the first time
+  anybody built a bundle.
+
 - The meeting recorder holds its controls the way the rest of the app does.
   Three sentences of explanation stood between the title and the one button the
   dialog is for, and are now one line with the rest behind the app's own '?'.

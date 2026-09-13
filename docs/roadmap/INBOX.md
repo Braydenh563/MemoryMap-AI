@@ -60,6 +60,32 @@ open and half finished stuff?"), which is a decision, not work.
 
 ## Open items
 
+145. **Mid-work drop, 2026-09-13, verbatim (the owner), the Library images
+    sub-tab, third report on these cards (two screenshots, one at rest and one
+    with a fold open).** "The ui and ux and ux in the images cards needs
+    improving"
+
+    The two-rank rebuild has landed since the last report, and the screenshots
+    are of that. What they show: the selection checkbox is a dark square
+    floating over the top-left of every picture with no ground of its own,
+    hardest to see on the dark thumbnails; the filename band sits on a grey
+    strip across the bottom of the picture on some cards and over open sky on
+    others, depending on the image; one card's caption is a wall of the
+    picture's own OCR text rather than a description; and opening "Text" on
+    one card grows it well past its neighbours, so the row's cards are 260px
+    and 620px side by side.
+
+144. **Mid-work drop, 2026-09-13, verbatim (the owner), the note edit form (one
+    screenshot).** "when I open the edit form for a note and scroll down, only
+    the bottom of the formatting bar sticks to the top of the screen and the
+    bar is clear so it is hard to see"
+
+    The screenshot shows the toolbar's icons overlapping a line of the note's
+    own text, both legible through each other, with the Notes sub-tab strip
+    above it: the bar has no ground of its own, so what sticks is a row of
+    glyphs floating over the writing, and only part of the bar's height is
+    held at the top.
+
 142. **Mid-work drop, 2026-09-13, verbatim (the owner), the document editor's
     writing intelligence (two screenshots).** "the suggestions box at the
     bottom takes up a lot of my screen and it makes the text editor really

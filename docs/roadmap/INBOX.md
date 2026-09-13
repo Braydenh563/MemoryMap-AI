@@ -52,6 +52,29 @@ measured or built in earlier commits and is marked there.
 
 ## Open items
 
+180. **Mid-work drop, 2026-09-13, verbatim (the owner), the whiteboard and
+    the mind map, two screenshots (a dark board with four objects, every one
+    of them showing eight round lilac handles plus a stalk handle above it,
+    joined by pale cyan curves with no arrowheads; the same board full width
+    with the top bar, the selection dock and the tool dock in frame).** "I
+    cant drag highlight to select shapes . also the mind map is soo annoying
+    to use, I cant properly reconnect things that are disconnected. the
+    connections between stuff in the mindmap should be different from the
+    ones in the whiteboard. the item raials, what options they are and how
+    they work are also soooo annoying and unintuitive to use, also can you
+    give the direction connectors a better and more modern professional look??"
+
+    Six things, and they are not one fix:
+    - the marquee (drag on empty canvas to select) does not select;
+    - reconnecting something that has come adrift on a map is not possible
+      in practice;
+    - a map's connections should not look or behave like a board's;
+    - the radial ring around a node: what its options are and how they work
+      are unintuitive;
+    - the direction connectors want a better, more modern look;
+    - and, taken together, the map is annoying to use, which is the shape of
+      the work rather than a sixth item.
+
 174. **Mid-work drop, 2026-09-13, verbatim (the owner), the Library's
     Images sub-tab (three screenshots: a board thumbnail as a pale card with
     faint strokes and the note titles run over the edge; the image grid
@@ -87,7 +110,18 @@ measured or built in earlier commits and is marked there.
     and "Text in this image" blocks are on a card only once they hold
     something, which is the missing metadata area. Both board exports post
     `direct` now, the same as the Library's own upload button.
-    Open: the cards' look as a whole.
+    **And the cards' look, 2026-09-13.** Judged over four real photographs
+    rather than over the 2x2 white fixtures every earlier capture used
+    (`scratchpad/ui-sweeps/imgshot.js`), the loudest thing on a picture card
+    was not the picture: it was the selection tick, a 28px near-white square
+    in the top-left corner of every card at full strength whatever the card
+    was for. Its ground stays as it is (that was the fix that made it legible
+    on a dark thumbnail); it now fades in with the card's other controls, the
+    grammar the kebab row beside it already used, and stays painted when its
+    own card is ticked, while a selection is running anywhere in the gallery,
+    and on a device with no hover. Measured (`imgtick.js`): opacity 0 at rest,
+    1 on hover, 1 on keyboard focus, and 1 on all three sampled cards once one
+    is ticked.
 
 176. **Mid-work drop, 2026-09-13, verbatim (the owner), boards chrome
     (screenshots: the Name the new board dialog with neither Board nor Mind
@@ -137,32 +171,6 @@ measured or built in earlier commits and is marked there.
     **Open**, placed in MINDMAP_PLAN.md: core nodes with their own shapes,
     a per-node left edge style, connection-line style management, and
     resizing a topic the way a card resizes.
-
-142. **Mid-work drop, 2026-09-13, verbatim (the owner), the document editor's
-    writing intelligence (two screenshots).** "the suggestions box at the
-    bottom takes up a lot of my screen and it makes the text editor really
-    small. also the popup edit suggestions menu screws upn the screen and
-    make sit go out of bounds.and when I click on the issue from the
-    suggestions thing, the box just appears right there in my face. the whole
-    editor intelligence and auto correct and dictionary stuff needs a whole
-    ux redesign and improvement"
-
-    **This also settles INBOX 128**, which could not be reproduced: the first
-    screenshot shows the word popup drawn at the far right of the window,
-    clear of the document card altogether, while the flagged word sits at the
-    end of line 4 inside it. So the "wide gap" is real; the probe
-    (`scratchpad/ui-sweeps/spellanchor.js`) simply measured a case where the
-    anchoring happens to be right, which means the bug is conditional and the
-    condition is what has to be found.
-
-    Four things in the report, and the last is the shape of the work:
-    - the suggestions panel at the foot takes a large share of the window and
-      shrinks the editor it is advising;
-    - the word popup goes out of bounds;
-    - opening a suggestion from the panel puts the popup over the text being
-      discussed rather than beside it;
-    - and taken together, the spelling, autocorrect, dictionary and suggestion
-      surfaces want one redesign rather than four fixes.
 
 114. **Mid-work drop, 2026-09-12 afternoon, verbatim (the owner), six
     reports across five screenshots.** In order as sent:

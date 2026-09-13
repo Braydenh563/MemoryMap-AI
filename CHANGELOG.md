@@ -55,6 +55,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A picture card in the Library shows its selection tick when you are near it,
+  not on every card all the time. The tick keeps the ground that makes it
+  legible over a dark photograph, and stays visible on a card you have ticked,
+  while a selection is running, and on a touch screen.
+
 - A board or mind map preview no longer draws its labels over its own edge.
   Which side of a block the label hangs off was decided by the half of the
   board the block started in, so a wide topic just left of centre was labelled

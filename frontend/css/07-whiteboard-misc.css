@@ -5195,6 +5195,46 @@ summary:not(.icon-only):not(.icon-button) {
   position: relative;
 }
 
+/* **At rest a picture card is a picture** (INBOX 174, the owner's third
+   pass: "the design of the images cards in the images subtab in the library
+   just still isnt professional"). Looked at over four real photographs rather
+   than over the 2x2 white fixtures every earlier capture used, the loudest
+   thing on the card was not the picture: it was a 28px near-white square in
+   the top-left corner of every one of them, at full strength, whatever the
+   card was for. The ground under it is right and stays (the rule above is
+   what made it legible on a dark thumbnail); what was wrong is that a control
+   for an occasional job was painted on every card all the time.
+
+   So it fades in with the card's other controls, which is the grammar the
+   kebab row beside it has used since it was reported missing: hover or focus
+   anywhere on the card, and the tick is there in the corner the eye already
+   goes to. Three states keep it painted regardless, and they are the three
+   where it is not decoration:
+   - its own card is selected (`:checked`),
+   - a selection is in progress anywhere in the gallery, which the select bar
+     coming out of `hidden` is the one honest signal for, so a sweep across a
+     row never loses the ticks it is aiming at,
+   - and a device with no hover, where a fade-in has no trigger at all, the
+     same carve-out `.library-image-actions` already carries. */
+.library-image-tile:has(> .library-image-frame) > .library-tile-tick {
+  opacity: 0;
+  transition: opacity var(--motion-fast) ease;
+}
+
+.library-image-tile:has(> .library-image-frame):hover > .library-tile-tick,
+.library-image-tile:has(> .library-image-frame):focus-within > .library-tile-tick,
+.library-image-tile:has(> .library-image-frame) > .library-tile-tick:checked,
+body:has(#library-media-selectbar:not(.hidden))
+  .library-image-tile:has(> .library-image-frame) > .library-tile-tick {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .library-image-tile:has(> .library-image-frame) > .library-tile-tick {
+    opacity: 1;
+  }
+}
+
 .library-image-usage-chip {
   /* `min()`, not a flat 16rem: a gallery tile is ~11.5rem wide, so a 16rem
      cap let a long board or note title run straight past the card's own

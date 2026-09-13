@@ -2280,6 +2280,92 @@ function mapBoardRows() {
   return mapBoardIndexCache ? [...mapBoardIndexCache.values()] : [];
 }
 
+//: ---------------------------------------------------------------------------
+//: **Shared by surfaces that are not loaded yet** (WORLD_CLASS_PLAN A1). Five
+//: files now arrive on first use rather than at boot (`ensureModule` below),
+//: and a `const` in one of them is a *lexical* global: a bare read of it from
+//: here throws ReferenceError until that file has run, which no `typeof`
+//: guard and no `window.` stub can paper over. Everything in this block was
+//: read by app.js's own boot path (the note list) or by `editor.js`, both of
+//: which run with no tab open at all, so each one moved here, to the file
+//: that is always present, rather than pinning its whole module to boot.
+//:
+//: None of it is graph, library or document logic: the clamp is the note
+//: list's, the size formatter is read by four files, and the page sizes are
+//: the paging contract the backend publishes. They were in those files only
+//: because that is where the app.js split happened to leave them.
+
+// How much of a linked note's text a link chip shows. Long enough to know
+// which note it is, short enough that four of them are a row rather than a
+// paragraph: a chip is a signpost, and a signpost with a sentence on it is
+// not a signpost. The full text is the chip's tooltip.
+const LINK_CHIP_CHARS = 28;
+
+// How much of a note the list shows before clamping it. Roughly ten lines at
+// a comfortable reading width, long enough that a normal note is never
+// clipped, short enough that one essay can't take the whole screen.
+const LONG_NOTE_CHARS = 500;
+const LONG_NOTE_LINES = 10;
+// Which notes the user has opened out, for this session. Not persisted: it is
+// a reading position, not a preference.
+const expandedNotes = new Set();
+
+// The character count decides which notes *might* be too tall; only a
+// measurement can say whether one actually is, because that depends on the
+// width it is rendered at. So the clamp goes on optimistically and this takes
+// it back off wherever the note fits after all, a "Show more" on a note that
+// is fully visible is worse than no clamping at all.
+//
+// It bails when the list is off screen: this renders inside a `display: none`
+// sub-tab, where every measurement is 0. `showNotesSection` calls it again on
+// the way in, which is the moment the numbers become real.
+function settleNoteClamps() {
+  const list = $("entry-list");
+  if (!list || !list.offsetParent) return;
+  for (const content of list.querySelectorAll(".entry-content.entry-clamped")) {
+    const toggle = content.parentElement?.querySelector(".entry-more");
+    if (content.scrollHeight <= content.clientHeight + 4) {
+      content.classList.remove("entry-clamped");
+      toggle?.remove();
+    }
+  }
+}
+
+
+//: **The facts about a file, as facts.** Asked for directly with the Files
+//: sub-tab redesign: "the card format is difficult with files as they can be
+//: quite long and large, a single image or ocr caption doesnt fit them. there
+//: should be details on the name, a generated description that cna happen,
+//: file details such as the type, size, topic/category, linked notes and
+//: other features."
+//:
+//: A tile could show a thumbnail, a name and a caption; everything else a
+//: person actually brings to a file list, how big is it, how many pages,
+//: when did it arrive, has it been read, was either absent or buried. These
+//: are the ones the row can state in one line.
+function formatFileSize(bytes) {
+  const size = Number(bytes) || 0;
+  if (size <= 0) return ""; // unknown, or the file is gone, say nothing
+  if (size < 1024) return `${size} B`;
+  const units = ["KB", "MB", "GB"];
+  let value = size / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  // One decimal below 10 (2.4 MB reads better than 2 MB), none above it.
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
+}
+
+
+//: The page size each of those lists is asked for, matching the server's own
+//: default (routes_documents.DOCUMENTS_PAGE_SIZE and routes_files
+//: .MEDIA_PAGE_SIZE): one request for any realistic notebook, more only when
+//: there genuinely is more.
+const DOCUMENTS_PAGE_SIZE = 200;
+const MEDIA_PAGE_SIZE = 200;
+
 //: **The star that says a note is a favourite, in both states.**
 //:
 //: Reported with a screenshot: the active one rendered as an **empty circle**

@@ -23544,3 +23544,31 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
 
     **Fixed.** The Ask answer head: `e6d7878`, 55 to 91px over two lines before, 36px on one line after, at 1440, 1024 and 820 with both a short model name and a long one. The popup agent: `7002cd9`. The meeting notes dialog: `0eb515f`.
 
+140. **Mid-work drop, 2026-09-13, verbatim (the owner), the Quick sketch bar
+    again, after the redesign.** "the quick sketch top dock still needs a
+    better redesign"
+
+    Screenshot of the shipped version: DRAW, SHAPES, INK, SIZE and EDIT on
+    one row with the whole right-hand half empty, and PAPER alone on a second
+    row underneath. The labels are an improvement; the wrap with dead space
+    beside it reads as a bar that ran out of room. SIZE is also the only
+    group that is a slider with a bare numeral rather than a row of controls.
+    Sent back to the agent that built it.
+
+    **Fixed `99cdde1` and `b74b273`.** Two passes. The first gave the bar six named groups where it had one pill. The second found why it still wrapped, and it was not the width: the card is capped in pixels (`min(900px, 96vw)`) while everything in it is sized in rem, so Large text or Spacious density buys the contents width the card never gets. Ten of twelve width-and-setting combinations wrapped; the owner's screenshot is the Spacious case. Now one row and one shared `offsetTop` for all five groups in every setting at 1440 and 1024, with 1px of slack at each end. Edit and Paper merged into one Canvas group, and Size became a single tonal field holding the slider and its value.
+127. **Mid-work drop, 2026-09-13, verbatim (the owner), the Quick sketch
+    dialog (two screenshots: the control bar under the title, and the row
+    under the canvas).** "the quick sketck popup controls need a new
+    redesign as they are clumped and ugly and the bottom section below the
+    canvas needs fixing ui wise as well"
+
+    In the screenshots: the tool bar is four groups of unequal density in
+    one pill, the pen/highlighter/eraser group wraps to a second line inside
+    its own box, the seven colour dots run edge to edge with no grouping, the
+    width slider sits alone with no label or value, and the right-hand group
+    stacks undo/redo/clear/insert over a bare white swatch. Under the canvas,
+    the caption input and "Save as note" sit in a bar with a different inset
+    and radius from everything above it.
+
+    **Fixed `99cdde1` and `b74b273`.** Two passes. The first gave the bar six named groups where it had one pill. The second found why it still wrapped, and it was not the width: the card is capped in pixels (`min(900px, 96vw)`) while everything in it is sized in rem, so Large text or Spacious density buys the contents width the card never gets. Ten of twelve width-and-setting combinations wrapped; the owner's screenshot is the Spacious case. Now one row and one shared `offsetTop` for all five groups in every setting at 1440 and 1024, with 1px of slack at each end. Edit and Paper merged into one Canvas group, and Size became a single tonal field holding the slider and its value.
+

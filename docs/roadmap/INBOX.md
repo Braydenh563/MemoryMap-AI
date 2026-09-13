@@ -23,17 +23,6 @@ never lost to the smaller stuff.
 
 ## Open items
 
-140. **Mid-work drop, 2026-09-13, verbatim (the owner), the Quick sketch bar
-    again, after the redesign.** "the quick sketch top dock still needs a
-    better redesign"
-
-    Screenshot of the shipped version: DRAW, SHAPES, INK, SIZE and EDIT on
-    one row with the whole right-hand half empty, and PAPER alone on a second
-    row underneath. The labels are an improvement; the wrap with dead space
-    beside it reads as a bar that ran out of room. SIZE is also the only
-    group that is a slider with a bare numeral rather than a row of controls.
-    Sent back to the agent that built it.
-
 138. **Mid-work drop, 2026-09-13, verbatim (the owner), the README.** "and
     also the screenshots on the readme page need updating and they need to
     show more parts of the application than what is there."
@@ -76,20 +65,6 @@ never lost to the smaller stuff.
     added, so either the add does not persist across a restart or it persists
     somewhere the checker does not read. The persistence half is the more
     serious of the two: it is silent data loss.
-
-127. **Mid-work drop, 2026-09-13, verbatim (the owner), the Quick sketch
-    dialog (two screenshots: the control bar under the title, and the row
-    under the canvas).** "the quick sketck popup controls need a new
-    redesign as they are clumped and ugly and the bottom section below the
-    canvas needs fixing ui wise as well"
-
-    In the screenshots: the tool bar is four groups of unequal density in
-    one pill, the pen/highlighter/eraser group wraps to a second line inside
-    its own box, the seven colour dots run edge to edge with no grouping, the
-    width slider sits alone with no label or value, and the right-hand group
-    stacks undo/redo/clear/insert over a bare white swatch. Under the canvas,
-    the caption input and "Save as note" sit in a bar with a different inset
-    and radius from everything above it.
 
 114. **Mid-work drop, 2026-09-12 afternoon, verbatim (the owner), six
     reports across five screenshots.** In order as sent:

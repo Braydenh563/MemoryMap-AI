@@ -101,11 +101,9 @@ the tab draws a colour, a font or a card that the rest of the app does not.
 [HISTORY.md](HISTORY.md) "Moved from the plans, 2026-09-13". Gate green at
 1440, 1024 and 390 (`scratchpad/ui-sweeps/timeline.js`).
 
-### Phase 2: the table view (half a session)
-The `<table>` with sort, sticky head, row focus and multi-select through
-the Notes selection bar; the icon segment switches views with no reload
-of data. **Gate:** sort by each column round-trips; selection bar
-actions apply to the selected rows; two columns only below 600px.
+### Phase 2: the table view: **built 2026-09-13**, see
+[HISTORY.md](HISTORY.md) "Moved from the plans, 2026-09-13". Gate green
+(`scratchpad/ui-sweeps/timelinetable.js`).
 
 ### Phase 3: the scrubber and pagination (half a session)
 `density` from the backend, the SVG path, click and drag to jump,

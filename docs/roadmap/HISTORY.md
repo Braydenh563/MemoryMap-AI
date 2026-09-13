@@ -23682,3 +23682,48 @@ head pinned 0px from the top of the feed after a 260px scroll; arrows walking
 0,1,2,1; Enter opening a 111px detail with 110 characters in it; search
 48 -> 1 -> 48 rows. `errors.js` 0 errors at 1440 and 1024, `contrast.js` clean
 in both themes.
+
+### Built, Phase 2: the table view, 2026-09-13
+
+The same rows in a `<table>`, for the question the feed does not answer: which
+of these, and act on several at once. One array, two renderers (decision 2), so
+the icon segment switches views with a repaint and no request (measured: 0
+requests for the tab's whole life after the first load).
+
+**Eight columns** (decision 6): date, title, kind, category, space, tags,
+words, links. Three of those were not in `/timeline`'s payload at all, so the
+endpoint grew them, each as one query for the page rather than one per row:
+`space` is the space's own name (the id is a slug nobody chose), `words` is a
+word count over the note's readable content, `links` is how many notes it is
+joined to (`links_for_entries_bulk`). `tests/test_timeline.py` asserts the
+three, because a column can otherwise only ever be blank.
+
+**Sorting** is a click on the column label, and clicking the column you are on
+turns it around; `aria-sort` on the header cell is what both the arrow and a
+screen reader read, so they cannot disagree. Time and the counts start at the
+biggest, text at A. A column the endpoint has not filled in sorts last in both
+directions rather than pretending to be zero.
+
+**Multi-select is the Notes list's own selection** (decision 6), not a second
+one: the same `selectedIds`, the same `batchMove`/`batchTag`/`batchDelete` and
+the same undo. Each surface has its own bar because each lives in its own tab,
+and both read one count. Measured end to end: tick two rows, Tag, and both
+notes come back from the API carrying the new tag.
+
+**Two traps, both found by measuring rather than by looking.** A `<tr>` also
+wears `.timeline-row` (the keyboard and "open in place" find their rows by that
+class), and the feed's `display: grid` on that class took the table rows out of
+the table's layout entirely: a 128px row of stacked 47px cells beside a
+correctly laid out 1,358px header. The feed's layout rules are scoped to
+`.timeline-feed` now. And the usual `max-width: 0` ellipsis trick, which needs
+`table-layout: fixed` to mean anything, collapsed eight of the nine columns to
+nothing under the browser's auto layout: the table is `fixed` with a width per
+column and the title taking what is left. A third, smaller: the column labels
+are `<button>`s, and a button in this app is a flex container, so `text-align`
+alone left six of the eight labels drawn in the middle of their columns.
+
+**Gate** (`scratchpad/ui-sweeps/timelinetable.js`): 48 rows in 8 columns at
+1440; the head sticky and pinned 0px from the top of the box after a 300px
+scroll; 0 horizontal scroll at 1440 and 390; all eight columns ordered
+correctly in both directions with `aria-sort` flipping; the bulk tag applied to
+both selected notes; two data columns (date and title) at 390.

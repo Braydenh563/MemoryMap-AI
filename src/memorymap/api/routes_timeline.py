@@ -29,7 +29,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.core.database import Entry, EntryDate, utcnow
+from memorymap.core.database import Entry, EntryDate, Space, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
 
@@ -129,10 +129,19 @@ def timeline(
 
     categories = manager.bulk_category_names(session, entries)
 
+    # The table view's columns (TIMELINE_PLAN decision 6): which space a note
+    # is in, how long it is and how many notes it is joined to. All three are
+    # one query each for the whole page rather than one per row, the same
+    # batching `resolved` above uses: a timeline over a year of writing is
+    # hundreds of rows and this endpoint is drawn on every visit to the tab.
+    spaces = {space.id: space.name for space in session.scalars(select(Space))}
+    links = manager.links_for_entries_bulk(session, [entry.id for entry in entries])
+
     placed = []
     for entry in entries:
         mention = resolved.get(entry.id)
         at = mention.at if mention else entry.created_at
+        text = manager.readable_content(entry)
         placed.append(
             {
                 "id": entry.id,
@@ -150,7 +159,16 @@ def timeline(
                 # "Thread" never needs a second fetch.
                 "parent_id": entry.parent_id,
                 "pinned": entry.pinned,
-                "preview": _clip(manager.readable_content(entry)),
+                # The space's own name, not its id: the id is a slug nobody
+                # named, and the column has to be readable. It falls back to
+                # the id for a space that has been deleted out from under its
+                # notes, which is more honest than an empty cell.
+                "space": spaces.get(entry.workspace_id, entry.workspace_id),
+                # A word count, not a character count: it is the number people
+                # think in, and `_clip` has already thrown the characters away.
+                "words": len(text.split()),
+                "links": len(links.get(entry.id, [])),
+                "preview": _clip(text),
             }
         )
 

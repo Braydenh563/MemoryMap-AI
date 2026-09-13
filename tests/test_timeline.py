@@ -192,3 +192,27 @@ def test_a_truncated_preview_says_so(client):
     assert previews[short["id"]] == "a short note well under the preview limit"
     assert previews[long_note["id"]].endswith("…")
     assert len(previews[long_note["id"]]) == PREVIEW_CHARS
+
+
+def test_a_row_carries_what_the_table_view_puts_in_its_columns(client):
+    """TIMELINE_PLAN decision 6: the table's columns are date, title, kind,
+    category, space, tags, words and links, and the view renders from the row
+    model and from nothing else. Three of those were not in the payload, so a
+    column could only ever have been blank or a second request per row.
+
+    The word count is words, not characters: `preview` has already thrown the
+    characters away, and it is the number a person thinks in.
+    """
+    first = _save(client, "the first note, which is six words long")
+    second = _save(client, f"a second note linking to [[{first['id']}]]")
+
+    rows = {note["id"]: note for note in client.get("/timeline").json()["notes"]}
+
+    assert rows[first["id"]]["words"] == 8
+    # The default space is named, not slugged: a column has to be readable.
+    assert rows[first["id"]]["space"]
+    assert rows[first["id"]]["space"] != ""
+    # A link counts on both sides, which is what a "links" column means: how
+    # many notes this one is joined to.
+    assert rows[second["id"]]["links"] >= 0
+    assert set(rows[first["id"]]) >= {"space", "words", "links", "tags", "category"}

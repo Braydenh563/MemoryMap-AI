@@ -31,6 +31,14 @@ below). Versioning is `0.x` while the app stabilises.
   390: 0 horizontal scroll (was 7,663px), 48 of 48 rows with a readable title
   (was 0), sticky headers pinned at 0px from the top of the feed.
 
+- **The Timeline has a table view.** The same notes with every column at once:
+  date, title, kind, category, space, tags, words and links, each sortable from
+  its own column label, with a sticky head and two columns on a phone. Ticking
+  rows drives the Notes list's own Move, Tag and Delete, over the same
+  selection and with the same undo. `/timeline` now returns a note's space,
+  word count and link count for those columns. Switching between the feed and
+  the table is a repaint: it reloads nothing.
+
 ### Added
 
 - The README's tour is thirteen screenshots of the current interface, up from

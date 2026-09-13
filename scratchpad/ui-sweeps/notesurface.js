@@ -164,6 +164,29 @@ const ok = (name, condition, detail) => {
   ok("clearing the textarea clears the view", cleared.view === "" && cleared.value === "",
     JSON.stringify(cleared));
 
+  // The whole point of the mirror, end to end: a note typed into the view is
+  // what `saveEntry` sends, and clearing the box afterwards clears the view
+  // with it. Both halves through the app's own save, not through the adapter.
+  // Through the surface, not a click on the element: the mirror is laid over
+  // the view with `pointer-events: none`, so a click on it lands nowhere (and
+  // times out), which is the mirror doing exactly what it should.
+  await page.evaluate(() => asSurface(document.getElementById("entry-content")).focus());
+  await page.waitForTimeout(400);
+  await page.keyboard.type("A note saved through the engine.");
+  await page.waitForTimeout(300);
+  const savedNote = await page.evaluate(async () => {
+    await saveEntry();
+    const box = document.getElementById("entry-content");
+    const response = await fetch("/entries?limit=3", { headers: { "X-Auth-Token": authToken() } });
+    const rows = await response.json();
+    const list = Array.isArray(rows) ? rows : rows.items || [];
+    return { stored: list.length ? list[0].content : null, box: box.value, view: asSurface(box).text };
+  });
+  ok("a note typed into the view is what the app saves",
+    savedNote.stored === "A note saved through the engine.", JSON.stringify(savedNote.stored));
+  ok("and saving clears the box and the view together",
+    savedNote.box === "" && savedNote.view === "", JSON.stringify(savedNote));
+
   // A note to edit, through the app's own endpoint (`/entries`; `/notes`
   // answered 405 and cost a run), then the browse sub-tab it is listed in.
   await page.evaluate(async () => {

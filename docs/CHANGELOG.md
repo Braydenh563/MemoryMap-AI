@@ -30,6 +30,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A Files row's metadata starts to the right of its filename, not to the left of
+  it. The name is a `figcaption` with an 8px inset of its own, while every block
+  under it sat on the row's own margin, so the kind, size, reading controls and
+  description all began 8px further left than the name they belong to. They
+  share one edge 12.8px to its right now, measured at 1440, 820 and 390.
+
 - The bar of actions for a selection stays with the selection. Tick something
   in the Library, the Notes list or the timeline table and the bar that appears
   now sticks to the top of the list it governs instead of scrolling away with

@@ -23754,6 +23754,22 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     its `src` list at the .ttf); `git status --ignored` shows no stray temp
     files, the scratch data dirs live under /tmp, the pack is 21.7 MB.
 
+160. **Mid-work drop, 2026-09-13, verbatim (the owner), the Files sub-tab, one
+    screenshot (a PDF row: the name on one line, "PDF, 121 KB, added" and the
+    Read and Open reader controls on the next, starting under the name's left
+    edge).** "in the files subtab files row, the metadata starts to the left
+    below the filename, I feel like the metadata should start indented to the
+    right of the filename".
+
+    **Fixed** 2026-09-13. It was literally to the left: the filename is a
+    `figcaption` carrying `padding: var(--space-3)` for the Images grid, while
+    every block under it sat on the tile's own margin, so the metadata began 8px
+    further left than the name (measured: name x=179.6, facts, meta and
+    description all x=171.6, at 1440, 820 and 390). The indent is the name's own
+    inset plus one step, on every block below the name at once, so they share
+    one edge 12.8px to its right. `scratchpad/ui-sweeps/filesindent.js`, two
+    rows, three widths, 0 console errors.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

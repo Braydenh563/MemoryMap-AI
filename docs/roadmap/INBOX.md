@@ -60,13 +60,6 @@ open and half finished stuff?"), which is a decision, not work.
 
 ## Open items
 
-160. **Mid-work drop, 2026-09-13, verbatim (the owner), the Files sub-tab, one
-    screenshot (a PDF row: the name on one line, "PDF, 121 KB, added" and the
-    Read and Open reader controls on the next, starting under the name's left
-    edge).** "in the files subtab files row, the metadata starts to the left
-    below the filename, I feel like the metadata should start indented to the
-    right of the filename".
-
 158. **Mid-work drop, 2026-09-13, verbatim (the owner), the document editor's
     AI assistant dialog, two screenshots (the whole dialog, and the
     Edit/Write/Remove segment).** "also redesign and improve the ui and

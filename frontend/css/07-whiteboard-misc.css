@@ -10671,9 +10671,37 @@ header#top-bar {
    half. `.library-image-fields` carries its own horizontal padding for the
    Images grid, where the tile itself has none; in the rows layout the tile
    supplies the padding and the field block's own is a second inset on top of
-   it. Reported as "this text needs to be better aligned in the files". */
-.library-file-rows .library-image-tile > .library-image-fields {
-  padding-left: 0;
+   it. Reported as "this text needs to be better aligned in the files".
+
+   **And then the whole lower half moved one step right, on purpose** (INBOX
+   160, verbatim: "in the files subtab files row, the metadata starts to the
+   left below the filename, I feel like the metadata should start indented to
+   the right of the filename"). The two reports agree rather than fighting: the
+   first is about three blocks at three different left edges, the second is
+   about where that one shared edge should be.
+
+   And it was literally to the left, which a glance at the box edges denies:
+   the filename is a `figcaption`, which carries `padding: var(--space-3)` of
+   its own (00-tokens-shell.css) for the Images grid, where the tile has no
+   padding at all. So with every block below it pinned at the tile's own edge,
+   the metadata began 8px **further left** than the name it belongs to.
+   Measured at 1440, 820 and 390 (`scratchpad/ui-sweeps/filesindent.js`, which
+   reads content edges rather than box edges for exactly this reason): the name
+   at x=179.6 and the facts, the meta line and the description all at x=171.6.
+
+   So the indent is the name's own inset plus one step, which states the
+   relationship rather than picking a number: everything under the name starts
+   12.8px to the right of it, at one edge, and the name is the only thing on
+   the row's own margin. `--space-5` rather than a bigger step because the text
+   column is 190.8px at 390, where the facts line already wraps, and an indent
+   is not worth a third line. `padding-right` stays at zero: the kebab's
+   clearance is the name's own (`figcaption`'s `padding-right` above), and a
+   right inset here would pull the facts line in from an edge nothing sits
+   at. */
+.library-file-rows .library-image-tile > .library-image-fields,
+.library-file-rows .library-image-tile > .library-file-facts,
+.library-file-rows .library-image-tile > .library-image-provenance {
+  padding-left: calc(var(--space-3) + var(--space-5));
   padding-right: 0;
 }
 

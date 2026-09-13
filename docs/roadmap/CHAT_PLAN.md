@@ -169,12 +169,10 @@ supported sentences carry a mark to the right note (fixtures name the
 note); a skill run cites the notes it read; hover highlights the passage;
 "I don't know" appears on the two unanswerable fixtures.
 
-### Phase 2: one composer, bubbles, streaming (one session)
-Decisions 5 to 7. **Gate:** composer ≤ 2 rows at rest at 1024 and one
-row at 1440; skills menu inside the viewport; user bubble contrast both
-themes; the indicator animates (frame hash differs) and is static under
-reduced motion; no layout shift when "Jump to latest" appears (CLS
-measured 0).
+### Phase 2: one composer, bubbles, streaming: **built 2026-09-13**, see
+[HISTORY.md](HISTORY.md) "Moved from the plans, 2026-09-13". Gate green
+(`scratchpad/ui-sweeps/chatphase2.js`), with one gate line superseded by the
+owner's own later instructions and said so there.
 
 ### Phase 3: Ask unified, popup agent (half a session)
 Decisions 8, 9, 11. **Gate:** Ask renders the answer object; follow-ups

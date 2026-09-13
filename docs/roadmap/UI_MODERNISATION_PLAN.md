@@ -258,6 +258,42 @@ that need building rather than fixing.
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", UI_MODERNISATION_PLAN.md) on 2026-09-09: a plan holds open work only.
 
+### Decided, 2026-09-13 — how the page reader is reached (do not remake)
+
+From INBOX 125: "alsi I want an easier and more accessible way to access the
+ocr workspace as a proper and more central feature." Triaged against the
+running app first, because "already exists" is where triage starts, and four
+doors were already there: the Files row's own filled "Read this" / "Open
+reader" (the 2026-09-12 decision above), the image card's kebab, the
+lightbox's "Read text with AI" and its kebab's "See text on the page", and the
+toast that offers the way back while a read is still running.
+
+What every one of them has in common is the answer: **each door starts from a
+file you have already found.** There is no way in from "I want to read
+something", and the reader is absent from both of the app's own "what can this
+do" surfaces. That is the same gap, in the same words, as the meeting
+recorder's ("I would also like the meeting notes popup to be expanded as a
+proper feature ... which is also accessible throughout the app, not just from
+the dashboard"), and it gets the same answer, because inventing a second
+pattern for the same shape is what DESIGN.md's recipe index exists to stop.
+
+- **The command palette and Tools & features, and nothing new.** Ctrl/Cmd-K
+  reaches "Read a document or image with AI" from any tab, and the features
+  browser lists it beside Attachments, which is the entry a person who does
+  not know the reader exists will actually meet. Those two are the app's
+  answer to "make X reachable from anywhere"; a fifth per-file door, a nav
+  item or a dock button would each be a new pattern for a feature that already
+  has four.
+- **It opens on a file rather than on a picker**, in this order: the file you
+  last had open in it, else the most recently added readable file, else the
+  Files sub-tab with a line saying there is nothing to read yet. The reader's
+  own rail already lists every image and file in the notebook (it learned to
+  load them itself when "if I open it from the lightbox when viewing an image,
+  no other files or images show" was reported), so a picker in front of it
+  would be a second list of the list it already has.
+- **No new markup.** Both entries are rows in existing catalogues, so there is
+  no new id, no new surface and nothing for the recipe index to cover.
+
 ### Decided, 2026-09-12 — what a Files row is for (do not remake)
 
 From INBOX 115, "the files rows in files still needs some ui improvement and

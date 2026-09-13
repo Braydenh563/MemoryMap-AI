@@ -9,6 +9,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The page reader has a way in that does not start from a file. It was
+  reachable only from a file you had already found (a Files row, an image
+  card's menu, or the lightbox), so "I want to read something" had no answer.
+  It is in the command palette and in Tools & features now, and opens on what
+  you were last reading, else your newest PDF or picture, else the Files
+  sub-tab with a line saying there is nothing to read yet.
+
 - Documents: a paragraph can be linked to. "Link to this block" in the "/"
   menu gives the paragraph the caret is in a short id and copies
   `[[Document title#^the-id]]`, which resolves from a note, a map node, a chat

@@ -3614,6 +3614,57 @@ function reopenOcrWorkspace() {
 }
 window.reopenOcrWorkspace = reopenOcrWorkspace;
 
+//: **The way in that does not start from a file.**
+//:
+//: Reported: *"I want an easier and more accessible way to access the ocr
+//: workspace as a proper and more central feature."* Every door the reader had
+//: (the Files row's own button, the image card's kebab, the lightbox's "Read
+//: text with AI" and its kebab) starts from a file you have already found, so
+//: there was no answer at all to "I want to read something". The decision, in
+//: UI_MODERNISATION_PLAN.md ("how the page reader is reached"), is the one the
+//: meeting recorder's identically worded report already produced: the command
+//: palette and the Tools & features browser, which are this app's two answers
+//: to "reachable from anywhere", and no fifth per-file door.
+//:
+//: It opens on a file rather than on a picker because the reader's own rail is
+//: already a list of every image and file in the notebook (`ocrLoadSiblings`),
+//: so a chooser in front of it would be a second copy of the list behind it.
+//: The order is the one that is right most often: what you were last reading,
+//: then the newest thing you could read, then an honest empty state.
+async function openPageReader() {
+  //: The file you last had open in the reader, if this session has had one.
+  //: `reopenOcrWorkspace` also restores the page you were on, which is the
+  //: whole reason to prefer it over re-picking the same file from the cache.
+  if (reopenOcrWorkspace()) return true;
+  const rows = await ocrLoadSiblings().catch(() => []);
+  //: The same extension test the lightbox's own menu row uses to decide
+  //: whether the reader can open a thing at all. A `.docx` in the notebook is
+  //: a file the reader has no raster for, and offering it here would be a door
+  //: onto an empty stage.
+  const readable = (rows || []).filter((row) =>
+    /\.(png|jpe?g|gif|webp|bmp|pdf)$/i.test(row.original_name || row.filename || "")
+  );
+  if (!readable.length) {
+    //: Not a dead end: the Files sub-tab is where a file gets into the
+    //: notebook, so the empty case ends where the next step is.
+    toast("Nothing to read yet. Add a PDF or a picture and it opens here.");
+    switchTab("library");
+    document.querySelector('#library-subtabs button[data-media-kind="files"]')?.click();
+    return false;
+  }
+  //: `ocrSiblingCache` keeps `/media` then `/files/gallery` in the order each
+  //: route returns them, which is the order the Library's own lists show:
+  //: newest first. So this is the newest document you have, and a picture only
+  //: if you have no documents at all: "read this for me" is asked about a scan
+  //: far more often than about a photograph, and whichever this picks, every
+  //: other file is one click away on the rail beside it.
+  const target = readable.find((row) => ocrIsPdf(row)) || readable[0];
+  openOcrWorkspace(target, readable);
+  return true;
+}
+
+window.openPageReader = openPageReader;
+
 //: **Which list the rail is showing.** "pages" is only reachable while a PDF
 //: is open; the other two are always available, which is the point.
 let ocrRailMode = "images";

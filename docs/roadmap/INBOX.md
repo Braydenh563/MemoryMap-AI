@@ -194,18 +194,6 @@ never lost to the smaller stuff.
     label present, the button mid-record as a bare stop square, then the
     button afterwards as a bare microphone).
 
-125. **Mid-work drop, 2026-09-13, verbatim (the owner), on the OCR
-    workspace.** "when I open a pdf file in the lighbox and press the read
-    text with ai, it opens the ocr workspace but behind the lightbox so the
-    lightbox needs to close when the workspace opens, alsi I want an easier
-    and more accessible way to access the ocr workspace as a proper and
-    more central feature."
-
-    Two things again: a bug (the workspace opens behind the lightbox that
-    launched it, so it is unreachable without closing the lightbox by hand)
-    and a request (the workspace is reachable only from inside a lightbox,
-    and the owner wants it as a feature with its own way in).
-
 114. **Mid-work drop, 2026-09-12 afternoon, verbatim (the owner), six
     reports across five screenshots.** In order as sent:
     - "I think the border shadow on elements like these are too strong"

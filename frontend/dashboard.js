@@ -1070,6 +1070,12 @@ function featureCatalog() {
       { name: "Sketch pad", desc: "Draw something and save it as a note with a caption.", run: () => openSketch() },
       { name: "Dictation", desc: "Speak a note; transcribed locally with Whisper.", run: () => { switchTab("notes"); showNotesSection("capture"); } },
       { name: "Attachments", desc: "Attach files and images to any note.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
+      // Beside Attachments, which is the entry a person who has files in the
+      // notebook is already reading. Asked for directly: "I want an easier and
+      // more accessible way to access the ocr workspace as a proper and more
+      // central feature." This browser and the command palette are the app's
+      // two answers to that, and the reader had been in neither.
+      { name: "Page reader", desc: "Open a PDF or picture beside the text read from it, page by page.", run: () => { closeFeatures(); window.openPageReader?.(); } },
       { name: "Threads", desc: "Continue a thought to build a train of related notes.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
       { name: "Pins & tags", desc: "Pin important notes and organise with tags.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
       { name: "Recycle bin", desc: "Deleted notes are recoverable until the bin is cleared.", run: () => { switchTab("notes"); showNotesSection("browse"); } },

@@ -23360,3 +23360,51 @@ the behaviour that shipped before this.
 "searchable from the Library's filter" is not built: `library.js` was another
 agent's file. The properties are parsed and editable, and nothing filters on
 them. It is written up in `agent-remaining/documents-phase4.md`.
+## INBOX resolved, 2026-09-13
+
+125. **Mid-work drop, 2026-09-13, verbatim (the owner), on the OCR
+    workspace.** "when I open a pdf file in the lighbox and press the read
+    text with ai, it opens the ocr workspace but behind the lightbox so the
+    lightbox needs to close when the workspace opens, alsi I want an easier
+    and more accessible way to access the ocr workspace as a proper and
+    more central feature."
+
+    Two things again: a bug (the workspace opens behind the lightbox that
+    launched it, so it is unreachable without closing the lightbox by hand)
+    and a request (the workspace is reachable only from inside a lightbox,
+    and the owner wants it as a feature with its own way in).
+
+    **Both done, 2026-09-13.**
+
+    The bug was a stacking contest nobody had noticed losing: `.lightbox` is
+    `z-index: 1020` (raised there to clear the CSS full-screen graph) and the
+    workspace is a `.modal-overlay` at 1010, so it really did open underneath.
+    Reproduced in Chromium before the fix: with the lightbox still up, a hit
+    test on the workspace's own first button returned `.lightbox-stage`. The
+    answer is the one the gallery kebab's "See text on the page" row ten lines
+    away already used, `close()` first, rather than raising the workspace above
+    the lightbox: two stacked overlays leave the page behind unreachable
+    whichever of them wins. After: the lightbox is gone from the DOM, the
+    workspace is visible, the topmost element at its own centre is
+    `#ocr-workspace`, its first button takes a real click, 0 console errors.
+
+    The request was triaged against the running app first and the reader turned
+    out to have four doors already, all of which start from a file you have
+    already found. What was missing is the app's two "reachable from anywhere"
+    surfaces, which is the same gap the meeting recorder's identically worded
+    report produced, so it gets the same answer: a command palette entry and a
+    Tools & features entry, both calling `openPageReader` (library.js), which
+    opens on the file you last read, else your newest PDF or picture, else the
+    Files sub-tab with a line saying there is nothing to read yet. Measured: the
+    palette entry opens the reader on a two-page PDF at page 1 with the
+    workspace topmost; the features entry matches one row, closes the browser
+    and opens the reader; the empty branch lands on Library, Files selected,
+    with the toast. 0 console errors on all three. The decision, including the
+    doors deliberately not built, is in UI_MODERNISATION_PLAN.md, "Decided,
+    2026-09-13, how the page reader is reached".
+
+    Not verified: no vision model or Tesseract ran, so nothing here says the
+    reader's *reading* works, only that the window opens on the right file from
+    the right places. The PDF rasteriser extra (pypdfium2) had to be installed
+    in the sandbox to get a PDF into the lightbox's page view at all.
+

@@ -157,10 +157,36 @@ def test_the_stepper_and_the_chips_are_cleared_between_files():
 
 def test_the_workspace_opens_at_the_page_on_screen():
     """Phase 7.1's "a way into the OCR Workspace at that page"."""
-    assert "openOcrWorkspace(lightboxOcrTarget, [], docPageCount ? docPage : 0)" in LIGHTBOX
+    assert "const atPage = docPageCount ? docPage : 0;" in LIGHTBOX
+    assert "window.openOcrWorkspace(target, [], atPage);" in LIGHTBOX
     library = Path("frontend/library.js").read_text(encoding="utf-8")
     assert "function openOcrWorkspace(image, images, page = 0)" in library
     assert "ocrLoadPage(image, startPage)" in library
+
+
+def test_the_lightbox_leaves_before_the_workspace_arrives():
+    """Reported: "when I open a pdf file in the lighbox and press the read text
+    with ai, it opens the ocr workspace but behind the lightbox so the lightbox
+    needs to close when the workspace opens."
+
+    `.lightbox` is z-index 1020 (raised there to clear the CSS full-screen
+    graph) and the workspace is a `.modal-overlay` at 1010, so it opened
+    underneath and every click landed on the lightbox's dismiss backdrop:
+    reproduced in Chromium, where a hit test on the workspace's own first button
+    returned `.lightbox-stage`.
+
+    The close has to come before the call and the target has to be read into a
+    local first, since `close()` empties the lightbox's state. Ordering is what
+    this guards, because both lines on their own look correct.
+    """
+    body = LIGHTBOX[LIGHTBOX.index("const readWithAiBtn") :]
+    body = body[: body.index("window.openOcrWorkspace(target, [], atPage);")]
+    assert "const target = lightboxOcrTarget;" in body, (
+        "the target is read after the dismiss, which has already cleared it"
+    )
+    assert body.rindex("close();") > body.rindex("const atPage"), (
+        "the lightbox is still up when the workspace opens, which is the report"
+    )
 
 
 def test_the_workspace_target_carries_the_url_its_pages_are_served_from():

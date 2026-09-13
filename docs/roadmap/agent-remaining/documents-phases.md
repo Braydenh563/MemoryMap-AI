@@ -5,6 +5,30 @@ Probes written this session: `scratchpad/ui-sweeps/doccomments.js`,
 `prosefit.js`, `aiedit.js`, `docnarrow.js`. Each exits non-zero on failure and
 prints its numbers; run them before and after touching anything they cover.
 
+## Landed, session of 2026-09-13 (evening)
+
+Resumable from `git log` plus this list; the file is updated after every
+commit.
+
+- **INBOX 191, the live table view.** `c869320`. A hidden pipe leaves three
+  zero-width children in the line and `grid-auto-flow: column` gave each a
+  track: three columns drawn as fifteen, cells at 51.6px, every word wrapped;
+  a spelling underline was drawn outside the cell mark and split one cell into
+  five. Cells are placed by index now (`cm-md-cols-N` / `cm-md-cN`), the rest
+  pinned at zero width, findings nest inside. `doctable.js` 24/24 light and
+  dark.
+- **INBOX 192, the Edit / Write / Remove row.** `e4fa704`. `.seg`'s numbers:
+  track 15.4px (was 11.2), segment 10.4px and concentric (was 6), three equal
+  101.2px segments on a grid (were 73.4/82.7/101.2), a focus ring, and the
+  verbs behind a `data-help-for` '?'. `aiedit.js` extended, PASS both themes.
+- **Phase 6 item 1, the phone formatting bar.** `6ee8134`. `.thumb-bar` is a
+  new DESIGN.md recipe row with its lint in the same commit. `docnarrow.js`
+  extended: 7 actions, 44px smallest, foot at the window edge, bold and the
+  "/" menu driven from the bar, absent above 600.
+- **Next:** documents-phases item 2 (Phase 6 item 2, the outline sheet:
+  decide, then build only if it earns itself), then item 4 (Phase 8), then
+  Phase 7's rest.
+
 ## Landed
 
 - **DOCUMENTS_PLAN Phase 5 item 1, comments.** `ec2f276`. Block moved to

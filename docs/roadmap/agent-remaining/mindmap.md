@@ -321,5 +321,5 @@ list plus `git log`.
 - done `8733578`: INBOX 183a, the middle-button pan. `scratchpad/ui-sweeps/mappan.js`, 11 checks.
 - done `5280e63`: INBOX 183b, the pan desync. Transform on the `<svg>` roots; `scratchpad/ui-sweeps/panlayers.js` reads the layer tree.
 - next: INBOX 183c and 183e plus item 1 of "Left to do", which are one piece of work: `#wb-topbar` (index.html 4307 to 4513) overflows by 152px at 1024 and 113px at 820, measured by `scratchpad/ui-sweeps/mapmenus.js`.
-- done `PENDING1`: INBOX 183c and 183e, and the first half of "Left to do" item 1. Layout and Tidy are in the dock; the bar has 0 controls past the window edge at 1440, 1024 and 820 (`scratchpad/ui-sweeps/mapmenus.js`, 11 checks). Arrange's height did not reproduce: 493px against View's 453.
+- done `d15899f`: INBOX 183c and 183e, and the first half of "Left to do" item 1. Layout and Tidy are in the dock; the bar has 0 controls past the window edge at 1440, 1024 and 820 (`scratchpad/ui-sweeps/mapmenus.js`, 11 checks). Arrange's height did not reproduce: 493px against View's 453.
 - next: INBOX 183d, no default board type in the new-board dialog. Grep `wb-boards-new` in `whiteboard.js` for the dialog that `mapmenus.js`'s `newBoard` drives.

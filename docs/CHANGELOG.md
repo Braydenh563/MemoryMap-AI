@@ -64,6 +64,11 @@ below). Versioning is `0.x` while the app stabilises.
   0px horizontally and 4px below the word after the scroll, closed after the
   word leaves the box.
 
+- Mind map branches are drawn as tapered ribbons, wide at the parent and
+  narrowing towards the child, so a map reads as a tree growing outwards and
+  each branch says which way it runs without an arrowhead. Lines you have set
+  to straight, elbow or dashed keep the look you chose.
+
 - A link tool on a mind map connects the map. Drawing a line from a topic to
   one that hangs off nothing now attaches it as a branch, with a real tree
   edge, instead of leaving a decorative curve over a node that is still not

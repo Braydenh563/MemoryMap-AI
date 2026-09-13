@@ -99,7 +99,18 @@ measured or built in earlier commits and is marked there.
       two rooted nodes, makes one sketch and leaves the root a root;
     - the radial ring around a node: what its options are and how they work
       are unintuitive;
-    - the direction connectors want a better, more modern look;
+    - the direction connectors want a better, more modern look: **done,
+      2026-09-13.** A map's default branch is a filled ribbon now rather than a
+      stroke, wide where it leaves the parent and tapering to the child, which
+      is the Coggle reading both reports have been circling. The taper carries
+      the direction, so there is no arrowhead on every line. A line explicitly
+      set to straight, elbow or dashed through the link ring keeps its stroke
+      and its arrowhead: a dash is a property of a stroke. Measured
+      (`scratchpad/ui-sweeps/mapribbon.js`, dark): three ribbon edges at 6.5
+      units wide at the parent and 2 at the child, each filled in its own
+      branch colour with no marker, the one straight edge still stroked at 3
+      with its arrow, and every hit twin still the centreline rather than the
+      ribbon's outline;
     - and, taken together, the map is annoying to use, which is the shape of
       the work rather than a sixth item.
 

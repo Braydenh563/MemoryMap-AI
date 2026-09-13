@@ -9277,6 +9277,24 @@ input[type="file"] {
   pointer-events: none;
 }
 
+/* **A branch drawn as a shape** (INBOX 180: the connectors want "a better and
+   more modern professional look"). The default curve is a filled ribbon now,
+   wide at the parent and tapering to the child (`wbMapRibbonD`), which is the
+   Coggle reading the two reports have been circling: the direction is carried
+   by the taper itself, so there is no arrowhead on every line, and a wall of
+   branches reads as one tree rather than as a diagram of wires.
+
+   Only the ribbon's paint lives here. A line explicitly set to straight,
+   elbow or dashed keeps the stroke rules below: a dash is a property of a
+   stroke, and a person who chose a plain line asked for one. */
+.wb-map-edge.wb-map-edge-ribbon {
+  fill: var(--wb-map-edge-colour, var(--accent));
+  stroke: none;
+  /* The taper is the direction. A marker on a closed outline would be placed
+     at the end of the *outline*, which is back at the parent. */
+  marker-end: none;
+}
+
 .wb-map-edge {
   fill: none;
   /* The branch's own colour when the renderer has one for this edge, the

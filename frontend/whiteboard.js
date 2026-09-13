@@ -4119,6 +4119,82 @@ function wbMapEdgePathD(parent, child, layout) {
     : `M${a.x1} ${a.y1} C${a.x1} ${my} ${a.x2} ${my} ${a.x2} ${a.y2}`;
 }
 
+//: **A branch is a shape, not a line** (INBOX 180: "can you give the direction
+//: connectors a better and more modern professional look??", after 177 asked
+//: for Coggle's refined thick branches).
+//:
+//: Coggle's branches are not strokes: each one is a filled ribbon, wide where
+//: it leaves the parent and narrow where it reaches the child, which is what
+//: makes a map read as a tree growing outwards rather than as a diagram of
+//: boxes joined by wires. It also carries the direction the earlier report
+//: asked for without an arrowhead on every line: thick end to thin end says
+//: which way the branch runs, at every zoom, with nothing extra drawn.
+//:
+//: Sampled rather than solved: the offset curve of a cubic is not itself a
+//: cubic, so the honest way to draw one is to walk the curve, take the normal
+//: at each step, and push out by half the width wanted there. Twenty-four
+//: steps is smooth at every zoom this canvas allows (the curve is at most a
+//: few hundred units across and the error between samples is well under a
+//: pixel at 4x), and the whole ribbon is one closed path either way.
+//:
+//: Only the default curve is drawn this way. An edge explicitly set to
+//: straight, elbow or dashed through the link ring keeps its stroke: a dash
+//: is a property of a stroke and has no meaning on a fill, and a person who
+//: chose a plain line asked for a plain line.
+const WB_MAP_RIBBON_STEPS = 24;
+const WB_MAP_RIBBON_WIDE = 6.5;
+const WB_MAP_RIBBON_THIN = 2;
+
+function wbMapCubicAt(t, p0, c0, c1, p1) {
+  const u = 1 - t;
+  const x = u * u * u * p0.x + 3 * u * u * t * c0.x + 3 * u * t * t * c1.x + t * t * t * p1.x;
+  const y = u * u * u * p0.y + 3 * u * u * t * c0.y + 3 * u * t * t * c1.y + t * t * t * p1.y;
+  //: The derivative, for the normal. Taken analytically because a difference
+  //: between two samples is wrong at exactly the two places it matters most,
+  //: the ends, where there is no sample on one side.
+  const dx = 3 * u * u * (c0.x - p0.x) + 6 * u * t * (c1.x - c0.x) + 3 * t * t * (p1.x - c1.x);
+  const dy = 3 * u * u * (c0.y - p0.y) + 6 * u * t * (c1.y - c0.y) + 3 * t * t * (p1.y - c1.y);
+  return { x, y, dx, dy };
+}
+
+function wbMapRibbonD(parent, child, layout) {
+  const a = wbMapEdgeAnchors(parent, child, layout);
+  const mx = (a.x1 + a.x2) / 2;
+  const my = (a.y1 + a.y2) / 2;
+  const p0 = { x: a.x1, y: a.y1 };
+  const p1 = { x: a.x2, y: a.y2 };
+  const c0 = a.horizontal ? { x: mx, y: a.y1 } : { x: a.x1, y: my };
+  const c1 = a.horizontal ? { x: mx, y: a.y2 } : { x: a.x2, y: my };
+  const left = [];
+  const right = [];
+  for (let i = 0; i <= WB_MAP_RIBBON_STEPS; i += 1) {
+    const t = i / WB_MAP_RIBBON_STEPS;
+    const point = wbMapCubicAt(t, p0, c0, c1, p1);
+    const length = Math.hypot(point.dx, point.dy) || 1;
+    const nx = -point.dy / length;
+    const ny = point.dx / length;
+    //: Eased rather than linear, so the branch keeps its weight for the first
+    //: part of its run and tapers over the second, which is how a real branch
+    //: (and Coggle's) looks; a straight ramp reads as a wedge.
+    const half = (WB_MAP_RIBBON_THIN
+      + (WB_MAP_RIBBON_WIDE - WB_MAP_RIBBON_THIN) * (1 - t) * (1 - t)) / 2;
+    left.push([point.x + nx * half, point.y + ny * half]);
+    right.push([point.x - nx * half, point.y - ny * half]);
+  }
+  const at = ([x, y]) => `${Math.round(x * 10) / 10} ${Math.round(y * 10) / 10}`;
+  const forward = left.map((pt, i) => `${i ? "L" : "M"}${at(pt)}`).join("");
+  const back = right.reverse().map((pt) => `L${at(pt)}`).join("");
+  return `${forward}${back}Z`;
+}
+
+//: Which of the two drawings this edge gets. One place, because the render,
+//: the per-frame drag update and the class that styles it all have to agree:
+//: a ribbon painted with a stroke rule is a blob, and a stroke painted with a
+//: fill rule is invisible.
+function wbMapEdgeIsRibbon(child) {
+  return (child.data?.edge_style || "curve") === "curve" && !child.data?.edge_dashed;
+}
+
 //: The tree edges touching `id` (its own edge up to its parent, and one per
 //: child), each with the `<path>` that drew it, collected once per drag.
 //:
@@ -4169,7 +4245,9 @@ function wbMapEdgesFor(id) {
 function wbUpdateMapEdges(edges) {
   for (const { parent, child, el, layout } of edges || []) {
     const d = wbMapEdgePathD(parent, child, layout);
-    el.setAttribute("d", d);
+    // The visible path is the ribbon where the edge has one; the hit twin is
+    // always the centreline, which is what a person is actually pointing at.
+    el.setAttribute("d", wbMapEdgeIsRibbon(child) ? wbMapRibbonD(parent, child, layout) : d);
     if (el._wbHitTwin) el._wbHitTwin.setAttribute("d", d);
   }
 }
@@ -4210,10 +4288,15 @@ function wbRenderMapEdges() {
     for (const child of index.childrenOf.get(parent.id) || []) {
       if (hidden.has(child.id)) continue;
       const path = document.createElementNS(NS, "path");
-      path.setAttribute("class", child.data?.edge_dashed
-        ? "wb-map-edge wb-map-edge-dashed"
-        : "wb-map-edge");
-      path.setAttribute("d", wbMapEdgePathD(parent, child, layout));
+      const ribbon = wbMapEdgeIsRibbon(child);
+      path.setAttribute("class", ribbon
+        ? "wb-map-edge wb-map-edge-ribbon"
+        : child.data?.edge_dashed
+          ? "wb-map-edge wb-map-edge-dashed"
+          : "wb-map-edge");
+      path.setAttribute("d", ribbon
+        ? wbMapRibbonD(parent, child, layout)
+        : wbMapEdgePathD(parent, child, layout));
       // The two ends' ids, so a drag can find *this* edge again and redraw it
       // per frame (`wbMapEdgesFor`). The render itself still replaces the
       // whole group wholesale, see the note below; these attributes are the
@@ -4242,7 +4325,10 @@ function wbRenderMapEdges() {
       //: way, and the visible line is inert.
       const hit = document.createElementNS(NS, "path");
       hit.setAttribute("class", "wb-map-edge-hit");
-      hit.setAttribute("d", path.getAttribute("d"));
+      // The centreline, never the ribbon's outline: a stroke around a closed
+      // shape is a hit area shaped like a hoop, with a hole down the middle
+      // of the very line it is supposed to catch.
+      hit.setAttribute("d", wbMapEdgePathD(parent, child, layout));
       hit.setAttribute("data-parent", String(parent.id));
       hit.setAttribute("data-child", String(child.id));
       wbWireMapEdgeGestures(hit, child.id);

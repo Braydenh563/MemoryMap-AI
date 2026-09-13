@@ -685,3 +685,63 @@
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+
+/* =============================================================================
+   The thumb bar (DESIGN.md's recipe index: a bar of actions above the
+   on-screen keyboard), first used by the documents editor below 600px
+   =============================================================================
+
+   DOCUMENTS_PLAN Phase 6 item 1. The formatting toolbar is a 25-control strip
+   at the top of the pane; at 390px it wraps and it sits at the end of the
+   screen a thumb cannot reach. This is the six actions a phone actually uses,
+   in the corner a thumb owns, and it rides above the keyboard rather than
+   under it.
+
+   **It reads `--keyboard-inset` and never measures the keyboard itself.**
+   app.js's `initKeyboardInset` writes the covered strip from `visualViewport`
+   once, for every surface that needs it (the two bottom docks were the first);
+   a second listener for the same number is how two bars end up disagreeing
+   about where the keyboard is by a few pixels on every resize.
+   `env(keyboard-inset-height)` is the platform's own answer where it exists
+   and is preferred in the `max()` so a browser that knows wins over the
+   measurement. `tests/test_ui_recipes.py` holds both halves. */
+.thumb-bar {
+  display: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  gap: var(--space-1);
+  justify-content: space-around;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  padding-bottom: max(
+    var(--space-1),
+    env(keyboard-inset-height, 0px),
+    var(--keyboard-inset),
+    env(safe-area-inset-bottom, 0px)
+  );
+  background: var(--card);
+  border-top: 1px solid var(--border);
+}
+
+.thumb-bar > button {
+  /* The band's own target rule (DOCUMENTS_PLAN Phase 6: the layout's targets
+     are 44px on a phone, DESIGN.md's global floor stays 28px). */
+  min-width: 44px;
+  min-height: 44px;
+  flex: 0 1 auto;
+  margin-bottom: 0;
+}
+
+@media (max-width: 600px) {
+  .thumb-bar {
+    display: flex;
+  }
+
+  /* The editor keeps its last line above the bar rather than behind it. */
+  #tab-documents .doc-source-wrap {
+    padding-bottom: 56px;
+  }
+}

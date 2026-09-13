@@ -9,6 +9,17 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A phone gets the formatting it can reach. Below 600px the documents editor
+  carries a bar at the bottom edge with bold, italic, heading, list, task,
+  link and the "/" menu, sized for a thumb and riding above the on-screen
+  keyboard on the inset the app already measures. The 25-control strip at the
+  top of the pane is still there for a wider window. Measured with
+  `scratchpad/ui-sweeps/docnarrow.js` at 390x820: 7 actions, the smallest
+  target 44px, the bar's foot on the window's own edge, the last line of the
+  document clear of it, bold writing `**first**` from a selection, the "/"
+  button opening the 19-item insert menu, and the bar absent at 800, 1024 and
+  1440.
+
 - A document can be downloaded as one self-contained HTML file. Images become
   data URIs, the stylesheet is written into the file, comments travel as
   footnotes, controls that only work inside the app are dropped (a `[[link]]`

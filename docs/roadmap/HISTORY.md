@@ -6457,6 +6457,56 @@ a highlight button belongs, and would carry the colour picker with it.
 
 Every "Built" block the plans carried, moved here whole so a plan holds open work only (CLAUDE.md standing order 10). Origin file named on each.
 
+### From DOCUMENTS_PLAN.md
+
+### Built, Phase 6 item 1: the phone formatting bar, 2026-09-13
+
+A bar at the bottom edge below 600px: bold, italic, heading, bulleted list,
+task, link, and the "/" that opens the insert menu. The formatting a phone had
+before this was the same 25-control strip a desktop has, at the top of the
+pane, which is the one part of a phone screen a thumb holding it cannot reach.
+
+**It is a recipe, not a one-off** (standing order 11). `.thumb-bar` is
+DESIGN.md's row for a bar above the on-screen keyboard, and it landed with the
+feature: fixed to the bottom edge, `role="toolbar"` with its own label, shown
+by a `max-width: 600px` block and nothing else, every control at 44px (this
+phase's own target rule for the layout's controls, not DESIGN.md's 28px global
+floor, which is unchanged), and a foot padded with a `max()` of
+`env(keyboard-inset-height)`, `var(--keyboard-inset)` and
+`env(safe-area-inset-bottom)`. `tests/test_ui_recipes.py` holds both halves of
+it: the foot must read the inset, and **nothing but `initKeyboardInset` may
+listen to `visualViewport`**, because the number is written once for every
+surface that wants it and two listeners are how two bars come to disagree about
+where the keyboard is on every resize.
+
+**The six buttons needed no code at all.** `data-md-target="doc-content"` is
+what `initMarkdownToolbars` looks for and `applyMarkdown` already takes a box
+id, so the bar is markup. `data-md-extras="1"` is `mountEditorToolbarExtras`'s
+own idempotence flag, set in the markup so the mount adds nothing: undo, redo,
+indent and outdent are four more controls on the surface with the least room
+for them.
+
+**The "/" button has to type the character, and the caret is why.** The slash
+menu is editor.js's, and `editorTokenAt` looks only at the text *before* the
+selection, so calling `editorOpenMenu` directly would leave a menu open over a
+document with no "/" in it for an item to replace. So the button inserts one
+(with a space in front of it when the character before is not whitespace, which
+is what the token wants) through `docReplaceRange`, the engine's own
+transaction. That alone did not open the menu, and the measurement said so: the
+character landed and nothing happened. `docCmUpdate` calls `editorHandleInput`
+*during* the update that inserted the slash, when the caret is still in front
+of it and there is no token to find. The caret is set after the transaction, so
+`openDocPhoneInsert` calls `editorHandleInput` a second time itself.
+
+Measured, `scratchpad/ui-sweeps/docnarrow.js` (extended here) at 390x820: the
+bar shown, 7 actions, smallest target 44px, its foot at 820 in an 820px window,
+the document's last line clear of it, bold writing `**first**` from a
+selection, the insert button opening the menu with 19 items in it, 0 console
+errors, and the bar `display: none` at 800, 1024 and 1440. **Not verified:** the
+keyboard half. Headless Chromium has no soft keyboard, so `--keyboard-inset` is
+0px in every measurement here and what the bar does when a keyboard opens is
+reasoned, not observed.
+
 ### From UI_MODERNISATION_PLAN.md
 
 ### Built, Phase 9's tablet remainder and Phase 10 items 100, 101 and 103, 2026-09-09

@@ -3289,6 +3289,42 @@
             title="Focus mode: hide everything but the page (Esc to leave)" aria-pressed="false"
             aria-label="Focus mode: hide everything but the page"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
         </div>
+        <!-- **The phone's formatting, where a thumb is** (DOCUMENTS_PLAN
+             Phase 6 item 1). The toolbar above is a 25-control strip that
+             wraps twice at 390px and sits at the top of the pane, which is
+             the one place a thumb holding a phone cannot reach; below 600
+             this bar takes the six actions people actually reach for plus
+             the "/" that opens everything else, and rides above the
+             on-screen keyboard on `--keyboard-inset` (the property app.js
+             already writes from `visualViewport` for the two bottom docks:
+             a second listener for the same number is how two surfaces end
+             up disagreeing about where the keyboard is).
+
+             `data-md-target` is all the wiring it needs: `initMarkdownToolbars`
+             finds it by that attribute and `applyMarkdown` already takes the
+             box id. `data-md-extras="1"` is `mountEditorToolbarExtras`'s own
+             idempotence flag, set here so the mount adds nothing: undo, redo,
+             indent and outdent are four more controls on the surface with the
+             least room for them, and a phone has no Ctrl+Z to match them to. -->
+        <div class="thumb-bar doc-phone-bar" id="doc-phone-bar" role="toolbar"
+          aria-label="Formatting" data-md-target="doc-content" data-md-extras="1">
+          <button type="button" class="icon-only" data-md="bold" title="Bold"
+            aria-label="Bold"><i class="ph ph-text-b" aria-hidden="true"></i></button>
+          <button type="button" class="icon-only" data-md="italic" title="Italic"
+            aria-label="Italic"><i class="ph ph-text-italic" aria-hidden="true"></i></button>
+          <button type="button" class="icon-only" data-md="h2" title="Heading"
+            aria-label="Heading"><i class="ph ph-text-h-two" aria-hidden="true"></i></button>
+          <button type="button" class="icon-only" data-md="ul" title="Bulleted list"
+            aria-label="Bulleted list"><i class="ph ph-list-bullets" aria-hidden="true"></i></button>
+          <button type="button" class="icon-only" data-md="task" title="Task list"
+            aria-label="Task list"><i class="ph ph-check-square" aria-hidden="true"></i></button>
+          <button type="button" class="icon-only" data-md="link" title="Link"
+            aria-label="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
+          <button type="button" class="icon-only" id="doc-phone-insert"
+            title="Insert something (the / menu)" aria-label="Insert something">
+            <i class="ph ph-plus" aria-hidden="true"></i>
+          </button>
+        </div>
         <!-- A textarea's own content is never in the DOM as searchable text
              (that's why the browser's native Ctrl+F can't reach into one),
              so a document past a screen or two of text had no way to find

@@ -161,6 +161,59 @@ def test_the_sheet_recipe_keeps_its_dialog_semantics_and_its_bottom_inset() -> N
     )
 
 
+def test_a_thumb_bar_rides_the_keyboard_inset_it_did_not_measure() -> None:
+    """DESIGN.md's recipe for a bar above the on-screen keyboard.
+
+    Two halves, and neither can be seen in this sandbox: headless Chromium has
+    no soft keyboard, so what a bar does when one opens is only ever reasoned.
+
+    1. The bar's foot is a `max()` of the platform's own
+       `env(keyboard-inset-height)`, the `--keyboard-inset` app.js writes from
+       `visualViewport`, and the home-indicator inset. A bar that pads with
+       none of them sits under the keys on every phone that has them.
+    2. Nothing but `initKeyboardInset` listens to `visualViewport`. The number
+       is written once for every surface that wants it; a second listener is
+       how two bars end up disagreeing about where the keyboard is by a few
+       pixels on every resize, which is the bug this recipe exists to make
+       impossible rather than to fix twice.
+    """
+    feet = []
+    for path in CSS:
+        for selector, body in _rules(path.read_text(encoding="utf-8")):
+            if _leading_name(selector) == ".thumb-bar":
+                feet.append((path.name, body))
+    assert feet, "no .thumb-bar rule: the recipe's own selector has been renamed"
+    padded = [
+        body for _, body in feet
+        if "var(--keyboard-inset" in body and "env(safe-area-inset-bottom" in body
+    ]
+    assert padded, (
+        ".thumb-bar pads its foot with neither --keyboard-inset nor the "
+        "safe-area inset, so it sits under the keyboard and the home indicator"
+    )
+
+    listeners = []
+    for path in JS:
+        text = path.read_text(encoding="utf-8")
+        for match in re.finditer(r"visualViewport", text):
+            line = text.count("\n", 0, match.start()) + 1
+            listeners.append(f"{path.name}:{line}")
+    owner = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    body = owner[owner.index("function initKeyboardInset("):]
+    body = body[: body.index("\n}\n")]
+    assert body.count("visualViewport") == len(listeners), (
+        "visualViewport is read outside initKeyboardInset (" + ", ".join(listeners) + "); "
+        "read the --keyboard-inset property it writes instead"
+    )
+
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    for match in re.finditer(r"<div[^>]*class=\"[^\"]*thumb-bar[^\"]*\"[^>]*>", html):
+        tag = match.group(0)
+        assert 'role="toolbar"' in tag and "aria-label=" in tag, (
+            "a thumb bar is a labelled toolbar: " + tag[:80]
+        )
+
+
 def test_no_inline_style_attributes_in_the_page() -> None:
     """The CSP rejects them silently (CLAUDE.md, section 6, shape 4)."""
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")

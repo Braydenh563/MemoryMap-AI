@@ -8744,6 +8744,41 @@ function wireMdFormatShortcuts(boxOrId) {
 }
 window.wireMdFormatShortcuts = wireMdFormatShortcuts;
 
+//: **The phone bar's "/" button** (DOCUMENTS_PLAN Phase 6 item 1). The six
+//: buttons beside it are `data-md` and need no code at all; this one has to
+//: type the character, because the slash menu is `editor.js`'s and it opens
+//: off what the writer typed rather than off a call: `editorTokenAt` wants a
+//: "/" with whitespace or a line start in front of it, and every other way in
+//: (calling `editorOpenMenu` directly) would leave the menu open over a
+//: document with no "/" in it to remove when an item runs.
+//:
+//: Through `docReplaceRange`, which is the engine's own transaction, so the
+//: update listener calls `editorHandleInput` exactly as it does for a typed
+//: character; on the fallback textarea the same helper goes through
+//: `execCommand` and `finishMarkdownEdit` raises the `input` event editor.js
+//: listens for.
+function openDocPhoneInsert() {
+  const box = docSurfaceById("doc-content");
+  if (!box) return;
+  box.focus();
+  const { selectionStart: start, selectionEnd: end, value } = box;
+  const before = start === 0 ? "\n" : value[start - 1];
+  const insert = /\s/.test(before) ? "/" : " /";
+  docReplaceRange(box, start, end, insert);
+  box.setSelectionRange(start + insert.length, start + insert.length);
+  finishMarkdownEdit(box, "doc-content");
+  //: And then again, by hand, because of *when* the engine reports a change.
+  //: `docCmUpdate` calls `editorHandleInput` while the transaction that
+  //: inserted the "/" is still the current update, and the caret is then
+  //: still in front of it: `editorTokenAt` looks only at the text before the
+  //: selection, finds no slash, and the menu never opens. Measured: the
+  //: character landed and nothing happened. The caret is set above, so this
+  //: second call is the one that has a token to find.
+  if (typeof editorHandleInput === "function") editorHandleInput(box);
+}
+
+$("doc-phone-insert").addEventListener("click", openDocPhoneInsert);
+
 function initMarkdownToolbars() {
   for (const bar of document.querySelectorAll("[data-md-target], #doc-toolbar")) {
     wireMarkdownToolbar(bar);

@@ -329,13 +329,8 @@ the reasoning; `docnarrow.js` asserts it.
 
 **What is left, in order:**
 
-1. **The phone formatting bar** (< 600): a bottom bar above the on-screen
-   keyboard (`env(keyboard-inset-height)` where available, `visualViewport`
-   otherwise, which app.js already writes to a custom property for the two
-   bottom docks) with the six most-used actions and a `/` button. New UI, so it
-   needs its row in DESIGN.md's recipe index and its lint in the same commit
-   (standing order 11). Today a phone's formatting is the opt-in wrapping strip
-   plus the `/` menu, both reachable, neither placed for a thumb.
+1. **The phone formatting bar** (< 600): **built 2026-09-13**, see HISTORY.md
+   "Moved from the plans, 2026-09-13".
 2. **The outline as a sheet from the bottom** (< 600). The sidebar sheet from
    the left already carries the outline, so this is a judgement about whether a
    second sheet earns itself on a phone, not a gap.

@@ -24244,6 +24244,33 @@ order 10). Origin file named on each.
 
 ### From UI_MODERNISATION_PLAN.md
 
+### Two of the three "found, not fixed" items, re-measured and closed, 2026-09-13
+
+Both came out of the Phase 11 handover as open faults. Neither is one now, and
+the reason is different in each case, so both are written down rather than
+quietly dropped.
+
+**`selectMode` is one flag for two tabs: not a defect.** The report was that
+"leaving Notes in select mode turns the timeline's own Select off on the first
+press". One shared flag is TIMELINE_PLAN decision 6 and is not being remade: one
+set, one count, two bars, so a note moved from the table takes exactly the path
+a note moved from the list takes. What would make that a defect is a button out
+of step with it, because a toggle that is on and drawn as off does the opposite
+of what it offers on its first press. Measured with
+`scratchpad/ui-sweeps/selectflag.js`: entering select mode on Notes and then
+arriving at the Timeline's table, the Timeline's Select button is
+`aria-pressed="true"` and lit, its bar is showing and its tick column is drawn
+on all 55 rows. So the first press turning the mode off is the toggle doing what
+it says, and the sweep now holds that.
+
+**`touch.js` at 320: clean.** The handover recorded two covered controls in the
+Settings sheet (`#settings-nav-back` and `#settings-close` both landing on
+`#settings-search` at y=86). Re-measured at 320x844 with `hasTouch`: 20 controls
+in the Settings sheet, 0 under 44px, 0 covered, 0 overlapping taps, and the same
+across all seventeen surfaces, with no sideways scroll. The settings-head fix
+that landed on the branch between the two runs is the likely cause; it is
+recorded here as measured-clean rather than as fixed-by-this-session.
+
 ### Built: an open fold stops inflating its row-mates, 2026-09-13
 
 The INBOX 164 block's leftover, and the one thing in it that was a defect rather

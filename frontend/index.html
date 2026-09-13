@@ -365,10 +365,13 @@
              this" and "tag this" mean something from a panel that floats over
              every tab. Disabled, with a reason, when nothing is open: the
              label is written by `syncAgentOpenNoteToggle`, which names the
-             thing rather than saying "the open note" over an empty notebook. -->
+             thing and its kind ("Use this mind map: test"), because "the open
+             note" answered neither "which one" nor "what counts" (INBOX 189
+             and 190). The markup carries the empty state, which is what is
+             true before the palette has been opened. -->
         <label id="command-palette-use-note-label" class="row align-center checkbox-label small">
           <input type="checkbox" id="command-palette-use-note">
-          <span id="command-palette-use-note-text">Use the open note</span></label>
+          <span id="command-palette-use-note-text">Nothing open to use (open a note, document, board or map first)</span></label>
         <span id="command-palette-status" class="muted text-sm" role="status"></span>
         <button type="button" id="command-palette-clear" class="ghost small"
           title="Forget this conversation and start over"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Start over</button>

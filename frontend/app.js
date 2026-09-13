@@ -41003,13 +41003,47 @@ function agentOpenSubject() {
   if (showing("documents") && typeof currentDoc !== "undefined" && currentDoc?.id) {
     return { kind: "document", id: currentDoc.id, label: currentDoc.title || "this document" };
   }
+  //: **A board is not a note, and saying so was the whole report** (INBOX
+  //: 189, the owner: "I think the test note the popup agent is referring to
+  //: is the mind map I just made called test"). A board and a mind map are
+  //: `Entry` rows like everything else here, so the last thing opened can be
+  //: one of them, and this called it a note: the toggle offered "Use test",
+  //: the run sent it as `note_ids`, and the model was handed a note whose
+  //: whole content is `# test`. `mapBoardById` is the one place that knows
+  //: which entry ids are boards, and a board row carries its own `type`, so a
+  //: map is named a map and a board a board.
+  const asBoard = (id) => {
+    const board = typeof mapBoardById === "function" ? mapBoardById(id) : null;
+    if (!board) return null;
+    const kind = (board.type || "map") === "map" ? "map" : "board";
+    return { kind, id, label: board.title || `${kind} ${id}` };
+  };
+  //: The canvas first: a board open in front of you is more "the thing on
+  //: screen" than whichever note was last opened before you came here.
+  const wbView = $("library-view-whiteboard");
+  const openBoardId = typeof window !== "undefined" ? window.currentBoardId : null;
+  if (openBoardId && wbView && !wbView.classList.contains("hidden") && showing("library")) {
+    return asBoard(openBoardId) || { kind: "board", id: openBoardId, label: `board ${openBoardId}` };
+  }
   const noteId = editingId || lastOpenedEntryId;
   if (!noteId) return null;
+  const board = asBoard(noteId);
+  if (board) return board;
   const entry = (typeof allEntries !== "undefined" ? allEntries : []).find(
     (row) => row.id === noteId
   );
   return { kind: "note", id: noteId, label: entry ? noteLabel(entry, 40) : `note ${noteId}` };
 }
+
+//: What each kind is called in the toggle's label and its tooltip. A table
+//: rather than a chain of ternaries: five states were asked for by name
+//: (INBOX 190), and a table is what makes it obvious when one is missing.
+const AGENT_SUBJECT_WORDS = {
+  note: "note",
+  document: "document",
+  map: "mind map",
+  board: "board",
+};
 
 //: What the toggle actually sends. A document and a note go to different
 //: fields, because `_attached_documents` and `_attached_notes` read different
@@ -41019,10 +41053,20 @@ function agentScopeForRun() {
   if (!box || !box.checked) return {};
   const subject = agentOpenSubject();
   if (!subject) return {};
-  return subject.kind === "document"
-    ? { documentIds: [subject.id] }
-    : { noteIds: [subject.id] };
+  //: **And the kind goes to the server, not just to the label** (INBOX 189).
+  //: `board_ids` has its own reader (`_attached_boards`, routes_chat.py),
+  //: which hands the model the map's outline under "Mind map: <title>"; the
+  //: same id sent as `note_ids` reaches it as an entry whose entire content
+  //: is `# <name>`. Naming it correctly on screen and then sending it as
+  //: something else would have fixed half the report.
+  if (subject.kind === "document") return { documentIds: [subject.id] };
+  if (subject.kind === "map" || subject.kind === "board") return { boardIds: [subject.id] };
+  return { noteIds: [subject.id] };
 }
+
+//: Whether the board index has been asked for since the palette was opened.
+//: See the call below for why it is asked for at all.
+let agentBoardIndexAsked = false;
 
 //: Enabled only when there is something to use, and the label says what that
 //: something is: a tick box offering to scope a run to nothing is the "control
@@ -41035,13 +41079,36 @@ function syncAgentOpenNoteToggle() {
   //: onto the label would delete the control it is labelling.
   const text = $("command-palette-use-note-text");
   if (!box || !label || !text) return;
+  //: **The index that tells a map from a note has to be there to be read.**
+  //: `mapBoardById` answers from a cache filled by whichever surface last drew
+  //: board chips, and the palette opens over every tab, including ones that
+  //: have never asked for boards at all. Without this the fix for INBOX 189
+  //: would work on the Library tab and nowhere else, which is worse than not
+  //: working: it would look fixed. Asked for once per opening (the flag is
+  //: cleared by `toggleAgentPalette`), and the repaint is what puts the right
+  //: word on the label when the answer arrives.
+  if (!agentBoardIndexAsked && typeof loadMapBoardIndex === "function") {
+    agentBoardIndexAsked = true;
+    loadMapBoardIndex().then(() => syncAgentOpenNoteToggle()).catch(() => {});
+  }
   const subject = agentOpenSubject();
   box.disabled = !subject;
   if (!subject) box.checked = false;
-  text.textContent = subject ? `Use ${subject.label}` : "Use the open note";
+  //: **"The open note" answered a question nobody could** (INBOX 190, the
+  //: owner: "what does 'the open note' mean?? what does opening a note even
+  //: entail?? how does one open a note??"). Two faults in one line. It named
+  //: a category where it could name the thing, so the answer to "which note?"
+  //: was a definite article; and with nothing open it still said "the open
+  //: note", which is a checkbox describing something that does not exist.
+  //: Now it says what kind the thing is and what it is called, and when there
+  //: is nothing it says what would count as something.
+  const word = subject ? AGENT_SUBJECT_WORDS[subject.kind] || subject.kind : null;
+  text.textContent = subject
+    ? `Use this ${word}: ${subject.label}`
+    : "Nothing open to use (open a note, document, board or map first)";
   label.title = subject
-    ? `Send this ${subject.kind} with what you ask, so the agent works on it`
-    : "Open a note or a document first, then the agent can work on it";
+    ? `Send this ${word} with what you ask, so the agent works on it`
+    : "Open a note, a document, a board or a mind map first, then the agent can work on it";
 }
 
 const cmdPaletteOverlay = $("command-palette-overlay");
@@ -41061,6 +41128,7 @@ function toggleAgentPalette() {
     //: is reached for, and it is reached for from every tab.
     renderAgentStarters();
     syncAgentPaletteAvailability();
+    agentBoardIndexAsked = false;
     syncAgentOpenNoteToggle();
     cmdPaletteInput.focus();
   } else {

@@ -172,6 +172,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The popup agent called a mind map or a board "the open note", and sent it to
+  the model as a note, so an answer about a map you had just made described an
+  entry whose whole content is its title. The toggle names the thing and its
+  kind, and the run scopes to the board rather than to a note.
+
 - The Actual size / Fit to panel toggle on an AI-written table did nothing
   outside full view: every rule it drove was scoped to the full-view panel. It
   works in the answer bubble now, and in full view the column widths and row

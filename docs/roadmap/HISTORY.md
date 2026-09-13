@@ -24319,6 +24319,29 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     second right-click on the same link reached the anchor rather than the
     link and opened nothing.
 
+189. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the popup
+    agent's subject.** "I think the test note the popup agent is referring
+    to is the mind map I just made called test". The open-thing scope
+    resolved a board as a note; a map, a board and a document each need
+    naming as what they are. Owner: chat agent.
+    **Fixed (this commit).** `agentOpenSubject` had two branches, document and
+    note, and a board is an `Entry` like everything else, so a map opened a
+    moment ago came back as `{kind: "note"}`: the label offered "Use test", the
+    run sent `note_ids`, and the model was handed an entry whose entire content
+    is `# test`. It reads the board index (`mapBoardById`) first now, both for
+    the board open on the canvas and for the last entry opened, and tells a map
+    from a board by the board row's own `type`. The scope follows the kind:
+    `board_ids`, which `_attached_boards` renders as "Mind map: <title>" with
+    the outline, rather than `note_ids`. The palette also asks for the board
+    index itself on opening, because that cache is filled by surfaces that draw
+    board chips and the palette opens over tabs that never do, which would have
+    left this fixed on the Library tab and nowhere else.
+    Measured (`scratchpad/ui-sweeps/agentsubject.js`): a map reads "Use this
+    mind map: test" and sends `{boardIds:[13]}`, a board "Use this board:
+    Plans" and `{boardIds:[14]}`, a note "Use this note: Bean netting" and
+    `{noteIds:[12]}`, a document "Use this document: Lease agreement" and
+    `{documentIds:[99]}`.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

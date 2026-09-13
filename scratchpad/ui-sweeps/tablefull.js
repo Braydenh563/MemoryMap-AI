@@ -30,6 +30,15 @@ const { boot } = require('./lib.js');
     const btnCs = getComputedStyle(buttons[0]);
     const seams = buttons.slice(1).map((b) => getComputedStyle(b).boxShadow).filter((s) => s && s !== 'none').length;
     buttons.find((b) => b.textContent.trim() === 'Full view').click();
+    // INBOX 179: fit is the default in full view, and the toggle hands the
+    // table back its natural width with the panel scrolling sideways.
+    const wrap = block.querySelector('.md-table-wrap');
+    const table = block.querySelector('.md-table');
+    const fitState = { overflowX: getComputedStyle(wrap).overflowX, layout: getComputedStyle(table).tableLayout, scrolls: table.scrollWidth > wrap.clientWidth + 1 };
+    const fitBtn = [...block.querySelectorAll('button')].find((b) => /Actual size|Fit to panel/.test(b.textContent));
+    fitBtn.click();
+    const actualState = { label: fitBtn.textContent.trim(), overflowX: getComputedStyle(wrap).overflowX, layout: getComputedStyle(table).tableLayout };
+    fitBtn.click();
     // getComputedStyle returns a LIVE object: read the values into plain
     // strings before the class comes off again, or every one of them reads
     // the folded state (the first run of this probe reported "static").
@@ -61,7 +70,7 @@ const { boot } = require('./lib.js');
       groupGap: groupCs.gap, groupBg: groupCs.backgroundColor, groupRadius: groupCs.borderRadius,
       btnBorder: btnCs.borderTopWidth, btnBg: btnCs.backgroundColor, seams, buttons: buttons.length,
       z: full.z, position: full.position, topAtPanel: top ? `${top.tagName}.${(top.className || '').toString().split(' ')[0]}` : null, inPanel,
-      scrimBg, barSticky, viewportSized, parentIsBody, filtered,
+      scrimBg, barSticky, viewportSized, parentIsBody, filtered, fitState, actualState,
       rect: { w: Math.round(rect.width), h: Math.round(rect.height), l: Math.round(rect.left), t: Math.round(rect.top) }, vw: innerWidth, vh: innerHeight,
       clusters: clusters.length, clusterBg: cluster && cluster.backgroundColor, clusterPad: cluster && cluster.padding,
       clusterBtnBorders: [...new Set(clusterBtns)],
@@ -70,10 +79,13 @@ const { boot } = require('./lib.js');
   console.log(`table bar    ${r.buttons} buttons in one shell: gap ${r.groupGap}, ground ${r.groupBg}, radius ${r.groupRadius}; per button border ${r.btnBorder}, ground ${r.btnBg}, ${r.seams} hairline seam(s)`);
   console.log(`full view    ${r.position} z ${r.z}, parent is body ${r.parentIsBody}, viewport-sized ${r.viewportSized}, top element at its head ${r.topAtPanel} (inside the panel ${r.inPanel}), scrim ${r.scrimBg}, bar ${r.barSticky}`);
   console.log(`             the bubble's nearest filtered/transformed ancestor: ${r.filtered}; rect ${JSON.stringify(r.rect)} in ${r.vw}x${r.vh}`);
+  console.log(`fit          default ${JSON.stringify(r.fitState)}; after the toggle ${JSON.stringify(r.actualState)}`);
   console.log(`top bar      ${r.clusters} cluster(s), ground ${r.clusterBg}, padding ${r.clusterPad}, button borders ${JSON.stringify(r.clusterBtnBorders)}`);
   if (r.groupGap !== '0px' || r.groupBg === 'rgba(0, 0, 0, 0)' || r.btnBorder !== '0px' || r.seams !== r.buttons - 1) bad.push('table bar is not one control');
   if (Number(r.z) < 2000 || !r.inPanel || !r.parentIsBody || !r.viewportSized) bad.push('full view is not above the app chrome');
   if (r.clusters !== 2 || r.clusterBg === 'rgba(0, 0, 0, 0)' || r.clusterBtnBorders.join() !== '0px') bad.push('top bar clusters');
+  if (r.fitState.overflowX !== 'hidden' || r.fitState.layout !== 'fixed' || r.fitState.scrolls) bad.push('full view does not fit the panel');
+  if (r.actualState.overflowX !== 'auto' || r.actualState.layout !== 'auto' || r.actualState.label !== 'Fit to panel') bad.push('the actual-size toggle does not work');
   console.log(`console errors ${errs.length}${errs.length ? ' ' + errs.join(' | ') : ''}`);
   await browser.close();
   if (bad.length || errs.length) { console.log('FAIL: ' + bad.join('; ')); process.exit(1); }

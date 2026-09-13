@@ -190,6 +190,10 @@ below). Versioning is `0.x` while the app stabilises.
   draw at full strength with an arrowhead that takes the branch's colour, the
   text-size grip no longer sits under the node's own buttons, and the link
   tools can start and land on a topic.
+- The round '?' buttons are circles again in the capture, Write with AI and
+  Ask heads, a table's full view fits the panel with an "Actual size" toggle
+  for the scrolling view, and every row of the boards dropdown says whether it
+  is a board or a mind map.
 
 - The lock screen could fail to appear on a slow first start. The embedding
   warm-up began importing torch the instant the server was up, and that import

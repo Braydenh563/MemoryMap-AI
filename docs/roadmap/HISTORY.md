@@ -24088,6 +24088,28 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     (`scratchpad/ui-sweeps/tablefull.js`): parent is body, 1325x809 of a
     1440x900 window, the panel itself the top element at its head.
 
+179. **Mid-work drop, 2026-09-13 ~20:55, verbatim (the owner), three
+    reports with two screenshots (a '?' help button drawn as a tall oval;
+    the boards dropdown listing "bubble tea (3 items)" and "Default board"
+    with nothing to say which is a board and which is a map).** "'?' tooltip
+    circle buttons are ovals again and I want the full view tables to not be
+    scrollable and to instead adjust the size to fit the panel and for the
+    full size scrollable view to be togglable. also I cant tell with this
+    boards dropdown menu which is a whitebaord and which is a mindmap"
+    **Fixed.** (a) The round '?': `#capture/#writing-room/#ask > .row:has(> h2)
+    button` set a control height on everything in those heads including the
+    circle, which drew it 32x36; the rule now excludes `.graph-help-toggle`
+    and the button's own 2.25rem square lives with the recipe. Measured
+    across 13 surfaces (`scratchpad/ui-sweeps/helpround.js`): 22 icon-only
+    '?' buttons, 0 oval. (b) Full view fits the panel by default
+    (`table-layout: fixed`, wrapped cells, no sideways scroll) with an
+    "Actual size" toggle that hands the table its natural width and the
+    panel its scroll; measured overflow-x hidden/auto and layout
+    fixed/auto either side of the toggle. (c) Every row of the boards
+    dropdown names its kind ("Mind map · …", "Board · …"): the optgroups
+    only appeared when both kinds were present, so a list of maps said
+    nothing. 14 options, every one labelled.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

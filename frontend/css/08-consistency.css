@@ -2127,3 +2127,20 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .answer-title > .ph-lead {
   margin-inline-end: 0;
 }
+
+/* **A '?' is a circle, in every head that sets its own control height**
+   (INBOX 179: "'?' tooltip circle buttons are ovals again"). Measured
+   across every tab, the Library's sub-tabs, the whiteboard, the documents
+   editor and Settings: fourteen of fifteen were square, and `#draft-help`
+   in the Write with AI head came out 32x36, because
+   `#writing-room > .row:has(> h2) button` (an id, a class and an element)
+   outranks `.graph-help-toggle`'s own 2rem and sets only the height. An id
+   plus a class ties that selector and wins on file order, which this file
+   is for; 2.25rem is the size every other copy of the button measured. */
+#capture .graph-help-toggle,
+#writing-room .graph-help-toggle,
+#ask .graph-help-toggle {
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+}

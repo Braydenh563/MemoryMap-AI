@@ -1968,6 +1968,24 @@ body.resizing-sidebar {
   padding: var(--space-3);
 }
 
+/* Fit is the default in full view (INBOX 179): the columns share the
+   panel's width and their text wraps, so nothing runs off the side. The
+   bar's toggle adds `is-actual`, which hands the table back its natural
+   width and the panel its sideways scroll. */
+.md-table-block.is-full:not(.is-actual) > .md-table-wrap {
+  overflow-x: hidden;
+}
+
+.md-table-block.is-full:not(.is-actual) .md-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.md-table-block.is-full:not(.is-actual) .md-table th,
+.md-table-block.is-full:not(.is-actual) .md-table td {
+  overflow-wrap: anywhere;
+}
+
 .md-table-block > .md-table-wrap {
   margin: 0;
 }

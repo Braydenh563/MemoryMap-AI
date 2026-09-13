@@ -10534,9 +10534,16 @@ async function refreshBoardList(justCreated = null) {
     // cards or sketches) read as "(0 items)" here, which is exactly what
     // exposed this: a board with three text boxes on it, live-verified.
     const count = board.node_count + board.sketch_count + (board.object_count || 0);
+    //: **Each row says what it is** (INBOX 179: "I cant tell with this boards
+    //: dropdown menu which is a whitebaord and which is a mindmap"). The
+    //: optgroups above only appear when both kinds exist, so a list of two
+    //: maps, or of one map and one board on a browser that draws optgroups
+    //: quietly, said nothing. A word costs less than a guess, and a native
+    //: <option> can carry nothing but text.
+    const kind = board.type === "map" ? "Mind map" : "Board";
     opt.textContent = board.id === null
-      ? board.title
-      : `${board.title} (${count} item${count === 1 ? "" : "s"})`;
+      ? `${kind} · ${board.title}`
+      : `${kind} · ${board.title} (${count} item${count === 1 ? "" : "s"})`;
     (groups.get(board.type === "map" ? "map" : "board") || select).appendChild(opt);
   }
   select.value = window.currentBoardId || "";

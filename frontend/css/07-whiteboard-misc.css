@@ -2819,9 +2819,13 @@ dialog::backdrop {
 
    The head rows had the height on the row and nothing on what stood in it,
    which is why a 36px row held a 32px dot beside a 38.8px picker. */
-#capture > .row:has(> h2) button,
-#writing-room > .row:has(> h2) button,
-#ask > .row:has(> h2) button {
+/* `:not(.graph-help-toggle)`: the round '?' is the one control in these
+   heads that is a circle rather than a control-height button, and this rule
+   set its height alone, which drew it as an oval (INBOX 179, reported
+   twice). Its own size lives with the recipe in 08-consistency.css. */
+#capture > .row:has(> h2) button:not(.graph-help-toggle),
+#writing-room > .row:has(> h2) button:not(.graph-help-toggle),
+#ask > .row:has(> h2) button:not(.graph-help-toggle) {
   height: var(--control-h-lg);
   padding-block: 0;
   margin: 0;

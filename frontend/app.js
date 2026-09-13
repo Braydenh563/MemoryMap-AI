@@ -24019,6 +24019,17 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
     if (onClick) b.addEventListener("click", onClick);
     return b;
   };
+  //: **Fit, or actual size** (INBOX 179: "I want the full view tables to not
+  //: be scrollable and to instead adjust the size to fit the panel and for
+  //: the full size scrollable view to be togglable"). Fit is the default:
+  //: `table-layout: fixed` with wrapped cells, so every column is on screen
+  //: and nothing scrolls sideways. The toggle puts the table back at its
+  //: natural width, where the panel scrolls as before.
+  const fit = button("Actual size", "Show the table at its natural width, scrolling sideways", () => {
+    const fitted = !block.classList.contains("is-actual");
+    block.classList.toggle("is-actual", fitted);
+    fit.textContent = fitted ? "Fit to panel" : "Actual size";
+  });
   const full = button("Full view", "Show this table on its own, at the window's width");
   //: **The panel leaves the bubble to be full screen** (reported on the first
   //: cut, with a screenshot: "the table full view is behind a lot of stuff").
@@ -24032,7 +24043,8 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
   //: answer, since the surrounding prose has no other mark for it.
   let placeholder = null;
   const leave = () => {
-    block.classList.remove("is-full");
+    block.classList.remove("is-full", "is-actual");
+    fit.textContent = "Actual size";
     if (placeholder && placeholder.parentNode) {
       placeholder.replaceWith(block);
       placeholder = null;

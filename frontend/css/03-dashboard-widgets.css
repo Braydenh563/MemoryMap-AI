@@ -1447,6 +1447,16 @@ header#top-bar select,
 .feature-row {
   display: flex;
   flex-direction: column;
+  /* **`text-align` cannot reach a flex item, and this row is why.** Reported:
+     "the tools and features popup content is poorly text aligned between the
+     headers and the content", with the group header at the dialog's inset and
+     every name and description centred under it. The `text-align: left` below
+     was written and has never done anything: the base `button` rule is a
+     centred flex box, this rule turns the axis to a column and inherits
+     `align-items: center`, and centring a *box* is not something text
+     alignment can undo. Measured in the dialog: the row's own left edge at
+     377px, the name's at 642px, against a group header at 377px. */
+  align-items: flex-start;
   gap: 0.1rem;
   width: 100%;
   text-align: left;

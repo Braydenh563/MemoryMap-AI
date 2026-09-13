@@ -7216,15 +7216,32 @@ button.connection-row {
   position: relative;
 }
 
+/* **Two columns, because the third report about this menu was about its
+   height and the first two fixed its placement.** Measured on a map board:
+   five sections, eighteen rows, 714px of content in a 272px column. That fits
+   a 900px window and nothing smaller: at 1440x700 it clipped 32px, and the
+   owner's screenshot showed it cut just below the Grid row with a scroll thumb
+   at the top of a tall track. Two rounds of arithmetic in `fitMenuToViewport`
+   made the *placement* exactly right and could not help, because 714px of
+   content does not fit under any edge of a 700px window.
+
+   So the menu gets shorter instead, and nothing is hidden or moved behind a
+   click to do it: `column-count` flows the same five sections into two, which
+   halves the height and costs width the dock has. `break-inside: avoid` keeps
+   a section whole, which is the whole point of the grouping. Below the phone
+   breakpoint it goes back to one column and scrolls, where a 480px-wide panel
+   would not fit at all. */
 .wb-board-menu {
   position: absolute;
   top: calc(100% + var(--space-2));
   right: 0;
   z-index: 30;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  width: 17rem;
+  /* `block`, not `flex`: CSS columns have no effect on a flex container, and
+     the sections are what is being flowed. */
+  display: block;
+  column-count: 2;
+  column-gap: var(--space-3);
+  width: 32rem;
   padding: var(--space-3);
   border-radius: var(--radius);
   background: var(--modal-bg);
@@ -7238,6 +7255,31 @@ button.connection-row {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+/* A section is the unit the columns flow, so it is never split down the
+   middle: "Zoom" with two of its five rows at the foot of one column and
+   three at the head of the next is worse than the tall menu this replaced. */
+.wb-board-menu .wb-menu-section {
+  break-inside: avoid;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  /* The gap the flex column used to provide between sections. */
+  margin-bottom: var(--space-3);
+}
+
+.wb-board-menu .wb-menu-section:last-child {
+  margin-bottom: 0;
+}
+
+@media (max-width: 599.98px) {
+  /* One column again: 32rem is wider than the window, and a menu that
+     overflows sideways is worse than one that scrolls. */
+  .wb-board-menu {
+    column-count: 1;
+    width: min(17rem, calc(100vw - var(--space-5) * 2));
+  }
 }
 
 .wb-board-menu .wb-panel-group-label {

@@ -23,6 +23,45 @@ never lost to the smaller stuff.
 
 ## Open items
 
+137. **Mid-work drop, 2026-09-13, verbatim (the owner), the launcher.**
+    "also the splash ps1 graphic still only loads up to step 3/5 and then it
+    loads, the bar doesnt actually reacy 5/5"
+
+    The PowerShell launcher's progress bar stops at 3 of 5 and the app opens
+    from there, so the last two steps either never report or are done after
+    the window is handed over. Either way the bar is telling the truth about
+    nothing, which is worse than no bar.
+
+136. **Mid-work drop, 2026-09-13, verbatim (the owner), one screenshot of the
+    boards dropdown.** "and when I press the boards dropdown to change
+    boards, I cant tell which one is a whiteboard and which one is a
+    mindmap"
+
+    The screenshot shows two rows, "bubble tea (4 items)" and "Default
+    board", with nothing to say which kind either is. The whiteboard tab
+    holds both kinds and they open into different surfaces.
+
+135. **Mid-work drop, 2026-09-13, verbatim (the owner), one screenshot of the
+    whiteboard View menu.** "the whoteboard view dropdown is STILL BROKEN
+    FIX IT, IT CANT BE THAT HARD"
+
+    Third report on this control. The screenshot shows the menu open with
+    only its "LOOK" header, the Background row and the Grid row visible, cut
+    off mid-row with a scroll thumb at the top of a tall track, so most of
+    the menu is unreachable without scrolling inside a panel that does not
+    look scrollable.
+
+134. **Mid-work drop, 2026-09-13, verbatim (the owner), one screenshot of the
+    Tools and features dialog.** "the tools and features popup content is
+    poorly text aligned between the headers and the content, and make sure
+    the command pallate and that tools and features popup are up to date"
+
+    The screenshot shows the group header "CAPTURE & NOTES" left-aligned at
+    the dialog's inset while every row under it (name and description both)
+    is centred, so nothing lines up with anything. The second half is a
+    coverage question: the dialog says "105 things MemoryMap can do", and a
+    great deal has been built since that list was last touched.
+
 133. **Mid-work drop, 2026-09-13, verbatim (the owner).** "the opens a note
     you opened or edited most recently button doesnt update and just shows
     my latest note"

@@ -3378,7 +3378,21 @@ async function renderOrphanNotesWidget(body) {
     // into has to exist before it is filled.
     setTimeout(() => loadLinkSuggestions(), 120);
   });
-  body.appendChild(connect);
+  //: And the other half of "no link and no tag" (INBOX 162): the filtered
+  //: Notes list, where every card carries its own "No tags yet" chip.
+  const tagIt = document.createElement("button");
+  tagIt.type = "button";
+  tagIt.className = "ghost small dash-loose-action";
+  const tagIcon = document.createElement("i");
+  tagIcon.className = "ph ph-tag ph-lead";
+  tagIcon.setAttribute("aria-hidden", "true");
+  tagIt.append(tagIcon, "Show untagged notes");
+  tagIt.title = "The Notes list, filtered to notes with no tags";
+  tagIt.addEventListener("click", () => showNotesFilter("is:untagged"));
+  const actions = document.createElement("div");
+  actions.className = "row dash-loose-actions";
+  actions.append(connect, tagIt);
+  body.appendChild(actions);
   // Oldest first: a note written this morning has not had a chance to be
   // filed yet, and nagging about it is how a hygiene widget becomes noise.
   const oldest = [...loose].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));

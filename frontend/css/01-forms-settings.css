@@ -1531,6 +1531,15 @@ progress {
   color: var(--warn);
 }
 
+/* A note with no tags, on its card (INBOX 162). A gap rather than a
+   warning: dashed, muted, and a button, since the chip opens the edit form
+   at the tags field. */
+.chip.untagged {
+  background: transparent;
+  color: var(--muted);
+  border: 1px dashed var(--border);
+}
+
 /* A note that is saved but not yet filed. Quiet on purpose: this is a
    progress state on a note that is already safely on disk, not a warning,
    and it replaces the category chip for the second or two it lasts. */

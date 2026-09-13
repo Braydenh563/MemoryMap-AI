@@ -23362,6 +23362,25 @@ agent's file. The properties are parsed and editable, and nothing filters on
 them. It is written up in `agent-remaining/documents-phase4.md`.
 ## INBOX resolved, 2026-09-13
 
+162. **Mid-work drop, 2026-09-13, verbatim (the owner), the app as an
+    assistant.** "there also needs to be more assistance from the app for both
+    the app and the user. the app in both the frontend and backend needs to do
+    a lot of the heavy lifting for the ai and user to make their life easier
+    adn take the load and burden off. like notes with no tags or other things
+    arent highlighted".
+    **Fixed (this commit)**: a real note with no tags carries a dashed
+    "No tags yet" chip where its tags would be; the chip opens the edit form
+    with the cursor in the tags field (the AI's suggestions appear there as
+    you type). The dashboard's Loose ends widget offers "Show untagged
+    notes" beside "Find links to add"; the bell carries a weekly nudge past
+    five untagged notes whose click opens the filtered list; the palette,
+    the widget and the nudge share one `showNotesFilter(query)`. Measured
+    (`scratchpad/ui-sweeps/untagged.js`): 6 chips on 6 untagged notes, none
+    on the tagged one, click focuses the tags field, nudge "6 notes have no
+    tags", its row filters to 6 cards, 0 console errors. The rest of the
+    report ("or other things") is the standing assistance list in
+    WORLD_CLASS_PLAN's competitor gap table; this is the named case.
+
 159. **Mid-work drop, 2026-09-13, verbatim (the owner), exports.** "also
     exported or downloaded files and images etc should appear in the
     notifications to be accessible, maybe there should also be an area

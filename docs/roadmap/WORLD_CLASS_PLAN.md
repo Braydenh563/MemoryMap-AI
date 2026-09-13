@@ -1530,10 +1530,4 @@ undone.
 
 ## Placed from INBOX, 2026-09-13
 
-162. **Mid-work drop, 2026-09-13, verbatim (the owner), the app as an
-    assistant.** "there also needs to be more assistance from the app for both
-    the app and the user. the app in both the frontend and backend needs to do
-    a lot of the heavy lifting for the ai and user to make their life easier
-    adn take the load and burden off. like notes with no tags or other things
-    arent highlighted".
 

@@ -70,6 +70,12 @@ below). Versioning is `0.x` while the app stabilises.
   to one line; a dragged height now holds until the next drag, capped at 70%
   of the window.
 - Two unused Phosphor build files (5 MB) left the repository.
+- Notes with no tags are pointed out, and pointed at. A real note with no
+  tags now carries a "No tags yet" chip where its tags would be, and clicking
+  it opens the note for editing with the cursor in the tags field. The
+  dashboard's Loose ends widget offers the filtered list beside its link
+  finder, and past five untagged notes the bell says so once a week with the
+  same list a click away.
 
 - The lock screen could fail to appear on a slow first start. The embedding
   warm-up began importing torch the instant the server was up, and that import

@@ -3417,8 +3417,10 @@ p.graph-help-panel {
 }
 
 /* The Loose ends widget's call to action, below its sample rows. */
-.dash-loose-action {
+.dash-loose-actions {
   margin-top: var(--space-3);
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 /* --- On this day -------------------------------------------------------------

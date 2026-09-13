@@ -116,6 +116,9 @@ let draftsOnly = false;
 let favouritesOnly = false;
 let linkSource = null; // entry id waiting for its link partner
 let editingId = null; // entry id currently in inline-edit mode
+//: Set by the "No tags yet" chip: the next edit form for this id opens with
+//: its tags field focused. Read and cleared by renderEditForm.
+let focusTagsAfterRender = null;
 let inlineAction = null; // {id, kind: "context"|"continue"} open on a card
 let busyEntryId = null; // entry the AI is currently working on (spinner shown)
 let flashConfidenceId = null; // entry whose confidence badge just changed (flash once)
@@ -2357,6 +2360,23 @@ function entryItem(entry, options = {}) {
     meta.appendChild(chip(entry.category));
   }
   for (const tag of entry.tags) meta.appendChild(chip(tag, "tag"));
+  //: **A note with no tags says so, where the tags would be** (INBOX 162:
+  //: "notes with no tags or other things arent highlighted"). Only on a real
+  //: note in a list that offers actions: a board is not filed by tag and a
+  //: draft has not been filed at all. The chip is the fix as well as the
+  //: flag: it opens the edit form with the cursor in the tags field, where
+  //: the AI's suggestions appear as you type, so the person is one click
+  //: from tagged rather than being told and left there.
+  if (!entry.tags.length && !entry.is_board && !entry.is_draft && options.actions) {
+    const untagged = chip("ph:tag No tags yet", "untagged", (event) => {
+      event.stopPropagation();
+      editingId = entry.id;
+      focusTagsAfterRender = entry.id;
+      renderEntries();
+    });
+    untagged.title = "Add tags to this note";
+    meta.appendChild(untagged);
+  }
 
   // "AI 0%: check this" is a warning about the AI's filing, and it only makes
   // sense when the AI actually did some. On a note you filed yourself, or one
@@ -7925,6 +7945,12 @@ function renderEditForm(li, entry) {
   tagsInput.type = "text";
   tagsInput.placeholder = "Tags, comma separated";
   tagsInput.value = entry.tags.join(", ");
+  tagsInput.className = "note-edit-tags";
+  if (focusTagsAfterRender === entry.id) {
+    focusTagsAfterRender = null;
+    // The form is not in the document yet; focus once it is.
+    requestAnimationFrame(() => tagsInput.focus());
+  }
 
   const categorySelect = document.createElement("select");
   fillCategoryOptions(categorySelect, entry.category);
@@ -8296,6 +8322,19 @@ function beginOrCompleteLink(entry) {
 // that only ever got the janitor's default filing and never a second look,
 // since `is:untagged` alone only ever answered the zero case.
 const TAG_COUNT_RE = /^tags:(<=|>=|<|>|=)?(\d+)$/;
+
+//: **The Notes tab, filtered, from anywhere.** The palette's "Show untagged
+//: notes", the dashboard's Loose ends widget and the untagged nudge in the
+//: bell all land here (INBOX 162: "notes with no tags or other things arent
+//: highlighted"): one route to "the notes I mean" rather than three copies
+//: of the same four lines.
+function showNotesFilter(query) {
+  switchTab("notes");
+  const search = $("note-search");
+  search.value = query;
+  search.dispatchEvent(new Event("input"));
+  search.focus();
+}
 
 function parseNoteQuery(raw) {
   const query = {
@@ -10125,6 +10164,28 @@ async function loadEntries() {
     first = false;
     if (page.length === 0) break; // safety: never loop forever on a stale total
   }
+  nudgeUntaggedNotes();
+}
+
+//: **The app notices what the person has not got round to** (INBOX 162).
+//: Once the notebook is loaded, a bell entry counts the real notes with no
+//: tag and offers the filtered list. Keyed by the ISO week, so it is said
+//: once a week at most however often the list reloads, and only past a
+//: handful: three untagged notes is a Tuesday, not a backlog.
+const UNTAGGED_NUDGE_MIN = 5;
+
+function nudgeUntaggedNotes() {
+  const untagged = allEntries.filter((e) => !e.is_board && !e.is_draft && !(e.tags || []).length);
+  if (untagged.length < UNTAGGED_NUDGE_MIN) return;
+  const now = new Date();
+  const week = Math.floor((now - new Date(now.getFullYear(), 0, 1)) / (7 * 86400000));
+  recordNotification({
+    kind: "assist",
+    title: `${untagged.length} notes have no tags`,
+    detail: "Tags are how notes find each other. Open the list and add a few.",
+    key: `untagged:${now.getFullYear()}-${week}`,
+    action: { tab: "notes", filter: "is:untagged" },
+  });
 }
 
 // --- capture -----------------------------------------------------------------
@@ -27945,12 +28006,7 @@ function paletteCommands() {
       ["ph:link Show linked notes", "is:linked"],
     ].map(([label, query]) => ({
       label,
-      run: () => {
-        switchTab("notes");
-        $("note-search").value = query;
-        $("note-search").dispatchEvent(new Event("input"));
-        $("note-search").focus();
-      },
+      run: () => showNotesFilter(query),
     })),
     {
       label: "ph:magnifying-glass What can I type in the filter?",
@@ -29432,6 +29488,8 @@ const NOTIFICATION_ICONS = {
   task: "ph:gear",
   run: "ph:lightning",
   error: "ph:warning",
+  export: "ph:download-simple",
+  assist: "ph:sparkle",
   info: "•",
 };
 
@@ -29575,6 +29633,10 @@ async function openNotifications({ keepWatermark = false } = {}) {
         closeNotifications();
         if (item.action.exports) {
           openExportsFromNotification();
+          return;
+        }
+        if (item.action.filter) {
+          showNotesFilter(item.action.filter);
           return;
         }
         switchTab(item.action.tab);

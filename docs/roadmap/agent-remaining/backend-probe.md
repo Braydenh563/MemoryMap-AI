@@ -17,6 +17,31 @@ security review's open rows, D6, and the performance probes.
 - done: S5, the private-address guard moved to `core/security.public_addresses` with the outbound-fetch lint. next: item 4, D6 daily notes (`agent-remaining/chat-timeline-skills.md` item 8), then item 5, the perf probes.
 - done: D6's backend, `/entries/daily/{date}` create-or-return and `/entries/daily` for the strip and the streak. next: item 5, the perf probe and any N+1 or per-page full count it finds.
 - done: the list-query probe (`scratchpad/probe_list_queries.py`), 13 endpoints flat at 121 notes, three pinned in `test_scale_query_counts.py`. next: F4/F7/F10 measured and left to the mechanical agent; the full suite before the final report.
+- done: the flaw classes re-run and recorded, `scratchpad/probe_excepts.py` added (147 broad, 52 silent). next: nothing queued; the full suite is running before the final report.
+
+## The flaw classes, re-run 2026-09-13 evening (WORLD_CLASS section 10)
+
+Every backend row's command run against the tree. The frontend rows (F1, F5,
+F8, F11, F12) are not this agent's files and were not touched.
+
+| # | Command's answer today | State |
+| --- | --- | --- |
+| F2 | 14 `list_*` routes took no limit; 4 of them were notebook-sized | **Fixed.** `tests/test_list_limits.py` walks the routes and fails on the fifth; the other 10 are in an allowlist with the bound named per line. The frontend half (five `apiJson` readers of `/files/gallery`) is placed in WORLD_CLASS's "Placed from INBOX, 2026-09-13" |
+| F3 | `semantic_search` still reads and parses every vector row per request | Open, sized in the plan, deliberately its own brief |
+| F4 | 147 broad `except` in `src/memorymap`, **52 of which say nothing at all** (`scratchpad/probe_excepts.py`, new: the grep in the plan counts every handler, and the ones that cost something are the silent subset) | Open, and **left to the mechanical agent on purpose**: the plan's fix is ruff `BLE001` plus a `# noqa` per site, which is that agent's remit this session, and 52 sites across 30 files is exactly the sweep two writers must not both make |
+| F6 | The timers are done; the `scheduler` it proposes is a refactor | Open, unchanged |
+| F7 | 17 modules import `threading.Thread` | Open. The fix is B2's job runtime, not a sweep |
+| F9 | The route walk exists and passes, with the two new routers in it | Done, re-confirmed |
+| F10 | 175 lines in `routes_files.py` mention `ocr_text`, `caption` or `vision_ocr_text` | Open. The fix is B3's one `readings` table |
+
+Performance, which the list above does not cover:
+`scratchpad/probe_list_queries.py` (new) drives thirteen list endpoints at a
+page of 5 and a page of 100 over one notebook of 121 notes with 40
+attachments and reports whether the statement count moves. **None do.**
+`/entries` is 9 statements at either size (15.7 ms at 100),
+`/timeline` 13 (17.4 ms), `/files/gallery` 5 (13.9 ms), `/learned` 3,
+`/entries/daily` 2 over a 366-day window. The three newest and most joined
+are pinned in `tests/test_scale_query_counts.py`.
 
 ## The specs, read
 

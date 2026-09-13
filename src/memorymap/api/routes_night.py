@@ -14,6 +14,8 @@ they part company entirely.
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -21,6 +23,8 @@ from sqlalchemy.orm import Session
 from memorymap.ai import facts
 from memorymap.core import deps
 from memorymap.core.deps import get_session
+
+logger = logging.getLogger("memorymap.api.night")
 
 router = APIRouter(prefix="/night", tags=["night"])
 
@@ -53,7 +57,11 @@ def run_now(body: RunBody, session: Session = Depends(get_session)) -> dict:
             model = deps.get_model_manager().utility_model()
         else:
             provider = None
-    except Exception:  # noqa: BLE001  # a provider that cannot say is a provider that is not there
+    except Exception as exc:  # noqa: BLE001  # a provider that cannot say is a provider that is not there
+        # Logged rather than swallowed: the pass still runs and still derives,
+        # so the only trace that the model was not consulted would otherwise
+        # be every row saying `local` and nobody knowing why.
+        logger.info("night pass: no model to narrow with (%s)", exc)
         provider = None
     result = facts.run(
         session, budget=body.budget, force=body.force, provider=provider, model=model, config=config

@@ -311,6 +311,11 @@ def _entries_to_read(session: Session, force: bool) -> list[Entry]:
     as a join rather than a stored timestamp so a run that crashes halfway
     leaves no cursor pointing past the notes it never reached.
     """
+    # Private notes are skipped at the *write* as well as at the read, which
+    # is not belt and braces: a private note's `content` is ciphertext, so a
+    # pass that read one would derive sentences out of base64 and store them
+    # as things the person said. The read-side filter (`_visible`) is still
+    # the one that matters for a note made private after its facts existed.
     query = (
         select(Entry)
         .where(Entry.is_deleted.is_(False), Entry.is_private.is_(False))

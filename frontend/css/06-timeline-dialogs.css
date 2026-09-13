@@ -116,7 +116,16 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  /* **The inset a row needs is the one it needs while it is open.** Reported
+     (INBOX 146): "when i expand timeline items, the top text and stuff gets
+     pushed up slightly". Measured: nothing moves, the title sits 7.4px below
+     the row's top edge in both states. What arrives is the *edge*: an open row
+     paints a surface, and 6.4px of it above the title against 14px below the
+     snippet reads as text shoved into a corner. The same inset in both states
+     is what keeps the header still when a row opens (the sweep asserts the two
+     paddings are equal), so the room is added to both: 3.2px per row, and a
+     row that has opened looks like a card rather than like a leak. */
+  padding: var(--space-4) var(--space-3);
   /* A transparent border rather than none: a row that gains a border on hover
      would move every row below it by a pixel. */
   border: 1px solid transparent;
@@ -137,7 +146,6 @@
 .timeline-feed .timeline-row[aria-expanded="true"] {
   background: var(--surface-2);
   border-color: var(--divider);
-  align-items: start;
 }
 
 .timeline-row-mark {
@@ -209,12 +217,18 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Opened in place (decision 8). It spans the row's three columns, so the note
-   starts under the title rather than in the narrow middle track. */
+/* Opened in place (decision 8). **It starts in the title's column, not at the
+   row's left edge**, which is the other half of INBOX 146: "the vertical line
+   ... clashes with the other text and elements". The spine is a hairline
+   through the kind markers at 21px from the list's edge, and a detail spanning
+   from column 1 put the note's heading, its body and its Open in editor button
+   on top of it (measured: the spine ended at 65.6px, the detail started at
+   56.4px). Starting at column 2 lines the note up under its own title and
+   leaves the spine running down beside it, which is what a spine is for. */
 .timeline-row-detail {
-  grid-column: 1 / -1;
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
+  grid-column: 2 / -1;
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--divider);
   cursor: auto;
 }

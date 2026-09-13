@@ -21,12 +21,13 @@ The chat agent's run against INBOX 181, 182, 183, 187, 188, 189, 190 and
   recipe in `frontend/css/02-chat-graph.css`,
   `scratchpad/ui-sweeps/linkmenu.js`.
 
+- `9bd0c07` INBOX 189 and 190's label: the palette names a map a map, a board
+  a board, and scopes the run to `board_ids`
+  (`scratchpad/ui-sweeps/agentsubject.js`).
+
 ## Next
 
-1. INBOX 189 and 190's "open note" question: `syncAgentOpenNoteToggle` and
-   `agentOpenSubject` in `frontend/app.js` (~40685) name a board and a map as
-   notes; five label states wanted, and the run's scope must carry the kind.
-2. INBOX 190: the popup agent app-wide and the help chat (CHAT_PLAN decision
+1. INBOX 190: the popup agent app-wide and the help chat (CHAT_PLAN decision
    9, section 4), including INBOX 193 for the help chat's name.
-3. `chat-timeline-skills.md` item 1's last step: the hover highlight of
+2. `chat-timeline-skills.md` item 1's last step: the hover highlight of
    `note.content.slice(start, end)` in the sources panel.

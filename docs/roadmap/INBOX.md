@@ -27,15 +27,20 @@ Every entry below is a batch from an earlier session with most of its
 sub-reports carrying a `Fixed <commit>` marker mid-paragraph; the number of
 entries overstates the work. Gathered from inside them, the work still open:
 
-- The whiteboard is laggy to drag and pan (114). Unattributed after three
-  passes: a real investigation, not a fix.
-- The document editor's writing intelligence wants one UX redesign: the
-  suggestions panel's share of the window, the word popup out of bounds,
-  the popup landing on the text it discusses (142, with 128 folded in).
-  DOCUMENTS_PLAN owns it.
+- The whiteboard is laggy to drag and pan (114). **Attributed and fixed**
+  on the fourth pass: the per-move layout thrash, 7.67ms to 0.79ms a move.
+- The document editor's writing intelligence, one UX redesign (142, with 128
+  and 168 folded in): **done**, and the cause was not the arithmetic. A
+  `backdrop-filter` on the document card (the background art) makes the card
+  the frame a `position: fixed` popup is laid out against, so the word menu
+  drew 45px past the window and 53px from its word. Both popups leave the
+  card while open now; measured 0px gap, 4px below the fragment, nothing off
+  screen, at three widths in three modes.
 - The editor's AI edit dialog and the edit/write/remove toggle (158, 157):
-  with the documents agent, together with the AI edit-history popover that
-  still does not centre (111, carried from 107a).
+  built. The AI edit-history popover (111, carried from 107a) is fixed and
+  measured: 480x262, 0px off the viewport centre on both axes
+  (`scratchpad/ui-sweeps/aiedit.js`). What kept that report alive was that
+  nothing had measured the result.
 - "Describe with AI" and the OCR passes should show as background
   processes (111): **done, 2026-09-13.** Both were a disabled button and a
   toast, so leaving the dialog or the tab lost every trace that a model call
@@ -55,7 +60,10 @@ entries overstates the work. Gathered from inside them, the work still open:
   the panel. The one thing still off was the score chip at 23.2px in a row of
   28px controls, which is now 28px too.
 - 107c's packages row (headers, badges and buttons displaced onto separate
-  rows): not reproduced.
+  rows): **not reproduced, and now measured at three widths**
+  (`scratchpad/ui-sweeps/packages.js`): 7 rows at 1440, 1024 and 820, buttons
+  below the name on 0 of them, horizontal overflow on 0, head heights
+  51/36/73px. If it recurs, the window size is what will find it.
 
 Fixed today and marked in place, to be moved at the next boundary: the
 chat bar's dragged height snapping back (111, `4fc909e`), the per-model

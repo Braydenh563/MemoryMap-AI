@@ -168,6 +168,19 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Live view drew a markdown table as a row of squeezed columns with wide
+  empty gaps between them, and every cell wrapped its words one or two to a
+  line. Each hidden pipe leaves three zero-width elements behind in the line
+  (two CodeMirror widget buffers and the replacement's own empty span), and
+  the line's `grid-auto-flow: column` gave every one of them a column: fifteen
+  tracks for a three-column table, the cells at 51.6px. The cells are placed by
+  index now and everything else is pinned into the first track at zero width,
+  so a cell is a third of the row (257.9px of 794) whatever else a decoration
+  leaves in the line. A spelling underline also used to be drawn outside the
+  cell and split it into five (measured: 21 cells in one three-cell row); it
+  nests inside now. Measured with `scratchpad/ui-sweeps/doctable.js`, 24 of 24
+  in both themes.
+
 - Every image in a document's Live view drew "no longer in this notebook" over
   a file that was still there. The Live view's image widget set the raw
   `/media/…` path, and an `<img>` cannot send an unlock header, so the load

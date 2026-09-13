@@ -84,8 +84,19 @@ measured or built in earlier commits and is marked there.
     map's rings and the documents table view.** "can you put an opaque
     background or smth behind the item radials in the mindmap?? they still
     feel disconnected. also the documents live table view is broken."
-    Two items: the ring's ground (mind map agent); the live table view of
-    the documents list, which needs reproducing first (documents agent).
+    Two items: the ring's ground (mind map agent); the live table view,
+    which is the Live editor's rendering of a markdown table and **was
+    broken, found and fixed**. Each hidden pipe leaves three zero-width
+    children in the line and `grid-auto-flow: column` gave each of them a
+    track, so a three-column table was drawn as fifteen columns with its
+    cells at 51.6px and every word wrapped; a spelling underline was drawn
+    outside the cell mark and split one cell into five. Cells are placed by
+    index now, everything else is pinned into the first track at zero width,
+    and the underline nests inside the cell. Measured,
+    `scratchpad/ui-sweeps/doctable.js` (light and dark, 24 of 24): three
+    tracks for three columns, cells 257.9px of a 794px row, a row 29.2px
+    high where it was 80.4px, one cell where there were 21, and every row on
+    the same column edges. The ring's ground is still open.
 
 190. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the popup
     agent and the help chat.** "the popup agent needs more ui, ux and

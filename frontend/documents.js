@@ -2660,6 +2660,18 @@ function toggleDocComment(box) {
 //: GFM wants at least one dash; the colons are the alignment.
 const DOC_TABLE_DELIM_CELL = /^[ \t]*:?-+:?[ \t]*$/;
 
+//: How many columns the Live grid can place by class. Every cell in the
+//: rendered line has to be *placed* rather than left to auto-flow, because a
+//: hidden pipe leaves three zero-width children behind it (two
+//: `cm-widgetBuffer` images and the replacement's own empty span) and
+//: auto-flow gives each of those a column of its own: a three-column table
+//: was drawn as fifteen tracks with the cells at 51.6px and the text wrapping
+//: inside them (INBOX 191). The classes are generated in pairs
+//: (`cm-md-cols-N` on the line, `cm-md-cN` on the cell), so the cap is only
+//: how many rules the theme carries; a table wider than this keeps the old
+//: auto-flow, which no editor of this width can show usefully anyway.
+const DOC_TABLE_GRID_MAX = 20;
+
 //: Split one line into the pieces that put it back together exactly.
 //: `cells` holds the raw text between the pipes, padding included, so the
 //: join below is the identity and an edit to one cell cannot disturb another.
@@ -5845,8 +5857,18 @@ function docLivePlugin(CM) {
             hide(row.from, row.to);
             continue;
           }
+          //: The count goes on the *line* and the index on each cell: the
+          //: line's own template is what makes two rows of the same table
+          //: agree about where column three starts, even when one of them
+          //: holds fewer cells than the header.
+          const grid =
+            table.columns <= DOC_TABLE_GRID_MAX
+              ? ` cm-md-cols-${table.columns}`
+              : " cm-md-table-wide";
           ranges.push(
-            Decoration.line({ class: r === 0 ? "cm-md-table cm-md-table-head" : "cm-md-table" }).range(row.from)
+            Decoration.line({
+              class: (r === 0 ? "cm-md-table cm-md-table-head" : "cm-md-table") + grid,
+            }).range(row.from)
           );
           const body = row.from + row.indent.length;
           hide(row.from, body);
@@ -5854,7 +5876,8 @@ function docLivePlugin(CM) {
           for (let c = 0; c < row.cells.length; c += 1) {
             const span = docTableCellSpan(table, r, c);
             const align = table.aligns[c];
-            const cls = align ? `cm-md-td cm-md-td-${align}` : "cm-md-td";
+            const place = c < DOC_TABLE_GRID_MAX ? ` cm-md-c${c + 1}` : "";
+            const cls = (align ? `cm-md-td cm-md-td-${align}` : "cm-md-td") + place;
             if (span.to > span.from) {
               ranges.push(Decoration.mark({ class: cls }).range(span.from, span.to));
             } else {
@@ -12603,6 +12626,36 @@ function docCmLanguageFor(CM, ext) {
 //: `var(--…)` all the way through, so the density slider, a custom accent and
 //: a theme change move the editor with the rest of the app rather than
 //: leaving it as the one panel that did not follow.
+//: The Live table's placement rules, one pair per column count.
+//:
+//: A CodeMirror line is the grid, and its children are whatever the
+//: decorations left there: the cell marks, and behind every hidden pipe two
+//: `cm-widgetBuffer` images and an empty `contenteditable=false` span. Those
+//: three are zero-width and were still taking a `1fr` track each under
+//: `grid-auto-flow: column`, which is why a table drew its cells 51.6px wide
+//: with three empty columns of gap between them and wrapped every word.
+//: Placing the cells by index and pinning everything else into the first
+//: track at zero width is the only arrangement that stays right whatever the
+//: decorations do: a mark the table does not know about (a spelling
+//: underline, a search match) can be added tomorrow without taking a column.
+function docTableGridRules() {
+  const rules = {};
+  for (let n = 1; n <= DOC_TABLE_GRID_MAX; n += 1) {
+    rules[`.cm-md-cols-${n}`] = { gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` };
+    //: The menu is excluded because it is absolutely positioned against the
+    //: header line and is not in the grid's flow at all; giving it `width: 0`
+    //: would take its buttons away.
+    rules[`.cm-md-cols-${n} > *:not(.cm-md-td):not(.cm-md-table-menu)`] = {
+      gridArea: "1 / 1",
+      justifySelf: "start",
+      width: "0",
+      overflow: "hidden",
+    };
+    rules[`.cm-md-c${n}`] = { gridColumn: String(n), gridRow: "1" };
+  }
+  return rules;
+}
+
 function docCmTheme(CM) {
   const dark = document.documentElement.dataset.mode === "dark";
   return CM.view.EditorView.theme(
@@ -12804,10 +12857,18 @@ function docCmTheme(CM) {
       //: wrapping.
       ".cm-md-table": {
         display: "grid",
-        gridAutoFlow: "column",
-        gridAutoColumns: "minmax(0, 1fr)",
         borderLeft: "1px solid var(--border)",
       },
+      //: Past `DOC_TABLE_GRID_MAX` columns there is no class to place the
+      //: cells with, so the line falls back to what it did before them. It is
+      //: the worse rendering (every zero-width child behind a hidden pipe
+      //: takes a track of its own), and it is a table no editor this wide can
+      //: show usefully in any case.
+      ".cm-md-table-wide": {
+        gridAutoFlow: "column",
+        gridAutoColumns: "minmax(0, 1fr)",
+      },
+      ...docTableGridRules(),
       ".cm-md-table-head": {
         fontWeight: "650",
         backgroundColor: "var(--field-inset)",
@@ -13023,7 +13084,7 @@ function docCmExtensions(CM) {
     //: checker saying something, and switching to Source to see the raw text
     //: is not a reason to stop being told.
     docCmParts.live.of(docView === "live" ? docLiveExtensions(CM) : []),
-    docFindingsPlugin(CM),
+    CM.state.Prec.high(docFindingsPlugin(CM)),
     //: The dimming is a compartment because it is a preference that changes
     //: while the view is live; the typewriter listener is not, because it is
     //: inert until its flag is on and reconfiguring an extension to say

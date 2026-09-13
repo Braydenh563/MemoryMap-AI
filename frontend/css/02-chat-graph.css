@@ -1505,6 +1505,13 @@ button.ghost.danger {
 
 .graph-node {
   cursor: pointer;
+  /* Declared here so the token has a live value of its own, and overridden per
+     node from graph.js with `(r + 6) / r`, this node's own factor from its core
+     out to its halo. 1.4 is the middle of the range that produces (1.30 on the
+     largest node, 1.67 on the smallest), so a node drawn before the script has
+     set its property still grows by about the right amount rather than by a
+     number chosen to look harmless. */
+  --graph-hover-scale: 1.4;
 }
 
 /* During an active pan, native `:hover` matching still fires per node the
@@ -1521,17 +1528,68 @@ button.ghost.danger {
   opacity: 0.18;
   filter: blur(2px);
   pointer-events: none;
-  transition: opacity var(--motion-fast) ease;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: opacity var(--motion-fast) ease, transform var(--motion-base) cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
+/* --- hovering a node --------------------------------------------------------
+   Asked for: "can you make graph nodes temporarily expand to fill their glow
+   bubble when I hover over them or smth?? I feel like the graph nodes could
+   look slightly nicer, cooler, more professional and more modern. visually".
+
+   The dot grows out to the halo it already had, and the halo steps back a
+   little further and brightens, so the glow is still a glow around it rather
+   than something the dot has eaten. `--graph-hover-scale` is set per node in
+   graph.js: it is `(r + 6) / r`, the exact factor from this node's core to its
+   own halo, and it has to be per node because the two radii differ by a fixed
+   6px while `r` itself ranges from 9 to 20 (graph.js says this at length).
+   The fallback covers a node drawn before that property was set.
+
+   `transform-box: fill-box` is what makes `transform-origin: center` mean the
+   circle's own centre. Without it the origin is the SVG viewport's, and every
+   node would fly across the canvas instead of growing in place. */
 .graph-node:hover .graph-halo {
-  opacity: 0.4;
+  opacity: 0.45;
+  transform: scale(1.22);
+}
+
+.graph-node:hover .graph-core,
+.graph-node:hover .graph-orb-shine {
+  transform: scale(var(--graph-hover-scale));
+}
+
+.graph-node .graph-orb-shine {
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform var(--motion-base) cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
 .graph-node .graph-core {
   stroke: var(--card);
   stroke-width: 2px;
-  transition: r var(--motion-fast) ease, stroke-width var(--motion-fast) ease, filter var(--motion-fast) ease;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    r var(--motion-fast) ease,
+    stroke-width var(--motion-fast) ease,
+    filter var(--motion-fast) ease,
+    transform var(--motion-base) cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+/* The growth is the whole point of the effect, so it is not removed under this
+   preference, only the animating of it: the node is simply already large while
+   the pointer is on it. Taking the scale away as well would leave a reader who
+   has asked for less motion with no hover feedback on the graph at all beyond
+   a slightly brighter halo. */
+@media (prefers-reduced-motion: reduce) {
+
+  .graph-node .graph-halo,
+  .graph-node .graph-core,
+  .graph-node .graph-orb-shine {
+    transition: none;
+  }
 }
 
 .graph-node .graph-core.graph-pinned {

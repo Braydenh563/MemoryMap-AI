@@ -254,3 +254,11 @@ Still open from that entry: a dragged cluster (a lasso selection) moving
 together the same way. The canvas renderer drags one node at a time
 (`gcDragNode` is a single reference), so multi-drag is a piece of work in
 its own right and is not part of this change.
+
+## Placed from INBOX, 2026-09-13
+
+- **Hovering a node grows it into its own halo** (INBOX 149, the owner: "can
+  you make graph nodes temporarily expand to fill their glow bubble when I
+  hover over them or smth?? I feel like the graph nodes could look slightly
+  nicer, cooler, more professional and more modern. visually"). Built, both
+  renderers. Detail in HISTORY.md.

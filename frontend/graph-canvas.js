@@ -224,6 +224,82 @@ function gcEnsureCanvas() {
   return gcCanvas;
 }
 
+// --- hovering a node -----------------------------------------------------------
+//: Asked for: "can you make graph nodes temporarily expand to fill their glow
+//: bubble when I hover over them or smth?? I feel like the graph nodes could
+//: look slightly nicer, cooler, more professional and more modern. visually".
+//:
+//: Every node is already drawn with a halo 6px outside its core, and until now
+//: the only thing hovering one changed was a ring around it. The dot now grows
+//: out to that halo and the halo steps a little further out and brightens, so
+//: the glow stays a glow around the node rather than something the node has
+//: swallowed.
+//:
+//: **Animated here rather than in CSS.** The SVG renderer could do this with a
+//: `:hover` rule; this one paints to a canvas, which has no elements to hover
+//: and no transitions. So the eased value is held as one number and the draw
+//: loop is asked for frames only while it is moving: `gcHoverFrom`/`gcHoverTo`
+//: name the node it is leaving and the node it is entering, and both are
+//: eased, so moving the pointer straight from one node to the next shrinks the
+//: first while the second grows instead of snapping.
+//:
+//: The cost is bounded by construction: at most two nodes are ever mid-ease,
+//: the animation is 140ms, and when nothing is easing `gcHoverEase` is exactly
+//: 1 and no frames are requested at all.
+const GC_HOVER_GROW = 6;       // exactly the gap from a core to its own halo
+const GC_HOVER_HALO_GROW = 3;  // and the halo keeps half that much clear
+const GC_HOVER_MS = 140;
+let gcHoverTo = null;          // the node id growing
+let gcHoverFrom = null;        // the node id shrinking back
+let gcHoverStart = 0;
+let gcHoverEase = 1;           // 0 to 1 across the two above
+
+//: `1 - (1 - t)^3`: fast away from the start, settling at the end. The same
+//: shape as the `cubic-bezier(0.2, 0.8, 0.3, 1)` the stylesheet uses for the
+//: SVG renderer's version of this, so the two renderers feel the same.
+function gcEaseOut(t) {
+  const c = Math.min(1, Math.max(0, t));
+  return 1 - (1 - c) * (1 - c) * (1 - c);
+}
+
+//: Called when the hovered node changes. Whatever was growing starts
+//: shrinking from wherever it had got to, so a fast sweep across a cluster
+//: does not leave a node stuck large.
+function gcHoverChanged(nextId) {
+  gcHoverFrom = gcHoverEase < 1 && gcHoverTo != null ? gcHoverTo : gcHoverFrom;
+  if (gcHoverEase >= 1) gcHoverFrom = gcHoverTo;
+  gcHoverTo = nextId;
+  gcHoverStart = performance.now();
+  gcHoverEase = 0;
+}
+
+//: How much bigger this node is drawing right now, in world units. Zero for
+//: every node that is neither entering nor leaving the hover, which is all but
+//: two of them.
+function gcHoverGrow(node, base) {
+  if (node.id === gcHoverTo) return base * gcHoverEase;
+  if (node.id === gcHoverFrom) return base * (1 - gcHoverEase);
+  return 0;
+}
+
+//: Advances the ease and says whether another frame is owed. Called once per
+//: draw, before anything is measured, so every radius in that frame agrees.
+function gcHoverStep() {
+  if (gcHoverEase >= 1) return false;
+  //: A reader who has asked for less motion gets the size change without the
+  //: travel: the node is simply already large. Removing the growth as well
+  //: would leave them with no hover feedback on this renderer at all, since
+  //: there is no CSS here to give them a colour change instead.
+  const still = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  gcHoverEase = still ? 1 : gcEaseOut((performance.now() - gcHoverStart) / GC_HOVER_MS);
+  if (gcHoverEase >= 1) {
+    gcHoverEase = 1;
+    gcHoverFrom = null;
+    return false;
+  }
+  return true;
+}
+
 // --- the draw ------------------------------------------------------------------
 
 function gcRequestDraw() {
@@ -362,6 +438,9 @@ function gcExportPng(scale = 2) {
 function gcDraw() {
   if (!gcCtx || !gcCanvas) return;
   const started = performance.now();
+  //: Advanced once, before anything is measured, so every radius in this frame
+  //: agrees, and another frame is asked for only while it is still moving.
+  const easing = gcHoverStep();
   const ctx = gcCtx;
   const t = gcTransform || d3.zoomIdentity;
   const k = t.k;
@@ -460,6 +539,7 @@ function gcDraw() {
   const hubs = { path: new Path2D(), any: false };
   const labelled = [];
   const drawn = [];
+  const hotHalos = [];
   for (const node of gcNodes) {
     if (!Number.isFinite(node.x)) continue;
     if (!gcVisibleAtTime(node)) continue;
@@ -472,9 +552,20 @@ function gcDraw() {
       haloByColour.set(key, halo);
       coreByColour.set(key, { colour: node.colour, dim, path: new Path2D() });
     }
-    const r = node.r;
-    halo.path.moveTo(node.x + r + 6, node.y);
-    halo.path.arc(node.x, node.y, r + 6, 0, Math.PI * 2);
+    //: The hover growth, applied once and remembered on the node, so the core,
+    //: the halo, the plain ring, the hub ring and the special ring below all
+    //: draw against the same radius this frame. Reading it four times would
+    //: let the ring and the dot it rings disagree by a fraction of a pixel
+    //: mid-ease, which reads as a shimmer on the outline.
+    node._grow = gcHoverGrow(node, GC_HOVER_GROW);
+    //: The at most two nodes mid-ease, kept aside so their halo can be lit
+    //: without breaking the colour batching every other node relies on.
+    const heat = gcHoverGrow(node, 1);
+    if (heat > 0) hotHalos.push({ node, heat });
+    const r = node.r + node._grow;
+    const haloR = node.r + 6 + gcHoverGrow(node, GC_HOVER_HALO_GROW);
+    halo.path.moveTo(node.x + haloR, node.y);
+    halo.path.arc(node.x, node.y, haloR, 0, Math.PI * 2);
     const core = coreByColour.get(key);
     core.path.moveTo(node.x + r, node.y);
     core.path.arc(node.x, node.y, r, 0, Math.PI * 2);
@@ -500,8 +591,8 @@ function gcDraw() {
       // `beginPath`/`stroke` each was 2,000 stroke calls a frame at the fitted
       // zoom and on its own blew the 16 ms budget. Every hub ring is the same
       // colour and the same width, so it is one path and one stroke.
-      hubs.path.moveTo(node.x + node.r, node.y);
-      hubs.path.arc(node.x, node.y, node.r, 0, Math.PI * 2);
+      hubs.path.moveTo(node.x + node.r + node._grow, node.y);
+      hubs.path.arc(node.x, node.y, node.r + node._grow, 0, Math.PI * 2);
       hubs.any = true;
     }
     // Labels come on by zoom, and a hovered or spotlit note always shows its
@@ -528,6 +619,29 @@ function gcDraw() {
     ctx.fillStyle = core.colour;
     ctx.fill(core.path);
   }
+  //: The hovered node's halo, lit. A second fill over the one the batch
+  //: already laid down, because pulling this node out of its colour batch to
+  //: give it a different alpha would cost a fill per colour rather than a fill
+  //: per hovered node, and there are at most two of those.
+  //:
+  //: 0.33 over the batch's 0.18 composites to 0.45: `1 - (1 - 0.18)(1 - 0.33)`.
+  //: Multiplying by `heat` is what makes it ease in and out with the size,
+  //: including on the node being left, whose `heat` is counting down.
+  for (const hot of hotHalos) {
+    if (hot.node._dim) continue;
+    ctx.globalAlpha = 0.33 * hot.heat;
+    ctx.fillStyle = hot.node.colour;
+    ctx.beginPath();
+    ctx.arc(
+      hot.node.x,
+      hot.node.y,
+      hot.node.r + 6 + gcHoverGrow(hot.node, GC_HOVER_HALO_GROW),
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+  }
+
   // The ordinary ring (`.graph-core { stroke: var(--card) }`) in one pass.
   ctx.globalAlpha = 1;
   ctx.strokeStyle = gcTokens.card;
@@ -535,8 +649,8 @@ function gcDraw() {
   const plain = new Path2D();
   for (const node of drawn) {
     if (node._dim) continue;
-    plain.moveTo(node.x + node.r, node.y);
-    plain.arc(node.x, node.y, node.r, 0, Math.PI * 2);
+    plain.moveTo(node.x + node.r + node._grow, node.y);
+    plain.arc(node.x, node.y, node.r + node._grow, 0, Math.PI * 2);
   }
   ctx.stroke(plain);
   if (hubs.any) {
@@ -552,7 +666,7 @@ function gcDraw() {
     const node = item.node;
     ctx.globalAlpha = item.dim ? GC_DIM_ALPHA : 1;
     ctx.beginPath();
-    ctx.arc(node.x, node.y, node.r, 0, Math.PI * 2);
+    ctx.arc(node.x, node.y, node.r + (node._grow || 0), 0, Math.PI * 2);
     if (node === gcDropTarget) {
       ctx.strokeStyle = gcTokens.ok;
       ctx.lineWidth = 4 / k;
@@ -734,6 +848,10 @@ function gcDraw() {
   if (!gcTiming.firstFrame && gcTiming.dataAt && drawn.length) {
     gcTiming.firstFrame = performance.now() - gcTiming.dataAt;
   }
+  //: One more frame while the hover is still growing or shrinking. Nothing
+  //: is scheduled once `gcHoverStep` reports it has arrived, so an idle graph
+  //: costs no frames at all.
+  if (easing) gcRequestDraw();
 }
 
 function gcLabelText(node) {
@@ -1034,6 +1152,7 @@ function gcWireInteraction() {
     const id = node ? node.id : null;
     if (id !== graphHoveredId) {
       graphHoveredId = id;
+      gcHoverChanged(id);
       // The native tooltip the SVG renderer got from a `<title>` child. A
       // canvas has no children, so the canvas itself carries whichever one
       // applies.
@@ -1044,6 +1163,7 @@ function gcWireInteraction() {
   gcCanvas.addEventListener("pointerleave", () => {
     if (graphHoveredId == null) return;
     graphHoveredId = null;
+    gcHoverChanged(null);
     gcCanvas.title = "";
     gcRequestDraw();
   });

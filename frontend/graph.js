@@ -2072,6 +2072,28 @@ async function renderGraphSvg() {
     .data(nodes)
     .join("g")
     .attr("class", "graph-node")
+    //: **The hover scale, per node, because every node is a different size.**
+    //: Asked for: "can you make graph nodes temporarily expand to fill their
+    //: glow bubble when I hover over them or smth?? I feel like the graph
+    //: nodes could look slightly nicer, cooler, more professional and more
+    //: modern."
+    //:
+    //: The halo is drawn at `graphNodeRadius(d) + 6`, so the factor that takes
+    //: the core exactly out to it is `(r + 6) / r`, and that is a different
+    //: number for every node: 1.67 on a 9px leaf, 1.30 on a 20px hub. A single
+    //: hard-coded scale in the stylesheet would overshoot the small nodes and
+    //: barely move the large ones, which is the opposite of the effect. CSS
+    //: cannot compute it either (`r` is an attribute, not a value CSS can read
+    //: back), so the arithmetic is done here, where the radius is known, and
+    //: handed to the stylesheet as a custom property.
+    //:
+    //: `.style()` and not a `style=` attribute: the CSP refuses inline style
+    //: attributes, and d3's `.style` goes through `setProperty` on the
+    //: element, which it allows.
+    .style("--graph-hover-scale", (d) => {
+      const r = graphNodeRadius(d);
+      return r > 0 ? (r + 6) / r : 1;
+    })
     // A pin restored above (fx/fy set from graph_pin_x/graph_pin_y) needs
     // the same held-look the dblclick handler gives a pin made live, 
     // otherwise a reload shows the node correctly *held in place* with no

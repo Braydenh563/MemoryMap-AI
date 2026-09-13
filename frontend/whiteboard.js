@@ -3931,7 +3931,7 @@ function wbMapClearDropTarget() {
 //: The node is unpinned on the way: it was dragged, so `wbMapPinOnDrag` would
 //: otherwise fix it exactly where the pointer let go, which is the one place
 //: it should not stay now that it belongs to a different parent.
-async function wbMapTransplant(d, targetId, alone) {
+async function wbMapTransplant(d, targetId, alone, { via = "drag" } = {}) {
   const boardId = window.currentBoardId;
   const index = wbMapIndex();
   const target = index.byId.get(targetId);
@@ -3960,10 +3960,65 @@ async function wbMapTransplant(d, targetId, alone) {
   await wbMapTidyBranch(targetId);
   if (oldParent != null) await wbMapTidyBranch(oldParent);
   renderWhiteboardNow();
-  toast(alone
-    ? `Moved this topic under "${wbMapLabel(target)}", its branches stayed.`
-    : `Moved this branch under "${wbMapLabel(target)}".`);
+  //: A line drawn between two topics and a branch dragged onto one are the
+  //: same move and want different words: the first connected something, the
+  //: second moved it.
+  toast(via === "link"
+    ? `Connected to "${wbMapLabel(target)}" as a branch.`
+    : alone
+      ? `Moved this topic under "${wbMapLabel(target)}", its branches stayed.`
+      : `Moved this branch under "${wbMapLabel(target)}".`);
   return true;
+}
+
+//: **A link tool, on a map, joins the tree** (INBOX 180: "I cant properly
+//: reconnect things that are disconnected" and "the connections between stuff
+//: in the mindmap should be different from the ones in the whiteboard").
+//:
+//: On a board a link is a drawn connector, and that is the whole of what it
+//: is. On a map the connections *are* the structure: a node hanging off
+//: nothing is a loose root, the tidy skips it, the outline does not contain
+//: it, and collapsing its would-be parent leaves it on screen. Drawing a
+//: curve from one topic to it looked like a repair and was not one: it made a
+//: cross-link, a decoration over a tree the node still was not part of, which
+//: is exactly the "I tried the link tools and they didn't work" report.
+//:
+//: So a link drawn between two topics, where one of them has no parent, is
+//: read as the obvious thing: attach the loose one to the other. Both ends
+//: are tried, because a person draws the line in whichever direction they are
+//: thinking in. Two nodes that are both already in the tree keep the old
+//: behaviour, a cross-link, which is a real thing to want and is already
+//: drawn dashed to say it is not the tree.
+//:
+//: Returns true when it took the gesture, false to let the cross-link happen.
+async function wbMapJoinByLink(source, target) {
+  if (!wbIsMap() || !source || !target) return false;
+  if (!WB_MAP_KINDS.has(source.kind) || !WB_MAP_KINDS.has(target.kind)) return false;
+  const index = wbMapIndex();
+  //: **The map's own first root is in the tree, not loose.** It is the one
+  //: node that legitimately has no parent (`wbMapStats` counts every *other*
+  //: parentless node as a loose root), so reading "no parent" as "loose"
+  //: would have let a line drawn from the root to a branch hang the whole map
+  //: under one of its own children.
+  const mainRoot = index.roots[0] || null;
+  const inTree = (node) => index.byId.has(node.parent_id) || node.id === mainRoot?.id;
+  //: A node cannot be adopted by its own descendant: the server's `/move`
+  //: refuses the ring, and an offer it will reject is worse than no offer.
+  const subtreeOf = (node) => new Set(wbMapSubtree(index, node.id).map((o) => o.id));
+  let parent = null;
+  let child = null;
+  if (!inTree(target) && !subtreeOf(target).has(source.id)) {
+    parent = source;
+    child = target;
+  } else if (!inTree(source) && !subtreeOf(source).has(target.id)) {
+    parent = target;
+    child = source;
+  }
+  if (!parent || !child) return false;
+  //: `wbMapTransplant` is the one mover: it moves the branch, unpins the
+  //: node, tidies both ends and says what it did. A second copy of that here
+  //: is how the two would drift apart.
+  return wbMapTransplant(child, parent.id, false, { via: "link" });
 }
 
 //: Open the library item a reference node stands for. One place, because
@@ -12785,6 +12840,12 @@ async function dragEndNode(event, d) {
     const targetNode = hit ? hit[1] : null;
     const targetKind = hit ? hit[0] : "node";
 
+    if (targetNode && await wbMapJoinByLink(d, targetNode)) {
+      // The map took it as a branch: see `wbMapJoinByLink`. No sketch, and
+      // the transplant has already tidied, rendered and said what it did.
+      d.linkSourceAnchor = null;
+      return;
+    }
     if (targetNode) {
        // The release point's own nearest anchor on the target, same as the
        // source got at drag-start, `null` (nothing near enough) persists

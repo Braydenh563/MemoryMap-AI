@@ -82,8 +82,21 @@ measured or built in earlier commits and is marked there.
       the object it swept, no stray rectangle is left, and a plain click on
       the connector still selects the connector;
     - reconnecting something that has come adrift on a map is not possible
-      in practice;
-    - a map's connections should not look or behave like a board's;
+      in practice, and a map's connections should not behave like a board's:
+      **both fixed, 2026-09-13.** A link tool on a map now joins the tree. On
+      a board a link is a drawn connector and that is all it is; on a map the
+      connections are the structure, so drawing a curve from a topic to a
+      loose one made a cross-link, a decoration over a tree the node still was
+      not part of, which is why the link tools "didn't work" as a repair. A
+      line between two topics where one of them is not in the tree attaches
+      the loose one to the other, in whichever direction it was drawn; two
+      nodes already in the tree still get the dashed cross-link, which is a
+      real thing to want. The map's own first root counts as in the tree, so
+      a line from the root to a branch cannot hang the map under its own
+      child. Measured (`scratchpad/ui-sweeps/maprejoin.js`): the loose topic
+      comes back with `parent_id` set, one tree edge drawn, no sketch, and the
+      toast reads "Connected to Root as a branch"; the second link, between
+      two rooted nodes, makes one sketch and leaves the root a root;
     - the radial ring around a node: what its options are and how they work
       are unintuitive;
     - the direction connectors want a better, more modern look;

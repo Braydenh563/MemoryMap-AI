@@ -64,6 +64,12 @@ below). Versioning is `0.x` while the app stabilises.
   0px horizontally and 4px below the word after the scroll, closed after the
   word leaves the box.
 
+- A link tool on a mind map connects the map. Drawing a line from a topic to
+  one that hangs off nothing now attaches it as a branch, with a real tree
+  edge, instead of leaving a decorative curve over a node that is still not
+  part of the map. Two topics that are both already in the tree still get a
+  cross-link.
+
 - Drag-select on a whiteboard or mind map works where the connectors are. Every
   link carries a wide invisible band so it can be clicked, and a rubber-band
   drag that began anywhere on that band did nothing at all, which on a board

@@ -375,3 +375,131 @@ def test_a_row_that_says_where_you_are_also_says_so_to_a_screen_reader() -> None
                 "never sets aria-current beside it: that mark is a colour, and "
                 "a colour is not a position (DESIGN.md, the recipe index)"
             )
+
+
+def _tool_palettes() -> list[tuple[str, list[str]]]:
+    """Every bar built from `.wb-tool-section`, with what sits loose in it.
+
+    Returns (bar name, complaints). A bar is any element with at least one
+    `.wb-tool-section` child; a complaint is a control that is not inside a
+    `.wb-tool-section-row`, or a section that is not one label and one row.
+
+    Built as a tree rather than judged while walking, because document order
+    does not cooperate: a control dropped into a palette *before* its first
+    section would be read while nothing yet knows that the element it sits in
+    is a palette at all, which is the one arrangement this most needs to
+    catch (proved by putting exactly that into the markup and watching a
+    stack-walking version of this pass).
+    """
+    from html.parser import HTMLParser
+
+    html = re.sub(r"<!--.*?-->", "", (ROOT / "frontend" / "index.html").read_text(encoding="utf-8"), flags=re.S)
+
+    class Tree(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__()
+            self.nodes: list[dict] = []
+            self.open: list[int] = []
+            self.void = {"input", "img", "br", "hr", "meta", "link"}
+
+        def handle_starttag(self, tag, attrs):
+            a = dict(attrs)
+            node = {
+                "index": len(self.nodes),
+                "tag": tag,
+                "classes": set((a.get("class") or "").split()),
+                "id": a.get("id") or "",
+                "type": a.get("type") or "",
+                "parent": self.open[-1] if self.open else None,
+                "children": [],
+            }
+            index = len(self.nodes)
+            self.nodes.append(node)
+            if node["parent"] is not None:
+                self.nodes[node["parent"]]["children"].append(index)
+            if tag not in self.void:
+                self.open.append(index)
+
+        def handle_startendtag(self, tag, attrs):
+            self.handle_starttag(tag, attrs)
+
+        def handle_endtag(self, tag):
+            for i in range(len(self.open) - 1, -1, -1):
+                if self.nodes[self.open[i]]["tag"] == tag:
+                    del self.open[i:]
+                    return
+
+    tree = Tree()
+    tree.feed(html)
+    nodes = tree.nodes
+
+    def ancestors(index: int):
+        while index is not None:
+            yield nodes[index]
+            index = nodes[index]["parent"]
+
+    bars: dict[str, list[str]] = {}
+    palette_ids: set[int] = set()
+    for index, node in enumerate(nodes):
+        if "wb-tool-section" in node["classes"] and node["parent"] is not None:
+            palette_ids.add(node["parent"])
+    for index in palette_ids:
+        node = nodes[index]
+        bars[node["id"] or "." + "-".join(sorted(node["classes"])[:1])] = []
+
+    def name_of(index: int) -> str:
+        node = nodes[index]
+        return node["id"] or "." + "-".join(sorted(node["classes"])[:1])
+
+    for index, node in enumerate(nodes):
+        if "wb-tool-section" in node["classes"] and node["parent"] in palette_ids:
+            labels = sum(
+                1 for child in node["children"] if "wb-tool-section-label" in nodes[child]["classes"]
+            )
+            rows = sum(
+                1 for child in node["children"] if "wb-tool-section-row" in nodes[child]["classes"]
+            )
+            if labels != 1 or rows != 1:
+                bars[name_of(node["parent"])].append(
+                    f"a section with {labels} labels and {rows} rows"
+                )
+        is_control = node["tag"] in ("button", "select") or (
+            node["tag"] == "input" and node["type"] != "hidden"
+        )
+        if not is_control:
+            continue
+        chain = list(ancestors(node["parent"]))
+        palette = next((a for a in chain if a["index"] in palette_ids), None)
+        if palette is None:
+            continue
+        if not any("wb-tool-section-row" in a["classes"] for a in chain):
+            bars[name_of(palette["index"])].append(
+                f"{node['id'] or sorted(node['classes']) or node['tag']} is not in a .wb-tool-section-row"
+            )
+    return sorted(bars.items())
+
+def test_a_tool_palette_is_all_sections_or_none() -> None:
+    """A bar of many tools is labelled sections, and nothing loose beside them.
+
+    DESIGN.md's recipe index, the row for a palette of many tools. The
+    whiteboard's rail learned this the expensive way (42 icons in one flat
+    group, "neither is a design; both are an inventory") and the sketch pad's
+    toolbar was reported in exactly the same words: "the quick sketck popup
+    controls need a new redesign as they are clumped and ugly". What the
+    recipe buys is that a group has a name and a hairline, and what this
+    guards is the half-application: one control dropped into the bar beside
+    the sections, which is where the next "clumped" report comes from, since
+    it belongs to no group and says nothing about itself.
+
+    Both live palettes (`#wb-tool-group`, `#sketch-toolbar`) are read from the
+    markup, so a third one joins the rule by being written, not by being
+    listed here.
+    """
+    palettes = _tool_palettes()
+    assert palettes, "no tool palette found: this lint is looking at the wrong markup"
+    for bar, complaints in palettes:
+        assert not complaints, (
+            f"{bar}: " + "; ".join(complaints) + " (DESIGN.md, the recipe index: a "
+            "palette of many tools is `.wb-tool-section` wrapping a "
+            "`.wb-tool-section-label` and a `.wb-tool-section-row`)"
+        )

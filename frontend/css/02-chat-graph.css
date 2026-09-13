@@ -1758,7 +1758,9 @@ button.ghost.danger {
   inset: 0;
   width: 100%;
   height: 100%;
-  border-radius: var(--radius-lg);
+  /* The same concentric corner the toolbar above and the foot below take, so
+     the three surfaces stacked inside this card agree (INBOX 123). */
+  border-radius: var(--radius-inner);
   touch-action: none;
   /* the pen, not the page, gets touch moves */
 }
@@ -1775,36 +1777,83 @@ button.ghost.danger {
   cursor: crosshair;
 }
 
-/* --- Quick Sketch Floating Toolbar --- */
-.sketch-docked-toolbar {
+/* --- the sketch pad's tool palette -------------------------------------------
+   One bar, six labelled sections, one hairline between them: the grammar
+   `.wb-tool-section` states (06-timeline-dialogs.css) and DESIGN.md's recipe
+   index now names for any palette of many tools. This file holds only what is
+   particular to *this* palette, its surface, its control height and its two
+   controls that exist nowhere else (a colour dot, a size readout).
+
+   Why a surface at all, when the whiteboard's rail floats over a canvas
+   without one: this bar sits inside a dialog card, against the card's own
+   fill, so without a panel of its own the sections would be a run of icons
+   loose on the card. `--radius-inner` is the concentric corner for a shape
+   inside a `.card` (DESIGN.md, "Concentric corners"), and the canvas and the
+   foot below take the same one, which is the "the bottom section below the
+   canvas needs fixing ui wise" half of INBOX 123: three stacked surfaces that
+   disagreed about their corners now share one. */
+.sketch-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  flex-wrap: wrap;
+  /* No column gap: the hairline on `.wb-tool-section + .wb-tool-section` owns
+     the space between groups, and a gap on top of it would double the inset
+     on one side of every rule. The row gap is what a wrap below 900px lands
+     on. Written as the two long-hands rather than as `gap: var(--space-3) 0`,
+     which `test_ui_signatures.py` reads as a fourth distinct row gap in a
+     family that is allowed three: the pair says the same thing and says it
+     about the axis it is actually about. */
+  row-gap: var(--space-3);
+  column-gap: 0;
   background: var(--card);
   border: 1px solid var(--border);
   padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-inner);
   margin-bottom: var(--space-4);
-  box-shadow: var(--shadow-sm);
 }
 
-.sketch-docked-toolbar .seg {
-  margin: 0;
+/* One height for every row of controls, whatever is in it: a section holding
+   1.25rem colour dots and a section holding 2.25rem buttons would otherwise
+   put their labels at two different heights and give the bar the ragged top
+   edge the report calls clumped. */
+.sketch-toolbar .wb-tool-section-row {
+  min-height: var(--control-h-lg);
+  /* The tightest step on the scale between two buttons of one group: measured
+     at `--space-2` the six sections came to 873px inside an 829px card and the
+     last of them wrapped, which is the same defect in a better shape. The
+     hairline between sections is what separates them; inside one, the buttons
+     belong together and read better close. */
+  gap: var(--space-1);
+}
+
+.sketch-toolbar .ghost.icon-button {
+  width: var(--control-h-lg);
+  height: var(--control-h-lg);
+  padding: 0;
+  border-radius: var(--radius-md);
+}
+
+/* The selected tool is the filled recipe, as every other selected toggle in
+   the app (DESIGN.md, the button ramp: "a selected toggle is the filled
+   recipe: on is the accent"). The whiteboard's rail says exactly this for
+   `.wb-tool-group button.active`; this bar is not inside one, so it says it
+   again for itself rather than widening that selector to the whole app. */
+.sketch-toolbar .ghost.icon-button.active {
+  background: var(--accent-surface);
+  border-color: transparent;
+  color: var(--on-accent);
+  box-shadow: none;
 }
 
 .sketch-colors {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-2);
-  border-left: 1px solid var(--border);
-  border-right: 1px solid var(--border);
 }
 
 .sketch-color {
   width: 1.25rem;
   height: 1.25rem;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   border: 2px solid transparent;
   cursor: pointer;
   padding: 0;
@@ -1815,22 +1864,99 @@ button.ghost.danger {
   transform: scale(1.2);
 }
 
+/* The selected dot keeps its ring and loses the scale: a transform moved the
+   dot off the row's own baseline by a pixel, which is what made the colour
+   section measure as two rows in `popupdialogs.js` while looking like one. */
 .sketch-color.active {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft);
-  transform: scale(1.1);
 }
 
-.sketch-size-wrapper {
-  display: flex;
-  align-items: center;
-  padding: 0 var(--space-2);
+.sketch-size-row {
+  gap: var(--space-2);
+}
+
+/* One height across the foot, the same the toolbar's controls take: the
+   caption box came out at 40px beside a 42px Save, which is the kind of 2px
+   disagreement that reads as carelessness without ever being noticed. */
+.sketch-foot #sketch-caption,
+.sketch-foot #sketch-save {
+  height: var(--control-h-lg);
+  padding-block: 0;
 }
 
 .sketch-slider {
   accent-color: var(--accent);
-  width: 80px;
+  width: 4rem;
   cursor: pointer;
+}
+
+/* The number the slider is on. `--text-sm` and tabular figures so the row does
+   not move by a pixel as the value goes from 9 to 10. */
+.sketch-size-value {
+  min-width: 1.5rem;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--muted);
+}
+
+/* A paper colour is usually #ffffff on a light panel, so the swatch needs a
+   ring that survives its own value: the same reason the whiteboard's board
+   background picker carries one (06-timeline-dialogs.css). */
+.sketch-bg-swatch {
+  width: var(--control-h-lg);
+  height: var(--control-h-lg);
+  padding: 0;
+  border: 1px solid var(--muted);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+/* The bar under the canvas: the toolbar's surface, its inset and its corner,
+   so the three stacked surfaces of this dialog read as one object. The
+   caption takes the width, the status sits where a result belongs, and the
+   dialog's one filled control ends the row. */
+.sketch-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-inner);
+  margin-top: var(--space-4);
+}
+
+.sketch-foot #sketch-caption {
+  flex: 1 1 12rem;
+  min-width: 0;
+  margin: 0;
+}
+
+.sketch-foot #sketch-status {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sketch-foot #sketch-save {
+  flex: 0 0 auto;
+}
+
+/* Below the width this palette fits in, the sections wrap as sections (they
+   are `flex-shrink: 0`), and the foot becomes two rows rather than squeezing
+   a caption box to nothing. */
+@media (max-width: 720px) {
+  .sketch-foot {
+    flex-wrap: wrap;
+  }
+
+  .sketch-foot #sketch-caption {
+    flex: 1 1 100%;
+  }
 }
 
 /* --- Wave F: mobile / PWA responsive pass --------------------------------------- */

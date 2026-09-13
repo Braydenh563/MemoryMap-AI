@@ -171,6 +171,17 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The quick sketch pad's controls are grouped and named. The toolbar was one
+  pill holding four runs of unequal density: twelve controls at five heights
+  across five rows at 1440 and at 1024, with the pen, highlighter and eraser
+  wrapping to a second line inside their own box and the paper colour pushed
+  under the undo run. It is six labelled sections now, Draw, Shapes, Ink,
+  Size, Edit and Paper, separated by the app's own hairline, one row at both
+  widths, every button on the control height, and the width slider has a name
+  and shows the number it is set to. The bar under the canvas is the toolbar's
+  surface upside down, so the toolbar, the canvas and the caption row share
+  one inset and one corner instead of three.
+
 - Your documents, reminders and pictures arrive a page at a time. All three
   lists used to hand back every row on every call: 300 documents measured
   116.7 KB in one response, 300 reminders 52.5 KB, 300 pictures 117.6 KB,

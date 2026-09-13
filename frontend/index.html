@@ -8418,84 +8418,120 @@
     </div>
   </div>
 
+  <!-- **The sketch pad's controls are the app's tool-palette recipe, not a
+       pill of their own** (INBOX 123, the owner with two screenshots: "the
+       quick sketck popup controls need a new redesign as they are clumped and
+       ugly and the bottom section below the canvas needs fixing ui wise as
+       well").
+
+       Measured before touching it (`scratchpad/ui-sweeps/popupdialogs.js`, at
+       1440 and at 1024, which give this card the same 900px): twelve controls
+       in one strip at five distinct heights (16/20/22/58/61) across five rows.
+       Two of those rows were `.seg` wells wrapping *inside themselves*, which
+       is the "pen/highlighter/eraser group wraps to a second line inside its
+       own box" half of the report, and the last was the background swatch
+       pushed under the undo run.
+
+       What it is now is the grammar the whiteboard's tool rail has used since
+       its own redesign, and which DESIGN.md's recipe index now names for both:
+       `.wb-tool-section` around a `.wb-tool-section-label` and a
+       `.wb-tool-section-row`, one hairline in `--divider` between sections and
+       no other mark inside the bar. A label says what a group *is*, which is
+       precisely what "clumped" describes the absence of: seven colour dots ran
+       edge to edge into an unlabelled slider with nothing to say where either
+       began. The `.seg` wells are gone because a labelled section is already
+       the grouping, and a well drawn inside one is a second frame around the
+       same three buttons.
+
+       Every id is the id it already had, so every listener in app.js is
+       unchanged; the icons are the app's own Phosphor set rather than eleven
+       hand-drawn inline SVGs, which is also what puts them all on one optical
+       size. -->
   <div id="sketch-overlay" class="hidden" role="dialog" aria-modal="true" aria-label="Sketch pad">
     <div class="card glass" id="sketch-card">
       <div class="row space-between">
-        <h2>Quick sketch</h2>
+        <h2><i class="ph ph-palette ph-lead" aria-hidden="true"></i> Quick sketch</h2>
         <button id="sketch-close" class="ghost small">Close</button>
       </div>
-      <div id="sketch-toolbar" class="sketch-docked-toolbar">
-        <div class="seg seg-compact">
-          <button id="sketch-tool-pen" class="active" title="Pen" aria-label="Pen">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
-          </button>
-          <button id="sketch-tool-highlighter" title="Highlighter" aria-label="Highlighter">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l-6 6v3h9l3-3"></path><path d="M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"></path></svg>
-          </button>
-          <button id="sketch-tool-eraser" title="Eraser" aria-label="Eraser">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16C2.5 15.5 2.5 14.5 3 14L13 4C13.5 3.5 14.5 3.5 15 4L20 9C20.5 9.5 20.5 10.5 20 11L11 20"></path><path d="M17 14L7 14"></path></svg>
-          </button>
+      <div id="sketch-toolbar" class="sketch-toolbar" role="toolbar" aria-label="Sketch tools">
+        <div class="wb-tool-section" role="group" aria-label="Draw">
+          <span class="wb-tool-section-label">Draw</span>
+          <div class="wb-tool-section-row">
+            <button id="sketch-tool-pen" class="ghost icon-button active" type="button" title="Pen" aria-label="Pen"><i class="ph ph-pencil-simple" aria-hidden="true"></i></button>
+            <button id="sketch-tool-highlighter" class="ghost icon-button" type="button" title="Highlighter" aria-label="Highlighter"><i class="ph ph-highlighter" aria-hidden="true"></i></button>
+            <button id="sketch-tool-eraser" class="ghost icon-button" type="button" title="Eraser" aria-label="Eraser"><i class="ph ph-eraser" aria-hidden="true"></i></button>
+          </div>
         </div>
-        
-        <div class="seg seg-compact">
-          <button id="sketch-tool-line" title="Line" aria-label="Line">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"></line></svg>
-          </button>
-          <button id="sketch-tool-arrow" title="Arrow" aria-label="Arrow">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-          </button>
-          <button id="sketch-tool-rect" title="Rectangle" aria-label="Rectangle">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
-          </button>
-          <button id="sketch-tool-circ" title="Circle" aria-label="Circle">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
-          </button>
-          <button id="sketch-tool-text" title="Text" aria-label="Text">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
-          </button>
+        <div class="wb-tool-section" role="group" aria-label="Shapes">
+          <span class="wb-tool-section-label">Shapes</span>
+          <div class="wb-tool-section-row">
+            <button id="sketch-tool-line" class="ghost icon-button" type="button" title="Line" aria-label="Line"><i class="ph ph-line-segment" aria-hidden="true"></i></button>
+            <button id="sketch-tool-arrow" class="ghost icon-button" type="button" title="Arrow" aria-label="Arrow"><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
+            <button id="sketch-tool-rect" class="ghost icon-button" type="button" title="Rectangle" aria-label="Rectangle"><i class="ph ph-square" aria-hidden="true"></i></button>
+            <button id="sketch-tool-circ" class="ghost icon-button" type="button" title="Circle" aria-label="Circle"><i class="ph ph-circle" aria-hidden="true"></i></button>
+            <button id="sketch-tool-text" class="ghost icon-button" type="button" title="Text" aria-label="Text"><i class="ph ph-text-t" aria-hidden="true"></i></button>
+          </div>
         </div>
-        
-        <div class="sketch-colors">
-          <button class="sketch-color active" data-color="#3b82f6" aria-label="Blue"></button>
-          <button class="sketch-color" data-color="#ef4444" aria-label="Red"></button>
-          <button class="sketch-color" data-color="#22c55e" aria-label="Green"></button>
-          <button class="sketch-color" data-color="#eab308" aria-label="Yellow"></button>
-          <button class="sketch-color" data-color="#a855f7" aria-label="Purple"></button>
-          <button class="sketch-color" data-color="#111827" aria-label="Black"></button>
-          <button class="sketch-color" data-color="#f9fafb" aria-label="White"></button>
+        <div class="wb-tool-section" role="group" aria-label="Ink colour">
+          <span class="wb-tool-section-label">Ink</span>
+          <div class="wb-tool-section-row sketch-colors">
+            <button class="sketch-color active" type="button" data-color="#3b82f6" title="Blue" aria-label="Blue"></button>
+            <button class="sketch-color" type="button" data-color="#ef4444" title="Red" aria-label="Red"></button>
+            <button class="sketch-color" type="button" data-color="#22c55e" title="Green" aria-label="Green"></button>
+            <button class="sketch-color" type="button" data-color="#eab308" title="Yellow" aria-label="Yellow"></button>
+            <button class="sketch-color" type="button" data-color="#a855f7" title="Purple" aria-label="Purple"></button>
+            <button class="sketch-color" type="button" data-color="#111827" title="Black" aria-label="Black"></button>
+            <button class="sketch-color" type="button" data-color="#f9fafb" title="White" aria-label="White"></button>
+          </div>
         </div>
-
-        <label class="sketch-size-wrapper" title="Brush Size">
-          <input id="sketch-size" aria-label="Brush size" title="Brush size" type="range" min="2" max="24" value="4" class="sketch-slider">
-        </label>
-        
-        <div class="seg seg-compact">
-          <button id="sketch-undo" title="Undo (Ctrl+Z)" aria-label="Undo (Ctrl+Z)">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
-          </button>
-          <button id="sketch-redo" title="Redo (Ctrl+Y)" aria-label="Redo (Ctrl+Y)">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"></polyline><path d="M4 20v-7a4 4 0 0 1 4-4h12"></path></svg>
-          </button>
-          <button id="sketch-clear" title="Clear Canvas" aria-label="Clear Canvas">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-          </button>
-          <button id="sketch-upload-image" title="Add Background Image" aria-label="Add Background Image">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-          </button>
-          <input type="color" id="sketch-bg-color-picker" aria-label="Sketch background colour" title="Sketch background colour" value="#ffffff"
-            title="Canvas background colour">
+        <!-- **A slider with a number beside it.** The width control was one
+             bare track with no label and no readout, so the only way to know
+             what it was set to was to draw a line and look at it. The section
+             label names it and the `<output>` says the value, which is the
+             whiteboard's own `Size` field in the context bar wearing this
+             bar's grammar. -->
+        <div class="wb-tool-section" role="group" aria-label="Brush size">
+          <span class="wb-tool-section-label">Size</span>
+          <div class="wb-tool-section-row sketch-size-row">
+            <input id="sketch-size" type="range" min="2" max="24" value="4" class="sketch-slider" aria-label="Brush size" title="Brush size">
+            <output id="sketch-size-value" class="sketch-size-value" for="sketch-size">4</output>
+          </div>
         </div>
-        <input id="sketch-image-input" aria-label="Choose an image to add to the sketch" title="Choose an image to add to the sketch" type="file" accept="image/*" class="hidden">
+        <div class="wb-tool-section" role="group" aria-label="Edit">
+          <span class="wb-tool-section-label">Edit</span>
+          <div class="wb-tool-section-row">
+            <button id="sketch-undo" class="ghost icon-button" type="button" title="Undo (Ctrl+Z)" aria-label="Undo (Ctrl+Z)"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
+            <button id="sketch-redo" class="ghost icon-button" type="button" title="Redo (Ctrl+Y)" aria-label="Redo (Ctrl+Y)"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+            <button id="sketch-clear" class="ghost icon-button" type="button" title="Clear the strokes, keeping the background" aria-label="Clear the strokes"><i class="ph ph-trash" aria-hidden="true"></i></button>
+          </div>
+        </div>
+        <!-- The two controls that act on the paper rather than on the pen, so
+             they are their own group: the swatch under the undo run was the
+             one control in this bar with nothing at all to say what it did. -->
+        <div class="wb-tool-section" role="group" aria-label="Canvas">
+          <span class="wb-tool-section-label">Paper</span>
+          <div class="wb-tool-section-row">
+            <button id="sketch-upload-image" class="ghost icon-button" type="button" title="Add a background image" aria-label="Add a background image"><i class="ph ph-image" aria-hidden="true"></i></button>
+            <input type="color" id="sketch-bg-color-picker" class="sketch-bg-swatch" aria-label="Paper colour" title="Paper colour" value="#ffffff">
+          </div>
+        </div>
       </div>
+      <input id="sketch-image-input" aria-label="Choose an image to add to the sketch" title="Choose an image to add to the sketch" type="file" accept="image/*" class="hidden">
       <div id="sketch-canvas-wrap" class="sketch-canvas-wrap">
-        
         <canvas id="sketch-bg-canvas" width="820" height="480"></canvas>
         <canvas id="sketch-canvas" width="820" height="480"></canvas>
       </div>
-      <div class="row">
-        <input id="sketch-caption" type="text" maxlength="200" placeholder="Caption (becomes the note text)">
-        <button id="sketch-save">Save as note</button>
+      <!-- **The bar under the canvas is the bar above it, upside down.**
+           Reported in the same message: the caption input and Save sat in a
+           run with no surface of its own, so its inset and its corners
+           matched neither the toolbar nor the canvas between them. It is one
+           surface now, on the same inner radius and the same inset as the
+           toolbar, with the status line in the middle where a result belongs
+           and the one filled control of this dialog at the end. -->
+      <div id="sketch-foot" class="sketch-foot">
+        <input id="sketch-caption" type="text" maxlength="200" placeholder="Caption (becomes the note text)" aria-label="Caption for this sketch">
         <span id="sketch-status" class="status" role="status"></span>
+        <button id="sketch-save" type="button">Save as note</button>
       </div>
     </div>
   </div>

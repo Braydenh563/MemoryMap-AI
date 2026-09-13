@@ -329,6 +329,7 @@ this table and its lint in the same commit as the feature, never after.
 | You need | Use | Guarded by |
 | --- | --- | --- |
 | A tab or sub-tab's control bar | `.dock` with `.dock-identity`, `.dock-group`, `.dock-actions`; seven controls at most, one filled | `tests/test_dock_grammar.py`, `scratchpad/ui-sweeps/docks.js` |
+| A palette of many tools (a drawing bar, where every control is a tool rather than one of seven choices) | `.wb-tool-section` around one `.wb-tool-section-label` and one `.wb-tool-section-row`, all of them in one bar; the group boundary is the hairline `.wb-tool-section + .wb-tool-section` draws in `--divider`, and nothing sits in the bar outside a section. Used by the whiteboard rail and the sketch pad's toolbar | `tests/test_ui_recipes.py` |
 | A menu behind a button | `kebabMenu(items, ariaLabel)` in app.js (positions, clamps, escapes clipping, closes on outside click) or `details.dock-menu` in markup | `tests/test_ui_recipes.py` (hand-built menus may not multiply) |
 | A menu item | `makeMenuItem("ph:icon Label", title, run)` | same |
 | A dropdown of values | a plain `<select>`; `enhanceSelect` restyles every one at boot | `tests/test_frontend_handlers.py` |

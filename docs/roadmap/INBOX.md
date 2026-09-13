@@ -68,9 +68,26 @@ measured or built in earlier commits and is marked there.
     every picture beside it from 144px to 229px; the frame is one height now
     (9rem) and the fold's own 11rem ceiling bounds the row (measured:
     pictures 144px in every card with a fold open, row growth 170px;
-    `scratchpad/ui-sweeps/imagecard4.js`). Open: the board preview's note
-    titles running past the thumbnail's edge, exported board images without
-    the caption/OCR area, and the cards' look as a whole.
+    `scratchpad/ui-sweeps/imagecard4.js`).
+    **The other two are fixed, 2026-09-13.** The preview's labels: the side a
+    label hangs off was chosen by which half of the board the block's left
+    edge sat in, so a wide topic just left of centre was labelled to its right
+    and the text ran past the paper and was sliced at the thumbnail's edge.
+    Both margins are measured now and the label takes the larger, budgeted by
+    the characters that side can actually hold, and it is dropped rather than
+    drawn as an ellipsis under four characters' room. Measured
+    (`scratchpad/ui-sweeps/maplabel.js`, the old rule replayed into the same
+    picture as a control): before, one label of four ran 53.4px past the
+    paper's right edge; now every label is inside it, the nearest 1.3px in.
+    The exported board images: `uploadToLibrary` posted them as *staged*
+    uploads, and `POST /media/upload` runs captioning, Tesseract and vision
+    OCR only for `direct`, on the assumption that a later note or document
+    save commits the file. Nothing ever commits a board export, so it sat in
+    the gallery permanently undescribed and unread, and the card's description
+    and "Text in this image" blocks are on a card only once they hold
+    something, which is the missing metadata area. Both board exports post
+    `direct` now, the same as the Library's own upload button.
+    Open: the cards' look as a whole.
 
 176. **Mid-work drop, 2026-09-13, verbatim (the owner), boards chrome
     (screenshots: the Name the new board dialog with neither Board nor Mind

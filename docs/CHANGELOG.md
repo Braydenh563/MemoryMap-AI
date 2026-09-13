@@ -9,15 +9,6 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
-- Twelve starters in the popup agent, grouped by what they do: capture, find,
-  summarise, remind and do. Each is a verb with a slot ("Remind me to…") that
-  drops into the box with the caret after it, or a whole instruction ("Tag my
-  untagged notes.") that runs on the press; the three you used last are
-  offered first. Beside them is "Use the open note", which sends whatever note
-  or document you have open with what you ask, so "summarise this" works from
-  a panel that floats over every tab. The card now has a ceiling and scrolls
-  inside it, so Start over and Stop stay on screen on a laptop and a phone.
-
 - The Ask tab answers the way the Chat tab does. Under an answer there is now
   a Sources disclosure listing what the answer drew on, an "Elsewhere in your
   notebook" row, and follow-up questions: press one and it is asked with the
@@ -46,6 +37,20 @@ below). Versioning is `0.x` while the app stabilises.
   is not a guess. The badge shows used against whatever window is in force.
 
 ### Fixed
+
+- A board or mind map preview no longer draws its labels over its own edge.
+  Which side of a block the label hangs off was decided by the half of the
+  board the block started in, so a wide topic just left of centre was labelled
+  to its right and the name ran past the paper and was cut at the thumbnail's
+  border. Both margins are measured now, the label takes the larger one and is
+  cut to what that side can hold, and it is left off entirely where there is
+  room for less than four characters.
+
+- Boards and mind maps exported to the image library are described and read
+  like any other picture. They were posted as staged uploads, which are
+  processed only when a note or document later saves a reference to them, and
+  nothing ever references a board export, so it arrived with no description
+  and no text reading and the card had neither block on it.
 
 - The document editor's word menu and word completion popup no longer open off
   the screen when the background art is on. Both are placed in the window's own

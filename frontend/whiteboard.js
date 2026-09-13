@@ -7600,6 +7600,18 @@ async function wbExportSvg(scope) {
 async function uploadToLibrary(filename, blob) {
   const formData = new FormData();
   formData.append("file", new File([blob], filename, { type: blob.type }));
+  //: **A board export is a commit, not a staged upload** (INBOX 174: an
+  //: exported board in the Library has "no metadata area below for image and
+  //: ocr captioning"). `POST /media/upload` runs captioning, Tesseract and
+  //: vision OCR only for `direct`; everything else is staged, on the
+  //: assumption that a note or document save will commit it later and
+  //: `media_process` will run then. Nothing ever commits a board export: the
+  //: picture *is* finished the moment it is made, which is the same case as
+  //: the Library's own upload button. Without this the card arrived with no
+  //: description and no reading, so the card's description and "Text in this
+  //: image" blocks, which are on a card only once they hold something, were
+  //: both absent, which is the missing metadata area exactly.
+  formData.append("direct", "true");
   return apiJson("/media/upload", {
     method: "POST",
     headers: { "X-Auth-Token": authToken() },

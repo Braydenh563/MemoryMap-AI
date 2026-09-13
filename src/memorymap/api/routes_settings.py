@@ -922,17 +922,42 @@ def _preference_out(row) -> dict:  # noqa: ANN001  # a UserPreference
     }
 
 
+#: One page of the memory stream. Bounded because only the *active*
+#: preferences are capped (`MAX_ACTIVE_PREFERENCES`): the switched-off ones
+#: and the model's unanswered proposals accumulate for the life of the
+#: notebook, and they are in this list too.
+#:
+#: The default is the maximum here for the reason `GALLERY_PAGE_SIZE` records
+#: at length: the one caller (`app.js` 27411) reads the whole object and
+#: cannot page it, because the response is `{preferences, ...}` rather than an
+#: array. A thousand standing instructions is far past any real notebook and
+#: is a bound the app fixes, which is what this class of flaw is about.
+MEMORY_PAGE_SIZE = 1000
+MEMORY_PAGE_SIZE_MAX = 1000
+
+
 @router.get("/memory")
-def list_memory(session: Session = Depends(get_session)) -> dict:
-    """Everything the AI has been told to remember, newest first."""
+def list_memory(
+    limit: int = Query(default=MEMORY_PAGE_SIZE, ge=1, le=MEMORY_PAGE_SIZE_MAX),
+    offset: int = Query(default=0, ge=0),
+    session: Session = Depends(get_session),
+) -> dict:
+    """A page of what the AI has been told to remember, newest first."""
     from memorymap.ai import memory
     from memorymap.core.database import UserPreference
 
+    total = session.scalar(select(func.count(UserPreference.id))) or 0
     rows = list(
-        session.scalars(select(UserPreference).order_by(UserPreference.created_at.desc()))
+        session.scalars(
+            select(UserPreference)
+            .order_by(UserPreference.created_at.desc(), UserPreference.id.desc())
+            .limit(limit)
+            .offset(offset)
+        )
     )
     return {
         "preferences": [_preference_out(r) for r in rows],
+        "total": total,
         # The UI says which of these actually reach the model. Only the active
         # ones do, and only until the character budget runs out, newest first,
         # so a long-standing list quietly stops including its oldest entries.

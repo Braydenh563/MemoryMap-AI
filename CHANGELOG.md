@@ -9,6 +9,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Four list endpoints that returned as many rows as the notebook has now take
+  a `limit`: the attachment gallery, the memory stream, the orphan scan and
+  the duplicate groups. Each still reports the real total, so a screen that
+  says "42 files nothing points at" is not counting its own page.
+  `tests/test_list_limits.py` walks every route the app serves and fails on a
+  fifth, with an allowlist that carries the reason each bounded list is
+  bounded rather than a count.
+
 - What the notebook learned, as a table you can correct (WORLD_CLASS_PLAN 15,
   I1 and I9). A night pass reads each note, keeps the claims it makes and the
   questions it leaves open, and records for every one of them the note and the

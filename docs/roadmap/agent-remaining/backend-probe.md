@@ -13,6 +13,7 @@ security review's open rows, D6, and the performance probes.
 ## Running log (append only, newest last)
 
 - done `50398cb`, `7e29d6f`, `7467ff2`: the derived facts pipeline, its docs, and the facts/learning import cycle the lint caught. next: WORLD_CLASS F2, the list limits (`tests/test_list_limits.py` new, four routes paged, uncommitted).
+- done: WORLD_CLASS F2, four unbounded lists bounded and the route-walking lint added. next: F4 (102 broad excepts), F7 (17 modules with threads), F10 (the three reading columns).
 
 ## The specs, read
 

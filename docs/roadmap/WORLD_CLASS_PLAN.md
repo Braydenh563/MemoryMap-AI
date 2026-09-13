@@ -1538,4 +1538,24 @@ undone.
 
 ## Placed from INBOX, 2026-09-13
 
+### F2's frontend half: five callers read `/files/gallery` whole
+
+Found by the backend agent, 2026-09-13 evening, while giving the four
+remaining unbounded lists a `limit` (`tests/test_list_limits.py` is the lint
+that stops a fifth appearing). `GET /files/gallery` now takes a `limit` and
+sends `X-Total-Count`, but **its default is its maximum (1000) rather than
+200**, because five callers read it whole through `apiJson` and one of them is
+the Library's own Files sub-tab: `app.js` 7073 (the Files picker source) and
+17875, `editor.js` 870, `library.js` 3767 and 5403. A 200-row default before
+those move would silently truncate the Library at two hundred attachments,
+which is a worse bug than the one being fixed.
+
+**The fix, for a frontend agent:** move all five to `apiPagedList(path, 200)`,
+which already exists and already reads this endpoint correctly at `app.js`
+17861, then drop `GALLERY_PAGE_SIZE` in `api/routes_files.py` to 200.
+`/memory`, `/duplicates` and `/media/orphans` have the same shape and carry
+the same note in the code, but each has one caller and an object response
+rather than an array, so they are bounded at their maximum and need no
+frontend change.
+
 

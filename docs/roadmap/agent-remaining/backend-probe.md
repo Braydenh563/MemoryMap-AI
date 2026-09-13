@@ -10,6 +10,10 @@ security review's open rows, D6, and the performance probes.
 | --- | --- | --- |
 | The derived facts pipeline (I9's whole backend, I1's first pass) | `tests/test_learned_spec.py` from 9 strict-xfail markers to 0, 14 of 14 green; 11 new tests in `tests/test_derived_facts.py` | `50398cb` |
 
+## Running log (append only, newest last)
+
+- done `50398cb`, `7e29d6f`, `7467ff2`: the derived facts pipeline, its docs, and the facts/learning import cycle the lint caught. next: WORLD_CLASS F2, the list limits (`tests/test_list_limits.py` new, four routes paged, uncommitted).
+
 ## The specs, read
 
 `test_events.py`, `test_search_engine_spec.py`, `test_harness_verifier_spec.py`

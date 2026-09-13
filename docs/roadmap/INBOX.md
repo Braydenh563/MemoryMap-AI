@@ -21,6 +21,43 @@ reset is processed as a batch at a boundary, the step that was in flight is
 finished to standard first, and the goals in HANDOVER's "Now" line are
 never lost to the smaller stuff.
 
+## What is actually open, 2026-09-13
+
+The owner asked how many items are in here and whether they need fixing or
+clearing. Nine numbered entries, but that count is misleading: five of them are
+batches from earlier sessions where most sub-reports carry a `Fixed <commit>`
+marker mid-paragraph and were never filed out. Reading the numbers rather than
+the contents overstates the work by about three times, which is what happened
+the first time this was audited today.
+
+**The genuinely open work, gathered from inside those entries:**
+
+- The whiteboard is laggy to drag and pan (114). Unattributed after three
+  passes. The one item here that is a real investigation rather than a fix.
+- The graph suggested-links panel: spacing and padding inconsistent with the
+  rest of the app (110, 111).
+- The AI skills sidebar does not reach full height (110).
+- The Files sub-tab text needs indenting, and "describe with AI" and the OCR
+  passes should show as background processes (111, not investigated).
+- Dragging the chat bar's height makes it snap back (111, not investigated).
+- The AI edit-history popover still does not centre (111, carried from 107a).
+- The per-model context window setting, so the token badge's window is
+  manageable rather than assumed (77; the badge itself is done).
+- 107c (whiteboard View and Arrange, Ctrl+S feedback, the dashboard band) and
+  107d (the segmented mini-bar redesign): not started.
+- The spelling popup's "wide gap" (128), which measures flush with the word
+  here and is NOT reproduced; `scratchpad/ui-sweeps/spellanchor.js` is the
+  probe for the next report.
+- With agents as this was written: the settings logs dock (131), the command
+  palette and Tools catalog audit (134), the README screenshots (138).
+
+**What needs clearing rather than fixing:** 114's other seven reports, and
+110's boards widget, square tab corners, chat panel shadow and glass tokens,
+are all done and marked; they are sitting in the tray because nobody moved them
+when they were closed. 107 also contains a question from the owner rather than
+a task ("should I leave this pr open until we can finish the rest of the still
+open and half finished stuff?"), which is a decision, not work.
+
 ## Open items
 
 138. **Mid-work drop, 2026-09-13, verbatim (the owner), the README.** "and

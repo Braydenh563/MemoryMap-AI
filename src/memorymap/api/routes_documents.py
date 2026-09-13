@@ -442,6 +442,20 @@ def import_document(
         # once a PDF has turned out to have no text layer.
         viewed = docview.extract(staged, vision_reader=vision_ocr.pdf_reader_or_none())
 
+    #: **A saved web page becomes prose here, and only here** (Phase 7).
+    #: `docview.extract` hands back an .html file's own markup, because the
+    #: viewer's preview pane serves exactly that inside a sandboxed response
+    #: and converting inside the extractor turned that pane into a page
+    #: showing `# Hi`. An *import* wants the opposite: this is a document from
+    #: now on, and a document of tags is not one anybody can edit.
+    if suffix in docview.HTML_SUFFIXES and viewed.text.strip():
+        viewed = docview.ViewedFile(
+            text=docview.html_to_markdown(viewed.text),
+            kind="markdown",
+            source="converted",
+            truncated=viewed.truncated,
+        )
+
     if not viewed.text.strip():
         # The extractor's own message says *why*, a scan with no text layer
         # reads differently from a converter that is not installed, and it is

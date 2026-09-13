@@ -86,16 +86,23 @@ def test_a_saved_web_page_leaves_the_scripts_and_the_javascript_links_behind():
     assert "link not to" in text
 
 
-def test_extracting_a_saved_page_says_it_converted_it(tmp_path):
+def test_extracting_a_saved_page_keeps_its_own_markup(tmp_path):
+    """The conversion belongs to the import, not to the extractor.
+
+    The viewer's preview pane serves an attached page's *own* HTML through
+    `extract`, inside a sandboxed response with `script-src 'none'`, and that
+    is the one stated exception to "nothing new is ever served inline".
+    Converting inside `extract` turned that pane into a page showing `# Hi`,
+    which `tests/test_file_editing.py` caught. This is the regression.
+    """
     target = tmp_path / "page.html"
     target.write_text((FIXTURES / "article.html").read_text(encoding="utf-8"), encoding="utf-8")
 
     viewed = docview.extract(target)
 
-    assert viewed.kind == "markdown"
-    assert viewed.source == "converted"
-    assert "<h1>" not in viewed.text
-    assert "# What the fixture says" in viewed.text
+    assert "<h1>What the fixture says</h1>" in viewed.text
+    assert viewed.kind == "code"
+    assert viewed.source == "file"
 
 
 def test_importing_either_one_makes_a_markdown_document(client):

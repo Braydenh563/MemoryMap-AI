@@ -81,11 +81,19 @@ CODE_SUFFIXES = frozenset(
     }
 )
 
-#: A saved web page. Still in `CODE_SUFFIXES` as well, because that set is
-#: what decides a file may be uploaded at all and nothing about that changes;
-#: what changes is that *reading* one gives prose rather than tags
-#: (DOCUMENTS_PLAN Phase 7, "import of .docx/.html to markdown"). Somebody who
-#: saves an article and imports it wants the article.
+#: A saved web page, for the *import* path only (DOCUMENTS_PLAN Phase 7,
+#: "import of .docx/.html to markdown"): somebody who saves an article and
+#: imports it wants the article, not its tags.
+#:
+#: **`extract` deliberately does not convert these.** The viewer's HTML
+#: preview pane (`routes_files.attached_file_html_preview`) serves an attached
+#: page's own markup through `extract`, inside a sandboxed response with
+#: `script-src 'none'`, and that is the one stated exception to "nothing new is
+#: ever served inline". Converting here turned that preview into a page
+#: showing `# Hi`, which the suite caught (`test_file_editing.py`,
+#: "the preview serves the file's own html"). So the conversion belongs to the
+#: caller that wants a markdown document, and `html_to_markdown` below is
+#: public for exactly that.
 HTML_SUFFIXES = frozenset({".html", ".htm"})
 
 #: Files markitdown converts. `.pdf` is here *and* handled specially: a PDF
@@ -494,12 +502,6 @@ def extract(path: Path, vision_reader=None) -> ViewedFile:
 
     if suffix in CONVERTED_SUFFIXES:
         return _extract_converted(path, suffix, vision_reader)
-
-    if suffix in HTML_SUFFIXES:
-        text, truncated = _clip(html_to_markdown(_read_text_file(path)))
-        return ViewedFile(
-            text=text, kind="markdown", source="converted", truncated=truncated
-        )
 
     text, truncated = _clip(_read_text_file(path))
     return ViewedFile(text=text, kind=kind_for(suffix), source="file", truncated=truncated)

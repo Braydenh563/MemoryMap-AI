@@ -6623,6 +6623,16 @@ the link stay. A converted file is stored as markdown whatever its name was,
 or a web page would open in the editor as HTML source with every markdown
 feature off.
 
+**And once by the suite, which is the point of running it.** The first version
+converted `.html` inside `docview.extract`, and `extract` is what the viewer's
+HTML *preview pane* reads: an attached page is served as its own markup inside
+a sandboxed response with `script-src 'none'`, the app's one stated exception
+to "nothing new is served inline". The preview pane therefore started showing
+`# Hi` instead of the page (`tests/test_file_editing.py`, "the preview serves
+the file's own html"). The conversion belongs to the import, which is where it
+is now, and `test_extracting_a_saved_page_keeps_its_own_markup` is the
+regression test.
+
 **Found by measuring, twice.** `html.parser` calls `handle_starttag` for void
 elements like `<meta>` and never calls the matching end tag, so the "skip what
 is inside this" counter went up at `<meta charset>` and never came back down:

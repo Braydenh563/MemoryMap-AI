@@ -81,6 +81,10 @@ below). Versioning is `0.x` while the app stabilises.
   the column, pushing Undo and Draft it onto two more lines and the tags caret
   under its label; the rows are one line before and after focus now, and the
   draft's actions end at the column's right edge like the instruction row's.
+- Dragging a card on a busy whiteboard cost a frame per pointer move. The
+  alignment guides re-measured every other card on every move, forcing a
+  layout each time; they measure once per drag now (7.67ms to 0.79ms per move
+  on a large board).
 
 - The lock screen could fail to appear on a slow first start. The embedding
   warm-up began importing torch the instant the server was up, and that import

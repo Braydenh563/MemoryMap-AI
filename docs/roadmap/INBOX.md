@@ -179,7 +179,16 @@ measured or built in earlier commits and is marked there.
       application" (third report; two measured passes have failed to
       attribute it, and this sandbox is vsync-bound at ~16.7ms in every
       condition tried, so the next attempt needs *drag* profiled, not
-      pan, and needs a real machine to confirm)
+      pan, and needs a real machine to confirm). **Drag profiled,
+      2026-09-13, one cause found and fixed**: `wbAlignmentGuides` ran a
+      `querySelector` and an `offsetWidth` read for every other card on
+      every pointer move, the first read after the dragged card's transform
+      write forcing a layout of the whole board; measured 7.67ms per move
+      on 80 cards, 12.85ms on 160 (`scratchpad/ui-sweeps/wbdrag.js`). The
+      boxes are gathered once per gesture now and `raise()` runs once per
+      drag rather than per move: 0.79ms per move on 160 cards. Pan was not
+      attributable here (vsync-bound); the owner's machine decides whether
+      the report closes.
     - "what does left off mean?? should it be something else??"
       (screenshot of the dashboard's Continue pill, tooltip "Continue
       where you left off"). **Fixed**: the tooltip now states the rule,

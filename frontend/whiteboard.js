@@ -336,16 +336,46 @@ function wbSnap(value, bypass) {
 //: corner), each drawing its own guide line.
 const WB_ALIGN_SNAP_PX = 6; // board units: matches WB_GRID_SPACING's own order of magnitude
 
-function wbAlignmentGuides(excludeKind, excludeId, x, y, w, h) {
-  const dragged = { left: x, centerX: x + w / 2, right: x + w, top: y, centerY: y + h / 2, bottom: y + h };
-  let bestX = null, bestY = null;
-  const others = [];
+//: **The other items' boxes, gathered once per gesture, not once per pointer
+//: move** (INBOX 114, "laggy to drag and pan", three passes unattributed).
+//: Measured on an 80-card board: `wbAlignmentGuides` cost 7.67ms per move,
+//: because every move ran a `querySelector` and an `offsetWidth` read per
+//: card, and the first of those reads after the dragged card's transform
+//: write forces a layout of the whole board. A mouse reports at 120Hz or
+//: more, so that was a frame's budget spent before anything was painted. The
+//: other cards do not move while one is dragged, so their boxes are read
+//: once, on the first move, and reused until the pointer is released.
+let wbGuideBoxCache = null;
+
+function wbGuideBoxes(excludeKind, excludeId) {
+  const key = `${excludeKind}:${excludeId}`;
+  if (wbGuideBoxCache && wbGuideBoxCache.key === key) return wbGuideBoxCache.boxes;
+  const boxes = [];
   for (const [kind, listName] of [["node", "nodes"], ["object", "objects"]]) {
     for (const item of wbState[listName] || []) {
       if (kind === excludeKind && item.id === excludeId) continue;
       const box = wbItemBBox(kind, item);
-      if (!box) continue;
-      others.push(box);
+      if (box) boxes.push(box);
+    }
+  }
+  wbGuideBoxCache = { key, boxes };
+  return boxes;
+}
+
+function wbClearGuideBoxCache() {
+  wbGuideBoxCache = null;
+}
+
+// Every drag ends in one of these, whichever element it started on.
+window.addEventListener("pointerup", wbClearGuideBoxCache, true);
+window.addEventListener("pointercancel", wbClearGuideBoxCache, true);
+
+function wbAlignmentGuides(excludeKind, excludeId, x, y, w, h) {
+  const dragged = { left: x, centerX: x + w / 2, right: x + w, top: y, centerY: y + h / 2, bottom: y + h };
+  let bestX = null, bestY = null;
+  const others = wbGuideBoxes(excludeKind, excludeId);
+  {
+    for (const box of others) {
       const other = {
         left: box.minX, centerX: (box.minX + box.maxX) / 2, right: box.maxX,
         top: box.minY, centerY: (box.minY + box.maxY) / 2, bottom: box.maxY,
@@ -12543,6 +12573,7 @@ function dragStart(event, d) {
     // See wbLinkedSketchesFor's own comment: parsed once here rather than on
     // every frame of the drag that's about to start.
     d._linkedSketches = wbLinkedSketchesFor(d.id);
+    d._raised = false;
     // Asked for directly: undo should cover a move, not only create/delete.
     // Snapshotted before anything below can mutate `d`.
     d._moveUndoBefore = WB_KIND_INFO.node.payload(d);
@@ -12597,7 +12628,13 @@ function dragging(event, d) {
     // correctly the same way. Moved here, into `dragging`, which: unlike
     // `dragStart`, only ever runs after real movement has already
     // happened, so a plain click's click event is never touched.
-    d3.select(this).raise();
+    //: Once per gesture, not once per move (INBOX 114): `raise()` reappends
+    //: the card even when it is already last, which invalidates layout on
+    //: every pointer event for nothing.
+    if (!d._raised) {
+      d3.select(this).raise();
+      d._raised = true;
+    }
     const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
     d._rawX = (d._rawX ?? d.x) + event.dx / transform.k;
     d._rawY = (d._rawY ?? d.y) + event.dy / transform.k;

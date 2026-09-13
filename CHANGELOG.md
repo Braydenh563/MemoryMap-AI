@@ -168,6 +168,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- On a phone-width map, a branch can be folded again: the node's own action
+  row had been sitting on top of its fold chevron, and the template offer on
+  a new map covered the only topic that map had.
 - A board or map exported into the image library arrives with a description
   naming the board it came from, so its card is no longer a picture over an
   empty strip on a notebook with no vision model (INBOX 184).

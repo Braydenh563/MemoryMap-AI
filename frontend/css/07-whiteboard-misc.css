@@ -4699,6 +4699,35 @@ summary:not(.icon-only):not(.icon-button) {
   gap: var(--space-2);
 }
 
+/* **The offer must not cover the thing it is an offer about.** Measured at
+   390x844 on a new map: the card wrapped to 335x237 at the top of the canvas
+   and the map's only topic sat at y 411 to 455, so the card's own box overlaps
+   the topic by 8800px2 and `elementFromPoint` at the topic's centre returns the
+   card. A person on a phone could not press the one node their new map has.
+
+   The second line goes at phone width rather than the buttons: the buttons are
+   the offer, and the sentence under the title is an explanation of an offer
+   whose four shapes are named on the buttons themselves. */
+@media (max-width: 48rem) {
+  .wb-map-templates > .muted {
+    display: none;
+  }
+
+  .wb-map-templates {
+    padding: var(--space-1) var(--space-2);
+    gap: var(--space-1) var(--space-2);
+  }
+
+  /* The four shapes are the offer and they are what has to fit; below this
+     width they are a row that scrolls rather than a block that grows down the
+     canvas, which is what put the card over the node in the first place. */
+  .wb-map-templates-row {
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}
+
 /* What a map is made of (§5 item 20), as a definition list: a term and its
    number, which is what these rows are, rather than a table nobody needs the
    second column of. */
@@ -8978,9 +9007,23 @@ input[type="file"] {
    few pixels that a screenshot does not show, twice already in this file, see
    `.wb-map-count`. The row is anchored by its right edge so a third button
    would grow leftwards into empty canvas rather than over the node. */
+/* **The row moved to the other corner, because the chevron owns this one.**
+   Measured at 390x844 with a branch selected: the chevron's box and the row's
+   overlapped by 140px2, and `elementFromPoint` at the chevron's own centre
+   returned the row, so a branch could not be folded by pressing the control
+   that folds it. Dropping the row further under the node was tried first and
+   is not a fix: the chevron is centred on the node's right *edge*, so it hangs
+   half its height below the node's own bottom on a short node and the two
+   still met (91px2). They are separated by the only axis that settles it. The
+   left-bottom corner is clear on both layouts: a sideways map's branch leaves
+   from the right edge, and a downward map's chevron is centred under the node,
+   which a row anchored to the left edge cannot reach on any node wide enough
+   to hold two words. Anchored by its left edge now, so a third button grows
+   rightwards under the node's own bottom rather than back over the chevron. */
 .wb-map-actions {
   position: absolute;
-  right: calc(var(--space-8) * -1);
+  left: calc(var(--space-8) * -1);
+  right: auto;
   bottom: calc(var(--space-5) * -1);
   display: flex;
   align-items: center;

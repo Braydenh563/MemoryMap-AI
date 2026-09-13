@@ -10,6 +10,16 @@
 //   PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node scratchpad/ui-sweeps/mindmap.js
 const { boot } = require("./lib.js");
 
+// VIEWPORT=390x844 drives the same checks at phone width, the block
+// `mapstrip.js` and `mindmap3.js` already carry. Everything in this file was
+// written at 1440x900 and none of it had been seen narrow.
+const VIEWPORT = (() => {
+  const raw = process.env.VIEWPORT;
+  if (!raw) return { width: 1440, height: 900 };
+  const [w, h] = raw.split("x").map(Number);
+  return { width: w || 1440, height: h || 900 };
+})();
+
 const results = [];
 function check(label, ok, detail) {
   results.push({ label, ok: Boolean(ok), detail });
@@ -17,7 +27,7 @@ function check(label, ok, detail) {
 }
 
 (async () => {
-  const { browser, page, OUT } = await boot();
+  const { browser, page, OUT } = await boot({ viewport: VIEWPORT });
 
   // --- get onto the Boards & maps sub-tab -----------------------------------
   await page.click('[data-tab="library"]');

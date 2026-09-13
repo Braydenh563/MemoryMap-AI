@@ -24041,7 +24041,12 @@ which would have marked the open *document* unsaved for a remark left in a
 *note*, since `MD_ACTIONS` is shared with the notes composer. It finishes through
 `finishMarkdownEdit` now, like every other action in the table.
 
-**Measured** (`scratchpad/ui-sweeps/doccomments.js`, 1440x900, both themes):
+**Measured** (`scratchpad/ui-sweeps/doccomments.js`, 1440x900, both themes), and
+the footnote half too: with `docPrintComments` set the rendered pane carries each
+remark and its `c1` marker against the words it is about, and loses them again
+the moment the flag clears. `window.print()` itself is not called by the sweep
+(it blocks on a dialog nothing can dismiss), so what is verified is the render a
+print triggers, not the printer. The rest:
 three remarks listed for three in the text, the section second in the stack and
 absent at 0px when there is nothing in it, rows 85/85/66px with the subject and
 its action on one line, 3 pins and 2 commented highlights, a line with a pin in

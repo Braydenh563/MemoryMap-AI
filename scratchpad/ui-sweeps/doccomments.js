@@ -196,6 +196,40 @@ const seed = (title, content) => `(async () => {
     if (r.leaksMarkers) fails.push("Read view shows the %% markers");
   }
 
+  // 4b. A print carries the remarks as footnotes, which is the one half of
+  // Phase 5 item 1 ("exported as footnotes") that no test could see: the server
+  // export is covered by tests/test_doc_comments.py, the *printed* one is this
+  // flag and the pane it redraws. `window.print()` is not called (it blocks on a
+  // dialog no sweep can dismiss); what is asserted is the render it triggers.
+  const printed = await page.evaluate(async () => {
+    docPrintComments = true;
+    setDocView("rendered");
+    await new Promise((r) => setTimeout(r, 800));
+    renderDocPreview();
+    await new Promise((r) => setTimeout(r, 400));
+    const withFootnotes = document.getElementById("doc-preview").textContent;
+    docPrintComments = false;
+    renderDocPreview();
+    await new Promise((r) => setTimeout(r, 400));
+    const after = document.getElementById("doc-preview").textContent;
+    setDocView("live");
+    await new Promise((r) => setTimeout(r, 500));
+    return JSON.stringify({
+      carriesRemarks: /still true after the rewrite/.test(withFootnotes),
+      marker: /c1/.test(withFootnotes),
+      keepsWords: /opening claim/.test(withFootnotes),
+      clearsAfter: !/still true after the rewrite/.test(after),
+    });
+  });
+  console.log("print -> " + printed);
+  {
+    const r = JSON.parse(printed);
+    if (!r.carriesRemarks) fails.push("a print would drop the remarks rather than footnote them");
+    if (!r.marker) fails.push("no footnote marker in the printed pane");
+    if (!r.keepsWords) fails.push("the printed pane lost the words a comment was about");
+    if (!r.clearsAfter) fails.push("the remarks stayed in Read view after the print");
+  }
+
   // 5. Contrast on the rows, from the painted pixels rather than from a
   // compositing walk: these surfaces are translucent over a gradient and the
   // walk bottoms out on `body`, which is not what is painted (prosepanel.js

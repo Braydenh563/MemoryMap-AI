@@ -5551,11 +5551,15 @@ function docLivePlugin(CM) {
             ranges.push(Decoration.mark({ class: "cm-md-code" }).range(node.from, node.to));
             return undefined;
           }
-          if (name === "EmphasisMark" || name === "StrikethroughMark" || name === "CodeMark") {
+          if (name === "EmphasisMark" || name === "StrikethroughMark" || name === "CodeMark" || name === "CodeInfo") {
             const parent = node.node.parent;
-            //: A fence's own ``` is a `CodeMark` too, and hiding those would
-            //: leave a code block with no visible boundaries at all.
-            if (!parent || parent.name === "FencedCode") return false;
+            if (!parent) return false;
+            //: A fence's own ``` (and the language word after it) is hidden
+            //: like every other mark while the caret is elsewhere: the block
+            //: keeps its boundary through the `cm-md-fence` line ground, so
+            //: the three backticks were the one piece of syntax the live view
+            //: still showed after you clicked off a code block (INBOX 198).
+            //: Back the moment the caret is inside the block, like the rest.
             if (!rangeRevealed(parent.from, parent.to)) hide(node.from, node.to);
             return false;
           }

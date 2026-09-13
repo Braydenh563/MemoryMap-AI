@@ -7972,7 +7972,11 @@ button.connection-row {
    itself), and the Library button drops its word before any menu drops
    theirs, because it is the one control whose icon already says what it
    does. */
-@media (max-width: 68rem) {
+/* 76rem, not 68: a map's bar carries the Map toggle, the search and the
+   minimap beside the five menus, and at 1152 (a 1440 window at 125% zoom) it
+   still ran 46px past its right edge with these two rules waiting for 1088
+   (INBOX 195). Measured on a map at 1152: scrollWidth 1153 in 1106. */
+@media (max-width: 76rem) {
   /* The shell as well as the select: `enhanceSelect` (app.js) puts every
      native select inside a `.select-shell`, and that shell is what the bar
      actually lays out, so a cap on the select alone measured as no change at
@@ -7983,7 +7987,7 @@ button.connection-row {
   }
 }
 
-@media (max-width: 64rem) {
+@media (max-width: 76rem) {
   .wb-topbar #wb-add-note .wb-menu-label {
     display: none;
   }
@@ -8377,7 +8381,12 @@ button.connection-row {
 }
 
 @media (min-width: 1200px) {
-  header#top-bar > #tab-bar {
+  /* Not while the strip has been measured not to fit (`tabs-wrapped`, set by
+     `syncTabOverflowFade`): an absolutely placed strip ignores the wrap's
+     100% basis and draws its last tabs under the header controls, which is
+     what a 1440 window at 120% zoom showed (INBOX 195: 944px of tabs against
+     controls that start at 910). Wrapped, it takes its own row as below 1200. */
+  header#top-bar:not(.tabs-wrapped) > #tab-bar {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);

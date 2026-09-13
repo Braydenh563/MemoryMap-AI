@@ -74,6 +74,81 @@ measured or built in earlier commits and is marked there.
 
 ## Open items
 
+206. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the help
+    popovers (screenshot: the capture box's '?' popover running the full
+    height of the window, "A note is plain text. These few things do
+    something extra:" through the callouts bullet, with a scrollbar).** "the
+    note capture tooltip popup takes up the height of the screen. and popups
+    still flicker for a split second at the top left and then appear in the
+    right place :(". Two things: the `data-help-for` popover's height (cap
+    it and let it scroll, or cut the copy: standing order 6 says one line
+    per section and the long help behind the '?', but a popover is not a
+    page); and the first-frame flash at 0,0 before placement, which is the
+    popover being shown before it is positioned (measure the first painted
+    rect after `hidden` is removed). Owner: orchestrator.
+
+205. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the popup
+    agent.** "the '?' tooltip dropdown in the popup agent shows behind the
+    panel instead of in front. and I want you to improve and redesign the
+    suggestions and quick prompts in the popup agent." Two halves: the
+    `data-help-for` popover's stacking inside `#command-palette-overlay`
+    (a z-index under the panel, or a blurred ancestor confining it: measure
+    `elementFromPoint` at the popover's centre); the starters (`2602c32`,
+    per-tab since `6147863`) redesigned as a set, with the 200 sweep.
+    Owner: orchestrator.
+
+204. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the Guide
+    (screenshot: the Guide sheet, "Ask the guide" with a '?' and New chat,
+    "Quick app help from your utility model, not your notes", a "hey" bubble
+    and the no-model reply, the Ask field).** "can you add an exit or x
+    button to the top right of the guide ai panel??" and, a minute later:
+    "and also modernise and redesign/improve the ui and ux for the help ai.
+    give the help ai a name fitting for the application like a persona and
+    improve its capabillity and knowledge". Two halves: the X (every sheet
+    from the `openSheet` recipe gets one, top right, so the fix is one
+    place); the persona, which is a decision the chat agent took as "Guide"
+    (CHAT_PLAN decision 14) and the owner now asks to be a fitting name and
+    a persona with more knowledge. Owner: orchestrator, with the 200 sweep.
+    **The X: done.** Every sheet from the `openSheet` recipe carries a
+    `.sheet-head` with the title and an icon-only close at the top right
+    (measured on the Guide: 28x28, 25px in from the card's top and right
+    corners, on the title's row, closes on click). The persona half stays
+    open with 200.
+
+203. **Mid-work drop, 2026-09-13 night, verbatim (the owner), AI features
+    with no model.** "and many ai exclusive features are still enabled even
+    when an ai isnt available or running...". `44ed975` put the "no model
+    connected" state where you are; the ask is the other half: every
+    AI-only control disabled, with the reason, while `/models/status` says
+    nothing is running. Inventory first: grep the ids that call the AI
+    routes and the `data-needs-model` (or equivalent) attribute that exists,
+    then one function that toggles them all from the model status.
+    Owner: orchestrator.
+
+202. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the theme
+    switch.** "switching between light and dark mode is realllly glitchy
+    and takes a bit to load". Measure the switch: time from the click to
+    the last style recalculation, how many elements transition, whether the
+    blurred surfaces repaint one by one. Owner: orchestrator.
+
+201. **Mid-work drop, 2026-09-13 night, verbatim (the owner), mind map core
+    nodes.** "I want more and better ways to differentiate core idea nodes
+    in the mindmap". Goes with 200's mind map sweep: a core node today is
+    an ellipse with a heavier ground (`26aa946`); the ask is for more ways
+    (size, colour, weight, an icon, a filled shape) and for them to read as
+    one thing. Owner: orchestrator, in the 200 sweep.
+
+200. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the whole
+    app, the mind map first.** "I think you fable need to do a full ux sweep
+    for better intuitive design and function. especially with the mindmap,
+    it needs a lot of ux and usability improvement, like the way the
+    controls are available, what controls and tools are available and where,
+    and how the item radials are used is confusing and doesnt feel clean".
+    The owner's decision, which reopens MINDMAP_PLAN section 12's ring: the
+    set of controls, where each lives and how the ring is used are to be
+    redesigned, not adjusted. Taken as a sweep by the orchestrator, surface
+    by surface, mind map first, each change measured.
+
 180. **Mid-work drop, 2026-09-13, verbatim (the owner), the whiteboard and
     the mind map, two screenshots (a dark board with four objects, every one
     of them showing eight round lilac handles plus a stalk handle above it,

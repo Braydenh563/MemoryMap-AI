@@ -3241,7 +3241,15 @@ async function openGraphPopup(event, node) {
   //: set and while the panel is visible, which it now is.
   if (typeof autoGrow === "function") autoGrow($("graph-popup-content"));
   placeGraphPopup(); // now that it's at its real height
-  $("graph-popup-content").focus();
+  //: The dialog takes focus, not the note's text box: focusing the box put
+  //: its caret in the markdown, so the popup opened on raw `![...](...)`
+  //: and only rendered once you clicked away (INBOX 198). Escape and Tab
+  //: still work from the dialog itself.
+  const dialog = $("graph-popup");
+  if (dialog) {
+    if (!dialog.hasAttribute("tabindex")) dialog.tabIndex = -1;
+    dialog.focus({ preventScroll: true });
+  }
 }
 
 //: Save appears when the content or the tags differ from what loaded, and
@@ -3483,10 +3491,9 @@ function renderGraphPopupMedia(entry) {
   const images = all.filter((a) => a.is_image);
   const files = all.filter((a) => !a.is_image);
   const refs = graphPopupMediaRefs(entry);
-  const refImages = refs.filter((r) => r.image);
   const refFiles = refs.filter((r) => !r.image);
-  box.classList.toggle("hidden", all.length === 0 && refs.length === 0);
-  if (!all.length && !refs.length) return;
+  box.classList.toggle("hidden", all.length === 0 && refFiles.length === 0);
+  if (!all.length && !refFiles.length) return;
   for (const attachment of files) {
     box.appendChild(
       graphPopupFileCard(
@@ -3523,25 +3530,10 @@ function renderGraphPopupMedia(entry) {
   //: A stored url carries the token in the query string (`mediaSrc`), which is
   //: how every other surface that renders note markdown draws these: no fetch,
   //: no object url, and the browser's own cache.
-  for (const ref of refImages) {
-    const img = document.createElement("img");
-    img.className = "graph-popup-thumb";
-    img.alt = ref.name;
-    img.title = `${ref.name}: click to view full size`;
-    img.src = mediaSrc(ref.url);
-    img.addEventListener("load", () => placeGraphPopup());
-    img.addEventListener("error", () => img.remove());
-    img.addEventListener("click", () => {
-      openLightbox(
-        refImages.map((r) => ({ filename: r.name, getUrl: () => mediaSrc(r.url) })),
-        refImages.indexOf(ref)
-      );
-    });
-    box.appendChild(img);
-  }
-  //: A file card is a block with height, and this popup is placed against its
-  //: own: the image path already re-places once the bytes land, and the cards
-  //: need the same or the popup hangs off the edge of the map.
+  //: Pictures the note's own markdown references are not repeated here: the
+  //: body below renders them itself (the live surface, DOCUMENTS Phase 8b),
+  //: so a thumbnail of the same picture drew it twice (INBOX 198). Files
+  //: referenced in the text stay, since the body shows those as a link.
   placeGraphPopup();
 }
 

@@ -8172,6 +8172,13 @@ async function uploadToLibrary(filename, blob, description = "") {
       // Best effort, exactly like the upload itself: an export that produced a
       // file and a card has not failed because its description did not land.
     });
+    //: The gallery redraws on the upload, which is before this description
+    //: exists, so the card it drew had an empty foot until the next visit
+    //: (INBOX 196: "still missing all the metadata"). Once more, now that
+    //: the description is on the row.
+    if (typeof renderLibraryImagesGallery === "function") {
+      renderLibraryImagesGallery().catch(() => {});
+    }
   }
   return uploaded;
 }
@@ -8609,7 +8616,10 @@ async function initWhiteboard() {
       wbApplyBgImage();
     });
   }
-  $("wb-new-board")?.addEventListener("click", createNewBoard);
+  //: Not `createNewBoard` itself: passed as the listener it received the click
+  //: event as `preset`, and an Event is truthy, so the dialog opened with a
+  //: kind nothing in the segment could match (INBOX 197).
+  $("wb-new-board")?.addEventListener("click", () => createNewBoard());
   $("wb-rename-board")?.addEventListener("click", renameCurrentBoard);
   $("wb-map-layout")?.addEventListener("change", (e) => wbMapSetLayout(e.target.value));
   //: Phase 5's controls (§5 items 18 to 21). Wired here with the rest of the

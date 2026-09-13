@@ -7,6 +7,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- At a higher browser zoom the tab strip no longer runs under the header
+  controls (1152 to 1240 measured at 0px overlap) and a mind map's top bar
+  folds its picker and Library label from 1216px down (INBOX 195). A board
+  export's description shows on its card at once (196). New board from inside
+  a board pre-selects the last kind (197). The live view hides a code fence's
+  backticks while the caret is elsewhere; the graph node popup opens rendered
+  and no longer repeats the note's own pictures (198). Today's note is one
+  press, one note, and jumps to it (199). Every sheet has a close button in
+  its title row (204).
+
 ### Added
 
 - The night pass reads what it already knows in one query instead of one per

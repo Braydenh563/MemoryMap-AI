@@ -24843,6 +24843,110 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     mind map" still overrides it), and its button says Create rather than
     Save.
 
+195. **Mid-work drop, 2026-09-13 night, verbatim (the owner), five
+    screenshots at a higher browser zoom (the tab strip's "Reminders" caption
+    run under the list-view icons; the "Reminders" tab drawn over the
+    header's search, magic, help, theme and settings cluster; the map's top
+    bar with its full-screen button half off the panel's right edge; the
+    Arrange menu open at about 230px with a scrollbar under "Align (2+
+    selected)").** "at higher zoom, the buttons at the top of the timeline
+    clash with the elements to the right, same with the top bar menu bar and
+    buttons. at higher zoom, elements start to get pushed off their panels
+    like the elements in the top bar of the whiteboard and mindmap. the
+    arrange dropdown menu height is overly short in the whiteboard and
+    mindmap." A higher zoom is a narrower CSS viewport (1440 at 150% is 960),
+    so these are band 2 faults between 820 and 1100 that the sweeps' four
+    widths straddle: reproduce at 960x600 and 1152x720.
+    **Fixed, two of three.** The tab strip: from 1200 up it is centred on the
+    window by `position: absolute`, which ignored the wrapped state's own row
+    and drew the last tabs under the header controls (13px at 1240, 34px at
+    1200); the centred rule now stands down while `tabs-wrapped` is set, the
+    fit check keeps 16px of slack, and it re-runs when a header neighbour
+    resizes (the space switcher's name and the notification button arrive
+    after the boot measurement: at 1240 the boot sync left it unwrapped and a
+    later call wrapped it). Measured 0px overlap at 1152, 1200, 1240 and
+    1440. The map's top bar: the picker cap and the Library label fold waited
+    for 1088 (68rem) while a map at 1152 overflowed by 46px (scrollWidth 1153
+    in 1106); both fold from 76rem now, measured -7px at 1152, 1200, 1240.
+    The Arrange menu: not reproduced. It is 493px for 10 rows at a 640px
+    window, capped by `escapeAndCapMenu` to the window height minus its top;
+    a 230px menu means a window about 350 CSS px tall, which is what 200%
+    zoom on a 700px screen gives, and the View menu is capped the same way.
+
+196. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the Library's
+    Images (screenshot: a "whiteboard-selection-202..." card with nothing
+    under its name beside an "Astraea" card with a description and a Text
+    fold).** "my exported whiteboard selection is still missing all the
+    metadata and text". The export posts `direct=true` since `598f12e` and
+    the owner's vision model does describe other pictures, so the card's
+    empty foot is a different cause: reproduce with a selection export.
+    **Fixed.** The description did land (measured on the upload row: the
+    export sentence, `caption_edited` true); the card was empty because the
+    gallery redraws on the upload, which is before the description is posted,
+    so the card it drew had no foot until the next visit. The gallery redraws
+    once more after the description lands. Measured after a fresh load: the
+    exported card's caption row reads the sentence, not hidden, card 241px.
+
+197. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the new
+    board dialog opened from inside a board (screenshot: "Name the new
+    board", a "What kind of board" segment with Board and Mind map, neither
+    chosen).** "when I click to make a new board while already in a
+    whiteboard or mindmap, no default option is selected". The Boards list's
+    New button defaults the kind since `5544284`; the top bar's + inside a
+    board evidently does not.
+    **Fixed.** `#wb-new-board` passed `createNewBoard` straight to
+    `addEventListener`, so the click event arrived as `preset`; an Event is
+    truthy, and the segment was asked to select an object nothing matched.
+    Measured from inside a board at 960, 1152 and 1440: the dialog opens
+    with `board` or `map` (the last kind used) pressed.
+
+198. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the
+    documents live view and the graph node popup (two screenshots: the
+    "Girl with bell" popup with the picture drawn twice, once as the note's
+    thumbnail and once in the rendered body; the same popup with the body
+    focused and showing the raw `![...](/media/...)` markdown).** "the md
+    rendering on the live view in the documents needs more improvement, like
+    when I click off code blocks, I can still see the md ``` stuff. also when
+    I open the graph note node popups, the images render twice, but not
+    initially, because when I open up a node popup panel in the graph, it
+    auto focus selects on the text note contents textbox and it is like the
+    live document view, it just looked like unrendered md until I clicked
+    off it and it all rendered with the picture as well". Three things: the
+    fence markers left visible after leaving a code block in the live view
+    (documents.js); the popup focusing its content box on open (graph.js,
+    the node popup); the thumbnail plus the body's own image (one of them
+    goes: the body already shows it).
+    **Fixed, all three.** The fence's ``` and its language word are hidden
+    like every other mark while the caret is outside the block (the block
+    keeps its `cm-md-fence` ground); the graph popup focuses the dialog, not
+    the text box, so the body opens rendered (measured: `activeElement` is
+    `graph-popup`); and the popup no longer draws thumbnails of pictures the
+    note's own markdown references, since the body renders them itself.
+
+199. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the Notes
+    list (screenshot: a "Today" group of four rows all titled 2026-09-14,
+    tagged Hobbies, 8:29 am, with the "Today's note" button at the group's
+    right).** "the 'today's note' button is really slow, I clicked it and
+    thought it did nothing, so I clicked it like 5 times, but then like 20
+    seconds later it made like 5 notes with today's date, took me to the
+    'Your Notes' subtab where nothing new was shown, no edit popped up ...
+    it just needs better ux." And the question, answered in the reply and
+    to be answered by the label itself: "can you tell me what 'opening a
+    note' is?? since the notes are shown in a list you can scroll through,
+    you dont really 'open a note' do you??" Three faults: no pressed state
+    or busy state on the button, so a slow first click invites four more;
+    every click creates a note rather than the second finding the first
+    (`startTodaysNote` posts to `/entries`, not the idempotent
+    `POST /entries/daily/{day}` the backend now has); and the result is not
+    shown (no scroll to the row, no edit form).
+    **Fixed.** One press is one note: the button is disabled and
+    `aria-busy` until the note is on screen, the request is the idempotent
+    `POST /entries/daily/{day}` (two presses, one id, `test_daily_journal`),
+    and the Notes list is reloaded before the jump so the row exists to
+    flash. "Opening a note" in this app is clicking its row, which unfolds
+    the editor in place; the popup agent's label now names the thing that
+    is open rather than saying "the open note".
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

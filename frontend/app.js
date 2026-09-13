@@ -23056,9 +23056,13 @@ function syncTabOverflowFade() {
     // while you drag the window edge is its own kind of broken. 8px is under
     // half a character and well over the rounding.
     const wrapped = header.classList.contains("tabs-wrapped");
+    //: 16px of slack, not 1: from 1200 up the strip is centred on the window
+    //: (`position: absolute`, 07-whiteboard-misc.css), so the room beside
+    //: the controls is not where it is drawn, and a strip that fits by 13px
+    //: on paper ran 13px under the controls at 1240 (INBOX 195).
     header.classList.toggle(
       "tabs-wrapped",
-      wrapped ? needed > space - 8 : needed > space + 1
+      wrapped ? needed > space - 24 : needed > space - 16
     );
   }
   // 1px of slack at each end: sub-pixel layout makes scrollWidth exceed
@@ -23080,6 +23084,20 @@ function revealActiveTab() {
 }
 
 window.addEventListener("resize", syncTabOverflowFade, { passive: true });
+//: Once more when the webfont lands: the boot measurement sees fallback
+//: glyphs, and a strip that fit in those can wrap or collide in the real face.
+document.fonts?.ready?.then(() => syncTabOverflowFade());
+//: And whenever a neighbour changes size: the space switcher gets its name
+//: and the notification button appears after boot, each taking room the boot
+//: measurement had counted as the strip's. Measured at 1240: the boot sync
+//: left the strip unwrapped and 13px under the controls, and the same call
+//: a moment later wrapped it (INBOX 195).
+if (window.ResizeObserver) {
+  const headerWatch = new ResizeObserver(() => syncTabOverflowFade());
+  for (const child of $("top-bar")?.children || []) {
+    if (child.id !== "tab-bar") headerWatch.observe(child);
+  }
+}
 $("tab-bar")?.addEventListener("scroll", syncTabOverflowFade, { passive: true });
 
 // Same edge-fade, generalised for every other `.edge-fade` strip (Notes
@@ -26505,8 +26523,8 @@ function timelineBucketSection(bucket, scale, density, isToday = bucket.rows.len
         ? smallButton("ph:calendar-dot Today's note", "Open today's journal note", () =>
             focusTimelineRow(existing.key)
           )
-        : smallButton("ph:plus Start today's note", "Make today's journal note and open it", () =>
-            startTodaysNote()
+        : smallButton("ph:plus Start today's note", "Make today's journal note and open it", (event) =>
+            startTodaysNote(event?.currentTarget || null)
           )
     );
   }
@@ -26527,18 +26545,35 @@ function timelineBucketSection(bucket, scale, density, isToday = bucket.rows.len
 //: (`dailyNoteTitle`). Nothing else about it is special, which is the point:
 //: it is searchable, it is in the graph, it exports, and a notebook opened in
 //: another editor still has it.
-async function startTodaysNote() {
+let todaysNoteBusy = false;
+async function startTodaysNote(button = null) {
+  //: One press is one note, however slow the first press is (INBOX 199: five
+  //: presses over twenty seconds made five notes and showed none of them).
+  //: Two guards: the button says it is busy and ignores presses until the
+  //: note is on screen, and the request is `POST /entries/daily/{day}`, which
+  //: returns the day's note if it exists rather than making another, so even
+  //: a press from a second window cannot duplicate it.
+  if (todaysNoteBusy) return;
+  todaysNoteBusy = true;
+  if (button) {
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+  }
   const key = timelineBucketKey(new Date(), "day");
-  const made = await apiJson("/entries", {
-    method: "POST",
-    body: JSON.stringify({ content: `# ${dailyNoteTitle(key)}\n\n` }),
-  }).catch((error) => {
+  const made = await apiJson(`/entries/daily/${key}`, { method: "POST" }).catch((error) => {
     toast(error.message || "Couldn't make today's note.", true);
     return null;
   });
+  todaysNoteBusy = false;
+  if (button) {
+    button.disabled = false;
+    button.removeAttribute("aria-busy");
+  }
   if (!made) return;
-  toast("Today's note is ready.");
-  await renderTimeline();
+  //: The list is reloaded before the jump so the row exists to jump to; the
+  //: old order rendered the timeline, switched tabs and flashed an id the
+  //: Notes list had not fetched yet, which read as "nothing happened".
+  await Promise.all([renderTimeline(), typeof loadEntries === "function" ? loadEntries() : null]);
   //: Straight into the editor, because the note is empty and the only reason
   //: to make one is to write in it.
   switchTab("notes");
@@ -35150,10 +35185,26 @@ function openSheet({ label, name, build, returnFocus = document.activeElement, o
 
   const card = document.createElement("div");
   card.className = "card modal-card sheet-card";
+  //: The title row carries the one way out that is visible: Escape and a
+  //: press on the scrim both close a sheet, and neither is discoverable
+  //: from inside it (INBOX 204: "can you add an exit or x button to the top
+  //: right of the guide ai panel"). In the recipe, so every sheet has it.
+  const head = document.createElement("div");
+  head.className = "sheet-head";
   const title = document.createElement("h2");
   title.className = "sheet-title";
   title.textContent = label;
-  card.appendChild(title);
+  const closeButton = document.createElement("button");
+  closeButton.type = "button";
+  closeButton.className = "ghost small icon-only sheet-close";
+  closeButton.setAttribute("aria-label", "Close");
+  closeButton.title = "Close (Escape)";
+  const closeIcon = document.createElement("i");
+  closeIcon.className = "ph ph-x";
+  closeIcon.setAttribute("aria-hidden", "true");
+  closeButton.appendChild(closeIcon);
+  head.append(title, closeButton);
+  card.appendChild(head);
 
   let settled = false;
   const close = () => {
@@ -35173,6 +35224,7 @@ function openSheet({ label, name, build, returnFocus = document.activeElement, o
     close();
   };
 
+  closeButton.addEventListener("click", close);
   build(card, close);
 
   overlay.appendChild(card);

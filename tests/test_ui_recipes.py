@@ -150,7 +150,7 @@ def test_a_pointer_anchored_menu_is_the_recipe() -> None:
 HAND_BUILT_SHEETS = {"sidebar-sheet-open", "graph-popup-sheet"}
 
 # The recipe's own classes.
-SHEET_RECIPE = {"sheet-overlay", "sheet-card", "sheet-title", "sheet-list", "sheet-row"}
+SHEET_RECIPE = {"sheet-overlay", "sheet-card", "sheet-head", "sheet-title", "sheet-close", "sheet-list", "sheet-row"}
 
 
 def test_a_sheet_is_the_recipe_or_one_of_the_two_that_predate_it() -> None:

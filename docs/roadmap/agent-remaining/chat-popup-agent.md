@@ -40,6 +40,21 @@ The chat agent's run against INBOX 181, 182, 183, 187, 188, 189, 190 and
   `chat-timeline-skills.md` item 1's renderer step; item 4 judged not worth
   doing and the reasoning is written into that file.
 
+- `fb25225` Phase 3's starter gate line follows INBOX 190 (14 chips, 6
+  groups); `3993f19` the link hold's cancel listeners are per hold and
+  passive rather than three permanent `document` listeners, one of them
+  `pointermove`.
+
+## Gates run at the end
+- `scripts/gate.sh --staged` green before every commit (lints, staged-lints,
+  node-check, ruff).
+- Sweeps against the running app on 8795: `errors.js` 0 errors and 0 layout
+  findings at 1440, 1024, 820 and 390; `contrast.js` ok on every surface it
+  lists; `docks.js` chat and notes still report one control height (36);
+  `touch.js` 0 under-44px, 0 covered and 0 overlapping taps on the 8 surfaces
+  it reached before its own browser closed; `chatphase3.js` green with the
+  superseded starter line rewritten.
+
 ## Next
 
 1. `chat-timeline-skills.md` item 1's remaining half, which is not the

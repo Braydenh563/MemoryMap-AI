@@ -17255,7 +17255,33 @@ function notePickerShape(source) {
   return {
     id: (row) => row.id,
     label: (row) => row.filename || row.original_name || "Image",
-    note: (row) => (row.caption ? "captioned" : "image"),
+    //: **The extension, not "captioned".** The badge used to say whether a
+    //: caption existed, which was the only fact on the row besides a
+    //: generated filename, and it answered a question nobody asks: reported
+    //: directly, "images just show as their names but the user might not be
+    //: able to tell what those images are from their names". Now that the
+    //: caption itself is on the row (`caption` below) a badge announcing one
+    //: exists is noise, so the chip carries what the Files source's chip
+    //: carries, the kind of file, read from the name rather than from `mime`
+    //: because only one of the two row shapes this list merges has a mime.
+    //: Read off the end of the name with a regex rather than `split(".")`,
+    //: which returns the whole string for a name with no dot at all and would
+    //: print a filename inside a chip that is supposed to hold one word.
+    note: (row) =>
+      (/\.([a-z0-9]{1,5})$/i.exec(row.filename || row.original_name || "")?.[1] || "image").toLowerCase(),
+    //: The picture itself, token-gated: an `<img src>` cannot send the auth
+    //: header, and `mediaSrc` is how every other image surface in the app
+    //: (the Library gallery, the OCR rail, a note's own thumbnails) puts a
+    //: `/media/…` or `/files/{id}` url on an element. A `MediaUpload` row
+    //: carries its url; an `Attachment` row's url is `/files/{id}`, which is
+    //: why this reads `row.url` first and only falls back to the name.
+    thumb: (row) => mediaSrc(row.url || `/media/${row.filename}`),
+    //: The second line of the row, and the reason this source has one at all:
+    //: a caption is a sentence about the picture, which is exactly what a
+    //: filename like `WallpaperEngineOverride_randomODWVLK.jpg` is not. An
+    //: uncaptioned image says so rather than leaving the line out, so the
+    //: rows in the list stay one height and read as a list.
+    caption: (row) => row.caption || "",
     search: (row) => `${row.filename || ""} ${row.caption || ""}`,
     isOn: (row) => attachedImages.some((i) => i.id === row.id),
     //: An already-uploaded image is attached by *id*, with no staging step and
@@ -17381,7 +17407,67 @@ async function renderNotePickerOtherSource(query, list) {
     const kind = document.createElement("span");
     kind.className = "chip";
     kind.textContent = shape.note(row);
-    label.append(box, text, kind);
+    //: **A row that shows the thing, for the sources where the name is not the
+    //: thing.** Reported with a screenshot of this list's Images tab: "images
+    //: just show as their names but the user might not be able to tell what
+    //: those images are from their names so they need to be rendered in some
+    //: way". A camera or a wallpaper tool names a file for its own reasons, so
+    //: five rows of `…_randomODWVLK.jpg` are five rows you cannot choose
+    //: between.
+    //:
+    //: Offered by the shape table rather than branched on the source here, the
+    //: same reason that table exists: `thumb` and `caption` are optional, and a
+    //: source that has neither (a note, a document, a map) renders exactly the
+    //: single-line row it rendered before. The `<img>` is the app's ordinary
+    //: thumbnail machinery, a `mediaSrc`-signed url on a lazily loaded element,
+    //: not a second way of showing a picture.
+    const thumbUrl = shape.thumb?.(row);
+    if (thumbUrl) {
+      const thumb = document.createElement("span");
+      thumb.className = "note-picker-thumb";
+      const img = document.createElement("img");
+      //: Empty alt, not the filename: the name is already the row's own text
+      //: one element away, and a screen reader reading it twice per row is
+      //: worse than the picture being announced at all. The picture is
+      //: decoration *of that label*.
+      img.alt = "";
+      img.loading = "lazy";
+      //: A file that has been deleted out from under the row leaves the frame
+      //: rather than drawing the browser's torn-page glyph inside the list: the
+      //: frame keeps the rows one height, which is the whole reason it is a
+      //: wrapper and not a bare `<img>`.
+      img.addEventListener("error", () => {
+        img.remove();
+        thumb.classList.add("is-missing");
+      });
+      img.src = thumbUrl;
+      thumb.appendChild(img);
+      label.append(box, thumb);
+    } else {
+      label.append(box);
+    }
+    const caption = shape.caption?.(row);
+    if (caption !== undefined) {
+      //: Two lines in one column so the caption wraps under the name and not
+      //: under the checkbox, and so the chip stays on the row's own centre line
+      //: rather than beside the first of the two lines.
+      const lines = document.createElement("span");
+      lines.className = "note-picker-lines";
+      const cap = document.createElement("span");
+      cap.className = "note-picker-caption";
+      //: An uncaptioned image says so instead of collapsing to a one-line row:
+      //: the list is scanned down the left edge, and rows of two different
+      //: heights break that scan. It is also true, and this app can write one
+      //: (the Library's caption action), so it reads as a thing to do rather
+      //: than as missing data.
+      cap.textContent = caption || "No caption yet";
+      cap.classList.toggle("is-empty", !caption);
+      if (caption) cap.title = caption;
+      lines.append(text, cap);
+      label.append(lines, kind);
+    } else {
+      label.append(text, kind);
+    }
     li.appendChild(label);
     list.appendChild(li);
   }
@@ -36364,10 +36450,26 @@ function closeOverlaysForChord() {
 //: needs: centred, over a scrim that dims the page enough to say "the next key
 //: means something", gone the moment the chord resolves or lapses.
 //:
-//: Not interactive, and deliberately so: `pointer-events: none` throughout,
-//: because a guide that can eat the click you were about to make is worse
-//: than no guide. `role="status"` and `aria-live` stay, so a screen reader
-//: hears the chord's targets rather than being shown them.
+//: **Interactive, since 2026-09-13, and that reverses a decision this comment
+//: used to state.** It read: "Not interactive, and deliberately so:
+//: `pointer-events: none` throughout, because a guide that can eat the click
+//: you were about to make is worse than no guide." The reasoning was about a
+//: guide that appears *beside* your work; this one dims the page and takes the
+//: next keystroke, so there is no click it could steal that was meant for
+//: anything else. The owner, looking at it: "also make these popup options
+//: when I press m, actual clickable nav buttons".
+//:
+//: They read as buttons because they are shaped like them, which is the real
+//: argument: a pill with a label and a key chip in it is a control, and one
+//: that ignores the pointer is a control that is broken. The keys still work
+//: exactly as they did, and each row now carries the same action its key
+//: fires, from the same two tables, so the two ways in cannot drift.
+//:
+//: The scrim stays click-through-to-close: a click that lands on the dimmed
+//: page rather than on a row means "not this", which is what Escape and a
+//: second `m` already mean. `role="status"` and `aria-live` stay, so a screen
+//: reader hears the chord's targets; the rows are real buttons, so it can also
+//: reach them.
 let chordGuideTimer = null;
 
 function chordGuideEl() {
@@ -36383,6 +36485,9 @@ function chordGuideEl() {
   return guide;
 }
 
+//: `entries` is `[key, label, run]`. The `run` comes from the same two tables
+//: the keyboard reads (`TAB_JUMP_KEYS`, `CHORD_ACTIONS`), so a row and its key
+//: are two doors onto one action rather than two copies of one.
 function chordGuideGroup(title, entries) {
   const group = document.createElement("div");
   group.className = "chord-guide-group";
@@ -36392,14 +36497,27 @@ function chordGuideGroup(title, entries) {
   group.appendChild(heading);
   const list = document.createElement("div");
   list.className = "chord-guide-list";
-  for (const [key, label] of entries) {
-    const row = document.createElement("div");
+  for (const [key, label, run] of entries) {
+    const row = document.createElement("button");
+    row.type = "button";
     row.className = "chord-guide-row";
+    row.title = `${label} (m then ${key})`;
     const kbd = document.createElement("kbd");
     kbd.textContent = key;
     const name = document.createElement("span");
     name.textContent = label;
     row.append(kbd, name);
+    row.addEventListener("click", () => {
+      //: Disarmed first: the chord has been answered, and leaving it armed
+      //: would make the next letter you type navigate somewhere.
+      tabJumpArmedAt = 0;
+      hideChordGuide();
+      //: The same two lines the keyboard branch runs, in the same order:
+      //: leaving for somewhere else means leaving whatever is over the page,
+      //: or the destination lands behind a modal that still holds focus.
+      closeOverlaysForChord();
+      run();
+    });
     list.appendChild(row);
   }
   group.appendChild(list);
@@ -36445,11 +36563,15 @@ function showTabJumpHint() {
     lead,
     chordGuideGroup(
       "Go to",
-      Object.entries(TAB_JUMP_KEYS).map(([key, tab]) => [key, tab[0].toUpperCase() + tab.slice(1)])
+      Object.entries(TAB_JUMP_KEYS).map(([key, tab]) => [
+        key,
+        tab[0].toUpperCase() + tab.slice(1),
+        () => switchTab(tab),
+      ])
     ),
     chordGuideGroup(
       "Do",
-      Object.entries(CHORD_ACTIONS).map(([key, action]) => [key, action.label])
+      Object.entries(CHORD_ACTIONS).map(([key, action]) => [key, action.label, action.run])
     )
   );
   guide.classList.remove("hidden");

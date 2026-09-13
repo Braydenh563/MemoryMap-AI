@@ -23,6 +23,27 @@ never lost to the smaller stuff.
 
 ## Open items
 
+140. **Mid-work drop, 2026-09-13, verbatim (the owner), the Quick sketch bar
+    again, after the redesign.** "the quick sketch top dock still needs a
+    better redesign"
+
+    Screenshot of the shipped version: DRAW, SHAPES, INK, SIZE and EDIT on
+    one row with the whole right-hand half empty, and PAPER alone on a second
+    row underneath. The labels are an improvement; the wrap with dead space
+    beside it reads as a bar that ran out of room. SIZE is also the only
+    group that is a slider with a bare numeral rather than a row of controls.
+    Sent back to the agent that built it.
+
+139. **Mid-work drop, 2026-09-13, verbatim (the owner), the keyboard chord
+    guide.** "also make these popup options when I press m, actual clickable
+    nav buttons"
+
+    Screenshot of the "m then" sheet: two labelled groups, GO TO (Dashboard,
+    Notes, Chat, Graph, Library, Timeline, Reminders) and DO (Settings, Quick
+    sketch, Meeting notes), each drawn as a pill with its key in a chip. They
+    look exactly like buttons and are not: the sheet only listens for the
+    second keystroke.
+
 138. **Mid-work drop, 2026-09-13, verbatim (the owner), the README.** "and
     also the screenshots on the readme page need updating and they need to
     show more parts of the application than what is there."

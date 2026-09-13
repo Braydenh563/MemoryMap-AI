@@ -507,8 +507,17 @@ header#top-bar,
    So it takes the HUD's idiom (`.hud`, 07-whiteboard-misc.css: centred,
    accent-edged, momentary, never interactive) at the size this content needs,
    over a scrim that dims the page just enough to say the next key means
-   something. `pointer-events: none` throughout: a guide that eats the click
-   you were about to make is worse than no guide at all. */
+   something.
+
+   **The scrim stays click-through-to-close; the rows do not.** This block used
+   to say "`pointer-events: none` throughout: a guide that eats the click you
+   were about to make is worse than no guide at all", which was an argument
+   about a guide sitting beside your work. This one dims the page and holds the
+   next keystroke, so there is no click it could steal that was meant for
+   something else, and the rows are drawn as pills with a key chip in them,
+   which is the shape of a control. The owner: "also make these popup options
+   when I press m, actual clickable nav buttons". A click on the dimmed page
+   still means "not this", the same as Escape and a second `m`. */
 .chord-guide {
   position: fixed;
   inset: 0;
@@ -570,6 +579,13 @@ header#top-bar,
 /* One pair per chip, so a key and its destination can never be split across
    a line break: the exact fault in the screenshot. */
 .chord-guide-row {
+  /* A real `<button>` now, so the base button rule has to be undone where it
+     disagrees with this pill: it is not the app's filled control, it carries
+     its own accent edge and glow, and its label is a destination rather than a
+     verb the button rule sizes for. */
+  pointer-events: auto;
+  cursor: pointer;
+  font: inherit;
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -581,6 +597,27 @@ header#top-bar,
   color: var(--ink);
   font-weight: 600;
   white-space: nowrap;
+  transition: transform var(--motion-fast) ease, border-color var(--motion-fast) ease;
+}
+
+/* Hover and focus say the same thing, because half the point of this sheet is
+   that it is reachable both ways. */
+.chord-guide-row:hover,
+.chord-guide-row:focus-visible {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.chord-guide-row:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 819.98px) {
+  /* Measured at 43px, a pixel under the floor, which only matters now that
+     these are things a finger is meant to land on. */
+  .chord-guide-row {
+    min-height: var(--target-min);
+  }
 }
 
 /* The heatmap's gap was costing more than its cells (the owner: "the heatmap

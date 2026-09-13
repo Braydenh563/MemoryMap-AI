@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The note edit form's formatting bar was see-through and hid behind the Notes
+  sub-tab strip. Its background was a 4%-opaque tint meant to sit on a pane,
+  which on a sticky strip left the note's own text showing through it, and it
+  parked in the same band as the sub-tab strip, which is also sticky at the top
+  of the same scroller and twenty layers above it. The tint now sits over an
+  opaque base, and the bar stops below the strip: measured stuck at y=128 with
+  the strip ending at 118, and nothing painted over it at any point down its
+  height.
+
 - Every note card claimed to be filed in "a space that no longer exists". The
   chip that names a note's workspace fell back to that wording whenever the
   space list had not arrived yet, and the note list renders before it does, so

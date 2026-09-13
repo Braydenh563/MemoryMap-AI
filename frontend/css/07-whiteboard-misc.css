@@ -8308,6 +8308,24 @@ header#top-bar > #tab-bar {
   box-shadow: none;
 }
 
+/* The other half of the same report: the bar parked in the same band as the
+   Notes sub-tab strip, which is also `position: sticky; top: 0` in the same
+   scroller and sits twenty layers above it, so the strip covered two thirds of
+   the bar (measured: the bar stuck at y=63 with a height of 46, and
+   `#notes-subtabs` painted over it at y=86 and y=106).
+
+   The bar stops below the strip instead of fighting it for the layer, because
+   the strip is navigation and belongs on top. `--notes-sticky-top` carries the
+   strip's measured height plus its bottom margin, written by
+   `initNotesSubtabHeightToken` in app.js: it cannot be a constant here, since
+   the strip is a row of `--control-h-lg` buttons and both Large text and
+   Spacious density change what that comes to. The `0px` is what applies before
+   the script has measured, and on any editor outside the Notes tab, where
+   there is no strip and the bar's own `top: 0` is right. */
+#tab-notes .doc-toolbar {
+  top: var(--notes-sticky-top, 0px);
+}
+
 .doc-statusbar {
   background: var(--surface-2);
   border-color: transparent;

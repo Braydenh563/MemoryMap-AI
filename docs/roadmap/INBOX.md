@@ -109,7 +109,7 @@ open and half finished stuff?"), which is a decision, not work.
     one card grows it well past its neighbours, so the row's cards are 260px
     and 620px side by side.
 
-144. **Mid-work drop, 2026-09-13, verbatim (the owner), the note edit form (one
+144. **Fixed, 2026-09-13 (both halves, measured).** **Mid-work drop, verbatim (the owner), the note edit form (one
     screenshot).** "when I open the edit form for a note and scroll down, only
     the bottom of the formatting bar sticks to the top of the screen and the
     bar is clear so it is hard to see"

@@ -24540,6 +24540,15 @@ function timelineResolvedScale(countInRange) {
 //: group filter that is on. Search, filter and sort all run over this array
 //: (decision 2), so the feed and the table cannot disagree, and a keystroke
 //: costs a repaint rather than a request.
+//: One page of rows per request, and what the endpoint said came after it.
+//: 300 is `PAGE_SIZE` in `routes_timeline.py`; the two are not enforced to
+//: agree because neither has to, the endpoint is the one with the ceiling.
+const TIMELINE_PAGE = 300;
+// Counts per day for the whole range (not just the loaded pages), which is
+// what the scrubber draws.
+let timelineDensity = {};
+let timelineNextCursor = null;
+let timelinePaging = false;
 let timelineRows = [];
 // By id, so a row that continues another can name it without a scan per row:
 // `find` per row is the shape that turns 1,500 rows into a million comparisons
@@ -24549,7 +24558,10 @@ let timelineGroupNames = [];
 let timelineFilter = null;
 let timelineOpenId = null;
 
-async function renderTimeline() {
+//: The range, as a query. One place, because the first page and every page
+//: after it have to ask the same question: a cursor into a different range is
+//: a cursor into nothing.
+function timelineQuery() {
   let url = `/timeline?scale=${$("timeline-scale").value === "auto" ? "day" : $("timeline-scale").value}`
     + `&group=${$("timeline-group").value}`;
   const daysVal = $("timeline-days").value;
@@ -24564,9 +24576,16 @@ async function renderTimeline() {
   } else {
     url += `&days=${daysVal}`;
   }
+  return url;
+}
+
+async function renderTimeline() {
+  const url = `${timelineQuery()}&limit=${TIMELINE_PAGE}`;
   //: Which of these entries are maps, awaited alongside the timeline rather
   //: than before it, because neither needs the other's answer.
   const [body] = await Promise.all([apiJson(url).catch(() => null), loadMapBoardIndex()]);
+  timelineDensity = body?.density || {};
+  timelineNextCursor = body?.next_cursor || null;
   timelineRows = body ? body.notes.map(timelineRow) : [];
   // Newest first by the moment the row *sits* on, not by when it was typed.
   // Those differ for every note placed by what it mentions, and the old grid
@@ -24582,7 +24601,108 @@ async function renderTimeline() {
   }
   fillTimelineBandOptions();
   paintTimeline();
+  drawTimelineScrubber();
 }
+
+//: **A page at a time, as the reader reaches the end of the last one**
+//: (TIMELINE_PLAN Phase 3). What this replaced was a hard cap of 1,500 rows
+//: with nothing after it: a notebook past the cap lost its older notes off the
+//: end of the view, silently. The cursor is the endpoint's own
+//: (`created_at|id`, base64url), so a note saved while someone is reading
+//: cannot shift the page under them.
+//:
+//: One request at a time, and the flag is cleared in a `finally`: a rejected
+//: fetch that left it set would stop the feed paging for the rest of the
+//: session, and the only symptom would be a timeline that ends early.
+async function timelineLoadMore() {
+  if (!timelineNextCursor || timelinePaging) return;
+  timelinePaging = true;
+  try {
+    const url = `${timelineQuery()}&limit=${TIMELINE_PAGE}&cursor=${encodeURIComponent(timelineNextCursor)}`;
+    const body = await apiJson(url).catch(() => null);
+    if (!body) return;
+    timelineNextCursor = body.next_cursor || null;
+    const fresh = body.notes.map(timelineRow);
+    for (const row of fresh) {
+      if (timelineById.has(row.id)) continue;
+      timelineRows.push(row);
+      timelineById.set(row.id, row);
+    }
+    timelineRows.sort((a, b) => b.when - a.when);
+    // Appended rather than repainted: a repaint of every loaded row on every
+    // page is what turns paging into a stutter, and the rows already on screen
+    // have not changed. The table repaints, because its order is whatever
+    // column it is sorted by and an append cannot know where a row belongs.
+    if (timelineViewMode() === "table") paintTimeline();
+    else appendTimelineRows(fresh);
+    drawTimelineScrubber();
+  } finally {
+    timelinePaging = false;
+  }
+}
+
+//: The new page, into the feed as it stands: into the last bucket if it
+//: continues it, into a new section if it does not.
+//:
+//: **In chunks, across frames.** A page is 300 rows and a row is eight
+//: elements, and building all of them in one go was measured at a 117ms frame
+//: during paging, over the 100ms the plan draws its line at. Sixty rows a
+//: frame keeps every frame inside the budget and the rows still arrive well
+//: before the scroll reaches them (the fetch starts 600px early).
+const TIMELINE_APPEND_CHUNK = 60;
+
+function appendTimelineRows(fresh, from = 0) {
+  const feed = $("timeline-feed");
+  const scale = feed.dataset.scale || "day";
+  const density = feed.dataset.density || "full";
+  const visible = new Set(timelineVisibleRows().map((row) => row.id));
+  let section = feed.lastElementChild;
+  const slice = fresh.slice(from, from + TIMELINE_APPEND_CHUNK);
+  for (const row of slice) {
+    if (!visible.has(row.id)) continue;
+    const key = timelineBucketKey(row.when, scale);
+    if (!section || section.dataset.bucket !== key) {
+      section = document.createElement("section");
+      section.className = "timeline-bucket";
+      section.dataset.bucket = key;
+      const head = document.createElement("h3");
+      head.className = "timeline-bucket-head";
+      const label = document.createElement("span");
+      label.className = "timeline-bucket-label";
+      label.textContent = timelineBucketLabel(key, scale);
+      const count = document.createElement("span");
+      count.className = "muted timeline-bucket-count";
+      count.textContent = "0";
+      head.append(label, count);
+      const list = document.createElement("ul");
+      list.className = "timeline-rows";
+      section.append(head, list);
+      feed.appendChild(section);
+    }
+    section.querySelector(".timeline-rows").appendChild(timelineRowElement(row, density));
+    const count = section.querySelector(".timeline-bucket-count");
+    count.textContent = String(section.querySelectorAll(".timeline-row").length);
+  }
+  if (from + TIMELINE_APPEND_CHUNK < fresh.length) {
+    requestAnimationFrame(() => appendTimelineRows(fresh, from + TIMELINE_APPEND_CHUNK));
+    return;
+  }
+  applyTimelineRowTabOrder();
+  const total = feed.querySelectorAll(".timeline-row").length;
+  $("timeline-count").textContent = `${total} note${total === 1 ? "" : "s"} · ${
+    feed.querySelectorAll(".timeline-bucket").length
+  } ${{ day: "day", week: "week", month: "month", year: "year" }[scale]}s`;
+}
+
+//: The end of the feed is the request for the next page. 600px of warning
+//: rather than the last pixel, so the rows are there before the scroll
+//: reaches them; on the scroll box itself rather than the window, because the
+//: feed is what scrolls (05-sidebars-themes.css).
+$("timeline-scroll").addEventListener("scroll", () => {
+  const box = $("timeline-scroll");
+  if (box.scrollTop + box.clientHeight > box.scrollHeight - 600) timelineLoadMore();
+  drawTimelineWindow();
+});
 
 // What a row belongs to under the current grouping: the value the band filter
 // matches against. Threads are named by the note they continue, which is the
@@ -25081,6 +25201,158 @@ function shortDate(iso) {
     ? ""
     : date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
+
+//: **The density strip** (TIMELINE_PLAN decision 7). The one thing the feed
+//: cannot show: how much was written across the *whole* range, including the
+//: pages that have not been fetched, so that six months of silence and the
+//: fortnight everything happened in are visible at a glance and one drag away.
+//: It is the only SVG left in the tab, and it is one path.
+//:
+//: **It hides under 200 notes**, which the plan asked to be measured rather
+//: than assumed (section 7: "it may read as noise and should hide below a
+//: threshold measured then"). Measured on the 48-note seed: 40 buckets over 40
+//: days, every slot one note tall, which is a strip of identical marks saying
+//: nothing that the headers do not say better. The threshold is on the range's
+//: own size, not on what is loaded, so it does not appear halfway down a
+//: notebook that was always big enough.
+const TIMELINE_SCRUBBER_MIN = 200;
+const TIMELINE_SCRUBBER_SLOTS = 120;
+const TIMELINE_SCRUBBER_HEIGHT = 1000; // the viewBox's own units
+
+// The range the strip spans, newest at the top, as milliseconds.
+function timelineDensitySpan() {
+  const days = Object.keys(timelineDensity);
+  if (!days.length) return null;
+  let newest = -Infinity;
+  let oldest = Infinity;
+  for (const day of days) {
+    const at = new Date(`${day}T00:00:00`).getTime();
+    if (Number.isNaN(at)) continue;
+    if (at > newest) newest = at;
+    if (at < oldest) oldest = at;
+  }
+  if (!Number.isFinite(newest) || !Number.isFinite(oldest)) return null;
+  // A range of one day would divide by zero; a day is a day wide.
+  const width = Math.max(newest - oldest, 86400000);
+  return { newest, oldest: newest - width, width };
+}
+
+function drawTimelineScrubber() {
+  const strip = $("timeline-scrubber");
+  const total = Object.values(timelineDensity).reduce((sum, n) => sum + n, 0);
+  const span = timelineDensitySpan();
+  const show = total >= TIMELINE_SCRUBBER_MIN && span !== null;
+  strip.classList.toggle("hidden", !show);
+  if (!show) return;
+
+  // One slot per band of time, filled with everything written inside it: the
+  // strip is a shape, not a list of days, and 120 slots is about one per 8
+  // pixels of a full-height strip.
+  const slots = new Array(TIMELINE_SCRUBBER_SLOTS).fill(0);
+  for (const [day, count] of Object.entries(timelineDensity)) {
+    const at = new Date(`${day}T00:00:00`).getTime();
+    if (Number.isNaN(at)) continue;
+    const fraction = (span.newest - at) / span.width;
+    const slot = Math.min(TIMELINE_SCRUBBER_SLOTS - 1, Math.max(0, Math.round(fraction * (TIMELINE_SCRUBBER_SLOTS - 1))));
+    slots[slot] += count;
+  }
+  const peak = Math.max(...slots, 1);
+  const step = TIMELINE_SCRUBBER_HEIGHT / TIMELINE_SCRUBBER_SLOTS;
+  // A step chart drawn from the strip's right edge, closed along it, so the
+  // shape reads as a profile of the writing rather than as a line drawing.
+  const parts = ["M 40 0"];
+  slots.forEach((count, index) => {
+    const x = 40 - (count / peak) * 34;
+    parts.push(`L ${x.toFixed(1)} ${(index * step).toFixed(1)}`);
+    parts.push(`L ${x.toFixed(1)} ${((index + 1) * step).toFixed(1)}`);
+  });
+  parts.push(`L 40 ${TIMELINE_SCRUBBER_HEIGHT}`, "Z");
+  $("timeline-density-path").setAttribute("d", parts.join(" "));
+  drawTimelineWindow();
+}
+
+//: Where the reader is, as a band on the strip. Taken from the rows actually
+//: on screen rather than from `scrollTop / scrollHeight`, because the feed is
+//: linear in *rows* and the strip is linear in *time*: a fortnight of daily
+//: writing and a quiet year take the same scroll distance per note, and a
+//: marker computed from the scroll would drift further from the truth the more
+//: uneven the notebook is, which is exactly the notebook this strip is for.
+function drawTimelineWindow() {
+  const strip = $("timeline-scrubber");
+  if (strip.classList.contains("hidden")) return;
+  const span = timelineDensitySpan();
+  if (!span) return;
+  const box = $("timeline-scroll").getBoundingClientRect();
+  //: Three probes rather than one: the top of the box is a sticky bucket
+  //: header as often as it is a row, and a single probe that landed on the
+  //: header pinned the marker to the top of the strip whatever the reader had
+  //: scrolled past. Measured that way: `y=0` after a jump 60,000px down.
+  const at = (y, tries = 1) => {
+    for (let i = 0; i < tries; i++) {
+      const el = document
+        .elementFromPoint(box.left + box.width / 2, y + i * 44)
+        ?.closest?.(".timeline-row");
+      const row = el && timelineById.get(Number(el.dataset.id));
+      if (row) return row.when.getTime();
+    }
+    return null;
+  };
+  const top = at(box.top + 4, 4) ?? span.newest;
+  const bottom = at(box.bottom - 8, -1) ?? top;
+  const y = (moment) =>
+    Math.min(1, Math.max(0, (span.newest - moment) / span.width)) * TIMELINE_SCRUBBER_HEIGHT;
+  const from = y(top);
+  const to = y(bottom);
+  const window_ = $("timeline-scrubber-window");
+  window_.setAttribute("y", String(Math.min(from, to)));
+  // A floor of 6 units, or a window over one busy day is a hairline nobody
+  // can see and nobody can aim at.
+  window_.setAttribute("height", String(Math.max(6, Math.abs(to - from))));
+}
+
+//: Click or drag to go there. The strip is linear in time, so a position on it
+//: is a moment; the row to land on is the first one at or before that moment,
+//: which is a binary search over the array (it is sorted newest first and can
+//: hold thousands of rows).
+function timelineScrubTo(clientY) {
+  const span = timelineDensitySpan();
+  if (!span) return;
+  const box = $("timeline-scrubber").getBoundingClientRect();
+  const fraction = Math.min(1, Math.max(0, (clientY - box.top) / Math.max(box.height, 1)));
+  const target = span.newest - fraction * span.width;
+  const rows = timelineVisibleRows();
+  if (!rows.length) return;
+  let low = 0;
+  let high = rows.length - 1;
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (rows[mid].when.getTime() <= target) high = mid;
+    else low = mid + 1;
+  }
+  const row = rows[low];
+  // Past the end of what is loaded: go to the end and ask for the next page,
+  // which is what a reader dragging into the older half is asking for.
+  if (row.when.getTime() > target && timelineNextCursor) {
+    const box2 = $("timeline-scroll");
+    box2.scrollTop = box2.scrollHeight;
+    timelineLoadMore();
+    return;
+  }
+  focusTimelineRow(row.id);
+  drawTimelineWindow();
+}
+
+$("timeline-scrubber").addEventListener("pointerdown", (event) => {
+  // Pointer capture, so a drag that leaves the 40px strip keeps scrubbing
+  // instead of stopping the moment the pointer wanders into the feed.
+  $("timeline-scrubber").setPointerCapture(event.pointerId);
+  timelineScrubTo(event.clientY);
+});
+
+$("timeline-scrubber").addEventListener("pointermove", (event) => {
+  if (!event.buttons) return;
+  timelineScrubTo(event.clientY);
+});
 
 //: **The table** (TIMELINE_PLAN Phase 2, decision 6). The same rows the feed
 //: draws, in the shape you want when the question is "which of these" rather
@@ -32919,6 +33191,54 @@ function initHeaderHeightToken() {
 }
 
 initHeaderHeightToken();
+
+//: **The note editor's formatting bar slid under the Notes sub-tab strip.**
+//:
+//: Reported: "when I open the edit form for a note and scroll down, only the
+//: bottom of the formatting bar sticks to the top of the screen and the bar is
+//: clear so it is hard to see". The second half of that is the bar's own
+//: background (07-whiteboard-misc.css). This is the first half, and measured
+//: with `scratchpad/ui-sweeps/edittoolbar.js` it is not a z-index problem in
+//: the way it looks: `.notes-subtabs` is `position: sticky; top: 0; z-index:
+//: 20` and `.doc-toolbar` is `position: sticky; top: 0; z-index: 3`, in the
+//: **same** scroller, so the two park in exactly the same 46px band and the
+//: strip, being the higher of the two, paints over most of the bar. With the
+//: form scrolled 400px the bar stuck at y=63 with a height of 46, and
+//: `elementsFromPoint` found `#notes-subtabs` painted over it at y=86 and
+//: y=106: two thirds of the bar, hidden behind the strip.
+//:
+//: Raising the bar's z-index would be the wrong fix twice over: the strip is
+//: navigation and should stay on top, and the bar would then cover *it*. The
+//: bar has to stop lower down instead, which means knowing how tall the strip
+//: is, and that is not a number the stylesheet can hold: the strip is a row of
+//: `--control-h-lg` buttons with padding and a border, so Large text (an 18px
+//: root) and Spacious density both change it. Exactly the case
+//: `initHeaderHeightToken` above already solves, so this is the same shape:
+//: measure, write the token, let the stylesheet read it.
+//:
+//: Written on `#tab-notes` rather than the root because only this tab has the
+//: strip, and a root token would offset sticky bars on tabs that have nothing
+//: above them.
+function initNotesSubtabHeightToken() {
+  const strip = document.getElementById("notes-subtabs");
+  const page = document.getElementById("tab-notes");
+  if (!strip || !page || typeof ResizeObserver === "undefined") return;
+  const write = () => {
+    const box = strip.getBoundingClientRect().height;
+    //: The strip's own bottom margin counts: it is the gap the strip keeps
+    //: below itself, and a bar that stopped at the strip's edge would touch it.
+    const gap = parseFloat(getComputedStyle(strip).marginBottom) || 0;
+    const h = Math.round(box + gap);
+    //: Zero while the tab is hidden (the strip has no box at all then) would
+    //: put the bar back under the strip the moment Notes was opened. Leave the
+    //: stylesheet's value standing until there is a real one.
+    if (h > 0) page.style.setProperty("--notes-sticky-top", `${h}px`);
+  };
+  new ResizeObserver(write).observe(strip);
+  write();
+}
+
+initNotesSubtabHeightToken();
 
 // --- the tab bar docks to the bottom on a phone -------------------------------
 // UI_MODERNISATION_PLAN.md Phase 9, band 4.

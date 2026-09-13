@@ -4311,6 +4311,27 @@ mark.lightbox-hit {
   touch-action: none;
 }
 
+/* The large size (GRAPH_PLAN Phase 6b): the same picture at 1.5x, scaled on
+   the element rather than in the viewBox, so the projection, the drag and the
+   viewport rectangle all keep working off the rendered width they already
+   measure. */
+.graph-minimap-lg svg {
+  width: 252px;
+  height: 168px;
+}
+
+/* **Faded out while it is showing you what you can already see.** The
+   viewport rectangle fills the whole box when every note is on screen, at
+   which point the map is a corner of the canvas and a click target that says
+   nothing (`graphMinimapFrame` sets this class). Not `display: none`: it
+   comes back the moment you zoom in, and a box that appears and disappears
+   from the layout would shift the canvas under the pointer. Still reachable
+   on hover, so the drag and the wheel stay available to someone who wants
+   them. */
+.graph-minimap-redundant:not(:hover):not(:focus-within) {
+  opacity: 0.12;
+}
+
 .graph-minimap-dragging {
   cursor: grabbing;
 }

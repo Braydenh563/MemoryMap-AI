@@ -90,6 +90,10 @@ below). Versioning is `0.x` while the app stabilises.
   0px horizontally and 4px below the word after the scroll, closed after the
   word leaves the box.
 
+- The graph's minimap has a size setting, Small or Large, beside its position
+  in the graph's dock menu, and it fades out of the way while you are zoomed
+  far enough out that the whole map is already on screen.
+
 - Describing a picture with AI and reading text out of one now show up as
   background processes in the activity panel, so you can leave the dialog or
   the tab and still see what is running and how it ended.

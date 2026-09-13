@@ -3987,6 +3987,8 @@ async function exportGraphPng() {
 //: with).
 const GRAPH_MINIMAP_CORNERS = ["off", "tl", "tr", "bl", "br"];
 const GRAPH_MINIMAP_CORNER_KEY = "graph-minimap-corner";
+//: Per-device workspace state, beside the corner: see `applyMinimapSize`.
+const GRAPH_MINIMAP_SIZE_KEY = "graph-minimap-size";
 //
 // Both exist for the same reason, named in the roadmap's own words: once a
 // notebook is dense enough that the force layout stops being readable, there
@@ -4212,10 +4214,27 @@ function graphMinimapFrame() {
   const clampedY0 = Math.max(0, Math.min(fy0, fy1));
   const clampedX1 = Math.min(GRAPH_MINIMAP_W, Math.max(fx0, fx1));
   const clampedY1 = Math.min(GRAPH_MINIMAP_H, Math.max(fy0, fy1));
+  const frameW = Math.max(0, clampedX1 - clampedX0);
+  const frameH = Math.max(0, clampedY1 - clampedY0);
   frame.setAttribute("x", clampedX0.toFixed(1));
   frame.setAttribute("y", clampedY0.toFixed(1));
-  frame.setAttribute("width", Math.max(0, clampedX1 - clampedX0).toFixed(1));
-  frame.setAttribute("height", Math.max(0, clampedY1 - clampedY0).toFixed(1));
+  frame.setAttribute("width", frameW.toFixed(1));
+  frame.setAttribute("height", frameH.toFixed(1));
+  //: **An overview of what you can already see is not an overview** (GRAPH_PLAN
+  //: Phase 6b, INBOX 78: the minimap's "UX and utility"). Zoomed out far enough
+  //: that every note is on screen, the rectangle is the whole box and the map
+  //: says nothing at all, while still taking a corner of the canvas and a
+  //: click. It fades out there and comes back the moment you zoom in.
+  //:
+  //: The test is the rectangle's own area against the box, not the transform's
+  //: scale: "everything fits" is a fact about this graph's extent at this
+  //: window size, and a scale threshold would be wrong on the next notebook.
+  //: 0.985 rather than 1 because the clamps above land a hair inside the box.
+  const box = document.getElementById("graph-minimap");
+  if (box) {
+    const covered = frameW * frameH >= GRAPH_MINIMAP_W * GRAPH_MINIMAP_H * 0.985;
+    box.classList.toggle("graph-minimap-redundant", covered);
+  }
 }
 
 // --- the dock's real height, in the token everything clears it by ------------
@@ -4370,6 +4389,34 @@ function initGraphMinimap() {
     const choice = event.target.value;
     localStorage.setItem(GRAPH_MINIMAP_CORNER_KEY, choice);
     applyMinimapPosition(choice);
+  });
+
+  //: **Two sizes** (GRAPH_PLAN Phase 6b, INBOX 78). 168x112 is a glance; on a
+  //: dense notebook, or a large screen where a corner of the canvas costs
+  //: nothing, it is too small to aim with, and the answer people reach for is
+  //: to zoom the whole graph out instead, which is the opposite of what the
+  //: minimap is for. The large size is the same picture at 1.5x: the box is
+  //: scaled in CSS, the viewBox is untouched, and every measurement in here
+  //: already divides by the element's own rendered width, so nothing about the
+  //: projection or the drag has to know which size is on.
+  //:
+  //: In the dock menu beside Position rather than as a control on the map
+  //: itself: the map is `aria-hidden` decoration that happens to be
+  //: draggable, and a focusable button inside an aria-hidden box is a control
+  //: no screen reader can reach.
+  const applyMinimapSize = (choice) => {
+    const box = document.getElementById("graph-minimap");
+    if (!box) return;
+    const chosen = choice === "lg" ? "lg" : "sm";
+    box.classList.toggle("graph-minimap-lg", chosen === "lg");
+    const picker = document.getElementById("graph-minimap-size");
+    if (picker) picker.value = chosen;
+  };
+  applyMinimapSize(localStorage.getItem(GRAPH_MINIMAP_SIZE_KEY));
+  document.getElementById("graph-minimap-size")?.addEventListener("change", (event) => {
+    const choice = event.target.value;
+    localStorage.setItem(GRAPH_MINIMAP_SIZE_KEY, choice);
+    applyMinimapSize(choice);
   });
 }
 

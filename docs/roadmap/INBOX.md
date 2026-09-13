@@ -153,7 +153,18 @@ measured or built in earlier commits and is marked there.
     wants a line of help copy as much as a fix (graph agent); middle-button
     pan, the lag of every non-note object under the hand tool, the Arrange
     menu's height, the default board type and the map top bar's overflow
-    (mind map agent).
+    (mind map agent). **The graph half is done (this commit); the chat and
+    mind map halves are still open, so this item stays here.** The popup was
+    blind to the commonest kind of image note: a note carrying an
+    *attachment* drew its thumbnail, and a note whose picture is a library
+    upload named in its own markdown drew nothing, the media box hidden with
+    0 children. Measured after (`scratchpad/ui-sweeps/graphmedia.js`): both
+    shapes draw one image at natural width 2 on a 2x2 probe, and a file card
+    reads "PDF · 3.9 KB" where it used to say "PDF" alone. What an entity
+    is is now one sentence written once, given in the Show section's '?'
+    popover, in a legend entry the map never had (the entity nodes' category
+    is added after `data.categories` is built, so nothing named them), and in
+    an entity node's own tooltip.
 
 182. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), links.**
     "I want to be able to right click or hold with a touch on a link and

@@ -9,6 +9,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- **Graph node popups draw the pictures and files a note names in its own
+  markdown**, not only the ones it carries as attachments, and a file card
+  states its size beside its kind. A note whose picture is a library upload
+  opened a panel with nothing in it before; both shapes now draw. The graph
+  also says what an entity is, in one sentence, in the Show section's help
+  popover, in a legend entry and on the node itself.
+
 - **A local map beside an open note or document** (GRAPH_PLAN Phase 4's last
   item). `#graph-pane` is the Graph tab's own canvas renderer at
   `size: "pane"`: it draws `/graph/local` at depth 1 for whatever is open, in

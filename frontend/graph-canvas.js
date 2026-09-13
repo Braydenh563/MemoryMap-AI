@@ -1631,8 +1631,26 @@ function gcShowNodeMenu(node, clientX, clientY, s = gcTab) {
   menu.querySelector("button")?.focus();
 }
 
+//: The word "entity" explains nothing on its own, and it is the label on a
+//: switch, a legend entry and a node. INBOX 183, the owner: "idk what entities
+//: are". One sentence, written once here, given in all three places.
+const GC_ENTITY_CATEGORY = "Entity";
+const GC_ENTITY_HELP =
+  "An entity is a person, place or thing the AI found named across your notes, " +
+  "joined to every note that mentions it";
+
 function gcTooltip(node, s = gcTab) {
   const links = (s.adj && s.adj.get(node.id) ? s.adj.get(node.id).size : 0) || 0;
+  //: A node that is not a note says what it is, because none of the three
+  //: kinds can be opened and a tooltip is the only thing they answer to. An
+  //: entity gets the sentence; a document and a board get their own word,
+  //: which is at least one somebody has met before.
+  if (node.type === "entity") return `${node.preview}\n${GC_ENTITY_HELP}`;
+  if (node.type === "document") return `${node.preview}\nA document your notes are attached to`;
+  if (node.type === "map") return `${node.preview}\nA mind map, joined to the notes on it`;
+  if (node.type === "board" || node.type === "whiteboard") {
+    return `${node.preview}\nA whiteboard, joined to the notes on it`;
+  }
   return (
     `${node.preview}\n[${node.category}] · ${links} connection${links === 1 ? "" : "s"}` +
     `${node.access_count ? ` · used ${node.access_count}×` : ""}`
@@ -2182,6 +2200,29 @@ function graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour =
       () => {
         if (graphHiddenCategories.has(category)) graphHiddenCategories.delete(category);
         else graphHiddenCategories.add(category);
+        renderGraph();
+      },
+      off
+    );
+  }
+  //: **The one kind of node the legend never named.** INBOX 183, the owner:
+  //: "idk what entities are". `data.categories` is built from the notes before
+  //: the entity nodes are appended (`routes_graph.py`), so an entity has
+  //: always been drawn in a colour with nothing in the legend to explain it:
+  //: an extra dot in an extra colour, on a map of notes, with no word attached
+  //: to it anywhere on the screen. This is the same sentence the Show
+  //: section's '?' gives and the same one a hovered entity node gives, so the
+  //: three cannot drift, and the entry filters like any other because an
+  //: entity node carries "Entity" as its category.
+  if (!data.categories.includes(GC_ENTITY_CATEGORY) && data.nodes.some((n) => n.type === "entity")) {
+    const off = graphHiddenCategories.has(GC_ENTITY_CATEGORY);
+    entry(
+      GC_ENTITY_HELP,
+      colour(GC_ENTITY_CATEGORY),
+      `${GC_ENTITY_CATEGORY} (${data.nodes.filter((n) => n.type === "entity").length})`,
+      () => {
+        if (off) graphHiddenCategories.delete(GC_ENTITY_CATEGORY);
+        else graphHiddenCategories.add(GC_ENTITY_CATEGORY);
         renderGraph();
       },
       off

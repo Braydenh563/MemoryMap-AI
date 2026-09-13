@@ -2578,7 +2578,36 @@
           </div>
           <div class="dock-menu-section" id="graph-toggle-group"
             role="group" aria-labelledby="graph-show-label">
-            <span class="muted dock-menu-label" id="graph-show-label">Show</span>
+            <div class="dock-menu-section-head">
+              <span class="muted dock-menu-label" id="graph-show-label">Show</span>
+              <!-- INBOX 183, the owner: "idk what entities are". The three
+                   switches below add three kinds of node and only one of them
+                   is a word this app has ever explained. Each row carries its
+                   own line on hover; this is the same three lines somewhere a
+                   keyboard and a finger can reach, which is what the
+                   `data-help-for` recipe is for (DESIGN.md, the recipe
+                   index). The same sentence about an entity is in the legend
+                   and in a node's own panel, so the three cannot drift. -->
+              <button type="button" class="icon-only ghost small graph-help-toggle"
+                data-help-for="graph-show-help" aria-controls="graph-show-help"
+                aria-expanded="false" title="What these add to the map"
+                aria-label="What these add to the map">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
+            </div>
+            <div class="help-body hidden" id="graph-show-help" role="dialog"
+              aria-label="What these add to the map">
+              <p>
+                An entity is a person, place or thing the AI found named across
+                your notes, drawn as its own node joined to every note that
+                mentions it.
+              </p>
+              <p>
+                Documents adds a node for each document your notes are attached
+                to, and Boards adds one for each mind map or whiteboard, joined
+                to the notes on it.
+              </p>
+            </div>
             <!-- Two columns, not one (graph.md section 2, beyond its own two
                  named candidates: those two rows plus the tightened section
                  spacing above still left this one section alone at 231px,

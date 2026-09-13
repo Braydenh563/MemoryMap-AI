@@ -24651,6 +24651,137 @@ function linkCard(url, text) {
   return card;
 }
 
+//: **A menu where the pointer is** (INBOX 182, the owner: "I want to be able
+//: to right click or hold with a touch on a link and have a popup show to let
+//: me copy the link address").
+//:
+//: `kebabMenu` is the app's one menu recipe and every part of it is wanted
+//: here, the row markup, the keyboard wiring, `escapeMenuIfClipped`, closing
+//: with every other menu. What it does not have is an anchor: it opens under
+//: a button you pressed, and a context menu opens where a pointer is. So the
+//: recipe is given one: a one-pixel, transparent, unclickable opener inside a
+//: `position: fixed` host parked at the pointer. Nothing about the menu itself
+//: is re-implemented, which is the whole point of a recipe index (standing
+//: order 11); DESIGN.md carries the row, `tests/test_ui_recipes.py` the
+//: ratchet that keeps the next one from being hand-built.
+let pointerMenuHost = null;
+
+function openMenuAtPoint(items, ariaLabel, x, y) {
+  closeActionMenus();
+  if (!pointerMenuHost) {
+    pointerMenuHost = document.createElement("div");
+    pointerMenuHost.className = "pointer-menu-host";
+    document.body.appendChild(pointerMenuHost);
+  }
+  pointerMenuHost.replaceChildren();
+  //: Parked inside the window before the menu is measured, so the clamp that
+  //: `openActionMenu` runs has a sane starting rect even at the last pixel of
+  //: the viewport.
+  const margin = 8;
+  pointerMenuHost.style.left = `${Math.max(margin, Math.min(x, window.innerWidth - margin))}px`;
+  pointerMenuHost.style.top = `${Math.max(margin, Math.min(y, window.innerHeight - margin))}px`;
+  const wrap = kebabMenu(items, ariaLabel);
+  const opener = wrap.querySelector("[aria-haspopup]");
+  opener.classList.add("pointer-menu-anchor");
+  //: Not `hidden` and not `display: none`: `openActionMenu` measures the
+  //: opener to decide whether to flip or to escape its container, and an
+  //: element with no box measures at 0,0, which is the top left corner this
+  //: app has had reported to it more than once.
+  opener.setAttribute("tabindex", "-1");
+  pointerMenuHost.appendChild(wrap);
+  openActionMenu(wrap.querySelector(".action-menu"), opener);
+}
+
+//: What a right-click on a link offers, by what the link is. An address can be
+//: copied and opened in a new tab; a `[[link]]` has no address to copy, so it
+//: offers its title and its own click, which is what opens a note, a board or
+//: a document (`resolveWikiTarget`). Returns null for anything that is not a
+//: link, which is how the delegated listener below decides whether to take
+//: the event away from the browser's own menu.
+function linkMenuItems(el) {
+  if (el.classList.contains("wiki-link")) {
+    const title = el.textContent.trim();
+    return [
+      {
+        label: "ph:copy Copy title",
+        title: "Copy the name this link points at",
+        run: () => copyToClipboard(title),
+      },
+      {
+        label: "ph:arrow-square-out Open",
+        title: "Open what this link points at",
+        run: () => el.click(),
+      },
+    ];
+  }
+  const href = el.getAttribute("href") || "";
+  //: Only the schemes the markdown renderer can produce
+  //: (`tests/test_markdown_link_schemes.py`). A `#anchor`, a `blob:` download
+  //: and the app's own internal anchors are not addresses anybody wants on a
+  //: clipboard, and taking the browser's menu away from them would remove
+  //: more than this adds.
+  if (!/^(https?:|mailto:)/i.test(href)) return null;
+  return [
+    {
+      label: "ph:link Copy link address",
+      title: "Copy this address to the clipboard",
+      run: () => copyToClipboard(el.href),
+    },
+    {
+      label: "ph:arrow-square-out Open in new tab",
+      title: "Open this address in a new browser tab",
+      run: () => window.open(el.href, "_blank", "noopener,noreferrer"),
+    },
+  ];
+}
+
+//: **One listener on the document, not one per surface.** The link this is
+//: about is drawn by the chat, the popup agent, a note preview, a document
+//: preview, the dashboard digest and the sources panel, and every one of them
+//: re-renders its own contents; a listener per surface is a listener that
+//: three of them forget. Delegation also means a link rendered by something
+//: written next year is covered without anybody remembering this.
+function linkAtEvent(event) {
+  if (!(event.target instanceof Element)) return null;
+  const el = event.target.closest("a[href], .wiki-link");
+  if (!el || el.hasAttribute("download")) return null;
+  const items = linkMenuItems(el);
+  return items ? { el, items } : null;
+}
+
+document.addEventListener("contextmenu", (event) => {
+  const found = linkAtEvent(event);
+  if (!found) return;
+  event.preventDefault();
+  openMenuAtPoint(found.items, "Link actions", event.clientX, event.clientY);
+});
+
+//: Touch has no right-click, so a hold stands in, at the same 500ms the
+//: whiteboard's own link gesture uses (`wbWireMapEdgeGestures`) so the app
+//: answers a long press at one speed. Cancelled by a move, because a hold
+//: that turns into a scroll is a scroll.
+let linkHoldTimer = null;
+const cancelLinkHold = () => {
+  if (linkHoldTimer) clearTimeout(linkHoldTimer);
+  linkHoldTimer = null;
+};
+
+document.addEventListener("pointerdown", (event) => {
+  cancelLinkHold();
+  if (event.pointerType !== "touch") return;
+  const found = linkAtEvent(event);
+  if (!found) return;
+  const { clientX, clientY } = event;
+  linkHoldTimer = setTimeout(() => {
+    linkHoldTimer = null;
+    openMenuAtPoint(found.items, "Link actions", clientX, clientY);
+  }, 500);
+});
+
+for (const name of ["pointerup", "pointercancel", "pointermove"]) {
+  document.addEventListener(name, cancelLinkHold);
+}
+
 function renderMarkdown(container, text, depth = 0) {
   container.replaceChildren();
   const lines = unlatex(text).replace(/\r\n/g, "\n").split("\n");

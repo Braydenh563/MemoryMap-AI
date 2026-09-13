@@ -2882,6 +2882,34 @@ kbd {
   display: inline-block;
 }
 
+/* **A menu at the pointer** (INBOX 182: right-click or long-press a link).
+   `kebabMenu` opens its menu under the button that was pressed, and a context
+   menu has no button: so it is given one, a single transparent pixel parked
+   where the pointer was. The host is `position: fixed` because the pointer's
+   coordinates are the viewport's, and it has no size of its own so it can
+   never intercept anything; the menu inside it is the same `.action-menu`
+   every other menu in the app is, clamped and escaped by the same code
+   (`openMenuAtPoint`, app.js). */
+.pointer-menu-host {
+  position: fixed;
+  z-index: 2600;
+  width: 0;
+  height: 0;
+}
+
+.pointer-menu-anchor {
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* **One shell for every menu in the app.** Reported: "all the dropdown menu
    styles in the application need to be consistent in their style. keep the
    'your notes' ones in the note cards as they are as I like their look."

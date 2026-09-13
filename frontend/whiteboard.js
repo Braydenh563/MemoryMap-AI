@@ -8020,7 +8020,40 @@ async function wbExportSvg(scope) {
 // Shared with the background-image picker above, which inlines the same
 // three lines: pulled out here because this is the second call site and a
 // third (this one) is exactly when a copy-pasted upload stops being fine.
-async function uploadToLibrary(filename, blob) {
+//: **The board's own title, on the picture it made** (INBOX 184: "my exported
+//: png from the mindmap straight to the whiteboard still doesnt have anything
+//: at the bottom of its card, its just blank").
+//:
+//: Reproduced first (`scratchpad/ui-sweeps/mapexportcard.js`): the card is
+//: there and its foot is 32px of nothing, 0 of 1 blocks shown and no text.
+//: That is not a bug in the card. A description block is on a card only once
+//: it holds something (INBOX 115's decision, and it is the right one: three
+//: rows that all say nothing is here is worse than a short card), and the
+//: describe pass that would have filled it needs a vision model, which an
+//: offline notebook may simply not have. So the card had nothing to show and
+//: showed nothing.
+//:
+//: What it can always show is what the app itself knows: this picture is a
+//: named board, exported on a known day, by this app. That is a real
+//: description rather than a placeholder standing in for one, it makes the
+//: image findable by the board's name in search, and `caption_and_store` is
+//: write-once, so a vision model run later leaves it alone while the card's
+//: own Describe button (which forces) still replaces it.
+function wbExportDescription(scope) {
+  //: The picker's label is `<kind> · <title> (N items)` (`refreshBoardList`),
+  //: and both halves of that have to come off or the sentence reads "the mind
+  //: map \"Mind map · Export map\"", which is what the first run of the sweep
+  //: measured.
+  const title = document.getElementById("wb-board-select")?.selectedOptions?.[0]
+    ?.textContent.replace(/\s*\(\d+ items?\)$/, "")
+    .replace(/^(Mind map|Board|Whiteboard) \u00b7 /, "").trim() || "";
+  const kind = wbIsMap() ? "mind map" : "whiteboard";
+  const part = scope === "selection" ? "Part of the " : "The ";
+  const named = title ? ` "${title}"` : "";
+  return `${part}${kind}${named}, exported from MemoryMap.`;
+}
+
+async function uploadToLibrary(filename, blob, description = "") {
   const formData = new FormData();
   formData.append("file", new File([blob], filename, { type: blob.type }));
   //: **A board export is a commit, not a staged upload** (INBOX 174: an
@@ -8035,11 +8068,24 @@ async function uploadToLibrary(filename, blob) {
   //: image" blocks, which are on a card only once they hold something, were
   //: both absent, which is the missing metadata area exactly.
   formData.append("direct", "true");
-  return apiJson("/media/upload", {
+  const uploaded = await apiJson("/media/upload", {
     method: "POST",
     headers: { "X-Auth-Token": authToken() },
     body: formData,
   });
+  //: Only when the upload came back with nothing: a caption written by a model
+  //: that did run says more than this one does, and this must never be the
+  //: thing that displaced it.
+  if (description && uploaded?.id && !uploaded.caption) {
+    await apiJson(`/media/${uploaded.id}/caption`, {
+      method: "POST",
+      body: JSON.stringify({ text: description }),
+    }).catch(() => {
+      // Best effort, exactly like the upload itself: an export that produced a
+      // file and a card has not failed because its description did not land.
+    });
+  }
+  return uploaded;
 }
 
 async function wbExportPng(scope) {
@@ -8052,7 +8098,7 @@ async function wbExportPng(scope) {
   // of. Best-effort: a failed upload must not make the export itself look
   // like it failed, since the download above already succeeded.
   try {
-    await uploadToLibrary(filename, blob);
+    await uploadToLibrary(filename, blob, wbExportDescription(scope));
     toast("Board exported as PNG, and added to your image library.");
   } catch {
     toast("Board exported as PNG.");
@@ -8074,7 +8120,7 @@ async function wbSaveToLibrary(scope) {
   const { svg, width, height } = wbBuildExportSvg(scope);
   const blob = await wbRasterizeSvg(svg, width, height, "image/png");
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-  await uploadToLibrary(`whiteboard-${scope}-${stamp}.png`, blob);
+  await uploadToLibrary(`whiteboard-${scope}-${stamp}.png`, blob, wbExportDescription(scope));
   toast("Added to your image library.");
 }
 

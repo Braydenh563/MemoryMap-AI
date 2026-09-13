@@ -168,6 +168,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A board or map exported into the image library arrives with a description
+  naming the board it came from, so its card is no longer a picture over an
+  empty strip on a notebook with no vision model (INBOX 184).
+- A board or map exported into the image library arrives with a description
+  naming the board it came from, so its card is no longer a picture over an
+  empty strip on a notebook with no vision model (INBOX 184).
 - Both of the mind map's radial rings sit on a ground of their own now, so a
   ring reads as one control rather than eight circles over the canvas
   (INBOX 191).

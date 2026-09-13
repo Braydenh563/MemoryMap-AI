@@ -155,6 +155,24 @@ measured or built in earlier commits and is marked there.
     the card should carry its description once the read finishes; reproduce
     against a fresh export before theorising. Owner: mind map agent.
 
+    **Reproduced, and fixed, 2026-09-13.** Driven end to end
+    (`scratchpad/ui-sweeps/mapexportcard.js`, 3 checks): a map is made,
+    exported into the image library through the app's own `wbSaveToLibrary`,
+    and the card it makes is read after the describe and OCR passes have had
+    six seconds to fail. Before: the card was there and its foot was 32px tall
+    with 0 of its 1 blocks shown and no text at all. That is not a fault in the
+    card. A description block is on a card only once it holds something (INBOX
+    115's decision), and the pass that would have filled it needs a vision
+    model this notebook may not have, so there was nothing to show.
+
+    The export writes its own description now, which is a real one rather than
+    a placeholder: `The mind map "Export map", exported from MemoryMap.`, from
+    the board's own title and kind, and "Part of the" when the export is a
+    selection. It is sent only when the upload came back uncaptioned, and
+    `caption_and_store` is write-once, so a model that does run later is not
+    displaced and the card's own Describe button still replaces it. After: 2 of
+    3 blocks shown, the foot 75px, carrying that sentence.
+
 183. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), seven
     reports with screenshots (the chat's context badge off centre; a graph
     node popup for an image with no picture in it; the Arrange menu open at

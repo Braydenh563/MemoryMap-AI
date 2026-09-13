@@ -5587,6 +5587,40 @@ function filterLibraryImagesGallery() {
       else openOcrWorkspace(image, images);
     };
     img.addEventListener("click", openThisRow);
+    //: **The card's own action was pointer-only** (INBOX 164, the fourth report
+    //: on these cards: "the image cards in the library images subtab need a
+    //: massive improvement in ui and ux"). Opening the picture is the whole
+    //: point of a gallery, and it was a click handler on an `<img>` and another
+    //: on the filename: neither focusable, neither announced, no key binding.
+    //: Measured with `scratchpad/ui-sweeps/imagecard4.js`: the two controls a
+    //: keyboard could reach on a resting card were the selection tick and the
+    //: Rename button, so a keyboard could select a picture and rename it but
+    //: could not open one, and a screen reader was read the file's `alt` with
+    //: nothing to say it did anything.
+    //:
+    //: So the thumbnail becomes the control it already behaved like. `role` and
+    //: `tabindex` on the picture rather than a `<button>` wrapped round it: the
+    //: frame positions the image absolutely at `inset: 0` (00-tokens-shell.css)
+    //: and a wrapper would need that geometry copied onto it, and the filename
+    //: inside the same frame is its own click target, which may not be nested
+    //: inside a button. The name is the file's, with the verb in front, because
+    //: "card4-full.png" announced on a control says what it is about and not
+    //: what pressing it does.
+    img.setAttribute("role", "button");
+    img.setAttribute("tabindex", "0");
+    img.setAttribute(
+      "aria-label",
+      image._isImage ? `Open ${image.original_name}` : `Read ${image.original_name}`
+    );
+    //: Enter *and* Space, because a `role="button"` element gets neither for
+    //: free: a real `<button>` is what turns those keys into a click, and the
+    //: whole reason this is an attribute is that it is not one. Space is
+    //: prevented from scrolling the gallery out from under the card.
+    img.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      openThisRow();
+    });
     // The tick. Same control the Documents list already uses, so selecting
     // works the same way wherever you are in the Library.
     const tick = document.createElement("input");

@@ -30,6 +30,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A picture in the Library can be opened from the keyboard. The thumbnail and the
+  filename both opened the picture on click, and neither was focusable: measured,
+  the only controls a keyboard could reach on a resting card were the selection
+  tick and Rename, so a keyboard could select a picture and rename it but could
+  not open one, and a screen reader was read the file's alt text with nothing to
+  say it did anything. The thumbnail is the control it already behaved like now:
+  it takes focus, announces "Open <name>", answers Enter and Space, and draws a
+  ring inside its own clipped frame.
+
 - The document editor's phone targets. The sidebar sheet's rail toggle, the one
   control that opens the sidebar on a phone, was 36px square, and the Edit/Read
   segment 28px tall; both are 44px below 600px wide. The rail grows with the

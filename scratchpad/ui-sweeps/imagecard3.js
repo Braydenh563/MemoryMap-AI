@@ -87,15 +87,35 @@ const OPEN_RATIO_MAX = 2.0;
         };
       }),
       shut: tiles.map((t) => Math.round(t.getBoundingClientRect().height)),
+      //: **The ratio is a question about one row**, and this used to ask it of
+      //: the whole gallery. The report behind it is "the row's cards are 260px
+      //: and 620px side by side": a grid stretches each row to its own tallest
+      //: card, so on a gallery of 180 pictures the tallest open card and the
+      //: shortest shut one are in different rows and the ratio between them is
+      //: not about anything. Measured on a scratch notebook with 182 cards: 2.63
+      //: across the gallery, 1.71 inside the row, for the same gallery. The row
+      //: is taken by top edge, the same way `imagecard4.js` does it.
+      rowShut: (() => {
+        const top = Math.round(tiles[0].getBoundingClientRect().top);
+        return tiles
+          .filter((t) => Math.abs(Math.round(t.getBoundingClientRect().top) - top) < 2)
+          .map((t) => Math.round(t.getBoundingClientRect().height));
+      })(),
     };
   });
   if (!rest.tiles) { console.log('FAIL: no image tiles (seed the gallery first)'); await browser.close(); process.exit(1); }
 
   const open = await page.evaluate(async () => {
+    const tiles = [...document.querySelectorAll('.library-image-tile')]
+      .filter((t) => t.querySelector('.library-image-frame'));
+    const top = Math.round(tiles[0].getBoundingClientRect().top);
     for (const d of document.querySelectorAll('.library-image-card-fold')) d.open = true;
     await new Promise((r) => setTimeout(r, 600));
-    return [...document.querySelectorAll('.library-image-tile')]
-      .filter((t) => t.querySelector('.library-image-frame'))
+    // The same row the resting measurement took, re-read after opening: a row's
+    // cards are what sit side by side, and side by side is what the report is
+    // about.
+    return tiles
+      .filter((t) => Math.abs(Math.round(t.getBoundingClientRect().top) - top) < 2)
       .map((t) => Math.round(t.getBoundingClientRect().height));
   });
 
@@ -104,14 +124,15 @@ const OPEN_RATIO_MAX = 2.0;
   const bandGrounds = uniq(rest.bands.filter(Boolean).map((b) => ({ bg: b.bg, gradient: b.gradient })));
   const bandHeights = [...new Set(rest.bands.filter(Boolean).map((b) => b.h))];
   const tallest = Math.max(...open);
-  const shortest = Math.min(...rest.shut);
+  const shortest = Math.min(...rest.rowShut);
   const ratio = tallest / shortest;
 
   console.log(`tiles         ${rest.tiles}`);
   console.log(`tick ground   ${tickGrounds.length} distinct: ${tickGrounds.join(' | ').slice(0, 200)}`);
   console.log(`band ground   ${bandGrounds.length} distinct: ${bandGrounds.join(' | ')}`);
   console.log(`band height   ${bandHeights.join(', ')}px`);
-  console.log(`card heights  shut ${Math.min(...rest.shut)}..${Math.max(...rest.shut)}  all folds open ${Math.min(...open)}..${tallest}  ratio ${ratio.toFixed(2)}`);
+  console.log(`card heights  gallery shut ${Math.min(...rest.shut)}..${Math.max(...rest.shut)}`);
+  console.log(`first row     shut ${Math.min(...rest.rowShut)}..${Math.max(...rest.rowShut)}  all folds open ${Math.min(...open)}..${tallest}  ratio ${ratio.toFixed(2)}`);
   console.log(`console errors ${errs.length}${errs.length ? ' ' + errs.join(' | ') : ''}`);
 
   const bad = [];

@@ -2805,6 +2805,25 @@ header#top-bar.tabs-wrapped #tab-bar {
   object-fit: cover;
 }
 
+/* **The focus ring on the card's own action** (INBOX 164). The thumbnail is the
+   control that opens the picture, and it is the control a keyboard now reaches
+   (`role="button"`, `tabindex="0"`, set in library.js, where the reasons are):
+   a control that takes focus and shows nothing is reachable and still unusable.
+
+   Drawn *inside* the picture with a negative offset rather than around it. The
+   frame clips (`overflow: hidden`, for the rounded top corners), so a ring on
+   the outside of an element that fills the frame at `inset: 0` is clipped away
+   entirely, which is the same class of bug as a value that is invalid where it
+   is used: the declaration applies, and nothing appears. The second, white ring
+   is the one that survives a dark photograph, the same pairing the selection
+   tick on these cards already uses for the same reason. */
+.library-image-frame > img:focus-visible,
+.library-image-frame > .library-file-thumb:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -4px;
+  box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.65);
+}
+
 /* A scrim, not a bar: a solid strip would be a second surface on the card,
    and the picture behind the name is worth keeping. Built from --scrim, the
    token the command palette's dim already uses, mixed towards black so it

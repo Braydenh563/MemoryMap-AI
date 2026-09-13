@@ -844,5 +844,40 @@ glass. What is left is below.
     changed), not a cost of this change, but it was not measured against the base
     branch this session.
 
-    Still open here: the picture cards' fourth report.
+    **The picture cards, fourth report: the part that was broken is built**
+    (2026-09-13), measured with `scratchpad/ui-sweeps/imagecard4.js`, which asks
+    about use rather than paint (`imagecard3.js` still owns the geometry).
+
+    The fault: **the card's own action was pointer-only.** Opening the picture is
+    the whole point of a gallery, and it was a click handler on an `<img>` and
+    another on the filename. Measured on a resting card, the controls a keyboard
+    could reach were the selection tick and the Rename button: so a keyboard
+    could select a picture and rename it but could not open one, and a screen
+    reader was read the file's `alt` with nothing to say it did anything. The
+    thumbnail is now the control it already behaved like (`role="button"`,
+    `tabindex="0"`, "Open <name>", Enter and Space), with the ring drawn *inside*
+    the frame because the frame clips and an outside ring is clipped away
+    entirely. After: Tab reaches it, Enter opens the lightbox, the ring is 2px
+    solid accent at -4px, 0 console errors. The cursor was already `zoom-in`, so
+    the card was telling a pointer the truth and a keyboard nothing.
+
+    **Measured and deliberately not changed: the hole a row-mate's open fold
+    leaves.** At rest the row is right: seven cards all 240.7px tall with 1px
+    under the last line, and the picture taking the slack (229.1px on a card with
+    no caption against 144px on one with a caption and a reading). Open one card's
+    fold and the row goes to 411.1px: every picture grows to its 16rem ceiling and
+    the leftover becomes a hole of 59 to 145px under the other six cards' last
+    lines. That ceiling is the recorded decision (a 583px picture in a 176px
+    column was the alternative, and a two-row subgrid was built, measured and
+    taken back out because it put the same hole back at *rest*), so this is the
+    trade-off working as written rather than an oversight. The three ways out, for
+    whoever takes it next: a shorter fold body (11rem keeps about six lines and
+    was chosen for that), a taller picture ceiling (the poster), or a caption
+    clamp that grows into the slack (not expressible in CSS today).
+
+    Also fixed here: `imagecard3.js`'s open-to-shut ratio was taken across the
+    whole gallery, so on 182 cards it compared two different rows and reported
+    2.63 against its own limit of 2. The report it gates is about cards "side by
+    side", which is one grid row: row-scoped it reads 1.71, the figure commit
+    e5a0a19 recorded.
 

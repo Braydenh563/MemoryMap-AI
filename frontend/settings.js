@@ -2322,29 +2322,30 @@ const BG_ART_BUILDERS = {
   aurora(p, ctx) {
     let particles = [];
     let emblem = [];
-    const drawEmblem = (t) => {
-      const radius = Math.min(p.width, p.height) * 0.32;
-      p.push();
-      p.translate(p.width / 2, p.height / 2);
-      p.rotate(t * 0.02);
-      p.stroke(ctx.baseHue, 50, ctx.dark ? 72 : 42, 0.09);
-      p.strokeWeight(1.5);
+    let ring = null;
+    const drawEmblem = (t, g) => {
+      const radius = Math.min(g.width, g.height) * 0.32;
+      g.push();
+      g.translate(g.width / 2, g.height / 2);
+      g.rotate(t * 0.02);
+      g.stroke(ctx.baseHue, 50, ctx.dark ? 72 : 42, 0.09);
+      g.strokeWeight(1.5);
       for (let i = 0; i < emblem.length; i++) {
         for (let j = i + 1; j < emblem.length; j++) {
           if ((i + j) % 3 === 0) {
-            p.line(
+            g.line(
               Math.cos(emblem[i]) * radius, Math.sin(emblem[i]) * radius,
               Math.cos(emblem[j]) * radius, Math.sin(emblem[j]) * radius
             );
           }
         }
       }
-      p.noStroke();
+      g.noStroke();
       for (const a of emblem) {
-        p.fill(ctx.baseHue, 58, ctx.dark ? 74 : 40, 0.12);
-        p.circle(Math.cos(a) * radius, Math.sin(a) * radius, 16);
+        g.fill(ctx.baseHue, 58, ctx.dark ? 74 : 40, 0.12);
+        g.circle(Math.cos(a) * radius, Math.sin(a) * radius, 16);
       }
-      p.pop();
+      g.pop();
     };
     return {
       init() {
@@ -2358,7 +2359,19 @@ const BG_ART_BUILDERS = {
         emblem = Array.from({ length: 9 }, (_, i) => (i / 9) * Math.PI * 2);
       },
       frame(t) {
-        drawEmblem(t);
+        //: The ring is drawn on its own layer and composited, never into the
+        //: trail buffer: drawn straight onto it, its lines and dots landed
+        //: in the same place every frame and read as a patch the trails
+        //: could not cross (INBOX 210, "the trails get reset by the rotating
+        //: middle graphic"). The layer is cleared each frame, so the ring
+        //: turns and the trails beneath it fade like everywhere else.
+        if (!ring || ring.width !== p.width || ring.height !== p.height) {
+          ring = p.createGraphics(p.width, p.height);
+          ring.colorMode(p.HSL, 360, 100, 100, 1);
+        }
+        ring.clear();
+        drawEmblem(t, ring);
+        p.image(ring, 0, 0);
         for (const dot of particles) {
           const angle = p.noise(dot.x * 0.0016, dot.y * 0.0016, t * 0.15) * Math.PI * 4;
           dot.x += Math.cos(angle) * dot.speed;
@@ -2609,6 +2622,16 @@ function startBgArt() {
       p.noStroke();
       p.fill(0, 0, dark ? 12 : 98, dark ? 0.10 : 0.12);
       p.rect(0, 0, p.width, p.height);
+      //: **A trail has to end.** A 10% wash never quite reaches the ground:
+      //: once a pixel is within a couple of steps of it, the blend rounds
+      //: back to where it was, and every path ever drawn stayed as a faint
+      //: residue (INBOX 210, "the trails never end"). Every sixth frame the
+      //: wash is strong enough to round those last steps away; the trails
+      //: keep their length, the residue does not.
+      if (p.frameCount % 6 === 0) {
+        p.fill(0, 0, dark ? 12 : 98, 0.32);
+        p.rect(0, 0, p.width, p.height);
+      }
       style.frame(t);
     };
 

@@ -24947,6 +24947,22 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     the editor in place; the popup agent's label now names the thing that
     is open rather than saying "the open note".
 
+211. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the
+    Library's Create dialog (two screenshots: "What would you like to
+    create?" with five filled pills, New note, New document, New concept
+    map, New chat, Transcribe audio, and Cancel, wrapped on two rows; the
+    documents' "New from a template" dialog, a small-caps title, one line of
+    description, a list of six rows each with a name and a one-line
+    description, Cancel at the foot).** "can this create popup in the
+    library look better?? maybe make it look like this template popup in the
+    documents". The template dialog's shape is the recipe: a title, a line,
+    a column of rows (icon, name, one line of what it makes), Cancel. Owner:
+    orchestrator.
+    **Fixed.** The chooser is the template dialog's shape now: a title, a
+    line, five rows (icon, name, one line of what it makes), Cancel at the
+    foot. Measured: 5 rows, one width (820px), 55px each, focus on the
+    first, Cancel present.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

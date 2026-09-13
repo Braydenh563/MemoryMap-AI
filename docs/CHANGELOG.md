@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Aurora's trails end and its ring no longer stamps itself into them (INBOX
+  210). The Library's Create chooser is a column of named rows like the
+  documents' template dialog (211).
+
 - Boot is lighter: p5 (1 MB, decoration only) loads in idle time on first use
   rather than as a blocking script, and the dashboard's seven widgets share one
   `/insights/stats` fetch (44 boot fetches to 35). The audit these came from is

@@ -87,7 +87,22 @@ measured or built in earlier commits and is marked there.
     frames (measure the pixel after the ribbon has passed with
     `pngpixel.py`), and the emblem drawn on its own canvas layer above the
     art rather than clearing into it. Then a pass over each style but waves
-    and constellations. Owner: orchestrator, then an agent.
+    and constellations. And: "also with animation movement, I might want the
+    ai generating animations and all the little small ones, but just not the
+    background to move." A "Background moves" switch of its own beside the
+    style picker, separate from Reduce motion: off draws one frame and stops
+    the loop; everything else keeps its motion. Owner: orchestrator, then an
+    agent.
+    **Aurora: fixed. The switch: it exists.** The ring is drawn on its own
+    layer and composited each frame, so it no longer stamps itself into the
+    trail buffer; every sixth frame the wash is strong enough to round the
+    last steps of a trail away. Measured (`scratchpad/aurora.js`, dark): a
+    full-white mark on the canvas is 18 levels from the ground after half a
+    second and 0 after one, where a 10% wash alone never reaches it. The
+    background's own movement is Settings, Appearance, Background,
+    Movement: Still, separate from Reduce motion; "everything else moves"
+    is what that choice already does. Left open: the pass over bubbles and
+    mesh (waves and constellations are liked as they are).
 
 209. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the whole
     application.** "ok fable, I want to make the most of you now, I need you

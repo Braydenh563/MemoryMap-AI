@@ -9,6 +9,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The chat composer's attach picker shows the picture. Its Images tab was five
+  checkboxes beside five generated filenames, which is not a list you can
+  choose from: reported as "images just show as their names but the user might
+  not be able to tell what those images are from their names". Every image row
+  now carries a thumbnail and the image's caption, or, for a picture with no
+  caption, the note it is used in. The "captioned" badge is gone, the caption
+  it announced is on the row instead.
+
 - The page reader has a way in that does not start from a file. It was
   reachable only from a file you had already found (a Files row, an image
   card's menu, or the lightbox), so "I want to read something" had no answer.
@@ -207,7 +215,14 @@ below). Versioning is `0.x` while the app stabilises.
   widths, every button on the control height, and the width slider has a name
   and shows the number it is set to. The bar under the canvas is the toolbar's
   surface upside down, so the toolbar, the canvas and the caption row share
-  one inset and one corner instead of three.
+  one inset and one corner instead of three. Reported once more after that
+  first pass and fixed with it: the bar wrapped on any machine set to Large
+  text or Spacious density, because the card is capped in pixels while
+  everything in it is sized in rem. The controls sit on the app's hit-target
+  size now, undo, redo, clear, the picture and the paper colour are one Canvas
+  group rather than two, and the groups share out whatever width is left, so
+  the bar is one row at 1440 and 1024 on every combination of those settings
+  and has nothing empty at either end.
 
 - Your documents, reminders and pictures arrive a page at a time. All three
   lists used to hand back every row on every call: 300 documents measured

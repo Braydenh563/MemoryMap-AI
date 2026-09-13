@@ -27,6 +27,26 @@ and 1024, and pushed: `99cdde1`, `7002cd9`, `0eb515f`.
   field's border width, and a contrast pass that labels a translucent chain
   rather than failing it.
 
+## The second pass on the sketch bar
+
+Reported again after the first pass ("the quick sketch top dock still needs a
+better redesign", with a screenshot of Paper alone on a second row and the
+right half of the first row empty). It did not reproduce at 1440 or 1024 with
+the default appearance settings, and `scratchpad/ui-sweeps/sketchbar.js` is
+what found it: the card is `min(900px, 96vw)` and everything inside it is
+sized in rem, so Large text (18px root) or Spacious density (a 1.35x spacing
+scale) gives the contents width the card never gets. Measured before: 938px of
+content in a 796px bar at both settings together, 821 in 831 at the defaults,
+which is 10px of slack and the reason one machine saw a tidy bar and another
+saw a wrap.
+
+Now: controls on `--target-min` rather than `--control-h-lg`, Edit and Paper
+merged into one Canvas group, the separator's fixed margin given back to the
+grow, and `flex: 1 0 auto` on the sections so the leftover is shared between
+the groups instead of left in a heap at the right-hand end. One row at 1440 and
+1024 on all four settings; 820 still wraps on Large text, and that is the touch
+step (`--target-min` is 2.75rem below 820) rather than a layout fault.
+
 ## Found, not fixed
 
 - **A filled button is 2px shorter than every tonal button beside it, app
@@ -47,6 +67,12 @@ and 1024, and pushed: `99cdde1`, `7002cd9`, `0eb515f`.
   it; the sketch pad's toolbar, canvas and foot and the meeting stage are the
   first four. Every other surface inside a `.card` still draws `--radius-lg`,
   which is the concentric rule half-applied.
+- **A colour swatch is 1rem and never grows for a finger.** `.sketch-color`
+  is a fixed size at every width, so on a phone the seven ink dots are 16px
+  targets inside a bar whose buttons step up to 44. `touch.js` does not look
+  at this dialog, which is why it has never been reported. The fix is a step
+  on the swatch under 820px and a re-measure of the bar at that width, where
+  it already wraps into two rows on Large text.
 - **The popup agent's results pane is unmeasured with a conversation in it.**
   Everything here was measured on the empty state: this sandbox has no model,
   so no turn could be rendered. `.command-palette-results` keeps its own

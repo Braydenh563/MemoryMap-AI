@@ -8546,25 +8546,36 @@
              bar's grammar. -->
         <div class="wb-tool-section" role="group" aria-label="Brush size">
           <span class="wb-tool-section-label">Size</span>
-          <div class="wb-tool-section-row sketch-size-row">
-            <input id="sketch-size" type="range" min="2" max="24" value="4" class="sketch-slider" aria-label="Brush size" title="Brush size">
-            <output id="sketch-size-value" class="sketch-size-value" for="sketch-size">4</output>
+          <div class="wb-tool-section-row">
+            <!-- **One control, not a track with a number left beside it.**
+                 Reported on the second pass: "the SIZE group also mixes a
+                 slider with a bare numeral in a way none of the other groups
+                 do". Every other group here is a run of controls with an edge
+                 and a fill; this was a bare track and a loose digit. The field
+                 wears the tonal recipe (`--ghost-btn-bg` on a
+                 `--ghost-btn-border` hairline, DESIGN.md's button ramp) so the
+                 pair reads as one object of the same family and the same
+                 height as the buttons in the groups either side. -->
+            <span class="sketch-size-field">
+              <input id="sketch-size" type="range" min="2" max="24" value="4" class="sketch-slider" aria-label="Brush size" title="Brush size">
+              <output id="sketch-size-value" class="sketch-size-value" for="sketch-size">4</output>
+            </span>
           </div>
         </div>
-        <div class="wb-tool-section" role="group" aria-label="Edit">
-          <span class="wb-tool-section-label">Edit</span>
+        <!-- **Paper is not a group of its own, and that is the answer to it
+             having been the only one below the fold.** Reported on the second
+             pass: the bar still wrapped, and what dropped was a two-control
+             group nobody had a reason to look at. Undo, redo and clear act on
+             the marks; the picture and the paper colour act on the sheet under
+             them: all five act on the canvas rather than on the pen, which is
+             the line the other four groups are drawn along. One group, one
+             label, one hairline fewer, and nothing left over to wrap. -->
+        <div class="wb-tool-section" role="group" aria-label="Canvas">
+          <span class="wb-tool-section-label">Canvas</span>
           <div class="wb-tool-section-row">
             <button id="sketch-undo" class="ghost icon-button" type="button" title="Undo (Ctrl+Z)" aria-label="Undo (Ctrl+Z)"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
             <button id="sketch-redo" class="ghost icon-button" type="button" title="Redo (Ctrl+Y)" aria-label="Redo (Ctrl+Y)"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             <button id="sketch-clear" class="ghost icon-button" type="button" title="Clear the strokes, keeping the background" aria-label="Clear the strokes"><i class="ph ph-trash" aria-hidden="true"></i></button>
-          </div>
-        </div>
-        <!-- The two controls that act on the paper rather than on the pen, so
-             they are their own group: the swatch under the undo run was the
-             one control in this bar with nothing at all to say what it did. -->
-        <div class="wb-tool-section" role="group" aria-label="Canvas">
-          <span class="wb-tool-section-label">Paper</span>
-          <div class="wb-tool-section-row">
             <button id="sketch-upload-image" class="ghost icon-button" type="button" title="Add a background image" aria-label="Add a background image"><i class="ph ph-image" aria-hidden="true"></i></button>
             <input type="color" id="sketch-bg-color-picker" class="sketch-bg-swatch" aria-label="Paper colour" title="Paper colour" value="#ffffff">
           </div>

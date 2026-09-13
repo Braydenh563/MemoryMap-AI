@@ -1807,17 +1807,51 @@ button.ghost.danger {
   column-gap: 0;
   background: var(--card);
   border: 1px solid var(--border);
-  padding: var(--space-2) var(--space-4);
+  /* `--space-2` at the ends rather than `--space-4`: the first and last groups
+     already carry their own inset (a section centres its content inside a box
+     the leftover space has grown), so the bar's own side padding is only the
+     distance from the panel edge to a group's box, and at Spacious density
+     `--space-4` was 29px of the 796 this bar gets at its tightest. The pair is
+     one the row family already uses rather than a twelfth distinct padding,
+     which `test_ui_signatures.py` counts and refuses. */
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-inner);
   margin-bottom: var(--space-4);
 }
 
+/* **The groups share out whatever the bar has, so the bar is never wider than
+   its contents.** Reported on the second pass: "if the bar is wider than its
+   contents, either the contents should distribute across it or the bar should
+   shrink to fit them", against a screenshot with 140px empty at the right of
+   the first row and one group alone on a second. `flex-grow` on the sections
+   spends the leftover on the gaps between them rather than leaving it in a
+   heap at the end, and because each section centres its own content
+   (`.wb-tool-section` is a centred column), the hairline at a section's left
+   edge ends up the same distance from the group before it as from the group
+   after it. At a tight setting the sections shrink back to their contents and
+   the hairlines hug, which is exactly what they should do there. */
+.sketch-toolbar .wb-tool-section {
+  flex: 1 0 auto;
+}
+
+/* The hairline between two groups keeps its line and gives back its margin.
+   The shared recipe writes the separator as `padding-left: var(--space-2)` plus
+   `margin-left: var(--space-1)`, which is right for the whiteboard's rail,
+   where nothing grows and the margin is the only space there is. Here the
+   leftover width is already being shared out between the sections above, so
+   the fixed margin is 39px of four gaps that the grow is about to add back
+   anyway, and it was 39px this bar did not have at its tightest setting. */
+.sketch-toolbar .wb-tool-section + .wb-tool-section {
+  padding-left: var(--space-1);
+  margin-left: 0;
+}
+
 /* One height for every row of controls, whatever is in it: a section holding
-   1.25rem colour dots and a section holding 2.25rem buttons would otherwise
-   put their labels at two different heights and give the bar the ragged top
-   edge the report calls clumped. */
+   colour dots and a section holding buttons would otherwise put their labels
+   at two different heights and give the bar the ragged top edge the report
+   calls clumped. */
 .sketch-toolbar .wb-tool-section-row {
-  min-height: var(--control-h-lg);
+  min-height: var(--target-min);
   /* The tightest step on the scale between two buttons of one group: measured
      at `--space-2` the six sections came to 873px inside an 829px card and the
      last of them wrapped, which is the same defect in a better shape. The
@@ -1826,9 +1860,24 @@ button.ghost.danger {
   gap: var(--space-1);
 }
 
+/* **`--target-min`, and the reason is that this card is capped in pixels while
+   everything in it is sized in rem.** The bar was reported wrapping a second
+   time, and it did not reproduce at 1440 or 1024: `sketchbar.js` sweeps the
+   appearance settings as well as the widths and found it at once. The card is
+   `min(900px, 96vw)`, so Large text (an 18px root, 1.125x every rem in here)
+   or Spacious density (a 1.35x spacing scale) buys the contents width the card
+   never gets: 21 controls measured 938px of content inside a 796px bar at both
+   settings together, against 821 inside 831 at the defaults, which is why one
+   machine saw a tidy bar and another saw Paper on a second row.
+
+   So the controls come down a step, to the app's own hit-target floor, which
+   is the same 1.75rem the `.seg` cells in every other strip are and which
+   steps up to 2.75rem under 820px where the pointer is a finger. Thirteen
+   controls at half a rem less is 117px at Large text, and that plus the
+   merged Canvas group is what buys the bar its slack at every setting. */
 .sketch-toolbar .ghost.icon-button {
-  width: var(--control-h-lg);
-  height: var(--control-h-lg);
+  width: var(--target-min);
+  height: var(--target-min);
   padding: 0;
   border-radius: var(--radius-md);
 }
@@ -1850,9 +1899,13 @@ button.ghost.danger {
   align-items: center;
 }
 
+/* A swatch is not a hit target the size of a button: seven of them in a row is
+   the widest group in the bar, and at 1.25rem with `--space-2` between them it
+   was 205px of the 796 available at the tightest setting. A rem down and on
+   the tightest gap, it is the same seven colours in 138. */
 .sketch-color {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1rem;
+  height: 1rem;
   border-radius: var(--radius-pill);
   border: 2px solid transparent;
   cursor: pointer;
@@ -1872,8 +1925,19 @@ button.ghost.danger {
   box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
-.sketch-size-row {
-  gap: var(--space-2);
+/* The slider and its number as one control, wearing the tonal recipe so that
+   it is the same object as the buttons either side of it rather than a track
+   with a digit loose beside it (DESIGN.md, the button ramp: fill, hairline, no
+   shadow). */
+.sketch-size-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--target-min);
+  padding-inline: var(--space-2);
+  background: var(--ghost-btn-bg);
+  border: 1px solid var(--ghost-btn-border);
+  border-radius: var(--radius-md);
 }
 
 /* One height across the foot, the same the toolbar's controls take: the
@@ -1887,26 +1951,29 @@ button.ghost.danger {
 
 .sketch-slider {
   accent-color: var(--accent);
-  width: 4rem;
+  width: 3rem;
   cursor: pointer;
 }
 
 /* The number the slider is on. `--text-sm` and tabular figures so the row does
    not move by a pixel as the value goes from 9 to 10. */
+/* The number the slider is on, in `--ink` rather than `--muted`: it is the
+   value of the control, not a hint about it, and inside the field's own fill
+   the muted step measured 3.73:1 in dark against the 4.5 it needs. */
 .sketch-size-value {
-  min-width: 1.5rem;
+  min-width: 1rem;
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   text-align: right;
-  color: var(--muted);
+  color: var(--ink);
 }
 
 /* A paper colour is usually #ffffff on a light panel, so the swatch needs a
    ring that survives its own value: the same reason the whiteboard's board
    background picker carries one (06-timeline-dialogs.css). */
 .sketch-bg-swatch {
-  width: var(--control-h-lg);
-  height: var(--control-h-lg);
+  width: var(--target-min);
+  height: var(--target-min);
   padding: 0;
   border: 1px solid var(--muted);
   border-radius: var(--radius-md);

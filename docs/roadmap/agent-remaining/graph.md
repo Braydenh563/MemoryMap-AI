@@ -201,3 +201,10 @@ next: INBOX 185, the Show toggles. A board *is* an `Entry`
 (`routes_graph.py` line 236, no `is_board` filter), so a mind map is a node
 whether or not `include_maps` is on; `include_maps` only marks it and adds
 its edges. Entities not yet reproduced.
+
+done: b2a811b, INBOX 185 (a board is off the graph when Boards is off;
+`scratchpad/ui-sweeps/graphshow.js` is the counter, and the pane is hidden
+below 820 where `errors.js` measured the Notes sidebar at 825 inside 763).
+next: INBOX 183's graph half, `frontend/graph.js` `renderGraphPopupMedia`
+(line ~3432) and `renderGraphPopupInfo`: the image/file popup, and one line
+of help copy saying what an entity is.

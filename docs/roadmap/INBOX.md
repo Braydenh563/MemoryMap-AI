@@ -127,21 +127,6 @@ measured or built in earlier commits and is marked there.
     `#timeline-kinds` plus `#timeline-filter-clear`; the dock grammar
     (UI_MODERNISATION Phase 8) is the recipe. Owner: phone and chrome agent.
 
-185. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the
-    graph's show toggles.** "Things that I have turned off in the graph for
-    not showing them like the mindmap and entities still show anyway".
-    Owner: graph agent. **Fixed 4d0f68f.** The mind maps half was real and is
-    reproduced: a board *is* an `Entry`, so it had been a node on the graph
-    since boards existed, and the switch only marked it and drew its
-    membership edges. Measured before, on a notebook with five boards and the
-    switch off: 65 nodes drawn, 5 of them boards, all typed `note`; after:
-    60 drawn, 0 boards, and 64 with 4 typed `map` when the switch is on
-    (`scratchpad/ui-sweeps/graphshow.js`, which fails on the pre-fix code with
-    those three numbers). The entities half did **not** reproduce: with the
-    switch off `/graph` carries no `entity:` node and the map draws none,
-    measured on and off again in the same sweep. The switch is now called
-    Boards, because it governs whiteboards as well as mind maps.
-
 184. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), a map
     exported to the board (one screenshot: the image card with an empty
     strip under the picture).** "my exported png from the mindmap straight

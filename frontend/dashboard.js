@@ -990,8 +990,15 @@ function renderQuickLinks() {
 // above; it is the one destination the tab bar cannot offer, because it
 // depends on what you were doing rather than on what the app contains.
 //
-// Most recently *updated*, not created: editing a note is coming back to it,
-// and the note you were last in is the one you want to continue.
+// Most recently *touched*, where touching is opening or editing, and not
+// created. Reported: "the opens a note you opened or edited most recently
+// button doesnt update and just shows my latest note". The pill said "opened
+// or edited" and ranked on `updated_at` alone, which only moves when the text
+// changes, so reading an old note left this pointing at whatever was newest
+// and the one case it exists for, coming back to something you were reading,
+// was the one case it could not serve. `last_opened_at` is stamped by
+// `GET /entries/{id}` beside the access count it already kept (routes_entries),
+// and the pill takes whichever of the two is later.
 async function renderContinueLink(row) {
   if (!row || !row.isConnected) return;
   let entries = [];
@@ -1001,9 +1008,19 @@ async function renderContinueLink(row) {
     return; // a dashboard that cannot reach the notes still draws the rest
   }
   if (!Array.isArray(entries) || !entries.length || !row.isConnected) return;
+  //: Null for every note nobody has opened since the column existed, which
+  //: is why this is a max rather than a preference: an old notebook would
+  //: otherwise rank every one of its notes at the epoch and the pill would go
+  //: blank until something was opened.
+  const touched = (entry) => {
+    const times = [entry.last_opened_at, entry.updated_at, entry.created_at]
+      .map((value) => (value ? new Date(value).getTime() : 0))
+      .filter((value) => Number.isFinite(value));
+    return Math.max(0, ...times);
+  };
   const newest = [...entries]
     .filter((entry) => entry && !entry.is_draft)
-    .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))[0];
+    .sort((a, b) => touched(b) - touched(a))[0];
   if (!newest) return;
   // One line of the note, short enough to sit in a pill beside three others.
   const preview = notePreviewText(newest.content || "").trim().slice(0, 42) || "your last note";
@@ -1031,7 +1048,7 @@ async function renderContinueLink(row) {
       //: you left off" is a phrase that assumes the reader already knows the
       //: app picked a note for them, and reads as a place rather than as a
       //: note. A tooltip is where a control explains itself, so it explains.
-      hint: "Opens the note you edited most recently",
+      hint: "Opens the note you opened or edited most recently",
       run: () => flashEntry(newest.id),
     },
     "quick-link quick-pill quick-link-continue"

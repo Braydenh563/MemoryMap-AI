@@ -45,6 +45,7 @@ from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_sugg
     EntryRevision,
     MediaUpload,
     WhiteboardNode,
+    utcnow,
 )
 from memorymap.core.deps import get_session
 from memorymap.entry import duplicates, manager
@@ -107,6 +108,7 @@ def _to_out(
         tags=manager.entry_tags(entry),
         ai_confidence=entry.ai_confidence,
         access_count=entry.access_count,
+        last_opened_at=getattr(entry, "last_opened_at", None),
         parent_id=entry.parent_id,
         pinned=entry.pinned,
         user_filed=entry.user_filed,
@@ -1266,6 +1268,12 @@ def get_entry(
         raise HTTPException(status_code=404, detail="Entry not found")
     if not entry.is_deleted:
         entry.access_count += 1  # opening an entry counts as using it
+        # And *when*, which is the half the dashboard's Continue pill needs:
+        # a count cannot answer "the note I was last in", and `updated_at`
+        # only moves when the text changes, so reading an old note left the
+        # pill pointing at whatever was newest. Same guard as the count: a
+        # note read on its way out of the bin has not been come back to.
+        entry.last_opened_at = utcnow()
         # A private note has no audit trail at all otherwise, encrypted at
         # rest and invisible to the AI is the whole promise, but nothing
         # recorded *when* one was actually opened and decrypted for

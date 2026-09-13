@@ -198,6 +198,7 @@ class EntryOut(BaseModel):
     tags: list[str]
     ai_confidence: int
     access_count: int = 0
+    last_opened_at: datetime | None = None
     parent_id: int | None = None
     pinned: bool = False
     user_filed: bool = False

@@ -311,6 +311,20 @@ class Entry(Base, WorkspaceMixin):
     # Bumped every time this entry is opened or returned by a chat
     # question: feeds the "most used" dashboard.
     access_count: Mapped[int] = mapped_column(Integer, default=0)
+    #: **When it was last opened, as opposed to how often.** Reported: "the
+    #: opens a note you opened or edited most recently button doesnt update
+    #: and just shows my latest note". The dashboard's Continue pill promises
+    #: "opened or edited" and could only deliver "edited", because a count
+    #: says how many times without saying when, and `updated_at` moves only
+    #: when the text changes. Reading an old note is coming back to it, and
+    #: that is exactly the case the pill was useless in.
+    #:
+    #: Null on every row that existed before this column did (the auto-
+    #: migrator cannot run `utcnow` in DDL, see this module's own note), which
+    #: is the right answer rather than a missing one: an entry nobody has
+    #: opened *since the app learned to remember* has no opening to report,
+    #: and every reader below falls back to `updated_at` for it.
+    last_opened_at: Mapped[datetime | None] = mapped_column(SaDateTime, default=None)
     # Train-of-thought threads: a child continues its parent.
     # (Added by the auto-migrator as a plain column on old DBs, the FK
     # constraint only exists on freshly created databases.)

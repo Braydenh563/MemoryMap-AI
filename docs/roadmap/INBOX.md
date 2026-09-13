@@ -23,6 +23,49 @@ never lost to the smaller stuff.
 
 ## Open items
 
+133. **Mid-work drop, 2026-09-13, verbatim (the owner).** "the opens a note
+    you opened or edited most recently button doesnt update and just shows
+    my latest note"
+
+    The Continue control is meant to be "where you were", and it is showing
+    "what is newest", which are the same thing only until you open something
+    old.
+
+132. **Mid-work drop, 2026-09-13, verbatim (the owner), two screenshots of
+    the Chat tab, one at phone width and one at desktop.** "also there needs
+    to be more responsive design, especially for the chat page and main chat
+    panel. the bottom chat dock is horrendous and takes up half the screen
+    on mobile"
+
+    In the phone screenshot the composer dock is four stacked rows (the four
+    icon buttons and Send; Skills; Web and Plan; Ask, Agent and the gear)
+    filling roughly the bottom third, with the empty-state text squeezed
+    above it, and the chat head's title and model name overlap
+    ("New cha" over "granite4.1:3b"). The desktop screenshot shows the same
+    head overlap at full width.
+
+131. **Mid-work drop, 2026-09-13, verbatim (the owner), one screenshot of
+    the Settings logs page.** "can you also redesign the top dock at the top
+    of the settings logs page to be more consistent with the rest of the
+    application and modern??"
+
+    The screenshot shows two rows of unrelated controls: a List/Terminal
+    segmented control, two selects and a filter box on the first, and a
+    Follow switch, a "live" dot, Copy all, Support bundle and Clear on the
+    second, none of it on the `.dock` grammar every other tab head uses.
+
+130. **Mid-work drop, 2026-09-13, verbatim (the owner), two screenshots of
+    the selection kebab.** "when I highlight text and the popup kebab button
+    appears, the first time I click it, a little collapsed line appears
+    below it, then I need to click the button to close the popup and reopen
+    it for it to actually show, also the popup sitll has the left corner
+    screen flicker before it shows in the right place."
+
+    First screenshot: a thin empty strip where the menu should be. Second:
+    the menu drawn correctly on the second open. Two bugs in one control,
+    the second of which (a frame at the top left before it is positioned)
+    has been reported before.
+
 129. **Mid-work drop, 2026-09-13, verbatim (the owner), two screenshots.**
     "also note links have inline md not rendered or suppressed, when an ai
     mentions a note that starts with a note that has a \"# text\" hashtag

@@ -41,6 +41,11 @@ commit.
   `tests/test_docview_import.py`, `scratchpad/ui-sweeps/docexports.js` 6/6.
   Left for whoever owns `core/extras.py`: one `Extra(...)` row for
   python-docx so the Word export can point at a button.
+- **The Word writer measured for real.** `99e3bc4`: run once in a scratch
+  virtualenv with python-docx (the project's venv stays without it, which is
+  what proves the suite does not need the extra). 36,842 bytes, five Word
+  styles, no markdown markers left, the comment as its footnote. What Word
+  itself makes of the file is still unverified.
 - **The carried "not verified" lines**, three of them measured. `11a129b`,
   with `scratchpad/ui-sweeps/docfallback.js` as the new sweep. See the next
   section.

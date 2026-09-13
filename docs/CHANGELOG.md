@@ -379,6 +379,38 @@ below). Versioning is `0.x` while the app stabilises.
   nests inside now. Measured with `scratchpad/ui-sweeps/doctable.js`, 24 of 24
   in both themes.
 
+- The board's zoom cluster is the same shape as the tool row it shares an
+  edge with: one pill, one inset, instead of a rounded rectangle beside a
+  pill (INBOX 43).
+- A tidy writes the whole map in one request instead of one per node, and a
+  tidy that pushed part of the map off the canvas frames it again.
+- On a phone-width map, a branch can be folded again: the node's own action
+  row had been sitting on top of its fold chevron, and the template offer on
+  a new map covered the only topic that map had.
+- A board or map exported into the image library arrives with a description
+  naming the board it came from, so its card is no longer a picture over an
+  empty strip on a notebook with no vision model (INBOX 184).
+- A board or map exported into the image library arrives with a description
+  naming the board it came from, so its card is no longer a picture over an
+  empty strip on a notebook with no vision model (INBOX 184).
+- Both of the mind map's radial rings sit on a ground of their own now, so a
+  ring reads as one control rather than eight circles over the canvas
+  (INBOX 191).
+- The New board dialog opens on the kind of board you made last, and its
+  button says Create rather than Save (INBOX 183).
+- The map's top bar no longer runs off the right of the window. Layout and
+  Tidy moved into the tool dock's own Layout section, the board picker keeps
+  a name's worth of width on a narrow window, and the Library button drops
+  its word before any menu drops theirs: 0 controls past the edge at 1440,
+  1024 and 820 (INBOX 183).
+- Shapes, lines and connectors no longer trail the note cards during a pan.
+  The pan transform moved from the `<g>` inside each board SVG onto the
+  `<svg>` root, because `will-change` on a `<g>` promotes nothing: measured
+  through the layer tree, the SVG holding every shape was not a composited
+  layer at all while a card was (INBOX 183).
+- A middle-button pan on the board now says it is a pan while it runs: the
+  grabbing cursor the hand tool uses, no text selection dragged out behind it,
+  and the release no longer fires an `auxclick` (INBOX 183).
 - Every image in a document's Live view drew "no longer in this notebook" over
   a file that was still there. The Live view's image widget set the raw
   `/media/…` path, and an `<img>` cannot send an unlock header, so the load

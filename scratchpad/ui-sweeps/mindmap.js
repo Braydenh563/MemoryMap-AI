@@ -10,6 +10,16 @@
 //   PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node scratchpad/ui-sweeps/mindmap.js
 const { boot } = require("./lib.js");
 
+// VIEWPORT=390x844 drives the same checks at phone width, the block
+// `mapstrip.js` and `mindmap3.js` already carry. Everything in this file was
+// written at 1440x900 and none of it had been seen narrow.
+const VIEWPORT = (() => {
+  const raw = process.env.VIEWPORT;
+  if (!raw) return { width: 1440, height: 900 };
+  const [w, h] = raw.split("x").map(Number);
+  return { width: w || 1440, height: h || 900 };
+})();
+
 const results = [];
 function check(label, ok, detail) {
   results.push({ label, ok: Boolean(ok), detail });
@@ -17,7 +27,7 @@ function check(label, ok, detail) {
 }
 
 (async () => {
-  const { browser, page, OUT } = await boot();
+  const { browser, page, OUT } = await boot({ viewport: VIEWPORT });
 
   // --- get onto the Boards & maps sub-tab -----------------------------------
   await page.click('[data-tab="library"]');
@@ -264,14 +274,17 @@ function check(label, ok, detail) {
   await page.waitForTimeout(500);
   await page.click("#wb-export");
   await page.waitForTimeout(500);
+  // The export is a dialog, not a popover, and has been since WHITEBOARD_PLAN
+  // decision 4: two segmented rows, scope and format. `#wb-export-menu` has
+  // not existed for some time and this check read an empty list from it.
   const menu = await page.evaluate(() =>
-    [...document.querySelectorAll("#wb-export-menu button")].map((b) => b.textContent.trim())
+    [...document.querySelectorAll(".confirm-overlay .seg button")].map((b) => b.textContent.trim())
   );
-  check("the export menu offers Markdown and OPML on a map",
-    menu.includes("Markdown (.md)") && menu.includes("OPML (.opml)"),
+  check("the export dialog offers Markdown and OPML on a map",
+    menu.includes("Markdown") && menu.includes("OPML"),
     menu.join(" | "));
   await page.keyboard.press("Escape");
-  await page.evaluate(() => document.getElementById("wb-export-menu")?.remove());
+  await page.evaluate(() => document.querySelector(".confirm-overlay")?.remove());
   await page.waitForTimeout(300);
 
   // The server's own outline, through the endpoint the menu entry calls.
@@ -768,7 +781,10 @@ function check(label, ok, detail) {
   // rect of the node it belongs to. Zero is attached; anything else is the
   // dangling curve in the screenshot.
   const EDGE_PROBE = () => {
-    const svg = document.getElementById("wb-svg-layer").getBoundingClientRect();
+    // The container, not `#wb-svg-layer`: the pan transform lives on the SVG
+    // root now (see `wbApplyZoomTransform`), so the SVG's own rect already
+    // carries `t.x`/`t.y` and adding them again doubled the translation.
+    const svg = document.getElementById("whiteboard-container").getBoundingClientRect();
     const t = d3.zoomTransform(document.getElementById("whiteboard-container"));
     const toScreen = (p) => ({ x: svg.left + t.x + p.x * t.k, y: svg.top + t.y + p.y * t.k });
     const rectOf = (id) => document.querySelector(`.wb-object[data-id="${id}"]`)?.getBoundingClientRect();
@@ -785,9 +801,25 @@ function check(label, ok, detail) {
       if (!pr || !cr) { worst = Infinity; continue; }
       let best = Infinity;
       for (const path of paths) {
-        const a = toScreen(path.getPointAtLength(0));
-        const b = toScreen(path.getPointAtLength(path.getTotalLength()));
-        best = Math.min(best, Math.max(Math.min(dist(a, pr), dist(b, pr)), Math.min(dist(a, cr), dist(b, cr))));
+        // **Sampled along the path, not read off its two ends.** A tree edge's
+        // default shape is a ribbon (`wbMapEdgeIsRibbon`): a filled closed
+        // outline that leaves the parent wide and reaches the child narrow, so
+        // `getPointAtLength(0)` and `getPointAtLength(total)` are both the
+        // same corner of the parent end and a perfectly attached edge measured
+        // as 43 to 1746px adrift. Seven checks in this file failed on that
+        // from the day ribbons landed and the fault was in the measurement.
+        // "Meets both of its nodes" is what the eye is actually asserting:
+        // some point of the path touches the parent's box and some point
+        // touches the child's.
+        const total = path.getTotalLength();
+        let toParent = Infinity;
+        let toChild = Infinity;
+        for (let i = 0; i <= 64; i++) {
+          const q = toScreen(path.getPointAtLength((total * i) / 64));
+          toParent = Math.min(toParent, dist(q, pr));
+          toChild = Math.min(toChild, dist(q, cr));
+        }
+        best = Math.min(best, Math.max(toParent, toChild));
       }
       worst = Math.max(worst, best);
     }
@@ -900,7 +932,10 @@ function check(label, ok, detail) {
   const conceptCard = await page.$(`.node-card[data-id="${conceptDrag.n2}"]`);
   const cb = await conceptCard.boundingBox();
   const cardProbe = (id) => {
-    const svg = document.getElementById("wb-svg-layer").getBoundingClientRect();
+    // The container, not `#wb-svg-layer`: the pan transform lives on the SVG
+    // root now (see `wbApplyZoomTransform`), so the SVG's own rect already
+    // carries `t.x`/`t.y` and adding them again doubled the translation.
+    const svg = document.getElementById("whiteboard-container").getBoundingClientRect();
     const t = d3.zoomTransform(document.getElementById("whiteboard-container"));
     const path = document.querySelector(".sketch-group .sketch-path");
     const r = document.querySelector(`.node-card[data-id="${id}"]`).getBoundingClientRect();
@@ -1122,6 +1157,17 @@ function check(label, ok, detail) {
     JSON.stringify(focusClear)
   );
 
+  // The app's own selection popup follows a text selection, and an earlier
+  // step in this file drags inside a node's editor, which makes one. It floats
+  // over the canvas and intercepted this click as a thirty-second timeout
+  // (a click that hangs is a z-order problem, not a slow app). Cleared rather
+  // than clicked around: the popup is correct behaviour, the leftover is not.
+  await page.evaluate(() => {
+    const sel = window.getSelection();
+    if (sel) sel.removeAllRanges();
+    document.querySelector(".selection-popup")?.classList.add("hidden");
+  });
+  await page.waitForTimeout(250);
   await page.click("#wb-map-focus-more");
   await page.waitForTimeout(700);
   const atTwo = await drawn();

@@ -528,10 +528,15 @@
 }
 
 /* The three layers a pan transforms. Promoted together so they are composited
-   the same way and land in the same frame, see the desync note above. */
+   the same way and land in the same frame, see the desync note above.
+
+   These are the three elements that now carry the pan (the two `<svg>` roots,
+   not the `<g>` inside them): `will-change` on a `<g>` promotes nothing at
+   all, which is why the desync survived two passes. The reasoning, and the
+   layer-tree measurement behind it, is on `wbApplyZoomTransform`. */
 #wb-html-layer,
-#wb-zoom-group,
-#wb-overlay-zoom-group {
+#wb-svg-layer,
+#wb-overlay-layer {
   will-change: transform;
 }
 
@@ -1807,9 +1812,19 @@ body.scroll-top-visible .skills-split > main {
    moves every time something is added to the board. Without this line a zoom
    would pivot on a point that drifts as you draw. */
 .wb-html-layer,
-#wb-zoom-group,
-#wb-overlay-zoom-group {
+#wb-svg-layer,
+#wb-overlay-layer {
   transform-origin: 0 0;
+}
+
+/* An `<svg>` root clips at its own viewport, and the pan transform is on the
+   root now rather than on the `<g>` inside it, so the viewport travels with
+   the board and would take everything past the first screen with it. The
+   container is `overflow: hidden` and is the right thing to clip to in any
+   case: it is what gives the board its corner radius. */
+#wb-svg-layer,
+#wb-overlay-layer {
+  overflow: visible;
 }
 
 /* Two small spacing helpers, so a one-off gap doesn't need an attribute. */
@@ -4684,6 +4699,35 @@ summary:not(.icon-only):not(.icon-button) {
   gap: var(--space-2);
 }
 
+/* **The offer must not cover the thing it is an offer about.** Measured at
+   390x844 on a new map: the card wrapped to 335x237 at the top of the canvas
+   and the map's only topic sat at y 411 to 455, so the card's own box overlaps
+   the topic by 8800px2 and `elementFromPoint` at the topic's centre returns the
+   card. A person on a phone could not press the one node their new map has.
+
+   The second line goes at phone width rather than the buttons: the buttons are
+   the offer, and the sentence under the title is an explanation of an offer
+   whose four shapes are named on the buttons themselves. */
+@media (max-width: 48rem) {
+  .wb-map-templates > .muted {
+    display: none;
+  }
+
+  .wb-map-templates {
+    padding: var(--space-1) var(--space-2);
+    gap: var(--space-1) var(--space-2);
+  }
+
+  /* The four shapes are the offer and they are what has to fit; below this
+     width they are a row that scrolls rather than a block that grows down the
+     canvas, which is what put the card over the node in the first place. */
+  .wb-map-templates-row {
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}
+
 /* What a map is made of (§5 item 20), as a definition list: a term and its
    number, which is what these rows are, rather than a table nobody needs the
    second column of. */
@@ -5055,8 +5099,23 @@ summary:not(.icon-only):not(.icon-button) {
 }
 
 .whiteboard-container.wb-space-pan:active,
-.whiteboard-container.wb-space-pan:active * {
+.whiteboard-container.wb-space-pan:active *,
+/* The middle-button pan (INBOX 183). It is the same gesture as the two
+   above and had no cursor of its own, so the board moved under an arrow
+   pointer. `wb-mid-pan` is set on the mousedown that prevents the browser's
+   autoscroll and cleared on the release, see initWhiteboard. */
+.whiteboard-container.wb-mid-pan,
+.whiteboard-container.wb-mid-pan * {
   cursor: grabbing !important;
+}
+
+/* A middle drag must not leave a trail of selected text behind it: the
+   browser's own selection is what makes the gesture feel broken rather than
+   merely undecorated. */
+.whiteboard-container.wb-mid-pan,
+.whiteboard-container.wb-mid-pan * {
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* --- the board panel, sorted into the questions it answers ---------------
@@ -7899,6 +7958,37 @@ button.connection-row {
   white-space: nowrap;
 }
 
+/* **The bar gives up width in the order it can least afford to lose it**
+   (INBOX 183: "the mindmap top bar controls breach the topbar and overflow
+   off the edge on the right"). Measured on a map with the Layout controls
+   already in the dock: `#wb-topbar` scrollWidth 1092 against clientWidth 981
+   at 1024, and 836 against 782 at 820, with the Library button and Full
+   screen hanging past the right edge of the window in both.
+
+   Where the width was: the board picker at 190px and the Library button at
+   98px, against menu toggles of 56 to 84px. A board's name is the one thing
+   the bar cannot be read without, so it keeps a name's worth of room (8rem
+   still shows about fifteen characters, and the whole name is in the picker
+   itself), and the Library button drops its word before any menu drops
+   theirs, because it is the one control whose icon already says what it
+   does. */
+@media (max-width: 68rem) {
+  /* The shell as well as the select: `enhanceSelect` (app.js) puts every
+     native select inside a `.select-shell`, and that shell is what the bar
+     actually lays out, so a cap on the select alone measured as no change at
+     all (212px before and after). */
+  .wb-topbar #wb-board-select,
+  .wb-topbar .select-shell {
+    max-width: 8rem;
+  }
+}
+
+@media (max-width: 64rem) {
+  .wb-topbar #wb-add-note .wb-menu-label {
+    display: none;
+  }
+}
+
 /* Narrow boards: the menus keep their carets and the Library its icon;
    the words go, so the bar stays one row down to ~40rem. */
 @media (max-width: 56rem) {
@@ -8917,9 +9007,23 @@ input[type="file"] {
    few pixels that a screenshot does not show, twice already in this file, see
    `.wb-map-count`. The row is anchored by its right edge so a third button
    would grow leftwards into empty canvas rather than over the node. */
+/* **The row moved to the other corner, because the chevron owns this one.**
+   Measured at 390x844 with a branch selected: the chevron's box and the row's
+   overlapped by 140px2, and `elementFromPoint` at the chevron's own centre
+   returned the row, so a branch could not be folded by pressing the control
+   that folds it. Dropping the row further under the node was tried first and
+   is not a fix: the chevron is centred on the node's right *edge*, so it hangs
+   half its height below the node's own bottom on a short node and the two
+   still met (91px2). They are separated by the only axis that settles it. The
+   left-bottom corner is clear on both layouts: a sideways map's branch leaves
+   from the right edge, and a downward map's chevron is centred under the node,
+   which a row anchored to the left edge cannot reach on any node wide enough
+   to hold two words. Anchored by its left edge now, so a third button grows
+   rightwards under the node's own bottom rather than back over the chevron. */
 .wb-map-actions {
   position: absolute;
-  right: calc(var(--space-8) * -1);
+  left: calc(var(--space-8) * -1);
+  right: auto;
   bottom: calc(var(--space-5) * -1);
   display: flex;
   align-items: center;
@@ -9200,10 +9304,52 @@ input[type="file"] {
    geometry off it. */
 .wb-map-radial {
   --wb-radial-r: 4.25rem;
+  /* The band under the slots: a slot is 1.75rem across, so a 2.25rem band
+     centred on the ring's own radius covers every one of them with an eighth
+     of a rem to spare on each side. */
+  --wb-radial-band: 2.25rem;
   position: absolute;
   z-index: 23;
   width: 0;
   height: 0;
+  pointer-events: none;
+}
+
+/* **A ground under the ring** (INBOX 191: "can you put an opaque background or
+   smth behind the item radials in the mindmap?? they still feel
+   disconnected"). Eight circles floating over whatever the canvas happens to
+   hold read as eight separate things, and on a busy map the lines behind them
+   run between the slots and through the gap.
+
+   A band, not a disc. A disc would be the obvious reading of "a background
+   behind the radial" and it is the wrong one: the ring is centred on the
+   node's own centre and `wbPlaceMapRadial` raises its radius only far enough
+   to clear that node, so a filled circle of the ring's diameter covers the
+   topic the ring is acting on. A thick border with a 50% radius is an annulus
+   in one element, with the hole exactly where the node is.
+
+   Not `--card`, which is what "a disc in the card colour" would ask for and
+   what this was written as first: measured, `--card` computes to
+   `color-mix(in srgb, rgba(255, 255, 255, 0.55) 100%, transparent)`, an alpha
+   of 0.55, so a band painted in it read 254,254,255 against a canvas of
+   252,253,255, which is two levels and no ground at all. The band is the
+   opaque popover surface the slots and the caption already use, taken one
+   step towards the ink so that a slot sitting on it is still a slot on a
+   surface rather than a hairline on one flat field. */
+.wb-map-radial::before {
+  content: "";
+  position: absolute;
+  box-sizing: border-box;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--wb-radial-r) * 2 + var(--wb-radial-band));
+  height: calc(var(--wb-radial-r) * 2 + var(--wb-radial-band));
+  margin-left: calc((var(--wb-radial-r) + var(--wb-radial-band) / 2) * -1);
+  margin-top: calc((var(--wb-radial-r) + var(--wb-radial-band) / 2) * -1);
+  border: var(--wb-radial-band) solid
+    color-mix(in srgb, var(--ink) 7%, var(--modal-bg-opaque));
+  border-radius: 50%;
+  box-shadow: var(--shadow-md);
   pointer-events: none;
 }
 
@@ -11193,6 +11339,18 @@ header#top-bar {
   /* The swatch is an `<input>` among buttons; without this it sits on the
      text baseline of the row rather than on the buttons' centre line. */
   align-items: center;
+}
+
+/* The layout picker came down from the top bar (index.html, the Layout
+   section) and is the only `<select>` in the rail. Measured at 1px wide on
+   arrival: the rail's rows are flex and a select's own intrinsic width is
+   its longest option, which flex was free to crush to nothing. A floor, and
+   no growing past what its longest option needs. */
+.wb-rail #wb-map-layout,
+.wb-rail .select-shell {
+  flex: 0 0 auto;
+  min-width: 9rem;
+  height: var(--target-min);
 }
 
 /* The swatch reads as the pen's nib: a round well of the colour with the same

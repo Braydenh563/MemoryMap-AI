@@ -4507,13 +4507,6 @@
              The chip is `.library-chip`, the app's own filter-chip recipe,
              not a badge invented for this bar. -->
         <span id="wb-map-chip" class="library-chip active" hidden><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Map</span>
-        <select id="wb-map-layout" class="ghost small" aria-label="How this map is laid out" title="How this map is laid out" hidden>
-          <option value="tree-right">Tree, sideways</option>
-          <option value="tree-down">Tree, downward</option>
-          <option value="radial">Radial</option>
-          <option value="free">Free</option>
-        </select>
-        <button id="wb-map-tidy" class="ghost small" type="button" title="Lay every unpinned node out again" hidden><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Tidy</button>
       </div>
       <div class="wb-topbar-right">
         <button id="wb-search-toggle" class="ghost small icon-button" type="button" title="Find a card on this board (Ctrl+F)" aria-label="Find a card on this board" aria-expanded="false" aria-controls="wb-search-bar"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
@@ -4799,6 +4792,31 @@
         <button id="wb-map-focus-here" class="ghost icon-button" type="button" title="Show this branch and its neighbours only (F)" aria-label="Show this branch and its neighbours only (F)">
           <i class="ph ph-crosshair" aria-hidden="true"></i>
         </button>
+        </div>
+      </div>
+      <!-- **Layout, moved out of the top bar** (MINDMAP_PLAN §12.1 item 1, and
+           INBOX 183: "the mindmap top bar controls breach the topbar and
+           overflow off the edge on the right"). Measured on a map at 1024x768
+           before the move: `#wb-topbar` scrollWidth 1176 against clientWidth
+           981, with eight children past the right edge of the window, the
+           furthest at x=1143. These two are the widest map-only controls in
+           that bar and they belong with the other things that shape the map
+           rather than with the things that name the board.
+
+           The picker stays a `<select>` rather than becoming a fourth ▾ menu:
+           it is a one-of-four choice with a current value to report, which is
+           what a select is for, and the section label above it says Layout in
+           the same voice as Topic and Branch. -->
+      <div class="wb-tool-section" data-wb-surface="map" role="group" aria-label="Layout">
+        <span class="wb-tool-section-label" title="How the map arranges itself, and laying it out again">Layout</span>
+        <div class="wb-tool-section-row">
+        <select id="wb-map-layout" class="ghost small" aria-label="How this map is laid out" title="How this map is laid out" hidden>
+          <option value="tree-right">Tree, sideways</option>
+          <option value="tree-down">Tree, downward</option>
+          <option value="radial">Radial</option>
+          <option value="free">Free</option>
+        </select>
+        <button id="wb-map-tidy" class="ghost icon-button" type="button" title="Lay every unpinned node out again" aria-label="Lay every unpinned node out again" hidden><i class="ph ph-broom" aria-hidden="true"></i></button>
         </div>
       </div>
       <div class="wb-tool-section" data-wb-surface="board" role="group" aria-label="Draw">

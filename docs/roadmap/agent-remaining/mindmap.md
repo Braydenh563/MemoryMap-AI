@@ -31,7 +31,17 @@
 
 | Sweep | Checks |
 | --- | --- |
-| `scratchpad/ui-sweeps/mindmap.js` | **76**, re-run and green |
+| `scratchpad/ui-sweeps/mindmap.js` | **74 of 76** at 1440 after the eighth run repaired three stale checks in it. It was **68 of 76** at the start of that run, and the seventh run's "76, re-run and green" had stopped being true: see the eighth run's log at the foot of this file. Takes `VIEWPORT` now. |
+| `scratchpad/ui-sweeps/mappan.js` | **11**, new: the middle-button pan and the layer sync under the hand tool |
+| `scratchpad/ui-sweeps/panlayers.js` | new, a probe: which of the board's layers the compositor actually promotes |
+| `scratchpad/ui-sweeps/mapmenus.js` | **11**, new: all five board menus, and the top bar against the window at 1440, 1024 and 820 |
+| `scratchpad/ui-sweeps/newboard.js` | **6**, new: what the New board dialog has chosen when it opens |
+| `scratchpad/ui-sweeps/mapring.js` | **4**, new: the ground under the node ring, by pixel, light and dark |
+| `scratchpad/ui-sweeps/mapexportcard.js` | **3**, new: what the card of a map exported to the library says |
+| `scratchpad/ui-sweeps/mapnarrow.js` | **3**, new: the fold chevron and the template offer at 390x844 |
+| `scratchpad/ui-sweeps/maptidy.js` | **5**, new: a tidy's requests, its persistence, node size against the screen, and the framing after it |
+| `scratchpad/ui-sweeps/mapperspective.js` | **12**, new: the perspectives on a map of twenty note nodes, light and dark |
+| `scratchpad/ui-sweeps/wbrail.js` | **6**, new: the rail and the board's floating panels against the dock recipe |
 | `scratchpad/ui-sweeps/mindmap3.js` | **57**, re-run and green after two repairs to the sweep itself (see below) |
 | `scratchpad/ui-sweeps/mindmap-theme.js` (`THEME=dark`) | **9** (was 7), re-run: 9/9 dark at 1440, 8/9 dark at 390 (the one failure is the shell's own 7px overflow, below) |
 | `scratchpad/ui-sweeps/mapdock.js` | **26** (was 25): the dock split, the delete doors, the empty map, the two §12.0 decisions, the three ways out of a fold, and the dock's reach at phone width |
@@ -312,3 +322,37 @@ the report is unchanged: four passes, not reproduced in this sandbox.
 (`dashboard.js`) appeared in every drag profile taken here, on a tab that was
 not open. That is the same shape as the emblems and belongs to whoever owns
 `dashboard.js`.
+
+## The eighth run, in order, as it lands
+
+Written after every commit so a run cut off mid-item is resumable from this
+list plus `git log`.
+
+- done `8733578`: INBOX 183a, the middle-button pan. `scratchpad/ui-sweeps/mappan.js`, 11 checks.
+- done `5280e63`: INBOX 183b, the pan desync. Transform on the `<svg>` roots; `scratchpad/ui-sweeps/panlayers.js` reads the layer tree.
+- next: INBOX 183c and 183e plus item 1 of "Left to do", which are one piece of work: `#wb-topbar` (index.html 4307 to 4513) overflows by 152px at 1024 and 113px at 820, measured by `scratchpad/ui-sweeps/mapmenus.js`.
+- done `d15899f`: INBOX 183c and 183e, and the first half of "Left to do" item 1. Layout and Tidy are in the dock; the bar has 0 controls past the window edge at 1440, 1024 and 820 (`scratchpad/ui-sweeps/mapmenus.js`, 11 checks). Arrange's height did not reproduce: 493px against View's 453.
+- next: INBOX 183d, no default board type in the new-board dialog. Grep `wb-boards-new` in `whiteboard.js` for the dialog that `mapmenus.js`'s `newBoard` drives.
+- done `5544284`: INBOX 183d. The dialog did pre-select a kind; it now opens on the kind last made, and its button says Create (`scratchpad/ui-sweeps/newboard.js`, 6 checks).
+- next: INBOX 191's first half, an opaque ground behind `#wb-map-radial` and `#wb-map-link-radial`.
+- done `ab70d9b`: INBOX 191's first half, the ring's ground (`scratchpad/ui-sweeps/mapring.js`, 4 checks light and 4 dark).
+- found, not fixed: **a right-click on a map node did not open the node ring** in `mapring.js` (state at the moment of the click: `wbSelectedItem` the node, `wbMultiSelection.size` 0, `wbSelectedMapNode()` the same id, the node on the canvas, and the ring still `hidden`). The sweep falls back to `wbOpenMapRadial` and says which route opened it ("opened by: direct"). `mapstrip.js` uses the same gesture and was green on 2026-09-13, so this wants reproducing against `#wb-context`'s rebuild before anything is changed.
+- next: INBOX 184, a map exported as PNG to the board shows nothing at the foot of its image card.
+- done `45a4a88`: INBOX 184, the exported map's card foot (`scratchpad/ui-sweeps/mapexportcard.js`, 3 checks; foot 32px and empty before, 75px with a sentence after).
+- next: "Left to do" item 3, the `VIEWPORT` block for `mindmap.js` and `mindmap3.js`.
+- done `40ffee1`: "Left to do" item 3. `mindmap.js` takes `VIEWPORT` now, and the first narrow run found two real things, both fixed and gated by the new `scratchpad/ui-sweeps/mapnarrow.js` (3 checks, green at 390x844 and at 1440x900): the node's action row overlapped its fold chevron by 140px2 and swallowed the press (a branch could not be folded at all, which is what made `mindmap.js` time out at 390), and the template offer on a new map overlapped that map's only topic by 8800px2 with the topic's own centre returning the card. Both 0px2 now.
+- found, not fixed, at 390x844 (`mindmap.js`, 10 failures against 8 at 1440): "a click-drag inside a node's editor selects its text" reads empty, and "a new child lands beside its parent, on screen" reports the child 42px outside the canvas. Both are narrow-only and neither is one of the eight below.
+- found, not fixed, at BOTH widths and present before this run: eight `mindmap.js` failures, seven of them the tree edge not meeting its nodes (worst 43px at rest at 390, 78px at 1440, 202px mid-drag, 1746px on a 200-node map) and one the export menu not offering Markdown and OPML on a map. The remaining list said 76 green after the seventh run, so something between `a195782` and `18b0595` broke them; they are the biggest open quality problem on this surface and want a run of their own.
+- next: "Left to do" item 4, perspectives on a map of twenty note nodes.
+- done `007a35c`: the seven "tree edge does not meet its nodes" failures were the measurement, not the map. A tree edge's default shape is a ribbon, a filled closed outline, so both of its path endpoints are the same corner at the parent end and a perfectly attached edge read as 43 to 1746px adrift. `mindmap.js` samples 64 points along the path and asks whether any touches each node's box. 68/76 to 72/76 at 1440, with no change to the app.
+- next: the four sub-items of "Found while measuring, not fixed": the bulk move endpoint, the bounded XML exports, `wbMapNodeSize` against the rendered node, and framing after a tidy.
+- done `0e94bdf`: the four sub-items of "Found while measuring, not fixed". Tidy and transplant go through `move-many` (measured: 1 request and 0 per-node PUTs for a 12-node tidy, and what it wrote is what comes back); a whole-map tidy frames the map again when something is off the canvas (worst overhang -1px at 390x844, -64px at 1440, and the trunk's own centre returns the topic), a §12.0 decision now. The two XML exports were **already** iterative and depth-clamped with a 1,200-deep test (`tests/test_mindmap.py::test_a_map_deeper_than_pythons_recursion_headroom_still_exports`): the remaining list was stale. `wbMapNodeSize` against the rendered node **did not reproduce**: 0px worst over 13 nodes at both 1440x900 and 390x844.
+- also repaired two more stale `mindmap.js` checks: `#wb-export-menu` has not existed since the export became a dialog, and the app's own selection popup was left over a later step's button (a click that hangs is a z-order bug). 68/76 at the start of this run, 74/76 now.
+- found, not fixed: the last two `mindmap.js` failures are one thing, a **2.6px** gap between a tree edge and the node it joins during and after a single-node drag (0px at rest, so it is the drag path's anchor, not the layout's). Under the sweep's 2px bar and invisible at 100%, but real.
+- next: list item 6 (perspectives on a map of twenty note nodes) and then item 8.
+- done `f9816e6`: "Left to do" item 4, perspectives on a map that has notes on it. `scratchpad/ui-sweeps/mapperspective.js` builds twenty notes across four categories (`POST /entries` with a `category` name: there is no POST /categories, a category is made by filing a note into it), hangs each on a map as a reference node, and reads `--wb-branch` off every rendered node under each perspective. 12/12 in light and 12/12 dark. Category gives 5 colours (the four plus the quiet grey), age 2, notes 2, branch 11; every colour that means something clears 3:1 against the card (worst 4.07:1 light, 4.09:1 dark, best 12.97:1) and all three non-branch perspectives draw the legend.
+- found, not fixed: the quiet grey is `--muted` and measures **2.77:1** against the card in light (9.6:1 in dark). It carries no information (it is what a node wears when it has nothing to say under the perspective in force), so it is excluded from the bar here rather than raised: raising it means raising `--muted` for the whole app, which is another surface's decision.
+- next: list item 8, MINDMAP_PLAN §12.1 item 2's five sub-items and then INBOX 43's second half.
+- done `b16ef24`: "Left to do" item 5, INBOX 43's second half, as far as measurement supports. `scratchpad/ui-sweeps/wbrail.js` (6 checks, green) reads the rail and every floating panel against the Notes dock as the recipe renders. Already right: a control in the rail is one height (36px) and that is the dock's own, and one radius (50%). Wrong and now fixed: the zoom cluster and the tool row share the board's bottom edge and were drawn as two shapes, 14px radius and 4px of inset against 999px and 4px/6.4px. Both are a pill with the same inset now, by the rule already written in `06-timeline-dialogs.css` ("a pill is a single row of controls"). The three-class selector is deliberate: `.card.glass` sets that inset at (0,2,0), so a two-class rule ties and loses on file order, which is exactly what the first attempt measured.
+- NOT done, and a judgement rather than a shortfall: the rail is deliberately **not** put on the `.dock` recipe. A `.dock` is a tab-level bar with an identity zone, a find zone and a card radius; the rail is a glass pill of round icon buttons that floats over a canvas and can be re-docked to the side. Making one the other is a redesign of the board, not a consistency fix, and INBOX 43's own words are not specific enough to license it. If the owner meant the rail should become a card-shaped dock, that is a brief.
+- NOT started: MINDMAP_PLAN §12.1 item 2's five sub-items. Four of the five carry a recorded reason for being left in the plan itself (§12.1, "2 to 9"), which is a decision rather than an omission: line thickness was decided against and has since arrived by another route (item 177), Shift+drag to sever collides with drag-to-transplant on the same pointer, an image in a node is a second node shape, and comments on a node belong to §12.2 item 6. Curve control points is the one with no blocking reason, and it is two `data` fields on the child plus a third hit target per line.

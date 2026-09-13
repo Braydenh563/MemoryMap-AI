@@ -244,11 +244,50 @@ const wbDeleting = new Set();
 let wbZoomFrame = 0;
 let wbZoomPending = null;
 
+//: **Why the pan transform is on the two `<svg>` roots and not on the `<g>`
+//: inside them** (INBOX 183: "the note objects are fine, but all shapes, lines
+//: and connections lagg behind in position and arent synched").
+//:
+//: Two earlier passes moved these three transforms into one place and gave
+//: them one `will-change`, and the report came back both times, because
+//: `will-change: transform` on an SVG `<g>` promotes nothing: Chromium cannot
+//: composite an element inside an SVG fragment, it paints the whole fragment
+//: into whatever layer the `<svg>` root lives in. Measured through the CDP
+//: layer tree on a live board (`scratchpad/ui-sweeps/panlayers.js`): a note
+//: card was its own composited layer while `svg#wb-svg-layer`, which holds
+//: every shape, line and stroke, was not in the layer list at all. So a pan
+//: moved the cards on the compositor and re-rastered the shapes on the main
+//: thread, and a frame can be presented with the card already moved and the
+//: shape's new tiles not yet ready. That is the report, exactly: the notes are
+//: fine and everything drawn lags.
+//:
+//: The transform therefore has to sit on an element that *can* be composited,
+//: which is the `<svg>` root. The one thing that changes is clipping: a `<g>`
+//: translated inside its viewport is clipped at the viewport, a translated
+//: root takes its viewport with it, so the roots are `overflow: visible` and
+//: the container's own `overflow: hidden` does the clipping instead. Probed
+//: before it was written (`scratchpad/ui-sweeps/panprobe.js`): a rectangle
+//: 2200px outside the viewport, panned in, paints (pixel 255,0,255 at its
+//: centre) and hit-tests (`elementFromPoint` returns it).
+//:
+//: The consequence for every other reader: `#wb-svg-layer`'s bounding rect is
+//: no longer the canvas origin, it moves with the pan. `wbCanvasOriginRect`
+//: below is that origin, and it is the container's own box, which is the same
+//: rectangle the SVG used to report and cannot ever move.
 function wbApplyZoomTransform(t) {
   const css = `translate(${t.x}px, ${t.y}px) scale(${t.k})`;
   d3.select("#wb-html-layer").style("transform", css);
-  d3.select("#wb-zoom-group").style("transform", css);
-  d3.select("#wb-overlay-zoom-group").style("transform", css);
+  d3.select("#wb-svg-layer").style("transform", css);
+  d3.select("#wb-overlay-layer").style("transform", css);
+}
+
+//: The board's origin in screen coordinates: where board 0,0 sits before the
+//: pan transform is applied. Every screen-to-board conversion in this file
+//: subtracts the live d3 transform itself, so what it needs here is the
+//: untransformed canvas box, and since the swap above that is the container
+//: rather than the SVG (which now moves).
+function wbCanvasOriginRect() {
+  return document.getElementById("whiteboard-container").getBoundingClientRect();
 }
 
 function handleWbZoom(e) {
@@ -5343,8 +5382,39 @@ async function wbMapTidy({ onlyBranch = null, quiet = false } = {}) {
   // layout as well as a rigid drag.
   wbApplyBulkMove(origin, 0, 0);
   renderWhiteboardNow();
+  //: **A tidy that pushed the map off the canvas frames it again.** Recorded
+  //: by the seventh run and left as a decision rather than a bug: measured at
+  //: 390x844 after a tidy, the trunk's own box sat at x=-95 and
+  //: `elementFromPoint` at its centre returned the shell behind the canvas, so
+  //: the one node a person would reach for was not on screen. §12.0 says
+  //: auto-arrange is a command and not a constant, which is why this does not
+  //: frame on every tidy: it frames only a *whole-map* tidy, and only when
+  //: something has actually gone past an edge. A branch tidy is the silent
+  //: half of pressing Tab and must never move the view while someone is
+  //: typing, and a tidy whose result already fits is a view nobody asked to
+  //: have changed.
+  if (onlyBranch == null && wbMapSpillsOffCanvas()) wbZoomToFit({ animate: false });
   await wbSaveBulkMove(origin);
   return origin.size;
+}
+
+//: Is any part of the map outside the canvas right now? Read off the rendered
+//: boxes rather than off the stored coordinates, because what matters is what
+//: is on screen at the zoom in force, which is the thing the report was about.
+function wbMapSpillsOffCanvas() {
+  const container = document.getElementById("whiteboard-container");
+  if (!container) return false;
+  const box = container.getBoundingClientRect();
+  let spilled = false;
+  for (const el of document.querySelectorAll("#wb-html-layer .wb-object")) {
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) continue;
+    if (r.left < box.left || r.top < box.top || r.right > box.right || r.bottom > box.bottom) {
+      spilled = true;
+      break;
+    }
+  }
+  return spilled;
 }
 
 //: Re-tidy one branch after a node was added to it, when the layout asks for
@@ -5975,12 +6045,26 @@ async function wbMapRemoveKeepingBranch(id) {
   }
   const parentId = index.byId.has(node.parent_id) ? node.parent_id : null;
   try {
-    for (const child of children) {
-      const moved = await apiJson(`/whiteboard/boards/${boardId}/nodes/${child.id}/move`, {
+    //: The whole branch in one request when there is more than one child: the
+    //: half-moved branch a failure used to leave behind is the reason
+    //: `move-many` exists. One child is still one `/move`, which says what it
+    //: did in its own event rather than as a batch of one.
+    if (children.length > 1) {
+      const moved = await apiJson(`/whiteboard/boards/${boardId}/nodes/move-many`, {
         method: "PUT",
-        body: JSON.stringify({ parent_id: parentId }),
+        body: JSON.stringify({
+          moves: children.map((child) => ({ id: child.id, reparent: true, parent_id: parentId })),
+        }),
       });
-      Object.assign(child, moved);
+      for (const after of moved || []) Object.assign(index.byId.get(after.id) || {}, after);
+    } else {
+      for (const child of children) {
+        const after = await apiJson(`/whiteboard/boards/${boardId}/nodes/${child.id}/move`, {
+          method: "PUT",
+          body: JSON.stringify({ parent_id: parentId }),
+        });
+        Object.assign(child, after);
+      }
     }
   } catch (err) {
     toast(err.message || "Couldn't move that branch up.", true);
@@ -6684,8 +6768,51 @@ function wbApplyBulkMove(origin, dx, dy) {
   }
 }
 
-async function wbSaveBulkMove(origin) {
+//: **A map's own nodes go in one request.** A tidy of a two hundred node map
+//: was two hundred PUTs, two hundred transactions and a map half arranged for
+//: as long as they took, with nothing to roll back to when one of them failed
+//: (recorded as "Tidy still persists one node at a time"). `move-many` takes
+//: the whole set, so the batch either lands or does not. Everything that is
+//: not a map node on a map board still goes one at a time: a sketch's `d` and
+//: an image's box are not what that endpoint moves.
+//:
+//: Chunked at 200 against the endpoint's own 400, so a map twice the size of
+//: anything built here still goes in two requests rather than in four hundred.
+//: A failure falls back to the per-object path rather than surfacing: the
+//: caller has already painted the new positions, and the fallback is the code
+//: that was doing this until now.
+const WB_MOVE_MANY_CHUNK = 200;
+
+async function wbSaveMapBulkMove(origin) {
+  const boardId = window.currentBoardId;
+  if (!boardId || !wbIsMap()) return null;
+  const batched = [];
   for (const entry of origin.values()) {
+    if (entry.kind === "object" && WB_MAP_KINDS.has(entry.item?.kind)) batched.push(entry);
+  }
+  //: One node is not a batch: a single PUT says more in its own event log and
+  //: costs the same.
+  if (batched.length < 2) return null;
+  try {
+    for (let at = 0; at < batched.length; at += WB_MOVE_MANY_CHUNK) {
+      const slice = batched.slice(at, at + WB_MOVE_MANY_CHUNK);
+      await apiJson(`/whiteboard/boards/${boardId}/nodes/move-many`, {
+        method: "PUT",
+        body: JSON.stringify({
+          moves: slice.map((entry) => ({ id: entry.item.id, x: entry.item.x, y: entry.item.y })),
+        }),
+      });
+    }
+  } catch (err) {
+    return null;
+  }
+  return new Set(batched);
+}
+
+async function wbSaveBulkMove(origin) {
+  const done = await wbSaveMapBulkMove(origin);
+  for (const entry of origin.values()) {
+    if (done && done.has(entry)) continue;
     if (entry.kind === "sketch") {
       if (entry.item._liveD) {
         const d = entry.item._liveD;
@@ -7181,7 +7308,7 @@ function wbItemTransform(d) {
 //: spaces have to be reconciled explicitly rather than assumed to match.
 function wbSketchAngleFromCenterDeg(boardCx, boardCy, sourceEvent, shiftSnap) {
   const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-  const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
+  const rect = wbCanvasOriginRect();
   const screenCx = boardCx * transform.k + transform.x + rect.left;
   const screenCy = boardCy * transform.k + transform.y + rect.top;
   return wbAngleFromCenterDeg(screenCx, screenCy, sourceEvent.clientX, sourceEvent.clientY, shiftSnap);
@@ -7981,7 +8108,40 @@ async function wbExportSvg(scope) {
 // Shared with the background-image picker above, which inlines the same
 // three lines: pulled out here because this is the second call site and a
 // third (this one) is exactly when a copy-pasted upload stops being fine.
-async function uploadToLibrary(filename, blob) {
+//: **The board's own title, on the picture it made** (INBOX 184: "my exported
+//: png from the mindmap straight to the whiteboard still doesnt have anything
+//: at the bottom of its card, its just blank").
+//:
+//: Reproduced first (`scratchpad/ui-sweeps/mapexportcard.js`): the card is
+//: there and its foot is 32px of nothing, 0 of 1 blocks shown and no text.
+//: That is not a bug in the card. A description block is on a card only once
+//: it holds something (INBOX 115's decision, and it is the right one: three
+//: rows that all say nothing is here is worse than a short card), and the
+//: describe pass that would have filled it needs a vision model, which an
+//: offline notebook may simply not have. So the card had nothing to show and
+//: showed nothing.
+//:
+//: What it can always show is what the app itself knows: this picture is a
+//: named board, exported on a known day, by this app. That is a real
+//: description rather than a placeholder standing in for one, it makes the
+//: image findable by the board's name in search, and `caption_and_store` is
+//: write-once, so a vision model run later leaves it alone while the card's
+//: own Describe button (which forces) still replaces it.
+function wbExportDescription(scope) {
+  //: The picker's label is `<kind> · <title> (N items)` (`refreshBoardList`),
+  //: and both halves of that have to come off or the sentence reads "the mind
+  //: map \"Mind map · Export map\"", which is what the first run of the sweep
+  //: measured.
+  const title = document.getElementById("wb-board-select")?.selectedOptions?.[0]
+    ?.textContent.replace(/\s*\(\d+ items?\)$/, "")
+    .replace(/^(Mind map|Board|Whiteboard) \u00b7 /, "").trim() || "";
+  const kind = wbIsMap() ? "mind map" : "whiteboard";
+  const part = scope === "selection" ? "Part of the " : "The ";
+  const named = title ? ` "${title}"` : "";
+  return `${part}${kind}${named}, exported from MemoryMap.`;
+}
+
+async function uploadToLibrary(filename, blob, description = "") {
   const formData = new FormData();
   formData.append("file", new File([blob], filename, { type: blob.type }));
   //: **A board export is a commit, not a staged upload** (INBOX 174: an
@@ -7996,11 +8156,24 @@ async function uploadToLibrary(filename, blob) {
   //: image" blocks, which are on a card only once they hold something, were
   //: both absent, which is the missing metadata area exactly.
   formData.append("direct", "true");
-  return apiJson("/media/upload", {
+  const uploaded = await apiJson("/media/upload", {
     method: "POST",
     headers: { "X-Auth-Token": authToken() },
     body: formData,
   });
+  //: Only when the upload came back with nothing: a caption written by a model
+  //: that did run says more than this one does, and this must never be the
+  //: thing that displaced it.
+  if (description && uploaded?.id && !uploaded.caption) {
+    await apiJson(`/media/${uploaded.id}/caption`, {
+      method: "POST",
+      body: JSON.stringify({ text: description }),
+    }).catch(() => {
+      // Best effort, exactly like the upload itself: an export that produced a
+      // file and a card has not failed because its description did not land.
+    });
+  }
+  return uploaded;
 }
 
 async function wbExportPng(scope) {
@@ -8013,7 +8186,7 @@ async function wbExportPng(scope) {
   // of. Best-effort: a failed upload must not make the export itself look
   // like it failed, since the download above already succeeded.
   try {
-    await uploadToLibrary(filename, blob);
+    await uploadToLibrary(filename, blob, wbExportDescription(scope));
     toast("Board exported as PNG, and added to your image library.");
   } catch {
     toast("Board exported as PNG.");
@@ -8035,7 +8208,7 @@ async function wbSaveToLibrary(scope) {
   const { svg, width, height } = wbBuildExportSvg(scope);
   const blob = await wbRasterizeSvg(svg, width, height, "image/png");
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-  await uploadToLibrary(`whiteboard-${scope}-${stamp}.png`, blob);
+  await uploadToLibrary(`whiteboard-${scope}-${stamp}.png`, blob, wbExportDescription(scope));
   toast("Added to your image library.");
 }
 
@@ -8280,7 +8453,34 @@ async function initWhiteboard() {
   //: the event's target was a layer over the board and the container's own
   //: capture listener never saw it, while a synthetic press on the container
   //: was prevented. Anything inside the boards view counts.
+  //: The second half of the same report (INBOX 183: "panning ... by pressing
+  //: down the scrollwheel with a mouse is horrible and doesnt work"). The
+  //: autoscroll guard below was already here and is not enough on its own,
+  //: because nothing else about the gesture said it was a pan: the cursor
+  //: stayed an arrow over the board while the board moved under it, and the
+  //: release fired an `auxclick`, which on Linux is also the primary-selection
+  //: paste. A hand tool drag says "grabbing" the whole time; this now says the
+  //: same thing through the same class the held-space pan uses, so the three
+  //: ways to pan look identical while they run.
+  const midPanClass = (on) => document.getElementById("whiteboard-container")?.classList.toggle("wb-mid-pan", on);
   window.addEventListener("mousedown", (event) => {
+    if (event.button === 1 && event.target?.closest?.("#library-view-whiteboard")) {
+      event.preventDefault();
+      midPanClass(true);
+    }
+  }, true);
+  //: On the window, not the container: a pan that ends with the pointer over
+  //: the top bar or off the window would otherwise leave the grabbing cursor
+  //: on for good, which is exactly the shape the stray marquee had.
+  for (const end of ["mouseup", "blur", "pointercancel"]) {
+    window.addEventListener(end, (event) => {
+      if (end !== "mouseup" || event.button === 1) midPanClass(false);
+    }, true);
+  }
+  //: The middle release itself: an `auxclick` inside the board is the tail of
+  //: a pan and never a command, and letting it through is what makes a pan
+  //: paste on Linux or open a link in a card in a new tab.
+  window.addEventListener("auxclick", (event) => {
     if (event.button === 1 && event.target?.closest?.("#library-view-whiteboard")) event.preventDefault();
   }, true);
   container.call(wbZoom).on("dblclick.zoom", null);
@@ -10173,10 +10373,10 @@ async function initWhiteboard() {
 
   // Drawing event handlers on the SVG itself or container
   const svgCanvas = document.getElementById("wb-svg-layer");
-  
+
   function getLogicalMouse(e) {
     const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-    const rect = svgCanvas.getBoundingClientRect();
+    const rect = wbCanvasOriginRect();
     const x = (e.clientX - rect.left - transform.x) / transform.k;
     const y = (e.clientY - rect.top - transform.y) / transform.k;
     return [x, y];
@@ -11070,11 +11270,35 @@ async function renameCurrentBoard() {
 //: `preset` lets the Library's "New mind map" action skip straight to the map
 //: half without the dialog having to be answered twice; left alone, the dialog
 //: asks, defaulting to whatever it was told.
-async function createNewBoard(preset = "board") {
+//: **The kind the dialog opens on** (INBOX 183: "still no default board type
+//: selected"). Measured before changing anything
+//: (`scratchpad/ui-sweeps/newboard.js`): a kind *was* pre-selected, and
+//: visibly, Board filled with the accent against a transparent Mind map. What
+//: was missing is that it was always Board, so someone building maps chose Mind
+//: map on every single one. The last kind actually created is remembered here
+//: and becomes the default; an explicit `preset` (the Library's "New mind map")
+//: still wins, and a first run with nothing remembered is Board as before.
+const WB_LAST_BOARD_KIND = "wbLastBoardKind";
+
+function wbRememberedBoardKind() {
+  try {
+    const kind = localStorage.getItem(WB_LAST_BOARD_KIND);
+    return kind === "map" || kind === "board" ? kind : "board";
+  } catch (err) {
+    // Private mode, blocked site data: the default is the answer, not an error.
+    return "board";
+  }
+}
+
+async function createNewBoard(preset = null) {
   const answer = await promptDialog("Name the new board:", "", {
+    //: "Save" is what `promptDialog` says by default and it is the wrong verb
+    //: for a dialog whose whole job is to make something that does not exist
+    //: yet.
+    confirmLabel: "Create",
     segment: {
       label: "What kind of board",
-      value: preset,
+      value: preset || wbRememberedBoardKind(),
       // The icons are the same two the boards picker groups by and the Board
       // menu's Kind row uses, so the shape means the same thing everywhere.
       options: [
@@ -11094,6 +11318,11 @@ async function createNewBoard(preset = "board") {
   const name = answer?.text || "";
   const kind = answer?.choice === "map" ? "map" : "board";
   if (!name || !name.trim()) return;
+  //: Remembered on the way out, not on the click: a dialog someone dismissed
+  //: said nothing about what they want next time.
+  try {
+    localStorage.setItem(WB_LAST_BOARD_KIND, kind);
+  } catch (err) { /* see wbRememberedBoardKind */ }
   try {
     const board = await apiJson("/whiteboard/boards", {
       method: "POST",
@@ -12022,7 +12251,7 @@ function renderWhiteboard() {
       const endpoints = wbResolveLinkEndpoints(parsed);
       if (!endpoints) return;
       const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-      const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
+      const rect = wbCanvasOriginRect();
       const px = (event.clientX - rect.left - transform.x) / transform.k;
       const py = (event.clientY - rect.top - transform.y) / transform.k;
       const mid = { x: (endpoints.source.x + endpoints.target.x) / 2, y: (endpoints.source.y + endpoints.target.y) / 2 };
@@ -13099,7 +13328,7 @@ function dragStart(event, d) {
     // (nothing near enough) is the free/floating case, resolved fresh every
     // render in `wbLinkEndpoints` instead of frozen at drag-start.
     const startTransform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-    const startRect = document.getElementById("wb-svg-layer").getBoundingClientRect();
+    const startRect = wbCanvasOriginRect();
     const startX = (event.sourceEvent.clientX - startRect.left - startTransform.x) / startTransform.k;
     const startY = (event.sourceEvent.clientY - startRect.top - startTransform.y) / startTransform.k;
     d.linkSourceAnchor = wbNearestAnchor(d._linkKind || "node", d, startX, startY);
@@ -13144,7 +13373,7 @@ function dragging(event, d) {
   if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
   if (window.currentTool && window.currentTool.startsWith("link-")) {
     const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-    const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
+    const rect = wbCanvasOriginRect();
     const mx = (event.sourceEvent.clientX - rect.left - transform.x) / transform.k;
     const my = (event.sourceEvent.clientY - rect.top - transform.y) / transform.k;
 
@@ -13231,7 +13460,7 @@ async function dragEndNode(event, d) {
     wbClearAnchorHints();
 
     const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-    const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
+    const rect = wbCanvasOriginRect();
     const mx = (event.sourceEvent.clientX - rect.left - transform.x) / transform.k;
     const my = (event.sourceEvent.clientY - rect.top - transform.y) / transform.k;
 

@@ -163,6 +163,16 @@ class WhiteboardObjectData(BaseModel):
     #: carries a JSON blob, so neither earns a column.
     collapsed: bool | None = None
     pinned: bool | None = None
+    #: A topic whose `width`/`height` were chosen by hand rather than left at
+    #: the creation defaults (MINDMAP_PLAN.md item 177, "resize a topic as a
+    #: card resizes"). The flag is the whole point: every topic is created with
+    #: both columns already filled, so the numbers cannot say by themselves
+    #: whether anyone meant them, and the renderer applies the stored height as
+    #: a floor only for a node that carries this. A field the schema does not
+    #: name is dropped silently by Pydantic, which is how a toggle like this
+    #: comes to look like a frontend bug: the PUT succeeds and the value never
+    #: comes back.
+    sized: bool | None = None
     #: The node edit strip's four (MINDMAP_PLAN.md §12.1 item 2, Coggle's
     #: text/link/image/icon). Weight and slant are stored here rather than
     #: written into the label as `**markdown**` because §12.0 says so

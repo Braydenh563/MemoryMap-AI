@@ -8861,23 +8861,46 @@ input[type="file"] {
   pointer-events: none;
 }
 
-/* The text-size grip (MINDMAP_PLAN.md §12.1 item 6). Inside the node, at the
-   corner, and shown by the same rule the two add buttons are: it belongs to
-   the node you are pointing at, and a grip on every node on a two-hundred-node
-   map would be two hundred more marks on the canvas.
+/* **The node's two grips, in one row**: text size (MINDMAP_PLAN.md §12.1
+   item 6) and the node's own size (item 177). Inside the node, at the corner,
+   and shown by the same rule the two add buttons are: they belong to the node
+   you are pointing at, and a grip on every node of a two-hundred-node map
+   would be two hundred more marks on the canvas.
 
-   Not `button.ghost`: this is a grip, the same kind of thing as
+   Not `button.ghost`: these are grips, the same kind of thing as
    `.wb-object-grip` above, and a grip is a texture to grab rather than a
-   control to press. Giving it the button ramp's fill and lift would make it
-   look like a third add button parked in the corner. */
-/* **Bottom left, not bottom right** (INBOX 177: "the 'Aa' font size button
+   control to press. Giving them the button ramp's fill and lift would make
+   them look like two more add buttons parked in the corner.
+
+   **Bottom left, not bottom right** (INBOX 177: "the 'Aa' font size button
    placement clashes with the popup buttons"). `.wb-map-actions` hangs off
-   the node's bottom right corner, so the grip and the add/link buttons drew
-   on top of each other the moment a node was selected. */
-.wb-map-size-grip {
+   the node's bottom right corner from outside it and reaches back over that
+   corner, so a grip there drew under the add/link buttons the moment a node
+   was selected, and never received a pointerdown at all.
+
+   One row rather than a second grip hand-placed off another corner: that is
+   how two controls come to overlap by a few pixels a screenshot does not
+   show, which this file has already had to fix twice (see `.wb-map-count`). */
+.wb-map-grips {
   position: absolute;
   left: var(--space-1);
   bottom: var(--space-1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  z-index: 4;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.wb-map-node:hover .wb-map-grips,
+.wb-map-node.wb-selected .wb-map-grips,
+.wb-map-grips:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.wb-map-size-grip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -8890,20 +8913,41 @@ input[type="file"] {
   font-size: var(--text-xs);
   line-height: 1;
   cursor: ns-resize;
-  opacity: 0;
-  pointer-events: none;
   touch-action: none;
-}
-
-.wb-map-node:hover .wb-map-size-grip,
-.wb-map-node.wb-selected .wb-map-size-grip,
-.wb-map-size-grip:focus-visible {
-  opacity: 1;
-  pointer-events: auto;
 }
 
 .wb-map-size-grip:hover,
 .wb-map-size-grip:focus-visible {
+  color: var(--ink);
+}
+
+/* The size grip (MINDMAP_PLAN.md item 177, "resize a topic as a card resizes
+   on the whiteboard"): the second grip in the row above, beside the one that
+   sets the text size. Its own cursor is the whole difference between them at
+   the pointer: `ns-resize` says "this one only goes up and down" (the text
+   scale), `nwse-resize` says "this one grows the box".
+
+   The row, and not this corner or that one, because `.wb-map-actions` hangs
+   off the node's bottom right from *outside* it and reaches back over the
+   corner: measured, a grip placed there never received a pointerdown at all. */
+.wb-map-resize-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.wb-map-resize-grip:hover,
+.wb-map-resize-grip:focus-visible {
   color: var(--ink);
 }
 

@@ -3641,7 +3641,15 @@ function wbBuildMapNode(el, d) {
   //: listens for, so grabbing the grip cannot also be the first frame of a
   //: node drag. The class is in `objDrag`'s own filter as well, because one
   //: guard for this is what the resize handles already learned is not enough.
-  el.append("button")
+  //: **Both grips in one row**, rather than each hand-placed off the same
+  //: corner. That is the lesson `.wb-map-actions` already carries a paragraph
+  //: about, and this is the second time it has been paid for: the size grip
+  //: was first put at the node's *other* bottom corner and landed underneath
+  //: the add buttons' own row, which hangs off that corner from outside and
+  //: takes the pointer first, so the drag never started at all. Measured
+  //: before this row existed: pointerdown on the grip was never received.
+  const grips = el.append("div").attr("class", "wb-map-grips");
+  grips.append("button")
     .attr("type", "button")
     .attr("class", "wb-map-size-grip")
     .attr("title", "Drag to change the text size")
@@ -3652,6 +3660,31 @@ function wbBuildMapNode(el, d) {
       wbMapStartSizeDrag(this, event, d);
     })
     .append("i").attr("class", "ph ph-text-aa").attr("aria-hidden", "true");
+
+  //: **The size grip** (MINDMAP_PLAN.md's item 177, the owner's fourth, asked
+  //: for twice): drag the topic's own corner and the topic gets bigger, the
+  //: same gesture a card on a board already has. It is a grip rather than one
+  //: of the board's eight `.wb-resize-handle`s for the reason `renderWbObjects`
+  //: gives for not giving a map node those: eight handles and a rotate grip
+  //: sit exactly where the chevron, the count badge and the two add buttons
+  //: already are, and would swallow all four. One corner is enough here
+  //: because a resize on a map may not move the node: the layout owns x and y.
+  //:
+  //: Pointer events with capture rather than a d3 drag, for the same reason
+  //: the text-size grip beside it uses them: `preventDefault` on `pointerdown`
+  //: suppresses the compatibility `mousedown` that `objDrag` listens for, so
+  //: grabbing the grip cannot also be the first frame of a node drag.
+  grips.append("button")
+    .attr("type", "button")
+    .attr("class", "wb-map-resize-grip")
+    .attr("title", "Drag to resize this topic")
+    .attr("aria-label", "Drag to resize this topic")
+    .on("pointerdown", function (event) {
+      event.stopPropagation();
+      event.preventDefault();
+      wbMapStartResizeDrag(this, event, d);
+    })
+    .append("i").attr("class", "ph ph-arrow-down-right" ).attr("aria-hidden", "true");
 
   const actions = el.append("div").attr("class", "wb-map-actions");
   actions.append("button")
@@ -3757,6 +3790,13 @@ function wbPaintMapNodeStyle(node, d) {
   if (data.font_size) node.style.fontSize = `${data.font_size}px`;
   else node.style.removeProperty("font-size");
 
+  //: A hand-resized topic's height, as a floor (see `wbMapStartResizeDrag`).
+  //: The width needs nothing here: `renderWbObjects` already writes every
+  //: object's own `width`, and a map node is the one kind whose *height* it
+  //: deliberately leaves to the text.
+  if (data.sized && d.height) node.style.minHeight = `${d.height}px`;
+  else node.style.removeProperty("min-height");
+
   const icon = node.querySelector(".wb-map-node-icon");
   if (icon) {
     // A topic wears what it was given; a reference node falls back to the
@@ -3828,6 +3868,79 @@ function wbMapStartSizeDrag(grip, event, d) {
     grip.removeEventListener("pointercancel", done);
     if (size === startSize) return;
     await wbMapSetNodeStyle(d, { font_size: size });
+  };
+  grip.addEventListener("pointermove", move);
+  grip.addEventListener("pointerup", done);
+  grip.addEventListener("pointercancel", done);
+}
+
+//: How small a topic may be dragged. Narrower than this is a box too small to
+//: hold the grip that is resizing it, which is a node you cannot get back.
+const WB_MAP_NODE_MIN_W = 72;
+const WB_MAP_NODE_MIN_H = 40;
+
+//: **A topic's own resize**, from pointerdown to drop.
+//:
+//: **It writes width and height and never x or y.** The map's layout owns the
+//: positions (§12.0: auto-arrange is a command, so a hand-placed node stays
+//: put), so a resize that also moved the node would fight the thing that put
+//: it there. The siblings make room at the next tidy, not during the drag,
+//: which is the same bargain every other edit on a map makes.
+//:
+//: **The height is a floor, not a ceiling.** A map node is deliberately
+//: `height: auto` (`objectHeight`): its own text decides how tall it is, so a
+//: long topic can never be sliced by `overflow`. Writing the dragged height as
+//: `height` would take that guarantee away the first time somebody dragged a
+//: node shorter than its own words. `min-height` keeps both promises: the node
+//: is as tall as it was asked to be, or as tall as its text, whichever is
+//: more, and `wbMapNodeSize` reads the answer off the DOM either way.
+//:
+//: `data.sized` is what says a person chose these numbers. Every topic is
+//: created with a width and a height already (`WB_MAP_NODE_W`/`_H`), so the
+//: stored values cannot say by themselves whether anybody meant them, and a
+//: `min-height` applied to every node on every map would pin the whole map to
+//: a default that was only ever a starting guess.
+function wbMapStartResizeDrag(grip, event, d) {
+  const node = grip.closest(".wb-object");
+  if (!node) return;
+  const container = document.getElementById("whiteboard-container");
+  const k = container ? d3.zoomTransform(container).k : 1;
+  const startX = event.clientX;
+  const startY = event.clientY;
+  const startW = d.width || WB_MAP_NODE_W;
+  // The *drawn* height, not the stored one: an unresized node's stored height
+  // is the creation default and its real height is whatever its text needs,
+  // so starting from the stored number would jump the node on the first pixel.
+  const startH = node.offsetHeight || d.height || WB_MAP_NODE_H;
+  const before = WB_KIND_INFO.object.payload(d);
+  // Collected once, before the drag: the two ends of an edge move with the
+  // box, so the lines have to be redrawn per frame or they detach from the
+  // node being resized, which is INBOX 42's report in a different gesture.
+  const edges = wbMapEdgesFor(d.id);
+  let width = startW;
+  let height = startH;
+  grip.setPointerCapture?.(event.pointerId);
+  const move = (moveEvent) => {
+    width = Math.max(WB_MAP_NODE_MIN_W, startW + (moveEvent.clientX - startX) / k);
+    height = Math.max(WB_MAP_NODE_MIN_H, startH + (moveEvent.clientY - startY) / k);
+    width = Math.round(width);
+    height = Math.round(height);
+    node.style.width = `${width}px`;
+    node.style.minHeight = `${height}px`;
+    d.width = width;
+    d.height = height;
+    wbUpdateMapEdges(edges);
+  };
+  const done = async () => {
+    grip.removeEventListener("pointermove", move);
+    grip.removeEventListener("pointerup", done);
+    grip.removeEventListener("pointercancel", done);
+    if (width === startW && height === startH) return;
+    // One write for both halves: `wbMapSetNodeStyle` saves the whole object,
+    // and `width`/`height` are already on it.
+    await wbMapSetNodeStyle(d, { sized: true });
+    wbPushUndo({ action: "move", kind: "object", id: d.id, before });
+    wbScheduleRender();
   };
   grip.addEventListener("pointermove", move);
   grip.addEventListener("pointerup", done);
@@ -12451,6 +12564,7 @@ function renderWbObjects(canvas) {
       if (WB_BRUSH_TOOLS.has(window.currentTool) || window.currentTool === "lasso") return false;
       if (event.target.closest(
         ".wb-resize-handle, .wb-rotate-handle, .wb-object-grip, .wb-map-size-grip"
+        + ", .wb-map-resize-grip"
       )) return false;
       // `.wb-text-content` used to be excluded outright, which is what left a
       // text box draggable only by its grip, see `wbBeginTextEdit`. It only

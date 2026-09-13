@@ -9,6 +9,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A mind map topic resizes like a card on a board. Point at a topic and there
+  are two grips in its corner now: the "Aa" one that has always set the text
+  size, and a new one that drags the topic itself wider and taller. The map's
+  layout still owns where a topic sits, so a resize only ever changes its size,
+  and the tidy pass makes room for the new one. The height it is given is a
+  floor rather than a ceiling, so a topic can still never be cut off by its own
+  words.
+
 - A skill run that stops on a step can have that step rewritten and run on its
   own. Beside Resume there is now "Edit step N": change the wording, press Run
   this step, and only that step runs, with the earlier ones left alone and the

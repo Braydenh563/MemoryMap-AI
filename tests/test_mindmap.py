@@ -622,6 +622,44 @@ def test_an_opml_file_sent_as_freemind_imports_as_nothing_rather_than_wrongly(cl
     assert empty["object_count"] == 0
 
 
+def test_a_hand_resized_topic_keeps_its_size(client):
+    """MINDMAP_PLAN.md item 177, "resize a topic as a card resizes on the
+    whiteboard". Three things have to survive the PUT together or the feature
+    is a grip that appears to do nothing: the two columns, and the flag that
+    says a person chose them rather than the creation defaults.
+
+    The flag is the part that was easy to lose. `WhiteboardObjectData` drops
+    any field it does not name, silently, which is exactly how an earlier map
+    toggle looked like a frontend bug: the drag worked, the PUT returned 200,
+    and the value came back missing."""
+    board = _map(client, name="Resized")
+    node = _node(client, board["id"], text="Wide topic")
+    saved = client.put(
+        f"/whiteboard/objects/{node['id']}",
+        json={
+            "kind": node["kind"],
+            "board_id": board["id"],
+            "data": {**node["data"], "sized": True},
+            "x": node["x"],
+            "y": node["y"],
+            "z": node["z"],
+            "width": 340,
+            "height": 128,
+        },
+    )
+    assert saved.status_code == 200, saved.text
+    body = saved.json()
+    assert (body["width"], body["height"]) == (340, 128)
+    assert body["data"]["sized"] is True
+
+    # And again from the board state, not only from the response to the write:
+    # the round trip that matters is the one a reload makes.
+    stored = client.get(f"/whiteboard/?board_id={board['id']}").json()["objects"]
+    mine = next(o for o in stored if o["id"] == node["id"])
+    assert (mine["width"], mine["height"]) == (340, 128)
+    assert json.loads(json.dumps(mine["data"]))["sized"] is True
+
+
 #: Everything the node edit strip and the two radials can write on a node
 #: (MINDMAP_PLAN.md §12.1 items 2 to 4), one value each, so a round-trip test
 #: fails if any single one of them is dropped on the way out or on the way

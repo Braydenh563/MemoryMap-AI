@@ -24287,6 +24287,38 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     full view closes (0 grips, no inline width) and are restored on return
     (700.1 and 74.2 again), 0 console errors.
 
+182. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), links.**
+    "I want to be able to right click or hold with a touch on a link and
+    have a popup show to let me copy the link address". App-wide: every
+    rendered markdown link (chat, popup agent, notes, documents) gets one
+    `kebabMenu`-shaped menu on contextmenu and long-press with Copy link
+    address and Open. Owner: chat agent.
+    **Built (this commit).** One delegated `contextmenu` listener and one
+    delegated 500ms touch hold on `document`, no per-surface listeners, so a
+    link drawn by anything (the chat, the popup agent, a note card, a document
+    preview, anything written later) is covered by the same code. The menu is
+    `kebabMenu` with an anchor: `openMenuAtPoint` parks a one-pixel
+    transparent opener in a `position: fixed` host where the pointer was, so
+    the rows, the keyboard wiring, the clamping and the closing are the app's
+    one menu rather than a second shape (DESIGN.md's recipe index gains the
+    row, `tests/test_ui_recipes.py` the ratchet). An address gets Copy link
+    address and Open in new tab; a `[[link]]` has no address, so it gets Copy
+    title and Open, which runs the link's own click. Measured
+    (`scratchpad/ui-sweeps/linkmenu.js`, with `navigator.clipboard.writeText`
+    and `window.open` stubbed so what each row does is read back rather than
+    assumed): the menu opens 8px across and 15px below the pointer and inside
+    the window, Copy link address puts `https://example.org/guide/netting` on
+    the clipboard, Open in new tab calls `window.open` with that address and
+    `noopener,noreferrer`, a `[[link]]` on a note card offers "Copy title" and
+    "Open" and copies "Netting the beans", the popup agent gets the same menu
+    with no listener of its own, a 500ms synthetic touch hold opens it, and
+    there are 0 page errors.
+    Two things the sweep found on the way, both fixed here: the anchor lost on
+    specificity to `.small.icon-only` and opened the menu 28px across and 32px
+    below the pointer, and the host took the hit at its own coordinates, so a
+    second right-click on the same link reached the anchor rather than the
+    link and opened nothing.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

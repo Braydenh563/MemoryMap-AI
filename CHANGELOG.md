@@ -9,6 +9,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Right-clicking or long-pressing a link now opens a menu with Copy link
+  address and Open in new tab, anywhere a link is drawn. An internal
+  `[[link]]` offers Copy title and Open instead.
+
 - A document can be downloaded as one self-contained HTML file. Images become
   data URIs, the stylesheet is written into the file, comments travel as
   footnotes, controls that only work inside the app are dropped (a `[[link]]`

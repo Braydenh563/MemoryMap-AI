@@ -47,17 +47,24 @@ const { boot } = require('./lib.js');
     switchTab('chat');
   });
   await page.waitForTimeout(500);
-  await page.evaluate(() => {
-    const bubble = document.createElement('div');
-    bubble.className = 'msg assistant';
-    const host = document.createElement('div');
-    host.className = 'bubble-answer';
-    host.id = 'sweep-answer';
-    bubble.appendChild(host);
-    document.getElementById('chat-messages').appendChild(bubble);
-    renderMarkdown(host, 'See [the guide](https://example.org/guide/netting) and [[Netting the beans]].');
-  });
-  await page.waitForTimeout(300);
+  // Re-seeded before every interaction: the chat transcript re-renders itself
+  // on its own poll, which takes an injected bubble with it. The first run of
+  // this sweep read that as "the menu does not reopen".
+  const seed = async () => {
+    await page.evaluate(() => {
+      document.getElementById('sweep-answer')?.closest('.msg')?.remove();
+      const bubble = document.createElement('div');
+      bubble.className = 'msg assistant';
+      const host = document.createElement('div');
+      host.className = 'bubble-answer';
+      host.id = 'sweep-answer';
+      bubble.appendChild(host);
+      document.getElementById('chat-messages').appendChild(bubble);
+      renderMarkdown(host, 'See [the guide](https://example.org/guide/netting) and [[Netting the beans]].');
+    });
+    await page.waitForTimeout(200);
+  };
+  await seed();
 
   const at = async (selector) => {
     const box = await page.evaluate((sel) => {
@@ -101,7 +108,9 @@ const { boot } = require('./lib.js');
   check('Copy link address copies the href', copied[0] === 'https://example.org/guide/netting',
     `clipboard got ${JSON.stringify(copied)}`);
 
-  await page.mouse.click(linkPoint.x, linkPoint.y, { button: 'right' });
+  await seed();
+  const linkPoint2 = await at('#sweep-answer a[href^="https"]');
+  await page.mouse.click(linkPoint2.x, linkPoint2.y, { button: 'right' });
   await page.waitForTimeout(300);
   const reopened = await page.evaluate(() => ({
     open: document.querySelectorAll('.action-menu:not(.hidden)').length,
@@ -118,7 +127,18 @@ const { boot } = require('./lib.js');
     JSON.stringify(opened));
 
   // --- the internal [[link]] ------------------------------------------------
-  const wikiPoint = await at('#sweep-answer .wiki-link');
+  // `[[links]]` are rendered by `renderNoteInline`, which is the note preview
+  // rather than the chat's markdown, so this half is measured where they
+  // actually appear: a note card in the Notes list.
+  await page.evaluate(async () => {
+    const h = { 'X-Auth-Token': localStorage.getItem('token') || '', 'Content-Type': 'application/json' };
+    await fetch('/entries', { method: 'POST', headers: h, body: JSON.stringify({ content: 'See [[Netting the beans]] for the pigeons' }) });
+    await loadEntries();
+    switchTab('notes');
+  });
+  await page.waitForSelector('.wiki-link', { timeout: 10000 });
+  await page.waitForTimeout(400);
+  const wikiPoint = await at('.wiki-link');
   await page.mouse.click(wikiPoint.x, wikiPoint.y, { button: 'right' });
   await page.waitForTimeout(250);
   const internal = await page.evaluate(() => {

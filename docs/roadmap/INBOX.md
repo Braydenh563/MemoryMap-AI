@@ -163,13 +163,6 @@ measured or built in earlier commits and is marked there.
     pill: measured 0.0px off centre with 7.4/7.4px insets in a 78.5px pill
     (was 96.8px) at all five widths, `scratchpad/ui-sweeps/chatbadge.js`.
 
-182. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), links.**
-    "I want to be able to right click or hold with a touch on a link and
-    have a popup show to let me copy the link address". App-wide: every
-    rendered markdown link (chat, popup agent, notes, documents) gets one
-    `kebabMenu`-shaped menu on contextmenu and long-press with Copy link
-    address and Open. Owner: chat agent.
-
 180. **Mid-work drop, 2026-09-13, verbatim (the owner), the whiteboard and
     the mind map, two screenshots (a dark board with four objects, every one
     of them showing eight round lilac handles plus a stalk handle above it,

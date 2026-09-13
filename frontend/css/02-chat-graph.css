@@ -2895,9 +2895,23 @@ kbd {
   z-index: 2600;
   width: 0;
   height: 0;
+  /* **The host must not take the next click.** Measured: with the host live,
+     `document.elementFromPoint` at the pointer returned the anchor's own
+     `.menu-wrap` rather than the link under it, so a second right-click on the
+     same link opened nothing at all, the event never reached a link. The host
+     and its anchor are transparent to the pointer; the menu inside takes its
+     own clicks back. */
+  pointer-events: none;
 }
 
-.pointer-menu-anchor {
+.pointer-menu-host .action-menu {
+  pointer-events: auto;
+}
+
+/* Two classes deep on purpose: `.small.icon-only` squares every icon button
+   in the app at (0,2,0), and a single class loses to it, which measured as a
+   menu opening 28px across and 32px below the pointer instead of at it. */
+.pointer-menu-host .pointer-menu-anchor {
   width: 1px;
   height: 1px;
   min-height: 0;

@@ -244,11 +244,50 @@ const wbDeleting = new Set();
 let wbZoomFrame = 0;
 let wbZoomPending = null;
 
+//: **Why the pan transform is on the two `<svg>` roots and not on the `<g>`
+//: inside them** (INBOX 183: "the note objects are fine, but all shapes, lines
+//: and connections lagg behind in position and arent synched").
+//:
+//: Two earlier passes moved these three transforms into one place and gave
+//: them one `will-change`, and the report came back both times, because
+//: `will-change: transform` on an SVG `<g>` promotes nothing: Chromium cannot
+//: composite an element inside an SVG fragment, it paints the whole fragment
+//: into whatever layer the `<svg>` root lives in. Measured through the CDP
+//: layer tree on a live board (`scratchpad/ui-sweeps/panlayers.js`): a note
+//: card was its own composited layer while `svg#wb-svg-layer`, which holds
+//: every shape, line and stroke, was not in the layer list at all. So a pan
+//: moved the cards on the compositor and re-rastered the shapes on the main
+//: thread, and a frame can be presented with the card already moved and the
+//: shape's new tiles not yet ready. That is the report, exactly: the notes are
+//: fine and everything drawn lags.
+//:
+//: The transform therefore has to sit on an element that *can* be composited,
+//: which is the `<svg>` root. The one thing that changes is clipping: a `<g>`
+//: translated inside its viewport is clipped at the viewport, a translated
+//: root takes its viewport with it, so the roots are `overflow: visible` and
+//: the container's own `overflow: hidden` does the clipping instead. Probed
+//: before it was written (`scratchpad/ui-sweeps/panprobe.js`): a rectangle
+//: 2200px outside the viewport, panned in, paints (pixel 255,0,255 at its
+//: centre) and hit-tests (`elementFromPoint` returns it).
+//:
+//: The consequence for every other reader: `#wb-svg-layer`'s bounding rect is
+//: no longer the canvas origin, it moves with the pan. `wbCanvasOriginRect`
+//: below is that origin, and it is the container's own box, which is the same
+//: rectangle the SVG used to report and cannot ever move.
 function wbApplyZoomTransform(t) {
   const css = `translate(${t.x}px, ${t.y}px) scale(${t.k})`;
   d3.select("#wb-html-layer").style("transform", css);
-  d3.select("#wb-zoom-group").style("transform", css);
-  d3.select("#wb-overlay-zoom-group").style("transform", css);
+  d3.select("#wb-svg-layer").style("transform", css);
+  d3.select("#wb-overlay-layer").style("transform", css);
+}
+
+//: The board's origin in screen coordinates: where board 0,0 sits before the
+//: pan transform is applied. Every screen-to-board conversion in this file
+//: subtracts the live d3 transform itself, so what it needs here is the
+//: untransformed canvas box, and since the swap above that is the container
+//: rather than the SVG (which now moves).
+function wbCanvasOriginRect() {
+  return document.getElementById("whiteboard-container").getBoundingClientRect();
 }
 
 function handleWbZoom(e) {
@@ -7181,7 +7220,7 @@ function wbItemTransform(d) {
 //: spaces have to be reconciled explicitly rather than assumed to match.
 function wbSketchAngleFromCenterDeg(boardCx, boardCy, sourceEvent, shiftSnap) {
   const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-  const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
+  const rect = wbCanvasOriginRect();
   const screenCx = boardCx * transform.k + transform.x + rect.left;
   const screenCy = boardCy * transform.k + transform.y + rect.top;
   return wbAngleFromCenterDeg(screenCx, screenCy, sourceEvent.clientX, sourceEvent.clientY, shiftSnap);
@@ -10200,10 +10239,10 @@ async function initWhiteboard() {
 
   // Drawing event handlers on the SVG itself or container
   const svgCanvas = document.getElementById("wb-svg-layer");
-  
+
   function getLogicalMouse(e) {
     const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-    const rect = svgCanvas.getBoundingClientRect();
+    const rect = wbCanvasOriginRect();
     const x = (e.clientX - rect.left - transform.x) / transform.k;
     const y = (e.clientY - rect.top - transform.y) / transform.k;
     return [x, y];
@@ -12049,7 +12088,7 @@ function renderWhiteboard() {
       const endpoints = wbResolveLinkEndpoints(parsed);
       if (!endpoints) return;
       const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-      const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
+      const rect = wbCanvasOriginRect();
       const px = (event.clientX - rect.left - transform.x) / transform.k;
       const py = (event.clientY - rect.top - transform.y) / transform.k;
       const mid = { x: (endpoints.source.x + endpoints.target.x) / 2, y: (endpoints.source.y + endpoints.target.y) / 2 };
@@ -13126,7 +13165,7 @@ function dragStart(event, d) {
     // (nothing near enough) is the free/floating case, resolved fresh every
     // render in `wbLinkEndpoints` instead of frozen at drag-start.
     const startTransform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-    const startRect = document.getElementById("wb-svg-layer").getBoundingClientRect();
+    const startRect = wbCanvasOriginRect();
     const startX = (event.sourceEvent.clientX - startRect.left - startTransform.x) / startTransform.k;
     const startY = (event.sourceEvent.clientY - startRect.top - startTransform.y) / startTransform.k;
     d.linkSourceAnchor = wbNearestAnchor(d._linkKind || "node", d, startX, startY);
@@ -13171,7 +13210,7 @@ function dragging(event, d) {
   if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
   if (window.currentTool && window.currentTool.startsWith("link-")) {
     const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-    const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
+    const rect = wbCanvasOriginRect();
     const mx = (event.sourceEvent.clientX - rect.left - transform.x) / transform.k;
     const my = (event.sourceEvent.clientY - rect.top - transform.y) / transform.k;
 
@@ -13258,7 +13297,7 @@ async function dragEndNode(event, d) {
     wbClearAnchorHints();
 
     const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-    const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
+    const rect = wbCanvasOriginRect();
     const mx = (event.sourceEvent.clientX - rect.left - transform.x) / transform.k;
     const my = (event.sourceEvent.clientY - rect.top - transform.y) / transform.k;
 

@@ -92,8 +92,8 @@ function probe(page) {
     const link = document.querySelector(".wb-link-sketch path, #wb-lines-group path");
     return {
       html: read("#wb-html-layer"),
-      svg: read("#wb-zoom-group"),
-      overlay: read("#wb-overlay-zoom-group"),
+      svg: read("#wb-svg-layer"),
+      overlay: read("#wb-overlay-layer"),
       card: rect(card),
       shape: rect(shape),
       link: rect(link),

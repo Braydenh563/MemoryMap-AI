@@ -528,10 +528,15 @@
 }
 
 /* The three layers a pan transforms. Promoted together so they are composited
-   the same way and land in the same frame, see the desync note above. */
+   the same way and land in the same frame, see the desync note above.
+
+   These are the three elements that now carry the pan (the two `<svg>` roots,
+   not the `<g>` inside them): `will-change` on a `<g>` promotes nothing at
+   all, which is why the desync survived two passes. The reasoning, and the
+   layer-tree measurement behind it, is on `wbApplyZoomTransform`. */
 #wb-html-layer,
-#wb-zoom-group,
-#wb-overlay-zoom-group {
+#wb-svg-layer,
+#wb-overlay-layer {
   will-change: transform;
 }
 
@@ -1807,9 +1812,19 @@ body.scroll-top-visible .skills-split > main {
    moves every time something is added to the board. Without this line a zoom
    would pivot on a point that drifts as you draw. */
 .wb-html-layer,
-#wb-zoom-group,
-#wb-overlay-zoom-group {
+#wb-svg-layer,
+#wb-overlay-layer {
   transform-origin: 0 0;
+}
+
+/* An `<svg>` root clips at its own viewport, and the pan transform is on the
+   root now rather than on the `<g>` inside it, so the viewport travels with
+   the board and would take everything past the first screen with it. The
+   container is `overflow: hidden` and is the right thing to clip to in any
+   case: it is what gives the board its corner radius. */
+#wb-svg-layer,
+#wb-overlay-layer {
+  overflow: visible;
 }
 
 /* Two small spacing helpers, so a one-off gap doesn't need an attribute. */

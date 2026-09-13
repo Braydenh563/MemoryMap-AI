@@ -11,6 +11,11 @@ const { boot } = require("./lib.js");
 
 (async () => {
   const { browser, page } = await boot({});
+  const client = await page.context().newCDPSession(page);
+  await client.send("DOM.enable");
+  await client.send("LayerTree.enable");
+  let lastLayers = [];
+  client.on("LayerTree.layerTreeDidChange", (e) => { if ((e.layers || []).length) lastLayers = e.layers; });
   await page.click('[data-tab="library"]');
   await page.waitForTimeout(700);
   await page.click('#library-subtabs [data-target="library-view-whiteboard"]');
@@ -48,13 +53,21 @@ const { boot } = require("./lib.js");
   });
   console.log("canvas ancestry:", JSON.stringify(ancestry, null, 1));
 
-  const client = await page.context().newCDPSession(page);
-  await client.send("DOM.enable");
-  await client.send("LayerTree.enable");
-  const layers = await new Promise((resolve) => {
-    client.on("LayerTree.layerTreeDidChange", (e) => resolve(e.layers || []));
-    setTimeout(() => resolve([]), 5000);
+  // A pan, so the layer tree is the one a pan produces rather than the one an
+  // idle board has.
+  const cbox = await page.evaluate(() => {
+    const r = document.getElementById("whiteboard-container").getBoundingClientRect();
+    return { cx: Math.round(r.left + r.width / 2), cy: Math.round(r.top + r.height / 2) };
   });
+  await page.click('#wb-tool-group [data-tool="pan"]');
+  await page.mouse.move(cbox.cx, cbox.cy);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i++) await page.mouse.move(cbox.cx + i * 14, cbox.cy + i * 7);
+  const layers = await new Promise((resolve) => {
+    client.on("LayerTree.layerTreeDidChange", (e) => { if ((e.layers || []).length) resolve(e.layers); });
+    setTimeout(() => resolve(lastLayers), 4000);
+  });
+  await page.mouse.up();
   const { root } = await client.send("DOM.getDocument", { depth: -1, pierce: false });
   const nameOf = async (backendNodeId) => {
     if (!backendNodeId) return null;
@@ -63,7 +76,7 @@ const { boot } = require("./lib.js");
       const { node } = await client.send("DOM.describeNode", { nodeId: nodeIds[0] });
       const id = (node.attributes || []).reduce((acc, v, i, a) => (a[i] === "id" ? a[i + 1] : acc), "");
       const cls = (node.attributes || []).reduce((acc, v, i, a) => (a[i] === "class" ? a[i + 1] : acc), "");
-      return `${node.localName}${id ? "#" + id : ""}${cls ? "." + cls.split(" ")[0] : ""}`;
+      return { sel: `${node.localName}${id ? "#" + id : ""}`, cls: cls.split(" ")[0] || "" };
     } catch (e) {
       return `backend:${backendNodeId}`;
     }
@@ -73,12 +86,14 @@ const { boot } = require("./lib.js");
   const named = [];
   for (const l of layers) {
     const n = await nameOf(l.backendNodeId);
-    if (n) named.push(`${n} ${Math.round(l.width)}x${Math.round(l.height)}`);
+    if (n) named.push({ ...n, size: `${Math.round(l.width)}x${Math.round(l.height)}` });
   }
-  for (const n of named) console.log("  layer:", n);
-  const want = ["wb-html-layer", "wb-zoom-group", "wb-overlay-zoom-group", "wb-svg-layer"];
-  for (const w of want) {
-    console.log(`  ${w}: ${named.some((n) => n.includes(w)) ? "COMPOSITED" : "not composited"}`);
+  for (const n of named) console.log("  layer:", `${n.sel}${n.cls ? "." + n.cls : ""} ${n.size}`);
+  // Exact ids, not substrings: the overlay carries the `.wb-svg-layer` class
+  // too, and matching on that once read as the base layer being promoted when
+  // it was not.
+  for (const w of ["svg#wb-svg-layer", "svg#wb-overlay-layer", "div#wb-html-layer"]) {
+    console.log(`  ${w}: ${named.some((n) => n.sel === w) ? "COMPOSITED" : "not composited"}`);
   }
   await browser.close();
 })();

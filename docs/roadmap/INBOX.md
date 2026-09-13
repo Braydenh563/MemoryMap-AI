@@ -172,6 +172,23 @@ measured or built in earlier commits and is marked there.
     of the press now (cursor `grabbing`, `user-select: none`, both measured,
     and dropped on release) and the `auxclick` is prevented.
 
+    **Shapes, lines and connectors lagging behind the notes: found and fixed.**
+    Two earlier passes moved the three pan transforms into one place and gave
+    them one `will-change`, and the report came back both times, because
+    `will-change: transform` on an SVG `<g>` promotes nothing: Chromium paints
+    an SVG fragment into whatever layer the `<svg>` root lives in. Measured
+    through the CDP layer tree on a live board
+    (`scratchpad/ui-sweeps/panlayers.js`): before, the composited layers held
+    `div.wb-object` (a note card) and `svg#wb-overlay-layer`, and
+    `svg#wb-svg-layer`, which holds every shape, line and stroke, was not in
+    the list at all, so a pan moved the cards on the compositor and re-rastered
+    the shapes on the main thread. The transform is on the two `<svg>` roots
+    now, which can be composited, with `overflow: visible` so the viewport no
+    longer clips what the pan brings in (probed: a rectangle 2200px outside
+    paints, pixel 255,0,255, and hit-tests). After: both roots COMPOSITED
+    during a pan. `mindmap.js` 68/76 and `mapdock.js` 25/26, the same numbers
+    as before the change; `marqlink.js` unchanged.
+
 182. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), links.**
     "I want to be able to right click or hold with a touch on a link and
     have a popup show to let me copy the link address". App-wide: every

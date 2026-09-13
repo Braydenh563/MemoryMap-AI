@@ -768,7 +768,10 @@ function check(label, ok, detail) {
   // rect of the node it belongs to. Zero is attached; anything else is the
   // dangling curve in the screenshot.
   const EDGE_PROBE = () => {
-    const svg = document.getElementById("wb-svg-layer").getBoundingClientRect();
+    // The container, not `#wb-svg-layer`: the pan transform lives on the SVG
+    // root now (see `wbApplyZoomTransform`), so the SVG's own rect already
+    // carries `t.x`/`t.y` and adding them again doubled the translation.
+    const svg = document.getElementById("whiteboard-container").getBoundingClientRect();
     const t = d3.zoomTransform(document.getElementById("whiteboard-container"));
     const toScreen = (p) => ({ x: svg.left + t.x + p.x * t.k, y: svg.top + t.y + p.y * t.k });
     const rectOf = (id) => document.querySelector(`.wb-object[data-id="${id}"]`)?.getBoundingClientRect();
@@ -900,7 +903,10 @@ function check(label, ok, detail) {
   const conceptCard = await page.$(`.node-card[data-id="${conceptDrag.n2}"]`);
   const cb = await conceptCard.boundingBox();
   const cardProbe = (id) => {
-    const svg = document.getElementById("wb-svg-layer").getBoundingClientRect();
+    // The container, not `#wb-svg-layer`: the pan transform lives on the SVG
+    // root now (see `wbApplyZoomTransform`), so the SVG's own rect already
+    // carries `t.x`/`t.y` and adding them again doubled the translation.
+    const svg = document.getElementById("whiteboard-container").getBoundingClientRect();
     const t = d3.zoomTransform(document.getElementById("whiteboard-container"));
     const path = document.querySelector(".sketch-group .sketch-path");
     const r = document.querySelector(`.node-card[data-id="${id}"]`).getBoundingClientRect();

@@ -168,6 +168,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Shapes, lines and connectors no longer trail the note cards during a pan.
+  The pan transform moved from the `<g>` inside each board SVG onto the
+  `<svg>` root, because `will-change` on a `<g>` promotes nothing: measured
+  through the layer tree, the SVG holding every shape was not a composited
+  layer at all while a card was (INBOX 183).
 - A middle-button pan on the board now says it is a pan while it runs: the
   grabbing cursor the hand tool uses, no text selection dragged out behind it,
   and the release no longer fires an `auxclick` (INBOX 183).

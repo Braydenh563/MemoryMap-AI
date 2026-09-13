@@ -1,11 +1,11 @@
 """The ONE active embedding backend (plan §2, resolution 1).
 
-Default: sentence-transformers `BAAI/bge-small-en-v1.5` — no Ollama needed.
+Default: sentence-transformers `BAAI/bge-small-en-v1.5`, no Ollama needed.
 Optional: an Ollama embedding model (user's choice).
 
 Both hide behind `embed_text()`, which returns None whenever embeddings
 are unavailable. Callers must treat None as "skip semantic features",
-never as an error — capture and keyword search keep working (plan §4).
+never as an error, capture and keyword search keep working (plan §4).
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ import threading
 import time
 
 import numpy as np
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -39,6 +40,32 @@ logger = logging.getLogger("memorymap.embeddings")
 _warmup = {"running": False, "started": False, "error": False}
 
 
+#: How long the warm-up waits before touching the model. Two seconds is longer
+#: than a page load and a status probe take together on a slow machine, and
+#: shorter than anyone takes to write a first note. Tests set it to zero.
+WARMUP_DELAY_SECONDS = 2.0
+
+
+def _notebook_has_notes(session_factory) -> bool:  # noqa: ANN001
+    """Whether there is anything a warm model could be for.
+
+    Raw SQL rather than the `Entry` model: this module is a leaf under the
+    dependency container, and importing `core.database` from it is the cycle
+    `tests/test_no_import_cycles.py` exists to refuse. An unreadable database
+    answers True, because the cost of a wrong True is one model load and the
+    cost of a wrong False is a cold first search."""
+    try:
+        from sqlalchemy import text
+
+        session = session_factory()
+        try:
+            return session.execute(text("SELECT 1 FROM entries LIMIT 1")).first() is not None
+        finally:
+            session.close()
+    except Exception:  # noqa: BLE001  # see the docstring
+        return True
+
+
 def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # noqa: ANN001
     """Load the embedding model in a background thread at startup, so the
     user's first save doesn't stall. Idempotent per process.
@@ -52,8 +79,33 @@ def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # 
     _warmup["started"] = True
 
     def run() -> None:
+        #: **The first page load goes first.** Importing torch is seconds of
+        #: C-extension initialisation that holds the GIL, and this thread used
+        #: to start it the instant `create_app` returned: on a two-core CI
+        #: runner the event loop stalled long enough that the shell's
+        #: `/auth/status` probe (8s) timed out and the lock screen never
+        #: appeared, which is exactly what the E2E smoke suite failed on
+        #: (run 34734999382: "locator resolved to hidden" for 15 seconds after
+        #: "Application startup complete"). It did not reproduce anywhere
+        #: sentence-transformers was not installed, which is every sandbox
+        #: that reproduced it, so the fix is stated here rather than measured
+        #: here. A short pause lets the index and the status probe through
+        #: before the heavy import begins; the model is still warm long before
+        #: anyone has typed a note.
+        time.sleep(WARMUP_DELAY_SECONDS)
+        #: **And an empty notebook warms nothing.** A first run has no note to
+        #: search and no note to file, so loading a model for it costs the
+        #: slowest part of startup for nothing; the first save loads it, which
+        #: is the moment it is first needed. This is also what keeps a fresh
+        #: CI data dir from paying the torch import at all.
+        if session_factory is not None and not _notebook_has_notes(session_factory):
+            logging.getLogger("memorymap.embeddings").info(
+                "embedding warm-up skipped: the notebook is empty"
+            )
+            return
         _warmup["running"] = True
         _warmup["error"] = False
+        started = time.monotonic()
         try:
             service.embed_text("warm up")
         except Exception:
@@ -67,10 +119,41 @@ def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # 
                     "Loading embedding model",
                     "failed",
                     "Failed to load",
+                    duration_ms=(time.monotonic() - started) * 1000,
                 )
         # Now that the model is up, catch any notes that missed out.
         if session_factory is not None and not _warmup["error"]:
             backfill_missing(service, session_factory)
+            # ...and build the retrieval engine's vector matrix once, here,
+            # on the thread that already waited for the model rather than on
+            # whichever request happens to be first (Brief 11). Before the
+            # model is ready there is no backend id to build against, which
+            # is why this is at the end of the warm-up and not in
+            # `create_app`. A failure is logged and dropped: a cold matrix
+            # means "no similarity yet", never a failed startup.
+            try:
+                # `importlib`, not an `import` statement: this module is a
+                # leaf that `search/engine.py` sits on top of (through
+                # `search_manager`), so naming the engine here closes
+                # `ai.embeddings -> search.engine -> search.search_manager ->
+                # ai.embeddings`. `tests/test_no_import_cycles.py` counts the
+                # statement wherever it sits, because CodeQL does.
+                import importlib
+
+                search_engine = importlib.import_module("memorymap.search.engine")
+
+                session = session_factory()
+                try:
+                    held = search_engine.warm_vectors(session)
+                finally:
+                    session.close()
+                logging.getLogger("memorymap.embeddings").info(
+                    "retrieval matrix warm with %d vector(s)", held
+                )
+            except Exception:  # noqa: BLE001  # see above
+                logging.getLogger("memorymap.embeddings").warning(
+                    "could not warm the retrieval matrix", exc_info=True
+                )
 
     threading.Thread(target=run, name="embedding-warmup", daemon=True).start()
 
@@ -85,13 +168,13 @@ _EMBED_CACHE_MAX = 32
 
 def backfill_missing(
     service: "EmbeddingService",
-    session_factory,  # noqa: ANN001 — a callable returning a Session
+    session_factory,  # noqa: ANN001  # a callable returning a Session
     limit: int = BACKFILL_LIMIT,
 ) -> int:
     """Embed notes that have no vector, and report how many were fixed.
 
     Notes saved while the model was still warming up got no embedding, and
-    nothing ever went back for them — so they stayed invisible to semantic
+    nothing ever went back for them, so they stayed invisible to semantic
     search permanently, while looking perfectly normal in the list. The gap
     closes itself on the next start instead.
 
@@ -107,7 +190,7 @@ def backfill_missing(
     fixed = 0
     try:
         session = session_factory()
-    except Exception:  # noqa: BLE001 — startup helper, never fatal
+    except Exception:  # noqa: BLE001  # startup helper, never fatal
         return 0
     try:
         missing = session.scalars(
@@ -128,7 +211,7 @@ def backfill_missing(
             logging.getLogger("memorymap.embeddings").info(
                 "backfilled %d note(s) that had no embedding", fixed
             )
-    except Exception:  # noqa: BLE001 — a failed backfill must not stop startup
+    except Exception:  # noqa: BLE001  # a failed backfill must not stop startup
         session.rollback()
     finally:
         session.close()
@@ -146,20 +229,20 @@ def warmup_failed() -> bool:
 def clean_orphaned_vectors(session_factory) -> int:  # noqa: ANN001
     """Delete vectors whose note is gone, and say how many went.
 
-    Nothing prunes the embeddings table when an entry is hard-deleted — the
-    recycle bin's purge removes the row and leaves the vector behind — so it
+    Nothing prunes the embeddings table when an entry is hard-deleted, the
+    recycle bin's purge removes the row and leaves the vector behind, so it
     grows forever and every semantic search scans rows that can never match.
 
     This function is called by the background pass, and for a while it was
     *only* called: it did not exist, and the call sat inside a `try/except`
     broad enough to swallow the `AttributeError`, so the orphan cleanup was
     reported as running and silently never ran. Hence the return value and the
-    log line — a maintenance job that cannot say what it did is a maintenance
+    log line: a maintenance job that cannot say what it did is a maintenance
     job nobody can tell is broken.
 
     `session_factory` is required rather than defaulted from `deps`. Defaulting
     it meant this module importing `core.deps`, which imports `EmbeddingService`
-    from this module — a cycle CodeQL flagged, and a layering inversion besides:
+    from this module: a cycle CodeQL flagged, and a layering inversion besides:
     `ai/` sits below the dependency container, not above it. Every caller
     already holds a factory, so the parameter costs them nothing.
     """
@@ -187,7 +270,7 @@ def embedding_text(session: Session, entry: Entry) -> str:
 
     Asked for directly: "allow captions if they accompany images of sketches
     to be read by the ai if they appear in semantic searches." A note that is
-    a drawing and one line of caption used to embed as that one line — the
+    a drawing and one line of caption used to embed as that one line, the
     vision model's description of the drawing was on the `MediaUpload` row and
     the vector knew nothing about it, so "the diagram of the pond" matched
     nothing at all.
@@ -206,7 +289,7 @@ def embedding_text(session: Session, entry: Entry) -> str:
 
     # **How the note is filed is part of what it is about.** Reported
     # directly: "I have a whole category called hobbies but basically none
-    # came up in the semantic search." Nothing was broken — the word
+    # came up in the semantic search." Nothing was broken: the word
     # "hobbies" appears in the *category*, and a category has never been part
     # of what gets embedded, so a note about the gym filed under Hobbies had
     # no more relation to the query "hobbies" than to any other word the note
@@ -215,7 +298,7 @@ def embedding_text(session: Session, entry: Entry) -> str:
     # actually answer, and it costs one short line per note.
     # Queried by id rather than read off a relationship: this app's models
     # declare foreign keys but no ORM `relationship()` anywhere, so
-    # `entry.category` is not an attribute that exists — a `getattr` version
+    # `entry.category` is not an attribute that exists, a `getattr` version
     # of this would have returned None forever and quietly indexed nothing.
     try:
         labels: list[str] = []
@@ -229,7 +312,7 @@ def embedding_text(session: Session, entry: Entry) -> str:
         labels += [str(tag) for tag in raw_tags if str(tag).strip()][:12]
         if labels:
             parts.append("Filed under: " + ", ".join(labels))
-    except Exception:  # noqa: BLE001 — enrichment must never block an embedding
+    except Exception:  # noqa: BLE001  # enrichment must never block an embedding
         pass
 
     # What this note's own attached files say. The same reasoning as the
@@ -256,13 +339,13 @@ def embedding_text(session: Session, entry: Entry) -> str:
         extra = media_process.media_text_for(session, entry.content)
         if extra:
             parts.append(extra)
-    except Exception:  # noqa: BLE001 — enrichment must never block an embedding
+    except Exception:  # noqa: BLE001  # enrichment must never block an embedding
         pass
     return "\n".join(parts)
 
 
 def vector_to_bytes(vector: np.ndarray) -> bytes:
-    """Raw float32 bytes — never pickle (plan §4)."""
+    """Raw float32 bytes: never pickle (plan §4)."""
     return np.asarray(vector, dtype="float32").tobytes()
 
 
@@ -296,7 +379,7 @@ def similar_pairs(
 
     Vectors of a width other than the majority's are dropped rather than
     stacked: a notebook part-way through an embedding-model change holds both
-    widths at once, and `np.stack` on a ragged list raises — which took out the
+    widths at once, and `np.stack` on a ragged list raises, which took out the
     graph and the link suggestions entirely rather than degrading them.
     """
     if not vectors:
@@ -333,7 +416,7 @@ def similar_pairs(
 
 
 class EmbeddingService:
-    # After a failed model load, wait this long before trying again —
+    # After a failed model load, wait this long before trying again, 
     # each attempt can hit the network and stall a save otherwise.
     RETRY_AFTER_SECONDS = 300
 
@@ -342,23 +425,31 @@ class EmbeddingService:
         self._ollama = ollama_client
         self._st_model = None  # loaded lazily, exactly once
         self._load_failed_at: float | None = None
-        # Why the last embed failed, for the Models screen — None = fine.
+        # Why the last embed failed, for the Models screen, None = fine.
         self.last_error: str | None = None
         # Guards _maybe_auto_install_missing_package: try the self-heal at
         # most once per process, not once per failed embed.
         self._auto_install_attempted = False
         # text -> vector, bounded and FIFO. See embed_text for why.
         self._embed_cache: dict[str, np.ndarray] = {}
+        # Written from request threads and the re-index thread at once. A
+        # dict survives concurrent get/set, but the eviction iterates it
+        # (`next(iter(...))`) while another thread may insert, which raises
+        # "dictionary changed size during iteration" inside a save, at
+        # random, under load. One lock, held for microseconds; the embedding
+        # call itself runs outside it.
+        self._cache_lock = threading.Lock()
 
     def clear_embed_cache(self) -> None:
-        """Drop cached vectors — used when the embedding backend changes,
+        """Drop cached vectors: used when the embedding backend changes,
         since the same text then maps to a different vector."""
-        self._embed_cache.clear()
+        with self._cache_lock:
+            self._embed_cache.clear()
 
     def reset_failure_state(self) -> None:
         """Forget a cached load/embed failure so the very next attempt
         retries immediately, and clear the stale error the Models screen
-        shows. Called when the user switches search engine — they've
+        shows. Called when the user switches search engine, they've
         usually just fixed whatever was wrong (e.g. a broken torch), and
         shouldn't have to wait out the 5-minute retry cooldown or stare at
         an out-of-date banner."""
@@ -373,7 +464,7 @@ class EmbeddingService:
 
     def backend_id(self) -> str:
         """Stored as model_version next to every vector, so a backend
-        switch is detectable — vectors from different models live in
+        switch is detectable: vectors from different models live in
         different spaces and must never be compared (plan §6.5)."""
         if self._models.embedding_backend() == "ollama":
             return f"ollama:{self._models.embedding_model()}"
@@ -390,21 +481,23 @@ class EmbeddingService:
         """Vector for one text, or None if the backend is unavailable.
 
         Recent results are cached by exact text. Saving a note embeds it twice
-        within milliseconds — once to store the vector, once by the
-        near-duplicate check that runs straight afterwards — and embedding is
+        within milliseconds: once to store the vector, once by the
+        near-duplicate check that runs straight afterwards, and embedding is
         the slowest part of a save. Keying on the exact string means a cached
         vector can never be stale: different text is simply a different key.
         """
-        cached = self._embed_cache.get(text)
+        with self._cache_lock:
+            cached = self._embed_cache.get(text)
         if cached is not None:
             return cached
         vector = self._embed_uncached(text)
         if vector is not None:
             # Small and FIFO: this exists to collapse duplicate work inside one
             # request, not to be a general-purpose store.
-            if len(self._embed_cache) >= _EMBED_CACHE_MAX:
-                self._embed_cache.pop(next(iter(self._embed_cache)))
-            self._embed_cache[text] = vector
+            with self._cache_lock:
+                if len(self._embed_cache) >= _EMBED_CACHE_MAX:
+                    self._embed_cache.pop(next(iter(self._embed_cache)))
+                self._embed_cache[text] = vector
         return vector
 
     def _embed_uncached(self, text: str) -> np.ndarray | None:
@@ -422,12 +515,12 @@ class EmbeddingService:
         """Load the sentence-transformers model, preferring what's already
         on disk over a live hub round-trip.
 
-        This used to try online first, always — but `SentenceTransformer()`
+        This used to try online first, always, but `SentenceTransformer()`
         with no `local_files_only` still asks the hub whether a cached
         model is current before using it, and that's a real HTTP call this
         offline-first app has no business making on every note save. On a
         network that's merely slow or rate-limited (not simply down), that
-        call doesn't fail fast — `huggingface_hub` retries with backoff for
+        call doesn't fail fast: `huggingface_hub` retries with backoff for
         the better part of a minute before this code ever got a chance to
         fall back to the cache. Trying the cache first sidesteps the
         problem entirely for the common case (already downloaded once);
@@ -440,7 +533,7 @@ class EmbeddingService:
             logger.info("embedding model loaded from local cache")
             return model
         except Exception:
-            pass  # not cached yet (or the cache is stale/corrupt) — fetch it for real
+            pass  # not cached yet (or the cache is stale/corrupt), fetch it for real
         return SentenceTransformer(DEFAULT_ST_MODEL)
 
     def _embed_with_sentence_transformers(self, text: str) -> np.ndarray | None:
@@ -449,7 +542,7 @@ class EmbeddingService:
                 return None  # don't re-stall every save while it's broken
         try:
             if self._st_model is None:
-                # Heavy import (pulls in torch) — deferred so the app
+                # Heavy import (pulls in torch): deferred so the app
                 # starts fast and still runs if the package is missing.
                 self._st_model = self._load_st_model()
                 self._load_failed_at = None
@@ -458,7 +551,7 @@ class EmbeddingService:
             return result
         except Exception as exc:
             # No semantic features right now; the rest of the app must
-            # keep working — but record and LOG why, or a broken install
+            # keep working: but record and LOG why, or a broken install
             # looks like it's "warming up" forever (user-reported bug).
             self.last_error = f"{type(exc).__name__}: {exc}"
             self._load_failed_at = time.monotonic()
@@ -471,7 +564,7 @@ class EmbeddingService:
         process, instead of leaving it to the user to find Settings ->
         Packages themselves.
 
-        Search-by-meaning is the *default* engine — it already silently
+        Search-by-meaning is the *default* engine, it already silently
         downloads its own ~130MB model from Hugging Face on first use with
         no separate opt-in, so installing the one PyPI package that makes
         it importable at all is the same "works without being asked" shape,
@@ -479,15 +572,15 @@ class EmbeddingService:
         checking GitHub for updates would be.
 
         Deliberately narrow: only a genuine "the package flat-out isn't
-        there" `ModuleNotFoundError` triggers this. A different failure —
+        there" `ModuleNotFoundError` triggers this. A different failure: 
         a corrupted install, an incompatible wheel, an out-of-memory crash
-        — retrying the exact same `pip install` would do nothing but burn
+        - retrying the exact same `pip install` would do nothing but burn
         bandwidth and hide a real problem behind "installing…" forever;
         `is_installed`'s own docstring already notes that import-success
         isn't "it's sound", which is a different, harder problem than this
         (`reinstall`, the manual escape hatch in Settings, exists for that
         one). Reuses `core.extras.start`, the same machinery the Settings ->
-        Packages button calls — including this session's `find_system_python`
+        Packages button calls: including this session's `find_system_python`
         fix, so this now actually works on a packaged (frozen) build, not
         just a source checkout.
         """
@@ -500,26 +593,26 @@ class EmbeddingService:
 
         started, message = extras.start("semantic")
         if not started:
-            # Already installed (so this was a *different* failure — sound
+            # Already installed (so this was a *different* failure, sound
             # but broken, `reinstall`'s job, not this one's), already
             # running (someone beat this to it), or genuinely unavailable
             # on this platform. Nothing safe to do automatically either way.
             logger.info("sentence-transformers auto-install not started: %s", message)
             return
-        logger.info("sentence-transformers missing — installing it automatically")
+        logger.info("sentence-transformers missing: installing it automatically")
 
         def _retry_once_installed() -> None:
             while extras.current().running:
                 time.sleep(1)
             if extras.current().outcome == "completed":
                 logger.info(
-                    "sentence-transformers auto-install finished — retrying the load"
+                    "sentence-transformers auto-install finished: retrying the load"
                 )
                 # CPython's path-based import finders cache directory
                 # listings for speed, so a package that didn't exist the
                 # first time this process looked can still come up
                 # "missing" on a naive retry even though pip just put it
-                # there — invalidate_caches() is the documented fix
+                # there: invalidate_caches() is the documented fix
                 # (importlib docs, "Caching and invalidation"), and is what
                 # makes this an actual same-process fix rather than a
                 # "restart MemoryMap" instruction in different words.
@@ -533,7 +626,7 @@ class EmbeddingService:
         ).start()
 
     def store_for_entry(self, session: Session, entry: Entry) -> bool:
-        """Save an entry's vector. Returns False on failure — which only
+        """Save an entry's vector. Returns False on failure, which only
         means no semantic search for this entry; it never blocks the
         entry save itself.
 
@@ -545,6 +638,15 @@ class EmbeddingService:
         vector = self.embed_text(embedding_text(session, entry))
         if vector is None:
             return False
+        # **Storing is storing, not inserting.** `entry_id` is unique, so a
+        # second call for the same note raised `UNIQUE constraint failed:
+        # embeddings.entry_id` and took whatever was saving with it. Every
+        # caller today already deletes the old row first, or selects only
+        # notes that have none, so nothing was broken; the duplication of
+        # that guard across four call sites was the bug waiting to happen,
+        # because the next caller has to know to write it and the name says
+        # it does not have to. Their deletes stay, harmlessly, as no-ops.
+        session.execute(sa_delete(EmbeddingRecord).where(EmbeddingRecord.entry_id == entry.id))
         session.add(
             EmbeddingRecord(
                 entry_id=entry.id,
@@ -557,7 +659,7 @@ class EmbeddingService:
         return True
 
 
-# `store_quietly` used to live here and is now `core.deps.store_quietly` — it
+# `store_quietly` used to live here and is now `core.deps.store_quietly`, it
 # needs the shared EmbeddingService, and reaching for that from inside this
 # module means importing the container that imports this module. See the
 # docstring there.

@@ -331,9 +331,20 @@ the reasoning; `docnarrow.js` asserts it.
 
 1. **The phone formatting bar** (< 600): **built 2026-09-13**, see HISTORY.md
    "Moved from the plans, 2026-09-13".
-2. **The outline as a sheet from the bottom** (< 600). The sidebar sheet from
-   the left already carries the outline, so this is a judgement about whether a
-   second sheet earns itself on a phone, not a gap.
+2. **The outline as a sheet from the bottom** (< 600): **decided against,
+   2026-09-13, and the decision is not remade.** Measured at 390x820 before
+   deciding (`scratchpad/ui-sweeps/outline390.js` numbers, run once rather than
+   kept: the probe is two clicks and an assertion the sweeps above already
+   cover): the outline is two taps away and both targets are the size this band
+   asks for. The rail's toggle is a 44x44 button at x=7, y=71, the tap opens the
+   sidebar sheet whole (left 0, width 320 of a 390px window), and the Outline
+   tab in it lists all eighteen headings from y=189 with no scrolling. A second
+   sheet would be a third way to the same list, built from a recipe that says a
+   sheet is a modal dialog: it would cover the document exactly as the first one
+   does, and the only thing it would save is the tab tap. What would earn itself
+   instead, if the reach is ever reported, is the sidebar sheet *opening on the
+   Outline tab* while a document is open, which is one line in the opener and no
+   new surface. Left unbuilt on purpose.
 3. **"The first line of text is on screen with the keyboard open"** is asserted
    without a keyboard: the sandbox has no soft keyboard, so `docnarrow.js`
    measures the first line at 318px with the viewport at its full height and

@@ -9623,7 +9623,12 @@ async function initWhiteboard() {
       (wbSelectedItem || wbMultiSelection.size > 0)
     ) {
       e.preventDefault();
-      const step = wbSnapOn() ? WB_GRID_SPACING : e.shiftKey ? 10 : 1;
+      //: Shift is the big step whether or not snap is on (INBOX 175: "hold
+      //: shift and use arrows ... move them further distance increments
+      //: like in adobe software"): one grid cell or 1px plain, five cells or
+      //: 10px with Shift, which is Illustrator's and Figma's convention.
+      const base = wbSnapOn() ? WB_GRID_SPACING : 1;
+      const step = e.shiftKey ? base * (wbSnapOn() ? 5 : 10) : base;
       const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0;
       const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0;
       wbNudgeSelection(dx, dy);

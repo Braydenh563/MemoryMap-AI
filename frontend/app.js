@@ -15987,6 +15987,19 @@ function renderMemoryProposal(holder, proposal) {
 // ordinary conversation history rather than through any parked server state.
 // Nothing to expire, nothing lost on a reload, and the exchange reads back in
 // the saved chat like the short question-and-answer it was.
+//: **The question the model asked, while it waits** (INBOX 169, the owner:
+//: "should ask user have a textbox in it for the other option?? and the ask
+//: user tool should be select and submit, not instant submit when clicked";
+//: and 171: an answer typed in the chat bar left the card standing, so the
+//: "Other" button then sent a second answer and two replies streamed at
+//: once). One card is pending at a time; `pendingAgentQuestion` is how the
+//: chat bar's own send settles it, and how a second answer cannot be sent.
+let pendingAgentQuestion = null;
+
+function settlePendingAgentQuestion(answer) {
+  if (pendingAgentQuestion) pendingAgentQuestion.settle(answer);
+}
+
 function renderAgentQuestion(holder, event) {
   const card = document.createElement("div");
   card.className = "tool-confirm agent-ask";
@@ -15995,28 +16008,68 @@ function renderAgentQuestion(holder, event) {
   const row = document.createElement("div");
   row.className = "row agent-ask-options";
 
-  let answered = false;
-  const answer = (choice) => {
-    if (answered) return; // double-click, or Enter on a focused button
-    answered = true;
-    // Replace the card rather than leave dead buttons: the exchange is
-    // already about to appear as a normal user message below.
-    card.replaceWith(toolChip(`ph:question ${event.question} → ${choice}`));
-    sendChatMessage(choice);
+  let chosen = null;
+  let settled = false;
+  const buttons = [];
+  const other = document.createElement("input");
+  other.type = "text";
+  other.className = "agent-ask-other-input";
+  other.placeholder = "Or write your own answer…";
+  other.setAttribute("aria-label", "Your own answer");
+  const send = smallButton("ph:paper-plane-right Send answer", "Send this answer", () => submit(), false);
+  send.disabled = true;
+  const sync = () => {
+    send.disabled = !(chosen || other.value.trim());
+    for (const button of buttons) {
+      button.setAttribute("aria-pressed", button.dataset.option === chosen ? "true" : "false");
+    }
   };
-
   for (const option of event.options || []) {
-    row.appendChild(smallButton(option, `Answer: ${option}`, () => answer(option), false));
+    const button = smallButton(option, `Choose: ${option}`, () => {
+      // A second click on the chosen one clears it, as a toggle does.
+      chosen = chosen === option ? null : option;
+      if (chosen) other.value = "";
+      sync();
+    });
+    button.dataset.option = option;
+    button.setAttribute("aria-pressed", "false");
+    buttons.push(button);
+    row.appendChild(button);
   }
+  other.addEventListener("input", () => {
+    if (other.value.trim()) chosen = null;
+    sync();
+  });
+  other.addEventListener("keydown", (keyEvent) => {
+    if (keyEvent.key === "Enter") {
+      keyEvent.preventDefault();
+      submit();
+    }
+  });
+  const settle = (answer) => {
+    if (settled) return;
+    settled = true;
+    if (pendingAgentQuestion && pendingAgentQuestion.card === card) pendingAgentQuestion = null;
+    card.replaceWith(toolChip(`ph:question ${event.question} → ${answer}`));
+  };
+  const submit = () => {
+    const answer = other.value.trim() || chosen;
+    if (!answer || settled) return;
+    settle(answer);
+    sendChatMessage(answer);
+  };
+  const otherRow = document.createElement("div");
+  otherRow.className = "row agent-ask-other";
+  otherRow.append(other, send);
   const note = document.createElement("p");
   note.className = "muted";
-  note.textContent = "Or type your own answer below.";
-  card.append(text, row, note);
+  note.textContent = "Pick one or write your own, then send. Typing in the chat bar answers it too.";
+  card.append(text, row, otherRow, note);
   holder.appendChild(card);
+  pendingAgentQuestion = { card, settle };
   chatScrollToEnd();
 }
 
-// After the AI changes data, every list on screen may be stale.
 function refreshAfterToolChanges() {
   loadEntries().catch(() => {});
   loadReminders().catch(() => {});
@@ -17942,6 +17995,9 @@ async function sendChatMessage(preset, opts = {}) {
   // is an ordinary message again.
   const answeringAgent = opts.answeringAgent ?? chatAwaitingAgentAnswer;
   chatAwaitingAgentAnswer = false;
+  // Whatever is sent while a question card waits is its answer (INBOX 171):
+  // the card folds into its chip and cannot send a second one.
+  settlePendingAgentQuestion(opts.displayText ?? typed);
 
   // **Staged images become real uploads here**, at the moment the message is
   // actually committed: see `attachImageFiles` for why nothing was uploaded
@@ -18169,6 +18225,12 @@ async function sendChatMessage(preset, opts = {}) {
   // the input box and the conversation, so it is remembered and started
   // once everything below has run.
   let handoff = null;
+  // Set when the turn ended by asking the person something: the question is
+  // the answer, and "the model finished without writing anything" over a
+  // question card (INBOX 169, with a screenshot) blamed the model for
+  // doing what it was told.
+  let asked = false;
+  let askedQuestion = null;
   // Set when the turn stopped because it ran out of rounds, and, for a skill
   // run: the step it did not get past. Both become a button at the end of the
   // bubble rather than a sentence asking the user to type "carry on".
@@ -18256,7 +18318,11 @@ async function sendChatMessage(preset, opts = {}) {
     try {
       const partial = {
         question,
-        answer: timeline.text(),
+        // A turn that ended by asking saves the question as its answer, so a
+        // reloaded thread shows what was asked rather than an empty bubble
+        // (INBOX 171: "all the ai responses dissappeared"; the question
+        // lives in the bubble's output area, which is not a serialised step).
+        answer: timeline.text() || (askedQuestion ? `Asked: ${askedQuestion}` : ""),
         thinking: timeline.thinkingText() || null,
         tools: toolEvents.length ? toolEvents : null,
         steps: timeline.serialise(),
@@ -18492,6 +18558,8 @@ async function sendChatMessage(preset, opts = {}) {
         recordsHolder.appendChild(card.firstElementChild || card);
         status.textContent = "Waiting for your answer…";
         chatAwaitingAgentAnswer = true;
+        asked = true;
+        askedQuestion = event.question;
       },
       onRunSkill: (event) => {
         // The model picked a saved skill for this job (§33). Its turn is over;
@@ -18836,7 +18904,7 @@ async function sendChatMessage(preset, opts = {}) {
     // below is the answer. Complaining that the model wrote nothing would be
     // wrong, and the retry button would re-run the choosing turn rather than
     // the skill.
-    if (!stopped && !handoff) {
+    if (!stopped && !handoff && !asked) {
       const note = document.createElement("p");
       note.className = "muted";
       note.textContent =
@@ -18871,7 +18939,7 @@ async function sendChatMessage(preset, opts = {}) {
   try {
     const payload = {
       question,
-      answer: answerRaw,
+      answer: answerRaw || (askedQuestion ? `Asked: ${askedQuestion}` : ""),
       thinking: thinkingRaw || null,
       tools: toolEvents.length ? toolEvents : null,
       // The run in the order it happened, so reopening the chat shows the
@@ -24167,7 +24235,13 @@ function renderMarkdown(container, text, depth = 0) {
       i++;
     }
     const p = document.createElement("p");
-    appendInline(p, para.join(" "));
+    //: `<br>` is the one tag models write inside prose that means something
+    //: (INBOX 172: "<br> md tags arent rendered properly"): a line break
+    //: within the paragraph, not a paragraph break and not the literal text.
+    para.join(" ").split(/<br\s*\/?>/i).forEach((piece, index) => {
+      if (index) p.appendChild(document.createElement("br"));
+      appendInline(p, piece);
+    });
     container.appendChild(p);
   }
   closeList();

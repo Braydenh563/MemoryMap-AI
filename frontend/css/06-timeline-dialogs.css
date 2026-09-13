@@ -1020,6 +1020,29 @@
   font-size: 0.75rem;
 }
 
+/* The card's own answer field and its send (INBOX 169): one row under the
+   options, the field taking the room at the small buttons' height. */
+.agent-ask-other {
+  margin-top: var(--space-2);
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.agent-ask-other-input {
+  flex: 1 1 10rem;
+  min-width: 0;
+  height: 1.75rem;
+  padding-block: 0;
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.agent-ask-options button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+
 /* "Peek": fade the settings panel so a colour change can be seen on the page
    behind it. Done with color-mix on the BACKGROUND rather than element
    opacity: opacity fades the text, the swatches and the controls too, which

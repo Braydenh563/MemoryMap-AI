@@ -23973,6 +23973,71 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     *browser* from serving old code once the server has new code on
     disk, it does not substitute for actually pulling the branch.
 
+169. **Mid-work drop, 2026-09-13 ~07:00, verbatim (the owner), the chat's
+    ask-user tool (four screenshots).** "when the ask user tool is used, the
+    message {"The model finished without writing anything. That usually
+    means it ran out of context or the model is struggling with this
+    question, try again, or rephrase it."} shows above, also should ask user
+    have a textbox in it for the "other" option?? and the ask user tool
+    should be select and submit, not instant submit when clicked" · "it
+    asked me another question, I decided to write something else in the
+    chat bar and submit that as an answer but the ask user message didnt
+    update instead it stayed there, so I pressed the "other" option and i t
+    started generating two responses??"
+    **Fixed.** The card chooses then sends: an option toggles (aria-pressed),
+    an "Or write your own answer" field sits under the options, and one
+    Send answer button submits; a send from the chat bar folds the card
+    into its chip (`settlePendingAgentQuestion`), so a second answer cannot
+    be sent; and a turn that ended by asking no longer gets "The model
+    finished without writing anything" over its question. Measured
+    (`scratchpad/ui-sweeps/askcard.js`): send disabled at start, a pick
+    marks one option and sends nothing, field 28px beside 28px buttons,
+    exactly one send, both cards folded.
+170. **Mid-work drop, 2026-09-13, verbatim (the owner), the context
+    window.** "is there a way to improve or make managable the 8.2k model
+    window in chats and other ai features??" With the agent run logs:
+    "context budget: 8192 tok window -> system=1477 tools=7912 results=7912
+    notes=6594 history=3956 reply=4915 chars / prompt composition:
+    system=1766 history=0 notes+question=4225 tool_schemas=4738 chars (14
+    tools offered)" (four such lines, tool_schemas up to 6389 chars with 18
+    tools). The header badge read 2.2k / 8.2k then 3.8k / 8.2k on
+    granite4.1:3b.
+    **Answered, 2026-09-13.** The window is already the person's to set:
+    Settings > Models > Context window (per model, `e2f1cb6`) is sent to
+    Ollama as `num_ctx` on every request, so a 3B model that supports 32k
+    or 128k can be given it; the app trims tools, notes and history to
+    whatever the window is. The log's `tool_schemas` line (4.7 to 6.4k
+    chars of an 8k window) is the next thing to shrink: WORLD_CLASS_PLAN's
+    prompt budget row. Nothing to build here beyond that row.
+171. **Mid-work drop, 2026-09-13, verbatim (the owner), the chat
+    transcript (two screenshots: every Librarian bubble empty under its
+    label, the last one holding only a "Next:" suggestion chip).** "all the
+    ai responses dissappeared 😭😭". Each empty bubble followed a turn in
+    which the model had asked a question through the ask-user tool.
+    **Fixed.** A turn that ends by asking saves the question as its answer
+    ("Asked: …"), so a reloaded thread shows what was asked; the question
+    card itself lives in the bubble's output area, which is not a saved
+    step (by an earlier decision, see `onAsk`). Not reproduced live: the
+    empty bubbles need a saved thread with question-only turns, which the
+    fake transport does not produce; reasoned from `openConversation`,
+    which renders `content` and `steps` and had neither for such a turn.
+173. **Mid-work drop, 2026-09-13, verbatim (the owner), Settings > Logs
+    (three screenshots of the top bar's trailing button: a chevron drawn
+    over the three dots, with a focus ring).** "the dropdown in the settings
+    logs page top bar is visually broken" · "more like the button not the
+    dropdown menu itself".
+    **Fixed.** `.settings-section summary::before` drew the fold chevron on
+    every summary in a settings section, the logs dock's icon-only kebab
+    included; glyph-only summaries are excluded. Measured: no pseudo,
+    icon centred at 11px of 36 (`askcard.js`).
+175. **Mid-work drop, 2026-09-13, verbatim (the owner), the whiteboard's
+    keyboard.** "also I want to be able to hold shift and use arrows when
+    moving items on teh whiteboard and move them further distance
+    increments when if just using arrows like in adobe software and other
+    common software".
+    **Fixed.** Arrows move one grid cell (snap on) or 1px; Shift moves five
+    cells or 10px (the earlier rule let Shift do nothing while snap was on).
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

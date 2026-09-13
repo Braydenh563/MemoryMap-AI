@@ -166,6 +166,15 @@ below). Versioning is `0.x` while the app stabilises.
 - The graph's suggested-links rows have one control height: the reason
   field was 42px beside 28px buttons, so every row ran to 69px; it is 56px
   with the field at the buttons' height.
+- The AI's question card chooses, then sends. An option marks itself, an
+  "Or write your own answer" field sits under the options and one Send answer
+  button submits; an answer typed in the chat bar folds the card away, so it
+  can no longer send a second answer; a turn that ended by asking is not
+  reported as having written nothing, and a reloaded thread shows what was
+  asked instead of an empty bubble.
+- `<br>` in an answer renders as a line break; the logs page's kebab button
+  lost the fold chevron that was drawn over its dots; Shift with the arrow
+  keys moves whiteboard items five grid cells (or 10px) at a time.
 
 - The lock screen could fail to appear on a slow first start. The embedding
   warm-up began importing torch the instant the server was up, and that import

@@ -3957,8 +3957,13 @@ input[type="url"]:hover:not(:focus) {
   display: none;
 }
 
+/* `:not(.icon-only)`: the logs dock's kebab is a summary inside a settings
+   section too, and this chevron drew itself over its three dots (INBOX
+   173, "the button ... is visually broken", three screenshots). The
+   chevron belongs to text summaries that fold a section, not to a
+   glyph-only menu button. */
 .about-whats-new::before,
-.settings-section summary::before,
+.settings-section summary:not(.icon-only):not(.doc-dock-menu-btn)::before,
 .help-accordion > summary::before {
   content: "";
   flex: 0 0 auto;
@@ -3971,7 +3976,7 @@ input[type="url"]:hover:not(:focus) {
 }
 
 details[open] > .about-whats-new::before,
-.settings-section details[open] > summary::before,
+.settings-section details[open] > summary:not(.icon-only):not(.doc-dock-menu-btn)::before,
 details[open].help-accordion > summary::before {
   transform: rotate(45deg);
 }

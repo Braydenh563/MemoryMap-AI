@@ -2198,3 +2198,29 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .help-popover {
   max-height: min(60vh, 32rem);
 }
+
+/* --- a help popover opens over the surface that asked for it (INBOX 205) ---
+   Reported: "the '?' tooltip dropdown in the popup agent shows behind the
+   panel instead of in front". Measured inside `#command-palette-overlay`
+   (`scratchpad/ui-sweeps/chromehelp.js`): the popover is placed correctly,
+   at 428,186 with a 416x189 body, and `document.elementFromPoint` at its own
+   centre returns a span belonging to the palette card, not the popover.
+
+   Not a blurred ancestor this time, which is the usual cause here: the panel
+   already leaves for `<body>` on open. It is the tier. `.help-popover` is
+   `z-index: 1020`, chosen when the surfaces it opened over were the dialogs
+   at 1010, and the command palette sits at 2000 (`07-whiteboard-misc.css`),
+   above the whole dialog range, so every '?' inside it opened underneath it.
+
+   The popover is transient, is dismissed by the next click anywhere, and is
+   always opened from a trigger on whatever surface is topmost: so its tier is
+   "above the surfaces a '?' can appear on" rather than a fixed place in the
+   dialog stack. 2500 clears the palette (2000) and the full-view table
+   (2400), and stays under the pointer-anchored menu host (2600) and the boot
+   splash (3000), neither of which can be open at the same time as a '?'.
+
+   A dialog added above 2500 must raise this with it, which is why the numbers
+   above are named rather than left to be rediscovered. */
+.help-popover {
+  z-index: 2500;
+}

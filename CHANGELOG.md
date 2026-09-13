@@ -20,7 +20,8 @@ below). Versioning is `0.x` while the app stabilises.
   the header's icon buttons lose their segmented wells for the header's own
   ground (207). A help '?' popover is capped at a reading height and scrolls
   instead of running the height of the window, and stays inside the window on
-  a phone (206).
+  a phone (206), and opens in front of the popup agent rather than behind it
+  (205).
 
 ### Added
 

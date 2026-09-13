@@ -13,20 +13,17 @@ More sheet).
 - INBOX 207, the agent and the Guide leave the header, and the header's icon
   buttons lose their segmented wells: `413dd5c`.
 - INBOX 206, the help popover's ceiling, its first painted frame and its
-  right edge on a phone: this commit.
+  right edge on a phone: `06f6048`.
+- INBOX 205 first half, the '?' popover's tier inside the palette: this
+  commit. The starters half is still open.
 
 ## Next, in order
 
-1. INBOX 205 first half: `.help-popover`'s `z-index: 1020`
-   (`03-dashboard-widgets.css`) is under `.command-palette-overlay`'s 2000
-   (`07-whiteboard-misc.css`), so the palette's '?' opens behind the panel.
-   Measured: `elementFromPoint` at the popover's centre is a span outside
-   the panel.
-2. INBOX 202, the theme switch: 4,214 of 5,590 elements compute
+1. INBOX 202, the theme switch: 4,214 of 5,590 elements compute
    `transition-property: all`, and 79 carry a `backdrop-filter`.
-3. INBOX 203: no control in the app carries `data-needs-model` yet
+2. INBOX 203: no control in the app carries `data-needs-model` yet
    (measured 0).
-4. INBOX 205 second half, 204 second half and 208: the palette's starters,
+3. INBOX 205 second half, 204 second half and 208: the palette's starters,
    the Guide's persona and knowledge, the foot row.
 
 ## Not verified

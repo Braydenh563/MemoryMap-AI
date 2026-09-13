@@ -442,3 +442,140 @@
   font-size: var(--text-sm);
   color: var(--muted);
 }
+
+/* =============================================================================
+   A diff of two versions of the same text (DOCUMENTS_PLAN Phase 5 items 2, 3)
+   =============================================================================
+
+   Drawn by `docRenderDiff` in documents.js and by nothing else
+   (tests/test_document_diff.py). The container reuses `.diff-viewer`'s box,
+   the one the chat's before/after card already uses, so a diff is one kind of
+   object in this app; what is added here is the part that box never had, a
+   row per line with a marker column, the unchanged runs counted rather than
+   printed, and a head per change for the panel that accepts them one at a
+   time. The ink is `.diff-added` / `.diff-removed`, which carry `--ok` and
+   `--error`: same colours, same meaning, wherever a change is shown. */
+.doc-diff {
+  max-height: min(22rem, 50vh);
+  padding: var(--space-2);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+/* The marker column holds +/- at a fixed width so the text of every line
+   starts on one edge; a diff whose lines start at two different x positions
+   reads as two lists rather than one before and after. */
+.doc-diff-line {
+  display: flex;
+  gap: var(--space-2);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+}
+
+.doc-diff-mark {
+  flex: 0 0 1ch;
+  user-select: none;
+  opacity: 0.7;
+}
+
+.doc-diff-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The two states the shared classes already colour, given a ground here so a
+   change is findable by scanning rather than by reading every line. The
+   strike-through the chat's one-line removal carries is cancelled: over forty
+   lines it stops being emphasis and starts being noise. */
+.doc-diff .diff-removed {
+  margin-bottom: 0;
+  background: var(--error-soft);
+  text-decoration: none;
+}
+
+.doc-diff .diff-added {
+  background: var(--ok-soft);
+}
+
+/* What is between two changes, said rather than shown. */
+.doc-diff-gap {
+  padding: var(--space-1) var(--space-2);
+  color: var(--muted);
+  font-family: var(--ui-font, inherit);
+  font-size: var(--text-xs);
+  font-style: italic;
+}
+
+/* One change, with the control that keeps or skips it. Sticky so the control
+   for the change you are reading stays reachable in a long proposal. */
+.doc-diff-hunk-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-top: 1px solid var(--border-light);
+  background: var(--inner);
+  font-family: var(--ui-font, inherit);
+  font-size: var(--text-xs);
+}
+
+.doc-diff-hunk-head:first-child {
+  margin-top: 0;
+  border-top: none;
+}
+
+/* A skipped change stays on screen and stops looking like part of the answer:
+   it is a choice you can take back, not a change that has gone away. */
+.doc-diff-line.is-skipped {
+  opacity: 0.45;
+}
+
+.doc-diff-empty {
+  margin: 0;
+}
+
+/* The diff inside a history row: it opens in the row's own text column, so the
+   row keeps its shape and the icon and the actions stay where they were. */
+.doc-history-diff {
+  margin-top: var(--space-2);
+}
+
+.doc-diff-head {
+  margin: 0 0 var(--space-1);
+}
+
+/* The history row's three columns, once there are three actions in the last
+   one. Measured with the diff's "Changes" button added: the actions block
+   takes 245px of a 420px dialog and `.doc-ai-history-text` is `flex: 1 1 auto`,
+   so the text column was squeezed to 134.6px and a 238-character preview wrapped
+   to 270px, making a 346px row in a 384px list: one version filled the history.
+   Two rules, both about the same mistake, a row that lets one part of itself
+   take the space the rest needs:
+
+   - the text column asks for a real basis and refuses to shrink below it, so
+     the actions wrap within themselves instead of crushing it;
+   - the preview is two lines and then an ellipsis. It is an opening, not the
+     version: "View" is how you read the version, and a preview that grows to
+     nine lines is neither. */
+#doc-history-list .doc-ai-history-text {
+  flex: 1 0 14rem;
+}
+
+#doc-history-list .doc-history-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.doc-history-preview {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}

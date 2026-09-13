@@ -5284,14 +5284,35 @@ function docLivePlugin(CM) {
           );
           return;
         }
+        //: **The target's own heading marker is markup here too.** Reported
+        //: twice: "note links have inline md not rendered or suppressed", then
+        //: "document reference links still show inline md" with a screenshot of
+        //: this editor drawing `# Girl with bell` inside the link chip. The
+        //: button renderers were fixed by cleaning their label
+        //: (`wikiLinkLabel`, app.js); here the text is the document's own
+        //: content, so nothing can be rewritten, only hidden.
+        //:
+        //: Which is exactly what the two lines below already do to `[[` and
+        //: `]]`: they are syntax rather than words, they are concealed while
+        //: the caret is elsewhere, and `rangeRevealed` gives every character
+        //: back the moment you edit the link. The `# ` the `[[` picker copied
+        //: out of the target note's first line is the same kind of thing, and
+        //: it is the only part of a link's text that is never the note's name.
+        //:
+        //: The mark starts after it so the chip is drawn around the words
+        //: alone; `data-doc-wiki` keeps the whole spec, because that is what
+        //: the resolver matches against and every link ever written is in that
+        //: form.
+        const marker = /^#{1,6}[ \t]*/.exec(name);
+        const markerLength = marker ? marker[0].length : 0;
         ranges.push(
           Decoration.mark({
             class: "cm-md-wiki",
             attributes: { "data-doc-wiki": name, title: `Open “${name}”` },
-          }).range(from + 2, to - 2)
+          }).range(from + 2 + markerLength, to - 2)
         );
         if (rangeRevealed(from, to)) return;
-        hide(from, from + 2);
+        hide(from, from + 2 + markerLength);
         hide(to - 2, to);
       });
     }

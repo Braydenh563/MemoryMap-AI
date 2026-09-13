@@ -216,7 +216,11 @@ owner's own later instructions and said so there.
 [HISTORY.md](HISTORY.md) "Moved from the plans, 2026-09-13". Decisions 8, 9,
 11 and 12. Gate green in both halves it has
 (`scratchpad/ui-sweeps/chatphase3.js` for the browser,
-`tests/test_ask_answer_object.py` for the transport).
+`tests/test_ask_answer_object.py` for the transport). One gate line was
+superseded by the owner's own later instruction and re-run in that form: the
+starters are decision 9's twelve **plus the current tab's two** (INBOX 190,
+decision 14), so the sweep asserts 14 chips in 6 groups with the tab's own
+group first.
 
 ### Phase 4: skills that finish (one session; Brief 13)
 Decisions 10 and 10a to 10f. Built, 2026-09-12: see HISTORY.md, "Moved from

@@ -119,7 +119,12 @@ const NOTES = [
       toggle: !!document.getElementById('command-palette-use-note'),
     };
   });
-  check('3 starters: twelve, in five groups', palette.chips === 12 && palette.groups.length === 5,
+  // Superseded by the owner's own later instruction (INBOX 190: "starters that
+  // depend on the tab you are on"), so the gate line is the twelve plus the
+  // current tab's two, under a group named for that tab. Decision 9's twelve
+  // are all still there; what changed is that they are no longer all of them.
+  check('3 starters: the twelve, plus this tab\'s two, in six groups',
+    palette.chips === 14 && palette.groups.length === 6 && /^On /.test(palette.groups[0] || ''),
     `${palette.chips} chip(s), groups ${palette.groups.join(', ')}`);
   check('3 starters: every one carries a tooltip, and the stems are the slots',
     palette.untitled === 0 && palette.stems > 0,

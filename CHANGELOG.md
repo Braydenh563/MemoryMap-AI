@@ -9,6 +9,17 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Three ways to change what is in front of you while you write, in the
+  document's ⋯ menu and remembered: "Dim all but this paragraph" fades every
+  line outside the one you are in, "Keep this line centred" scrolls the pane so
+  the line you are typing on stays in the middle, and "Serif for reading" draws
+  the rendered page in a serif with a little more leading. Measured with
+  `scratchpad/ui-sweeps/docreading.js`: 40 of 41 lines at opacity 0.35 with the
+  caret's paragraph at 1, the caret at 0.483 of the pane's height with the
+  typewriter on against 0.956 without it, and the rendered page's line height
+  24px to 27.52px with its text drawn 24.1px narrower, which is a different
+  face rather than a different name for the same one.
+
 - An AI edit arrives as a change you can take apart. The assistant's answer is
   shown as a diff against what it was asked to rewrite, one head per change,
   and any change can be skipped: skipping puts the old lines back rather than

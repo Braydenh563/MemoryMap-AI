@@ -596,3 +596,31 @@
   margin: 0 0 var(--space-1);
   font-size: var(--text-sm);
 }
+
+/* =============================================================================
+   Reading and focus (DOCUMENTS_PLAN Phase 5 item 4, PLAN D9)
+   ============================================================================= */
+
+/* Dimming is written here rather than in the theme object, which is this
+   file's one exception to "layout here, ink in the theme", and it is a
+   specificity argument rather than a preference: CodeMirror's own sheets are
+   adopted stylesheets and sort after this file, so a rule at equal
+   specificity would lose. `.doc-dim` is not a class CodeMirror sets, and
+   `.cm-line.cm-doc-dimmed` is (0,2,0) against the base rule's (0,1,0), so this
+   wins wherever the sheets land. Opacity rather than a colour: the text stays
+   the text, and every mark on it (a finding's underline, a highlight, a
+   selection) fades with it rather than surviving into a faded line. */
+.cm-line.cm-doc-dimmed {
+  opacity: 0.35;
+  transition: opacity var(--motion-fast) ease;
+}
+
+/* A serif for the rendered page only, and a little more leading with it: a
+   serif at the app's own line height reads tighter than the same size of
+   sans, which is the whole reason the option exists. The stack names faces
+   that exist on each platform and ends at the generic, because this app
+   ships no fonts. */
+.doc-serif #doc-preview {
+  font-family: "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, "Times New Roman", serif;
+  line-height: 1.72;
+}

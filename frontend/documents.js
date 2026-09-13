@@ -8513,6 +8513,180 @@ try {
   applyDocWidth(false);
 }
 
+//: **Reading and focus: three preferences about the act of writing**
+//: (DOCUMENTS_PLAN Phase 5 item 4, PLAN D9). They are one block because they
+//: answer one question, "what should be in front of me while I write this",
+//: and because two of them are the same mistake apart: a mode that changes
+//: what the editor *shows* and one that changes where it *puts* the line you
+//: are on.
+//:
+//: Named apart from `toggleDocFocus`, which hides the app's chrome and is a
+//: mode for right now. These three are remembered, because they are the shape
+//: of somebody's writing habit rather than a thing they did once, and none of
+//: them can leave the document unreachable: the caret's own paragraph is never
+//: dimmed, the centred line is still the line you are typing on, and the serif
+//: is a face, not a layout.
+const DOC_DIM_KEY = "doc-dim-others";
+const DOC_TYPEWRITER_KEY = "doc-typewriter";
+const DOC_SERIF_KEY = "doc-serif";
+
+let docDimOthers = false;
+let docTypewriter = false;
+let docReadingPluginCache = null;
+
+//: The block, by the same rule the rest of this file uses: the run of
+//: non-blank lines around the caret. A heading with a paragraph under it is
+//: two blocks, which is what a person means by "the paragraph I am in", and a
+//: list is dimmed item by item for the same reason.
+function docReadingPlugin(CM) {
+  if (docReadingPluginCache) return docReadingPluginCache;
+  const { Decoration, ViewPlugin } = CM.view;
+
+  function build(view) {
+    if (!docDimOthers) return Decoration.none;
+    const doc = view.state.doc;
+    let first = doc.lineAt(view.state.selection.main.head).number;
+    let last = first;
+    while (first > 1 && doc.line(first - 1).text.trim() !== "") first--;
+    while (last < doc.lines && doc.line(last + 1).text.trim() !== "") last++;
+    const ranges = [];
+    //: Only what is on screen, like the findings plugin beside it: a 20,000
+    //: word document would otherwise build a decoration per line on every
+    //: arrow key.
+    for (const range of view.visibleRanges) {
+      const from = doc.lineAt(range.from).number;
+      const to = doc.lineAt(range.to).number;
+      for (let n = from; n <= to; n++) {
+        if (n >= first && n <= last) continue;
+        ranges.push(Decoration.line({ class: "cm-doc-dimmed" }).range(doc.line(n).from));
+      }
+    }
+    return Decoration.set(ranges, true);
+  }
+
+  docReadingPluginCache = ViewPlugin.fromClass(
+    class {
+      constructor(view) {
+        this.decorations = build(view);
+      }
+      update(update) {
+        if (update.docChanged || update.selectionSet || update.viewportChanged) {
+          this.decorations = build(update.view);
+        }
+      }
+    },
+    { decorations: (plugin) => plugin.decorations }
+  );
+  return docReadingPluginCache;
+}
+
+//: **Typewriter scrolling**, as an update listener rather than a second
+//: plugin: it changes no decoration, it moves the viewport. The frame's delay
+//: is not a nicety, a dispatch from inside an update is re-entrant and
+//: CodeMirror refuses it; by the next frame the update has finished and the
+//: measurement the scroll needs is the one that is actually on screen.
+function docTypewriterExtension(CM) {
+  const { EditorView } = CM.view;
+  return EditorView.updateListener.of((update) => {
+    if (!docTypewriter) return;
+    if (!update.selectionSet && !update.docChanged) return;
+    const view = update.view;
+    requestAnimationFrame(() => {
+      if (!docTypewriter || view !== docCmView) return;
+      view.dispatch({
+        effects: EditorView.scrollIntoView(view.state.selection.main.head, { y: "center" }),
+      });
+    });
+  });
+}
+
+function applyDocDim(on) {
+  docDimOthers = on;
+  const button = $("doc-dim-others");
+  if (button) {
+    button.setAttribute("aria-pressed", String(on));
+    button.title = on
+      ? "Show the whole document again"
+      : "Fade everything except the paragraph the caret is in";
+  }
+  const CM = window.CM6;
+  if (docCmView && CM && docCmParts.reading) {
+    docCmView.dispatch({
+      effects: docCmParts.reading.reconfigure(on ? docReadingPlugin(CM) : []),
+    });
+  }
+}
+
+function applyDocTypewriter(on) {
+  docTypewriter = on;
+  const button = $("doc-typewriter");
+  if (button) {
+    button.setAttribute("aria-pressed", String(on));
+    button.title = on
+      ? "Let the page scroll the way it normally does"
+      : "Keep the line you are typing on in the middle of the pane";
+  }
+  if (on && docCmView && window.CM6) {
+    const { EditorView } = window.CM6.view;
+    docCmView.dispatch({
+      effects: EditorView.scrollIntoView(docCmView.state.selection.main.head, { y: "center" }),
+    });
+  }
+}
+
+//: The rendered pane only. A serif is for reading a finished page; the editor
+//: is where markers, code fences and tables live, and those are the one place
+//: a monospaced or neutral face is doing real work.
+function applyDocSerif(on) {
+  $("tab-documents")?.classList.toggle("doc-serif", on);
+  const button = $("doc-serif");
+  if (button) {
+    button.setAttribute("aria-pressed", String(on));
+    button.title = on ? "Back to the app's own face" : "Read the rendered page in a serif";
+  }
+}
+
+function docRememberReading(key, on, apply) {
+  try {
+    localStorage.setItem(key, on ? "1" : "0");
+  } catch {
+    // A private window can refuse storage; the mode still applies for now.
+  }
+  apply(on);
+}
+
+$("doc-dim-others")?.addEventListener("click", () =>
+  docRememberReading(DOC_DIM_KEY, !docDimOthers, applyDocDim)
+);
+$("doc-typewriter")?.addEventListener("click", () =>
+  docRememberReading(DOC_TYPEWRITER_KEY, !docTypewriter, applyDocTypewriter)
+);
+$("doc-serif")?.addEventListener("click", () =>
+  docRememberReading(
+    DOC_SERIF_KEY,
+    !$("tab-documents")?.classList.contains("doc-serif"),
+    applyDocSerif
+  )
+);
+
+function docRestoreReading() {
+  let dim = false;
+  let typewriter = false;
+  let serif = false;
+  try {
+    dim = localStorage.getItem(DOC_DIM_KEY) === "1";
+    typewriter = localStorage.getItem(DOC_TYPEWRITER_KEY) === "1";
+    serif = localStorage.getItem(DOC_SERIF_KEY) === "1";
+  } catch {
+    // Nothing stored, nothing remembered: the defaults below are all off.
+  }
+  applyDocDim(dim);
+  applyDocTypewriter(typewriter);
+  applyDocSerif(serif);
+}
+
+docRestoreReading();
+
 //: **Focus mode.** Asked for as part of "the ultimate editor", every editor
 //: this app is compared to (Obsidian, Notion, Kortex) has a way to make the
 //: tab bar, the sidebar and the document list disappear, and this one never
@@ -12517,6 +12691,7 @@ function docCmExtensions(CM) {
   docCmParts.wrap = new CM.state.Compartment();
   docCmParts.live = new CM.state.Compartment();
   docCmParts.spell = new CM.state.Compartment();
+  docCmParts.reading = new CM.state.Compartment();
   if (!docFindingsEffect) docFindingsEffect = CM.state.StateEffect.define();
   return [
     //: Live's decorations, off until `setDocView` turns them on. Findings are
@@ -12526,6 +12701,12 @@ function docCmExtensions(CM) {
     //: is not a reason to stop being told.
     docCmParts.live.of(docView === "live" ? docLiveExtensions(CM) : []),
     docFindingsPlugin(CM),
+    //: The dimming is a compartment because it is a preference that changes
+    //: while the view is live; the typewriter listener is not, because it is
+    //: inert until its flag is on and reconfiguring an extension to say
+    //: "return early" buys nothing.
+    docCmParts.reading.of(docDimOthers ? docReadingPlugin(CM) : []),
+    docTypewriterExtension(CM),
     docCmParts.gutter.of(docCmGutter(CM)),
     //: Folding, wherever the gutter is: a heading section, a fenced block and
     //: a `[!note]-` callout all fold with or without the line numbers on.

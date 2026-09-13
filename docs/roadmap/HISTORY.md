@@ -23646,6 +23646,63 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     one card grows it well past its neighbours, so the row's cards are 260px
     and 620px side by side.
 
+163. **Fixed, 2026-09-13.** **Mid-work drop, verbatim (the owner), a browser
+    error from the desktop log.** "1:55:18 pm ERROR: browser: Uncaught
+    ReferenceError: sizeDashWidgets is not defined
+    (http://127.0.0.1:8000/app.js?v=0.3.0-6aa61ea2:22128:23)". The call is in
+    app.js's `resize` handler and the function lives in dashboard.js, which
+    loads after app.js; the desktop window resizes itself while the scripts
+    are still being fetched. Guarded with `typeof`, the same way
+    `refreshArtForTheme` already is for the same reason.
+
+156. **Answered, 2026-09-13.** **Mid-work drop, verbatim (the owner), the
+    timeline.** "is there going to be a line view on the timeline again??"
+    Yes, and it is built: TIMELINE_PLAN Phase 1 (`1fb15d2`) kept a line view
+    as an SVG beside the feed and the table, reached from the Timeline dock's
+    view switch.
+149. **Built, 2026-09-13 (`85467df`, toned in `2194231` after INBOX 150).** **Mid-work drop, 2026-09-13, verbatim (the owner), the graph.** "can you
+    make graph nodes temporarily expand to fill their glow bubble when I hover
+    over them or smth?? I feel like the graph nodes could look slightly nicer,
+    cooler, more professional and more modern. visually". A visual ask, not a
+    bug: the node's hit area already carries a soft halo larger than the dot,
+    and the dot does not use it. Belongs in GRAPH_PLAN.md.
+148. **Fixed, 2026-09-13 (`50a86af`, the options share the track, the choice is named, icons).** **Mid-work drop, 2026-09-13, verbatim (the owner), the New board dialog,
+    one screenshot.** "also redesign that whiteboard and mindmap toggle in the
+    popup, its ugly". The screenshot shows the Board / Mind map segmented
+    control as a full-width pill with both options crowded into its left end
+    and the right half of the track empty, and nothing naming what the choice
+    is for.
+147. **Fixed, 2026-09-13 (`50a86af`, Delete in the Board menu).** **Mid-work drop, 2026-09-13, verbatim (the owner), the whiteboard and
+    mindmap canvas.** "there's no way to delete a board while in that board on
+    the whiteboard and mindmap." Deleting a board existed only on the gallery
+    card's kebab menu.
+138. **Fixed, 2026-09-13 (the 13-shot README tour, `cc815fd`).** **Mid-work drop, 2026-09-13, verbatim (the owner), the README.** "and
+    also the screenshots on the readme page need updating and they need to
+    show more parts of the application than what is there."
+
+    The shots predate most of this session's surfaces (the docks, the
+    documents editor, the mind maps, the timeline), and there are fewer of
+    them than the app has places worth showing.
+134. **Fixed, 2026-09-13 (the catalog audit landed with a lint proving every row resolves to code; see agent-remaining/picker-catalog-readme.md).** **Mid-work drop, 2026-09-13, verbatim (the owner), one screenshot of the
+    Tools and features dialog.** "the tools and features popup content is
+    poorly text aligned between the headers and the content, and make sure
+    the command pallate and that tools and features popup are up to date"
+
+    The screenshot shows the group header "CAPTURE & NOTES" left-aligned at
+    the dialog's inset while every row under it (name and description both)
+    is centred, so nothing lines up with anything. The second half is a
+    coverage question: the dialog says "105 things MemoryMap can do", and a
+    great deal has been built since that list was last touched.
+131. **Fixed, 2026-09-13 (`6e5db00`, the logs dock on the grammar: one row, six controls at 36px).** **Mid-work drop, 2026-09-13, verbatim (the owner), one screenshot of
+    the Settings logs page.** "can you also redesign the top dock at the top
+    of the settings logs page to be more consistent with the rest of the
+    application and modern??"
+
+    The screenshot shows two rows of unrelated controls: a List/Terminal
+    segmented control, two selects and a filter box on the first, and a
+    Follow switch, a "live" dot, Copy all, Support bundle and Clear on the
+    second, none of it on the `.dock` grammar every other tab head uses.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

@@ -247,6 +247,18 @@ class PreferencesBody(BaseModel):
     #: value round-trips rather than being dropped by a later PUT.
     tray_hide_explained: bool | None = None
 
+    #: The context window the user set by hand, per model, keyed by the model
+    #: name exactly as the picker shows it. Asked for directly (INBOX 77): "the
+    #: window itself should be manageable by the user and auto when set". A
+    #: model with no entry, or an entry of null, is on auto: the app reads the
+    #: window from the model file or the server's own catalog, which is what it
+    #: has always done.
+    #:
+    #: Declared here for the reason half the comments in this class give: a
+    #: field Pydantic does not know about is dropped without complaint, so an
+    #: undeclared setting is a control that looks saved and is not.
+    model_context_windows: dict[str, int | None] | None = None
+
     # Optional self-hosted SearXNG instance; empty string = use DuckDuckGo.
     searxng_url: str | None = Field(default=None, max_length=200)
     # Which engine answers: "auto" | "searxng" | "duckduckgo". Validated
@@ -434,6 +446,11 @@ def get_preferences() -> dict:
         "writing_dictionary": config.get_preference("writing_dictionary", []),
         "spelling_variant": config.get_preference("spelling_variant", "off"),
         "display_name": config.get_preference("display_name", ""),
+        #: Echoed so Settings can draw the boxes with what is in them rather
+        #: than empty, which is the bug this file's other comments keep
+        #: recording: a preference that saves and does not come back reads as
+        #: one that did not save.
+        "model_context_windows": config.get_preference("model_context_windows", {}),
         # Saved correctly and honoured correctly (routes_auth.py's three
         # idle-timeout checks all read it) but never once echoed back here, 
         # the same shape of bug Tier 1 item 4a already fixed for eight other
@@ -583,6 +600,41 @@ _QUIET_PREFERENCE_KEYS = frozenset(
 )
 
 
+#: One window per model, cleaned at the door.
+#:
+#: Written by hand into a number box, so it is exactly the kind of value that
+#: arrives as "", "auto", "16k", a negative, or a number somebody meant as
+#: megabytes. Anything that is not a positive integer is stored as `None`,
+#: which is this setting's own spelling of "auto", rather than rejected: a
+#: single bad box must not fail the whole Settings save and lose the other
+#: fields the same PUT carries.
+#:
+#: The upper bound is a sanity rail rather than a policy. A window is tokens,
+#: and two million is past every model that exists; a number above it is a typo
+#: or a paste, and honouring it would have the app build a prompt it then spends
+#: a minute failing to send.
+_MAX_SETTABLE_CONTEXT = 2_000_000
+
+
+def _validated_context_windows(value: object) -> dict[str, int | None]:
+    if not isinstance(value, dict):
+        return {}
+    cleaned: dict[str, int | None] = {}
+    for name, window in value.items():
+        key = str(name).strip()
+        #: A model name is a short identifier; a long one is not a model, and
+        #: the preferences file is not a place to let one accumulate.
+        if not key or len(key) > 200:
+            continue
+        try:
+            wanted = int(window)
+        except (TypeError, ValueError):
+            cleaned[key] = None
+            continue
+        cleaned[key] = wanted if 0 < wanted <= _MAX_SETTABLE_CONTEXT else None
+    return cleaned
+
+
 @router.put("/preferences")
 def update_preferences(
     body: PreferencesBody, session: Session = Depends(get_session)
@@ -600,6 +652,8 @@ def update_preferences(
             value = _validated_templates(value)
         if key == "export_save_dir":
             value = _validated_export_dir(value)
+        if key == "model_context_windows":
+            value = _validated_context_windows(value)
         config.set_preference(key, value)
         changed_keys.add(key)
         if key in _QUIET_PREFERENCE_KEYS:

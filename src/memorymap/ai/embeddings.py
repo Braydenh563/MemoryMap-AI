@@ -40,6 +40,32 @@ logger = logging.getLogger("memorymap.embeddings")
 _warmup = {"running": False, "started": False, "error": False}
 
 
+#: How long the warm-up waits before touching the model. Two seconds is longer
+#: than a page load and a status probe take together on a slow machine, and
+#: shorter than anyone takes to write a first note. Tests set it to zero.
+WARMUP_DELAY_SECONDS = 2.0
+
+
+def _notebook_has_notes(session_factory) -> bool:  # noqa: ANN001
+    """Whether there is anything a warm model could be for.
+
+    Raw SQL rather than the `Entry` model: this module is a leaf under the
+    dependency container, and importing `core.database` from it is the cycle
+    `tests/test_no_import_cycles.py` exists to refuse. An unreadable database
+    answers True, because the cost of a wrong True is one model load and the
+    cost of a wrong False is a cold first search."""
+    try:
+        from sqlalchemy import text
+
+        session = session_factory()
+        try:
+            return session.execute(text("SELECT 1 FROM entries LIMIT 1")).first() is not None
+        finally:
+            session.close()
+    except Exception:  # noqa: BLE001  # see the docstring
+        return True
+
+
 def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # noqa: ANN001
     """Load the embedding model in a background thread at startup, so the
     user's first save doesn't stall. Idempotent per process.
@@ -53,6 +79,30 @@ def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # 
     _warmup["started"] = True
 
     def run() -> None:
+        #: **The first page load goes first.** Importing torch is seconds of
+        #: C-extension initialisation that holds the GIL, and this thread used
+        #: to start it the instant `create_app` returned: on a two-core CI
+        #: runner the event loop stalled long enough that the shell's
+        #: `/auth/status` probe (8s) timed out and the lock screen never
+        #: appeared, which is exactly what the E2E smoke suite failed on
+        #: (run 34734999382: "locator resolved to hidden" for 15 seconds after
+        #: "Application startup complete"). It did not reproduce anywhere
+        #: sentence-transformers was not installed, which is every sandbox
+        #: that reproduced it, so the fix is stated here rather than measured
+        #: here. A short pause lets the index and the status probe through
+        #: before the heavy import begins; the model is still warm long before
+        #: anyone has typed a note.
+        time.sleep(WARMUP_DELAY_SECONDS)
+        #: **And an empty notebook warms nothing.** A first run has no note to
+        #: search and no note to file, so loading a model for it costs the
+        #: slowest part of startup for nothing; the first save loads it, which
+        #: is the moment it is first needed. This is also what keeps a fresh
+        #: CI data dir from paying the torch import at all.
+        if session_factory is not None and not _notebook_has_notes(session_factory):
+            logging.getLogger("memorymap.embeddings").info(
+                "embedding warm-up skipped: the notebook is empty"
+            )
+            return
         _warmup["running"] = True
         _warmup["error"] = False
         started = time.monotonic()

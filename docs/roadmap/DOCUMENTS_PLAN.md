@@ -840,8 +840,9 @@ twelve cases flush, 0px horizontal gap to the fragment pressed, 4px below it,
 the open row says so (`aria-expanded`, `aria-current`) and sits inside the
 panel's box, the word lands 0px off the middle of the editor, one row is open at
 a time, a candidate pressed in the panel rewrites the text, the panel is 14% of
-the window with no row open against the editor's 45% and 24% with one open, and
-the word menu is 248px tall against 335px before. Contrast from the painted
+the window with no row open against the editor's 45% and 20% with one open (the
+open row costs 77px, its answers lying along it rather than down it), and the
+word menu is 248px tall against 335px before. Contrast from the painted
 pixels (the compositing walk reads these translucent surfaces wrong: it puts the
 app's own `.doc-hint` at 2.24:1, which nobody has ever seen) 6.13:1 at worst in
 light and 4.52:1 at worst in dark, the tightest being the open row's reason on
@@ -859,3 +860,20 @@ fixing for every other dialog.
 Moved to HISTORY.md ("Moved from the plans, 2026-09-12", DOCUMENTS_PLAN.md) on
 2026-09-12: a plan holds open work only. What is left open is in
 `agent-remaining/doc-sidebar.md`.
+
+## Placed from INBOX, 2026-09-13
+
+128. **Mid-work drop, 2026-09-13, verbatim (the owner), the spelling popup
+    (one screenshot, a document in dark theme).** "I clicked on a flagged
+    word and the popup didnt appear right next to it but off to the side
+    with a wide gap, also I swear I added \"idk\" to the dictionary last
+    night, make sure it is persistent."
+
+    Two things. The popup is anchored several hundred pixels to the right of
+    the flagged word (the word "idk" is at the left of the line and the popup
+    sits against the right edge of the editor), and the popup itself offers
+    "Add \"idk\" to dictionary" for a word the owner says they already
+    added, so either the add does not persist across a restart or it persists
+    somewhere the checker does not read. The persistence half is the more
+    serious of the two: it is silent data loss.
+

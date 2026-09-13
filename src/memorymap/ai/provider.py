@@ -347,6 +347,57 @@ class Provider:
         # should not silently make the app unusable.
         return max(self.DEFAULT_CONTEXT_TOKENS, wanted)
 
+    #: A window the user set by hand, for one model, or None for "auto".
+    #:
+    #: Asked for directly (INBOX 77): "the window itself should be manageable
+    #: by the user and auto when set ... a `num_ctx` preference per model in
+    #: Settings > Models with Auto (the model file's value) or a number, sent
+    #: on every request; the badge shows 'used / window'".
+    #:
+    #: **Per model and not one global number**, which is what
+    #: `max_context_tokens` already was: a machine that runs a 4k model for
+    #: quick answers and a 32k one for reading documents needs two answers, and
+    #: a single ceiling means the big model is rationed to the small one's
+    #: window or the small one is asked for a window it does not have. The
+    #: global preference stays as the ceiling over all of them, because it is
+    #: what stops a 128k window from being requested on a laptop that would
+    #: swap itself to death filling it.
+    #:
+    #: Keyed by the model name exactly as the picker shows it. A stored entry
+    #: for a model that is no longer installed costs nothing and is what makes
+    #: the setting survive uninstalling and reinstalling a model.
+    def preferred_context(self, model: str) -> int | None:
+        """The window this model was set to by hand, or None for auto."""
+        if not model:
+            return None
+        try:
+            import importlib
+
+            # The same deferred import the ceiling below uses, for the reason
+            # its comment gives at length.
+            deps = importlib.import_module("memorymap.core.deps")
+            windows = deps.get_config().get_preference("model_context_windows", {})
+        except Exception:  # noqa: BLE001  # a bad preference must not stop a chat
+            return None
+        if not isinstance(windows, dict):
+            return None
+        raw = windows.get(model)
+        #: "auto" is stored as the absence of a number, so a null, an empty
+        #: string and the literal word all mean the same thing and none of them
+        #: has to be special-cased by whatever writes this.
+        if raw in (None, "", "auto"):
+            return None
+        try:
+            wanted = int(raw)
+        except (TypeError, ValueError):
+            return None
+        if wanted <= 0:
+            return None
+        #: Floored like the global ceiling is, and for the same reason: below
+        #: the default nothing works, and a typo like 40 should not quietly
+        #: make the app unusable for one model.
+        return max(self.DEFAULT_CONTEXT_TOKENS, wanted)
+
     def usable_context(self, model: str) -> int:
         """The window to budget against, and, on Ollama, to ask for.
 
@@ -361,6 +412,19 @@ class Provider:
         rather than instructive, which is *safe in the direction that matters*
         - the app rations itself to at most what the server reported.
         """
+        #: **A hand-set window wins outright, including over the ceiling.**
+        #: Someone who types 16384 for a model whose file says 4096 is telling
+        #: the app something the file does not know: that they started the
+        #: server with `-c 16384`, or that the file is wrong. And
+        #: `max_requested_context` is there to stop the app *guessing* its way
+        #: to a window a laptop cannot fill, which is not what a number typed
+        #: into a box for one named model is. Clamping it would make the
+        #: setting look broken in the one case anybody would use it for, a
+        #: large model on a machine that can take it, and the person who typed
+        #: it can type a smaller one.
+        chosen = self.preferred_context(model)
+        if chosen:
+            return chosen
         declared = self.context_length(model) or self.DEFAULT_CONTEXT_TOKENS
         return max(
             self.DEFAULT_CONTEXT_TOKENS, min(declared, self.max_requested_context)

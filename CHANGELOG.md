@@ -7,7 +7,28 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added
+
+- A context window per model. Settings > Models has a Context window box
+  beside the model's spec: empty is auto (the window the model file or the
+  server reports), a number is what that model runs at, and the choice is
+  remembered per model, so a small model and a large one can differ. A
+  hand-set window also beats the machine-wide ceiling, because that ceiling
+  exists to stop the app guessing big, and a number typed for one named model
+  is not a guess. The badge shows used against whatever window is in force.
+
 ### Fixed
+
+- The lock screen could fail to appear on a slow first start. The embedding
+  warm-up began importing torch the instant the server was up, and that import
+  holds the interpreter for seconds on a small machine, long enough for the
+  shell's status probe to time out and the app to say the server could not be
+  reached. The warm-up now waits two seconds, so the first page and its probe
+  go through first, and it skips an empty notebook altogether, which has
+  nothing to warm a model for.
+- "Uncaught ReferenceError: sizeDashWidgets is not defined" from the desktop
+  window's log. The window resizes itself while the scripts are still loading,
+  and the resize handler called into a file that had not arrived yet.
 
 - The Library's picture cards, on the third report about them. The selection
   tick took the app's own surface colour, which over a photograph is a dark
@@ -33,7 +54,7 @@ below). Versioning is `0.x` while the app stabilises.
   actions the menu offers, from one builder), the word it names is scrolled to
   the middle of the editor instead of just inside its bottom edge, the panel
   keeps its settled share when no row is open (14% of the window against the
-  editor's 45%) and grows to 24% only while one is, and both the row and the
+  editor's 45%) and grows to 20% only while one is, and both the row and the
   menu's head draw the finding the same way: a dot in the colour of its
   underline, the words, the reason.
 

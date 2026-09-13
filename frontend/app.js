@@ -13339,6 +13339,86 @@ async function saveWebPageAsNote() {
 
 // What the backend says about the model in use. Fetched when the Models
 // screen is drawn rather than polled: none of it changes while the app runs.
+//: **The context window, per model, set by hand.**
+//:
+//: Asked for (INBOX 77): "the window itself should be manageable by the user
+//: and auto when set ... a `num_ctx` preference per model in Settings > Models
+//: with Auto (the model file's value) or a number, sent on every request; the
+//: badge shows 'used / window'". The badge half shipped first; this is the
+//: window half.
+//:
+//: The box edits whichever chat model is selected and the app stores one entry
+//: per model (`model_context_windows` in preferences), so switching models
+//: switches what the box says rather than carrying one machine-wide number
+//: across a 4k model and a 32k one. Empty is auto, which is stored as the
+//: absence of a number: `usable_context` in provider.py then reads the window
+//: from the model file or the server's catalog exactly as it always has.
+//:
+//: **Saved on change and on blur, not on a Save button**, because this screen
+//: has no Save button and every other control on it writes as you touch it. A
+//: number box fires `change` when it is committed (Enter, or focus leaving),
+//: which is the event that means "I meant that", and `input` would PUT once
+//: per keystroke while somebody types 16384.
+let modelContextModel = "";
+
+function renderModelContextBox(modelName, spec) {
+  const box = $("model-context-window");
+  const note = $("model-context-note");
+  if (!box) return;
+  modelContextModel = modelName || "";
+  const windows = (prefsCache && prefsCache.model_context_windows) || {};
+  const set = Number(windows[modelContextModel]);
+  //: Not `box.value = set || ""`: a stored 0 is not a window, and writing "0"
+  //: into the box would show a number that means auto, which is the one thing
+  //: this control must never do.
+  box.value = set > 0 ? String(set) : "";
+  box.disabled = !modelContextModel;
+  if (!note) return;
+  const usable = spec && spec.usable_context;
+  if (!modelContextModel) {
+    note.textContent = "";
+    return;
+  }
+  //: The note says what is actually in force, which is the only way to tell
+  //: "auto found 32k" apart from "auto fell back to 4k", and those look
+  //: identical in an empty box.
+  note.textContent = set > 0
+    ? `Running ${modelContextModel} at ${set.toLocaleString()} tokens. Clear the box for auto.`
+    : usable
+      ? `Auto: ${Number(usable).toLocaleString()} tokens, from the model.`
+      : "Auto: the app uses the model's own window.";
+}
+
+async function saveModelContextWindow() {
+  const box = $("model-context-window");
+  if (!box || !modelContextModel) return;
+  const raw = box.value.trim();
+  const parsed = Number.parseInt(raw, 10);
+  //: Anything that is not a positive number is auto, including the empty box
+  //: this control is cleared with. `null` rather than deleting the key, so the
+  //: PUT says "this model is on auto" rather than saying nothing about it: the
+  //: whole map is replaced on save, and an omitted model would be indistinct
+  //: from one that was never set, which is the same thing here but would stop
+  //: being so the moment anything else wrote to the map.
+  const value = raw === "" || !Number.isFinite(parsed) || parsed <= 0 ? null : parsed;
+  const windows = { ...((prefsCache && prefsCache.model_context_windows) || {}) };
+  windows[modelContextModel] = value;
+  try {
+    await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({ model_context_windows: windows }),
+    });
+    if (prefsCache) prefsCache.model_context_windows = windows;
+    //: Re-read the spec rather than trusting the number just typed: the
+    //: backend floors a window below its own minimum, so a 40 typed here comes
+    //: back as 4,096, and the note has to say what will actually run.
+    renderModelSpec(modelContextModel);
+    toast(value ? `${modelContextModel} will run at ${value.toLocaleString()} tokens.` : `${modelContextModel} is back on auto.`);
+  } catch (e) {
+    toast(e.message || "Couldn't save that window.", true);
+  }
+}
+
 async function renderModelSpec(modelName) {
   const box = $("model-spec");
   if (!box) return;
@@ -13347,8 +13427,10 @@ async function renderModelSpec(modelName) {
   }).catch(() => null);
   if (!spec) {
     box.classList.add("hidden");
+    renderModelContextBox(modelName, null);
     return;
   }
+  renderModelContextBox(modelName, spec);
   // Tri-state, and the third state is the point: null means "this backend
   // doesn't report capabilities", which is not the same as "no". Saying "no"
   // about a model that works fine would send someone chasing a problem that
@@ -22125,7 +22207,16 @@ startClockTicker();
 tickClocks();
 
 window.addEventListener("resize", () => {
-  if ($("dash-grid")) sizeDashWidgets();
+  //: `typeof`, for the reason `refreshArtForTheme` below already records:
+  //: `sizeDashWidgets` lives in dashboard.js, which loads after this file,
+  //: and the desktop window resizes itself while the scripts are still being
+  //: fetched (pywebview shows the window, then sizes it to the saved
+  //: geometry). A resize in that gap ran this handler before dashboard.js had
+  //: executed, and the owner's log had it: "Uncaught ReferenceError:
+  //: sizeDashWidgets is not defined (app.js:22128)". The grid is not on
+  //: screen yet at that moment anyway, so skipping the call loses nothing;
+  //: dashboard.js sizes its own widgets when it renders.
+  if ($("dash-grid") && typeof sizeDashWidgets === "function") sizeDashWidgets();
   // A dragged composer height is only valid for the window it was dragged in.
   refitComposer();
 });
@@ -35913,6 +36004,10 @@ $("profile-delete").addEventListener("click", deleteProfile);
 $("export-json").addEventListener("click", () => downloadExport("json"));
 $("export-csv").addEventListener("click", () => downloadExport("csv"));
 $("chat-model-apply").addEventListener("click", applyChatModel);
+//: `change`, not `input`: a number box fires `change` when the value is
+//: committed (Enter, or focus leaving), which is the moment somebody means it.
+//: `input` would PUT once per keystroke while they type 16384.
+$("model-context-window")?.addEventListener("change", saveModelContextWindow);
 $("llm-provider-apply").addEventListener("click", applyBackendChoice);
 // Mark the fields dirty on any edit so the five-second status poll stops
 // rewriting them underneath the person typing an address into them.

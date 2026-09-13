@@ -751,3 +751,17 @@ glass. What is left is below.
   bar didnt open."
 - "I think the screen shots on the readme need an update from all the ui
   changes."
+
+## Placed from INBOX, 2026-09-13
+
+165. **Mid-work drop, 2026-09-13, verbatim (the owner), the Library's selection
+    bar, one screenshot ("1 selected" with Open, Delete, Done).** "I want the
+    selected bars to be sticky to the top of the screen when scrolling".
+164. **Mid-work drop, 2026-09-13, verbatim (the owner), three surfaces, one
+    screenshot of a board card's preview (a wash of rounded blobs and one
+    squiggle over "3 cards, 8 sketches, 1 item").** "board previews need
+    upgrading and fixing, the graph minimap needs an upgrade, and the image
+    cards in the library images subtab need a massive improvement in ui and
+    ux." The fourth report on the picture cards; the third (145) was fixed the
+    same day, so this one is about what is left after it.
+

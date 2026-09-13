@@ -60,24 +60,65 @@ open and half finished stuff?"), which is a decision, not work.
 
 ## Open items
 
-149. **Mid-work drop, 2026-09-13, verbatim (the owner), the graph.** "can you
-    make graph nodes temporarily expand to fill their glow bubble when I hover
-    over them or smth?? I feel like the graph nodes could look slightly nicer,
-    cooler, more professional and more modern. visually". A visual ask, not a
-    bug: the node's hit area already carries a soft halo larger than the dot,
-    and the dot does not use it. Belongs in GRAPH_PLAN.md.
+166. **Mid-work drop, 2026-09-13, verbatim (the owner), the repository.** "clean
+    up the repo and make sure there are no left over temp files and that ther
+    eis no dross slowing the repo down or taking up space".
 
-148. **Mid-work drop, 2026-09-13, verbatim (the owner), the New board dialog,
-    one screenshot.** "also redesign that whiteboard and mindmap toggle in the
-    popup, its ugly". The screenshot shows the Board / Mind map segmented
-    control as a full-width pill with both options crowded into its left end
-    and the right half of the track empty, and nothing naming what the choice
-    is for.
+161. **Mid-work drop, 2026-09-13, verbatim (the owner), the popup agent, three
+    screenshots (an answer with a "Note #67" link, the "Opened 1 item" badge
+    reading "ct I, Scene I Two noble knights of wit, let us partak", and the
+    round's chips).** "there's no writing caret when the message is streaming
+    in the popup agent, tool calls dont show. the responses are poor for ux
+    with the user, and opened items badges have centered text that gets cut
+    off at either side."
 
-147. **Mid-work drop, 2026-09-13, verbatim (the owner), the whiteboard and
-    mindmap canvas.** "there's no way to delete a board while in that board on
-    the whiteboard and mindmap." Deleting a board existed only on the gallery
-    card's kebab menu.
+160. **Mid-work drop, 2026-09-13, verbatim (the owner), the Files sub-tab, one
+    screenshot (a PDF row: the name on one line, "PDF, 121 KB, added" and the
+    Read and Open reader controls on the next, starting under the name's left
+    edge).** "in the files subtab files row, the metadata starts to the left
+    below the filename, I feel like the metadata should start indented to the
+    right of the filename".
+
+158. **Mid-work drop, 2026-09-13, verbatim (the owner), the document editor's
+    AI assistant dialog, two screenshots (the whole dialog, and the
+    Edit/Write/Remove segment).** "also redesign and improve the ui and
+    modernise the ui of the ai assistent ai edit popup, and redesign the edit
+    write remove toggle, it is ugly".
+
+157. **Mid-work drop, 2026-09-13, verbatim (the owner), the document editor's
+    spelling panel, two screenshots (the "tets is probably test" row with a
+    tick beside it on the left, and a column of five candidate buttons plus
+    "Add to dictionary" on the right, with the rest of the panel empty).** "can
+    this popup be displayed better??" The writing-intelligence agent was mid
+    way through this panel when it was cut off; its uncommitted answers-inline
+    CSS is in the tree.
+
+155. **Mid-work drop, 2026-09-13, verbatim (the owner), the chat's "Jump to
+    latest" pill, one zoomed screenshot (the pill translucent over a line of
+    body text).** "make the hover state of the jump to latest button and
+    potentially others it shares a common style with opaque or pearly instead
+    of clear because it clashes with the stuff behind it".
+
+154. **Mid-work drop, 2026-09-13, verbatim (the owner), chat answers, one
+    screenshot (a table of five raw URLs in a "Link" column, overflowing the
+    bubble with a horizontal scrollbar).** "is it possible to better render the
+    links that the ai writes??"
+
+153. **Mid-work drop, 2026-09-13, verbatim (the owner), chat bubbles, one
+    screenshot (an assistant answer, its Sources fold, the Next chips and the
+    five action buttons under it).** "also there seems to be excessive shadow
+    around the ai message bubbles and popup buttons below them."
+
+152. **Mid-work drop, 2026-09-13, verbatim (the owner), the user's chat
+    bubble, one screenshot ("YOU" with an avatar ring over "what are the
+    commonalities in my notes??", dark on the accent fill).** "also the text in
+    the user message bubble is ugly and doesnt look professional for somre
+    reason I cant place".
+
+151. **Mid-work drop, 2026-09-13, verbatim (the owner), the command palette's
+    "Jump to" chip, one screenshot (the chip reading "Why did the student eat
+    his homework? Beca", cut at the pill's edge with no ellipsis).** "the open
+    where you last left off button doesnt cut off with an ellipse".
 
 
 142. **Mid-work drop, 2026-09-13, verbatim (the owner), the document editor's
@@ -121,49 +162,6 @@ open and half finished stuff?"), which is a decision, not work.
     changes the layout rather than just the focus. The second half of the
     report is that this bottom area needs restructuring, alignment and
     spacing regardless of the bug.
-
-138. **Mid-work drop, 2026-09-13, verbatim (the owner), the README.** "and
-    also the screenshots on the readme page need updating and they need to
-    show more parts of the application than what is there."
-
-    The shots predate most of this session's surfaces (the docks, the
-    documents editor, the mind maps, the timeline), and there are fewer of
-    them than the app has places worth showing.
-
-134. **Mid-work drop, 2026-09-13, verbatim (the owner), one screenshot of the
-    Tools and features dialog.** "the tools and features popup content is
-    poorly text aligned between the headers and the content, and make sure
-    the command pallate and that tools and features popup are up to date"
-
-    The screenshot shows the group header "CAPTURE & NOTES" left-aligned at
-    the dialog's inset while every row under it (name and description both)
-    is centred, so nothing lines up with anything. The second half is a
-    coverage question: the dialog says "105 things MemoryMap can do", and a
-    great deal has been built since that list was last touched.
-
-131. **Mid-work drop, 2026-09-13, verbatim (the owner), one screenshot of
-    the Settings logs page.** "can you also redesign the top dock at the top
-    of the settings logs page to be more consistent with the rest of the
-    application and modern??"
-
-    The screenshot shows two rows of unrelated controls: a List/Terminal
-    segmented control, two selects and a filter box on the first, and a
-    Follow switch, a "live" dot, Copy all, Support bundle and Clear on the
-    second, none of it on the `.dock` grammar every other tab head uses.
-
-128. **Mid-work drop, 2026-09-13, verbatim (the owner), the spelling popup
-    (one screenshot, a document in dark theme).** "I clicked on a flagged
-    word and the popup didnt appear right next to it but off to the side
-    with a wide gap, also I swear I added \"idk\" to the dictionary last
-    night, make sure it is persistent."
-
-    Two things. The popup is anchored several hundred pixels to the right of
-    the flagged word (the word "idk" is at the left of the line and the popup
-    sits against the right edge of the editor), and the popup itself offers
-    "Add \"idk\" to dictionary" for a word the owner says they already
-    added, so either the add does not persist across a restart or it persists
-    somewhere the checker does not read. The persistence half is the more
-    serious of the two: it is silent data loss.
 
 114. **Mid-work drop, 2026-09-12 afternoon, verbatim (the owner), six
     reports across five screenshots.** In order as sent:
@@ -530,6 +528,9 @@ open and half finished stuff?"), which is a decision, not work.
     on every request; the badge shows "used / window".
 ## Placed (last 20, newest first)
 
+- 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.
+- 2026-09-13: 162, 159 placed in WORLD_CLASS_PLAN.md.
+- 2026-09-13: 165, 164 placed in UI_MODERNISATION_PLAN.md.
 - 2026-09-08: dashboard hero preference, New note tile colours, sub-tab
   arrow keys, Files reading, sidebar toggle, mindmap bugs, line numbers,
   docks as one bar, timeline redesign, responsive design, em-dashes,

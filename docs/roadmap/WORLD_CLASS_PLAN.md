@@ -1528,3 +1528,17 @@ The principle the first notes state and the app keeps: the AI is a
 servant, not a gatekeeper; everything it does can be seen, edited and
 undone.
 
+## Placed from INBOX, 2026-09-13
+
+162. **Mid-work drop, 2026-09-13, verbatim (the owner), the app as an
+    assistant.** "there also needs to be more assistance from the app for both
+    the app and the user. the app in both the frontend and backend needs to do
+    a lot of the heavy lifting for the ai and user to make their life easier
+    adn take the load and burden off. like notes with no tags or other things
+    arent highlighted".
+159. **Mid-work drop, 2026-09-13, verbatim (the owner), exports.** "also
+    exported or downloaded files and images etc should appear in the
+    notifications to be accessible, maybe there should also be an area
+    somewhere maybe in settings to open the exports folder location and access
+    exported or downloaded files and images etc."
+

@@ -63,25 +63,6 @@ never lost to the smaller stuff.
     Follow switch, a "live" dot, Copy all, Support bundle and Clear on the
     second, none of it on the `.dock` grammar every other tab head uses.
 
-129. **Mid-work drop, 2026-09-13, verbatim (the owner), two screenshots.**
-    "also note links have inline md not rendered or suppressed, when an ai
-    mentions a note that starts with a note that has a \"# text\" hashtag
-    md heading, it will write the hashtag, and in the chat popup where you
-    can attach notes and files from the library into the conversation,
-    images just show as their names but the user might not be able to tell
-    what those images are from their names so they need to be rendered in
-    some way"
-
-    Three things. A `[[wiki link]]` whose target note begins with a markdown
-    heading carries the heading's own `#` into the link text, so the rendered
-    link reads "# Girl with bell" in both the editor and the preview (first
-    screenshot, both panes). The same leaked `#` appears wherever the AI names
-    such a note. And the library attach picker in chat lists images by
-    filename only (second screenshot: five rows reading
-    "WallpaperEngineOverride_randomODWVLK.jpg" and the like, each with a
-    "captioned" badge), which is not something a person can pick from: they
-    need a thumbnail, and the caption the badge says exists.
-
 128. **Mid-work drop, 2026-09-13, verbatim (the owner), the spelling popup
     (one screenshot, a document in dark theme).** "I clicked on a flagged
     word and the popup didnt appear right next to it but off to the side
@@ -109,25 +90,6 @@ never lost to the smaller stuff.
     stacks undo/redo/clear/insert over a bare white swatch. Under the canvas,
     the caption input and "Save as note" sit in a bar with a different inset
     and radius from everything above it.
-
-126. **Mid-work drop, 2026-09-13, verbatim (the owner), three more, in the
-    order sent.**
-    - "also in the notes tab ask subtab, these buttons and badges wrap onto
-      a new line and I want them restructured some other way" (screenshot:
-      the AI answer head, where the "AI ANSWER" label and the "ANSWERED BY
-      GRANITE4.1:3B" badge take the first line and Retry / Copy / speak are
-      pushed onto a second, right-aligned line above the answer text).
-      **Fixed.** The head is the recipe index's new panel-head row now:
-      identity, one fact, an all-icon action group, `nowrap`, and the badge
-      is the only zone that shrinks. Measured at 1440, 1024 and 820 with
-      `granite4.1:3b` and with `hf.co/unsloth/Qwen2.5-14B-Instruct-GGUF:Q4_K_M`
-      (`scratchpad/ui-sweeps/askhead.js`): head height 55.6 to 91.6px before,
-      36px in every one of the six cases after, all three zones on one
-      vertical centre, the three controls 28 to 36px (`--control-h-lg`), no
-      page scroll, 0 console errors, contrast passing in both themes.
-    - "also I want the popup agent better redesigned with the consistent
-      modern look"
-    - "same with the meeting notes popup"
 
 114. **Mid-work drop, 2026-09-12 afternoon, verbatim (the owner), six
     reports across five screenshots.** In order as sent:

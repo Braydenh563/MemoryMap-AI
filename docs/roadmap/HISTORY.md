@@ -23503,3 +23503,44 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
 
     **Fixed `bfd04ad`.** The border was `border: none` leaving the width at its initial `medium` (3px) for the Appearance rule to make visible again; `border: 0` stores the width. The Dictate label is read once before the first `setLabel` and restored after, and the chat mic stays icon-only.
 
+129. **Mid-work drop, 2026-09-13, verbatim (the owner), two screenshots.**
+    "also note links have inline md not rendered or suppressed, when an ai
+    mentions a note that starts with a note that has a \"# text\" hashtag
+    md heading, it will write the hashtag, and in the chat popup where you
+    can attach notes and files from the library into the conversation,
+    images just show as their names but the user might not be able to tell
+    what those images are from their names so they need to be rendered in
+    some way"
+
+    Three things. A `[[wiki link]]` whose target note begins with a markdown
+    heading carries the heading's own `#` into the link text, so the rendered
+    link reads "# Girl with bell" in both the editor and the preview (first
+    screenshot, both panes). The same leaked `#` appears wherever the AI names
+    such a note. And the library attach picker in chat lists images by
+    filename only (second screenshot: five rows reading
+    "WallpaperEngineOverride_randomODWVLK.jpg" and the like, each with a
+    "captioned" badge), which is not something a person can pick from: they
+    need a thumbnail, and the caption the badge says exists.
+
+    **Fixed.** The `#` in `[[wiki link]]` labels: `b6294f2`. The raw text stays in the document (the picker inserts the target's first line verbatim and the resolver matches that form), and only the label is cleaned, through `notePreviewText`, the same helper that fixed this for chat badges. The attach picker's images: `7c031052`, thumbnails plus the caption the "captioned" badge was already promising.
+126. **Mid-work drop, 2026-09-13, verbatim (the owner), three more, in the
+    order sent.**
+    - "also in the notes tab ask subtab, these buttons and badges wrap onto
+      a new line and I want them restructured some other way" (screenshot:
+      the AI answer head, where the "AI ANSWER" label and the "ANSWERED BY
+      GRANITE4.1:3B" badge take the first line and Retry / Copy / speak are
+      pushed onto a second, right-aligned line above the answer text).
+      **Fixed.** The head is the recipe index's new panel-head row now:
+      identity, one fact, an all-icon action group, `nowrap`, and the badge
+      is the only zone that shrinks. Measured at 1440, 1024 and 820 with
+      `granite4.1:3b` and with `hf.co/unsloth/Qwen2.5-14B-Instruct-GGUF:Q4_K_M`
+      (`scratchpad/ui-sweeps/askhead.js`): head height 55.6 to 91.6px before,
+      36px in every one of the six cases after, all three zones on one
+      vertical centre, the three controls 28 to 36px (`--control-h-lg`), no
+      page scroll, 0 console errors, contrast passing in both themes.
+    - "also I want the popup agent better redesigned with the consistent
+      modern look"
+    - "same with the meeting notes popup"
+
+    **Fixed.** The Ask answer head: `e6d7878`, 55 to 91px over two lines before, 36px on one line after, at 1440, 1024 and 820 with both a short model name and a long one. The popup agent: `7002cd9`. The meeting notes dialog: `0eb515f`.
+

@@ -77,7 +77,7 @@ usable with no AI model running at all.
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/timeline.png" alt="Timeline: notes on a time axis, grouped into bands by category" width="850">
+  <img src="docs/screenshots/timeline.png" alt="Timeline: every note in a feed, with a sticky header per day" width="850">
   <br><sub><b>Timeline</b>: every note on a time axis</sub>
 </p>
 

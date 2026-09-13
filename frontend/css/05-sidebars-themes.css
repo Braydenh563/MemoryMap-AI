@@ -3242,15 +3242,19 @@ textarea.autogrow {
   white-space: nowrap;
 }
 
-/* A CSS grid rather than SVG: every cell is a real element, so it scrolls,
-   selects, tabs and reads aloud without any of that being hand-built. */
+/* **The feed scrolls down, and only down** (TIMELINE_PLAN.md Phase 1). This
+   box scrolled *sideways* for as long as the timeline was a grid of one column
+   per bucket, which is where 8,800px of horizontal scroll against a 1,358px
+   viewport came from. A feed has one axis, and the sticky bucket headers need
+   this box to be the scrolling ancestor: `overflow-y: auto` plus the flex floor
+   below (07-whiteboard-misc.css gives it `flex: 1 1 auto; min-height: 0`) is
+   what bounds its height inside the card. */
 .timeline-scroll {
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   /* Invariant 2: a grid track of 1fr refuses to shrink below its content, so
      without a floor here the whole page grows sideways instead of this box. */
   min-width: 0;
-  padding-bottom: 0.4rem;
 }
 
 

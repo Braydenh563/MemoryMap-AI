@@ -64,11 +64,14 @@ def test_the_library_is_reset_through_its_own_click_handler():
 
 
 def test_only_navigation_is_reset_not_display_preferences():
-    """grid/list, the timeline's view mode, reminders' list/calendar and the
+    """grid/list, the timeline's bucket, reminders' list/calendar and the
     editor's Live/Source are choices someone made on purpose."""
     keys = JS.split("const NAVIGATION_KEYS = [")[1].split("]")[0]
     assert "NOTES_SECTION_STORE" in keys
-    for preference in ("library-view", "timeline-view", "reminderView", "DOC_VIEW_KEY"):
+    # `timeline-scale` replaced `timeline-view` when the Timeline became one
+    # feed with a bucket picker (TIMELINE_PLAN Phase 1): the preference it
+    # keeps is which bucket, and it is a preference for the same reason.
+    for preference in ("library-view", "timeline-scale", "reminderView", "DOC_VIEW_KEY"):
         assert preference not in keys, f"{preference} is a preference, not a position"
 
 

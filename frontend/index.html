@@ -2041,36 +2041,50 @@
           <span id="timeline-count" class="muted dock-context"></span>
         </div>
         <div class="dock-group dock-find">
-          <input type="search" id="timeline-search" class="timeline-search" placeholder="Highlight notes…" aria-label="Highlight matching notes">
+          <!-- "Find", not "highlight": it filters the rows now rather than
+               dimming them in place (TIMELINE_PLAN decision 2). -->
+          <input type="search" id="timeline-search" class="timeline-search" placeholder="Find notes…" aria-label="Find matching notes">
+          <button id="timeline-filter-clear" class="ghost small hidden" type="button" title="Show everything again"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Show: all</button>
         </div>
         <div class="dock-group dock-arrange">
-          <div class="seg seg-compact timeline-view-seg" id="timeline-view-seg" role="group" aria-label="Grid or line view">
-            <button type="button" class="icon-only active" data-timeline-view="grid" title="Grid: one column per day" aria-label="Grid view"><i class="ph ph-columns" aria-hidden="true"></i></button>
-            <button type="button" class="icon-only" data-timeline-view="line" title="Line: one thread through time" aria-label="Line view"><i class="ph ph-git-commit" aria-hidden="true"></i></button>
-          </div>
-          <select id="timeline-view" aria-label="Grid or line view" class="dock-native-hidden" tabindex="-1" aria-hidden="true" data-no-select-enhance>
-            <option value="grid" selected>Grid</option>
-            <option value="line">Line</option>
-          </select>
+          <!-- The grid/line segment went with the grid view (TIMELINE_PLAN
+               decision 1): there is one view here now, so there is nothing to
+               switch. The table view brings the segment back, with an icon per
+               option, in Phase 2. -->
           <details class="doc-dock-menu dock-menu" id="timeline-options-menu">
             <summary class="ghost small doc-dock-menu-btn" title="Bucket size, bands and how far back to show"><i class="ph ph-sliders-horizontal ph-lead" aria-hidden="true"></i> Options <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
             <div class="doc-dock-menu-list dock-menu-list" id="timeline-options" role="group" aria-label="Timeline display options">
               <div class="dock-menu-section timeline-scale-group" id="timeline-scale-group">
                 <label class="muted dock-menu-label" for="timeline-scale">Bucket by</label>
                 <select id="timeline-scale" aria-label="Time bucket">
-                  <option value="day" selected>Day</option>
+                  <!-- Auto is the default and picks the bucket from how much is
+                       in range (day under 60 notes, week under 400, else
+                       month): day buckets over a year of writing are a header
+                       every second row. -->
+                  <option value="auto" selected>Auto</option>
+                  <option value="day">Day</option>
                   <option value="week">Week</option>
                   <option value="month">Month</option>
                   <option value="year">Year</option>
                 </select>
               </div>
               <div class="dock-menu-section">
-                <label class="muted dock-menu-label" for="timeline-group">Bands</label>
-                <select id="timeline-group" aria-label="Group notes into bands">
+                <label class="muted dock-menu-label" for="timeline-group">Group by</label>
+                <select id="timeline-group" aria-label="What the rows are grouped by">
                   <option value="category" selected>Category</option>
                   <option value="tag">Tag</option>
                   <option value="thread">Thread</option>
                   <option value="none">None</option>
+                </select>
+              </div>
+              <!-- The bands were lanes, and mostly empty ones; the same choice
+                   is worth more as "show me only this" (decision 5). The
+                   options are built from what is loaded, so the list can never
+                   offer a category this range does not contain. -->
+              <div class="dock-menu-section" id="timeline-band-section">
+                <label class="muted dock-menu-label" for="timeline-band">Show</label>
+                <select id="timeline-band" aria-label="Show only one group">
+                  <option value="">Everything</option>
                 </select>
               </div>
               <div class="dock-menu-section">
@@ -2103,17 +2117,18 @@
       <p class="muted graph-help-panel hidden" id="timeline-intro" role="dialog" aria-label="How to read this">
         A note sits where it is <em>about</em> when it says so, "the deadline
         is next Friday" plots on that Friday, marked with a clock, and at when it was
-        written otherwise. Click any note to open it.
+        written otherwise. Arrow keys walk the rows, Enter opens one where it sits.
       </p>
+      <!-- The feed (TIMELINE_PLAN.md Phase 1). One `<section>` per bucket, a
+           sticky header on each, a row per entry, and the spine in CSS. This
+           replaced two views and a popup: a grid 8,800px wide with 79% of its
+           cells empty, an SVG line chart with no titles and no keyboard stops,
+           and a hand-placed popup as the only way to read a note. The rows are
+           built by `timelineRowElement` from `timelineRow`, and the table view
+           reads the same array, so a search can never match in one and not the
+           other. -->
       <div id="timeline-scroll" class="timeline-scroll">
-        <div id="timeline-grid" class="timeline-grid"></div>
-      </div>
-      <!-- The line view (§10C): one spine, chronological, with a lane per
-           band peeling off it, same underlying notes as the grid above,
-           just answering "what was the shape of this thread" instead of
-           "what happened around this date". -->
-      <div id="timeline-branch-wrap" class="timeline-branch-wrap hidden">
-        <svg id="timeline-branch-svg" class="timeline-branch-svg"></svg>
+        <div id="timeline-feed" class="timeline-feed" data-density="full"></div>
       </div>
       <div id="timeline-empty" class="empty-state hidden">
         <span class="empty-icon" aria-hidden="true"><i class="ph ph-clock" aria-hidden="true"></i></span>
@@ -2121,19 +2136,14 @@
         <p class="muted">Notes with a date, written or mentioned, will appear here.</p>
         <button class="ghost small" type="button" data-empty-action="capture"><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i> Capture a note</button>
       </div>
-      
-      <!-- Unified Timeline Popup (Read-only view with Open button) -->
-      <div id="timeline-popup" class="graph-popup hidden" role="dialog" aria-label="View note">
-        <div class="row space-between">
-          <strong id="timeline-popup-title">Note</strong>
-          <button id="timeline-popup-close" class="ghost small icon-only" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
-        </div>
-        <div id="timeline-popup-info" class="graph-popup-info timeline-popup-info"></div>
-        <div id="timeline-popup-media" class="graph-popup-media hidden"></div>
-        <div id="timeline-popup-content" class="timeline-popup-content"></div>
-        <div class="row">
-          <button id="timeline-popup-open" class="small">Open in editor</button>
-        </div>
+      <!-- A filter that matched nothing is a different state from a notebook
+           with nothing in it, and the one action that helps is the one that
+           undoes the filter. -->
+      <div id="timeline-no-match" class="empty-state hidden">
+        <span class="empty-icon" aria-hidden="true"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></span>
+        <p class="empty-title">No notes match</p>
+        <p class="muted">Nothing in this range matches what you are looking for.</p>
+        <button class="ghost small" type="button" id="timeline-clear-search"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear the search</button>
       </div>
     </section>
   </div>

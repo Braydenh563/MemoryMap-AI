@@ -23597,3 +23597,88 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
 
     **Deferred out of this PR by the owner the same day**: "put the templates idea in the roadmap, not for this pr". Brief 32 says so at the top, and BACKLOG.md section 4b carries the standing row. Nothing is being built for it now.
 
+
+## Moved from the plans, 2026-09-13
+
+Blocks the plans carried as open work and no longer do (CLAUDE.md standing
+order 10). Origin file named on each.
+
+### From TIMELINE_PLAN.md
+
+### Built, Phase 1: the row model and the feed, 2026-09-13
+
+The whole tab, replaced. What went, with the numbers that condemned it
+(TIMELINE_PLAN.md section 2, 48 notes over six months): a **grid** of bands
+against buckets, 8,800px wide against a 1,358px viewport with 186 of its 234
+cells empty, and an SVG **line** view with 14 text nodes for 48 notes, no
+titles, no keyboard stops and a hand-placed popup as the only way to read
+anything. What replaced them: one feed, newest first, a `<section>` per bucket
+with a sticky header, a row per entry, the spine and the headers in CSS.
+
+**The row model** (decision 2). `timelineRow(entry)` in `frontend/app.js`
+returns `{id, kind, board, title, snippet, when, whenIso, writtenAt, placedBy,
+phrase, tags, category, space, words, links, pinned, parentId}`; the feed
+renders from it and from nothing else, and search, the band filter and the
+sort run over the array. `space`, `words` and `links` are in the shape and
+read as `null`: `/timeline` does not send them yet and the table's columns
+(Phase 2) are what will ask for them.
+
+**The buckets are computed in the browser, not fetched.** `/timeline` labels
+each entry for the scale it was asked for, which made a change of scale a
+round trip and made "auto" impossible (the rule for auto is a count of what is
+in range, which is only known once the range has arrived).
+`timelineBucketKey` buckets from the row's own moment, Monday-first to match
+`routes_timeline.py`'s `weekday()`. Measured: four scale changes, 0 requests.
+
+**Auto is the default bucket** (decision 4), day under 60 notes in range, week
+under 400, else month, and density follows it. Measured at 1440 over the
+48-note seed: auto resolved to day, 40 buckets, 48 snippets, rows 57px; week,
+28 buckets, 0 snippets, rows 42px; month, 7 buckets, two columns above 1024,
+the feed 5,177px tall at day against 1,583px at month and 1,219px at year.
+
+**Keyboard, on the app's own recipe.** The SVG view had 0 focusable notes.
+The feed uses the Notes list's roving tab stop (`applyEntryListTabOrder`'s
+shape): every row focusable, one row in the page's Tab order, arrows between
+rows, Home and End, Enter or Space to open, Escape to close. Forty-eight Tab
+stops in one feed was the other way to read the plan's "a tab stop" and is not
+what the rest of the app does; the sweep asserts the recipe.
+
+**Open in place** (decision 8), which deleted the popup, its placement code
+(`placeTimelinePopup` clamped against one element while positioned against
+another) and its two media paths. The two owner-reported fixes the popup
+carried are kept and moved into the row's detail: every attachment renders,
+not only the images (`fileCard` for the rest), and a deleted upload says so
+rather than drawing a torn-page glyph. The plan names "the app's split panel
+(the same one Notes uses)"; there is no such panel, Notes opens a note by
+expanding the row it is already in, and this is that affordance.
+
+**The dock.** No markup restructuring (Phase 8 grammar): the grid/line segment
+went with the grid view, "Highlight notes" became "Find notes" and filters
+rather than dims, the bucket select gained Auto, Bands became "Group by" with
+a "Show" filter built from what is loaded, and the active filter says itself
+in the find zone as `Show: <name>` with the way out of it, the same shape
+Graph uses. `tests/test_dock_grammar.py` green.
+
+**Tokens.** `--row-h` (2.6rem) and `--row-gap` are declared in
+`00-tokens-shell.css` at last: DESIGN.md section 9 has named `--row-h` as the
+app's list-row step since the Liquid Glass pass and nothing declared it, so
+`var(--row-h)` would have rendered as nothing. `--row-h` deliberately does not
+scale with `--density` (a row is a press target), the gap does. `--timeline-mark`
+is the one number the marker and the spine both read.
+
+**The card is bounded so the feed scrolls inside it.** `#tab-timeline > .card`
+was `flex: 1 0 auto`, correct while the page took the vertical scroll: the
+card measured 5,185px inside an 807px tab page, `#timeline-scroll` never
+scrolled, and every sticky header scrolled away with its rows. It is
+`flex: 1 1 auto; min-height: 0` now, and `.timeline-scroll` scrolls on the
+y axis rather than the x.
+
+**Gate** (`scratchpad/ui-sweeps/timeline.js`, written before the build and
+failing on the old tab: 0 rows, 0 tab stops, 7,663px of horizontal scroll at
+1440). Green at 1440, 1024 and 390: 48 rows in 40 buckets; 48 of 48 titles
+readable without hover; 48 of 48 rows focusable with exactly one Tab stop;
+horizontal overflow 0px on the scroller, the tab and the document; a bucket
+head pinned 0px from the top of the feed after a 260px scroll; arrows walking
+0,1,2,1; Enter opening a 111px detail with 110 characters in it; search
+48 -> 1 -> 48 rows. `errors.js` 0 errors at 1440 and 1024, `contrast.js` clean
+in both themes.

@@ -19707,10 +19707,10 @@ function enhanceSelect(select) {
   // opener showing whatever was selected when the page was built.
   //
   // Measured, not reasoned: the Timeline's own View control read "Grid" while
-  // the timeline underneath it was rendering the *line* view, because
-  // `applyTimelineSettings()` runs `$("timeline-view").value = timelineView()`
-  // after this control was enhanced. Every one of the app's 51 selects had
-  // the same hole.
+  // the timeline underneath it was rendering the *line* view, because the tab
+  // assigned the saved value to that select directly, after this control had
+  // been enhanced. (Both views and the select are gone now, the Timeline is one
+  // feed: the hole this fixes was in every one of the app's 51 selects.)
   //
   // The fix is to make assignment observable: shadow `value`, `selectedIndex`
   // and `disabled` on this instance with accessors that call through to the
@@ -24322,11 +24322,10 @@ function switchTab(name) {
     renderGraph();
   }
   if (name === "timeline") {
-    $("timeline-view").value = timelineView();
-    setTimelineScaleEnabled(timelineView());
-    // Match the saved open/closed state on arrival, same as Graph's Options
-    // panel: otherwise a notebook left open comes back collapsed.
-    syncTimelineViewSeg();
+    // Match the saved bucket choice on arrival, not only on change: a notebook
+    // left on Month that comes back on Auto is a control that lies about the
+    // feed beside it, which is the same bug the graph's layout picker had.
+    $("timeline-scale").value = timelineScaleChoice();
     renderTimeline();
   }
   if (name === "documents") {
@@ -24340,29 +24339,172 @@ function switchTab(name) {
   }
 }
 
-// --- Timeline (§10B) --------------------------------------------------------------
+// --- Timeline (§10B, TIMELINE_PLAN.md Phase 1) -------------------------------
 //
 // Asked for repeatedly, and with more shape each time: "I want a note timeline
 // where I can see notes visually by what time they were made. Maybe I can even
-// group them by events or related places etc." So the axis is time and the
-// rows are bands, a note's category or tag, because that is what turns a
-// sorted list into a map of what happened.
+// group them by events or related places etc."
 //
-// Drawn as a CSS grid rather than SVG: every cell is a real element, so it is
-// scrollable, selectable, keyboard-reachable and readable by a screen reader
-// without any of that being built by hand.
+// What this replaced, and why, because the shape that went is the shape the
+// next session would otherwise reach for again (TIMELINE_PLAN.md §2, measured
+// over 48 notes and six months): a **grid** of one column per bucket and one
+// card per note, 8,800px wide against a 1,358px viewport with 79% of its cells
+// empty, and a **line** view drawn in SVG, 14 text nodes for 48 notes, no
+// titles, no keyboard stops, a hover popup as the only way to read anything.
+// Both answered a question ("when were notes written") that a notebook's owner
+// does not have. The question they do have is the one a journal answers: what
+// was I doing then, and what came before and after it.
+//
+// So the timeline is a feed now: newest first, a `<section>` per bucket with a
+// sticky header, a row per entry, the spine and the headers in CSS. Rows are
+// real elements, which is what buys the titles, the tab stops, the text
+// selection, the ellipsis and the app's own chip recipe without building any
+// of them (TIMELINE_PLAN decision 3). The table view is the same rows in a
+// `<table>` (Phase 2); both read from `timelineRow()` and from nothing else,
+// so the two can never disagree about what a search matched.
 
-// §10C: which view is showing, the grid (what happened around this date,
-// across every band) or the line (the shape of one thread over time). A
-// preference, like the graph's layout picker, not a migration.
-function timelineView() {
-  const saved = localStorage.getItem("timeline-view");
-  return saved === "line" ? "line" : "grid";
+//: **One row model** (TIMELINE_PLAN decision 2). Everything the feed, the
+//: table, search, the filter and the count need, derived once per entry, with
+//: the endpoint's wire names translated here and nowhere else.
+//:
+//: `space`, `words` and `links` are in the shape because the table's columns
+//: are (decision 6) and `/timeline` does not send them yet: they read as
+//: absent rather than as zero, so a column can say "not known" instead of
+//: claiming a note has no links. The endpoint grows them with the table.
+function timelineRow(entry) {
+  // A board *is* an `Entry` (MINDMAP_PLAN.md §2) and `/timeline` has always
+  // returned one, so without this a mind map reads as a note titled
+  // "# My map". `loadMapBoardIndex()` is awaited before any row is built.
+  const board = mapBoardById(entry.id);
+  const flat = stripMarkdownPreview(entry.preview || "").trim();
+  const cut = flat.indexOf("\n");
+  const head = (cut === -1 ? flat : flat.slice(0, cut)).trim();
+  const rest = cut === -1 ? "" : flat.slice(cut + 1).replace(/\s+/g, " ").trim();
+  return {
+    id: entry.id,
+    kind: board ? "board" : "note",
+    board,
+    // The first line of a note is what a person calls it, heading or not.
+    title: (board ? board.title : head) || "Untitled note",
+    snippet: rest,
+    when: parseServerTime(entry.at) || new Date(entry.at),
+    whenIso: entry.at,
+    writtenAt: entry.written_at,
+    //: Said out loud, because the alternative is a timeline that looks like it
+    //: has quietly moved someone's notes: "mentioned" means the row sits on a
+    //: date the note *talks about*, and `phrase` is the words that did it.
+    placedBy: entry.placed_by,
+    phrase: entry.phrase || "",
+    tags: Array.isArray(entry.tags) ? entry.tags : [],
+    category: entry.category || "",
+    space: entry.space ?? null,
+    words: entry.words ?? null,
+    links: entry.links ?? null,
+    pinned: Boolean(entry.pinned),
+    parentId: entry.parent_id ?? null,
+  };
 }
 
+//: **The buckets are computed here, not fetched.** `/timeline` labels every
+//: entry with a bucket for the `scale` it was asked for, which made a change
+//: of scale a round trip, and made "auto" impossible: the rule for auto is a
+//: count of what is in range, which is only known once the range has arrived.
+//: Bucketing from the row's own moment instead makes Day/Week/Month/Year a
+//: repaint (measured at 0 requests), and keeps one definition of "which week
+//: is this" rather than one here and one in Python.
+//:
+//: Monday starts the week, matching `routes_timeline.py`'s `weekday()`, so the
+//: two agree for as long as the endpoint's own labels are still read by
+//: anything.
+function timelineBucketKey(when, scale) {
+  const day = new Date(when.getTime());
+  day.setHours(0, 0, 0, 0);
+  if (scale === "week") day.setDate(day.getDate() - ((day.getDay() + 6) % 7));
+  if (scale === "month") day.setDate(1);
+  if (scale === "year") {
+    day.setMonth(0);
+    day.setDate(1);
+  }
+  return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(
+    day.getDate()
+  ).padStart(2, "0")}`;
+}
+
+// The header a bucket wears. A day gets the words people use for it, which is
+// what makes the feed read as a journal rather than as a list of dates; a
+// month or a year is already unambiguous and gets its name.
+function timelineBucketLabel(key, scale) {
+  const day = new Date(`${key}T00:00:00`);
+  if (Number.isNaN(day.getTime())) return key;
+  const thisYear = day.getFullYear() === new Date().getFullYear();
+  if (scale === "year") return String(day.getFullYear());
+  if (scale === "month") {
+    return day.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  }
+  if (scale === "week") {
+    return `Week of ${day.toLocaleDateString(undefined, {
+      day: "numeric",
+      month: "short",
+      ...(thisYear ? {} : { year: "numeric" }),
+    })}`;
+  }
+  const today = timelineBucketKey(new Date(), "day");
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (key === today) return "Today";
+  if (key === timelineBucketKey(yesterday, "day")) return "Yesterday";
+  return day.toLocaleDateString(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    ...(thisYear ? {} : { year: "numeric" }),
+  });
+}
+
+//: **Auto is the default scale** (TIMELINE_PLAN decision 4). Day buckets over
+//: a year of writing are a header every second row; month buckets over a week
+//: are one header and no structure at all. The thresholds (day under 60 notes
+//: in range, week under 400, else month) are the plan's first guess and are
+//: written down there as something to tune against a real notebook, not as a
+//: measurement.
+//:
+//: It counts what the *range* holds rather than what the search left, so
+//: typing in the search box never re-cuts the headers under the reader.
+const TIMELINE_SCALES = ["day", "week", "month", "year"];
+// Density follows the bucket, and nothing else decides it: a day's rows carry
+// the snippet, a week's drop it, a month's and a year's are a title and a date
+// in two columns. The names are the `data-density` values the CSS reads.
+const TIMELINE_DENSITY = { day: "full", week: "compact", month: "dense", year: "dense" };
+
+function timelineScaleChoice() {
+  const saved = localStorage.getItem("timeline-scale");
+  return saved === "auto" || TIMELINE_SCALES.includes(saved) ? saved : "auto";
+}
+
+function timelineResolvedScale(countInRange) {
+  const chosen = $("timeline-scale").value || timelineScaleChoice();
+  if (TIMELINE_SCALES.includes(chosen)) return chosen;
+  if (countInRange < 60) return "day";
+  if (countInRange < 400) return "week";
+  return "month";
+}
+
+//: The loaded range, as rows, plus the one row opened in place and the one
+//: group filter that is on. Search, filter and sort all run over this array
+//: (decision 2), so the feed and the table cannot disagree, and a keystroke
+//: costs a repaint rather than a request.
+let timelineRows = [];
+// By id, so a row that continues another can name it without a scan per row:
+// `find` per row is the shape that turns 1,500 rows into a million comparisons
+// to draw one screen.
+let timelineById = new Map();
+let timelineGroupNames = [];
+let timelineFilter = null;
+let timelineOpenId = null;
+
 async function renderTimeline() {
-  const grid = $("timeline-grid");
-  let url = `/timeline?scale=${$("timeline-scale").value}&group=${$("timeline-group").value}`;
+  let url = `/timeline?scale=${$("timeline-scale").value === "auto" ? "day" : $("timeline-scale").value}`
+    + `&group=${$("timeline-group").value}`;
   const daysVal = $("timeline-days").value;
   if (daysVal === "custom") {
     const start = $("timeline-start-date").value;
@@ -24375,557 +24517,455 @@ async function renderTimeline() {
   } else {
     url += `&days=${daysVal}`;
   }
-  //: **Which of these notes are actually maps.** A board *is* an `Entry`
-  //: (MINDMAP_PLAN.md §2), and `/timeline` has always returned every
-  //: non-private entry: so a mind map has been appearing on the timeline
-  //: since maps existed, as a dot titled "# My map" with a calendar icon,
-  //: indistinguishable from a note and opening a note popup that shows its
-  //: raw heading. `/timeline`'s rows carry no `is_board`, so the boards list
-  //: is what tells them apart; awaited alongside the timeline itself rather
+  //: Which of these entries are maps, awaited alongside the timeline rather
   //: than before it, because neither needs the other's answer.
-  const [body] = await Promise.all([
-    apiJson(url).catch(() => null),
-    loadMapBoardIndex(),
-  ]);
-  const line = timelineView() === "line";
-  $("timeline-scroll").classList.toggle("hidden", line);
-  $("timeline-branch-wrap").classList.toggle("hidden", !line);
-  grid.replaceChildren();
-  if (!body || !body.notes.length) {
-    $("timeline-empty").classList.remove("hidden");
-    $("timeline-count").textContent = "";
-    return;
+  const [body] = await Promise.all([apiJson(url).catch(() => null), loadMapBoardIndex()]);
+  timelineRows = body ? body.notes.map(timelineRow) : [];
+  // Newest first by the moment the row *sits* on, not by when it was typed.
+  // Those differ for every note placed by what it mentions, and the old grid
+  // ordered by one and bucketed by the other, so a note about next Friday
+  // arrived in Friday's column behind notes written after it.
+  timelineRows.sort((a, b) => b.when - a.when);
+  timelineById = new Map(timelineRows.map((row) => [row.id, row]));
+  timelineOpenId = null;
+  if (timelineFilter && !timelineRows.some((row) => timelineRowGroups(row).includes(timelineFilter))) {
+    // A filter naming a category that is not in the new range would hide
+    // everything with no way to tell why.
+    timelineFilter = null;
   }
-  $("timeline-empty").classList.add("hidden");
-  $("timeline-count").textContent = line
-    ? `${body.notes.length} notes · ${body.bands.length} band${body.bands.length === 1 ? "" : "s"}`
-    : `${body.notes.length} notes · ${body.buckets.length} columns`;
-
-  if (line) {
-    renderTimelineBranch(body);
-    return;
-  }
-
-  // **Not incrementally rendered, unlike the note and library lists.** This is
-  // a CSS grid, not a list: every cell's position comes from grid flow, so the
-  // order and completeness of `appendChild` calls *is* the layout, and a
-  // sentinel or a half-painted chunk would not be a shorter grid, it would be
-  // a wrong one. Its cost is also a different shape (bands x buckets, sized by
-  // the chosen scale) rather than one node per note, and the backend already
-  // bounds both.
-  const buckets = body.buckets;
-  const byId = new Map(body.notes.map((note) => [note.id, note]));
-  // Columns: one label column for the band names, then one per bucket.
-  // 5.5rem was sized for a bucket's date label, not for note preview text
-  // sharing the same track. 9rem (§37J's first pass) was still reported cut
-  // off: the preview is up to 120 characters (routes_timeline.py's
-  // PREVIEW_CHARS) and a 2-line clamp at 9rem only ever showed 40-50 of
-  // them, so "wider" wasn't wide enough to matter. 13rem + a 3-line clamp
-  // (below, .timeline-dot) gets close to the full preview for a typical
-  // note instead of a marginal improvement on the same shape of cut-off.
-  // 7rem was sized before category names like "Communication & Connection"
-  // were tried against it, every band longer than one short word wrapped to
-  // two cramped lines with its count badge squeezed against the edge.
-  grid.style.gridTemplateColumns = `minmax(11rem, auto) repeat(${buckets.length}, minmax(13rem, 1fr))`;
-
-  const corner = document.createElement("div");
-  corner.className = "timeline-corner";
-  grid.appendChild(corner);
-  for (const [column, bucket] of buckets.entries()) {
-    const head = document.createElement("div");
-    head.className = "timeline-head";
-    head.dataset.col = column % 2 === 0 ? "even" : "odd";
-    head.textContent = bucketLabel(bucket, body.scale);
-    grid.appendChild(head);
-  }
-
-  let rowIndex = 0;
-  for (const band of body.bands) {
-    const name = document.createElement("button");
-    name.type = "button";
-    name.className = "timeline-band";
-    name.dataset.row = rowIndex % 2 === 0 ? "even" : "odd";
-    name.title = `Show the ${band.name} notes`;
-    name.append(band.name);
-    const count = document.createElement("span");
-    count.className = "muted";
-    count.textContent = ` ${band.count}`;
-    name.appendChild(count);
-    name.addEventListener("click", () => openTimelineBand(band, body.group));
-    grid.appendChild(name);
-
-    const inBand = new Set(band.ids);
-    // One pass over the notes per band, into a bucket -> notes map, instead of
-    // re-scanning every note once per bucket. That inner filter made the build
-    // O(bands x buckets x notes), a year of daily buckets over a few hundred
-    // notes across a handful of bands is millions of comparisons to draw one
-    // screen, and it grows with all three.
-    const byBucket = new Map();
-    for (const note of body.notes) {
-      if (!inBand.has(note.id)) continue;
-      const list = byBucket.get(note.bucket);
-      if (list) list.push(note);
-      else byBucket.set(note.bucket, [note]);
-    }
-    for (const [column, bucket] of buckets.entries()) {
-      const cell = document.createElement("div");
-      cell.className = "timeline-cell";
-      // Banding is done with parity attributes rather than :nth-child,
-      // because the grid is one flat list of children, every row's cells and
-      // every header share one child index, so nth-child cannot tell a column
-      // from a row. These say which is which.
-      cell.dataset.col = column % 2 === 0 ? "even" : "odd";
-      cell.dataset.row = rowIndex % 2 === 0 ? "even" : "odd";
-      for (const note of byBucket.get(bucket) || []) cell.appendChild(timelineDot(note));
-      grid.appendChild(cell);
-    }
-    rowIndex += 1;
-  }
-  clampTimelineDots();
-  // The most recent column is the interesting one, so start there.
-  $("timeline-scroll").scrollLeft = $("timeline-scroll").scrollWidth;
-  void byId;
+  fillTimelineBandOptions();
+  paintTimelineFeed();
 }
 
-// --- Timeline: the branch/line view (§10C) -----------------------------------
-//
-// "Make sure the timeline has the additional aspect of like a line or
-// branching line/tree-like graph view because right now it is more like a
-// calendar", accurate, and not a defect in the grid so much as the grid
-// answering a different question well. A grid answers "what happened around
-// this date, across every band at once"; this answers "what was the shape of
-// this one thread over time", two notes three months apart in the same band
-// read as unrelated dots in a grid, and as one continuous line here.
-//
-// Branches come from the same bands the grid already computes (category or
-// tag, whichever is picked) rather than a second grouping. BACKLOG.md §10C
-// named §9's cluster detection as the other candidate signal; that is a
-// different structure (link/similarity, behind a separate endpoint) from the
-// filing this reads, and reusing the grouping already on screen keeps the two
-// Timeline views showing the same notebook two ways rather than two
-// different stories about it. "None" collapses to a single lane, the spine
-// itself, with every note directly on it.
-const TIMELINE_LANE_GAP = 52;
-const TIMELINE_MARGIN_X = 40; // Reduced dead space, labels now sit near the branch start
-const TIMELINE_MARGIN_TOP = 40;
-const TIMELINE_DOT_R = 10; // increased for better visibility and access
+// What a row belongs to under the current grouping: the value the band filter
+// matches against. Threads are named by the note they continue, which is the
+// only name a thread has.
+function timelineRowGroups(row) {
+  const group = $("timeline-group").value;
+  if (group === "tag") return row.tags.length ? row.tags : ["untagged"];
+  if (group === "thread") return [row.parentId ? `note-${row.parentId}` : `note-${row.id}`];
+  if (group === "none") return [];
+  // "Uncategorised" is where notes land when a category goes away, and is the
+  // name the rest of the app uses for it.
+  return [row.category || "Uncategorised"];
+}
 
-function renderTimelineBranch(body) {
-  const svg = d3.select("#timeline-branch-svg");
-  svg.selectAll("*").remove();
-  const width = Math.max($("timeline-branch-wrap").clientWidth || 800, 480);
+// The band filter's options come from what is loaded, because a filter offering
+// a category the range does not contain is a dead end. Built after every fetch
+// and after a change of grouping; the current value survives if it is still
+// there.
+function fillTimelineBandOptions() {
+  const select = $("timeline-band");
+  const group = $("timeline-group").value;
+  const section = $("timeline-band-section");
+  section.classList.toggle("hidden", group === "none" || group === "thread");
+  const counts = new Map();
+  for (const row of timelineRows) {
+    for (const name of timelineRowGroups(row)) counts.set(name, (counts.get(name) || 0) + 1);
+  }
+  const names = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  timelineGroupNames = names.map(([name]) => name);
+  select.replaceChildren();
+  const all = document.createElement("option");
+  all.value = "";
+  all.textContent = "Everything";
+  select.appendChild(all);
+  for (const [name, count] of names) {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = `${name} (${count})`;
+    select.appendChild(option);
+  }
+  if (timelineFilter && !counts.has(timelineFilter)) timelineFilter = null;
+  select.value = timelineFilter || "";
+  syncTimelineFilterChip();
+}
 
-  // The same "premium orb" shine Graph's nodes use (renderGraph(), graph.js)
-  //, a white radial highlight offset toward the top-left corner, so the dot
-  // reads as a lit sphere instead of a flat circle. Own id (not graph.js's
-  // "orb-shine") because both tabs' SVGs can be present in the document at
-  // once and an id must be unique across the whole page, not just one <svg>.
-  const shineDefs = svg.append("defs");
-  const shineGrad = shineDefs
-    .append("radialGradient")
-    .attr("id", "timeline-orb-shine")
-    .attr("cx", "35%")
-    .attr("cy", "30%")
-    .attr("r", "65%");
-  shineGrad.append("stop").attr("offset", "0%").attr("stop-color", "white").attr("stop-opacity", "0.65");
-  shineGrad.append("stop").attr("offset", "100%").attr("stop-color", "white").attr("stop-opacity", "0");
+// The filter, said out loud in the dock's find zone rather than only inside a
+// menu nobody has open: the same shape Graph uses for "a state is on and here
+// is the way out of it" (`#graph-highlight-clear`).
+function syncTimelineFilterChip() {
+  const clear = $("timeline-filter-clear");
+  clear.classList.toggle("hidden", !timelineFilter);
+  if (timelineFilter) {
+    setLabel(clear, `ph:x Show: ${timelineFilter}`);
+    clear.title = `Stop showing only ${timelineFilter}`;
+  }
+}
 
-  const notes = body.notes;
-  const times = notes.map((n) => new Date(n.at));
-  const minT = d3.min(times);
-  const maxT = d3.max(times);
-  // A single moment in time has no span to scale against, give it a day
-  // either side rather than let every note collapse onto the same x.
-  const domain =
-    minT.getTime() === maxT.getTime()
-      ? [new Date(minT.getTime() - 864e5), new Date(maxT.getTime() + 864e5)]
-      : [minT, maxT];
-  const scale = d3.scaleTime().domain(domain).range([TIMELINE_MARGIN_X, width - 24]).nice();
+// Search and the band filter, applied to the array (decision 2). They filter
+// rather than dim: a dimmed row still takes its space, still answers Ctrl+F
+// and still has to be read past, which is why the old view's search was
+// reported as doing nothing useful.
+function timelineVisibleRows() {
+  const query = ($("timeline-search").value || "").trim().toLowerCase();
+  let rows = timelineRows;
+  if (timelineFilter) {
+    rows = rows.filter((row) => timelineRowGroups(row).includes(timelineFilter));
+  }
+  if (query) {
+    rows = rows.filter((row) =>
+      `${row.title} ${row.snippet} ${row.category} ${row.tags.join(" ")}`
+        .toLowerCase()
+        .includes(query)
+    );
+  }
+  return rows;
+}
 
-  const bands = body.bands;
-  const single = bands.length <= 1;
-  const spineY = TIMELINE_MARGIN_TOP;
+function paintTimelineFeed() {
+  const feed = $("timeline-feed");
+  const rows = timelineVisibleRows();
+  const scale = timelineResolvedScale(timelineRows.length);
+  const density = TIMELINE_DENSITY[scale];
+  feed.dataset.scale = scale;
+  feed.dataset.density = density;
+  feed.replaceChildren();
 
-  // **Pass 1: work out how much room each band's own dot cluster actually
-  // needs, before any lane gets a fixed Y.** Reported live, and reproduced
-  // with 5 same-day bands of 8 notes each: a fixed TIMELINE_LANE_GAP between
-  // every lane is fine for a sparse notebook, but nothing stopped a dense
-  // same-timestamp cluster (the vertical stagger below exists exactly to
-  // fan those out) from staggering far enough to reach *past* the gap and
-  // paint over the next band's dots and label, confusing in exactly the
-  // way "too close to other lines" describes, and not something clamping
-  // only the label (an earlier, insufficient pass at this same report) could
-  // fix, since the dots themselves were what collided.
-  //
-  // Each band's stagger only depends on its own notes' x-positions, so it
-  // can run here, before laneY exists, and the render pass below reuses the
-  // result instead of recomputing it.
-  const hereByBand = [];
-  const bandUp = []; // clearance needed above this band's own baseline
-  const bandDown = []; // clearance needed below it
-  bands.forEach((band) => {
-    const inBand = new Set(band.ids);
-    const here = notes
-      .filter((n) => inBand.has(n.id))
-      .sort((a, b) => new Date(a.at) - new Date(b.at));
-    hereByBand.push(here);
-    if (!here.length) {
-      bandUp.push(0);
-      bandDown.push(0);
-      return;
+  const nothingLoaded = timelineRows.length === 0;
+  $("timeline-empty").classList.toggle("hidden", !nothingLoaded);
+  $("timeline-no-match").classList.toggle("hidden", nothingLoaded || rows.length > 0);
+  $("timeline-scroll").classList.toggle("hidden", rows.length === 0);
+
+  // Buckets in the order the rows are in, so the grouping is one pass and the
+  // feed's order is the array's order: the two cannot drift.
+  const buckets = [];
+  let current = null;
+  for (const row of rows) {
+    const key = timelineBucketKey(row.when, scale);
+    if (!current || current.key !== key) {
+      current = { key, rows: [] };
+      buckets.push(current);
     }
-    const placed = [];
-    const minDistance = TIMELINE_DOT_R * 2 + 2; // 2px padding
-    here.forEach((n) => {
-      n.cx = scale(new Date(n.at));
-      // Find what dy offsets are already taken at this cx
-      const taken = placed
-        .filter((p) => Math.abs(p.cx - n.cx) < minDistance)
-        .map((p) => p._dy);
-      // Try dy offsets: 0, 15, -15, 30, -30... but **bounded**, and then
-      // sideways.
-      //
-      // Unbounded, this resolver answers a busy minute by stacking straight
-      // up and down for as long as it takes. Seen in the running app on one
-      // ordinary day's notes: twelve notes sharing a timestamp came out as a
-      // 240px column of touching dots that filled its whole lane, read as
-      // beads on a string rather than as points on a line, and pushed the
-      // next band most of the way down the chart. The single-day line view is
-      // the common case, not an edge case, it is what "what did I do today"
-      // looks like: so this is the shape it has to be good at.
-      //
-      // Six slots up and down is as tall as a cluster can get before it stops
-      // reading as one moment; past that the overflow goes *sideways* by one
-      // dot width and starts a fresh column. A run of notes a second apart
-      // then draws as a compact block a few dots wide instead of a tower, and
-      // no dot is ever hidden behind another either way.
-      const step = TIMELINE_DOT_R * 1.5;
-      const MAX_STACK_SLOTS = 6;
-      let offsetIdx = 0;
-      let dy = 0;
-      while (taken.includes(dy)) {
-        offsetIdx++;
-        if (offsetIdx > MAX_STACK_SLOTS) {
-          n.cx += minDistance;
-          offsetIdx = 0;
-          dy = 0;
-          taken.length = 0;
-          taken.push(
-            ...placed
-              .filter((p) => Math.abs(p.cx - n.cx) < minDistance)
-              .map((p) => p._dy)
-          );
-          continue;
-        }
-        const sign = offsetIdx % 2 === 0 ? 1 : -1;
-        dy = Math.ceil(offsetIdx / 2) * step * sign;
-      }
-      n._dy = dy;
-      placed.push(n);
-    });
-    const highestDy = Math.min(0, ...here.map((n) => n._dy || 0));
-    const lowestDy = Math.max(0, ...here.map((n) => n._dy || 0));
-    // The label sits above the topmost dot (see the render pass), so its own
-    // clearance, not just the dot's radius, belongs in "up".
-    bandUp.push(-highestDy + TIMELINE_DOT_R + 26);
-    bandDown.push(lowestDy + TIMELINE_DOT_R);
-  });
+    current.rows.push(row);
+  }
 
-  // **Pass 2: lay out lanes with at least TIMELINE_LANE_GAP between them, 
-  // exactly today's fixed rhythm on sparse data, but more when a band's own
-  // cluster needs it.** A minimum breathing gap between one band's lowest
-  // dot and the next band's topmost clearance, on top of whatever each needs.
-  const LANE_MARGIN = 12;
-  const laneYs = [];
-  bands.forEach((_, index) => {
-    if (index === 0) {
-      laneYs.push(spineY + Math.max(TIMELINE_LANE_GAP, bandUp[0] + LANE_MARGIN));
-      return;
+  const unit = { day: "day", week: "week", month: "month", year: "year" }[scale];
+  const filtered = rows.length !== timelineRows.length;
+  $("timeline-count").textContent = rows.length
+    ? `${filtered ? `${rows.length} of ${timelineRows.length}` : rows.length} note${
+        rows.length === 1 ? "" : "s"
+      } · ${buckets.length} ${unit}${buckets.length === 1 ? "" : "s"}`
+    : "";
+
+  const fragment = document.createDocumentFragment();
+  for (const bucket of buckets) {
+    const section = document.createElement("section");
+    section.className = "timeline-bucket";
+    section.dataset.bucket = bucket.key;
+    const head = document.createElement("h3");
+    head.className = "timeline-bucket-head";
+    const label = document.createElement("span");
+    label.className = "timeline-bucket-label";
+    label.textContent = timelineBucketLabel(bucket.key, scale);
+    const count = document.createElement("span");
+    count.className = "muted timeline-bucket-count";
+    count.textContent = `${bucket.rows.length}`;
+    head.append(label, count);
+    const list = document.createElement("ul");
+    list.className = "timeline-rows";
+    for (const row of bucket.rows) list.appendChild(timelineRowElement(row, density));
+    section.append(head, list);
+    fragment.appendChild(section);
+  }
+  feed.appendChild(fragment);
+  applyTimelineRowTabOrder();
+}
+
+// One Tab stop for the feed, kept on the row the reader was on. A repaint
+// happens on every keystroke in the search box, and resetting the stop to the
+// top of the feed each time takes the focus away mid-typing: the same reason
+// `applyEntryListTabOrder` keeps the Notes list's stop where it was.
+function applyTimelineRowTabOrder() {
+  const rows = [...$("timeline-feed").querySelectorAll(".timeline-row")];
+  const current = document.activeElement;
+  const keepId = rows.some((row) => row === current) ? current.dataset.id : null;
+  for (const row of rows) {
+    row.tabIndex = keepId ? (row.dataset.id === keepId ? 0 : -1) : -1;
+  }
+  if (!keepId && rows.length) rows[0].tabIndex = 0;
+}
+
+// A row. The order you read it in: what kind of thing this is and whether it
+// is sitting on a date it only talks about, then what it is called, then the
+// line under it, then the facts (category, tags) and the time.
+function timelineRowElement(row, density) {
+  const li = document.createElement("li");
+  li.className = "timeline-row";
+  li.dataset.id = row.id;
+  li.dataset.kind = row.kind;
+  if (row.placedBy === "mentioned") li.dataset.placed = "mentioned";
+  if (row.pinned) li.dataset.pinned = "1";
+  //: **Reachable by keyboard, on the app's own recipe for a list.** The SVG
+  //: view had 0 focusable notes; the Notes list has a *roving* tab stop
+  //: (`applyEntryListTabOrder`): one row in the page's Tab order, arrows to
+  //: move between rows. Forty-eight Tab stops in one feed would be the other
+  //: failure, and it is not what the rest of the app does. `aria-expanded`
+  //: says what Enter will do here.
+  li.tabIndex = -1;
+  li.setAttribute("aria-expanded", "false");
+
+  const mark = document.createElement("span");
+  mark.className = "timeline-row-mark";
+  mark.setAttribute("aria-hidden", "true");
+  const glyph = document.createElement("i");
+  //: The kind is carried by the glyph, and the *placement* by the clock: a
+  //: note plotted on a Friday it mentions is a different fact from one
+  //: plotted on the day it was typed, and the old view said so only in a
+  //: tooltip. Colour is deliberately not the signal here (decision 10 asks
+  //: for category tokens, and this app has none: the Library's chips are
+  //: accent-and-surface, not one hue per category), so the marker takes its
+  //: colour from `--accent` or `--ink-soft` and the icon does the work.
+  glyph.className =
+    row.kind === "board"
+      ? "ph ph-tree-structure"
+      : row.placedBy === "mentioned"
+        ? "ph ph-clock-countdown"
+        : "ph ph-note";
+  mark.appendChild(glyph);
+
+  const main = document.createElement("span");
+  main.className = "timeline-row-main";
+  const title = document.createElement("span");
+  title.className = "timeline-row-title";
+  title.textContent = row.title;
+  // One native tooltip for the full title, because the ellipsis is the only
+  // other escape hatch and the text is already plain.
+  title.title = row.title;
+  main.appendChild(title);
+  if (density === "full" && row.snippet) {
+    const snippet = document.createElement("span");
+    snippet.className = "timeline-row-snippet";
+    snippet.textContent = row.snippet;
+    main.appendChild(snippet);
+  }
+
+  const meta = document.createElement("span");
+  meta.className = "timeline-row-meta";
+  if (density !== "dense") {
+    // The note row's own chips (`chip()`), not a second chip recipe for the
+    // same facts: a tag should look the same here as in the Notes list.
+    if (row.category) meta.appendChild(chip(row.category));
+    for (const tag of row.tags.slice(0, density === "full" ? 3 : 2)) {
+      meta.appendChild(chip(tag, "tag"));
     }
-    const grown =
-      laneYs[index - 1] + bandDown[index - 1] + LANE_MARGIN + bandUp[index];
-    laneYs.push(Math.max(grown, laneYs[index - 1] + TIMELINE_LANE_GAP));
+  }
+  const when = document.createElement("time");
+  when.className = "timeline-row-when";
+  when.dateTime = row.whenIso;
+  // A day's rows all share their date with the header above them, so the row
+  // shows the time; any longer bucket shows the date, which is the thing the
+  // header no longer says.
+  when.textContent =
+    density === "full"
+      ? row.when.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+      : row.when.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  when.title =
+    row.placedBy === "mentioned"
+      ? `“${row.phrase}” in this note meant ${shortDate(row.whenIso)}. Written ${shortDate(row.writtenAt)}.`
+      : `Written ${new Date(row.writtenAt).toLocaleString()}`;
+  meta.appendChild(when);
+
+  li.append(mark, main, meta);
+
+  // A row that continues another says so and goes there (decision 5's one
+  // surviving thread affordance). Only where there is room to say it.
+  if (density === "full" && row.parentId) {
+    const parent = timelineById.get(row.parentId);
+    if (parent) {
+      const link = document.createElement("button");
+      link.type = "button";
+      link.className = "ghost small timeline-row-thread";
+      setLabel(link, `ph:arrow-bend-up-left ${parent.title}`);
+      link.title = `Continues “${parent.title}”`;
+      link.addEventListener("click", (event) => {
+        event.stopPropagation();
+        focusTimelineRow(parent.id);
+      });
+      main.appendChild(link);
+    }
+  }
+
+  li.addEventListener("click", (event) => {
+    // The same "don't swallow a click meant for something else" guard the
+    // Notes list's own row handler uses.
+    if (event.target.closest("a, button, input, textarea, .chip, img")) return;
+    if (window.getSelection()?.toString()) return; // a text selection, not a click
+    toggleTimelineRow(li, row);
   });
+  return li;
+}
 
-  const height = single
-    ? spineY + TIMELINE_LANE_GAP + 20
-    : (laneYs[laneYs.length - 1] || spineY) + (bandDown[bandDown.length - 1] || 0) + 20;
-  svg.attr("viewBox", `0 0 ${width} ${height}`).attr("width", width).attr("height", height);
+// Focus, and scroll into view without walking every scrolling ancestor:
+// `scrollIntoView` takes the page with it (DESIGN.md's rule for a list that
+// says where you are), and the feed is a box inside a card.
+function focusTimelineRow(id) {
+  const row = $("timeline-feed").querySelector(`.timeline-row[data-id="${id}"]`);
+  if (!row) return;
+  const box = $("timeline-scroll");
+  const offset = row.getBoundingClientRect().top - box.getBoundingClientRect().top;
+  box.scrollTop += offset - box.clientHeight / 3;
+  for (const other of $("timeline-feed").querySelectorAll(".timeline-row")) other.tabIndex = -1;
+  row.tabIndex = 0;
+  row.focus();
+}
 
-  const color = d3.scaleOrdinal(
-    bands.map((b) => b.name),
-    d3.schemeTableau10.concat(d3.schemeSet3)
+//: **Open in place**, which is what replaced the popup (decision 8). The popup
+//: was positioned by hand against two different offset parents, clamped
+//: itself, re-placed itself on every image that loaded, and could only ever
+//: show one note: the row opens underneath itself instead, stays where the
+//: reader's eye already is, and keeps its place in the keyboard order.
+//:
+//: One at a time, the same rule the app's popovers follow, so the feed never
+//: becomes a wall of open notes.
+//:
+//: TIMELINE_PLAN decision 8 names "the app's split panel (the same one Notes
+//: uses)". There is no such panel: Notes opens a note by expanding the row it
+//: is already in (`expandedRows`, `entryItem`). This is that affordance, built
+//: on the same idea, and the plan's wording is the thing that is out of date.
+function toggleTimelineRow(li, row) {
+  if (li.getAttribute("aria-expanded") === "true") {
+    closeTimelineRow(li);
+    return;
+  }
+  if (timelineOpenId !== null) {
+    const open = $("timeline-feed").querySelector(`.timeline-row[data-id="${timelineOpenId}"]`);
+    if (open) closeTimelineRow(open);
+  }
+  timelineOpenId = row.id;
+  li.setAttribute("aria-expanded", "true");
+  const detail = document.createElement("div");
+  detail.className = "timeline-row-detail";
+  li.appendChild(detail);
+  openTimelineRowDetail(detail, row);
+}
+
+function closeTimelineRow(li) {
+  li.setAttribute("aria-expanded", "false");
+  li.querySelector(".timeline-row-detail")?.remove();
+  if (String(timelineOpenId) === li.dataset.id) timelineOpenId = null;
+}
+
+async function openTimelineRowDetail(detail, row) {
+  const actions = document.createElement("div");
+  actions.className = "row timeline-row-actions";
+
+  if (row.kind === "board") {
+    // A map has no prose to render. Its own chip says what it is and how big
+    // it is, which is what the Library and the dashboard show for one too.
+    detail.append(mapChip(row.board, { interactive: false }));
+    actions.appendChild(
+      smallButton("ph:tree-structure Open this map", "Open this map on the whiteboard", () =>
+        openWhiteboardBoard(row.board.id)
+      )
+    );
+    detail.appendChild(actions);
+    return;
+  }
+
+  const body = document.createElement("div");
+  body.className = "timeline-row-body";
+  body.textContent = "Loading…";
+  const media = document.createElement("div");
+  media.className = "timeline-row-media hidden";
+  detail.append(body, media, actions);
+
+  actions.appendChild(
+    smallButton("ph:pencil-simple Open in editor", "Open this note in the Notes tab", () => {
+      switchTab("notes");
+      showNotesSection("browse");
+      flashEntry(row.id);
+    })
   );
 
-  // The plain chronological reading, every note in order, is what a grid
-  // gives you for free, and a branch view still owes it: it is the line every
-  // band's stub actually branches off of.
-  svg
-    .append("line")
-    .attr("class", "timeline-spine")
-    .attr("x1", scale.range()[0])
-    .attr("x2", scale.range()[1])
-    .attr("y1", spineY)
-    .attr("y2", spineY);
-
-  bands.forEach((band, index) => {
-    const laneY = single ? spineY : laneYs[index];
-    const here = hereByBand[index];
-    if (!here.length) return;
-
-    const laneGroup = svg.append("g").attr("class", "timeline-branch-lane");
-    const tint = color(band.name);
-
-    if (!single) {
-      // Where a branch starts: it peels off the spine slightly before its first
-      // note to form a smooth organic S-curve instead of a sharp vertical line.
-      const startX = scale(new Date(here[0].at));
-      const branchX = Math.max(scale.range()[0], startX - 45);
-      const midX = (branchX + startX) / 2;
-      laneGroup
-        .append("path")
-        .attr("class", "timeline-branch-stub")
-        .attr("fill", "none")
-        .attr("stroke", tint)
-        .attr("d", `M${branchX},${spineY}C${midX},${spineY} ${midX},${laneY} ${startX},${laneY}`);
-    }
-
-    // The thread itself: the one thing a grid cannot show at all: every
-    // note in this band, joined in time order, however far apart they sit.
-    if (here.length > 1) {
-      const linePath = d3
-        .line()
-        .x((n) => scale(new Date(n.at)))
-        .y(() => laneY);
-      const path = laneGroup
-        .append("path")
-        .attr("class", "timeline-branch-line")
-        .attr("fill", "none")
-        .attr("stroke", tint)
-        .attr("d", linePath(here));
-      
-      const length = path.node().getTotalLength();
-      path
-        .attr("stroke-dasharray", length + " " + length)
-        .attr("stroke-dashoffset", length)
-        .transition()
-        .duration(800)
-        .ease(d3.easeCubicOut)
-        .attr("stroke-dashoffset", 0);
-    }
-
-    // `_dy` (per-note vertical stagger) was already computed in the layout
-    // pass above, alongside laneYs, both come from the same per-band pass
-    // so they can never disagree about how much room a cluster needs.
-
-    if (!single) {
-      // Position label near the actual branch start rather than the fixed left margin
-      const startX = scale(new Date(here[0].at));
-      // The label sits above the topmost dot. No clamp needed here any
-      // more: laneYs (the layout pass above) already gave this band's own
-      // "up" clearance room in the gap before it, so this can never reach
-      // into the lane above regardless of how dense this cluster is.
-      const highestDy = Math.min(0, ...here.map((n) => n._dy || 0));
-      const labelY = laneY + highestDy - TIMELINE_DOT_R - 8;
-      const label = laneGroup
-        .append("text")
-        .attr("class", "timeline-branch-label")
-        .attr("x", startX)
-        .attr("y", labelY)
-        .attr("dy", "0")
-        .attr("text-anchor", "start")
-        .attr("fill", tint)
-        .text(band.name)
-        .style("opacity", 0);
-
-      label.transition().duration(600).style("opacity", 1);
-      label.append("title").text(`${band.count} note${band.count === 1 ? "" : "s"}`);
-    }
-
-    // A soft coloured glow behind each dot, same treatment the Graph tab's
-    // nodes use (.graph-halo): asked for directly ("look similar to the
-    // graph nodes"). Its own circle rather than an SVG filter on the dot,
-    // so blur and fill can differ from the crisp dot on top of it.
-    const halos = laneGroup
-      .selectAll("circle.timeline-branch-halo")
-      .data(here)
-      .join("circle")
-      .attr("class", "timeline-branch-halo")
-      .attr("cx", (n) => n.cx)
-      .attr("cy", (n) => laneY + (n._dy || 0))
-      .attr("fill", tint)
-      .attr("r", 0)
-      .style("opacity", 0.2);
-
-    halos.transition()
-      .delay((_, i) => Math.min(i * 30, 800))
-      .duration(400)
-      .ease(d3.easeElasticOut)
-      .attr("r", TIMELINE_DOT_R * 1.6);
-
-    // The same "premium orb" highlight overlay as Graph's `.graph-orb-shine`
-    // (renderGraph(), graph.js): asked for directly ("the graph nodes have
-    // a sort of shine to them and I want the timeline nodes ... to be the
-    // same"). Declared before `dots` so its own hover handler can resize the
-    // matching shine by index. `pointer-events: none` so it never steals the
-    // dot's own hover/click, same as `.graph-orb-shine` gets from JS
-    // (graph.js) rather than CSS.
-    const shines = laneGroup
-      .selectAll("circle.timeline-branch-shine")
-      .data(here)
-      .join("circle")
-      .attr("class", "timeline-branch-shine")
-      .attr("cx", (n) => n.cx)
-      .attr("cy", (n) => laneY + (n._dy || 0))
-      .attr("fill", "url(#timeline-orb-shine)")
-      .attr("pointer-events", "none")
-      .attr("r", 0);
-
-    shines.transition()
-      .delay((_, i) => Math.min(i * 30, 800))
-      .duration(400)
-      .ease(d3.easeElasticOut)
-      .attr("r", TIMELINE_DOT_R);
-
-    //: **The shine belongs on top of the dot, not under it.** Reported: "the
-    //: timeline doesnt just dim, the whole style of the circle nodes changes,
-    //: I prefer it in the different style". Both halves of that are the same
-    //: fact: the shine is drawn before the dots, so DOM order buried it under
-    //: an opaque disc and you only ever saw it when the search dimmed the disc
-    //: to 15% and let it through. The glass-bead look the report prefers was
-    //: therefore only reachable by typing something that matched nothing.
-    //:
-    //: `raise()` after the dots exist is the whole fix -- the shine already
-    //: carries `pointer-events: none`, so putting it in front costs the dot
-    //: none of its hover or click. This is what `.graph-orb-shine` does in the
-    //: graph, which is where the pattern came from.
-    const dots = laneGroup
-      .selectAll("circle.timeline-branch-dot")
-      .data(here)
-      .join("circle")
-      .attr(
-        "class",
-        (n) => `timeline-branch-dot${n.placed_by === "mentioned" ? " timeline-branch-dot-mentioned" : ""}`
-      )
-      .attr("cx", (n) => n.cx)
-      .attr("cy", (n) => laneY + (n._dy || 0))
-      .attr("fill", tint)
-      .attr("r", 0)
-      .on("mouseover", function(event, n) {
-        d3.select(this).transition().duration(150).attr("r", TIMELINE_DOT_R * 1.5);
-        // Opacity only, same as Graph's own `.graph-node:hover circle.graph-halo`
-        // (04-chat-dock-appearance.css): the halo used to grow to 2.2x here
-        // too, and mouseout reset it back to that *same* 2.2x instead of the
-        // resting 1.6x (copy-paste of the mouseover line), so the glow only
-        // ever grew and never actually shrank back down after a hover.
-        // Dropping the radius change here removes the mismatch instead of
-        // just correcting the number, and reads closer to Graph's subtler
-        // hover in the process.
-        const halo = halos.nodes()[here.indexOf(n)];
-        if (halo) d3.select(halo).transition().duration(150).style("opacity", 0.45);
-        // The shine sits on top of the dot at the dot's resting size: it has
-        // to grow with the dot on hover too, or the enlarged dot pokes out
-        // past its own highlight.
-        const shine = shines.nodes()[here.indexOf(n)];
-        if (shine) d3.select(shine).transition().duration(150).attr("r", TIMELINE_DOT_R * 1.5);
-        d3.selectAll(".timeline-branch-lane").transition().duration(150).style("opacity", function() {
-          return (this === laneGroup.node()) ? 1 : 0.2;
-        });
-      })
-      .on("mouseout", function(event, n) {
-        d3.select(this).transition().duration(150).attr("r", TIMELINE_DOT_R);
-        const halo = halos.nodes()[here.indexOf(n)];
-        if (halo) d3.select(halo).transition().duration(150).style("opacity", 0.2);
-        const shine = shines.nodes()[here.indexOf(n)];
-        if (shine) d3.select(shine).transition().duration(150).attr("r", TIMELINE_DOT_R);
-        d3.selectAll(".timeline-branch-lane").transition().duration(150).style("opacity", 1);
-      })
-      .on("click", (event, n) => {
-        openTimelinePopup(event, n);
-      });
-
-    // See the note above the dots: in front, so every dot reads as a bead.
-    shines.raise();
-
-    dots.transition()
-      .delay((_, i) => Math.min(i * 30, 800))
-      .duration(400)
-      .ease(d3.easeElasticOut)
-      .attr("r", TIMELINE_DOT_R);
-    dots.append("title").text((n) => {
-      // Same honesty rule as the grid's dots: say when a note is here because
-      // of what it says rather than when it was typed.
-      const when =
-        n.placed_by === "mentioned"
-          ? `“${n.phrase}” meant ${new Date(n.at).toLocaleDateString()}`
-          : new Date(n.written_at).toLocaleString();
-      return `${stripMarkdownPreview(n.preview)}\n${when}`;
-    });
-  });
-
-  // A handful of date ticks along the spine, an unlabelled line reads as a
-  // decoration, not an axis.
-  const tickGroup = svg.append("g").attr("class", "timeline-branch-ticks");
-  const [axisFrom, axisTo] = scale.domain();
-  const spanMs = Math.abs(axisTo - axisFrom);
-  // **The label's resolution has to follow the axis's span.** It was always
-  // `{month, day}`, and d3 chooses tick *positions* by span, so a day's
-  // worth of notes got hour ticks that all printed the same date, and the
-  // axis read "Sep 3 · Sep 3 · Sep 3 · Sep 3 · Sep 3 · Sep 3": six labels
-  // carrying no information at all, above notes that were genuinely hours
-  // apart. Seen in the running app; the line view of a single busy day is
-  // the common case, not the edge case, because that is what "what did I do
-  // today" looks like.
-  const DAY_MS = 86400000;
-  const tickFormat =
-    spanMs < 2 * DAY_MS
-      ? { hour: "numeric", minute: "2-digit" }
-      : spanMs < 200 * DAY_MS
-        ? { month: "short", day: "numeric" }
-        : { month: "short", year: "numeric" };
-  for (const tick of scale.ticks(Math.min(6, notes.length))) {
-    const x = scale(tick);
-    tickGroup
-      .append("line")
-      .attr("x1", x)
-      .attr("x2", x)
-      .attr("y1", spineY - 4)
-      .attr("y2", spineY + 4);
-    tickGroup
-      .append("text")
-      .attr("x", x)
-      .attr("y", spineY - 10)
-      .attr("text-anchor", "middle")
-      .text(tick.toLocaleString(undefined, tickFormat));
+  const entry = await apiJson(`/entries/${row.id}`).catch(() => null);
+  // The row may have been closed, or the feed repainted, while this was in
+  // flight; writing into a detached node would be invisible and confusing.
+  if (!detail.isConnected) return;
+  if (!entry) {
+    body.textContent = "Couldn't load this note.";
+    return;
   }
-  // With time-of-day ticks the day itself is no longer written anywhere, so
-  // it goes once at the start of the axis rather than six times along it.
-  if (spanMs < 2 * DAY_MS) {
-    tickGroup
-      .append("text")
-      .attr("class", "timeline-branch-axis-caption")
-      .attr("x", scale.range()[0])
-      .attr("y", spineY - 26)
-      .attr("text-anchor", "start")
-      .text(
-        axisFrom.toLocaleDateString(undefined, {
-          weekday: "short",
-          day: "numeric",
-          month: "short",
-        })
+  body.replaceChildren();
+  renderMarkdown(body, entry.content || "");
+  renderTimelineRowMedia(entry, media);
+}
+
+//: **Everything attached, not only the pictures.** Reported twice against the
+//: popup this moved out of: "a photo i attached to a note ... doesn't render"
+//: and "files and attachments dont render in the timeline and popups". The
+//: non-image half is `fileCard`, the same control the note cards, the chat
+//: transcript and the widgets use, so a file looks the same wherever the app
+//: shows it. Kept through the redesign on purpose: the popup went, the two
+//: fixes it carried did not.
+function renderTimelineRowMedia(entry, box) {
+  box.replaceChildren();
+  const all = entry.attachments || [];
+  box.classList.toggle("hidden", all.length === 0);
+  if (!all.length) return;
+  const images = all.filter((a) => a.is_image);
+  for (const attachment of all.filter((a) => !a.is_image)) {
+    //: `url` is what every other file surface is given; attachments carry
+    //: theirs as `/files/{id}` when the row does not spell one out.
+    box.appendChild(
+      fileCard(attachment.filename || attachment.name || "", attachment.url || `/files/${attachment.id}`)
+    );
+  }
+  for (const attachment of images) {
+    const img = document.createElement("img");
+    img.className = "timeline-row-thumb";
+    img.alt = attachment.filename;
+    img.title = `${attachment.filename}: click to view full size`;
+    attachmentObjectUrl(attachment)
+      .then((url) => {
+        img.src = url;
+      })
+      .catch(() => img.remove());
+    img.addEventListener("click", () => {
+      openLightbox(
+        images.map((a) => ({ filename: a.filename, getUrl: () => attachmentObjectUrl(a) })),
+        images.indexOf(attachment)
       );
+    });
+    box.appendChild(img);
   }
 }
 
-function bucketLabel(iso, scale) {
-  const day = new Date(`${iso}T00:00:00`);
-  if (scale === "year") return String(day.getFullYear());
-  if (scale === "month") {
-    return day.toLocaleDateString(undefined, { month: "short", year: "2-digit" });
+//: The keys are the app's (TIMELINE_PLAN §6): arrows walk the rows in document
+//: order, Enter and Space open one in place, Escape closes it. Delegated to the
+//: feed rather than bound per row, because a repaint builds every row again and
+//: a listener per row is a listener per row per repaint.
+//:
+//: Guarded on the row itself being the target: a chip inside a row is its own
+//: `role="button"` with its own Enter, and an arrow pressed inside one should
+//: not steal the key from it.
+$("timeline-feed").addEventListener("keydown", (event) => {
+  const row = event.target.closest?.(".timeline-row");
+  if (!row || event.target !== row) return;
+  const rows = [...$("timeline-feed").querySelectorAll(".timeline-row")];
+  const at = rows.indexOf(row);
+  const go = (index) => {
+    const next = rows[Math.max(0, Math.min(rows.length - 1, index))];
+    if (next) {
+      event.preventDefault();
+      focusTimelineRow(next.dataset.id);
+    }
+  };
+  if (event.key === "ArrowDown") return go(at + 1);
+  if (event.key === "ArrowUp") return go(at - 1);
+  if (event.key === "Home") return go(0);
+  if (event.key === "End") return go(rows.length - 1);
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    const model = timelineById.get(Number(row.dataset.id));
+    if (model) toggleTimelineRow(row, model);
+    return;
   }
-  return day.toLocaleDateString(undefined, { day: "numeric", month: "short" });
-}
-
+  if (event.key === "Escape" && row.getAttribute("aria-expanded") === "true") {
+    event.preventDefault();
+    closeTimelineRow(row);
+  }
+});
 // The preview is the raw note text sliced to 120 chars server-side (§37J): 
 // `**bold**` and `# a heading` showed their literal punctuation in the one
 // place they're smallest and most cramped to read. Full `renderMarkdown`
@@ -24949,108 +24989,6 @@ function stripMarkdownPreview(text) {
     .replace(/!?\[([^\]]*)\]\([^)]*\)?/g, "$1");
 }
 
-// A note on the timeline grid.
-//
-// It was one flat strip of preview text per note: no date, no title, no way to
-// tell a note placed by what it SAYS from one placed by when it was written,
-// and nothing to separate one note from the next but a border. Reported as
-// "lacks features and the UI aesthetic and usability is sub par", which is
-// fair: a grid cell that is only truncated body text is a list with extra
-// steps.
-//
-// Three parts now, in the order you read them:
-//
-//   header   when it is, and why it is there
-//   title    the note's first heading or first line, in the app's own weight
-//   preview  the rest, clamped by measurement (see clampTimelineDots)
-//
-// The header is what earns the card its place: `placed_by === "mentioned"`
-// means the note is sitting on a date it TALKS about rather than the date it
-// was typed, and without saying so the timeline looks like it has quietly
-// moved your notes.
-function timelineDot(note) {
-  const dot = document.createElement("button");
-  const mentioned = note.placed_by === "mentioned";
-  dot.className = `timeline-dot${mentioned ? " timeline-dot-mentioned" : ""}`;
-  dot.type = "button";
-
-  //: **A map on the timeline reads as a map** (MINDMAP_PLAN.md §5 item 12:
-  //: "the timeline"). It is the same dot, same position, same date header,
-  //: same band: with the map's own chip in place of the title, and a click
-  //: that opens the map instead of a note popup showing its `# Heading`.
-  //:
-  //: The chip is non-interactive because this dot is already a `<button>`,
-  //: and a button inside a button is invalid HTML that browsers silently
-  //: reflow, not just an accessibility nicety.
-  const board = mapBoardById(note.id);
-  if (board) {
-    const header = document.createElement("span");
-    header.className = "timeline-dot-header";
-    const glyph = document.createElement("i");
-    glyph.className = "ph ph-tree-structure";
-    glyph.setAttribute("aria-hidden", "true");
-    const when = document.createElement("span");
-    when.className = "timeline-dot-when";
-    when.textContent = relativeTime(note.written_at) || shortDate(note.written_at);
-    header.append(glyph, when);
-    dot.append(header, mapChip(board, { interactive: false }));
-    dot.title = `${board.title}: ${mapCountLabel(board)}.\nWritten ${shortDate(note.written_at)}`;
-    dot.addEventListener("click", (event) => {
-      event.stopPropagation();
-      openWhiteboardBoard(board.id);
-    });
-    return dot;
-  }
-
-  const header = document.createElement("span");
-  header.className = "timeline-dot-header";
-  const glyph = document.createElement("i");
-  glyph.className = mentioned ? "ph ph-clock-countdown" : "ph ph-calendar-blank";
-  glyph.setAttribute("aria-hidden", "true");
-  const when = document.createElement("span");
-  when.className = "timeline-dot-when";
-  when.textContent = mentioned
-    ? note.phrase || "mentioned here"
-    : relativeTime(note.written_at) || shortDate(note.written_at);
-  header.append(glyph, when);
-  dot.appendChild(header);
-
-  // The first line of a note is what a person calls it, whether or not they
-  // wrote it as a heading. Splitting it out gives the card something to lead
-  // with and stops every card in a column starting with the same three words.
-  const flat = stripMarkdownPreview(note.preview || "").trim();
-  const split = flat.indexOf("\n");
-  const heading = (split === -1 ? flat : flat.slice(0, split)).trim();
-  const rest = split === -1 ? "" : flat.slice(split + 1).replace(/\s+/g, " ").trim();
-
-  const title = document.createElement("span");
-  title.className = "timeline-dot-title";
-  title.textContent = heading || "Untitled note";
-  // Single-line ellipsis with no other escape hatch, a native tooltip for
-  // the full title costs nothing and the text is already plain.
-  title.title = heading || "Untitled note";
-  dot.appendChild(title);
-
-  if (rest) {
-    const preview = document.createElement("span");
-    preview.className = "timeline-dot-preview";
-    preview.textContent = rest;
-    // clampTimelineDots shortens THIS, not the whole card, clamping the card
-    // would eat the header and title first.
-    preview.dataset.fullText = rest;
-    dot.appendChild(preview);
-  }
-
-  dot.title = mentioned
-    ? `“${note.phrase}” in this note meant ${shortDate(note.at)}.` +
-      `\nWritten ${shortDate(note.written_at)}.`
-    : `Written ${new Date(note.written_at).toLocaleString()}`;
-  dot.addEventListener("click", (event) => {
-    openTimelinePopup(event, note);
-  });
-  return dot;
-}
-
 // A date with no time, in the reader's locale. Used where a full timestamp is
 // noise: a card header, a tooltip's second line.
 function shortDate(iso) {
@@ -25060,75 +24998,41 @@ function shortDate(iso) {
     : date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
-// Reported directly, more than once: the CSS 3-line clamp (`-webkit-line-
-// clamp` + a max-height safety net) still cut text off with no "…" to say so.
-// Root cause a live measurement this sandbox's Chromium couldn't reproduce: 
-// the clamp not actually engaging in whatever engine renders it for real, so
-// the max-height net was the only thing cropping, mid-line, past wherever the
-// clamp should have stopped. This replaces "hope the clamp works" with a
-// measurement every engine agrees on: does the element overflow its own box?
-// If so, shorten the actual text until it fits, and add the ellipsis by hand.
-//
-// It measures the PREVIEW now, not the whole card. Clamping the card shortened
-// whichever child happened to be last, which after the card gained a header
-// and a title was the wrong one, and on a short note it deleted the title.
-// Runs once after the grid is in the DOM; clientHeight reads 0 before that.
-function clampTimelineDots() {
-  for (const preview of document.querySelectorAll("#timeline-grid .timeline-dot-preview")) {
-    const full = preview.dataset.fullText || preview.textContent;
-    preview.textContent = full;
-    if (preview.scrollHeight <= preview.clientHeight + 1) continue; // +1: subpixel
-    let lo = 0;
-    let hi = full.length;
-    // Binary search for the longest prefix that still fits with "…" appended: 
-    // a handful of iterations regardless of note length, and exact rather than
-    // guessing a character budget a narrower column would still overflow.
-    while (lo < hi) {
-      const mid = Math.ceil((lo + hi) / 2);
-      preview.textContent = `${full.slice(0, mid).trimEnd()}…`;
-      if (preview.scrollHeight <= preview.clientHeight + 1) lo = mid;
-      else hi = mid - 1;
-    }
-    preview.textContent = lo > 0 ? `${full.slice(0, lo).trimEnd()}…` : "…";
-  }
-}
+//: Scale is a repaint, not a request (see `timelineBucketKey`), and it is
+//: remembered the way the graph's layout is: which bucket suits a notebook is
+//: a property of the notebook rather than of one visit. "Auto" is stored like
+//: any other choice, so a notebook that grows past the day threshold re-cuts
+//: its own headers without anyone touching the control.
+$("timeline-scale").addEventListener("change", (event) => {
+  localStorage.setItem("timeline-scale", event.target.value);
+  paintTimelineFeed();
+});
 
-// Matches routes_timeline.py's OTHER_BAND: the long-tail lane has no single
-// category or tag to filter by, so clicking it just clears filters instead.
-const TIMELINE_OTHER_BAND = "Everything else";
+//: Grouping decides what the band filter offers, so it rebuilds the options
+//: and repaints. It does not refetch either: every row already carries its
+//: category, its tags and the note it continues.
+$("timeline-group").addEventListener("change", () => {
+  timelineFilter = null;
+  fillTimelineBandOptions();
+  paintTimelineFeed();
+});
 
-// A band names a category or a tag; clicking it should do what clicking
-// either already does elsewhere in the app (the sidebar's category rows, a
-// Library tag card) rather than only ever opening the note the click
-// happened to land on, the Timeline's whole complaint was "low utility".
-function openTimelineBand(band, group) {
-  switchTab("notes");
-  showNotesSection("browse");
-  const box = $("note-search");
-  draftsOnly = false;
-  if (group === "category" && band.name !== TIMELINE_OTHER_BAND) {
-    activeCategory = band.name;
-    if (box) box.value = "";
-  } else {
-    activeCategory = null;
-    if (box) {
-      box.value =
-        group === "tag" && band.name !== TIMELINE_OTHER_BAND
-          ? band.name === "untagged"
-            ? "is:untagged"
-            : `tag:${band.name}`
-          : "";
-    }
-  }
-  noteSearch = box ? box.value.trim() : "";
-  $("save-search")?.classList.toggle("hidden", !noteSearch);
-  renderSidebar();
-  renderEntries();
-}
+//: **The bands are a filter now, not lanes** (TIMELINE_PLAN decision 5). As
+//: lanes they were mostly empty: eight rows of whitespace with a handful of
+//: dots in each. The same choice is worth more as "show me only this", which
+//: is what the rest of the app does with a category.
+$("timeline-band").addEventListener("change", (event) => {
+  timelineFilter = event.target.value || null;
+  syncTimelineFilterChip();
+  paintTimelineFeed();
+});
 
-for (const id of ["timeline-scale", "timeline-group"]) {
-  $(id).addEventListener("change", renderTimeline);
-}
+$("timeline-filter-clear").addEventListener("click", () => {
+  timelineFilter = null;
+  $("timeline-band").value = "";
+  syncTimelineFilterChip();
+  paintTimelineFeed();
+});
 
 const timelineDays = $("timeline-days");
 if (timelineDays) {
@@ -25138,6 +25042,7 @@ if (timelineDays) {
     if (customRangeEl) {
       customRangeEl.classList.toggle("hidden", !isCustom);
     }
+    // A range is the one control that has to go back to the server.
     if (!isCustom || ($("timeline-start-date").value && $("timeline-end-date").value)) {
       renderTimeline();
     }
@@ -25151,242 +25056,35 @@ $("timeline-end-date")?.addEventListener("change", () => {
   if ($("timeline-start-date").value) renderTimeline();
 });
 
+//: Today is at the top of a newest-first feed, so this is a scroll rather than
+//: a search. It still looks the bucket up by key rather than assuming the
+//: first section is today's: a notebook with nothing written today should land
+//: on the newest day it has, not claim that day is today.
 $("timeline-jump-today")?.addEventListener("click", () => {
-  const branchWrap = $("timeline-branch-wrap");
-  const scrollContainer = timelineView() === "line" ? branchWrap : $("timeline-scroll");
-  
-  if (scrollContainer) {
-    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (timelineView() === "line") {
-      scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: smooth ? "smooth" : "auto" });
-    } else {
-      scrollContainer.scrollTo({ left: scrollContainer.scrollWidth, behavior: smooth ? "smooth" : "auto" });
-    }
-  }
-});
-// Bucket-by sizes the grid's columns and has nothing to act on in the line
-// view, which places notes by real timestamp on a continuous scale, same
-// shape as Graph's Gravity/Spread under a tree layout. Reported live as
-// "doesn't change the timeline"; this is why, and dims the control instead
-// of leaving it live and silently inert.
-function setTimelineScaleEnabled(view) {
-  const applies = view !== "line";
-  const group = $("timeline-scale-group");
-  const select = $("timeline-scale");
-  if (!group || !select) return;
-  group.classList.toggle("is-disabled", !applies);
-  select.disabled = !applies;
-  const why = "Only applies to Grid view, Line places notes by their exact date on a continuous scale, not by bucket.";
-  select.title = applies ? "" : why;
-  const label = group.querySelector("label");
-  if (label) label.title = applies ? "" : why;
-}
-$("timeline-view").addEventListener("change", (event) => {
-  localStorage.setItem("timeline-view", event.target.value);
-  setTimelineScaleEnabled(event.target.value);
-  syncTimelineViewSeg();
-  renderTimeline();
-});
-//: The view segment drives the native `#timeline-view` select every handler
-//: already reads (Phase 8: a view is a segmented control with icons, on
-//: every tab). The select is kept, hidden from the pointer and the tab order,
-//: because `timelineView()` and `applyTimelineSettings` read its value and a
-//: second source of truth is how two controls come to disagree.
-function syncTimelineViewSeg() {
-  const value = $("timeline-view")?.value || "grid";
-  for (const button of document.querySelectorAll("#timeline-view-seg button")) {
-    const on = button.dataset.timelineView === value;
-    button.classList.toggle("active", on);
-    button.setAttribute("aria-pressed", String(on));
-  }
-}
-$("timeline-view-seg")?.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-timeline-view]");
-  if (!button) return;
-  const select = $("timeline-view");
-  if (!select || select.value === button.dataset.timelineView) return;
-  select.value = button.dataset.timelineView;
-  select.dispatchEvent(new Event("change", { bubbles: true }));
+  const feed = $("timeline-feed");
+  const today = timelineBucketKey(new Date(), feed.dataset.scale || "day");
+  const section =
+    feed.querySelector(`.timeline-bucket[data-bucket="${today}"]`) || feed.firstElementChild;
+  if (!section) return;
+  const box = $("timeline-scroll");
+  box.scrollTop += section.getBoundingClientRect().top - box.getBoundingClientRect().top;
+  section.querySelector(".timeline-row")?.focus();
 });
 
-$("timeline-popup-close").addEventListener("click", () => {
-  $("timeline-popup").classList.add("hidden");
-});
-
-// Hide timeline popup when clicking outside
-$("tab-timeline").addEventListener("click", (e) => {
-  if (e.target === $("tab-timeline") || e.target.closest(".timeline-scroll") || e.target.closest(".timeline-branch-svg")) {
-    $("timeline-popup").classList.add("hidden");
-  }
-});
-
-let timelinePopupId = null;
-
-// Clamp the popup inside the timeline's visible area. Unlike `placeGraphPopup`
-// (#graph-box is a fixed-height box that never scrolls, so #graph-popup can
-// be positioned absolute relative to it directly and its own bounds are the
-// right clamp target), #tab-timeline is the page's own scrolling element and
-// #timeline-popup's real offsetParent is the <section> inside it: a taller
-// box with a different, scroll-dependent origin. The clamp used to measure
-// against #tab-timeline while positioning against that <section>, so the
-// popup could render past the visible window, clipped by the scrollbar.
-// (`position: fixed` looks like the obvious fix, but doesn't work here: the
-// <section> has `backdrop-filter`, which per spec makes it a containing
-// block for fixed descendants too, measured live, not assumed, after the
-// first attempt silently didn't change anything.) So: do the clamp in
-// viewport coordinates, matching timelinePopupAnchor (event.clientX/Y),
-// against #tab-timeline's own box (the part that's actually ever on
-// screen): then convert the result into the offsetParent's coordinate
-// space, since that's what style.left/top are actually measured against.
-// Called on open and again once media has loaded, since an attachment
-// thumbnail makes the popup taller than the size it was first positioned for.
-let timelinePopupAnchor = null;
-function placeTimelinePopup() {
-  const popup = $("timeline-popup");
-  if (!timelinePopupAnchor || popup.classList.contains("hidden")) return;
-  const container = popup.offsetParent;
-  if (!container) return;
-  const origin = container.getBoundingClientRect();
-  const visible = $("tab-timeline").getBoundingClientRect();
-  const size = popup.getBoundingClientRect();
-
-  const minLeft = visible.left + 8;
-  const maxLeft = Math.max(minLeft, visible.right - size.width - 8);
-  const minTop = visible.top + 8;
-  const maxTop = Math.max(minTop, visible.bottom - size.height - 8);
-
-  const leftViewport = Math.min(Math.max(timelinePopupAnchor.x + 12, minLeft), maxLeft);
-  const topViewport = Math.min(Math.max(timelinePopupAnchor.y + 12, minTop), maxTop);
-
-  popup.style.left = `${leftViewport - origin.left}px`;
-  popup.style.top = `${topViewport - origin.top}px`;
-}
-
-// Reported directly: unlike the note card and the graph's own popup, this
-// one showed literal `**`/`#` characters instead of rendered markdown, and
-// no sketch/image attachment at all, a gap in this one render path, not a
-// missing feature, since both already exist elsewhere.
-//: **Everything attached, not only the pictures.** Reported: "files and
-//: attachments dont render in the timeline and popups." Measured against the
-//: source: this filtered `entry.attachments` down to `a.is_image` and dropped
-//: the rest on the floor, so a note with a PDF, a spreadsheet or a Word
-//: document attached to it showed an empty popup, with no hint that anything
-//: had been attached at all, which reads as the note having lost them.
-//:
-//: The non-image half is `fileCard`, which is the same control the note cards,
-//: the chat transcript and the widgets already use for an attached file: an
-//: icon by kind, the name, and a Save button. Reusing it rather than drawing
-//: something new here is the point, a file should look the same wherever the
-//: app shows it, and this surface was the one place it did not appear at all.
-function renderTimelinePopupMedia(entry) {
-  const box = $("timeline-popup-media");
-  box.replaceChildren();
-  const all = entry.attachments || [];
-  const images = all.filter((a) => a.is_image);
-  const files = all.filter((a) => !a.is_image);
-  box.classList.toggle("hidden", all.length === 0);
-  if (!all.length) return;
-  for (const attachment of files) {
-    //: `url` is what every other file surface is given; attachments carry
-    //: theirs as `/files/{id}` when the row does not spell one out.
-    const url = attachment.url || `/files/${attachment.id}`;
-    box.appendChild(fileCard(attachment.filename || attachment.name || "", url));
-  }
-  for (const attachment of images) {
-    const img = document.createElement("img");
-    img.className = "graph-popup-thumb"; // shared with the graph popup's own thumbnails
-    img.alt = attachment.filename;
-    img.title = `${attachment.filename}: click to view full size`;
-    attachmentObjectUrl(attachment)
-      .then((url) => {
-        img.src = url;
-        placeTimelinePopup(); // the popup just got taller
-      })
-      .catch(() => img.remove());
-    img.addEventListener("click", () => {
-      openLightbox(
-        images.map((a) => ({ filename: a.filename, getUrl: () => attachmentObjectUrl(a) })),
-        images.indexOf(attachment)
-      );
-    });
-    box.appendChild(img);
-  }
-  //: The popup is positioned against its own height, and a file card is a
-  //: block that changes it, the image path already re-places on load and the
-  //: cards need the same courtesy, or the popup hangs off the bottom of a
-  //: note with four attachments.
-  placeTimelinePopup();
-}
-
-async function openTimelinePopup(event, noteSummary) {
-  event.stopPropagation();
-  timelinePopupId = noteSummary.id;
-  const popup = $("timeline-popup");
-
-  $("timeline-popup-title").textContent = noteSummary.category || "Note";
-  $("timeline-popup-content").replaceChildren(document.createTextNode("Loading…"));
-  $("timeline-popup-media").replaceChildren();
-  $("timeline-popup-media").classList.add("hidden");
-
-  const box = $("timeline-popup-info");
-  box.replaceChildren();
-  const dateStr = noteSummary.placed_by === "mentioned"
-      ? `“${noteSummary.phrase}” meant ${new Date(noteSummary.at).toLocaleDateString()}. Written ${new Date(noteSummary.written_at).toLocaleDateString()}.`
-      : `Written ${new Date(noteSummary.written_at).toLocaleString()}`;
-  box.appendChild(chip(`ph:clock ${dateStr}`, "tag"));
-
-  popup.classList.remove("hidden");
-  timelinePopupAnchor = { x: event.clientX, y: event.clientY };
-  placeTimelinePopup();
-
-  const entry = await apiJson(`/entries/${noteSummary.id}`).catch(() => null);
-  if (!entry || timelinePopupId !== noteSummary.id) {
-    if (timelinePopupId === noteSummary.id) {
-      $("timeline-popup-content").textContent = "Couldn't load this note.";
-    }
-    return;
-  }
-
-  renderMarkdown($("timeline-popup-content"), entry.content || "");
-  renderTimelinePopupMedia(entry);
-  placeTimelinePopup(); // the content just replaced "Loading…", may be taller
-
-  const openBtn = $("timeline-popup-open");
-  const newOpenBtn = openBtn.cloneNode(true);
-  openBtn.replaceWith(newOpenBtn);
-  newOpenBtn.addEventListener("click", () => {
-    popup.classList.add("hidden");
-    switchTab("notes");
-    showNotesSection("browse");
-    flashEntry(noteSummary.id);
-  });
-}
-
-function applyTimelineSearch() {
-  const query = $("timeline-search").value.trim().toLowerCase();
-  
-  // Grid View dots
-  const gridDots = document.querySelectorAll(".timeline-dot");
-  gridDots.forEach(dot => {
-    const text = (dot.textContent || "").toLowerCase();
-    dot.classList.toggle("timeline-dim", query && !text.includes(query));
-  });
-
-  // Branch View dots (D3)
-  // The shine is a second circle over the same datum (see `shines.raise()` in
-  // renderTimelineBranch), so it has to be dimmed with its dot -- otherwise a
-  // filtered-out note keeps a full-strength highlight sitting on a 15% disc.
-  d3.selectAll(".timeline-branch-dot, .timeline-branch-shine")
-    .classed("timeline-dim", function(d) {
-      const matchText = (d.preview || "").toLowerCase();
-      return query && !matchText.includes(query);
-    });
-}
-
+//: **Search filters, it does not dim** (decision 2). Dimming left every row in
+//: place: the same scroll distance, the same Ctrl+F hits, 48 rows to read past
+//: to find the two that matched. 150ms is the debounce the Notes, Library and
+//: Graph boxes use, and a repaint costs no request.
 let timelineSearchDebounceTimeout;
 $("timeline-search").addEventListener("input", () => {
   clearTimeout(timelineSearchDebounceTimeout);
-  timelineSearchDebounceTimeout = setTimeout(applyTimelineSearch, 150);
+  timelineSearchDebounceTimeout = setTimeout(paintTimelineFeed, 150);
+});
+
+$("timeline-clear-search")?.addEventListener("click", () => {
+  $("timeline-search").value = "";
+  paintTimelineFeed();
+  $("timeline-search").focus();
 });
 
 // Layout picker (§9). Stored, because which shape suits a notebook is a
@@ -25434,7 +25132,7 @@ const NOTES_SECTION_STORE = "notesSection";
 // again" does not.
 //
 // Only navigation is reset. `library-view`'s grid/list, the timeline's own
-// view mode, reminders' list/calendar and the document editor's Live/Source
+// bucket size, reminders' list/calendar and the document editor's Live/Source
 // choice are display preferences someone deliberately set, and clearing those
 // would be a different, and unwanted, change.
 const SESSION_STARTED_KEY = "mm-session-started";

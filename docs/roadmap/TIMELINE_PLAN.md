@@ -97,15 +97,9 @@ the tab draws a colour, a font or a card that the rest of the app does not.
 
 ## 5. Phases
 
-### Phase 1: the row model and the line view (one session)
-`timelineRow`, the bucket sections with sticky headers, density by scale,
-the row recipe on the app's list-row tokens, keyboard order, open in
-place, the dock's search and filter applied to the array, removal of the
-grid view and the popup. **Gate** (`scratchpad/ui-sweeps/timeline.js`):
-sticky headers stick at 1440/1024/390; 0 horizontal scroll; every row has
-a title readable without hover and a tab stop; arrows move focus in
-document order and Enter opens the split panel; search reduces the row
-count; `contrast.js` both themes; `errors.js` 0.
+### Phase 1: the row model and the feed: **built 2026-09-13**, see
+[HISTORY.md](HISTORY.md) "Moved from the plans, 2026-09-13". Gate green at
+1440, 1024 and 390 (`scratchpad/ui-sweeps/timeline.js`).
 
 ### Phase 2: the table view (half a session)
 The `<table>` with sort, sticky head, row focus and multi-select through

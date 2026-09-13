@@ -16,6 +16,21 @@ below). Versioning is `0.x` while the app stabilises.
   every card. It says nothing until the list lands, and the list re-renders
   when it does.
 
+### Changed
+
+- **The Timeline is a feed.** It was two views and a popup: a grid of one
+  column per bucket (8,800px wide against a 1,358px viewport, 79% of its cells
+  empty) and an SVG line chart with 14 text nodes for 48 notes, no titles and
+  no keyboard stops. It is now one vertical feed, newest first, with a sticky
+  header per day, week, month or year, a row per note carrying its title,
+  snippet, category, tags and time, and a note that opens where it sits
+  instead of in a hand-placed popup. Rows are reachable by keyboard (arrows
+  move, Enter opens), the find box filters the rows rather than dimming them,
+  the bucket picker gained an "Auto" default that follows how much is in
+  range, and changing the bucket costs no request. Measured at 1440, 1024 and
+  390: 0 horizontal scroll (was 7,663px), 48 of 48 rows with a readable title
+  (was 0), sticky headers pinned at 0px from the top of the feed.
+
 ### Added
 
 - The README's tour is thirteen screenshots of the current interface, up from

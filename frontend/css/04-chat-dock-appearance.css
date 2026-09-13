@@ -2877,9 +2877,28 @@ span > .chip {
 /* Two classes and the id, because the rule it answers is `.ask-composer >
    #draft-instruction` in a stylesheet that loads after this one: equal
    specificity there would let file order decide, which is not a decision. */
+/* And the `:focus` and `:focus-visible` forms as well (INBOX 141: "when I
+   click on the text box ... the structure goes all funky"). The composer's
+   rule lists those states beside the bare id at the same specificity, so on
+   focus its `flex: 1 1 auto` won by file order and the field jumped from
+   272px to 510px, pushing Undo and Draft it onto two more lines and the tags
+   caret under its label; blur put it all back. Measured, then fixed. */
 .draft-compose-row.ask-composer > #draft-instruction,
-.draft-tags-row.ask-composer > #draft-tags {
+.draft-compose-row.ask-composer > #draft-instruction:focus,
+.draft-compose-row.ask-composer > #draft-instruction:focus-visible,
+.draft-tags-row.ask-composer > #draft-tags,
+.draft-tags-row.ask-composer > #draft-tags:focus,
+.draft-tags-row.ask-composer > #draft-tags:focus-visible {
   flex: 1 1 6rem;
+}
+
+/* The draft's actions end at the box's right edge, as the left column's Draft
+   it does (the second half of INBOX 141: "the bottom elements under the right
+   text part need ... aligning"). Two footers that end on the same edge read
+   as one panel; one that starts at the left under a field that ends at the
+   right read as two. */
+.draft-actions-row {
+  justify-content: flex-end;
 }
 
 /* The tags row's label is inside the surface, the way `.ask-composer-icon` is

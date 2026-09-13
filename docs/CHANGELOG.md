@@ -30,14 +30,6 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
-- The writing suggestions panel is as tall as what is in it. A finding's
-  candidates lie along its row rather than down the panel, and the panel no
-  longer keeps a fixed floor it was always shrunk back to: one finding is 109px
-  of panel around 97px of content, against 128px before with 29px of nothing in
-  it, and the editor above it is up from 45% to 47% of the window. A row opened
-  under Large text with Spacious on now fits inside the panel, which the old
-  floor was 5px short of.
-
 - A Files row's metadata starts to the right of its filename, not to the left of
   it. The name is a `figcaption` with an 8px inset of its own, while every block
   under it sat on the row's own margin, so the kind, size, reading controls and
@@ -84,6 +76,11 @@ below). Versioning is `0.x` while the app stabilises.
   dashboard's Loose ends widget offers the filtered list beside its link
   finder, and past five untagged notes the bell says so once a week with the
   same list a click away.
+- The Write with AI panel held its shape when a field was clicked. Focusing
+  the instruction or tags field let the composer's own focus rule widen it to
+  the column, pushing Undo and Draft it onto two more lines and the tags caret
+  under its label; the rows are one line before and after focus now, and the
+  draft's actions end at the column's right edge like the instruction row's.
 
 - The lock screen could fail to appear on a slow first start. The embedding
   warm-up began importing torch the instant the server was up, and that import

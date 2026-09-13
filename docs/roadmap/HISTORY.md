@@ -23801,6 +23801,48 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     way through this panel when it was cut off; its uncommitted answers-inline
     CSS is in the tree.
 
+141. **Mid-work drop, 2026-09-13, verbatim (the owner), the Write with AI
+    sub-tab (four screenshots, two pairs of before and after a click).**
+    "when I clcik on the text box in the \"write with ai\" subtab, the
+    structure goes all funky. and also the bottom elements under the right
+    text part need visual improvements and restructuring, aligning and
+    spacing etc"
+
+    Pair one: Undo, the hint "Optional: make it shorter, add a summary" and
+    Draft it sit on one row; after a click they become three stacked rows,
+    left-aligned, with the hint on its own line. Pair two: the Tags field
+    shows its label and placeholder on one line, and after a click the label
+    sits above the placeholder with the caret on the second line. So a click
+    changes the layout rather than just the focus. The second half of the
+    report is that this bottom area needs restructuring, alignment and
+    spacing regardless of the bug.
+    **Fixed (this commit).** Reproduced and measured: on focus the
+    instruction field went from 272px to 510px and its row from 55px to
+    151px on three lines, the tags row from 55px to 87px; the composer
+    recipe's `:focus` rule (`flex: 1 1 auto`) shared the panel rule's
+    specificity and won by file order. The panel rule now names the focus
+    states too: 55px, one line, 272px before and after focus on both rows.
+    The draft's actions end at the column's right edge (Save as note at
+    1383, the tags row at 1383) so the two footers rhyme.
+    `scratchpad/ui-sweeps/writeroom.js`.
+77. **Done, 2026-09-13 (`e2f1cb6`): the per-model context window.** Settings
+    > Models carries a "Context window" box per selected model (blank for
+    auto), stored as `model_context_windows`, and `usable_context` takes the
+    hand-set value outright; measured round-trip 16384 and clear-to-null in
+    `scratchpad/ui-sweeps/modelctx.js`. **Fixed.**
+    **Half done, 2026-09-09: the badge is fixed.** It reads "1.2k / 20k"
+    instead of "6% of window", is 20px tall at every width from 420 to 1440
+    (it stretched to 44px below 820 before), and is centred against the chat
+    subline. What is left is the second half below, the per-model context
+    size, which the entry already assigns to the next session.
+    **Token window badge: not centred, text wrong; the window itself
+    should be manageable by the user and auto when set** (screenshots:
+    "6% of window" pill off-centre in the chat header, and the header wraps
+    at width). Owner: CHAT_PLAN header (Fable, now for the badge; the
+    window setting next session): a `num_ctx` preference per model in
+    Settings > Models with Auto (the model file's value) or a number, sent
+    on every request; the badge shows "used / window".
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

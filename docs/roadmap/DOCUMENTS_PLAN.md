@@ -718,6 +718,120 @@ chip, a file tile). A block is a paragraph of this notebook's own writing, so
 it is drawn as what it is, with a source line that opens the document at the
 block.
 
+## 12. The writing intelligence as one feature: decided 2026-09-13
+
+The owner, verbatim (INBOX 142, which also settles 128): *"the suggestions box
+at the bottom takes up a lot of my screen and it makes the text editor really
+small. also the popup edit suggestions menu screws upn the screen and make sit
+go out of bounds.and when I click on the issue from the suggestions thing, the
+box just appears right there in my face. the whole editor intelligence and auto
+correct and dictionary stuff needs a whole ux redesign and improvement"*
+
+Four surfaces grew separately and are read as four features: the underlines in
+the text, the word menu, the suggestions panel at the foot, and the dictionary.
+Two of the four reports were answered before this section was written (the
+panel's height, `min(60vh, 32rem)` down to `min(33vh, 22rem)`, and the panel row
+anchoring its menu to the word it names rather than to the row under the
+pointer). What follows is the rest of it, as one pass with one decision, because
+patching the remaining two would leave the fifth complaint, the one that names
+the whole thing, untouched.
+
+**Measured first, at 1440x900 (`scratchpad/ui-sweeps/spellwide.js` and
+`spellwide2.js`), because three of the four reports are geometry:**
+
+- **The wide gap is a wrapped finding.** A finding whose span crosses a soft
+  wrap is one mark element drawn as two fragments, and the menu was anchored to
+  `getBoundingClientRect()`, which returns the *union* of them. Measured on a
+  doubled "the the" at a wrap point: fragments at `1187..1218` on one line and
+  `471..497` on the next, union `left 471, right 1218, top 359, bottom 404`, so
+  the menu opened at `471, 408`: **716px to the left of the words that were
+  clicked and a line below them.** That is INBOX 128's "off to the side with a
+  wide gap", reproduced; the probe that could not reproduce it
+  (`spellanchor.js`) measures a single-word finding, which never wraps.
+- **Out of bounds is the menu hanging past the card.** A flagged word at the
+  end of a long line sits at `left 1161` in a card that ends at `1255`, and the
+  menu opened at `1161..1401`: 146 of its 240px clear of the document card, in
+  the window's own right-hand gutter, which is what the screenshot shows. The
+  placement clamps to the *window*, so nothing said the card had an edge.
+- **Two surfaces for one word.** Pressing a panel row put the menu at
+  `587..864` over a panel occupying the bottom third of the window: 335px of
+  menu over 297px of panel, 70% of the window's height spent on the two
+  answers to one misspelled word, with the sentence being discussed behind
+  both.
+- **One finding, three vocabularies.** The panel row says the reason then the
+  words, the menu head says the words then the reason, the underline says
+  nothing a reader can see (a `title`), and the feature is called five things in
+  four places: "N suggestions" (the chip), "Writing suggestions" (the panel),
+  "Your dictionary" (the dialog), "Autocorrect as I type" and "Suggest words as
+  I type" (the dock menu).
+
+### Decisions made
+
+**D1. One name and one drawing of a finding.** The feature is *writing
+suggestions*. A finding is drawn by one function, `docFindingLine`, in both
+places that draw one: a kind dot in the same colour as that kind's underline,
+then the flagged words, then the reason, in that order, in the panel row and in
+the menu's head. Three surfaces describing one object in three orders is the
+"assembled rather than designed" failure DESIGN.md's contrast rule names, at the
+level of copy instead of spacing.
+
+**D2. Three scopes, three homes, and no surface does another's job.**
+- the underline says **where** and nothing else;
+- the word menu answers **this occurrence**: the candidate words, add to
+  dictionary, ignore in this document;
+- the panel answers **the whole document**: the list, the counts, fix all,
+  check with AI, the dictionary;
+- the dictionary dialog holds the **standing rules**: the word list and the
+  spelling variant.
+
+The two passage actions ("Ask the AI for wordings", "Translate this passage")
+are offered on a **passage**, not on a word: a finding whose text is a single
+word already has its other wordings in the candidate list above, and
+translating one word is a dictionary lookup rather than a translation. This
+takes the common menu from nine rows to seven and is the one composition change
+here; both actions keep working exactly as they did on the findings that are
+passages (a repeat, a spacing slip, a long sentence).
+
+**D3. The panel acts in place, and never opens the floating menu.** A row
+expands under itself, inside the panel, with the same candidates and the same
+actions the menu offers, and the document scrolls the word to the *middle* of
+the editor so it is visible while the row is open. This is the fix for "the box
+just appears right there in my face" at its cause: the menu was the only way to
+act on a row, so a list at the foot of the window had to open a 335px popup over
+the text to answer anything. One surface at a time is DESIGN.md's popover rule;
+a panel that has to open a popover to be useful was breaking it structurally.
+
+The open row is the current row: `aria-expanded` on the control,
+`aria-current="location"` on the row, painted from the attribute, and brought
+into view by the panel's own `scrollTop` rather than `scrollIntoView`, which is
+the recipe index's rule for a list that says where you are.
+
+**D4. The floating menu belongs to the text, and it stays inside the editor.**
+It is anchored to the **fragment under the pointer** (`getClientRects()`, never
+the union), placed inside the editor's own visible box before the viewport is
+considered, flipped to the left of the word rather than allowed to hang past the
+card, clamped on all four sides, and, if the word is not visible at all, the
+editor scrolls it to the middle first. A menu that points at a word that is off
+screen is a menu pointing at nothing.
+
+**D5. Nothing here is rebuilt.** The rules (`docProseFindings`), the word list,
+the marks, the ranked candidates (`docSuggestAlternatives`), autocorrect, the
+ignore list, the dictionary and its server home (`writing_dictionary`) and the
+three underline shapes all stay exactly as they are. This section changes where
+answers appear and what they are called, which is what the report asks for. The
+two writing switches stay in the dock menu, where Phase 0 item 3 put them on
+purpose ("a status bar states, it does not configure"); decisions are not
+remade.
+
+### Acceptance
+
+In Chromium, measured, both themes: a wrapped finding's menu opens within 24px
+of the fragment that was clicked; no menu's box leaves the viewport or hangs
+past the editor card's right edge at 1440, 1100 and 820 wide, in Live, Source
+and Split, with Large text and Spacious on; pressing a panel row opens no
+floating surface at all and leaves the word visible; 0 console errors; contrast
+passes.
+
 ## Built, the sidebar redesign (INBOX 115), 2026-09-12
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-12", DOCUMENTS_PLAN.md) on

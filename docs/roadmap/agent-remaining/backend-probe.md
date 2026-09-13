@@ -1,3 +1,38 @@
+## 2026-09-13 evening, hygiene
+
+Mechanical hygiene pass (schemas.py, ruff/CodeQL-shaped read, import
+warnings, doc lints). Worktree had fallen behind the branch tip (stale
+CLAUDE.md/docs layout, no scripts/gate.sh) — merged
+`origin/claude/epic-ramanujan-8xocc0` first (commit `65e31e2`), one
+conflict in schemas.py's import line, resolved by keeping both names.
+
+**Fixed:** `SpaceResponse.Config` (class-based) -> `model_config =
+ConfigDict(...)`, the only Pydantic V1-style config left (checked all 43
+`BaseModel` files). `pytest tests/test_api*.py tests/test_whiteboard.py
+tests/test_spaces.py tests/test_space_delete_cascades.py -W
+error::pydantic.warnings.PydanticDeprecatedSince20`: clean.
+
+**Checked clean, no fix needed:** `ruff check .` (0); CodeQL-shaped read of
+unclosed `open()` (one found, `searxng_process.py:151`, already closed in
+a `finally`), lazy `.*?` over paths/argv (none — the six hits are all over
+HTML/markdown text, not paths), case-sensitive tag filters (all lowercase
+consistently), XML parsers (the two stdlib `ElementTree` uses in
+routes_whiteboard.py only serialize/export, never parse; parsing uses
+defusedxml already), `shell=True` (none), bare/silent `except: pass`
+(none — every `except Exception` carries a `# noqa: BLE001` with a
+rationale comment); `python -W error -c "from memorymap.api.app import
+create_app; create_app()"` (clean); `test_readme_freshness.py`,
+`test_docs_layout.py`, `test_plan_hygiene.py`, `test_no_em_dashes.py`,
+`test_css_braces.py`, `test_asset_cache_busting.py` (all pass already).
+
+**Not verified:** wrong-keyword-argument sweep was spot-checked via ruff
+(F-codes) and import-time exercise only, not a full call-site audit of
+every function signature.
+
+**Next:** nothing left from this brief. `gate.sh --staged` passes.
+
+---
+
 # The backend hole-poking pass, 2026-09-12 evening
 
 What the orchestrator probed while agents worked the surfaces, what it

@@ -456,6 +456,12 @@ def _whiteboard_drivers(client, board, note):
             json={"kind": "topic", "text": "a topic"},
         ).json()
 
+    def two_map_nodes():
+        #: Two, because the batch route's whole claim is that a set of nodes
+        #: moving together is one event; a batch of one would pass whether that
+        #: holds or not.
+        return [a_map_node(), a_map_node()]
+
     return {
         "create_board": (None, lambda _: client.post(
             "/whiteboard/boards", json={"name": "another board"}
@@ -520,6 +526,16 @@ def _whiteboard_drivers(client, board, note):
         "move_map_node": (a_map_node, lambda made: client.put(
             f"/whiteboard/boards/{board}/nodes/{made['id']}/move",
             json={"parent_id": None},
+        )),
+        #: One event for the whole batch, not one per node: a tidy is one thing
+        #: the person did. The route's docstring says so and `events.writes` is
+        #: what makes it true.
+        "move_map_nodes": (two_map_nodes, lambda made: client.put(
+            f"/whiteboard/boards/{board}/nodes/move-many",
+            json={"moves": [
+                {"id": made[0]["id"], "x": 40.0, "y": 60.0},
+                {"id": made[1]["id"], "x": 10.0, "y": 20.0},
+            ]},
         )),
         "generate_map": (None, lambda _: client.post(
             "/whiteboard/boards/generate",

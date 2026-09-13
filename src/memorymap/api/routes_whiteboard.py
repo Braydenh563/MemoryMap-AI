@@ -2840,24 +2840,37 @@ def move_map_nodes(
         )
 
     out: list[WhiteboardObjectOut] = []
+    before_states: list[dict] = []
     for move in body.moves:
         node = nodes[move.id]
-        before = _object_state(node)
+        before_states.append(_object_state(node))
         if move.reparent:
             node.parent_id = move.parent_id
         if move.x is not None:
             node.x = move.x
         if move.y is not None:
             node.y = move.y
-        events.record(
-            db,
-            "edited",
-            "whiteboard_object",
-            node.id,
-            f"moved under {node.parent_id}" if node.parent_id else "moved to a root",
-            payload={"after": _object_state(node), "before": before},
-        )
         out.append(node)
+    #: **One event, not one per node**, which is what `events.writes` on this
+    #: function means and why the decorator's own docstring warns against
+    #: decorating a loop: a tidy is one thing the person did, and twelve
+    #: `edited` rows for one press of Tidy is a history nobody can read. The
+    #: whole batch's before and after ride in the payload, so nothing is lost;
+    #: the single-node `/move` above still records per node, because there it
+    #: really is one node the person moved.
+    events.record(
+        db,
+        "edited",
+        "whiteboard_object",
+        out[0].id,
+        f"moved {len(out)} nodes on map {board_id}"
+        if len(out) > 1
+        else (f"moved under {out[0].parent_id}" if out[0].parent_id else "moved to a root"),
+        payload={
+            "after": [_object_state(node) for node in out],
+            "before": before_states,
+        },
+    )
     db.commit()
     for node in out:
         db.refresh(node)

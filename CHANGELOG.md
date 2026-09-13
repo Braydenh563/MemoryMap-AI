@@ -9,6 +9,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The Ask tab answers the way the Chat tab does. Under an answer there is now
+  a Sources disclosure listing what the answer drew on, an "Elsewhere in your
+  notebook" row, and follow-up questions: press one and it is asked with the
+  answer above it carried as context, so "when should I do that" resolves
+  against what was just said instead of being read cold. All three are the
+  Chat tab's own components drawing the same answer object, so an answer means
+  the same thing whichever surface asked for it.
+
 - Comments in a document. Select a phrase, choose Comment in the toolbar's
   Highlight menu or "Comment on this" in the "/" menu, and the remark is
   written into the document's own text as `==words== %%remark%%`: there is no

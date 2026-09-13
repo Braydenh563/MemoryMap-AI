@@ -1164,6 +1164,20 @@
                    inside #ai-answer, which the final renderMarkdown() call
                    replaces wholesale after the stream ends. -->
               <div id="ai-answer-grounding" class="answer-grounding hidden"></div>
+              <!-- The answer object's foot (CHAT_PLAN.md Phase 3, decision 8:
+                   "Ask = Chat in single-turn mode"). Three containers, one per
+                   component, and the separation is the point: related items and
+                   grounding chips used to share `#ai-answer-grounding`, whose
+                   renderer opens with `replaceChildren()`, so the related row
+                   was built and deleted again on every answer that had both.
+                   The components themselves are the Chat tab's
+                   (`renderRelatedElsewhere`, `chatSourcesPanel`, the follow-up
+                   strip), called with the same object. -->
+              <div id="ask-answer-foot" class="answer-foot hidden">
+                <div id="ask-answer-related" class="hidden"></div>
+                <div id="ask-answer-sources" class="hidden"></div>
+                <div id="ask-followups" class="chat-followups ask-followups hidden"></div>
+              </div>
             </div>
             <div class="chat-half">
               <h3 class="panel-head">

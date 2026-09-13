@@ -1797,6 +1797,24 @@ header#top-bar select,
   margin-top: var(--space-4);
 }
 
+/* The Ask tab's answer foot (CHAT_PLAN.md Phase 3): "Elsewhere in your
+   notebook", the sources disclosure and the follow-up chips as one stack under
+   the answer, each in its own container so that one renderer clearing its own
+   box can never take another's row with it (which is exactly what used to
+   happen, see index.html). Each row already carries its own `margin-top`, so
+   this has nothing to do but stack them; `.hidden` does the rest. */
+.answer-foot {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The disclosure is the Chat tab's `.chat-sources`, which sits inside a
+   message bubble there and directly on the panel here, so it gets the same
+   top spacing as the two rows it lives between and nothing else. */
+#ask-answer-sources {
+  margin-top: var(--space-4);
+}
+
 .answer-grounding-label {
   font-size: var(--text-xs);
 }

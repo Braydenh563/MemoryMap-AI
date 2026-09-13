@@ -11325,6 +11325,151 @@ function renderAnswerGrounding(target, sentences, rawResults, answerEl = null, q
   target.classList.remove("hidden");
 }
 
+//: **The answer object** (CHAT_PLAN.md decision 3, Phase 3). One shape for an
+//: answer whichever surface produced it: `{question, text, sentences, sources,
+//: related, next, stats, verification}`, where a sentence is
+//: `{text, marks: [{note_id, start, end, score}]}`.
+//:
+//: Built here rather than at each call site because the three surfaces were
+//: reading three different shapes of the same stream. Grounding arrives as one
+//: row per *(sentence, note)* pair, which is the shape the scorer produces and
+//: the wrong shape to render from: a sentence backed by two notes arrives
+//: twice, and a renderer walking the rows draws the sentence twice with one
+//: mark each instead of once with two. Folding it is a four-line job that had
+//: been done differently, or not at all, in every place that needed it.
+//:
+//: `start`/`end` are the passage span of CHAT_PLAN decision 2 (Phase 1, not
+//: built): carried through when the backend sends one and left `null`
+//: otherwise, never defaulted to 0, because a start of 0 is a claim that the
+//: passage begins at the note's first word and a renderer would highlight it.
+function answerObject({
+  question = "",
+  text = "",
+  grounding = [],
+  meta = null,
+  related = [],
+  next = [],
+  stats = null,
+  verification = null,
+  touched = [],
+  toolEvents = [],
+} = {}) {
+  const bySentence = new Map();
+  for (const row of grounding || []) {
+    const sentence = row.sentence || "";
+    if (!sentence) continue;
+    if (!bySentence.has(sentence)) bySentence.set(sentence, { text: sentence, marks: [] });
+    bySentence.get(sentence).marks.push({
+      note_id: row.note_id,
+      start: typeof row.start === "number" ? row.start : null,
+      end: typeof row.end === "number" ? row.end : null,
+      score: typeof row.score === "number" ? row.score : null,
+      label: row.label || "",
+    });
+  }
+  return {
+    question,
+    text,
+    sentences: [...bySentence.values()],
+    //: The same builder the Chat tab's bubble uses, so the two surfaces cannot
+    //: disagree about what counts as a source or about the order they are
+    //: numbered in.
+    sources: chatSourcesFrom({ meta, toolEvents, touched }),
+    related: related || [],
+    next: next || [],
+    stats: stats || null,
+    verification: verification || null,
+  };
+}
+
+//: **What the Ask tab draws under an answer** (CHAT_PLAN Phase 3, decision 8:
+//: "Ask = Chat in single-turn mode"). Three components, none of them written
+//: for this surface: `renderRelatedElsewhere`, `chatSourcesPanel` and the
+//: follow-up strip are the Chat tab's, called here with the same object.
+//:
+//: Each gets its own container, which is the fix for a bug this restructuring
+//: found: related items and grounding chips were both written into
+//: `#ai-answer-grounding`, and `renderAnswerGrounding` opens with
+//: `replaceChildren()`. The `related` event arrives before `grounding` on
+//: every stream that has both, so "Elsewhere in your notebook" was built and
+//: then deleted a moment later, on every answer, invisibly.
+function clearAskAnswerFoot() {
+  $("ask-answer-foot")?.classList.add("hidden");
+  $("ask-answer-related")?.replaceChildren();
+  $("ask-answer-sources")?.replaceChildren();
+  const strip = $("ask-followups");
+  if (strip) {
+    strip.replaceChildren();
+    strip.classList.add("hidden");
+  }
+}
+
+function renderAskAnswerFoot(object, meta) {
+  const foot = $("ask-answer-foot");
+  if (!foot) return;
+
+  const related = $("ask-answer-related");
+  related.replaceChildren();
+  related.classList.toggle("hidden", !object.related.length);
+  if (object.related.length) renderRelatedElsewhere(related, object.related);
+
+  const sources = $("ask-answer-sources");
+  sources.replaceChildren();
+  const panel = object.sources.length
+    ? chatSourcesPanel({ sources: object.sources, meta })
+    : null;
+  if (panel) sources.appendChild(panel);
+  sources.classList.toggle("hidden", !panel);
+
+  foot.classList.toggle(
+    "hidden",
+    !object.related.length && !panel && $("ask-followups").classList.contains("hidden")
+  );
+}
+
+//: **A follow-up is a question that keeps the answer above it** (decision 8:
+//: "'Ask again' chips become follow-ups that carry the previous answer as
+//: context"). The chips themselves are `/chat/followups`, the same second
+//: model call the Chat tab makes after a turn is on screen, and clicking one
+//: calls `askQuestion`, which sends `conversation` as history: so the context
+//: is carried by the path every Ask turn already takes, not by a second one
+//: built for chips.
+//:
+//: Silent on every failure, including the AI not running: an answer that
+//: arrived is not made worse by having nothing to offer after it.
+async function renderAskFollowups(question, answer) {
+  const strip = $("ask-followups");
+  if (!strip) return;
+  strip.replaceChildren();
+  strip.classList.add("hidden");
+  if (!question || !answer) return;
+  let picks = [];
+  try {
+    picks = await apiJson("/chat/followups", {
+      method: "POST",
+      silent: true,
+      body: JSON.stringify({ question, answer }),
+    });
+  } catch {
+    return;
+  }
+  if (!Array.isArray(picks) || !picks.length) return;
+  const label = document.createElement("span");
+  label.className = "muted answer-grounding-label";
+  label.textContent = "Ask next:";
+  strip.appendChild(label);
+  for (const pick of picks) {
+    strip.appendChild(
+      chip(pick, "Ask this next, keeping the answer above as context", () => {
+        $("question").value = pick;
+        askQuestion(pick);
+      })
+    );
+  }
+  strip.classList.remove("hidden");
+  $("ask-answer-foot")?.classList.remove("hidden");
+}
+
 // The Ask box's "that isn't a question about your notes" card (§35A).
 //
 // Deliberately not rendered as an answer. Reported after the first version:
@@ -11782,6 +11927,7 @@ function stopAnswer() {
 function newChat() {
   conversation = [];
   lastQuestion = "";
+  clearAskAnswerFoot();
   $("chat-results").classList.add("hidden");
   $("ask-idle")?.classList.remove("hidden");
   $("new-chat-btn").classList.add("hidden");
@@ -11843,6 +11989,10 @@ async function askQuestion(preset) {
   answerBox.appendChild(typingDots()); // until the first token arrives
   $("ai-answer-grounding").replaceChildren();
   $("ai-answer-grounding").classList.add("hidden");
+  //: The whole foot goes with it, not only the grounding chips: a sources
+  //: disclosure left open from the previous question is a list of notes that
+  //: have nothing to do with the one being asked.
+  clearAskAnswerFoot();
   thinkingText.textContent = "";
   thinkingBox.classList.add("hidden");
   thinkingBox.open = false;
@@ -11853,6 +12003,12 @@ async function askQuestion(preset) {
   //: Kept beyond the callback that receives them, because the answer element
   //: is rebuilt after the stream ends and the markers have to be put back.
   let groundedSentences = [];
+  //: Kept for the same reason: the answer object (CHAT_PLAN decision 3) is
+  //: built once, after the stream, from every event the turn produced, and
+  //: three of those events arrive long before the last token.
+  let relatedItems = [];
+  let answerStats = null;
+  let answerMeta = null;
   // The box explained itself instead of answering, so the final markdown
   // pass, the saved turn and the answer actions all sit this one out.
   let hinted = false;
@@ -11876,6 +12032,7 @@ async function askQuestion(preset) {
       signal: askController.signal,
       onMeta: (meta) => {
         renderChatMeta(meta);
+        answerMeta = meta;
         groundingRawResults = meta.raw_results || [];
         status.textContent = "The model is writing…";
       },
@@ -11909,8 +12066,15 @@ async function askQuestion(preset) {
         renderAskHint(answerBox, event);
         status.textContent = "";
       },
+      //: Collected, not drawn: it is a field of the answer object and is
+      //: rendered with the rest of the foot once the stream is over. Drawing
+      //: it here is what put it inside `#ai-answer-grounding`, which the
+      //: grounding event then cleared out from under it.
       onRelated: (event) => {
-        renderRelatedElsewhere($("ai-answer-grounding"), event.items);
+        relatedItems = event.items || [];
+      },
+      onStats: (event) => {
+        answerStats = event;
       },
       onGrounding: (event) => {
         //: Remembered as well as rendered, see the re-application after the
@@ -11947,6 +12111,25 @@ async function askQuestion(preset) {
     if (!hinted) {
       conversation.push({ question, answer: answerRaw });
       show("retry-btn", "copy-btn", "speak-btn", "new-chat-btn");
+      //: **The answer object, rendered** (CHAT_PLAN Phase 3). Built after the
+      //: stream rather than updated event by event, because two of its fields
+      //: (the sentences and the sources they came from) are only complete when
+      //: the last event has arrived, and a foot that rearranges itself under a
+      //: reader mid-answer is worse than one that appears when the answer does.
+      renderAskAnswerFoot(
+        answerObject({
+          question,
+          text: answerRaw,
+          grounding: groundedSentences,
+          meta: answerMeta,
+          related: relatedItems,
+          stats: answerStats,
+        }),
+        answerMeta
+      );
+      //: Not awaited: it is a second model call, and the answer is already on
+      //: screen. The same contract `offerFollowups` has in the Chat tab.
+      renderAskFollowups(question, answerRaw);
     }
     status.textContent = "";
     // Asking changes both quick-access lists, and, for a real (non-hint)
@@ -12144,6 +12327,7 @@ async function viewAskHistoryTurn(id) {
   renderMarkdown(answerBox, turn.answer);
   $("ai-answer-grounding").replaceChildren();
   $("ai-answer-grounding").classList.add("hidden");
+  clearAskAnswerFoot();
   $("thinking-box").classList.add("hidden");
   $("ai-thinking").textContent = "";
   //: A remembered turn says *when* rather than *what by*: the model that
@@ -24075,6 +24259,7 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
     button("CSV", "Save this table as a CSV file in the exports folder", () =>
       saveFile(`table-${Date.now()}.csv`, new Blob([csv], { type: "text/csv" }))
     ),
+    fit,
     full
   );
   bar.append(label, actions);

@@ -30,6 +30,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The document editor's phone targets. The sidebar sheet's rail toggle, the one
+  control that opens the sidebar on a phone, was 36px square, and the Edit/Read
+  segment 28px tall; both are 44px below 600px wide. The rail grows with the
+  toggle rather than beside it, so the editor pays 8px of measure for it and
+  nothing drifts. Rows inside the dock's own menus stay 36px on purpose: their
+  target is the full width of the menu, and raising fifteen of them would make
+  it 660px tall in an 820px window.
+
 - The graph's minimap shows the graph's shape and where you are in it. It drew
   one dot per note and nothing else, measured at 172 dots and 0 edges on a
   172-note map: a cloud of points cannot say which part of the map is the dense

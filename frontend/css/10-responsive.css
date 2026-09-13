@@ -639,3 +639,40 @@ header#top-bar,
     display: none;
   }
 }
+
+/* --- band 4 (under 600): the editor's own targets (DOCUMENTS_PLAN Phase 6) ---
+
+   The phase ends "Touch targets 44px", and most of that band was already built
+   by Phase 9's sheets: measured at 390x820 (`scratchpad/ui-sweeps/docnarrow.js`)
+   the sidebar is out of the flow at `translateX(calc(var(--sheet-rail) - 100%))`
+   with only its rail on screen, the layout is one column, nothing leaves the
+   window sideways and the first line of the document is at y=318. What was left
+   under 44px were eighteen controls, and they are not one problem:
+
+   - **The rail's own toggle, 36x36.** It is the only way to open the sidebar on
+     a phone, so it is the one control in this tab a finger cannot afford to
+     miss. Raised through `--sidebar-toggle-size`, not through a height, because
+     the rail's width and the content's left padding are both computed from that
+     token (07-whiteboard-misc.css): a height alone would leave a 44px button in
+     a 52px rail and the two would drift the next time either moved. The editor
+     pays 8px of measure for it, 278px down to 270px.
+   - **Edit and Read, 28px tall.** The view segment is the control a reader
+     reaches for most on a phone and the only one in the dock with no menu behind
+     it.
+   - **Fifteen rows inside open menus, 36px tall and 225 to 271px wide.** Left
+     alone, deliberately. A menu row's target is its whole width, which is six
+     times a 44px square; raising them would make the dock's own menu 660px tall
+     in an 820px window, which is a worse phone than a 36px row. DESIGN.md's
+     global floor (`--target-min`, 28px, clearing WCAG 2.2 AA's 24px) is not
+     being remade here either: this band raises the two targets the layout hands
+     a finger, and nothing else. */
+@media (max-width: 599.98px) {
+
+  #tab-documents {
+    --sidebar-toggle-size: 2.75rem;
+  }
+
+  #tab-documents #doc-view-seg button {
+    min-height: 2.75rem;
+  }
+}

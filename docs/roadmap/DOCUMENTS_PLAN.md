@@ -298,20 +298,54 @@ the same thing.
 4. **Focus and typewriter modes** (PLAN D9), reading typography for Read
    view (measure, leading, a serif option), a print stylesheet.
 
-### Phase 6 — responsive by device (½ session, with UI Phase 9)
+### Phase 6 — responsive by device (partly built; UI Phase 9 did the bands)
 
-- **≥ 1100 (desktop)**: the layout above.
-- **820–1100 (iPad landscape, small laptop)**: the sidebar collapses to
-  icons and opens as an overlay; the selection toolbar is the only
-  formatting UI; the status bar keeps facts only.
-- **600–820 (iPad portrait)**: single pane; the sidebar is a sheet from the
-  left; the ⋯ absorbs the view control's minor modes.
-- **< 600 (phone)**: the editor is the page; a bottom formatting bar that
-  sits above the on-screen keyboard (`env(keyboard-inset-height)` where
-  available, `visualViewport` otherwise) with the six most-used actions and
-  a `/` button; the outline is a sheet from the bottom. Touch targets 44px.
-  Acceptance: `errors.js` at 390/820/1024 reports 0 findings on the
-  editor; the first line of text is on screen with the keyboard open.
+**Measured first, 2026-09-13, `scratchpad/ui-sweeps/docnarrow.js` at 1440x900,
+1024x768, 800x1000 and 390x820**, because most of this phase turned out to be
+already built by UI Phase 9's sheet band and the rest could not be judged
+without knowing which:
+
+| | measured | state |
+| --- | --- | --- |
+| ≥ 1100 | sidebar 260px, editor 794px, measure at its 78ch cap | as the plan asks |
+| 820–1100 | sidebar 192px, editor 741px (the cap is ~700px, so the measure is already full) | **the icons rail would buy the measure nothing**; the selection toolbar is Phase 8's, not this phase's |
+| 600–820 | one column (`0px 764.8px`), the sidebar parked at `translateX(rail - 100%)` with a 52px rail, nothing past the window's right edge, first line at y=316 | built, by Phase 9 |
+| < 600 | one column, sheet parked, rail 60px, editor 270px, first line at y=318, 0 targets under 44px, 0 console errors | targets built 2026-09-13; **the bottom formatting bar is not built** |
+
+The phase's own acceptance line, `errors.js` at 390/820/1024: **0 errors and 0
+layout findings at all three**, 2026-09-13, with the band-4 targets in place.
+
+**Decision, made here: what "touch targets 44px" means.** DESIGN.md's global
+floor is `--target-min`, 28px, chosen to clear WCAG 2.2 AA's 24px with room for
+a border, and that is not remade. This phase's 44px is the *layout's* targets in
+the phone band: measured at 390, eighteen controls were under it, and fifteen of
+them are rows inside open dock menus whose target is their whole 225 to 271px
+width. Raising those fifteen makes the dock's own menu 660px tall in an 820px
+window, which is a worse phone. So the band raises the two the layout hands a
+finger, the sheet's rail toggle (36 to 44, through `--sidebar-toggle-size`, so
+the rail and the content's left padding follow it) and the Edit/Read segment (28
+to 44), and leaves the menus alone. `10-responsive.css`'s band 4 block carries
+the reasoning; `docnarrow.js` asserts it.
+
+**What is left, in order:**
+
+1. **The phone formatting bar** (< 600): a bottom bar above the on-screen
+   keyboard (`env(keyboard-inset-height)` where available, `visualViewport`
+   otherwise, which app.js already writes to a custom property for the two
+   bottom docks) with the six most-used actions and a `/` button. New UI, so it
+   needs its row in DESIGN.md's recipe index and its lint in the same commit
+   (standing order 11). Today a phone's formatting is the opt-in wrapping strip
+   plus the `/` menu, both reachable, neither placed for a thumb.
+2. **The outline as a sheet from the bottom** (< 600). The sidebar sheet from
+   the left already carries the outline, so this is a judgement about whether a
+   second sheet earns itself on a phone, not a gap.
+3. **"The first line of text is on screen with the keyboard open"** is asserted
+   without a keyboard: the sandbox has no soft keyboard, so `docnarrow.js`
+   measures the first line at 318px with the viewport at its full height and
+   nothing more. Not verified.
+4. **820–1100's icons rail** is a deliberate no-op until something asks for the
+   width: the measure is at its cap there already. Left as a row here rather
+   than built, so the next session does not build it twice.
 
 ### Phase 8 — one editor everywhere (1 session, the owner's ask, 2026-09-09)
 

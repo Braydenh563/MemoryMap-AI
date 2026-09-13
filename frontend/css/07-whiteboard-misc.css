@@ -7063,13 +7063,29 @@ button.connection-row {
   border-top: 0;
 }
 
-.library-file-meta {
+/* One line of facts, at one rank: the Files rows' own (kind, size, pages,
+   added) and, sharing the rule rather than copying it, the picture cards'
+   (where the picture is used, and the fold for what was read out of it). Both
+   reports behind them are the same report, a column of short statements each
+   given a row of its own, so they get the same answer and the same numbers. */
+.library-file-meta,
+.library-image-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   font-size: var(--text-xs);
   color: var(--muted);
+}
+
+/* **The fold opens downwards, not sideways.** Closed, the disclosure is a chip
+   sized to its words and sits on the facts line beside the count. Open, its
+   body is a transcription, which wants the card's full width: a flex item
+   cannot both hug its summary and hold a paragraph, so an open one takes a
+   line of its own (`flex-basis: 100%` wraps it under the count) and the card
+   grows by the reading rather than by the layout. */
+.library-image-meta > .library-image-reading[open] {
+  flex: 1 1 100%;
 }
 
 .library-file-meta-sep {
@@ -7259,12 +7275,10 @@ button.connection-row {
   top: calc(100% + var(--space-2));
   right: 0;
   z-index: 30;
-  /* `block`, not `flex`: CSS columns have no effect on a flex container, and
-     the sections are what is being flowed. */
-  display: block;
-  column-count: 2;
-  column-gap: var(--space-3);
-  width: 32rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 17rem;
   padding: var(--space-3);
   border-radius: var(--radius);
   background: var(--modal-bg);
@@ -7280,26 +7294,49 @@ button.connection-row {
   gap: var(--space-2);
 }
 
+/* **The two columns are the View menu's, not every board menu's.** Written
+   first as `.wb-board-menu`, which was wrong and was reported the same day:
+   "the 'this board' dropdown menu needs a bit of ui fixing", with a screenshot
+   of the Board menu's four rows crammed into the left half and the right half
+   empty.
+
+   The cause is the pairing of the two rules. `column-count: 2` with
+   `break-inside: avoid` on the sections means a menu with ONE section cannot
+   fill both columns: the section goes in the first, the second stays empty,
+   and every row inside is laid out against a box half the menu's width.
+   Measured on the Board menu: rows 245px wide inside a 512px panel, with the
+   controls ending at 995 against a menu edge at 1005 and nothing at all to
+   their right.
+
+   The View menu has five sections and 714px of content, which is what the
+   columns were for. The Board menu has four rows. So the id carries it. */
+#wb-view-menu {
+  display: block;
+  column-count: 2;
+  column-gap: var(--space-3);
+  width: 32rem;
+}
+
 /* A section is the unit the columns flow, so it is never split down the
    middle: "Zoom" with two of its five rows at the foot of one column and
    three at the head of the next is worse than the tall menu this replaced. */
-.wb-board-menu .wb-menu-section {
+#wb-view-menu .wb-menu-section {
   break-inside: avoid;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  /* The gap the flex column used to provide between sections. */
+  /* The gap the flex column provides in every other board menu. */
   margin-bottom: var(--space-3);
 }
 
-.wb-board-menu .wb-menu-section:last-child {
+#wb-view-menu .wb-menu-section:last-child {
   margin-bottom: 0;
 }
 
 @media (max-width: 599.98px) {
   /* One column again: 32rem is wider than the window, and a menu that
      overflows sideways is worse than one that scrolls. */
-  .wb-board-menu {
+  #wb-view-menu {
     column-count: 1;
     width: min(17rem, calc(100vw - var(--space-5) * 2));
   }

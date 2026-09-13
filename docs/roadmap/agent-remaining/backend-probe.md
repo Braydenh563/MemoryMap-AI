@@ -14,6 +14,7 @@ security review's open rows, D6, and the performance probes.
 
 - done `50398cb`, `7e29d6f`, `7467ff2`: the derived facts pipeline, its docs, and the facts/learning import cycle the lint caught. next: WORLD_CLASS F2, the list limits (`tests/test_list_limits.py` new, four routes paged, uncommitted).
 - done: WORLD_CLASS F2, four unbounded lists bounded and the route-walking lint added. next: F4 (102 broad excepts), F7 (17 modules with threads), F10 (the three reading columns).
+- done: S5, the private-address guard moved to `core/security.public_addresses` with the outbound-fetch lint. next: item 4, D6 daily notes (`agent-remaining/chat-timeline-skills.md` item 8), then item 5, the perf probes.
 
 ## The specs, read
 

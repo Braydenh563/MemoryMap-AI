@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The guard that refuses to fetch a URL pointing back at this machine is one
+  function now, `core.security.public_addresses`, rather than a private one
+  inside the web reader. A new test walks `src/` for outbound HTTP calls and
+  fails on a module that is not written down as either untrusted (it must go
+  through the guard) or configured (the address is one the person set).
+
 - Four list endpoints that returned as many rows as the notebook has now take
   a `limit`: the attachment gallery, the memory stream, the orphan scan and
   the duplicate groups. Each still reports the real total, so a screen that

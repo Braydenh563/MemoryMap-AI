@@ -22,7 +22,7 @@ import hashlib
 import re
 from base64 import b64encode
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urlparse, urlsplit
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
@@ -546,3 +546,83 @@ _LOCKED_REASON = (
     "really do want to use a hosted API, turn off “Keep the AI on this "
     "machine” in Settings → Models first."
 )
+
+
+# --- the other direction: a URL that must be OUT on the public internet ------
+#
+# WORLD_CLASS_PLAN section 12, S5: "move the private-IP guard into
+# `core/security.py` as `assert_public_url()` and call it from every outbound
+# fetch". Everything above this line judges a *backend* address, where private
+# is the normal case and only the cloud metadata service is refused. This is
+# the mirror image, for a URL that came from somewhere the app does not trust
+# (a search result, a bookmark somebody pasted, a link in a note): fetching one
+# of those must never become a probe of the machine the app is running on.
+#
+# It lives here rather than in `search/websearch.py`, where the working
+# implementation grew, because the next fetcher (the clipper, a title preview,
+# a favicon) will not be in the web reader and must not need to know it
+# exists. `websearch` calls this and keeps the part that is genuinely its own:
+# pinning the connection to the address that passed, so a second DNS answer
+# cannot walk past the check (see `_pin_url` there, which is the half this
+# move deliberately did not touch).
+
+
+class UnsafeUrl(ValueError):
+    """A URL that must not be fetched, with a sentence fit to show a person."""
+
+
+def is_internal_address(address) -> bool:  # noqa: ANN001  # an ipaddress object
+    """True for anything on this machine or the local network.
+
+    Public because it is asked in both directions: the guard below refuses a
+    URL that resolves to one of these, and `search/websearch.py` requires it
+    of a self-hosted SearXNG instance, which must be local and nowhere else.
+    One definition, so the two cannot drift apart and leave a hole in the
+    half nobody re-read.
+    """
+    return (
+        address.is_private
+        or address.is_loopback
+        or address.is_link_local
+        or address.is_reserved
+        or address.is_multicast
+        or address.is_unspecified
+    )
+
+
+def public_addresses(url: str) -> list:
+    """Every IP `url`'s host resolves to, having checked all of them are public.
+
+    Raises `UnsafeUrl` for anything that is not plain http(s), carries
+    credentials (`http://trusted.example@evil.example/` reads as one host and
+    resolves to another), does not resolve, or resolves to any address on this
+    machine or the local network. **Every** address is checked, not the first:
+    a name that answers with one public and one loopback address would
+    otherwise pass and then connect to whichever the next lookup preferred.
+
+    Returns the addresses so the caller can connect to one it has actually
+    checked rather than resolving the name a second time.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme not in _ALLOWED_BACKEND_SCHEMES or not parsed.hostname:
+        raise UnsafeUrl("Only http(s) links can be opened")
+    if parsed.username or parsed.password:
+        raise UnsafeUrl("Only http(s) links can be opened")
+    found = []
+    for raw in _resolve(parsed.hostname):
+        try:
+            found.append(ipaddress.ip_address(raw))
+        except ValueError:  # a non-IP sockaddr; nothing to check against
+            continue
+    if not found:
+        # A lookup that fails is a failed check, never a pass: the one rule
+        # that keeps a resolver outage from opening the hole this closes.
+        raise UnsafeUrl("Couldn't look up that address")
+    if any(is_internal_address(address) for address in found):
+        raise UnsafeUrl("That link points at a local address, so it wasn't opened")
+    return found
+
+
+def assert_public_url(url: str) -> None:
+    """`public_addresses`, for a caller that does not pin the connection."""
+    public_addresses(url)

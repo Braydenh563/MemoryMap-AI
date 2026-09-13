@@ -36,6 +36,8 @@ from urllib.parse import (
 
 import requests
 
+from memorymap.core.security import UnsafeUrl, is_internal_address, public_addresses
+
 logger = logging.getLogger(__name__)
 
 DDG_URL = "https://html.duckduckgo.com/html/"
@@ -235,7 +237,7 @@ def _searxng_target(
         return None
 
     addresses = _host_addresses(host)
-    if not addresses or not all(_is_internal(address) for address in addresses):
+    if not addresses or not all(is_internal_address(address) for address in addresses):
         return None
 
     # Prefer IPv4 when the name resolves to both families. A self-hosted
@@ -692,18 +694,6 @@ def _host_addresses(host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6Add
     return found
 
 
-def _is_internal(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    """True for anything on this machine or the local network."""
-    return (
-        address.is_private
-        or address.is_loopback
-        or address.is_link_local
-        or address.is_reserved
-        or address.is_multicast
-        or address.is_unspecified
-    )
-
-
 _MAX_REDIRECTS = 5
 
 
@@ -717,15 +707,15 @@ def _assert_external(url: str) -> list:
     Returns the resolved addresses so the caller can connect to one it has
     actually checked (see _pin_url) instead of resolving the name again.
     """
-    scheme, host = _split_url(url)
-    if not scheme:
-        raise WebSearchError("Only http(s) links can be opened")
-    addresses = _host_addresses(host)
-    if not addresses:
-        raise WebSearchError("Couldn't look up that address")
-    if any(_is_internal(address) for address in addresses):
-        raise WebSearchError("That link points at a local address, so it wasn't opened")
-    return addresses
+    # The judgement itself moved to `core/security.py` (S5) so the next
+    # outbound fetcher does not have to know the web reader exists. What stays
+    # here is the translation into this module's own error, which is what the
+    # UI renders, and `_pin_url` below, which is the half that is genuinely
+    # about fetching rather than about judging.
+    try:
+        return public_addresses(url)
+    except UnsafeUrl as exc:
+        raise WebSearchError(str(exc)) from exc
 
 
 def _pin_url(url: str, address) -> tuple[str, str]:

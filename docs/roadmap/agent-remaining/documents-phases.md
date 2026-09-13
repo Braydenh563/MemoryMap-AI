@@ -1,9 +1,11 @@
 # What the documents-phases agent leaves (2026-09-13)
 
-Branch `claude/epic-ramanujan-8xocc0`. Port 8951, data dir `/tmp/mm-docs`.
-Probes written this session: `scratchpad/ui-sweeps/doccomments.js`,
-`prosefit.js`, `aiedit.js`, `docnarrow.js`. Each exits non-zero on failure and
-prints its numbers; run them before and after touching anything they cover.
+Branch `claude/epic-ramanujan-8xocc0`. Port 8793, data dir `/tmp/mm-docs`.
+Sweeps this work is measured by, all of which exit non-zero on failure and
+print their numbers: `doctable.js`, `aiedit.js`, `docnarrow.js`,
+`notesurface.js`, `docexports.js`, `docfallback.js`, plus `cm-notes.js`,
+`cm-editor.js` and `cm-live.js` as the regression set for the engine. Run them
+before and after touching anything they cover.
 
 ## Landed, session of 2026-09-13 (evening)
 
@@ -39,10 +41,11 @@ commit.
   `tests/test_docview_import.py`, `scratchpad/ui-sweeps/docexports.js` 6/6.
   Left for whoever owns `core/extras.py`: one `Extra(...)` row for
   python-docx so the Word export can point at a button.
-- **Next:** the "Found, not fixed" lines below and the plan's "Not verified
-  until built". Was: Phase 7's rest (markdown with assets as a zip, DOCX export as an
-  optional extra, import of `.docx`/`.html` through `docview`), then the
-  "Found, not fixed" lines below.
+- **The carried "not verified" lines**, three of them measured. `11a129b`,
+  with `scratchpad/ui-sweeps/docfallback.js` as the new sweep. See the next
+  section.
+- **Next:** the four rows under "Open" below, none of which is in a file this
+  agent owns except the first's own factory row.
 
 ## Verified this session, from the carried "not verified" lists
 
@@ -81,58 +84,79 @@ from a sweep or a probe, not a reading of the code.
 - **Phase 6, the phone band's targets**, with the phase's state measured band by
   band in the plan.
 
-## Open, in the order the plan wants them
+## Open
 
-1. **Phase 6 item 1, the phone formatting bar** (< 600).
-   - File: a new block in `frontend/css/10-responsive.css` band 4, markup in
-     `frontend/index.html` beside `#doc-toolbar` (line ~3085), wiring in
-     `frontend/documents.js` (`applyMarkdown` already takes a box id, so the bar
-     is six `data-md` buttons and one `/` button, not a new dialect).
-   - Next step: **DESIGN.md's recipe index has no row for a bar that sits above
-     the on-screen keyboard**, and standing order 11 says the row and its lint
-     land in the same commit as the feature. `app.js` around line 33696 already
-     writes `visualViewport` into a custom property for the two bottom docks
-     (see `07-whiteboard-misc.css` ~9883): read that property, do not add a
-     second listener.
-   - Measure with `docnarrow.js` (extend it: the bar's own height, that it sits
-     above the inset, that the caret's line is still on screen). The sandbox has
-     no soft keyboard, so the keyboard half cannot be verified here: say so.
-2. **Phase 6 item 2, the outline as a sheet from the bottom** (< 600). Judgement
-   first: the left sheet already carries the outline, so decide whether a second
-   sheet earns itself before building it.
-3. **Phase 7, export and interchange.** PDF (print stylesheet) and Markdown
-   (`GET /documents/{id}/export.md`, comments already footnoted by
-   `docexport.comments_to_footnotes`) exist. Missing: HTML, DOCX, Markdown with
-   assets, import of `.docx`/`.html`.
-   - Next step: **settle one decision before writing any of it** (standing order
-     3, so this is an INBOX entry with a one-line recommendation, then taken):
-     *what "self-contained HTML" means here.* There is no server-side
-     markdown-to-HTML renderer (checked: nothing in `src/memorymap/core/`), so
-     the only faithful source is the already-rendered `#doc-preview` DOM on the
-     client. The recommendation: export from that DOM with a small purpose-built
-     stylesheet rather than inlining the app's eleven sheets, images as `data:`
-     URIs, and a test that asserts the file names no external host.
-   - DOCX wants `docview`'s readers reversed or `python-docx` as an optional
-     extra; the suite must not depend on the extra being installed.
-4. **Phase 8, one editor everywhere** (8a, 8b, 8c). Not started. The plan's
-   decisions are made and must not be remade; `noteSurface(host, options)` is
-   built on the Phase 2 adapter (`docSurface()`/`textareaSurface`/`cmSurface` at
-   the top of `documents.js`, between `DOC-SURFACE-BEGIN` and `DOC-SURFACE-END`),
-   and the lint the plan names (`tests/test_note_surface.py`) does not exist yet.
+1. **Phase 8c**, whose two halves are in files this agent does not own (see
+   "Found, not fixed"): the board's note card (`whiteboard.js`) and the skill
+   editor's steps box (one row in `editor.js`'s `EDITOR_SURFACES`). Adding a
+   box to the factory is one row in `NOTE_SURFACES` (`documents.js`) and one
+   line in `tests/test_note_surface.py`'s own list if it is not note text.
+2. **`.segmented-control` app-wide**, one rule in `03-dashboard-widgets.css`,
+   which DESIGN.md already describes and this session could only apply to
+   `#doc-ai-verb`.
+3. **A row for python-docx in `core/extras.py`**, so the Word export's refusal
+   can point at a button rather than name a package.
+4. **Phase 6's remaining rows** are deliberate no-ops with their reasons in the
+   plan: the 820 to 1100 icons rail (the measure is already at its cap) and the
+   outline as a second sheet (decided against, measured).
 
-## What CI covers rather than this session
+## What ran before this report
 
-The full suite was **not** run to completion locally, and that is standing order
-5a rather than a gap left by accident: it is ten to fifteen minutes on a quiet
-box, it was started once before this report and reached 37% in far longer than
-that because two other agents were driving Chromium sweeps in the same container,
-and CI runs it on every push. All five commits here are pushed, so CI has them.
-What did run locally, before every commit: `scripts/gate.sh --staged` (the lint
-set against the index, `node --check`, ruff), plus `--changed` at the first step,
-and the targeted sweeps named above. If CI is red on any of these commits, the
-suite is where to look first and nothing local contradicts it.
+`scripts/gate.sh --staged` (the lint set against the index, `node --check`,
+ruff) before every commit, the targeted tests for the files each commit
+touched, and the sweeps named at the top. The full suite was run once at the
+end, which is standing order 5a's "once before a large agent task's final
+report"; its result is in the report that goes with these commits. Every commit
+here is pushed to `agent/wip-documents`, so CI has them too.
+
+## Found, not fixed (2026-09-13 evening)
+
+- **`.segmented-control` is only conformed where it was reported.** INBOX 192's
+  fix is scoped to `#doc-ai-verb` in `09-editor.css`, because the base rule
+  lives in `03-dashboard-widgets.css`, which the documents agent does not own.
+  Measured: every other `.segmented-control` in the app (`#graph-layout` is the
+  other one) still has an 11.2px track and a 6px segment where `.seg` is
+  15.4px. One rule moved into the base file finishes it, and DESIGN.md already
+  says it should be.
+- **python-docx has no row in `core/extras.py`.** So the Word export's 501
+  names the package instead of pointing at a button in Settings, optional
+  extras. One `Extra(...)` entry and the message can be improved to match.
+- **Phase 8c's two halves are in files this agent does not own.** The board's
+  note card is `whiteboard.js`'s canvas text field, and the skill editor's
+  steps box needs one line in `editor.js`'s `EDITOR_SURFACES`. The factory
+  both need is built: `noteSurface(host, options)` and the `NOTE_SURFACES`
+  table in `documents.js`, one row per box.
+- **The capture box's autogrow still writes an inline height on the mirrored
+  textarea**, which is invisible (the mirror is at zero opacity) but means the
+  mirror's box ends before the view's does. Measured: left and top within 1px,
+  width within 2px, height 176 against 354. It matters only to code that
+  positions something off the textarea's *bottom*; nothing does today.
 
 ## Traps this session paid for
+
+- **A patch script that asserts before it writes leaves nothing behind.** Two
+  of this session's edit scripts asserted on three anchors and wrote at the
+  end; the third anchor failed, so the first two edits were silently not
+  applied and the next measurement read the old file. Write after each
+  replacement, or check the file afterwards rather than the script's output.
+- **`html.parser` never closes a void element.** `<meta>` raises
+  `handle_starttag` and there is no matching end tag, so a "skip what is inside
+  this" counter that includes `meta` never returns to zero and the whole page
+  after `<meta charset>` is dropped. The fixture came back as its own HTML and
+  looked like a parser that had not run at all.
+- **A CodeMirror theme cannot be out-ordered, only out-specified.** A second
+  `EditorView.theme` added later in the extension list did not beat
+  `docCmTheme`'s `.cm-content` padding; the rule that worked is in
+  `09-editor.css` at two classes plus one, which is what the note at the top of
+  that file says.
+- **The mount has to read the caret and the selection at mount time.** The
+  bundle takes a moment, a person types into the textarea meanwhile, and a
+  view seeded with the caret captured at *focus* time puts those characters in
+  the wrong order ("worldhello "). Seeded with only `anchor`, a caller that had
+  selected a word before acting on it gets its selection collapsed and the
+  action lands a placeholder at the start of the line.
+
+## Traps earlier sessions paid for, still true
 
 - **The worktree and the git index are shared with other agents.** Commit from a
   private index (`GIT_INDEX_FILE=<scratch>/mine.index; git read-tree HEAD; git

@@ -55,6 +55,18 @@ prints its numbers; run them before and after touching anything they cover.
    the top of `documents.js`, between `DOC-SURFACE-BEGIN` and `DOC-SURFACE-END`),
    and the lint the plan names (`tests/test_note_surface.py`) does not exist yet.
 
+## What CI covers rather than this session
+
+The full suite was **not** run to completion locally, and that is standing order
+5a rather than a gap left by accident: it is ten to fifteen minutes on a quiet
+box, it was started once before this report and reached 37% in far longer than
+that because two other agents were driving Chromium sweeps in the same container,
+and CI runs it on every push. All five commits here are pushed, so CI has them.
+What did run locally, before every commit: `scripts/gate.sh --staged` (the lint
+set against the index, `node --check`, ruff), plus `--changed` at the first step,
+and the targeted sweeps named above. If CI is red on any of these commits, the
+suite is where to look first and nothing local contradicts it.
+
 ## Traps this session paid for
 
 - **The worktree and the git index are shared with other agents.** Commit from a

@@ -74,6 +74,16 @@ measured or built in earlier commits and is marked there.
 
 ## Open items
 
+207. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the header
+    (screenshot: the header's five icon buttons: bell, magic wand, '?',
+    theme, gear).** "move the help bot to the bottom bar instead of having
+    it in the top bar buttons, also the popup agent is already accessible in
+    the bottom bar so it doesnt need to be in the top bar buttons either".
+    The wand (`#command-palette-btn` or equivalent) and the '?' (`#guide-btn`)
+    leave `.header-controls`; the Guide joins the bottom bar (the status bar
+    on desktop, `#phone-tab-dock`'s More sheet on a phone) beside the agent.
+    Owner: orchestrator.
+
 206. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the help
     popovers (screenshot: the capture box's '?' popover running the full
     height of the window, "A note is plain text. These few things do

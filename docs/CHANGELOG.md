@@ -145,6 +145,21 @@ below). Versioning is `0.x` while the app stabilises.
   document clear of it, bold writing `**first**` from a selection, the "/"
   button opening the 19-item insert menu, and the bar absent at 800, 1024 and
   1440.
+- **Graph node popups draw the pictures and files a note names in its own
+  markdown**, not only the ones it carries as attachments, and a file card
+  states its size beside its kind. A note whose picture is a library upload
+  opened a panel with nothing in it before; both shapes now draw. The graph
+  also says what an entity is, in one sentence, in the Show section's help
+  popover, in a legend entry and on the node itself.
+
+- **A local map beside an open note or document** (GRAPH_PLAN Phase 4's last
+  item). `#graph-pane` is the Graph tab's own canvas renderer at
+  `size: "pane"`: it draws `/graph/local` at depth 1 for whatever is open, in
+  the Notes sidebar and the Documents sidebar, and clicking one of its notes
+  opens that note. Measured (`scratchpad/ui-sweeps/graphpane.js`, 1440x950):
+  6 nodes against the local payload's 6 where the tab has 74, a 226x176 box
+  that really paints, and the tab's node count, edge count, canvas and camera
+  size identical before and after.
 
 - A document can be downloaded as one self-contained HTML file. Images become
   data URIs, the stylesheet is written into the file, comments travel as
@@ -708,6 +723,32 @@ below). Versioning is `0.x` while the app stabilises.
   when it does.
 
 ### Changed
+
+- **The graph's touch gestures and its world constant are measured, not
+  assumed.** `scratchpad/ui-sweeps/graphtouch.js` drives a real touch context:
+  a 96x48 one-finger drag moves the camera 107.3px and a pinch from 80px to
+  280px between the fingers scales the map 3.5x, at 390 and at 1440, with the
+  page not scrolling sideways at either. `gcWorldFor`'s comment claimed the
+  1.6-to-1.25 change was neutral at 35 and 300 notes; it is neutral at 35 at
+  both widths, and at 300 only on a desktop, where the viewport floor is 2531
+  against a phone's 1168. The comment now says which.
+
+- **Turning "Mind maps" off on the graph now takes them off the map.** The
+  switch is called Boards, it covers whiteboards as well, and off means the
+  board is not a node at all rather than a node that stops saying it is one:
+  measured, five boards drawn as ordinary notes with the switch off before,
+  none after, four typed `map` with it on.
+
+- **The canvas graph's forty module globals are one surface object.** The
+  renderer kept its node array, camera, worker, hover and selection in
+  module-level `let`s, which is exactly right for one canvas and impossible
+  for two. Every drawing function now takes the surface it is working on
+  (`s = gcTab` by default, so every existing caller and sweep reads as it
+  did), and `size: "full" | "pane"` says whether it owns the Graph tab's
+  chrome. Behaviour-neutral: `graph.js`, `graph4.js`, `graph4b.js`,
+  `graphhover.js`, `graphminimap.js` and `graphcold.js` measured before and
+  after on one fixture, same node counts, camera, canvas size, hover and
+  minimap.
 
 - **The Timeline is a feed.** It was two views and a popup: a grid of one
   column per bucket (8,800px wide against a 1,358px viewport, 79% of its cells

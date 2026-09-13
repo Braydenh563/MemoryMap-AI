@@ -118,14 +118,6 @@ just "hide the app chrome". Dark theme measured with `contrast.js`.
 has a map, has a file) plus **groups**: a saved search → a colour, listed
 in the legend, stored with the view. Legend entries toggle visibility.
 
-### Phase 4 — utility (1 session)
-Lasso select (Shift+drag) → a selection dock (tag, link, move to space,
-make a mind map of these, open all); right-click menu on a node (open,
-open beside, pin/unpin, hide, focus); a **local graph pane** that can sit
-beside an open note or document (the same renderer at `size: "pane"`);
-the time slider gains Play; export PNG at 2× of exactly the visible
-frame, with the legend.
-
 ### Phase 6 — the node panel (½ session, INBOX 59)
 The popup that opens on a node is a form with nine equal buttons under it.
 Target: a header (title, category chip, the confidence as a small mark
@@ -174,6 +166,10 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-09", GRAPH_PLAN.md) on 2026-
 ## Built, Phase 4 (utility), part one, 2026-09-09
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", GRAPH_PLAN.md) on 2026-09-09: a plan holds open work only.
+
+## Built, Phase 4 (utility), part two: the local map, 2026-09-13
+
+Moved to HISTORY.md ("Moved from the plans, 2026-09-13", GRAPH_PLAN.md) on 2026-09-13: a plan holds open work only. Phase 4 is complete.
 
 ## Built, Phase 3 (colour rules and groups), 2026-09-09
 
@@ -235,6 +231,25 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
   pair, a free-text Why box, a percentage, a Link button and an X, in a
   panel with its own scrollbar).
 - Phase 6 already holds the node panel work; these are its remaining rows.
+
+## Decision made, 2026-09-13: a Show switch that is off means absent
+
+INBOX 185 forced a decision the three switches in the Show section had never
+actually been given: what "off" means. Entities and Documents add nodes that
+exist nowhere else, so off has always meant absent for them. A board is an
+`Entry`, so it was on the map either way and the switch only changed whether
+the node said so. Two readings of one control drawn three times.
+
+Decided: **off means the thing is not on the map.** `include_maps=false` drops
+every board from `/graph` at the source, so there is no board node, no map
+edge, and no board in the centrality pass or the path index. The switch is
+labelled Boards rather than Mind maps, because a whiteboard is a board too and
+a switch that hides one and not the other is the same confusion one step over.
+
+Still open, and deliberately: `/graph/local` has no such switch, so focus mode
+and the local pane still walk boards as notes. They are a neighbourhood of one
+note rather than a picture of the notebook, and nothing has been asked about
+them.
 
 ## Decision changed, 2026-09-09: a drag places, Shift pins
 

@@ -92,11 +92,6 @@ measured or built in earlier commits and is marked there.
     high where it was 80.4px, one cell where there were 21, and every row on
     the same column edges. The ring's ground is still open.
 
-185. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the
-    graph's show toggles.** "Things that I have turned off in the graph for
-    not showing them like the mindmap and entities still show anyway".
-    Owner: graph agent.
-
 184. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), a map
     exported to the board (one screenshot: the image card with an empty
     strip under the picture).** "my exported png from the mindmap straight
@@ -140,6 +135,31 @@ measured or built in earlier commits and is marked there.
     drawn ("·", 20.8px wide, centred in that gap) and no longer inside the
     pill: measured 0.0px off centre with 7.4/7.4px insets in a 78.5px pill
     (was 96.8px) at all five widths, `scratchpad/ui-sweeps/chatbadge.js`.
+    (mind map agent). **The graph half is done (this commit); the chat and
+    mind map halves are still open, so this item stays here.** The popup was
+    blind to the commonest kind of image note: a note carrying an
+    *attachment* drew its thumbnail, and a note whose picture is a library
+    upload named in its own markdown drew nothing, the media box hidden with
+    0 children. Measured after (`scratchpad/ui-sweeps/graphmedia.js`): both
+    shapes draw one image at natural width 2 on a 2x2 probe, and a file card
+    reads "PDF · 3.9 KB" where it used to say "PDF" alone. What an entity
+    is is now one sentence written once, given in the Show section's '?'
+    popover, in a legend entry the map never had (the entity nodes' category
+    is added after `data.categories` is built, so nothing named them), and in
+    an entity node's own tooltip.
+
+182. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), links.**
+    "I want to be able to right click or hold with a touch on a link and
+    have a popup show to let me copy the link address". App-wide: every
+    rendered markdown link (chat, popup agent, notes, documents) gets one
+    `kebabMenu`-shaped menu on contextmenu and long-press with Copy link
+    address and Open. Owner: chat agent.
+
+181. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), tables in
+    an AI answer.** "the actual size/fit to panel button in ai written
+    tables doesnt work when not in the full view, also I want the table row
+    and column widths and heights to be adjustable by the user in the full
+    view." Owner: chat agent.
 
 180. **Mid-work drop, 2026-09-13, verbatim (the owner), the whiteboard and
     the mind map, two screenshots (a dark board with four objects, every one

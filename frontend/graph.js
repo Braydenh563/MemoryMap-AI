@@ -3428,19 +3428,77 @@ function openGraphLinkPanel(edge, nodes) {
 //: lost the file. `fileCard` is the app's own control for an attached file
 //: (the note cards, the chat transcript and the widgets all use it); this
 //: surface was the one place a file did not appear at all.
+//: **A note's pictures are in two places, and this used to look in one.**
+//: Reported (INBOX 183, the owner): "the graph popups dont render images or
+//: files", with a screenshot of a node panel for an image with nothing in it.
+//: Reproduced before it was touched: a note carrying a real *attachment* drew
+//: its thumbnail correctly (naturalWidth 2 on a 2x2 probe) and a note whose
+//: picture is a library upload referenced from its own markdown drew nothing
+//: at all, `#graph-popup-media` hidden with 0 children. Pasted, dropped and
+//: AI-attached pictures all end up as `![alt](/media/...)` in the body and
+//: there is no column that mirrors them (`noteAnyImage` in app.js says the
+//: same thing about the other direction), so a panel that reads only
+//: `entry.attachments` is blind to the commonest kind of image note there is.
+//:
+//: Only this app's own stored files, the same rule `noteFirstImage` keeps: an
+//: external `https://` image is blocked by the CSP (`img-src 'self' data:
+//: blob:`), so drawing one would guarantee a broken frame.
+const GRAPH_POPUP_MEDIA_REF = /(!?)\[([^\]\n]{0,200})\]\((\/(?:media|files)\/[^)\s]{1,500})\)/g;
+
+function graphPopupMediaRefs(entry) {
+  const refs = [];
+  const seen = new Set();
+  //: An attachment's own url is `/files/<id>`, and a note can both carry the
+  //: file and link to it in its text. Same url, one card.
+  for (const attachment of entry.attachments || []) seen.add(`/files/${attachment.id}`);
+  for (const match of (entry.content || "").matchAll(GRAPH_POPUP_MEDIA_REF)) {
+    const url = match[3];
+    if (seen.has(url)) continue;
+    seen.add(url);
+    refs.push({ image: match[1] === "!", name: match[2] || url.split("/").pop(), url });
+  }
+  return refs;
+}
+
+//: The name of a file, then what it is and how big, which is what the Library
+//: says about the same file (`.library-file-meta`: "one line of facts, dot
+//: separated"). `fileCard` states the kind already; the size is the fact this
+//: panel was missing, and it is the one that answers "is this the scan or the
+//: thumbnail" without opening it. `formatFileSize` returns "" for an unknown
+//: or zero size, which is why nothing is appended in that case rather than a
+//: claim the panel cannot make.
+function graphPopupFileCard(name, url, size) {
+  const card = fileCard(name, url);
+  const label = typeof formatFileSize === "function" ? formatFileSize(size) : "";
+  if (!label) return card;
+  const kind = card.querySelector(".file-card-kind");
+  if (kind) kind.textContent = `${kind.textContent} \u00b7 ${label}`;
+  return card;
+}
+
 function renderGraphPopupMedia(entry) {
   const box = $("graph-popup-media");
   box.replaceChildren();
   const all = entry.attachments || [];
   const images = all.filter((a) => a.is_image);
   const files = all.filter((a) => !a.is_image);
-  box.classList.toggle("hidden", all.length === 0);
-  if (!all.length) return;
+  const refs = graphPopupMediaRefs(entry);
+  const refImages = refs.filter((r) => r.image);
+  const refFiles = refs.filter((r) => !r.image);
+  box.classList.toggle("hidden", all.length === 0 && refs.length === 0);
+  if (!all.length && !refs.length) return;
   for (const attachment of files) {
     box.appendChild(
-      fileCard(attachment.filename || attachment.name || "", attachment.url || `/files/${attachment.id}`)
+      graphPopupFileCard(
+        attachment.filename || attachment.name || "",
+        attachment.url || `/files/${attachment.id}`,
+        attachment.size
+      )
     );
   }
+  //: A file the note links to rather than carries. Its size is not on the
+  //: note's payload, so the card states its kind and its name and stops there.
+  for (const ref of refFiles) box.appendChild(fileCard(ref.name, ref.url));
   for (const attachment of images) {
     const img = document.createElement("img");
     img.className = "graph-popup-thumb";
@@ -3458,6 +3516,25 @@ function renderGraphPopupMedia(entry) {
       openLightbox(
         images.map((a) => ({ filename: a.filename, getUrl: () => attachmentObjectUrl(a) })),
         images.indexOf(attachment)
+      );
+    });
+    box.appendChild(img);
+  }
+  //: A stored url carries the token in the query string (`mediaSrc`), which is
+  //: how every other surface that renders note markdown draws these: no fetch,
+  //: no object url, and the browser's own cache.
+  for (const ref of refImages) {
+    const img = document.createElement("img");
+    img.className = "graph-popup-thumb";
+    img.alt = ref.name;
+    img.title = `${ref.name}: click to view full size`;
+    img.src = mediaSrc(ref.url);
+    img.addEventListener("load", () => placeGraphPopup());
+    img.addEventListener("error", () => img.remove());
+    img.addEventListener("click", () => {
+      openLightbox(
+        refImages.map((r) => ({ filename: r.name, getUrl: () => mediaSrc(r.url) })),
+        refImages.indexOf(ref)
       );
     });
     box.appendChild(img);

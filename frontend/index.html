@@ -694,6 +694,38 @@
           <h2>Most used</h2>
           <ul id="most-used"></ul>
         </div>
+        <!-- GRAPH_PLAN.md Phase 4, the local map. The same canvas renderer as
+             the Graph tab at `size: "pane"`, drawn from `/graph/local` for
+             whatever note or document is open. One element, moved between this
+             sidebar and #doc-sidebar by `graphPaneFollow` in graph-canvas.js,
+             rather than one per host: two panes would be two surfaces with two
+             workers drawing the same neighbourhood. `hidden` until something is
+             open, which is also what keeps its canvas out of a 0x0 box. -->
+        <section class="graph-pane" id="graph-pane" data-collapsed="false" hidden>
+          <h3 class="panel-head graph-pane-head">
+            <span class="graph-pane-title">Local map</span>
+            <span class="chip" id="graph-pane-count">No note open</span>
+            <span class="row graph-pane-actions">
+              <button type="button" class="ghost small icon-only" id="graph-pane-focus"
+                aria-label="Open this map in the Graph tab"
+                title="Open this map in the Graph tab"><i class="ph ph-arrows-out"
+                  aria-hidden="true"></i></button>
+              <button type="button" class="ghost small icon-only" id="graph-pane-toggle"
+                aria-expanded="true" aria-controls="graph-pane-body"
+                aria-label="Hide the local map"
+                title="Hide the local map"><i class="ph ph-caret-up"
+                  aria-hidden="true"></i></button>
+            </span>
+          </h3>
+          <div id="graph-pane-body" class="graph-pane-body">
+            <div id="graph-pane-box" class="graph-pane-box">
+              <canvas id="graph-pane-canvas" class="graph-canvas graph-pane-canvas"></canvas>
+            </div>
+            <p class="muted graph-pane-empty" id="graph-pane-empty" hidden>
+              This note is not linked to anything yet.
+            </p>
+          </div>
+        </section>
       </aside>
 
       <main>
@@ -2599,7 +2631,36 @@
           </div>
           <div class="dock-menu-section" id="graph-toggle-group"
             role="group" aria-labelledby="graph-show-label">
-            <span class="muted dock-menu-label" id="graph-show-label">Show</span>
+            <div class="dock-menu-section-head">
+              <span class="muted dock-menu-label" id="graph-show-label">Show</span>
+              <!-- INBOX 183, the owner: "idk what entities are". The three
+                   switches below add three kinds of node and only one of them
+                   is a word this app has ever explained. Each row carries its
+                   own line on hover; this is the same three lines somewhere a
+                   keyboard and a finger can reach, which is what the
+                   `data-help-for` recipe is for (DESIGN.md, the recipe
+                   index). The same sentence about an entity is in the legend
+                   and in a node's own panel, so the three cannot drift. -->
+              <button type="button" class="icon-only ghost small graph-help-toggle"
+                data-help-for="graph-show-help" aria-controls="graph-show-help"
+                aria-expanded="false" title="What these add to the map"
+                aria-label="What these add to the map">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
+            </div>
+            <div class="help-body hidden" id="graph-show-help" role="dialog"
+              aria-label="What these add to the map">
+              <p>
+                An entity is a person, place or thing the AI found named across
+                your notes, drawn as its own node joined to every note that
+                mentions it.
+              </p>
+              <p>
+                Documents adds a node for each document your notes are attached
+                to, and Boards adds one for each mind map or whiteboard, joined
+                to the notes on it.
+              </p>
+            </div>
             <!-- Two columns, not one (graph.md section 2, beyond its own two
                  named candidates: those two rows plus the tightened section
                  spacing above still left this one section alone at 231px,
@@ -2627,8 +2688,8 @@
                    that are maps and draws a line to every note *on* a map. The
                    §3.3 rule, decided once: a map's membership is a link; where a
                    node sits on the canvas is not. -->
-              <label class="graph-option-row tools-toggle" title="Draw a line from each mind map to the notes on it">
-                <span>Mind maps</span>
+              <label class="graph-option-row tools-toggle" title="Show mind maps and whiteboards as their own nodes, with a line from each to the notes on it">
+                <span>Boards</span>
                 <input type="checkbox" id="graph-maps">
               </label>
               <label class="graph-option-row tools-toggle" title="Hide notes that are not linked to anything, to declutter the map">

@@ -25,92 +25,204 @@
 
 // --- the drawing surface ------------------------------------------------------
 
-let gcCanvas = null; // the <canvas> element
-let gcCtx = null;
-let gcWorker = null;
-//: **Which simulation a message from the worker belongs to.** Bumped every
-//: time the node array is replaced, sent with each `init`, and echoed on
-//: every tick. A `{type:"stop"}` cannot unsend a tick already posted (both
-//: directions of `postMessage` are asynchronous), and the tick handler writes
-//: positions *by index*, so a tick from the previous run landing after a
-//: relayout overwrites the new positions with the old ones. Measured: the
-//: tree switched to 500 ms into a warm force simulation came back with its
-//: depth-1 nodes spread over 351 px and its depth-2 nodes over 778 px, where
-//: a tree has every node of one depth at one x. That is the scatter reported
-//: as "the tree view on the graph is still broken", and it also explains why
-//: it was intermittent: at six other moments in the same cooling curve the
-//: same switch was clean. A computed layout never sends an `init` at all, so
-//: its epoch can match nothing and every tick arriving under it is dropped.
-let gcEpoch = 0;
-//: The drawing's own copy of the graph. `gcNodes` is the same array
-//: `graphNodesRef` points at, so everything in graph.js that walks the nodes
-//: (the keyboard, the minimap, `fitGraphToView`, drag-to-link) sees exactly
-//: what is on screen. Edges have their `source`/`target` resolved to node
-//: objects once per render rather than looked up per frame.
-let gcNodes = [];
-let gcEdges = [];
-let gcAdj = new Map();
-let gcById = new Map();
-let gcDims = { w: 0, h: 0 };
-let gcDpr = 1;
-//: The live pan/zoom. Kept here as well as on the element (d3 stores it there)
-//: because every draw needs it and `d3.zoomTransform` is a property lookup
-//: plus a null check on a hot path.
-let gcTransform = null;
-let gcObserver = null;
-let gcDrawQueued = false;
-let gcQuadtree = null;
-let gcQuadtreeDirty = true;
-//: Set while a pan/zoom gesture is in flight, so a node sliding under a
-//: stationary cursor does not register as a hover. Same reasoning the SVG
-//: renderer's `graphIsPanning` carries; here it is cheaper, because there is
-//: no CSS `:hover` to fight as well.
-let gcPanning = false;
-//: GRAPH_PLAN Phase 4. A lasso (Shift and drag on empty map) selects notes;
-//: the selection dock acts on them. `gcLasso` holds world points while a
-//: lasso is being drawn, `gcSelected` the ids it caught (or Shift-clicks
-//: added). `graphHiddenIds` is the right-click "Hide" for this visit only:
-//: it is not a saved preference, and the legend says how many are hidden.
-let gcSelected = new Set();
-let gcLasso = null;
-let graphHiddenIds = new Set();
-let gcLayoutKind = "force";
-let gcTree = null; // the laid-out hierarchy for tree/radial/arc, else null
-let gcTimeCutoff = null;
-let gcColourOf = () => "#888";
+//: **One surface, not a pile of module globals** (GRAPH_PLAN Phase 4, the
+//: local pane). Everything the renderer needs to draw one graph into one
+//: canvas lives on an object made here, and every function below is handed
+//: the one it is working on. It used to be forty-odd module-level `let`s,
+//: which is fine while there is exactly one canvas and impossible the moment
+//: there are two: the pane beside a note and the tab would have written each
+//: other's node array, transform, worker and hover state. `s = gcTab` as the
+//: last parameter everywhere means the tab's own calls, and the sweeps',
+//: read exactly as they did.
+//:
+//: `size` says which of the two this is. "full" is the tab: it owns the
+//: chrome (the legend, the minimap, the stats line, the time slider, trace,
+//: the keyboard) and writes the renderer-agnostic globals in graph.js that
+//: the chrome reads. "pane" is the small one beside a note: same draw, same
+//: worker, no chrome, and it touches none of those globals.
+function gcSurface(options = {}) {
+  return {
+    size: options.size || "full",
+    boxId: options.boxId || "graph-box",
+    canvasId: options.canvasId || "graph-canvas",
+    //: What a click on a node does on this surface. Null means the Graph
+    //: tab's own behaviour (trace, link, the node popup).
+    onNodeClick: options.onNodeClick || null,
+
+    canvas: null, // the <canvas> element
+    ctx: null,
+    dpr: 1,
+    dims: { w: 0, h: 0 },
+    observer: null,
+    drawQueued: false,
+    minimapQueued: false,
+    //: The pan/zoom behaviour and the d3 selection it is attached to. The tab
+    //: also publishes these as `graphSvg`/`graphZoom`, which is what every
+    //: camera helper in graph.js drives; a pane keeps them to itself.
+    svg: null,
+    zoom: null,
+    //: The live pan/zoom matrix. Kept here as well as on the element (d3
+    //: stores it there) because every draw needs it and `d3.zoomTransform` is
+    //: a property lookup plus a null check on a hot path.
+    transform: null,
+
+    worker: null,
+    //: **Which simulation a message from the worker belongs to.** Bumped every
+    //: time the node array is replaced, sent with each `init`, and echoed on
+    //: every tick. A `{type:"stop"}` cannot unsend a tick already posted (both
+    //: directions of `postMessage` are asynchronous), and the tick handler
+    //: writes positions *by index*, so a tick from the previous run landing
+    //: after a relayout overwrites the new positions with the old ones.
+    //: Measured: the tree switched to 500 ms into a warm force simulation came
+    //: back with its depth-1 nodes spread over 351 px and its depth-2 nodes
+    //: over 778 px, where a tree has every node of one depth at one x. That is
+    //: the scatter reported as "the tree view on the graph is still broken",
+    //: and it also explains why it was intermittent: at six other moments in
+    //: the same cooling curve the same switch was clean. A computed layout
+    //: never sends an `init` at all, so its epoch can match nothing and every
+    //: tick arriving under it is dropped.
+    epoch: 0,
+    //: A slow payload that has been overtaken by a newer render must not paint
+    //: over it. A canvas has nothing to clear, so this is the guard.
+    renderSeq: 0,
+
+    //: The drawing's own copy of the graph. On the tab `nodes` is the same
+    //: array `graphNodesRef` points at, so everything in graph.js that walks
+    //: the nodes (the keyboard, the minimap, `fitGraphToView`, drag-to-link)
+    //: sees exactly what is on screen. Edges have their `source`/`target`
+    //: resolved to node objects once per render rather than per frame.
+    nodes: [],
+    edges: [],
+    adj: new Map(),
+    byId: new Map(),
+    quadtree: null,
+    quadtreeDirty: true,
+    layoutKind: "force",
+    tree: null, // the laid-out hierarchy for tree/radial/arc, else null
+    timeCutoff: null,
+    colourOf: () => "#888",
+
+    //: Set while a pan/zoom gesture is in flight, so a node sliding under a
+    //: stationary cursor does not register as a hover. Same reasoning the SVG
+    //: renderer's `graphIsPanning` carries; here it is cheaper, because there
+    //: is no CSS `:hover` to fight as well.
+    panning: false,
+    wired: false,
+    dropTarget: null,
+    dragNode: null,
+    //: The node the pointer is over. The tab mirrors it into
+    //: `graphHoveredId`, which the SVG renderer and the node popup read.
+    hoveredId: null,
+    hoverTo: null, // the node id growing
+    hoverFrom: null, // the node id shrinking back
+    hoverStart: 0,
+    hoverEase: 1, // 0 to 1 across the two above
+
+    //: GRAPH_PLAN Phase 4. A lasso (Shift and drag on empty map) selects
+    //: notes; the selection dock acts on them. `lasso` holds world points
+    //: while a lasso is being drawn, `selected` the ids it caught (or
+    //: Shift-clicks added). `hiddenIds` is the right-click "Hide" for this
+    //: visit only: it is not a saved preference, and the legend says how many
+    //: are hidden. All three are the Graph tab's; a pane wires none of them.
+    selected: new Set(),
+    lasso: null,
+    hiddenIds: new Set(),
+
+    //: "the camera has framed this graph once already". The tab keeps the same
+    //: fact in `graphAutoFitDone`, which switchTab clears on a fresh visit; a
+    //: pane has no tab visit to hang it on and keeps its own. `fittedOnce` and
+    //: `userZoomed` are why there are two fits and why the second one is
+    //: conditional: see the tick handler.
+    autoFitDone: false,
+    fittedOnce: false,
+    userZoomed: false,
+
+    //: Timing for the gate (§5 Phase 1) and for `window.__graphDebug`.
+    //: `firstFrame` is measured from the moment the payload has arrived to the
+    //: end of the first paint, which is what the plan's "< 300 ms after data
+    //: arrives" means.
+    timing: { dataAt: 0, firstFrame: 0, lastFrame: 0, frames: 0 },
+    //: The last thing the worker said about itself: how hot the layout still
+    //: is, and how many steps it has taken. Reported on the debug surface
+    //: because a slow-looking map is two separable questions, is the
+    //: simulation crawling or is the paint dropping frames, and guessing which
+    //: cost a round of theorising before this was here.
+    alpha: 0,
+    ticks: 0,
+    tickMs: 0,
+    //: How many labels the last frame wanted, how many it could place without
+    //: one landing on another, and how many of those were asked for by name
+    //: (the hovered or keyboard-focused note, and the search hits, which are
+    //: drawn whether or not they clash). On the debug surface because "the
+    //: labels are unreadable" and "the labels are fine" look identical from
+    //: outside the canvas. `labelBoxes` is what the last frame actually
+    //: placed, in world coordinates, read by `scratchpad/ui-sweeps/graph2.js`.
+    labelsWanted: 0,
+    labelsDrawn: 0,
+    labelsPriority: 0,
+    labelBoxes: [],
+  };
+}
+
+//: The Graph tab's surface: the one every existing caller means.
+let gcTab = gcSurface({ size: "full", boxId: "graph-box", canvasId: "graph-canvas" });
+
+//: **Where a surface ends and the tab's globals begin.** Three facts are read
+//: outside this file by things that only ever meant the tab: whether the
+//: camera has framed the map already (`graphAutoFitDone`, cleared by
+//: switchTab on a fresh visit) and which node the pointer is over
+//: (`graphHoveredId`, read by the SVG renderer and the node popup). The tab's
+//: surface writes through to both; a pane keeps them to itself, so hovering a
+//: note in the pane cannot light a node up on the tab behind it.
+function gcAutoFitDone(s) {
+  return s.size === "full" ? graphAutoFitDone : s.autoFitDone;
+}
+
+function gcSetAutoFitDone(s, value) {
+  if (s.size === "full") graphAutoFitDone = value;
+  else s.autoFitDone = value;
+}
+
+//: Which node the keyboard is on. `graphKeyboardId` is driven by the Graph
+//: tab's own arrow-key handler, so it means nothing on a pane and must not
+//: draw a focus ring there on whichever note happens to share the id.
+function gcKeyboardId(s) {
+  return s.size === "full" ? graphKeyboardId : null;
+}
+
+function gcSetHovered(s, id) {
+  s.hoveredId = id;
+  if (s.size === "full") graphHoveredId = id;
+}
+
+//: **The tab's state under its old names**, for graph.js's renderer-agnostic
+//: helpers and for the sweeps in `scratchpad/ui-sweeps/`, both of which read
+//: `gcNodes`, `gcTransform`, `gcSelected` and friends as bare globals. They
+//: were module-level `let`s until the surface object above; these getters keep
+//: every one of those readers working, and read-only, against the tab.
+for (const [name, prop] of [
+  ["gcNodes", "nodes"],
+  ["gcEdges", "edges"],
+  ["gcAdj", "adj"],
+  ["gcById", "byId"],
+  ["gcCanvas", "canvas"],
+  ["gcCtx", "ctx"],
+  ["gcDims", "dims"],
+  ["gcTransform", "transform"],
+  ["gcSelected", "selected"],
+  ["gcLasso", "lasso"],
+  ["gcColourOf", "colourOf"],
+  ["gcTimeCutoff", "timeCutoff"],
+  ["gcLayoutKind", "layoutKind"],
+  ["graphHiddenIds", "hiddenIds"],
+]) {
+  Object.defineProperty(window, name, { configurable: false, get: () => gcTab[prop] });
+}
+
+
+//: The app's colour tokens, read once per render. One document, one theme,
+//: so every surface reads the same ones.
 let gcTokens = {};
-let gcRenderSeq = 0;
-//: Timing for the gate (§5 Phase 1) and for `window.__graphDebug`. `firstFrame`
-//: is measured from the moment the payload has arrived to the end of the first
-//: paint, which is what the plan's "< 300 ms after data arrives" means.
-let gcTiming = { dataAt: 0, firstFrame: 0, lastFrame: 0, frames: 0 };
-//: The last thing the worker said about itself: how hot the layout still is,
-//: and how many steps it has taken. Reported on the debug surface because a
-//: slow-looking map is now two separable questions, is the simulation
-//: crawling, or is the paint dropping frames, and guessing which cost a round
-//: of theorising before this was here.
-//: How many labels the last frame wanted and how many it could place
-//: without one landing on another (see the label pass in the draw). On
-//: the debug surface because "the labels are unreadable" and "the labels
-//: are fine" look identical from outside the canvas.
-let gcLabelsWanted = 0;
-let gcLabelsDrawn = 0;
-//: How many of the labels the last frame drew were asked for by name (the
-//: hovered or keyboard-focused note, and the search hits): those are drawn
-//: whether or not they clash, so they are the number that says whether the
-//: collision pass is dropping something somebody went looking for.
-let gcLabelsPriority = 0;
-//: The boxes the last frame placed, in world coordinates, with the id and the
-//: priority rank of each. Read by `scratchpad/ui-sweeps/graph2.js`.
-let gcLabelBoxes = [];
-let gcAlpha = 0;
-let gcTicks = 0;
-let gcTickMs = 0;
-//: Whether this render has been framed once already, and whether the person
-//: has since taken the camera somewhere themselves. See the tick handler for
-//: why there are two fits and why the second one is conditional.
-let gcFittedOnce = false;
-let gcUserZoomed = false;
 
 //: Node radius, GRAPH_PLAN.md §5 Phase 1: `4 + 2*sqrt(degree)`, clamped to
 //: [4, 18]. Degree is counted client-side from the edges until Phase 5 sends
@@ -140,8 +252,8 @@ const GC_DIM_ALPHA = 0.2;
 //: Every colour comes from the app's tokens (§6). Read off the canvas element
 //: rather than `:root` so whatever cascade actually applies, theme, a user
 //: theme, the dark-mode block, is the one that answers.
-function gcReadTokens() {
-  const style = getComputedStyle(gcCanvas || document.documentElement);
+function gcReadTokens(s = gcTab) {
+  const style = getComputedStyle(s.canvas || document.documentElement);
   const get = (name, fallback) => (style.getPropertyValue(name) || "").trim() || fallback;
   gcTokens = {
     muted: get("--muted", "#8b93a7"),
@@ -186,42 +298,44 @@ function gcEdgeStyle(edge) {
 //: renderer ships blurry. The buffer is the box times the device pixel ratio,
 //: and every draw starts by scaling the context by the same number so the
 //: drawing code can go on thinking in CSS pixels.
-function gcResize() {
-  if (!gcCanvas) return false;
-  const box = document.getElementById("graph-box");
+function gcResize(s = gcTab) {
+  if (!s.canvas) return false;
+  const box = document.getElementById(s.boxId);
   const width = (box && box.clientWidth) || 800;
   const height = (box && box.clientHeight) || 540;
   const dpr = window.devicePixelRatio || 1;
-  if (width === gcDims.w && height === gcDims.h && dpr === gcDpr) return false;
-  gcDims = { w: width, h: height };
-  gcDpr = dpr;
-  gcCanvas.width = Math.max(1, Math.round(width * dpr));
-  gcCanvas.height = Math.max(1, Math.round(height * dpr));
-  gcCanvas.style.width = `${width}px`;
-  gcCanvas.style.height = `${height}px`;
-  graphDims = { w: width, h: height };
+  if (width === s.dims.w && height === s.dims.h && dpr === s.dpr) return false;
+  s.dims = { w: width, h: height };
+  s.dpr = dpr;
+  s.canvas.width = Math.max(1, Math.round(width * dpr));
+  s.canvas.height = Math.max(1, Math.round(height * dpr));
+  s.canvas.style.width = `${width}px`;
+  s.canvas.style.height = `${height}px`;
+  //: graph.js's camera helpers (`fitGraphToView`, the zoom strip, the minimap)
+  //: read the tab's size from `graphDims`. A pane must not move it under them.
+  if (s.size === "full") graphDims = { w: width, h: height };
   return true;
 }
 
-function gcEnsureCanvas() {
-  if (gcCanvas) return gcCanvas;
-  gcCanvas = document.getElementById("graph-canvas");
-  if (!gcCanvas) return null;
-  gcCtx = gcCanvas.getContext("2d");
-  gcTransform = d3.zoomIdentity;
-  gcResize();
+function gcEnsureCanvas(s = gcTab) {
+  if (s.canvas) return s.canvas;
+  s.canvas = document.getElementById(s.canvasId);
+  if (!s.canvas) return null;
+  s.ctx = s.canvas.getContext("2d");
+  s.transform = d3.zoomIdentity;
+  gcResize(s);
   // The card resizes for reasons no `resize` event fires for: the sidebar
   // opening, the legend collapsing, fullscreen. A ResizeObserver is the only
   // thing that sees all of them (§5 Phase 1 asks for one by name).
-  if (!gcObserver && typeof ResizeObserver !== "undefined") {
-    gcObserver = new ResizeObserver(() => {
-      if (gcResize()) gcRequestDraw();
+  if (!s.observer && typeof ResizeObserver !== "undefined") {
+    s.observer = new ResizeObserver(() => {
+      if (gcResize(s)) gcRequestDraw(s);
     });
-    const box = document.getElementById("graph-box");
-    if (box) gcObserver.observe(box);
+    const box = document.getElementById(s.boxId);
+    if (box) s.observer.observe(box);
   }
-  gcWireInteraction();
-  return gcCanvas;
+  gcWireInteraction(s);
+  return s.canvas;
 }
 
 // --- hovering a node -----------------------------------------------------------
@@ -256,10 +370,6 @@ function gcEnsureCanvas() {
 const GC_HOVER_GROW = 3;         // half the gap from a core to its own halo
 const GC_HOVER_HALO_GROW = 1.5;  // and the halo keeps clear by the same half
 const GC_HOVER_MS = 190;
-let gcHoverTo = null;          // the node id growing
-let gcHoverFrom = null;        // the node id shrinking back
-let gcHoverStart = 0;
-let gcHoverEase = 1;           // 0 to 1 across the two above
 
 //: `1 - (1 - t)^3`: fast away from the start, settling at the end. The same
 //: shape as the `cubic-bezier(0.2, 0.8, 0.3, 1)` the stylesheet uses for the
@@ -272,36 +382,36 @@ function gcEaseOut(t) {
 //: Called when the hovered node changes. Whatever was growing starts
 //: shrinking from wherever it had got to, so a fast sweep across a cluster
 //: does not leave a node stuck large.
-function gcHoverChanged(nextId) {
-  gcHoverFrom = gcHoverEase < 1 && gcHoverTo != null ? gcHoverTo : gcHoverFrom;
-  if (gcHoverEase >= 1) gcHoverFrom = gcHoverTo;
-  gcHoverTo = nextId;
-  gcHoverStart = performance.now();
-  gcHoverEase = 0;
+function gcHoverChanged(nextId, s = gcTab) {
+  s.hoverFrom = s.hoverEase < 1 && s.hoverTo != null ? s.hoverTo : s.hoverFrom;
+  if (s.hoverEase >= 1) s.hoverFrom = s.hoverTo;
+  s.hoverTo = nextId;
+  s.hoverStart = performance.now();
+  s.hoverEase = 0;
 }
 
 //: How much bigger this node is drawing right now, in world units. Zero for
 //: every node that is neither entering nor leaving the hover, which is all but
 //: two of them.
-function gcHoverGrow(node, base) {
-  if (node.id === gcHoverTo) return base * gcHoverEase;
-  if (node.id === gcHoverFrom) return base * (1 - gcHoverEase);
+function gcHoverGrow(node, base, s = gcTab) {
+  if (node.id === s.hoverTo) return base * s.hoverEase;
+  if (node.id === s.hoverFrom) return base * (1 - s.hoverEase);
   return 0;
 }
 
 //: Advances the ease and says whether another frame is owed. Called once per
 //: draw, before anything is measured, so every radius in that frame agrees.
-function gcHoverStep() {
-  if (gcHoverEase >= 1) return false;
+function gcHoverStep(s = gcTab) {
+  if (s.hoverEase >= 1) return false;
   //: A reader who has asked for less motion gets the size change without the
   //: travel: the node is simply already large. Removing the growth as well
   //: would leave them with no hover feedback on this renderer at all, since
   //: there is no CSS here to give them a colour change instead.
   const still = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-  gcHoverEase = still ? 1 : gcEaseOut((performance.now() - gcHoverStart) / GC_HOVER_MS);
-  if (gcHoverEase >= 1) {
-    gcHoverEase = 1;
-    gcHoverFrom = null;
+  s.hoverEase = still ? 1 : gcEaseOut((performance.now() - s.hoverStart) / GC_HOVER_MS);
+  if (s.hoverEase >= 1) {
+    s.hoverEase = 1;
+    s.hoverFrom = null;
     return false;
   }
   return true;
@@ -309,14 +419,14 @@ function gcHoverStep() {
 
 // --- the draw ------------------------------------------------------------------
 
-function gcRequestDraw() {
-  if (gcDrawQueued || !gcCtx) return;
-  gcDrawQueued = true;
+function gcRequestDraw(s = gcTab) {
+  if (s.drawQueued || !s.ctx) return;
+  s.drawQueued = true;
   requestAnimationFrame(() => {
-    gcDrawQueued = false;
-    gcDraw();
-    if (gcMinimapQueued) {
-      gcMinimapQueued = false;
+    s.drawQueued = false;
+    gcDraw(s);
+    if (s.minimapQueued) {
+      s.minimapQueued = false;
       graphMinimapFrame();
     }
   });
@@ -330,10 +440,15 @@ function gcRequestDraw() {
 //: the frame with the draw rather than in the event. What does happen in the
 //: event is the thing that has to: `gcTransform` is the new matrix before the
 //: handler returns, so anything reading the camera reads the current one.
-let gcMinimapQueued = false;
-function gcRequestMinimapFrame() {
-  gcMinimapQueued = true;
-  gcRequestDraw();
+function gcRequestMinimapFrame(s = gcTab) {
+  //: There is one minimap and it belongs to the tab. A pane panning its own
+  //: camera must not move the picture of a map it is not drawing.
+  if (s.size !== "full") {
+    gcRequestDraw(s);
+    return;
+  }
+  s.minimapQueued = true;
+  gcRequestDraw(s);
 }
 
 //: **Two controls that were read out of the document on every frame.** The
@@ -357,16 +472,21 @@ function gcEl(id) {
 //: notes" spotlight, a traced path and the hover neighbourhood are four
 //: sources of the same signal, and two of them computed separately contradict
 //: each other on screen.
-function gcHighlight() {
-  const search = gcEl("graph-search");
+function gcHighlight(s = gcTab) {
+  //: Search, the spotlight and a traced path are the Graph tab's own
+  //: controls. A pane beside a note has none of them, and inheriting them
+  //: would dim a five-node local map to 20% because somebody left a search in
+  //: the box on another tab.
+  const chrome = s.size === "full";
+  const search = chrome ? gcEl("graph-search") : null;
   const query = (search ? search.value : "").trim().toLowerCase();
-  const onPath = graphTrace ? new Set(graphTrace.ids) : null;
-  const ids = graphHighlightIds;
+  const onPath = chrome && graphTrace ? new Set(graphTrace.ids) : null;
+  const ids = chrome ? graphHighlightIds : null;
   const searchOk = (n) =>
     onPath ? onPath.has(n.id) : ids ? ids.has(n.id) : !query || n.preview.toLowerCase().includes(query);
   const neighbours =
-    graphHoveredId != null && gcAdj ? gcAdj.get(graphHoveredId) : null;
-  const hoverOk = (id) => neighbours == null || id === graphHoveredId || neighbours.has(id);
+    s.hoveredId != null && s.adj ? s.adj.get(s.hoveredId) : null;
+  const hoverOk = (id) => neighbours == null || id === s.hoveredId || neighbours.has(id);
   return {
     active: Boolean(query || ids || onPath),
     onPath,
@@ -376,11 +496,11 @@ function gcHighlight() {
   };
 }
 
-function gcVisibleAtTime(node) {
-  if (gcTimeCutoff == null) return true;
+function gcVisibleAtTime(node, s = gcTab) {
+  if (s.timeCutoff == null) return true;
   if (node.isGroup) return true;
   const at = new Date(node.created_at || Date.now()).getTime();
-  return at <= gcTimeCutoff;
+  return at <= s.timeCutoff;
 }
 
 // --- Phase 4: export at 2x with the legend ------------------------------------------
@@ -389,30 +509,30 @@ function gcVisibleAtTime(node) {
 //: gcCtx and gcDpr; gcDims, the CSS size, stays the same, so the transform
 //: is identical and nothing moves), then paints the legend and a caption
 //: over it. Upscaling the live bitmap would only blur it.
-function gcExportPng(scale = 2) {
-  if (!gcCtx || !gcCanvas || !gcDims.w) return null;
+function gcExportPng(scale = 2, s = gcTab) {
+  if (!s.ctx || !s.canvas || !s.dims.w) return null;
   const out = document.createElement("canvas");
-  out.width = Math.round(gcDims.w * gcDpr * scale);
-  out.height = Math.round(gcDims.h * gcDpr * scale);
+  out.width = Math.round(s.dims.w * s.dpr * scale);
+  out.height = Math.round(s.dims.h * s.dpr * scale);
   const ctx = out.getContext("2d");
-  const liveCtx = gcCtx;
-  const liveDpr = gcDpr;
+  const liveCtx = s.ctx;
+  const liveDpr = s.dpr;
   ctx.fillStyle = gcTokens.page || (document.documentElement.dataset.mode === "dark" ? "#12141c" : "#eef1f5");
   ctx.fillRect(0, 0, out.width, out.height);
   try {
-    gcCtx = ctx;
-    gcDpr = liveDpr * scale;
-    gcDraw();
+    s.ctx = ctx;
+    s.dpr = liveDpr * scale;
+    gcDraw(s);
   } finally {
-    gcCtx = liveCtx;
-    gcDpr = liveDpr;
+    s.ctx = liveCtx;
+    s.dpr = liveDpr;
   }
-  ctx.setTransform(gcDpr * scale, 0, 0, gcDpr * scale, 0, 0);
+  ctx.setTransform(s.dpr * scale, 0, 0, s.dpr * scale, 0, 0);
   const rows = [...document.querySelectorAll("#graph-legend .legend-toggle:not(.legend-off)")]
     .map((item) => ({ text: item.textContent.trim(), colour: item.querySelector(".legend-dot")?.style.background || gcTokens.muted }))
     .filter((row) => row.text)
     .slice(0, 14);
-  const noteCount = gcNodes.filter((n) => !n.isGroup).length;
+  const noteCount = s.nodes.filter((n) => !n.isGroup).length;
   const caption = `${noteCount} note${noteCount === 1 ? "" : "s"} · ${new Date().toLocaleDateString()}`;
   ctx.font = "12px system-ui, sans-serif";
   const lineH = 18;
@@ -420,7 +540,7 @@ function gcExportPng(scale = 2) {
   const width = Math.max(ctx.measureText(caption).width, ...rows.map((r) => ctx.measureText(r.text).width + 18)) + pad * 2;
   const height = (rows.length + 1) * lineH + pad * 2;
   const x = 12;
-  const y = gcDims.h - height - 12;
+  const y = s.dims.h - height - 12;
   ctx.globalAlpha = 0.92;
   ctx.fillStyle = gcTokens.card || "#ffffff";
   ctx.beginPath();
@@ -442,17 +562,17 @@ function gcExportPng(scale = 2) {
   return out;
 }
 
-function gcDraw() {
-  if (!gcCtx || !gcCanvas) return;
+function gcDraw(s = gcTab) {
+  if (!s.ctx || !s.canvas) return;
   const started = performance.now();
   //: Advanced once, before anything is measured, so every radius in this frame
   //: agrees, and another frame is asked for only while it is still moving.
-  const easing = gcHoverStep();
-  const ctx = gcCtx;
-  const t = gcTransform || d3.zoomIdentity;
+  const easing = gcHoverStep(s);
+  const ctx = s.ctx;
+  const t = s.transform || d3.zoomIdentity;
   const k = t.k;
-  ctx.setTransform(gcDpr, 0, 0, gcDpr, 0, 0);
-  ctx.clearRect(0, 0, gcDims.w, gcDims.h);
+  ctx.setTransform(s.dpr, 0, 0, s.dpr, 0, 0);
+  ctx.clearRect(0, 0, s.dims.w, s.dims.h);
   ctx.save();
   ctx.translate(t.x, t.y);
   ctx.scale(k, k);
@@ -463,14 +583,17 @@ function gcDraw() {
   const view = {
     left: -t.x / k - margin,
     top: -t.y / k - margin,
-    right: (gcDims.w - t.x) / k + margin,
-    bottom: (gcDims.h - t.y) / k + margin,
+    right: (s.dims.w - t.x) / k + margin,
+    bottom: (s.dims.h - t.y) / k + margin,
   };
   const inView = (n) =>
     n.x >= view.left && n.x <= view.right && n.y >= view.top && n.y <= view.bottom;
 
-  const hl = gcHighlight();
+  const hl = gcHighlight(s);
   const labelsOn = (() => {
+    //: The labels switch is the Graph tab's. A pane is small enough that its
+    //: handful of labels are the point of it, so they are always on there.
+    if (s.size !== "full") return true;
     const box = gcEl("graph-labels");
     return box ? box.checked : true;
   })();
@@ -480,11 +603,11 @@ function gcDraw() {
   // stroke state is set once per bucket rather than once per edge. A dashed
   // stroke is the expensive one, and there are only ever a handful of dashes.
   const buckets = new Map();
-  for (const edge of gcEdges) {
+  for (const edge of s.edges) {
     const a = edge.source;
     const b = edge.target;
     if (!a || !b || !Number.isFinite(a.x) || !Number.isFinite(b.x)) continue;
-    if (!gcVisibleAtTime(a) || !gcVisibleAtTime(b)) continue;
+    if (!gcVisibleAtTime(a, s) || !gcVisibleAtTime(b, s)) continue;
     // Both ends off-screen on the same side: nothing of the line can be in
     // frame. A cheap, conservative test, an edge crossing the viewport with
     // both ends outside still gets drawn.
@@ -498,7 +621,7 @@ function gcDraw() {
     }
     const bySearch = !hl.active || (hl.searchOk(a) && hl.searchOk(b));
     const byHover =
-      !hl.hovering || a.id === graphHoveredId || b.id === graphHoveredId;
+      !hl.hovering || a.id === s.hoveredId || b.id === s.hoveredId;
     const dim = !(bySearch && byHover);
     const style = gcEdgeStyle(edge);
     const key = `${edge.kind}|${style.colour}|${style.width}|${style.dash}|${dim}`;
@@ -507,12 +630,12 @@ function gcDraw() {
       bucket = { style, dim, path: new Path2D() };
       buckets.set(key, bucket);
     }
-    if (gcTree) {
+    if (s.tree) {
       // A tree's edges are curves between fixed points. `hierarchyPath` and
       // `arcPath` already return SVG path data, and Path2D speaks it, so the
       // curve maths is shared with the SVG renderer rather than rewritten.
       if (!edge._path2d) {
-        edge._path2d = new Path2D(gcTree.arc ? arcPath(edge) : hierarchyPath(edge, gcTree.radial));
+        edge._path2d = new Path2D(s.tree.arc ? arcPath(edge) : hierarchyPath(edge, s.tree.radial));
       }
       bucket.path.addPath(edge._path2d);
     } else {
@@ -534,7 +657,7 @@ function gcDraw() {
   ctx.globalAlpha = 1;
 
   // --- the traced path ----------------------------------------------------
-  gcDrawTrace(ctx, k);
+  gcDrawTrace(ctx, k, s);
 
   // --- nodes --------------------------------------------------------------
   // Two batched fills per colour (halo, then core) and one batched stroke for
@@ -547,9 +670,9 @@ function gcDraw() {
   const labelled = [];
   const drawn = [];
   const hotHalos = [];
-  for (const node of gcNodes) {
+  for (const node of s.nodes) {
     if (!Number.isFinite(node.x)) continue;
-    if (!gcVisibleAtTime(node)) continue;
+    if (!gcVisibleAtTime(node, s)) continue;
     if (!inView(node)) continue;
     const dim = !(hl.searchOk(node) && hl.hoverOk(node.id));
     const key = `${node.colour}|${dim}`;
@@ -564,13 +687,13 @@ function gcDraw() {
     //: draw against the same radius this frame. Reading it four times would
     //: let the ring and the dot it rings disagree by a fraction of a pixel
     //: mid-ease, which reads as a shimmer on the outline.
-    node._grow = gcHoverGrow(node, GC_HOVER_GROW);
+    node._grow = gcHoverGrow(node, GC_HOVER_GROW, s);
     //: The at most two nodes mid-ease, kept aside so their halo can be lit
     //: without breaking the colour batching every other node relies on.
-    const heat = gcHoverGrow(node, 1);
+    const heat = gcHoverGrow(node, 1, s);
     if (heat > 0) hotHalos.push({ node, heat });
     const r = node.r + node._grow;
-    const haloR = node.r + 6 + gcHoverGrow(node, GC_HOVER_HALO_GROW);
+    const haloR = node.r + 6 + gcHoverGrow(node, GC_HOVER_HALO_GROW, s);
     halo.path.moveTo(node.x + haloR, node.y);
     halo.path.arc(node.x, node.y, haloR, 0, Math.PI * 2);
     const core = coreByColour.get(key);
@@ -578,7 +701,7 @@ function gcDraw() {
     core.path.arc(node.x, node.y, r, 0, Math.PI * 2);
     drawn.push(node);
     node._dim = dim;
-    const focused = node.id === graphHoveredId || node.id === graphKeyboardId;
+    const focused = node.id === s.hoveredId || node.id === gcKeyboardId(s);
     const matched = hl.active && hl.searchOk(node);
     const onPath = hl.onPath ? hl.onPath.has(node.id) : false;
     const special =
@@ -589,10 +712,10 @@ function gcDraw() {
       node.fx != null ||
       node.type === "entity" ||
       node.type === "document" ||
-      node === gcDropTarget;
+      node === s.dropTarget;
     if (special) {
       ringed.push({ node, focused, matched, onPath, dim });
-    } else if (!dim && (gcAdj.get(node.id) || { size: 0 }).size >= 3) {
+    } else if (!dim && (s.adj.get(node.id) || { size: 0 }).size >= 3) {
       // **A hub's ring is batched, not drawn per node.** Average degree in a
       // real notebook is about four, so "degree >= 3" is most of the map: one
       // `beginPath`/`stroke` each was 2,000 stroke calls a frame at the fitted
@@ -612,7 +735,7 @@ function gcDraw() {
     // GC_LABEL_ALL_MAX nodes the tickbox shows them all at any zoom; above
     // it the zoom gate stays, since 2,000 labels at the fitted zoom are
     // paint the eye cannot read and the frame budget cannot afford.
-    const labelsForAll = labelsOn && gcNodes.length <= GC_LABEL_ALL_MAX;
+    const labelsForAll = labelsOn && s.nodes.length <= GC_LABEL_ALL_MAX;
     if (!dim && ((labelsOn && (labelsForAll || k > GC_LABEL_ZOOM || matched)) || focused)) {
       labelled.push(node);
     }
@@ -642,7 +765,7 @@ function gcDraw() {
     ctx.arc(
       hot.node.x,
       hot.node.y,
-      hot.node.r + 6 + gcHoverGrow(hot.node, GC_HOVER_HALO_GROW),
+      hot.node.r + 6 + gcHoverGrow(hot.node, GC_HOVER_HALO_GROW, s),
       0,
       Math.PI * 2,
     );
@@ -668,13 +791,13 @@ function gcDraw() {
     ctx.stroke(hubs.path);
   }
 
-  gcDrawSelection(ctx, k);
+  gcDrawSelection(ctx, k, s);
   for (const item of ringed) {
     const node = item.node;
     ctx.globalAlpha = item.dim ? GC_DIM_ALPHA : 1;
     ctx.beginPath();
     ctx.arc(node.x, node.y, node.r + (node._grow || 0), 0, Math.PI * 2);
-    if (node === gcDropTarget) {
+    if (node === s.dropTarget) {
       ctx.strokeStyle = gcTokens.ok;
       ctx.lineWidth = 4 / k;
     } else if (item.onPath) {
@@ -686,7 +809,7 @@ function gcDraw() {
     } else if (item.matched) {
       ctx.strokeStyle = gcTokens.accent;
       ctx.lineWidth = 3 / k;
-    } else if (node.fx != null && gcLayoutKind === "force") {
+    } else if (node.fx != null && s.layoutKind === "force") {
       // Held in place by a drag or a double-click: the same dashed ink ring
       // `.graph-held` draws, so a held note looks held on both renderers.
       //
@@ -719,13 +842,13 @@ function gcDraw() {
   ctx.globalAlpha = 1;
 
   // --- labels -------------------------------------------------------------
-  gcLabelsWanted = 0;
-  gcLabelsDrawn = 0;
-  gcLabelsPriority = 0;
+  s.labelsWanted = 0;
+  s.labelsDrawn = 0;
+  s.labelsPriority = 0;
   // Cleared per frame, not only written per frame: a map whose labels have
   // just been switched off would otherwise report the boxes of the last frame
   // that had any.
-  gcLabelBoxes = [];
+  s.labelBoxes = [];
   if (labelled.length) {
     const size = 12 / k;
     // Divided by the zoom so a label is a constant size on screen: the whole
@@ -738,7 +861,7 @@ function gcDraw() {
     // arc labels are centred under the node here rather than rotated onto the
     // spoke, which is the one place this renderer is visibly plainer than the
     // SVG one: recorded in GRAPH_PLAN.md's "Built" section.)
-    const beside = Boolean(gcTree) && !gcTree.radial && !gcTree.arc;
+    const beside = Boolean(s.tree) && !s.tree.radial && !s.tree.arc;
     ctx.textAlign = beside ? "left" : "center";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
@@ -765,7 +888,7 @@ function gcDraw() {
     // this is thousands of number comparisons and no allocation, not the
     // quadtree it looks like it wants.
     const labelRank = (node) =>
-      node.id === graphHoveredId || node.id === graphKeyboardId
+      node.id === s.hoveredId || node.id === gcKeyboardId(s)
         ? 0
         : hl.active && hl.searchOk(node)
           ? 1
@@ -786,19 +909,19 @@ function gcDraw() {
     labelled.sort((a, b) => {
       const rank = labelRank(a) - labelRank(b);
       if (rank) return rank;
-      const degreeA = (gcAdj.get(a.id) || { size: 0 }).size;
-      const degreeB = (gcAdj.get(b.id) || { size: 0 }).size;
+      const degreeA = (s.adj.get(a.id) || { size: 0 }).size;
+      const degreeB = (s.adj.get(b.id) || { size: 0 }).size;
       return degreeB - degreeA;
     });
     const placed = [];
-    gcLabelsWanted = labelled.length;
-    gcLabelsPriority = 0;
+    s.labelsWanted = labelled.length;
+    s.labelsPriority = 0;
     const padX = 4 / k;
     const padY = 2 / k;
     // `paint-order: stroke` on `.graph-label`, the halo goes down first so a
     // label stays legible over an edge or another node.
     for (const node of labelled) {
-      const text = gcLabelText(node);
+      const text = gcLabelText(node, s);
       // `measureText` is cheap but not free at a few hundred labels a frame,
       // and the answer only changes when the text or the zoom does.
       if (node._labelText !== text || node._labelSize !== size) {
@@ -811,7 +934,7 @@ function gcDraw() {
       const y = beside ? node.y : node.y + node.r + 13;
       const left = (beside ? x : x - width / 2) - padX;
       const rank = labelRank(node);
-      if (rank < 2) gcLabelsPriority += 1;
+      if (rank < 2) s.labelsPriority += 1;
       // The id and the rank ride along with the geometry because the only
       // way to ask "do the labels on screen overlap" from outside a canvas is
       // to be handed the boxes: a screenshot of a pile of words and a
@@ -841,28 +964,28 @@ function gcDraw() {
       ctx.strokeText(text, x, y);
       ctx.fillText(text, x, y);
     }
-    gcLabelBoxes = placed;
-    gcLabelsDrawn = placed.length;
+    s.labelBoxes = placed;
+    s.labelsDrawn = placed.length;
   }
 
   ctx.restore();
-  gcTiming.lastFrame = performance.now() - started;
-  gcTiming.frames += 1;
+  s.timing.lastFrame = performance.now() - started;
+  s.timing.frames += 1;
   // **Only a frame with something in it stops the clock.** A frame drawn
   // before the first positions exist is a blank canvas, and calling that "the
   // first frame" would be measuring nothing and reporting a good number for
   // it: the exact shape of self-deception the gate exists to prevent.
-  if (!gcTiming.firstFrame && gcTiming.dataAt && drawn.length) {
-    gcTiming.firstFrame = performance.now() - gcTiming.dataAt;
+  if (!s.timing.firstFrame && s.timing.dataAt && drawn.length) {
+    s.timing.firstFrame = performance.now() - s.timing.dataAt;
   }
   //: One more frame while the hover is still growing or shrinking. Nothing
   //: is scheduled once `gcHoverStep` reports it has arrived, so an idle graph
   //: costs no frames at all.
-  if (easing) gcRequestDraw();
+  if (easing) gcRequestDraw(s);
 }
 
-function gcLabelText(node) {
-  const limit = gcTree ? (gcTree.arc ? 12 : gcTree.radial ? 16 : 30) : 22;
+function gcLabelText(node, s = gcTab) {
+  const limit = s.tree ? (s.tree.arc ? 12 : s.tree.radial ? 16 : 30) : 22;
   const text = node.preview || "";
   return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
 }
@@ -870,15 +993,16 @@ function gcLabelText(node) {
 //: The trace overlay. Drawn from the same `graphTrace`/`graphTraceRoutes`
 //: state the SVG renderer's `drawTrace` fills in, so trace mode, the route
 //: chips and the readout are untouched by the change of renderer.
-function gcDrawTrace(ctx, k) {
+function gcDrawTrace(ctx, k, s = gcTab) {
+  if (s.size !== "full") return;
   const routes = graphTraceRoutes.length
     ? graphTraceRoutes
     : graphTrace
       ? [{ steps: graphTrace.steps }]
       : [];
-  if (!routes.length || !gcById) return;
+  if (!routes.length || !s.byId) return;
   const colours = [gcTokens.accent, gcTokens.ok, gcTokens.warn];
-  const isArc = gcTree && gcTree.arc;
+  const isArc = s.tree && s.tree.arc;
   const drawRoute = (route, index, selected) => {
     ctx.strokeStyle = colours[index % 3];
     ctx.globalAlpha = selected ? 0.85 : 0.42;
@@ -887,8 +1011,8 @@ function gcDrawTrace(ctx, k) {
     ctx.lineCap = "round";
     ctx.beginPath();
     for (const step of route.steps || []) {
-      const from = gcById.get(step.source);
-      const to = gcById.get(step.target);
+      const from = s.byId.get(step.source);
+      const to = s.byId.get(step.target);
       if (!from || !to || !Number.isFinite(from.x) || !Number.isFinite(to.x)) continue;
       if (isArc) {
         ctx.stroke(new Path2D(tracePath(from, to)));
@@ -914,33 +1038,33 @@ function gcDrawTrace(ctx, k) {
 //: not per-node DOM events"). Rebuilt lazily: marked dirty by every draw, and
 //: actually rebuilt only when something asks what is under the pointer, which
 //: is at most once a frame and only while the pointer is over the map.
-function gcTreeIndex() {
-  if (gcQuadtree && !gcQuadtreeDirty) return gcQuadtree;
-  gcQuadtree = d3
+function gcTreeIndex(s = gcTab) {
+  if (s.quadtree && !s.quadtreeDirty) return s.quadtree;
+  s.quadtree = d3
     .quadtree()
     .x((n) => n.x)
     .y((n) => n.y)
-    .addAll(gcNodes.filter((n) => Number.isFinite(n.x) && Number.isFinite(n.y)));
-  gcQuadtreeDirty = false;
-  return gcQuadtree;
+    .addAll(s.nodes.filter((n) => Number.isFinite(n.x) && Number.isFinite(n.y)));
+  s.quadtreeDirty = false;
+  return s.quadtree;
 }
 
 //: The node under a point given in world coordinates, or null. The search
 //: radius is generous by exactly the slop a pointer needs at the current zoom:
 //: a 4px dot at k=0.3 is a one-pixel target otherwise.
-function gcNodeAtWorld(x, y) {
-  if (!gcNodes.length) return null;
-  const slop = 6 / ((gcTransform && gcTransform.k) || 1);
-  const found = gcTreeIndex().find(x, y, GC_MAX_RADIUS + slop + 8);
+function gcNodeAtWorld(x, y, s = gcTab) {
+  if (!s.nodes.length) return null;
+  const slop = 6 / ((s.transform && s.transform.k) || 1);
+  const found = gcTreeIndex(s).find(x, y, GC_MAX_RADIUS + slop + 8);
   if (!found) return null;
-  if (!gcVisibleAtTime(found)) return null;
+  if (!gcVisibleAtTime(found, s)) return null;
   const distance = Math.hypot(found.x - x, found.y - y);
   return distance <= found.r + slop ? found : null;
 }
 
-function gcWorldPoint(event) {
-  const point = d3.pointer(event, gcCanvas);
-  const t = gcTransform || d3.zoomIdentity;
+function gcWorldPoint(event, s = gcTab) {
+  const point = d3.pointer(event, s.canvas);
+  const t = s.transform || d3.zoomIdentity;
   return t.invert(point);
 }
 
@@ -948,11 +1072,11 @@ function gcWorldPoint(event) {
 //: opens. Linear over the edges rather than indexed: it runs once per click,
 //: never per frame, and an index that has to be kept in step with a moving
 //: layout would cost more than it saves.
-function gcEdgeAtWorld(x, y) {
-  const tolerance = 8 / ((gcTransform && gcTransform.k) || 1);
+function gcEdgeAtWorld(x, y, s = gcTab) {
+  const tolerance = 8 / ((s.transform && s.transform.k) || 1);
   let best = null;
   let bestDistance = tolerance;
-  for (const edge of gcEdges) {
+  for (const edge of s.edges) {
     if (edge.kind !== "link") continue;
     const a = edge.source;
     const b = edge.target;
@@ -973,14 +1097,11 @@ function gcEdgeAtWorld(x, y) {
 
 // --- pointer, zoom and drag -----------------------------------------------------
 
-let gcDropTarget = null;
-let gcDragNode = null;
-let gcWired = false;
 
-function gcWireInteraction() {
-  if (gcWired || !gcCanvas) return;
-  gcWired = true;
-  const selection = d3.select(gcCanvas);
+function gcWireInteraction(s = gcTab) {
+  if (s.wired || !s.canvas) return;
+  s.wired = true;
+  const selection = d3.select(s.canvas);
 
   const zoom = d3
     .zoom()
@@ -993,26 +1114,26 @@ function gcWireInteraction() {
       if (event.button) return false;
       // Shift and drag on empty map is the lasso, not a pan.
       if (event.shiftKey) return false;
-      const [x, y] = gcWorldPoint(event);
-      return !gcNodeAtWorld(x, y);
+      const [x, y] = gcWorldPoint(event, s);
+      return !gcNodeAtWorld(x, y, s);
     })
     .on("start", () => {
-      gcPanning = true;
-      graphHoveredId = null;
-      gcRequestDraw();
+      s.panning = true;
+      gcSetHovered(s, null);
+      gcRequestDraw(s);
     })
     .on("zoom", (event) => {
       // `sourceEvent` is set for a real gesture and null for a programmatic
       // transform, which is how "the user went to look at something" is told
       // apart from "the renderer framed the map".
-      if (event.sourceEvent) gcUserZoomed = true;
-      gcTransform = event.transform;
-      gcRequestDraw();
-      gcRequestMinimapFrame();
+      if (event.sourceEvent) s.userZoomed = true;
+      s.transform = event.transform;
+      gcRequestDraw(s);
+      gcRequestMinimapFrame(s);
     })
     .on("end", () => {
-      gcPanning = false;
-      gcRequestDraw();
+      s.panning = false;
+      gcRequestDraw(s);
     });
   selection.call(zoom).on("dblclick.zoom", null);
 
@@ -1021,9 +1142,16 @@ function gcWireInteraction() {
   // Pointing those two at the canvas is what makes every one of them keep
   // working without a line of change: `d3.zoom` does not care what element it
   // is attached to, and `d3.zoomTransform` reads the transform off the node.
-  graphSvg = selection;
-  graphZoom = zoom;
-  graphCanvas = null; // there is no <g> to transform any more
+  //: Only the tab publishes them. A pane keeps its camera on its own surface,
+  //: so the zoom strip and the minimap go on driving the tab while a pane is
+  //: open beside a note.
+  s.svg = selection;
+  s.zoom = zoom;
+  if (s.size === "full") {
+    graphSvg = selection;
+    graphZoom = zoom;
+    graphCanvas = null; // there is no <g> to transform any more
+  }
 
   selection.call(
     d3
@@ -1033,7 +1161,7 @@ function gcWireInteraction() {
       // against `#graph-box` while the subject's coordinates are measured
       // against the canvas: an offset that is zero today and stops being zero
       // the moment anything is laid out above the canvas inside the box.
-      .container(() => gcCanvas)
+      .container(() => s.canvas)
       .subject((event) => {
         //: **Nothing is dragged in a computed layout.** A tree, a ring or an
         //: arc *is* its shape, and a node pulled out of it makes the picture
@@ -1041,16 +1169,16 @@ function gcWireInteraction() {
         //: gesture would not even hold. A null subject means d3-drag declines
         //: the gesture and the zoom behaviour keeps the pointer, so panning
         //: still works where a drag used to start.
-        if (gcLayoutKind !== "force") return null;
-        const [x, y] = gcWorldPoint(event);
-        const node = gcNodeAtWorld(x, y);
+        if (s.layoutKind !== "force") return null;
+        const [x, y] = gcWorldPoint(event, s);
+        const node = gcNodeAtWorld(x, y, s);
         if (!node) return null;
-        const [sx, sy] = (gcTransform || d3.zoomIdentity).apply([node.x, node.y]);
+        const [sx, sy] = (s.transform || d3.zoomIdentity).apply([node.x, node.y]);
         return { node, x: sx, y: sy };
       })
       .on("start", (event) => {
         const node = event.subject.node;
-        gcDragNode = node;
+        s.dragNode = node;
         node._dragStartX = node.x;
         node._dragStartY = node.y;
         node._wasPinned = node.fx != null;
@@ -1064,10 +1192,10 @@ function gcWireInteraction() {
         //: gesture the reader began, and a Shift pressed or released mid-drag
         //: would otherwise change what the gesture meant halfway through.
         node._dragShift = Boolean(event.sourceEvent && event.sourceEvent.shiftKey);
-        const [wx, wy] = (gcTransform || d3.zoomIdentity).invert([event.x, event.y]);
+        const [wx, wy] = (s.transform || d3.zoomIdentity).invert([event.x, event.y]);
         node.fx = wx;
         node.fy = wy;
-        gcPost({ type: "drag", phase: "start", id: node.id, x: wx, y: wy });
+        gcPost({ type: "drag", phase: "start", id: node.id, x: wx, y: wy }, s);
         // **Everything holds still except this note's own neighbours.**
         //
         // Two rules were in conflict here and both are real. The SVG renderer
@@ -1083,31 +1211,33 @@ function gcWireInteraction() {
         // the notes attached to the one in your hand come along, which is the
         // physicality, and every other note on the map holds the position you
         // are aiming at, which is the gesture.
-        const following = gcAdj.get(node.id) || new Set();
+        const following = s.adj.get(node.id) || new Set();
         gcPost({
           type: "freeze",
-          ids: gcNodes
+          ids: s.nodes
             .filter((n) => n !== node && n.fx == null && !following.has(n.id))
             .map((n) => n.id),
-        });
+        }, s);
       })
       .on("drag", (event) => {
         const node = event.subject.node;
-        const [wx, wy] = (gcTransform || d3.zoomIdentity).invert([event.x, event.y]);
+        const [wx, wy] = (s.transform || d3.zoomIdentity).invert([event.x, event.y]);
         node.fx = wx;
         node.fy = wy;
         node.x = wx;
         node.y = wy;
-        gcQuadtreeDirty = true;
-        gcPost({ type: "drag", phase: "move", id: node.id, x: wx, y: wy });
-        gcDropTarget = graphNodeUnder(node, { x: wx, y: wy });
-        gcRequestDraw();
+        s.quadtreeDirty = true;
+        gcPost({ type: "drag", phase: "move", id: node.id, x: wx, y: wy }, s);
+        //: `graphNodeUnder` aims at `graphNodesRef`, which is the tab's map.
+        //: Drag-to-link is a Graph-tab gesture; a pane drags to place only.
+        s.dropTarget = s.size === "full" ? graphNodeUnder(node, { x: wx, y: wy }) : null;
+        gcRequestDraw(s);
       })
       .on("end", (event) => {
         const node = event.subject.node;
-        gcDragNode = null;
-        const over = gcDropTarget;
-        gcDropTarget = null;
+        s.dragNode = null;
+        const over = s.dropTarget;
+        s.dropTarget = null;
         const movedFar =
           Math.abs(node.x - node._dragStartX) > 2 || Math.abs(node.y - node._dragStartY) > 2;
         //: A plain drag places the node and releases it: the worker's own
@@ -1122,8 +1252,8 @@ function gcWireInteraction() {
         //: that was already pinned stays pinned at its new place: dragging a
         //: pinned node is a reposition, not a request to release it.
         const keep = node._dragShift || node._wasPinned;
-        gcPost({ type: "drag", phase: "end", id: node.id, keep });
-        gcPost({ type: "thaw" });
+        gcPost({ type: "drag", phase: "end", id: node.id, keep }, s);
+        gcPost({ type: "thaw" }, s);
         if (!keep) {
           node.fx = null;
           node.fy = null;
@@ -1131,7 +1261,7 @@ function gcWireInteraction() {
         if (over && movedFar) {
           linkByDrop(node, over);
         } else if (!movedFar) {
-          gcClickNode(event.sourceEvent, node);
+          gcClickNode(event.sourceEvent, node, s);
         } else if (!node.isGroup && keep) {
           //: Only a real pin is written down. A placement that the simulation
           //: is free to relax has no position worth surviving a reload, and
@@ -1148,36 +1278,36 @@ function gcWireInteraction() {
             // reload and nothing else.
           });
         }
-        gcRequestDraw();
+        gcRequestDraw(s);
       })
   );
 
-  gcCanvas.addEventListener("pointermove", (event) => {
-    if (gcPanning || gcDragNode) return;
-    const [x, y] = gcWorldPoint(event);
-    const node = gcNodeAtWorld(x, y);
+  s.canvas.addEventListener("pointermove", (event) => {
+    if (s.panning || s.dragNode) return;
+    const [x, y] = gcWorldPoint(event, s);
+    const node = gcNodeAtWorld(x, y, s);
     const id = node ? node.id : null;
-    if (id !== graphHoveredId) {
-      graphHoveredId = id;
-      gcHoverChanged(id);
+    if (id !== s.hoveredId) {
+      gcSetHovered(s, id);
+      gcHoverChanged(id, s);
       // The native tooltip the SVG renderer got from a `<title>` child. A
       // canvas has no children, so the canvas itself carries whichever one
       // applies.
-      gcCanvas.title = node ? gcTooltip(node) : "";
-      gcRequestDraw();
+      s.canvas.title = node ? gcTooltip(node, s) : "";
+      gcRequestDraw(s);
     }
   });
-  gcCanvas.addEventListener("pointerleave", () => {
-    if (graphHoveredId == null) return;
-    graphHoveredId = null;
-    gcHoverChanged(null);
-    gcCanvas.title = "";
-    gcRequestDraw();
+  s.canvas.addEventListener("pointerleave", () => {
+    if (s.hoveredId == null) return;
+    gcSetHovered(s, null);
+    gcHoverChanged(null, s);
+    s.canvas.title = "";
+    gcRequestDraw(s);
   });
 
-  gcCanvas.addEventListener("click", (event) => {
-    const [x, y] = gcWorldPoint(event);
-    const hit = gcNodeAtWorld(x, y);
+  s.canvas.addEventListener("click", (event) => {
+    const [x, y] = gcWorldPoint(event, s);
+    const hit = gcNodeAtWorld(x, y, s);
     if (hit) {
       //: **A node is clicked here in every layout but force.** Reported:
       //: "the note node popups dont show on any of the graph views when I
@@ -1190,25 +1320,31 @@ function gcWireInteraction() {
       //: no drag there is no `end` and nothing ever opened the popup.
       //: The click event is the only thing those three layouts get, so it
       //: is where their click lives.
-      if (gcLayoutKind === "force") return;
-      gcClickNode(event, hit);
+      if (s.layoutKind === "force") return;
+      gcClickNode(event, hit, s);
       return;
     }
-    const edge = gcEdgeAtWorld(x, y);
+    //: The link panel, the node popup and the new-note form are the Graph
+    //: tab's, and all three are placed against `#graph-box`. A pane that
+    //: opened one would put it over a map on another tab.
+    if (s.size !== "full") return;
+    const edge = gcEdgeAtWorld(x, y, s);
     if (edge) {
-      openGraphLinkPanel(edge, gcNodes);
+      openGraphLinkPanel(edge, s.nodes);
       return;
     }
     closeGraphPopup();
     closeGraphNewNote();
   });
 
-  gcCanvas.addEventListener("dblclick", (event) => {
-    const [x, y] = gcWorldPoint(event);
-    const node = gcNodeAtWorld(x, y);
+  s.canvas.addEventListener("dblclick", (event) => {
+    const [x, y] = gcWorldPoint(event, s);
+    const node = gcNodeAtWorld(x, y, s);
     if (!node) {
       // Grow the map: double-click empty space to add a note right there.
-      openGraphNewNote(event);
+      //: The tab only, same reason as the click above: the form is placed
+      //: against the tab's own box.
+      if (s.size === "full") openGraphNewNote(event);
       return;
     }
     //: A double click in a computed layout used to clear that one node's
@@ -1216,26 +1352,30 @@ function gcWireInteraction() {
     //: from there and pulled the rest of the tree apart with it: reported as
     //: "I test double clicked on a node and it broke them all out of
     //: position". There is no pin to toggle where every position is computed.
-    if (gcLayoutKind !== "force") return;
-    gcTogglePin(node);
+    if (s.layoutKind !== "force") return;
+    gcTogglePin(node, s);
   });
-  gcWireLasso();
-  gcWireNodeMenu();
-  gcWireSelectionDock();
+  //: The lasso, the right-click menu and the selection dock all read elements
+  //: that exist once, on the Graph tab. A pane wires none of them.
+  if (s.size === "full") {
+    gcWireLasso(s);
+    gcWireNodeMenu(s);
+    gcWireSelectionDock(s);
+  }
 }
 
-function gcTogglePin(node) {
+function gcTogglePin(node, s = gcTab) {
   const wasPinned = node.fx != null;
   if (wasPinned) {
     node.fx = null;
     node.fy = null;
-    gcPost({ type: "unpin", id: node.id });
+    gcPost({ type: "unpin", id: node.id }, s);
   } else {
     node.fx = node.x;
     node.fy = node.y;
-    gcPost({ type: "pin", id: node.id, x: node.x, y: node.y });
+    gcPost({ type: "pin", id: node.id, x: node.x, y: node.y }, s);
   }
-  gcRequestDraw();
+  gcRequestDraw(s);
   if (node.isGroup) return;
   node.graph_pin_x = wasPinned ? null : node.fx;
   node.graph_pin_y = wasPinned ? null : node.fy;
@@ -1257,59 +1397,59 @@ function gcPointInPolygon(x, y, points) {
   return inside;
 }
 
-function gcWireLasso() {
-  gcCanvas.addEventListener("pointerdown", (event) => {
+function gcWireLasso(s = gcTab) {
+  s.canvas.addEventListener("pointerdown", (event) => {
     if (!event.shiftKey || event.button) return;
-    const [x, y] = gcWorldPoint(event);
-    if (gcNodeAtWorld(x, y)) return;
-    gcLasso = { points: [[x, y]] };
-    gcCanvas.setPointerCapture(event.pointerId);
+    const [x, y] = gcWorldPoint(event, s);
+    if (gcNodeAtWorld(x, y, s)) return;
+    s.lasso = { points: [[x, y]] };
+    s.canvas.setPointerCapture(event.pointerId);
     event.preventDefault();
   });
-  gcCanvas.addEventListener("pointermove", (event) => {
-    if (!gcLasso) return;
-    gcLasso.points.push(gcWorldPoint(event));
-    gcRequestDraw();
+  s.canvas.addEventListener("pointermove", (event) => {
+    if (!s.lasso) return;
+    s.lasso.points.push(gcWorldPoint(event, s));
+    gcRequestDraw(s);
   });
   const finish = (event) => {
-    if (!gcLasso) return;
-    const points = gcLasso.points;
-    gcLasso = null;
+    if (!s.lasso) return;
+    const points = s.lasso.points;
+    s.lasso = null;
     try {
-      gcCanvas.releasePointerCapture(event.pointerId);
+      s.canvas.releasePointerCapture(event.pointerId);
     } catch {
     }
     if (points.length > 2) {
-      const caught = gcNodes.filter((n) => !n.isGroup && gcPointInPolygon(n.x, n.y, points)).map((n) => n.id);
+      const caught = s.nodes.filter((n) => !n.isGroup && gcPointInPolygon(n.x, n.y, points)).map((n) => n.id);
       // A second Shift-lasso adds to the first, so two sweeps build one selection.
-      for (const id of caught) gcSelected.add(id);
+      for (const id of caught) s.selected.add(id);
     }
-    gcSelectionChanged();
-    gcRequestDraw();
+    gcSelectionChanged(s);
+    gcRequestDraw(s);
   };
-  gcCanvas.addEventListener("pointerup", finish);
-  gcCanvas.addEventListener("pointercancel", finish);
+  s.canvas.addEventListener("pointerup", finish);
+  s.canvas.addEventListener("pointercancel", finish);
 }
 
-function gcDrawSelection(ctx, k) {
-  if (gcSelected.size) {
+function gcDrawSelection(ctx, k, s = gcTab) {
+  if (s.selected.size) {
     ctx.save();
     ctx.globalAlpha = 1;
     ctx.strokeStyle = gcTokens.accent;
     ctx.lineWidth = 3 / k;
     ctx.setLineDash([4 / k, 3 / k]);
-    for (const node of gcNodes) {
-      if (!gcSelected.has(node.id)) continue;
+    for (const node of s.nodes) {
+      if (!s.selected.has(node.id)) continue;
       ctx.beginPath();
       ctx.arc(node.x, node.y, node.r + 5 / k, 0, Math.PI * 2);
       ctx.stroke();
     }
     ctx.restore();
   }
-  if (gcLasso && gcLasso.points.length > 1) {
+  if (s.lasso && s.lasso.points.length > 1) {
     ctx.save();
     ctx.beginPath();
-    gcLasso.points.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    s.lasso.points.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
     ctx.closePath();
     ctx.fillStyle = gcTokens.accent;
     ctx.globalAlpha = 0.08;
@@ -1324,29 +1464,29 @@ function gcDrawSelection(ctx, k) {
 }
 
 // --- Phase 4: the selection dock ---------------------------------------------------
-function gcSelectionChanged() {
+function gcSelectionChanged(s = gcTab) {
   const dock = document.getElementById("graph-selection-dock");
   const count = document.getElementById("graph-selection-count");
   if (!dock || !count) return;
-  const live = [...gcSelected].filter((id) => gcById.has(id));
-  gcSelected = new Set(live);
+  const live = [...s.selected].filter((id) => s.byId.has(id));
+  s.selected = new Set(live);
   dock.classList.toggle("hidden", !live.length);
   count.textContent = `${live.length} selected`;
 }
 
-function gcSelectedNodes() {
-  return [...gcSelected].map((id) => gcById.get(id)).filter(Boolean);
+function gcSelectedNodes(s = gcTab) {
+  return [...s.selected].map((id) => s.byId.get(id)).filter(Boolean);
 }
 
-function gcWireSelectionDock() {
+function gcWireSelectionDock(s = gcTab) {
   const on = (id, fn) => document.getElementById(id)?.addEventListener("click", fn);
   on("graph-selection-clear", () => {
-    gcSelected.clear();
-    gcSelectionChanged();
-    gcRequestDraw();
+    s.selected.clear();
+    gcSelectionChanged(s);
+    gcRequestDraw(s);
   });
   on("graph-selection-tag", async () => {
-    const nodes = gcSelectedNodes();
+    const nodes = gcSelectedNodes(s);
     if (!nodes.length) return;
     const tag = (await promptDialog("Tag these notes", "", { confirmLabel: "Add tag" })).trim().replace(/^#/, "");
     if (!tag) return;
@@ -1365,7 +1505,7 @@ function gcWireSelectionDock() {
     renderGraph();
   });
   on("graph-selection-link", async () => {
-    const nodes = gcSelectedNodes();
+    const nodes = gcSelectedNodes(s);
     if (nodes.length < 2) {
       toast("Select at least two notes to link them.");
       return;
@@ -1380,7 +1520,7 @@ function gcWireSelectionDock() {
     }
     let made = 0;
     for (const [a, b] of pairs) {
-      if (gcAdj.get(a.id)?.has(b.id)) continue;
+      if (s.adj.get(a.id)?.has(b.id)) continue;
       const ok = await apiJson(`/entries/${a.id}/links`, { method: "POST", body: JSON.stringify({ target_id: b.id }) }).catch(() => null);
       if (ok) made += 1;
     }
@@ -1388,7 +1528,7 @@ function gcWireSelectionDock() {
     renderGraph();
   });
   on("graph-selection-map", async () => {
-    const nodes = gcSelectedNodes();
+    const nodes = gcSelectedNodes(s);
     if (!nodes.length) return;
     const name = (await promptDialog("Name the mind map", "", { confirmLabel: "Create map" })).trim();
     if (!name) return;
@@ -1420,13 +1560,13 @@ function gcCloseNodeMenu() {
   gcNodeMenuEl = null;
 }
 
-function gcWireNodeMenu() {
-  gcCanvas.addEventListener("contextmenu", (event) => {
-    const [x, y] = gcWorldPoint(event);
-    const node = gcNodeAtWorld(x, y);
+function gcWireNodeMenu(s = gcTab) {
+  s.canvas.addEventListener("contextmenu", (event) => {
+    const [x, y] = gcWorldPoint(event, s);
+    const node = gcNodeAtWorld(x, y, s);
     if (!node || node.isGroup) return;
     event.preventDefault();
-    gcShowNodeMenu(node, event.clientX, event.clientY);
+    gcShowNodeMenu(node, event.clientX, event.clientY, s);
   });
   document.addEventListener(
     "pointerdown",
@@ -1441,7 +1581,7 @@ function gcWireNodeMenu() {
   window.addEventListener("wheel", gcCloseNodeMenu, { passive: true });
 }
 
-function gcShowNodeMenu(node, clientX, clientY) {
+function gcShowNodeMenu(node, clientX, clientY, s = gcTab) {
   gcCloseNodeMenu();
   const menu = document.createElement("div");
   menu.className = "action-menu action-menu-escaped graph-node-menu";
@@ -1460,24 +1600,24 @@ function gcShowNodeMenu(node, clientX, clientY) {
   };
   const isNote = node.type !== "entity" && node.type !== "document";
   if (isNote) item("ph:arrow-square-out", "Open", () => flashEntry(node.id));
-  item(node.fx != null ? "ph:push-pin-slash" : "ph:push-pin", node.fx != null ? "Unpin" : "Pin in place", () => gcTogglePin(node));
+  item(node.fx != null ? "ph:push-pin-slash" : "ph:push-pin", node.fx != null ? "Unpin" : "Pin in place", () => gcTogglePin(node, s));
   if (isNote) {
     item("ph:crosshair", "Focus on this note", () => {
       graphFocusModeId = node.id;
       renderGraph();
     });
   }
-  const selected = gcSelected.has(node.id);
+  const selected = s.selected.has(node.id);
   item(selected ? "ph:selection-slash" : "ph:selection-plus", selected ? "Remove from selection" : "Add to selection", () => {
-    if (gcSelected.has(node.id)) gcSelected.delete(node.id);
-    else gcSelected.add(node.id);
-    gcSelectionChanged();
-    gcRequestDraw();
+    if (s.selected.has(node.id)) s.selected.delete(node.id);
+    else s.selected.add(node.id);
+    gcSelectionChanged(s);
+    gcRequestDraw(s);
   });
   item("ph:eye-slash", "Hide on this map", () => {
-    graphHiddenIds.add(node.id);
-    gcSelected.delete(node.id);
-    gcSelectionChanged();
+    s.hiddenIds.add(node.id);
+    s.selected.delete(node.id);
+    gcSelectionChanged(s);
     renderGraph();
   });
   document.body.appendChild(menu);
@@ -1491,8 +1631,26 @@ function gcShowNodeMenu(node, clientX, clientY) {
   menu.querySelector("button")?.focus();
 }
 
-function gcTooltip(node) {
-  const links = (gcAdj && gcAdj.get(node.id) ? gcAdj.get(node.id).size : 0) || 0;
+//: The word "entity" explains nothing on its own, and it is the label on a
+//: switch, a legend entry and a node. INBOX 183, the owner: "idk what entities
+//: are". One sentence, written once here, given in all three places.
+const GC_ENTITY_CATEGORY = "Entity";
+const GC_ENTITY_HELP =
+  "An entity is a person, place or thing the AI found named across your notes, " +
+  "joined to every note that mentions it";
+
+function gcTooltip(node, s = gcTab) {
+  const links = (s.adj && s.adj.get(node.id) ? s.adj.get(node.id).size : 0) || 0;
+  //: A node that is not a note says what it is, because none of the three
+  //: kinds can be opened and a tooltip is the only thing they answer to. An
+  //: entity gets the sentence; a document and a board get their own word,
+  //: which is at least one somebody has met before.
+  if (node.type === "entity") return `${node.preview}\n${GC_ENTITY_HELP}`;
+  if (node.type === "document") return `${node.preview}\nA document your notes are attached to`;
+  if (node.type === "map") return `${node.preview}\nA mind map, joined to the notes on it`;
+  if (node.type === "board" || node.type === "whiteboard") {
+    return `${node.preview}\nA whiteboard, joined to the notes on it`;
+  }
   return (
     `${node.preview}\n[${node.category}] · ${links} connection${links === 1 ? "" : "s"}` +
     `${node.access_count ? ` · used ${node.access_count}×` : ""}`
@@ -1502,12 +1660,19 @@ function gcTooltip(node) {
 //: A click on a node, with the same three modes the SVG renderer had: trace
 //: mode picks an end, an in-flight "Link" picks the other note, otherwise the
 //: note opens in the popup.
-function gcClickNode(event, node) {
+function gcClickNode(event, node, s = gcTab) {
+  //: A surface can say what a click means on it. The pane opens the note in
+  //: the tab it is sitting beside rather than in the Graph tab's popup, which
+  //: is anchored to a canvas the reader is not looking at.
+  if (s.onNodeClick) {
+    s.onNodeClick(node, event);
+    return;
+  }
   if (event && event.shiftKey && !node.isGroup) {
-    if (gcSelected.has(node.id)) gcSelected.delete(node.id);
-    else gcSelected.add(node.id);
-    gcSelectionChanged();
-    gcRequestDraw();
+    if (s.selected.has(node.id)) s.selected.delete(node.id);
+    else s.selected.add(node.id);
+    gcSelectionChanged(s);
+    gcRequestDraw(s);
     return;
   }
   if (node.isGroup || node.type === "entity" || node.type === "document") return;
@@ -1524,16 +1689,16 @@ function gcClickNode(event, node) {
 
 // --- the worker ------------------------------------------------------------------
 
-function gcPost(message) {
-  if (gcWorker) gcWorker.postMessage(message);
+function gcPost(message, s = gcTab) {
+  if (s.worker) s.worker.postMessage(message);
 }
 
-function gcStop() {
-  gcPost({ type: "stop" });
+function gcStop(s = gcTab) {
+  gcPost({ type: "stop" }, s);
 }
 
-function gcStartWorker(nodes, edges, world) {
-  if (!gcWorker) {
+function gcStartWorker(nodes, edges, world, s = gcTab) {
+  if (!s.worker) {
     // Version-stamped for the same reason index.html's script tags are
     // (tests/test_asset_cache_busting.py): a desktop wrapper with its own
     // cache can otherwise go on running yesterday's worker forever, and a
@@ -1542,27 +1707,27 @@ function gcStartWorker(nodes, edges, world) {
     // tag rather than kept in a second place that can drift from it.
     const own = document.querySelector('script[src*="graph-canvas.js"]');
     const stamp = ((own && own.getAttribute("src")) || "").split("?v=")[1] || "0";
-    gcWorker = new Worker(`/graph-worker.js?v=${stamp}`);
-    gcWorker.onmessage = (event) => {
+    s.worker = new Worker(`/graph-worker.js?v=${stamp}`);
+    s.worker.onmessage = (event) => {
       const message = event.data || {};
       //: A message from a simulation that no longer matches what is on screen
       //: is dropped whole, buffer included: handing a stale buffer back would
       //: decrement an `inFlight` count that the newer `init` has already
       //: reset, and the worker allocates a replacement for nothing worse than
       //: one skipped frame's worth of pool.
-      if (message.epoch !== gcEpoch) return;
+      if (message.epoch !== s.epoch) return;
       if (message.type === "tick") {
-        gcAlpha = message.alpha;
-        gcTicks = message.ticks || 0;
-        gcTickMs = message.tickMs || 0;
+        s.alpha = message.alpha;
+        s.ticks = message.ticks || 0;
+        s.tickMs = message.tickMs || 0;
         const positions = message.positions;
-        const count = Math.min(gcNodes.length, positions.length / 2);
+        const count = Math.min(s.nodes.length, positions.length / 2);
         for (let i = 0; i < count; i++) {
-          const node = gcNodes[i];
+          const node = s.nodes[i];
           // A node being dragged is authoritative on this side: its position
           // came from the pointer this frame and the worker's copy is one
           // message behind.
-          if (node === gcDragNode) continue;
+          if (node === s.dragNode) continue;
           node.x = positions[i * 2];
           node.y = positions[i * 2 + 1];
         }
@@ -1570,8 +1735,8 @@ function gcStartWorker(nodes, edges, world) {
         // rather than at the end of every draw: a settled map redraws on
         // hover without anything having moved, and rebuilding a 2,000-point
         // quadtree per pointermove for nothing is a millisecond a frame.
-        gcQuadtreeDirty = true;
-        gcRequestDraw();
+        s.quadtreeDirty = true;
+        gcRequestDraw(s);
         // **Framed twice: once straight away, once when it settles.**
         //
         // The SVG renderer framed the map exactly once, when the simulation
@@ -1588,40 +1753,42 @@ function gcStartWorker(nodes, edges, world) {
         // deliberately gone to look at something is the reported bug
         // `graphAutoFitDone` exists for, and an early fit must not reintroduce
         // it by making the late fit unconditional.
-        if (!graphAutoFitDone && gcNodes.length) {
-          if (!gcFittedOnce) {
-            gcFittedOnce = true;
-            fitGraphToView(graphSvg, null, graphZoom, gcNodes, gcDims.w, gcDims.h);
+        if (!gcAutoFitDone(s) && s.nodes.length) {
+          if (!s.fittedOnce) {
+            s.fittedOnce = true;
+            fitGraphToView(s.svg, null, s.zoom, s.nodes, s.dims.w, s.dims.h);
           } else if (message.alpha < 0.08) {
-            graphAutoFitDone = true;
-            if (!gcUserZoomed) {
-              fitGraphToView(graphSvg, null, graphZoom, gcNodes, gcDims.w, gcDims.h);
+            gcSetAutoFitDone(s, true);
+            if (!s.userZoomed) {
+              fitGraphToView(s.svg, null, s.zoom, s.nodes, s.dims.w, s.dims.h);
             }
           }
         }
         // Hand the buffer back so the worker can reuse it (see its `pool`).
-        gcWorker.postMessage({ type: "recycle", buffer: positions.buffer }, [positions.buffer]);
-        graphMinimapTick += 1;
-        if (graphMinimapTick % 8 === 0) graphMinimapPaint();
+        s.worker.postMessage({ type: "recycle", buffer: positions.buffer }, [positions.buffer]);
+        if (s.size === "full") {
+          graphMinimapTick += 1;
+          if (graphMinimapTick % 8 === 0) graphMinimapPaint();
+        }
       } else if (message.type === "end") {
-        graphMinimapPaint();
-        if (!graphAutoFitDone && gcNodes.length) {
-          graphAutoFitDone = true;
-          fitGraphToView(graphSvg, null, graphZoom, gcNodes, gcDims.w, gcDims.h);
+        if (s.size === "full") graphMinimapPaint();
+        if (!gcAutoFitDone(s) && s.nodes.length) {
+          gcSetAutoFitDone(s, true);
+          fitGraphToView(s.svg, null, s.zoom, s.nodes, s.dims.w, s.dims.h);
         }
       }
     };
-    gcWorker.onerror = () => {
+    s.worker.onerror = () => {
       // A worker that will not start must not take the map with it: the nodes
       // already have positions (inherited, pinned or spiral), so the canvas
       // still draws a static graph.
-      gcRequestDraw();
+      gcRequestDraw(s);
     };
   }
-  gcFittedOnce = false;
+  s.fittedOnce = false;
   gcPost({
     type: "init",
-    epoch: gcEpoch,
+    epoch: s.epoch,
     // Performance mode (settings.js): the physics yields twice as long
     // between ticks, half the CPU for a layout that converges a little later.
     perf: document.documentElement.dataset.perf === "on",
@@ -1644,7 +1811,7 @@ function gcStartWorker(nodes, edges, world) {
     },
     world,
     alpha: 1,
-  });
+  }, s);
 }
 
 //: The world the simulation solves in, a square whose side grows with
@@ -1661,9 +1828,19 @@ function gcWorldFor(count, width, height) {
   // force by the note count (`densityScale`/`centreScale` in graph-worker.js),
   // so the natural spread is a good deal smaller than the room this used to
   // reserve and the gap between the two was somewhere a node could wander to
-  // and be lost. Measured at 35 and 300 notes this changes nothing at all:
-  // both are under the viewport floor below. It bites above about a thousand
-  // notes, where it is reasoned rather than measured.
+  // and be lost.
+  //: **Where it bites, measured rather than asserted**
+  //: (`scratchpad/ui-sweeps/graphtouch.js`, which reads this function at three
+  //: counts and two widths). This line used to say "measured at 35 and 300
+  //: notes this changes nothing at all: both are under the viewport floor
+  //: below", and the floor is not one number: it is 2531 on a 1440 desktop map
+  //: and 1168 on a 390 phone. At 35 notes the floor decides at both widths
+  //: (680 here against 2531 and 1168), so the change really is neutral there.
+  //: At 300 it decides only on the desktop: the count term is 1992, under the
+  //: desktop floor and over the phone's, so on a phone this constant shrank
+  //: the world from 2550 to 1992, by 22%, which is the direction it was
+  //: changed for and a smaller screen is where a lost node is hardest to find.
+  //: Above about five hundred notes it decides at every width.
   const roomy = Math.sqrt(Math.max(count, 1)) * perNode * 1.25;
   const side = Math.max(roomy, width * 1.8, height * 1.8);
   return {
@@ -1680,9 +1857,9 @@ function gcWorldFor(count, width, height) {
 //: data, with the same ids and the same dock controls. Everything from the
 //: fetch down to the stats line is the SVG renderer's own sequence: what
 //: changes is that the drawing is a canvas and the simulation is a worker.
-async function renderGraphCanvas() {
-  if (!gcEnsureCanvas()) return;
-  const sequence = ++gcRenderSeq;
+async function renderGraphCanvas(s = gcTab) {
+  if (!gcEnsureCanvas(s)) return;
+  const sequence = ++s.renderSeq;
   const wantSimilarity = document.getElementById("graph-similarity").checked;
   const wantEntities = document.getElementById("graph-entities")
     ? document.getElementById("graph-entities").checked
@@ -1703,13 +1880,13 @@ async function renderGraphCanvas() {
   // A slow answer that has been overtaken by a newer render must not paint
   // over it. The SVG path had the same race and answered it by clearing the
   // SVG; a canvas has nothing to clear, so the sequence number is the guard.
-  if (sequence !== gcRenderSeq) return;
-  gcTiming = { dataAt: performance.now(), firstFrame: 0, lastFrame: 0, frames: 0 };
+  if (sequence !== s.renderSeq) return;
+  s.timing = { dataAt: performance.now(), firstFrame: 0, lastFrame: 0, frames: 0 };
   // A fresh visit to the tab (`graphAutoFitDone` cleared by switchTab) is also
   // a fresh camera: forget that the last visit's viewer had zoomed somewhere.
-  if (!graphAutoFitDone) gcUserZoomed = false;
+  if (!gcAutoFitDone(s)) s.userZoomed = false;
 
-  gcReadTokens();
+  gcReadTokens(s);
   const empty = document.getElementById("graph-empty");
   empty.style.display = data.nodes.length > 0 ? "none" : "grid";
   empty.classList.toggle("hidden", data.nodes.length > 0);
@@ -1719,13 +1896,13 @@ async function renderGraphCanvas() {
   const colourMode = graphColourMode();
   graphStructure =
     colourMode === "cluster" ? await apiJson("/graph/structure").catch(() => null) : null;
-  if (sequence !== gcRenderSeq) return;
+  if (sequence !== s.renderSeq) return;
   // GRAPH_PLAN Phase 3: the colour follows a rule, and a group (a saved
   // search) paints over the rule for the notes it matches.
   const groups = await graphResolveGroups();
-  if (sequence !== gcRenderSeq) return;
+  if (sequence !== s.renderSeq) return;
   const ruleColour = gcRuleScale(colourMode, data);
-  gcColourOf = (node) => {
+  s.colourOf = (node) => {
     const groupIndex = graphGroupOf.get(node.id);
     if (groupIndex !== undefined && !node.isGroup) return graphGroupColour(groupIndex);
     if (node.isGroup) return colour(node.category);
@@ -1737,14 +1914,14 @@ async function renderGraphCanvas() {
     }
     return ruleColour(gcRuleKey(colourMode, node));
   };
-  graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour, groups);
-  gcSelectionChanged();
+  graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour, groups, s);
+  gcSelectionChanged(s);
 
   const ruleHides = colourMode !== "category" && colourMode !== "cluster";
   let visibleNodes = data.nodes.filter(
     (n) =>
       !graphHiddenCategories.has(n.category) &&
-      !graphHiddenIds.has(n.id) &&
+      !s.hiddenIds.has(n.id) &&
       !(ruleHides && graphHiddenKeys.has(`${colourMode}:${gcRuleKey(colourMode, n)}`)) &&
       !(graphGroupOf.has(n.id) && groups[graphGroupOf.get(n.id)]?.hiddenOnMap)
   );
@@ -1762,32 +1939,32 @@ async function renderGraphCanvas() {
   if (!visibleNodes.length) {
     empty.style.display = "grid";
     empty.classList.remove("hidden");
-    gcNodes = [];
-    gcEdges = [];
-    gcAdj = new Map();
-    gcById = new Map();
-    graphNodesRef = gcNodes;
-    gcStop();
-    gcRequestDraw();
+    s.nodes = [];
+    s.edges = [];
+    s.adj = new Map();
+    s.byId = new Map();
+    graphNodesRef = s.nodes;
+    gcStop(s);
+    gcRequestDraw(s);
     return;
   }
 
-  gcResize();
-  const width = gcDims.w;
-  const height = gcDims.h;
-  gcLayoutKind = graphLayout();
-  gcTree =
-    gcLayoutKind === "force"
+  gcResize(s);
+  const width = s.dims.w;
+  const height = s.dims.h;
+  s.layoutKind = graphLayout();
+  s.tree =
+    s.layoutKind === "force"
       ? null
-      : layoutHierarchy(visibleNodes.map((n) => ({ ...n })), gcLayoutKind, width, height);
+      : layoutHierarchy(visibleNodes.map((n) => ({ ...n })), s.layoutKind, width, height);
 
   // A note already on screen keeps the spot it had settled into, so a legend
   // toggle or a slider change does not replay the whole "explode outward"
   // animation. Same inheritance the SVG renderer does, and for the same
   // reported reason.
   const prior = new Map((graphNodesRef || []).map((n) => [n.id, { x: n.x, y: n.y }]));
-  const nodes = gcTree
-    ? gcTree.nodes
+  const nodes = s.tree
+    ? s.tree.nodes
     : visibleNodes.map((n) => {
         const was = prior.get(n.id);
         const built = was && Number.isFinite(was.x) ? { ...n, ...was } : { ...n };
@@ -1797,23 +1974,23 @@ async function renderGraphCanvas() {
         }
         return built;
       });
-  const edges = gcTree ? gcTree.links : visibleEdges.map((e) => ({ ...e }));
+  const edges = s.tree ? s.tree.links : visibleEdges.map((e) => ({ ...e }));
 
-  gcById = new Map(nodes.map((n) => [n.id, n]));
-  gcAdj = new Map(nodes.map((n) => [n.id, new Set()]));
+  s.byId = new Map(nodes.map((n) => [n.id, n]));
+  s.adj = new Map(nodes.map((n) => [n.id, new Set()]));
   for (const edge of edges) {
     const from = edge.source && edge.source.id != null ? edge.source.id : edge.source;
     const to = edge.target && edge.target.id != null ? edge.target.id : edge.target;
-    if (gcAdj.has(from)) gcAdj.get(from).add(to);
-    if (gcAdj.has(to)) gcAdj.get(to).add(from);
+    if (s.adj.has(from)) s.adj.get(from).add(to);
+    if (s.adj.has(to)) s.adj.get(to).add(from);
     // Resolve to the node objects once, here, rather than on every frame.
-    edge.source = gcById.get(from) || edge.source;
-    edge.target = gcById.get(to) || edge.target;
+    edge.source = s.byId.get(from) || edge.source;
+    edge.target = s.byId.get(to) || edge.target;
     edge._path2d = null;
   }
   for (const node of nodes) {
-    node.r = gcRadius(node, (gcAdj.get(node.id) || { size: 0 }).size);
-    node.colour = gcColourOf(node);
+    node.r = gcRadius(node, (s.adj.get(node.id) || { size: 0 }).size);
+    node.colour = s.colourOf(node);
   }
   //: **A note with no position yet is placed here, not in the worker.**
   //: d3-force assigns its phyllotaxis spiral inside `forceSimulation`, which
@@ -1823,7 +2000,7 @@ async function renderGraphCanvas() {
   //: blank. The same spiral is laid down here (identical constants, so the
   //: worker keeps these rather than re-placing anything) and the first frame
   //: is a real picture of the notebook that then relaxes into its layout.
-  if (!gcTree) {
+  if (!s.tree) {
     const centreX = width / 2;
     const centreY = height / 2;
     const goldenAngle = Math.PI * (3 - Math.sqrt(5));
@@ -1837,30 +2014,30 @@ async function renderGraphCanvas() {
   }
   // Everything the worker could still be about is now gone: whatever it says
   // next is about the previous node array and is dropped on arrival.
-  gcEpoch += 1;
-  gcNodes = nodes;
-  gcEdges = edges;
+  s.epoch += 1;
+  s.nodes = nodes;
+  s.edges = edges;
   graphNodesRef = nodes;
-  graphAdjacency = gcAdj;
-  gcQuadtreeDirty = true;
+  graphAdjacency = s.adj;
+  s.quadtreeDirty = true;
 
   initGraphMinimap();
   initGraphViews();
 
-  if (gcTree) {
-    gcStop();
-    if (!graphAutoFitDone) {
-      graphAutoFitDone = true;
-      frameTree(graphSvg, graphZoom, null, nodes, width, height, gcTree.radial);
+  if (s.tree) {
+    gcStop(s);
+    if (!gcAutoFitDone(s)) {
+      gcSetAutoFitDone(s, true);
+      frameTree(s.svg, s.zoom, null, nodes, width, height, s.tree.radial);
     }
   } else {
-    gcStartWorker(nodes, edges, gcWorldFor(nodes.length, width, height));
+    gcStartWorker(nodes, edges, gcWorldFor(nodes.length, width, height), s);
   }
 
-  graphRenderStats(data, nodes, edges, colourMode, gcLayoutKind);
+  graphRenderStats(data, nodes, edges, colourMode, s.layoutKind);
   graphSyncTimeSlider(data, (cutoff) => {
-    gcTimeCutoff = cutoff;
-    gcRequestDraw();
+    s.timeCutoff = cutoff;
+    gcRequestDraw(s);
   });
   fillTracePickers(nodes);
   drawTrace();
@@ -1872,7 +2049,7 @@ async function renderGraphCanvas() {
   //: them, and the force layout's own repaint rides the worker's ticks, which
   //: a computed layout does not have at all.
   graphMinimapPaint();
-  gcRequestDraw();
+  gcRequestDraw(s);
 }
 
 // --- the chrome around the drawing ------------------------------------------------
@@ -1915,17 +2092,17 @@ function gcRuleScale(rule, data) {
   return d3.scaleOrdinal(gcRuleDomain(rule, data), d3.schemeTableau10.concat(d3.schemeSet3));
 }
 
-function graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour = null, groups = []) {
+function graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour = null, groups = [], s = gcTab) {
   const legend = document.getElementById("graph-legend");
   if (!legend) return;
   legend.replaceChildren();
-  if (graphHiddenIds.size) {
+  if (s.hiddenIds.size) {
     const hidden = document.createElement("button");
     hidden.className = "legend-item legend-toggle legend-off";
     hidden.title = "Show the notes hidden from this map again";
-    hidden.textContent = `${graphHiddenIds.size} hidden on this map. Show`;
+    hidden.textContent = `${s.hiddenIds.size} hidden on this map. Show`;
     hidden.addEventListener("click", () => {
-      graphHiddenIds.clear();
+      s.hiddenIds.clear();
       renderGraph();
     });
     legend.appendChild(hidden);
@@ -2033,6 +2210,29 @@ function graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour =
       () => {
         if (graphHiddenCategories.has(category)) graphHiddenCategories.delete(category);
         else graphHiddenCategories.add(category);
+        renderGraph();
+      },
+      off
+    );
+  }
+  //: **The one kind of node the legend never named.** INBOX 183, the owner:
+  //: "idk what entities are". `data.categories` is built from the notes before
+  //: the entity nodes are appended (`routes_graph.py`), so an entity has
+  //: always been drawn in a colour with nothing in the legend to explain it:
+  //: an extra dot in an extra colour, on a map of notes, with no word attached
+  //: to it anywhere on the screen. This is the same sentence the Show
+  //: section's '?' gives and the same one a hovered entity node gives, so the
+  //: three cannot drift, and the entry filters like any other because an
+  //: entity node carries "Entity" as its category.
+  if (!data.categories.includes(GC_ENTITY_CATEGORY) && data.nodes.some((n) => n.type === "entity")) {
+    const off = graphHiddenCategories.has(GC_ENTITY_CATEGORY);
+    entry(
+      GC_ENTITY_HELP,
+      colour(GC_ENTITY_CATEGORY),
+      `${GC_ENTITY_CATEGORY} (${data.nodes.filter((n) => n.type === "entity").length})`,
+      () => {
+        if (off) graphHiddenCategories.delete(GC_ENTITY_CATEGORY);
+        else graphHiddenCategories.add(GC_ENTITY_CATEGORY);
         renderGraph();
       },
       off
@@ -2176,36 +2376,36 @@ function graphWireTimePlay(slider, set) {
 Object.defineProperty(window, "__graphDebug", {
   configurable: false,
   get() {
-    const t = gcTransform || { x: 0, y: 0, k: 1 };
+    const t = gcTab.transform || { x: 0, y: 0, k: 1 };
     return Object.freeze({
-      renderer: gcCanvas && !gcCanvas.classList.contains("hidden") ? "canvas" : "svg",
-      nodes: gcNodes.length,
-      edges: gcEdges.length,
-      layout: gcLayoutKind,
+      renderer: gcTab.canvas && !gcTab.canvas.classList.contains("hidden") ? "canvas" : "svg",
+      nodes: gcTab.nodes.length,
+      edges: gcTab.edges.length,
+      layout: gcTab.layoutKind,
       colourMode: typeof graphColourMode === "function" ? graphColourMode() : "category",
       transform: Object.freeze({ x: t.x, y: t.y, k: t.k }),
       hovered: graphHoveredId,
       focusModeId: graphFocusModeId,
       hiddenCategories: Object.freeze([...graphHiddenCategories]),
-      timeCutoff: gcTimeCutoff,
+      timeCutoff: gcTab.timeCutoff,
       trace: graphTrace ? Object.freeze([...graphTrace.ids]) : null,
       highlight: graphHighlightIds ? graphHighlightIds.size : 0,
-      alpha: gcAlpha,
-      ticks: gcTicks,
-      tickMs: gcTickMs,
-      labelsWanted: gcLabelsWanted,
-      labelsDrawn: gcLabelsDrawn,
-      labelsPriority: gcLabelsPriority,
+      alpha: gcTab.alpha,
+      ticks: gcTab.ticks,
+      tickMs: gcTab.tickMs,
+      labelsWanted: gcTab.labelsWanted,
+      labelsDrawn: gcTab.labelsDrawn,
+      labelsPriority: gcTab.labelsPriority,
       // Capped: this is a debug read on every frame's worth of geometry, and
       // a 2,000-label frame would put a megabyte through the getter.
-      labelBoxes: gcLabelBoxes.slice(0, 300).map((b) => Object.freeze({ ...b })),
-      firstFrameMs: gcTiming.firstFrame,
-      lastFrameMs: gcTiming.lastFrame,
-      frames: gcTiming.frames,
-      radii: Object.freeze(gcNodes.slice(0, 40).map((n) => n.r)),
-      colours: Object.freeze(gcNodes.slice(0, 40).map((n) => n.colour)),
+      labelBoxes: gcTab.labelBoxes.slice(0, 300).map((b) => Object.freeze({ ...b })),
+      firstFrameMs: gcTab.timing.firstFrame,
+      lastFrameMs: gcTab.timing.lastFrame,
+      frames: gcTab.timing.frames,
+      radii: Object.freeze(gcTab.nodes.slice(0, 40).map((n) => n.r)),
+      colours: Object.freeze(gcTab.nodes.slice(0, 40).map((n) => n.colour)),
       positions: Object.freeze(
-        gcNodes.slice(0, 40).map((n) => Object.freeze([Math.round(n.x), Math.round(n.y)]))
+        gcTab.nodes.slice(0, 40).map((n) => Object.freeze([Math.round(n.x), Math.round(n.y)]))
       ),
       // Enough geometry for a sweep to check the *shape* of a computed
       // layout rather than only that one was chosen: which node is where,
@@ -2214,7 +2414,7 @@ Object.defineProperty(window, "__graphDebug", {
       // root" or "do two edges cross", which are the two questions the tree
       // report turns on. Capped like the labels, and for the same reason.
       nodeGeometry: Object.freeze(
-        gcNodes.slice(0, 300).map((n) =>
+        gcTab.nodes.slice(0, 300).map((n) =>
           Object.freeze({
             id: n.id,
             x: Math.round(n.x * 10) / 10,
@@ -2226,7 +2426,7 @@ Object.defineProperty(window, "__graphDebug", {
         )
       ),
       edgeGeometry: Object.freeze(
-        gcEdges.slice(0, 300).map((e) =>
+        gcTab.edges.slice(0, 300).map((e) =>
           Object.freeze([
             Math.round(e.source.x * 10) / 10,
             Math.round(e.source.y * 10) / 10,
@@ -2238,3 +2438,251 @@ Object.defineProperty(window, "__graphDebug", {
     });
   },
 });
+
+// --- GRAPH_PLAN Phase 4: the local map beside an open note or document ------------
+//
+//: The last open item of Phase 4, and the reason the surface object above
+//: exists. The pane is a second `gcSurface` at `size: "pane"`: its own canvas,
+//: camera, worker and hover state, so the Graph tab's node array, zoom and
+//: minimap are untouched by anything that happens in it. It draws
+//: `/graph/local` at depth 1 for whatever is open, wires none of the chrome
+//: (no legend, no minimap, no time slider, no lasso, no node menu), and a
+//: click on one of its notes opens that note rather than a popup anchored to a
+//: canvas the reader is not looking at.
+
+let graphPaneSurface = null;
+//: What the pane is drawn for. "Follow what is open" is called from three
+//: places and most calls change nothing, so this is what makes the common case
+//: a comparison rather than a fetch and a relayout.
+let graphPaneShownId = null;
+
+function graphPaneEnsure() {
+  if (graphPaneSurface) return graphPaneSurface;
+  graphPaneSurface = gcSurface({
+    size: "pane",
+    boxId: "graph-pane-box",
+    canvasId: "graph-pane-canvas",
+    //: The pane's notes open where the reader already is. `flashEntry` is the
+    //: app's own "go to this note", the same one the graph's node popup, the
+    //: search results and a wiki link use.
+    onNodeClick: (node) => {
+      if (node.isGroup || typeof flashEntry !== "function") return;
+      flashEntry(node.id);
+    },
+  });
+  return graphPaneSurface;
+}
+
+//: The pane's colours are the tab's colours when the tab has drawn, and its own
+//: category scale when it has not. A local map whose "Work" notes are a
+//: different colour from the same notes on the Graph tab is worse than no
+//: colour at all, and the tab's `colourOf` already carries the rule, the groups
+//: and the cluster structure the reader chose.
+function graphPaneColour(data) {
+  if (gcTab.nodes.length) return gcTab.colourOf;
+  const scale = d3.scaleOrdinal(data.categories, d3.schemeTableau10.concat(d3.schemeSet3));
+  return (node) => scale(node.category);
+}
+
+async function renderGraphPane(entryId) {
+  const pane = document.getElementById("graph-pane");
+  if (!pane || pane.hidden) return;
+  const s = graphPaneEnsure();
+  if (!gcEnsureCanvas(s)) return;
+  const count = document.getElementById("graph-pane-count");
+  const empty = document.getElementById("graph-pane-empty");
+  const sequence = ++s.renderSeq;
+  if (entryId == null) {
+    graphPaneShownId = null;
+    s.epoch += 1;
+    gcStop(s);
+    s.nodes = [];
+    s.edges = [];
+    s.adj = new Map();
+    s.byId = new Map();
+    s.quadtreeDirty = true;
+    if (count) count.textContent = "No note open";
+    if (empty) empty.hidden = false;
+    gcRequestDraw(s);
+    return;
+  }
+  const data = await apiJson(`/graph/local/${entryId}?depth=1`).catch(() => null);
+  if (!data || sequence !== s.renderSeq) return;
+  graphPaneShownId = entryId;
+  gcReadTokens(s);
+
+  const nodes = data.nodes.map((n) => ({ ...n }));
+  const edges = data.edges.map((e) => ({ ...e }));
+  s.byId = new Map(nodes.map((n) => [n.id, n]));
+  s.adj = new Map(nodes.map((n) => [n.id, new Set()]));
+  for (const edge of edges) {
+    const from = edge.source && edge.source.id != null ? edge.source.id : edge.source;
+    const to = edge.target && edge.target.id != null ? edge.target.id : edge.target;
+    if (s.adj.has(from)) s.adj.get(from).add(to);
+    if (s.adj.has(to)) s.adj.get(to).add(from);
+    edge.source = s.byId.get(from) || edge.source;
+    edge.target = s.byId.get(to) || edge.target;
+    edge._path2d = null;
+  }
+  const colourOf = graphPaneColour(data);
+  s.colourOf = colourOf;
+  for (const node of nodes) {
+    node.r = gcRadius(node, (s.adj.get(node.id) || { size: 0 }).size);
+    node.colour = colourOf(node);
+  }
+  gcResize(s);
+  //: The same spiral the tab lays down before the worker has said anything, and
+  //: for the same reason: without it the first frame after the payload lands is
+  //: a blank canvas.
+  const centreX = s.dims.w / 2;
+  const centreY = s.dims.h / 2;
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  nodes.forEach((node, index) => {
+    const radius = 10 * Math.sqrt(0.5 + index);
+    node.x = centreX + radius * Math.cos(index * goldenAngle);
+    node.y = centreY + radius * Math.sin(index * goldenAngle);
+  });
+  s.epoch += 1;
+  s.nodes = nodes;
+  s.edges = edges;
+  s.layoutKind = "force";
+  s.tree = null;
+  s.quadtreeDirty = true;
+  //: A pane is opened fresh at every note, so the camera frames the new
+  //: neighbourhood every time rather than keeping the last one's.
+  s.autoFitDone = false;
+  s.fittedOnce = false;
+  s.userZoomed = false;
+  if (count) {
+    count.textContent = `${nodes.length} note${nodes.length === 1 ? "" : "s"}`;
+  }
+  if (empty) empty.hidden = nodes.length > 1;
+  gcStartWorker(nodes, edges, gcWorldFor(nodes.length, s.dims.w, s.dims.h), s);
+  gcRequestDraw(s);
+}
+
+//: **Where the pane hangs, and what it is about.** Both answers change with the
+//: tab, and the app has no event that says so (one `CustomEvent` exists in the
+//: whole frontend, for an inline image), so this is called from the three
+//: places that already know: `switchTab`, `flashEntry` and `openDocument`, each
+//: wrapped once at boot by `graphPaneWire`. A poll would have to run for the
+//: life of the page to catch three moments that announce themselves.
+function graphPaneFollow() {
+  const pane = document.getElementById("graph-pane");
+  if (!pane) return;
+  const tab = localStorage.getItem("activeTab") || "notes";
+  const hostId = tab === "notes" ? "sidebar" : tab === "documents" ? "doc-sidebar" : null;
+  if (!hostId) {
+    pane.hidden = true;
+    //: A hidden pane's worker has nothing to solve for. The nodes keep their
+    //: positions, so coming back is a redraw rather than a fresh explosion.
+    if (graphPaneSurface) gcStop(graphPaneSurface);
+    return;
+  }
+  const host = document.getElementById(hostId);
+  if (!host) return;
+  if (pane.parentElement !== host) host.appendChild(pane);
+  const wanted =
+    tab === "notes"
+      ? typeof lastOpenedEntryId === "number"
+        ? lastOpenedEntryId
+        : null
+      : graphPaneDocumentNote();
+  //: **The pane arrives with the thing it is about, and leaves with it.** A
+  //: panel headed "Local map" reading "No note open" is 263px of chrome with
+  //: nothing in it, and the sidebar it hangs in has about 130px of room at
+  //: 1440 once the categories and Most used have had theirs: measured with
+  //: `errors.js`, an always-present pane put the column at 968 inside 761, so
+  //: a reader who had opened nothing paid the whole cost of a map of nothing.
+  //: The column scrolls either way (`overflow-y: auto`), so this is about
+  //: what is worth scrolling past rather than about a clip.
+  pane.hidden = wanted == null;
+  if (pane.hidden) {
+    if (graphPaneSurface) gcStop(graphPaneSurface);
+    graphPaneShownId = null;
+    return;
+  }
+  if (wanted === graphPaneShownId && graphPaneSurface && graphPaneSurface.nodes.length) {
+    gcRequestDraw(graphPaneSurface);
+    return;
+  }
+  renderGraphPane(wanted);
+}
+
+//: A document is not a node on `/graph/local`, which walks notes. The pane
+//: beside one is the local map of the notes that document draws on, which is
+//: the same relationship the Documents sidebar already lists; the first of them
+//: is the one it centres on.
+function graphPaneDocumentNote() {
+  if (typeof currentDoc !== "object" || !currentDoc) return null;
+  const notes = currentDoc.notes || currentDoc.entries || [];
+  const first = notes[0];
+  if (first == null) return null;
+  if (typeof first !== "object") return first;
+  return first.id != null ? first.id : first.entry_id != null ? first.entry_id : null;
+}
+
+function graphPaneWire() {
+  const pane = document.getElementById("graph-pane");
+  if (!pane || pane.dataset.wired === "yes") return;
+  pane.dataset.wired = "yes";
+
+  const toggle = document.getElementById("graph-pane-toggle");
+  if (toggle) {
+    toggle.addEventListener("click", () => {
+      const collapsed = pane.dataset.collapsed === "true";
+      pane.dataset.collapsed = collapsed ? "false" : "true";
+      toggle.setAttribute("aria-expanded", collapsed ? "true" : "false");
+      toggle.title = collapsed ? "Hide the local map" : "Show the local map";
+      toggle.setAttribute("aria-label", toggle.title);
+      const icon = toggle.querySelector("i");
+      if (icon) icon.className = collapsed ? "ph ph-caret-up" : "ph ph-caret-down";
+      //: The box had no size while it was collapsed, so the canvas has to be
+      //: measured again on the way back or it paints into the dimensions it
+      //: last had.
+      if (collapsed && graphPaneSurface) {
+        gcResize(graphPaneSurface);
+        gcRequestDraw(graphPaneSurface);
+      }
+    });
+  }
+
+  const focus = document.getElementById("graph-pane-focus");
+  if (focus) {
+    focus.addEventListener("click", () => {
+      if (graphPaneShownId == null) return;
+      graphFocusModeId = graphPaneShownId;
+      switchTab("graph");
+      renderGraph();
+    });
+  }
+
+  //: Wrapped rather than called from inside each: `app.js` and `documents.js`
+  //: are not the graph's files, and three edits across two of them to announce
+  //: something the graph is the only consumer of is a worse trade than one
+  //: wrapper each here, next to the thing that needs them.
+  for (const name of ["switchTab", "flashEntry", "openDocument"]) {
+    const original = window[name];
+    if (typeof original !== "function" || original.__graphPaneWrapped) continue;
+    const wrapped = function (...args) {
+      const result = original.apply(this, args);
+      if (result && typeof result.then === "function") {
+        return result.then((value) => {
+          graphPaneFollow();
+          return value;
+        });
+      }
+      graphPaneFollow();
+      return result;
+    };
+    wrapped.__graphPaneWrapped = true;
+    window[name] = wrapped;
+  }
+  graphPaneFollow();
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", graphPaneWire);
+} else {
+  graphPaneWire();
+}

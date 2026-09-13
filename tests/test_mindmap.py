@@ -1133,18 +1133,33 @@ def test_a_map_and_its_notes_are_a_node_and_edges_in_the_graph(client):
     assert node["type"] == "map"
 
 
-def test_map_edges_are_opt_in(client):
-    """Same contract as `include_entities` and `include_documents`: an existing
-    caller that assumes every edge joins two notes it retrieved keeps working
-    unasked."""
+def test_a_board_is_off_the_graph_until_include_maps_asks_for_it(client):
+    """`include_maps=false` means no board node and no map edge at all.
+
+    This test used to assert the opposite of its second half: that the board
+    stayed on the graph as an ordinary untyped node while the switch was off.
+    That was the contract until INBOX 185, the owner: "Things that I have
+    turned off in the graph for not showing them like the mindmap and entities
+    still show anyway". A board *is* an `Entry`, so it had been a node here
+    since boards existed, and the switch only ever marked it and drew its
+    membership edges: three switches drawn identically, two of which added
+    nodes and one of which did not, which is not a difference a reader can see.
+    Off now means absent, the same as `include_entities` and
+    `include_documents` (`scratchpad/ui-sweeps/graphshow.js` counts it in the
+    browser; measured before the fix: 5 of 5 boards drawn with the switch off).
+    """
     note = client.post("/entries", json={"content": "Gradient descent"}).json()
     board = _map(client, name="ML map")
     _node(client, board["id"], kind="note", ref_id=note["id"])
 
     data = client.get("/graph").json()
     assert [e for e in data["edges"] if e["kind"] == "map"] == []
-    node = next(n for n in data["nodes"] if n["id"] == board["id"])
-    assert "type" not in node
+    assert [n for n in data["nodes"] if n["id"] == board["id"]] == []
+
+    asked = client.get("/graph?include_maps=true").json()
+    node = next(n for n in asked["nodes"] if n["id"] == board["id"])
+    assert node["type"] == "map"
+    assert [e for e in asked["edges"] if e["kind"] == "map"]
 
 
 def test_an_ordinary_whiteboard_is_marked_as_a_board_not_a_map(client):

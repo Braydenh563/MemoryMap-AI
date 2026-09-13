@@ -24657,6 +24657,20 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     5px, the chosen segment 20.98:1 (7.5:1 dark) on `--accent-surface`, a
     focus ring on the segment for a keyboard, and the three verbs explained
     behind a `data-help-for` '?' (58 words) instead of above the field.
+185. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the
+    graph's show toggles.** "Things that I have turned off in the graph for
+    not showing them like the mindmap and entities still show anyway".
+    Owner: graph agent. **Fixed b2a811b.** The mind maps half was real and is
+    reproduced: a board *is* an `Entry`, so it had been a node on the graph
+    since boards existed, and the switch only marked it and drew its
+    membership edges. Measured before, on a notebook with five boards and the
+    switch off: 65 nodes drawn, 5 of them boards, all typed `note`; after:
+    60 drawn, 0 boards, and 64 with 4 typed `map` when the switch is on
+    (`scratchpad/ui-sweeps/graphshow.js`, which fails on the pre-fix code with
+    those three numbers). The entities half did **not** reproduce: with the
+    switch off `/graph` carries no `entity:` node and the map draws none,
+    measured on and off again in the same sweep. The switch is now called
+    Boards, because it governs whiteboards as well as mind maps.
 
 ## Moved from the plans, 2026-09-13
 
@@ -24741,6 +24755,56 @@ project carries.
 not in this brief, and the later kinds (tensions, duplicates, entities,
 dates) that I1's remaining passes add to the same table and the same
 listing.
+### From GRAPH_PLAN.md
+
+### Built, Phase 4 (utility), part two: the local map, 2026-09-13
+
+Phase 4's last open item, and the one the phase could not have before the
+renderer's forty module-level `gc*` globals became a `gcSurface()` object
+(`cb77e2e`): the tab and the pane would have written each other's node array,
+camera, worker and hover state, and the pane would have taken the minimap, the
+legend and the labels switch with it.
+
+**One surface at `size: "pane"`, one element, two hosts.** `#graph-pane` is a
+section in `frontend/index.html` that `graphPaneFollow` moves between `#sidebar`
+on Notes and `#doc-sidebar` on Documents, rather than one pane per host: two
+panes would be two surfaces with two workers solving the same neighbourhood.
+It draws `/graph/local/{id}?depth=1` for whatever is open, which on the
+Documents tab is the first note the open document draws on (a document is not a
+node on an endpoint that walks notes). It wires none of the chrome, and a click
+on one of its notes calls `flashEntry`, the app's own "go to this note", rather
+than opening the Graph tab's popup against a canvas the reader is not looking
+at. Its colours are the tab's `colourOf` whenever the tab has drawn, so the
+same note is never two colours in one window.
+
+**How it hears that something opened.** The frontend has exactly one
+`CustomEvent` in it (an inline image), so there is no bus to subscribe to.
+`graphPaneWire` wraps `switchTab`, `flashEntry` and `openDocument` once at
+`DOMContentLoaded` and calls `graphPaneFollow` after each. The alternative was a
+poll running for the life of the page to catch three moments that announce
+themselves, and the other alternative was three edits across two files the graph
+does not own.
+
+Measured, `scratchpad/ui-sweeps/graphpane.js` at 1440x950 against a 74-node tab
+map (PASS, 0 findings):
+
+- The pane draws: box 226x176, canvas backing 226x176, 189 sampled non-blank
+  pixels, 4 labels placed. A canvas measured inside a hidden parent is 0x0 and
+  paints nothing, which is why all three are read rather than the element's
+  existence.
+- It draws the local map, not the notebook: 6 nodes and 5 edges against
+  `/graph/local`'s own 6, where the tab has 74.
+- It does not fight the tab: the tab's node count (74), edge count (73), canvas
+  (1406x811) and `graphDims` (1406x811) are identical before the pane is opened
+  and after it has drawn, `graphPaneSurface.canvas !== gcCanvas`, and the pane
+  survives a tab render.
+- It follows what is open on both surfaces: `sidebar` on Notes, `doc-sidebar`
+  on Documents, 6 notes in both, and collapsing it leaves a 0px body with
+  `aria-expanded="false"` and no sideways page scroll.
+
+Three tab-only paths gained a `size === "full"` guard while this was written,
+each of which a pane would otherwise have fired: the minimap frame on a pan, the
+link panel and node popup on a click, and the new-note form on a double click.
 
 ### From UI_MODERNISATION_PLAN.md
 

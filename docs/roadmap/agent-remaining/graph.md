@@ -183,3 +183,111 @@ right-click menu, a local-graph pane, the time slider's Play, PNG export at
 2x) and Phase 5 (the backend fields, positions on views, the `?since=`
 cursor) are all untouched, and INBOX 41's "the graph needs a utility, UI and
 interaction clean-up" points at Phase 4.
+
+## This session (2026-09-13, the graph agent)
+
+done: cb77e2e, the surface refactor (`gcSurface()`, `s = gcTab`,
+`size: "full" | "pane"`), behaviour-neutral against graph.js, graph4.js,
+graph4b.js, graphcold.js; graphhover.js and graphminimap.js fail the same
+way on the unpatched file against the same fixture, so neither is this.
+next: GRAPH Phase 4's local pane, `frontend/index.html` (#sidebar, after
+`#most-used-box`), `frontend/graph-canvas.js` (end of file),
+`frontend/css/02-chat-graph.css`; the four things to prove are in
+`scratchpad/ui-sweeps/graphpane.js`.
+
+done: 28b728d, GRAPH Phase 4's local pane (`#graph-pane`, `renderGraphPane`
+in graph-canvas.js), Phase 4 complete and its Built block in HISTORY.
+next: INBOX 185, the Show toggles. A board *is* an `Entry`
+(`routes_graph.py` line 236, no `is_board` filter), so a mind map is a node
+whether or not `include_maps` is on; `include_maps` only marks it and adds
+its edges. Entities not yet reproduced.
+
+done: b2a811b, INBOX 185 (a board is off the graph when Boards is off;
+`scratchpad/ui-sweeps/graphshow.js` is the counter, and the pane is hidden
+below 820 where `errors.js` measured the Notes sidebar at 825 inside 763).
+next: INBOX 183's graph half, `frontend/graph.js` `renderGraphPopupMedia`
+(line ~3432) and `renderGraphPopupInfo`: the image/file popup, and one line
+of help copy saying what an entity is.
+
+done: e12726f, INBOX 183's graph half (the popup draws markdown-named
+pictures and files, a file card carries its size, and one sentence says what
+an entity is in three places; `scratchpad/ui-sweeps/graphmedia.js`).
+next: graph.md's own "Open, found and not fixed" and "Not verified" lines,
+the Groups row's control-left-of-label, touch and pinch on the map at 390,
+and `gcWorldFor`'s constant at 35 and 300 notes.
+
+## The three unverified lines, measured (2026-09-13)
+
+- **The Groups row's control-left-of-label is closed**, and now has a number
+  against it rather than a claim: `graph2.js` reads the options panel at 11
+  rows, one height (30px) and one label size (13.6px), and every probe in
+  that sweep passes.
+- **Touch and pinch on the map work at 390 and at 1440**
+  (`scratchpad/ui-sweeps/graphtouch.js`, a real `hasTouch` + `isMobile`
+  context driven through CDP, because Playwright's own touchscreen API taps
+  and does not pinch). A 96x48px one-finger drag moves the camera 107.3px and
+  changes the zoom by less than 0.001; a pinch from 80px to 280px between the
+  fingers scales the map 3.5x; the canvas is `touch-action: none` and the page
+  has 0px of sideways scroll at both widths; 0 page errors.
+  **The trap this cost twenty minutes on**: the first version started the
+  drag 24px inside the canvas's top-left corner and measured 0.0px, which
+  reads exactly like "touch panning is broken". It is not. The dock floats
+  over the map, so `elementFromPoint` there is the dock and no touch event
+  reached the canvas at all. The sweep now asks the page for a point that is
+  both uncovered and free of notes before it puts a finger down.
+- **The world constant is exercised, and the code's comment about it was
+  wrong.** `gcWorldFor`'s own line said the 1.6-to-1.25 change "changes
+  nothing at all" at 35 and 300 notes because both are under the viewport
+  floor. The floor is not one number: `max(w, h) * 1.8` is 2531 on a 1440 map
+  and 1168 on a 390 one. Measured at both: at 35 notes the floor decides at
+  both widths (the count term is 680); at 300 it decides only on the desktop
+  (1992 against 2531, and 1.6 would have given 2550, 19px more), while on a
+  phone the constant shrank the world from 2550 to 1992, 22% smaller, which
+  is the direction it was changed for. Above about five hundred notes it
+  decides at every width. The comment now says all of that.
+
+## Open, found and not fixed (2026-09-13)
+
+- **The options panel scrolls again at 1440x900: 587px of list in a 484px
+  cap.** graph.md's own batch C closed this at 418 vs 418, and the sections
+  added since have reopened it. Measured per section, `graph2.js` plus a
+  probe: Physics 106, Show 143, Time 83, Groups 121, Minimap 95, Links 39.
+  Groups (which did not exist then) and Minimap (Phase 6b's position and size
+  rows) are the two that grew it; this batch's own contribution is the Show
+  section's header row, 32px where a bare label was about 20. Not fixed here
+  because which section gives way is a design call and CLAUDE.md's rule 3
+  says to record one rather than guess: the recommendation is that Groups and
+  Minimap become one collapsed `details` each, the way the Time section's
+  read-out already hides until it is wanted.
+
+## The pane arrives with the note (2026-09-13, after `errors.js`)
+
+`#graph-pane` is `hidden` until something is open, rather than sitting in the
+sidebar saying "No note open". `errors.js` measured the Notes sidebar at 968
+inside 761 at 1440 with an always-present pane, against 705 without it: the
+column has about 130px of room once Categories (424) and Most used (169) have
+had theirs, so a map of nothing cost the whole of it. The column has
+`overflow-y: auto` and scrolls either way, so this is a judgement about what
+is worth scrolling past, not a clip. The sidebar's own finding at 820 (825
+inside 763) and 390 (1010 inside 686) predates this batch and is not the
+graph's to fix.
+
+## Where this batch left the graph (2026-09-13)
+
+Every item on the brief landed. Phase 4 is complete: the lasso, the
+right-click menu, the time slider's Play and the 2x PNG export were checked
+against the running app before anything was built (`graph4.js`: 46 of 51
+selected, a five-item node menu; `graph4b.js`: 2812x1522 from a 1406x761
+live frame, Play pressed true then false), and the local pane was the one
+open item.
+
+`scripts/gate.sh --full`: lints, node-check, ruff and the whole suite green.
+`errors.js` after this batch: 0 findings at 1440, 1024 and 820, where the
+baseline had 5 at 820 (825 inside 763); 390 still carries the Notes
+sidebar's own 919 inside 686, which predates this batch and is not the
+graph's.
+
+Still open here, in order: the options panel's 587-in-484 scroll above, and
+`/graph/local` has no Show switches, so focus mode and the local pane still
+walk boards as notes (GRAPH_PLAN's "Decision made, 2026-09-13" says why that
+was left).

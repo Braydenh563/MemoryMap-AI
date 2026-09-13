@@ -211,6 +211,18 @@ measured or built in earlier commits and is marked there.
     rather than an accident. If the report recurs, the window size it was seen
     at is what will find it.
 
+    **"Still no default board type selected": a kind was selected, and the
+    wrong one.** Measured on open (`scratchpad/ui-sweeps/newboard.js`, 6
+    checks): exactly one of the two halves carried `active` and
+    `aria-pressed="true"`, filled with the accent against a transparent
+    sibling, and the button could be pressed without touching the segment. So
+    the dialog was not failing to choose. What it did was choose Board every
+    single time, which for someone building maps is a control to change on
+    every board they make. It opens on the kind last created now (remembered
+    per browser, Board when there is nothing remembered, and the Library's "New
+    mind map" still overrides it), and its button says Create rather than
+    Save.
+
 182. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), links.**
     "I want to be able to right click or hold with a touch on a link and
     have a popup show to let me copy the link address". App-wide: every

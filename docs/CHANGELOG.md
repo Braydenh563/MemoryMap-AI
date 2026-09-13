@@ -168,6 +168,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The New board dialog opens on the kind of board you made last, and its
+  button says Create rather than Save (INBOX 183).
 - The map's top bar no longer runs off the right of the window. Layout and
   Tidy moved into the tool dock's own Layout section, the board picker keeps
   a name's worth of width on a narrow window, and the Library button drops

@@ -11136,11 +11136,35 @@ async function renameCurrentBoard() {
 //: `preset` lets the Library's "New mind map" action skip straight to the map
 //: half without the dialog having to be answered twice; left alone, the dialog
 //: asks, defaulting to whatever it was told.
-async function createNewBoard(preset = "board") {
+//: **The kind the dialog opens on** (INBOX 183: "still no default board type
+//: selected"). Measured before changing anything
+//: (`scratchpad/ui-sweeps/newboard.js`): a kind *was* pre-selected, and
+//: visibly, Board filled with the accent against a transparent Mind map. What
+//: was missing is that it was always Board, so someone building maps chose Mind
+//: map on every single one. The last kind actually created is remembered here
+//: and becomes the default; an explicit `preset` (the Library's "New mind map")
+//: still wins, and a first run with nothing remembered is Board as before.
+const WB_LAST_BOARD_KIND = "wbLastBoardKind";
+
+function wbRememberedBoardKind() {
+  try {
+    const kind = localStorage.getItem(WB_LAST_BOARD_KIND);
+    return kind === "map" || kind === "board" ? kind : "board";
+  } catch (err) {
+    // Private mode, blocked site data: the default is the answer, not an error.
+    return "board";
+  }
+}
+
+async function createNewBoard(preset = null) {
   const answer = await promptDialog("Name the new board:", "", {
+    //: "Save" is what `promptDialog` says by default and it is the wrong verb
+    //: for a dialog whose whole job is to make something that does not exist
+    //: yet.
+    confirmLabel: "Create",
     segment: {
       label: "What kind of board",
-      value: preset,
+      value: preset || wbRememberedBoardKind(),
       // The icons are the same two the boards picker groups by and the Board
       // menu's Kind row uses, so the shape means the same thing everywhere.
       options: [
@@ -11160,6 +11184,11 @@ async function createNewBoard(preset = "board") {
   const name = answer?.text || "";
   const kind = answer?.choice === "map" ? "map" : "board";
   if (!name || !name.trim()) return;
+  //: Remembered on the way out, not on the click: a dialog someone dismissed
+  //: said nothing about what they want next time.
+  try {
+    localStorage.setItem(WB_LAST_BOARD_KIND, kind);
+  } catch (err) { /* see wbRememberedBoardKind */ }
   try {
     const board = await apiJson("/whiteboard/boards", {
       method: "POST",

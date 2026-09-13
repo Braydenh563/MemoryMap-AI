@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Both catalogues know about the app as it is now. "Tools and features" had 48
+  rows and the command palette 44, and between them they never mentioned
+  documents, boards, concept maps, the Library's sub-tabs, the timeline, the
+  page reader's neighbours, resurfacing, the spelling dictionary, workspaces or
+  seven of the settings sections. The browser now lists 110 rows in nine
+  groups and the palette 57 commands, and `tests/test_feature_catalog.py`
+  fails the build when a row names a tab, a section, an element id or a
+  function that does not exist.
+
 - The chat composer's attach picker shows the picture. Its Images tab was five
   checkboxes beside five generated filenames, which is not a list you can
   choose from: reported as "images just show as their names but the user might

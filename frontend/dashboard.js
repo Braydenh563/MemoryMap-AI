@@ -1067,8 +1067,14 @@ function featureCatalog() {
       { name: "Capture a thought", desc: "Save anything; the AI files it into a category and suggests tags.", run: () => { switchTab("notes"); showNotesSection("capture"); $("entry-content").focus(); } },
       { name: "Templates", desc: "Start a note from a prefilled shape (journal, recipe, meeting…).", run: () => { switchTab("notes"); showNotesSection("capture"); } },
       { name: "Improve writing", desc: "Proofread, rewrite, or condense a note with AI before saving.", run: () => { switchTab("notes"); showNotesSection("capture"); } },
+      // The writing room is a sub-tab of Notes and was in the palette but in
+      // no catalogue row, which is the shape this audit was for: a surface
+      // that shipped, got a command, and never got its line in the list of
+      // what the app can do.
+      { name: "Writing room", desc: "Turn rough thoughts into a drafted note, section by section.", run: () => { switchTab("notes"); showNotesSection("writing-room"); $("draft-thoughts")?.focus(); } },
       { name: "Sketch pad", desc: "Draw something and save it as a note with a caption.", run: () => openSketch() },
       { name: "Dictation", desc: "Speak a note; transcribed locally with Whisper.", run: () => { switchTab("notes"); showNotesSection("capture"); } },
+      { name: "Record a meeting", desc: "Transcribe a meeting or lecture as it happens, then file the notes.", run: () => { closeFeatures(); openMeetingRecorder(); } },
       { name: "Attachments", desc: "Attach files and images to any note.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
       // Beside Attachments, which is the entry a person who has files in the
       // notebook is already reading. Asked for directly: "I want an easier and
@@ -1077,26 +1083,94 @@ function featureCatalog() {
       // two answers to that, and the reader had been in neither.
       { name: "Page reader", desc: "Open a PDF or picture beside the text read from it, page by page.", run: () => { closeFeatures(); window.openPageReader?.(); } },
       { name: "Threads", desc: "Continue a thought to build a train of related notes.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
+      { name: "Note links", desc: "Type [[ to point one note at another; the link works both ways.", run: () => { switchTab("notes"); showNotesSection("capture"); } },
+      { name: "Checklists", desc: "Tick items off inside a note; the dashboard tracks what is left.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
+      { name: "Private notes", desc: "Encrypt a note so it is readable only while the app is unlocked.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
       { name: "Pins & tags", desc: "Pin important notes and organise with tags.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
       { name: "Recycle bin", desc: "Deleted notes are recoverable until the bin is cleared.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
     ]},
     { group: "Ask & chat", items: [
       { name: "Ask your notebook", desc: "Questions answered strictly from your own notes.", run: () => { switchTab("notes"); showNotesSection("ask"); $("question").focus(); } },
       { name: "Chat", desc: "A full conversation with your notebook, saved and resumable.", run: () => { switchTab("chat"); $("chat-input").focus(); } },
+      { name: "Attach to a message", desc: "Point a message at notes, documents, files, images or a map you already have.", run: () => { switchTab("chat"); $("attach-note").click(); } },
+      { name: "Saved conversations", desc: "Every chat is kept, searchable, and can be picked up later.", run: () => switchTab("chat") },
       { name: "Personas", desc: "Change the assistant's voice: Librarian, Coach, Analyst, or your own.", run: () => openSettingsModal("personas") },
       { name: "Skills", desc: "One-click requests like “Summarise my week”; can act on your notes.", run: () => openSettingsModal("skills") },
       { name: "Agent mode", desc: "Let the assistant use its tools, search your notes, open a page, create, tag, link and organise.", run: () => switchTab("chat") },
+      // The popup agent has the same capability as Chat's agent mode and is
+      // reachable from every tab, which is exactly why it needs a row: a chord
+      // nobody has been told about is not a feature anyone has.
+      { name: "Ask from anywhere", desc: "Ctrl+Shift+A opens the assistant over whatever you are working on.", run: () => { closeFeatures(); toggleAgentPalette(); } },
+      { name: "What it remembers", desc: "See and edit the facts the assistant has kept about you.", run: () => openSettingsModal("memory") },
       { name: "Web search", desc: "Optional, opt-in: the one feature that goes online.", run: () => switchTab("chat") },
       { name: "Export chat", desc: "Download a conversation as Markdown.", run: () => switchTab("chat") },
       { name: "Search relevance", desc: "How strict semantic search is about what counts as a real match.", run: () => openSettingsModal("preferences", "search-relevance-group") },
+    ]},
+    // **Documents had no rows at all**, and the editor is one of the largest
+    // surfaces in the app: blocks, an outline, breadcrumbs, a spelling and
+    // style check with its own dictionary, tables, properties, block links and
+    // embeds, version history. Every row below goes to the tab rather than
+    // driving the editor from outside it, with two exceptions that are real
+    // dialogs of their own (the dictionary and the template picker): a
+    // document-scoped action with no document open is a row that does nothing.
+    { group: "Documents", items: [
+      { name: "New document", desc: "Long-form writing in Markdown, with live formatting as you type.", run: () => { switchTab("documents"); createDocument(); } },
+      { name: "Document templates", desc: "Start from a prefilled document instead of a blank page.", run: () => { closeFeatures(); switchTab("documents"); openDocTemplateDialog(); } },
+      { name: "Blocks and the “/” menu", desc: "Type / for headings, quotes, callouts, tables, columns and embeds.", run: () => switchTab("documents") },
+      { name: "Outline", desc: "Every heading as a list you can jump around by, marking where you are.", run: () => { switchTab("documents"); showDocSidebarSection("outline"); } },
+      { name: "Breadcrumbs", desc: "The heading trail above the text says where in the document the caret is.", run: () => switchTab("documents") },
+      { name: "Find and replace", desc: "Search the document, step through matches, replace one or all.", run: () => switchTab("documents") },
+      { name: "Focus mode", desc: "Hide everything but the text you are writing.", run: () => switchTab("documents") },
+      { name: "Document properties", desc: "Title, tags and your own fields, stored as front matter at the top.", run: () => switchTab("documents") },
+      { name: "Tables", desc: "Build and edit Markdown tables without counting pipes.", run: () => switchTab("documents") },
+      { name: "Block links and embeds", desc: "Link or quote a single paragraph from anywhere, by its own short id.", run: () => switchTab("documents") },
+      { name: "Backlinks", desc: "What points at this document, from notes, maps, chats and other documents.", run: () => switchTab("documents") },
+      { name: "Spelling and style", desc: "Findings in the margin for spelling, repeated words and clumsy phrasing.", run: () => switchTab("documents") },
+      { name: "Your dictionary", desc: "Words you have taught it, so they stop being flagged everywhere.", run: () => { closeFeatures(); openDocDictionary(); } },
+      { name: "Word goal", desc: "Set a target and watch the count, reading time and structure as you write.", run: () => switchTab("documents") },
+      { name: "Version history", desc: "Earlier saves of a document, with what changed, restorable.", run: () => switchTab("documents") },
+      { name: "AI edit", desc: "Rewrite, shorten, translate or review a passage, with the change reviewable before it lands.", run: () => switchTab("documents") },
+      { name: "Export a document", desc: "Download it as Markdown, or print it to PDF with its formatting kept.", run: () => switchTab("documents") },
+    ]},
+    // Boards and maps were in the same position as Documents: built, reached
+    // from the Library's own sub-tab, and mentioned nowhere in the list of
+    // what the app does. A map is a board (see `createConceptMap`), so the two
+    // share a group rather than pretending to be separate canvases.
+    { group: "Boards, maps & drawing", items: [
+      { name: "New board", desc: "A whiteboard of cards, drawings, images and links you arrange yourself.", run: () => { closeFeatures(); switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click(); } },
+      { name: "Concept maps", desc: "A mind map made of real notes: branches, links and a reason on each connection.", run: () => { closeFeatures(); createConceptMap(); } },
+      { name: "Grow a map by keyboard", desc: "Tab adds a branch off the selected topic, Enter one beside it.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click(); } },
+      { name: "Map templates", desc: "Start a map from a shape: a decision, a project, a subject to revise.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click(); } },
+      { name: "Arrange as mind map", desc: "Re-tidy a sprawling board into a readable tree in one move.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click(); } },
+      { name: "Board overview", desc: "A miniature of the whole board, to see where you are and jump.", run: () => { closeFeatures(); if (typeof wbToggleNavigator === "function") wbToggleNavigator(true); } },
+      { name: "Find a card", desc: "Search the board you are on and step through the matches.", run: () => { closeFeatures(); if (typeof wbOpenBoardSearch === "function") wbOpenBoardSearch(); } },
+      { name: "The tool rail", desc: "Select, draw, shapes, text, links and images, grouped by what they do.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click(); } },
+      { name: "Context bar", desc: "The properties of whatever is selected, above the selection itself.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click(); } },
+      { name: "Export a board", desc: "Save the board, or just what you selected, as an image.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click(); } },
+    ]},
+    // The Library is the app's filing cabinet and had no rows either, which
+    // left six sub-tabs of real surfaces undiscoverable from here.
+    { group: "Library", items: [
+      { name: "Everything in one place", desc: "Notes, chats, documents, files and boards in one list you can filter.", run: () => switchTab("library") },
+      { name: "Your documents", desc: "Every document, with its size, when you last touched it, and a preview.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-docs"]')?.click(); } },
+      { name: "Images", desc: "Every picture in the notebook, with its caption and where it is used.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-media-kind="images"]')?.click(); } },
+      { name: "Files", desc: "PDFs and other files, with a first-page preview and what has been read from them.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-media-kind="files"]')?.click(); } },
+      { name: "Links", desc: "Bookmarks, grouped, with the page's own title and description.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-links"]')?.click(); } },
+      { name: "AI skills", desc: "The skills you can run, what each one does, and how to add your own.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-skills"]')?.click(); } },
+      { name: "Contents", desc: "A table of contents for the whole notebook, by category and tag.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-target="library-view-contents"]')?.click(); } },
+      { name: "Where a file is used", desc: "Every file says which notes, documents and boards reference it.", run: () => { switchTab("library"); document.querySelector('#library-subtabs button[data-media-kind="files"]')?.click(); } },
     ]},
     { group: "Map & discovery", items: [
       { name: "Graph view", desc: "Your notes as a network of links, threads and similarity.", run: () => switchTab("graph") },
       { name: "Edit on the map", desc: "Click any node to edit its content and tags in place.", run: () => switchTab("graph") },
       { name: "Physics controls", desc: "Gravity and Spread sliders reshape the layout.", run: () => switchTab("graph") },
       { name: "Suggested links", desc: "The AI proposes connections between related notes.", run: () => switchTab("graph") },
+      { name: "Timeline", desc: "Everything you have made, in order, as a grid or a branching line.", run: () => switchTab("timeline") },
+      { name: "Zoom the timeline", desc: "By day, week, month or year, with a jump back to today.", run: () => switchTab("timeline") },
+      { name: "Timeline bands", desc: "Group the timeline by category, tag or kind of thing.", run: () => switchTab("timeline") },
       { name: "On this day", desc: "Notes you captured on this date in past months resurface.", run: () => switchTab("dashboard") },
       { name: "Related notes", desc: "See notes that mean something similar to the one you're reading.", run: () => { switchTab("notes"); showNotesSection("browse"); } },
+      { name: "Find on this screen", desc: "Ctrl+F searches whatever tab you are looking at.", run: () => { closeFeatures(); openGlobalFind(); } },
     ]},
     { group: "Plan & focus", items: [
       { name: "Reminders", desc: "Due dates with priority, repeats, snooze and notifications.", run: () => switchTab("reminders") },
@@ -1104,6 +1178,13 @@ function featureCatalog() {
       { name: "Focus timer", desc: "Pomodoro-style timer with presets or your own minutes.", run: () => switchTab("dashboard") },
       { name: "Weekly digest", desc: "An AI recap of everything you saved this week.", run: () => switchTab("dashboard") },
       { name: "Tensions", desc: "Find where your notes contradict each other, a decision reversed, a date that moved.", run: () => openTensions() },
+      // Resurfacing had shipped on two surfaces (the sort and the widget) and
+      // was named on neither list.
+      { name: "Forgotten first", desc: "Sort your notes by what is slipping out of reach: old, unlinked, unopened.", run: () => { switchTab("notes"); showNotesSection("browse"); $("note-sort").focus(); } },
+      { name: "Rediscover", desc: "Three faded notes a day, with the reason each one surfaced.", run: () => switchTab("dashboard") },
+      { name: "Loose ends", desc: "How much of the notebook is connected, and the oldest notes that are not.", run: () => switchTab("dashboard") },
+      { name: "Unfinished", desc: "Notes with checklist items still waiting to be ticked.", run: () => switchTab("dashboard") },
+      { name: "Writing pace", desc: "How many words you have written each day this fortnight.", run: () => switchTab("dashboard") },
       { name: "Activity heatmap", desc: "A year of capture activity at a glance.", run: () => switchTab("dashboard") },
       { name: "Streaks", desc: "How many days in a row you've captured something.", run: () => switchTab("dashboard") },
     ]},
@@ -1115,7 +1196,12 @@ function featureCatalog() {
       { name: "Animated background", desc: "Aurora, constellations, blobs or particles behind the app.", run: () => openSettingsModal("appearance") },
       { name: "Accessibility", desc: "High-contrast mode and reduce-motion.", run: () => openSettingsModal("appearance") },
       { name: "Custom CSS", desc: "For tinkerers: your own style overrides.", run: () => openSettingsModal("appearance") },
+      { name: "Zoom the whole app", desc: "Ctrl with plus or minus scales every surface, and Ctrl+0 puts it back.", run: () => { closeFeatures(); nudgeZoom(1); } },
       { name: "Dashboard layout", desc: "Show, hide, reorder and widen widgets.", run: () => { switchTab("dashboard"); $("dash-edit").click(); } },
+      // Workspaces are the top-left control every tab is filtered by, and
+      // nothing in either list said they existed.
+      { name: "Workspaces", desc: "Keep work, study and home in separate notebooks that share one app.", run: () => { closeFeatures(); openSpaceCreate(); } },
+      { name: "Note templates", desc: "Edit the shapes a new note can start from, or write your own.", run: () => openSettingsModal("templates") },
     ]},
     { group: "Data & control", items: [
       { name: "Export", desc: "Download everything as JSON, Markdown or CSV.", run: () => openSettingsModal("data") },
@@ -1123,9 +1209,15 @@ function featureCatalog() {
       { name: "Backups", desc: "Snapshot your notebook and restore it later.", run: () => openSettingsModal("data") },
       { name: "Models", desc: "Choose the chat, utility and embedding models.", run: () => openSettingsModal("models") },
       { name: "AI tool permissions", desc: "Decide exactly what the assistant is allowed to do.", run: () => openSettingsModal("tools") },
+      { name: "Background tasks", desc: "What the app is doing in the background, and what it has finished.", run: () => openSettingsModal("tasks") },
+      { name: "Packages", desc: "The optional extras (OCR, speech, vision) and whether they are installed.", run: () => openSettingsModal("extras") },
+      { name: "Account & security", desc: "Change your password, and what happens when the app locks.", run: () => openSettingsModal("account") },
+      { name: "Logs", desc: "What the app and the models have been doing, in plain text.", run: () => openSettingsModal("logs") },
       { name: "Lock", desc: "Password-protect the app on shared devices.", run: () => lockNow() },
       { name: "Command palette", desc: "Ctrl/⌘-K to jump anywhere or search your notes.", run: () => { closeFeatures(); openPalette(); } },
       { name: "Keyboard shortcuts", desc: "Press ? any time for the full list.", run: () => { closeFeatures(); openShortcuts(); } },
+      { name: "Help", desc: "How the parts of the app fit together, in the app itself.", run: () => openSettingsModal("help") },
+      { name: "Updates", desc: "Which version you are on, and whether a newer one is out.", run: () => openSettingsModal("about") },
       { name: "Welcome tour", desc: "Replay the introduction to MemoryMap.", run: () => { closeFeatures(); openOnboarding(); } },
     ]},
   ];

@@ -27291,6 +27291,13 @@ function paletteCommands() {
     { label: "ph:chat-circle Go to Chat", run: () => switchTab("chat") },
     { label: "ph:graph Go to Graph", run: () => switchTab("graph") },
     { label: "ph:file-text Go to Documents", run: () => switchTab("documents") },
+    //: Two tabs the palette could not reach. The Library holds six sub-tabs of
+    //: real surfaces (documents, images, files, links, skills, contents) and
+    //: the Timeline is a top-level tab, and neither had a command: a jump list
+    //: missing two of the seven places you can be is the one kind of gap that
+    //: teaches people not to use it.
+    { label: "ph:books Go to Library", run: () => switchTab("library") },
+    { label: "ph:clock-counter-clockwise Go to Timeline", run: () => switchTab("timeline") },
     { label: "ph:alarm Go to Reminders", run: () => switchTab("reminders") },
     // Features reachable *only* from inside one surface are exactly the ones a
     // palette has to carry, or they are found by accident or not at all.
@@ -27375,6 +27382,86 @@ function paletteCommands() {
         await createNewBoard();
       },
     },
+    {
+      //: A map is a board with a name people recognise (`createConceptMap`,
+      //: whiteboard.js), and it was reachable only from the Library's own
+      //: create picker. The same argument as the board row above it.
+      label: "ph:tree-structure New concept map",
+      run: () => createConceptMap(),
+    },
+    {
+      //: The Library's sub-tabs, as commands. These are the two halves of the
+      //: file gallery, and getting to either meant three clicks through a tab
+      //: and a sub-tab strip that scrolls on a narrow window.
+      label: "ph:image Browse images",
+      run: () => {
+        switchTab("library");
+        document.querySelector('#library-subtabs button[data-media-kind="images"]')?.click();
+      },
+    },
+    {
+      label: "ph:paperclip Browse files",
+      run: () => {
+        switchTab("library");
+        document.querySelector('#library-subtabs button[data-media-kind="files"]')?.click();
+      },
+    },
+    {
+      label: "ph:link Browse links",
+      run: () => {
+        switchTab("library");
+        document.querySelector('#library-subtabs button[data-target="library-view-links"]')?.click();
+      },
+    },
+    {
+      //: The whole list of what the app can do, from the list of what the app
+      //: can do: the features browser was reachable from a dashboard button
+      //: and nowhere else, and it is the answer to "what was that thing
+      //: called", which is exactly the question the palette is opened with.
+      label: "ph:compass Tools and features",
+      run: () => {
+        closePalette();
+        openFeatures();
+      },
+    },
+    {
+      //: Resurfacing shipped as a sort and a widget and was named in neither
+      //: list. The sort is the half a person can act on: it re-ranks the notes
+      //: they are already looking at by what is slipping out of reach.
+      label: "ph:hourglass Show forgotten notes first",
+      run: () => {
+        switchTab("notes");
+        showNotesSection("browse");
+        const sort = $("note-sort");
+        sort.value = "forgotten";
+        sort.dispatchEvent(new Event("change"));
+      },
+    },
+    {
+      //: The word list the document spelling check reads, which is otherwise
+      //: only reachable from inside a suggestion popup on a flagged word, so
+      //: "what have I taught it" had no door at all.
+      label: "ph:book-bookmark Words you have taught it",
+      run: () => openDocDictionary(),
+    },
+    {
+      //: Ctrl+F is bound globally (`openGlobalFind`) and the palette is where
+      //: a person looks for a key they have forgotten.
+      label: "ph:magnifying-glass Find on this screen",
+      run: () => {
+        closePalette();
+        openGlobalFind();
+      },
+    },
+    {
+      //: Workspaces filter every tab in the app from one control in the top
+      //: left, and nothing in the palette mentioned them.
+      label: "ph:folders New workspace",
+      run: () => {
+        closePalette();
+        openSpaceCreate();
+      },
+    },
     // Filters as commands: the fastest route to "the notes I mean" without
     // remembering the operator syntax.
     ...[
@@ -27407,7 +27494,14 @@ function paletteCommands() {
     { label: "ph:palette Settings → Appearance", run: () => openSettingsModal("appearance") },
     { label: "ph:sliders Settings → Preferences", run: () => openSettingsModal("preferences") },
     { label: "ph:floppy-disk Settings → Data & backups", run: () => openSettingsModal("data") },
+    { label: "ph:brain Settings → What it remembers", run: () => openSettingsModal("memory") },
+    { label: "ph:note-blank Settings → Templates", run: () => openSettingsModal("templates") },
+    { label: "ph:shield-check Settings → Account & security", run: () => openSettingsModal("account") },
+    { label: "ph:list-checks Settings → Background tasks", run: () => openSettingsModal("tasks") },
+    { label: "ph:package Settings → Packages", run: () => openSettingsModal("extras") },
     { label: "ph:tree-evergreen Settings → Logs", run: () => openSettingsModal("logs") },
+    { label: "ph:question Settings → Help", run: () => openSettingsModal("help") },
+    { label: "ph:info Settings → About & updates", run: () => openSettingsModal("about") },
     { label: "ph:archive Back up now", run: () => { openSettingsModal("data"); backupNow(); } },
     { label: "ph:export Export markdown", run: () => downloadExport("markdown") },
     { label: "ph:circle-half Toggle light/dark", run: toggleTheme },

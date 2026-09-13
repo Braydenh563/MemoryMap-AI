@@ -331,7 +331,22 @@ if not defined MM_CHILD if "!MM_ACTION!"=="" (
 )
 REM  The seed line, so the splash has a step list to draw the moment it
 REM  opens rather than an empty panel for the first second.
-if "!MM_ACTION!"=="" call :status !MM_STEP_UPDATE! "Update" "Getting ready" "active"
+REM
+REM  **Not in the relaunched child, and that is the "3 of 5" report.** After
+REM  the update step finishes, this script re-invokes itself with MM_CHILD set
+REM  (see the update block below) so the new code runs rather than the code
+REM  that was on disk when the launch started. The child re-runs this line,
+REM  and `launch_status.summarise` keeps the *last* state written for each
+REM  step: so the parent's "Update ... done" was overwritten with "Getting
+REM  ready ... active", and the child then jumps straight past the update
+REM  block without ever writing a done for it again. The screenshot in the
+REM  report shows exactly that, Update sitting on "Getting ready" with a blue
+REM  dot while Python, Dependencies and Desktop window are all ticked: three
+REM  of five, on a launch where the update had already succeeded.
+REM
+REM  The child inherits the parent's status file and the parent already put a
+REM  real answer in it, so there is nothing to seed.
+if not defined MM_CHILD if "!MM_ACTION!"=="" call :status !MM_STEP_UPDATE! "Update" "Getting ready" "active"
 
 if /i "!MM_ACTION!"=="doctor" goto :do_doctor
 if /i "!MM_ACTION!"=="logs" goto :do_logs

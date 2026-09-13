@@ -201,3 +201,137 @@ class TestTheBarReachesTheEnd:
             "so the splash bar counts one step fewer than the total for the "
             "whole launch: " + "; ".join(untick)
         )
+
+
+class TestEveryLaunchPathFinishesItsSteps:
+    """The owner, after the first fix did not hold: *"the splash graphic still
+    only goes to 3/5, make sure it works for ALL INSTANCES, if it is running
+    normally, if there is no internet connection, if there are new dependancy
+    updates, id the app is being updated, if there is an error for some reason
+    etc"*, with a screenshot of Update sitting on "Getting ready" with a blue
+    dot while Python, Dependencies and Desktop window were all ticked.
+
+    That screenshot names the cause. `summarise` keeps the *last* state written
+    for each step, and after the update succeeds start.bat re-invokes itself
+    with `MM_CHILD` set so the new code runs. The child re-ran the seed line,
+    overwriting the parent's "Update ... done" with "Getting ready ... active",
+    then jumped past the update block without writing a done again.
+
+    Each case below is the status history a launch produces, and the assertion
+    is the same one every time: when the launcher hands over, every step before
+    Start has finished.
+    """
+
+    CASES = {
+        "normal, updated, then relaunched as the child": [
+            "1|5|Update|Getting ready|active",
+            "1|5|Update|Checking for updates on GitHub|active",
+            "1|5|Update|Up to date|done",
+            # the child re-runs: with the fix it writes no seed line at all
+            "2|5|Python|Using the existing environment|done",
+            "3|5|Dependencies|Already up to date|done",
+            "4|5|Desktop window|Ready|done",
+            "5|5|Start|Starting the app|active",
+        ],
+        "no internet": [
+            "1|5|Update|Getting ready|active",
+            "1|5|Update|Checking for updates on GitHub|active",
+            "1|5|Update|Offline, skipped|done",
+            "2|5|Python|Using the existing environment|done",
+            "3|5|Dependencies|Already up to date|done",
+            "4|5|Desktop window|Not available, using a browser tab|done",
+            "5|5|Start|Starting the app|active",
+        ],
+        "dependencies actually installed": [
+            "1|5|Update|Up to date|done",
+            "2|5|Python|Environment ready|done",
+            "3|5|Dependencies|Installing, this can take a few minutes|active",
+            "3|5|Dependencies|Installed|done",
+            "4|5|Desktop window|Ready|done",
+            "5|5|Start|Starting the app|active",
+        ],
+        "no git on the machine": [
+            "1|5|Update|Getting ready|active",
+            "1|5|Update|Skipped, git is not installed|done",
+            "2|5|Python|Using the existing environment|done",
+            "3|5|Dependencies|Already up to date|done",
+            "4|5|Desktop window|Ready|done",
+            "5|5|Start|Starting the app|active",
+        ],
+        "not a git checkout": [
+            "1|5|Update|Skipped, not a git checkout|done",
+            "2|5|Python|Using the existing environment|done",
+            "3|5|Dependencies|Already up to date|done",
+            "4|5|Desktop window|Ready|done",
+            "5|5|Start|Starting the app|active",
+        ],
+        "--no-update": [
+            "1|5|Update|Skipped, --no-update|done",
+            "2|5|Python|Using the existing environment|done",
+            "3|5|Dependencies|Already up to date|done",
+            "4|5|Desktop window|Ready|done",
+            "5|5|Start|Starting the app|active",
+        ],
+        "browser mode, four steps": [
+            "1|4|Update|Up to date|done",
+            "2|4|Python|Using the existing environment|done",
+            "3|4|Dependencies|Already up to date|done",
+            "4|4|Start|Handed over to the app|done",
+        ],
+    }
+
+    def test_every_step_before_start_is_finished_at_handover(self):
+        from memorymap.core import launch_status as ls
+
+        for name, lines in self.CASES.items():
+            rows = ls.summarise(ls.parse("\n".join(lines)))
+            unfinished = [r for r in rows if not r.done and r.title != "Start"]
+            assert not unfinished, (
+                f"{name}: these steps never finished, so the bar stops short "
+                "for the whole launch: " + ", ".join(f"{r.title} ({r.detail})" for r in unfinished)
+            )
+
+    def test_a_failure_stops_the_bar_where_it_failed(self):
+        """The one case that must *not* reach the end: a real error is the bar
+        telling the truth, and `percent` counts a failed step as not done."""
+        from memorymap.core import launch_status as ls
+
+        failed = ls.parse(
+            "\n".join(
+                [
+                    "1|5|Update|Up to date|done",
+                    "2|5|Python|Too old|failed",
+                ]
+            )
+        )
+        assert ls.percent(failed) == 20
+        assert any(row.failed for row in ls.summarise(failed))
+
+    def test_the_child_does_not_reopen_a_step_its_parent_finished(self):
+        """The regression itself, as arithmetic: the seed line in the child is
+        what took a finished launch back to three of five."""
+        from memorymap.core import launch_status as ls
+
+        rest = [
+            "2|5|Python|Using the existing environment|done",
+            "3|5|Dependencies|Already up to date|done",
+            "4|5|Desktop window|Ready|done",
+            "5|5|Start|Starting the app|active",
+        ]
+        reopened = ls.parse("\n".join(["1|5|Update|Up to date|done", "1|5|Update|Getting ready|active", *rest]))
+        assert ls.percent(reopened) == 60, "this is the reported symptom"
+        left_alone = ls.parse("\n".join(["1|5|Update|Up to date|done", *rest]))
+        assert ls.percent(left_alone) == 80
+
+    def test_the_seed_line_is_skipped_in_the_child(self):
+        """The script half, read from start.bat, because there is no Windows
+        here to run it on."""
+        from pathlib import Path
+
+        script = (Path(__file__).resolve().parents[1] / "start.bat").read_text(encoding="utf-8")
+        seed = [line for line in script.splitlines() if '"Update" "Getting ready" "active"' in line]
+        assert len(seed) == 1, f"expected one seed line, found {len(seed)}"
+        assert "if not defined MM_CHILD" in seed[0], (
+            "the seed line runs in the relaunched child again, which overwrites "
+            "the parent's finished Update step with an active one"
+        )

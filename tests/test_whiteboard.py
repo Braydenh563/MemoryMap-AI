@@ -390,6 +390,16 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         "edge_label": None,
         "edge_style": None,
         "edge_dashed": None,
+        # And with the hand-resized topic (MINDMAP_PLAN.md item 177).
+        "sized": None,
+        # And with the rest of item 177: a core idea, the bar down a topic's
+        # edge, and the thickness and arrowhead of the line into it. Named
+        # here for the reason the block above gives: this test catches a field
+        # that stops round-tripping only by naming every one of them.
+        "core": None,
+        "spine": None,
+        "edge_width": None,
+        "edge_arrow": None,
     }
 
     moved = board_client.put(

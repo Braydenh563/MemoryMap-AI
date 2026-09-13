@@ -25592,14 +25592,29 @@ function timelineScaleChoice() {
 function timelineResolvedScale(loaded) {
   const chosen = $("timeline-scale").value || timelineScaleChoice();
   if (TIMELINE_SCALES.includes(chosen)) return chosen;
-  //: "Notes in range" is the density strip's own total, not the rows loaded so
-  //: far: the view is paged now, and deciding from the first page would pick
-  //: day buckets for a three-year notebook and then re-cut every header the
-  //: moment a second page arrived. The loaded count is the fallback for a
-  //: range the endpoint sent no density for.
-  const inRange = Object.values(timelineDensity).reduce((sum, n) => sum + n, 0) || loaded;
-  if (inRange < 60) return "day";
-  if (inRange < 400) return "week";
+  //: **Days with something in them, not rows.** The number auto is really
+  //: choosing is how many headers the feed will draw, and with day buckets
+  //: that is the number of days that have anything on them: counting rows
+  //: instead only agrees with it while every day holds about one thing. It
+  //: stopped agreeing when the feed gained documents, boards and reminders
+  //: (TIMELINE_PLAN Phase 4): a week of writing with two hundred reminders
+  //: due in it is seven headers by this rule and "hundreds of rows, use
+  //: month buckets" by the old one, which buried the week in one column.
+  //:
+  //: The thresholds are the old ones, re-based: under 60 days keeps the feed
+  //: under 60 headers, and 400 days in week buckets is about 57 of them, so
+  //: both mean the same thing they always meant, "keep the headers readable".
+  //:
+  //: Counted from the density strip rather than from the loaded rows, for the
+  //: reason the old comment gives and which still holds: the view is paged,
+  //: and deciding from the first page would pick day buckets for a three-year
+  //: notebook and re-cut every header when the second page arrived. The rows
+  //: are the fallback for a range the endpoint sent no density for.
+  const activeDays = Object.entries(timelineDensity).filter(([, n]) => n > 0).length
+    || new Set(timelineRows.map((row) => timelineBucketKey(row.when, "day"))).size
+    || loaded;
+  if (activeDays < 60) return "day";
+  if (activeDays < 400) return "week";
   return "month";
 }
 
@@ -25897,8 +25912,11 @@ function paintTimelineFeed(rows) {
 
   const unit = { day: "day", week: "week", month: "month", year: "year" }[scale];
   const filtered = rows.length !== timelineRows.length;
+  //: "Items", not "notes": the feed holds documents, boards and reminders
+  //: since Phase 4, and a count line that calls a reminder a note is the same
+  //: small lie the response's `notes` key was telling until today.
   $("timeline-count").textContent = rows.length
-    ? `${filtered ? `${rows.length} of ${timelineRows.length}` : rows.length} note${
+    ? `${filtered ? `${rows.length} of ${timelineRows.length}` : rows.length} item${
         rows.length === 1 ? "" : "s"
       } · ${buckets.length} ${unit}${buckets.length === 1 ? "" : "s"}`
     : "";

@@ -68,12 +68,21 @@ green and its Built block is in `HISTORY.md` ("Moved from the plans,
    makes the feed's preview read as `{"title": ...` and looks like a product
    bug. The first run of this sweep did exactly that.
 
-7. **TIMELINE: the "auto" scale counts all four kinds as one number**
-   (`timelineResolvedScale`). A notebook with hundreds of reminders will pick
-   month buckets for a week of writing. Next step: decide whether auto should
-   count only what is on screen, which is what the reader sees, or everything
-   in range, which is what it does now. TIMELINE_PLAN section 7 already lists
-   the thresholds as a first guess.
+7. **TIMELINE: the "auto" scale counts all four kinds as one number.**
+   **Decided and done** (2026-09-13). Neither of the two options this line
+   offered: counting the loaded rows re-cuts every header when the second page
+   arrives (the reason the old comment gives), and counting everything in range
+   is the bug. What auto is really choosing is how many headers the feed will
+   draw, and with day buckets that is the number of days with something on
+   them, so that is what it counts now, from the density strip, with the old
+   thresholds re-based (under 60 days keeps the feed under 60 headers; 400 days
+   in week buckets is about 57). Measured in
+   `scratchpad/ui-sweeps/timelineauto.js`: a week of writing with 180 reminders
+   due in it reads as 7 active days and keeps day buckets, where the old rule
+   read 188 rows and chose week; the 3,240-row notebook still reads 989 active
+   days and month, 365 days reads 367 and week, 90 days reads 97 and week. The
+   count line under the dock said "188 notes" for a feed of reminders and says
+   "188 items" now.
 
 8. **WORLD_CLASS D6 is only part built.** Phase 4 gave the journal its daily
    note (a convention: a note whose first line is `# <ISO date>`) and the

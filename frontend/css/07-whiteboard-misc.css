@@ -8794,9 +8794,13 @@ input[type="file"] {
    `.wb-object-grip` above, and a grip is a texture to grab rather than a
    control to press. Giving it the button ramp's fill and lift would make it
    look like a third add button parked in the corner. */
+/* **Bottom left, not bottom right** (INBOX 177: "the 'Aa' font size button
+   placement clashes with the popup buttons"). `.wb-map-actions` hangs off
+   the node's bottom right corner, so the grip and the add/link buttons drew
+   on top of each other the moment a node was selected. */
 .wb-map-size-grip {
   position: absolute;
-  right: var(--space-1);
+  left: var(--space-1);
   bottom: var(--space-1);
   display: inline-flex;
   align-items: center;
@@ -8999,6 +9003,29 @@ input[type="file"] {
   pointer-events: none;
 }
 
+/* **A slot you can see** (INBOX 177: "fix and redesign the style of the item
+   radials in the mindmap as they are hard to see"). The slots were the
+   canvas's own tonal button on a dark board: a grey circle on a grey ground
+   with no edge. They carry the node's branch colour as a ring and an opaque
+   ground now, so the ring reads as a ring of controls around the topic
+   rather than as smudges. */
+/* Written as two classes: the slot is a `.ghost.small.icon-only` button and
+   those rules live in a later stylesheet, so a single class here would lose
+   on file order rather than on specificity (measured: the slot kept the
+   tonal button's own translucent ground). */
+.wb-map-radial .wb-map-radial-slot {
+  background: var(--modal-bg-opaque);
+  border: 1px solid color-mix(in srgb, var(--accent) 65%, transparent);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+
+.wb-map-radial .wb-map-radial-slot:hover,
+.wb-map-radial .wb-map-radial-slot:focus-visible {
+  background: color-mix(in srgb, var(--accent) 18%, var(--modal-bg-opaque));
+  border-color: var(--accent);
+}
+
 .wb-map-radial-slot {
   /* 0.7071 is cos 45 degrees: the four diagonals sit on the same circle as
      the four axes, which is what makes the ring read as a ring. */
@@ -9183,9 +9210,22 @@ input[type="file"] {
      attribute, which loses to it, so every edge on every map drew in the
      accent while the code computed a palette nobody ever saw. */
   stroke: var(--wb-map-edge-colour, var(--accent));
-  stroke-width: 2;
+  /* **A branch is a stroke you can follow** (INBOX 177: "in coggle.io the
+     links are really refined, thicker, and have a clear direction they are
+     going"). 2px at 75% on a dark board is a hairline that fades into it;
+     3px at full strength is the line Coggle draws, and the marker below
+     gives it the direction the report asks for. */
+  stroke-width: 3;
   stroke-linecap: round;
-  opacity: 0.75;
+  stroke-linejoin: round;
+  opacity: 1;
+  marker-end: url(#wb-map-arrow);
+}
+
+/* The arrowhead takes the branch's own colour: `context-stroke` is what
+   makes one marker serve every colour without a marker per branch. */
+#wb-map-arrow path {
+  fill: context-stroke;
 }
 
 /* The mid-line `+` (MINDMAP_PLAN.md §12.1 item 5). One per visible line, in

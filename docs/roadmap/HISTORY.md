@@ -24056,6 +24056,28 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     (`fda8c9d`); "more modern cool" wants a design decision (a favicon is
     a network fetch this app does not make), placed as a CHAT_PLAN row.
 
+178. **Mid-work drop, 2026-09-13 ~20:30, verbatim (the owner), the table
+    full view and the top bar (three screenshots: the full-view panel with
+    the chat card's header and the composer drawn over it; the table bar's
+    four outlined buttons; the header's five separately outlined icon
+    squares).** "the table full view is behind a lot of stuff, and I want
+    the buttons in the table to look like they are properly integrated with
+    the table panel and to have the modern look, not like separate buttons.
+    also is there a better way to modernise and improve the ui for these
+    buttons in the top bar of the application??"
+    **Fixed.** The panel is `z-index: 2400` (above every surface this app
+    draws; it was 1300, under the chat header and the dock) with the app's
+    own `--scrim` behind it and its bar sticky as the panel's title row. The
+    bar's buttons are one segmented shell with hairline seams, no border or
+    ground per button, which is the app's `.seg` grammar; the header's icon
+    buttons are two clusters of the same shape, the everyday toggles in one
+    and the two that end a session in the other, which is the split the old
+    `.header-divider` line drew. Measured
+    (`scratchpad/ui-sweeps/tablefull.js`, dark): bar gap 0 with 3 seams and
+    0px per-button borders, full view fixed at 2400 with the panel itself
+    the top element at its own head, scrim rgba(5, 7, 14, 0.6), two header
+    clusters with 0px button borders.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

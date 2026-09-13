@@ -1882,25 +1882,83 @@ body.resizing-sidebar {
   font-size: 0.75rem;
 }
 
+/* **One control, divided** (the owner: "I want the buttons in the table to
+   look like they are properly integrated with the table panel and to have
+   the modern look, not like separate buttons"). The app's own `.seg`
+   grammar: a single tinted shell, hairline dividers between the items, no
+   border or ground per button, so the group reads as part of the block's
+   head rather than as four chips dropped on it. */
 .code-actions {
   display: inline-flex;
-  gap: var(--space-1);
+  align-items: stretch;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  gap: 0;
+  padding: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+}
+
+.code-actions > .code-copy {
+  border: 0;
+  border-radius: var(--radius-inner);
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  padding-inline: var(--space-3);
+}
+
+.code-actions > .code-copy + .code-copy {
+  box-shadow: inset 1px 0 0 var(--border);
+}
+
+.code-actions > .code-copy:hover,
+.code-actions > .code-copy:focus-visible {
+  background: var(--surface-2);
+  color: var(--ink);
+  box-shadow: none;
+}
+
+.code-actions > .code-copy + .code-copy:hover,
+.code-actions > .code-copy + .code-copy:focus-visible {
+  box-shadow: inset 1px 0 0 transparent;
+}
+
+/* In full view the bar is the panel's title row: it sits still while the
+   table scrolls under it. */
+.md-table-block.is-full > .code-bar {
+  position: sticky;
+  top: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--modal-bg-opaque);
 }
 
 /* A table block in full view (INBOX 172): the same block, lifted to a
    viewport-sized panel over the page, its own scroll inside. Opaque, so it
    is not on the glass list; the same button or Escape puts it back. */
+/* **Above everything, with its own backdrop** (the owner, on the first cut:
+   "the table full view is behind a lot of stuff"). 1300 was under the chat
+   card's header and the composer dock, so the panel opened into the middle
+   of the app's furniture; 2400 is above every surface this app draws, and
+   the backdrop says the page behind it is not the thing to read. */
 .md-table-block.is-full {
   position: fixed;
   inset: 4vh 4vw;
-  z-index: 1300;
+  z-index: 2400;
   display: flex;
   flex-direction: column;
   background: var(--modal-bg-opaque);
   box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.md-table-block.is-full::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--scrim);
 }
 
 .md-table-block.is-full > .md-table-wrap {

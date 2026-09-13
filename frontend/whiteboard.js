@@ -1492,7 +1492,15 @@ function wbLinkItem(kind, id) {
 function wbLinkCandidates(excludeKind, excludeId) {
   const out = [];
   for (const n of wbState.nodes) out.push(["node", n]);
-  for (const o of wbState.objects || []) if (o.kind === "text") out.push(["object", o]);
+  //: Map topics count too (INBOX 177: "one of my mindmap nodes isnt linked to
+  //: anything, so I tried to use the link tools like the curbved link tools
+  //: and they didnt work"). A topic is an object like a text box is; only
+  //: `kind === "text"` was offered, so on a mind map the link tools found
+  //: nothing to start from and nothing to land on, which reads as the tool
+  //: being broken.
+  for (const o of wbState.objects || []) {
+    if (o.kind === "text" || WB_MAP_KINDS.has(o.kind)) out.push(["object", o]);
+  }
   for (const sk of wbState.sketches || []) {
     const parsed = wbSketchParsedData(sk);
     if (!parsed || (parsed.type || "").startsWith("link-")) continue;

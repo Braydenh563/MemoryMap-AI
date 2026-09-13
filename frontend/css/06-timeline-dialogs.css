@@ -2007,6 +2007,47 @@
   background: var(--border);
 }
 
+/* **The header's icon buttons, as two clusters** (the owner, with a
+   screenshot of five separately outlined squares: "is there a better way to
+   modernise and improve the ui for these buttons in the top bar"). One
+   tinted shell per group with a hairline between the items, which is the
+   same segmented grammar the chat dock and the answer blocks' bars use, and
+   it keeps the meaning the old divider carried: the everyday toggles in one
+   group, the two that end a session in the other. */
+.header-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  padding: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+}
+
+.header-cluster-end {
+  margin-left: var(--space-2);
+}
+
+.header-cluster > button,
+.header-cluster > .notif-wrap > button {
+  border: 0;
+  border-radius: var(--radius-inner);
+  background: transparent;
+  box-shadow: none;
+}
+
+.header-cluster > * + *:not(.hidden),
+.header-cluster > .notif-wrap + button {
+  box-shadow: inset 1px 0 0 var(--border);
+}
+
+.header-cluster > button:hover,
+.header-cluster > button:focus-visible,
+.header-cluster > .notif-wrap > button:hover,
+.header-cluster > .notif-wrap > button:focus-visible {
+  background: var(--surface-2);
+  box-shadow: none;
+}
+
 #quit-btn:hover {
   border-color: var(--error);
   color: var(--error);

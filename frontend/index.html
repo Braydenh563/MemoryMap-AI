@@ -192,6 +192,14 @@
            is where they persist once that moment has passed. The count is a
            state worth having at a glance, which is the test §36D sets for
            anything that earns a permanent place in the chrome. -->
+      <!-- **Two clusters, not five loose squares** (the owner: "is there a
+           better way to modernise and improve the ui for these buttons in
+           the top bar"). Each cluster is one tinted shell with hairline
+           dividers, the same grammar the chat dock's segments and the table
+           block's bar use; the everyday toggles are one group and the two
+           that end a session are another, which is the split the old
+           `.header-divider` drew with a line. -->
+      <span class="header-cluster">
       <span class="notif-wrap">
         <button id="notif-btn" class="ghost small icon-only" title="Notifications"
           aria-label="Notifications" aria-expanded="false"
@@ -261,7 +269,8 @@
       </span>
       <button id="theme-btn" class="ghost small icon-only" title="Toggle light/dark" aria-label="Toggle light or dark theme"><i class="ph ph-circle-half" aria-hidden="true"></i></button>
       <button id="settings-btn" class="ghost small icon-only" title="Settings" aria-label="Settings"><i class="ph ph-gear" aria-hidden="true"></i></button>
-      <span class="header-divider" aria-hidden="true"></span>
+      </span>
+      <span class="header-cluster header-cluster-end">
       <!-- Lock and Quit are the two that END your session, so they sit together
            past the divider, away from the everyday toggles. Locking beside the
            theme button is how you reach for light mode and get a password
@@ -269,6 +278,7 @@
       <button id="lock-btn" class="ghost small icon-only hidden" title="Lock the app" aria-label="Lock the app"><i class="ph ph-lock" aria-hidden="true"></i></button>
       <button id="quit-btn" class="ghost small icon-only" title="Quit MemoryMap: stops the app and its server"
         aria-label="Quit MemoryMap"><i class="ph ph-power" aria-hidden="true"></i></button>
+      </span>
     </div>
   </header>
 
@@ -4065,6 +4075,16 @@
     <div class="whiteboard-container" id="whiteboard-container" tabindex="-1">
       <!-- The SVG layer for drawing, fills the container -->
       <svg id="wb-svg-layer" class="wb-svg-layer">
+        <!-- One arrowhead for every mind map branch (INBOX 177: "a clear
+             direction they are going"). `context-stroke` in the stylesheet
+             gives it the branch's own colour, so one marker serves the whole
+             palette; `orient="auto"` turns it along the curve's own end. -->
+        <defs>
+          <marker id="wb-map-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3"
+            orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0.6 L6,3 L0,5.4 Z"></path>
+          </marker>
+        </defs>
         <g id="wb-zoom-group">
           <g id="wb-shapes-group"></g>
           <g id="wb-lines-group"></g>

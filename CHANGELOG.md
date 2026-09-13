@@ -181,6 +181,10 @@ below). Versioning is `0.x` while the app stabilises.
 - A table the AI writes can be taken away: Copy (for a spreadsheet),
   Markdown, CSV (saved like any export) and a Full view that lifts the table
   into a window-sized panel; code blocks gain Save beside Copy.
+- The full view of a table opens above the app rather than behind its
+  chrome, over a dimmed page, with its actions as one segmented control
+  instead of four loose buttons; the header's icon buttons are grouped the
+  same way, everyday toggles in one cluster and lock/quit in the other.
 
 - The lock screen could fail to appear on a slow first start. The embedding
   warm-up began importing torch the instant the server was up, and that import

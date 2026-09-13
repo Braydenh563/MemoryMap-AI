@@ -2171,3 +2171,30 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .library-image-grid:has(.library-image-card-fold[open]) .library-image-tile {
   align-self: start;
 }
+
+/* --- the help popover is a popover, not a page (INBOX 206) -----------------
+   Reported with a screenshot of the capture box's '?' running the whole
+   height of the window: "the note capture tooltip popup takes up the height
+   of the screen".
+
+   Two rules were fighting and the wrong one won. `.help-popover` declares
+   `max-height: min(24rem, 70vh)` where it is defined
+   (`03-dashboard-widgets.css`), and then joins the shared floating-surface
+   list in `07-whiteboard-misc.css` whose job is "a menu taller than the
+   viewport must still reach its last item": that list sets
+   `max-height: calc(100vh - var(--space-9) * 2)`, which at 900px is 836px, and
+   it is a later file at the same specificity, so it silently replaced the
+   popover's own ceiling with very nearly the window.
+
+   The list's rule is right for a menu, whose items are the content and which
+   has nowhere else to put them. A help popover's content is prose with a
+   scrollbar, so its ceiling is a reading measure rather than the window: 32rem
+   (512px), or 60vh on a short window, whichever is smaller. This file, because
+   it is the one that comes after 07 and because the two rules it reconciles
+   both belong where they are.
+
+   `--help-caret-x` and the scroll behaviour are untouched; only the ceiling
+   moves. */
+.help-popover {
+  max-height: min(60vh, 32rem);
+}

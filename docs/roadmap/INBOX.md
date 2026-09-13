@@ -86,19 +86,6 @@ measured or built in earlier commits and is marked there.
     button with a tooltip, or a menu item, not a two-line pill. Owner:
     chrome agent, with 205.
 
-206. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the help
-    popovers (screenshot: the capture box's '?' popover running the full
-    height of the window, "A note is plain text. These few things do
-    something extra:" through the callouts bullet, with a scrollbar).** "the
-    note capture tooltip popup takes up the height of the screen. and popups
-    still flicker for a split second at the top left and then appear in the
-    right place :(". Two things: the `data-help-for` popover's height (cap
-    it and let it scroll, or cut the copy: standing order 6 says one line
-    per section and the long help behind the '?', but a popover is not a
-    page); and the first-frame flash at 0,0 before placement, which is the
-    popover being shown before it is positioned (measure the first painted
-    rect after `hidden` is removed). Owner: orchestrator.
-
 205. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the popup
     agent.** "the '?' tooltip dropdown in the popup agent shows behind the
     panel instead of in front. and I want you to improve and redesign the

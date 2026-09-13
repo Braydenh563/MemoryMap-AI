@@ -24979,6 +24979,42 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     is `#theme-btn` under the pointer that had just switched the theme, which
     is the hover tint.
 
+206. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the help
+    popovers (screenshot: the capture box's '?' popover running the full
+    height of the window, "A note is plain text. These few things do
+    something extra:" through the callouts bullet, with a scrollbar).** "the
+    note capture tooltip popup takes up the height of the screen. and popups
+    still flicker for a split second at the top left and then appear in the
+    right place :(". Two things: the `data-help-for` popover's height (cap
+    it and let it scroll, or cut the copy: standing order 6 says one line
+    per section and the long help behind the '?', but a popover is not a
+    page); and the first-frame flash at 0,0 before placement, which is the
+    popover being shown before it is positioned (measure the first painted
+    rect after `hidden` is removed). Owner: orchestrator.
+    **Fixed.** The height was two rules fighting: `.help-popover` declares
+    `min(24rem, 70vh)` where it is defined, then joins the shared
+    floating-surface list in `07-whiteboard-misc.css`, whose
+    `max-height: calc(100vh - var(--space-9) * 2)` is right for a menu and
+    replaced the popover's ceiling with 836px of a 900px window. The ceiling
+    is `min(60vh, 32rem)` in `08-consistency.css` now, after both.
+    Measured (`scratchpad/ui-sweeps/chromehelp.js`, `chrome206.js`): the
+    capture popover is 512px at 1440x900 (was 751px), 420px at 1024x700 and
+    506px at 390x844, each the computed cap, each scrolling its 749px of
+    content, and inside the window at all three.
+    **The flash was not reproduced and is now impossible rather than
+    unlikely.** The first painted rect after the open is the final rect in
+    every run at every size (1440x900: 984,195; 1024x700: 571,207; 390x844:
+    16,231), because the click places the panel in the same task that shows
+    it. `wireHelpPopover` sets `visibility: hidden` before removing `hidden`
+    all the same, so the reveal can only come from the line in
+    `placeHelpPopover` that runs after `left`/`top` are written; the
+    invariant is local now rather than a property of the order of two
+    statements. **Found while measuring, and fixed with it:** at 390 the
+    popover was clamped to its card and ran 41px past the right edge of the
+    screen (x=73, body 358px, window 390px), because a card narrower than the
+    popover makes the surface clamp resolve to the card's left edge. The
+    viewport is the hard bound now: x=16 at 390, right edge 374.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

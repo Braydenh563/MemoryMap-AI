@@ -68,7 +68,13 @@ async function firstFrameRect(page, triggerSel, panelId) {
   console.log('207 chrome:', JSON.stringify(chrome));
 
   // --- 206: the capture box's '?' ------------------------------------------
-  await page.click('#tab-bar button[data-tab="capture"]').catch(() => {});
+  await page.click('#tab-bar button[data-tab="notes"]');
+  await page.waitForTimeout(400);
+  //: Capture is a SECTION of the Notes tab, not a tab: clicking a tab
+  //: selector that matches nothing leaves the trigger in a hidden tab page,
+  //: whose rect is all zeroes, and the popover then measures its own
+  //: unmeasured-anchor fallback (8,10) rather than a real placement.
+  await page.click('#notes-subtabs button[data-section="capture"]');
   await page.waitForTimeout(400);
   const capture = await firstFrameRect(page, '#capture-help', 'capture-help-hint');
   console.log('206 capture help:', JSON.stringify(capture));

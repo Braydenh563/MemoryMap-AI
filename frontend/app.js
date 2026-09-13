@@ -3194,6 +3194,16 @@ function placeHelpPopover(panel, trigger, retry = true) {
     : window.innerWidth - margin - box.width;
   let left = anchor.left + anchor.width / 2 - box.width / 2;
   left = Math.min(Math.max(left, minLeft), Math.max(minLeft, maxLeft));
+  //: **The window is the hard bound, the surface is the preference** (INBOX
+  //: 206, measured at 390x844: the capture popover sat at x=73 with a 358px
+  //: body and ran 41px past the right edge of the screen). When the surface
+  //: is narrower than the popover plus its margins, which is every card on a
+  //: phone, `maxLeft` falls below `minLeft` and the clamp above resolves to
+  //: `minLeft`, the card's own left edge, with nothing left to stop the
+  //: right-hand side leaving the window. Clamping to the viewport last cannot
+  //: make the surface fit worse: it only ever pulls the panel back towards
+  //: the middle of the screen.
+  left = Math.min(Math.max(left, margin), Math.max(margin, window.innerWidth - margin - box.width));
   let top = anchor.bottom + 10;
   let above = false;
   if (top + box.height > window.innerHeight - margin) {
@@ -3236,6 +3246,10 @@ function wireHelpPopover(trigger, panel) {
       panel.classList.remove("help-popover", "help-popover-above");
       panel.style.left = "";
       panel.style.top = "";
+      //: Cleared with the rest of the inline placement: an element left
+      //: `visibility: hidden` in its home tree is an element some other
+      //: feature will one day show and find invisible.
+      panel.style.visibility = "";
       if (homeParent) homeParent.insertBefore(panel, homeNext);
       trigger.setAttribute("aria-expanded", "false");
     },
@@ -3245,6 +3259,16 @@ function wireHelpPopover(trigger, panel) {
     homeParent = panel.parentElement;
     homeNext = panel.nextSibling;
     document.body.appendChild(panel);
+    //: **Hidden before it is shown, revealed only by the placement**
+    //: (INBOX 206: "popups still flicker for a split second at the top left
+    //: and then appear in the right place"). Removing `hidden` first and
+    //: placing afterwards is safe only while nothing between the two can
+    //: yield to the compositor, which is true of this function today and is
+    //: not a property anyone editing it can see. Setting `visibility` here
+    //: makes the invariant local: the panel is laid out, so it can be
+    //: measured, and the only line that can make it visible is the one in
+    //: `placeHelpPopover` that runs after `left`/`top` are written.
+    panel.style.visibility = "hidden";
     panel.classList.remove("hidden");
     // `.setting-hint`'s own collapsed state is a max-height animation, not a
     // `hidden` class: an inline hint has to be un-collapsed as well, or the

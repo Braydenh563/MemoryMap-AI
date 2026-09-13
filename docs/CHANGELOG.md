@@ -9,6 +9,18 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Every note editor in the app is the same editor. The capture box, the note
+  edit form, the graph's node popup and new-note box and the two Write-with-AI
+  panes mount the document editor's engine on their first focus: markdown that
+  renders as you write, the same Ctrl+B / Ctrl+I / Ctrl+E / Tab chords, the
+  same "/" menu and the same toolbar, with the textarea still underneath as
+  the value every save path reads and as the fallback if the engine cannot
+  load. Measured with `scratchpad/ui-sweeps/notesurface.js`, 22 of 22 checks
+  and 0 console errors: six boxes mounted, the typed text in the textarea
+  under each, bold from the toolbar and from the keyboard, the "/" menu with
+  14 commands in a note, and a script clearing the box clearing the view with
+  it.
+
 - A phone gets the formatting it can reach. Below 600px the documents editor
   carries a bar at the bottom edge with bold, italic, heading, list, task,
   link and the "/" menu, sized for a thumb and riding above the on-screen

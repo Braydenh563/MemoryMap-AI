@@ -6507,6 +6507,69 @@ keyboard half. Headless Chromium has no soft keyboard, so `--keyboard-inset` is
 0px in every measurement here and what the bar does when a keyboard opens is
 reasoned, not observed.
 
+### Built, Phase 8a and 8b: one editor everywhere, 2026-09-13
+
+`noteSurface(host, options)` over the Phase 2 adapter, and six boxes on it:
+the capture box, the note edit form, the graph's node popup and new-note box,
+and Write with the AI's draft and thoughts panes. Each had its own feature set
+before; each has the engine now, on its first focus.
+
+**The textarea stays, and every decision here follows from that.** It is the
+form's value carrier, the thing every existing handler and test holds, and the
+fallback when the bundle cannot load. So the view is mounted beside it and the
+two are kept in step *in both directions*: the view mirrors its text into the
+textarea and raises the `input` event the draft save, the character count and
+the autosize all hang off, and a script that writes `box.value` (saving a note
+clears the capture box) is pushed back into the view through an own-property
+setter installed on that one element. `box.setSelectionRange(6, 11)` followed
+by "make that bold" is the same shape and needed the same treatment: without
+it the action ran against the view's own caret, and bold arrived at position 0
+with its placeholder text instead of around the word.
+
+**Laid over the view at zero opacity, not hidden.** `display: none` takes two
+things away silently: `setSelectionRange` on an unrendered textarea, and every
+popup that positions itself from the textarea's own rectangle (app.js's `[[`
+suggest). Over the view, its rectangle is the editor's rectangle: measured,
+box left/top 319/286.4 against the wrapper's 318/285.4.
+
+**Three things the document's own configuration got wrong in a note box**, all
+found by measuring rather than by reading:
+- `docCmKeymap` is written against `doc-content`, so Ctrl+B in a note would
+  have emboldened a word in whatever document was last open and Ctrl+S saved
+  it. `noteSurfaceKeymap(host)` is the same actions with this box named, minus
+  the find panel and the save a note does not have.
+- The theme's `&` sets `height: 100%` and `.cm-content` carries `40vh` of
+  "scroll past the end" padding. In the capture box that rendered three short
+  lines as 446px of content and grew the composer from 290px to 562px. The
+  overrides are in `09-editor.css` at two classes plus one, because
+  CodeMirror's constructed stylesheets sort after every document stylesheet
+  and only specificity can win that argument.
+- The app binds single characters as global shortcuts ("/" focuses search) and
+  a contenteditable is not a textarea, so `docGuardGlobalShortcuts` has to be
+  put on the note view's own content DOM as well. Measured without it: typing
+  "/" in a note put no slash in the note.
+
+**What a note does not get**, and it is the plan's own option rather than an
+omission: the findings plugin. `docProseFound` holds the *document's* findings
+at the document's offsets; drawn over a note it would underline whatever words
+sat at those positions.
+
+Measured, `scratchpad/ui-sweeps/notesurface.js`, 22 of 22 with 0 console
+errors: the engine mounts on the first focus and the caret lands in it, the
+textarea carries what was typed, `asSurface` resolves it to the view
+(codemirror/entry-content), Live renders (`**markdown**` drawn bold with the
+marks hidden), Ctrl+B and the capture toolbar both write into the view, the
+"/" menu opens with 14 commands, clearing the textarea clears the view, the
+edit form mounts the `inline` size, and the four 8b boxes mount with Live on
+for the draft and off for the thoughts pane. `cm-notes.js`, `cm-editor.js` and
+`cm-live.js` all still pass.
+
+`tests/test_note_surface.py` is the lint the plan names: a note textarea is in
+`NOTE_SURFACES` or in the test's own list of boxes that are not note editors,
+with the reason; the factory keeps both directions of the mirror; the recipe
+keeps its three rules; and a note surface may not reach the document's change
+handlers or its findings.
+
 ### From UI_MODERNISATION_PLAN.md
 
 ### Built, Phase 9's tablet remainder and Phase 10 items 100, 101 and 103, 2026-09-09

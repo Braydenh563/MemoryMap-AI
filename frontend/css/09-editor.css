@@ -745,3 +745,78 @@
     padding-bottom: 56px;
   }
 }
+
+/* =============================================================================
+   The note surface (DOCUMENTS_PLAN Phase 8): one editor everywhere
+   =============================================================================
+
+   The engine mounted beside a note textarea. Three sizes and nothing else
+   differs: `inline` for a card's edit box, `box` for capture and the popups,
+   `page` for the document, which keeps its own layout above.
+
+   **The textarea is still here, laid over the view at zero opacity.** It is
+   the form's value carrier and the fallback, and every popup that positions
+   itself from its rectangle (app.js's `[[` suggest) needs that rectangle to
+   be the editor's. `display: none` would take both away, silently, which is
+   this project's own "a policy refusing the work" shape. */
+.note-surface {
+  position: relative;
+  display: block;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--input-bg);
+  overflow: hidden;
+}
+
+.note-surface:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* **Three rules that have to out-specify the library, and one that has to
+   out-specify the document's own theme.** CodeMirror styles itself from
+   constructed stylesheets that sort after every document stylesheet (the note
+   at the top of this file), so order cannot win here and specificity has to:
+   the theme's rules are one class on the editor plus one on the part, and
+   these are two plus one.
+
+   What they undo is the document editor's own shape, which is wrong for a box
+   in a form. Measured on the capture box, before: the view took `height: 100%`
+   and the content carried `40vh` of "scroll past the end" padding, so three
+   short lines rendered 446px of content in what had been a 176px box and the
+   composer grew from 290px to 562px. */
+.note-surface .cm-editor {
+  height: auto;
+}
+
+.note-surface .cm-editor .cm-content {
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+
+/* A note that runs long scrolls inside its own box rather than pushing the
+   save button off the screen. */
+.note-surface-inline .cm-editor .cm-scroller {
+  min-height: 5rem;
+  max-height: 18rem;
+}
+
+.note-surface-box .cm-editor .cm-scroller {
+  min-height: 9rem;
+  max-height: 22rem;
+}
+
+/* Laid over the view rather than hidden: same box, no ink, no pointer, out of
+   the tab order (the mount sets `tabindex="-1"` as well, because a stylesheet
+   cannot). */
+.note-surface > textarea.note-surface-mirror {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+  resize: none;
+}

@@ -343,7 +343,13 @@ function textareaSurface(el) {
 //: which is what gives the editor one undo history for the whole document
 //: instead of one per box: the thing PLAN D3's hand-rolled stack existed to
 //: work around.
-function cmSurface(view) {
+//: `meta` is what a *note* surface needs and the document does not: its own
+//: id (`EDITOR_SURFACES` keys the "/" menu's context off it, and half the app
+//: asks a surface what it is), and its own change handlers, because
+//: `docSurfaceChangeHandlers` is the document's autosave pipeline and a note
+//: box must not reach it. Absent, this is the document's own surface exactly
+//: as it was (DOCUMENTS_PLAN Phase 8).
+function cmSurface(view, meta = null) {
   const cached = docSurfaceCache.get(view);
   if (cached) return cached;
   const setRange = (from, to, insert, select) => {
@@ -360,8 +366,8 @@ function cmSurface(view) {
   const surface = {
     get el() { return view.contentDOM; },
     kind: "codemirror",
-    id: "doc-content",
-    isDocument: true,
+    id: meta ? meta.id : "doc-content",
+    isDocument: meta ? false : true,
     view,
     get scrollEl() { return view.scrollDOM; },
     get text() { return view.state.doc.toString(); },
@@ -414,7 +420,7 @@ function cmSurface(view) {
       setRange(from, to, text, select);
     },
     replaceRange(from, to, text) { setRange(from, to, text, null); },
-    onChange(fn) { docSurfaceChangeHandlers.push(fn); },
+    onChange(fn) { (meta ? meta.changeHandlers : docSurfaceChangeHandlers).push(fn); },
     coordsAt(pos) {
       const at = view.coordsAtPos(Math.max(0, Math.min(pos, view.state.doc.length)));
       if (!at) {
@@ -476,7 +482,11 @@ function docText() {
 //: reaches CodeMirror once it is mounted.
 function docSurfaceById(id) {
   if (id === "doc-content") return docSurface();
-  return textareaSurface($(id));
+  //: A note box that has mounted the engine (Phase 8) answers as its view for
+  //: the same reason: the toolbar above it must write where the words are.
+  const box = $(id);
+  const mounted = typeof noteSurfaceFor === "function" ? noteSurfaceFor(box) : null;
+  return mounted || textareaSurface(box);
 }
 
 //: Did this event come from inside the CodeMirror view? Asked in a handful of
@@ -492,6 +502,13 @@ function asSurface(box) {
   if (!box) return null;
   if (box.kind === "textarea" || box.kind === "codemirror") return box;
   if (docCmView && box instanceof Node && docCmView.dom.contains(box)) return docSurface();
+  //: A note editor that has mounted the engine (Phase 8): the textarea is
+  //: still the form's value carrier and still the thing every caller holds,
+  //: so it has to resolve to the view that is editing for it. Both
+  //: directions, because a click lands in the view's own DOM and a handler
+  //: holds the textarea.
+  const mounted = typeof noteSurfaceFor === "function" ? noteSurfaceFor(box) : null;
+  if (mounted) return mounted;
   return box instanceof HTMLTextAreaElement ? textareaSurface(box) : null;
 }
 // DOC-SURFACE-END
@@ -5895,7 +5912,11 @@ function docLivePlugin(CM) {
           //: own.
           if (r === 0 && inTable) {
             const cell = docTableCellAt(table, sel.from) || { row: 0, col: 0 };
-            const context = { surface: docSurface(), text: source(), table, cell };
+            //: The *view's* own surface, not the document's: this plugin is
+            //: mounted in every note editor too (Phase 8), and a menu that
+            //: edited `doc-content` from inside a note would write into
+            //: whatever document happened to be open.
+            const context = { surface: asSurface(view.contentDOM) || docSurface(), text: source(), table, cell };
             ranges.push(
               Decoration.widget({
                 widget: new DocTableMenuWidget(`${table.from}:${cell.row}:${cell.col}:${table.columns}`, context),
@@ -8778,6 +8799,346 @@ function openDocPhoneInsert() {
 }
 
 $("doc-phone-insert").addEventListener("click", openDocPhoneInsert);
+
+// NOTE-SURFACE-BEGIN
+//: =========================================================================
+//: One editor everywhere (DOCUMENTS_PLAN Phase 8)
+//: =========================================================================
+//:
+//: The owner: "anywhere there is a note related capture, edit or view area
+//: with a text box to integrate features similar to the documents upgrade.
+//: The editors need to be consistent in form and function." Before this, five
+//: note editors had five feature sets, and only the document had the engine.
+//:
+//: **The textarea stays.** It is the form's value carrier, the thing every
+//: existing handler, save path and test holds, and the fallback if the bundle
+//: never loads. What changes is that a CodeMirror view is mounted beside it
+//: and the two are kept in step in both directions: the view's text is
+//: mirrored into the textarea (with an `input` event, because the draft save,
+//: the character count and the autosize all hang off one), and a script that
+//: writes `box.value` is pushed back into the view through an own-property
+//: setter on that one element. Without that second direction a note saved
+//: from the capture box would clear the textarea and leave the words on
+//: screen.
+//:
+//: **The textarea is not hidden, it is laid over the view at zero opacity.**
+//: `display: none` would have been simpler and wrong in two ways that only a
+//: browser shows: `setSelectionRange` on an unrendered textarea is a no-op in
+//: some engines, and every popup that positions itself off the textarea's own
+//: rectangle (app.js's `[[` suggest is the one that matters) would open at
+//: 0,0. Laid over the view, its rectangle is the editor's rectangle and its
+//: selection is real.
+//:
+//: **Mounted on the first focus**, once per element: a capture box that
+//: nobody clicks costs nothing, and the bundle is fetched once per page
+//: whichever surface asks for it first.
+const NOTE_SURFACE_DEFAULTS = { size: "box", live: true };
+
+//: The note editors, by the id of their textarea. A table rather than a call
+//: at each site, because three of these boxes are built in script in another
+//: file and a delegated focus listener reaches those the same way it reaches
+//: the ones in the page. `tests/test_note_surface.py` is the lint that a note
+//: textarea is in here.
+const NOTE_SURFACES = {
+  //: Capture, the most used text box in the app.
+  "entry-content": { size: "box", live: true },
+  //: The note edit form (`renderEditForm`), rebuilt per edit, which is why
+  //: the listener is delegated rather than bound at boot.
+  "entry-edit-content": { size: "inline", live: true },
+  //: The graph's own two note boxes (Phase 8b): the node popup's editor and
+  //: the new-note box beside it. Both are note text, and both had a bare
+  //: textarea.
+  "graph-popup-content": { size: "box", live: true },
+  "graph-new-content": { size: "box", live: true },
+  //: Write with the AI (Phase 8b). The draft is note text and gets Live; the
+  //: thoughts pane above it is a scratch pad for what you want to say, so it
+  //: gets the engine (undo, the "/" menu, one behaviour) without the
+  //: rendering, which is the plan's own split.
+  "draft-text": { size: "box", live: true },
+  "draft-thoughts": { size: "box", live: false },
+};
+
+//: element -> view. Weak, because the edit form's textarea is thrown away and
+//: rebuilt on every edit and a strong map would hold every one of them.
+const noteSurfaceViews = new WeakMap();
+let noteSurfaceMirroring = false;
+
+//: The surface for a note editor, given its textarea or any node inside its
+//: view. Null for anything that has not mounted, which is what keeps
+//: `asSurface` falling back to the textarea adapter.
+function noteSurfaceFor(box) {
+  if (!box) return null;
+  if (box instanceof HTMLTextAreaElement) {
+    const view = noteSurfaceViews.get(box);
+    return view ? cmSurface(view, noteSurfaceMeta(box)) : null;
+  }
+  if (box instanceof Node && box.nodeType === 1 && box.closest) {
+    const wrap = box.closest(".note-surface");
+    if (wrap && wrap.noteSurfaceHost) return noteSurfaceFor(wrap.noteSurfaceHost);
+  }
+  return null;
+}
+
+//: Built once per host and kept on the element, so `cmSurface`'s own cache
+//: (keyed by the view) never sees two different identities for one view.
+function noteSurfaceMeta(host) {
+  if (!host.noteSurfaceMeta) {
+    host.noteSurfaceMeta = { id: host.id, changeHandlers: [] };
+  }
+  return host.noteSurfaceMeta;
+}
+
+//: What the engine gives a note box. Deliberately smaller than the document's
+//: set: no gutter, no folding, no find panel, no autosave, no typewriter.
+//: What it shares is everything the owner's "consistent in form and function"
+//: is about, the Live decorations, the markdown grammar, undo, the selection,
+//: and this app's own theme and chords.
+function noteSurfaceExtensions(CM, host, options) {
+  return [
+    options.live ? docLiveExtensions(CM) : [],
+    //: **No findings plugin here, and that is the option the plan names
+    //: rather than an omission.** `docProseFound` is the *document's* list of
+    //: prose findings, at the document's offsets; drawn over a note it would
+    //: underline whatever words happened to sit at those positions. The
+    //: checker for note text is its own piece of work (Phase 8's `findings`
+    //: option), not a plugin reused at the wrong offsets.
+    CM.view.EditorView.lineWrapping,
+    //: The GitHub dialect, the same call the document makes: `markdown()`
+    //: alone is commonmark and every tree-based decoration (bold, headings,
+    //: task boxes) would silently draw nothing.
+    docCmLanguageFor(CM, "md"),
+    CM.view.highlightSpecialChars(),
+    CM.commands.history(),
+    CM.view.drawSelection(),
+    CM.view.dropCursor(),
+    CM.language.indentOnInput(),
+    CM.language.syntaxHighlighting(CM.language.defaultHighlightStyle, { fallback: true }),
+    CM.language.bracketMatching(),
+    docCmTheme(CM),
+    docCmHighlight(CM),
+    CM.view.placeholder(host.placeholder || ""),
+    //: This app's chords first, so Ctrl+B is bold in a note for the same
+    //: reason it is bold in a document.
+    CM.view.keymap.of([
+      ...noteSurfaceKeymap(host),
+      ...CM.commands.historyKeymap,
+      ...CM.commands.defaultKeymap,
+    ]),
+    CM.view.EditorView.updateListener.of((update) => noteSurfaceUpdate(host, update)),
+  ];
+}
+
+//: **The document's chords, aimed at this box.** `docCmKeymap` cannot be
+//: reused as it is: every one of its entries is written against
+//: `doc-content`, so Ctrl+B in a note would have emboldened a word in
+//: whatever document was last open, and Ctrl+S would have saved it. The
+//: helpers underneath all take a box id or a surface already, so this is the
+//: same four actions with this box named. Ctrl+S and Ctrl+F are deliberately
+//: absent: a note has no find panel and saving one is the form's business,
+//: which the app's own global chord already handles.
+function noteSurfaceKeymap(host) {
+  const surface = () => noteSurfaceFor(host) || textareaSurface(host);
+  return [
+    {
+      key: "Tab",
+      run: () => {
+        indentDocSelection(surface(), false);
+        return true;
+      },
+    },
+    {
+      key: "Shift-Tab",
+      run: () => {
+        if (!docCanOutdent(surface())) return false;
+        indentDocSelection(surface(), true);
+        return true;
+      },
+    },
+    { key: "Mod-b", run: () => { wrapDocSelection("**", "bold text", host.id); return true; } },
+    { key: "Mod-i", run: () => { wrapDocSelection("*", "italic text", host.id); return true; } },
+    { key: "Mod-e", run: () => { wrapDocSelection("`", "", host.id); return true; } },
+    { key: "Mod-Shift-s", run: () => { wrapDocSelection("~~", "struck through", host.id); return true; } },
+    { key: "Mod-1", run: () => { applyMarkdown("h1", host.id); return true; } },
+    { key: "Mod-2", run: () => { applyMarkdown("h2", host.id); return true; } },
+    { key: "Mod-3", run: () => { applyMarkdown("h3", host.id); return true; } },
+    { key: "Mod-/", run: () => { toggleDocComment(surface()); return true; } },
+  ];
+}
+
+//: The view changed: mirror it out, and run the pipelines a typed character
+//: would have run in the textarea.
+function noteSurfaceUpdate(host, update) {
+  const view = update.view;
+  if (update.docChanged || update.selectionSet) noteSurfaceMirror(host, view);
+  if (!update.docChanged) return;
+  const surface = noteSurfaceFor(host);
+  const meta = noteSurfaceMeta(host);
+  for (const fn of meta.changeHandlers) fn();
+  //: editor.js hangs "/" and `[[` off a DOM `input` event, which the engine
+  //: never raises for a typed character (the same call `docCmUpdate` makes
+  //: for the document, and for the same reason).
+  if (typeof editorHandleInput === "function") editorHandleInput(surface);
+}
+
+function noteSurfaceMirror(host, view) {
+  const text = view.state.doc.toString();
+  const range = view.state.selection.main;
+  noteSurfaceMirroring = true;
+  try {
+    const changed = host.value !== text;
+    if (changed) host.value = text;
+    //: Selection too, and on every update rather than only on a change:
+    //: app.js's `[[` suggest and "ask about the selection" both read
+    //: `selectionStart` off this element.
+    try {
+      host.setSelectionRange(Math.min(range.from, text.length), Math.min(range.to, text.length));
+    } catch (error) {
+      //: Some engines refuse a selection on a box that is not rendered. The
+      //: layering above is what makes this rare rather than routine, and a
+      //: refusal is not a reason to drop the text.
+    }
+    if (changed) host.dispatchEvent(new Event("input", { bubbles: true }));
+  } finally {
+    noteSurfaceMirroring = false;
+  }
+}
+
+//: The other direction: `box.value = ""` from script (a note saved, a draft
+//: loaded, a template applied) has to reach the view, and assigning to
+//: `.value` raises no event anyone can listen for. An own property on this
+//: one element, wrapping the prototype's own accessors, is the only hook the
+//: platform offers; it is installed at mount and leaves every other textarea
+//: in the app untouched.
+function noteSurfaceOwnValue(host, view) {
+  const proto = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
+  if (!proto || !proto.set) return;
+  Object.defineProperty(host, "value", {
+    configurable: true,
+    get() {
+      return proto.get.call(this);
+    },
+    set(next) {
+      proto.set.call(this, next);
+      if (noteSurfaceMirroring) return;
+      const current = view.state.doc.toString();
+      if (next === current) return;
+      view.dispatch({ changes: { from: 0, to: current.length, insert: String(next) } });
+    },
+  });
+  //: **And the selection, which is the half that looks like it works.**
+  //: `box.setSelectionRange(6, 11)` then "make that bold" is how several
+  //: callers here select a word before acting on it (the shared toolbar
+  //: table, "improve this", the note sweeps). Written on the textarea alone
+  //: it moves a selection nobody can see, and the action then runs against
+  //: whatever the *view's* caret happened to be: measured, bold arrived at
+  //: position 0 with its placeholder text instead of around the word.
+  const setRange = host.setSelectionRange.bind(host);
+  host.setSelectionRange = (from, to, direction) => {
+    setRange(from, to, direction);
+    if (noteSurfaceMirroring) return;
+    const length = view.state.doc.length;
+    const anchor = Math.max(0, Math.min(Number(from) || 0, length));
+    const head = Math.max(0, Math.min(Number(to == null ? from : to) || 0, length));
+    view.dispatch({ selection: { anchor, head } });
+  };
+  for (const name of ["selectionStart", "selectionEnd"]) {
+    const own = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, name);
+    if (!own || !own.set) continue;
+    Object.defineProperty(host, name, {
+      configurable: true,
+      get() {
+        return own.get.call(this);
+      },
+      set(at) {
+        own.set.call(this, at);
+        if (noteSurfaceMirroring) return;
+        host.setSelectionRange(this.selectionStart, this.selectionEnd);
+      },
+    });
+  }
+  //: And `box.focus()`, which a dozen call sites use to put the caret in a
+  //: note box: the textarea is invisible and would take the keystrokes.
+  const focus = host.focus.bind(host);
+  host.focus = (...args) => {
+    if (noteSurfaceViews.has(host)) view.focus();
+    else focus(...args);
+  };
+}
+
+//: Mount the engine for one note textarea. Returns the surface, or the
+//: textarea's own surface if the bundle is not available: every caller can
+//: carry on either way, which is the whole point of the adapter.
+async function mountNoteSurface(host, options = {}) {
+  if (!host || noteSurfaceViews.has(host)) return noteSurfaceFor(host) || textareaSurface(host);
+  if (docCmBroken) return textareaSurface(host);
+  const settings = { ...NOTE_SURFACE_DEFAULTS, ...options };
+  let CM = null;
+  try {
+    CM = await loadCodeMirror();
+  } catch (error) {
+    return textareaSurface(host);
+  }
+  if (!CM || noteSurfaceViews.has(host)) return noteSurfaceFor(host) || textareaSurface(host);
+  const wrap = document.createElement("div");
+  wrap.className = `note-surface note-surface-${settings.size}`;
+  wrap.noteSurfaceHost = host;
+  host.parentNode.insertBefore(wrap, host);
+  wrap.appendChild(host);
+  host.classList.add("note-surface-mirror");
+  host.setAttribute("tabindex", "-1");
+  host.setAttribute("aria-hidden", "true");
+  //: **Seeded here, not at the focus that asked for the mount.** The bundle
+  //: takes a moment on the first box of a page, and a person who clicks a
+  //: capture box types into it immediately: those characters go into the
+  //: textarea, and both the text *and* the caret have moved by the time this
+  //: runs. Reading them now is what keeps them. Measured with the caret taken
+  //: at focus time instead: typing "hello world" straight after the click
+  //: left "worldhello " in the box, because the caret was put back to 0 after
+  //: the first characters had already landed.
+  //: Both ends of it, not just the caret: a caller that selected a word and
+  //: then acted on it (the shared toolbar does exactly that) would otherwise
+  //: have its selection collapsed to the start by the mount, and the action
+  //: would insert a placeholder where the word was.
+  const length = host.value.length;
+  const from = Math.min(host.selectionStart ?? length, length);
+  const to = Math.min(host.selectionEnd ?? from, length);
+  const state = CM.state.EditorState.create({
+    doc: host.value,
+    selection: { anchor: from, head: to },
+    extensions: noteSurfaceExtensions(CM, host, settings),
+  });
+  const view = new CM.view.EditorView({ state, parent: wrap });
+  //: The same guard the document's own host carries: the app binds single
+  //: characters as global shortcuts ("/" focuses search), and a
+  //: contenteditable is not a textarea, so nothing else stops them. Measured
+  //: without it: typing "/" in a note put no slash in the note.
+  docGuardGlobalShortcuts(view.contentDOM);
+  noteSurfaceViews.set(host, view);
+  noteSurfaceOwnValue(host, view);
+  //: The "/" menu's table is keyed by surface id, and these boxes are in it
+  //: already or are added here: one line rather than a wiring change, which
+  //: is the shape editor.js's own comment asks for.
+  if (typeof EDITOR_SURFACES === "object" && EDITOR_SURFACES && !(host.id in EDITOR_SURFACES)) {
+    EDITOR_SURFACES[host.id] = "note";
+  }
+  return cmSurface(view, noteSurfaceMeta(host));
+}
+
+//: One delegated listener for every note box in the app, including the three
+//: that are built in script when a card opens. `focusin` rather than `focus`
+//: because it bubbles, and the focus is handed to the view the moment it
+//: exists so the keystroke that opened the box is not lost.
+document.addEventListener("focusin", (event) => {
+  const host = event.target;
+  if (!(host instanceof HTMLTextAreaElement)) return;
+  const options = NOTE_SURFACES[host.id];
+  if (!options || noteSurfaceViews.has(host)) return;
+  mountNoteSurface(host, options).then((surface) => {
+    if (!surface || surface.kind !== "codemirror") return;
+    surface.focus();
+  });
+});
+// NOTE-SURFACE-END
 
 function initMarkdownToolbars() {
   for (const bar of document.querySelectorAll("[data-md-target], #doc-toolbar")) {

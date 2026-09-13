@@ -392,23 +392,25 @@ in monospace) and the document (`#doc-content`: the engine after Phase 2).
 - The chat composer is not a note editor: it gets `[[` and `/` only, and
   keeps its own recipe (send on Enter).
 
-**8a, capture and the inline note edit** (½ session): `#entry-content` and
-the two script-made edit boxes mount the surface (`size: box` and
-`inline`); the capture's formatting strip becomes the selection toolbar
-with the strip opt-in; attachments, dictate and improve stay. Gate: every
-capture test passes; typing in capture with 2,000 notes loaded keeps
-keydown to paint under 30 ms; errors.js clean.
+**8a, capture and the inline note edit**: **built 2026-09-13**, see
+HISTORY.md "Moved from the plans, 2026-09-13".
 
-**8b, the graph's popups and Write with the AI** (¼ session): the node
-popup's editor (GRAPH Phase 6 sizes it four lines minimum) and the
-new-note box mount `size: box`; Write with the AI's two panes mount the
-surface with `live` on for the draft (no monospace). Gate: graph4b.js
-and the write panel's own test.
+**8b, the graph's popups and Write with the AI**: **built 2026-09-13**, same
+entry.
 
 **8c, the rest** (¼ session): whiteboard note cards edit in a `size:
 inline` surface in place of the canvas text field; reminders' magic box
-stays plain (it is a sentence, not a note); the skill editor's steps box
-gets the `/` menu only. Gate: touch.js and mindmap.js unchanged.
+stays plain (it is a sentence, not a note, and that half is done by being
+decided); the skill editor's steps box gets the `/` menu only. Gate: touch.js
+and mindmap.js unchanged.
+
+*Open, and not for the documents agent:* both remaining halves live in files
+the documents work does not own. The board's note card is `whiteboard.js`'s
+canvas text field, and the skill box's "/" is one line in `editor.js`'s
+`EDITOR_SURFACES`. The factory they both need is built and in the page
+(`noteSurface(host, options)`, `NOTE_SURFACES` in `documents.js`): adding a
+box is one row in that table, and `tests/test_note_surface.py` is the lint
+that says so.
 
 ### Phase 7 — export and interchange (½ session)
 

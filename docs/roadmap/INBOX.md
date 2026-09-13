@@ -105,6 +105,21 @@ measured or built in earlier commits and is marked there.
     mindmap notes like with objects and notes in the whiteboard" · "one of
     my mindmap nodes isnt linked to anything, so I tried to use the link
     tools like the curbved link tools and they didnt work".
+    **Part fixed, 2026-09-13.** The radial slots carry an opaque ground and an
+    accent ring (they were the canvas's translucent tonal button on a dark
+    board, which is the "hard to see"); branches draw at 3px, full strength,
+    with an arrowhead marker that takes the branch's own colour through
+    `context-stroke`, which is the direction Coggle's have; the "Aa" grip moved
+    to the node's bottom left, out from under the add/link buttons; and a map
+    topic is a link-tool candidate (`wbLinkCandidates` offered only
+    `kind === "text"` objects, so on a map the link tools found nothing to
+    start from, which is why they "didnt work"). Measured
+    (`scratchpad/ui-sweeps/mapstyle.js`, dark): stroke-width 3, opacity 1,
+    marker-end url(#wb-map-arrow), an opaque slot with a colour-mixed ring,
+    grip at left 4px with no overlap, a topic returned as a candidate.
+    **Open**, placed in MINDMAP_PLAN.md: core nodes with their own shapes,
+    a per-node left edge style, connection-line style management, and
+    resizing a topic the way a card resizes.
 
 168. **Mid-work drop, 2026-09-13 16:41, verbatim (the owner), the document
     editor, one screenshot (the word popup for "tets" drawn at the window's

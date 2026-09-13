@@ -524,3 +524,22 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
   search box and sort/view controls on one line, then New board, New mind
   map, Map from notes, Import outline, refresh and help wrapped onto a
   second line below them, left-aligned under nothing).
+
+## Placed from INBOX, 2026-09-13
+
+177 (part). **Node styling this plan does not yet cover** (the owner, with
+Coggle captures). Built already: the radial ring's visibility, 3px branches
+with an arrowhead, the "Aa" grip's placement, topics as link-tool
+candidates. Placed here:
+
+- **Core nodes**: a node marked as a core idea, with its own shape set
+  (rounded rectangle, pill, ellipse) and a heavier weight.
+- **Per-node left edge**: solid, dashed or none, saved in the node's
+  `style` blob beside the fields `MAP_STYLE_FIELDS` already carries.
+- **Connection line styles**: per-branch thickness, dash and arrowhead,
+  managed from the map strip rather than by one global rule.
+- **Resize a topic** as a card resizes on the whiteboard: the map's layout
+  owns x/y, so a resize writes width/height and the layout must respect them.
+
+Each becomes a phase row when its phase is written; until then this list is
+the phase.

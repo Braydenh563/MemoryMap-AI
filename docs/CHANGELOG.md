@@ -185,6 +185,11 @@ below). Versioning is `0.x` while the app stabilises.
   chrome, over a dimmed page, with its actions as one segmented control
   instead of four loose buttons; the header's icon buttons are grouped the
   same way, everyday toggles in one cluster and lock/quit in the other.
+- Mind maps read better: the ring of controls around a selected topic has an
+  opaque ground and an accent edge instead of grey-on-grey circles, branches
+  draw at full strength with an arrowhead that takes the branch's colour, the
+  text-size grip no longer sits under the node's own buttons, and the link
+  tools can start and land on a topic.
 
 - The lock screen could fail to appear on a slow first start. The embedding
   warm-up began importing torch the instant the server was up, and that import

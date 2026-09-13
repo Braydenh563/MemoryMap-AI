@@ -11186,6 +11186,48 @@ function placeDocSuggest() {
   docPlaceFixed(menu, left, top);
 }
 
+//: **A menu about a word goes where the word goes, or it goes away.** The
+//: anchor is copied at open time, so anything that moves the text under an
+//: open menu leaves it pointing at whatever has scrolled into that spot: the
+//: editor scrolled with the wheel, the window resized, the sidebar or the chat
+//: dock opened beside it. None of those reach the mousedown and input
+//: listeners that close this menu, which is why it could be left stranded.
+//:
+//: Re-measured rather than re-clamped: the stored rect is the stale thing, so
+//: placing it again would only move a wrong answer. The mark is found again
+//: from the finding the menu is open on, and when it has left the editor's
+//: visible box, or is no longer drawn at all, the menu closes, which is
+//: DOCUMENTS_PLAN 12 D4's rule ("a menu that points at a word that is off
+//: screen is a menu pointing at nothing") applied after the open rather than
+//: only during it.
+function docSuggestFollowAnchor(event) {
+  const menu = $("doc-suggest-menu");
+  if (!menu || menu.classList.contains("hidden") || !docSuggestOpenFor) return;
+  //: The menu scrolls its own overflow, and that scroll reaches this listener
+  //: in the capture phase like any other. Following the word because someone
+  //: is reading the last row of the menu would be absurd.
+  if (event && event.target instanceof Node && menu.contains(event.target)) return;
+  const mark = docFindingMarks().find((el) => el._docFinding === docSuggestOpenFor);
+  if (!mark) return closeDocSuggest();
+  const rect = docMarkAnchor(mark, null);
+  const host = docCmView ? docCmView.dom.getBoundingClientRect() : docSurface()?.rect?.();
+  if (!rect || (host && (rect.bottom <= host.top + 1 || rect.top >= host.bottom - 1))) {
+    return closeDocSuggest();
+  }
+  docSuggestAnchor = {
+    left: rect.left,
+    right: rect.right ?? rect.left,
+    top: rect.top,
+    bottom: rect.bottom,
+  };
+  placeDocSuggest();
+}
+
+window.addEventListener("resize", docSuggestFollowAnchor);
+//: Capture, because the scroll that matters is the editor's own and a scroll
+//: event does not bubble.
+window.addEventListener("scroll", docSuggestFollowAnchor, true);
+
 //: A passage, a language, and the local model, asked in the chat so the
 //: answer is somewhere you can read, keep or ignore.
 async function docTranslatePassage(text) {

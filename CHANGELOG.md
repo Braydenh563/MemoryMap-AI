@@ -168,6 +168,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The chat header's context-window badge drew the subline's separator dot
+  inside its own pill, so the number sat 9.2px right of the pill's centre and
+  the amber border past 70% of the window wrapped the dot as well as the
+  count. The separator now sits in the gap beside the pill.
+
 - The popup agent showed a blinking write caret beside the three-dot waiting
   animation, before any of the answer had arrived. The answer box wore
   `is-streaming` from the moment the request went out, so the caret's

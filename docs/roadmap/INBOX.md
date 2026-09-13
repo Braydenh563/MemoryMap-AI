@@ -154,6 +154,22 @@ measured or built in earlier commits and is marked there.
     pan, the lag of every non-note object under the hand tool, the Arrange
     menu's height, the default board type and the map top bar's overflow
     (mind map agent).
+    **The badge: found and fixed (this commit).** It is not off its line, and
+    measuring that first is what found the real fault: at 1440, 1280, 1024,
+    820 and 390 the badge's centre is 0.0px from the subline's centre and all
+    four chips (`#chat-active-model`, `#chat-turns`, `#chat-context`,
+    `#chat-usage`) share one centre line to 0.0px. What is off is inside the
+    pill. Every chip after the first carries the row's middle-dot separator as
+    its own `::before`, which is invisible on a bare span and wrong on the one
+    chip that draws a box: the dot and its 8px of margin sat inside the pill's
+    border box, so the number sat 9.2px right of the box's centre, with 25.7px
+    of space on its left against 7.3px on its right. At rest the border is
+    transparent; past 70% of the window `.is-warn` paints it, which is the
+    state the screenshot was taken in. The separator is now an absolutely
+    positioned box in the gap the pill's own left margin opens, so it is still
+    drawn ("·", 20.8px wide, centred in that gap) and no longer inside the
+    pill: measured 0.0px off centre with 7.4/7.4px insets in a 78.5px pill
+    (was 96.8px) at all five widths, `scratchpad/ui-sweeps/chatbadge.js`.
 
 182. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), links.**
     "I want to be able to right click or hold with a touch on a link and

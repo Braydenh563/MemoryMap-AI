@@ -628,9 +628,11 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
 8. **Settings, dashboard, timeline, reminders.** Settings as a page list
    (sections as rows) with a back button; dashboard widgets one column;
    timeline as the table view; reminders as rows with swipe done.
-9. **Touch.** 44px targets everywhere below 820 (Phase 9's token step
-   holds), no hover-only affordance (every hover state has a tap
-   equivalent), long-press replaces right-click app-wide.
+9. **Touch.** The 44px half is built (2026-09-13, the block is in HISTORY.md,
+   "Moved from the plans, 2026-09-13"): `scratchpad/ui-sweeps/phone.js` walks
+   every tab whole rather than dock by dock and reports 0 findings at 390x844
+   and 430x932. Still open: no hover-only affordance (every hover state has a
+   tap equivalent), and long-press replacing right-click app-wide.
 10. **The status bar at 320: taken, the first way.** Measured 2026-09-12,
     after the header was made to fit: at 320 x 844 the page still scrolled
     sideways, 355 in 320, and the bar was the cause (its six surviving items
@@ -682,13 +684,19 @@ different problem than the list says.
   icons, and the header is one row", and the buttons were 36px tall. The block,
   with its arithmetic, is in HISTORY.md ("Moved from the plans, 2026-09-13").
 
-11. **Gates.** A phone sweep (`scratchpad/ui-sweeps/phone.js`) at 390 x 844
-    and 430 x 932 per tab: no horizontal scroll, no control under 44px,
-    the primary action within the lower 40% of the screen, the composer
-    above a simulated keyboard, every desktop action reachable in at most
-    two taps (counted); errors.js and contrast.js at 390; a screenshot
-    set for the owner per tab, because this is the one surface the owner
-    checks on a real phone.
+11. **Gates.** `scratchpad/ui-sweeps/phone.js` exists (2026-09-13) and holds
+    four of them per tab at 390x844 and 430x932: no horizontal scroll (page and
+    inside every surface), no control under 44px, one column, and the primary
+    action's y reported. Two of the list are not in it, for reasons worth
+    keeping: **the primary action's position is reported and not failed**,
+    because four of the seven tabs have no filled action at all (the graph's is
+    a menu row) and inventing one is a design decision a sweep does not get to
+    make; and **the composer above a simulated keyboard cannot be measured
+    here**, because the sandbox has no soft keyboard and Playwright does not
+    fake one, so `visualViewport` never shrinks. Two taps to anything is in
+    `phonetabs.js` and `phonemore.js` already. Still open: errors.js and
+    contrast.js at 390 (this session runs them at the end), and the screenshot
+    set for the owner.
 
 ## Placed from INBOX, 2026-09-09
 

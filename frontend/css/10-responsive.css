@@ -1149,3 +1149,74 @@ header#top-bar,
     flex: 0 0 auto;
   }
 }
+
+/* --- Phase 11 item 9: 44px targets, the ones the docks sweep cannot see ----
+   `touch.js` walks the docks and reports 0 findings at 390. The new
+   `scratchpad/ui-sweeps/phone.js` walks the whole tab, and the controls that
+   are *not* in a dock are where the floor is still missing. Measured at 390x844
+   in a `hasTouch` + `isMobile` context, each of these a button a finger is
+   meant to land on:
+
+     .library-chip in #library-filters      36px tall (eleven of them)
+     .library-chip in #reminder-filter      22.4px tall (Open / All / Done)
+     .sidebar-collapse-toggle               36x36, and on a phone it is the
+                                            only way to open the sidebar sheet
+     .graph-zoom button                     34x34 (in, out, fit)
+
+   `min-height` rather than `height` on the chip, so a chip whose label wraps
+   still grows; a square floor on the two icon controls, which have no label to
+   grow by. The chip's own padding and radius are untouched: what was wrong was
+   the height, not the shape. */
+@media (max-width: 819.98px) {
+
+  .library-chip {
+    min-height: var(--target-min);
+  }
+
+  .sidebar-collapse-toggle {
+    width: var(--target-min);
+    height: var(--target-min);
+  }
+
+  .graph-zoom button {
+    width: var(--target-min);
+    height: var(--target-min);
+  }
+}
+
+/* Two more from the same sweep, and one of them is a class of fault rather than
+   an instance.
+
+   `summary.ghost` is a menu opener wearing a button: the dock's own height rule
+   reaches `.dock > * > details > summary` and nothing reaches one that sits in
+   a card instead (measured: Reminders' "Quick set", 38.8px). `.legend-item` is
+   a button in the graph's legend at 29.2px.
+
+   And the identity zone takes its own line on a phone. Measured on Chat at 390:
+   `.dock-identity` was a 56px box holding 139px of content, overflowing with
+   `overflow-x: visible`, because the zone is `flex: 0 1 auto` and its heading is
+   `white-space: nowrap`, so it shrinks to whatever is left and then spills. A
+   title that has to share a 390px row with a search box and three controls is
+   the arrangement that is wrong, not the title: below 600 the identity is a
+   line of its own and everything after it is the control row. The dock already
+   wraps, so this changes where the break falls rather than introducing one. */
+@media (max-width: 819.98px) {
+
+  summary.ghost,
+  .legend-item {
+    min-height: var(--target-min);
+  }
+}
+
+@media (max-width: 599.98px) {
+
+  /* Both halves of the pair 07-whiteboard-misc.css splits the zone into, at the
+     same (0,3,0) it uses, so this wins on file order rather than by accident:
+     a dock with a find zone gives its identity `flex: 0 1 auto` and one
+     without gives it `flex: 1 1 auto`, and `flex` is a shorthand that sets the
+     basis, so a bare `.dock .dock-identity` at (0,2,0) loses to either. */
+  .dock:has(.dock-find) .dock-identity,
+  .dock:not(:has(.dock-find)) .dock-identity {
+    flex-basis: 100%;
+  }
+}

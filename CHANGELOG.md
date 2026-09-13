@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Every control on a phone is a 44px target, and a tab's title gets a line of
+  its own there. Seven surfaces were walked whole rather than dock by dock:
+  the Library and Reminders filter chips were 36px and 22.4px, the sidebar
+  sheet's own opener 36px, the graph's zoom controls 34px, and the chat's
+  title was 139px of text in a 56px box.
+
 - Opening a picture card's fold no longer stretches the six cards beside it.
   It used to take every card in the row from 240.7px to 411.1px, leaving 213px
   of empty card under each of the others; now only the card you opened grows.

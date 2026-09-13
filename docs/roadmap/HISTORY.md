@@ -24244,6 +24244,54 @@ order 10). Origin file named on each.
 
 ### From UI_MODERNISATION_PLAN.md
 
+### Built, Phase 11 item 9 and its gate: the phone walked whole, 2026-09-13
+
+`touch.js` walks the docks and has reported 0 findings at 390 for a while. The
+new `scratchpad/ui-sweeps/phone.js` walks each of the seven tabs entire, in a
+`hasTouch` + `isMobile` context, and asks four questions the plan's item 11
+asks: no horizontal scroll at the page and inside every surface, no control
+under 44px, one column, and where the primary action sits. It exits non-zero on
+any of them.
+
+It carries `touch.js`'s exclusion list rather than rediscovering it (the hidden
+native `<select>` behind every enhanced one measures 1x44, the clipped
+screen-reader recipes and file inputs measure 1x1, a `.seg` well is not what a
+finger lands on, a closed dock menu's rows are not on screen, and a tick box is
+not stretched to a target anywhere in this app). With those out, the first run
+found six real faults, every one of them a control outside a dock:
+
+| Control | Before |
+| --- | --- |
+| `.library-chip` in `#library-filters` (eleven of them) | 36px tall |
+| `.library-chip` in `#reminder-filter` (Open / All / Done) | 22.4px tall |
+| `.sidebar-collapse-toggle` | 36x36, and on a phone it is the only way to open the sidebar sheet |
+| `.graph-zoom` in, out, fit | 34x34 |
+| `summary.ghost` (Reminders' "Quick set") | 38.8px, because the dock's height rule reaches `.dock > * > details > summary` and nothing reaches one that sits in a card |
+| `.legend-item` | 29.2px |
+| Chat's `.dock-identity` | a 56px box holding 139px of text, overflowing with `overflow-x: visible` |
+
+The last of those is a class of fault rather than an instance, and is fixed as
+one: the identity zone is `flex: 0 1 auto` with a `nowrap` heading, so on a
+390px row it shrinks to whatever the search box and three controls leave and
+then spills. Below 600 the identity takes a line of its own and everything after
+it is the control row. The dock already wraps, so this moves where the break
+falls rather than introducing one. It needed both halves of the pair
+07-whiteboard-misc.css splits that zone into, at the same (0,3,0), because
+`flex` is a shorthand that sets the basis and a bare `.dock .dock-identity` at
+(0,2,0) loses to either.
+
+After: `phone.js` 0 findings at 390x844 and at 430x932; `touch.js` unchanged at
+0 across seventeen surfaces; `docks.js` still reports all seven docks;
+`test_style_scale.py`, `test_css_braces.py`, `test_ui_signatures.py`,
+`test_ui_recipes.py` and `test_dock_grammar.py` green.
+
+**And the third "found, not fixed" item closes with it.** `graph.js`'s drag-fps
+gate was recorded at 43.9 fps against its own 55. Re-measured on this head:
+**58.9 fps** over 2 seconds on 45 notes, worst frame gap 50.1ms, p95 16.8ms,
+worst draw 1.50ms, so the gate passes and the 43.9 was the sandbox rather than
+the renderer. (The same run still fails its step 5, "clear trace", which is a
+graph-agent matter and nothing this session touched.)
+
 ### Two of the three "found, not fixed" items, re-measured and closed, 2026-09-13
 
 Both came out of the Phase 11 handover as open faults. Neither is one now, and

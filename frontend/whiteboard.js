@@ -5792,6 +5792,11 @@ function wbSyncMapChrome() {
   // than per node, since it is a property of the layout, not of any one node.
   document.getElementById("library-view-whiteboard")
     ?.classList.toggle("wb-map-down", isMap && wbMapLayout() === "tree-down");
+  //: The switch says what it will do, not what the board is: a button whose
+  //: label is the current state reads as a toggle that is already on, and this
+  //: one changes the board rather than reporting it.
+  const kind = document.getElementById("wb-board-kind-label");
+  if (kind) kind.textContent = isMap ? "Turn into a whiteboard" : "Turn into a mind map";
   const chip = document.getElementById("wb-map-chip");
   const picker = document.getElementById("wb-map-layout");
   const tidy = document.getElementById("wb-map-tidy");
@@ -9078,6 +9083,42 @@ async function initWhiteboard() {
     if (item.dataset.wbFn === "select-all") { wbSelectAllItems(); return; }
     document.getElementById(item.dataset.wbClick)?.click();
   });
+  //: **A board can change its mind.** Reported: "when I press the boards
+  //: dropdown to change boards, I cant tell which one is a whiteboard and
+  //: which one is a mindmap". The picker has grouped the two kinds under
+  //: `<optgroup>` since MINDMAP_PLAN §5 item 12, and it can only group boards
+  //: that say which kind they are: `_board_settings` defaults every board that
+  //: predates maps to "board", which is the right default and the wrong answer
+  //: for a board somebody has been using as a map ever since. The route has
+  //: taken a `type` from the beginning (`rename_board`, "also where a board
+  //: becomes a map and back"); nothing in the app ever sent one.
+  //:
+  //: The default scratch board has no note behind it and so no settings to
+  //: store, which is why the control says so rather than failing quietly.
+  document.getElementById("wb-board-kind")?.addEventListener("click", async () => {
+    closeAllWbMenus();
+    const boardId = window.currentBoardId ?? null;
+    if (!boardId) {
+      toast("The default board cannot change kind. Make a new board to start a mind map.", true);
+      return;
+    }
+    const becomingMap = !wbIsMap();
+    try {
+      await apiJson(`/whiteboard/boards/${boardId}`, {
+        method: "PUT",
+        body: JSON.stringify({ type: becomingMap ? "map" : "board" }),
+      });
+    } catch (error) {
+      toast(error.message || "That board could not be changed.", true);
+      return;
+    }
+    //: Reopened rather than patched in place: the two kinds draw different
+    //: chrome, different tools and a different renderer, and a half-switched
+    //: board is the shape of bug this file has had before.
+    await openWhiteboardBoard(boardId);
+    toast(becomingMap ? "Now a mind map." : "Now a whiteboard.");
+  });
+
   document.getElementById("wb-insert-menu")?.addEventListener("click", (e) => {
     const choice = e.target.closest("[data-wb-insert]");
     if (!choice) return;

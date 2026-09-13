@@ -289,6 +289,26 @@
   <div id="command-palette-overlay" class="lock-overlay command-palette-overlay hidden"
     role="dialog" aria-modal="true" aria-label="Agent command palette">
     <div class="card glass command-palette-card">
+      <!-- **A dialog in this app says what it is and how to leave it.**
+           INBOX 126, the owner: "I want the popup agent better redesigned with
+           the consistent modern look". Measured against the two dialogs it was
+           reported beside: every one of them opens with a head row carrying a
+           title and a way out, and this surface had neither. The only ways out
+           were Escape and a click on the backdrop, both of which you have to
+           already know about.
+
+           The eyebrow `<h3>` is the recipe `.card h3` already gives every
+           panel head in the app, including the agent activity panel this is
+           most often confused with, rather than a second heading style for one
+           surface. No icon on the title on purpose: the wand sits two lines
+           below it at `--text-h3` as the input's own affordance, and repeating
+           one glyph twice inside a 293px card would be the only doubled icon
+           in any dialog here. -->
+      <div class="row space-between command-palette-head">
+        <h3>Agent</h3>
+        <button type="button" id="command-palette-close" class="ghost small icon-only"
+          aria-label="Close" title="Close (Esc)"><i class="ph ph-x" aria-hidden="true"></i></button>
+      </div>
       <div class="command-palette-bar">
         <span class="command-palette-icon"><i class="ph ph-magic-wand" aria-hidden="true"></i></span>
         <!-- A textarea, not an `<input>`. Reported directly: "the input bar
@@ -1075,28 +1095,49 @@
           </div>
           <div id="chat-results" class="chat-grid hidden">
             <div class="chat-half">
-              <h3 class="panel-head">
-                <!-- The title (icon, label, model badge) and the actions are
-                     one flex item each here, not four loose ones: at a
-                     laptop's ~1280-1366px width this card is half the
-                     already-narrow chat-grid column, and a long model id
-                     beside three buttons does not fit. Four independent flex
-                     children let the browser wrap them into whichever
-                     fragments happened to fit, reported as "misaligned
-                     because of wrap": the badge alone flush left on its own
-                     line, the buttons flush right on a third line, nothing
-                     lining up with anything. Grouped, the title wraps or
-                     doesn't as a unit, and the worst case is two clean rows
-                     (title, then actions right-aligned beneath it). -->
+              <h3 class="panel-head answer-head">
+                <!-- **Three zones, and only the middle one may shrink.**
+                     Reported: "in the notes tab ask subtab, these buttons and
+                     badges wrap onto a new line and I want them restructured
+                     some other way". The previous shape grouped the label and
+                     the model badge into one flex item so that the head wrapped
+                     to two tidy rows instead of three ragged ones, which was an
+                     improvement and still a wrap: measured at 1440 with the
+                     reported model name (granite4.1:3b) the actions sat 27px
+                     below the label, and with a real long id
+                     (hf.co/unsloth/Qwen2.5-14B-Instruct-GGUF:Q4_K_M) the badge
+                     alone took three lines at 1024 and the head stood 91.6px
+                     tall.
+
+                     The restructure is the dock grammar applied to a panel head
+                     (DESIGN.md's recipe index): identity, then one fact, then
+                     the actions, and the row does not wrap at all. The badge is
+                     the only element whose width is not ours to choose, so it is
+                     the only one allowed to shrink, and it ellipsises with the
+                     whole phrase in its tooltip rather than pushing everything
+                     else onto a second line. It also leaves `.answer-title`,
+                     which now holds nothing but the label. -->
                 <span class="answer-title">
                   <i class="ph ph-sparkle ph-lead" aria-hidden="true"></i>
-                  AI answer <span id="answered-by" class="chip"></span>
+                  AI answer
                 </span>
+                <!-- Out of the title and into its own zone. `renderChatMeta`
+                     writes the model id here and the phrase "answered by …"
+                     into the tooltip: the words cost more width than the fact
+                     they introduce, and a chip beside "AI answer" is already
+                     read as what answered. -->
+                <span id="answered-by" class="chip answer-model"></span>
+                <!-- **All icons, no words**, which is what makes one row fit a
+                     356px column at 1024. DESIGN.md, from the HIG: a group is
+                     all icons or all text and never mixed, and this group was
+                     mixed (Retry and Copy carried labels, the speak button did
+                     not). Every one of them carries its own `aria-label`, since
+                     an icon with no accessible name is not a control. -->
                 <span class="answer-actions">
-                  <button id="retry-btn" class="ghost small hidden"
-                    title="Ask this question again"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Retry</button>
-                  <button id="copy-btn" class="ghost small hidden"
-                    title="Copy the answer"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> Copy</button>
+                  <button id="retry-btn" class="ghost small icon-only hidden"
+                    title="Ask this question again" aria-label="Ask this question again"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+                  <button id="copy-btn" class="ghost small icon-only hidden"
+                    title="Copy the answer" aria-label="Copy the answer"><i class="ph ph-copy" aria-hidden="true"></i></button>
                   <button id="speak-btn" class="ghost small hidden icon-only"
                     title="Read the answer aloud (uses your computer's voices)" aria-label="Read the answer aloud"><i class="ph ph-speaker-high" aria-hidden="true"></i></button>
                 </span>
@@ -4170,6 +4211,19 @@
               <div class="wb-menu-row">
                 <span>Export</span>
                 <button id="wb-export" class="ghost small" type="button" title="Export this board"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export…</button>
+              </div>
+              <!-- Which kind of board this is, changeable. Reported: "when I
+                   press the boards dropdown to change boards, I cant tell
+                   which one is a whiteboard and which one is a mindmap". The
+                   picker does group them, and could only group boards that say
+                   which they are: a board made before maps existed reads as a
+                   whiteboard whatever it is used for, and until now there was
+                   no way to say otherwise. `PUT /whiteboard/boards/{id}` has
+                   taken a `type` all along; this is the control it never
+                   had. -->
+              <div class="wb-menu-row">
+                <span>Kind</span>
+                <button id="wb-board-kind" class="ghost small" type="button" title="Switch between a whiteboard and a mind map"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> <span id="wb-board-kind-label">Turn into a mind map</span></button>
               </div>
               <div class="wb-menu-row">
                 <span>Everything on it</span>

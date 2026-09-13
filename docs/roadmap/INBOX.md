@@ -23,6 +23,14 @@ never lost to the smaller stuff.
 
 ## Open items
 
+138. **Mid-work drop, 2026-09-13, verbatim (the owner), the README.** "and
+    also the screenshots on the readme page need updating and they need to
+    show more parts of the application than what is there."
+
+    The shots predate most of this session's surfaces (the docks, the
+    documents editor, the mind maps, the timeline), and there are fewer of
+    them than the app has places worth showing.
+
 137. **Mid-work drop, 2026-09-13, verbatim (the owner), the launcher.**
     "also the splash ps1 graphic still only loads up to step 3/5 and then it
     loads, the bar doesnt actually reacy 5/5"
@@ -159,6 +167,14 @@ never lost to the smaller stuff.
       the AI answer head, where the "AI ANSWER" label and the "ANSWERED BY
       GRANITE4.1:3B" badge take the first line and Retry / Copy / speak are
       pushed onto a second, right-aligned line above the answer text).
+      **Fixed.** The head is the recipe index's new panel-head row now:
+      identity, one fact, an all-icon action group, `nowrap`, and the badge
+      is the only zone that shrinks. Measured at 1440, 1024 and 820 with
+      `granite4.1:3b` and with `hf.co/unsloth/Qwen2.5-14B-Instruct-GGUF:Q4_K_M`
+      (`scratchpad/ui-sweeps/askhead.js`): head height 55.6 to 91.6px before,
+      36px in every one of the six cases after, all three zones on one
+      vertical centre, the three controls 28 to 36px (`--control-h-lg`), no
+      page scroll, 0 console errors, contrast passing in both themes.
     - "also I want the popup agent better redesigned with the consistent
       modern look"
     - "same with the meeting notes popup"

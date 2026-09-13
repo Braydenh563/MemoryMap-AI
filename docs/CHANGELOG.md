@@ -30,6 +30,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The writing suggestions panel is as tall as what is in it. A finding's
+  candidates lie along its row rather than down the panel, and the panel no
+  longer keeps a fixed floor it was always shrunk back to: one finding is 109px
+  of panel around 97px of content, against 128px before with 29px of nothing in
+  it, and the editor above it is up from 45% to 47% of the window. A row opened
+  under Large text with Spacious on now fits inside the panel, which the old
+  floor was 5px short of.
+
 - A Files row's metadata starts to the right of its filename, not to the left of
   it. The name is a `figcaption` with an 8px inset of its own, while every block
   under it sat on the row's own margin, so the kind, size, reading controls and

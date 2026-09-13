@@ -23789,6 +23789,18 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     one edge 12.8px to its right. `scratchpad/ui-sweeps/filesindent.js`, two
     rows, three widths, 0 console errors.
 
+157. **Fixed, 2026-09-13.** The candidates lie along the row and the panel is
+    its content height: DOCUMENTS_PLAN 12 "Met again", and the measurements in
+    `.doc-prose-panel`'s own comment.
+
+    **Mid-work drop, 2026-09-13, verbatim (the owner), the document editor's
+    spelling panel, two screenshots (the "tets is probably test" row with a
+    tick beside it on the left, and a column of five candidate buttons plus
+    "Add to dictionary" on the right, with the rest of the panel empty).** "can
+    this popup be displayed better??" The writing-intelligence agent was mid
+    way through this panel when it was cut off; its uncommitted answers-inline
+    CSS is in the tree.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

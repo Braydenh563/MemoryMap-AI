@@ -66,14 +66,6 @@ open and half finished stuff?"), which is a decision, not work.
     modernise the ui of the ai assistent ai edit popup, and redesign the edit
     write remove toggle, it is ugly".
 
-157. **Mid-work drop, 2026-09-13, verbatim (the owner), the document editor's
-    spelling panel, two screenshots (the "tets is probably test" row with a
-    tick beside it on the left, and a column of five candidate buttons plus
-    "Add to dictionary" on the right, with the rest of the panel empty).** "can
-    this popup be displayed better??" The writing-intelligence agent was mid
-    way through this panel when it was cut off; its uncommitted answers-inline
-    CSS is in the tree.
-
 142. **Mid-work drop, 2026-09-13, verbatim (the owner), the document editor's
     writing intelligence (two screenshots).** "the suggestions box at the
     bottom takes up a lot of my screen and it makes the text editor really

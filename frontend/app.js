@@ -24338,6 +24338,9 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
       placeholder = null;
     }
     full.textContent = "Full view";
+    //: The menu is built below and reads these two labels; leaving full view
+    //: by Escape has to put its rows back the way pressing Back would.
+    syncMenuLabels();
     document.removeEventListener("keydown", onKey, true);
   };
   const onKey = (event) => {
@@ -24355,14 +24358,65 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
     full.textContent = "Back";
     document.addEventListener("keydown", onKey, true);
   });
+  //: **One Copy button and a ⋯ for the rest** (INBOX 188, the owner: "the
+  //: table button option rendering needs to be fixed or refined, especially
+  //: in the popup agent, maybe just make it a copy button with an
+  //: ellipse/kebab dropdown menu button next to it for the other options").
+  //: Five labelled buttons in a row is a bar wider than most of the tables it
+  //: sits on, and in the popup agent, which is a 293px card, it wrapped onto
+  //: two lines above a three-column table. Copy is the one thing wanted often
+  //: enough to cost a click; everything else is a `kebabMenu`, which is the
+  //: recipe DESIGN.md's index gives for exactly this (standing order 11)
+  //: rather than a second menu shape invented for one bar.
+  //:
+  //: `fit` and `full` keep their own elements and their own handlers and are
+  //: re-parented into the menu, so the two places that rewrite their labels
+  //: (the toggle itself, and `leave()`) go on working against the same node.
   const actions = document.createElement("span");
   actions.className = "code-actions";
+  const menu = kebabMenu(
+    [
+      {
+        label: "ph:markdown-logo Copy as markdown",
+        title: "Copy the table as markdown",
+        run: () => copyToClipboard(rawTable.join("\n")),
+      },
+      {
+        label: "ph:note-pencil Save as a note",
+        title: "File this table in your notebook as a new note",
+        run: () => saveSelectionAsNote(rawTable.join("\n")),
+      },
+      {
+        label: "ph:file-csv Save as CSV",
+        title: "Save this table as a CSV file in the exports folder",
+        run: () => saveFile(`table-${Date.now()}.csv`, new Blob([csv], { type: "text/csv" })),
+      },
+      { label: "ph:arrows-horizontal", title: fit.title, run: () => fit.click() },
+      { label: "ph:frame-corners", title: full.title, run: () => full.click() },
+    ],
+    "More table actions"
+  );
+  //: The two toggles' rows are found once and relabelled by the handlers that
+  //: already own their wording, so the menu never says "Full view" for a table
+  //: that is in full view.
+  const menuRows = [...menu.querySelectorAll(".menu-item")];
+  const fitRow = menuRows[3];
+  const fullRow = menuRows[4];
+  const syncMenuLabels = () => {
+    setLabel(fitRow, `ph:arrows-horizontal ${fit.textContent}`);
+    setLabel(fullRow, `ph:frame-corners ${full.textContent}`);
+  };
+  syncMenuLabels();
+  fit.addEventListener("click", syncMenuLabels);
+  full.addEventListener("click", syncMenuLabels);
+  //: The two buttons still exist, still carry the state, and are simply not
+  //: in the bar: `leave()` writes to them on Escape, and the menu reads them
+  //: back on the next open.
+  fit.hidden = true;
+  full.hidden = true;
   actions.append(
     button("⧉ Copy", "Copy the cells, tab-separated, for a spreadsheet", (event) => copyToClipboard(tsv, event.currentTarget)),
-    button("Markdown", "Copy the table as markdown", (event) => copyToClipboard(rawTable.join("\n"), event.currentTarget)),
-    button("CSV", "Save this table as a CSV file in the exports folder", () =>
-      saveFile(`table-${Date.now()}.csv`, new Blob([csv], { type: "text/csv" }))
-    ),
+    menu,
     fit,
     full
   );

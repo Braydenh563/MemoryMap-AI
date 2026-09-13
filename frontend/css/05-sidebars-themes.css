@@ -1923,6 +1923,37 @@ body.resizing-sidebar {
   box-shadow: inset 1px 0 0 transparent;
 }
 
+/* **The ⋯ is the second half of that one control, not a chip beside it**
+   (INBOX 188: the table bar is Copy plus a `kebabMenu` now). `kebabMenu`
+   returns its opener inside a `.menu-wrap`, which is what anchors the menu,
+   so the shell's rules above cannot reach the button with a child combinator
+   and it arrived wearing the app's normal ghost chrome: a bordered pill
+   inside a tinted pill. The wrap is made transparent and the opener is given
+   the same treatment its neighbour gets, with the hairline seam moved onto
+   the wrap so the divider still falls between the two items. */
+.code-actions > .menu-wrap {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.code-actions > * + .menu-wrap {
+  box-shadow: inset 1px 0 0 var(--border);
+}
+
+.code-actions > .menu-wrap > button {
+  border: 0;
+  border-radius: var(--radius-inner);
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+}
+
+.code-actions > .menu-wrap > button:hover,
+.code-actions > .menu-wrap > button:focus-visible {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
 /* In full view the bar is the panel's title row: it sits still while the
    table scrolls under it. */
 .md-table-block.is-full > .code-bar {

@@ -24239,6 +24239,29 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     `rgb(70, 100, 240)` on the answer's last paragraph, and gone again when
     the turn ends.
 
+188. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the table
+    bar in an AI answer.** "the table button option rendering needs to be
+    fixed or refined, especially in the popup agent, maybe just make it a
+    copy button with an ellipse/kebab dropdown menu button next to it for
+    the other options". Recommendation, taken: one Copy button and a
+    `kebabMenu` for the rest, in both the chat and the popup agent. Owner:
+    chat agent.
+    **Fixed (this commit).** The bar was five labelled buttons (Copy,
+    Markdown, CSV, Actual size, Full view) in a shell wider than most of the
+    tables it sat on; in the popup agent, a 293px card, it wrapped onto two
+    rows above a three-column table. It is Copy plus one `kebabMenu` now
+    (DESIGN.md's recipe, standing order 11), the menu holding Copy as
+    markdown, Save as a note (new: the table goes into the notebook through
+    the same `saveSelectionAsNote` the selection popup uses), Save as CSV, and
+    the two toggles, whose rows relabel themselves so the menu never offers
+    "Full view" for a table already in it. Measured
+    (`scratchpad/ui-sweeps/tablefull.js`, extended): 2 controls in the bar
+    against 5 before, 1 hairline seam, 5 items in the menu, and in the popup
+    agent at 390 the bar is one row of 66.9x44 and 44x44 controls, 114.9px of
+    actions in a 318.4px bar with no overflow, 0 console errors. Full view,
+    the fit toggle and the panel's z-order are unchanged and still measured by
+    the same sweep.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

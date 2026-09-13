@@ -107,14 +107,6 @@ measured or built in earlier commits and is marked there.
     resolved a board as a note; a map, a board and a document each need
     naming as what they are. Owner: chat agent.
 
-188. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the table
-    bar in an AI answer.** "the table button option rendering needs to be
-    fixed or refined, especially in the popup agent, maybe just make it a
-    copy button with an ellipse/kebab dropdown menu button next to it for
-    the other options". Recommendation, taken: one Copy button and a
-    `kebabMenu` for the rest, in both the chat and the popup agent. Owner:
-    chat agent.
-
 186. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the
     timeline dock (one screenshot: the kind chips and the Show: all button
     across the top of the dock).** "these buttons in the top of the

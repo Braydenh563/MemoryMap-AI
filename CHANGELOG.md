@@ -168,6 +168,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The table bar under an AI-written table was five labelled buttons, which
+  wrapped onto two rows inside the popup agent. It is one Copy button and a
+  kebab menu holding Copy as markdown, Save as a note, Save as CSV and the two
+  view toggles.
+
 - The chat header's context-window badge drew the subline's separator dot
   inside its own pill, so the number sat 9.2px right of the pill's centre and
   the amber border past 70% of the window wrapped the dot as well as the

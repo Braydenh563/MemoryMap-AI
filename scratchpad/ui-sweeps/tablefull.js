@@ -25,11 +25,19 @@ const { boot } = require('./lib.js');
     const block = host.querySelector('.md-table-block');
     const bar = block.querySelector('.code-bar');
     const group = block.querySelector('.code-actions');
-    const buttons = [...group.querySelectorAll('button')];
+    // INBOX 188: the bar is Copy plus a kebab now, so "the buttons in the bar"
+    // means the visible controls, not every button the menu holds.
+    const controls = [...group.children]
+      .map((kid) => (kid.tagName === 'BUTTON' ? kid : kid.querySelector(':scope > button')))
+      .filter((b) => b && !b.hidden);
+    const buttons = controls;
+    const menuItems = [...group.querySelectorAll('.action-menu .menu-item')].map((b) => b.textContent.trim());
     const groupCs = getComputedStyle(group);
     const btnCs = getComputedStyle(buttons[0]);
-    const seams = buttons.slice(1).map((b) => getComputedStyle(b).boxShadow).filter((s) => s && s !== 'none').length;
-    buttons.find((b) => b.textContent.trim() === 'Full view').click();
+    const seams = controls.slice(1)
+      .map((b) => getComputedStyle(b.closest('.menu-wrap') || b).boxShadow)
+      .filter((s) => s && s !== 'none').length;
+    [...group.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Full view').click();
     // INBOX 179: fit is the default in full view, and the toggle hands the
     // table back its natural width with the panel scrolling sideways.
     const wrap = block.querySelector('.md-table-wrap');
@@ -70,22 +78,67 @@ const { boot } = require('./lib.js');
       groupGap: groupCs.gap, groupBg: groupCs.backgroundColor, groupRadius: groupCs.borderRadius,
       btnBorder: btnCs.borderTopWidth, btnBg: btnCs.backgroundColor, seams, buttons: buttons.length,
       z: full.z, position: full.position, topAtPanel: top ? `${top.tagName}.${(top.className || '').toString().split(' ')[0]}` : null, inPanel,
+      menuItems,
       scrimBg, barSticky, viewportSized, parentIsBody, filtered, fitState, actualState,
       rect: { w: Math.round(rect.width), h: Math.round(rect.height), l: Math.round(rect.left), t: Math.round(rect.top) }, vw: innerWidth, vh: innerHeight,
       clusters: clusters.length, clusterBg: cluster && cluster.backgroundColor, clusterPad: cluster && cluster.padding,
       clusterBtnBorders: [...new Set(clusterBtns)],
     };
   });
-  console.log(`table bar    ${r.buttons} buttons in one shell: gap ${r.groupGap}, ground ${r.groupBg}, radius ${r.groupRadius}; per button border ${r.btnBorder}, ground ${r.btnBg}, ${r.seams} hairline seam(s)`);
+  console.log(`table bar    ${r.buttons} controls in one shell: gap ${r.groupGap}, ground ${r.groupBg}, radius ${r.groupRadius}; per button border ${r.btnBorder}, ground ${r.btnBg}, ${r.seams} hairline seam(s)`);
+  console.log(`table menu   ${r.menuItems.length} items: ${r.menuItems.join(' | ')}`);
   console.log(`full view    ${r.position} z ${r.z}, parent is body ${r.parentIsBody}, viewport-sized ${r.viewportSized}, top element at its head ${r.topAtPanel} (inside the panel ${r.inPanel}), scrim ${r.scrimBg}, bar ${r.barSticky}`);
   console.log(`             the bubble's nearest filtered/transformed ancestor: ${r.filtered}; rect ${JSON.stringify(r.rect)} in ${r.vw}x${r.vh}`);
   console.log(`fit          default ${JSON.stringify(r.fitState)}; after the toggle ${JSON.stringify(r.actualState)}`);
   console.log(`top bar      ${r.clusters} cluster(s), ground ${r.clusterBg}, padding ${r.clusterPad}, button borders ${JSON.stringify(r.clusterBtnBorders)}`);
   if (r.groupGap !== '0px' || r.groupBg === 'rgba(0, 0, 0, 0)' || r.btnBorder !== '0px' || r.seams !== r.buttons - 1) bad.push('table bar is not one control');
+  // INBOX 188: two controls in the bar, everything else one click in.
+  if (r.buttons !== 2) bad.push(`table bar has ${r.buttons} controls, not Copy plus a kebab`);
+  if (r.menuItems.length !== 5) bad.push(`table menu has ${r.menuItems.length} items, not 5`);
   if (Number(r.z) < 2000 || !r.inPanel || !r.parentIsBody || !r.viewportSized) bad.push('full view is not above the app chrome');
   if (r.clusters !== 2 || r.clusterBg === 'rgba(0, 0, 0, 0)' || r.clusterBtnBorders.join() !== '0px') bad.push('top bar clusters');
   if (r.fitState.overflowX !== 'hidden' || r.fitState.layout !== 'fixed' || r.fitState.scrolls) bad.push('full view does not fit the panel');
   if (r.actualState.overflowX !== 'auto' || r.actualState.layout !== 'auto' || r.actualState.label !== 'Fit to panel') bad.push('the actual-size toggle does not work');
+  // --- INBOX 188, the half the report is actually about: the same bar inside
+  // the popup agent, which is a 293px card, and at 390 where the bar's two
+  // controls have to be reachable with a thumb.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(300);
+  await page.evaluate(() => toggleAgentPalette());
+  await page.waitForSelector('#command-palette-overlay:not(.hidden)');
+  const p = await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.className = 'bubble-answer';
+    document.getElementById('command-palette-results').appendChild(host);
+    renderMarkdown(host, '| A | B | C |\n| --- | --- | --- |\n| 1 | 2 | 3 |');
+    const group = host.querySelector('.code-actions');
+    const controls = [...group.children]
+      .map((kid) => (kid.tagName === 'BUTTON' ? kid : kid.querySelector(':scope > button')))
+      .filter((b) => b && !b.hidden);
+    const bar = host.querySelector('.code-bar');
+    const barRect = bar.getBoundingClientRect();
+    const groupRect = group.getBoundingClientRect();
+    const sizes = controls.map((b) => {
+      const r = b.getBoundingClientRect();
+      return { label: b.textContent.trim() || b.getAttribute('aria-label'), w: +r.width.toFixed(1), h: +r.height.toFixed(1) };
+    });
+    // One row, not two: the old five-button bar wrapped inside this card.
+    const rows = new Set(controls.map((b) => Math.round(b.getBoundingClientRect().top)));
+    return {
+      controls: controls.length,
+      sizes,
+      rows: rows.size,
+      barW: +barRect.width.toFixed(1),
+      groupW: +groupRect.width.toFixed(1),
+      overflows: groupRect.right > barRect.right + 0.5,
+    };
+  });
+  console.log(`popup agent  ${p.controls} controls on ${p.rows} row(s) at 390: ${p.sizes.map((s) => `${s.label} ${s.w}x${s.h}`).join(', ')}; actions ${p.groupW}px in a ${p.barW}px bar, overflowing ${p.overflows}`);
+  if (p.controls !== 2) bad.push('the popup agent table bar is not Copy plus a kebab');
+  if (p.rows !== 1) bad.push('the popup agent table bar wraps onto two rows');
+  if (p.overflows) bad.push('the popup agent table bar overflows its block');
+  if (p.sizes.some((s) => s.h < 44 || s.w < 44)) bad.push(`a table bar control is under 44px at 390: ${p.sizes.map((s) => `${s.w}x${s.h}`).join(', ')}`);
+
   console.log(`console errors ${errs.length}${errs.length ? ' ' + errs.join(' | ') : ''}`);
   await browser.close();
   if (bad.length || errs.length) { console.log('FAIL: ' + bad.join('; ')); process.exit(1); }

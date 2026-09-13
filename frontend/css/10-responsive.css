@@ -722,3 +722,221 @@ header#top-bar,
     justify-content: center;
   }
 }
+
+/* --- band 4: five columns, and the fifth is a sheet -----------------------
+   UI_MODERNISATION_PLAN.md Phase 11, item 1.
+
+   The measurement the phase opens with: seven equal columns on a 390px screen
+   are 55.7px each, which is a glyph and no caption, so the bottom of a phone
+   named nowhere. Keeping the selected tab's caption fixed half of that; the
+   other half is arithmetic that no rule can argue with. Seven captions need
+   476px. Five need 340px, and five columns at 360 are 72px each, which fits
+   every caption in the set with room over.
+
+   So the bar shows the four tabs a phone opens most, and a fifth column that
+   is not a tab: More, which is a sheet holding Dashboard, Timeline, Reminders
+   and Settings. Nothing is hidden, which is this phase's own decision ("it is
+   reached through a sheet or a menu instead"), and nothing in the app is more
+   than two taps away.
+
+   **The bar is `#phone-tab-dock` now, not `#tab-bar`.** The strip is a
+   `role="tablist"` and cannot hold a button that is not a tab, so the fixed
+   bar is the box around it and the strip inside it goes back to being a plain
+   row: everything 07-whiteboard-misc.css gives `#tab-bar` in this band (the
+   fixed position, the ground, the top hairline, the blur, the bottom inset)
+   moves out one level, and the strip keeps only its columns. `dockTabBar`
+   (app.js) moves the same node as before, into the box rather than onto the
+   body.
+
+   The height changes by the safe-area inset and deliberately. 07's rule reads
+   `height: var(--bottom-tabs-h)` with `padding-bottom: env(...)` inside it,
+   which on a notched phone takes the inset *out of* the row the tabs stand
+   in; the page's own reservation for the bar (`#status-bar`'s bottom margin,
+   same file) is the height plus the inset. The box is that sum, so the row
+   stays 57.6px on any phone and the two numbers agree. */
+#phone-tab-dock {
+  display: none;
+}
+
+@media (max-width: 599.98px) {
+
+  #phone-tab-dock {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 45;
+    display: flex;
+    align-items: stretch;
+    height: calc(var(--bottom-tabs-h) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-sizing: border-box;
+    /* The status bar's treatment, for the reason its own comment gives:
+       furniture at the edge of the window is never ambiguous about being
+       furniture. On the `[data-glass="off"]` list in 03-dashboard-widgets.css
+       with every other blurred surface. */
+    background: var(--modal-bg);
+    border-top: 1px solid var(--glass-border);
+    backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  }
+
+  /* Four parts to the strip against one to More is five equal columns: the
+     strip's own buttons are each `flex: 1 1 0` inside it, so the units divide
+     the same way they would if all five were siblings. */
+  #phone-tab-dock > #tab-bar {
+    position: static;
+    flex: 4 1 0;
+    height: 100%;
+    min-width: 0;
+    background: none;
+    border-top: 0;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    padding-bottom: 0;
+  }
+
+  /* The three that moved into the sheet. `display: none` rather than a
+     narrower strip: a tab button with no box is not in the roving tabindex's
+     way and not in `tabContentWidth`'s sum either.
+
+     Qualified by the strip, and measured rather than assumed: `#tab-bar
+     button` in 07-whiteboard-misc.css is (1,0,1) and an id on its own is
+     (1,0,0), so the bare ids lost to it and all seven columns stayed on
+     screen. */
+  #tab-bar #tab-btn-dashboard,
+  #tab-bar #tab-btn-timeline,
+  #tab-bar #tab-btn-reminders {
+    display: none;
+  }
+
+  /* The fifth column, which mirrors `#tab-bar button`'s phone block in
+     07-whiteboard-misc.css rather than inventing a second shape. It is the
+     ramp's Plain tier (DESIGN.md, the button ramp: "tab-bar buttons,
+     `.linklike`, `.status-item`: no fill at rest, a tint on hover"), because
+     that is what it stands beside. When the two files are free at the same
+     time the two blocks should become one selector list. */
+  .phone-tab-more {
+    flex: 1 1 0;
+    min-width: var(--target-min);
+    height: 100%;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    color: var(--muted);
+    font-size: var(--text-xs);
+  }
+
+  .phone-tab-more.active {
+    color: var(--accent-surface);
+  }
+
+  /* Five captions fit where seven did not, so the selected-tab-only rule one
+     band up (07-whiteboard-misc.css, 360 to 479.98) has nothing left to buy:
+     with four columns in the strip every caption is whole at 360 and above.
+     `display: block` rather than `revert`, which would revert past the author
+     origin entirely: the labels are flex children and blockified already, so
+     this is the value they compute to when nothing hides them. */
+  #tab-bar button:not(.active) .tab-label,
+  .phone-tab-more .tab-label {
+    display: block;
+  }
+
+  #tab-bar button.active {
+    flex: 1 1 0;
+    padding-inline: 0;
+  }
+}
+
+/* --- a sheet (DESIGN.md's recipe index, "A sheet") -----------------------
+   UI_MODERNISATION_PLAN.md Phase 11: "every panel a sheet".
+
+   The app had two sheets and no recipe: the three sidebars below 600
+   (`.sidebar-sheet-open`, 07-whiteboard-misc.css) and the graph's dock
+   (`.graph-popup-sheet`), each with its own scrim, its own closing behaviour
+   and its own bottom inset. This is the shared one, and it is deliberately
+   not a new surface: it is the `.modal-overlay` + `.card.modal-card` dialog
+   every other dialog in the app is built from, with one class on each. That
+   keeps the scrim, the z-index tier (1010, above the agent monitor and below
+   the toasts) and the backdrop press identical, and leaves the sheet classes
+   saying only where it sits and how wide it is.
+
+   Bottom edge at every width rather than below 600 only: a sheet is a thing
+   with a direction, and a panel that arrives from the bottom on a phone and
+   from the middle on a tablet is two components sharing a name. */
+.sheet-overlay {
+  align-items: flex-end;
+  padding: 0;
+}
+
+.sheet-card {
+  width: 100%;
+  max-width: 100%;
+  /* Two thirds of the window at most, so what is behind it is still visible:
+     the HIG's own point about a sheet, that it keeps its context on screen.
+     `dvh`, because on a phone `vh` is the window with the browser's own
+     chrome pretending not to be there. */
+  max-height: 66dvh;
+  gap: var(--space-3);
+  border-radius: var(--radius) var(--radius) 0 0;
+  border-bottom: 0;
+  /* The one inset a bottom sheet cannot do without: its last row sits exactly
+     where the home indicator is. */
+  padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
+}
+
+.sheet-title {
+  margin: 0;
+}
+
+.sheet-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* A row is the whole width, which is the target a thumb wants, and the Plain
+   tier of the button ramp: no fill at rest, a tint under the pointer and on
+   focus. The icon is the same glyph the tab strip shows for that tab, read
+   off the button itself in `openPhoneMoreSheet`. */
+.sheet-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  min-height: var(--target-min);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+  font-size: var(--text-body);
+  font-weight: 600;
+  text-align: left;
+}
+
+.sheet-row > i {
+  font-size: var(--text-h3);
+  line-height: 1;
+  color: var(--muted);
+}
+
+.sheet-row:focus-visible {
+  background: var(--accent-soft);
+}
+
+@media (hover: hover) {
+  .sheet-row:hover {
+    background: var(--accent-soft);
+  }
+}

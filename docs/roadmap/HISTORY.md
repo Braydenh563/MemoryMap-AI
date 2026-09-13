@@ -24226,6 +24226,63 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing
 order 10). Origin file named on each.
 
+### From UI_MODERNISATION_PLAN.md
+
+### Built, Phase 11 item 1: the five-item bar and its More sheet, 2026-09-13
+
+The measurement the phase opens with, and the one the previous pass halved:
+seven equal columns on a 390px screen are 55.7px each, a glyph with no room for
+a caption, so the bottom of a phone named nowhere. Keeping the selected tab's
+caption fixed half of it (that block is above, "the bar says where you are").
+The other half is arithmetic no rule argues with: seven captions need 476px,
+five need 340, and five columns at 360 are 72px each.
+
+**The bar is a box around the strip, not the strip.** `#tab-bar` is a
+`role="tablist"` and may not hold a button that is not a tab, while More is a
+button that opens a sheet and has no tabpanel to control. So `#phone-tab-dock`
+(index.html, a body child) is the fixed bar below 600, `dockTabBar` (app.js)
+moves the same strip node into it rather than onto the body, and everything
+07-whiteboard-misc.css gave `#tab-bar` in that band (the fixed position, the
+ground, the hairline, the blur, the bottom inset) moved out one level into
+10-responsive.css. Dashboard, Timeline and Reminders are `display: none` there,
+qualified `#tab-bar #tab-btn-*` because `#tab-bar button` is (1,0,1) and a bare
+id is (1,0,0): the unqualified version lost the cascade and left all seven
+columns on screen, which is what the sweep caught first. The box's height is
+`var(--bottom-tabs-h) + env(safe-area-inset-bottom)`, which is the sum the page
+already reserves for it in `#status-bar`'s bottom margin; the old rule took the
+inset out of the row the tabs stand in instead.
+
+**More is the app's first sheet with a recipe behind it.** DESIGN.md's index
+had no row for one and two surfaces already built one by hand
+(`.sidebar-sheet-open`, `.graph-popup-sheet`), so the row, `openSheet` (app.js)
+and the lint landed with the feature, as standing order 11 requires:
+`.modal-overlay.sheet-overlay` holding `.card.modal-card.sheet-card`, so the
+scrim, the z-index tier and the backdrop press are the dialog's own; from the
+bottom edge at every width; Escape captured; focus in on open and back to the
+opener on close; `env(safe-area-inset-bottom)` under the last row.
+`tests/test_ui_recipes.py` freezes the two hand-built ones and fails on a third.
+
+The sheet's rows are read off the tab buttons themselves, so the bar and the
+sheet can never disagree about a tab's icon or its name, and `revealTab` lights
+the More column (`aria-current="page"`, not `aria-selected`: it is not a tab)
+while one of the three behind it is showing. Without that the bar would say
+nothing about where you are on three of the seven.
+
+**Measured** (`scratchpad/ui-sweeps/phonemore.js`, 390, 360 and 320, a
+`hasTouch` + `isMobile` context): five columns at 78, 72 and 64px, all five
+captions shown and none clipped at any of the three, one row, the bar 57.6px
+flush to the bottom edge, no sideways scroll; the sheet 259.4px of an 844px
+window from the bottom edge, four rows at 44px, focus inside on open, Escape
+closing it and focus back on `#phone-more-btn`, `aria-expanded` back to false;
+two taps from any tab to Timeline, with More lit afterwards. `touch.js`: 17
+surfaces, 0 findings at 390 and 360 (its tab-bar check now measures the dock
+and skips a button with no box at all, since a tab that is not on screen is not
+a target that is too small).
+
+Not verified: a real phone. Every number above is a Chromium touch context in
+this sandbox, and the safe-area insets resolve to 0 in it, so the one thing the
+inset work is for is the one thing that could not be measured.
+
 ### From CHAT_PLAN.md
 
 ### Built, Phase 2: one composer, bubbles, streaming, 2026-09-13

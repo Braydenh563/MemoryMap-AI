@@ -5463,6 +5463,32 @@
        class `syncEdgeFade` in app.js already drives on every other strip that
        can run off its own edge. It costs nothing at a width where the bar
        fits: the fade classes are only added when there is something hidden. -->
+  <!-- The phone's bottom bar: the tab strip, plus the one control that is not
+       a tab (UI_MODERNISATION_PLAN.md Phase 11, item 1).
+
+       Why the strip needs a host at all. `dockTabBar` (app.js) moves `#tab-bar`
+       itself out of the header and onto the body below 600, because a
+       `position: fixed` element inside the header pins itself to the bottom of
+       the *header*: `header#top-bar` carries `backdrop-filter`, and a filtered
+       element is the containing block for every fixed descendant. That move is
+       right and stays. What it cannot do is carry a fifth column that is not a
+       tab: `#tab-bar` is `role="tablist"`, and a button in a tablist that is
+       not a `role="tab"` is a lie to anything reading the page aloud, while
+       making More a real tab would give it a tabpanel it does not have.
+
+       So the bar is this box, the strip is its first child and More is its
+       second. Below 600 the box is the fixed bar and the strip inside it is a
+       plain row again (10-responsive.css); above it the box has no display at
+       all and the strip goes home to the header. -->
+  <div id="phone-tab-dock" class="phone-tab-dock">
+    <!-- Not a `kebabMenu`: a menu anchored to a button at the very bottom of a
+         phone opens into the thumb that pressed it. This opens the app's sheet
+         recipe instead (DESIGN.md, "A sheet"), which is what the HIG asks for
+         at this size and what Phase 11 specifies. -->
+    <button type="button" id="phone-more-btn" class="phone-tab-more"
+      aria-haspopup="dialog" aria-expanded="false" aria-label="More"><i class="ph ph-dots-three-circle tab-icon" aria-hidden="true"></i><span class="tab-label">More</span></button>
+  </div>
+
   <footer id="status-bar" class="edge-fade">
     <!-- The generated emblem, which followed the status dot down: it is an AI
          presence marker and it belongs beside the thing that says what the AI

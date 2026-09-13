@@ -24764,6 +24764,8 @@ function revealTab(name) {
   // When the strip is narrow enough to scroll, the tab you just chose is the
   // one that must be legible, see revealActiveTab.
   revealActiveTab?.();
+  // And on a phone three of the seven are not in the strip at all.
+  syncPhoneMoreButton?.(activeTabName);
   localStorage.setItem("activeTab", name); // reopen where you left off
   // A new tab starts at its own top, and the back-to-top button re-evaluates
   // (it stays off the graph). Each page keeps its own scroll position now, so
@@ -34525,13 +34527,19 @@ function dockTabBar(toBottom) {
   const bar = document.getElementById("tab-bar");
   const header = document.getElementById("top-bar");
   if (!bar || !header) return;
+  // The strip's host on a phone is `#phone-tab-dock`, not the body itself:
+  // the bar has a fifth column that is not a tab (More), and `#tab-bar` is a
+  // `role="tablist"` that may not hold one. The box is the bar; the strip is
+  // its first child. Falling back to the body keeps this working against a
+  // page that predates the box rather than leaving the strip in the header.
+  const dock = document.getElementById("phone-tab-dock") || document.body;
   if (toBottom) {
-    if (bar.parentElement === document.body) return;
+    if (bar.parentElement === dock) return;
     // Where to put it back. The header's children are fixed markup, so the
     // next sibling is a stable anchor.
     bar.dataset.homeNext = bar.nextElementSibling?.className || "";
     header.classList.remove("tabs-wrapped");
-    document.body.appendChild(bar);
+    dock.prepend(bar);
   } else {
     if (bar.parentElement === header) return;
     const anchor = bar.dataset.homeNext
@@ -34553,6 +34561,153 @@ function initBottomTabBar() {
 }
 
 initBottomTabBar();
+
+// --- a sheet, the phone's own dialog ------------------------------------------
+// DESIGN.md's recipe index, "A sheet". UI_MODERNISATION_PLAN.md Phase 11.
+//
+// The app had two sheets before this one and no recipe for either: the three
+// sidebars become edge sheets below 600 (`.sidebar-sheet-open`) and the graph's
+// dock becomes `.graph-popup-sheet`, each with its own closing behaviour, its
+// own idea of what the scrim is and its own bottom inset. A third built the
+// same way is how the first two came to disagree, so this is the shared one and
+// the lint in `tests/test_ui_recipes.py` says a fourth may not be hand-built.
+//
+// It is the `.modal-overlay` + `.card.modal-card` dialog the whole app already
+// uses, with one class added on each: a dialog that comes from the bottom edge
+// rather than the middle of the window is the same object at a different size,
+// and building it as one keeps the scrim, the z-index tier, the backdrop press
+// and the Escape handling identical to every other dialog here. What the sheet
+// classes add is where it sits, how wide it is and the safe-area inset under
+// its last row.
+//
+// `build` fills the card; the caller gets the `close` it can call from a row.
+// Focus goes to the first thing in the sheet on open and back to whatever had
+// it on close, which for the More sheet is the button that opened it.
+function openSheet({ label, name, build, returnFocus = document.activeElement, onClose = null }) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay sheet-overlay";
+  overlay.dataset.sheet = name || "";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", label);
+
+  const card = document.createElement("div");
+  card.className = "card modal-card sheet-card";
+  const title = document.createElement("h2");
+  title.className = "sheet-title";
+  title.textContent = label;
+  card.appendChild(title);
+
+  let settled = false;
+  const close = () => {
+    if (settled) return;
+    settled = true;
+    document.removeEventListener("keydown", onKey, true);
+    overlay.remove();
+    onClose?.();
+    returnFocus?.focus?.();
+  };
+  //: Captured, so a keyboard shortcut bound further down the page cannot take
+  //: the Escape that is meant to close this. The same shape `confirmDialog`
+  //: uses, for the same reason.
+  const onKey = (event) => {
+    if (event.key !== "Escape") return;
+    event.stopPropagation();
+    close();
+  };
+
+  build(card, close);
+
+  overlay.appendChild(card);
+  wireBackdropClose(overlay, close);
+  document.addEventListener("keydown", onKey, true);
+  document.body.appendChild(overlay);
+  (card.querySelector("button, [href], input, select, textarea") || card).focus?.();
+  return close;
+}
+
+// A row in a sheet: an icon, a name, and the whole width as its target.
+function sheetRow(iconClass, label, run) {
+  const row = document.createElement("button");
+  row.type = "button";
+  row.className = "sheet-row";
+  const icon = document.createElement("i");
+  icon.className = iconClass;
+  icon.setAttribute("aria-hidden", "true");
+  const text = document.createElement("span");
+  text.textContent = label;
+  row.append(icon, text);
+  row.addEventListener("click", run);
+  return row;
+}
+
+// --- More: the three tabs the phone's five-item bar does not show -------------
+// UI_MODERNISATION_PLAN.md Phase 11, item 1. Seven columns on a 390px screen is
+// seven 55px glyphs with no room for a caption; five is 72px a column at 360,
+// which fits every caption in the set. Nothing is hidden by that trade, which
+// is the phase's own decision: what leaves the bar is reached in one more tap,
+// through this sheet.
+//
+// Ordered as the tab strip orders them, so the bar and the sheet never disagree
+// about where a tab sits. Settings is last because it is the one row here that
+// is not a tab.
+const PHONE_MORE_TABS = ["dashboard", "timeline", "reminders"];
+
+function openPhoneMoreSheet() {
+  const opener = document.getElementById("phone-more-btn");
+  opener?.setAttribute("aria-expanded", "true");
+  openSheet({
+    label: "More",
+    name: "more",
+    returnFocus: opener,
+    onClose: () => opener?.setAttribute("aria-expanded", "false"),
+    build: (card, close) => {
+      const list = document.createElement("div");
+      list.className = "sheet-list";
+      for (const tab of PHONE_MORE_TABS) {
+        //: Read off the tab button rather than written out again here: the
+        //: icon and the caption are then the same two things the strip shows
+        //: at every other width, and a tab renamed in the markup is renamed
+        //: in the sheet without anyone remembering to.
+        const button = document.querySelector(`#tab-bar button[data-tab="${tab}"]`);
+        if (!button) continue;
+        const icon = button.querySelector(".tab-icon")?.className || "ph ph-circle tab-icon";
+        const caption = button.querySelector(".tab-label")?.textContent?.trim()
+          || button.getAttribute("aria-label") || tab;
+        list.appendChild(sheetRow(icon, caption, () => {
+          close();
+          switchTab(tab);
+        }));
+      }
+      list.appendChild(sheetRow("ph ph-gear tab-icon", "Settings", () => {
+        close();
+        //: settings.js owns the modal and loads beside this file; `typeof` so
+        //: a page served without it closes the sheet rather than throwing.
+        if (typeof openSettingsModal === "function") openSettingsModal();
+      }));
+      card.appendChild(list);
+    },
+  });
+}
+
+$("phone-more-btn")?.addEventListener("click", openPhoneMoreSheet);
+
+// The bar has to say where you are on all seven tabs, not on the four it
+// shows. While one of the three behind More is the tab in hand, More is the lit
+// column: without this the bottom of a phone says nothing at all about where
+// you are on three of the seven, which is the defect the caption work fixed for
+// the other four.
+function syncPhoneMoreButton(activeTabName) {
+  const more = document.getElementById("phone-more-btn");
+  if (!more) return;
+  const behindMore = PHONE_MORE_TABS.includes(activeTabName);
+  more.classList.toggle("active", behindMore);
+  //: `aria-current`, not `aria-selected`: this is a button that opens a sheet,
+  //: not a tab in the tablist, and the two must not be confused by anything
+  //: reading the page aloud.
+  if (behindMore) more.setAttribute("aria-current", "page");
+  else more.removeAttribute("aria-current");
+}
 
 // --- how much of the window the on-screen keyboard is covering ----------------
 // UI_MODERNISATION_PLAN.md Phase 9, band 4.

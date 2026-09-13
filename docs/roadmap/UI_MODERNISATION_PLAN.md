@@ -595,30 +595,21 @@ Standalone (installed) mode and the browser tab get the same layout;
 `env(safe-area-inset-*)` on every fixed edge. Nothing is hidden that the
 desktop has; it is reached through a sheet or a ⋯ menu instead.
 
-1. **Navigation.** A five-item bottom tab bar (Notes, Chat, Graph,
-   Library, More) that recedes to icons on scroll down and returns on
-   scroll up (INBOX 104), never hidden; More is a sheet with the rest of
-   the tabs and Settings; the top bar keeps the title, the AI dot and one
-   action.
+1. **Navigation.** The five-item bar and its More sheet are built (2026-09-13;
+   the block, with its numbers, is in HISTORY.md, "Moved from the plans,
+   2026-09-13"). What is left of item 1, in order:
 
-   **Part built, 2026-09-13: the bar says where you are.** The five-item shape
-   is still the target and is still open; what landed is the measured defect
-   underneath it. From 360 to 479.98 the selected tab keeps its caption and the
-   other six are icons, which is not an invention but the shape band 2 (820 to
-   1100) already uses, citing the HIG. Below 360 every caption still goes, and
-   that is arithmetic: seven columns at the 44px floor need 308px and fit 320,
-   while one of them carrying "Reminders" needs 344.2px and does not. Every
-   column also gained a `--target-min` floor, because a column free to take its
-   own content width shrank to 41.9px with the shortest caption ("Chat")
-   selected. Measured with `scratchpad/ui-sweeps/phonetabs.js`, seven tabs at
-   each of 320, 360, 390 and 430: one caption shown, never clipped, no column
-   under 44px, no sideways scroll in the strip or the page, the bar flush to the
-   bottom edge. `touch.js` at 390: 17 surfaces, 0 findings.
+   - **The recede to icons on scroll down and back on scroll up (INBOX 104).**
+     The listener shape to copy is the scroll-edge one in app.js (search
+     `SCROLL_EDGE_BARS`): one capture-phase `scroll` listener that picks its
+     target by measuring rather than by name, coalesced with
+     `requestAnimationFrame`. Per-surface listeners are what that block's own
+     comment exists to warn against. Never hidden, which is the rule this item
+     carries from DESIGN.md's Liquid Glass rule 10.
+   - **The top bar's own reduction**: the title, the AI dot and one action. It
+     is two rows at some widths and has never been measured at 320 with the
+     wordmark, the space switcher and the two control clusters in it.
 
-   What is left of item 1, in order: the five items themselves (which needs the
-   More sheet, and the sheet needs a recipe row and a lint in DESIGN.md's index,
-   since there is none for a sheet and two surfaces already build one by hand),
-   then the recede-on-scroll (INBOX 104), then the top bar's own reduction.
 2. **Notes.** Capture as a full-height sheet from the floating + button;
    the list as full-width rows with swipe actions (pin, bin) matched to
    the row's menu (the HIG rule); filters in a sheet; the note view as a
@@ -662,27 +653,21 @@ Before building any of the ten items above, the running app was measured, becaus
 two of them turned out to be mostly done and one of them turned out to be a
 different problem than the list says.
 
-- **The bottom tab bar exists** (`dockTabBar`, app.js; the phone band in
-  07-whiteboard-misc.css). At 360 and 390 it is `position: fixed` on the body,
-  pinned flush to the bottom edge, 57.6px tall, seven equal columns, no sideways
-  scroll. At 820 the strip is back in the header, as band 2 says it should be.
-- **What is wrong with it is item 1, and the measurement is blunt: at phone
-  widths every caption is hidden.** Seven columns of 51.4px at 360 and 55.7px at
-  390, with `.tab-label` `display: none` on all seven (the rule below 480, which
-  is there because seven captions need 476px). So the bottom of a phone is seven
-  unlabelled glyphs, and which tab you are on is carried by colour alone. Five
-  items (Notes, Chat, Graph, Library, More) give 72px a column at 360, which
-  fits every caption in the set with room over: the five-item bar is not a
-  nicety, it is what makes the bar readable at all.
-- **Touch is already clean.** `touch.js` at 390x844 with `hasTouch` and
-  `isMobile`: 17 surfaces, 0 controls under 44px, 0 covered, 0 overlapping taps,
-  the bar pinned, no sideways scroll on any of the seven tabs, `--target-min`
-  2.75rem. Item 9 is met for everything the sweep reaches.
-- **The sheets are half built.** `#sidebar`, `#chat-sidebar` and `#doc-sidebar`
-  become edge sheets below 600 (`.sidebar-sheet-open`, 07-whiteboard-misc.css)
-  and the graph's dock becomes `.graph-popup-sheet`. What is missing is the
-  recipe: DESIGN.md's index has no row for a sheet, so the next one will be
-  built by hand. Item 1's More sheet is the moment to add the row and its lint.
+- **The bottom tab bar exists and is five columns** (`#phone-tab-dock`,
+  10-responsive.css; `dockTabBar`, app.js). Measured at 390, 360 and 320: five
+  columns, every caption whole, one row, flush to the bottom edge, no sideways
+  scroll. The block is in HISTORY.md.
+- **Touch is already clean.** `touch.js` with `hasTouch` and `isMobile`: 17
+  surfaces, 0 findings at 390 and at 360. At 320 two controls in the Settings
+  sheet still cover `#settings-search` (`#settings-nav-back` and
+  `#settings-close`, both at y=86), which is the one touch finding left in the
+  band and is not in any item above.
+- **The sheets: one recipe, two still hand-built.** `openSheet` and DESIGN.md's
+  "A sheet" row landed with the More sheet, and `tests/test_ui_recipes.py`
+  freezes the two that predate it (`.sidebar-sheet-open` for the three
+  sidebars, `.graph-popup-sheet` for the graph's dock) so a third cannot be
+  built by hand. Moving those two onto the recipe is open work and belongs with
+  items 3 and 4 rather than with item 1.
 - **A finding at 820, which is not a phone at all.** The header is 108.2px
   there: two rows, a wrapped tab strip, on a band whose own rule (band 2,
   10-responsive.css) says "the tabs are icons, and the header is one row". The

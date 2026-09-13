@@ -112,6 +112,55 @@ def test_hand_built_menus_do_not_multiply() -> None:
         )
 
 
+# A sheet is `openSheet()` in app.js (DESIGN.md, "A sheet"). Two predate the
+# recipe and are frozen here with their reason: the three sidebars become edge
+# sheets below 600 (`.sidebar-sheet-open`) and the graph's dock becomes
+# `.graph-popup-sheet`. Each of those brought its own scrim, its own closing
+# behaviour and its own bottom inset, which is exactly the drift the recipe
+# ends, so the list may shrink and never grow.
+HAND_BUILT_SHEETS = {"sidebar-sheet-open", "graph-popup-sheet"}
+
+# The recipe's own classes.
+SHEET_RECIPE = {"sheet-overlay", "sheet-card", "sheet-title", "sheet-list", "sheet-row"}
+
+
+def test_a_sheet_is_the_recipe_or_one_of_the_two_that_predate_it() -> None:
+    found = set()
+    for path in CSS:
+        css = re.sub(r"/\*.*?\*/", "", path.read_text(encoding="utf-8"), flags=re.S)
+        for name in re.findall(r"\.([A-Za-z0-9_-]*sheet[A-Za-z0-9_-]*)", css):
+            found.add(name)
+    unknown = sorted(found - SHEET_RECIPE - HAND_BUILT_SHEETS)
+    assert unknown == [], (
+        "a sheet built by hand rather than through `openSheet` (DESIGN.md, "
+        '"A sheet"): ' + ", ".join(unknown)
+    )
+
+
+def test_the_sheet_recipe_keeps_its_dialog_semantics_and_its_bottom_inset() -> None:
+    """The two halves a hand-built sheet has always got wrong.
+
+    A sheet that is not a modal dialog is a panel a screen reader walks past;
+    a sheet with no bottom inset puts its last row under the home indicator on
+    every phone with one, which is the only surface in the app that cannot be
+    checked in this sandbox at all.
+    """
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    opener = app[app.index("function openSheet("):]
+    opener = opener[: opener.index("\n}\n")]
+    for needed in ('"role", "dialog"', '"aria-modal", "true"', '"Escape"', "wireBackdropClose"):
+        assert needed in opener, f"openSheet no longer carries {needed}"
+
+    card = ""
+    for path in CSS:
+        for selector, body in _rules(path.read_text(encoding="utf-8")):
+            if selector.strip() == ".sheet-card":
+                card = body
+    assert "env(safe-area-inset-bottom" in card, (
+        "the sheet's own rule no longer pads its foot with the bottom safe-area inset"
+    )
+
+
 def test_no_inline_style_attributes_in_the_page() -> None:
     """The CSP rejects them silently (CLAUDE.md, section 6, shape 4)."""
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")

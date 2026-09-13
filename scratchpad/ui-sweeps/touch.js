@@ -227,10 +227,28 @@ const SURFACES = [
   }
 
   // And the bottom tab bar, which is the one control row every tab shares.
+  //
+  // The bar is `#phone-tab-dock` below 600 (UI_MODERNISATION_PLAN Phase 11):
+  // the strip is inside it and More is its second child, because a
+  // `role="tablist"` may not hold a button that is not a tab. So the box to
+  // measure is the dock where there is one, and the columns to measure are
+  // the strip's buttons *plus* More.
+  //
+  // A button with no box at all is skipped rather than reported. Three of the
+  // seven tabs are `display: none` in that band and are reached through the
+  // More sheet instead: a control that is not on screen is not a target that
+  // is too small, and reporting it as one (0.0x0.0, three times) is the
+  // cry-wolf shape this sweep's own comment above warns about.
   const tabs = await page.evaluate((MIN) => {
-    const bar = document.getElementById('tab-bar');
+    const strip = document.getElementById('tab-bar');
+    const dock = document.getElementById('phone-tab-dock');
+    const bar = dock && dock.getClientRects().length ? dock : strip;
+    const more = document.getElementById('phone-more-btn');
+    const columns = [...strip.querySelectorAll('button')];
+    if (more && bar === dock) columns.push(more);
     const out = [];
-    for (const button of bar.querySelectorAll('button')) {
+    for (const button of columns) {
+      if (!button.getClientRects().length) continue;
       const box = button.getBoundingClientRect();
       if (box.width + 0.5 < MIN || box.height + 0.5 < MIN) {
         out.push(`${button.id} ${box.width.toFixed(1)}x${box.height.toFixed(1)}`);

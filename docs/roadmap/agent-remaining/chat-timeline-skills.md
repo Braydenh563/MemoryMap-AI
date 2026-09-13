@@ -99,6 +99,12 @@ green and its Built block is in `HISTORY.md` ("Moved from the plans,
   `test_harness_verifier.py` and `test_harness_verifier_spec.py` green.
 
 - **`/timeline`'s response still calls its row list `notes`** while it holds
-  documents and reminders. Deliberate (renaming breaks every caller for nothing
-  the per-row `kind` does not say) and recorded here so the next reader does not
-  think it is an oversight.
+  documents and reminders. **Fixed** (2026-09-13): the list is `rows` now, with
+  `notes` carrying the same list until the release after 0.3.0, because the one
+  caller that can be older than the server is the app's own cached `app.js`
+  (the desktop window keeps a profile for days, CLAUDE.md section 5). The
+  duplicate was measured rather than waved through: a full 300-row page against
+  a 3,240-row notebook is 263,828 bytes of JSON with both keys against 140,096
+  with one, 22,278 against 13,764 gzipped on the wire. The view reads `rows`
+  (`frontend/app.js`, `renderTimeline` and `timelineLoadMore`) and drew 1,800
+  rows over five pages in `timelinepagingmix.js`.

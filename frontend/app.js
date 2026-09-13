@@ -25656,7 +25656,7 @@ async function renderTimeline() {
   const [body] = await Promise.all([apiJson(url).catch(() => null), loadMapBoardIndex()]);
   timelineDensity = body?.density || {};
   timelineNextCursor = body?.next_cursor || null;
-  timelineRows = body ? body.notes.map(timelineRow) : [];
+  timelineRows = body ? body.rows.map(timelineRow) : [];
   // Newest first by the moment the row *sits* on, not by when it was typed.
   // Those differ for every note placed by what it mentions, and the old grid
   // ordered by one and bucketed by the other, so a note about next Friday
@@ -25693,7 +25693,7 @@ async function timelineLoadMore() {
     const body = await apiJson(url).catch(() => null);
     if (!body) return;
     timelineNextCursor = body.next_cursor || null;
-    const fresh = body.notes.map(timelineRow);
+    const fresh = body.rows.map(timelineRow);
     for (const row of fresh) {
       if (timelineById.has(row.key)) continue;
       timelineRows.push(row);

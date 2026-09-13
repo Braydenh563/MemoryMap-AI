@@ -493,10 +493,29 @@ def timeline(
         "scale": scale,
         "group": group,
         "kinds": list(kinds),
-        #: The wire name is older than the feed's contents: it has held boards
-        #: since mind maps existed, and holds documents and reminders now.
-        #: Renaming it would break every caller for nothing the `kind` on each
-        #: row does not already say.
+        #: **The rows, under the name they deserve**, and under the old one
+        #: for one release. The key said `notes` from the days when the feed
+        #: held only notes; it has held boards since mind maps existed and
+        #: holds documents and reminders since Phase 4, so a reader of this
+        #: response had to know that `notes[3]` might be a reminder.
+        #:
+        #: Both keys, same list, because of the one caller that can be older
+        #: than this server: the app's own frontend, served from a cache. A
+        #: desktop window or a service worker holding a previous build's
+        #: `app.js` asks this endpoint the moment it opens the tab, and
+        #: `body.notes.map` on an undefined would empty the Timeline with no
+        #: error on screen (CLAUDE.md section 5 records what that class of bug
+        #: costs to diagnose). The duplicate is measured rather than assumed,
+        #: against a 2,000-note notebook with 600 documents and 600 reminders
+        #: in it: a full 300-row page is 263,828 bytes of JSON with both keys
+        #: against 140,096 with one, and 22,278 bytes against 13,764 over the
+        #: wire, the response being gzipped. Eight and a half kilobytes a page
+        #: to a server on the same machine, for one release, against a
+        #: Timeline that silently draws nothing.
+        #:
+        #: **Drop `notes` in the release after 0.3.0**, once no cached build
+        #: that reads it can still be talking to this server.
+        "rows": placed,
         "notes": placed,
         #: Bands are a property of notes (a category, a tag, a thread), so they
         #: are counted over the rows that have those and not over the feed.

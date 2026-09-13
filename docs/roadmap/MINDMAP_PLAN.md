@@ -532,21 +532,14 @@ Coggle captures). Built already: the radial ring's visibility, 3px branches
 with an arrowhead, the "Aa" grip's placement, topics as link-tool
 candidates. Placed here:
 
-- **Core nodes**: built. The strip's crown writes `core` on the node and the
-  shape picker gained `ellipse`. Measured, `scratchpad/ui-sweeps/mapcore.js`,
-  10/10 at 1440 light, 1440 dark and 390x844: the spine goes 4px to 6px, the
-  outline 1px to 2px and the type 400 to 600 against a plain sibling, the
-  ellipse computes a 50% radius with centred text, and the round trip through
-  `/whiteboard/boards/<id>/tree` keeps `core` (the `WhiteboardObjectData`
-  drop trap). The strip is 540px in a 1408px canvas at 1440 and wraps to
-  348x102 in 364px at 390.
+- **Core nodes**: a node marked as a core idea, with its own shape set
+  (rounded rectangle, pill, ellipse) and a heavier weight.
 - **Per-node left edge**: solid, dashed or none, saved in the node's
   `style` blob beside the fields `MAP_STYLE_FIELDS` already carries.
 - **Connection line styles**: per-branch thickness, dash and arrowhead,
   managed from the map strip rather than by one global rule.
-- **Resize a topic**: built, commit `3c9b874`. Measured,
-  `scratchpad/ui-sweeps/mapresize.js`: 170x44 dragged to 290x100, stored as
-  `width` 290 / `height` 100 / `sized` true, still 290x100 after a tidy.
+- **Resize a topic** as a card resizes on the whiteboard: the map's layout
+  owns x/y, so a resize writes width/height and the layout must respect them.
 
 Each becomes a phase row when its phase is written; until then this list is
 the phase.

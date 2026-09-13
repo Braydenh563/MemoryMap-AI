@@ -391,3 +391,21 @@ def test_the_density_strip_counts_every_kind_the_feed_shows(client):
     body = client.get("/timeline?kind=document").json()
     assert sum(body["density"].values()) == 1
     assert sum(client.get("/timeline?kind=note").json()["density"].values()) == 0
+
+
+def test_the_row_list_is_called_rows_with_notes_kept_for_one_release(client):
+    """`notes` held documents, boards and reminders, which is a name that lies.
+
+    Both keys carry the same list while a cached frontend can still be older
+    than this server: the desktop window and the service worker both keep a
+    build of `app.js` across an upgrade, and `body.notes.map` on an undefined
+    empties the Timeline with nothing on screen to say why. The old key goes in
+    the release after this one.
+    """
+    _save(client, "a note about the roof")
+    _document(client)
+    _reminder(client)
+
+    body = client.get("/timeline").json()
+    assert body["rows"] == body["notes"]
+    assert {row["kind"] for row in body["rows"]} == {"note", "document", "reminder"}

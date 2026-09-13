@@ -328,5 +328,5 @@ list plus `git log`.
 - done `ab70d9b`: INBOX 191's first half, the ring's ground (`scratchpad/ui-sweeps/mapring.js`, 4 checks light and 4 dark).
 - found, not fixed: **a right-click on a map node did not open the node ring** in `mapring.js` (state at the moment of the click: `wbSelectedItem` the node, `wbMultiSelection.size` 0, `wbSelectedMapNode()` the same id, the node on the canvas, and the ring still `hidden`). The sweep falls back to `wbOpenMapRadial` and says which route opened it ("opened by: direct"). `mapstrip.js` uses the same gesture and was green on 2026-09-13, so this wants reproducing against `#wb-context`'s rebuild before anything is changed.
 - next: INBOX 184, a map exported as PNG to the board shows nothing at the foot of its image card.
-- done `PENDING4`: INBOX 184, the exported map's card foot (`scratchpad/ui-sweeps/mapexportcard.js`, 3 checks; foot 32px and empty before, 75px with a sentence after).
+- done `45a4a88`: INBOX 184, the exported map's card foot (`scratchpad/ui-sweeps/mapexportcard.js`, 3 checks; foot 32px and empty before, 75px with a sentence after).
 - next: "Left to do" item 3, the `VIEWPORT` block for `mindmap.js` and `mindmap3.js`.

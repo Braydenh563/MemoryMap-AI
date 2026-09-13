@@ -44,6 +44,32 @@ commit.
   optional extra, import of `.docx`/`.html` through `docview`), then the
   "Found, not fixed" lines below.
 
+## Verified this session, from the carried "not verified" lists
+
+Three lines that earlier sessions could not check, checked. Each is a number
+from a sweep or a probe, not a reading of the code.
+
+- **The fallback textarea path** (`docCmBroken`), carried through three
+  sessions of this plan as "nothing has been driven in a browser with the
+  engine off", and newly load-bearing for Phase 8's note boxes.
+  `scratchpad/ui-sweeps/docfallback.js` refuses `/vendor/codemirror/**` at the
+  network and drives the app on the other side: 8 of 8 and 0 unexpected console
+  errors. The surface is the textarea, `#doc-source-wrap` does not claim
+  `has-cm`, the toolbar still writes (`**paragraph**`), the document still
+  saves what was typed, the markdown table is still the text its author typed,
+  and a capture box stays a textarea and takes what is typed into it.
+- **The callout fold markers** (`> [!note]-` and `> [!note]+`), carried as
+  "believed to hide with the marker, but only the bare form was driven in a
+  browser". Measured in Live: the `-` form renders `📝 Note ▸Folded by
+  default…` with its body line folded away, the `+` form renders `💡 Tip ▾`
+  with its body line present, and both carry `.cm-md-callout-fold`. They work.
+- **A table indented inside a list item**, carried as "an indented table inside
+  a list is not one as far as `docTableParse` is concerned". Measured: it is.
+  A two-column table indented under `- item` renders as
+  `cm-md-table cm-md-cols-2` with two placed cells per row, because the model
+  keeps a row's indent rather than requiring the line to start with a pipe.
+  The carried line is out of date, not a bug.
+
 ## Landed
 
 - **DOCUMENTS_PLAN Phase 5 item 1, comments.** `ec2f276`. Block moved to

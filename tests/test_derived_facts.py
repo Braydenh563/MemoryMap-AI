@@ -178,3 +178,33 @@ def test_the_night_pass_does_not_cost_a_query_per_note(ai_client, fake_ollama, s
         f"the night pass costs {small} statements over 5 notes and {large} over 45: "
         "the already-known check belongs outside the loop"
     )
+
+
+def test_every_number_this_pipeline_takes_is_bounded(ai_client, fake_ollama):
+    """The input-limits row of the security review, for the new surface.
+
+    Every one of these is a cap declared on the route rather than checked in
+    the handler, which is the only kind that cannot be forgotten by the next
+    person to add a parameter beside it. Asserted because a declared cap that
+    nobody drives is a cap nobody knows is spelled right.
+    """
+    _entry(ai_client, "The deployment window should always be a Tuesday morning.")
+    ai_client.post("/night/run", json={"budget": 2000})
+    fact = ai_client.get("/learned").json()["items"][0]
+
+    # The budget is a real range, not a hint.
+    assert ai_client.post("/night/run", json={"budget": 0}).status_code == 422
+    assert ai_client.post("/night/run", json={"budget": 10_000_000}).status_code == 422
+
+    # A page is a page.
+    assert ai_client.get("/learned?limit=0").status_code == 422
+    assert ai_client.get("/learned?limit=100000").status_code == 422
+    assert ai_client.get("/learned?offset=-1").status_code == 422
+
+    # A corrected fact is a sentence, not a paste. 2,000 characters is past
+    # any sentence in a note and short of anything that belongs in a column
+    # the table renders whole.
+    assert ai_client.patch(f"/learned/{fact['id']}", json={"text": ""}).status_code == 422
+    long = ai_client.patch(f"/learned/{fact['id']}", json={"text": "x" * 2001})
+    assert long.status_code == 422
+    assert ai_client.patch(f"/learned/{fact['id']}", json={"text": "x" * 2000}).status_code == 200

@@ -37,6 +37,33 @@ written down so it costs nobody else any.
 - verified against a running server on 8796 (`/tmp/mm-back`), not only tests: POST /entries/daily twice returns id 1 both times; the window reports streak 1; the night pass derived 2 facts in 8 tokens; PATCH, force re-run (derived 0), reset and export all behaved. The auth header is `X-Auth-Token`, not `Authorization`.
 - done: an N+1 in my own night pass, found by reading the loop after the list endpoints came back clean. 9 statements over 5 notes and 44 over 45 before, flat after (`test_the_night_pass_does_not_cost_a_query_per_note`). next: the full suite, then the report.
 
+## The security review's open rows, checked before building (section 12)
+
+- **S5, the outbound guard: done** (`5aab24c`), above.
+- **S2, per-client unlock throttling: checked and deliberately not built.**
+  `routes_auth.py` already carries the opposite decision in writing, at the
+  top of the throttle: "One global bucket, not per-IP: there is a single user
+  to protect, and per-IP buckets are exactly what a botnet has plenty of."
+  Standing order 3 says a decision is not remade, and the plan's own fix is
+  conditional on a bind that is not loopback, which does not exist yet. This
+  belongs to Brief 15 with `tests/test_lan_mode.py`, where it can be asserted
+  rather than assumed.
+- **S1 (the token in `?token=`) and S3 (`import_directory` reading a path
+  from the body): checked, not built, same reason.** S3's fix is "refuse when
+  the bind is not loopback"; there is no non-loopback bind to refuse under.
+  S1's is a media-scoped token or an HttpOnly cookie, and `mediaSrc` in
+  `app.js` is half of it, which is not this agent's file.
+- **The route lock walk: re-confirmed.** `tests/test_every_route_is_locked.py`
+  passes with the two new routers (`/learned`'s I9 half and `/night`) in it,
+  which is the point of walking rather than naming.
+- **Input limits on everything added here: driven, not assumed.** The budget
+  (1 to 1,000,000), every page (1 to its own maximum), the offset, the
+  corrected text (1 to 2,000 characters) and the journal window (1 to 366
+  days) are caps declared on the route, and
+  `test_every_number_this_pipeline_takes_is_bounded` plus
+  `test_the_window_is_bounded` drive each boundary from both sides, because a
+  declared cap nobody drives is a cap nobody knows is spelled right.
+
 ## The flaw classes, re-run 2026-09-13 evening (WORLD_CLASS section 10)
 
 Every backend row's command run against the tree. The frontend rows (F1, F5,

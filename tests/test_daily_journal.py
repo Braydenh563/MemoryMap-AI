@@ -114,3 +114,11 @@ def test_a_binned_journal_entry_leaves_the_window(client):
     window = client.get("/entries/daily?through=2026-09-13&days=3").json()
     assert window["streak"] == 0
     assert all(day["written"] is False for day in window["days"])
+
+
+def test_the_window_is_bounded(client):
+    """A calendar strip asks for days, and a year is the most it can mean."""
+    assert client.get("/entries/daily?through=2026-09-13&days=0").status_code == 422
+    assert client.get("/entries/daily?through=2026-09-13&days=100000").status_code == 422
+    assert client.get("/entries/daily?through=2026-09-13&days=366").status_code == 200
+    assert client.get("/entries/daily?through=nonsense").status_code == 422

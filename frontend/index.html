@@ -3429,6 +3429,18 @@
              was not there, over a "Replace with this" for nothing. The dialog is
              a question until it has an answer. -->
         <div id="doc-ai-result-block" class="doc-ai-result-block hidden">
+          <!-- **The answer as a change, before the answer as text**
+               (DOCUMENTS_PLAN Phase 5 item 3). "Tighten this" over nine
+               hundred words used to come back as nine hundred words, and the
+               only two answers to it were all of them or none of them. The
+               diff says which lines the model touched and each change can be
+               skipped; the textarea below always holds the text that
+               accepting would apply, so the two are one value seen twice
+               rather than two things that can disagree. -->
+          <div id="doc-ai-diff-block" class="doc-ai-diff-block hidden">
+            <p class="muted doc-ai-diff-head" id="doc-ai-diff-head"></p>
+            <div id="doc-ai-diff" class="doc-ai-diff"></div>
+          </div>
           <label for="doc-ai-result" class="muted">The AI's version, yours to edit before you accept it</label>
           <textarea id="doc-ai-result" rows="10" aria-label="The AI's suggested text"></textarea>
           <div class="row doc-ai-result-actions">

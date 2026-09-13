@@ -7033,7 +7033,106 @@ function showDocAiResult(text) {
   //: answer, and `acceptDocAiEdit` already treats that case as valid, so the
   //: block is shown for an empty string and hidden only for nothing at all.
   block.classList.toggle("hidden", text === null || text === undefined);
+  setDocAiProposal(text === null || text === undefined ? null : result.value);
 }
+
+//: **The proposal, as a change rather than as a wall of text**
+//: (DOCUMENTS_PLAN Phase 5 item 3). The panel used to hand back the model's
+//: whole answer in a textarea: for "tighten this" over a 900-word document
+//: that is nine hundred words to read to find the four it touched, and the
+//: only two answers available were all of it or none of it.
+//:
+//: The state here is two things and the textarea is the third: the *target*
+//: (what the model was asked to change, the selection or the document), the
+//: model's answer as a list of changes against it, and the set of changes the
+//: reader has skipped. The textarea always holds the text that pressing accept
+//: would apply, so the diff explains the textarea rather than competing with
+//: it, and `acceptDocAiEdit` needs no knowledge of any of this: it still reads
+//: the textarea, which is what it has always done.
+let docAiOps = [];
+let docAiHunks = [];
+let docAiSkips = new Set();
+let docAiTarget = null;
+let docAiDiffTimer = null;
+
+//: "Write" has no target: it inserts new text and changes nothing, so a diff
+//: of it is the whole answer marked as added, which says less than the answer
+//: itself. The block is hidden for that verb rather than drawn empty.
+function docAiDiffTarget() {
+  if (docAiVerb() === "write") return null;
+  const selection = $("doc-ai-panel").dataset.selection || "";
+  return selection || docSurface().text;
+}
+
+function setDocAiProposal(text) {
+  docAiTarget = text === null || text === undefined ? null : docAiDiffTarget();
+  if (docAiTarget === null) {
+    docAiOps = [];
+    docAiHunks = [];
+  } else {
+    docAiOps = docDiffLines(docAiTarget, text);
+    docAiHunks = docDiffHunks(docAiOps);
+  }
+  docAiSkips = new Set();
+  renderDocAiDiff();
+}
+
+function renderDocAiDiff() {
+  const block = $("doc-ai-diff-block");
+  const view = $("doc-ai-diff");
+  const head = $("doc-ai-diff-head");
+  if (!block || !view || !head) return;
+  if (!docAiOps.length) {
+    block.classList.add("hidden");
+    view.replaceChildren();
+    return;
+  }
+  block.classList.remove("hidden");
+  const stat = docDiffStat(docAiOps);
+  const count = docAiHunks.length;
+  head.textContent = !count
+    ? "No change: the model gave back the same text."
+    : count === 1
+      ? `One change, +${stat.added} −${stat.removed} lines. Skip it to leave the text as it is.`
+      : `${count} changes, +${stat.added} −${stat.removed} lines. Skip any you don't want.`;
+  //: Kept across a redraw: toggling the fourth change of eight must not take
+  //: the reader back to the first.
+  const scroll = view.scrollTop;
+  docRenderDiff(view, docAiOps, {
+    hunks: docAiHunks,
+    skipped: docAiSkips,
+    onToggleHunk: toggleDocAiHunk,
+    emptyText: "No change: the model gave back the same text.",
+  });
+  view.scrollTop = scroll;
+}
+
+function toggleDocAiHunk(index) {
+  if (docAiSkips.has(index)) docAiSkips.delete(index);
+  else docAiSkips.add(index);
+  //: Setting `.value` from script fires no `input` event, which is what keeps
+  //: this and the listener below from chasing each other: a toggle writes the
+  //: textarea, a person typing rebuilds the diff, and neither triggers the
+  //: other.
+  $("doc-ai-result").value = docDiffApply(docAiOps, docAiHunks, docAiSkips);
+  renderDocAiDiff();
+}
+
+//: Edited by hand, the answer becomes the proposal: the diff is rebuilt
+//: against the same target and every change starts kept again, because a skip
+//: is a statement about a change that may no longer exist.
+function docAiResultEdited() {
+  if (docAiTarget === null) return;
+  docAiOps = docDiffLines(docAiTarget, $("doc-ai-result").value);
+  docAiHunks = docDiffHunks(docAiOps);
+  docAiSkips = new Set();
+  renderDocAiDiff();
+}
+
+$("doc-ai-result").addEventListener("input", () => {
+  if (docAiDiffTimer) clearTimeout(docAiDiffTimer);
+  docAiDiffTimer = setTimeout(docAiResultEdited, 300);
+});
 
 // The run button, the instruction placeholder, and the scope hint all read
 // differently per verb: kept in one place so switching verbs updates all

@@ -579,3 +579,20 @@
   -webkit-line-clamp: 2;
   overflow: hidden;
 }
+
+/* The AI panel's diff, above the answer it explains. Shorter than the history's
+   (the panel is a dialog with a textarea and two buttons under it, and the diff
+   may not push them off the bottom), and the answer stays the taller of the
+   two: what is being accepted is the text. */
+.doc-ai-diff-block {
+  margin-bottom: var(--space-3);
+}
+
+.doc-ai-diff {
+  max-height: min(14rem, 32vh);
+}
+
+.doc-ai-diff-head {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
+}

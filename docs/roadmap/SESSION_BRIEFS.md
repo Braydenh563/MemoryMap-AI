@@ -1203,3 +1203,56 @@ switch (`#wb-board-kind`, whiteboard.js), which is the control section 12's
 `AGENT_SKILLS_REFORM.md` Phase D. Phases A, B and C are built. Backend work
 against its own spec tests, so it is the one brief here a Sonnet agent can
 take: the fix is named in the plan and verifiable without design judgement.
+
+## Brief 32 (Opus): templates and base layouts, for boards, maps and documents
+
+The owner, 2026-09-13, looking at a board an agent had built to photograph for
+the README: *"add the ability to save whiteboard templates and base layouts, Im
+inspired by this example whiteboard png the agent took and it can be like canva
+templates, same with the mindmap and documents."*
+
+**Read this before designing anything, because most of it is built.** The idea
+is one step from three existing mechanisms and must not become a fourth:
+
+- **Notes** already have templates: `BUILTIN_TEMPLATES` in app.js, a "Yours"
+  group beside a "Built-in" group, offered through the `#entry-template` select
+  on the capture panel. That grouping is the shape the owner is describing, and
+  it is the precedent for what "mine" versus "shipped" looks like.
+- **Documents** already have "new from template" with `{{date}}` and `{{title}}`
+  substitution (documents.js), and DOCUMENTS_PLAN Phase 5 item 5 already
+  specifies the gallery: templates stored as documents tagged `template`,
+  offered with a preview. Build that, do not invent a second scheme.
+- **Boards and maps** can already be copied whole:
+  `POST /whiteboard/boards/{board_id}/duplicate`. A template is that, plus a
+  flag saying "this board is a starting point" and a gallery to pick from.
+  `BoardOut` already carries `preview_items`, `preview_edges` and
+  `preview_aspect`, which is exactly what draws the board cards in the Library
+  today, so the gallery's thumbnails are a solved problem.
+
+**The decision to make first, and to record in the plan before building**
+(standing order 3): where a board template lives. The cheapest answer that fits
+this codebase is the one maps already use, `board_settings` on the board's own
+note (see `_board_settings` in routes_whiteboard.py, which stores `type` and
+`layout` as JSON and degrades every unknown value to a default). A
+`template: true` there, plus the existing duplicate route, is most of the
+feature. Weigh that against a separate table and write down why you chose what
+you chose.
+
+**Scope, in build order.** Boards first, because the request came from a board
+and the duplicate route already exists; then maps, which are the same object
+with `type: "map"`; then documents, which has its own plan row waiting. Ship
+boards end to end before starting maps: three half-built galleries would be
+worse than one that works.
+
+**What "like Canva templates" has to mean here, concretely:** a gallery you
+open when making a new board, showing a preview of each; a handful shipped with
+the app (the screenshot's own shape is a good first one: a titled banner, three
+labelled columns, a few coloured cards); "save this board as a template" on an
+existing board; and your own templates listed beside the shipped ones, the way
+the note picker already groups "Yours" and "Built-in".
+
+**Ship with:** the decision written into WHITEBOARD_PLAN (and DOCUMENTS_PLAN
+for its half) before the code; a test that a template survives a round trip and
+that using one leaves the template itself unchanged; the gallery on DESIGN.md's
+recipe index or a new recipe plus its lint in the same commit; and measurements
+in Chromium for the gallery at 1440, 1024 and 390.

@@ -38,16 +38,25 @@ green and its Built block is in `HISTORY.md` ("Moved from the plans,
    and delete the palette's own result row. Not obviously worth it: the three
    surfaces have genuinely different frames around the same three components.
 
-5. **TIMELINE: the paging sweep was not re-run against the merge.**
-   `scratchpad/ui-sweeps/timelinepaging.js` (Phase 3's 2,048-note seed) proves
-   the cursor at scale, and the new per-source cursor is proved only by
-   `tests/test_timeline.py` at three rows. Next step: seed with
-   `seed-timeline-bulk.py`, add a document and a reminder, and run it.
+5. **TIMELINE: the paging sweep was not re-run against the merge.** **Done**
+   (2026-09-13), and with more than the document and the reminder this line
+   asked for: one document is never in the same page twice, so it cannot
+   exercise a mark that has to advance. `scratchpad/ui-sweeps/seed-timeline-mixed.py`
+   adds 600 documents, 600 reminders and 40 boards beside the bulk script's
+   2,000 notes, and `scratchpad/ui-sweeps/timelinepagingmix.js` pages the whole
+   3,240-row notebook to exhaustion: 11 requests, 3,240 distinct keys, 0
+   missing against the four single-kind feeds paged separately, 0 invented, 0
+   ordering inversions across page boundaries, and 1,800 rows drawn over five
+   scrolls in the view with no key twice. `timelinepaging.js` re-run on the
+   same notebook: worst frame 67ms over 262 frames, 0px horizontal scroll.
 
-6. **TIMELINE: a board row was not exercised in a browser.** The sweep's
-   notebook has no map, so `kind=board` is covered by
-   `tests/test_timeline.py` and by the glyph table, not by a rendered row.
-   Next step: `seed-boards.js` before `timelinekinds.js`.
+6. **TIMELINE: a board row was not exercised in a browser.** **Done**
+   (2026-09-13): `timelinepagingmix.js` asserts a rendered `data-kind="board"`
+   row and prints its title ("Map 32", 40 boards in the feed). Worth knowing
+   for the next fixture: a board's `Entry.content` is `# <name>` and nothing
+   else (`routes_whiteboard.py`), so a seed that puts the board's JSON there
+   makes the feed's preview read as `{"title": ...` and looks like a product
+   bug. The first run of this sweep did exactly that.
 
 7. **TIMELINE: the "auto" scale counts all four kinds as one number**
    (`timelineResolvedScale`). A notebook with hundreds of reminders will pick

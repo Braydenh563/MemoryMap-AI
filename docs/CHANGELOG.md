@@ -9,17 +9,6 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
-- The document history says what changed, not just when. Any version in a
-  document's history opens a diff in its own row now: the lines it added and
-  the lines it lost, in the app's two diff colours, with the untouched runs
-  counted rather than printed, and a head saying which two versions are being
-  compared. The list has an "AI edits" filter beside "All", so the versions an
-  AI edit replaced can be found without reading past your own. Measured with
-  `scratchpad/ui-sweeps/dochistory.js`: a one-line change in a forty-line
-  document draws six rows and two counted gaps, and the history row itself came
-  down from 346px to 94px, because a third action in the row had squeezed its
-  text column to 134.6px and let a preview wrap to 270px.
-
 - A mind map topic can be marked as a core idea. Beside bold and italic in
   the topic strip there is a crown now: a marked topic draws with a heavier
   outline, a wider spine in its branch's own colour and heavier type, so the

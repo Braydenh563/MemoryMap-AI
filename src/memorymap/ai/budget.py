@@ -143,7 +143,25 @@ def spending(budget: RunBudget | None):
     try:
         yield budget
     finally:
-        _current.reset(token)
+        try:
+            _current.reset(token)
+        except ValueError:
+            #: **A run's scope can end in a context that did not start it.**
+            #: `run_skill` holds this scope open across a generator's yields
+            #: (`skill_runner.run_skill`), and a generator is resumed in
+            #: whatever context is current at the time: the streaming route
+            #: advances it inside the request's context and something else can
+            #: close it, an abandoned response, the garbage collector, a
+            #: failing test's teardown. `ContextVar.reset` refuses a token from
+            #: another context with a `ValueError`, and raising out of a
+            #: `finally` here would bury the real failure's traceback under a
+            #: bookkeeping one: the log then reads as though the budget broke
+            #: the run, which cost one reader an afternoon already. The scope is
+            #: over either way, so clear the variable in whichever context is
+            #: running this instead. Clearing rather than leaving it: a context
+            #: that inherited the value would otherwise go on reporting a
+            #: finished run's budget as current.
+            _current.set(None)
 
 
 def from_settings(config) -> RunBudget:

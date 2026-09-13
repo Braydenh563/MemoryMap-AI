@@ -89,6 +89,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A red test log no longer ends in a budget error that was never the fault. A
+  skill run holds its token budget open across the generator that streams it,
+  and a generator is closed by whoever happens to be running at the time, so a
+  run abandoned mid-stream ended with `ValueError: Token was created in a
+  different Context` from the budget's own cleanup, printed last and reading
+  like the cause. The scope now ends cleanly wherever it is closed.
+
 - The document editor's word menu follows its word, or closes. The menu copied
   the word's position when it opened and nothing re-measured it, so scrolling
   the editor under an open menu left it beside whatever had scrolled into that

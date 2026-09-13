@@ -90,9 +90,13 @@ green and its Built block is in `HISTORY.md` ("Moved from the plans,
   `ai/budget.py`'s `spending` context manager, on the way out of a generator
   closed during teardown. It is noise on an already-failing test rather than a
   fault of its own, and it did not appear on any passing run, but it will
-  mislead the next person who reads a red log. Next step: `_current.reset` in
-  `spending` should tolerate a token from another context (catch `ValueError`
-  and set `None`).
+  mislead the next person who reads a red log. **Fixed** (2026-09-13):
+  reproduced in three lines in `tests/test_harness_verifier.py`
+  (`test_a_scope_closed_in_another_context_does_not_raise`: advance the
+  generator inside `contextvars.copy_context()`, close it outside), and
+  `spending`'s `finally` now catches the `ValueError` and clears the variable
+  in whichever context is running it. 34 tests in
+  `test_harness_verifier.py` and `test_harness_verifier_spec.py` green.
 
 - **`/timeline`'s response still calls its row list `notes`** while it holds
   documents and reminders. Deliberate (renaming breaks every caller for nothing

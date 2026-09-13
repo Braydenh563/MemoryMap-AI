@@ -199,6 +199,31 @@ def test_a_budget_scope_does_not_nest(app_state):
     assert budget.current() is None
 
 
+def test_a_scope_closed_in_another_context_does_not_raise(app_state):
+    """The shape a red log kept showing: `ValueError: <Token ...> was created
+    in a different Context`, from this scope's own `finally`, on the way out of
+    a `/chat/stream` skill run whose generator was closed during a failing
+    test's teardown. It was never the fault, only the last traceback printed,
+    which is exactly what makes it expensive: it sends the reader to the budget
+    rather than to the test that failed. A generator is resumed in whichever
+    context is current, so advancing it in a copied one and closing it here is
+    the fault in three lines.
+    """
+    import contextvars
+
+    spend = budget.RunBudget()
+
+    def stream():
+        with budget.spending(spend):
+            yield "chunk"
+
+    generator = stream()
+    ctx = contextvars.copy_context()
+    assert ctx.run(lambda: next(generator)) == "chunk"
+    generator.close()  # the finally runs here, with a token from `ctx`
+    assert budget.current() is None
+
+
 def test_the_budget_comes_from_settings(app_state):
     config = deps.get_config()
     config.set_preference("run_budget_tokens", 1234)

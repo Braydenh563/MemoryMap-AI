@@ -26071,3 +26071,200 @@ more than the floor was because an open row is 100px under Large text with
 Spacious on and the floor never cleared it). Measured: one finding 109px around
 97px, sixty findings 144px and scrolling, one open row 158px and inside the
 panel's box in every appearance setting.
+
+## Moved from HANDOVER, 2026-09-13 night: the Previously block of 2026-09-13 morning to midday
+
+**Previously (2026-09-13 morning, the order "file and log all my requests so
+you dont miss anything ... fix them all and then finish the rest of the pr").** Three agents have been
+through their first briefs; one is on a second pass. What the owner flagged
+today is INBOX 124 to 140, and most of it is closed: the capture panel's 3px
+border, the Dictate label, the writing dictionary (which was overwriting the
+whole saved list on the first add after any reload), the `#` leaking into
+`[[wiki link]]` labels, the `apiPagedList` crash that killed the Notes tab at
+boot, the Continue pill, the whiteboard View menu (714px of content in a 272px
+column, now two columns at 453px), board kinds, the selection kebab (a flip
+class collapsing an escaped menu from 303px to 15px), the Tools and features
+alignment, the splash bar's two separate causes, the chat on a phone (dock 38%
+to 20% of the window), and the chord guide's pills becoming real buttons.
+
+**Still open from that batch:** the spelling popup's "wide gap", which measures
+flush with the word here (0px horizontal, 4px below) and is therefore NOT
+reproduced, with `scratchpad/ui-sweeps/spellanchor.js` committed so the next
+report starts from a number.
+
+**The trap this session found, and it matters for the PR:** every CI run on
+this branch is coming back `cancelled`, not `failed` and not `success`. Four
+writers (the orchestrator and three agents) push often enough that each push
+cancels the run in flight, so **the test suite has not completed on any head
+since the failure at `0a7c2ab`**, which was fixed but never confirmed by a
+finished run. CodeQL completes and passes. Before this PR closes, the pushes
+have to stop long enough for one CI run to finish, or the suite has to be run
+locally end to end (HANDOVER done-when item 7 already says the latter).
+
+**The container restarted mid-session** (2026-09-12 ~20:00). Both agents were
+killed with their work committed, and were relaunched with continuation
+briefs; nothing was lost, but their `agent-remaining/*.md` files were a round
+stale at that point, which is why both briefs start by reconciling them with
+`git log`.
+
+Queue after them, in the owner's stated order: (1) Brief 24, the derived
+facts pipeline (I9, the ten markers left in `test_learned_spec.py`), written
+this session and ready to hand to an agent; (2) GRAPH Phase 4b and 6b and
+`agent-remaining/graph.md`; (3) UI Phase 11, the phone, whose first item is
+now measured and written down (the status bar at 320); (4) TIMELINE_PLAN and
+CHAT_PLAN Phases 2 and 3, untouched this session, last.
+
+Landed by the orchestrator since the previous Now line, each measured: the
+phone band (touch.js from 3 surfaces to 16, which found 33 findings the old
+sweep could not see; the header 7px wider than a 390 screen on every tab; the
+dashboard's Edit layout half off the edge; the small-phone band at 360 and
+320); the security pass (13 LIKE sites escaping user text, a walk that asks
+every route to refuse a stranger and found `/changelog` open, and the updater
+that downloaded and ran whatever URL a release row named); a hidden tab's two
+one-second clocks, stopped; a flicker sweep that opened 50 popovers and found
+none painted before it was placed (INBOX 111, measured and not reproduced);
+and resurfacing given a surface at last (I4: the Rediscover widget now shows
+the three most faded notes with the reason on each, and Notes has a
+"Forgotten first" sort).
+
+Carried, found and not fixed: `touch.js` covers sixteen surfaces but not the
+documents editor or the whiteboard, which need a document and a board open;
+the note edit form's toolbar is a clone taken at open time; the whiteboard
+drag lag (with the whiteboard agent now); four owner reports measured and not
+reproduced are in INBOX 114. The hourly check-in re-arms itself.
+
+**After the plans (the owner, 2026-09-12 evening): "just repeat, improve ui,
+improve ux, fix bugs, fix security flaws, poke holes in the application for
+fixing."** That loop is the standing order once the queue is empty: a sweep
+pass (errors, contrast, docks, touch, idle, flicker, finalqa), a security
+pass (WORLD_CLASS_PLAN section 12 and the CodeQL categories), a hole-poking
+pass (the flaw classes in WORLD_CLASS_PLAN section 10 with their commands),
+each finding fixed and measured, then again.
+
+### The agents (worktrees under `.claude/worktrees/agent-<id>`)
+
+Each is cut from main and merged with the branch; each has its own
+server port and data dir. Their committed heads are merged as of
+`dca50c6`; anything they commit after that is merged with
+`git merge worktree-agent-<id>`, then the lints, then push. If one is
+dead (usage limit, container restart), its worktree keeps its commits:
+merge those and re-brief the rest from its brief.
+
+| Worktree id | Brief | Port | State at hand-off |
+| --- | --- | --- | --- |
+| `a9ca1fcf2f7eb318b` | Phase 8 docks: Chat, Dashboard, Library sub-tabs | 8799 | 7 commits merged; finishing |
+| `a7b3e667c203e7caf` | Documents Phase 0 | 8800 | **Done**, 8 commits merged; editor.js sweep 89/89; six bugs found by measuring (report in its transcript) |
+| `a1fb06af7bc117427` | Phase 9 responsive by device | 8801 | 5 commits merged (one column below 820, sidebars as sheets); working |
+| `a97f8374639e599f8` | Graph Phase 1 canvas renderer | 8802 | 3 commits merged (worker, fixture, Canvas 2D renderer); working |
+| `a01201cb4507e3030` | Menus, summaries, one-bar docks, icon alignment, footers, toggle rows, meta chips (`08-consistency.css`) | 8815 | 3 commits merged; working |
+| `a12f6d594c4b9c730` | Mindmap bugs (selection box, text selection, map-as-note, node picker, dangling edges), previews, boards widget, Phases 4 to 5 | 8816 | 2 commits merged (a map is no longer a note); working |
+| `abcdedfb8d9f9f2bf` | Timeline redesign | 8817 | **Paused** to save usage after the audit; resume with SESSION_BRIEFS Brief 5 |
+| `a228ba0fe38c417dc` | Paragraphs to '?' popovers | 8818 | **Paused**; 54 paragraphs left; resume with Brief 4 |
+
+### The whole-app visual pass and the section 6 review, 2026-09-09
+
+Both moved whole to [`HISTORY.md`](HISTORY.md) ("Moved from the plans,
+2026-09-12") at the 600-line ceiling. In one line each: the visual pass
+found zero console, JavaScript and HTTP errors across four full passes
+(1440 and 1024, both themes) and one real finding, the Library's Contents
+dock wrapping to two lines at 1024, which should take the kebab the boards
+dock took; the section 6 review found nothing dead, no CSP-refused inline
+styles, and one deliberate rewrite (the graph's drag), recorded in
+GRAPH_PLAN with its reason.
+
+### Two traps an agent worktree sets (2026-09-09)
+
+Moved to [`HISTORY.md`](HISTORY.md) ("Moved from the plans, 2026-09-12")
+at the 600-line ceiling. Both still bite: a worktree can be cut from an
+older base than you think, so every brief says merge the branch before
+starting and "that lint does not exist here" means merge rather than
+substitute a weaker check; and `scripts/gate.sh` resolves python and ruff
+from the main checkout, found through `git rev-parse --git-common-dir`,
+because a linked worktree has no `.venv` of its own.
+
+### Merge recipe (every time, no shortcuts)
+
+The whole recipe below is `scripts/gate.sh --changed` plus
+`BASE=<port> scripts/gate.sh --sweeps` against a fresh server; the steps
+are listed so a failure can be read. The full suite is not part of a
+merge: CI runs it on the push; locally it runs once before a large
+agent task's final report and once before the PR closes (done-when
+item 7), never per step or per merge.
+
+1. `git merge --no-edit worktree-agent-<id>`; on a conflict in
+   `07-whiteboard-misc.css` keep BOTH sides (both append), then run
+   `tests/test_css_braces.py`: the last merge left one block unclosed and
+   only that test saw it.
+2. `for f in frontend/*.js; do node --check $f; done`, `.venv/bin/ruff check .`,
+   the lint set in `SESSION_BRIEFS.md` §0 step 6.
+3. Restart the 8781 server (`setsid`, never `pkill`), run
+   `scratchpad/ui-sweeps/errors.js` (takes over two minutes: run it in
+   the background) and the sweep the brief names.
+4. Commit the merge, push, read the CI result when it arrives; CodeQL
+   comments are bug reports: fix, push, resolve the thread.
+
+### The owner's flagged list, and where each stands
+
+- Em-dashes everywhere: sweep script ready (`scratchpad/emdash.py`), run
+  it LAST, after every agent has merged (Brief 1). Not run yet.
+- Paragraphs to '?' buttons: wiring merged; 54 left (Brief 4).
+- Sub-tab arrow keys: done. Sub-tabs stay left-aligned (decision).
+- Mindmap: selection box, text selection, "test" map as a note (fixed),
+  node picker rows, dangling edge: with the mindmap agent.
+- Line numbers drifting: fixed (Documents Phase 0, measured 0.0px).
+- Docks as one bar, menus not stacks of buttons, icon alignment, capture
+  footer with the FAB over Save, toggle rows, meta chips: with the menus
+  agent.
+- Timeline line and table views: audited, paused (Brief 5).
+- Responsive by device: with the Phase 9 agent.
+- Graph fullscreen square corners: with the graph agent (Phase 2 item).
+- Files reading only first line: done.
+- New note tile colours: done. Hero: restored and refined (owner's call).
+- Sidebar toggle clash when collapsed: done.
+- llama.cpp in the project: no; dev-only script planned (WORLD_CLASS §9).
+
+### After the agents: the order
+
+`SESSION_BRIEFS.md` Briefs 1 to 14 in order. Brief 1 (the em-dash sweep)
+only after every agent above has merged, or their diffs conflict on every
+line that carried a dash.
+
+### Traps found this night
+
+- A merge of two appended CSS sections can drop a `}`; the braces test is
+  the only guard.
+- `kill $(pgrep ...)` in the same shell line as a `setsid` start kills the
+  shell; separate the commands.
+- The Bash tool times out at 120s; `errors.js` needs the background flag.
+- CodeQL reads `scratchpad/` too: lazy `.*?` regexes over argv paths,
+  unclosed `open()`, and case-sensitive tag filters were all flagged there.
+- **A CSS or JS file changed on disk is not re-served to the next sweep
+  until the server process restarts.** Local assets are stamped
+  `?v=<version>-<boot token>` and served as immutable for that stamp, and
+  the boot token is fixed once per uvicorn process, so a second browser run
+  against the same server can be handed the bytes the first run fetched.
+  Cost an hour here: a fix measured correct, then reverted to check the new
+  guard, and the guard stayed green because the browser was still being
+  served the fixed file. Restart the server between a CSS change and the
+  sweep that judges it, exactly as a Python change already requires.
+- **Three pytest runs in one worktree collide.** With two agents and the
+  orchestrator all running `scripts/gate.sh` in the shared checkout, a gate
+  can fail on a test that passes on its own seconds later: seen here on
+  `TestTheDesktopShortcut`, which writes a real desktop entry and then asks
+  the uninstaller to list it. Re-run the failing file alone before believing
+  a gate failure that names one of the file-writing suites, and say which of
+  the two you saw.
+- A sweep only knows about what it is pointed at. `touch.js` reported
+  "PASS, 0 findings" for a month over three surfaces out of sixteen, and
+  the thirteen it had never opened were holding 33 findings, one of them
+  the whole page sliding 7px sideways on every tab at 390.
+- `elementFromPoint` at a point outside the viewport returns null, so a hit
+  test that does not scroll the control into view first reports every
+  control below the fold, and every one in a sideways-scrolling strip, as
+  "covered". Fifteen such lines in one run were all this.
+
+---
+
+# Handover
+
+**Next: [`PLAN.md`](PLAN.md)** — the scoped professional-grade plan (whiteboard, documents, backend, agent harness, performance), in ship order with measurements. Written by direct instruction; start there.

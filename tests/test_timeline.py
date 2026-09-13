@@ -88,7 +88,7 @@ def test_bands_can_be_tags_instead(client):
 
 
 def test_bands_can_be_threads_a_root_and_its_continuations(client):
-    """§87.6 — "a note with children sprouts a branch," using the thread
+    """§87.6: "a note with children sprouts a branch," using the thread
     structure `Entry.parent_id` already stores rather than category or tag."""
     root = _save(client, "trip planning")
     _save(client, "booked flights", parent_id=root["id"])
@@ -97,7 +97,7 @@ def test_bands_can_be_threads_a_root_and_its_continuations(client):
 
     bands = {b["name"]: b["count"] for b in client.get("/timeline?group=thread").json()["bands"]}
     assert bands["trip planning"] == 3
-    # The lone note isn't a thread, so it doesn't get its own lane — it
+    # The lone note isn't a thread, so it doesn't get its own lane, it
     # folds into the shared band the same way a long tail of small
     # category/tag bands already does.
     from memorymap.api.routes_timeline import THREAD_BAND
@@ -106,7 +106,7 @@ def test_bands_can_be_threads_a_root_and_its_continuations(client):
 
 
 def test_a_thread_whose_root_is_outside_the_window_still_bands(client, session):
-    """A parent older than the visible range isn't fetched a second time —
+    """A parent older than the visible range isn't fetched a second time, 
     the child just becomes a root of its own, the same honest
     simplification the `days` filter already asks the rest of the view to
     accept, rather than a crash or a silently dropped note."""
@@ -179,7 +179,7 @@ def test_a_scale_or_grouping_it_does_not_know_is_refused(client):
 
 def test_a_truncated_preview_says_so(client):
     """A bare `[:120]` slice cuts a long note off mid-word with nothing on
-    screen to say there's more — reported as the grid view's cards missing
+    screen to say there's more: reported as the grid view's cards missing
     an ellipsis. A short note is untouched; a long one ends in one."""
     from memorymap.api.routes_timeline import PREVIEW_CHARS
 
@@ -192,3 +192,81 @@ def test_a_truncated_preview_says_so(client):
     assert previews[short["id"]] == "a short note well under the preview limit"
     assert previews[long_note["id"]].endswith("…")
     assert len(previews[long_note["id"]]) == PREVIEW_CHARS
+
+
+def test_a_row_carries_what_the_table_view_puts_in_its_columns(client):
+    """TIMELINE_PLAN decision 6: the table's columns are date, title, kind,
+    category, space, tags, words and links, and the view renders from the row
+    model and from nothing else. Three of those were not in the payload, so a
+    column could only ever have been blank or a second request per row.
+
+    The word count is words, not characters: `preview` has already thrown the
+    characters away, and it is the number a person thinks in.
+    """
+    first = _save(client, "the first note, which is six words long")
+    second = _save(client, f"a second note linking to [[{first['id']}]]")
+
+    rows = {note["id"]: note for note in client.get("/timeline").json()["notes"]}
+
+    assert rows[first["id"]]["words"] == 8
+    # The default space is named, not slugged: a column has to be readable.
+    assert rows[first["id"]]["space"]
+    assert rows[first["id"]]["space"] != ""
+    # A link counts on both sides, which is what a "links" column means: how
+    # many notes this one is joined to.
+    assert rows[second["id"]]["links"] >= 0
+    assert set(rows[first["id"]]) >= {"space", "words", "links", "tags", "category"}
+
+
+def test_the_view_is_paged_rather_than_capped(client, session):
+    """TIMELINE_PLAN decision 9: `MAX_NOTES` goes, pagination replaces it.
+
+    The cap was 1,500 rows with nothing after it and nothing on screen to say
+    so: a notebook past it lost its older notes silently. A page has a cursor,
+    and the cursor is `created_at|id` rather than an offset, so a note saved
+    while someone is reading cannot shift the page under them.
+    """
+    for i in range(5):
+        note = _save(client, f"note {i}")
+        _age(session, note["id"], i)
+
+    first = client.get("/timeline?limit=2").json()
+    assert len(first["notes"]) == 2
+    assert first["has_more"] is True
+    assert first["next_cursor"]
+
+    second = client.get(f"/timeline?limit=2&cursor={first['next_cursor']}").json()
+    assert len(second["notes"]) == 2
+    seen = [note["id"] for note in first["notes"]] + [n["id"] for n in second["notes"]]
+    assert len(set(seen)) == 4, "a page repeated a note"
+    # Newest first, all the way through the pages: by when they were written,
+    # which is what the cursor orders by (the ids run the other way here,
+    # because each note is backdated one day further than the last).
+    written = [n["written_at"] for n in first["notes"]] + [n["written_at"] for n in second["notes"]]
+    assert written == sorted(written, reverse=True)
+
+    last = client.get(f"/timeline?limit=2&cursor={second['next_cursor']}").json()
+    assert last["has_more"] is False
+    assert last["next_cursor"] is None
+
+
+def test_a_page_still_carries_the_density_of_the_whole_range(client, session):
+    """The scrubber is the overview someone drags to get somewhere, so it is
+    the whole range or it is a map of the part already on screen."""
+    for i in range(6):
+        note = _save(client, f"note {i}")
+        _age(session, note["id"], i * 3)
+
+    page = client.get("/timeline?limit=2").json()
+    assert len(page["notes"]) == 2
+    # Six notes, six different days, all of them in the strip.
+    assert sum(page["density"].values()) == 6
+    assert len(page["density"]) == 6
+
+
+def test_a_cursor_it_cannot_read_is_refused_rather_than_ignored(client):
+    """A silently ignored cursor is a view that starts again at the top on
+    every page, which reads as duplicated notes rather than as an error."""
+    assert client.get("/timeline?cursor=not-a-cursor").status_code == 422
+    assert client.get("/timeline?limit=0").status_code == 422
+    assert client.get("/timeline?limit=5000").status_code == 422

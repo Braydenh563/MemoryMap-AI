@@ -8,28 +8,30 @@ are what makes it a map of what happened rather than a sorted list.
 Two decisions worth knowing:
 
 **A note can appear at a date it was not written on.** §10A resolved the
-relative time in note text — "the deadline is next Friday" knows which Friday
-— so a note plots at what it is *about* when it says something, and at when it
+relative time in note text, "the deadline is next Friday" knows which Friday
+- so a note plots at what it is *about* when it says something, and at when it
 was written otherwise. That is the whole reason the timeline is more than
 `ORDER BY created_at`, and every placed note says which of the two it used so
 the view can be honest about it.
 
-**Bands come from what is already stored** — category, tag, or a note thread
-(`Entry.parent_id`, §87.6) — rather than from an `events` table that does not
+**Bands come from what is already stored**, category, tag, or a note thread
+(`Entry.parent_id`, §87.6): rather than from an `events` table that does not
 exist yet. Grouping by event is still the goal (§10), and this is the shape
 it will slot into: one more `group` value.
 """
 
 from __future__ import annotations
 
+import base64
+import binascii
 from collections import defaultdict
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import Select, and_, or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.core.database import Entry, EntryDate, utcnow
+from memorymap.core.database import Entry, EntryDate, Space, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
 
@@ -40,23 +42,50 @@ router = APIRouter(prefix="/timeline", tags=["timeline"])
 # notebook has enough of.
 SCALES = {"day": 1, "week": 7, "month": 30, "year": 365}
 
-# One band per category or tag, plus "everything else" — a chart with forty
+# One band per category or tag, plus "everything else", a chart with forty
 # lanes is not a chart. The cut-off is by note count, so the bands are the
 # ones the user actually writes in.
 MAX_BANDS = 8
 OTHER_BAND = "Everything else"
 
 PREVIEW_CHARS = 120
-MAX_NOTES = 1500  # a hard ceiling: this is drawn, not paged
+
+#: How many rows one request draws, and the ceiling on asking for more.
+#:
+#: **This replaced `MAX_NOTES = 1500`, a hard cap with no page after it**
+#: (TIMELINE_PLAN decision 9). A notebook past the cap simply lost its older
+#: notes off the end of the view, silently and with nothing on screen to say
+#: so, because the old timeline was drawn rather than paged: a grid of bands
+#: against buckets has no "next". A feed does, so the view asks for a page at a
+#: time and fetches the next as the reader reaches the end of this one.
+PAGE_SIZE = 300
+MAX_PAGE = 1000
 
 
 def _clip(text: str, limit: int = PREVIEW_CHARS) -> str:
-    """A preview that says it's a preview. A bare `text[:limit]` slice —
-    what this used to be — cuts a note off mid-word with nothing to say so,
+    """A preview that says it's a preview. A bare `text[:limit]` slice: 
+    what this used to be, cuts a note off mid-word with nothing to say so,
     which is the "no ellipsis" the grid view was reported for: the card
     genuinely had less text than the note, and nothing on screen said that.
     """
     return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def _encode_cursor(at: datetime, entry_id: int) -> str:
+    """`created_at|id`, base64url.
+
+    Opaque on purpose, and URL-safe by construction rather than by everyone who
+    builds a link remembering to encode it: the plain form ends in a `+00:00`
+    offset for any row saved with a timezone, and a `+` in a query string is a
+    space by the time it reaches here. That is a 422 on the second page of a
+    notebook and on nothing else, which is exactly the kind of fault that gets
+    found in a week rather than in a test.
+    """
+    return base64.urlsafe_b64encode(f"{at.isoformat()}|{entry_id}".encode()).decode()
+
+
+def _decode_cursor(cursor: str) -> str:
+    return base64.urlsafe_b64decode(cursor.encode()).decode()
 
 
 def _bucket_start(when: datetime, scale: str) -> str:
@@ -76,7 +105,7 @@ def timeline(
     # column, which is the shape the Timeline exists to break up.
     scale: str = "day",
     group: str = "category",
-    # 0 means "everything" (see below) and is a real, used value — the lower
+    # 0 means "everything" (see below) and is a real, used value, the lower
     # bound has to allow it. The upper bound exists because `timedelta(days=…)`
     # raises OverflowError past ~999999999 days, which an unvalidated `days`
     # let straight through as an unhandled 500 instead of a clean 422; ~110
@@ -84,12 +113,17 @@ def timeline(
     days: int = Query(default=365, ge=0, le=40000),
     start: str | None = None,
     end: str | None = None,
+    #: One page of rows, and where the last one stopped. Both optional: a
+    #: caller that asks for neither gets the first page, which is what every
+    #: caller before paging existed was already getting.
+    limit: int = PAGE_SIZE,
+    cursor: str | None = None,
     session: Session = Depends(get_session),
 ) -> dict:
     """Notes on a time axis, in bands.
 
     `scale` buckets the axis (day/week/month/year), `group` chooses the bands
-    (category/tag/thread/none), `days` is how far back to look — 0 for everything.
+    (category/tag/thread/none), `days` is how far back to look, 0 for everything.
     """
     if scale not in SCALES:
         raise HTTPException(
@@ -100,9 +134,12 @@ def timeline(
             status_code=422, detail="group must be category, tag, thread or none"
         )
 
+    if limit < 1 or limit > MAX_PAGE:
+        raise HTTPException(status_code=422, detail=f"limit must be between 1 and {MAX_PAGE}")
+
     query = select(Entry).where(
         Entry.is_deleted == False,  # noqa: E712
-        Entry.is_private == False,  # noqa: E712 — private text stays out of a view
+        Entry.is_private == False,  # noqa: E712  # private text stays out of a view
     )
     if start and end:
         try:
@@ -113,7 +150,43 @@ def timeline(
             raise HTTPException(status_code=422, detail="Invalid date format for start/end")
     elif days > 0:
         query = query.where(Entry.created_at >= utcnow() - timedelta(days=days))
-    entries = list(session.scalars(query.order_by(Entry.created_at.desc()).limit(MAX_NOTES)))
+
+    # The density strip is the whole range, however little of it this page
+    # holds: it is the overview a reader drags to get somewhere, so a strip
+    # drawn from one page would be a map of the part you can already see. Two
+    # columns and no content, so it stays cheap as the notebook grows.
+    density = _density(session, query)
+
+    #: **Where the last page stopped**, as `created_at|id` rather than an
+    #: offset: an offset shifts under a note saved while someone is reading,
+    #: which shows a row twice or skips one. The pair is what the order is by,
+    #: so it names an exact place in it.
+    if cursor:
+        try:
+            at_text, _, id_text = _decode_cursor(cursor).rpartition("|")
+            cursor_at = datetime.fromisoformat(at_text)
+            cursor_id = int(id_text)
+        except (ValueError, binascii.Error):
+            raise HTTPException(status_code=422, detail="Invalid cursor")
+        query = query.where(
+            or_(
+                Entry.created_at < cursor_at,
+                and_(Entry.created_at == cursor_at, Entry.id < cursor_id),
+            )
+        )
+
+    # One more than the page, which is how the answer knows whether there is a
+    # page after this one without a second count query.
+    found = list(
+        session.scalars(
+            query.order_by(Entry.created_at.desc(), Entry.id.desc()).limit(limit + 1)
+        )
+    )
+    has_more = len(found) > limit
+    entries = found[:limit]
+    next_cursor = (
+        _encode_cursor(entries[-1].created_at, entries[-1].id) if has_more and entries else None
+    )
 
     # What each note is *about*, where it said so. One query rather than one
     # per note: a timeline over a year of notes would otherwise be hundreds.
@@ -129,10 +202,19 @@ def timeline(
 
     categories = manager.bulk_category_names(session, entries)
 
+    # The table view's columns (TIMELINE_PLAN decision 6): which space a note
+    # is in, how long it is and how many notes it is joined to. All three are
+    # one query each for the whole page rather than one per row, the same
+    # batching `resolved` above uses: a timeline over a year of writing is
+    # hundreds of rows and this endpoint is drawn on every visit to the tab.
+    spaces = {space.id: space.name for space in session.scalars(select(Space))}
+    links = manager.links_for_entries_bulk(session, [entry.id for entry in entries])
+
     placed = []
     for entry in entries:
         mention = resolved.get(entry.id)
         at = mention.at if mention else entry.created_at
+        text = manager.readable_content(entry)
         placed.append(
             {
                 "id": entry.id,
@@ -145,12 +227,21 @@ def timeline(
                 "written_at": entry.created_at.isoformat(),
                 "category": categories.get(entry.category_id, manager.UNCATEGORISED),
                 "tags": manager.entry_tags(entry),
-                # Only read by `_thread_bands` (group=thread) — carried for
+                # Only read by `_thread_bands` (group=thread): carried for
                 # every note regardless of the chosen group so switching to
                 # "Thread" never needs a second fetch.
                 "parent_id": entry.parent_id,
                 "pinned": entry.pinned,
-                "preview": _clip(manager.readable_content(entry)),
+                # The space's own name, not its id: the id is a slug nobody
+                # named, and the column has to be readable. It falls back to
+                # the id for a space that has been deleted out from under its
+                # notes, which is more honest than an empty cell.
+                "space": spaces.get(entry.workspace_id, entry.workspace_id),
+                # A word count, not a character count: it is the number people
+                # think in, and `_clip` has already thrown the characters away.
+                "words": len(text.split()),
+                "links": len(links.get(entry.id, [])),
+                "preview": _clip(text),
             }
         )
 
@@ -160,7 +251,44 @@ def timeline(
         "notes": placed,
         "bands": _bands(placed, group),
         "buckets": sorted({note["bucket"] for note in placed}),
+        # Counts per day for the whole range, which the view aggregates to
+        # whatever bucket it is drawing: the scale is the reader's choice and
+        # can change without asking again.
+        "density": density,
+        "next_cursor": next_cursor,
+        "has_more": has_more,
     }
+
+
+def _density(session: Session, ranged: Select) -> dict[str, int]:
+    """How much was written on each day of the range, whatever page is loaded.
+
+    It resolves placement the same way the rows do, a note sits on the date it
+    talks about where it has one, so the strip and the feed agree about where
+    the busy weeks are. Two id-and-date queries with no content in them: this
+    stays affordable at a size where fetching every row would not, which is the
+    whole reason the view is paged.
+    """
+    dates = session.execute(
+        ranged.with_only_columns(Entry.id, Entry.created_at).order_by(None)
+    ).all()
+    if not dates:
+        return {}
+    mentioned: dict[int, datetime] = {}
+    rows = session.execute(
+        select(EntryDate.entry_id, EntryDate.at)
+        .where(EntryDate.entry_id.in_([entry_id for entry_id, _ in dates]))
+        .order_by(EntryDate.id)
+    ).all()
+    for entry_id, at in rows:
+        mentioned.setdefault(entry_id, at)
+
+    counts: dict[str, int] = {}
+    for entry_id, created_at in dates:
+        when = mentioned.get(entry_id, created_at)
+        day = when.date().isoformat()
+        counts[day] = counts.get(day, 0) + 1
+    return counts
 
 
 def _bands(notes: list[dict], group: str) -> list[dict]:
@@ -193,18 +321,18 @@ THREAD_BAND = "Single notes & smaller threads"
 
 
 def _thread_bands(notes: list[dict]) -> list[dict]:
-    """One lane per thread — a root note and everything that continues it
+    """One lane per thread, a root note and everything that continues it
     (`Entry.parent_id`), the one grouping a grid genuinely cannot show at
-    all: a conversation with itself, spread across days or months (§87.6 —
+    all: a conversation with itself, spread across days or months (§87.6: 
     IDEAS.md's "branching line with offshoots", joined with the thread
     structure `parent_id` already stores). A parent outside the currently
     loaded window (out of the date range, private, or deleted) makes its
     child a root of its own rather than a second query reaching further
-    back — the same honest simplification the `days` filter already asks
+    back: the same honest simplification the `days` filter already asks
     the rest of this view to accept.
 
     A note with no children is not a thread, so it does not get its own
-    lane — every such note, plus any real thread beyond the lane cap,
+    lane: every such note, plus any real thread beyond the lane cap,
     folds into one shared band, the same shape category/tag grouping
     already uses for its own long tail.
     """

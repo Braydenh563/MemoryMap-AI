@@ -344,6 +344,26 @@ which is its own slow cost when the next session reads it. The same three sympto
 console are the signature: one real error, then `X is not defined` and
 `Cannot access Y before initialization` from everything declared after it.
 
+**Now (2026-09-13 evening, Fable orchestrating, the owner at 97% usage: "when
+the agents cut off because of usage, make sure they all pick back up again
+after, and everything else continues. FINISH THE PR").** Six Opus agents run in
+their own worktrees and push after every commit to `origin/agent/wip-<name>`
+(mindmap, phone, documents, graph, chat, backend); the seventh (Sonnet, backend
+hygiene) is merged (`799066b`). Their briefs are the shared rules in the session
+scratchpad (`agent_common.md`: token rule, save rule, push rule) plus one list
+each, drawn from `agent-remaining/{mindmap,ui-phase-11,documents-phases,graph,
+chat-timeline-skills,backend-probe}.md` and INBOX 181 to 192 (each entry names
+its owner). **Resume recipe, for this session or a fresh one:** for each
+`agent/wip-<name>` on origin, read its `agent-remaining` file's last "done/next"
+lines, relaunch one Opus agent per branch in a worktree cut from that branch
+with the same rules and "continue from next"; when an agent reports, review
+against CLAUDE.md section 6, `git merge --no-ff`, `scripts/gate.sh --changed`,
+push the PR branch, delete the wip branch. Done when: every list empty or its
+leftovers recorded as not-verified, INBOX under twenty with no Fixed items, the
+merged head swept (`errors`, `contrast`, `docks`, `touch` at four widths, both
+themes) and full-suite green once, CI green, then tell the owner to merge.
+Brief 33 (SESSION_BRIEFS) is the PR after this one.
+
 **Now (2026-09-13 midday, Opus orchestrating, the owner's order: "Assign
 agents to finish all the rest of the plan and all the bug fixes regardless of
 the agent cap").** Five agents are running at once, which is the first time

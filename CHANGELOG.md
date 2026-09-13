@@ -204,6 +204,22 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The bottom of a Library picture card is two ranks instead of four. Reported a
+  third time: "redesign the bottom text area of the image cards in the library
+  images subtab again", with the block reading as four unrelated rows of
+  different weights and the cards looking uneven. Measured at 1440: three rows
+  under the picture at three type sizes two pixels apart (13.6 / 12 / 11.2),
+  and a foot that ran 9.6px to 115.5px across one row of six cards. The count
+  and the "text in this image" fold share one line of facts now, the way a
+  Files row already puts its own facts on one; the description and the picture's
+  name share one size and the facts line is the only other one; and the
+  description holds its second line open, so every card that has anything to
+  say is the same height inside and its photograph is the same size. Six cards
+  at 1440: feet 54.1/95.7/95.7/10.6 by what the card holds, against six
+  different feet before, pictures 144px on every card with a caption and a
+  fact, 0px of dead space under any card, and contrast 7.48 / 7.53 / 6.56 in
+  light and 6.47 / 6.44 / 5.06 in dark.
+
 - Settings → Logs has the same head as every other surface in the app. It was
   two rows of nine controls at four heights (a view segment, two pickers, a
   filter box, a Follow switch, a live pill and three verbs), none of it on the

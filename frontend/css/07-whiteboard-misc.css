@@ -1525,22 +1525,11 @@ body.has-agent-monitor #tab-library .library-view-section {
   flex-grow: 1;
 }
 
-/* Timeline toolbar and the note popup it opens. */
+/* The Timeline's find box. The popup's own rules went with the popup: a row
+   opens where it sits now (TIMELINE_PLAN decision 8). */
 .timeline-search {
   max-width: 12rem;
   margin-bottom: 0;
-}
-
-.timeline-popup-info {
-  margin-bottom: var(--space-3);
-}
-
-.timeline-popup-content {
-  max-height: 12.5rem;
-  margin-bottom: var(--space-5);
-  overflow-y: auto;
-  font-size: var(--text-lg);
-  white-space: pre-wrap;
 }
 
 /* The graph's "slide back in time" control.
@@ -2603,8 +2592,19 @@ dialog::backdrop {
   color: var(--accent);
 }
 
+/* **The card is bounded, so the feed scrolls inside it** (TIMELINE_PLAN Phase
+   1). `flex: 1 0 auto` let the card grow to its content, which was correct
+   while the timeline was a horizontally scrolling grid: the *page* took the
+   vertical scroll. A feed is thousands of pixels tall, and two things depend on
+   the scroll happening in the box rather than on the page: the dock (find,
+   bucket, Today) has to stay on screen, and a sticky bucket header sticks to
+   its scroll container, which would otherwise be the page and would put the
+   header under the app's own top bar. Measured at 1440: the card was 5,185px
+   tall inside an 807px tab page, and `#timeline-scroll` never scrolled at all,
+   so every header scrolled away with its rows. */
 #tab-timeline>.card {
-  flex: 1 0 auto;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -3890,23 +3890,6 @@ input[type="url"]:hover:not(:focus) {
   font-weight: 600;
 }
 
-/* --- the last column-flex button, found by measuring rather than grepping --
-   Reported: "the text in the timeline is cut off??", a card's title clipped
-   at *both* ends. Same cause as the theme swatches: `align-items: center` on
-   a column-flex button centres its children horizontally, and `.timeline-dot`
-   also sets `overflow: hidden`, so a title wider than the card lost an equal
-   slice off each side instead of ellipsising at the end.
-
-   It was missed the first time because that sweep grepped selector *names*
-   for card/tile/button words, and "timeline-dot" contains none of them.
-   Re-done by asking the running app instead, every `<button>` whose
-   computed `flex-direction` is `column`, across seven tabs and Settings, 
-   which returned exactly one remaining offender. Measure the thing, not its
-   name. */
-.timeline-dot {
-  align-items: stretch;
-}
-
 /* --- a chip lane scrolls without drawing a scrollbar ----------------------
    Reported: "the collapsed view of notes is completely visually broken", 
    a scrollbar had appeared under the chips on every row.
@@ -5130,9 +5113,9 @@ summary:not(.icon-only):not(.icon-button) {
    `.chip` is `inline-flex`, and `text-overflow` does nothing on a flex
    container: its children are flex items, so the label was never a line box
    that could ellipsise. It just got clipped by `overflow: hidden` instead,
-   and clipped symmetrically, which is the same shape as the `.timeline-dot`
-   bug this file already records, a centred child losing an equal slice off
-   each side rather than ending in an ellipsis.
+   and clipped symmetrically, which is the same shape as the bug the Timeline's
+   old note cards had, a centred child losing an equal slice off each side
+   rather than ending in an ellipsis.
 
    `setLabel` already wraps the text in `.ph-text` (app.js), so the fix is to
    put the rule where the text actually is, and to stop the icon shrinking
@@ -7076,6 +7059,18 @@ button.connection-row {
   gap: var(--space-2);
   font-size: var(--text-xs);
   color: var(--muted);
+}
+
+/* **One height for the facts line, chip or no chip.** The count is a 16.8px
+   line of text and the fold is a 31.6px chip, so a card with a reading stood
+   14.8px taller inside than the card beside it without one, and the grid paid
+   that out as a shorter photograph on one of the two. 2rem is the chip's own
+   height, so the line reserves it once and every card's foot is the same
+   whichever of the two facts it has. Only the Images cards: a Files row's facts
+   line is a full-width strip with a reading badge and a button in it, and has
+   its own height already. */
+.library-image-meta {
+  min-height: 2rem;
 }
 
 /* **The fold opens downwards, not sideways.** Closed, the disclosure is a chip

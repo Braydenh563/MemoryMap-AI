@@ -5733,7 +5733,11 @@ function filterLibraryImagesGallery() {
     // `cap`'s inline rename above already uses, rather than a caption only
     // ever being reachable through the AI-generate button.
     const captionText = document.createElement("p");
-    captionText.className = "library-image-caption muted text-sm";
+    //: No `text-sm`: the size is in `.library-image-caption` now, one rank
+    //: rather than three (see that rule). The class was the only thing setting
+    //: it, and a utility on the element would beat the rule that has to hold
+    //: the card's two sizes together.
+    captionText.className = "library-image-caption muted";
     captionText.tabIndex = 0;
     captionText.setAttribute("role", "button");
     // Roughly three lines' worth of this tile's narrow column at text-sm,
@@ -6557,10 +6561,21 @@ function filterLibraryImagesGallery() {
     //: the file is *and* what is in it under a single caret. Where it is used
     //: is a count, and a count is a line of text; this is the fold, and a
     //: fold says what is folded.
-    readingSummary.textContent = image._isImage
-      ? "Text in this image"
-      : "Text extracted from this file";
-    if (image._isImage) visionField.classList.add("library-image-card-fold");
+    //: **On a card the label is one word, because it has to fit beside the
+    //: count.** The two facts share a line now (`.library-image-meta`), and a
+    //: 180px tile leaves 161px for it: "Used in 2 places" is 85px of that and
+    //: "Text in this image" is a 128.8px chip, so the pair wrapped onto two
+    //: lines and the cards with a reading stood 38px taller inside than the
+    //: cards without, which is the unevenness the report is about. "Text" and
+    //: its caret are 58px, the pair is 149px, and every card in the gallery
+    //: then has the same two ranks whatever is in it. The full phrase is on the
+    //: control's own tooltip and is still the heading inside the fold, where
+    //: the reading it names is.
+    readingSummary.textContent = image._isImage ? "Text" : "Text extracted from this file";
+    if (image._isImage) {
+      visionField.classList.add("library-image-card-fold");
+      readingSummary.title = "Text found in this image";
+    }
     const readingBody = document.createElement("div");
     readingBody.className = "library-image-reading-body";
     //: **The label moves inside the fold with the paragraph it names.** On an
@@ -6800,15 +6815,38 @@ function filterLibraryImagesGallery() {
     //: both bylines under the picture since long before this.
     readingBody.append(provenance);
 
-    //: **What the bottom of the card is, in order, and every row optional.**
-    //: The description, then the count, then the fold. `fields` was built
-    //: above for the Files rows, which stack the same two blocks
-    //: unconditionally; an image card composes its own.
+    //: **What the bottom of the card is: the prose, then one line of facts.**
+    //: Reported a third time, 2026-09-13: "redesign the bottom text area of the
+    //: image cards in the library images subtab again", with the block reading
+    //: as "four unrelated rows of different weights". It was four: the filename
+    //: on the picture, the description, the count on its own row, and the fold
+    //: on a third. Measured at 1440 dark on the six seeded cards, the three
+    //: rows under the picture stood 38.4px, 16.8px and 31.6px tall at three
+    //: type sizes two pixels apart (13.6 / 12 / 11.2), and the number of rows
+    //: differed from card to card, so the foot ran 9.6px to 115.5px across one
+    //: gallery row.
+    //:
+    //: Two ranks now, and the decision the plan records ("a fact is a line of
+    //: text, a disclosure is a control, and neither is the other") is kept:
+    //: they are still two objects, one you read and one you press, they simply
+    //: share a line, the way the Files rows' own facts line already puts the
+    //: kind, the reading and the usage on one (`.library-file-meta`). One
+    //: control holding both facts is what INBOX 118 called unprofessional, and
+    //: that is not what this is.
+    //:
+    //: `fields` was built above for the Files rows, which stack the same two
+    //: blocks unconditionally; an image card composes its own.
     fields.replaceChildren(captionField);
-    if (links.length || image.usage_incomplete) fields.append(uses);
+    const metaLine = document.createElement("div");
+    metaLine.className = "library-image-meta";
+    if (links.length || image.usage_incomplete) metaLine.append(uses);
     if ((image.vision_ocr_text || "").trim() || (image.ocr_text || "").trim()) {
-      fields.append(visionField);
+      metaLine.append(visionField);
     }
+    //: Nothing to say, no line: a picture nobody has used and nothing has read
+    //: keeps the short foot it has now rather than an empty row holding the
+    //: rhythm open.
+    if (metaLine.children.length) fields.append(metaLine);
 
     fig.append(frame, actions, fields);
     grid.appendChild(fig);

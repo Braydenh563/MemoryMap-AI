@@ -397,6 +397,26 @@ select optgroup {
      `--control-h-lg` itself would have moved both, which is a second
      decision wearing the first one's clothes. */
   --settings-control-h: var(--control-h-lg);
+  /* **The list-row step.** DESIGN.md section 9 ("Lists breathe", from the HIG:
+     "organizational components like lists, tables, and forms have a larger row
+     height") names `--row-h` as this app's row height, and nothing declared
+     it: the Timeline's feed is the first surface built on it
+     (TIMELINE_PLAN.md §6 asks for the rows to sit on the list-row tokens), and
+     the next list that needs a row height reads it here rather than picking
+     one.
+
+     Taller than `--control-h-lg` because a row is not a control: at full
+     density it holds a title over a snippet. It deliberately does **not**
+     multiply by `--density`, for the reason the hit-target floor does not: a
+     row is something you press, and a press target that shrinks with a
+     spacing setting is the bug that rule exists to prevent. The *gap* between
+     rows is spacing and does scale. */
+  --row-h: 2.6rem;
+  --row-gap: var(--space-2);
+  /* The dot on a feed's spine. One token because two things have to agree
+     about it: the marker's own box, and where the spine is drawn so that it
+     passes through the middle of every one. */
+  --timeline-mark: 1.15rem;
   /* Reported: "there is too large of a gap ... around the outside of the
      page, it takes up so much space, this is on majority of the pages."
      Measured at 1440px the gutter resolved to 31.7px a side, the 2.2vw
@@ -2644,6 +2664,23 @@ header#top-bar.tabs-wrapped #tab-bar {
    A card with a long description keeps the 9rem floor; the card beside it
    with none gets a taller photograph instead of a taller hole.
 
+   **A two-row subgrid was built, measured and taken back out**, because the
+   owner's third report ("the cards are uneven in height because some have the
+   disclosure and some do not") sounds exactly like the case for one. With
+   `grid-template-rows: subgrid` the parent sizes the picture track and the foot
+   track from the tallest card in the row, so every picture came out 144px and
+   every foot 118.5px with its first line on one baseline: and the slack came
+   straight back as a hole, 75px under the shortest card and 1 to 70px under
+   four of the other five, which is word for word what INBOX 118 reported and
+   this rule's own comment above was written to remove. There are only three
+   places to put the difference between a card with a caption and one without,
+   a bigger picture, a hole, or cards of unequal height, and the first is still
+   the least bad. What the report is actually about is the *number of rows* and
+   the *number of type sizes* under the picture, and those are fixed where they
+   live: one facts line instead of two rows (`.library-image-meta`,
+   07-whiteboard-misc.css) and two type sizes instead of three
+   (`.library-image-caption` below).
+
    `:has(> .library-image-frame)` rather than a grid class, because the frame
    is exactly what makes a tile a picture card: the Files rows and the
    "Attach from Library" picker (app.js) build the same tile without one, and
@@ -2920,8 +2957,17 @@ header#top-bar.tabs-wrapped #tab-bar {
   display: none;
 }
 
+/* **Two type sizes on a picture card, not three.** Measured at 1440 on the
+   seeded gallery: the filename on the photograph was 13.6px, the description
+   12px (from a `text-sm` utility on the element) and the count and the fold
+   11.2px, which is three of the scale's adjacent steps inside 2.4px. DESIGN.md
+   names that exact failure ("two things that are almost the same size, next to
+   each other, is what reads as unconsidered"). The name of a picture and the
+   sentence about it are the card's prose and share one size; the facts line
+   under them is `--text-xs` and is the only other size on the card. */
 .library-image-caption {
   margin: 0;
+  font-size: var(--text-md);
   padding: 0 0 var(--space-3);
   cursor: text;
   /* A pasted URL or a long slash-run ("make/manage/delete/access") has no
@@ -2978,12 +3024,35 @@ header#top-bar.tabs-wrapped #tab-bar {
    57.6px of text, and the same 8px sits under two. The gap below is
    the More button's own margin when there is one, and there always is one
    when this class is present. */
+/* **Two lines, reserved, not just capped.** The clamp stops a long
+   description at two lines; a one-line description still left the card an
+   21.8px line shorter inside than the card beside it, and the grid pays that
+   out as a taller photograph on one of the two, which is the unevenness the
+   owner has now reported twice. Measured at 1440 on the seeded gallery: the
+   six feet ran 10.6, 54.1, 54.1, 73.9, 95.7 and 95.7px before this line and
+   the pictures 144 to 229.1px; with the second line held open, every card
+   carrying a description and a facts line is the same height inside and its
+   picture is the same size.
+
+   `lh` is the line box of this element, so it tracks the clamped line-height
+   above rather than restating it: two lines of whatever the description is set
+   in. Where the unit is not supported the declaration is dropped and the card
+   behaves as it did, capped but not reserved.
+
+   Picture cards only (`:has(> .library-image-frame)`, the same test the tile's
+   own layout uses): a Files row is full width, stands on its own, and has no
+   neighbour whose height it has to agree with, so reserving a line there would
+   buy nothing and cost every row 21.8px. */
 .library-image-caption.library-image-caption-clamped {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   padding-bottom: 0;
+}
+
+.library-image-tile:has(> .library-image-frame) .library-image-caption.library-image-caption-clamped {
+  min-height: 2lh;
 }
 
 /* The same clip, the same cause, on the two readings inside the fold. */

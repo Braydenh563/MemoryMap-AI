@@ -354,6 +354,42 @@ Built in `75a1d62`, `65cf876` and `4dd3f57`; probed by `scratchpad/ui-sweeps/ima
 (shape and, with `pixelcontrast.py`, contrast from the rendered pixels) and
 `imagecardmenu.js` (the menu rows, run rather than assumed).
 
+**Reported a third time, 2026-09-13, and the decision above is not what was
+wrong.** "redesign the bottom text area of the image cards in the library
+images subtab again ... the block reads as four unrelated rows of different
+weights, and the cards are uneven in height because some have the disclosure
+and some do not." Measured before touching anything: the cards were already
+equal (261.5px, bottoms within 0.1px), so what reads as uneven is what is
+*inside* them, and it was three rows under the picture at three adjacent type
+sizes (13.6 / 12 / 11.2px) with a foot running 9.6px to 115.5px across one row.
+Three amendments, none of which reopens a bullet above:
+
+- **The count and the fold share one line of facts**, which is the Files rows'
+  own `.library-file-meta` shape rather than a new one. They are still two
+  objects, one you read and one you press, which is what "a fact is a line of
+  text, a disclosure is a control" asks for; they simply no longer take a row
+  each. The fold's label on a card is "Text" (the full phrase is its tooltip
+  and the heading inside it) because "Used in 2 places" plus a 128.8px chip
+  does not fit the 161px a tile has, and a wrapped facts line puts the
+  unevenness straight back.
+- **The description holds its second line open** (`min-height: 2lh` while
+  clamped, picture cards only). A one-line caption left the card 21.8px
+  shorter inside than its neighbour, and the grid pays that out as a taller
+  photograph, which is the unevenness the report names.
+- **A two-row subgrid was built, measured, and taken out**, and this is the
+  bullet above being confirmed rather than remade: it does equalise every
+  picture (144px) and every foot (118.5px), and it puts the difference back
+  as a hole, 75px under the shortest card. The three places to put that
+  difference are still a bigger picture, a hole, or unequal cards, and the
+  first is still the least bad.
+
+Measured after, at 1440 on the same six seeded cards, in both themes: every
+card with a caption and a fact is 240.7px with a 144px picture and a 95.7px
+foot, the facts line is 32px whether it carries a chip or a word, the tail
+under the last line is 0px, an opened fold takes the card's full width (159px
+of 180px, no overflow) and the row grows with it, and contrast is 7.48 / 7.53 /
+6.56 in light and 6.47 / 6.44 / 5.06 in dark.
+
 ## Phase 8 — control docks: one grammar for every tab's head (2 sessions)
 
 **The instruction, verbatim** (after Phases 0–7 were built):

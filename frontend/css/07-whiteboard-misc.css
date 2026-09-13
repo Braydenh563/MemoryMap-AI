@@ -9162,6 +9162,57 @@ input[type="file"] {
 /* The link ring's colour well is a slot like any other, and has to be the
    same disc: an unstyled `input[type="color"]` on a ring would be the one
    square in a circle of round buttons. */
+/* **The ring says what its slots do** (INBOX 180: "the item raials, what
+   options they are and how they work are also soooo annoying and unintuitive
+   to use"). Eight icon-only circles around a node is a ring of guesses: the
+   icons are the only clue, the tooltip arrives a second late and lands over
+   the very slot it describes, and nothing at all is said to a person moving
+   through them with a keyboard.
+
+   So the ring names the slot under the pointer or the focus, in one line
+   under the ring, where it cannot cover the node or the slots. Empty at rest
+   and `display: none` with it, which also keeps it out of the ring's measured
+   overhang until it is actually saying something. */
+.wb-map-radial-caption {
+  position: absolute;
+  left: 50%;
+  /* The caption's *top* edge, a slot's half (0.875rem) plus a gap below the
+     ring, rather than its centre: the caption is one line or two depending on
+     the slot, and centring it on a fixed point put its top edge over the
+     bottom slot as soon as it wrapped (measured: the copy slot's centre at
+     y 594 under a caption starting at 596). */
+  top: calc(50% + var(--wb-radial-r) + 1.5rem);
+  transform: translateX(-50%);
+  /* Wide enough for the longest of them on one line, and wrapping rather
+     than ellipsising past it: a caption that ends in "…" is the tooltip
+     problem again, one word short of the thing it was explaining. Measured:
+     the two Alt slots read 224px, which is exactly where a 14rem cap cut
+     them. The radius is the panel's, not the pill's, because a wrapped two
+     line caption in a pill is a lozenge. */
+  /* `max-content` first, then the cap. The ring is a zero-width point (see
+     its own rule), so an absolutely positioned child shrinks to fit *that*:
+     measured, the caption came out 60px wide and 172px tall, one word per
+     line. A max-width alone cannot fix it, there is nothing to be wide
+     against; the intrinsic width has to be asked for. */
+  width: max-content;
+  max-width: min(20rem, 60vw);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--modal-bg-opaque);
+  box-shadow: var(--shadow-sm);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  line-height: 1.35;
+  text-align: center;
+  text-wrap: balance;
+  pointer-events: none;
+}
+
+.wb-map-radial-caption:empty {
+  display: none;
+}
+
 .wb-map-radial input[type="color"].wb-color-picker {
   padding: 0;
   margin: 0;

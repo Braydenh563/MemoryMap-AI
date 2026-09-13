@@ -98,7 +98,17 @@ measured or built in earlier commits and is marked there.
       toast reads "Connected to Root as a branch"; the second link, between
       two rooted nodes, makes one sketch and leaves the root a root;
     - the radial ring around a node: what its options are and how they work
-      are unintuitive;
+      are unintuitive: **the ring says what it does now, 2026-09-13.** Eight
+      icon-only circles is eight guesses; the tooltip arrives a second late
+      and lands over the slot it describes, and a keyboard was told nothing at
+      all. A caption under the ring names the slot under the pointer or the
+      focus, from the slot's own `aria-label` so the caption and a screen
+      reader cannot disagree, and the two slots whose Alt swaps them to their
+      opposite say so in the same line. Measured
+      (`scratchpad/ui-sweeps/radialcaption.js`, dark): 8 of 8 slots named,
+      nothing clipped, the caption clear of the lowest slot by 10px, and empty
+      at rest. Still open here: the ring is one design decision the plan owns
+      (MINDMAP_PLAN §12), so the *set* of eight and their order is unchanged;
     - the direction connectors want a better, more modern look: **done,
       2026-09-13.** A map's default branch is a filled ribbon now rather than a
       stroke, wide where it leaves the parent and tapering to the child, which

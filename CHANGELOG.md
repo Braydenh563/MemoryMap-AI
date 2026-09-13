@@ -64,6 +64,11 @@ below). Versioning is `0.x` while the app stabilises.
   0px horizontally and 4px below the word after the scroll, closed after the
   word leaves the box.
 
+- The ring of controls around a mind map topic now says what each one does. A
+  caption under the ring names the slot you are pointing at or have moved to
+  with the keyboard, and the two slots that Alt swaps for their opposite say
+  so on the same line.
+
 - Mind map branches are drawn as tapered ribbons, wide at the parent and
   narrowing towards the child, so a map reads as a tree growing outwards and
   each branch says which way it runs without an arrowhead. Lines you have set

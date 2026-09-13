@@ -5582,6 +5582,10 @@ function wbSyncMapRadialAlt(alt) {
     button.classList.toggle("wb-map-radial-danger", alt);
     button.title = title;
     button.setAttribute("aria-label", title.split(".")[0]);
+    //: The half of "how they work" that a label cannot carry: these two slots
+    //: are two actions each, and the modifier that swaps them was only ever
+    //: stated in a tooltip's second sentence. The ring's caption reads this.
+    button.dataset.altHint = alt ? "Let go of Alt to add instead" : "Hold Alt to remove instead";
     const glyph = button.querySelector("i");
     if (glyph) glyph.className = `ph ${icon}`;
   }
@@ -8227,6 +8231,29 @@ async function initWhiteboard() {
     await wbSaveObject(node);
     renderWhiteboardNow();
   });
+  //: **The ring names what is under the pointer.** See the caption's own rule
+  //: in 07-whiteboard-misc.css: eight icon-only circles are eight guesses
+  //: otherwise, and a tooltip arrives late and lands over the slot it
+  //: describes. Delegated on each ring rather than wired per slot, so the two
+  //: rings and every slot added to either are covered by the same four
+  //: listeners; `aria-label` is the source, so the caption and the screen
+  //: reader cannot say different things.
+  for (const ring of document.querySelectorAll(".wb-map-radial")) {
+    const caption = ring.querySelector(".wb-map-radial-caption");
+    if (!caption) continue;
+    const say = (target) => {
+      const slot = target?.closest?.(".wb-map-radial-slot");
+      if (!slot) return;
+      const label = slot.getAttribute("aria-label") || "";
+      const hint = slot.dataset.altHint;
+      caption.textContent = hint ? `${label} · ${hint}` : label;
+    };
+    const clear = () => { caption.textContent = ""; };
+    ring.addEventListener("pointerover", (event) => say(event.target));
+    ring.addEventListener("pointerout", clear);
+    ring.addEventListener("focusin", (event) => say(event.target));
+    ring.addEventListener("focusout", clear);
+  }
   //: The node radial (§12.1 item 3). Each slot reads the node the ring was
   //: opened for, acts, and closes: a ring that stayed open over a map that has
   //: just been re-laid-out would be pointing at empty canvas.

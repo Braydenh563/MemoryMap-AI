@@ -17,6 +17,8 @@ below). Versioning is `0.x` while the app stabilises.
   press, one note, and jumps to it (199). Every sheet has a close button in
   its title row (204).
 
+- The mind map has one place per action (INBOX 200). The node ring is six slots that say what they are, not eight icon-only discs; the topic strip holds every look, including the line shapes that were on the line ring; the dock holds what acts on the map. The ring and the strip are never open together, every ring slot is also a key, and the topic's own menu (the ring's More, or Shift+F10) carries all of it. A map no longer shows the board's Insert and Arrange menus: 60 controls in its top bar before, 40 after.
+
 ### Added
 
 - The night pass reads what it already knows in one query instead of one per

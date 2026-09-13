@@ -394,6 +394,19 @@ the report is unchanged: four passes, not reproduced in this sandbox.
 not open. That is the same shape as the emblems and belongs to whoever owns
 `dashboard.js`.
 
+### The ninth run, in order, as it lands
+
+- done `8a24e22`: the audit above (`scratchpad/ui-sweeps/mapaudit.js`).
+- done `STEP2`: §12.5 built. The ring is six labelled slots, the strip holds
+  every look, the dock holds the map's own, the line ring keeps three, and the
+  topic's menu carries all of it. `scratchpad/ui-sweeps/mapplaces.js` (11
+  checks, green at 1440x900 and 390x844), `mapring.js` (7 checks, green light
+  and dark, and it opens by the gesture again, below). Top bar 60 controls to
+  40; the ring's own reach 164px to 88px around an ordinary topic.
+- next: INBOX 201, core nodes read three ways at once, then the empty map's
+  first-open hint, then the sweeps that name removed ids (`mapstrip.js`,
+  `mapdock.js`, `mindmap.js`, `radialfit.js`).
+
 ## The eighth run, in order, as it lands
 
 Written after every commit so a run cut off mid-item is resumable from this

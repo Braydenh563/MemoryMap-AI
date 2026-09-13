@@ -63,6 +63,16 @@ async function newBoard(page, name) {
   const beforeShot = `${OUT}/mapring-${THEME}-before.png`;
   await page.screenshot({ path: beforeShot });
   const nodeWas = pixel(beforeShot, nodeCentreBefore[0], nodeCentreBefore[1]);
+  //: **Click the empty canvas first.** A topic added by `wbMapAddChild` opens
+  //: in its own editor, so its label is still focused and still
+  //: `contenteditable="true"`, and `wbWireContextMenu` correctly stands aside
+  //: for a right-click inside something that is being typed into (the native
+  //: cut/copy/paste menu belongs to the person editing). That is why this
+  //: sweep reported "opened by: direct" from the eighth run onwards: it was
+  //: right-clicking a topic it had just created and never finished. A person
+  //: clicks away, which blurs the label and ends the edit; so does this.
+  await page.mouse.click(200, 700);
+  await page.waitForTimeout(400);
   await page.click(`.wb-object[data-id="${kidId}"]`, { button: "right" });
   await page.waitForTimeout(600);
   const why = await page.evaluate((id) => ({
@@ -113,7 +123,32 @@ async function newBoard(page, name) {
   }, kidId);
   console.log("  ring:", JSON.stringify(geom));
   if (!geom.slots) { console.log("  the ring did not open:", JSON.stringify(geom)); await browser.close(); process.exit(1); }
-  check("the ring is open with all eight slots", !geom.hidden && geom.slots === 8, `${geom.slots} slots, hidden ${geom.hidden}`);
+  check("the ring is open with all six slots", !geom.hidden && geom.slots === 6, `${geom.slots} slots, hidden ${geom.hidden}`);
+
+  // MINDMAP_PLAN §12.5: a slot says what it is at rest, not on hover, and the
+  // caption carries the keys so the ring reads as a shortcut rather than as
+  // the only way in.
+  const words = await page.evaluate(() => {
+    const ring = document.getElementById("wb-map-radial");
+    return {
+      names: [...ring.querySelectorAll(".wb-map-radial-slot")].map((s) => ({
+        id: s.id,
+        word: s.querySelector(".wb-map-radial-name")?.textContent.trim() || "",
+        shown: getComputedStyle(s.querySelector(".wb-map-radial-name") || s).opacity,
+      })),
+      caption: ring.querySelector(".wb-map-radial-caption")?.textContent.trim() || "",
+      stripHidden: document.getElementById("wb-map-strip")?.classList.contains("hidden"),
+    };
+  });
+  console.log("  words:", JSON.stringify(words));
+  check("every slot draws its own word at rest",
+    words.names.length === 6 && words.names.every((n) => n.word && n.shown === "1"),
+    words.names.map((n) => n.word).join(", "));
+  check("the caption names the keys when nothing is under the pointer",
+    /Tab/.test(words.caption) && /Enter/.test(words.caption) && /Delete/.test(words.caption),
+    words.caption);
+  check("the topic strip is put away while the ring is open", words.stripHidden === true,
+    `strip hidden ${words.stripHidden}`);
 
   const shot = `${OUT}/mapring-${THEME}.png`;
   await page.screenshot({ path: shot });

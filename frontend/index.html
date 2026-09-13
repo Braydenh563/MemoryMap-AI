@@ -4768,27 +4768,21 @@
            These are the gestures that were keys and nothing else. Tab and
            Enter build a map without the mouse and always will, but a key you
            were told about once in a toast is not a control. -->
+      <!-- **One door per action** (MINDMAP_PLAN §12.5, INBOX 200: "the way the
+           controls are available, what controls and tools are available and
+           where"). This section held three adds and this one held a fold, a
+           colour and a focus; the audit measured add-a-child reachable from
+           five places, fold from four and a colour from four. The ring is
+           where you act on the topic in hand and the strip is where you set
+           how it looks, so what stays in the dock is what acts on the *map*:
+           a new trunk (the only way to a second one, a §12.0 decision, and it
+           needs no selection), and reading one branch at a time. -->
       <div class="wb-tool-section" data-wb-surface="map" role="group" aria-label="Topics">
-        <span class="wb-tool-section-label" title="Grow the map: a trunk, a branch off the selection, or one beside it">Topic</span>
+        <span class="wb-tool-section-label" title="Start a new trunk, or read the map one branch at a time">Map</span>
         <div class="wb-tool-section-row">
         <button id="wb-map-add-root" class="ghost icon-button" type="button" title="Add a top-level topic: a map can have several trunks" aria-label="Add a top-level topic">
           <i class="ph ph-plus-square" aria-hidden="true"></i>
         </button>
-        <button id="wb-map-add-child" class="ghost icon-button" type="button" title="Add a branch off the selected topic (Tab)" aria-label="Add a branch off the selected topic (Tab)">
-          <i class="ph ph-arrow-elbow-down-right" aria-hidden="true"></i>
-        </button>
-        <button id="wb-map-add-sibling" class="ghost icon-button" type="button" title="Add a topic beside the selected one (Enter)" aria-label="Add a topic beside the selected one (Enter)">
-          <i class="ph ph-arrow-down" aria-hidden="true"></i>
-        </button>
-        </div>
-      </div>
-      <div class="wb-tool-section" data-wb-surface="map" role="group" aria-label="Branch">
-        <span class="wb-tool-section-label" title="Fold a branch away, colour it, or read the map one branch at a time">Branch</span>
-        <div class="wb-tool-section-row">
-        <button id="wb-map-collapse" class="ghost icon-button" type="button" title="Fold the selected branch away (C)" aria-label="Fold the selected branch away (C)">
-          <i class="ph ph-caret-circle-down" id="wb-map-collapse-icon" aria-hidden="true"></i>
-        </button>
-        <input type="color" id="wb-map-branch-color" class="wb-color-picker" aria-label="Branch colour" title="Branch colour">
         <button id="wb-map-focus-here" class="ghost icon-button" type="button" title="Show this branch and its neighbours only (F)" aria-label="Show this branch and its neighbours only (F)">
           <i class="ph ph-crosshair" aria-hidden="true"></i>
         </button>
@@ -5183,7 +5177,6 @@
       </select>
       <input type="color" id="wb-map-strip-color" class="wb-color-picker" aria-label="Topic colour" title="Topic colour">
       <span class="wb-topbar-divider" aria-hidden="true"></span>
-      <button type="button" id="wb-map-strip-link" class="ghost small icon-only" title="Link this topic to a page" aria-label="Link this topic to a page"><i class="ph ph-link" aria-hidden="true"></i></button>
       <select id="wb-map-strip-icon" class="ghost small" aria-label="Icon on this topic" title="Put an icon on this topic">
         <option value="">No icon</option>
         <option value="star">Star</option>
@@ -5237,55 +5230,78 @@
       </select>
       <button type="button" id="wb-map-edge-dashed" class="ghost small icon-only" data-wb-map-line title="Dash the line into this topic" aria-label="Dash the line into this topic" aria-pressed="false"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
       <button type="button" id="wb-map-edge-arrow" class="ghost small icon-only" data-wb-map-line title="Put an arrowhead on the line into this topic" aria-label="Put an arrowhead on the line into this topic" aria-pressed="false"><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
+      <!-- **The shape of the line into this topic** (MINDMAP_PLAN §12.5). It
+           was three slots on the link ring, which is a right-click on a line
+           nobody finds; it is a look, and looks are the strip's. One select
+           rather than three buttons, for the same reason the spine is one:
+           three values with a current one to report is what a select is for. -->
+      <select id="wb-map-edge-shape" class="ghost small" data-wb-map-line aria-label="The shape of the line into this topic" title="The shape of the line into this topic">
+        <option value="">Curved line</option>
+        <option value="elbow">Elbow line</option>
+        <option value="straight">Straight line</option>
+      </select>
+      <span class="wb-topbar-divider" aria-hidden="true"></span>
+      <!-- **Back to the branch** (MINDMAP_PLAN §12.5). It was the eighth slot
+           on the node ring, where it sat among five structural edits; what it
+           undoes is every choice made in this strip, so it belongs at the end
+           of the strip. -->
+      <button type="button" id="wb-map-reset" class="ghost small icon-only" title="Back to the branch: drop this topic's own colour, size, weight, alignment, shape, icon, link and the look of the line into it" aria-label="Reset this topic to its branch"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
     </div>
 
-    <!-- **The node radial** (MINDMAP_PLAN.md §12.1 item 3, Coggle's own
-         idiom): the controls appear on the thing you selected, not only in a
-         bar at the top. Right-click a topic, or hold it on a touch screen, and
-         the eight things you do to a *branch* appear in a ring around it.
+    <!-- **The node radial** (MINDMAP_PLAN.md §12.1 item 3 and §12.5, Coggle's
+         own idiom): the controls appear on the thing you selected, not only in
+         a bar at the top. Right-click a topic, or hold it on a touch screen.
 
-         A ring of buttons with nothing behind it, deliberately. A filled disc
-         centred on the node would cover the node the ring is about, and a
-         translucent one would cover it and tint it. Nothing frames these
-         buttons, so each keeps the app's base tonal recipe (fill, hairline,
-         lift), which is what that recipe is for: a button that stands on its
-         own surface has to say "this is a control" by itself. The run rule in
-         08-consistency.css is for a run inside something that already frames
-         it, and this is the other case.
+         **Six slots, each of which says what it is** (INBOX 200: "how the item
+         radials are used is confusing and doesnt feel clean"). It was eight
+         icon-only circles, which is a memory test: the icons were the only
+         clue and the tooltip arrived a second late, over the slot it was
+         describing. Each slot is a pill with its own word now, and the ring
+         holds only the six things you do to *this topic from here* (§12.5's
+         one-place-per-action rule). Tidy this branch, copy it, add a reference
+         child, cut it free and reset it moved to the node's own menu, behind
+         More; how a topic and its line *look* is the strip's, and how the map
+         is laid out is the dock's.
+
+         A fixed slot width, because the ring is placed with `left`/`top` from
+         its radius (07-whiteboard-misc.css says why `translate` is refused
+         here) and half the slot's own width has to come off that offset for
+         the pill's centre to land on the ring.
 
          Alt held turns the two add slots into the two remove slots, which is
-         Coggle's gesture; the buttons re-label themselves while it is held so
-         it is not a secret. -->
+         Coggle's gesture; the slots re-label themselves, word and icon, while
+         it is held, so it is not a secret. -->
     <div id="wb-map-radial" class="wb-map-radial hidden" role="toolbar" aria-label="What you can do with this topic">
-      <button type="button" id="wb-radial-child" class="ghost small icon-only wb-map-radial-slot" title="Add a branch off this topic (Tab). Hold Alt to remove the branch instead" aria-label="Add a branch off this topic"><i class="ph ph-arrow-elbow-down-right" aria-hidden="true"></i></button>
-      <button type="button" id="wb-radial-sibling" class="ghost small icon-only wb-map-radial-slot" title="Add a topic beside this one (Enter). Hold Alt to remove this topic and keep its branch" aria-label="Add a topic beside this one"><i class="ph ph-arrow-down" aria-hidden="true"></i></button>
-      <button type="button" id="wb-radial-collapse" class="ghost small icon-only wb-map-radial-slot" title="Fold this branch away (C)" aria-label="Fold this branch away"><i class="ph ph-caret-circle-down" aria-hidden="true"></i></button>
-      <button type="button" id="wb-radial-tidy" class="ghost small icon-only wb-map-radial-slot" title="Lay this branch out again" aria-label="Lay this branch out again"><i class="ph ph-tree-structure" aria-hidden="true"></i></button>
-      <button type="button" id="wb-radial-copy" class="ghost small icon-only wb-map-radial-slot" title="Copy this branch beside itself" aria-label="Copy this branch beside itself"><i class="ph ph-copy" aria-hidden="true"></i></button>
-      <button type="button" id="wb-radial-ref" class="ghost small icon-only wb-map-radial-slot" title="Add a child that points at a note, document, file or link" aria-label="Add a child from the library"><i class="ph ph-bookmarks-simple" aria-hidden="true"></i></button>
-      <button type="button" id="wb-radial-sever" class="ghost small icon-only wb-map-radial-slot" title="Cut this topic free of its parent, as a trunk of its own" aria-label="Cut this topic free of its parent"><i class="ph ph-scissors" aria-hidden="true"></i></button>
-      <button type="button" id="wb-radial-reset" class="ghost small icon-only wb-map-radial-slot" title="Back to the branch: drop this topic's own colour, size, weight, alignment, shape, icon, link and the look of the line into it" aria-label="Reset this topic to its branch"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
-      <span class="wb-map-radial-caption" aria-hidden="true"></span>
+      <button type="button" id="wb-radial-child" class="ghost small wb-map-radial-slot" title="Add a branch off this topic (Tab). Hold Alt to remove the branch instead" aria-label="Add a branch off this topic (Tab)"><i class="ph ph-arrow-elbow-down-right" aria-hidden="true"></i><span class="wb-map-radial-name">Add child</span></button>
+      <button type="button" id="wb-radial-sibling" class="ghost small wb-map-radial-slot" title="Add a topic beside this one (Enter). Hold Alt to remove this topic and keep its branch" aria-label="Add a topic beside this one (Enter)"><i class="ph ph-arrow-down" aria-hidden="true"></i><span class="wb-map-radial-name">Add beside</span></button>
+      <button type="button" id="wb-radial-collapse" class="ghost small wb-map-radial-slot" title="Fold this branch away (C)" aria-label="Fold this branch away (C)"><i class="ph ph-caret-circle-down" aria-hidden="true"></i><span class="wb-map-radial-name">Fold</span></button>
+      <button type="button" id="wb-radial-delete" class="ghost small wb-map-radial-slot" title="Delete this topic and everything under it (Delete)" aria-label="Delete this topic and everything under it (Delete)"><i class="ph ph-trash" aria-hidden="true"></i><span class="wb-map-radial-name">Delete</span></button>
+      <button type="button" id="wb-radial-connect" class="ghost small wb-map-radial-slot" title="Draw a line from this topic to another (Shift+C)" aria-label="Draw a line from this topic to another (Shift+C)"><i class="ph ph-graph" aria-hidden="true"></i><span class="wb-map-radial-name">Connect</span></button>
+      <button type="button" id="wb-radial-more" class="ghost small wb-map-radial-slot" title="Everything else you can do with this topic (Shift+F10)" aria-label="Everything else you can do with this topic (Shift+F10)"><i class="ph ph-dots-three-outline" aria-hidden="true"></i><span class="wb-map-radial-name">More</span></button>
+      <span class="wb-map-radial-caption" aria-hidden="true" data-rest="Tab adds a child, Enter one beside, C folds, Delete removes"></span>
     </div>
 
-    <!-- **The link radial** (MINDMAP_PLAN.md §12.1 item 4): the same ring, on
-         the line rather than on the topic. A tree edge has no row of its own
-         (it *is* `parent_id`), so every slot here writes to the child, which
-         is the end with exactly one incoming line.
+    <!-- **The link radial** (MINDMAP_PLAN.md §12.1 item 4 and §12.5): the same
+         ring, on the line rather than on the topic. A tree edge has no row of
+         its own (it *is* `parent_id`), so every slot here writes to the child,
+         which is the end with exactly one incoming line.
+
+         **Three slots, the ones that are not a look.** It carried eight, and
+         five of them were the same edit as a control in the topic strip: the
+         dash, the colour (both write `data.color` on the child) and the three
+         line shapes. §12.5's rule is one place per action and the strip is
+         where a look is set, so the shapes moved there as one picker and the
+         line ring kept what is genuinely the line's own: which way it points,
+         its label, and cutting it.
 
          Right-click or hold the line. Coggle also opens the colour wheel on a
          plain left-click; that is deliberately not copied, see the comment on
          `wbWireMapEdgeGestures`. -->
-    <div id="wb-map-link-radial" class="wb-map-radial hidden" role="toolbar" aria-label="What you can do with this line">
-      <button type="button" id="wb-link-reverse" class="ghost small icon-only wb-map-radial-slot" title="Turn the line around: the topic below becomes the one above" aria-label="Turn this line around"><i class="ph ph-swap" aria-hidden="true"></i></button>
-      <button type="button" id="wb-link-label" class="ghost small icon-only wb-map-radial-slot" title="Label this line" aria-label="Label this line"><i class="ph ph-tag" aria-hidden="true"></i></button>
-      <button type="button" id="wb-link-curve" class="ghost small icon-only wb-map-radial-slot" title="Draw this line as a curve" aria-label="Draw this line as a curve"><i class="ph ph-bezier-curve" aria-hidden="true"></i></button>
-      <button type="button" id="wb-link-elbow" class="ghost small icon-only wb-map-radial-slot" title="Draw this line as an elbow" aria-label="Draw this line as an elbow"><i class="ph ph-arrow-elbow-right" aria-hidden="true"></i></button>
-      <button type="button" id="wb-link-straight" class="ghost small icon-only wb-map-radial-slot" title="Draw this line straight" aria-label="Draw this line straight"><i class="ph ph-minus" aria-hidden="true"></i></button>
-      <button type="button" id="wb-link-dashed" class="ghost small icon-only wb-map-radial-slot" title="Dash this line" aria-label="Dash this line" aria-pressed="false"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
-      <input type="color" id="wb-link-color" class="wb-color-picker wb-map-radial-slot" aria-label="The colour of this line and everything under it" title="The colour of this line and everything under it">
-      <button type="button" id="wb-link-cut" class="ghost small icon-only wb-map-radial-slot" title="Cut this line: the topic below becomes a trunk of its own" aria-label="Cut this line"><i class="ph ph-scissors" aria-hidden="true"></i></button>
-      <span class="wb-map-radial-caption" aria-hidden="true"></span>
+    <div id="wb-map-link-radial" class="wb-map-radial wb-map-radial-triad hidden" role="toolbar" aria-label="What you can do with this line">
+      <button type="button" id="wb-link-reverse" class="ghost small wb-map-radial-slot" title="Turn the line around: the topic below becomes the one above" aria-label="Turn this line around"><i class="ph ph-swap" aria-hidden="true"></i><span class="wb-map-radial-name">Reverse</span></button>
+      <button type="button" id="wb-link-label" class="ghost small wb-map-radial-slot" title="Label this line" aria-label="Label this line"><i class="ph ph-tag" aria-hidden="true"></i><span class="wb-map-radial-name">Label</span></button>
+      <button type="button" id="wb-link-cut" class="ghost small wb-map-radial-slot" title="Cut this line: the topic below becomes a trunk of its own" aria-label="Cut this line"><i class="ph ph-scissors" aria-hidden="true"></i><span class="wb-map-radial-name">Cut</span></button>
+      <span class="wb-map-radial-caption" aria-hidden="true" data-rest="How the line is drawn is in the topic strip"></span>
     </div>
 
     <!-- The navigator: a live minimap of the whole board with a draggable

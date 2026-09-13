@@ -523,6 +523,17 @@
         counts as one entry, so this reads as sittings rather than keystrokes, 
         and restoring one keeps the version it replaced, so nothing here is ever
         lost.</p>
+      <!-- **"An AI changed this" is a filter, not a second list**
+           (DOCUMENTS_PLAN Phase 5 item 2). The history already records who
+           made each version; a person looking for what the model did to their
+           document should not have to read past their own edits to find it.
+           Two choices, so it is the app's `.seg` rather than a select. -->
+      <div class="seg" id="doc-history-filter" role="group" aria-label="Which versions to show">
+        <button type="button" data-history-filter="all" aria-pressed="true"
+          title="Every version this document has had">All</button>
+        <button type="button" data-history-filter="ai" aria-pressed="false"
+          title="Only the versions an AI edit replaced">AI edits</button>
+      </div>
       <ul id="doc-history-list" class="doc-ai-history-list"></ul>
       <p id="doc-history-empty" class="muted hidden">Nothing yet: this document
         has not been changed since it was made.</p>

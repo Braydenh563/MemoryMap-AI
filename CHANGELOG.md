@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Twelve starters in the popup agent, grouped by what they do: capture, find,
+  summarise, remind and do. Each is a verb with a slot ("Remind me to…") that
+  drops into the box with the caret after it, or a whole instruction ("Tag my
+  untagged notes.") that runs on the press; the three you used last are
+  offered first. Beside them is "Use the open note", which sends whatever note
+  or document you have open with what you ask, so "summarise this" works from
+  a panel that floats over every tab. The card now has a ceiling and scrolls
+  inside it, so Start over and Stop stay on screen on a laptop and a phone.
+
 - The Ask tab answers the way the Chat tab does. Under an answer there is now
   a Sources disclosure listing what the answer drew on, an "Elsewhere in your
   notebook" row, and follow-up questions: press one and it is asked with the

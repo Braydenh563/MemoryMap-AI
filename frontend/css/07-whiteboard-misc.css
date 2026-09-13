@@ -1085,6 +1085,24 @@ body.has-agent-monitor #tab-library .library-view-section {
   width: 100%;
   max-width: 37.5rem;
   padding: 0;
+  /* **The foot has to stay reachable.** Twelve starters (CHAT_PLAN decision 9)
+     took this card from 4 chips to 12 and from 420px to 668px tall, and the
+     overlay drops it 15vh down the screen: measured at 1024x768 the card ran
+     15px past the bottom of the window and at 390x844 it ran 136px past, which
+     puts Start over and Stop off screen with no way to scroll to them, since
+     the overlay itself does not scroll. The card is a column with a ceiling
+     now, and the two regions that can grow (the starters and the conversation)
+     are the ones that scroll; the head, the input and the foot never move. */
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 15vh - var(--space-6));
+}
+
+/* `min-height: 0` on both, or a flex child refuses to shrink below its
+   content and the ceiling above does nothing. */
+.command-palette-intro {
+  overflow: hidden auto;
+  min-height: 0;
 }
 
 /* The title and the way out. No hairline under it: the head and the input
@@ -1187,6 +1205,7 @@ body.has-agent-monitor #tab-library .library-view-section {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  min-height: 0;
   max-height: 25rem;
   padding: var(--space-4) var(--card-pad-x);
   /* Both axes named: `overflow-y` alone leaves x at `visible`, which CSS
@@ -1234,6 +1253,19 @@ body.has-agent-monitor #tab-library .library-view-section {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
+}
+
+/* The verb a group of starters belongs to (CHAT_PLAN.md decision 9's
+   grouping), across both columns of the grid above so the chips under it read
+   as its set. The label itself is `.eyebrow`, the app's one small-label
+   recipe; this rule adds the span and the rhythm and nothing else. */
+.starter-verb {
+  grid-column: 1 / -1;
+  margin: var(--space-3) 0 var(--space-1);
+}
+
+.starter-verb:first-child {
+  margin-top: 0;
 }
 
 .command-palette-foot {

@@ -347,14 +347,23 @@
           reminders, and answer from what you have written, the same tools
           the Chat tab uses. It remembers this conversation until you clear it.
         </p>
-        <div class="command-palette-examples">
-          <button type="button" class="ghost small" data-example="What did I write about this week?">What did I write about this week?</button>
-          <button type="button" class="ghost small" data-example="Make a note: ">Make a note…</button>
-          <button type="button" class="ghost small" data-example="Remind me to ">Remind me to…</button>
-          <button type="button" class="ghost small" data-example="Find my notes about ">Find my notes about…</button>
-        </div>
+        <!-- Twelve, grouped by verb, and built by `renderAgentStarters`
+             (app.js) rather than written out here: the group a starter belongs
+             to and the three most recently used are both decided at open time,
+             and a table in the file that knows the wording is one place to
+             change rather than two that drift. -->
+        <div id="command-palette-starters" class="command-palette-examples"></div>
       </div>
       <div class="command-palette-foot">
+        <!-- "Use the open note" (CHAT_PLAN.md decision 9): the run is scoped to
+             whatever note or document is open when you send, so "summarise
+             this" and "tag this" mean something from a panel that floats over
+             every tab. Disabled, with a reason, when nothing is open: the
+             label is written by `syncAgentOpenNoteToggle`, which names the
+             thing rather than saying "the open note" over an empty notebook. -->
+        <label id="command-palette-use-note-label" class="row align-center checkbox-label small">
+          <input type="checkbox" id="command-palette-use-note">
+          <span id="command-palette-use-note-text">Use the open note</span></label>
         <span id="command-palette-status" class="muted text-sm" role="status"></span>
         <button type="button" id="command-palette-clear" class="ghost small"
           title="Forget this conversation and start over"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Start over</button>

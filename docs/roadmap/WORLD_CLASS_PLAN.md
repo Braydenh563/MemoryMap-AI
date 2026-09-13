@@ -301,8 +301,9 @@ round-trips through the API, FTS finds it, the graph colours by it.
 
 ### D6 Daily notes and the journal (S, Sonnet)
 
-**The backend is built, 2026-09-13 evening.** `GET /entries/daily/{date}`
-creates or returns (which is what makes the key safe to press from anywhere:
+**The backend is built, 2026-09-13 evening.** `POST /entries/daily/{date}`
+creates or returns (the matching GET is read-only and 404s, because a GET that
+writes sits outside the CSRF defence, which judges methods) (which is what makes the key safe to press from anywhere:
 `startTodaysNote` posted a new note every time, so a day opened twice had two
 notes and its writing split between them), and `GET /entries/daily?through=&days=`
 answers the calendar strip and the streak in one query.

@@ -85,11 +85,11 @@ green and its Built block is in `HISTORY.md` ("Moved from the plans,
    "188 items" now.
 
 8. **WORLD_CLASS D6: the backend is built (2026-09-13 evening), the frontend
-   is not.** `GET /entries/daily/{date}` creates or returns, and
+   is not.** `POST /entries/daily/{date}` creates or returns (the GET is read-only), and
    `GET /entries/daily?through=&days=` gives the calendar strip its days and
    the streak (`tests/test_daily_journal.py`). Next step, all frontend:
    `startTodaysNote` in `frontend/app.js` should call
-   `/entries/daily/${key}` instead of posting a new note, which fixes the
+   POST `/entries/daily/${key}` instead of posting to /entries, which fixes the
    duplicate it makes today; then `Ctrl+D` on that, then the strip and the
    yesterday/tomorrow pair.
 

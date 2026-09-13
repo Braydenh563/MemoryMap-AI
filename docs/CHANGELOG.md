@@ -15,7 +15,7 @@ below). Versioning is `0.x` while the app stabilises.
   newest and most joined are pinned in `tests/test_scale_query_counts.py` so
   the next one cannot arrive quietly.
 
-- The journal has a day that opens twice. `GET /entries/daily/{date}` returns
+- The journal has a day that opens twice. `POST /entries/daily/{date}` returns
   that day's note and makes it only if it is not there yet, so pressing
   "today's note" a second time no longer leaves two notes headed with the same
   date and the day's writing split between them. `GET /entries/daily` says

@@ -558,14 +558,33 @@ def daily_journal(
 
 @router.get("/daily/{day}", response_model=EntryOut)
 def daily_note(day: str, session: Session = Depends(get_session)) -> EntryOut:
+    """One day's journal entry, or 404 if nothing was written that day.
+
+    Read-only, and the writing half is the POST below. The obvious shape for
+    D6 is one GET that creates when it has to, and it was written that way
+    first: a GET that writes is the shape a reviewer is right to stop, because
+    the CSRF defence in `core/security.py` judges *methods*, and an endpoint
+    that makes a row on a GET is outside it by construction.
+    """
+    found = _daily_note(session, _daily_date(day))
+    if found is None:
+        raise HTTPException(status_code=404, detail="Nothing written on that day yet")
+    return _to_out(session, found)
+
+
+@router.post("/daily/{day}", response_model=EntryOut)
+def open_daily_note(day: str, session: Session = Depends(get_session)) -> EntryOut:
     """One day's journal entry, made if it is not there yet.
 
-    A GET that can write, deliberately and narrowly: "open today's note" is
-    one intention, and splitting it into a lookup plus a conditional create
-    puts the race between two windows of the same app (or two presses of the
-    key) back exactly where this endpoint exists to remove it. Nothing else
-    about the note is decided here, which is what keeps a journal entry an
-    ordinary note.
+    "Creates or returns", which is what makes the key safe to press from
+    anywhere: splitting it into a lookup plus a conditional create puts the
+    race between two windows of the same app (or two presses of the key) back
+    exactly where this endpoint exists to remove it. 200 rather than 201 for
+    the same reason: whether this call made the note is not the caller's
+    business and is not stable between two presses a second apart.
+
+    Nothing else about the note is decided here, which is what keeps a journal
+    entry an ordinary note.
     """
     wanted = _daily_date(day)
     existing = _daily_note(session, wanted)

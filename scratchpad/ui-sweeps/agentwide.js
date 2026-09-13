@@ -304,18 +304,59 @@ const TABS = ['dashboard', 'notes', 'chat', 'graph', 'library', 'timeline', 'rem
   await page.keyboard.press('Escape');
   await page.waitForTimeout(250);
 
-  // --- touch targets at 390 --------------------------------------------------
+  // --- the phone: the header cannot hold two more controls -------------------
+  // Adding them took the header's scrollWidth from inside the window to 407px
+  // against a 390px client, and the whole page scrolled sideways. Below 600
+  // they are in the More sheet, which is where Settings already lives.
+  for (const width of [1440, 1024, 820, 390]) {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    await page.waitForTimeout(400);
+    const bar = await page.evaluate(() => {
+      const el = document.getElementById('top-bar') || document.querySelector('header');
+      const seen = (id) => {
+        const b = document.getElementById(id);
+        const r = b.getBoundingClientRect();
+        return { shown: r.width > 0 && r.height > 0, w: +r.width.toFixed(1), h: +r.height.toFixed(1) };
+      };
+      return {
+        overflow: el.scrollWidth - el.clientWidth,
+        page: document.documentElement.scrollWidth - window.innerWidth,
+        agent: seen('agent-btn'),
+        guide: seen('guide-btn'),
+      };
+    });
+    console.log(`  ${width}: header overflow ${bar.overflow}px, page ${bar.page}px, wand ${JSON.stringify(bar.agent)}, guide ${JSON.stringify(bar.guide)}`);
+    check(`${width} the header does not scroll sideways`, bar.overflow <= 0 && bar.page <= 0,
+      `header ${bar.overflow}px, page ${bar.page}px`);
+    if (width === 390) {
+      check('390 hides both rather than overflowing', !bar.agent.shown && !bar.guide.shown,
+        `wand ${bar.agent.shown}, guide ${bar.guide.shown}`);
+    } else {
+      check(`${width} both are real targets in the header`,
+        bar.agent.w >= 32 && bar.agent.h >= 32 && bar.guide.w >= 32 && bar.guide.h >= 32,
+        `${bar.agent.w}x${bar.agent.h} and ${bar.guide.w}x${bar.guide.h}`);
+    }
+  }
+
+  // And both are still reachable on a phone, through the sheet Settings uses.
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(400);
-  const sizes = await page.evaluate(() =>
-    ['agent-btn', 'guide-btn'].map((id) => {
-      const r = document.getElementById(id).getBoundingClientRect();
-      return { id, w: +r.width.toFixed(1), h: +r.height.toFixed(1) };
-    })
-  );
-  console.log(`  at 390: ${JSON.stringify(sizes)}`);
-  check('both header controls are real targets at 390',
-    sizes.every((s) => s.w >= 32 && s.h >= 32), JSON.stringify(sizes));
+  const moreRows = await page.evaluate(() => {
+    openPhoneMoreSheet();
+    const rows = [...document.querySelectorAll('[data-sheet="more"] .sheet-row')].map((r) => r.textContent.trim());
+    const agent = [...document.querySelectorAll('[data-sheet="more"] .sheet-row')].find((r) => /Ask the agent/.test(r.textContent));
+    agent?.click();
+    return {
+      rows,
+      opened: !document.getElementById('command-palette-overlay').classList.contains('hidden'),
+    };
+  });
+  console.log(`  More sheet: ${JSON.stringify(moreRows.rows)}`);
+  check('the phone reaches both through More',
+    moreRows.rows.includes('Ask the agent') && moreRows.rows.includes('Guide') && moreRows.opened,
+    `rows ${moreRows.rows.length}, palette opened ${moreRows.opened}`);
+  await page.evaluate(() => toggleAgentPalette());
+  await page.waitForTimeout(200);
 
   check('no page errors', errors.length === 0, errors.slice(0, 3).join(' | ') || 'none');
   console.log(fails.length ? `FAILURES: ${fails.join(', ')}` : 'ALL OK');

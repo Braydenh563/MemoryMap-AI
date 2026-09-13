@@ -24390,6 +24390,14 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     to ("Done, 1 step, last: Listed notes (12)"), with the typed tool cards
     still folded under the answer ("Finished 1 step"). A `data-help-for` line
     carries the rest.
+    **And the header could not hold two more controls at 390**, found by
+    measuring rather than by looking: the first cluster went from three
+    controls to five and the bar's scrollWidth to 407px against a 390px
+    client, so the whole page scrolled sideways. Below 600 both are in the
+    phone's More sheet instead, where Settings already lives; measured 0px of
+    header and page overflow at 1440, 1024, 820 and 390, both 36x36 in the
+    header at the three wider ones, and the More sheet's six rows opening the
+    palette from the phone.
     **The Guide** (`c052eb6` and this commit): named (INBOX 193, CHAT_PLAN
     decision 13), reachable from the header's '?' on every tab and from the
     head the fifteen Settings panes share, as one `openSheet` that moves the

@@ -35098,6 +35098,23 @@ function openPhoneMoreSheet() {
           switchTab(tab);
         }));
       }
+      //: **The agent and the Guide, where the header cannot hold them.**
+      //: Measured after they were added (INBOX 190): the header's first
+      //: cluster grew from three controls to five, and at 390 the bar's
+      //: scrollWidth went from inside the window to 407px against a 390px
+      //: client, which is the app scrolling sideways. A phone's answer to a
+      //: chrome that will not fit is this sheet, which is where Settings
+      //: already went for the same reason; the header keeps both at every
+      //: width that has room (600 and up, `10-responsive.css`).
+      list.appendChild(sheetRow("ph ph-magic-wand tab-icon", "Ask the agent", () => {
+        close();
+        toggleAgentPalette();
+      }));
+      list.appendChild(sheetRow("ph ph-question tab-icon", "Guide", () => {
+        close();
+        //: settings.js owns the Guide sheet and loads beside this file.
+        if (typeof openHelpChat === "function") openHelpChat();
+      }));
       list.appendChild(sheetRow("ph ph-gear tab-icon", "Settings", () => {
         close();
         //: settings.js owns the modal and loads beside this file; `typeof` so

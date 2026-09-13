@@ -38,7 +38,7 @@ usable with no AI model running at all.
 </p>
 
 <details>
-<summary><b>More screenshots</b>: Notes, Chat, Graph, Library, Timeline, Reminders, Documents</summary>
+<summary><b>Twelve more screenshots</b>: Notes, Chat, Graph, Library, boards, concept maps, Documents, Timeline, Reminders, the features browser, the command palette and Appearance</summary>
 <br>
 
 <p align="center">
@@ -47,8 +47,8 @@ usable with no AI model running at all.
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/chat.png" alt="Chat: a question answered from saved notes, with the tool steps and the notes it drew on" width="850">
-  <br><sub><b>Chat</b>: an answer with its sources and every step shown</sub>
+  <img src="docs/screenshots/chat.png" alt="Chat: the composer with skills, web search, plan and agent mode, a saved-chat list beside it and four suggested questions" width="850">
+  <br><sub><b>Chat</b>: ask in plain English, with skills, web search and agent mode beside the box</sub>
 </p>
 
 <p align="center">
@@ -62,6 +62,21 @@ usable with no AI model running at all.
 </p>
 
 <p align="center">
+  <img src="docs/screenshots/whiteboard.png" alt="A whiteboard board: coloured cards in three columns under a banner, with the tool rail along the bottom" width="850">
+  <br><sub><b>Boards</b>: cards, drawings and images you arrange yourself</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/map.png" alt="A concept map: a central topic with coloured branches and leaves, and the keyboard hints for growing it" width="850">
+  <br><sub><b>Concept maps</b>: a branch with Tab, one beside it with Enter, tidied on demand</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/documents.png" alt="Documents: the long-form editor with a formatting toolbar, a document list, live word count and writing suggestions" width="850">
+  <br><sub><b>Documents</b>: a long-form editor with four views, writing checks and full history</sub>
+</p>
+
+<p align="center">
   <img src="docs/screenshots/timeline.png" alt="Timeline: notes on a time axis, grouped into bands by category" width="850">
   <br><sub><b>Timeline</b>: every note on a time axis</sub>
 </p>
@@ -72,8 +87,18 @@ usable with no AI model running at all.
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/documents.png" alt="Documents: the long-form editor with a formatting toolbar, a document list, live word count and writing suggestions" width="850">
-  <br><sub><b>Documents</b>: a long-form editor with four views, writing checks and full history</sub>
+  <img src="docs/screenshots/features.png" alt="The Tools and features browser: a search box over grouped rows, each naming one thing the app can do" width="850">
+  <br><sub><b>Tools &amp; features</b>: everything the app can do, grouped and searchable</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/palette.png" alt="The command palette: one typed word matching commands and notes at once" width="850">
+  <br><sub><b>Command palette</b>: Ctrl/⌘-K reaches a command, a note, a document, a file or a board</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/appearance.png" alt="Settings, Appearance: ten themes as swatches, with typography, density, corners and background below" width="850">
+  <br><sub><b>Appearance</b>: ten themes, your own accent, type, density and corners</sub>
 </p>
 
 </details>

@@ -49,3 +49,29 @@ def test_the_test_count_claim_is_not_stale_by_an_order() -> None:
     assert int(claim.group(1)) * 1000 <= approx < (int(claim.group(1)) + 2) * 1000, (
         f"README claims {claim.group(0)}, the tree defines about {approx}"
     )
+
+
+def test_every_screenshot_the_readme_shows_is_on_disk() -> None:
+    """A picture the README points at has to exist, and no more than that.
+
+    The tour is the first thing anyone sees, and a renamed or deleted capture
+    shows up on GitHub as a broken-image glyph with the alt text underneath,
+    which reads as an abandoned project rather than as a missing file. Nothing
+    else in the suite opens the README's `<img>` tags.
+
+    The second half is the same rule pointing the other way: a capture nobody
+    shows is a file that will go stale silently, since the recapture script
+    (`scratchpad/ui-sweeps/readmeshots.js`) writes the set it knows about and
+    leaves anything else at whatever version of the UI it was taken from.
+    """
+    shown = set(re.findall(r'src="docs/screenshots/([\w.-]+)"', README))
+    assert shown, "the README shows no screenshots at all"
+    on_disk = {path.name for path in (ROOT / "docs" / "screenshots").glob("*.png")}
+    missing = sorted(shown - on_disk)
+    assert not missing, f"the README points at screenshots that do not exist: {missing}"
+    orphans = sorted(on_disk - shown)
+    assert not orphans, (
+        f"these screenshots are in docs/screenshots but shown nowhere: {orphans}. "
+        "Show them in the README or delete them; an unshown capture is one "
+        "nothing keeps up to date."
+    )

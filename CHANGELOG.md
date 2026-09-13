@@ -18,6 +18,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The README's tour is thirteen screenshots of the current interface, up from
+  eight of an older one. Five surfaces it never showed are in it now: a
+  whiteboard board, a concept map, the Tools and features browser, the command
+  palette and the Appearance panel. `tests/test_readme_freshness.py` fails on a
+  README image with no file behind it, and on a capture the README shows
+  nowhere.
+
 - Both catalogues know about the app as it is now. "Tools and features" had 48
   rows and the command palette 44, and between them they never mentioned
   documents, boards, concept maps, the Library's sub-tabs, the timeline, the

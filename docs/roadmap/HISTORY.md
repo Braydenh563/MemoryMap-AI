@@ -24262,6 +24262,31 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     the fit toggle and the panel's z-order are unchanged and still measured by
     the same sweep.
 
+181. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), tables in
+    an AI answer.** "the actual size/fit to panel button in ai written
+    tables doesnt work when not in the full view, also I want the table row
+    and column widths and heights to be adjustable by the user in the full
+    view." Owner: chat agent.
+    **Fixed (this commit), both halves.** The toggle: every rule it drove was
+    written `.md-table-block.is-full:not(.is-actual) …`, so pressing it in a
+    bubble added a class nothing was listening for. Measured inline before the
+    fix, `scratchpad/ui-sweeps/tablefull.js`: `table-layout: auto`,
+    `overflow-x: auto`, `min-width: max-content` before the press and the same
+    three after it. The state is `data-table-view` now, with the rules off the
+    full-view scope: a bubble starts at `actual` and full view at `fit` (INBOX
+    179's decision, unchanged), and the press moves between them on either
+    surface. Measured after: inline `auto`/`auto`/`max-content` before,
+    `fixed`/`hidden`/`0px` after, with the button reading "Fit to panel" then
+    "Actual size".
+    The drag: a 6px grip straddles each header cell's right edge and each body
+    row's bottom edge in full view, pointer events with capture, 56px and 28px
+    floors, the widths written onto a `table-layout: fixed` table so they are
+    honoured rather than treated as a suggestion. Measured: a 60px drag on a
+    column moved its edge 60.0px (640.1 to 700.1), a 40px drag on a row moved
+    it 40.0px (34.2 to 74.2), the grips and the explicit widths come off when
+    full view closes (0 grips, no inline width) and are restored on return
+    (700.1 and 74.2 again), 0 console errors.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

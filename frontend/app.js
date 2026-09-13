@@ -24313,12 +24313,163 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
   //: `table-layout: fixed` with wrapped cells, so every column is on screen
   //: and nothing scrolls sideways. The toggle puts the table back at its
   //: natural width, where the panel scrolls as before.
+  //: **The reader sets the column widths and the row heights** (INBOX 181,
+  //: the owner: "I want the table row and column widths and heights to be
+  //: adjustable by the user in the full view"). A grip on every header cell's
+  //: right edge and on every body row's bottom edge, in full view only: in a
+  //: bubble the table is a few hundred pixels wide and there is nothing to
+  //: apportion, and grips on a block that scrolls with the conversation would
+  //: be six pixels of drag target next to a wheel.
+  //:
+  //: The sizes live on this closure, so they last as long as the answer does:
+  //: leaving full view puts the table back to the surface's own default and
+  //: returning restores what was dragged, which is what "for the session"
+  //: means for a block that is rebuilt whenever its answer is re-rendered.
+  const tableEl = scroller.querySelector("table");
+  const headCells = () => [...tableEl.querySelectorAll("thead th")];
+  const bodyRowEls = () => [...tableEl.querySelectorAll("tbody tr")];
+  //: A column narrower than this cannot show a word and a row shorter than
+  //: this cannot show a line, so neither is a size anybody meant to choose.
+  const MIN_COL = 56;
+  const MIN_ROW = 28;
+  let colSizes = null;
+  let rowSizes = null;
+
+  const applyTableSizes = () => {
+    if (!colSizes && !rowSizes) return;
+    //: `table-layout: fixed` is what makes an explicit width authoritative:
+    //: under `auto` the browser treats a width as a suggestion and widens a
+    //: column whose content does not fit, which is exactly the drag not
+    //: appearing to work.
+    if (colSizes) {
+      tableEl.style.tableLayout = "fixed";
+      tableEl.style.width = `${colSizes.reduce((sum, n) => sum + n, 0)}px`;
+      tableEl.style.minWidth = "0";
+      headCells().forEach((th, i) => {
+        th.style.width = `${colSizes[i]}px`;
+      });
+    }
+    if (rowSizes) {
+      bodyRowEls().forEach((tr, i) => {
+        tr.style.height = `${rowSizes[i]}px`;
+      });
+    }
+    //: The row grip lives in its row's first cell, because a `<span>` made a
+    //: child of a `<tr>` gets wrapped in an anonymous table cell and shows up
+    //: as a phantom column. It is given the table's width so the whole row's
+    //: bottom edge is draggable rather than only the first column's.
+    const width = tableEl.getBoundingClientRect().width;
+    for (const grip of block.querySelectorAll(".md-grip-row")) {
+      grip.style.width = `${width}px`;
+    }
+  };
+
+  const stripTableSizes = () => {
+    tableEl.style.tableLayout = "";
+    tableEl.style.width = "";
+    tableEl.style.minWidth = "";
+    for (const th of headCells()) th.style.width = "";
+    for (const tr of bodyRowEls()) tr.style.height = "";
+  };
+
+  const clearTableSizes = () => {
+    colSizes = null;
+    rowSizes = null;
+    stripTableSizes();
+  };
+
+  const startGripDrag = (event, axis, index, grip) => {
+    event.preventDefault();
+    event.stopPropagation();
+    //: Both axes are measured on the first drag of either, from what is on
+    //: screen: half-measured sizes are how a table jumps on the second drag.
+    if (!colSizes) colSizes = headCells().map((th) => th.getBoundingClientRect().width);
+    if (!rowSizes) rowSizes = bodyRowEls().map((tr) => tr.getBoundingClientRect().height);
+    block.dataset.tableView = "sized";
+    applyTableSizes();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startW = colSizes[index];
+    const startH = rowSizes[index];
+    try {
+      grip.setPointerCapture(event.pointerId);
+    } catch {
+      //: A synthetic pointer event has no capture to take; the listeners below
+      //: still see the move because they are on the grip itself.
+    }
+    const move = (e) => {
+      if (axis === "col") colSizes[index] = Math.max(MIN_COL, startW + (e.clientX - startX));
+      else rowSizes[index] = Math.max(MIN_ROW, startH + (e.clientY - startY));
+      applyTableSizes();
+    };
+    const end = () => {
+      grip.removeEventListener("pointermove", move);
+      grip.removeEventListener("pointerup", end);
+      grip.removeEventListener("pointercancel", end);
+    };
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", end);
+    grip.addEventListener("pointercancel", end);
+  };
+
+  const gripFor = (axis, index, host) => {
+    const grip = document.createElement("span");
+    grip.className = `md-grip md-grip-${axis}`;
+    grip.setAttribute("role", "separator");
+    grip.setAttribute("aria-orientation", axis === "col" ? "vertical" : "horizontal");
+    grip.title = axis === "col" ? "Drag to set this column's width" : "Drag to set this row's height";
+    grip.addEventListener("pointerdown", (event) => startGripDrag(event, axis, index, grip));
+    host.appendChild(grip);
+  };
+
+  const addGrips = () => {
+    if (block.querySelector(".md-grip")) return;
+    headCells().forEach((th, i) => gripFor("col", i, th));
+    bodyRowEls().forEach((tr, i) => {
+      if (tr.firstElementChild) gripFor("row", i, tr.firstElementChild);
+    });
+    applyTableSizes();
+  };
+
+  const removeGrips = () => {
+    for (const grip of block.querySelectorAll(".md-grip")) grip.remove();
+  };
+
+  //: **And it has to do something in the bubble too** (INBOX 181, the owner:
+  //: "the actual size/fit to panel button in ai written tables doesnt work
+  //: when not in the full view"). It did not, and the cause was that every
+  //: rule the toggle drove was written `.md-table-block.is-full:not(.is-actual)
+  //: …`: pressing it in a bubble added a class nothing was listening for.
+  //: Measured before the fix, inline: `table-layout: auto` and
+  //: `overflow-x: auto` before the press and `table-layout: auto`,
+  //: `overflow-x: auto` after it.
+  //:
+  //: The class became `data-table-view`, which is the state itself rather than
+  //: "not the default", because the two surfaces have opposite defaults: a
+  //: table in a bubble is at its natural width and scrolls sideways, and one
+  //: in full view fits the panel (INBOX 179's decision, unchanged). One
+  //: attribute with the same two values in both places is what makes the
+  //: toggle mean the same thing wherever it is pressed.
+  const setTableView = (view) => {
+    block.dataset.tableView = view;
+    fit.textContent = view === "fit" ? "Actual size" : "Fit to panel";
+    fit.title =
+      view === "fit"
+        ? "Show the table at its natural width, scrolling sideways"
+        : "Fit every column into the width available, wrapping the text";
+  };
   const fit = button("Actual size", "Show the table at its natural width, scrolling sideways", () => {
-    const fitted = !block.classList.contains("is-actual");
-    block.classList.toggle("is-actual", fitted);
-    fit.textContent = fitted ? "Fit to panel" : "Actual size";
+    //: A table the reader has dragged columns on is in neither state, so the
+    //: toggle takes it back to one, dropping the sizes: the alternative is a
+    //: button that appears to do nothing because the explicit widths win.
+    clearTableSizes();
+    setTableView(block.dataset.tableView === "fit" ? "actual" : "fit");
   });
   const full = button("Full view", "Show this table on its own, at the window's width");
+  //: The bubble's own default, said out loud rather than left as the absence
+  //: of a class: a table in an answer is at its natural width and the block
+  //: scrolls sideways, so the button on offer is "Fit to panel".
+  setTableView("actual");
   //: **The panel leaves the bubble to be full screen** (reported on the first
   //: cut, with a screenshot: "the table full view is behind a lot of stuff").
   //: A `position: fixed` element is laid out against the nearest ancestor
@@ -24331,8 +24482,13 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
   //: answer, since the surrounding prose has no other mark for it.
   let placeholder = null;
   const leave = () => {
-    block.classList.remove("is-full", "is-actual");
-    fit.textContent = "Actual size";
+    block.classList.remove("is-full");
+    //: The dragged sizes stay in `colSizes`/`rowSizes` and come off the DOM:
+    //: a bubble is not where a 900px-wide table belongs, and re-entering full
+    //: view puts them straight back.
+    removeGrips();
+    stripTableSizes();
+    setTableView("actual");
     if (placeholder && placeholder.parentNode) {
       placeholder.replaceWith(block);
       placeholder = null;
@@ -24355,6 +24511,10 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
     block.replaceWith(placeholder);
     document.body.appendChild(block);
     block.classList.add("is-full");
+    //: Fit is full view's default (INBOX 179) and actual size is the bubble's,
+    //: so the state is set on the way in rather than carried across.
+    setTableView(colSizes || rowSizes ? "sized" : "fit");
+    addGrips();
     full.textContent = "Back";
     document.addEventListener("keydown", onKey, true);
   });

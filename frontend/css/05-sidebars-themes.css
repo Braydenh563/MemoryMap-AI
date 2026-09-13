@@ -2003,18 +2003,72 @@ body.resizing-sidebar {
    panel's width and their text wraps, so nothing runs off the side. The
    bar's toggle adds `is-actual`, which hands the table back its natural
    width and the panel its sideways scroll. */
-.md-table-block.is-full:not(.is-actual) > .md-table-wrap {
+/* **And the same two states in a bubble** (INBOX 181: "the actual size/fit to
+   panel button in ai written tables doesnt work when not in the full view").
+   Every rule here read `.is-full:not(.is-actual)`, so pressing the button in
+   an answer added a class no rule was listening for. The state is
+   `data-table-view` now and the rules are not scoped to full view: the
+   difference between the two surfaces is which value they start at (a bubble
+   at `actual`, full view at `fit`, INBOX 179's decision unchanged), not which
+   of them the button can reach. `min-width` is spelled out because the bubble
+   sets `min-width: max-content` on the table so a wide one scrolls, and fit
+   is the request to stop doing that. */
+.md-table-block[data-table-view="fit"] > .md-table-wrap {
   overflow-x: hidden;
 }
 
-.md-table-block.is-full:not(.is-actual) .md-table {
+.md-table-block[data-table-view="fit"] .md-table {
   table-layout: fixed;
   width: 100%;
+  min-width: 0;
 }
 
-.md-table-block.is-full:not(.is-actual) .md-table th,
-.md-table-block.is-full:not(.is-actual) .md-table td {
+.md-table-block[data-table-view="fit"] .md-table th,
+.md-table-block[data-table-view="fit"] .md-table td {
   overflow-wrap: anywhere;
+}
+
+/* A table whose columns have been dragged is in neither state: the widths are
+   the reader's, and the panel scrolls to whatever they add up to. */
+.md-table-block[data-table-view="sized"] > .md-table-wrap {
+  overflow-x: auto;
+}
+
+/* **The grips** (INBOX 181's second half). Six pixels straddling the edge
+   they move, on the header cells and on each row's first cell, drawn only
+   under the pointer so a table at rest is a table. `touch-action: none` is
+   what stops a drag on a phone being taken by the panel's own scroll before
+   the first `pointermove` arrives. */
+.md-table-block.is-full .md-table th,
+.md-table-block.is-full .md-table tbody tr > :first-child {
+  position: relative;
+}
+
+.md-grip {
+  position: absolute;
+  z-index: 1;
+  background: transparent;
+  touch-action: none;
+}
+
+.md-grip-col {
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+}
+
+.md-grip-row {
+  left: 0;
+  bottom: -3px;
+  height: 6px;
+  cursor: row-resize;
+}
+
+.md-grip:hover,
+.md-grip:active {
+  background: var(--accent);
 }
 
 .md-table-block > .md-table-wrap {

@@ -168,6 +168,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Actual size / Fit to panel toggle on an AI-written table did nothing
+  outside full view: every rule it drove was scoped to the full-view panel. It
+  works in the answer bubble now, and in full view the column widths and row
+  heights can be dragged, with the sizes kept for as long as the answer is.
+
 - The table bar under an AI-written table was five labelled buttons, which
   wrapped onto two rows inside the popup agent. It is one Copy button and a
   kebab menu holding Copy as markdown, Save as a note, Save as CSV and the two

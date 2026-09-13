@@ -170,12 +170,6 @@ measured or built in earlier commits and is marked there.
     `kebabMenu`-shaped menu on contextmenu and long-press with Copy link
     address and Open. Owner: chat agent.
 
-181. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), tables in
-    an AI answer.** "the actual size/fit to panel button in ai written
-    tables doesnt work when not in the full view, also I want the table row
-    and column widths and heights to be adjustable by the user in the full
-    view." Owner: chat agent.
-
 180. **Mid-work drop, 2026-09-13, verbatim (the owner), the whiteboard and
     the mind map, two screenshots (a dark board with four objects, every one
     of them showing eight round lilac handles plus a stalk handle above it,

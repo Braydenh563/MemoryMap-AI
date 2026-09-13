@@ -419,6 +419,47 @@ async function api(path, options = {}) {
   return response;
 }
 
+// --- reading a paged list endpoint whole ---------------------------------------
+//
+// `GET /documents`, `GET /media`, `GET /reminders` and the rest each return a
+// page and an `X-Total-Count` header saying how big the selection really is
+// (INBOX 117; `GET /entries` has worked this way for longer, see
+// `loadEntries`). A caller that needs every row asks for the next page until it
+// has them all, which is the half that makes a cap safe: a cap with no offset
+// makes everything past it permanently unreachable, and that is exactly the
+// failure the old uncapped list was avoiding.
+//
+// **It lives here, immediately below `api()`, and that placement is the whole
+// of a crash report.** It used to live in documents.js, whose own comment
+// argued that "both call it from inside a function body, so load order is
+// satisfied either way". That stopped being true the moment app.js called it
+// from boot code: index.html loads app.js first and documents.js ten lines
+// later, so `initNotesSubtabs` running at the bottom of this file reached a
+// function that did not exist yet, and the Notes tab died with
+// `ReferenceError: apiPagedList is not defined` before it drew anything. Six
+// frontend files call this now; the file every one of them is loaded after is
+// this one. `tests/test_frontend_load_order.py` is the rule, so the next
+// shared helper cannot be put somewhere only some callers can see.
+//
+// `options` is passed through to `api()` untouched (library.js wants
+// `{ silent: true }`). A page that comes back empty ends the loop whatever the
+// header says, so a stale or wrong total can never spin forever.
+async function apiPagedList(path, pageSize, options = {}) {
+  const rows = [];
+  let total = Infinity; // discovered from the first response's X-Total-Count
+  while (rows.length < total) {
+    const joiner = path.includes("?") ? "&" : "?";
+    const response = await api(`${path}${joiner}limit=${pageSize}&offset=${rows.length}`, options);
+    const page = await response.json();
+    if (!Array.isArray(page) || !page.length) break;
+    rows.push(...page);
+    const reported = Number(response.headers.get("X-Total-Count"));
+    total = Number.isFinite(reported) && reported > 0 ? reported : rows.length;
+  }
+  return rows;
+}
+
+
 //: Paths whose response can leave captioning, OCR or a librarian pass running
 //: on a background thread. Deliberately a short list rather than "every
 //: write": filing a note or a message is exactly when an attached image
@@ -9055,8 +9096,9 @@ function renderNoteInline(element, text, terms) {
     const link = document.createElement("button");
     link.type = "button";
     link.className = "wiki-link";
-    link.textContent = name;
-    link.title = `Go to the note starting "${name}"`;
+    const label = wikiLinkLabel(name);
+    link.textContent = label;
+    link.title = `Go to the note starting "${label}"`;
     link.addEventListener("click", (event) => {
       event.stopPropagation();
       const target = resolveWikiTarget(name);
@@ -22281,6 +22323,29 @@ function noteFirstImage(content) {
   return { alt: match[1] || "", url: match[2] };
 }
 
+//: **A `[[link]]`'s visible words, without the syntax its target happens to
+//: start with.** Reported: *"note links have inline md not rendered or
+//: suppressed, when an ai mentions a note that starts with a note that has a
+//: '# text' hashtag md heading, it will write the hashtag"*, with a screenshot
+//: of `[[# Girl with bell]]` rendering as "# Girl with bell" in both the
+//: editor and the preview.
+//:
+//: The `[[` picker inserts the target note's first line verbatim, `# ` and
+//: all, and `resolveWikiTarget` deliberately keeps matching that form, because
+//: every link already written in every existing note is in it. So the raw text
+//: has to stay in the document and only the *label* is cleaned, which is what
+//: this is: the same treatment `noteLabel` already gives a chat badge, for the
+//: same reason (INBOX 35 and 40, "a badge is not a source view"), applied to
+//: the other place a note's opening words are shown as a control.
+//:
+//: Falls back to the raw name rather than to an empty string: a link whose
+//: text is nothing but markers is still a link somebody typed, and a button
+//: with no words in it cannot be clicked on purpose.
+function wikiLinkLabel(name) {
+  const clean = notePreviewText(name).replace(/\s+/g, " ").trim();
+  return clean || name;
+}
+
 function notePreviewText(content) {
   return (content || "")
     .replace(/^#{1,6}\s+/gm, "")
@@ -23249,7 +23314,7 @@ function mdEmbedElement(name, depth) {
     const open = document.createElement("button");
     open.type = "button";
     open.className = "wiki-link";
-    open.textContent = target.doc.title || name;
+    open.textContent = target.doc.title || wikiLinkLabel(name);
     open.title = "Open this document";
     open.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -27496,7 +27561,25 @@ function openSketch() {
   sketchHistory = [];
   sketchRedoStack = [];
   sketchTool = "pen";
+  // The tool state and the buttons that show it were reset separately, which
+  // is to say the buttons were not reset at all: closing the pad with the
+  // eraser held left `sketchPen.eraser` true and the eraser lit, and the next
+  // open declared `sketchTool = "pen"` above while the eraser button kept its
+  // `.active` ring and the eraser kept erasing. Both halves move together.
+  sketchPen.eraser = false;
+  for (const button of document.querySelectorAll("#sketch-toolbar .ghost.icon-button")) {
+    button.classList.toggle("active", button.id === "sketch-tool-pen");
+  }
+  syncSketchSizeReadout();
   $("sketch-status").textContent = "";
+}
+
+// The number beside the width slider. It is written from the input's own value
+// rather than from `sketchPen.size` so that it cannot drift from what the
+// slider is showing, which is the one thing it exists to report.
+function syncSketchSizeReadout() {
+  const slider = $("sketch-size");
+  $("sketch-size-value").textContent = slider.value;
 }
 
 async function sketchUploadImage(file) {
@@ -36984,6 +37067,7 @@ $("sketch-image-input").addEventListener("change", () => {
 });
 $("sketch-size").addEventListener("input", () => {
   sketchPen.size = Number($("sketch-size").value);
+  syncSketchSizeReadout();
 });
 // `input` previews live while dragging the swatch; `change` (fires once, on
 // release) is what persists, dragging across ten hues shouldn't write ten

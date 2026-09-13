@@ -8,7 +8,22 @@ security review's open rows, D6, and the performance probes.
 
 | What | Measured | Commit |
 | --- | --- | --- |
-| The derived facts pipeline (I9's whole backend, I1's first pass) | `tests/test_learned_spec.py` from 9 strict-xfail markers to 0, 14 of 14 green; 11 new tests in `tests/test_derived_facts.py` | `50398cb` |
+| The derived facts pipeline: I9's whole backend and I1's first pass | `tests/test_learned_spec.py` from 9 strict-xfail markers to 0, 14 of 14 green; 11 more in `tests/test_derived_facts.py` | `50398cb`, `7e29d6f` |
+| The `facts`/`learning` import cycle the lint caught | `tests/test_no_import_cycles.py` red then green; the export that needs both moved to the route | `7467ff2` |
+| F2: four lists that returned the whole notebook | 14 `list_*` routes took no limit, 4 of them notebook-sized; `tests/test_list_limits.py` walks the routes and fails on the fifth | `12e1ea6` |
+| S5: one definition of an address this app must not fetch | `core.security.public_addresses`, websearch delegating, and a walk of `src/` that fails on an unreviewed fetcher | `5aab24c` |
+| D6's backend | `POST /entries/daily/{date}` creates or returns (the GET reads and 404s); `GET /entries/daily` gives the strip its days and the streak | `766c0ba`, `548ae77` |
+| The list-query probe | 13 endpoints driven at a page of 5 and of 100 over 121 notes: **none grow**. Three pinned in `test_scale_query_counts.py` | `9da2cdf` |
+| The flaw classes re-run | 147 broad handlers, **52 silent** (`scratchpad/probe_excepts.py`); the grep in the plan could not tell them apart | `7aa54fd` |
+| An N+1 in this session's own night pass | 9 statements over 5 notes and 44 over 45 before; flat after | `cd83f11` |
+
+Verified against a running server on 8796 (`/tmp/mm-back`), not only tests:
+two POSTs to `/entries/daily/2026-09-13` both return id 1, the window reports
+`streak: 1`, the night pass derived 2 facts in 8 tokens with the span
+`[34, 55]` pointing at "Should we move to 64?", and PATCH, a forced re-run
+(derived 0), reset and export all behaved. **The auth header is
+`X-Auth-Token`, not `Authorization`**, which cost ten minutes here and is
+written down so it costs nobody else any.
 
 ## Running log (append only, newest last)
 

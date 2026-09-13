@@ -115,7 +115,8 @@ def test_a_note_with_derived_facts_can_still_be_deleted(ai_client, fake_ollama, 
     ai_client.post("/night/run", json={"budget": 2000})
     assert session.scalar(select(func.count()).select_from(DerivedFact)) > 0
 
-    assert ai_client.delete(f"/entries/{saved['id']}").status_code in (200, 204)
+    deleted = ai_client.delete(f"/entries/{saved['id']}")
+    assert deleted.status_code in (200, 204), deleted.text
     purged = ai_client.delete(f"/entries/{saved['id']}/purge")
     assert purged.status_code in (200, 204), purged.text
     session.expire_all()

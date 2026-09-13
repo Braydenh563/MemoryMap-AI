@@ -5697,3 +5697,20 @@ button.ghost.danger:hover {
 .graph-pane[data-collapsed="true"] .graph-pane-body {
   display: none;
 }
+
+/* **The local map is a column's feature, and below 820 there is no column.**
+   820 is the stacking breakpoint (UI_MODERNISATION Phase 9; the comment on
+   `#tab-notes #sidebar` in 01-forms-settings.css is the note about a
+   breakpoint that has to move everywhere it is written down). Above it the
+   sidebar is a sticky column beside the notes and the map sits in it; below
+   it the sidebar is a stacked strip of category chips, and a 176px canvas
+   wedged between that strip and the first note is 230px of scroll before you
+   reach what you came for. Measured with `errors.js`: the Notes sidebar
+   scrolled 825px inside 763 at 820 and 1010 inside 686 at 390 with the pane
+   in it. `display: none` rather than `hidden`, because whether the reader has
+   a column is not a fact the JS that follows what is open should have to know. */
+@media (max-width: 819px) {
+  .graph-pane {
+    display: none;
+  }
+}

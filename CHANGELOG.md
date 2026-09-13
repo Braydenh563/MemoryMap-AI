@@ -522,6 +522,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- **Turning "Mind maps" off on the graph now takes them off the map.** The
+  switch is called Boards, it covers whiteboards as well, and off means the
+  board is not a node at all rather than a node that stops saying it is one:
+  measured, five boards drawn as ordinary notes with the switch off before,
+  none after, four typed `map` with it on.
+
 - **The canvas graph's forty module globals are one surface object.** The
   renderer kept its node array, camera, worker, hover and selection in
   module-level `let`s, which is exactly right for one canvas and impossible

@@ -242,6 +242,23 @@ def graph(
             )
         )
     )
+    #: **A board is an `Entry`, so "off" has to mean "not on the map at all".**
+    #: Reported (INBOX 185, the owner): "Things that I have turned off in the
+    #: graph for not showing them like the mindmap and entities still show
+    #: anyway". Reproduced before it was touched, on a notebook with two mind
+    #: maps: with the switch off the graph drew 74 nodes of which two were
+    #: those maps, drawn as ordinary notes; with it on it drew the same 74, two
+    #: of them now typed `map`. `include_entities` and `include_documents` add
+    #: nodes that do not otherwise exist, so off really does mean absent for
+    #: those two; a board has been a node here since boards existed (§2: a
+    #: board *is* an Entry whose content is `# My map`), and all the switch did
+    #: was mark it and draw its membership edges. A switch that changes how a
+    #: thing is labelled while it stays on screen is not a switch the reader
+    #: can read, so the filter is here, at the source: no board in `entries`
+    #: means no board node, no board edge, and no board in the centrality pass
+    #: or the path index either.
+    if not include_maps:
+        entries = [e for e in entries if not getattr(e, "is_board", False)]
     node_ids = {e.id for e in entries}
     category_names = manager.bulk_category_names(session, entries)
     # GRAPH_PLAN Phase 3: "colour by" is a rule picker (category, cluster,

@@ -232,6 +232,25 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
   panel with its own scrollbar).
 - Phase 6 already holds the node panel work; these are its remaining rows.
 
+## Decision made, 2026-09-13: a Show switch that is off means absent
+
+INBOX 185 forced a decision the three switches in the Show section had never
+actually been given: what "off" means. Entities and Documents add nodes that
+exist nowhere else, so off has always meant absent for them. A board is an
+`Entry`, so it was on the map either way and the switch only changed whether
+the node said so. Two readings of one control drawn three times.
+
+Decided: **off means the thing is not on the map.** `include_maps=false` drops
+every board from `/graph` at the source, so there is no board node, no map
+edge, and no board in the centrality pass or the path index. The switch is
+labelled Boards rather than Mind maps, because a whiteboard is a board too and
+a switch that hides one and not the other is the same confusion one step over.
+
+Still open, and deliberately: `/graph/local` has no such switch, so focus mode
+and the local pane still walk boards as notes. They are a neighbourhood of one
+note rather than a picture of the notebook, and nothing has been asked about
+them.
+
 ## Decision changed, 2026-09-09: a drag places, Shift pins
 
 The plan and the code both carried "a drag is an intentional placement and

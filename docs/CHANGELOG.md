@@ -48,6 +48,23 @@ below). Versioning is `0.x` while the app stabilises.
   deleted (and then never re-derived), reset to what the model said, exported
   as JSON, or forgotten entirely, which leaves notes and revisions untouched.
   One switch per runner plus a master switch, read before every pass.
+- A citation mark in a chat answer now shows the exact passage it came from on
+  that source's card when hovered or focused, rather than only naming the note.
+
+- The Guide is told which tab the question came from and what the controls on
+  it are called, so "how does this work?" is answered about the surface in
+  front of you rather than with "I'm not sure". It still cannot read a note:
+  only control labels are sent, never text on screen.
+
+- The popup agent and the help chat are reachable from every tab: a wand and a
+  '?' in the header, and the '?' also sits in the head every Settings pane
+  shares. The help chat has a name, the Guide, and opens as one shared sheet.
+- The agent's starters now depend on the tab you opened it over, its arrow keys
+  walk them, and its state line says what it is working on and which tool ran.
+
+- Right-clicking or long-pressing a link now opens a menu with Copy link
+  address and Open in new tab, anywhere a link is drawn. An internal
+  `[[link]]` offers Copy title and Open instead.
 
 - A document can be downloaded as one self-contained HTML file. Images become
   data URIs, the stylesheet is written into the file, comments travel as
@@ -216,6 +233,31 @@ below). Versioning is `0.x` while the app stabilises.
   `pytest tests/test_api*.py tests/test_whiteboard.py tests/test_spaces.py
   tests/test_space_delete_cascades.py -W error::pydantic.warnings.PydanticDeprecatedSince20`,
   clean.
+- The popup agent called a mind map or a board "the open note", and sent it to
+  the model as a note, so an answer about a map you had just made described an
+  entry whose whole content is its title. The toggle names the thing and its
+  kind, and the run scopes to the board rather than to a note.
+
+- The Actual size / Fit to panel toggle on an AI-written table did nothing
+  outside full view: every rule it drove was scoped to the full-view panel. It
+  works in the answer bubble now, and in full view the column widths and row
+  heights can be dragged, with the sizes kept for as long as the answer is.
+
+- The table bar under an AI-written table was five labelled buttons, which
+  wrapped onto two rows inside the popup agent. It is one Copy button and a
+  kebab menu holding Copy as markdown, Save as a note, Save as CSV and the two
+  view toggles.
+
+- The chat header's context-window badge drew the subline's separator dot
+  inside its own pill, so the number sat 9.2px right of the pill's centre and
+  the amber border past 70% of the window wrapped the dot as well as the
+  count. The separator now sits in the gap beside the pill.
+
+- The popup agent showed a blinking write caret beside the three-dot waiting
+  animation, before any of the answer had arrived. The answer box wore
+  `is-streaming` from the moment the request went out, so the caret's
+  `> :last-child::after` arm landed on the dots; the class now goes on with
+  the first token, which is what the Ask box has always done.
 
 - Every image in a document's Live view drew "no longer in this notebook" over
   a file that was still there. The Live view's image widget set the raw

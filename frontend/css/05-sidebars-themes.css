@@ -1923,6 +1923,37 @@ body.resizing-sidebar {
   box-shadow: inset 1px 0 0 transparent;
 }
 
+/* **The ⋯ is the second half of that one control, not a chip beside it**
+   (INBOX 188: the table bar is Copy plus a `kebabMenu` now). `kebabMenu`
+   returns its opener inside a `.menu-wrap`, which is what anchors the menu,
+   so the shell's rules above cannot reach the button with a child combinator
+   and it arrived wearing the app's normal ghost chrome: a bordered pill
+   inside a tinted pill. The wrap is made transparent and the opener is given
+   the same treatment its neighbour gets, with the hairline seam moved onto
+   the wrap so the divider still falls between the two items. */
+.code-actions > .menu-wrap {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.code-actions > * + .menu-wrap {
+  box-shadow: inset 1px 0 0 var(--border);
+}
+
+.code-actions > .menu-wrap > button {
+  border: 0;
+  border-radius: var(--radius-inner);
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+}
+
+.code-actions > .menu-wrap > button:hover,
+.code-actions > .menu-wrap > button:focus-visible {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
 /* In full view the bar is the panel's title row: it sits still while the
    table scrolls under it. */
 .md-table-block.is-full > .code-bar {
@@ -1972,18 +2003,72 @@ body.resizing-sidebar {
    panel's width and their text wraps, so nothing runs off the side. The
    bar's toggle adds `is-actual`, which hands the table back its natural
    width and the panel its sideways scroll. */
-.md-table-block.is-full:not(.is-actual) > .md-table-wrap {
+/* **And the same two states in a bubble** (INBOX 181: "the actual size/fit to
+   panel button in ai written tables doesnt work when not in the full view").
+   Every rule here read `.is-full:not(.is-actual)`, so pressing the button in
+   an answer added a class no rule was listening for. The state is
+   `data-table-view` now and the rules are not scoped to full view: the
+   difference between the two surfaces is which value they start at (a bubble
+   at `actual`, full view at `fit`, INBOX 179's decision unchanged), not which
+   of them the button can reach. `min-width` is spelled out because the bubble
+   sets `min-width: max-content` on the table so a wide one scrolls, and fit
+   is the request to stop doing that. */
+.md-table-block[data-table-view="fit"] > .md-table-wrap {
   overflow-x: hidden;
 }
 
-.md-table-block.is-full:not(.is-actual) .md-table {
+.md-table-block[data-table-view="fit"] .md-table {
   table-layout: fixed;
   width: 100%;
+  min-width: 0;
 }
 
-.md-table-block.is-full:not(.is-actual) .md-table th,
-.md-table-block.is-full:not(.is-actual) .md-table td {
+.md-table-block[data-table-view="fit"] .md-table th,
+.md-table-block[data-table-view="fit"] .md-table td {
   overflow-wrap: anywhere;
+}
+
+/* A table whose columns have been dragged is in neither state: the widths are
+   the reader's, and the panel scrolls to whatever they add up to. */
+.md-table-block[data-table-view="sized"] > .md-table-wrap {
+  overflow-x: auto;
+}
+
+/* **The grips** (INBOX 181's second half). Six pixels straddling the edge
+   they move, on the header cells and on each row's first cell, drawn only
+   under the pointer so a table at rest is a table. `touch-action: none` is
+   what stops a drag on a phone being taken by the panel's own scroll before
+   the first `pointermove` arrives. */
+.md-table-block.is-full .md-table th,
+.md-table-block.is-full .md-table tbody tr > :first-child {
+  position: relative;
+}
+
+.md-grip {
+  position: absolute;
+  z-index: 1;
+  background: transparent;
+  touch-action: none;
+}
+
+.md-grip-col {
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+}
+
+.md-grip-row {
+  left: 0;
+  bottom: -3px;
+  height: 6px;
+  cursor: row-resize;
+}
+
+.md-grip:hover,
+.md-grip:active {
+  background: var(--accent);
 }
 
 .md-table-block > .md-table-wrap {

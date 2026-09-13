@@ -267,6 +267,25 @@
           </div>
         </div>
       </span>
+      <!-- **The agent and the guide, on every tab** (INBOX 190, the owner:
+           "it needs to be more versatile and usable across the whole app, the
+           user should be able to use it as the guiding hand and everything",
+           and "is there a way to make the help chat bot more accessible
+           throughout the settings modal and also even accessible application
+           wide").
+
+           Both were reachable by one route each and neither route was
+           visible: the popup agent by a chord nothing on screen mentioned,
+           and the guide by opening Settings and scrolling to the bottom of
+           the Help pane. They go in the header cluster rather than into each
+           tab's own dock: the header is the one piece of chrome that is on
+           every tab, a dock belongs to the surface under it, and seven copies
+           of one control is seven places for it to drift. The shortcut is in
+           the tooltip, which is how this app teaches its chords. -->
+      <button id="agent-btn" class="ghost small icon-only" title="Ask the agent to do something (Ctrl+Shift+A)"
+        aria-label="Ask the agent to do something"><i class="ph ph-magic-wand" aria-hidden="true"></i></button>
+      <button id="guide-btn" class="ghost small icon-only" title="Ask the guide how this app works"
+        aria-label="Ask the guide how this app works"><i class="ph ph-question" aria-hidden="true"></i></button>
       <button id="theme-btn" class="ghost small icon-only" title="Toggle light/dark" aria-label="Toggle light or dark theme"><i class="ph ph-circle-half" aria-hidden="true"></i></button>
       <button id="settings-btn" class="ghost small icon-only" title="Settings" aria-label="Settings"><i class="ph ph-gear" aria-hidden="true"></i></button>
       </span>
@@ -315,9 +334,31 @@
            one glyph twice inside a 293px card would be the only doubled icon
            in any dialog here. -->
       <div class="row space-between command-palette-head">
-        <h3>Agent</h3>
+        <div class="row help-head">
+          <h3>Agent</h3>
+          <!-- The one line of description this panel is allowed (standing
+               order 6) is the paragraph below; everything longer lives behind
+               this '?', which is the app's `data-help-for` recipe. Added with
+               INBOX 190: the panel could say what it can do and never said
+               how it works, which is the half of "more professional" that is
+               not paint. -->
+          <button type="button" class="icon-only ghost small graph-help-toggle"
+            data-help-for="command-palette-help" aria-controls="command-palette-help"
+            aria-expanded="false" title="About the agent" aria-label="About the agent">
+            <i class="ph ph-question" aria-hidden="true"></i>
+          </button>
+        </div>
         <button type="button" id="command-palette-close" class="ghost small icon-only"
           aria-label="Close" title="Close (Esc)"><i class="ph ph-x" aria-hidden="true"></i></button>
+      </div>
+      <div class="help-body hidden" id="command-palette-help" role="dialog" aria-label="About the agent">
+        <p>
+          Ctrl+Shift+A opens and closes this from any tab, or use the wand in
+          the header. Enter sends, Shift+Enter starts a line, Down moves into
+          the starters and Escape closes. It uses the same model, tools and
+          notebook the Chat tab does, so anything it writes or files is real;
+          tick the box below to hand it whatever you have open.
+        </p>
       </div>
       <div class="command-palette-bar">
         <span class="command-palette-icon"><i class="ph ph-magic-wand" aria-hidden="true"></i></span>
@@ -365,10 +406,13 @@
              this" and "tag this" mean something from a panel that floats over
              every tab. Disabled, with a reason, when nothing is open: the
              label is written by `syncAgentOpenNoteToggle`, which names the
-             thing rather than saying "the open note" over an empty notebook. -->
+             thing and its kind ("Use this mind map: test"), because "the open
+             note" answered neither "which one" nor "what counts" (INBOX 189
+             and 190). The markup carries the empty state, which is what is
+             true before the palette has been opened. -->
         <label id="command-palette-use-note-label" class="row align-center checkbox-label small">
           <input type="checkbox" id="command-palette-use-note">
-          <span id="command-palette-use-note-text">Use the open note</span></label>
+          <span id="command-palette-use-note-text">Nothing open to use (open a note, document, board or map first)</span></label>
         <span id="command-palette-status" class="muted text-sm" role="status"></span>
         <button type="button" id="command-palette-clear" class="ghost small"
           title="Forget this conversation and start over"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Start over</button>
@@ -6055,6 +6099,14 @@
                than a second setting: someone who finds it annoying almost
                certainly means everywhere, not just one of the two places it
                shows up. -->
+          <!-- **The guide, from every pane** (INBOX 190: "is there a way to
+               make the help chat bot more accessible throughout the settings
+               modal"). One button in the head the fifteen panes share, rather
+               than a copy per pane: it is the same sheet the header's '?'
+               opens, and the chat itself moves into that sheet rather than
+               being built a second time. -->
+          <button id="settings-guide-btn" class="ghost small icon-only" type="button"
+            title="Ask the guide how this app works" aria-label="Ask the guide how this app works"><i class="ph ph-question" aria-hidden="true"></i></button>
           <span class="row status-nav" role="group" aria-label="Move between pages" id="settings-modal-nav" data-status-slot="nav">
             <button id="settings-nav-back" class="ghost small icon-only" type="button" disabled title="Nothing to go back to" aria-label="Nothing to go back to"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
             <button id="settings-nav-forward" class="ghost small icon-only" type="button" disabled title="Nothing to go forward to" aria-label="Nothing to go forward to"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
@@ -8495,7 +8547,7 @@
                  history: nothing here is written to the database, so a new
                  chat starts blank and this one forgets on reload by design.
                  -->
-            <div class="settings-group help-chat-group">
+            <div class="settings-group help-chat-group" id="help-chat-group">
               <div class="row space-between">
                 <!-- `setting-subhead`, which is this app's recipe for a
                      sub-heading inside a settings group, and it was missing.

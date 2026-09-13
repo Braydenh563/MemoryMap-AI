@@ -11251,11 +11251,62 @@ function addInlineCitations(answerEl, sentences, rawResults, orderedSources = nu
         event.stopPropagation();
         flashEntry(g.note_id);
       });
+      //: **Hover shows the passage, not the whole note** (CHAT_PLAN decision
+      //: 2, the last step of `agent-remaining/chat-timeline-skills.md` item
+      //: 1). The span has been on every grounding row since the passage
+      //: scorer landed and nothing on screen read it, so a mark said "note 4"
+      //: where it could say which forty words of note 4. The card is the
+      //: place for it rather than a tooltip: it is already the thing that
+      //: says what this source is, and a tooltip cannot hold a paragraph.
+      const passage =
+        Number.isInteger(g.start) && Number.isInteger(g.end) && g.end > g.start
+          ? (entry?.content || "").slice(g.start, g.end)
+          : "";
+      if (passage) {
+        for (const name of ["mouseenter", "focus"]) {
+          link.addEventListener(name, () => showCitedPassage(g.note_id, passage));
+        }
+        for (const name of ["mouseleave", "blur"]) {
+          link.addEventListener(name, clearCitedPassage);
+        }
+      }
       marker.appendChild(link);
       tail.parentNode.insertBefore(marker, tail);
       placed.add(key);
       break; // this node is now split; its tail is at the head of the queue
     }
+  }
+}
+
+//: The passage a citation came from, shown on its own card while the mark is
+//: hovered or focused. Focus as well as hover, because a person moving
+//: through an answer with Tab reaches these markers and would otherwise get
+//: the one thing this adds only with a mouse.
+function showCitedPassage(noteId, passage) {
+  clearCitedPassage();
+  for (const card of document.querySelectorAll(`.chat-source-card[data-note-id="${noteId}"]`)) {
+    //: A closed disclosure cannot show anything, and the mark is the reader
+    //: asking to see this source: opened, and left open, because closing it
+    //: again the moment the pointer moves would be the panel flickering at
+    //: every mark passed over on the way down an answer.
+    card.closest("details")?.setAttribute("open", "");
+    card.classList.add("is-cited");
+    const box = document.createElement("p");
+    box.className = "chat-source-passage";
+    const mark = document.createElement("mark");
+    //: `textContent`, not the markdown renderer: this is a slice taken at
+    //: character offsets, so it can begin mid-emphasis, and rendering half a
+    //: `**` is how a highlight starts eating the rest of the card.
+    mark.textContent = passage;
+    box.appendChild(mark);
+    card.appendChild(box);
+  }
+}
+
+function clearCitedPassage() {
+  for (const box of document.querySelectorAll(".chat-source-passage")) box.remove();
+  for (const card of document.querySelectorAll(".chat-source-card.is-cited")) {
+    card.classList.remove("is-cited");
   }
 }
 
@@ -16573,6 +16624,11 @@ function chatSourcesPanel(input) {
       card = document.createElement("div");
     }
     card.className = `chat-source-card${source.url || source.open ? " is-openable" : ""}`;
+    //: Which note this card is, so a citation marker in the answer can find
+    //: its own card and show the passage it came from (`showCitedPassage`).
+    //: An id rather than the index, because the panel caps its rows and the
+    //: numbering falls back past the cap.
+    if (source.kind === "note" && source.id != null) card.dataset.noteId = String(source.id);
     const head = document.createElement("span");
     head.className = "chat-source-head";
     const number = document.createElement("span");
@@ -24313,12 +24369,163 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
   //: `table-layout: fixed` with wrapped cells, so every column is on screen
   //: and nothing scrolls sideways. The toggle puts the table back at its
   //: natural width, where the panel scrolls as before.
+  //: **The reader sets the column widths and the row heights** (INBOX 181,
+  //: the owner: "I want the table row and column widths and heights to be
+  //: adjustable by the user in the full view"). A grip on every header cell's
+  //: right edge and on every body row's bottom edge, in full view only: in a
+  //: bubble the table is a few hundred pixels wide and there is nothing to
+  //: apportion, and grips on a block that scrolls with the conversation would
+  //: be six pixels of drag target next to a wheel.
+  //:
+  //: The sizes live on this closure, so they last as long as the answer does:
+  //: leaving full view puts the table back to the surface's own default and
+  //: returning restores what was dragged, which is what "for the session"
+  //: means for a block that is rebuilt whenever its answer is re-rendered.
+  const tableEl = scroller.querySelector("table");
+  const headCells = () => [...tableEl.querySelectorAll("thead th")];
+  const bodyRowEls = () => [...tableEl.querySelectorAll("tbody tr")];
+  //: A column narrower than this cannot show a word and a row shorter than
+  //: this cannot show a line, so neither is a size anybody meant to choose.
+  const MIN_COL = 56;
+  const MIN_ROW = 28;
+  let colSizes = null;
+  let rowSizes = null;
+
+  const applyTableSizes = () => {
+    if (!colSizes && !rowSizes) return;
+    //: `table-layout: fixed` is what makes an explicit width authoritative:
+    //: under `auto` the browser treats a width as a suggestion and widens a
+    //: column whose content does not fit, which is exactly the drag not
+    //: appearing to work.
+    if (colSizes) {
+      tableEl.style.tableLayout = "fixed";
+      tableEl.style.width = `${colSizes.reduce((sum, n) => sum + n, 0)}px`;
+      tableEl.style.minWidth = "0";
+      headCells().forEach((th, i) => {
+        th.style.width = `${colSizes[i]}px`;
+      });
+    }
+    if (rowSizes) {
+      bodyRowEls().forEach((tr, i) => {
+        tr.style.height = `${rowSizes[i]}px`;
+      });
+    }
+    //: The row grip lives in its row's first cell, because a `<span>` made a
+    //: child of a `<tr>` gets wrapped in an anonymous table cell and shows up
+    //: as a phantom column. It is given the table's width so the whole row's
+    //: bottom edge is draggable rather than only the first column's.
+    const width = tableEl.getBoundingClientRect().width;
+    for (const grip of block.querySelectorAll(".md-grip-row")) {
+      grip.style.width = `${width}px`;
+    }
+  };
+
+  const stripTableSizes = () => {
+    tableEl.style.tableLayout = "";
+    tableEl.style.width = "";
+    tableEl.style.minWidth = "";
+    for (const th of headCells()) th.style.width = "";
+    for (const tr of bodyRowEls()) tr.style.height = "";
+  };
+
+  const clearTableSizes = () => {
+    colSizes = null;
+    rowSizes = null;
+    stripTableSizes();
+  };
+
+  const startGripDrag = (event, axis, index, grip) => {
+    event.preventDefault();
+    event.stopPropagation();
+    //: Both axes are measured on the first drag of either, from what is on
+    //: screen: half-measured sizes are how a table jumps on the second drag.
+    if (!colSizes) colSizes = headCells().map((th) => th.getBoundingClientRect().width);
+    if (!rowSizes) rowSizes = bodyRowEls().map((tr) => tr.getBoundingClientRect().height);
+    block.dataset.tableView = "sized";
+    applyTableSizes();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startW = colSizes[index];
+    const startH = rowSizes[index];
+    try {
+      grip.setPointerCapture(event.pointerId);
+    } catch {
+      //: A synthetic pointer event has no capture to take; the listeners below
+      //: still see the move because they are on the grip itself.
+    }
+    const move = (e) => {
+      if (axis === "col") colSizes[index] = Math.max(MIN_COL, startW + (e.clientX - startX));
+      else rowSizes[index] = Math.max(MIN_ROW, startH + (e.clientY - startY));
+      applyTableSizes();
+    };
+    const end = () => {
+      grip.removeEventListener("pointermove", move);
+      grip.removeEventListener("pointerup", end);
+      grip.removeEventListener("pointercancel", end);
+    };
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", end);
+    grip.addEventListener("pointercancel", end);
+  };
+
+  const gripFor = (axis, index, host) => {
+    const grip = document.createElement("span");
+    grip.className = `md-grip md-grip-${axis}`;
+    grip.setAttribute("role", "separator");
+    grip.setAttribute("aria-orientation", axis === "col" ? "vertical" : "horizontal");
+    grip.title = axis === "col" ? "Drag to set this column's width" : "Drag to set this row's height";
+    grip.addEventListener("pointerdown", (event) => startGripDrag(event, axis, index, grip));
+    host.appendChild(grip);
+  };
+
+  const addGrips = () => {
+    if (block.querySelector(".md-grip")) return;
+    headCells().forEach((th, i) => gripFor("col", i, th));
+    bodyRowEls().forEach((tr, i) => {
+      if (tr.firstElementChild) gripFor("row", i, tr.firstElementChild);
+    });
+    applyTableSizes();
+  };
+
+  const removeGrips = () => {
+    for (const grip of block.querySelectorAll(".md-grip")) grip.remove();
+  };
+
+  //: **And it has to do something in the bubble too** (INBOX 181, the owner:
+  //: "the actual size/fit to panel button in ai written tables doesnt work
+  //: when not in the full view"). It did not, and the cause was that every
+  //: rule the toggle drove was written `.md-table-block.is-full:not(.is-actual)
+  //: …`: pressing it in a bubble added a class nothing was listening for.
+  //: Measured before the fix, inline: `table-layout: auto` and
+  //: `overflow-x: auto` before the press and `table-layout: auto`,
+  //: `overflow-x: auto` after it.
+  //:
+  //: The class became `data-table-view`, which is the state itself rather than
+  //: "not the default", because the two surfaces have opposite defaults: a
+  //: table in a bubble is at its natural width and scrolls sideways, and one
+  //: in full view fits the panel (INBOX 179's decision, unchanged). One
+  //: attribute with the same two values in both places is what makes the
+  //: toggle mean the same thing wherever it is pressed.
+  const setTableView = (view) => {
+    block.dataset.tableView = view;
+    fit.textContent = view === "fit" ? "Actual size" : "Fit to panel";
+    fit.title =
+      view === "fit"
+        ? "Show the table at its natural width, scrolling sideways"
+        : "Fit every column into the width available, wrapping the text";
+  };
   const fit = button("Actual size", "Show the table at its natural width, scrolling sideways", () => {
-    const fitted = !block.classList.contains("is-actual");
-    block.classList.toggle("is-actual", fitted);
-    fit.textContent = fitted ? "Fit to panel" : "Actual size";
+    //: A table the reader has dragged columns on is in neither state, so the
+    //: toggle takes it back to one, dropping the sizes: the alternative is a
+    //: button that appears to do nothing because the explicit widths win.
+    clearTableSizes();
+    setTableView(block.dataset.tableView === "fit" ? "actual" : "fit");
   });
   const full = button("Full view", "Show this table on its own, at the window's width");
+  //: The bubble's own default, said out loud rather than left as the absence
+  //: of a class: a table in an answer is at its natural width and the block
+  //: scrolls sideways, so the button on offer is "Fit to panel".
+  setTableView("actual");
   //: **The panel leaves the bubble to be full screen** (reported on the first
   //: cut, with a screenshot: "the table full view is behind a lot of stuff").
   //: A `position: fixed` element is laid out against the nearest ancestor
@@ -24331,13 +24538,21 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
   //: answer, since the surrounding prose has no other mark for it.
   let placeholder = null;
   const leave = () => {
-    block.classList.remove("is-full", "is-actual");
-    fit.textContent = "Actual size";
+    block.classList.remove("is-full");
+    //: The dragged sizes stay in `colSizes`/`rowSizes` and come off the DOM:
+    //: a bubble is not where a 900px-wide table belongs, and re-entering full
+    //: view puts them straight back.
+    removeGrips();
+    stripTableSizes();
+    setTableView("actual");
     if (placeholder && placeholder.parentNode) {
       placeholder.replaceWith(block);
       placeholder = null;
     }
     full.textContent = "Full view";
+    //: The menu is built below and reads these two labels; leaving full view
+    //: by Escape has to put its rows back the way pressing Back would.
+    syncMenuLabels();
     document.removeEventListener("keydown", onKey, true);
   };
   const onKey = (event) => {
@@ -24352,17 +24567,72 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
     block.replaceWith(placeholder);
     document.body.appendChild(block);
     block.classList.add("is-full");
+    //: Fit is full view's default (INBOX 179) and actual size is the bubble's,
+    //: so the state is set on the way in rather than carried across.
+    setTableView(colSizes || rowSizes ? "sized" : "fit");
+    addGrips();
     full.textContent = "Back";
     document.addEventListener("keydown", onKey, true);
   });
+  //: **One Copy button and a ⋯ for the rest** (INBOX 188, the owner: "the
+  //: table button option rendering needs to be fixed or refined, especially
+  //: in the popup agent, maybe just make it a copy button with an
+  //: ellipse/kebab dropdown menu button next to it for the other options").
+  //: Five labelled buttons in a row is a bar wider than most of the tables it
+  //: sits on, and in the popup agent, which is a 293px card, it wrapped onto
+  //: two lines above a three-column table. Copy is the one thing wanted often
+  //: enough to cost a click; everything else is a `kebabMenu`, which is the
+  //: recipe DESIGN.md's index gives for exactly this (standing order 11)
+  //: rather than a second menu shape invented for one bar.
+  //:
+  //: `fit` and `full` keep their own elements and their own handlers and are
+  //: re-parented into the menu, so the two places that rewrite their labels
+  //: (the toggle itself, and `leave()`) go on working against the same node.
   const actions = document.createElement("span");
   actions.className = "code-actions";
+  const menu = kebabMenu(
+    [
+      {
+        label: "ph:markdown-logo Copy as markdown",
+        title: "Copy the table as markdown",
+        run: () => copyToClipboard(rawTable.join("\n")),
+      },
+      {
+        label: "ph:note-pencil Save as a note",
+        title: "File this table in your notebook as a new note",
+        run: () => saveSelectionAsNote(rawTable.join("\n")),
+      },
+      {
+        label: "ph:file-csv Save as CSV",
+        title: "Save this table as a CSV file in the exports folder",
+        run: () => saveFile(`table-${Date.now()}.csv`, new Blob([csv], { type: "text/csv" })),
+      },
+      { label: "ph:arrows-horizontal", title: fit.title, run: () => fit.click() },
+      { label: "ph:frame-corners", title: full.title, run: () => full.click() },
+    ],
+    "More table actions"
+  );
+  //: The two toggles' rows are found once and relabelled by the handlers that
+  //: already own their wording, so the menu never says "Full view" for a table
+  //: that is in full view.
+  const menuRows = [...menu.querySelectorAll(".menu-item")];
+  const fitRow = menuRows[3];
+  const fullRow = menuRows[4];
+  const syncMenuLabels = () => {
+    setLabel(fitRow, `ph:arrows-horizontal ${fit.textContent}`);
+    setLabel(fullRow, `ph:frame-corners ${full.textContent}`);
+  };
+  syncMenuLabels();
+  fit.addEventListener("click", syncMenuLabels);
+  full.addEventListener("click", syncMenuLabels);
+  //: The two buttons still exist, still carry the state, and are simply not
+  //: in the bar: `leave()` writes to them on Escape, and the menu reads them
+  //: back on the next open.
+  fit.hidden = true;
+  full.hidden = true;
   actions.append(
     button("⧉ Copy", "Copy the cells, tab-separated, for a spreadsheet", (event) => copyToClipboard(tsv, event.currentTarget)),
-    button("Markdown", "Copy the table as markdown", (event) => copyToClipboard(rawTable.join("\n"), event.currentTarget)),
-    button("CSV", "Save this table as a CSV file in the exports folder", () =>
-      saveFile(`table-${Date.now()}.csv`, new Blob([csv], { type: "text/csv" }))
-    ),
+    menu,
     fit,
     full
   );
@@ -24436,6 +24706,150 @@ function linkCard(url, text) {
   card.append(title, host);
   return card;
 }
+
+//: **A menu where the pointer is** (INBOX 182, the owner: "I want to be able
+//: to right click or hold with a touch on a link and have a popup show to let
+//: me copy the link address").
+//:
+//: `kebabMenu` is the app's one menu recipe and every part of it is wanted
+//: here, the row markup, the keyboard wiring, `escapeMenuIfClipped`, closing
+//: with every other menu. What it does not have is an anchor: it opens under
+//: a button you pressed, and a context menu opens where a pointer is. So the
+//: recipe is given one: a one-pixel, transparent, unclickable opener inside a
+//: `position: fixed` host parked at the pointer. Nothing about the menu itself
+//: is re-implemented, which is the whole point of a recipe index (standing
+//: order 11); DESIGN.md carries the row, `tests/test_ui_recipes.py` the
+//: ratchet that keeps the next one from being hand-built.
+let pointerMenuHost = null;
+
+function openMenuAtPoint(items, ariaLabel, x, y) {
+  closeActionMenus();
+  if (!pointerMenuHost) {
+    pointerMenuHost = document.createElement("div");
+    pointerMenuHost.className = "pointer-menu-host";
+    document.body.appendChild(pointerMenuHost);
+  }
+  pointerMenuHost.replaceChildren();
+  //: Parked inside the window before the menu is measured, so the clamp that
+  //: `openActionMenu` runs has a sane starting rect even at the last pixel of
+  //: the viewport.
+  const margin = 8;
+  pointerMenuHost.style.left = `${Math.max(margin, Math.min(x, window.innerWidth - margin))}px`;
+  pointerMenuHost.style.top = `${Math.max(margin, Math.min(y, window.innerHeight - margin))}px`;
+  const wrap = kebabMenu(items, ariaLabel);
+  const opener = wrap.querySelector("[aria-haspopup]");
+  opener.classList.add("pointer-menu-anchor");
+  //: Not `hidden` and not `display: none`: `openActionMenu` measures the
+  //: opener to decide whether to flip or to escape its container, and an
+  //: element with no box measures at 0,0, which is the top left corner this
+  //: app has had reported to it more than once.
+  opener.setAttribute("tabindex", "-1");
+  pointerMenuHost.appendChild(wrap);
+  openActionMenu(wrap.querySelector(".action-menu"), opener);
+}
+
+//: What a right-click on a link offers, by what the link is. An address can be
+//: copied and opened in a new tab; a `[[link]]` has no address to copy, so it
+//: offers its title and its own click, which is what opens a note, a board or
+//: a document (`resolveWikiTarget`). Returns null for anything that is not a
+//: link, which is how the delegated listener below decides whether to take
+//: the event away from the browser's own menu.
+function linkMenuItems(el) {
+  if (el.classList.contains("wiki-link")) {
+    const title = el.textContent.trim();
+    return [
+      {
+        label: "ph:copy Copy title",
+        title: "Copy the name this link points at",
+        run: () => copyToClipboard(title),
+      },
+      {
+        label: "ph:arrow-square-out Open",
+        title: "Open what this link points at",
+        run: () => el.click(),
+      },
+    ];
+  }
+  const href = el.getAttribute("href") || "";
+  //: Only the schemes the markdown renderer can produce
+  //: (`tests/test_markdown_link_schemes.py`). A `#anchor`, a `blob:` download
+  //: and the app's own internal anchors are not addresses anybody wants on a
+  //: clipboard, and taking the browser's menu away from them would remove
+  //: more than this adds.
+  if (!/^(https?:|mailto:)/i.test(href)) return null;
+  return [
+    {
+      label: "ph:link Copy link address",
+      title: "Copy this address to the clipboard",
+      run: () => copyToClipboard(el.href),
+    },
+    {
+      label: "ph:arrow-square-out Open in new tab",
+      title: "Open this address in a new browser tab",
+      run: () => window.open(el.href, "_blank", "noopener,noreferrer"),
+    },
+  ];
+}
+
+//: **One listener on the document, not one per surface.** The link this is
+//: about is drawn by the chat, the popup agent, a note preview, a document
+//: preview, the dashboard digest and the sources panel, and every one of them
+//: re-renders its own contents; a listener per surface is a listener that
+//: three of them forget. Delegation also means a link rendered by something
+//: written next year is covered without anybody remembering this.
+function linkAtEvent(event) {
+  if (!(event.target instanceof Element)) return null;
+  const el = event.target.closest("a[href], .wiki-link");
+  if (!el || el.hasAttribute("download")) return null;
+  const items = linkMenuItems(el);
+  return items ? { el, items } : null;
+}
+
+document.addEventListener("contextmenu", (event) => {
+  const found = linkAtEvent(event);
+  if (!found) return;
+  event.preventDefault();
+  openMenuAtPoint(found.items, "Link actions", event.clientX, event.clientY);
+});
+
+//: Touch has no right-click, so a hold stands in, at the same 500ms the
+//: whiteboard's own link gesture uses (`wbWireMapEdgeGestures`) so the app
+//: answers a long press at one speed. Cancelled by a move, because a hold
+//: that turns into a scroll is a scroll.
+const LINK_HOLD_CANCELS = ["pointerup", "pointercancel", "pointermove"];
+
+document.addEventListener(
+  "pointerdown",
+  (event) => {
+    if (event.pointerType !== "touch") return;
+    const found = linkAtEvent(event);
+    if (!found) return;
+    const { clientX, clientY } = event;
+    //: **The cancel listeners live only as long as the hold does.** The first
+    //: cut kept three of them on `document` for the life of the page, one of
+    //: them `pointermove`, which fires on every pixel of every drag on the
+    //: whiteboard, a surface whose per-move cost was measured down from
+    //: 7.67ms to 0.79ms by a previous session. A listener that exists for
+    //: 500ms after a touch on a link costs nothing anybody can measure;
+    //: one that exists always is a tax on the app's most expensive gesture.
+    //: `passive`, because none of them ever calls `preventDefault` and a
+    //: non-passive move listener is what makes a page scroll badly.
+    const cancel = () => {
+      clearTimeout(timer);
+      for (const name of LINK_HOLD_CANCELS) {
+        document.removeEventListener(name, cancel, true);
+      }
+    };
+    const timer = setTimeout(() => {
+      cancel();
+      openMenuAtPoint(found.items, "Link actions", clientX, clientY);
+    }, 500);
+    for (const name of LINK_HOLD_CANCELS) {
+      document.addEventListener(name, cancel, { capture: true, passive: true });
+    }
+  },
+  { passive: true }
+);
 
 function renderMarkdown(container, text, depth = 0) {
   container.replaceChildren();
@@ -34697,6 +35111,23 @@ function openPhoneMoreSheet() {
           switchTab(tab);
         }));
       }
+      //: **The agent and the Guide, where the header cannot hold them.**
+      //: Measured after they were added (INBOX 190): the header's first
+      //: cluster grew from three controls to five, and at 390 the bar's
+      //: scrollWidth went from inside the window to 407px against a 390px
+      //: client, which is the app scrolling sideways. A phone's answer to a
+      //: chrome that will not fit is this sheet, which is where Settings
+      //: already went for the same reason; the header keeps both at every
+      //: width that has room (600 and up, `10-responsive.css`).
+      list.appendChild(sheetRow("ph ph-magic-wand tab-icon", "Ask the agent", () => {
+        close();
+        toggleAgentPalette();
+      }));
+      list.appendChild(sheetRow("ph ph-question tab-icon", "Guide", () => {
+        close();
+        //: settings.js owns the Guide sheet and loads beside this file.
+        if (typeof openHelpChat === "function") openHelpChat();
+      }));
       list.appendChild(sheetRow("ph ph-gear tab-icon", "Settings", () => {
         close();
         //: settings.js owns the modal and loads beside this file; `typeof` so
@@ -40576,6 +41007,78 @@ const AGENT_STARTERS = [
   { group: "Do", label: "Link related notes", text: "Link notes that belong together." },
 ];
 
+//: **And the ones that only make sense where you are** (INBOX 190: "it needs
+//: to be more versatile and usable across the whole app, the user should be
+//: able to use it as the guiding hand"). The twelve above are the agent's
+//: whole repertoire wherever it is opened, which is right for a panel that
+//: floats over everything and wrong as the *first* thing offered: opened over
+//: a document, "Tag my untagged notes" is the least likely thing anybody
+//: wants, and "summarise this document" was not on the list at all.
+//:
+//: So each tab names two, shown first under the tab's own name, and the
+//: twelve follow unchanged. Two rather than five: a starter list long enough
+//: to read is a starter list nobody reads, and the box is right there.
+const AGENT_TAB_STARTERS = {
+  dashboard: [
+    { label: "What changed today?", text: "What changed in my notebook today?" },
+    { label: "What should I pick up?", text: "What loose ends should I pick up next?" },
+  ],
+  notes: [
+    { label: "Summarise what I have open", text: "Summarise the note I have open." },
+    { label: "Tag this note", text: "Suggest tags for the note I have open." },
+  ],
+  chat: [
+    { label: "Summarise this conversation", text: "Summarise this conversation." },
+    { label: "File the last answer", text: "Save the last answer as a note." },
+  ],
+  graph: [
+    { label: "What links to this?", text: "What is linked to the note I have open?" },
+    { label: "Link related notes", text: "Link notes that belong together." },
+  ],
+  library: [
+    { label: "Summarise what I have open", text: "Summarise the document or board I have open." },
+    { label: "What is in here?", text: "What is in the board or map I have open?" },
+  ],
+  documents: [
+    { label: "Summarise this document", text: "Summarise the document I have open." },
+    { label: "Pull out the key points", text: "List the key points of the document I have open." },
+  ],
+  timeline: [
+    { label: "What did I write this week?", text: "What did I write this week?" },
+    { label: "What changed today?", text: "What changed in my notebook today?" },
+  ],
+  reminders: [
+    { label: "What is due?", text: "What is due?" },
+    { label: "Remind me to…", text: "Remind me to " },
+  ],
+};
+
+//: Which tab the palette is floating over. `switchTab` keeps this in
+//: `localStorage` (it is also how the app restores the last tab on a reload),
+//: and Documents is its own surface inside the Library tab, so it is asked
+//: for separately: a starter offering to summarise "the document I have open"
+//: is only sensible where a document actually is open.
+function agentCurrentTab() {
+  if (!$("tab-documents")?.classList.contains("hidden")) return "documents";
+  const tab = (() => {
+    try {
+      return localStorage.getItem("activeTab");
+    } catch {
+      return null;
+    }
+  })();
+  return AGENT_TAB_STARTERS[tab] ? tab : "notes";
+}
+
+//: The tab's own name, taken from the tab strip rather than written out a
+//: second time here: the strip is what the reader is looking at, and two
+//: copies of a name are two names as soon as one is renamed.
+function agentTabLabel(tab) {
+  if (tab === "documents") return "Documents";
+  const label = document.querySelector(`[data-tab="${tab}"] .tab-label`);
+  return (label?.textContent || tab).trim();
+}
+
 //: The three most recently used, offered first (the same research note: a
 //: quick-action panel that does not remember makes you re-find the one thing
 //: you always do). Per browser, in `localStorage`, because it is a habit of
@@ -40618,6 +41121,10 @@ function renderAgentStarters() {
   if (!box) return;
   box.replaceChildren();
   const groups = [];
+  //: Where you are, first: see AGENT_TAB_STARTERS for why.
+  const tab = agentCurrentTab();
+  const here = AGENT_TAB_STARTERS[tab];
+  if (here) groups.push([`On ${agentTabLabel(tab)}`, here]);
   const recent = agentStarterRecents();
   if (recent.length) groups.push(["Recent", recent]);
   for (const starter of AGENT_STARTERS) {
@@ -40658,13 +41165,47 @@ function agentOpenSubject() {
   if (showing("documents") && typeof currentDoc !== "undefined" && currentDoc?.id) {
     return { kind: "document", id: currentDoc.id, label: currentDoc.title || "this document" };
   }
+  //: **A board is not a note, and saying so was the whole report** (INBOX
+  //: 189, the owner: "I think the test note the popup agent is referring to
+  //: is the mind map I just made called test"). A board and a mind map are
+  //: `Entry` rows like everything else here, so the last thing opened can be
+  //: one of them, and this called it a note: the toggle offered "Use test",
+  //: the run sent it as `note_ids`, and the model was handed a note whose
+  //: whole content is `# test`. `mapBoardById` is the one place that knows
+  //: which entry ids are boards, and a board row carries its own `type`, so a
+  //: map is named a map and a board a board.
+  const asBoard = (id) => {
+    const board = typeof mapBoardById === "function" ? mapBoardById(id) : null;
+    if (!board) return null;
+    const kind = (board.type || "map") === "map" ? "map" : "board";
+    return { kind, id, label: board.title || `${kind} ${id}` };
+  };
+  //: The canvas first: a board open in front of you is more "the thing on
+  //: screen" than whichever note was last opened before you came here.
+  const wbView = $("library-view-whiteboard");
+  const openBoardId = typeof window !== "undefined" ? window.currentBoardId : null;
+  if (openBoardId && wbView && !wbView.classList.contains("hidden") && showing("library")) {
+    return asBoard(openBoardId) || { kind: "board", id: openBoardId, label: `board ${openBoardId}` };
+  }
   const noteId = editingId || lastOpenedEntryId;
   if (!noteId) return null;
+  const board = asBoard(noteId);
+  if (board) return board;
   const entry = (typeof allEntries !== "undefined" ? allEntries : []).find(
     (row) => row.id === noteId
   );
   return { kind: "note", id: noteId, label: entry ? noteLabel(entry, 40) : `note ${noteId}` };
 }
+
+//: What each kind is called in the toggle's label and its tooltip. A table
+//: rather than a chain of ternaries: five states were asked for by name
+//: (INBOX 190), and a table is what makes it obvious when one is missing.
+const AGENT_SUBJECT_WORDS = {
+  note: "note",
+  document: "document",
+  map: "mind map",
+  board: "board",
+};
 
 //: What the toggle actually sends. A document and a note go to different
 //: fields, because `_attached_documents` and `_attached_notes` read different
@@ -40674,10 +41215,20 @@ function agentScopeForRun() {
   if (!box || !box.checked) return {};
   const subject = agentOpenSubject();
   if (!subject) return {};
-  return subject.kind === "document"
-    ? { documentIds: [subject.id] }
-    : { noteIds: [subject.id] };
+  //: **And the kind goes to the server, not just to the label** (INBOX 189).
+  //: `board_ids` has its own reader (`_attached_boards`, routes_chat.py),
+  //: which hands the model the map's outline under "Mind map: <title>"; the
+  //: same id sent as `note_ids` reaches it as an entry whose entire content
+  //: is `# <name>`. Naming it correctly on screen and then sending it as
+  //: something else would have fixed half the report.
+  if (subject.kind === "document") return { documentIds: [subject.id] };
+  if (subject.kind === "map" || subject.kind === "board") return { boardIds: [subject.id] };
+  return { noteIds: [subject.id] };
 }
+
+//: Whether the board index has been asked for since the palette was opened.
+//: See the call below for why it is asked for at all.
+let agentBoardIndexAsked = false;
 
 //: Enabled only when there is something to use, and the label says what that
 //: something is: a tick box offering to scope a run to nothing is the "control
@@ -40690,13 +41241,36 @@ function syncAgentOpenNoteToggle() {
   //: onto the label would delete the control it is labelling.
   const text = $("command-palette-use-note-text");
   if (!box || !label || !text) return;
+  //: **The index that tells a map from a note has to be there to be read.**
+  //: `mapBoardById` answers from a cache filled by whichever surface last drew
+  //: board chips, and the palette opens over every tab, including ones that
+  //: have never asked for boards at all. Without this the fix for INBOX 189
+  //: would work on the Library tab and nowhere else, which is worse than not
+  //: working: it would look fixed. Asked for once per opening (the flag is
+  //: cleared by `toggleAgentPalette`), and the repaint is what puts the right
+  //: word on the label when the answer arrives.
+  if (!agentBoardIndexAsked && typeof loadMapBoardIndex === "function") {
+    agentBoardIndexAsked = true;
+    loadMapBoardIndex().then(() => syncAgentOpenNoteToggle()).catch(() => {});
+  }
   const subject = agentOpenSubject();
   box.disabled = !subject;
   if (!subject) box.checked = false;
-  text.textContent = subject ? `Use ${subject.label}` : "Use the open note";
+  //: **"The open note" answered a question nobody could** (INBOX 190, the
+  //: owner: "what does 'the open note' mean?? what does opening a note even
+  //: entail?? how does one open a note??"). Two faults in one line. It named
+  //: a category where it could name the thing, so the answer to "which note?"
+  //: was a definite article; and with nothing open it still said "the open
+  //: note", which is a checkbox describing something that does not exist.
+  //: Now it says what kind the thing is and what it is called, and when there
+  //: is nothing it says what would count as something.
+  const word = subject ? AGENT_SUBJECT_WORDS[subject.kind] || subject.kind : null;
+  text.textContent = subject
+    ? `Use this ${word}: ${subject.label}`
+    : "Nothing open to use (open a note, document, board or map first)";
   label.title = subject
-    ? `Send this ${subject.kind} with what you ask, so the agent works on it`
-    : "Open a note or a document first, then the agent can work on it";
+    ? `Send this ${word} with what you ask, so the agent works on it`
+    : "Open a note, a document, a board or a mind map first, then the agent can work on it";
 }
 
 const cmdPaletteOverlay = $("command-palette-overlay");
@@ -40716,6 +41290,7 @@ function toggleAgentPalette() {
     //: is reached for, and it is reached for from every tab.
     renderAgentStarters();
     syncAgentPaletteAvailability();
+    agentBoardIndexAsked = false;
     syncAgentOpenNoteToggle();
     cmdPaletteInput.focus();
   } else {
@@ -40740,6 +41315,11 @@ cmdPaletteOverlay.addEventListener("click", (e) => {
 // consistent modern look" that is not paint: every other dialog in the app
 // offers a control you can see and this one asked you to know a key.
 $("command-palette-close").addEventListener("click", () => toggleAgentPalette());
+
+//: The header's wand: the palette's one visible way in (INBOX 190). The chord
+//: still works and is named in the button's tooltip, which is how anybody
+//: finds out a chord exists.
+$("agent-btn")?.addEventListener("click", () => toggleAgentPalette());
 
 //: **The agent bar keeps a conversation, and says so.** Reported: "the popup
 //: agent needs more features, capability, and learnability, there's no way to
@@ -40774,7 +41354,14 @@ function cmdPaletteBusy(busy) {
   cmdPaletteInput.disabled = busy || aiIsOff();
   $("command-palette-stop")?.classList.toggle("hidden", !busy);
   $("command-palette-clear")?.classList.toggle("hidden", busy);
-  $("command-palette-status").textContent = busy ? "Working…" : "";
+  //: **The state line is written by the run, not by this** (INBOX 190: the
+  //: agent should say "what it is working on and which tool ran"). This used
+  //: to write "Working…" on the way in and blank on the way out, which is a
+  //: status line that has never once said anything a person could not see
+  //: from the spinner. `cmdPaletteAsk` now writes the question, then each
+  //: tool as it runs, then what the turn came to; all this does is clear a
+  //: line left over from the run before.
+  if (busy) setLabel($("command-palette-status"), "ph:circle-notch Working…");
   if (!busy) cmdPaletteInput.focus();
 }
 
@@ -41231,8 +41818,18 @@ async function cmdPaletteAsk(text) {
   //: is the action row, so the class had nowhere to sit that would put the
   //: caret after the words. The answer box is the last thing before the
   //: actions, and `is-streaming` comes off with `is-generating` below.
+  //: **The class waits for the first token** (INBOX 187, the owner: "the
+  //: writing carette shows on the popup agent when the 3-dot animation is
+  //: showing and it is waiting for a model response which it shouldnt"). Set
+  //: here, the caret's `> :last-child::after` arm landed on the typing dots
+  //: themselves, so the wait was drawn as three bouncing dots with a blinking
+  //: block beside them: two indicators for one state, and the one that means
+  //: "text is arriving" lit while none was. The dots own the "nothing yet"
+  //: state and the caret owns "writing", which is the rule the Ask box has
+  //: followed since it was built (`onAnswer` there adds the same class on its
+  //: first delta, not before the request).
   const answerBox = document.createElement("div");
-  answerBox.className = "bubble-answer is-streaming";
+  answerBox.className = "bubble-answer";
   answerBox.appendChild(typingDots());
   agentMsg.appendChild(answerBox);
   cmdPaletteResults.appendChild(agentMsg);
@@ -41275,8 +41872,18 @@ async function cmdPaletteAsk(text) {
   let meta = null;
   let stats = null;
   let thinkingRaw = "";
+  //: Which tool ran last, for the line the run ends on. The label is the
+  //: harness's own (`ph:books Listed notes (…)`), so the icon token has to be
+  //: stripped before it can be quoted inside another label.
+  let lastToolLabel = "";
   cmdPaletteRun = new AbortController();
   cmdPaletteBusy(true);
+  //: What it is working on, in the person's own words, cut to a line. A
+  //: status that says "Working…" over a thirty-second run is the app saying
+  //: it is busy; this is the app saying what it is busy with, which is the
+  //: difference between waiting and wondering.
+  const shortAsk = text.length > 48 ? `${text.slice(0, 47).trimEnd()}…` : text;
+  setLabel($("command-palette-status"), `ph:circle-notch Working on: ${shortAsk}`);
   try {
     await streamChat({
       question: text,
@@ -41333,6 +41940,7 @@ async function cmdPaletteAsk(text) {
           $("command-palette-status"),
           event?.label ? `${event.label} …` : "Working…",
         );
+        lastToolLabel = (event?.label || "").replace(/^ph:[\w-]+\s*/, "");
         for (const item of event?.touched || []) {
           touched.set(`${item.kind}:${item.id}`, item);
         }
@@ -41354,6 +41962,9 @@ async function cmdPaletteAsk(text) {
       onAnswer: (delta) => {
         answered = true;
         answerRaw += delta;
+        //: Idempotent, and cheap: `classList.add` on a class already there is
+        //: a no-op, so this costs nothing per delta and saves a flag.
+        answerBox.classList.add("is-streaming");
         renderMarkdown(answerBox, answerRaw);
         cmdPaletteResults.scrollTop = cmdPaletteResults.scrollHeight;
       },
@@ -41410,6 +42021,18 @@ async function cmdPaletteAsk(text) {
     agentMsg.classList.remove("is-generating");
     cmdPaletteRun = null;
     cmdPaletteBusy(false);
+    //: The end of the run, said once and left there: what the turn did is
+    //: still the answer to "what happened" a minute later, and a line that
+    //: blanks itself the moment it could be read is a line nobody reads.
+    const word = stepCount === 1 ? "step" : "steps";
+    setLabel(
+      $("command-palette-status"),
+      stepCount
+        ? `ph:check-circle Done, ${stepCount} ${word}, last: ${lastToolLabel || "a tool"}`
+        : answered
+          ? "ph:check-circle Answered"
+          : "ph:warning-circle Nothing came back",
+    );
   }
 }
 
@@ -41429,7 +42052,56 @@ function cmdPaletteGrow() {
 
 cmdPaletteInput.addEventListener("input", cmdPaletteGrow);
 
+//: **The starters are reachable from the keyboard** (INBOX 190's "more ui, ux
+//: and functionality refinements to be more professional"). A command bar
+//: whose suggestions can only be clicked is a command bar that makes you
+//: reach for the mouse in the middle of typing, which is the one thing this
+//: surface exists to avoid. Down from the box enters the list, Up and Down
+//: walk it, Enter runs the one in hand (a `<button>` does that itself), and
+//: Escape hands the caret back to the box rather than closing the panel from
+//: under a person who was only browsing.
+function agentStarterButtons() {
+  return [...document.querySelectorAll("#command-palette-starters [data-example]:not([disabled])")];
+}
+
+function agentFocusStarter(delta) {
+  const buttons = agentStarterButtons();
+  if (!buttons.length) return false;
+  const at = buttons.indexOf(document.activeElement);
+  //: From the box, Down opens at the top and Up at the bottom, which is what
+  //: every menu in this app does and what a person reaching for the last
+  //: starter expects.
+  const next = at === -1 ? (delta > 0 ? 0 : buttons.length - 1) : at + delta;
+  if (next < 0) {
+    cmdPaletteInput.focus();
+    return true;
+  }
+  buttons[Math.min(next, buttons.length - 1)].focus();
+  return true;
+}
+
+$("command-palette-starters")?.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    if (agentFocusStarter(e.key === "ArrowDown" ? 1 : -1)) e.preventDefault();
+    return;
+  }
+  if (e.key === "Escape") {
+    //: Not `stopPropagation` on the way out of the panel: Escape twice should
+    //: still close it, and the second press arrives with the caret in the box.
+    e.stopPropagation();
+    cmdPaletteInput.focus();
+  }
+});
+
 cmdPaletteInput.addEventListener("keydown", (e) => {
+  if ((e.key === "ArrowDown" || e.key === "ArrowUp") && !e.shiftKey) {
+    //: Only when the box is empty, or the arrows would stop being the arrows
+    //: of a multi-line field halfway through writing a paragraph in it.
+    if (!cmdPaletteInput.value && agentFocusStarter(e.key === "ArrowDown" ? 1 : -1)) {
+      e.preventDefault();
+      return;
+    }
+  }
   if (e.key !== "Enter" || e.shiftKey || e.isComposing || e.keyCode === 229) return;
   e.preventDefault(); // or the newline lands in the box we are about to clear
   if (!cmdPaletteInput.value.trim()) return;

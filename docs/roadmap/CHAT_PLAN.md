@@ -172,6 +172,29 @@ and every run ends with a verification line and an Undo.
     asked it to, in an app whose first line of description is that it is
     offline. The host in words is the half of a favicon that carries meaning.
 
+13. **The help chat is called the Guide, and it is a sheet reachable from
+    anywhere** (INBOX 193, filed and taken 2026-09-13; asked for in INBOX 190,
+    "give it a fitting name??"). "Guide" rather than a person's name or a
+    mascot: it explains the app and nothing else, it cannot read the notebook,
+    and a name implying a personality would be the second thing in this app
+    claiming to be an assistant while being the one that knows least about
+    you. Its heading already read "Ask the guide", so the name was half
+    chosen. One instance, not three: `openHelpChat()` moves the existing
+    `#help-chat-group` into an `openSheet` and puts it back on close, because
+    the chat is stateful (a running transcript, a form, three handlers bound
+    by id) and a second copy would be a second set of ids. Reachable from the
+    header's '?' on every tab and from the head the fifteen Settings panes
+    share.
+
+14. **The popup agent's own reach is the header, not seven docks** (INBOX
+    190). The ask was "usable across the whole app"; the header is the one
+    piece of chrome on every tab, a dock belongs to the surface under it, and
+    seven copies of one control is seven places for it to drift and seven
+    docks for two agents to conflict in. One wand, one '?', the chord in the
+    tooltip. The starters are per tab (`AGENT_TAB_STARTERS`), which is where
+    "depends where you are" belongs: the panel is the same everywhere and
+    what it offers first is not.
+
 11. **When no model is connected**, every AI control is visible, disabled,
     with a tooltip "Connect a model in Settings" and a one-click link;
     Ask falls back to search results with passages; nothing is hidden.
@@ -193,7 +216,11 @@ owner's own later instructions and said so there.
 [HISTORY.md](HISTORY.md) "Moved from the plans, 2026-09-13". Decisions 8, 9,
 11 and 12. Gate green in both halves it has
 (`scratchpad/ui-sweeps/chatphase3.js` for the browser,
-`tests/test_ask_answer_object.py` for the transport).
+`tests/test_ask_answer_object.py` for the transport). One gate line was
+superseded by the owner's own later instruction and re-run in that form: the
+starters are decision 9's twelve **plus the current tab's two** (INBOX 190,
+decision 14), so the sweep asserts 14 chips in 6 groups with the tab's own
+group first.
 
 ### Phase 4: skills that finish (one session; Brief 13)
 Decisions 10 and 10a to 10f. Built, 2026-09-12: see HISTORY.md, "Moved from

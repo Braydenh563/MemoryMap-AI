@@ -112,6 +112,35 @@ def test_hand_built_menus_do_not_multiply() -> None:
         )
 
 
+def test_a_pointer_anchored_menu_is_the_recipe() -> None:
+    """A right-click or long-press menu is `openMenuAtPoint`, not a new shape.
+
+    DESIGN.md's recipe index gains a row with the link context menu (INBOX
+    182). The failure it guards against is the one the kebab ratchet above
+    guards against one step earlier: a second surface that wants a menu where
+    the pointer is, writing its own host, its own clamp and its own closing
+    rule. The recipe lives in app.js and every `.pointer-menu-host` in the
+    frontend comes from it.
+    """
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    assert "function openMenuAtPoint(" in app, (
+        "the pointer-anchored menu recipe has gone from app.js; DESIGN.md's "
+        "recipe index still points at openMenuAtPoint"
+    )
+    builders = {
+        path.name: path.read_text(encoding="utf-8").count('className = "pointer-menu-host"')
+        for path in JS
+    }
+    offenders = {name: n for name, n in builders.items() if n and name != "app.js"}
+    assert not offenders, (
+        f"{offenders} build a pointer-menu host of their own; the recipe is "
+        "openMenuAtPoint(items, ariaLabel, x, y) in app.js (DESIGN.md, the recipe index)"
+    )
+    assert builders.get("app.js", 0) == 1, (
+        f"app.js builds {builders.get('app.js', 0)} pointer-menu hosts; one recipe, one host"
+    )
+
+
 # A sheet is `openSheet()` in app.js (DESIGN.md, "A sheet"). Two predate the
 # recipe and are frozen here with their reason: the three sidebars become edge
 # sheets below 600 (`.sidebar-sheet-open`) and the graph's dock becomes

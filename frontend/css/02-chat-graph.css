@@ -2882,6 +2882,48 @@ kbd {
   display: inline-block;
 }
 
+/* **A menu at the pointer** (INBOX 182: right-click or long-press a link).
+   `kebabMenu` opens its menu under the button that was pressed, and a context
+   menu has no button: so it is given one, a single transparent pixel parked
+   where the pointer was. The host is `position: fixed` because the pointer's
+   coordinates are the viewport's, and it has no size of its own so it can
+   never intercept anything; the menu inside it is the same `.action-menu`
+   every other menu in the app is, clamped and escaped by the same code
+   (`openMenuAtPoint`, app.js). */
+.pointer-menu-host {
+  position: fixed;
+  z-index: 2600;
+  width: 0;
+  height: 0;
+  /* **The host must not take the next click.** Measured: with the host live,
+     `document.elementFromPoint` at the pointer returned the anchor's own
+     `.menu-wrap` rather than the link under it, so a second right-click on the
+     same link opened nothing at all, the event never reached a link. The host
+     and its anchor are transparent to the pointer; the menu inside takes its
+     own clicks back. */
+  pointer-events: none;
+}
+
+.pointer-menu-host .action-menu {
+  pointer-events: auto;
+}
+
+/* Two classes deep on purpose: `.small.icon-only` squares every icon button
+   in the app at (0,2,0), and a single class loses to it, which measured as a
+   menu opening 28px across and 32px below the pointer instead of at it. */
+.pointer-menu-host .pointer-menu-anchor {
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* **One shell for every menu in the app.** Reported: "all the dropdown menu
    styles in the application need to be consistent in their style. keep the
    'your notes' ones in the note cards as they are as I like their look."
@@ -4880,6 +4922,32 @@ mark.lightbox-hit {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* **The passage a citation came from** (CHAT_PLAN decision 2: "hover
+   highlights the passage"). Shown under the card's own two-line preview while
+   a mark in the answer is hovered or focused, and removed when it is not, so
+   the panel at rest is the list of sources it was. Not clamped: the point of
+   it is to be readable, and a passage is forty words. The accent rail is what
+   ties it to the mark that opened it, the same rail an active row wears
+   elsewhere in this app. */
+.chat-source-passage {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--accent);
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
+.chat-source-passage mark {
+  background: var(--accent-soft);
+  color: inherit;
+  border-radius: var(--radius-sm);
+  padding: 0 2px;
+}
+
+.chat-source-card.is-cited {
+  border-color: var(--accent);
 }
 
 .chat-source-foot {

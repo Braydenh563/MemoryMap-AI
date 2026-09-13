@@ -24233,6 +24233,201 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     are the finer control over *what* it computes once it may, and a switch
     that started off would make the person's first press of "run now" do
     nothing with no explanation. Recorded in `ai/facts.SWITCHES`.
+187. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the popup
+    agent's caret.** "the writing carette shows on the popup agent when the
+    3-dot animation is showing and it is waiting for a model response which
+    it shouldnt". Owner: chat agent.
+    **Fixed (this commit).** The palette put `is-streaming` on its answer box
+    before the request rather than on the first token, and the caret's
+    `> :last-child::after` arm then landed on the typing dots themselves: two
+    indicators for one state, the one meaning "text is arriving" lit while
+    none was. The class now goes on in `onAnswer`, which is the rule the Ask
+    box has followed since it was built. Measured
+    (`scratchpad/ui-sweeps/agentcaret.js`, which shims `/chat/stream` with a
+    stream it feeds a line at a time so the wait, the first token and the end
+    of the turn are three readable moments): during the wait the caret was
+    `content: "​"`, 8px wide, `rgb(70, 100, 240)` on `.typing-dots` and
+    is now `content: none`, width `auto`; after the first token it is 8px and
+    `rgb(70, 100, 240)` on the answer's last paragraph, and gone again when
+    the turn ends.
+
+188. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the table
+    bar in an AI answer.** "the table button option rendering needs to be
+    fixed or refined, especially in the popup agent, maybe just make it a
+    copy button with an ellipse/kebab dropdown menu button next to it for
+    the other options". Recommendation, taken: one Copy button and a
+    `kebabMenu` for the rest, in both the chat and the popup agent. Owner:
+    chat agent.
+    **Fixed (this commit).** The bar was five labelled buttons (Copy,
+    Markdown, CSV, Actual size, Full view) in a shell wider than most of the
+    tables it sat on; in the popup agent, a 293px card, it wrapped onto two
+    rows above a three-column table. It is Copy plus one `kebabMenu` now
+    (DESIGN.md's recipe, standing order 11), the menu holding Copy as
+    markdown, Save as a note (new: the table goes into the notebook through
+    the same `saveSelectionAsNote` the selection popup uses), Save as CSV, and
+    the two toggles, whose rows relabel themselves so the menu never offers
+    "Full view" for a table already in it. Measured
+    (`scratchpad/ui-sweeps/tablefull.js`, extended): 2 controls in the bar
+    against 5 before, 1 hairline seam, 5 items in the menu, and in the popup
+    agent at 390 the bar is one row of 66.9x44 and 44x44 controls, 114.9px of
+    actions in a 318.4px bar with no overflow, 0 console errors. Full view,
+    the fit toggle and the panel's z-order are unchanged and still measured by
+    the same sweep.
+
+181. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), tables in
+    an AI answer.** "the actual size/fit to panel button in ai written
+    tables doesnt work when not in the full view, also I want the table row
+    and column widths and heights to be adjustable by the user in the full
+    view." Owner: chat agent.
+    **Fixed (this commit), both halves.** The toggle: every rule it drove was
+    written `.md-table-block.is-full:not(.is-actual) …`, so pressing it in a
+    bubble added a class nothing was listening for. Measured inline before the
+    fix, `scratchpad/ui-sweeps/tablefull.js`: `table-layout: auto`,
+    `overflow-x: auto`, `min-width: max-content` before the press and the same
+    three after it. The state is `data-table-view` now, with the rules off the
+    full-view scope: a bubble starts at `actual` and full view at `fit` (INBOX
+    179's decision, unchanged), and the press moves between them on either
+    surface. Measured after: inline `auto`/`auto`/`max-content` before,
+    `fixed`/`hidden`/`0px` after, with the button reading "Fit to panel" then
+    "Actual size".
+    The drag: a 6px grip straddles each header cell's right edge and each body
+    row's bottom edge in full view, pointer events with capture, 56px and 28px
+    floors, the widths written onto a `table-layout: fixed` table so they are
+    honoured rather than treated as a suggestion. Measured: a 60px drag on a
+    column moved its edge 60.0px (640.1 to 700.1), a 40px drag on a row moved
+    it 40.0px (34.2 to 74.2), the grips and the explicit widths come off when
+    full view closes (0 grips, no inline width) and are restored on return
+    (700.1 and 74.2 again), 0 console errors.
+
+182. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), links.**
+    "I want to be able to right click or hold with a touch on a link and
+    have a popup show to let me copy the link address". App-wide: every
+    rendered markdown link (chat, popup agent, notes, documents) gets one
+    `kebabMenu`-shaped menu on contextmenu and long-press with Copy link
+    address and Open. Owner: chat agent.
+    **Built (this commit).** One delegated `contextmenu` listener and one
+    delegated 500ms touch hold on `document`, no per-surface listeners, so a
+    link drawn by anything (the chat, the popup agent, a note card, a document
+    preview, anything written later) is covered by the same code. The menu is
+    `kebabMenu` with an anchor: `openMenuAtPoint` parks a one-pixel
+    transparent opener in a `position: fixed` host where the pointer was, so
+    the rows, the keyboard wiring, the clamping and the closing are the app's
+    one menu rather than a second shape (DESIGN.md's recipe index gains the
+    row, `tests/test_ui_recipes.py` the ratchet). An address gets Copy link
+    address and Open in new tab; a `[[link]]` has no address, so it gets Copy
+    title and Open, which runs the link's own click. Measured
+    (`scratchpad/ui-sweeps/linkmenu.js`, with `navigator.clipboard.writeText`
+    and `window.open` stubbed so what each row does is read back rather than
+    assumed): the menu opens 8px across and 15px below the pointer and inside
+    the window, Copy link address puts `https://example.org/guide/netting` on
+    the clipboard, Open in new tab calls `window.open` with that address and
+    `noopener,noreferrer`, a `[[link]]` on a note card offers "Copy title" and
+    "Open" and copies "Netting the beans", the popup agent gets the same menu
+    with no listener of its own, a 500ms synthetic touch hold opens it, and
+    there are 0 page errors.
+    Two things the sweep found on the way, both fixed here: the anchor lost on
+    specificity to `.small.icon-only` and opened the menu 28px across and 32px
+    below the pointer, and the host took the hit at its own coordinates, so a
+    second right-click on the same link reached the anchor rather than the
+    link and opened nothing.
+
+189. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the popup
+    agent's subject.** "I think the test note the popup agent is referring
+    to is the mind map I just made called test". The open-thing scope
+    resolved a board as a note; a map, a board and a document each need
+    naming as what they are. Owner: chat agent.
+    **Fixed (this commit).** `agentOpenSubject` had two branches, document and
+    note, and a board is an `Entry` like everything else, so a map opened a
+    moment ago came back as `{kind: "note"}`: the label offered "Use test", the
+    run sent `note_ids`, and the model was handed an entry whose entire content
+    is `# test`. It reads the board index (`mapBoardById`) first now, both for
+    the board open on the canvas and for the last entry opened, and tells a map
+    from a board by the board row's own `type`. The scope follows the kind:
+    `board_ids`, which `_attached_boards` renders as "Mind map: <title>" with
+    the outline, rather than `note_ids`. The palette also asks for the board
+    index itself on opening, because that cache is filled by surfaces that draw
+    board chips and the palette opens over tabs that never do, which would have
+    left this fixed on the Library tab and nowhere else.
+    Measured (`scratchpad/ui-sweeps/agentsubject.js`): a map reads "Use this
+    mind map: test" and sends `{boardIds:[13]}`, a board "Use this board:
+    Plans" and `{boardIds:[14]}`, a note "Use this note: Bean netting" and
+    `{noteIds:[12]}`, a document "Use this document: Lease agreement" and
+    `{documentIds:[99]}`.
+
+193. **A missing decision, filed by the chat agent, 2026-09-13** (standing
+    order 3: "a missing decision becomes an INBOX entry with a one-line
+    recommendation, which is then taken"). INBOX 190 asks for the help chat to
+    be given "a fitting name" and no plan decides one. Recommendation: **the
+    Guide**, because it explains the app rather than answering from the
+    notebook, and its own heading already said "Ask the guide".
+    **Taken (this commit)**: recorded as CHAT_PLAN decision 13, and the sheet,
+    the header control and the Settings control all carry the name. Measured
+    in `scratchpad/ui-sweeps/agentwide.js`: the sheet's title reads "Guide"
+    from three tabs and two Settings panes.
+
+190. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the popup
+    agent and the help chat.** "the popup agent needs more ui, ux and
+    functionality refinements to be more professional. it needs to be more
+    versatile and usable across the whole app, the user should be able to
+    use it as the guiding hand and everything. also I was wondering if there
+    is a way to make the help chat bot more accessible throughout the
+    settings modal and also even accessible application wide?? maybe give
+    it more knowledge and capabilitie/function and give it a fitting
+    name??" And, on the same surface: "what does 'the open note' mean??
+    what does opening a note even entail?? how does one open a note??" The
+    label `#command-palette-use-note-text` is written by
+    `syncAgentOpenNoteToggle` and says "the open note" when it should name
+    the thing that is open, or say what would count. Owner: chat agent.
+    **Built (this commit and the two before it).** The label half first: it
+    named a category where it could name the thing, and said "the open note"
+    with nothing open. The label named a
+    category where it could name the thing, and said "the open note" even with
+    nothing open, which is a checkbox describing something that does not exist.
+    It now reads "Use this note: <title>", "Use this document: <title>", "Use
+    this mind map: <name>" or "Use this board: <name>", and with nothing open
+    "Nothing open to use (open a note, document, board or map first)" with the
+    box disabled and unchecked. All five measured in
+    `scratchpad/ui-sweeps/agentsubject.js`.
+    **The agent, app-wide** (`c052eb6`, measured in
+    `scratchpad/ui-sweeps/agentwide.js`): a wand in the header opens it from
+    all 7 tabs with one icon and one tooltip carrying the chord, which is the
+    reading of "usable across the whole app" that does not put seven copies of
+    one control into seven docks two agents are both editing (CHAT_PLAN
+    decision 14). Its starters depend on the tab: 7 distinct opening pairs over
+    7 tabs, under a group named for the tab you are on. The keyboard reaches
+    them: the caret opens in the box, Down walks in and on, Up walks back,
+    Escape returns the caret and a second Escape closes. The state line says
+    what it is working on ("Working on: file everything about beans and tag
+    it"), which tool is running ("Listed notes (12) …") and what the turn came
+    to ("Done, 1 step, last: Listed notes (12)"), with the typed tool cards
+    still folded under the answer ("Finished 1 step"). A `data-help-for` line
+    carries the rest.
+    **And the header could not hold two more controls at 390**, found by
+    measuring rather than by looking: the first cluster went from three
+    controls to five and the bar's scrollWidth to 407px against a 390px
+    client, so the whole page scrolled sideways. Below 600 both are in the
+    phone's More sheet instead, where Settings already lives; measured 0px of
+    header and page overflow at 1440, 1024, 820 and 390, both 36x36 in the
+    header at the three wider ones, and the More sheet's six rows opening the
+    palette from the phone.
+    **The Guide** (`c052eb6` and this commit): named (INBOX 193, CHAT_PLAN
+    decision 13), reachable from the header's '?' on every tab and from the
+    head the fifteen Settings panes share, as one `openSheet` that moves the
+    existing chat into it rather than building a second one. Measured: the
+    sheet opens titled "Guide" from 3 tabs and 2 Settings panes, focus lands
+    in its field every time, Escape closes it, puts the chat back in the Help
+    pane and returns focus to the button that opened it. Its knowledge: the
+    request now carries the tab and the tab's own control labels, so "how does
+    this work?", which matches no keyword and used to get "I'm not sure", is
+    answered from that tab's `HELP_TOPICS` entries (`TAB_TOPICS`,
+    `help_chat.py`) plus 337 to 563 characters of the app's own words for the
+    controls on screen. Attributes only, never text: this chat promises it
+    cannot read the notebook, and the sweep asserts no note it planted appears
+    in what is sent. 21 tests in `tests/test_help_chat.py`.
+    **Found, not fixed**: `data-help-for` popovers exist 41 times in this app
+    and every one is in the Settings modal or a dialog. Not one of the seven
+    tabs has a single one, which is why the tab's control labels are what the
+    Guide sends. A tab that grows one is picked up with no further change.
 
 ## Moved from the plans, 2026-09-13
 

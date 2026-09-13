@@ -3302,6 +3302,61 @@ function renderHelpChatMessage(role, content, badges = []) {
   return row;
 }
 
+//: The help copy of whatever tab is open, as one block, capped. Read from the
+//: `.help-body` popovers the surface already carries (`data-help-for`, the
+//: recipe every help '?' in the app uses), so this is the wording the reader
+//: can see for themselves rather than a second description written for the
+//: model and free to drift from it.
+//:
+//: The cap is the server's own (`help_chat.MAX_CONTEXT_CHARS`), repeated here
+//: so a long tab does not send forty kilobytes to be thrown away.
+const HELP_CONTEXT_CHARS = 1200;
+
+//: **Measured before it was trusted, and the first version sent nothing.**
+//: `.help-body` is the `data-help-for` popover's own element, and a count in
+//: the running app (`scratchpad/ui-sweeps/agentwide.js`) says there are 41 of
+//: them and every one is inside the Settings modal or a dialog: not one tab
+//: carries any. So the popovers are kept (a tab that grows one is covered
+//: from that day) and the tab's controls are added, which every tab does
+//: have: a dock of buttons whose `title` and `aria-label` are the app's own
+//: words for what each one does.
+//:
+//: **Attributes only, never the text on screen.** This chat's whole promise
+//: is that it cannot read your notebook, and a tab is full of your notebook:
+//: `textContent` anywhere near a list of notes would put a note in a prompt
+//: by accident, which is the sort of leak nobody notices until it is in a log.
+//: `title` and `aria-label` on a control are authored markup and can hold
+//: nothing a person wrote.
+function helpChatOnScreenHelp() {
+  const tab = typeof agentCurrentTab === "function" ? agentCurrentTab() : null;
+  const root = tab ? document.getElementById(`tab-${tab}`) : null;
+  if (!root) return "";
+  const parts = [];
+  const push = (text) => {
+    const clean = (text || "").replace(/\s+/g, " ").trim();
+    if (clean) parts.push(clean);
+  };
+  for (const body of root.querySelectorAll(".help-body")) push(body.textContent);
+  const seen = new Set();
+  for (const control of root.querySelectorAll('.dock [title], [role="toolbar"] [title]')) {
+    //: Only what is actually on screen: a dock hides half its controls behind
+    //: a menu or a mode, and describing the ones that are not there is worse
+    //: than describing none.
+    if (!control.offsetParent) continue;
+    const name = control.getAttribute("aria-label") || "";
+    const line = name && name !== control.title ? `${name}: ${control.title}` : control.title;
+    if (seen.has(line)) continue;
+    seen.add(line);
+    push(line);
+    if (parts.join("\n").length > HELP_CONTEXT_CHARS) break;
+  }
+  if (!parts.length) return "";
+  return `Controls on the ${tab} tab, as the app labels them:\n${parts.join("\n")}`.slice(
+    0,
+    HELP_CONTEXT_CHARS
+  );
+}
+
 async function submitHelpChatQuestion(question) {
   if (helpChatBusy || !question.trim()) return;
   helpChatBusy = true;
@@ -3322,7 +3377,19 @@ async function submitHelpChatQuestion(question) {
   try {
     const result = await apiJson("/help/ask", {
       method: "POST",
-      body: JSON.stringify({ question, history: helpChatHistory }),
+      //: **Where the question was asked from** (INBOX 190: "give it more
+      //: knowledge"). The Guide opens over every tab now, so the tab is half
+      //: the question: "how does this work?" means one thing on the Graph tab
+      //: and another on Reminders. `context` is the app's own help copy for
+      //: what is on screen, which is better reference material than anything
+      //: this could be told about a surface in the abstract, and it is already
+      //: written, reviewed and kept in step with the UI by the lints.
+      body: JSON.stringify({
+        question,
+        history: helpChatHistory,
+        tab: typeof agentCurrentTab === "function" ? agentCurrentTab() : null,
+        context: helpChatOnScreenHelp(),
+      }),
     });
     pending.remove();
     const content = result?.content || "Sorry, I couldn't answer that.";
@@ -3356,3 +3423,54 @@ $("help-chat-clear")?.addEventListener("click", () => {
   if (list) list.replaceChildren();
   $("help-chat-input")?.focus();
 });
+
+//: **The Guide, and it has a name now** (INBOX 190, the owner: "maybe give it
+//: more knowledge and capabilitie/function and give it a fitting name??";
+//: INBOX 193 recorded the recommendation and CHAT_PLAN section 4 decision 13
+//: took it). "Guide" rather than a person's name or a mascot: it explains the
+//: app and nothing else, it has no access to the notebook, and a name that
+//: implies a personality would be the second thing in this app claiming to be
+//: an assistant. The heading it already carried said "Ask the guide", so the
+//: name was half-chosen and only needed saying out loud.
+//:
+//: **One instance, moved, not a second one built.** The chat is a stateful
+//: surface (a running transcript held in `helpChatHistory`, a form, a clear
+//: button, three handlers bound by id), and the way to make it reachable from
+//: two more places without any of that drifting is to move the one that
+//: exists into the sheet and put it back afterwards. Duplicating the markup
+//: would duplicate the ids, which the frontend lints refuse for good reason.
+let helpChatHome = null;
+
+function openHelpChat() {
+  const group = $("help-chat-group");
+  if (!group) return null;
+  //: Already open: put the caret back in the field rather than stacking a
+  //: second sheet over the first, which is what two entry points into one
+  //: surface otherwise produce.
+  if (document.querySelector('[data-sheet="guide"]')) {
+    $("help-chat-input")?.focus();
+    return null;
+  }
+  helpChatHome = { parent: group.parentNode, next: group.nextSibling };
+  const close = openSheet({
+    label: "Guide",
+    name: "guide",
+    build: (card) => {
+      card.appendChild(group);
+    },
+    onClose: () => {
+      //: Back exactly where it was, so the Help pane is whole the next time
+      //: it is opened. `insertBefore` with a null `next` appends, which is
+      //: the correct behaviour when it was the last child.
+      if (helpChatHome) helpChatHome.parent.insertBefore(group, helpChatHome.next);
+      helpChatHome = null;
+    },
+  });
+  //: `openSheet` focuses the first focusable in the card, which here is the
+  //: head's '?' toggle. The field is what a person opening a chat wants.
+  $("help-chat-input")?.focus();
+  return close;
+}
+
+$("guide-btn")?.addEventListener("click", () => openHelpChat());
+$("settings-guide-btn")?.addEventListener("click", () => openHelpChat());

@@ -87,39 +87,6 @@ measured or built in earlier commits and is marked there.
     Two items: the ring's ground (mind map agent); the live table view of
     the documents list, which needs reproducing first (documents agent).
 
-190. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the popup
-    agent and the help chat.** "the popup agent needs more ui, ux and
-    functionality refinements to be more professional. it needs to be more
-    versatile and usable across the whole app, the user should be able to
-    use it as the guiding hand and everything. also I was wondering if there
-    is a way to make the help chat bot more accessible throughout the
-    settings modal and also even accessible application wide?? maybe give
-    it more knowledge and capabilitie/function and give it a fitting
-    name??" And, on the same surface: "what does 'the open note' mean??
-    what does opening a note even entail?? how does one open a note??" The
-    label `#command-palette-use-note-text` is written by
-    `syncAgentOpenNoteToggle` and says "the open note" when it should name
-    the thing that is open, or say what would count. Owner: chat agent.
-
-189. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the popup
-    agent's subject.** "I think the test note the popup agent is referring
-    to is the mind map I just made called test". The open-thing scope
-    resolved a board as a note; a map, a board and a document each need
-    naming as what they are. Owner: chat agent.
-
-188. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the table
-    bar in an AI answer.** "the table button option rendering needs to be
-    fixed or refined, especially in the popup agent, maybe just make it a
-    copy button with an ellipse/kebab dropdown menu button next to it for
-    the other options". Recommendation, taken: one Copy button and a
-    `kebabMenu` for the rest, in both the chat and the popup agent. Owner:
-    chat agent.
-
-187. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the popup
-    agent's caret.** "the writing carette shows on the popup agent when the
-    3-dot animation is showing and it is waiting for a model response which
-    it shouldnt". Owner: chat agent.
-
 186. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the
     timeline dock (one screenshot: the kind chips and the Show: all button
     across the top of the dock).** "these buttons in the top of the
@@ -159,19 +126,22 @@ measured or built in earlier commits and is marked there.
     pan, the lag of every non-note object under the hand tool, the Arrange
     menu's height, the default board type and the map top bar's overflow
     (mind map agent).
-
-182. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), links.**
-    "I want to be able to right click or hold with a touch on a link and
-    have a popup show to let me copy the link address". App-wide: every
-    rendered markdown link (chat, popup agent, notes, documents) gets one
-    `kebabMenu`-shaped menu on contextmenu and long-press with Copy link
-    address and Open. Owner: chat agent.
-
-181. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), tables in
-    an AI answer.** "the actual size/fit to panel button in ai written
-    tables doesnt work when not in the full view, also I want the table row
-    and column widths and heights to be adjustable by the user in the full
-    view." Owner: chat agent.
+    **The badge: found and fixed (this commit).** It is not off its line, and
+    measuring that first is what found the real fault: at 1440, 1280, 1024,
+    820 and 390 the badge's centre is 0.0px from the subline's centre and all
+    four chips (`#chat-active-model`, `#chat-turns`, `#chat-context`,
+    `#chat-usage`) share one centre line to 0.0px. What is off is inside the
+    pill. Every chip after the first carries the row's middle-dot separator as
+    its own `::before`, which is invisible on a bare span and wrong on the one
+    chip that draws a box: the dot and its 8px of margin sat inside the pill's
+    border box, so the number sat 9.2px right of the box's centre, with 25.7px
+    of space on its left against 7.3px on its right. At rest the border is
+    transparent; past 70% of the window `.is-warn` paints it, which is the
+    state the screenshot was taken in. The separator is now an absolutely
+    positioned box in the gap the pill's own left margin opens, so it is still
+    drawn ("·", 20.8px wide, centred in that gap) and no longer inside the
+    pill: measured 0.0px off centre with 7.4/7.4px insets in a 78.5px pill
+    (was 96.8px) at all five widths, `scratchpad/ui-sweeps/chatbadge.js`.
 
 180. **Mid-work drop, 2026-09-13, verbatim (the owner), the whiteboard and
     the mind map, two screenshots (a dark board with four objects, every one

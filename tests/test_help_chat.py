@@ -158,3 +158,87 @@ def test_every_badge_tab_is_a_real_top_level_tab():
                 f"{topic['id']!r}'s badge points at {tab!r}, which switchTab() "
                 "can't resolve: it isn't one of the app's top-level tabs"
             )
+
+
+# --- INBOX 190: the Guide is reachable from every tab, so it is told which ---
+
+
+def test_the_tab_pulls_in_its_own_topics_for_a_question_that_names_none(
+    ai_client, fake_ollama
+):
+    """"How does this work?" has no keyword in it and used to match nothing.
+
+    That is the question the Guide gets most now that it opens from every
+    tab's header rather than only from the bottom of the Help pane, and with
+    no reference notes the system prompt tells the model to say it is not
+    sure, which is the one answer that is never useful.
+    """
+    fake_ollama.librarian_reply = "The graph draws a dot per note."
+    ai_client.post("/help/ask", json={"question": "how does this work?", "tab": "graph"})
+    sent = fake_ollama.chat_calls[-1]
+    reference = [m["content"] for m in sent if "Reference notes" in m["content"]]
+    assert reference, "a tab with topics must ground the answer even with no keyword match"
+    assert "graph" in reference[0].lower()
+    assert any("graph tab open" in m["content"] for m in sent)
+
+
+def test_what_the_question_names_still_wins_over_the_tab(ai_client, fake_ollama):
+    # Asking about reminders from the Graph tab is a question about reminders.
+    fake_ollama.librarian_reply = "Reminders tab."
+    ai_client.post(
+        "/help/ask", json={"question": "how do I set a reminder?", "tab": "graph"}
+    )
+    reference = [
+        m["content"] for m in fake_ollama.chat_calls[-1] if "Reference notes" in m["content"]
+    ]
+    assert reference
+    assert help_chat.topics_for("how do I set a reminder?", "graph")[0]["id"] == "reminders"
+
+
+def test_an_unknown_tab_adds_nothing_rather_than_failing(ai_client, fake_ollama):
+    fake_ollama.librarian_reply = "Not sure."
+    response = ai_client.post(
+        "/help/ask", json={"question": "how does this work?", "tab": "nonesuch"}
+    )
+    assert response.status_code == 200
+    assert help_chat.topics_for("how does this work?", "nonesuch") == []
+
+
+def test_the_surfaces_own_help_copy_reaches_the_model_and_is_capped(
+    ai_client, fake_ollama
+):
+    """The client sends the `.help-body` text of whatever is on screen.
+
+    It is the app's own wording, which makes it the best reference note there
+    is; it is also user-supplied input on the wire, so the cap is asserted
+    here rather than trusted to the browser that sent it.
+    """
+    fake_ollama.librarian_reply = "That toggle turns web search off."
+    ai_client.post(
+        "/help/ask",
+        json={
+            "question": "what is this toggle?",
+            "tab": "notes",
+            "context": "A quiet marker on a note you have not read since it changed.",
+        },
+    )
+    sent = fake_ollama.chat_calls[-1]
+    assert any("quiet marker on a note" in m["content"] for m in sent)
+
+    over = "x" * (help_chat.MAX_CONTEXT_CHARS + 500)
+    response = ai_client.post(
+        "/help/ask", json={"question": "what is this?", "context": over}
+    )
+    # The route's own Field(max_length=...) refuses it rather than truncating,
+    # which is the shape every other bounded body field in this app has.
+    assert response.status_code == 422
+
+
+def test_no_tab_behaves_exactly_as_before(ai_client, fake_ollama):
+    fake_ollama.librarian_reply = "Reminders tab."
+    ai_client.post("/help/ask", json={"question": "how do I set a reminder?"})
+    sent = fake_ollama.chat_calls[-1]
+    assert not [m for m in sent if "tab open" in m["content"]]
+    assert help_chat.topics_for("how do I set a reminder?") == help_chat._matching_topics(
+        "how do I set a reminder?"
+    )

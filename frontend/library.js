@@ -2456,19 +2456,17 @@ function formatFileSize(bytes) {
 //: The muted "TYPE · SIZE · pages · added" strip under a file's name. Every
 //: part is omitted when it is not known rather than shown empty or as a zero,
 //: since "0 B" and ", " are both claims this list cannot make honestly.
-function fileMetaLine(image) {
+//: **One line of facts, dot separated, built once.** The Files rows had this
+//: shape inline; the Links rows now want the same one (the owner, 2026-09-13:
+//: "redesign the links cards/rows ... to make them look nicer and more
+//: modern"), and a second copy of a loop that inserts separators is how two
+//: lists end up disagreeing about what a separator is. `extraClass` because
+//: the two lines sit in different layouts and the row needs a handle of its
+//: own for the column it lives in.
+function metaLine(parts, extraClass = "") {
   const line = document.createElement("div");
-  line.className = "library-file-meta";
-  const parts = [];
-  parts.push(mediaFileKind(image.original_name || image.url || ""));
-  const size = formatFileSize(image.size_bytes);
-  if (size) parts.push(size);
-  if (image.page_count) parts.push(`${image.page_count} page${image.page_count === 1 ? "" : "s"}`);
-  if (image.created_at) {
-    const when = new Date(image.created_at);
-    if (!Number.isNaN(when.getTime())) parts.push(`added ${when.toLocaleDateString()}`);
-  }
-  for (const [index, part] of parts.entries()) {
+  line.className = extraClass ? `library-file-meta ${extraClass}` : "library-file-meta";
+  for (const [index, part] of parts.filter(Boolean).entries()) {
     if (index) {
       const dot = document.createElement("span");
       dot.className = "library-file-meta-sep";
@@ -2480,6 +2478,44 @@ function fileMetaLine(image) {
     line.appendChild(span);
   }
   return line;
+}
+
+function fileMetaLine(image) {
+  const parts = [];
+  parts.push(mediaFileKind(image.original_name || image.url || ""));
+  const size = formatFileSize(image.size_bytes);
+  if (size) parts.push(size);
+  if (image.page_count) parts.push(`${image.page_count} page${image.page_count === 1 ? "" : "s"}`);
+  if (image.created_at) {
+    const when = new Date(image.created_at);
+    if (!Number.isNaN(when.getTime())) parts.push(`added ${when.toLocaleDateString()}`);
+  }
+  return metaLine(parts);
+}
+
+//: What a person calls a link: the site it is on. A bookmark row showed the
+//: whole address under its title, which on a real bookmark
+//: ("…/a/very/long/path?with=a&query=string") is a line of machine text under
+//: a line of human text, at the same rank. The host is what identifies a link
+//: in every browser's own bookmark list, the rest of the address is still on
+//: the row's tooltip and is what the title opens.
+function bookmarkAddress(url) {
+  const raw = String(url || "").trim();
+  try {
+    //: A bookmark may have been saved without a scheme ("example.com"), which
+    //: `new URL` rejects rather than guesses at, so the guess is made here and
+    //: the raw string is the answer if even that fails.
+    const parsed = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`);
+    const rest = `${parsed.pathname}${parsed.search}`;
+    return {
+      host: parsed.host.replace(/^www\./, "") || raw,
+      //: "/" is not a fact about a link, it is what every address ends up with
+      //: when it names a site rather than a page.
+      rest: rest === "/" ? "" : rest,
+    };
+  } catch {
+    return { host: raw, rest: "" };
+  }
 }
 
 function mediaFileKind(url) {
@@ -7717,29 +7753,52 @@ function bookmarkRow(bookmark) {
   });
   row.appendChild(tick);
 
+  //: **A mark, so a list of links reads as a list of links.** The Timeline's
+  //: rows carry one for the same reason: a column of rows with nothing at
+  //: their left edge but a tick box is a table, and the owner's ask here was
+  //: for these to look less like one. A glyph rather than a favicon, because
+  //: this app fetches nothing from the internet: a favicon is a request to
+  //: every site you have ever saved, which is the one thing an offline
+  //: notebook must not do.
+  const mark = document.createElement("span");
+  mark.className = "bookmark-mark";
+  mark.setAttribute("aria-hidden", "true");
+  setLabel(mark, bookmark.pinned ? "ph:push-pin" : "ph:link-simple");
+  row.appendChild(mark);
+
   const main = document.createElement("div");
   main.className = "bookmark-main";
+  //: **Two ranks, not four lines.** Before this the row stacked the title, the
+  //: whole address, the group and the note, each its own full-width line at
+  //: its own weight: measured at 1440, a row with a group stood 89.2px against
+  //: 67.2px for one without, so no two rows in the list were the same height,
+  //: and five type sizes met inside one of them (16px title over 12px address
+  //: over two more 12px lines with an icon at 13.8px). The title is the row;
+  //: the site, the group and the note are facts about it and share one line at
+  //: one size, the same `.library-file-meta` the Files rows use.
+  const address = bookmarkAddress(bookmark.url);
   const link = document.createElement("a");
+  link.className = "bookmark-title";
   link.href = bookmark.url;
   link.target = "_blank";
   link.rel = "noopener noreferrer";
-  link.textContent = bookmark.title || bookmark.url;
-  const urlLine = document.createElement("div");
-  urlLine.className = "muted text-sm bookmark-url";
-  urlLine.textContent = bookmark.url;
-  main.append(link, urlLine);
-  if (bookmark.group_name) {
-    const groupLine = document.createElement("div");
-    groupLine.className = "muted text-sm bookmark-group-label";
-    setLabel(groupLine, `ph:folder-simple ${bookmark.group_name.split("/").join(" / ")}`);
-    main.appendChild(groupLine);
-  }
-  if (bookmark.note) {
-    const noteLine = document.createElement("div");
-    noteLine.className = "muted text-sm";
-    noteLine.textContent = bookmark.note;
-    main.appendChild(noteLine);
-  }
+  link.textContent = bookmark.title || address.host;
+  link.title = bookmark.url;
+  main.append(
+    link,
+    metaLine(
+      [
+        //: A link saved without a title is named by its site, and then the
+        //: facts line saying the site again is the row saying one thing twice:
+        //: it says which page on it instead, which is the part the title is
+        //: not carrying.
+        bookmark.title ? address.host : address.rest,
+        bookmark.group_name ? bookmark.group_name.split("/").join(" / ") : "",
+        bookmark.note,
+      ],
+      "bookmark-meta",
+    ),
+  );
 
   const actions = document.createElement("div");
   actions.className = "row bookmark-actions";
@@ -7754,6 +7813,7 @@ function bookmarkRow(bookmark) {
   // a blank icon before this went out. `-slash` for "already pinned, click
   // to undo" is the same pairing the pinned-chat button already uses.
   setLabel(pin, `ph:${bookmark.pinned ? "push-pin-slash" : "push-pin"}`);
+  pin.classList.toggle("bookmark-pinned", Boolean(bookmark.pinned));
   pin.addEventListener("click", async () => {
     await apiJson(`/bookmarks/${bookmark.id}`, {
       method: "PUT",
@@ -7762,12 +7822,6 @@ function bookmarkRow(bookmark) {
     renderBookmarks();
   });
 
-  const edit = document.createElement("button");
-  edit.type = "button";
-  edit.className = "ghost small icon-only";
-  edit.title = "Edit";
-  edit.setAttribute("aria-label", "Edit this link");
-  setLabel(edit, "ph:pencil-simple");
   // **An inline form, not a chain of prompts.** This was two sequential
   // `promptDialog` calls (title, then URL) and was reported as "I still
   // can't edit the link URLs" five separate times. The flow was driven
@@ -7784,7 +7838,11 @@ function bookmarkRow(bookmark) {
   // fields are visible at once, nothing is sequenced, nothing depends on
   // focus returning correctly between modals, and what you are editing
   // stays on screen next to the form.
-  edit.addEventListener("click", () => {
+  //
+  //: A named function rather than a listener on a button of its own: the four
+  //: verbs this row carried are a kebab now (see below), and a menu row runs a
+  //: function.
+  const startEditing = () => {
     if (row.querySelector(".bookmark-edit-form")) return; // already editing
     const form = document.createElement("form");
     form.className = "bookmark-edit-form";
@@ -7869,15 +7927,9 @@ function bookmarkRow(bookmark) {
     row.appendChild(form);
     urlInput.focus();
     urlInput.select();
-  });
+  };
 
-  const group = document.createElement("button");
-  group.type = "button";
-  group.className = "ghost small icon-only";
-  group.title = "Move to group";
-  group.setAttribute("aria-label", "Move this link to a group");
-  setLabel(group, "ph:folder-simple");
-  group.addEventListener("click", async () => {
+  const moveToGroup = async () => {
     const value = await promptDialog(
       "Group (e.g. Work/Reading: blank clears it):", bookmark.group_name
     );
@@ -7893,22 +7945,40 @@ function bookmarkRow(bookmark) {
       body: JSON.stringify({ group_name: value }),
     });
     renderBookmarks();
-  });
+  };
 
-  const remove = document.createElement("button");
-  remove.type = "button";
-  remove.className = "ghost small icon-only";
-  remove.title = "Delete";
-  remove.setAttribute("aria-label", "Delete this link");
-  setLabel(remove, "ph:trash");
-  remove.addEventListener("click", async () => {
+  const removeBookmark = async () => {
     const ok = await confirmDialog(`Delete "${bookmark.title || bookmark.url}"?`);
     if (!ok) return;
     await apiJson(`/bookmarks/${bookmark.id}`, { method: "DELETE" });
     renderBookmarks();
-  });
+  };
 
-  actions.append(pin, edit, group, remove);
+  //: **Two controls on a row at rest, not four** (the owner, 2026-09-13:
+  //: "redesign the links cards/rows ... to make them look nicer and more
+  //: modern??"). Four icon buttons at the far end of every row is 32 buttons
+  //: in a list of eight, and it is the shape UI_MODERNISATION_PLAN settled for
+  //: the Files rows a pass ago ("the last three live in the kebab, which is
+  //: where every other list in this app puts them"). Pin stays out, because it
+  //: is a state you can see rather than a verb you go looking for: the row's
+  //: mark shows it too. Copy link is new and was the gap: nothing in the
+  //: Library could get a URL back out of the notebook.
+  const menu = kebabMenu(
+    [
+      makeMenuItem("ph:pencil-simple Edit this link", "Change the title, address or group", startEditing),
+      makeMenuItem("ph:folder-simple Move to group", "Move this link to a group", moveToGroup),
+      makeMenuItem("ph:copy Copy link", "Copy the address to the clipboard", async () => {
+        //: `copyToClipboard` flashes the button it is given, and a menu row is
+        //: gone by the time it would: it says so in a toast instead, the same
+        //: way every other copy in a menu does.
+        if (await copyToClipboard(bookmark.url)) toast("Link copied.");
+      }),
+      { ...makeMenuItem("ph:trash Delete", "Delete this link", removeBookmark), danger: true },
+    ],
+    `Actions for ${bookmark.title || bookmark.url}`,
+  );
+
+  actions.append(pin, menu);
   row.append(main, actions);
   return row;
 }

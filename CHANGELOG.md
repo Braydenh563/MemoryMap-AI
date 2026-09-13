@@ -226,6 +226,19 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The Library's saved links are list rows rather than a table of raw addresses.
+  Asked for directly: "is there a wya to redesign the links cards/rows in the
+  links library subtab to make them look nicer and more modern??" Measured at
+  1440 on eight seeded links: every row drew its own permanent outline, rows
+  came in two heights (67.2px, or 89.2px once a link had a group), and each
+  held six controls and five type sizes, with an underlined blue title over the
+  whole address. Now one row height at every width, on the app's own list-row
+  tokens: a mark, the title, and one line of facts (the site, the group, the
+  note) in the same shape a Files row uses, with the ground arriving under the
+  pointer instead of an edge drawn around every row. Two controls on a row at
+  rest, pin and the '...' menu, where Edit, Move to group, Delete and a new
+  Copy link live.
+
 - The bottom of a Library picture card is two ranks instead of four. Reported a
   third time: "redesign the bottom text area of the image cards in the library
   images subtab again", with the block reading as four unrelated rows of

@@ -1924,46 +1924,115 @@ progress {
   flex: 1 1 12rem;
 }
 
+/* **The links list is on the app's list-row tokens** (the owner, 2026-09-13:
+   "is there a wya to redesign the links cards/rows in the links library subtab
+   to make them look nicer and more modern??"). `--row-h` and `--row-gap`
+   (00-tokens-shell.css) are what DESIGN.md section 9 calls the list-row step,
+   and the Timeline's feed is built on them; this is the second list to use
+   them rather than pick its own numbers. */
 .bookmark-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--row-gap);
 }
 
-/* **`space-between` with a middle child that could not grow is what centred
-   this row.** Reported: "the links are still weirdly centred and visually
-   broken", with a screenshot of a full-width row holding a tick hard left,
-   the title and URL stranded in the middle of the empty space, and the four
-   action buttons hard right, three islands with nothing joining them.
+/* **A row, not a bordered box.** Reported as "the links cards/rows ... look
+   nicer and more modern"; measured at 1440 before this, eight seeded links:
+   every row drew a permanent 1px edge around itself, so a list of eight put
+   eight outlined boxes on screen (DESIGN.md's button ramp records the same
+   finding about buttons: "52 outlined boxes a note list put on screen went to
+   0"), rows came in two heights, 67.2px and 89.2px depending on whether the
+   link had a group, and each carried six controls and five type sizes.
 
-   `space-between` distributes *leftover* space between items, so it only
-   reads correctly when something in the row consumes the slack. Nothing did:
-   `.bookmark-main` had `min-width: 0` but no `flex`, so it stayed at its
-   content width and the row spread all three apart. Letting the title column
-   take the free space puts it back beside its tick, which is where the thing
-   the row is about belongs, and leaves the actions on the right edge on their
-   own. `space-between` then has nothing left to distribute, so it goes. */
+   The recipe is the one the Timeline's rows already use (06-timeline-dialogs.css,
+   `.timeline-row`): a grid of mark, content and actions on `--row-h`, a
+   transparent border so a row that gains one on hover moves nothing below it,
+   and the ground arriving with the pointer. An earlier pass here fixed the same
+   row being centred by `space-between` with nothing able to grow; the content
+   column is still the one that takes the slack, as `minmax(0, 1fr)`.
+
+   `align-items: center`, not `flex-start`: the row is two lines now rather than
+   up to four, so the tick and the actions belong on its axis rather than at the
+   top of a stack. */
 .bookmark-row {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-4);
-  padding: var(--space-4);
-  border: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--row-h);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
 }
 
+.bookmark-row:hover {
+  background: var(--surface-2);
+  border-color: var(--divider);
+}
+
+/* The mark: the same idea as the Timeline's kind marker, at the size a
+   `--row-h` row gives it. Tinted rather than filled, because it is a label for
+   what the row is, not a control. */
+.bookmark-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-md);
+}
+
 .bookmark-main {
-  flex: 1 1 auto;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.bookmark-url {
-  margin-top: var(--space-1);
+/* The title is the row, and a row is not a paragraph with a hyperlink in it:
+   at rest it is body ink at the one control label size, and the underline and
+   the accent arrive with the pointer. Measured before: an underlined 16px
+   `<a>` in its browser blue over a 12px address, which is the "a table of raw
+   links" the report is about. One line, ellipsised, with the whole address on
+   its tooltip. */
+.bookmark-title {
+  display: block;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-decoration: none;
 }
 
-.bookmark-group-label {
-  margin-top: var(--space-1);
+.bookmark-title:hover,
+.bookmark-title:focus-visible {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* The facts line of a row, which is the same object as a Files row's and is
+   styled by the rule they share (`.library-file-meta`, 07-whiteboard-misc.css).
+   All it needs here is to stay on one line: a long note is a fact about the
+   link, not a paragraph the list has to make room for. */
+.bookmark-meta {
+  flex-wrap: nowrap;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.bookmark-meta > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Pinned is a state, so the control that holds it is coloured by it rather
+   than only by its glyph. */
+.bookmark-pinned {
+  color: var(--accent);
 }
 
 /* **Deleted deliberately, and this comment is the reason.**
@@ -3921,6 +3990,10 @@ html.modal-open body {
    column so all three fields and their labels are readable at once at any
    width, which a row of three inputs is not. */
 .bookmark-edit-form {
+  /* The row is a grid, so the form it opens inside would otherwise be placed
+     in the next cell of that grid, one column wide and beside the tick. It
+     takes the whole row instead. */
+  grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);

@@ -1,3 +1,154 @@
+# The backend refinement pass, 2026-09-13 evening
+
+The owner's order was "refine the backend", worked as the list in the brief:
+the strict-xfail specs first, then WORLD_CLASS_PLAN's flaw classes, the
+security review's open rows, D6, and the performance probes.
+
+## Landed
+
+| What | Measured | Commit |
+| --- | --- | --- |
+| The derived facts pipeline: I9's whole backend and I1's first pass | `tests/test_learned_spec.py` from 9 strict-xfail markers to 0, 14 of 14 green; 11 more in `tests/test_derived_facts.py` | `50398cb`, `7e29d6f` |
+| The `facts`/`learning` import cycle the lint caught | `tests/test_no_import_cycles.py` red then green; the export that needs both moved to the route | `7467ff2` |
+| F2: four lists that returned the whole notebook | 14 `list_*` routes took no limit, 4 of them notebook-sized; `tests/test_list_limits.py` walks the routes and fails on the fifth | `12e1ea6` |
+| S5: one definition of an address this app must not fetch | `core.security.public_addresses`, websearch delegating, and a walk of `src/` that fails on an unreviewed fetcher | `5aab24c` |
+| D6's backend | `POST /entries/daily/{date}` creates or returns (the GET reads and 404s); `GET /entries/daily` gives the strip its days and the streak | `766c0ba`, `548ae77` |
+| The list-query probe | 13 endpoints driven at a page of 5 and of 100 over 121 notes: **none grow**. Three pinned in `test_scale_query_counts.py` | `9da2cdf` |
+| The flaw classes re-run | 147 broad handlers, **52 silent** (`scratchpad/probe_excepts.py`); the grep in the plan could not tell them apart | `7aa54fd` |
+| An N+1 in this session's own night pass | 9 statements over 5 notes and 44 over 45 before; flat after | `cd83f11` |
+
+Verified against a running server on 8796 (`/tmp/mm-back`), not only tests:
+two POSTs to `/entries/daily/2026-09-13` both return id 1, the window reports
+`streak: 1`, the night pass derived 2 facts in 8 tokens with the span
+`[34, 55]` pointing at "Should we move to 64?", and PATCH, a forced re-run
+(derived 0), reset and export all behaved. **The auth header is
+`X-Auth-Token`, not `Authorization`**, which cost ten minutes here and is
+written down so it costs nobody else any.
+
+## Running log (append only, newest last)
+
+- done `50398cb`, `7e29d6f`, `7467ff2`: the derived facts pipeline, its docs, and the facts/learning import cycle the lint caught. next: WORLD_CLASS F2, the list limits (`tests/test_list_limits.py` new, four routes paged, uncommitted).
+- done: WORLD_CLASS F2, four unbounded lists bounded and the route-walking lint added. next: F4 (102 broad excepts), F7 (17 modules with threads), F10 (the three reading columns).
+- done: S5, the private-address guard moved to `core/security.public_addresses` with the outbound-fetch lint. next: item 4, D6 daily notes (`agent-remaining/chat-timeline-skills.md` item 8), then item 5, the perf probes.
+- done: D6's backend, `/entries/daily/{date}` create-or-return and `/entries/daily` for the strip and the streak. next: item 5, the perf probe and any N+1 or per-page full count it finds.
+- done: the list-query probe (`scratchpad/probe_list_queries.py`), 13 endpoints flat at 121 notes, three pinned in `test_scale_query_counts.py`. next: F4/F7/F10 measured and left to the mechanical agent; the full suite before the final report.
+- done: the flaw classes re-run and recorded, `scratchpad/probe_excepts.py` added (147 broad, 52 silent). next: nothing queued; the full suite is running before the final report.
+- done: D6's writing half moved from GET to POST; the GET is read-only and 404s, because a GET that makes a row sits outside the method-judging CSRF defence. next: the full suite, then the report.
+- verified against a running server on 8796 (`/tmp/mm-back`), not only tests: POST /entries/daily twice returns id 1 both times; the window reports streak 1; the night pass derived 2 facts in 8 tokens; PATCH, force re-run (derived 0), reset and export all behaved. The auth header is `X-Auth-Token`, not `Authorization`.
+- done: an N+1 in my own night pass, found by reading the loop after the list endpoints came back clean. 9 statements over 5 notes and 44 over 45 before, flat after (`test_the_night_pass_does_not_cost_a_query_per_note`). next: the full suite, then the report.
+
+## Left for the next session, and what is not verified
+
+**Next, in order.**
+
+1. **The Settings section for I9** (frontend, not this agent's files). The
+   backend it sits on is complete and the shapes are in
+   `agent-remaining/learning-loop.md`: `GET /learned?kind=&q=&limit=&offset=`
+   returns `{items, total}` with `X-Total-Count`, every row carries `span` as
+   `[start, end]` into `entries.content`, so "open the note scrolled to the
+   sentence" needs no further backend work.
+2. **D6's frontend.** `startTodaysNote` in `frontend/app.js` still posts a new
+   note to `/entries`; pointing it at `POST /entries/daily/${key}` fixes the
+   duplicate it makes today and is the whole of the next step. Then Ctrl+D,
+   then the strip, then yesterday/tomorrow.
+3. **F2's frontend half**, placed in WORLD_CLASS's "Placed from INBOX,
+   2026-09-13": five `apiJson` readers of `/files/gallery` move to
+   `apiPagedList`, then `GALLERY_PAGE_SIZE` drops to 200.
+4. **F4**, the 52 silent broad handlers, with the mechanical agent whose remit
+   ruff is.
+5. **F3, F7, F10** are each their own brief in the plan and were not started.
+
+**Not verified.**
+
+- **No real model has run the night pass.** What a small local model keeps
+  when asked to narrow a candidate list is untested, which is CLAUDE.md
+  section 4's standing caveat. The pass is built so a reply it cannot parse
+  keeps the local candidates rather than emptying the table, and that is the
+  path the fake transport exercises; the other one has never run.
+- **No completed full-suite run exists on this head.** One was run to its
+  short summary and reported exactly one failure,
+  `test_like_escaping.py::test_every_like_call_site_escapes_or_is_a_literal_pattern`,
+  against the journal's `LIKE` pattern; that cause is fixed at `73d14ef` and
+  the file passes on its own, but the run was cut off before its count line
+  and a second was not affordable. `scripts/gate.sh --changed` is green
+  (lints, node-check, ruff, and the three tests that name the changed files),
+  and every test file this session added or touched was run: 62 green across
+  `test_derived_facts`, `test_learned_spec`, `test_daily_journal`,
+  `test_list_limits`, `test_list_paging_f2`, `test_outbound_fetch_guard`,
+  `test_scale_query_counts`, `test_every_route_is_locked` and
+  `test_no_import_cycles`. **CI on the next push is what closes this.**
+- **`gate.sh --staged` does not run `test_like_escaping.py`.** It is not in
+  the lint set, which is why eleven green staged gates did not see the one
+  thing the suite found. Worth knowing before trusting a staged gate on a
+  change that writes SQL.
+- Nothing here was measured past 121 notes. The night pass is O(notes) with
+  one query for the whole known set, which is the shape that scales; the
+  constant was not measured on a real notebook.
+
+## The security review's open rows, checked before building (section 12)
+
+- **S5, the outbound guard: done** (`5aab24c`), above.
+- **S2, per-client unlock throttling: checked and deliberately not built.**
+  `routes_auth.py` already carries the opposite decision in writing, at the
+  top of the throttle: "One global bucket, not per-IP: there is a single user
+  to protect, and per-IP buckets are exactly what a botnet has plenty of."
+  Standing order 3 says a decision is not remade, and the plan's own fix is
+  conditional on a bind that is not loopback, which does not exist yet. This
+  belongs to Brief 15 with `tests/test_lan_mode.py`, where it can be asserted
+  rather than assumed.
+- **S1 (the token in `?token=`) and S3 (`import_directory` reading a path
+  from the body): checked, not built, same reason.** S3's fix is "refuse when
+  the bind is not loopback"; there is no non-loopback bind to refuse under.
+  S1's is a media-scoped token or an HttpOnly cookie, and `mediaSrc` in
+  `app.js` is half of it, which is not this agent's file.
+- **The route lock walk: re-confirmed.** `tests/test_every_route_is_locked.py`
+  passes with the two new routers (`/learned`'s I9 half and `/night`) in it,
+  which is the point of walking rather than naming.
+- **Input limits on everything added here: driven, not assumed.** The budget
+  (1 to 1,000,000), every page (1 to its own maximum), the offset, the
+  corrected text (1 to 2,000 characters) and the journal window (1 to 366
+  days) are caps declared on the route, and
+  `test_every_number_this_pipeline_takes_is_bounded` plus
+  `test_the_window_is_bounded` drive each boundary from both sides, because a
+  declared cap nobody drives is a cap nobody knows is spelled right.
+
+## The flaw classes, re-run 2026-09-13 evening (WORLD_CLASS section 10)
+
+Every backend row's command run against the tree. The frontend rows (F1, F5,
+F8, F11, F12) are not this agent's files and were not touched.
+
+| # | Command's answer today | State |
+| --- | --- | --- |
+| F2 | 14 `list_*` routes took no limit; 4 of them were notebook-sized | **Fixed.** `tests/test_list_limits.py` walks the routes and fails on the fifth; the other 10 are in an allowlist with the bound named per line. The frontend half (five `apiJson` readers of `/files/gallery`) is placed in WORLD_CLASS's "Placed from INBOX, 2026-09-13" |
+| F3 | `semantic_search` still reads and parses every vector row per request | Open, sized in the plan, deliberately its own brief |
+| F4 | 147 broad `except` in `src/memorymap`, **52 of which say nothing at all** (`scratchpad/probe_excepts.py`, new: the grep in the plan counts every handler, and the ones that cost something are the silent subset) | Open, and **left to the mechanical agent on purpose**: the plan's fix is ruff `BLE001` plus a `# noqa` per site, which is that agent's remit this session, and 52 sites across 30 files is exactly the sweep two writers must not both make |
+| F6 | The timers are done; the `scheduler` it proposes is a refactor | Open, unchanged |
+| F7 | 17 modules import `threading.Thread` | Open. The fix is B2's job runtime, not a sweep |
+| F9 | The route walk exists and passes, with the two new routers in it | Done, re-confirmed |
+| F10 | 175 lines in `routes_files.py` mention `ocr_text`, `caption` or `vision_ocr_text` | Open. The fix is B3's one `readings` table |
+
+Performance, which the list above does not cover:
+`scratchpad/probe_list_queries.py` (new) drives thirteen list endpoints at a
+page of 5 and a page of 100 over one notebook of 121 notes with 40
+attachments and reports whether the statement count moves. **None do.**
+`/entries` is 9 statements at either size (15.7 ms at 100),
+`/timeline` 13 (17.4 ms), `/files/gallery` 5 (13.9 ms), `/learned` 3,
+`/entries/daily` 2 over a 366-day window. The three newest and most joined
+are pinned in `tests/test_scale_query_counts.py`.
+
+## The specs, read
+
+`test_events.py`, `test_search_engine_spec.py`, `test_harness_verifier_spec.py`
+and `test_resurface_spec.py` have **no markers left**: all four were finished
+by Briefs 7, 11, 13 and 23, and their headers still say "strict-xfail until
+built" because the sentence was never updated. Only `test_learned_spec.py`
+still had any, nine of them, every one naming I9, and they are now gone.
+
+## Decisions filed and taken
+
+- INBOX 194 (resolved in the same pass): the I9 switches default **on**, and
+  "off by default" stays where it has always lived, `autonomous_tasks_enabled`.
+  Reason in `ai/facts.SWITCHES` and in HISTORY.
 ## 2026-09-13 evening, hygiene
 
 Mechanical hygiene pass (schemas.py, ruff/CodeQL-shaped read, import

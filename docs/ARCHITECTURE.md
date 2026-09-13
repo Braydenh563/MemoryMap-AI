@@ -598,6 +598,15 @@ SQLite via SQLAlchemy 2.0 (`core/database.py`). Main tables:
   threads), `pinned`, `user_filed` (user chose the category → janitor keeps
   hands off), timestamps, and soft-delete (`is_deleted` / `deleted_at`).
 - **entry_links**: user- or AI-made connections between two entries (the graph).
+- **derived_facts**: what the app worked out about a note rather than what
+  anybody wrote (`ai/facts.py`, WORLD_CLASS_PLAN 15 I1 and I9): a claim the
+  note makes or a question it leaves open, with the span it came from, the
+  model that decided (or `local`), a confidence, and the lifecycle that
+  makes the model's judgement reversible: `edited_by_user` plus
+  `original_text` (a re-run never overwrites a correction, Reset restores
+  the model's words) and `deleted_at` as a tombstone (a deleted fact is
+  never re-derived). Read and corrected through `/learned`; written by the
+  night pass, which is a task in `ai/autonomous.py` and `POST /night/run`.
 - **whiteboard_nodes / whiteboard_sketches**: a note card, or a freehand
   stroke list, placed at an `(x, y, z)` on a board (§39C). `board_id` points at
   an *entry*, so a board is a note and inherits searching, tagging and filing;

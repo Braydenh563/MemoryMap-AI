@@ -220,9 +220,30 @@ class AttachmentGalleryOut(BaseModel):
     pages_read: int = 0
 
 
+#: The gallery's page. **The default is the maximum, deliberately, and it is
+#: the only list here where that is true.** The bound is what WORLD_CLASS_PLAN
+#: F2 asks for: the response no longer grows with the notebook. A *small*
+#: default would be better still, and is not taken yet, because five callers
+#: read this endpoint whole through `apiJson` (`app.js` 17875, `editor.js`
+#: 870, `library.js` 3767 and 5403, and the Files picker source at `app.js`
+#: 7073), one of them the Library's own Files sub-tab. Shipping a 200-row
+#: default before those move to `apiPagedList` would silently truncate the
+#: Library at two hundred attachments, which is a worse bug than the one
+#: being fixed. `X-Total-Count` is sent so the paged caller that already
+#: exists (`app.js` 17861) reads to the end, and INBOX 195 carries the
+#: frontend half: once the five move, this default drops to 200.
+GALLERY_PAGE_SIZE = 1000
+GALLERY_PAGE_SIZE_MAX = 1000
+
+
 @router.get("/files/gallery", response_model=list[AttachmentGalleryOut])
-def list_attachment_gallery(session: Session = Depends(get_session)) -> list[AttachmentGalleryOut]:
-    """Every note-attached file the Library's gallery may show, the
+def list_attachment_gallery(
+    response: Response,
+    limit: int = Query(default=GALLERY_PAGE_SIZE, ge=1, le=GALLERY_PAGE_SIZE_MAX),
+    offset: int = Query(default=0, ge=0),
+    session: Session = Depends(get_session),
+) -> list[AttachmentGalleryOut]:
+    """A page of the note-attached files the Library's gallery may show, the
     `Attachment` half of what `GET /media` (this file, `list_media`) already
     covers for `MediaUpload` rows. See `AttachmentGalleryOut` for why this is
     a separate, smaller shape rather than folded into that endpoint.
@@ -235,14 +256,27 @@ def list_attachment_gallery(session: Session = Depends(get_session)) -> list[Att
     applies before this query ever runs, the same as every other
     workspace-scoped read in this app.
     """
-    rows = session.execute(
+    visible = (
         select(Attachment, Entry)
         .join(Entry, Attachment.entry_id == Entry.id)
         .where(
             Entry.is_deleted == False,  # noqa: E712
             Entry.is_private == False,  # noqa: E712
         )
-        .order_by(Attachment.created_at.desc())
+    )
+    # Paged for the reason `GET /media` beside it is (WORLD_CLASS_PLAN F2):
+    # this used to be the whole table, and the table is one row per attached
+    # file for the life of the notebook. `X-Total-Count` is the real size
+    # whatever the page, and the id breaks a tie on `created_at` so two files
+    # attached in the same second cannot swap places between pages and hide a
+    # row.
+    response.headers["X-Total-Count"] = str(
+        session.scalar(select(func.count()).select_from(visible.subquery())) or 0
+    )
+    rows = session.execute(
+        visible.order_by(Attachment.created_at.desc(), Attachment.id.desc())
+        .limit(limit)
+        .offset(offset)
     ).all()
     ids = [attachment.id for attachment, _ in rows]
     page_text = _page_read_text_map("attachment", ids)
@@ -1329,6 +1363,9 @@ class MediaOrphansOut(BaseModel):
     skipped_private: bool
     #: How many uploads DELETE actually removed. Always 0 for the GET dry run.
     deleted: int = 0
+    #: How many orphans there are in total, which is not `len(orphans)` once
+    #: the GET is paged.
+    total: int = 0
 
 
 # Declared ahead of the `/media/{upload_id}` routes below: FastAPI compiles
@@ -1337,17 +1374,29 @@ class MediaOrphansOut(BaseModel):
 # `/media/{upload_id}` would already have claimed the match and returned a
 # 422 instead of ever reaching these.
 @router.get("/media/orphans", response_model=MediaOrphansOut)
-def list_orphaned_media(session: Session = Depends(get_session)) -> MediaOrphansOut:
+def list_orphaned_media(
+    limit: int = Query(default=MEDIA_PAGE_SIZE_MAX, ge=1, le=MEDIA_PAGE_SIZE_MAX),
+    offset: int = Query(default=0, ge=0),
+    session: Session = Depends(get_session),
+) -> MediaOrphansOut:
     """Uploads no live note, document or whiteboard image object still
     points at (ROADMAP.md item 20a). A dry run: nothing is deleted here.
+
+    `total` rather than a header, unlike the other paged lists here, because
+    this one has a body of its own already and the number is the answer the
+    screen actually shows ("42 files nothing points at"). The page bounds the
+    response, not the check: `DELETE /media/orphans` still acts on every
+    orphan it finds, because deleting a page at a time would mean the count
+    on screen and the count deleted could never agree.
     """
     orphans, skipped_private = media_gc.find_orphaned_media(session)
     return MediaOrphansOut(
         orphans=[
             MediaUploadOut(id=u.id, url=f"/media/{u.filename}", original_name=u.original_name)
-            for u in orphans
+            for u in orphans[offset : offset + limit]
         ],
         skipped_private=skipped_private,
+        total=len(orphans),
     )
 
 

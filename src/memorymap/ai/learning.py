@@ -71,7 +71,20 @@ EXCLUDE_AFTER = 2
 
 #: The kinds this module knows. Kept as a set so a typo in a `kind=` argument
 #: is an error at the call rather than a row nothing will ever read back.
-KINDS = frozenset({"refile", "open_after_ask", "dismiss_link", "dismiss_resurface"})
+KINDS = frozenset(
+    {
+        "refile",
+        "open_after_ask",
+        "dismiss_link",
+        "dismiss_resurface",
+        # The two the derived facts table writes (I9). They feed no boost
+        # family: a deleted fact is already stopped from returning by its own
+        # tombstone, and these rows exist so that "what has the app been
+        # getting wrong" is answerable in one place rather than two.
+        "delete_fact",
+        "edit_fact",
+    }
+)
 
 #: Which family of boost each kind feeds. `boosts(kind="filing")` and
 #: `boosts(kind="search")` are what the spec asks for, and they are groups of
@@ -227,6 +240,14 @@ def boosts(session: Session, kind: str) -> dict[tuple, float]:
     kinds = FAMILIES.get(kind)
     if not kinds:
         raise ValueError(f"unknown boost family {kind!r}; known: {sorted(FAMILIES)}")
+    from memorymap.ai.facts import runner_enabled
+
+    if not runner_enabled("corrections"):
+        # Switched off means the corrections are kept and inert (I9). The rows
+        # stay, `corrections()` still reads them, and only the thing that
+        # *changes behaviour* stops, which is the difference between pausing a
+        # feature and deleting somebody's history.
+        return {}
     out: dict[tuple, float] = {}
     # **Read per kind, not once over everything.** `corrections()` takes the
     # newest 500 rows, and this used to ask for all kinds at once and then

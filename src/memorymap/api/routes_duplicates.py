@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -64,15 +64,35 @@ def _joined(entries: list[Entry]) -> str:
     return "\n\n---\n\n".join(e.content.strip() for e in entries)
 
 
+#: How many duplicate groups one response carries. A group is several whole
+#: notes, so this list is heavier per row than any other in the app, and the
+#: screen it feeds is one somebody works through a group at a time.
+#: Default equal to the maximum, same reason as the two above: the one caller
+#: (`app.js` 36995) reads `{threshold, groups, total}` whole.
+DUPLICATE_PAGE_SIZE = 500
+DUPLICATE_PAGE_SIZE_MAX = 500
+
+
 @router.get("")
 def list_duplicates(
     threshold: float = duplicates.DEFAULT_THRESHOLD,
+    limit: int = Query(default=DUPLICATE_PAGE_SIZE, ge=1, le=DUPLICATE_PAGE_SIZE_MAX),
+    offset: int = Query(default=0, ge=0),
     session: Session = Depends(get_session),
 ) -> dict:
-    """Groups of notes that look like the same note."""
+    """A page of the groups of notes that look like the same note.
+
+    `total` is every group the scan found, not the page: the number the screen
+    opens with ("11 possible duplicates") has to be the real one, or the first
+    thing this feature says is wrong.
+    """
     threshold = min(max(threshold, 0.4), 1.0)
     groups = duplicates.find_duplicates(session, threshold)
-    return {"threshold": threshold, "groups": groups}
+    return {
+        "threshold": threshold,
+        "groups": groups[offset : offset + limit],
+        "total": len(groups),
+    }
 
 
 @router.post("/preview")

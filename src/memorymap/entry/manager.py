@@ -27,6 +27,7 @@ from memorymap.core.database import (
     EmbeddingRecord,
     EntityMention,
     Entry,
+    DerivedFact,
     DocumentLink,
     EntryBookmark,
     EntryDate,
@@ -880,6 +881,11 @@ def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | Non
     session.execute(delete(EntryBookmark).where(EntryBookmark.entry_id.in_(ids)))
     session.execute(delete(EntityMention).where(EntityMention.entry_id.in_(ids)))
     session.execute(delete(NoteScore).where(NoteScore.entry_id.in_(ids)))
+    # An eighth, added with the derived facts table (I9): what the app
+    # worked out about a note is about the note, so it goes when the note
+    # does. Keeping it would also leave the "what the notebook learned"
+    # list citing a span in a note nobody can open.
+    session.execute(delete(DerivedFact).where(DerivedFact.entry_id.in_(ids)))
     # A whiteboard card *is* its note, with the note gone there is nothing
     # left to show, so the card goes with it, same as a sketch's own delete.
     session.execute(delete(WhiteboardNode).where(WhiteboardNode.entry_id.in_(ids)))

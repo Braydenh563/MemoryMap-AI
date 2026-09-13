@@ -9,6 +9,46 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The night pass reads what it already knows in one query instead of one per
+  note. Measured on a re-run with nothing new to derive: 9 statements over 5
+  notes and 44 over 45 before, flat after.
+
+- `scratchpad/probe_list_queries.py` drives every list endpoint at a page of 5
+  and a page of 100 over the same notebook and says which ones cost a query
+  per row. None do, measured at 121 notes with 40 attachments; the three
+  newest and most joined are pinned in `tests/test_scale_query_counts.py` so
+  the next one cannot arrive quietly.
+
+- The journal has a day that opens twice. `POST /entries/daily/{date}` returns
+  that day's note and makes it only if it is not there yet, so pressing
+  "today's note" a second time no longer leaves two notes headed with the same
+  date and the day's writing split between them. `GET /entries/daily` says
+  which of the last days were written and how many in a row, counting back
+  from the caller's own today and allowing today to still be empty.
+
+- The guard that refuses to fetch a URL pointing back at this machine is one
+  function now, `core.security.public_addresses`, rather than a private one
+  inside the web reader. A new test walks `src/` for outbound HTTP calls and
+  fails on a module that is not written down as either untrusted (it must go
+  through the guard) or configured (the address is one the person set).
+
+- Four list endpoints that returned as many rows as the notebook has now take
+  a `limit`: the attachment gallery, the memory stream, the orphan scan and
+  the duplicate groups. Each still reports the real total, so a screen that
+  says "42 files nothing points at" is not counting its own page.
+  `tests/test_list_limits.py` walks every route the app serves and fails on a
+  fifth, with an allowlist that carries the reason each bounded list is
+  bounded rather than a count.
+
+- What the notebook learned, as a table you can correct (WORLD_CLASS_PLAN 15,
+  I1 and I9). A night pass reads each note, keeps the claims it makes and the
+  questions it leaves open, and records for every one of them the note and the
+  exact span it came from, who decided (a model by name, or `local`), when and
+  how sure. Each can be edited (and is then never overwritten by a later run),
+  deleted (and then never re-derived), reset to what the model said, exported
+  as JSON, or forgotten entirely, which leaves notes and revisions untouched.
+  One switch per runner plus a master switch, read before every pass.
+
 - A document can be downloaded as one self-contained HTML file. Images become
   data URIs, the stylesheet is written into the file, comments travel as
   footnotes, controls that only work inside the app are dropped (a `[[link]]`

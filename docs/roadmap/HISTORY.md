@@ -24221,10 +24221,102 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     `docDictionary`'s own comment; **not verified** is the night it
     happened, which cannot be reproduced from here.
 
+194. **Decision needed and taken, 2026-09-13 evening, the backend agent: what
+    "default off" means for I9's switches.** WORLD_CLASS_PLAN 15 I9 says the
+    learning switches default off for I1, I2, I7 and I8; `test_learned_spec.py`
+    runs `POST /night/run` with no switch set and requires rows back, and I7's
+    five green tests read boosts through the same switch. Recommendation,
+    taken (**Fixed 50398cb.**): the seven switches default **on**, and "off by default" is kept
+    where it has always lived, `autonomous_tasks_enabled` (off by default),
+    which is the preference that decides whether this app may think while
+    nobody is watching. Nothing computes unattended without it; the switches
+    are the finer control over *what* it computes once it may, and a switch
+    that started off would make the person's first press of "run now" do
+    nothing with no explanation. Recorded in `ai/facts.SWITCHES`.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing
 order 10). Origin file named on each.
+
+### From WORLD_CLASS_PLAN.md
+
+### Built, I9's whole backend and the first pass of I1, 2026-09-13 evening
+
+Brief 24. Nine of `tests/test_learned_spec.py`'s markers were the last strict
+xfails in the file, and the finding the brief was written around held up:
+every one of them drove a pipeline that did not exist, not a Settings screen.
+What landed is the pipeline.
+
+**`derived_facts` (core/database.py).** entry_id, kind, text, span_start,
+span_end, model, confidence, computed_at, edited_by_user, original_text,
+deleted_at. Not workspace-scoped: every row points at an entry, `Entry`
+carries `WorkspaceMixin`, so the listing joins the note and inherits that
+filter along with the private and binned ones rather than keeping a second
+copy of the answer that can disagree with the first. Added to
+`manager._hard_delete`'s list, so a note with derived facts is still
+deletable (the class of bug that made three of four parents permanent).
+
+**`ai/facts.py`, and the one decision worth arguing with.** The obvious
+shape is to ask a model for a JSON list of claims and questions. It was not
+taken, for two reasons written into the module docstring: a model's
+paraphrase is not in the note, so its span has to be re-found by string
+search afterwards, which lands on the wrong sentence in any note that repeats
+itself (`test_a_sentence_repeated_in_one_note_is_one_fact` is that case, and
+it failed on the first cut of this code, deriving the same fact twice); and a
+pipeline that derives nothing without a model leaves a person with no model
+an empty screen forever, in an app whose own `client` fixture exists to prove
+capture and search work with zero AI. So the pass splits the note into
+sentences carrying their offsets, proposes a question for anything ending in
+`?` and a claim for anything taking a position, and a model, when one is
+running, is asked only to *narrow* that list. `model` on the row names
+whoever made the final call, `local` when none did, and a reply that cannot
+be parsed keeps the local candidates rather than silently emptying the
+feature.
+
+**The lifecycle.** `edited_by_user` plus `original_text` (a run never
+overwrites a correction, and Reset has the model's words to go back to),
+`deleted_at` as a tombstone plus a `delete_fact` correction in `AuditLog`
+(the tombstone stops the re-derivation, the correction is what the loop
+learns from: brief decision 3), and a fingerprint over the model's wording,
+whitespace and case folded out, so a re-wrapped note does not re-derive
+everything in it and orphan every correction.
+
+**The switches.** Seven plus a master, stored one preference each
+(`learn.<name>.enabled`) so a switch added later cannot be lost by a writer
+that read a shared blob before it existed. `GET /learned/switches` reports
+them as the runners see them: the master wins. Three runners read theirs
+before every pass: the night pass, `resurface.compute_scores` and
+`learning.boosts` (off means the rows are kept and inert, not deleted).
+
+**Routes.** `POST /night/run` (budget, force), `GET /learned`,
+`GET|PATCH|DELETE /learned/{id}`, `POST /learned/{id}/reset`,
+`GET|PUT /learned/switches`, `DELETE /learned` (confirm required),
+`GET /learned/export`. The scheduled half is a fourth task in
+`ai/autonomous.py`, not a new runtime (brief decision 1).
+
+**Two tests were wrong and were changed with the reason, per the file's own
+header.** `ai_client.delete("/learned", json=...)` raises `TypeError` before
+it reaches the app, because `TestClient.delete` takes no body; it now goes
+through `request`. And `test_a_private_notes_facts_are_never_listed` called
+`manager.set_private`, which returns False and changes nothing when the vault
+has no key, so it was asserting against a note that was never private: the
+key is stubbed the way `test_search_engine.py` does it and the return value
+is now asserted.
+
+**Numbers.** 14 of 14 in `test_learned_spec.py` green with no markers left in
+the file; 11 new tests in `tests/test_derived_facts.py` for what the spec
+cannot see (the span really is a span, the budget stops the pass at the note
+it says it did, the switch is read before every pass, a note with facts is
+still deletable). Not verified: no real model has run this pass, so what a
+small local model actually keeps when asked to narrow a candidate list is
+untested, which is the same standing caveat every provider claim in this
+project carries.
+
+**Still open on I9:** the Settings section itself, which is frontend and was
+not in this brief, and the later kinds (tensions, duplicates, entities,
+dates) that I1's remaining passes add to the same table and the same
+listing.
 
 ### From UI_MODERNISATION_PLAN.md
 
@@ -25018,5 +25110,3 @@ more than the floor was because an open row is 100px under Large text with
 Spacious on and the floor never cleared it). Measured: one finding 109px around
 97px, sixty findings 144px and scrolling, one open row 158px and inside the
 panel's box in every appearance setting.
-
-

@@ -24,9 +24,6 @@ import hashlib
 
 import pytest
 
-BRIEF = "WORLD_CLASS 15 I9: the Settings section for what was learned is not built yet"
-
-
 def _note(session, text, category=None):
     from memorymap.entry import manager
 
@@ -126,7 +123,6 @@ def test_boosts_are_bounded_and_decay(session):
 # --- I9: see, edit, delete, reset, switch off ---------------------------------
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_the_section_lists_every_kind_with_its_source_span(ai_client, fake_ollama):
     entry = ai_client.post("/entries", json={"content": "The batch size should stay at 32. Should we move to 64?"}).json()
     ai_client.post("/night/run", json={"budget": 1000})
@@ -138,7 +134,6 @@ def test_the_section_lists_every_kind_with_its_source_span(ai_client, fake_ollam
     assert row["model"] and row["computed_at"] and 0 <= row["confidence"] <= 1
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_an_edited_fact_survives_a_rerun(ai_client, fake_ollama):
     ai_client.post("/entries", json={"content": "The batch size should stay at 32."})
     ai_client.post("/night/run", json={"budget": 1000})
@@ -151,7 +146,6 @@ def test_an_edited_fact_survives_a_rerun(ai_client, fake_ollama):
     assert again["original_text"] == fact["text"]
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_a_deleted_fact_is_not_rederived(ai_client, fake_ollama):
     ai_client.post("/entries", json={"content": "The batch size should stay at 32."})
     ai_client.post("/night/run", json={"budget": 1000})
@@ -165,7 +159,6 @@ def test_a_deleted_fact_is_not_rederived(ai_client, fake_ollama):
     assert "delete_fact" in kinds
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_reset_restores_what_the_model_said(ai_client, fake_ollama):
     ai_client.post("/entries", json={"content": "The batch size should stay at 32."})
     ai_client.post("/night/run", json={"budget": 1000})
@@ -176,7 +169,6 @@ def test_reset_restores_what_the_model_said(ai_client, fake_ollama):
     assert again["text"] == fact["text"] and again["edited_by_user"] is False
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_each_switch_off_yields_no_rows_and_a_paused_reply(ai_client, fake_ollama):
     ai_client.put("/learned/switches", json={"night_shift": False})
     ai_client.post("/entries", json={"content": "The batch size should stay at 32."})
@@ -185,7 +177,6 @@ def test_each_switch_off_yields_no_rows_and_a_paused_reply(ai_client, fake_ollam
     assert ai_client.get("/learned").json()["items"] == []
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_the_master_switch_pauses_every_runner(ai_client, fake_ollama):
     ai_client.put("/learned/switches", json={"paused": True})
     switches = ai_client.get("/learned/switches").json()
@@ -193,13 +184,16 @@ def test_the_master_switch_pauses_every_runner(ai_client, fake_ollama):
     assert all(v is False for k, v in switches.items() if k != "paused")
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_forget_everything_leaves_notes_and_revisions_byte_identical(ai_client, fake_ollama, session):
     ai_client.post("/entries", json={"content": "The batch size should stay at 32. Should we move to 64?"})
     ai_client.post("/night/run", json={"budget": 1000})
     before = (_table_hash(session, "entries"), _table_hash(session, "entry_revisions"))
     assert ai_client.get("/learned").json()["items"]
-    forgotten = ai_client.delete("/learned", json={"confirm": True})
+    # `TestClient.delete` takes no body (httpx does not give DELETE one), so
+    # the spec's own call raises TypeError before it reaches the app. Changed
+    # here per this file's header: the route is the thing under test and it
+    # does require the body, which is why this goes through `request`.
+    forgotten = ai_client.request("DELETE", "/learned", json={"confirm": True})
     assert forgotten.status_code == 204
     assert ai_client.get("/learned").json()["items"] == []
     assert ai_client.get("/learned/corrections").json() == []
@@ -207,19 +201,23 @@ def test_forget_everything_leaves_notes_and_revisions_byte_identical(ai_client, 
     assert (_table_hash(session, "entries"), _table_hash(session, "entry_revisions")) == before
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
-def test_a_private_notes_facts_are_never_listed(ai_client, fake_ollama, session):
+def test_a_private_notes_facts_are_never_listed(ai_client, fake_ollama, session, monkeypatch):
     from memorymap.core.database import Entry
     from memorymap.entry import manager
 
     saved = ai_client.post("/entries", json={"content": "The batch size should stay at 32."}).json()
     ai_client.post("/night/run", json={"budget": 1000})
-    manager.set_private(session, session.get(Entry, saved["id"]), True)
+    # `set_private` encrypts the note and returns False when the vault has no
+    # key, so the spec as written never made the note private and the
+    # assertion below passed on a note that was never hidden. The key is
+    # stubbed the same way `test_search_engine.py` does it, and the return
+    # value is asserted, which is what makes this test able to fail.
+    monkeypatch.setattr("memorymap.core.vault.key", lambda: b"k" * 32)
+    assert manager.set_private(session, session.get(Entry, saved["id"]), True)
     session.commit()
     assert all(r["entry_id"] != saved["id"] for r in ai_client.get("/learned").json()["items"])
 
 
-@pytest.mark.xfail(strict=True, reason=BRIEF)
 def test_the_export_is_readable_json_of_everything(ai_client, fake_ollama):
     ai_client.post("/entries", json={"content": "The batch size should stay at 32."})
     ai_client.post("/night/run", json={"budget": 1000})

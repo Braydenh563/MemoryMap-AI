@@ -75,7 +75,14 @@ def compute_scores(session: Session) -> int:
     One query for the notes, one for the link counts, one for the existing
     rows: the whole point of storing this is that the scan happens here and
     never on the request path, so it must not be a scan *per note*.
+
+    Switched off (I9) means it computes nothing and writes nothing; the scores
+    already stored are kept, so turning it back on does not start from zero.
     """
+    from memorymap.ai.facts import runner_enabled
+
+    if not runner_enabled("resurfacing"):
+        return 0
     now = datetime.now(timezone.utc)
     entries = session.scalars(
         select(Entry).where(

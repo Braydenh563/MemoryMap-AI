@@ -232,3 +232,64 @@ def test_notes_list_fetches_attachments_once_not_once_per_note(client, session):
 
     hits = _count_statements(session, lambda: client.get("/entries"), "FROM attachments")
     assert len(hits) <= 1, f"one query per page, got {len(hits)}"
+
+
+# --- the three surfaces added since (2026-09-13, `scratchpad/probe_list_queries.py`) ---
+#
+# The probe drives every list endpoint at a page of 5 and a page of 100 over
+# the same notebook and reports whether the statement count moves. It found
+# none that do, which is the result worth having: the three below are pinned
+# because they are the newest and the ones with a join in them, so they are
+# where the next per-row query would appear.
+
+
+def test_the_learned_table_costs_the_same_at_five_rows_and_a_hundred(ai_client, fake_ollama, session):
+    for i in range(60):
+        ai_client.post(
+            "/entries",
+            json={"content": f"note {i}. The deployment window should always be a Tuesday morning."},
+        )
+    ai_client.post("/night/run", json={"budget": 100_000})
+
+    small = _count_queries(session, lambda: ai_client.get("/learned?limit=5"))
+    large = _count_queries(session, lambda: ai_client.get("/learned?limit=100"))
+    assert large <= small + 1, (
+        f"`GET /learned` costs {small} statements for 5 rows and {large} for 100: "
+        "the private and binned filter is a join, and a join written per row "
+        "reads exactly like one written per page"
+    )
+
+
+def test_the_attachment_gallery_reads_the_page_not_a_row_at_a_time(client, session):
+    note = client.post("/entries", json={"content": "a note with files on it"}).json()
+    pixel = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+        b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+    for i in range(30):
+        client.post(
+            f"/entries/{note['id']}/files",
+            files={"file": (f"p{i}.png", pixel, "image/png")},
+        )
+
+    small = _count_queries(session, lambda: client.get("/files/gallery?limit=5"))
+    large = _count_queries(session, lambda: client.get("/files/gallery?limit=30"))
+    assert large <= small + 1, (
+        f"`GET /files/gallery` costs {small} statements for 5 rows and {large} for 30; "
+        "the page reads its own text and its own sizes, and either can become a "
+        "query per row without the total looking wrong on a fixture"
+    )
+
+
+def test_the_journal_window_is_one_query_whatever_the_window(client, session):
+    for day in ("2026-09-13", "2026-09-12", "2026-09-11"):
+        client.get(f"/entries/daily/{day}")
+
+    week = _count_queries(session, lambda: client.get("/entries/daily?through=2026-09-13&days=7"))
+    year = _count_queries(session, lambda: client.get("/entries/daily?through=2026-09-13&days=366"))
+    assert year <= week, (
+        f"`GET /entries/daily` costs {week} statements for a week and {year} for a year: "
+        "the calendar strip asks on every open, and a query per day is a year of "
+        "round trips for one panel"
+    )

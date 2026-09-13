@@ -187,21 +187,29 @@ def test_pin_url_brackets_ipv6_and_keeps_an_explicit_port():
     assert host == "example.com:8080"
 
 
+#: The judgement itself is `core/security.public_addresses` now (S5: one
+#: definition of "internal", so the next outbound fetcher does not have to
+#: know the web reader exists). `_assert_external` keeps the translation into
+#: this module's error, which is what these two assert, so they patch the
+#: resolver where it now lives rather than the wrapper that used to hold it.
+#: Patching resolution rather than the check is also what keeps this file off
+#: real DNS: the first of these passed against the live answer for
+#: example.com before it was moved, which is a test that needs a network.
+def _resolves_to(monkeypatch, *addresses: str) -> None:
+    from memorymap.core import security
+
+    monkeypatch.setattr(security, "_resolve", lambda host: list(addresses))
+
+
 def test_assert_external_hands_back_the_addresses_it_validated(monkeypatch):
-    monkeypatch.setattr(
-        websearch,
-        "_host_addresses",
-        lambda host: [ipaddress.ip_address("93.184.216.34")],
-    )
+    _resolves_to(monkeypatch, "93.184.216.34")
     assert websearch._assert_external("https://example.com/") == [
         ipaddress.ip_address("93.184.216.34")
     ]
 
 
 def test_assert_external_still_refuses_local_addresses(monkeypatch):
-    monkeypatch.setattr(
-        websearch, "_host_addresses", lambda host: [ipaddress.ip_address("127.0.0.1")]
-    )
+    _resolves_to(monkeypatch, "127.0.0.1")
     with pytest.raises(websearch.WebSearchError, match="local address"):
         websearch._assert_external("http://sneaky.example/")
 

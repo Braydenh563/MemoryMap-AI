@@ -301,7 +301,18 @@ round-trips through the API, FTS finds it, the graph colours by it.
 
 ### D6 Daily notes and the journal (S, Sonnet)
 
-Exists: nothing. Target: `Ctrl+D` opens today's note (created from the
+**The backend is built, 2026-09-13 evening.** `POST /entries/daily/{date}`
+creates or returns (the matching GET is read-only and 404s, because a GET that
+writes sits outside the CSRF defence, which judges methods) (which is what makes the key safe to press from anywhere:
+`startTodaysNote` posted a new note every time, so a day opened twice had two
+notes and its writing split between them), and `GET /entries/daily?through=&days=`
+answers the calendar strip and the streak in one query.
+`tests/test_daily_journal.py`. What is left is frontend: Ctrl+D from every
+tab, the strip itself, and the yesterday/tomorrow pair in the note head.
+
+Exists: the daily-note convention (a note whose first line is `# <ISO date>`)
+and the Today action, from timeline Phase 4; and now the endpoints above.
+Originally: nothing. Target: `Ctrl+D` opens today's note (created from the
 Journal template if missing), a calendar strip on the Timeline dock to jump
 between days, a "yesterday / tomorrow" pair of links in the note head, a
 streak that counts days with a daily note. Brief: `/entries/daily/{date}`
@@ -650,7 +661,7 @@ should fix the class and add the lint that keeps it fixed.
 | F1 | 57 distinct `localStorage` keys read ad hoc, 14 of them `JSON.parse`d | `grep -o 'localStorage.getItem("[^"]*")' frontend/*.js \| sort -u \| wc -l` | This is the shape of the worst UI bug in the project's history (two settings missing from `APPEARANCE_DEFAULTS` wrote `NaN` into CSS): a value invalid where it is used, set somewhere else. Corrupt or missing storage throws inside JSON.parse and takes the caller's whole init with it. | One `prefs` module: a schema with defaults and a version per key, `prefs.get(key)` never throws and never returns undefined, migration on version bump. Lint: no direct `localStorage.getItem` outside `prefs.js`. |
 | F2 | 25 list endpoints, 3 accept `limit` | `grep -n "^def list_" -A 6 src/memorymap/api/routes_*.py \| grep -c limit` | Every list is O(notebook). A 5k-note notebook makes the Library, Timeline and Graph tabs multi-second. (MODERNISATION_AUDIT D4.) | Cursor pagination on all 25 with one helper, `?limit=&cursor=`, `next_cursor` in the body; the frontend's list renderers page on scroll. Lint: a test enumerates routers and asserts every `list_*` takes `limit`. |
 | F3 | **Measured, 2026-09-12, and smaller than this row assumed at a realistic size.** `search_manager.semantic_search` still reads and parses every vector row per request, and it is on the Ask and chat path. At 2,000 notes and 384 dimensions that read and parse is 5.6 ms per request against 5.3 ms for the matmul over the same vectors already in memory, so it is about half the cost of a search at that size and grows linearly: about 56 ms at 20k and 140 ms at 50k. The three whole-notebook features (link suggestions, tensions, graph edges) already read `engine.vectors_by_id`, which serves the process-level matrix, so the fix is to point `semantic_search` at the same matrix. **Not done here, deliberately**: it is the most important path in the app and the swap has to keep the mixed-width behaviour this function grew (a model swap inside one backend leaves rows at the old width, and stacking them raised and took every search down with it), so it wants its own brief and its own tests rather than a late-night edit. | `search/search_manager.py` ~279, `search/engine.py` `vectors_by_id` | still open, sized |
-| F4 | 88 `except Exception:` / bare `except:` in `src/` | `grep -rn "except Exception:\|except:" src/memorymap --include=*.py \| wc -l` | Failures become silence (the "features that never ran once" shape). | Each one either re-raises as the error contract, logs with `exc_info` to the logbuffer, or is narrowed. Lint: ruff `BLE001` enabled with a per-site `# noqa: BLE001 <reason>`. |
+| F4 | **Re-measured 2026-09-13: 147 broad handlers, of which 52 say nothing at all.** `scratchpad/probe_excepts.py` reports both numbers, because the grep below counts every handler and the ones that cost something are the silent subset: a handler that logs with `exc_info` is the fix, not the flaw. Original figure: 88 `except Exception:` / bare `except:` in `src/` | `grep -rn "except Exception:\|except:" src/memorymap --include=*.py \| wc -l` | Failures become silence (the "features that never ran once" shape). | Each one either re-raises as the error contract, logs with `exc_info` to the logbuffer, or is narrowed. Lint: ruff `BLE001` enabled with a per-site `# noqa: BLE001 <reason>`. |
 | F5 | 13 raw `fetch()` calls beside `api()` | `grep -n 'fetch(\`\|fetch("' frontend/*.js \| grep -v "api\b"` | Each re-implements the auth header, the error contract and the offline path; one is `/chat/stream`, the most important call in the app. | `api.stream()` and `api.upload()` helpers; the 13 sites move onto them. Lint: no bare `fetch(` outside `api.js`. |
 | F6 | **Mostly fixed, and the old figure was stale.** Measured 2026-09-12 with `scratchpad/ui-sweeps/idle.js` (new: it wraps `setInterval` before any page script runs, so every live interval is named with the line that started it, and counts requests over a full idle minute in each visibility state). Requests: 4 in a visible minute (`/models/status` x2, `/reminders`, `/tasks`) and 2 hidden, not the 14 this row was written from, which the status poll's own backoff had already fixed. Timers: two one-second clocks survived hiding, `tickClocks` (app.js) and `paintDashClock` (dashboard.js), both painting HH:MM once a second to a tab nobody could see. Both now stop on `visibilitychange` and repaint on return; the only interval left while hidden is the 60s reminder check, which is the one thing a background tab should keep doing. What is left of this row is the `scheduler` it proposes, which is a refactor rather than a fix. | `idle.js`, `app.js`, `dashboard.js` | was battery | timers done, scheduler open |
 | F7 | Threads in 16 modules share SQLAlchemy sessions created per call | `grep -rln "threading.Thread" src/memorymap` | SQLite is fine with this only while each thread opens its own session and nobody passes ORM objects across; nothing enforces it, and the "Could not refresh instance" 500 seen this session was exactly that shape. | B2 job runtime: one worker, jobs get a fresh session, results are plain dicts. Lint: `Thread(` allowed only in `core/jobs.py`. |
@@ -721,7 +732,7 @@ listed so LAN mode cannot ship without them (Brief 15).
 | S2 | Unlock throttling is one global list (`routes_auth.py` `_failed_unlocks`), not per client. | `routes_auth.py` ~93 | none / medium (five wrong tries from anyone locks the owner out for up to five minutes) | Key the throttle by client address once the bind is not loopback; keep the global ceiling as a second layer. |
 | S3 | `import_directory` and `import_markdown` take a filesystem path from the request body and read it. Correct for the single user on localhost; on LAN it is arbitrary directory read for any holder of a token. | `routes_settings.py` ~1750 | none / high | Refuse when the bind is not loopback; or restrict to the user's home; the desktop shell should use a native picker and pass a handle, not a path. |
 | S4 | `OriginCheckMiddleware` lets a request with neither Origin nor Referer through. Browsers always send Origin on cross-site state changes, so this is not the CSRF hole it looks like; it is a note so nobody "fixes" it into breaking curl and the desktop shell. | `core/security.py` ~78 | none | Keep; add the test that a cross-origin POST with Origin set is 403. |
-| S5 | Bookmarks normalise a URL by adding a scheme and nothing else; today nothing fetches it. The clipper (D9) and any title preview MUST reuse `websearch.py`'s private-address check (~689) before the first `requests.get`. | `routes_bookmarks.py` ~36 | none / high once fetching exists | Move the private-IP guard into `core/security.py` as `assert_public_url()` and call it from every outbound fetch (bookmarks, clipper, update downloader, provider base URL). |
+| S5 | **Half done, 2026-09-13 evening: the guard is one function and it is in `core/security.py`.** `public_addresses(url)` (and `assert_public_url` for a caller that does not pin) refuses anything that is not plain http(s), carries credentials, does not resolve, or resolves to **any** address on this machine or the local network; `search/websearch.py` now calls it and keeps only the connection pinning, which is the half that is about fetching rather than judging. `is_internal_address` is the one definition of internal, asked in both directions (refused for an untrusted URL, required of a self-hosted SearXNG). `tests/test_outbound_fetch_guard.py` walks `src/` for outbound calls and fails on a module that is not written down as untrusted or configured, which is what makes the clipper unable to arrive unreviewed. What is left of this row is the callers that do not exist yet: bookmarks still fetch nothing. Original finding: bookmarks normalise a URL by adding a scheme and nothing else; today nothing fetches it. The clipper (D9) and any title preview MUST reuse `websearch.py`'s private-address check (~689) before the first `requests.get`. | `routes_bookmarks.py` ~36 | none / high once fetching exists | Move the private-IP guard into `core/security.py` as `assert_public_url()` and call it from every outbound fetch (bookmarks, clipper, update downloader, provider base URL). |
 | S6 | The model provider base URL is user-set and fetched from the server; by design it points at localhost, so SSRF to the LAN is "the feature". | `ai/provider.py` | none / low | On LAN mode, show the configured URL in the privacy receipt; never follow redirects off the configured host. |
 | S7 | **Fixed.** 16 `LIKE`/`ILIKE` sites, of which 13 took user text without escaping `%` and `_`, so a search for `100%` matched every row and `a_b` matched `axb`. `like_escape` and `LIKE_ESCAPE` are in `core/database.py`; every site that builds a pattern from a value now passes both, and the three that stayed bare are the literal `"image/%"` in routes_library, where the wildcard is meant. `tests/test_like_escaping.py` pins the behaviour through the documents and conversations searches and greps every call site for the pairing (both halves fail on their own: an escaped pattern with no `escape=` finds nothing at all). | `core/database.py`, 8 modules | was correctness | done |
 | S8 | Backups restore by `Path(name).name` inside `backups/` (good); `searxng_install` extracts tar members it vets (good); uploads are `basename`d and the media dir is checked with `is_relative_to` (good); `X-Content-Type-Options: nosniff` and `Content-Disposition: attachment` on files (good). Recorded so nobody re-audits them. | as named | none | Keep the tests that pin each. |
@@ -1221,6 +1232,14 @@ plumbing and a table).
 
 ### I9 What the notebook learned: one place to see, edit, delete and switch it all off
 
+**Built (the backend), 2026-09-13 evening: HISTORY.md, "Built, I9's whole
+backend and the first pass of I1".** `derived_facts`, `ai/facts.py`, the
+lifecycle, the switches, every endpoint below, and the night pass as a
+fourth task in `ai/autonomous.py`. What is still open here is the Settings
+section itself (frontend) and the kinds I1's later passes add (tensions,
+duplicates, entities, dates). The text below is kept because it is the
+spec for both.
+
 Added by direct instruction: "give the user the ability to see what the
 notebook has learned and to be able to edit, delete and manage it so in
 case the AI models get things wrong the user can fix it, also a way to
@@ -1529,5 +1548,25 @@ servant, not a gatekeeper; everything it does can be seen, edited and
 undone.
 
 ## Placed from INBOX, 2026-09-13
+
+### F2's frontend half: five callers read `/files/gallery` whole
+
+Found by the backend agent, 2026-09-13 evening, while giving the four
+remaining unbounded lists a `limit` (`tests/test_list_limits.py` is the lint
+that stops a fifth appearing). `GET /files/gallery` now takes a `limit` and
+sends `X-Total-Count`, but **its default is its maximum (1000) rather than
+200**, because five callers read it whole through `apiJson` and one of them is
+the Library's own Files sub-tab: `app.js` 7073 (the Files picker source) and
+17875, `editor.js` 870, `library.js` 3767 and 5403. A 200-row default before
+those move would silently truncate the Library at two hundred attachments,
+which is a worse bug than the one being fixed.
+
+**The fix, for a frontend agent:** move all five to `apiPagedList(path, 200)`,
+which already exists and already reads this endpoint correctly at `app.js`
+17861, then drop `GALLERY_PAGE_SIZE` in `api/routes_files.py` to 200.
+`/memory`, `/duplicates` and `/media/orphans` have the same shape and carry
+the same note in the code, but each has one caller and an object response
+rather than an array, so they are bounded at their maximum and need no
+frontend change.
 
 

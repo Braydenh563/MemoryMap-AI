@@ -74,12 +74,6 @@ measured or built in earlier commits and is marked there.
 
 ## Open items
 
-192. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the
-    document editor's AI row (one screenshot: the Edit, Write, Remove
-    segmented row above the AI assistant).** "also change the style of and
-    redesign this edit, write, remove ai assistant toggle row as it is ugly
-    and needs a better visual and more modern look". Owner: documents agent.
-
 191. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the mind
     map's rings and the documents table view.** "can you put an opaque
     background or smth behind the item radials in the mindmap?? they still

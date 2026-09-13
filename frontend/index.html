@@ -3411,7 +3411,19 @@
       aria-modal="true" aria-label="AI assistant">
       <div class="card modal-card doc-ai-card">
         <div class="row space-between">
-          <h2>AI assistant</h2>
+          <div class="row help-head">
+            <h2>AI assistant</h2>
+            <!-- One line of description under the verbs, the rest behind the
+                 '?' (DESIGN.md's help recipe): what each of the three does to
+                 the document is three sentences, and three sentences above a
+                 text field is a wall. -->
+            <button type="button" class="icon-only ghost small graph-help-toggle"
+              data-help-for="doc-ai-verb-help" aria-controls="doc-ai-verb-help"
+              aria-expanded="false" title="About the three verbs"
+              aria-label="About the three verbs">
+              <i class="ph ph-question" aria-hidden="true"></i>
+            </button>
+          </div>
           <div class="row">
             <button id="doc-ai-history" class="ghost small" type="button" title="See and undo past AI edits to this document">
               <i class="ph ph-clock-counter-clockwise ph-lead" aria-hidden="true"></i> History
@@ -3434,6 +3446,15 @@
           <label><input type="radio" name="doc-ai-verb" value="edit" checked><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i> Edit</label>
           <label><input type="radio" name="doc-ai-verb" value="write"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Write</label>
           <label><input type="radio" name="doc-ai-verb" value="remove"><i class="ph ph-eraser ph-lead" aria-hidden="true"></i> Remove</label>
+        </div>
+        <div class="help-body hidden" id="doc-ai-verb-help" role="dialog"
+          aria-label="About the three verbs">
+          <p>Edit rewrites what is selected, or the whole document when
+            nothing is.</p>
+          <p>Write adds new text at the caret, or at the end of the document.</p>
+          <p>Remove takes out what you name, and shows you what it took.</p>
+          <p>All three arrive as a suggestion you accept or discard; nothing is
+            written into the file until you accept it.</p>
         </div>
         <p class="muted doc-ai-scope" id="doc-ai-scope"></p>
         <!-- The instruction and the button that acts on it are one row, the

@@ -24221,6 +24221,22 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     `docDictionary`'s own comment; **not verified** is the night it
     happened, which cannot be reproduced from here.
 
+192. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the
+    document editor's AI row (one screenshot: the Edit, Write, Remove
+    segmented row above the AI assistant).** "also change the style of and
+    redesign this edit, write, remove ai assistant toggle row as it is ugly
+    and needs a better visual and more modern look". **Fixed.** Not a fourth
+    treatment: DESIGN.md already says this radio-backed row is the same
+    object as `.seg` and is drawn the same way, and it was not. Measured
+    before, beside `#doc-view-seg` on the same screen: track corner 11.2px
+    against 15.4px, segment corner 6px against 15.4px, and segments
+    73.4/82.7/101.2px wide. After (`scratchpad/ui-sweeps/aiedit.js`, light
+    and dark): track 15.4px, segment 10.4px and concentric, three segments
+    101.2px each on a grid, seams 2.4px against the 2.4px gap, ends 5px and
+    5px, the chosen segment 20.98:1 (7.5:1 dark) on `--accent-surface`, a
+    focus ring on the segment for a keyboard, and the three verbs explained
+    behind a `data-help-for` '?' (58 words) instead of above the field.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing
@@ -25018,5 +25034,3 @@ more than the floor was because an open row is 100px under Large text with
 Spacious on and the floor never cleared it). Measured: one finding 109px around
 97px, sixty findings 144px and scrolling, one open row 158px and inside the
 panel's box in every appearance setting.
-
-

@@ -168,6 +168,19 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The document assistant's Edit / Write / Remove row is drawn as the choice
+  control it is. It carried a 11.2px track corner and a 6px segment corner
+  where every other choice control on the same screen is 15.4px, and its three
+  segments were 73.4 / 82.7 / 101.2px wide, so the widest verb read as the
+  important one. The track takes `.seg`'s own radius, the segment sits
+  concentric inside it at 10.4px, the three are one width (101.2px each) on a
+  grid, the chosen one keeps `--accent-surface` behind `--on-accent`, a
+  keyboard focus is visible on the segment for the first time, and what the
+  three verbs do is behind the row's new '?' rather than above the field.
+  Measured with `scratchpad/ui-sweeps/aiedit.js`, light and dark: seams 2.4px
+  against a 2.4px gap, ends 5px and 5px, chosen segment 20.98:1 light and
+  7.5:1 dark.
+
 - The Live view drew a markdown table as a row of squeezed columns with wide
   empty gaps between them, and every cell wrapped its words one or two to a
   line. Each hidden pipe leaves three zero-width elements behind in the line

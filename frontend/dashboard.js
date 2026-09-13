@@ -337,11 +337,25 @@ function paintDashClock() {
 
 // A short line about the notebook, note count, plus whatever's most
 // worth surfacing right now (due reminders, then a capture streak).
+//: **One `/insights/stats` per moment, not one per widget.** Seven widgets
+//: each asked for it on their own, so a boot fetched it five times at about
+//: 200 ms each (measured 2026-09-13). The first caller's promise is shared
+//: for two seconds; a widget that renders later than that asks afresh.
+let dashStatsInflight = null;
+let dashStatsAt = 0;
+function fetchDashStats() {
+  const now = Date.now();
+  if (dashStatsInflight && now - dashStatsAt < 2000) return dashStatsInflight;
+  dashStatsAt = now;
+  dashStatsInflight = fetchDashStats();
+  return dashStatsInflight;
+}
+
 async function renderDashSubmessage() {
   const el = $("dash-submessage");
   if (!el) return;
   const [stats, reminders] = await Promise.all([
-    apiJson("/insights/stats").catch(() => null),
+    fetchDashStats().catch(() => null),
     // To the end: `/reminders` is `due_at` ascending, so a first page of
     // old, ticked-off rows would hide everything upcoming from this count
     // (`agent-remaining/list-paging.md`).
@@ -493,7 +507,7 @@ async function renderDashStats() {
   const box = $("dash-stats");
   if (!box) return;
   const [stats, reminders] = await Promise.all([
-    apiJson("/insights/stats").catch(() => null),
+    fetchDashStats().catch(() => null),
     // To the end, same reason as the widget above.
     apiPagedList("/reminders", 200).catch(() => []),
   ]);
@@ -1928,7 +1942,7 @@ async function renderArtWidget(body) {
   const legend = document.createElement("div");
   legend.className = "art-legend";
   body.appendChild(legend);
-  apiJson("/insights/stats")
+  fetchDashStats()
     .then((stats) => {
       const cats = (stats.categories || []).slice(0, 8);
       legend.replaceChildren();
@@ -1963,7 +1977,7 @@ async function startArt(holder) {
     holder.textContent = "The art library didn't load.";
     return;
   }
-  const stats = await apiJson("/insights/stats").catch(() => ({
+  const stats = await fetchDashStats().catch(() => ({
     categories: [],
     total_entries: 0,
   }));
@@ -2069,13 +2083,19 @@ async function startArt(holder) {
   // needing a reload.
   stopArt();
   holder.replaceChildren();
+  //: p5 arrives on demand (`ensureP5`, app.js); the run check above is
+  //: repeated after the wait, since a second render can have superseded us.
+  if (typeof p5 === "undefined") {
+    const ok = await ensureP5();
+    if (!ok || run !== artRun || !holder.isConnected) return;
+  }
   artInstance = new p5(sketch, holder);
 }
 
 // Capture streak (Wave K): consecutive days up to today with at least
 // one note, read from the same per-day series the stats strip uses.
 async function renderStreakWidget(body) {
-  const stats = await apiJson("/insights/stats");
+  const stats = await fetchDashStats();
   const perDay = stats.per_day || []; // oldest → newest, last = today
 
   let current = 0;
@@ -2108,7 +2128,7 @@ async function renderStreakWidget(body) {
 }
 
 async function renderStatsWidget(body) {
-  const stats = await apiJson("/insights/stats");
+  const stats = await fetchDashStats();
   const total = document.createElement("p");
   total.className = "dash-big";
   total.textContent = `${stats.total_entries} note${stats.total_entries === 1 ? "" : "s"}`;
@@ -2670,7 +2690,7 @@ async function renderHeatmapWidget(body) {
 // --- category breakdown ------------------------------------------------------
 
 async function renderCategoriesWidget(body) {
-  const stats = await apiJson("/insights/stats").catch(() => null);
+  const stats = await fetchDashStats().catch(() => null);
   const categories = (stats && stats.categories) || [];
   if (!categories.length) {
     body.textContent = "Save a few notes and your categories appear here.";

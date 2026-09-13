@@ -34742,8 +34742,41 @@ function watchEmblemVisibility(holder, instance) {
 
 // The shared emblem sketch: a small ring of linked nodes, the MemoryMap motif
 //, in the current accent. Animated only where it's worth the frames.
+//: **p5 is fetched the first time an emblem is drawn, not at boot.** It is a
+//: 1,034 KB file (the largest asset the page loads, 18% of all boot JS) and
+//: every use of it here is decoration: the emblem, the dashboard's art, the
+//: background art. Measured 2026-09-13: 13 blocking scripts, 1,698 KB
+//: compressed, before the first tab could draw. Same-origin dynamic scripts
+//: are what the CSP's `script-src 'self'` allows, so this is one element.
+let p5Loading = null;
+function ensureP5() {
+  if (typeof p5 !== "undefined") return Promise.resolve(true);
+  if (!p5Loading) {
+    p5Loading = new Promise((resolve) => {
+      //: After the first paint and the boot fetches, not during them: the
+      //: emblem is drawn while the shell boots, and a dynamic script is off
+      //: the parser's path but still on the network's.
+      const later = window.requestIdleCallback || ((fn) => setTimeout(fn, 800));
+      later(() => {
+        const script = document.createElement("script");
+        script.src = "/vendor/p5.min.js";
+        script.onload = () => resolve(typeof p5 !== "undefined");
+        script.onerror = () => resolve(false);
+        document.head.appendChild(script);
+      });
+    });
+  }
+  return p5Loading;
+}
+
 function renderEmblem(holder, size = 34, { animate = false } = {}) {
-  if (typeof p5 === "undefined" || !holder) return;
+  if (!holder) return;
+  if (typeof p5 === "undefined") {
+    ensureP5().then((ok) => {
+      if (ok && holder.isConnected) renderEmblem(holder, size, { animate });
+    });
+    return;
+  }
   const existing = emblemInstances.get(holder);
   if (existing) {
     existing.remove();

@@ -2614,6 +2614,18 @@ function startBgArt() {
 
     p.windowResized = () => p.resizeCanvas(window.innerWidth, window.innerHeight);
   };
+  if (typeof p5 === "undefined") {
+    //: On demand (`ensureP5`, app.js): `startBgArt` is synchronous and its
+    //: callers do not wait, so the sketch mounts when the file lands; the
+    //: instance check keeps two from stacking when the setting flips twice.
+    ensureP5().then((ok) => {
+      if (!ok || bgArtInstance) return;
+      bgArtInstance = new p5(sketch);
+      const late = document.getElementById("bg-art-canvas");
+      if (late) late.className = "bg-art-canvas";
+    });
+    return;
+  }
   bgArtInstance = new p5(sketch);
   const canvas = document.getElementById("bg-art-canvas");
   if (canvas) canvas.className = "bg-art-canvas";

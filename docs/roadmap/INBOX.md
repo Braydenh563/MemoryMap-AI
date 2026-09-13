@@ -74,6 +74,17 @@ measured or built in earlier commits and is marked there.
 
 ## Open items
 
+209. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the whole
+    application.** "ok fable, I want to make the most of you now, I need you
+    to poke holes in this application, find weakness, find poor backend
+    design, find high complexity, find bugs we have missed, maximise speed,
+    security, improve the agent harness and ensure it is the best it can be
+    for all local model sizes. polish the app and fix usability issues, fill
+    missing gaps." Taken as the orchestrator's own audit, recorded in
+    WORLD_CLASS_PLAN.md under "Audit, 2026-09-13 night" with a finding per
+    row (evidence, cost, fix, who), the cheap and safe fixes made in the
+    same pass, the rest briefed to agents. Owner: orchestrator.
+
 208. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the popup
     agent's foot (screenshot: the "Use the open note" toggle with its label
     wrapped to two lines, "Nothing open to use (open a note, document, board
@@ -94,7 +105,16 @@ measured or built in earlier commits and is marked there.
     The wand (`#command-palette-btn` or equivalent) and the '?' (`#guide-btn`)
     leave `.header-controls`; the Guide joins the bottom bar (the status bar
     on desktop, `#phone-tab-dock`'s More sheet on a phone) beside the agent.
-    Owner: orchestrator.
+    And, a little later, on the same cluster (screenshot: the five-button
+    well beside the two-button lock and power well): "also something about
+    the ui design of these buttons isnt sitting with me, they feel out of
+    place and I feel like they could be better redesigned". Two segmented
+    wells of outlined icon squares read as a toolbar, not a header: once the
+    two leave, the three that remain (bell, theme, gear) and the two that end
+    a session are plain icon-only ghost buttons on the header's own ground,
+    no well, no seams, the shape the tab strip's neighbours already have;
+    measure the cluster's height equals the tab buttons' and the gap is one
+    step. Owner: chrome agent.
 
 206. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the help
     popovers (screenshot: the capture box's '?' popover running the full

@@ -30,11 +30,11 @@ The chat agent's run against INBOX 181, 182, 183, 187, 188, 189, 190 and
   keys through them, a state line naming the tool
   (`scratchpad/ui-sweeps/agentwide.js`). CHAT_PLAN decisions 13 and 14.
 
+- `6147863` INBOX 190's last part: `/help/ask` takes the tab and the tab's
+  own control labels; `TAB_TOPICS` grounds a question that names nothing.
+  INBOX 190 closed.
+
 ## Next
 
-1. INBOX 190's last part: the Guide's knowledge. It answers from
-   `HELP_TOPICS` in `src/memorymap/ai/help_chat.py` only; the brief asks for
-   the README (there is no `docs/USER_GUIDE.md`) plus the current tab's help
-   lines, which means `/help/ask` taking a `tab` and the client sending it.
-2. `chat-timeline-skills.md` item 1's last step: the hover highlight of
+1. `chat-timeline-skills.md` item 1's last step: the hover highlight of
    `note.content.slice(start, end)` in the sources panel.

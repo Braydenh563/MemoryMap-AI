@@ -271,3 +271,23 @@ had theirs, so a map of nothing cost the whole of it. The column has
 is worth scrolling past, not a clip. The sidebar's own finding at 820 (825
 inside 763) and 390 (1010 inside 686) predates this batch and is not the
 graph's to fix.
+
+## Where this batch left the graph (2026-09-13)
+
+Every item on the brief landed. Phase 4 is complete: the lasso, the
+right-click menu, the time slider's Play and the 2x PNG export were checked
+against the running app before anything was built (`graph4.js`: 46 of 51
+selected, a five-item node menu; `graph4b.js`: 2812x1522 from a 1406x761
+live frame, Play pressed true then false), and the local pane was the one
+open item.
+
+`scripts/gate.sh --full`: lints, node-check, ruff and the whole suite green.
+`errors.js` after this batch: 0 findings at 1440, 1024 and 820, where the
+baseline had 5 at 820 (825 inside 763); 390 still carries the Notes
+sidebar's own 919 inside 686, which predates this batch and is not the
+graph's.
+
+Still open here, in order: the options panel's 587-in-484 scroll above, and
+`/graph/local` has no Show switches, so focus mode and the local pane still
+walk boards as notes (GRAPH_PLAN's "Decision made, 2026-09-13" says why that
+was left).

@@ -798,9 +798,25 @@ function check(label, ok, detail) {
       if (!pr || !cr) { worst = Infinity; continue; }
       let best = Infinity;
       for (const path of paths) {
-        const a = toScreen(path.getPointAtLength(0));
-        const b = toScreen(path.getPointAtLength(path.getTotalLength()));
-        best = Math.min(best, Math.max(Math.min(dist(a, pr), dist(b, pr)), Math.min(dist(a, cr), dist(b, cr))));
+        // **Sampled along the path, not read off its two ends.** A tree edge's
+        // default shape is a ribbon (`wbMapEdgeIsRibbon`): a filled closed
+        // outline that leaves the parent wide and reaches the child narrow, so
+        // `getPointAtLength(0)` and `getPointAtLength(total)` are both the
+        // same corner of the parent end and a perfectly attached edge measured
+        // as 43 to 1746px adrift. Seven checks in this file failed on that
+        // from the day ribbons landed and the fault was in the measurement.
+        // "Meets both of its nodes" is what the eye is actually asserting:
+        // some point of the path touches the parent's box and some point
+        // touches the child's.
+        const total = path.getTotalLength();
+        let toParent = Infinity;
+        let toChild = Infinity;
+        for (let i = 0; i <= 64; i++) {
+          const q = toScreen(path.getPointAtLength((total * i) / 64));
+          toParent = Math.min(toParent, dist(q, pr));
+          toChild = Math.min(toChild, dist(q, cr));
+        }
+        best = Math.min(best, Math.max(toParent, toChild));
       }
       worst = Math.max(worst, best);
     }

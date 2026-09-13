@@ -65,6 +65,51 @@ below). Versioning is `0.x` while the app stabilises.
 - Right-clicking or long-pressing a link now opens a menu with Copy link
   address and Open in new tab, anywhere a link is drawn. An internal
   `[[link]]` offers Copy title and Open instead.
+- A dock zone that cannot shrink any further now says so instead of spilling
+  its last control under the one beside it, and the dashboard's category rows
+  are a target rather than 1.2px under the floor. The touch sweep also reads
+  the floor off the band it is run in, so it says something true above 820
+  rather than asserting a phone's 44px on a desktop.
+
+- Every control on a phone is a 44px target, and a tab's title gets a line of
+  its own there. Seven surfaces were walked whole rather than dock by dock:
+  the Library and Reminders filter chips were 36px and 22.4px, the sidebar
+  sheet's own opener 36px, the graph's zoom controls 34px, and the chat's
+  title was 139px of text in a 56px box.
+
+- Opening a picture card's fold no longer stretches the six cards beside it.
+  It used to take every card in the row from 240.7px to 411.1px, leaving 213px
+  of empty card under each of the others; now only the card you opened grows.
+  The row is still equalised at rest, which is the recorded decision.
+
+- On a tablet in landscape the header is one row again and the tabs are a
+  finger's target. It was two rows (112px at 820) on the band whose own rule
+  says one, with 36px tab buttons; the strip needed 505px against 448px of
+  room. The buttons take the narrower padding and smaller caption the band
+  below uses, a 44px floor on both axes instead, and the due-reminders count
+  sits on its glyph rather than beside it. The strip is 385px in 448 and the
+  header 72px.
+
+- The phone's tab bar recedes to its icons while you read down a list and
+  takes its words back the moment you turn round. It is never hidden: 57.6px
+  of bar with captions becomes 44px of icons, still five columns and still
+  44px targets. And the selected tab keeps its caption at 320, where it was
+  the one column of five without a word.
+
+- A sheet closes the same way wherever it is built. The three sidebars and
+  the graph's panel become sheets in place rather than being built by the
+  sheet recipe, and they now share its dismissal: a captured Escape, a press
+  outside, and focus back on the control that opened it. The sidebar sheet's
+  Escape used to bubble, so a handler inside the page that stopped one took
+  it first.
+
+- The timeline dock's kind filter is one control rather than four. The four
+  kinds were four filter chips at four widths, which wrapped to three lines
+  at 1024 and four at 820 and took the dock to 181.2px; they are a toggle
+  set, so they are now a `.seg.seg-multi` well, one row at every width, the
+  words in above 1200 and the icons alone below it, 44px cells on a phone.
+  The band filter's way out is the one chip beside it, which is the one
+  filter here you can take off. The dock is 54px at 1440, 1024 and 820.
 
 - A document can be downloaded as one self-contained HTML file. Images become
   data URIs, the stylesheet is written into the file, comments travel as

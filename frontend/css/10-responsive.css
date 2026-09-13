@@ -106,6 +106,72 @@
   #tab-bar button {
     gap: var(--space-2);
   }
+
+  /* --- and the band's own promise, kept: one row, and a finger's target -----
+     UI_MODERNISATION_PLAN.md Phase 11, the two band-2 faults. Measured at 820
+     with `scratchpad/ui-sweeps/tabfit.js`: the header was 112px, two rows, on
+     the band whose first line is "the header is one row", and the seven tab
+     buttons were 36px tall, under the 44px floor every control one band down
+     meets.
+
+     The wrap was arithmetic rather than a rule failing to reach: the strip
+     needed 505px and the room beside the wordmark, the space switcher and the
+     header controls is 448px at 820 (the three of them plus gaps are a fixed
+     372px at every width in this band, so the strip fits from about 877 up and
+     not below it). Three things closed 57px and then some, and each is worth
+     having on its own:
+
+     - The buttons take the same padding step band 3 takes, `--space-4`, and
+       the same `--text-xs` caption. In a strip of icons the padding is most of
+       the width: measured, an icon-only button was 49px of which 33 was air.
+     - So they get a floor instead, on both axes, which is the second fault
+       fixed by the first one's cure: `--target-min` redeclared **on the strip
+       only**, because 820 to 1100 is an iPad in landscape and the tabs are the
+       thing a finger lands on there. Scoped to `#tab-bar` rather than `:root`
+       deliberately: raising every dock control in the band to 44px is a real
+       change with its own measurements to take, and this is the strip's fault,
+       not the band's.
+     - The due-reminders badge stops standing beside its glyph and sits on its
+       corner, which is what a badge on an icon is (measured: the Reminders tab
+       was 80.2px against 49px for every other icon in the row, entirely
+       because of a count pill in the flow).
+
+     After, at 820: seven buttons at 44px tall, the strip 385px in 448, the
+     header 64px and one row. */
+  #tab-bar {
+    --target-min: 2.75rem;
+  }
+
+  #tab-bar button {
+    min-height: var(--target-min);
+    min-width: var(--target-min);
+    padding-inline: var(--space-4);
+    justify-content: center;
+  }
+
+  #tab-bar .tab-label {
+    font-size: var(--text-xs);
+  }
+}
+
+/* A count on a tab is a badge on its glyph, not a word beside it, wherever the
+   strip is narrow enough to care (everything below 1100: band 2's icons, band
+   3's small captions, band 4's five columns). In the flow it cost 31px of a
+   448px row; on the corner it costs nothing and is the shape a badge on an icon
+   has everywhere else. `position: relative` on the button rather than on the
+   strip: the badge belongs to the tab it counts. */
+@media (max-width: 1099.98px) {
+
+  #tab-bar button {
+    position: relative;
+  }
+
+  #tab-bar .tab-badge {
+    position: absolute;
+    top: var(--space-1);
+    right: var(--space-1);
+    margin-left: 0;
+  }
 }
 
 /* --- Phase 10, INBOX 100: the scroll edge effect --------------------------
@@ -737,6 +803,75 @@ header#top-bar,
   }
 }
 
+/* --- `.seg-multi`'s word, and the width that decides it -------------------
+   UI_MODERNISATION_PLAN.md Phase 11, INBOX 186. Measured on the running app
+   at 1440 / 1024 / 820 / 390, Timeline dock, after the four chips became one
+   well:
+
+   The dock's other three zones (identity, arrange, actions) want about 460px
+   at every width and do not shrink with the window, so the find zone gets
+   what is left: 778px at 1440, 447px at 1024, 288px at 820. The search box
+   will not go below 8rem (128px), and the four segments with their words in
+   measure about 430px. 128 + 430 is 558, which fits at 1440 and does not fit
+   at 1024 or at 820: with the words in, this control wraps everywhere below
+   about 1150, which is the four-line chip row it was built to end.
+
+   1200 rather than 1150, and for the reason `#graph-concept-maps`'s own label
+   rule gives nine lines away in 08-consistency.css: the margin at 1150 is a
+   handful of pixels, the zones do not shrink, and a word that appears and
+   disappears twice across one drag of a window edge reads as a glitch.
+
+   Not `display: none`: the segment's accessible name is its text, and a
+   hidden name is a button a screen reader announces as "button". */
+@media (max-width: 1199.98px) {
+
+  .seg-multi .seg-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* Square, so four icons read as four cells of one well rather than four
+     pills with air between them. */
+  .seg-multi > button {
+    justify-content: center;
+    min-width: var(--control-h-lg);
+    padding-inline: var(--space-3);
+  }
+}
+
+/* And in the touch band a segment is a target like any other control, which
+   takes the well's padding off rather than adding it to the well's height.
+
+   Measured at 390 before this rule: the well 36px tall with four 44x44 cells
+   inside it, so the accent-filled cell stood 4px proud of its own ground top
+   and bottom. Two rules meeting, each right on its own: `.dock .seg > button`
+   (08-consistency) insets a cell by the well's `--space-1` padding, and the
+   dock's touch block gives every control in a dock `min-height:
+   var(--target-min)`, which below 820 is 44px. Padding plus a 44px floor is a
+   52px well, and 52 is taller than every other control in the bar.
+
+   So below 820 the cells *are* the well: no padding, the well on the same
+   44px floor as the search box beside it, and the cell's own radius stepped
+   up to the well's so the run reads as one block rather than four pills.
+   `.dock` in the selector for specificity against 08-consistency's `.dock
+   .seg`, not because it is only true in a dock. */
+@media (max-width: 819.98px) {
+
+  .dock .seg-multi {
+    height: var(--target-min);
+    padding: 0;
+  }
+
+  .dock .seg-multi > button {
+    min-width: var(--target-min);
+    border-radius: var(--radius-md);
+  }
+}
+
 /* --- band 4: five columns, and the fifth is a sheet -----------------------
    UI_MODERNISATION_PLAN.md Phase 11, item 1.
 
@@ -793,6 +928,9 @@ header#top-bar,
     border-top: 1px solid var(--glass-border);
     backdrop-filter: blur(var(--glass-blur)) saturate(150%);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    /* Height, because that is the only thing that changes when it recedes.
+       The reduced-motion block in this file turns every transition off. */
+    transition: height var(--motion-slow) ease;
   }
 
   /* Four parts to the strip against one to More is five equal columns: the
@@ -857,8 +995,25 @@ header#top-bar,
      with four columns in the strip every caption is whole at 360 and above.
      `display: block` rather than `revert`, which would revert past the author
      origin entirely: the labels are flex children and blockified already, so
-     this is the value they compute to when nothing hides them. */
-  #tab-bar button:not(.active) .tab-label,
+     this is the value they compute to when nothing hides them.
+
+     **And `button`, not `button:not(.active)`, because of what the exception
+     did at 320.** The hide-everything rule under 360 in the same file is
+     `.tab-label` at (0,1,0); this one at (1,2,1) beat it for the six inactive
+     columns and left the *selected* tab as the only one with no word, which is
+     the exact inverse of what the bar is for. Measured with
+     `phonetabs.js` at 320: four of five columns captioned, the selected one
+     0px wide. With five columns at 64px and the longest caption 44.9px, the
+     words fit at 320 as they do at 360, so the right fix is the rule reaching
+     every column rather than the exception being widened.
+
+     Two ids, because dropping `:not(.active)` drops the specificity with it:
+     the 360-to-479.98 rule in the same file is `#tab-bar button:not(.active)
+     .tab-label`, (1,2,1), which this used to tie with and beat on source
+     order. At (1,1,1) it lost and three of the five captions went out across
+     that whole band; `#phone-tab-dock` in front makes it (2,1,1), and an id
+     count of two settles it before either of the others is read. */
+  #phone-tab-dock #tab-bar button .tab-label,
   .phone-tab-more .tab-label {
     display: block;
   }
@@ -866,6 +1021,32 @@ header#top-bar,
   #tab-bar button.active {
     flex: 1 1 0;
     padding-inline: 0;
+  }
+
+  /* --- the recede on the way down (INBOX 104) -----------------------------
+     DESIGN.md's Liquid Glass rule 10, and the half of it that is easy to lose
+     is in the rule itself: what goes is the caption, not the bar. 57.6px of
+     bar with words becomes 44px of icons, which is still a full row of 44px
+     targets and still says which tab you are on. `markTabBarRecede` (app.js)
+     sets the attribute, off the one scroll listener the edge effect already
+     owns.
+
+     The page's reservation for the bar does not move with it: `#status-bar`'s
+     bottom margin and `--page-viewport` stay on the full `--bottom-tabs-h`,
+     so the content under the bar never moves, so shrinking the bar cannot
+     fire the scroll that shrank it.
+
+     Two selectors rather than one, and both carry `#tab-bar` or
+     `.phone-tab-more` for specificity: the rule that puts the captions back
+     twenty lines up is (1,2,1), and a bare `#phone-tab-dock[data-receded]
+     .tab-label` is (1,2,0), which loses. */
+  #phone-tab-dock[data-receded] {
+    height: calc(var(--target-min) + env(safe-area-inset-bottom, 0px));
+  }
+
+  #phone-tab-dock[data-receded] #tab-bar button .tab-label,
+  #phone-tab-dock[data-receded] .phone-tab-more .tab-label {
+    display: none;
   }
 }
 
@@ -980,5 +1161,105 @@ header#top-bar,
 
   #settings-modal > .modal-card > .row.space-between {
     flex: 0 0 auto;
+  }
+}
+
+/* --- Phase 11 item 9: 44px targets, the ones the docks sweep cannot see ----
+   `touch.js` walks the docks and reports 0 findings at 390. The new
+   `scratchpad/ui-sweeps/phone.js` walks the whole tab, and the controls that
+   are *not* in a dock are where the floor is still missing. Measured at 390x844
+   in a `hasTouch` + `isMobile` context, each of these a button a finger is
+   meant to land on:
+
+     .library-chip in #library-filters      36px tall (eleven of them)
+     .library-chip in #reminder-filter      22.4px tall (Open / All / Done)
+     .sidebar-collapse-toggle               36x36, and on a phone it is the
+                                            only way to open the sidebar sheet
+     .graph-zoom button                     34x34 (in, out, fit)
+
+   `min-height` rather than `height` on the chip, so a chip whose label wraps
+   still grows; a square floor on the two icon controls, which have no label to
+   grow by. The chip's own padding and radius are untouched: what was wrong was
+   the height, not the shape. */
+@media (max-width: 819.98px) {
+
+  .library-chip {
+    min-height: var(--target-min);
+  }
+
+  .sidebar-collapse-toggle {
+    width: var(--target-min);
+    height: var(--target-min);
+  }
+
+  .graph-zoom button {
+    width: var(--target-min);
+    height: var(--target-min);
+  }
+}
+
+/* Two more from the same sweep, and one of them is a class of fault rather than
+   an instance.
+
+   `summary.ghost` is a menu opener wearing a button: the dock's own height rule
+   reaches `.dock > * > details > summary` and nothing reaches one that sits in
+   a card instead (measured: Reminders' "Quick set", 38.8px). `.legend-item` is
+   a button in the graph's legend at 29.2px.
+
+   And the identity zone takes its own line on a phone. Measured on Chat at 390:
+   `.dock-identity` was a 56px box holding 139px of content, overflowing with
+   `overflow-x: visible`, because the zone is `flex: 0 1 auto` and its heading is
+   `white-space: nowrap`, so it shrinks to whatever is left and then spills. A
+   title that has to share a 390px row with a search box and three controls is
+   the arrangement that is wrong, not the title: below 600 the identity is a
+   line of its own and everything after it is the control row. The dock already
+   wraps, so this changes where the break falls rather than introducing one. */
+@media (max-width: 819.98px) {
+
+  summary.ghost,
+  .legend-item {
+    min-height: var(--target-min);
+  }
+}
+
+@media (max-width: 599.98px) {
+
+  /* Both halves of the pair 07-whiteboard-misc.css splits the zone into, at the
+     same (0,3,0) it uses, so this wins on file order rather than by accident:
+     a dock with a find zone gives its identity `flex: 0 1 auto` and one
+     without gives it `flex: 1 1 auto`, and `flex` is a shorthand that sets the
+     basis, so a bare `.dock .dock-identity` at (0,2,0) loses to either. */
+  .dock:has(.dock-find) .dock-identity,
+  .dock:not(:has(.dock-find)) .dock-identity {
+    flex-basis: 100%;
+  }
+}
+
+/* --- a zone that cannot shrink says so, instead of spilling ---------------
+   Found by `touch.js` at 820 after the Timeline's kind filter became one well:
+   "button.active at 527,130 hits i.ph.ph-sliders-horizontal", which is a
+   segment of the kinds control sitting *under* the Options button. Measured,
+   the same dock at 820: the find zone runs 243 to 488 and the well inside it
+   runs 390 to 549, so 61px of a control was outside its own zone and the
+   arrange group started at 497, on top of it.
+
+   The cause is a pair of rules that were both right while the zone's contents
+   could wrap. `.dock-group` carries `min-width: 0` so a search box can shrink,
+   and the zone's width comes from `flex: 1 1 14rem` against the other three
+   zones. A row of chips could wrap inside that and take a second line; a `.seg`
+   well cannot wrap, by its own rule, so once it is the widest thing in the zone
+   the zone is simply told to be narrower than its content and the content
+   leaves through the side.
+
+   `min-content` is the honest floor: the zone asks for what it cannot give up,
+   the dock's own `flex-wrap: wrap` then moves a whole zone onto a second row
+   when the four of them do not fit, and a row of whole controls is what a dock
+   is supposed to do when it runs out of width. Only below 1100, because above
+   it every dock in the app fits on one row and this would be a floor nothing
+   ever reaches. */
+@media (max-width: 1099.98px) {
+
+  .dock .dock-find {
+    min-width: min-content;
   }
 }

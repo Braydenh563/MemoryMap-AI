@@ -24428,6 +24428,21 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     and every one is in the Settings modal or a dialog. Not one of the seven
     tabs has a single one, which is why the tab's control labels are what the
     Guide sends. A tab that grows one is picked up with no further change.
+186. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the
+    timeline dock (one screenshot: the kind chips and the Show: all button
+    across the top of the dock).** "these buttons in the top of the
+    timeline dock are ugly and need a redesign/restructuring". The row is
+    `#timeline-kinds` plus `#timeline-filter-clear`; the dock grammar
+    (UI_MODERNISATION Phase 8) is the recipe. Owner: phone and chrome agent.
+
+    **Fixed cb8060a.** Measured with `scratchpad/ui-sweeps/timelinedock.js` at
+    1440 / 1024 / 820 / 390: before, four `.library-chip`s 121 / 102 / 162 /
+    158px wide that wrapped to three rows at 1024 and four at 820, taking the
+    dock to 138.8px and 181.2px. After, one `.seg.seg-multi` well, four
+    segments on one row at every width, the dock 54px at 1440, 1024 and 820,
+    the well 441.4px with words and 159.2px without, cells 44x44 at 390, and
+    the band's "Show: …" the zone's one chip. `docks.js`: the timeline dock is
+    5 controls at one height (36px) with one filled button.
 
 ## Moved from the plans, 2026-09-13
 
@@ -24514,6 +24529,308 @@ dates) that I1's remaining passes add to the same table and the same
 listing.
 
 ### From UI_MODERNISATION_PLAN.md
+
+### The end-of-session sweeps, and the two things they found, 2026-09-13
+
+`touch.js`, `contrast.js`, `docks.js` and `errors.js` at 390, 820, 1024 and 1440
+in both themes.
+
+**Clean:** `errors.js` 0 errors and 0 layout findings at all four widths in both
+themes; `contrast.js` 0 low-contrast items on every tab and every Settings
+section in both themes; `docks.js` all seven docks, the Timeline's at 5 controls
+and one height; `phone.js` 0 findings at 390x844 and 430x932; `phonetabs.js`,
+`phonemore.js`, `timelinedock.js`, `sheetdismiss.js` and `selectflag.js` all
+green.
+
+**A defect this session had introduced, which is exactly why the sweeps run at
+the end.** `touch.js` at 820: "button.active at 527,130 hits
+i.ph.ph-sliders-horizontal", a segment of the Timeline's new kind filter sitting
+under the Options button. Measured: the find zone ran 243 to 488 and the well
+inside it ran 390 to 549, so 61px of a control was outside its own zone and the
+arrange group started at 497, on top of it.
+
+Two rules that were both right while the zone's contents could wrap.
+`.dock-group` carries `min-width: 0` so a search box can shrink, and the zone's
+width comes from `flex: 1 1 14rem` against the other three zones. A row of chips
+could wrap inside that and take a second line; a `.seg` well cannot wrap, by its
+own rule, so once it is the widest thing in the zone, the zone is told to be
+narrower than its content and the content leaves through the side.
+`min-width: min-content` below 1100 is the honest floor: the zone asks for what
+it cannot give up, and the dock's own `flex-wrap: wrap` then moves a whole zone
+onto a second row, which is what a dock is supposed to do when it runs out of
+width. After: the find zone 243 to 644 with the well inside it at 485 to 644,
+and no control covered at 820, 1024 or 1440.
+
+**And one that was always there:** `.cat-row` on the Dashboard is 26.8px tall,
+1.2px under the app's global 28px floor, at every width. Its height came from a
+bar and two labels and had never been declared, so it moved with the type scale;
+it is on `--target-min` now.
+
+**A sweep fix rather than an app fix, and worth recording as one.** `touch.js`
+asserted 44px at every width, so running it at 820 and 1024 reported 130 and 129
+findings against 0 at 390, every one of them a control sized exactly as its band
+says (`--target-min` is 2.75rem below 820 and 1.75rem above it). It reads the
+floor off the band now, which is what makes a run above 820 mean anything.
+
+### Built, Phase 11 item 9 and its gate: the phone walked whole, 2026-09-13
+
+`touch.js` walks the docks and has reported 0 findings at 390 for a while. The
+new `scratchpad/ui-sweeps/phone.js` walks each of the seven tabs entire, in a
+`hasTouch` + `isMobile` context, and asks four questions the plan's item 11
+asks: no horizontal scroll at the page and inside every surface, no control
+under 44px, one column, and where the primary action sits. It exits non-zero on
+any of them.
+
+It carries `touch.js`'s exclusion list rather than rediscovering it (the hidden
+native `<select>` behind every enhanced one measures 1x44, the clipped
+screen-reader recipes and file inputs measure 1x1, a `.seg` well is not what a
+finger lands on, a closed dock menu's rows are not on screen, and a tick box is
+not stretched to a target anywhere in this app). With those out, the first run
+found six real faults, every one of them a control outside a dock:
+
+| Control | Before |
+| --- | --- |
+| `.library-chip` in `#library-filters` (eleven of them) | 36px tall |
+| `.library-chip` in `#reminder-filter` (Open / All / Done) | 22.4px tall |
+| `.sidebar-collapse-toggle` | 36x36, and on a phone it is the only way to open the sidebar sheet |
+| `.graph-zoom` in, out, fit | 34x34 |
+| `summary.ghost` (Reminders' "Quick set") | 38.8px, because the dock's height rule reaches `.dock > * > details > summary` and nothing reaches one that sits in a card |
+| `.legend-item` | 29.2px |
+| Chat's `.dock-identity` | a 56px box holding 139px of text, overflowing with `overflow-x: visible` |
+
+The last of those is a class of fault rather than an instance, and is fixed as
+one: the identity zone is `flex: 0 1 auto` with a `nowrap` heading, so on a
+390px row it shrinks to whatever the search box and three controls leave and
+then spills. Below 600 the identity takes a line of its own and everything after
+it is the control row. The dock already wraps, so this moves where the break
+falls rather than introducing one. It needed both halves of the pair
+07-whiteboard-misc.css splits that zone into, at the same (0,3,0), because
+`flex` is a shorthand that sets the basis and a bare `.dock .dock-identity` at
+(0,2,0) loses to either.
+
+After: `phone.js` 0 findings at 390x844 and at 430x932; `touch.js` unchanged at
+0 across seventeen surfaces; `docks.js` still reports all seven docks;
+`test_style_scale.py`, `test_css_braces.py`, `test_ui_signatures.py`,
+`test_ui_recipes.py` and `test_dock_grammar.py` green.
+
+**And the third "found, not fixed" item closes with it.** `graph.js`'s drag-fps
+gate was recorded at 43.9 fps against its own 55. Re-measured on this head:
+**58.9 fps** over 2 seconds on 45 notes, worst frame gap 50.1ms, p95 16.8ms,
+worst draw 1.50ms, so the gate passes and the 43.9 was the sandbox rather than
+the renderer. (The same run still fails its step 5, "clear trace", which is a
+graph-agent matter and nothing this session touched.)
+
+### Two of the three "found, not fixed" items, re-measured and closed, 2026-09-13
+
+Both came out of the Phase 11 handover as open faults. Neither is one now, and
+the reason is different in each case, so both are written down rather than
+quietly dropped.
+
+**`selectMode` is one flag for two tabs: not a defect.** The report was that
+"leaving Notes in select mode turns the timeline's own Select off on the first
+press". One shared flag is TIMELINE_PLAN decision 6 and is not being remade: one
+set, one count, two bars, so a note moved from the table takes exactly the path
+a note moved from the list takes. What would make that a defect is a button out
+of step with it, because a toggle that is on and drawn as off does the opposite
+of what it offers on its first press. Measured with
+`scratchpad/ui-sweeps/selectflag.js`: entering select mode on Notes and then
+arriving at the Timeline's table, the Timeline's Select button is
+`aria-pressed="true"` and lit, its bar is showing and its tick column is drawn
+on all 55 rows. So the first press turning the mode off is the toggle doing what
+it says, and the sweep now holds that.
+
+**`touch.js` at 320: clean.** The handover recorded two covered controls in the
+Settings sheet (`#settings-nav-back` and `#settings-close` both landing on
+`#settings-search` at y=86). Re-measured at 320x844 with `hasTouch`: 20 controls
+in the Settings sheet, 0 under 44px, 0 covered, 0 overlapping taps, and the same
+across all seventeen surfaces, with no sideways scroll. The settings-head fix
+that landed on the branch between the two runs is the likely cause; it is
+recorded here as measured-clean rather than as fixed-by-this-session.
+
+### Built: an open fold stops inflating its row-mates, 2026-09-13
+
+The INBOX 164 block's leftover, and the one thing in it that was a defect rather
+than a trade. Measured at 1440 with `scratchpad/ui-sweeps/imagefold.js` on seven
+seeded picture cards in one row: at rest each is 240.7px with a 144px picture
+and 42.6px of tail; open one card's fold and every card in the row becomes
+411.1px and six of them carry 213px of empty card under their last line.
+
+The recorded decision is **not** remade. It is about the row at rest, where the
+cards are equalised and the leftover goes under the shortest one, because the
+alternatives (a bigger picture, unequal cards) were measured and rejected. What
+was never chosen is the second effect of the same stretch: one card's disclosure
+copied onto its six neighbours. So the stretch stops only while a fold in that
+grid is open,
+`.library-image-grid:has(.library-image-card-fold[open]) .library-image-tile {
+align-self: start }`, one selector, no JS, and it reverts the moment the fold
+shuts.
+
+Measured after, same sweep: shut, unchanged at 240.7px with a 42.6px tail; with
+one fold open, the opened card 411.1px and the other six at their own 199.1px
+with a 1px tail. `imagecard3.js` still passes (its open-to-shut ratio is
+row-scoped and still 1.71).
+
+Also corrected, because it was wrong in the handover: the pictures do **not**
+grow to their `max-height` ceiling when the row grows. They are 144px open and
+shut, so all 213px of the hole was empty card.
+
+### Built, Phase 11's two band-2 faults: one row at 820, and 44px tabs, 2026-09-13
+
+Measured with `scratchpad/ui-sweeps/tabfit.js`. Before, at 820x1180: the header
+112px, the tab strip wrapped onto a row of its own, and seven tab buttons 36px
+tall on the first band outside the touch band's 44px floor. Band 2's own rule
+opens "the tabs are icons, and the header is one row", so half of it was not
+true anywhere in the band's lower half.
+
+**The wrap was arithmetic, not a rule failing to reach.** The strip needed 505px
+and the room beside the wordmark, the space switcher and the header controls is
+448px at 820. Those three plus their gaps are a fixed 372px at every width in
+the band, so the captioned strip fits from about 877 up and not below it, which
+is why this was invisible at 900 and above.
+
+Three changes closed 57px and then some, and each is worth having on its own:
+
+- **The padding was most of the width.** An icon-only button was 49px of which
+  33px was air. The buttons take the same `--space-4` step and the same
+  `--text-xs` caption band 3 already takes.
+- **So they get a floor instead**, on both axes, which is the second fault fixed
+  by the first one's cure: `--target-min` redeclared as 2.75rem **on `#tab-bar`
+  only**. 820 to 1100 is an iPad in landscape and the tabs are what a finger
+  lands on there. Scoped to the strip rather than to `:root` deliberately:
+  raising every dock control in the band to 44px is a real change with its own
+  measurements to take, and this was the strip's fault rather than the band's.
+  That is the answer to the open question the plan carried ("worth deciding
+  whether the touch band should include 820 itself"): for the tab strip, yes;
+  for the rest of the band, not on this evidence.
+- **The due-reminders count sits on its glyph.** It was a pill in the flow, so
+  the Reminders tab was 80.2px against 49px for every other icon in the row.
+  Below 1100 it is absolutely placed on the button's corner, which is what a
+  badge on an icon is everywhere else, and it is worth 31px in band 3 too (the
+  tab went from 110px to 79px at 600 and 819).
+
+After, at 820: seven buttons 44x44 (the selected one 111.8x44 with its caption),
+the strip 408px in 448, the header 72px, one row. At 900, 1024 and 1099 the same
+408 to 409px strip and a 72px header, up from 64 because the buttons are now
+44px tall, which is the price of the target and is paid once for the band. Band
+3 (600 and 819) and band 1 (1440) are unchanged except for the badge.
+`tests/test_style_scale.py`, `test_css_braces.py` and `test_ui_signatures.py`
+green.
+
+### Built, INBOX 104: the phone tab bar recedes on the way down, 2026-09-13
+
+DESIGN.md's Liquid Glass rule 10, and Phase 11 item 1's last open bullet. The
+half of the rule that is easy to lose is in the implementation: what recedes is
+the caption, not the bar. A bar that disappears is a navigation people hunt for.
+
+On the scroll-edge listener's own shape, which is what the plan asked for and
+what that block's comment exists to insist on: one capture-phase `scroll`
+listener, coalesced with `requestAnimationFrame`, choosing its target by
+measuring rather than by name. `markTabBarRecede` runs in the same frame as
+`markScrollEdge` and behind the same guard (a menu, a dialog or a sheet scrolls
+*over* the page, and the bar it covers has no business reacting).
+
+Three decisions worth keeping:
+
+- **The page's reservation does not move with the bar.** `#status-bar`'s bottom
+  margin and `--page-viewport` stay on the full `--bottom-tabs-h`. A fixed bar
+  that shrinks while the space reserved for it shrinks too moves the content
+  under it, which moves the scroll position, which fires the scroll event that
+  shrank it.
+- **A dead band in both directions** (12px), so a finger resting on a list does
+  not flicker the bar between its two heights, and the bar is always whole
+  within 12px of the top of anything: arriving at the top of a list with the
+  captions folded away is the state nobody asked for.
+- **The first scroll event a region sends counts from zero.** The event only
+  exists because something moved and a region starts at the top, so comparing
+  against "no previous reading" and returning swallowed the first flick and
+  receded on the second. Measured before the fix: `{top: 400, receded: false}`,
+  then `{top: 800, receded: true}`.
+
+**Measured, `scratchpad/ui-sweeps/phonetabs.js` at 390x844** (the recede cases
+are new there, driven by scrolling the region rather than by setting the
+attribute, so the listener is gated as much as the CSS): at rest 57.6px with
+five captions; after 400px down, 44px with 0 captions and all five icons still
+on screen, the bar still flush to the bottom edge at y=844; after 300px back up,
+57.6px and five captions. Two taps to each of the three tabs the More sheet
+holds, in the same run.
+
+**And a fault the recede cases found at 320**, which is the inverse of what the
+bar is for: four of the five columns carried a caption and the *selected* one
+did not, measured 0px wide. Under 360 the whole-strip rule
+(`.tab-label { display: none }`, 07-whiteboard-misc.css) is (0,1,0) and the
+five-column rule that puts the words back was
+`#tab-bar button:not(.active) .tab-label` at (1,2,1), so every column except the
+active one won. Five columns are 64px at 320 and the longest caption is 44.9px,
+so the words fit there as they do at 360: the rule now reaches every column,
+as `#phone-tab-dock #tab-bar button .tab-label`, (2,1,1), which is what it takes
+to beat both the (0,1,0) hide below 360 and the (1,2,1) selected-only rule
+between 360 and 480. `phonetabs.js` at 320 after: five columns at 64px, five
+captions, nothing clipped, no sideways scroll. `phonemore.js` unchanged, 0
+findings.
+
+### Built, INBOX 186: the timeline dock's kind filter, 2026-09-13
+
+The owner, with one screenshot of the kind chips and the Show: all button
+across the top of the dock: "these buttons in the top of the timeline dock are
+ugly and need a redesign/restructuring".
+
+**Measured before, `scratchpad/ui-sweeps/timelinedock.js` at 1440 / 1024 / 820
+/ 390.** Four `.library-chip`s in a `.dock-chip-row`, 121.1, 102.4, 161.6 and
+158.5px wide at 1440: four widths, because each chip was sized by its own word
+and its own count in brackets. The row wrapped inside the find zone, so at 1024
+the four chips stood on three rows and the dock was 138.8px, and at 820 they
+stood on four rows and the dock was 181.2px, which is a quarter of a 900px
+window spent on a filter before a single row of the journal.
+
+**The decision, which is the part worth keeping.** The dock grammar already
+separates the two things: a `.seg` is a set of choices, and a chip is a filter
+you can take off. These four kinds are always all four, cannot be removed, and
+cannot all be off (the last one on disables itself), so they were never chips.
+They are now one `.seg.seg-multi` well: the same well as every other segmented
+control, with `aria-pressed` on *every* segment rather than on one, because no
+single segment is the answer. `.seg-multi` is a new row in DESIGN.md's recipe
+index with `tests/test_ui_recipes.py` holding both halves (the well never wraps;
+the builder sets `aria-pressed` and puts the word in a `.seg-label`).
+
+The one filter in that zone that *is* removable, the band ("Show: Work"), keeps
+its job and stops being a ghost button standing among chips: it is the zone's
+one `.library-chip`, sitting after the well.
+
+**The word, and the width that decides it.** The dock's other three zones want
+about 460px at every width and do not shrink with the window, so the find zone
+gets 778px at 1440, 447px at 1024 and 288px at 820. The search box will not go
+below 8rem, and four segments with their words in measure 441.4px: 128 + 441
+fits at 1440 and does not fit at 1024 or 820. So the words are in above 1200 and
+the icons stand alone below it, with the word hidden rather than dropped so the
+accessible name is the same at every width and the tooltip carries the count
+("Notes, 10 in view"). 1200 rather than the 1150 the arithmetic gives, for the
+reason `#graph-concept-maps`'s own label rule gives in 08-consistency.css: a
+word that appears and disappears twice across one drag of a window edge reads as
+a glitch.
+
+**Measured after.** One row at every width. The dock 54px at 1440, 1024 and 820
+(from 54, 138.8 and 181.2). The well 441.4px with the words and 159.2px without.
+At 390 the well is 44px with four 44x44 cells, which took a rule of its own: the
+well's `--space-1` padding plus the touch band's 44px floor on dock controls
+made a 44px cell inside a 36px well, 4px proud of its own ground, so below 820
+the cells are the well (no padding, the well on the same 44px floor as the
+search box). `docks.js`: the timeline dock is 5 controls at one height, 36px,
+with one filled button. The kind filter still refetches (20 rows to 9 with notes
+off) and the last kind on is still disabled.
+
+Two lint amendments this needed, each because the lint could not see what the
+markup means. `tests/test_dock_grammar.py` counted the band clear as a second
+filled button, because `.library-chip` carries neither `ghost` nor `icon-only`:
+a chip is not a primary action, and the classifier now says so. And it failed a
+`.seg` with no options in the markup, which is what a well built at runtime
+looks like; those now have to be named by app.js instead, with the runtime shape
+gated by `timelinedock.js`.
+
+Found, not fixed: `.dock-chip-row` in 07-whiteboard-misc.css (and its band-4
+rule in 10-responsive.css) now has no user in the page. It is written as a
+general recipe rather than as the Timeline's, and three agents were in that file
+this session, so it is left for whoever owns it next; `test_ui_recipes.py` holds
+the page at zero uses either way.
 
 ### Built, Phase 11 item 1: the five-item bar and its More sheet, 2026-09-13
 

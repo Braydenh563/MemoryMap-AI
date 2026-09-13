@@ -2144,3 +2144,30 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   height: 2.25rem;
   padding: 0;
 }
+
+/* --- a card that opens does not inflate the six beside it -----------------
+   UI_MODERNISATION_PLAN.md Phase 11 (the INBOX 164 block's leftover), measured
+   at 1440 on a row of seven seeded picture cards: at rest every card is 240.7px
+   with a 144px picture and 42.6px of tail. Open one card's fold and every card
+   in the row becomes 411.1px, and six of them are carrying 213px of empty card
+   under their last line.
+
+   The recorded decision this does *not* remake is about the row at rest: the
+   cards are equalised there, and the leftover goes under the shortest one,
+   because the alternatives (a bigger picture, unequal cards) were measured and
+   rejected. What is being fixed is a different moment. The stretch is what
+   equalises at rest; it is also what copies one card's disclosure onto its six
+   neighbours, and that second effect was never chosen. Measured: the pictures
+   do *not* grow when the row does (144px open and shut), so the 213px is
+   entirely empty card, which also corrects the note in
+   `agent-remaining/ui-phase-11.md` that said the pictures grow to their
+   `max-height` ceiling.
+
+   `align-self` on the tile rather than `align-items` on the grid, and only
+   while a fold in the grid is open: at rest the grid stretches exactly as it
+   did, and `.library-image-grid:has(details[open])` is the state where the
+   stretch stops paying for itself. One selector, no JS, and it reverts the
+   moment the fold shuts. */
+.library-image-grid:has(.library-image-card-fold[open]) .library-image-tile {
+  align-self: start;
+}

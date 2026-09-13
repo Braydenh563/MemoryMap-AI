@@ -599,13 +599,9 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
    the block, with its numbers, is in HISTORY.md, "Moved from the plans,
    2026-09-13"). What is left of item 1, in order:
 
-   - **The recede to icons on scroll down and back on scroll up (INBOX 104).**
-     The listener shape to copy is the scroll-edge one in app.js (search
-     `SCROLL_EDGE_BARS`): one capture-phase `scroll` listener that picks its
-     target by measuring rather than by name, coalesced with
-     `requestAnimationFrame`. Per-surface listeners are what that block's own
-     comment exists to warn against. Never hidden, which is the rule this item
-     carries from DESIGN.md's Liquid Glass rule 10.
+   - **The recede to icons on scroll down and back on scroll up (INBOX 104):
+     built** (2026-09-13); the block, with its numbers, is in HISTORY.md
+     ("Moved from the plans, 2026-09-13").
    - **The top bar's own reduction**: the title, the AI dot and one action. It
      is two rows at some widths and has never been measured at 320 with the
      wordmark, the space switcher and the two control clusters in it.
@@ -632,9 +628,11 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
 8. **Settings, dashboard, timeline, reminders.** Settings as a page list
    (sections as rows) with a back button; dashboard widgets one column;
    timeline as the table view; reminders as rows with swipe done.
-9. **Touch.** 44px targets everywhere below 820 (Phase 9's token step
-   holds), no hover-only affordance (every hover state has a tap
-   equivalent), long-press replaces right-click app-wide.
+9. **Touch.** The 44px half is built (2026-09-13, the block is in HISTORY.md,
+   "Moved from the plans, 2026-09-13"): `scratchpad/ui-sweeps/phone.js` walks
+   every tab whole rather than dock by dock and reports 0 findings at 390x844
+   and 430x932. Still open: no hover-only affordance (every hover state has a
+   tap equivalent), and long-press replacing right-click app-wide.
 10. **The status bar at 320: taken, the first way.** Measured 2026-09-12,
     after the header was made to fit: at 320 x 844 the page still scrolled
     sideways, 355 in 320, and the bar was the cause (its six surviving items
@@ -663,28 +661,42 @@ different problem than the list says.
   (fixed 2026-09-13, 10-responsive.css); the same squash is there at every
   width and is invisible above 360 because the head does not wrap, so the
   general fix is open work for whoever owns that surface.
-- **The sheets: one recipe, two still hand-built.** `openSheet` and DESIGN.md's
-  "A sheet" row landed with the More sheet, and `tests/test_ui_recipes.py`
-  freezes the two that predate it (`.sidebar-sheet-open` for the three
-  sidebars, `.graph-popup-sheet` for the graph's dock) so a third cannot be
-  built by hand. Moving those two onto the recipe is open work and belongs with
-  items 3 and 4 rather than with item 1.
-- **A finding at 820, which is not a phone at all.** The header is 108.2px
-  there: two rows, a wrapped tab strip, on a band whose own rule (band 2,
-  10-responsive.css) says "the tabs are icons, and the header is one row". The
-  strip needs 440px at 820 (the active tab keeps its caption at 146.2px, the
-  other six are 49px) and it is still wrapping. And the buttons are 36px tall,
-  under the 44px `--target-min` the band below it raises them to, because 820 is
-  the first width *outside* the touch band. Both are band-2 faults rather than
-  phone ones, and neither is in the list above.
+- **The sheets: one recipe, two in place, and the boundary between them is now
+  written down** (2026-09-13). `openSheet` builds a *modal bottom* sheet out of
+  nothing; the two that predate it are *in-place* sheets, elements already on
+  the page that become one inside a band. They are not being moved onto
+  `openSheet`, and that is a decision rather than a postponement: each would
+  lose the thing it was built for (the sidebar keeps a rail on screen carrying
+  its own opener, which is the way back; the graph's is deliberately not modal,
+  so the map it came from stays visible as the sheet's origin), and it would
+  mean moving a live subtree in and out of a dialog on every open. What they do
+  share, from this session, is the dismissal: `wireInPlaceSheetDismissal` in
+  app.js gives both a captured Escape, a press outside and focus back on the
+  opener. DESIGN.md's "A sheet" row carries the boundary;
+  `tests/test_ui_recipes.py` holds the ratchet at two and the shared dismissal.
+  Measured with `scratchpad/ui-sweeps/sheetdismiss.js` at 390: the sidebar
+  sheet opens from its rail, a captured Escape closes it past a handler on
+  `document.body` that stops Escape (the bubbling one it had never saw that
+  event at all), a press outside closes it, and focus lands back on the toggle
+  with `aria-expanded="false"`; the More sheet the same.
+- **A finding at 820, which is not a phone at all: fixed** (2026-09-13). The
+  header was 112px there, two rows, on a band whose own rule says "the tabs are
+  icons, and the header is one row", and the buttons were 36px tall. The block,
+  with its arithmetic, is in HISTORY.md ("Moved from the plans, 2026-09-13").
 
-11. **Gates.** A phone sweep (`scratchpad/ui-sweeps/phone.js`) at 390 x 844
-    and 430 x 932 per tab: no horizontal scroll, no control under 44px,
-    the primary action within the lower 40% of the screen, the composer
-    above a simulated keyboard, every desktop action reachable in at most
-    two taps (counted); errors.js and contrast.js at 390; a screenshot
-    set for the owner per tab, because this is the one surface the owner
-    checks on a real phone.
+11. **Gates.** `scratchpad/ui-sweeps/phone.js` exists (2026-09-13) and holds
+    four of them per tab at 390x844 and 430x932: no horizontal scroll (page and
+    inside every surface), no control under 44px, one column, and the primary
+    action's y reported. Two of the list are not in it, for reasons worth
+    keeping: **the primary action's position is reported and not failed**,
+    because four of the seven tabs have no filled action at all (the graph's is
+    a menu row) and inventing one is a design decision a sweep does not get to
+    make; and **the composer above a simulated keyboard cannot be measured
+    here**, because the sandbox has no soft keyboard and Playwright does not
+    fake one, so `visualViewport` never shrinks. Two taps to anything is in
+    `phonetabs.js` and `phonemore.js` already. Still open: errors.js and
+    contrast.js at 390 (this session runs them at the end), and the screenshot
+    set for the owner.
 
 ## Placed from INBOX, 2026-09-09
 
@@ -727,8 +739,8 @@ menus that open out of their opener.
     measurement asks for it. Rule 4 in DESIGN.md stays as the principle.
 
 104. **The phone tab bar recedes on scroll** (icons only on scroll down,
-    full on scroll up), never hidden. Moved to Phase 11: it is phone work
-    and the phone gets its own session.
+    full on scroll up), never hidden. Built (2026-09-13); the block is in
+    HISTORY.md ("Moved from the plans, 2026-09-13").
 
 94. **Background animations: fix, refine and improve.** Owner: UI Phase 3
     follow-up (Opus): each style gets a measured frame cost, a still frame
@@ -793,6 +805,14 @@ glass. What is left is below.
   changes."
 
 ## Placed from INBOX, 2026-09-13
+
+186. **The timeline dock's kind buttons.** Built (2026-09-13); the block, with
+    its numbers, is in HISTORY.md ("Moved from the plans, 2026-09-13"). One
+    decision made here and not to be remade: a fixed filter set is a `.seg`
+    well and not a row of chips, because a chip is a filter you can take off
+    and these four are always all four. The variant is `.seg-multi` in
+    DESIGN.md's recipe index, with `tests/test_ui_recipes.py` holding it.
+
 
 165. **Mid-work drop, 2026-09-13, verbatim (the owner), the Library's selection
     bar, one screenshot ("1 selected" with Open, Delete, Done).** "I want the

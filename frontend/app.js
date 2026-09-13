@@ -19981,22 +19981,57 @@ function applySidebarSheetMode(stacked) {
   });
 }
 
+// --- the dismissal every sheet keeps, wherever it is built -------------------
+// UI_MODERNISATION_PLAN.md Phase 11. `openSheet` builds a modal bottom sheet
+// out of nothing and owns its own listeners for the life of that one overlay.
+// The two sheets that predate it are a different object: an element that is
+// already on the page and *becomes* a sheet inside a band (the three sidebars
+// below 600, the graph's popup at the bottom of the map). Those cannot be built
+// by `openSheet` without losing what each was built for, and the reason is
+// written in DESIGN.md's index rather than rediscovered: the sidebar sheet
+// keeps a rail on screen with its own opener on it, which is the way back, and
+// the graph's is deliberately not modal, because the map it came from has to
+// stay visible for the sheet to have an origin.
+//
+// What they must share is the *dismissal*, which is the half a hand-built sheet
+// always gets wrong: Escape, a press outside, and the focus going back to the
+// control that opened it. This is that half, in one place, so a third in-place
+// sheet inherits all three rather than inventing them.
+//
+// Captured, both of them, which is the one behavioural change this extraction
+// makes: the sidebar sheet's Escape was a bubbling listener, so any handler
+// bound further down the page that stops an Escape took it first. `openSheet`
+// has always captured for exactly that reason.
+function wireInPlaceSheetDismissal({ find, close }) {
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const open = find();
+    if (!open) return;
+    event.stopPropagation();
+    close(open);
+  }, true);
+  document.addEventListener("pointerdown", (event) => {
+    const open = find();
+    if (!open || open.contains(event.target)) return;
+    close(open);
+  }, true);
+}
+
 // Escape closes an open sheet, and a tap on the content behind it does too.
 // Both are what a sheet means; without them the only way back is the rail,
 // which is the half of the panel the sheet is covering.
 function initSidebarSheetDismissal() {
-  document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape") return;
-    const open = document.querySelector(".sidebar-sheet-open");
-    if (!open) return;
-    open.classList.remove("sidebar-sheet-open");
-    open.querySelector(".sidebar-collapse-toggle")?.focus();
+  wireInPlaceSheetDismissal({
+    find: () => document.querySelector(".sidebar-sheet-open"),
+    close: (open) => {
+      open.classList.remove("sidebar-sheet-open");
+      //: The rail's own button is the opener, so focus goes back to it: the
+      //: same contract `openSheet`'s `returnFocus` keeps.
+      const opener = open.querySelector(".sidebar-collapse-toggle");
+      opener?.setAttribute("aria-expanded", "false");
+      opener?.focus();
+    },
   });
-  document.addEventListener("pointerdown", (event) => {
-    const open = document.querySelector(".sidebar-sheet-open");
-    if (!open || open.contains(event.target)) return;
-    open.classList.remove("sidebar-sheet-open");
-  }, true);
 }
 
 function makeSidebarResizable(aside) {
@@ -23140,6 +23175,63 @@ function markScrollEdge(region) {
   else if (best) best.removeAttribute("data-scrolled");
 }
 
+// --- the phone's tab bar recedes on the way down (INBOX 104) ----------------
+//
+// DESIGN.md's Liquid Glass rule 10: the bar over a scrolling region gives its
+// space back while you are reading and takes it again the moment you turn
+// round. **Never hidden**, which is the half of the rule that is easy to lose:
+// a bar that disappears is a navigation people hunt for, so what recedes is the
+// caption, not the bar. 57.6px of bar with words becomes 44px of icons, which
+// is still a full row of 44px targets.
+//
+// It rides on the scroll-edge listener above rather than bringing one of its
+// own, which is that block's own warning taken seriously: one capture-phase
+// listener, coalesced with `requestAnimationFrame`, choosing its target by
+// measuring rather than by name. A per-surface listener here would be seven
+// listeners reading layout on every scroll event on a phone.
+//
+// The page's reservation for the bar (`#status-bar`'s bottom margin, and
+// `--page-viewport`) deliberately does *not* change with it. A fixed bar that
+// shrinks while the space reserved for it shrinks too moves the content under
+// it, which moves the scroll position, which fires the scroll event that
+// shrank it: the reservation stays at the full height and the bar is simply
+// shorter inside it.
+const PHONE_BAR_RECEDE_PX = 12;
+//: Per region, because two lists on two tabs are two reading positions, and
+//: coming back to one mid-page should not read as a scroll up.
+const phoneBarLastTop = new WeakMap();
+
+function markTabBarRecede(region) {
+  const dock = document.getElementById("phone-tab-dock");
+  if (!dock) return;
+  //: The bar only exists in the phone band; above it there is nothing to
+  //: recede, and an attribute left behind would be waiting for the next
+  //: resize down.
+  if (!window.matchMedia(PHONE_TABS).matches) {
+    dock.removeAttribute("data-receded");
+    return;
+  }
+  const top = region.scrollTop;
+  const last = phoneBarLastTop.get(region);
+  phoneBarLastTop.set(region, top);
+  //: At the top of anything the bar is always whole. Arriving at the top of a
+  //: list with the captions still folded away is the state nobody asked for,
+  //: and it is the state a threshold alone leaves you in.
+  if (top <= PHONE_BAR_RECEDE_PX) {
+    dock.removeAttribute("data-receded");
+    return;
+  }
+  //: The first scroll event a region ever sends has no previous reading, and
+  //: zero is the honest one to compare it with: the event only exists because
+  //: something moved, and a region starts at the top. Without this the first
+  //: flick of a list is swallowed and the bar recedes on the second.
+  const delta = top - (last ?? 0);
+  //: A dead band in both directions, so a finger resting on a list does not
+  //: flicker the bar between its two heights.
+  if (delta > PHONE_BAR_RECEDE_PX) dock.setAttribute("data-receded", "1");
+  else if (delta < -PHONE_BAR_RECEDE_PX) dock.removeAttribute("data-receded");
+}
+
 let scrollEdgeFrame = 0;
 function onScrollEdge(event) {
   const region = event.target === document ? document.scrollingElement : event.target;
@@ -23150,6 +23242,15 @@ function onScrollEdge(event) {
   scrollEdgeFrame = requestAnimationFrame(() => {
     scrollEdgeFrame = 0;
     markScrollEdge(region);
+    //: The same guard the edge effect uses: a menu, a dialog or a sheet
+    //: scrolls *over* the page, and the bar it is covering has no business
+    //: reacting to it.
+    if (
+      !region.closest ||
+      !region.closest(".action-menu, .help-popover, .modal-overlay, #settings-modal, [role='menu']")
+    ) {
+      markTabBarRecede(region);
+    }
   });
 }
 
@@ -23175,6 +23276,10 @@ function syncScrollEdges() {
   for (const bar of document.querySelectorAll("[data-scrolled]")) {
     bar.removeAttribute("data-scrolled");
   }
+  //: And a tab you have just arrived on shows its bar whole, whatever the tab
+  //: you left was scrolled to. `syncScrollEdges` already runs on a tab change
+  //: and on a resize, which are the two moments this is true of.
+  document.getElementById("phone-tab-dock")?.removeAttribute("data-receded");
 }
 
 window.addEventListener("resize", syncScrollEdges, { passive: true });
@@ -25937,12 +26042,21 @@ function timelineIsDailyNote(row) {
   return row.kind === "note" && row.title.trim() === dailyNoteTitle(timelineBucketKey(row.when, "day"));
 }
 
-//: The chips themselves, in the dock's find zone beside the search, on
-//: `.library-chip`: the app's own filter-chip recipe (DESIGN.md's index), the
-//: same control the Library's boards filter and the chat composer's toggles
-//: use. Each carries its count, the Library's rule and for its reason: a
-//: filter you have to press to find out is empty wastes the press.
-function renderTimelineKindChips() {
+//: **One control, not four** (INBOX 186: "these buttons in the top of the
+//: timeline dock are ugly and need a redesign/restructuring"). The four kinds
+//: were four `.library-chip`s at four different widths (121 / 102 / 162 / 158px
+//: measured at 1440), which is the dock grammar's own counter-example: a chip
+//: is a filter you can take *off*, and these four are always all four, never
+//: removable and never empty. They are a toggle set, so they are a `.seg`
+//: well: `.seg-multi`, the independent-toggles variant, where every segment
+//: carries its own `aria-pressed` rather than one of them being the choice.
+//:
+//: The count leaves the visible label for the title and the accessible name.
+//: The reason for having it at all is kept ("a filter you have to press to
+//: find out is empty wastes the press"); what is dropped is the width a
+//: parenthesised number costs, which is the difference between labels that fit
+//: a dock row and labels that do not (10-responsive.css has the arithmetic).
+function renderTimelineKinds() {
   const box = $("timeline-kinds");
   if (!box) return;
   const chosen = timelineKindChoice();
@@ -25953,13 +26067,14 @@ function renderTimelineKindChips() {
     const on = chosen.includes(kind.key);
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `library-chip${on ? " active" : ""}`;
+    if (on) button.className = "active";
     button.dataset.timelineKind = kind.key;
     button.setAttribute("aria-pressed", String(on));
     const count = counts.get(kind.key);
+    const held = count === undefined ? "" : `, ${count} in view`;
     button.title = on
-      ? `Stop showing ${kind.label.toLowerCase()}`
-      : `Show ${kind.label.toLowerCase()} in the timeline`;
+      ? `Stop showing ${kind.label.toLowerCase()}${held}`
+      : `Show ${kind.label.toLowerCase()} in the timeline${held}`;
     //: The last one on cannot be turned off: see `timelineKindChoice`.
     if (on && chosen.length === 1) {
       button.disabled = true;
@@ -25968,10 +26083,20 @@ function renderTimelineKindChips() {
     const icon = document.createElement("span");
     icon.className = `ph ${kind.glyph}`;
     icon.setAttribute("aria-hidden", "true");
+    //: The word is hidden by CSS below 1200 rather than dropped, so a segment's
+    //: accessible name is the word at every width and the icon-only state is
+    //: not a button a screen reader announces as "button".
     const label = document.createElement("span");
-    label.className = "dock-chip-label";
-    label.textContent = count === undefined ? kind.label : `${kind.label} (${count})`;
+    label.className = "seg-label";
+    label.textContent = kind.label;
     button.append(icon, label);
+    //: And the count for a reader who never sees the tooltip.
+    if (count !== undefined) {
+      const read = document.createElement("span");
+      read.className = "visually-hidden";
+      read.textContent = held;
+      button.appendChild(read);
+    }
     box.appendChild(button);
   }
 }
@@ -25988,7 +26113,7 @@ async function toggleTimelineKind(key) {
   } catch {
     /* a browser refusing storage still gets the filter for this visit */
   }
-  renderTimelineKindChips();
+  renderTimelineKinds();
   await renderTimeline();
 }
 
@@ -26101,7 +26226,7 @@ async function renderTimeline() {
     timelineFilter = null;
   }
   fillTimelineBandOptions();
-  renderTimelineKindChips();
+  renderTimelineKinds();
   paintTimeline();
   drawTimelineScrubber();
 }

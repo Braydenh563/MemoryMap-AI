@@ -93,6 +93,38 @@ measured or built in earlier commits and is marked there.
     timeline dock are ugly and need a redesign/restructuring". The row is
     `#timeline-kinds` plus `#timeline-filter-clear`; the dock grammar
     (UI_MODERNISATION Phase 8) is the recipe. Owner: phone and chrome agent.
+190. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the popup
+    agent and the help chat.** "the popup agent needs more ui, ux and
+    functionality refinements to be more professional. it needs to be more
+    versatile and usable across the whole app, the user should be able to
+    use it as the guiding hand and everything. also I was wondering if there
+    is a way to make the help chat bot more accessible throughout the
+    settings modal and also even accessible application wide?? maybe give
+    it more knowledge and capabilitie/function and give it a fitting
+    name??" And, on the same surface: "what does 'the open note' mean??
+    what does opening a note even entail?? how does one open a note??" The
+    label `#command-palette-use-note-text` is written by
+    `syncAgentOpenNoteToggle` and says "the open note" when it should name
+    the thing that is open, or say what would count. Owner: chat agent.
+
+189. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the popup
+    agent's subject.** "I think the test note the popup agent is referring
+    to is the mind map I just made called test". The open-thing scope
+    resolved a board as a note; a map, a board and a document each need
+    naming as what they are. Owner: chat agent.
+
+188. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the table
+    bar in an AI answer.** "the table button option rendering needs to be
+    fixed or refined, especially in the popup agent, maybe just make it a
+    copy button with an ellipse/kebab dropdown menu button next to it for
+    the other options". Recommendation, taken: one Copy button and a
+    `kebabMenu` for the rest, in both the chat and the popup agent. Owner:
+    chat agent.
+
+187. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the popup
+    agent's caret.** "the writing carette shows on the popup agent when the
+    3-dot animation is showing and it is waiting for a model response which
+    it shouldnt". Owner: chat agent.
 
 185. **Mid-work drop, 2026-09-13 evening, verbatim (the owner), the
     graph's show toggles.** "Things that I have turned off in the graph for

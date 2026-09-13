@@ -2147,13 +2147,22 @@
           <!-- "Find", not "highlight": it filters the rows now rather than
                dimming them in place (TIMELINE_PLAN decision 2). -->
           <input type="search" id="timeline-search" class="timeline-search" placeholder="Find notes…" aria-label="Find matching notes">
-          <button id="timeline-filter-clear" class="ghost small hidden" type="button" title="Show everything again"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Show: all</button>
           <!-- Which kinds of thing the journal holds (TIMELINE_PLAN.md Phase 4,
-               decision 9). `.library-chip`, the app's own filter-chip recipe,
-               built by `renderTimelineKindChips` so each chip can carry its
-               count: unlike the search and the band filter, a kind is a server
-               filter, so pressing one refetches. -->
-          <div id="timeline-kinds" class="dock-chip-row" role="group" aria-label="Kinds of thing to show"></div>
+               decision 9), as one control rather than four loose ones. The four
+               are a toggle set that is always all four, never removable and
+               never empty, so the dock grammar's own line applies: `.seg` for a
+               set of choices, a chip only for a filter you can take off. It was
+               a `.dock-chip-row` of `.library-chip`s at four different widths,
+               which is what INBOX 186 is about. `.seg-multi` is the
+               independent-toggles variant of the well (DESIGN.md's index);
+               `renderTimelineKinds` fills it, and a kind is a *server* filter,
+               so pressing one refetches. -->
+          <div id="timeline-kinds" class="seg seg-multi" role="group" aria-label="Kinds of thing to show"></div>
+          <!-- The one filter here that *is* removable, and therefore the one
+               chip: the band ("show only Work"). It read as a ghost button
+               sitting among four chips before, which is the other half of the
+               same report. -->
+          <button id="timeline-filter-clear" class="library-chip active hidden" type="button" title="Show everything again"><i class="ph ph-x" aria-hidden="true"></i> <span>Show: all</span></button>
         </div>
         <div class="dock-group dock-arrange">
           <!-- Two views of one array (TIMELINE_PLAN decision 2): the feed for

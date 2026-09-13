@@ -27,7 +27,14 @@ const PW = 'testpassword123';
 const BASE = process.env.BASE || 'http://127.0.0.1:8781';
 const WIDTH = Number(process.env.WIDTH || 390);
 const HEIGHT = Number(process.env.HEIGHT || 844);
-const MIN = 44;
+// **The floor is the band's own, not a constant.** `--target-min` steps up to
+// 2.75rem below 820 and is 1.75rem above it (00-tokens-shell.css,
+// 07-whiteboard-misc.css), so a 44px floor asserted at 1024 is asserting
+// something the design has never promised there: measured, this sweep reported
+// 130 findings at 820 and 129 at 1024 against 0 at 390, and every one of them
+// was a control sized exactly as its band says. Reading the floor off the band
+// makes the sweep say something true at every width instead of only below 820.
+const MIN = WIDTH < 820 ? 44 : 28;
 
 // Every dock the app has, plus the three control surfaces that are docks by
 // any other name (the chat composer, the dashboard's own widgets, the

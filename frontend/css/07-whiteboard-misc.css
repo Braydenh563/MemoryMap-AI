@@ -8290,9 +8290,20 @@ header#top-bar > #tab-bar {
   height: var(--sidebar-toggle-size);
 }
 
+/* The formatting strip is `position: sticky; top: 0`, so its ground is the
+   only thing between it and the document text scrolling under it. It was
+   `var(--surface-2)`, which is a 4%-opaque tint meant to sit *on* a pane and
+   take that pane's colour: on a sticky strip there is nothing under it but
+   the moving text, so the bar read as clear and the text showed straight
+   through it (reported: "only the bottom of the formatting bar sticks to the
+   top of the screen and the bar is clear so it is hard to see"). The tint is
+   kept, stacked over an opaque base, so the resting tone is unchanged and
+   the strip is never see-through. */
 .doc-toolbar,
 .doc-toolbar.is-collapsed {
-  background: var(--surface-2);
+  background:
+    linear-gradient(var(--surface-2), var(--surface-2)),
+    var(--modal-bg-opaque);
   border-color: transparent;
   box-shadow: none;
 }

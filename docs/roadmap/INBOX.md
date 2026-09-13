@@ -60,6 +60,20 @@ open and half finished stuff?"), which is a decision, not work.
 
 ## Open items
 
+146. **Mid-work drop, 2026-09-13, verbatim (the owner), the timeline feed, two
+    screenshots (one full-width, one zoomed on the card's left edge).** "when i
+    expand timeline items, the top text and stuff gets pushed up slightly and
+    the vertical line on the right clashes with the other text and elements".
+    The screenshots show an expanded note card: the title row and its tag
+    chips sit hard against the card's top edge with a hairline rule directly
+    under them, and a vertical rule (the timeline spine) runs down *inside*
+    the card's left edge, crossing the title, the body line and the "Open in
+    editor" button. Two separate faults: the expanded card loses the top
+    padding the collapsed one has, and the spine is drawn over the card
+    rather than beside it. A timeline agent (TIMELINE Phases 1 to 4) was in
+    flight when this landed; it is sent there.
+
+
 145. **Mid-work drop, 2026-09-13, verbatim (the owner), the Library images
     sub-tab, third report on these cards (two screenshots, one at rest and one
     with a fold open).** "The ui and ux and ux in the images cards needs

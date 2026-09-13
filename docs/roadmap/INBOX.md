@@ -37,7 +37,15 @@ entries overstates the work. Gathered from inside them, the work still open:
   with the documents agent, together with the AI edit-history popover that
   still does not centre (111, carried from 107a).
 - "Describe with AI" and the OCR passes should show as background
-  processes (111): not investigated.
+  processes (111): **done, 2026-09-13.** Both were a disabled button and a
+  toast, so leaving the dialog or the tab lost every trace that a model call
+  was running. They open and close a row in the activity panel now, the same
+  list the server's own jobs appear in, through one funnel in library.js
+  (`libraryBackgroundRun`): every read goes through `trackOcrRead`, and the
+  two describe call sites wrap their promise. Measured
+  (`scratchpad/ui-sweeps/bgruns.js`): pressing Describe with AI on a gallery
+  card puts "Describing <filename>" in the panel and ends it "Failed" against
+  a sandbox with no vision model, which is the harder of the two paths.
 - The graph suggested-links panel's spacing and padding (110, 111): not
   investigated.
 - 107c's packages row (headers, badges and buttons displaced onto separate

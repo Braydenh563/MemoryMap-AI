@@ -2596,7 +2596,39 @@ function ocrPageImageUrl(image, page = 0) {
 //: any surface can consult to offer a way back in.
 const ocrActiveReads = new Map();
 
+//: **A model pass on a file is a background process, and says so where the
+//: others do** (INBOX 111: "'Describe with AI' and the OCR passes should show
+//: as background processes"). Reading a page or describing a picture is a
+//: blocking model call that can take a minute; before this it was a disabled
+//: button and a toast, so leaving the dialog (or the tab) lost every trace
+//: that anything was running, and the only way to know it had finished was to
+//: come back and look.
+//:
+//: The activity panel is the app's one answer to "what is this thing doing",
+//: and it already carries the server's own jobs (`backgroundRunRows` in
+//: app.js). These are client-started rather than polled, so they open and
+//: close their own row around the promise.
+//:
+//: Guarded on the functions rather than assumed: app.js loads first and these
+//: are globals, but a desktop shell running a cached `index.html` against a
+//: fresh `app.js` is a thing that has happened here, and a missing panel must
+//: cost a caption, not throw inside one.
+function libraryBackgroundRun(name, icon, promise) {
+  const run = typeof addAgentRun === "function"
+    ? addAgentRun({ kind: "job", name, icon })
+    : null;
+  const close = (state) => {
+    if (run && typeof endAgentRun === "function") endAgentRun(run, { state });
+  };
+  Promise.resolve(promise).then(() => close("done"), () => close("failed"));
+  return promise;
+}
+
 function trackOcrRead(image, label, promise, controller = null) {
+  //: The panel row wraps the promise the caller already has, so every read
+  //: that goes through this funnel (the workspace, the gallery menu, a page
+  //: read) is listed without a second call site to keep in step.
+  libraryBackgroundRun(label.replace(/…$/, ""), "ph:scan", promise);
   const key = ocrRailKey(image);
   //: `controller` is what makes the read stoppable. Asked for directly:
   //: "also let the user be able to stop the readings." A page read is a
@@ -4792,7 +4824,11 @@ document.addEventListener("DOMContentLoaded", () => {
           || "Nothing was written for that page.", !described?.caption);
         return;
       }
-      const updated = await analyseMediaRow(image, "caption", { force: true });
+      const updated = await libraryBackgroundRun(
+        `Describing ${image.original_name || "this image"}`,
+        "ph:sparkle",
+        analyseMediaRow(image, "caption", { force: true })
+      );
       if (updated && typeof updated.caption === "string") image.caption = updated.caption;
       renderLibraryImagesGallery();
       await ocrLoadPage(image, ocrWorkspacePage);
@@ -5996,7 +6032,11 @@ function filterLibraryImagesGallery() {
         // force: true: a manual click is exactly "the user pressed the
         // button to rewrite it", the one case the write-once default
         // (caption_and_store) is meant to defer to.
-        const updated = await analyseMediaRow(image, "caption", { force: true });
+        const updated = await libraryBackgroundRun(
+          `Describing ${image.original_name || "this image"}`,
+          "ph:sparkle",
+          analyseMediaRow(image, "caption", { force: true })
+        );
         setCaptionState(updated.caption, {
           caption_model: updated.caption_model,
           caption_edited: updated.caption_edited,

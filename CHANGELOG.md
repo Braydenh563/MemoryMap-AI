@@ -83,6 +83,10 @@ below). Versioning is `0.x` while the app stabilises.
   0px horizontally and 4px below the word after the scroll, closed after the
   word leaves the box.
 
+- Describing a picture with AI and reading text out of one now show up as
+  background processes in the activity panel, so you can leave the dialog or
+  the tab and still see what is running and how it ended.
+
 - The ring of controls around a mind map topic now says what each one does. A
   caption under the ring names the slot you are pointing at or have moved to
   with the keyboard, and the two slots that Alt swaps for their opposite say

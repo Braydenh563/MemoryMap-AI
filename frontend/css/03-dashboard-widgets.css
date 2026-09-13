@@ -116,6 +116,19 @@
   padding-block: 0;
 }
 
+/* The one height left on the row. Measured on the live panel (INBOX 110, the
+   spacing and padding report): the reason field and both buttons stand 28px
+   and the score chip stood 23.2px between them, which is the same "three
+   heights on one line" the field's own rule above was written for, two
+   pixels' worth rather than fourteen. A chip is text in a pill everywhere
+   else in the app, so the height goes on this row's chip rather than on the
+   chip recipe. */
+.link-suggestion > .chip {
+  display: inline-flex;
+  align-items: center;
+  height: 1.75rem;
+}
+
 /* A heading and its actions are two groups, not three peers sharing a
    space-between: which is what put the backfill button in the middle of the
    row and read as broken spacing. */

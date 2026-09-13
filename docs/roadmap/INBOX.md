@@ -46,8 +46,14 @@ entries overstates the work. Gathered from inside them, the work still open:
   (`scratchpad/ui-sweeps/bgruns.js`): pressing Describe with AI on a gallery
   card puts "Describing <filename>" in the panel and ends it "Failed" against
   a sandbox with no vision model, which is the harder of the two paths.
-- The graph suggested-links panel's spacing and padding (110, 111): not
-  investigated.
+- The graph suggested-links panel's spacing and padding (110, 111):
+  **measured, and one thing left to fix, 2026-09-13.** The panel was rebuilt
+  on the spacing scale in an earlier pass and the report predates it:
+  measured live (`scratchpad/ui-sweeps/linksuggest.js`, 1440x950, 12
+  suggestions), every row is 55.6px, padding 8px, gap 8px, radius 11.2px, the
+  head's gap 8px, and the rows scroll inside 352px rather than running past
+  the panel. The one thing still off was the score chip at 23.2px in a row of
+  28px controls, which is now 28px too.
 - 107c's packages row (headers, badges and buttons displaced onto separate
   rows): not reproduced.
 

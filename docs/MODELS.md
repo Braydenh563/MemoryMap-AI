@@ -53,8 +53,7 @@ parameters: the model is built so that only part of it does the work for a
 given token, which is why it answers faster than its size suggests. The
 whole thing still downloads and still has to be held in memory. `gemma4:e2b`
 is a 7.2 GB download and `gemma4:e4b` is 9.6 GB, so neither is a small-laptop
-model despite the name. (Earlier versions of this page said 3.5 GB and 5 GB.
-They were wrong.)
+model despite the name.
 
 ## 16 GB and up
 

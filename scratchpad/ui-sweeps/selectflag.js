@@ -1,6 +1,6 @@
 // One selection mode, two surfaces: does the Timeline's Select button say what
 // is true when you arrive there with Notes already in select mode?
-// (`agent-remaining/ui-phase-11.md`: "`selectMode` is one flag for two tabs").
+// (`archive/agent-remaining/ui-phase-11.md`: "`selectMode` is one flag for two tabs").
 //
 //   BASE=http://127.0.0.1:8792 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
 //     timeout 110 node scratchpad/ui-sweeps/selectflag.js

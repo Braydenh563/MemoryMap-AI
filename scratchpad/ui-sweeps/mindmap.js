@@ -909,7 +909,7 @@ function check(label, ok, detail) {
   // The concept map is the *other* creation path (`createConceptMap`, not
   // `createNewBoard("map")`), and it is a plain board of note cards joined by
   // link sketches, not a map board with derived tree edges: a fix to one is
-  // not a fix to the other (agent-remaining/inbox.md records the same trap).
+  // not a fix to the other (archive/agent-remaining/inbox.md records the same trap).
   // Its single-card drag goes through `dragging()` and `wbUpdateLinkedSketches`.
   const conceptDrag = await page.evaluate(async () => {
     const board = await window.apiJson("/whiteboard/boards", { method: "POST", body: JSON.stringify({ name: "Concept drag check" }) });

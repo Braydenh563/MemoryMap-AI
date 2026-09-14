@@ -3660,12 +3660,23 @@ p.graph-help-panel {
 
 .faded-card {
   display: grid;
-  /* The title and its reason take the row; the dismiss sits under them
-     rather than beside, so a long title never squeezes a control into two
-     characters and a wrapped ellipsis. */
-  gap: var(--space-1);
+  /* Two columns: the title and its reason, then the dismiss on the right,
+     top-aligned. The dismiss used to sit under a wrapping title, so the
+     three controls landed at three different heights and no two rows
+     shared a shape (measured 48, 24 and 72px titles, INBOX 216). A
+     one-line title and a fixed control column give every row one left
+     edge and one right edge. */
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: var(--space-2);
   padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--divider);
+}
+
+.faded-main {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
 }
 
 .faded-card:last-child {
@@ -3675,9 +3686,20 @@ p.graph-help-panel {
 
 .faded-title {
   /* Left, not centred: it is the first thing read in each row and three
-     centred titles down a narrow column read as a poem. */
+     centred titles down a narrow column read as a poem. One line: the full
+     title is the tooltip, and the reason under it is the part worth the
+     space. */
   text-align: left;
   font-weight: 600;
+  display: block;
+  max-width: 100%;
+  padding-left: 0;
+  padding-right: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  line-height: 1.5;
+  min-height: 28px;
 }
 
 .faded-why {
@@ -3686,5 +3708,5 @@ p.graph-help-panel {
 }
 
 .faded-dismiss {
-  justify-self: start;
+  justify-self: end;
 }

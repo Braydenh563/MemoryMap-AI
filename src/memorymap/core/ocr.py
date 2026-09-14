@@ -49,6 +49,20 @@ def tesseract_available() -> bool:
     return shutil.which("tesseract") is not None
 
 
+def _one_thread_for_tesseract() -> None:
+    """Pin Tesseract's OpenMP to one thread unless the person set it.
+
+    Measured 2026-09-14 in a four-core container: a 600x160 line of text took
+    42 s with the default (every OpenMP thread spinning on the LSTM's tiny
+    matrices), and 0.28 s with `OMP_THREAD_LIMIT=1`. The same oversubscription
+    hits any laptop running the app beside a model that already owns the
+    cores, and the Tesseract project's own advice for that case is this
+    variable. `setdefault`, so a person who tuned it keeps their value; the
+    child process inherits the environment through pytesseract's subprocess.
+    """
+    os.environ.setdefault("OMP_THREAD_LIMIT", "1")
+
+
 @functools.lru_cache(maxsize=1)
 def _log_binary_missing() -> None:
     """Called on every missing-binary path but only ever logs once per
@@ -89,6 +103,7 @@ def extract_text(image_path: Path) -> str:
         # different gap than the binary-missing one, worth its own message.
         _log_package_missing()
         return ""
+    _one_thread_for_tesseract()
     try:
         with Image.open(image_path) as img:
             text = pytesseract.image_to_string(img)
@@ -147,6 +162,7 @@ def extract_regions(image_path: Path) -> dict | None:
     except ImportError:
         _log_package_missing()
         return None
+    _one_thread_for_tesseract()
     try:
         with Image.open(image_path) as img:
             width, height = img.size

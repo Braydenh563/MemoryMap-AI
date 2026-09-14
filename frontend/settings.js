@@ -2382,29 +2382,30 @@ const BG_ART_BUILDERS = {
   aurora(p, ctx) {
     let particles = [];
     let emblem = [];
-    const drawEmblem = (t) => {
-      const radius = Math.min(p.width, p.height) * 0.32;
-      p.push();
-      p.translate(p.width / 2, p.height / 2);
-      p.rotate(t * 0.02);
-      p.stroke(ctx.baseHue, 50, ctx.dark ? 72 : 42, 0.09);
-      p.strokeWeight(1.5);
+    let ring = null;
+    const drawEmblem = (t, g) => {
+      const radius = Math.min(g.width, g.height) * 0.32;
+      g.push();
+      g.translate(g.width / 2, g.height / 2);
+      g.rotate(t * 0.02);
+      g.stroke(ctx.baseHue, 50, ctx.dark ? 72 : 42, 0.09);
+      g.strokeWeight(1.5);
       for (let i = 0; i < emblem.length; i++) {
         for (let j = i + 1; j < emblem.length; j++) {
           if ((i + j) % 3 === 0) {
-            p.line(
+            g.line(
               Math.cos(emblem[i]) * radius, Math.sin(emblem[i]) * radius,
               Math.cos(emblem[j]) * radius, Math.sin(emblem[j]) * radius
             );
           }
         }
       }
-      p.noStroke();
+      g.noStroke();
       for (const a of emblem) {
-        p.fill(ctx.baseHue, 58, ctx.dark ? 74 : 40, 0.12);
-        p.circle(Math.cos(a) * radius, Math.sin(a) * radius, 16);
+        g.fill(ctx.baseHue, 58, ctx.dark ? 74 : 40, 0.12);
+        g.circle(Math.cos(a) * radius, Math.sin(a) * radius, 16);
       }
-      p.pop();
+      g.pop();
     };
     return {
       init() {
@@ -2418,7 +2419,19 @@ const BG_ART_BUILDERS = {
         emblem = Array.from({ length: 9 }, (_, i) => (i / 9) * Math.PI * 2);
       },
       frame(t) {
-        drawEmblem(t);
+        //: The ring is drawn on its own layer and composited, never into the
+        //: trail buffer: drawn straight onto it, its lines and dots landed
+        //: in the same place every frame and read as a patch the trails
+        //: could not cross (INBOX 210, "the trails get reset by the rotating
+        //: middle graphic"). The layer is cleared each frame, so the ring
+        //: turns and the trails beneath it fade like everywhere else.
+        if (!ring || ring.width !== p.width || ring.height !== p.height) {
+          ring = p.createGraphics(p.width, p.height);
+          ring.colorMode(p.HSL, 360, 100, 100, 1);
+        }
+        ring.clear();
+        drawEmblem(t, ring);
+        p.image(ring, 0, 0);
         for (const dot of particles) {
           const angle = p.noise(dot.x * 0.0016, dot.y * 0.0016, t * 0.15) * Math.PI * 4;
           dot.x += Math.cos(angle) * dot.speed;
@@ -2580,7 +2593,12 @@ const BG_ART_BUILDERS = {
 
 function startBgArt() {
   stopBgArt();
-  if (typeof p5 === "undefined") return;
+  //: No early return on a missing `p5` here: it is loaded on demand
+  //: (`ensureP5`, app.js), and the one boot-time call to this function
+  //: arrives before it lands. An early return at this point is why the art
+  //: never appeared on a fresh login (the setting was on, the file loaded
+  //: later for the emblem, and nothing called back); the branch at the end
+  //: waits for the file and starts the art then.
   // Wanting a calm background isn't the same as wanting a calm interface, so
   // the art has its own setting. "Moving" is an explicit request and wins over
   // the reduced-motion hint: the hint exists to protect people from motion
@@ -2674,6 +2692,20 @@ function startBgArt() {
 
     p.windowResized = () => p.resizeCanvas(window.innerWidth, window.innerHeight);
   };
+  if (typeof p5 === "undefined") {
+    //: On demand (`ensureP5`, app.js): `startBgArt` is synchronous and its
+    //: callers do not wait, so the sketch mounts when the file lands; the
+    //: instance check keeps two from stacking when the setting flips twice.
+    ensureP5().then((ok) => {
+      //: Re-enter rather than mount the captured sketch: the setting or the
+      //: theme may have changed while the file loaded (unlock applies the
+      //: appearance, and `stopBgArt` may have run), so the prefs are read
+      //: again and a flipped-off setting mounts nothing.
+      if (!ok || bgArtInstance || !bgArtOn()) return;
+      startBgArt();
+    });
+    return;
+  }
   bgArtInstance = new p5(sketch);
   const canvas = document.getElementById("bg-art-canvas");
   if (canvas) canvas.className = "bg-art-canvas";

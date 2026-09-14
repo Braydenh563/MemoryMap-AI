@@ -394,7 +394,60 @@ with the id list, and `tests/test_events.py` (the spec, formerly strict
 xfail throughout) passes with no markers left. History, restore by event
 and `GET /events?since=` are live; what the log does not yet feed (sync,
 global undo of an AI action, the Timeline strip) is in
-`docs/roadmap/agent-remaining/brief7-event-log.md`.
+`docs/roadmap/archive/agent-remaining/brief7-event-log.md`.
+
+**Decisions made (do not remake).** Copied whole from the agent file
+on 2026-09-14 (INBOX 220) so they survive its archiving.
+
+1. **Retention is compaction, and the policy is ninety days with the newest
+   five kept.** Deletion would break replay. A run of events older than
+   ninety days folds into one snapshot holding the whole state at that
+   point; the rows behind it keep action, actor, detail and time and lose
+   only their values. Five newest kept rather than twenty because
+   `EntryRevision` already keeps the last twenty versions of every note for
+   ever, so twenty here was a second copy of the same thing and collapsed
+   nothing on an ordinary notebook.
+2. **What compaction gives up, it says.** Restoring a version whose values
+   are gone answers 410 with the reason; the History sheet renders "The text
+   from this change is no longer kept." in that row.
+3. **No `VACUUM` in the compaction pass.** The freed pages are reused
+   immediately, so the file stops growing, and `ai/autonomous.py`'s
+   `_vacuum` already returns them to the disk on its own schedule.
+4. **A board's replayable entity is the item, not the board.** A note is one
+   row and replays to one dict; a board is a note plus everything on it. So
+   `whiteboard_node`, `whiteboard_sketch` and `whiteboard_object` each
+   replay through `events.replay`, the board's own events (created,
+   duplicated, generated, imported, settings changed) sit on `board`, and a
+   board's whole state is the union of its items' replays.
+5. **`rename_board` is not wrapped in a write scope.** Its title change goes
+   through `manager.update_entry`; a scope would fold that note's own edit
+   into the board's event and take it out of the note's history. The board's
+   settings get their own event beside the note's, so that request records
+   two events on two entities, by design.
+6. **A compacted event reports what it is, not an edit.** A snapshot's
+   `after` is the whole state, so `/events` read it as one change that set
+   every field at once. The feed now reports `changed: []` and `snapshot`,
+   the number of events the row stands for, and reports `compacted` on the
+   rows whose values were dropped. A count rather than a span of time
+   because the count is what the compactor knows and stays right when a
+   later run folds more events into the same snapshot; the rows behind it
+   keep their own timestamps for a reader that wants the dates.
+7. **The AI's board tools write through the same helpers as the routes.**
+   Four `@events.writes` helpers at the top of `ai/tools/whiteboard.py`
+   (`_place_card`, `_draw_link`, `_place_object`, `_new_board`), and the
+   payload builders (`events.node_state` and its two siblings, plus
+   `events.board_state`) moved to `core/events.py` so both writers share
+   one idea of an entity's state. The two batch tools stay undecorated and
+   record one event per item: decorating a loop folds a whole batch into
+   one event, which is the shape that lost the replay. The tools' entity
+   types follow the routes' vocabulary (`whiteboard_node`,
+   `whiteboard_sketch`, `whiteboard_object`, `board`); the old
+   `mindmap`, `mindmap_node`, `mindmap_link`, `whiteboard_link` and
+   `whiteboard_diagram` names had no reader.
+8. **The index lives in `_INDEXES` and in a migration.** The startup path is
+   what reaches an existing notebook; the migration is what reaches a
+   database upgraded through Alembic alone. Both use IF NOT EXISTS, so they
+   cannot disagree.
 
 ### B2 The job runtime: durable, resumable, observable
 
@@ -420,7 +473,7 @@ three per-request scans of every stored vector.
 `tests/test_search_engine_spec.py` passes with no markers left. Measured on
 the sandbox: keyword 0.6ms and hybrid 0.6ms on 5,000 entries (gates 50 and
 200), similarity for one note 18.0ms to 0.0ms. What is left is in
-`docs/roadmap/agent-remaining/brief11-retrieval-engine.md`.
+`docs/roadmap/archive/agent-remaining/brief11-retrieval-engine.md`.
 
 **Decisions made** (the three the plan had made differently, revised against
 the code and taken; the reasons are in HISTORY):
@@ -597,6 +650,24 @@ take five of these.
 - Links: underlined on hover only, accent colour, external ones marked.
 
 ---
+
+
+## Audit, 2026-09-13 night (INBOX 209: "poke holes in this application")
+
+Measured on the merged head, not read from the plans. Each row: the evidence,
+what it costs, the fix, who. Rows marked **done** landed in the same pass.
+
+| # | Finding | Evidence | Fix | Who |
+| --- | --- | --- | --- | --- |
+| A1 | **Boot loads every surface's code and a 1 MB decoration.** 13 blocking scripts, 1,698 KB compressed JS before the first tab draws; `p5.min.js` alone is 1,034 KB raw and is used only for the emblem, the dashboard art and the background art. | `performance.getEntriesByType("resource")` at boot: jsKB 1698, DCL 586 ms on this sandbox; `wc -c` on `frontend/`. | **done** for p5 (`ensureP5`, fetched in idle time on first use, the boot tag gone). Open: whiteboard.js (678 KB), documents.js (640 KB), library.js (404 KB), graph.js plus graph-canvas.js (334 KB), dashboard.js and settings.js load before their tab is opened; a loader per tab (`ensureModule("whiteboard")` awaited by `switchTab`) with the boot-time cross-file calls guarded. This is Brief 33's app.js split, first step. | frontend agent |
+| A2 | **Boot fetches more than it shows.** 44 fetches at boot; `/insights/stats` five times (seven call sites in dashboard.js), `/preferences` twice, `/entries?limit=1000` (258 ms) and `/whiteboard/boards?limit=200` before either tab is open. | the same probe, slowest fetches. | **done** for stats (one shared promise, 44 to 35 fetches). Open: `/preferences` once, the notes list's first page at 200 with the pager it already has, boards on first Library visit. | frontend agent |
+| A3 | **Background jobs are unbounded threads.** Every upload spawns up to three `threading.Thread`s (Tesseract, caption, vision OCR) and a document read; 14 non-daemon `Thread(` sites, no semaphore, queue or pool anywhere in `ai/captioning.py`, `vision_ocr.py`, `docreader.py`, `core/ocr.py`. A folder of 200 pictures is 600 threads hitting one Ollama. | `grep -rn 'Thread(' src/memorymap`; `grep Semaphore\|Queue\|ThreadPool` in those files: none. | One bounded worker pool (`core/jobs.py`: a queue, N workers where N is the CPU count for Tesseract and 1 for the model, a job row the activity panel already shows), every `*_in_background` enqueues; B2 in section 4 is this. Daemon threads, joined on shutdown with a deadline. | backend agent |
+| A4 | **The agent does not know how big its model is.** `SMALL_MODEL_PARAMS_B = 8.0` and small-model mode exist for skills (`skill_runner._step_tools`), but `run_agent` (agent.py) gives a 1.5B model the same tool registry, the same `MAX_ROUNDS = 6` and the same descriptions as a 27B. | `grep small src/memorymap/ai/agent.py`: comments only. | In `run_agent`: when the model is small, the tool set is `CORE_TOOLS` minus `ORCHESTRATION_TOOLS`, rounds capped at 4, descriptions at their short form (the prose budget's lower tier), and the text-embedded tool-call parser (`extract_text_tool_calls`) tried before a re-prompt; measured against the fake transport with a "small" model name, plus one real run recorded in the plan's not-verified list. | backend agent |
+| A5 | **Five functions carry the app's complexity.** `run_agent` 831 lines and 71 branches, `_run_skill` 682 and 66, `chat_stream` 424 and 46, `graph` 355 and 45, `timeline` 346 and 42. | AST scan over `src/memorymap`. | Split each behind its existing tests into named stages (prepare, loop, one round, finish) with no behaviour change; the spec files are the gate. One commit per function, `gate.sh --changed` after each. | backend agent |
+| A6 | **Silent broad excepts.** Nine `except Exception: pass` in `ai/embeddings.py` (4), `ai/entities.py`, `ai/vision_ocr.py`, `core/pdfpages.py` (2), `core/taskhistory.py`. | AST scan. | Each logs at debug with `exc_info` or names the exception it expects; none widened. | backend agent |
+| A7 | **Security: no new hole found.** Token is 32 random bytes in a header, never a query string; unlock throttled; uploads capped at 50 MB; `/media/{filename}` resolved under the media dir; outbound fetches guarded; no CORS middleware (same origin only); the updater's host check stands; the one f-string SQL interpolates BM25 weights, not input. | grep and read. | Nothing to fix; re-run the flaw-class commands after A3 lands (a job queue is new surface). | none |
+| A8 | **Usability gaps the sweeps named and nobody owned.** The graph options panel scrolls again at 1440x900 (587 in 484); the Notes sidebar 919 in 686 at 390; `.segmented-control` radii everywhere but `#doc-ai-verb`; `data-help-for` 41 times, all in Settings or dialogs, none on a tab. | the agents' remaining files. | Each measured and fixed; the '?' help on every tab's dock is the copy standing order 6 asks for. | chrome agent |
+| A9 | **Tests that never run here.** 23 skips: 12 need the PDF extra, 9 need node, the rest Windows. | `grep skip tests`. | CI installs node already (the E2E job); the unit job should too, and one CI job installs the PDF extra so those 14 run somewhere. | backend agent |
 
 ## 8. Execution order for the coming week (Opus/Sonnet sessions)
 
@@ -1570,3 +1641,123 @@ rather than an array, so they are bounded at their maximum and need no
 frontend change.
 
 
+
+## 18. The next horizon, written 2026-09-14 at the close of PR 144
+
+**Where the plan stands.** Built and moved to HISTORY: B1 the event log,
+B3 the retrieval engine with explanations, B5's verifier and budget
+(Brief 13), I4 resurfacing with its dashboard surface, I9 the learned
+store with its Settings page, the first pass of I1, the tensions kernel
+behind B4 (`ai/tensions.py`, `ai/entities.py`), and the whole of the
+consistency contract in §1 as lints. The audit above (A1 to A9) lands in
+this PR: the bounded job pool is the first half of B2. Open, in the order
+they pay back: B2's resume-after-kill, I3 open questions, I6 evidence
+cards, I8 the model bench, I2 the margin reader, I5 time travel, B7 the
+API contract, B8 extensions, B6 sync. The dossiers D1 to D15 were largely
+absorbed by UI phases 0 to 11 and the per-surface plans; what each still
+owes is one line in `agent-remaining/OPEN.md`.
+
+**What "revolutionary" has to mean now.** The two asymmetries in §15 hold:
+the model is free and idle, and the corpus is one mind. Every cloud
+notebook in the §2 table has since shipped a chat box over notes; none has
+shipped a notebook that works on itself overnight, shows its reasoning
+sentence by sentence, or can be audited and corrected as a habit. That
+gap is the product. The horizon below is ordered so each item makes the
+next one measurable, and each names its gate, because a feature without a
+number is a demo.
+
+### H1 The night shift, finished (I1 second pass; L, Opus)
+
+What exists: `ai/autonomous.py` and `ai/janitor.py` run scheduled passes;
+`core/events.py` records every change; I9 shows what was learned. What is
+missing is the morning: a report card that says what the notebook did
+while you slept, with one undo per line. Build: a `night_runs` table (run
+id, started, finished, model, passes, changes, cost in tokens and
+seconds); a dashboard card "Overnight" listing each change as a sentence
+with Undo and Never again (the I7 correction); a Settings row for the
+window (start, stop, battery guard). Gate: a seeded notebook of 200 notes
+runs a night in under ten minutes on a 4B model against the fake
+transport, every change is undoable, and the report card's count equals
+the event log's count for that run. Test first: `tests/test_night_runs.py`.
+
+### H2 Evidence cards and open questions (I6 then I3; L, Opus)
+
+What exists: the Ask answer object carries per-sentence citations
+(`test_ask_answer_object.py`); the chat's checkable answers. Build I6 as
+the surface: each sentence of an answer is a card that opens to the
+passage, the note, the date and the retrieval score's three parts (§4
+B3), with "wrong" as a correction that retrains the ranker's weights
+(I7). Then I3: a question the model could not answer from the notebook
+becomes a row in "Open questions" with the notes that came closest, and
+the night shift retries it when new notes arrive. Gate: 95% of sentences
+cited on the seeded notebook; a corrected citation changes the next
+answer's ranking (asserted, not eyeballed).
+
+### H3 The model bench (I8; M, Opus)
+
+The one question every local-AI user asks and no product answers: which
+model is best on my notes, on my machine. Build: Settings, Models, "Try
+on my notebook": the app runs a fixed set of twelve tasks (file, link,
+answer, summarise, plan a skill) against each installed model over a
+sample of the person's own notes, scores them with the verifier from B5,
+times them, and shows a table with a recommendation. Everything local, one
+click, resumable. Gate: fake-transport tests for scoring and resume;
+`docs/MODELS.md` cites the bench instead of guessing.
+
+### H4 The notebook as a local service for other agents (B7 and B8; M, Opus)
+
+The next year's local agents (coding agents, desktop assistants) will want
+a memory. MemoryMap already has the tools (58 in `ai/tools/`), the
+permission gates and the audit log. Build: a versioned `/api/v1` contract
+generated from the routers (schema behind auth, B7), and an MCP server in
+`src/memorymap/mcp/` exposing the same tools with the same "asks first"
+rules, so any local agent can read and write the notebook and every write
+lands in the event log with the agent named. Gate: the MCP server passes
+the same tool tests as the in-app agent; an external write shows in the
+activity panel within one poll.
+
+### H5 Sync without a server (B6; L, design first)
+
+Design now, build after H1 to H4: an encrypted append-only export of the
+event log (B1 makes this possible) to a folder the person already syncs
+(any file-sync tool), and an importer that replays another device's log
+with last-writer-wins per field and a conflict list for the rest. No
+server, no account. Gate: two data dirs converge after each replays the
+other's log; a conflicting edit appears once, in the Library, with both
+versions.
+
+### H6 Professional use (the PR after 144; M, mixed)
+
+The owner's stated next block: refinements for daily professional use.
+The list, each with its gate: import from Obsidian, Notion export and
+Apple Notes (round-trip test per format); print and PDF export of a
+document with its citations; keyboard-complete (every dock action
+reachable, `keys.js` extended to every tab); a WCAG AA audit with
+`contrast.js` and `touch.js` as the standing gates; multi-window on the
+desktop (a document in its own window); a first-run tour that ends in a
+first note and a first question, measured by time to first answer.
+
+### H7 The speed budget (A1 continued; S each)
+
+Boot JS under 1 MB compressed (from 1.7 MB), first paint under 300 ms on
+the reference laptop, every list over 200 rows virtualised, `/entries`
+paged everywhere. `scratchpad/ui-sweeps/boottime.js` is the gate and its
+numbers go in the CHANGELOG with each step.
+
+### H8 Time travel and the margin reader (I5, I2; M each, Opus)
+
+I5: "what did I think about X in March" as a first-class query, the
+retrieval engine's date signal exposed as a slider on the Ask surface,
+with the answer's cards grouped by month. I2: the second reader in the
+document editor, a margin that fills with the person's own related notes
+as they write, from the same engine, with the link-strength explanation
+under each. Both reuse B3; both gate on the 150 ms budget for a
+keystroke-to-margin update.
+
+### The order, and the rule
+
+H7 first (it makes every later measurement honest), then H1, H2, H3, H6,
+H4, H8, H5. One horizon item per PR, its Built block moved to HISTORY at
+the end, its numbers in the CHANGELOG. Nothing above is started until
+`OPEN.md` is empty for the surface it touches: a revolution on top of an
+unfixed report is how the "fixed again" rounds happened.

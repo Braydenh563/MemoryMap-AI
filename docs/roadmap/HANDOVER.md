@@ -294,9 +294,9 @@ are only just begun or half done." True; this table is the state.
 
 | Plan | Done | Left |
 | --- | --- | --- |
-| UI_MODERNISATION_PLAN | Phases 0 to 10 (tooling, mass, components, type and glass, motion, per-surface, states, dock grammar, responsive, the Liquid Glass adoptions) | Phase 11, the phone done properly; the items in `agent-remaining/responsive.md`, `consistency.md` and `docks.md` |
+| UI_MODERNISATION_PLAN | Phases 0 to 10 (tooling, mass, components, type and glass, motion, per-surface, states, dock grammar, responsive, the Liquid Glass adoptions) | Phase 11, the phone done properly; the items in `archive/agent-remaining/responsive.md`, `consistency.md` and `docks.md` |
 | GRAPH_PLAN | Phases 1 to 6 (canvas and drag, the space, colour rules and groups, utility part one, backend, the node panel) | Phase 4 part two, 6b the minimap, the local pane |
-| DOCUMENTS_PLAN | Phases 0, 1 and 2 in full (the chrome, then CodeMirror 6 as the surface: Live as decorations, findings, undo, search, folding) | Phases 3 to 8; `agent-remaining/documents-engine.md` and `documents-batch.md` |
+| DOCUMENTS_PLAN | Phases 0, 1 and 2 in full (the chrome, then CodeMirror 6 as the surface: Live as decorations, findings, undo, search, folding) | Phases 3 to 8; `archive/agent-remaining/documents-engine.md` and `documents-batch.md` |
 | MINDMAP_PLAN | Phases 1 to 5 and the previews | §12, Coggle-level controls (INBOX 93) |
 | AGENT_SKILLS_REFORM | Phases A to C | Phase D (recovery); the verifier and paging inside a step (CHAT_PLAN Phase 4) |
 | WHITEBOARD_PLAN | One surface per panel, the Arrange section, the marquee and the export fixes | Phases 1 to 4: the rail and keys, the context bar, the export dialog and handles, the mind map regressions and Tidy |
@@ -343,6 +343,31 @@ lost either time, and the history now says things it does not mean,
 which is its own slow cost when the next session reads it. The same three symptoms in the
 console are the signature: one real error, then `X is not defined` and
 `Cannot access Y before initialization` from everything declared after it.
+
+## How to proceed after PR 144 (the owner asked, 2026-09-14)
+
+The full answer is `docs/ROADMAP.md`, "How to proceed after PR 144",
+rewritten today to 147 lines: the plan table with where each plan stands,
+the ordered queue (speed budget H7, the professional-use block BACKLOG
+115, `agent-remaining/OPEN.md` surface by surface with each plan's open
+phase, UI Phase 11, then WORLD_CLASS_PLAN 18's horizon H1 to H8), and the
+rules that do not change. In one breath: every open item now lives in
+exactly one of INBOX (the owner's reports), `OPEN.md` (what the agents
+left, 134 bullets by surface), a plan's open phase, or BACKLOG; nothing
+open lives in HANDOVER or HISTORY. A session starts by reading CLAUDE.md,
+this file's standing orders and Now line, INBOX, then `OPEN.md` and the
+plan for the surface in hand. Brief 33 in SESSION_BRIEFS is the next
+session's brief.
+
+**Now (2026-09-14 early, Fable orchestrating): four more agents on the
+owner's night reports and the audit.** INBOX 195 to 199, 211 and the aurora
+half of 210 landed (`ea7b370`, `6437125`, `3440988`); chrome, mapux, backend2
+and boot run on the rest, each pushing to `origin/agent/wip-<name>` after
+every commit. **Their briefs and the resume recipe are in
+`agent-remaining/briefs-2026-09-13-night.md`** with `agent_common.md` beside
+it; the hourly routine merges each as it reports. Done when their lists are
+empty, the sweeps and `boottime.js` are re-run on the merged head, and the
+owner is told to merge.
 
 **Now (2026-09-13 night, Fable orchestrating): PR #144 is ready to merge.**
 All six agents finished their lists and were merged with `--no-ff` (backend

@@ -353,7 +353,7 @@ SESSION_BRIEFS Brief 7: the event log". `AuditLog` carries `actor` and
 `entry/manager.py` records exactly one event with a whole-field payload,
 `tests/test_events.py` passes with no xfail markers left, and history,
 restore and `GET /events?since=` are live. What is still open is in
-`docs/roadmap/agent-remaining/brief7-event-log.md`.
+`docs/roadmap/archive/agent-remaining/brief7-event-log.md`.
 
 ---
 
@@ -480,7 +480,7 @@ hit (`search/engine.py`), the operators of §5.1 on the existing parser,
 `GET /search`, the Notes list's "why this result" line, and a vector matrix
 that ended three per-request scans of every stored vector. Every marker in
 `tests/test_search_engine_spec.py` is off. What is left is in
-`docs/roadmap/agent-remaining/brief11-retrieval-engine.md`.
+`docs/roadmap/archive/agent-remaining/brief11-retrieval-engine.md`.
 
 ---
 
@@ -516,7 +516,7 @@ marker and its fixture set, which wants the dev model from WORLD_CLASS_PLAN
 9; a `verify` control in the skill editor; verify blocks on the other
 read-only built-ins; the page cap over a large notebook; `filing_state` on
 the recategorise path) is in
-[`agent-remaining/brief-13-harness.md`](agent-remaining/brief-13-harness.md).
+[`archive/agent-remaining/brief-13-harness.md`](archive/agent-remaining/brief-13-harness.md).
 
 ---
 
@@ -759,7 +759,7 @@ The frontend boot splash must never wait on anything that the CSP or an
 offline machine can block.
 
 **Size** L, one session, Opus. **Commits** per step with the trailers.
-**Report** five lines plus `agent-remaining/launcher.md`.
+**Report** five lines plus `archive/agent-remaining/launcher.md`.
 
 ## Brief 18 (the next session, Fable orchestrating): the complete open scope
 
@@ -839,7 +839,7 @@ Relaunch text, verbatim, when the agent dies (its worktree survives:
 `git worktree list`, resume with the same words). Read CLAUDE.md, then
 DOCUMENTS_PLAN "Phase 2" and "Built, Phase 2 step 1", then DESIGN.md.
 Own worktree, commit per working piece, never push, five-line report,
-`agent-remaining/documents-engine.md` before stopping.
+`archive/agent-remaining/documents-engine.md` before stopping.
 
 Decisions (not remade): the bundle loads on demand via `loadCodeMirror()`
 (script-inject `/vendor/codemirror/codemirror.min.js`, no `?v=`), the
@@ -881,7 +881,7 @@ uvicorn; CSP rejects `style=`; no em-dashes; commit trailers.
 
 Relaunch text, verbatim. Read CLAUDE.md, DESIGN.md, INBOX 59, 56, 52, 64,
 65 and GRAPH_PLAN "Phase 6 — the node panel". Own worktree, commit per
-item, never push, five-line report, `agent-remaining/visual-c.md`. Do not
+item, never push, five-line report, `archive/agent-remaining/visual-c.md`. Do not
 touch documents.js or editor.js.
 
 Item 1, the graph node panel (grep "Favourite" and "Trace" together in
@@ -921,9 +921,9 @@ commit trailers.
 Relaunch text, verbatim. Read CLAUDE.md, DESIGN.md (the recipe index and
 "Taken from Liquid Glass and the HIG"), UI_MODERNISATION_PLAN Phase 9
 (the breakpoint table and its rules), Phase 10 and its placed items
-(INBOX 60, 94, 100 to 104), and `agent-remaining/responsive.md`. Own
+(INBOX 60, 94, 100 to 104), and `archive/agent-remaining/responsive.md`. Own
 worktree, commit per step, never push, five-line report,
-`agent-remaining/responsive.md` rewritten before stopping.
+`archive/agent-remaining/responsive.md` rewritten before stopping.
 
 Scope rules, because two other agents are running: every new CSS goes in
 a new `frontend/css/10-responsive.css` linked after 08-consistency.css
@@ -973,7 +973,7 @@ both 472.6px with both boxes 330.3px; the Ask card sits on one 9.6px step;
 and the three owner reports that came in with it (INBOX 119's preview gutter
 and menu gap, 120's duplicated suggestion rows) are fixed with their numbers
 in HISTORY's "INBOX resolved". What is left is in
-`docs/roadmap/agent-remaining/notes-subtabs.md`.
+`docs/roadmap/archive/agent-remaining/notes-subtabs.md`.
 
 ---
 
@@ -983,7 +983,7 @@ WORLD_CLASS_PLAN 15, I7 and I9, plus I4. The two largest unbuilt specs left
 on this branch: `tests/test_learned_spec.py` (15 strict-xfail markers) and
 `tests/test_resurface_spec.py` (7). Own worktree, commit per step,
 `scripts/gate.sh --changed` per step, never push, five-line report,
-`agent-remaining/learning-loop.md` before stopping.
+`archive/agent-remaining/learning-loop.md` before stopping.
 
 **Read this before writing a line of it.** A part of I7 already exists, in a
 different shape from the one the spec names, and rebuilding it is this
@@ -1044,7 +1044,7 @@ trailers; never `pkill -f uvicorn`; own port through
 
 The ten strict-xfail markers left in `tests/test_learned_spec.py`, after
 Brief 23 built I7 and I4. Written 2026-09-12 by the orchestrator, from
-`agent-remaining/learning-loop.md`, which is the file to read first: it says
+`archive/agent-remaining/learning-loop.md`, which is the file to read first: it says
 what exists, and it is the reason this is a brief of its own.
 
 **The finding that makes it one.** I9 reads like a Settings section in
@@ -1115,7 +1115,7 @@ while the documents and whiteboard agents hold them.
   never `pkill -f uvicorn`, `git commit -- <paths>` and never `git add`, no
   em-dashes, commit trailers, `scripts/gate.sh --changed` per step, the full
   suite once before the final report, never push.
-- Before stopping: `agent-remaining/learning-loop.md` updated to the state it
+- Before stopping: `archive/agent-remaining/learning-loop.md` updated to the state it
   is actually in, and a five-line report.
 
 ## Briefs 25 to 31: the plans the owner asked to see finished

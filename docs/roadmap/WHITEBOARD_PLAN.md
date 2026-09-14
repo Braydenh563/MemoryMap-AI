@@ -151,7 +151,7 @@ measurements: the quick-sketch pad still has its own copy of the
 highlighter rather than sharing this code, and multiply is worth 20
 luminance units a pass on a light board and 3 on a dark one, which is the
 objection the pad's own comment in `app.js` already records. Both are in
-[`agent-remaining/whiteboard-phases.md`](agent-remaining/whiteboard-phases.md).
+[`archive/agent-remaining/whiteboard-phases.md`](archive/agent-remaining/whiteboard-phases.md).
 
 ### Phase 4: mind map regressions and Tidy: BUILT, 2026-09-12
 Moved to HISTORY.md ("Moved from the plans, 2026-09-12", WHITEBOARD_PLAN

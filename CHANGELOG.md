@@ -7,6 +7,19 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The agent hand-off files are one ledger: `docs/roadmap/agent-remaining/OPEN.md`
+  carries every still-open item from the 38 finished files, by surface, with the
+  file, the id and the next step, and those files move whole to
+  `docs/roadmap/archive/agent-remaining/` (INBOX 220).
+- Aurora's trails end and its ring no longer stamps itself into them (INBOX
+  210). The Library's Create chooser is a column of named rows like the
+  documents' template dialog (211).
+
+- Boot is lighter: p5 (1 MB, decoration only) loads in idle time on first use
+  rather than as a blocking script, and the dashboard's seven widgets share one
+  `/insights/stats` fetch (44 boot fetches to 35). The audit these came from is
+  WORLD_CLASS_PLAN "Audit, 2026-09-13 night" (INBOX 209).
+
 - At a higher browser zoom the tab strip no longer runs under the header
   controls (1152 to 1240 measured at 0px overlap) and a mind map's top bar
   folds its picker and Library label from 1216px down (INBOX 195). A board
@@ -346,6 +359,22 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Local OCR pins Tesseract to one OpenMP thread unless `OMP_THREAD_LIMIT`
+  is already set: measured 42 s against 0.28 s for one line of text in a
+  four-core container, the thread oversubscription Tesseract's own docs
+  warn about, which on a laptop beside a running model made every image
+  read look hung.
+- The generative background art did not appear after a fresh login:
+  `startBgArt` returned early when p5 was not yet loaded, before its own
+  on-demand branch. The early return is gone and the callback re-enters
+  with the current prefs.
+- Four dashboard widgets (Stats, Streak, Notebook constellation,
+  Categories) read "Couldn't load this widget.": `fetchDashStats` called
+  itself. A test pins the shape.
+- The Rediscover widget's rows are one grid each: a one-line title over
+  the reason and an icon-only Never again in a right column, so every row
+  shares one shape (titles were 48, 24 and 72px tall with the control at
+  three heights).
 - `SpaceResponse`'s Pydantic V1-style `class Config: from_attributes = True`
   warned `PydanticDeprecatedSince20` on every request that returned a space.
   Moved to `model_config = ConfigDict(from_attributes=True)`; it was the only

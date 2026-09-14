@@ -27,12 +27,14 @@ const SHOTS = [
   { file: 'chat', tab: 'chat' },
   { file: 'graph', tab: 'graph' },
   { file: 'library', tab: 'library' },
+  { file: 'ocr', tab: 'library', sub: 'ocr' },
   { file: 'timeline', tab: 'timeline' },
   { file: 'reminders', tab: 'reminders' },
   { file: 'documents', tab: 'library', sub: 'documents' },
   { file: 'whiteboard', tab: 'library', sub: 'board', board: 'Website relaunch' },
   { file: 'map', tab: 'library', sub: 'board', board: 'Bubble tea' },
   { file: 'features', tab: 'dashboard', sub: 'features' },
+  { file: 'agent', tab: 'notes', sub: 'agent' },
   { file: 'palette', tab: 'dashboard', sub: 'palette' },
   { file: 'appearance', tab: 'dashboard', sub: 'appearance' },
 ];
@@ -139,6 +141,28 @@ const SHOTS = [
       await page.evaluate(() => openSettingsModal('appearance'));
       await page.waitForTimeout(2500);
     }
+    if (shot.sub === 'ocr') {
+      //: The OCR workspace on the page `seed-ocr.js` uploaded and Tesseract
+      //: read: the picture on the left, every region it found on the right,
+      //: nothing typed in by hand. Opened the way the gallery's own "Read
+      //: text" item opens it, with the same list the gallery holds.
+      const opened = await page.evaluate(async () => {
+        const r = await api('/media?limit=50');
+        const list = await r.json();
+        const img = list.find((m) => (m.ocr_text || '').includes('kickoff'));
+        if (!img) return 'no seeded OCR page: run seed-ocr.js first';
+        openOcrWorkspace(img, list);
+        return 'opened ' + img.id;
+      });
+      if (!String(opened).startsWith('opened')) console.log('NOTE:', opened);
+      await page.waitForTimeout(3500);
+    }
+    if (shot.sub === 'agent') {
+      //: The popup agent as it opens: the starters and the foot row, over the
+      //: Notes tab, which is where a person is when they reach for it.
+      await page.evaluate(() => toggleAgentPalette());
+      await page.waitForTimeout(1500);
+    }
     if (shot.sub === 'palette') {
       await page.evaluate(() => openPalette());
       await page.waitForTimeout(700);
@@ -171,7 +195,7 @@ const SHOTS = [
     // typed-into box, and blurring it closes the overlay the shot is of.
     await hideSandboxBadge();
     await page.mouse.move(1439, 899);
-    if (shot.sub !== 'palette') {
+    if (shot.sub !== 'palette' && shot.sub !== 'agent') {
       await page.evaluate(() => document.activeElement && document.activeElement.blur());
     }
     await page.waitForTimeout(600);

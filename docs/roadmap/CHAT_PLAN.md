@@ -252,7 +252,7 @@ the plans", Brief 13. What is left: the `evals` marker and its fixture set
 (the loose-ends fixture with eight planted loose ends, the zero-invalid-calls
 count over the built-in skills), which wants the dev model script
 (WORLD_CLASS_PLAN 9) to be worth more than a restatement of the unit tests.
-See `docs/roadmap/agent-remaining/brief-13-harness.md`.
+See `docs/roadmap/archive/agent-remaining/brief-13-harness.md`.
 
 ## 6. Consistency rules
 

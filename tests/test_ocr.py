@@ -10,6 +10,7 @@ particular.
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -243,3 +244,17 @@ def test_attempt_binary_install_tries_sudo_dash_n_before_giving_up_on_linux(monk
     assert seen[0][0] == "sudo"
     assert seen[0][1] == "-n"
     assert seen[-1][0] == "apt-get"
+
+
+def test_tesseract_runs_on_one_openmp_thread_unless_told_otherwise(monkeypatch):
+    """Measured: 42 s against 0.28 s for one line of text in a four-core
+    container with the default OpenMP thread count. The person's own value
+    wins; the default is one thread."""
+    from memorymap.core import ocr
+
+    monkeypatch.delenv("OMP_THREAD_LIMIT", raising=False)
+    ocr._one_thread_for_tesseract()
+    assert os.environ["OMP_THREAD_LIMIT"] == "1"
+    monkeypatch.setenv("OMP_THREAD_LIMIT", "3")
+    ocr._one_thread_for_tesseract()
+    assert os.environ["OMP_THREAD_LIMIT"] == "3"

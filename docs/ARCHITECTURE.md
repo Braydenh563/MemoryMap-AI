@@ -119,100 +119,125 @@ the UI.
 
 ## 5. Directory map
 
+Checked against the tree on 2026-09-14. One line per module; the first
+line of each module's docstring says the same thing at greater length.
+
 ```
-MemoryMap-AI-v0/
+MemoryMap-AI/
 ├── src/memorymap/
 │   ├── __main__.py          # entry point: `python -m memorymap [--desktop]`
 │   ├── __init__.py          # __version__
-│   ├── core/
+│   ├── core/                # the machine: config, database, jobs, security
 │   │   ├── config.py        # paths + user preferences (ConfigManager)
 │   │   ├── database.py      # SQLAlchemy models + additive auto-migrator
-│   │   ├── deps.py          # THE singletons (config, db, ollama, embeddings…)
-│   │   │                    #   + store_quietly(): best-effort embed, lives
-│   │   │                    #   here because it needs the shared service
-│   │   ├── backup.py        # daily local snapshot + restore
+│   │   ├── deps.py          # THE singletons (config, db, ollama, embeddings)
+│   │   │                    #   + store_quietly(): best-effort embed
+│   │   ├── events.py        # the event log: every change is a fact, the
+│   │   │                    #   tables are views (WORLD_CLASS_PLAN B1)
+│   │   ├── bgtasks.py       # quitting background work: one job, or all
+│   │   ├── filejobs.py      # which files the models are reading right now
+│   │   ├── media_process.py # where OCR, captioning and vision OCR are
+│   │   │                    #   triggered for an upload
+│   │   ├── ocr.py           # local Tesseract OCR for uploaded images
+│   │   ├── pdfpages.py      # a PDF page -> a PNG (optional `pdfpages` extra)
 │   │   ├── docview.py       # any file -> its text (the viewer + import path)
-│   │   ├── pdfpages.py      # a PDF page -> a PNG, so a model can read a scan.
-│   │   │                    #   Optional (the `pdfpages` extra); returns []
-│   │   │                    #   rather than raising when it is not installed
-│   │   ├── filetypes.py     # the one table of document types: comment
-│   │   │                    #   markers, indent, whether it renders
-│   │   ├── extras.py        # the ALLOWLIST of pip-installable optional
-│   │   │                    #   extras. The request names an entry here; the
-│   │   │                    #   package spec is never client text
-│   │   ├── embedmodels.py   # the same shape for embedding models: an
-│   │   │                    #   allowlist, their real size in the HuggingFace
-│   │   │                    #   cache, and download / re-download / remove
-│   │   ├── logbuffer.py     # in-memory log capture + safe_value() for
-│   │   │                    #   anything untrusted going into a log line
-│   │   ├── security.py      # OriginCheckMiddleware, backend-URL local-only lock
-│   │   ├── vault.py         # the private-note encryption key, derived + held in memory
-│   │   ├── crypto.py        # scrypt key derivation, encrypt/decrypt primitives
-│   │   ├── atomic_io.py     # temp-file + fsync + rename writes for preferences.json
-│   │   ├── taskhistory.py   # "recently finished" record for Settings -> Background tasks
-│   │   └── media_gc.py      # sweeps orphaned /media uploads nothing references any more
-│   ├── entry/
-│   │   ├── manager.py       # create/read/soft-delete entries, audit log
+│   │   ├── docexport.py     # a document's markdown -> a file to hand on
+│   │   ├── filetypes.py     # the one table of document types
+│   │   ├── backup.py        # daily local snapshot + restore
+│   │   ├── extras.py        # the ALLOWLIST of pip-installable extras
+│   │   ├── embedmodels.py   # the same shape for embedding models
+│   │   ├── security.py      # OriginCheckMiddleware, backend-URL local lock
+│   │   ├── vault.py         # the private-note key, derived + held in memory
+│   │   ├── crypto.py        # scrypt key derivation, encrypt/decrypt
+│   │   ├── atomic_io.py     # temp-file + fsync + rename for preferences.json
+│   │   ├── logbuffer.py     # in-memory log capture + safe_value()
+│   │   ├── launch_status.py # the launcher's status file, parsed
+│   │   ├── startup_status.py# the current boot phase, for the lock screen
+│   │   ├── taskhistory.py   # "recently finished" for Settings > Background
+│   │   └── media_gc.py      # sweeps orphaned /media uploads
+│   ├── entry/               # notes
+│   │   ├── manager.py       # create/read/update/soft-delete, links, audit
 │   │   ├── timewords.py     # what "tomorrow" meant, resolved at capture
-│   │   ├── duplicates.py    # near-duplicate finder + AI merge (routes_duplicates)
-│   │   ├── importer.py      # markdown/document import (routes_settings, routes_documents)
-│   │   ├── paths.py         # the graph's own traversal index (Trace, notebook_structure)
-│   │   └── staleness.py     # the "forgotten notes" review the autonomous agent can run
-│   ├── ai/
-│   │   ├── provider.py      # what every backend must answer, + what doesn't
-│   │   │                    #   vary by backend: the think-tag splitter, the
-│   │   │                    #   tool-text gate, the context ceiling (§6)
+│   │   ├── duplicates.py    # near-duplicate finder + AI merge
+│   │   ├── importer.py      # uploaded document -> markdown (markitdown)
+│   │   ├── paths.py         # the shortest chain between two notes
+│   │   └── staleness.py     # notes nobody has touched, nothing points at
+│   ├── ai/                  # everything that talks to a model
+│   │   ├── provider.py      # what every backend must answer (§6)
 │   │   ├── ollama_client.py # Ollama's native /api dialect
-│   │   ├── openai_client.py # the /v1/chat/completions dialect: LM Studio,
-│   │   │                    #   llama.cpp, Jan, vLLM (§6)
-│   │   ├── presets.py       # quick/normal/detailed: reply cap, temperature,
-│   │   │                    #   thinking toggle, length hint (§11)
+│   │   ├── openai_client.py # /v1/chat/completions: LM Studio, llama.cpp,
+│   │   │                    #   Jan, vLLM
 │   │   ├── model_manager.py # list/pull models, pick chat/embedding backend
+│   │   ├── sampling.py      # sampling parameters: model default, task, yours
+│   │   ├── presets.py       # quick/normal/detailed (§11)
+│   │   ├── context.py       # sizes one turn against the model's window
+│   │   ├── budget.py        # the per-run budget: tokens and seconds
 │   │   ├── embeddings.py    # embedding service + background warm-up
-│   │   ├── janitor.py       # LLM prompt #1: file a note into a category
-│   │   ├── librarian.py     # LLM prompt #2: answer from retrieved notes
-│   │   ├── help_chat.py     # the Help tab's "Ask the guide" mini chat:
-│   │   │                    #   app-guidance only, grounded in HELP_TOPICS,
-│   │   │                    #   never touches notes or the database
-│   │   ├── agent.py         # tool-calling loop (Wave G)
-│   │   ├── autonomous.py    # the background librarian (§39A): a scheduled
-│   │   │                    #   agent pass over the whole notebook. Off by
-│   │   │                    #   default: it is the only place the model
-│   │   │                    #   writes with nobody watching
-│   │   ├── tools/            # the agent's tool registry (see §7): a package,
-│   │   │                    #   split out of one file: __init__.py + categories.py,
-│   │   │                    #   documents.py, files.py, whiteboard.py, _common.py
-│   │   ├── context.py       # sizes one whole turn against the model's window (§7)
-│   │   ├── skills.py        # what a skill is: steps, tools, inputs (§7b)
-│   │   ├── skill_runner.py  # runs one, a step at a time, with a result
-│   │   ├── extractor.py     # extract notes: free text -> AI-drafted, linked notes
-│   │   ├── links.py         # link-reason generation between two notes
-│   │   ├── entities.py      # auto-entities pass (people/places/etc, opt-in)
+│   │   ├── janitor.py       # prompt: file a note into a category
+│   │   ├── librarian.py     # prompt: answer from retrieved notes
+│   │   ├── grounding.py · intent.py · drafter.py · followups.py
+│   │   │                    #   what is being asked, grounding the answer,
+│   │   │                    #   drafting it, what to ask next
+│   │   ├── agent.py         # the tool-calling loop (§7)
+│   │   ├── tools/           # the agent's tool registry, one file per area
+│   │   ├── toolwords.py     # which tools a request plausibly needs
+│   │   ├── cards.py         # tool results as typed cards, not prose
+│   │   ├── skills.py · skill_runner.py # what a skill is; running one (§7b)
+│   │   ├── autonomous.py    # the background librarian: a scheduled pass
+│   │   ├── facts.py         # what the notebook worked out for itself (I1, I9)
+│   │   ├── learning.py      # what it learned from being corrected (I7)
+│   │   ├── resurface.py     # three notes a day slipping out of reach (I4)
+│   │   ├── tensions.py      # where the notebook disagrees with itself
+│   │   ├── notebook_stats.py# questions about the notebook's shape, from SQL
+│   │   ├── memory.py        # what you taught the AI to remember (persona)
+│   │   ├── passive_capture.py # an offhand mention in chat -> a note to review
+│   │   ├── extractor.py     # free text -> AI-drafted, linked notes
+│   │   ├── links.py         # the reason two notes are linked
+│   │   ├── entities.py      # people, places, things (opt-in)
 │   │   ├── reminder_parser.py # "call mum tomorrow evening" -> a due_at
-│   │   ├── grounding.py · intent.py · drafter.py # chat-answer support: what
-│   │   │                    #   the model is actually being asked, grounding
-│   │   │                    #   an answer in retrieved notes, drafting one
+│   │   ├── captioning.py · vision_ocr.py · docreader.py # an image read
+│   │   │                    #   three ways; a document read as it lands
+│   │   ├── help_chat.py     # the in-app guide: app knowledge only, no notes
 │   │   └── voice.py         # optional local Whisper dictation
 │   ├── search/
-│   │   ├── search_manager.py# semantic + keyword search, with fallback
-│   │   ├── query.py         # search-operator parsing (tag:, cat:, is:pinned, …)
-│   │   ├── websearch.py     # opt-in web search (off by default) + PROVIDERS
-│   │   └── searxng_manager.py · searxng_install.py · searxng_process.py ·
-│   │       searxng_docker.py · searxng_settings.py # install/start/stop a
-│   │                        #   local SearXNG, split by concern out of one file
+│   │   ├── engine.py        # one search, three signals, every hit explained
+│   │   ├── index.py         # one index over every kind (B3)
+│   │   ├── search_manager.py# the entry point the routes call
+│   │   ├── query.py         # search-operator parsing (tag:, cat:, is:pinned)
+│   │   ├── websearch.py     # opt-in web search, the ONE feature that leaves
+│   │   │                    #   the machine
+│   │   └── searxng_*.py     # install/start/stop a local SearXNG
 │   └── api/
-│       ├── app.py           # builds the FastAPI app, mounts frontend, gate
+│       ├── app.py           # builds the FastAPI app, mounts the frontend
 │       ├── schemas.py       # Pydantic request/response models
 │       └── routes_*.py      # one router per feature area (see §6)
-├── frontend/                # vanilla HTML/CSS/JS SPA + PWA (no build step)
-│   ├── index.html · app.js · sw.js · manifest.webmanifest
-│   ├── css/                 # style.css split into 9 linked files (Priority 0
-│   │                         # item 2); index.html's <link> order is load-bearing
-│   └── vendor/              # d3.v7, p5: vendored locally, never a CDN
-├── tests/                   # pytest; all AI faked (tests/fakes.py)
-├── docs/                    # you are here
+├── frontend/                # vanilla HTML/CSS/JS, served as-is, no build
+│   ├── index.html           # the whole shell; every id is load-bearing
+│   ├── theme-boot.js · boot-guard.js # before first paint: theme, perf mode,
+│   │                        #   and the guard that reports a boot failure
+│   ├── app.js               # the shell, notes, chat, palette, settings glue
+│   ├── settings.js          # Settings, appearance, the background art
+│   ├── dashboard.js         # the dashboard's widgets
+│   ├── library.js           # Library: files, images, the OCR workspace
+│   ├── documents.js · editor.js # the long-form editor and its CodeMirror
+│   ├── graph.js · graph-canvas.js · graph-worker.js # the graph, its
+│   │                        #   canvas renderer and its layout worker
+│   ├── whiteboard.js        # boards and mind maps
+│   ├── sw.js · manifest.webmanifest # PWA
+│   ├── css/                 # eleven files, 00-tokens-shell to 10-responsive;
+│   │                        #   index.html's <link> order is load-bearing
+│   └── vendor/              # d3 v7, p5, CodeMirror, Phosphor icons, the
+│                            #   spelling wordlist: local, never a CDN
+├── tests/                   # pytest; every AI call faked (tests/fakes.py)
+├── tests-e2e/               # the Playwright smoke suite CI runs
+├── scratchpad/              # measurement scripts: ui-sweeps/, the fake
+│                            #   OpenAI server, the INBOX tools
+├── scripts/                 # gate.sh, the merge gate in one command
+├── docs/                    # you are here; roadmap/ holds the plans
+├── packaging/               # the Windows installer and the Linux zip
 ├── .github/                 # CI, CodeQL, Dependabot, issue/PR templates
-├── requirements.txt · pyproject.toml · pytest.ini
+├── start.sh · start.bat · start-desktop.sh · start-desktop.bat
+├── requirements.txt · pyproject.toml · pytest.ini · alembic.ini
 ├── .env.example             # copy to .env to relocate data / set OLLAMA_URL
 └── README.md · LICENSE · CHANGELOG.md · CONTRIBUTING.md · SECURITY.md
 ```
@@ -814,17 +839,25 @@ is also a **PWA** (`manifest.webmanifest` + `sw.js`) with a mobile pass, a
 command palette (Ctrl/Cmd-K), a graph of the notebook in three layouts: a
 force-directed **web**, a **tree** (notebook → category → note, replies
 branching off the note they answer) and a **radial tree**, drawn with D3
-vendored locally in `frontend/vendor/`, and a sketch pad (p5, also vendored). No asset
-is ever loaded from a CDN, consistent with the offline-first rule.
+vendored locally in `frontend/vendor/`, and a sketch pad (p5, also vendored,
+loaded on demand by `ensureP5` the first time something draws). No asset
+is ever loaded from a CDN, consistent with the offline-first rule. The
+JavaScript is split by surface (`dashboard.js`, `library.js`,
+`documents.js`, `graph.js`, `whiteboard.js`, `settings.js`); `app.js`
+holds the shell and everything shared. Every local CSS and JS URL carries
+`?v=<version>` plus a per-process boot token, so no browser or desktop
+window can keep a stale file (`RevalidatedStatic` in `api/app.py`).
 
 ### Driving it in a browser
 
-The test suite cannot see any of this, so verify UI work by running the app.
-Chromium is preinstalled at `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`;
-`pip install playwright` (the browser is already there, do not run
-`playwright install`). Launch the context with `service_workers="block"`, or
-`sw.js` will serve a cached `app.js`/`style.css` and your change will not be
-in the page you are looking at.
+The test suite cannot see any of this, so verify UI work by running the app:
+`bash scratchpad/ui-sweeps/serve.sh <port> <data dir>` starts one, and the
+sweeps in `scratchpad/ui-sweeps/` (`lib.js` boots and logs in; `errors.js`,
+`contrast.js`, `docks.js`, `touch.js` are the standing gates) drive it with
+the Node Playwright under `/opt/node22` and the Chromium under
+`/opt/pw-browsers`. CLAUDE.md section 5 lists the traps. Launch a context
+with `service_workers="block"`, or `sw.js` will serve a cached `app.js`
+and your change will not be in the page you are looking at.
 
 Top-level functions in `app.js` are plain globals, so a Playwright
 `page.evaluate` can call `switchTab`, `applyThemePreset` or `renderEmbeddingPicker`
@@ -914,9 +947,13 @@ style, optional AI profile, …) live in `data/preferences.json`, managed by
 
 ## 12. Testing & CI
 
-- **Run locally:** `PYTHONPATH=src pytest` (3,500+ tests, ~7-8 minutes). Uses a
-  throwaway database and fakes every AI call (`tests/fakes.py` +
-  `tests/conftest.py`), so it is fast and fully offline.
+- **Run locally:** `PYTHONPATH=src pytest` (294 files, 3,500+ tests, ten to
+  fifteen minutes). Uses a throwaway database and fakes every AI call
+  (`tests/fakes.py` + `tests/conftest.py`), so it is fully offline. The
+  routine local gate is `bash scripts/gate.sh --changed` (the lint set,
+  `node --check`, ruff, and the tests that name the files you changed);
+  `--staged` checks the index before a commit; the full suite runs in CI on
+  every push and locally only at the end of a large piece of work.
 - **The suite cannot see the UI.** Every layout and wiring bug fixed so far
   passed a fully green run: a header overflowing its own box by 215px, a
   button focusing an element inside a hidden section, an accent picker with no
@@ -924,7 +961,8 @@ style, optional AI profile, …) live in `data/preferences.json`, managed by
   §10 says how.
 - **Lint locally:** `ruff check .` (and, optionally, `ruff format` to tidy).
 - **CI** (`.github/workflows/ci.yml`): lint with ruff, then run the full test
-  suite on Python 3.11 / 3.12 / 3.13. No GPU, no Ollama, no models required.
+  suite on Python 3.11 / 3.12 / 3.13 and the Playwright smoke suite in
+  `tests-e2e/`. No GPU, no Ollama, no models required.
 - **CodeQL** (`.github/workflows/codeql.yml`): static security analysis on push,
   PR, and weekly.
 - **Dependabot** (`.github/dependabot.yml`): weekly dependency + Action bumps.

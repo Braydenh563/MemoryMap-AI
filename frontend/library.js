@@ -1360,6 +1360,20 @@ const LIBRARY_CREATE_BY_KIND = {
 // `.library-view-section`'s own `overflow-y: auto` is exactly the clipping
 // trap `wireEscapedActionMenu` exists to work around elsewhere, a full
 // overlay sidesteps both instead of fighting them.
+//: One line per kind, for the chooser below: what the thing you are about to
+//: make *is*, which five filled pills in a row could not say (INBOX 211,
+//: "can this create popup in the library look better?? maybe make it look
+//: like this template popup in the documents"). The documents' template
+//: dialog is the recipe: a title, a line, a column of rows with a name and
+//: one line under it, Cancel at the foot.
+const LIBRARY_CREATE_HINTS = {
+  note: ["ph:note-pencil", "A quick thought. The AI files it and links it for you."],
+  document: ["ph:file-text", "A long page: headings, an outline, templates, export."],
+  map: ["ph:tree-structure", "A mind map: a tree of topics you move and connect."],
+  chat: ["ph:chats", "A conversation grounded in your notes."],
+  meeting: ["ph:microphone", "Record a meeting or a voice note and get a transcript."],
+};
+
 function openLibraryCreatePicker() {
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay confirm-overlay";
@@ -1368,12 +1382,15 @@ function openLibraryCreatePicker() {
   overlay.setAttribute("aria-label", "Choose what to create");
 
   const card = document.createElement("div");
-  card.className = "card modal-card confirm-card";
+  card.className = "card modal-card space-dialog library-create-picker";
+  const title = document.createElement("h3");
+  title.textContent = "Create";
   const text = document.createElement("p");
-  text.className = "confirm-text";
-  text.textContent = "What would you like to create?";
-  const row = document.createElement("div");
-  row.className = "row confirm-actions library-create-picker-actions";
+  text.className = "muted";
+  text.textContent = "Five kinds of thing live in the library. Pick one and it opens ready to write.";
+  const list = document.createElement("ul");
+  list.className = "doc-ai-history-list";
+  list.setAttribute("role", "list");
 
   const returnFocus = document.activeElement;
   const close = () => {
@@ -1390,21 +1407,35 @@ function openLibraryCreatePicker() {
 
   for (const kind of ["note", "document", "map", "chat", "meeting"]) {
     const entry = LIBRARY_CREATE_BY_KIND[kind];
-    const button = smallButton(entry.label, entry.label, () => {
+    const [icon, hint] = LIBRARY_CREATE_HINTS[kind];
+    const li = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost doc-template-choice";
+    button.dataset.kind = kind;
+    const name = document.createElement("strong");
+    setLabel(name, `${icon} ${entry.label.replace(/^\S+\s*/, "")}`);
+    const line = document.createElement("span");
+    line.className = "muted text-sm";
+    line.textContent = hint;
+    button.append(name, line);
+    button.addEventListener("click", () => {
       close();
       entry.run();
-    }, false);
-    row.appendChild(button);
+    });
+    li.appendChild(button);
+    list.appendChild(li);
   }
-  const cancel = smallButton("Cancel", "Cancel", close);
-  row.appendChild(cancel);
+  const actions = document.createElement("div");
+  actions.className = "row right space-dialog-actions";
+  actions.appendChild(smallButton("Cancel", "Cancel", close));
 
-  card.append(text, row);
+  card.append(title, text, list, actions);
   overlay.appendChild(card);
   wireBackdropClose(overlay, () => close());
   document.addEventListener("keydown", onKey, true);
   document.body.appendChild(overlay);
-  row.querySelector("button")?.focus();
+  list.querySelector("button")?.focus();
 }
 
 function updateLibraryCreateButton() {

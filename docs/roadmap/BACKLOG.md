@@ -3479,6 +3479,11 @@ cosmetic, not chased given the session's remaining budget.
   long name wraps onto a second line instead of forcing horizontal scroll.
 
 **Reported, not reproduced — logged rather than guessed at:**
+- **From INBOX 111's second batch (2026-09-09), still not reproduced live
+  as of 2026-09-14:** the boards and maps widget's visual design, the AI
+  skills sidebar not reaching full height, square tab corners, the chat
+  panel shadow, and the light-versus-dark glass difference. Each needs a
+  window size and a screenshot to become a bug; none has one.
 - **The back-to-top button reportedly appears on a page that isn't
   scrollable.** Read `scrollTopTargetEl()`/the `update()` loop
   (app.js, ~L15949-16069): each tab's scroll target is either a nested
@@ -4144,3 +4149,28 @@ restated.
     light. Add `WIDTH=390` and `THEME=dark` passes so 116.3 and 116.4 have
     a gate rather than a probe.
 
+
+## 115. After PR 144: professional use (the owner's stated next block, 2026-09-14)
+
+"After this pr I intend to do a full lot of fixes and refinements for
+professional use." WORLD_CLASS_PLAN 18 (H6) holds the gated version;
+this is the working list, by what a professional hits first. Each row is
+a session or less and names its gate.
+
+| # | Refinement | Gate |
+| --- | --- | --- |
+| 1 | Import from Obsidian (a vault folder), a Notion export and Apple Notes (HTML), with links and attachments kept | a round-trip test per format under `tests/` |
+| 2 | Print and PDF export of a document with its citations as footnotes | `core/docexport.py` test per format; a printed page has no clipped table |
+| 3 | Keyboard-complete: every dock action reachable without a mouse, on every tab | `scratchpad/ui-sweeps/keys.js` extended to every tab, zero unreachable |
+| 4 | WCAG AA: contrast, focus order, names on every control, the phone floor | `contrast.js`, `touch.js` and an axe pass clean in both themes |
+| 5 | Multi-window on the desktop: a document or a board in its own window | `__main__.py` opens a second webview on a route; state survives a reload |
+| 6 | First-run tour that ends in a first note and a first question | time to first answer measured in the tour's own test, under two minutes |
+| 7 | Bulk operations in the Library: select many, tag, move, export, delete, with undo | a 500-row selection completes in under a second, measured |
+| 8 | Saved searches and smart folders (a query as a sidebar entry) | `search/query.py` round-trips every saved query |
+| 9 | Templates for notes, not only documents and boards | one recipe shared with the document template chooser |
+| 10 | Encrypted export and import of the whole notebook (one file, one password) | export, wipe, import, diff equals zero in a test |
+| 11 | The activity log as an audit trail a professional can hand over (who, what, when, export CSV) | every event kind exported with its fields |
+| 12 | Startup and boot under the speed budget on a five-year-old laptop | `boottime.js` numbers in the CHANGELOG per step |
+
+Rows 1, 2, 7 and 10 are the ones people ask about before they trust a
+notebook with work; do those first.

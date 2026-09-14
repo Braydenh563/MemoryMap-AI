@@ -3547,7 +3547,7 @@ def _place_map_nodes(
     Returns the objects rather than a count because both callers have to
     record one `whiteboard_object`/`created` event each: a map whose nodes
     have no events of their own replays to an empty board (Brief 7, open
-    item 4, `agent-remaining/brief7-event-log.md`).
+    item 4, `archive/agent-remaining/brief7-event-log.md`).
 
     One walk for both doors onto a map made from text: an import, and the
     AI proposal the user accepted. They differ in exactly one thing, whether

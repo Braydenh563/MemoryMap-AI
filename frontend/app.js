@@ -10503,7 +10503,7 @@ let captureStagedFiles = [];
 async function loadCaptureDocuments() {
   //: To the end, not the first page: the picker exists to file this note
   //: under *any* document, and a document past the server's page would be
-  //: invisible with nothing on screen saying so (`agent-remaining/
+  //: invisible with nothing on screen saying so (`archive/agent-remaining/
   //: list-paging.md`). `apiPagedList` is one request at any realistic size.
   const documents = await apiPagedList("/documents", 200).catch(() => []);
   renderCaptureDocuments(documents);
@@ -11277,7 +11277,7 @@ function addInlineCitations(answerEl, sentences, rawResults, orderedSources = nu
         flashEntry(g.note_id);
       });
       //: **Hover shows the passage, not the whole note** (CHAT_PLAN decision
-      //: 2, the last step of `agent-remaining/chat-timeline-skills.md` item
+      //: 2, the last step of `archive/agent-remaining/chat-timeline-skills.md` item
       //: 1). The span has been on every grounding row since the passage
       //: scorer landed and nothing on screen read it, so a mark said "note 4"
       //: where it could say which forty words of note 4. The card is the
@@ -23559,7 +23559,7 @@ async function loadReminders() {
   //: push everything upcoming off the list, which is exactly the silent loss
   //: paging was added to prevent. Reading to the end keeps the grouping below
   //: unchanged and loses nothing; a real pager is the better answer at
-  //: thousands and is written up in `agent-remaining/list-paging.md`.
+  //: thousands and is written up in `archive/agent-remaining/list-paging.md`.
   const all = await apiPagedList("/reminders", 200).catch(() => []);
   const groupsBox = $("reminder-groups");
   groupsBox.replaceChildren();
@@ -34818,8 +34818,41 @@ function watchEmblemVisibility(holder, instance) {
 
 // The shared emblem sketch: a small ring of linked nodes, the MemoryMap motif
 //, in the current accent. Animated only where it's worth the frames.
+//: **p5 is fetched the first time an emblem is drawn, not at boot.** It is a
+//: 1,034 KB file (the largest asset the page loads, 18% of all boot JS) and
+//: every use of it here is decoration: the emblem, the dashboard's art, the
+//: background art. Measured 2026-09-13: 13 blocking scripts, 1,698 KB
+//: compressed, before the first tab could draw. Same-origin dynamic scripts
+//: are what the CSP's `script-src 'self'` allows, so this is one element.
+let p5Loading = null;
+function ensureP5() {
+  if (typeof p5 !== "undefined") return Promise.resolve(true);
+  if (!p5Loading) {
+    p5Loading = new Promise((resolve) => {
+      //: After the first paint and the boot fetches, not during them: the
+      //: emblem is drawn while the shell boots, and a dynamic script is off
+      //: the parser's path but still on the network's.
+      const later = window.requestIdleCallback || ((fn) => setTimeout(fn, 800));
+      later(() => {
+        const script = document.createElement("script");
+        script.src = "/vendor/p5.min.js";
+        script.onload = () => resolve(typeof p5 !== "undefined");
+        script.onerror = () => resolve(false);
+        document.head.appendChild(script);
+      });
+    });
+  }
+  return p5Loading;
+}
+
 function renderEmblem(holder, size = 34, { animate = false } = {}) {
-  if (typeof p5 === "undefined" || !holder) return;
+  if (!holder) return;
+  if (typeof p5 === "undefined") {
+    ensureP5().then((ok) => {
+      if (ok && holder.isConnected) renderEmblem(holder, size, { animate });
+    });
+    return;
+  }
   const existing = emblemInstances.get(holder);
   if (existing) {
     existing.remove();

@@ -34,6 +34,65 @@ with its owner named in the entry.
 
 ## Open items
 
+226. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), a flicker.**
+    "theres a flickering just above the bottom bar??" / "i was on the
+    dashboard". Reproduce first: sample the band above `#status-bar` on the
+    dashboard at 100 ms for four seconds and count pixel changes; log DOM
+    mutations in the same band. Suspects, in order: a widget re-rendering
+    on a timer (the Rediscover widget re-asks when its list empties; the
+    reminders and stats fetches were just shared by the boot agent), the
+    scroll-top button toggling on a scroll-height change, the status bar's
+    new Guide slot being redrawn by the header's model poll. Owner:
+    orchestrator, now.
+
+225. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), a core
+    persona.** "I was wondering if atlas or another named persona can be the
+    core persona of the application as the librarian?? idk, the persona cant
+    be too token heavy though, just as a theme yk??" **Decision:** Atlas is
+    the name of the notebook's AI everywhere the app speaks as it (the
+    status dot's label, "Atlas filed this under Work", the chat empty
+    state, the popup agent's greeting, the help chat), as copy and one
+    mark, not as prompt text: the model prompts gain at most one clause
+    ("You are Atlas, this notebook's librarian.") under
+    `agent.PROSE_BUDGET_CHARS`, and no persona prose, backstory or tone
+    instructions anywhere. One constant (`AI_NAME`) in the frontend and one
+    in `ai/` so a rename is one edit each; Settings, Models keeps the model's
+    own name beside it ("Atlas, running qwen2.5:7b"). Owner: chrome after
+    214 and 215; the backend clause and constant, backend2 after its list.
+
+224. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the Atlas
+    chat.** "can you improve and modernise the ui design of the atlas chat
+    interface??" Screenshot: a full-width overlay with a bare card, a title
+    row, two paragraphs of explanation, one input and an Ask button, and
+    nothing else on the screen. Target: the same recipe as the popup agent
+    (one look for the two assistants): a sheet anchored bottom-right, a
+    head with the Atlas mark, name and one-line description, three starter
+    chips ("Where do reminders live?", "How do I turn off web search?",
+    "What does Performance mode do?"), a scrolling transcript in bubbles
+    with the source help topic under each answer, a composer dock at the
+    foot (input, icon-only send, `data-help-for` '?'), New chat in the
+    kebab. Measured: no element wider than the sheet at 1440, 1024 and 390;
+    contrast 4.5:1 both themes; Escape and the X both close. Owner: chrome.
+    **More from the owner, 2026-09-14:** "also make atlas more accessible
+    and have suggestions to ask it something here and there like in
+    tooltips or the help page in settings etc." Target, added to 224: every
+    `data-help-for` popover ends with one line "Ask Atlas: <a question about
+    this control>" that opens the Atlas sheet with that question typed in;
+    the Settings Help page has an "Ask Atlas" row at its head with three
+    starter chips; the palette lists "Ask Atlas" as a command and matches
+    typed questions ending in "?" to it; the empty states of Notes, Chat
+    and Library carry one Atlas suggestion each; the keyboard shortcut is
+    listed in the shortcuts sheet. The questions come from one table
+    (`ATLAS_PROMPTS`, keyed by help id) so copy stays in one place. Measured:
+    a popover's Atlas line opens the sheet with the question in the input.
+    **And, 2026-09-14:** "also there is still the second atlas interface in
+    the settings help page." One interface, not two: the Settings Help
+    page's own chat (the older "Ask the guide" box) goes, and its place is
+    the "Ask Atlas" row above, which opens the one sheet; the ids and
+    handlers of the old box are removed together (`test_frontend_ids.py`,
+    `test_frontend_handlers.py`), and `test_help_chat.py` keeps its route
+    tests. Measured: exactly one `#help-chat` surface in the DOM.
+
 221. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), auto
     update.** "make sure all the auto update whether upon new release or
     following main works which can be adjusted and set in settings and make
@@ -127,24 +186,6 @@ with its owner named in the entry.
     WORLD_CLASS_PLAN.md under "Audit, 2026-09-13 night" with a finding per
     row (evidence, cost, fix, who), the cheap and safe fixes made in the
     same pass, the rest briefed to agents. Owner: orchestrator.
-
-201. **Mid-work drop, 2026-09-13 night, verbatim (the owner), mind map core
-    nodes.** "I want more and better ways to differentiate core idea nodes
-    in the mindmap". Goes with 200's mind map sweep: a core node today is
-    an ellipse with a heavier ground (`26aa946`); the ask is for more ways
-    (size, colour, weight, an icon, a filled shape) and for them to read as
-    one thing. Owner: orchestrator, in the 200 sweep.
-
-200. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the whole
-    app, the mind map first.** "I think you fable need to do a full ux sweep
-    for better intuitive design and function. especially with the mindmap,
-    it needs a lot of ux and usability improvement, like the way the
-    controls are available, what controls and tools are available and where,
-    and how the item radials are used is confusing and doesnt feel clean".
-    The owner's decision, which reopens MINDMAP_PLAN section 12's ring: the
-    set of controls, where each lives and how the ring is used are to be
-    redesigned, not adjusted. Taken as a sweep by the orchestrator, surface
-    by surface, mind map first, each change measured.
 
 ## Placed (last 20, newest first)
 

@@ -22,12 +22,6 @@
 // a document is something you sit down and write. Sharing storage would put
 // every half-finished draft into note search and the graph.
 
-//: The page size each of those lists is asked for, matching the server's own
-//: default (routes_documents.DOCUMENTS_PAGE_SIZE and routes_files
-//: .MEDIA_PAGE_SIZE): one request for any realistic notebook, more only when
-//: there genuinely is more.
-const DOCUMENTS_PAGE_SIZE = 200;
-const MEDIA_PAGE_SIZE = 200;
 
 let docs = [];
 let currentDoc = null;   // {id, title, content, ...}

@@ -513,6 +513,69 @@ the study mode measured on a 40-node map.
 Real-time collaboration, cloud sync, voice-to-map, AI image generation
 in nodes.
 
+### 12.5 One place per action (INBOX 200 and 201, the owner, 2026-09-13 night)
+
+The owner reopened this section's ring: "especially with the mindmap, it
+needs a lot of ux and usability improvement, like the way the controls are
+available, what controls and tools are available and where, and how the item
+radials are used is confusing and doesnt feel clean", and "I want more and
+better ways to differentiate core idea nodes in the mindmap".
+
+The audit that this is written from is in
+[`agent-remaining/mindmap.md`](agent-remaining/mindmap.md), measured by
+`scratchpad/ui-sweeps/mapaudit.js` on a map of twelve topics: **112 controls
+across six surfaces**, add-a-child reachable from five places, a fold from
+four, a colour from four, six actions reachable only from a ring nobody finds
+by accident, and a node context menu that was **dead code on a map** (the
+right-click opens the ring and returns before the menu is built).
+
+#### Decisions made, 2026-09-13 night (do not remake)
+
+- **One place per action, and three surfaces with one job each.** The **ring**
+  is what you do to *this topic from here*; the **strip** is how the topic and
+  its line *look*; the **dock** is what you do to the *map*. An action that
+  was on two of them loses one. Gated by `scratchpad/ui-sweeps/mapplaces.js`,
+  which maps every control id to the edit it writes and fails on a repeat.
+- **The ring is six slots, each with its word drawn**: add child, add beside,
+  fold, delete, connect, more. Not eight icon-only discs, which is a memory
+  test; not a ring that grows with the feature list, which is how it got to
+  eight. A slot is a 7rem pill placed with `left`/`top` from the radius (the
+  press cue owns `translate`, `tests/test_ui_recipes.py`), so the six sit at
+  60 degrees on one circle over the opaque band from `ab70d9b`.
+- **The ring and the strip are never open at once.** They answer two questions
+  about one topic and were both placed from its box, which produced a strip
+  shoved 136px clear of the ring or drawn across it (INBOX 114). The ring
+  takes the node while it is open; the strip comes back when it closes.
+- **What left the ring went to the topic's own menu, not away**: tidy this
+  branch, copy this branch, add from the library, cut free of its parent, and
+  where the topic points. The menu now carries every action a topic has, the
+  ring's six included, and it is reachable from the ring's **More** slot and
+  from the ContextMenu key (Shift+F10), because a right-click on a map node
+  belongs to the ring.
+- **Every ring slot is also a key**: Tab, Enter, C, Delete, Shift+C (connect,
+  which is the board's own connector chord) and Shift+F10. The ring's caption
+  says the first four at rest, so the ring reads as a shortcut rather than as
+  the only way in. Proved without a pointer: `mapplaces.js` builds a five-node
+  tree from the keyboard.
+- **The line ring keeps only what is not a look**: reverse, label, cut. Its
+  dash and its colour wrote the same two fields the strip's own controls do
+  (`edge_dashed`, `color`), and its three line shapes are a look, so they are
+  one picker in the strip now.
+- **A map does not show the board's Insert and Arrange menus.** The dock
+  already hides thirteen board-only tools on a map; the top bar was offering
+  the same things again. Insert places a sticky, a text box, a shape or a bare
+  note card, none of which a tree can hold; Arrange aligns and re-orders by
+  hand, which is the layout's job. Measured: 60 controls in a map's top bar
+  before, 40 after.
+- **A core idea is told apart three ways at once**: the ellipse, a filled
+  ground in the branch colour with contrasting text, and one step larger type,
+  with a star before the label. One toggle in the strip sets all of them
+  (INBOX 201: "more and better ways to differentiate core idea nodes"). A
+  border alone was the old answer and it is the one a map full of coloured
+  branches cannot carry.
+- **The empty map says how to start.** One line under the templates card, gone
+  on the first topic added and never shown again.
+
 ## Placed from INBOX, 2026-09-09
 
 The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.

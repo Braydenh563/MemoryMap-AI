@@ -24947,6 +24947,22 @@ them. It is written up in `archive/agent-remaining/documents-phase4.md`.
     the editor in place; the popup agent's label now names the thing that
     is open rather than saying "the open note".
 
+211. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the
+    Library's Create dialog (two screenshots: "What would you like to
+    create?" with five filled pills, New note, New document, New concept
+    map, New chat, Transcribe audio, and Cancel, wrapped on two rows; the
+    documents' "New from a template" dialog, a small-caps title, one line of
+    description, a list of six rows each with a name and a one-line
+    description, Cancel at the foot).** "can this create popup in the
+    library look better?? maybe make it look like this template popup in the
+    documents". The template dialog's shape is the recipe: a title, a line,
+    a column of rows (icon, name, one line of what it makes), Cancel. Owner:
+    orchestrator.
+    **Fixed.** The chooser is the template dialog's shape now: a title, a
+    line, five rows (icon, name, one line of what it makes), Cancel at the
+    foot. Measured: 5 rows, one width (820px), 55px each, focus on the
+    first, Cancel present.
+
 207. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the header
     (screenshot: the header's five icon buttons: bell, magic wand, '?',
     theme, gear).** "move the help bot to the bottom bar instead of having
@@ -25042,22 +25058,6 @@ them. It is written up in `archive/agent-remaining/documents-phase4.md`.
     mode still flips, the suppression class is gone again a frame later, and
     the art canvas is rebuilt. **Not verified:** the desktop webview, which is
     the window the report came from; the numbers above are headless Chromium.
-211. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the
-    Library's Create dialog (two screenshots: "What would you like to
-    create?" with five filled pills, New note, New document, New concept
-    map, New chat, Transcribe audio, and Cancel, wrapped on two rows; the
-    documents' "New from a template" dialog, a small-caps title, one line of
-    description, a list of six rows each with a name and a one-line
-    description, Cancel at the foot).** "can this create popup in the
-    library look better?? maybe make it look like this template popup in the
-    documents". The template dialog's shape is the recipe: a title, a line,
-    a column of rows (icon, name, one line of what it makes), Cancel. Owner:
-    orchestrator.
-    **Fixed.** The chooser is the template dialog's shape now: a title, a
-    line, five rows (icon, name, one line of what it makes), Cancel at the
-    foot. Measured: 5 rows, one width (820px), 55px each, focus on the
-    first, Cancel present.
-
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing
@@ -27243,6 +27243,14 @@ line that carried a dash.
     last "Filed it under Home.", titled from the first question. The foot row
     is still 51px at 1440 and 61px at 390, and the opener is 28x28 on a desktop
     and 44x44 on a phone.
+223. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the map
+    rail's layout picker.** "this selector is out of alignment and crushed
+    in the bottom bar of the mindmap" (screenshot: a circle reading "T." with
+    a chevron). **Fixed (this commit).** The picker's face is a
+    `.select-opener` button and the rail's tool rule (`.wb-tool-group
+    button`: 36px, round) caught it: measured 36x36 at 50% radius inside a
+    144x28 shell (`scratchpad/mapsel2.js`). Now 159x28, the shell's full
+    width, field-shaped, reading "Tree, sideways".
 
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
@@ -29147,3 +29155,53 @@ working on it. This project's failure mode is not forgetting to write things
 down — it is writing them somewhere a later session does not read, and then
 rebuilding or re-deriving them. One ordered list, in the file every session is
 told to open first.
+201. **Mid-work drop, 2026-09-13 night, verbatim (the owner), mind map core
+    nodes.** "I want more and better ways to differentiate core idea nodes
+    in the mindmap". Goes with 200's mind map sweep: a core node today is
+    an ellipse with a heavier ground (`26aa946`); the ask is for more ways
+    (size, colour, weight, an icon, a filled shape) and for them to read as
+    one thing. Owner: orchestrator, in the 200 sweep.
+
+    **Fixed `2a310ec`.** Four ways at once from the one toggle: the ellipse
+    (a core topic with no shape of its own takes it; one chosen by hand is
+    kept), a ground filled in the branch colour, one step larger type
+    (13.6px to 15.64px against a plain sibling) and a star before the label.
+    The ink on the fill is computed per colour by WCAG luminance, so the
+    label clears 4.5:1 on all ten palette entries in both themes (worst
+    4.62:1 on `#4e79a7`). `scratchpad/ui-sweeps/mapcore.js`, 16/16 light and
+    16/16 dark at 1440x900.
+
+200. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the whole
+    app, the mind map first.** "I think you fable need to do a full ux sweep
+    for better intuitive design and function. especially with the mindmap,
+    it needs a lot of ux and usability improvement, like the way the
+    controls are available, what controls and tools are available and where,
+    and how the item radials are used is confusing and doesnt feel clean".
+    The owner's decision, which reopens MINDMAP_PLAN section 12's ring: the
+    set of controls, where each lives and how the ring is used are to be
+    redesigned, not adjusted. Taken as a sweep by the orchestrator, surface
+    by surface, mind map first, each change measured.
+
+    **Fixed `8a24e22`, `59d63cc`, `2a310ec`, `2db94de`, `8448f20` and
+    `8fbe541`, for the mind map**, which is the surface this item names. The
+    audit first (`scratchpad/ui-sweeps/mapaudit.js`, a twelve-topic map): 112
+    controls across six surfaces, add-a-child from five places, a fold from
+    four, a colour from four, six actions reachable only from the ring, and a
+    node context menu that was dead code on a map. Then one place per action
+    (MINDMAP_PLAN §12.5): the ring is six labelled slots for what you do to
+    this topic, the strip is every look, the dock is the map, the line ring
+    keeps the three things only a line has, and the topic's own menu carries
+    all of it from the ring's More or Shift+F10. Measured: the top bar 60
+    controls to 40, the ring's reach 164px to 88px, every ring slot also a key
+    (`mapplaces.js` builds a five-node tree from the keyboard), no action on
+    two surfaces (27 distinct actions, 0 clashes). An empty map now says how to
+    start, once per browser, and the rail carries a '?' naming all three
+    surfaces. Green on this head: `mapplaces.js` 15/15 at 1440 and 390,
+    `mapstrip.js` 39/39 light, dark and narrow, `mapdock.js` 26/26 both widths,
+    `mapring.js` 7/7 light and dark, `mindmap.js` 76/76, `mapnarrow.js` 3/3,
+    `errors.js` 0 errors.
+
+    The other surfaces this item's first sentence asks for ("a full ux sweep"
+    of the whole app) are the orchestrator's own, surface by surface, and are
+    not claimed here.
+

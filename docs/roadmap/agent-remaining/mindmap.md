@@ -15,6 +15,77 @@
 > 2026-09-12"). Everything below was checked in a real Chromium against the
 > running app, not read off the source.
 
+## The ninth run (INBOX 200 and 201): the control audit, first
+
+This is the brief for everything under it. Measured, not read off the
+source: `scratchpad/ui-sweeps/mapaudit.js` opens a map of **twelve topics**
+(a trunk, four branches, seven below them) at 1440x900 and enumerates every
+control that is actually on screen or one press away, skipping the option
+buttons `enhanceSelect` adds so a four-value picker counts as one control.
+
+### What a user meets, per surface
+
+| Surface | Controls | What they do |
+| --- | --- | --- |
+| Top bar `#wb-topbar` | **13 visible**, 47 more inside its five menus (**60** total) | Back, which board, rename, new board, find, overview, then Insert (8), Edit (7), Arrange (10), View (17), Board (5), then the library toggle and full screen. |
+| Bottom rail `#wb-tool-group` | **16** in six sections | Move (select, hand, lasso), Topic (add root, add child, add sibling), Branch (fold, branch colour, focus here), Layout (the layout picker, tidy), Connect (straight link, curved link), Edit (delete tool, undo, redo). |
+| Node strip `#wb-map-strip` | **13**, in a box of 810x38 | Bold, italic, core, text size, alignment, topic colour, link to a page, icon, shape, spine, line thickness, line dash, line arrowhead. |
+| Node ring `#wb-map-radial` | **8** slots, 28x28 each, **no label drawn** (each slot's `textContent` is empty; the caption span is empty at rest) | Add child, add sibling, fold, tidy this branch, copy this branch, add from the library, sever, reset to branch. |
+| Link ring `#wb-map-link-radial` | **8** slots | Reverse, label, curve, elbow, straight, dash, line colour, cut. |
+| The node itself | **7** buttons, 4 of them showing on a leaf | Link chip (hidden unless the node points somewhere), count badge (hidden unless folded), fold chevron (hidden unless it has children), text-size grip, resize grip, `+` add child, add from the library. |
+| Context menu | **8** items, and **none of them reachable on a map node** | Copy, cut, add a child topic, add from the library, focus here, bring to front, send to back, delete. `wbOpenContextMenuFor` routes a single map node to the ring and returns before the menu is ever built. |
+| Keyboard | **17** bindings | Tab child, Shift+Tab outdent, Enter sibling, F2 edit, C fold, F focus, Delete subtree, four arrows walk the tree, Ctrl+D, Ctrl+Z, Ctrl+Y, Ctrl+A, Ctrl+Alt+C/V, `[`/`]`, Escape. |
+
+**112 controls on one surface**, before the context menu's eight.
+
+### The duplicates: one action, three or more doors
+
+| Action | Reachable from | Count |
+| --- | --- | --- |
+| Add a child | rail Topic, ring, the node's own `+`, Tab, context menu | **5** |
+| Fold this branch | rail Branch, ring, the node's chevron, C | **4** |
+| A colour | rail "Branch colour", strip "Topic colour", link ring's wheel, context menu's "reset the colour" | **4** |
+| Delete | top bar Edit menu, rail's delete tool, Delete key, context menu | **4** |
+| Add a sibling | rail Topic, ring, Enter | **3** |
+| Add from the library | the node's own row, ring, context menu | **3** |
+| Focus here | rail Branch, F, context menu | **3** |
+| Cut a topic free of its parent | ring "sever", link ring "cut" (the same edit from the two ends of one line) | **2** |
+| Dash the line into a topic | strip, link ring | **2** |
+| Tidy | rail (the whole map), ring (this branch) | **2** |
+| Reset to the branch | ring, context menu (colour only) | **2** |
+
+### The orphans: one door, and not an obvious one
+
+- **Everything on the link ring** (reverse, label, curve, elbow, straight,
+  line colour): right-click a line, which nothing on screen says you can do.
+- **Copy this branch**: the node ring only.
+- **Add a top-level topic** (the only way to a second trunk, a §12.0
+  decision): the rail's Topic section only.
+- **Open every folded branch** and **what this map is made of** (the
+  perspective legend): inside the View menu only.
+- **The node's context menu, entire**: built, wired, and dead on a map node.
+
+### What is on a map that a map has no use for
+
+The Insert menu's eight (sticky, text box, image, note card, rectangle,
+circle, arrow, connector), the Arrange menu's ten (align, distribute, z
+order: a laid-out tree owns x and y), and View's board background and grid
+style. **Twenty-one board controls in the top bar of a map**, against the
+rail's own count of thirteen board-only tools already hidden there.
+
+### The judgement this audit produces
+
+Three of the four complaints in INBOX 200 are visible in the table above.
+"What controls are available and where" has no rule: colour is in three
+places, add-a-child in five, and the one control that makes a second trunk
+is in none of the obvious ones. "How the item radials are used" is the ring
+of eight unlabelled 28x28 icons, which is a memory test. And the ring is the
+**only** door to six of its own actions while it silently eats the context
+menu that was meant to be the discoverable one.
+
+The fix is a place per action, written into MINDMAP_PLAN §12.5, and it is
+the rest of this run.
+
 ## Closed, with where the numbers are
 
 | Was | Now |
@@ -26,6 +97,21 @@
 | §12.1 items 2 to 9 | HISTORY, "Moved from the plans, 2026-09-12": the edit strip, the node radial, the link radial, the mid-line add, the text-size grip, uncollapse, transplant and sever. |
 | Their exports, their viewport clamp, the dark/narrow pass, and node shape | HISTORY, same date, "what the sixth run closed behind items 2 to 9". The shape list is a §12.0 decision. |
 | The two open decisions (Space, a trunk's colour) | MINDMAP_PLAN §12.0, decided 2026-09-12 with the reason for each. |
+
+## Green on this head (the ninth run's last measurement)
+
+Every one of these was run against `8fbe541` on a fresh data dir at port 8802.
+
+| Sweep | Result |
+| --- | --- |
+| `mapplaces.js` | **15/15** at 1440x900 and **15/15** at 390x844 (11 before) |
+| `mapcore.js` | **16/16** light and **16/16** dark at 1440x900 (10 before) |
+| `mapstrip.js` | **39/39** at 1440 light, 1440 dark and 390x844 |
+| `mapdock.js` | **26/26** at 1440x900 and 390x844 |
+| `mapring.js` | **7/7** light (and dark, from the eighth run) |
+| `mindmap.js` | **76/76**, from 74/76 |
+| `mapnarrow.js` | **3/3** at 390x844 |
+| `errors.js` | 0 page errors and 0 layout findings at every width |
 
 ## The sweeps that gate this
 
@@ -322,6 +408,58 @@ the report is unchanged: four passes, not reproduced in this sandbox.
 (`dashboard.js`) appeared in every drag profile taken here, on a tab that was
 not open. That is the same shape as the emblems and belongs to whoever owns
 `dashboard.js`.
+
+### The ninth run, in order, as it lands
+
+- done `8a24e22`: the audit above (`scratchpad/ui-sweeps/mapaudit.js`).
+- done `59d63cc`: §12.5 built. The ring is six labelled slots, the strip holds
+  every look, the dock holds the map's own, the line ring keeps three, and the
+  topic's menu carries all of it. `scratchpad/ui-sweeps/mapplaces.js` (11
+  checks, green at 1440x900 and 390x844), `mapring.js` (7 checks, green light
+  and dark, and it opens by the gesture again, below). Top bar 60 controls to
+  40; the ring's own reach 164px to 88px around an ordinary topic.
+- done `2a310ec`: INBOX 201. A core idea is told apart four ways at once from
+  the one strip toggle: the ellipse (only where no shape was chosen by hand),
+  a ground filled in the branch colour, one step larger type (13.6px to
+  15.64px) and a star. The ink on the fill is computed per colour by WCAG
+  luminance, so the label clears 4.5:1 on all ten palette entries (worst
+  4.62:1 on `#4e79a7`). `scratchpad/ui-sweeps/mapcore.js` 16/16 light and
+  16/16 dark at 1440x900 (10 checks before).
+- done `2db94de`: the first-open hint and the rail's help. One line under the
+  template offer ("Click a topic for its ring of actions, or press Tab to add
+  one under it"), shown once per browser (`wbMapFirstHintDone`, written the
+  moment any map has more than its root) and a `data-help-for` '?' on the
+  rail's Map section naming the ring, the strip and the rail with their keys.
+  `scratchpad/ui-sweeps/mapplaces.js` 15/15 at 1440x900 and 15/15 at 390x844
+  (11 checks before). The narrow run found the hint pushing the offer card
+  over the map's only topic by 3,755px2 (card to y=430 against a root at
+  y=411), which is the overlap `wb-map-templates` was fixed for once already:
+  the offer's title now folds at phone width, where the four named shape
+  buttons say the same thing, and the clearance is 24px.
+- done `8448f20`: the sweeps that named ids §12.5 removed. `mapstrip.js` reads
+  six ring slots and three line-ring slots, the context bar's id (`#wb-context`
+  since `5796258`, where `#wb-selection-bar` went), cut-free and copy-branch
+  from the topic's menu, the grips **row's** own fade rather than the grip's
+  (which is opacity 1 whether drawn or not), and a hit path that is the
+  centreline of a ribbon rather than the same `d`. 39/39 at 1440 light, 1440
+  dark and 390x844. `mapdock.js` drives the two adds and the fold from the ring
+  and the colour from the strip, and reads the ribbon's `fill` as well as a
+  stroke: 26/26 at both widths.
+- done `8fbe541`: `mindmap.js` 76/76, from 74/76. The last two failures were
+  its own measurement again: a fixed 64 samples along a path is a spacing that
+  grows with the edge (about 5px after the drag that made it longer), so a
+  perfectly attached edge read 2.6px adrift. One sample per pixel, and only on
+  the edge carrying the pair's own `data-parent`/`data-child` (walking every
+  path at that sample count is tens of millions of `getPointAtLength` calls on
+  the 200-node map). The gap is 0px at rest, mid-drag, after the drop, on the
+  pinned second drag, on a root drag and after a reload.
+- done `5b6d1e5`: INBOX 200 and 201 marked and moved to HISTORY's "INBOX
+  resolved", with this run's numbers in 200's entry. 200's other surfaces (its
+  first sentence asks for a sweep of the whole app) stay the orchestrator's.
+- next: nothing in this run's list. The open work is "Left to do" item 2
+  (MINDMAP_PLAN §12.1 item 2's five sub-items, four with a recorded reason for
+  being left), item 5 (INBOX 43's second half, judged a redesign rather than a
+  consistency fix, see below) and item 6 (the AI half, still unexercised).
 
 ## The eighth run, in order, as it lands
 

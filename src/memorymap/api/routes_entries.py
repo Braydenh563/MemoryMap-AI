@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-import threading
 from datetime import date, timedelta
 from types import SimpleNamespace
 
@@ -33,7 +32,7 @@ from memorymap.api.schemas import (
     LinkOut,
     SimilarOut,
 )
-from memorymap.core import deps, events, vault
+from memorymap.core import deps, events, jobs, vault
 from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_suggestions)
     AuditLog,
     Bookmark,
@@ -407,12 +406,12 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     # request, so the thread can never race the commit that makes this note
     # visible to its own session.
     if defer:
-        threading.Thread(
-            target=_file_entry_in_background,
-            args=(entry.id, getattr(entry, "workspace_id", "default") or "default"),
-            daemon=True,
-            name=f"file-entry-{entry.id}",
-        ).start()
+        jobs.enqueue(
+            "file-entry",
+            _file_entry_in_background,
+            entry.id,
+            getattr(entry, "workspace_id", "default") or "default",
+        )
 
     return out
 

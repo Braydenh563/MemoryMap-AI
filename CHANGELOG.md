@@ -14,12 +14,98 @@ below). Versioning is `0.x` while the app stabilises.
 - Aurora's trails end and its ring no longer stamps itself into them (INBOX
   210). The Library's Create chooser is a column of named rows like the
   documents' template dialog (211).
+- The tests that never ran anywhere now run in CI. The unit job installs node,
+  so the nine tests that shell out to `node --check` and the plain markdown and
+  export scripts stop skipping themselves, and a new `pdf` job installs the
+  rasteriser extra (`pypdfium2`, `Pillow`), asserts `pdfpages.available()` and
+  runs the ten files gated on it. Measured with the extra present: 159 tests in
+  those files, none skipped.
+
+- Nine failures that said nothing now say it at debug. The `except Exception:
+  pass` handlers in the embedding enrichment (4), the entity pass, the vision
+  read, the two PDF page closes and the task history each log with `exc_info`
+  and name what was being attempted; `entities.py` and `taskhistory.py` had no
+  logger at all to say it through, and now do. None of the handlers widened.
+
+- The graph and timeline routes name their optional parts. `graph` was 355
+  lines and 58 branches and is 227 and 29, with the three opt-in blocks as
+  `_add_entity_nodes`, `_add_document_nodes` and `_add_map_edges`; `timeline`
+  was 346 and 53 and is 248 and 39, with the three row builders as
+  `_place_notes`, `_place_documents` and `_place_reminders`. No behaviour
+  changed: 118 graph and mind map tests and 27 timeline tests pass either side.
+
+- The chat stream route is a resolve and a stream, not one 424-line function.
+  `chat_stream` is now 71 lines: what one call settles before it opens the
+  stream is a `_StreamRequest` record, the no-tools path is `_plain_events`
+  (149 lines) and the NDJSON writer is `_stream_lines` (219), both module-level
+  rather than closures. No behaviour changed; 264 chat and skill tests pass.
+
+- A skill run reads as a setup, a step and a finish. `_run_skill` was 682 lines
+  and 82 branches; it is now 301 and 36, with one step's attempts, contract and
+  paging in `_run_one_step` (401 lines), the run's decisions on a `_RunSetup`
+  record and what it learns on a `_RunState`. No behaviour changed: the 88
+  skills tests and the run, verifier and agent files pass either side.
+
+- The agent's turn reads as three stages rather than one long one. `run_agent`
+  was 875 lines and 68 branches by the same AST ruler the audit used
+  (`scratchpad/probe_complexity.py`); it is now 279 and 37, with the setup in
+  `_prepare_turn` (248 lines), one tool call and its guards in `_dispatch_call`
+  (405), and the ledgers the rounds share on a `_TurnState` record. No
+  behaviour changed: the same 306 agent, chat and skill tests pass before and
+  after.
+
+- The agent knows how big its model is. `run_agent` now asks
+  `model_manager.is_small_model` about the model it is actually going to call,
+  the same predicate the skills path uses, and a small model gets the core
+  tools without the orchestration three, the short descriptions, and four
+  rounds rather than six plus six earned. Measured on one turn with a 32k
+  window: 11 tools and 3,828 schema bytes against 56 and 27,250. A model whose
+  name does not say its size is left alone.
+
+- Background work is bounded. Every upload used to spawn up to three threads of
+  its own (Tesseract, the caption, the vision read) plus a document read, so a
+  folder of 200 pictures was 600 threads against one Tesseract and one local
+  model. `core/jobs.py` is now one pool with two lanes: the CPU lane is the core
+  count capped at four, the model lane is one worker, and every
+  `*_in_background` enqueues on it. The activity panel lists what is queued, and
+  shutdown drops the queue inside a deadline instead of draining it.
 
 - Boot is lighter: p5 (1 MB, decoration only) loads in idle time on first use
   rather than as a blocking script, and the dashboard's seven widgets share one
-  `/insights/stats` fetch (44 boot fetches to 35). The audit these came from is
-  WORLD_CLASS_PLAN "Audit, 2026-09-13 night" (INBOX 209).
+  `/insights/stats` fetch (44 boot fetches to 35). The graph, documents,
+  whiteboard and library code now arrives on the first visit to the tab that
+  needs it rather than before anything draws: 8 scripts and 1,072 KB at boot,
+  from 13 and 1,699. Boot also stopped asking for the same thing twice:
+  preferences once rather than four times, the graph once rather than three
+  times, the board list and the note list once each, and the notes list's
+  first page is 200 notes rather than the whole notebook. The audit these came
+  from is WORLD_CLASS_PLAN "Audit, 2026-09-13 night" (INBOX 209).
 
+### Fixed
+
+- The dashboard's shared `/insights/stats` reader called itself instead of the
+  endpoint, so every widget that reads the notebook's totals drew its empty
+  state and no request was made at all. Each of the seven call sites has a
+  `catch`, which is why nothing showed in the console.
+
+- The mind map's control sweep is closed (INBOX 200): 112 controls audited, one
+  place per action, the top bar 60 controls to 40 and the ring's reach 164px to
+  88px, with every ring action also a key and also in the topic's own menu.
+- The mind map's own sweep reads the map it draws: the last two failures in
+  `scratchpad/ui-sweeps/mindmap.js` were its own sampling, a fixed 64 points
+  along a path whose spacing grows with the edge. One sample per pixel, on the
+  edge belonging to the pair being measured, and the gap after a drag is 0px.
+  76/76, from 74/76.
+- An empty mind map now says how to start, once for the browser: one line under
+  the template offer pointing at the topic's own ring and at Tab, gone the
+  moment a map has more than its root. The map's rail carries a '?' that names
+  all three surfaces and the keys behind them (INBOX 200).
+- A mind map's core idea is told apart four ways at once (INBOX 201): the
+  ellipse, a ground filled in its own branch colour with the ink that reads on
+  it, one step larger type and a star before the label, all from the one toggle
+  in the strip. The ink is computed per colour, so the label clears 4.5:1 on
+  every palette entry in both themes (worst 4.62:1, `scratchpad/ui-sweeps/mapcore.js`,
+  16 checks light and dark). A topic given a shape by hand keeps it.
 - At a higher browser zoom the tab strip no longer runs under the header
   controls (1152 to 1240 measured at 0px overlap) and a mind map's top bar
   folds its picker and Library label from 1216px down (INBOX 195). A board
@@ -50,6 +136,8 @@ below). Versioning is `0.x` while the app stabilises.
   beside them at 150% zoom (214). A conversation with the popup agent can be
   kept: "Save as chat" in its foot menu writes it to the Chat tab and offers
   the thread (215).
+
+- The mind map has one place per action (INBOX 200). The node ring is six slots that say what they are, not eight icon-only discs; the topic strip holds every look, including the line shapes that were on the line ring; the dock holds what acts on the map. The ring and the strip are never open together, every ring slot is also a key, and the topic's own menu (the ring's More, or Shift+F10) carries all of it. A map no longer shows the board's Insert and Arrange menus: 60 controls in its top bar before, 40 after.
 
 ### Added
 
@@ -364,6 +452,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The mind map rail's layout picker was a 36px circle reading "T.": the
+  rail's round tool-button rule caught the select's face. It fills its
+  shell now, field-shaped.
 - Local OCR pins Tesseract to one OpenMP thread unless `OMP_THREAD_LIMIT`
   is already set: measured 42 s against 0.28 s for one line of text in a
   four-core container, the thread oversubscription Tesseract's own docs

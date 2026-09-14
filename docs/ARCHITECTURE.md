@@ -157,6 +157,30 @@ MemoryMap-AI/
 │   │   └── media_gc.py      # sweeps orphaned /media uploads
 │   ├── entry/               # notes
 │   │   ├── manager.py       # create/read/update/soft-delete, links, audit
+│   │   ├── pdfpages.py      # a PDF page -> a PNG, so a model can read a scan.
+│   │   │                    #   Optional (the `pdfpages` extra); returns []
+│   │   │                    #   rather than raising when it is not installed
+│   │   ├── filetypes.py     # the one table of document types: comment
+│   │   │                    #   markers, indent, whether it renders
+│   │   ├── extras.py        # the ALLOWLIST of pip-installable optional
+│   │   │                    #   extras. The request names an entry here; the
+│   │   │                    #   package spec is never client text
+│   │   ├── embedmodels.py   # the same shape for embedding models: an
+│   │   │                    #   allowlist, their real size in the HuggingFace
+│   │   │                    #   cache, and download / re-download / remove
+│   │   ├── logbuffer.py     # in-memory log capture + safe_value() for
+│   │   │                    #   anything untrusted going into a log line
+│   │   ├── security.py      # OriginCheckMiddleware, backend-URL local-only lock
+│   │   ├── vault.py         # the private-note encryption key, derived + held in memory
+│   │   ├── crypto.py        # scrypt key derivation, encrypt/decrypt primitives
+│   │   ├── atomic_io.py     # temp-file + fsync + rename writes for preferences.json
+│   │   ├── jobs.py          # the one bounded worker pool: two lanes (cpu for
+│   │   │                    #   Tesseract and extractors, one worker for the
+│   │   │                    #   model), every *_in_background enqueues
+│   │   ├── taskhistory.py   # "recently finished" record for Settings -> Background tasks
+│   │   └── media_gc.py      # sweeps orphaned /media uploads nothing references any more
+│   ├── entry/
+│   │   ├── manager.py       # create/read/soft-delete entries, audit log
 │   │   ├── timewords.py     # what "tomorrow" meant, resolved at capture
 │   │   ├── duplicates.py    # near-duplicate finder + AI merge
 │   │   ├── importer.py      # uploaded document -> markdown (markitdown)
@@ -1031,7 +1055,7 @@ and embedding, and both already run off the request thread.
 | Add a built-in skill | `skills.BUILTIN_SKILLS`, not `app.js`; name its tools (§7b) |
 | Log something a user or a website typed | `logbuffer.safe_value()` at the call site; `sanitise` only protects the in-app viewer |
 | Work out why SearXNG won't start | `data/searxng/searxng.log`, surfaced in Settings → Web search |
-| Add a background job | `api/routes_tasks.collect()`: otherwise it runs invisibly |
+| Add a background job | `core/jobs.enqueue(kind, func, ...)` with a lane in `KIND_LANES`, never a `Thread` of its own; `api/routes_tasks.collect()` already draws what the pool holds, so the panel needs nothing |
 | Add a kind to the Library | `api/routes_library.py`: one builder function, and `app.js` needs no change |
 | Make something installable | `core/extras.py`'s allowlist, never a package name from a request. `unavailable` greys it out *and* refuses it server-side |
 | Add an embedding model | `core/embedmodels.py`'s allowlist. The `org/name` → `models--org--name` flattening is the traversal defence, not formatting |

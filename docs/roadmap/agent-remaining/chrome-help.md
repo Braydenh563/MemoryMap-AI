@@ -37,13 +37,17 @@ More sheet).
   with both rows, 4 messages written in order, titled from the first
   question.
 
+- INBOX 224, first half, the Atlas sheet and the one surface: this commit.
+  1 `#help-chat-group` in the document and 0 in Settings, a 448px card in the
+  corner, 0 contrast findings in either theme, Escape and X both close.
+
 ## Next, in order
 
 Neither is started yet; the head is clean, so a session picking this up
 starts at step 1.
 
-1. **INBOX 224, the Atlas sheet.** Three asks in one entry, in this order.
-   (a) The sheet itself, rebuilt on the popup agent's recipe so the two
+1. **INBOX 224, part (c) only; (a) and (b) landed above.** The rest:
+   (c) The sheet itself, rebuilt on the popup agent's recipe so the two
    assistants share one look: anchored bottom-right, a head with the Atlas
    mark, the name and one line, three starter chips ("Where do reminders
    live?", "How do I turn off web search?", "What does Performance mode

@@ -135,7 +135,10 @@ below). Versioning is `0.x` while the app stabilises.
   441px of dock row down to 121px, so they no longer collide with the controls
   beside them at 150% zoom (214). A conversation with the popup agent can be
   kept: "Save as chat" in its foot menu writes it to the Chat tab and offers
-  the thread (215).
+  the thread (215). Atlas is one chat rather than two: a sheet on the popup
+  agent's recipe with a head, starters, bubbles and a composer, the source help
+  topics under each answer, and the Settings page holding the way in rather
+  than a second copy of the box (224).
 
 - The mind map has one place per action (INBOX 200). The node ring is six slots that say what they are, not eight icon-only discs; the topic strip holds every look, including the line shapes that were on the line ring; the dock holds what acts on the map. The ring and the strip are never open together, every ring slot is also a key, and the topic's own menu (the ring's More, or Shift+F10) carries all of it. A map no longer shows the board's Insert and Arrange menus: 60 controls in its top bar before, 40 after.
 

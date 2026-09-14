@@ -1752,6 +1752,132 @@ summary > .ph-lead,
    groups, and read as one until there was air between them. Reported with a
    screenshot: "there's no gap between the ask the guide box and help
    dropdowns panel". The group gap every other Settings section uses. */
+/* --- Atlas, the app's guide (INBOX 224) ----------------------------------
+   One surface for the two assistants. The popup agent is a panel with a head
+   that says who is talking, starters that say what to ask, a transcript and a
+   composer along the foot; this is that, in a sheet, and the rules below are
+   only the ones the sheet recipe does not already give.
+
+   **Anchored bottom right, not across the foot.** `openSheet`'s own geometry
+   is a bar along the bottom of the window, which is right for a list of rows
+   and wrong for a chat: at 1440 it gave Atlas a 1356px line. `sheet-corner`
+   moves the card into the corner the popup agent's own panel would occupy and
+   gives it a reading width; at phone width it goes back to being the full
+   width of the window, because in a 390px window the corner IS the window. */
+.sheet-overlay.sheet-corner {
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 0;
+}
+
+.sheet-card.sheet-card-corner {
+  width: min(28rem, 100%);
+  max-width: min(28rem, 100%);
+  max-height: min(36rem, 80dvh);
+  border-radius: var(--radius) var(--radius) 0 0;
+  margin-inline-end: var(--space-4);
+}
+
+@media (max-width: 600px) {
+  .sheet-card.sheet-card-corner {
+    width: 100%;
+    max-width: 100%;
+    margin-inline-end: 0;
+  }
+}
+
+/* The chat fills the card, and the transcript is the only part that scrolls:
+   the head, the starters and the composer are fixed, the way they are in the
+   popup agent. */
+.sheet-card-corner .atlas-chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+  gap: var(--space-3);
+}
+
+.sheet-card-corner .help-chat-messages {
+  flex: 1 1 auto;
+  /* The recipe's own 16rem cap is for a box inside a settings page; in a sheet
+     the card's height is the bound and the transcript takes what is left. */
+  max-height: none;
+  min-height: 0;
+}
+
+/* The head: who is talking, in one row. The mark is the compass the status bar
+   already uses for Atlas, at the size of an avatar rather than of an icon in a
+   button, because this is the one place the assistant is the subject. */
+.atlas-intro {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.atlas-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-lg);
+}
+
+.atlas-intro-words {
+  min-width: 0;
+}
+
+.atlas-name {
+  margin: 0;
+  font-weight: 600;
+}
+
+.atlas-line {
+  margin: 0;
+}
+
+/* Three chips, wrapping, which is the popup agent's starter grid at this
+   width: one column of buttons would be a menu, and a row that does not wrap
+   would cut the third question in half. */
+.atlas-starters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.atlas-starters > button {
+  text-align: left;
+}
+
+/* The composer along the foot, and the one thing it needs that the form did
+   not have: the field takes the room and the three controls beside it keep
+   their own size. */
+.atlas-composer {
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: nowrap;
+}
+
+.atlas-composer > #help-chat-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.atlas-composer > button,
+.atlas-menu {
+  flex: 0 0 auto;
+}
+
+/* The citation under an answer: where it came from, not somewhere to go. */
+.help-chat-source {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+}
+
 /* **A chat is a column, not a wall** (INBOX 204: "modernise and redesign /
    improve the ui and ux for the help ai"). The sheet recipe is deliberately
    full width at every width, which is right for a list of rows and wrong for a

@@ -149,8 +149,39 @@ def test_a_pointer_anchored_menu_is_the_recipe() -> None:
 # ends, so the list may shrink and never grow.
 HAND_BUILT_SHEETS = {"sidebar-sheet-open", "graph-popup-sheet"}
 
-# The recipe's own classes.
-SHEET_RECIPE = {"sheet-overlay", "sheet-card", "sheet-head", "sheet-title", "sheet-close", "sheet-list", "sheet-row"}
+# The recipe's own classes, including the two a `variant` produces: `openSheet`
+# takes one word and stamps `sheet-<word>` on the overlay and
+# `sheet-card-<word>` on the card, which is how a sheet that has to sit
+# somewhere else (Atlas, in the corner, INBOX 224) stays the one recipe rather
+# than becoming a third hand-built sheet. A new variant adds its two names here
+# and nothing else; the test below is what keeps that true.
+SHEET_RECIPE = {
+    "sheet-overlay",
+    "sheet-card",
+    "sheet-head",
+    "sheet-title",
+    "sheet-close",
+    "sheet-list",
+    "sheet-row",
+    "sheet-corner",
+    "sheet-card-corner",
+}
+
+
+def test_only_the_recipe_stamps_a_sheet_variant() -> None:
+    """A variant class may only ever be written by `openSheet`.
+
+    Otherwise the variant is the loophole: any file could paint `sheet-corner`
+    onto a div of its own and inherit none of the scrim, the tier, the head
+    with its X, Escape or the backdrop press.
+    """
+    for path in JS:
+        js = path.read_text(encoding="utf-8")
+        for match in re.findall(r'"sheet-(?:card-)?[a-z]+"', js):
+            assert path.name == "app.js", f"{path.name} writes {match} by hand"
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    assert app.count("sheet-${variant}") == 1
+    assert app.count("sheet-card-${variant}") == 1
 
 
 def test_a_sheet_is_the_recipe_or_one_of_the_two_that_predate_it() -> None:

@@ -92,6 +92,43 @@ with its owner named in the entry.
     handlers of the old box are removed together (`test_frontend_ids.py`,
     `test_frontend_handlers.py`), and `test_help_chat.py` keeps its route
     tests. Measured: exactly one `#help-chat` surface in the DOM.
+    **The sheet and the second interface: built and measured.** The chat was a
+    settings group printed inside Settings, Help, which `openHelpChat()` picked
+    up and carried into a full-width sheet: a bare card, a title row, two
+    paragraphs and one input. It is built as a chat now, on the popup agent's
+    recipe, in its own hidden host at the top of `index.html` rather than
+    inside the Settings page, so there is one copy of it and Settings, Help
+    holds the way in instead of a second box.
+    The sheet: a head with the compass mark, the name and one line; three
+    starter chips from one table (`ATLAS_STARTERS`), which the Settings row
+    reads as well; a transcript in bubbles with the source help topics under
+    each answer; a composer along the foot (the field, an icon-only send, the
+    '?' popover and the kebab); New chat in that kebab rather than as a second
+    labelled button in the head. `openSheet` gained a `variant`, one word
+    stamped as `sheet-<word>` on the overlay and `sheet-card-<word>` on the
+    card, so the corner anchoring is the recipe rather than a third hand-built
+    sheet; `test_ui_recipes.py` lists the two class names and asserts that only
+    `openSheet` writes them.
+    The source line is new on the wire: `help_chat.source_names` returns the
+    topics an answer was actually built from, and the bubble says "From the
+    app's help: Reminders, Shortcuts" under it. That is a different claim from
+    the badge beside it, which says where to *go*, and it is the one that makes
+    an answer checkable against the same topic on the Help page.
+    Measured (`scratchpad/ui-sweeps/chrome224atlas.js`, 1440x900, 1024x820 and
+    390x844, both themes): 1 `#help-chat-group` in the document and 0 of them
+    inside `#settings-help`, with the Settings row and its 3 chips in its
+    place; the card is 448px wide anchored 10px from the right edge and on the
+    foot at 1440 and 1024, and the full 390px at phone width; 0 of the four
+    parts (head, starters, transcript, composer) wider than the card at any of
+    the three; 3 starters, 4 controls in the composer, 1 kebab row ("New
+    chat"); a turn hides the starters and the empty state, leaves 2 bubbles and
+    prints the source line; contrast measured on all 7 text elements in the
+    card, 0 under their threshold, lowest 7.4:1 in light and 7.86:1 in dark
+    against a 4.5 requirement; Escape closes it, the X closes it, and the one
+    copy is back in its host afterwards both times.
+    Still open on this entry: the `ATLAS_PROMPTS` table and the five places
+    that offer a question (the `data-help-for` popovers, the palette command,
+    the three empty states, the shortcuts sheet).
 
 221. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), auto
     update.** "make sure all the auto update whether upon new release or

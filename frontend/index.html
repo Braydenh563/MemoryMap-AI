@@ -309,6 +309,74 @@
   </div>
 
   <!-- Global Command Palette -->
+  <!-- **Atlas, the app's guide, in one place** (INBOX 224, the owner: "can
+       you improve and modernise the ui design of the atlas chat interface??").
+       It was a settings group printed inside Settings, Help, which
+       `openHelpChat()` picked up and carried into a sheet: a bare card, a
+       title row, two paragraphs and one input. It is built as a chat here,
+       on the popup agent's recipe, so the app's two assistants read as one
+       idea: a head that says who is talking, starters that say what to ask, a
+       transcript in bubbles, and a composer along the foot.
+
+       Parked in this hidden host rather than in the sheet, because the chat is
+       stateful (a running transcript, a form, handlers bound by id) and the
+       sheet is built and thrown away on every open; `openHelpChat()` moves
+       this one copy in and puts it back on close. -->
+  <div id="atlas-host" hidden>
+    <div class="settings-group help-chat-group atlas-chat" id="help-chat-group">
+      <div class="atlas-intro">
+        <span class="atlas-mark" aria-hidden="true"><i class="ph ph-compass" aria-hidden="true"></i></span>
+        <div class="atlas-intro-words">
+          <p class="atlas-name">Atlas</p>
+          <p class="muted atlas-line">Explains the app, from your utility model, never from your notes.</p>
+        </div>
+      </div>
+      <!-- Three, not a wall: the popup agent's starters are the same idea at
+           the same size, and these are the three questions the help topics
+           are asked most often to answer. `renderAtlasStarters` fills both
+           this and the Settings row from one table. -->
+      <div class="atlas-starters" id="help-chat-starters"></div>
+      <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite" aria-label="Atlas">
+        <!-- **Atlas says what it is before it is asked** (INBOX 204, the owner:
+             "improve its capabillity and knowledge"). An empty log under a
+             field is a chat that has to be guessed at: what it knows, what it
+             will refuse, whether what you type is kept. Markup rather than
+             script because it is what is true before anything has happened,
+             and `renderHelpChatMessage` hides it on the first turn while New
+             chat brings it back. -->
+        <p id="help-chat-empty" class="muted help-chat-empty">
+          Ask where a feature lives, what a setting does, or which tab you
+          want. Atlas answers from the app's own help, says so when it is not
+          sure, and cannot read your notes or your documents.
+        </p>
+      </div>
+      <!-- The composer, along the foot, which is where the popup agent puts
+           its own: input, an icon-only send at the app's one icon-button size,
+           and the '?' that every surface in this app carries for the longer
+           explanation. New chat is in the kebab beside them: it is the row's
+           second action and a labelled button for it is what made the old head
+           row two buttons wide. -->
+      <form id="help-chat-form" class="row help-chat-form atlas-composer">
+        <input type="text" id="help-chat-input" data-needs-model="Atlas answers with your utility model" placeholder="Ask about the app…" maxlength="1000" autocomplete="off" aria-label="Ask Atlas a question">
+        <button type="submit" id="help-chat-send" data-needs-model="Atlas answers with your utility model" class="icon-only" title="Ask Atlas" aria-label="Ask Atlas"><i class="ph ph-paper-plane-right" aria-hidden="true"></i></button>
+        <button type="button" class="icon-only ghost small graph-help-toggle"
+          data-help-for="help-chat-help" aria-controls="help-chat-help" aria-expanded="false"
+          title="About this chat" aria-label="About this chat">
+          <i class="ph ph-question" aria-hidden="true"></i>
+        </button>
+        <span id="help-chat-menu" class="atlas-menu"></span>
+      </form>
+      <div class="help-body hidden" id="help-chat-help" role="dialog" aria-label="About this chat">
+        <p>
+          Atlas is named for a book of maps: it is the reference you open to
+          find your way around this app. Quick "how do I…" answers about
+          MemoryMap itself, from your utility model, not your notes, and
+          nothing here is saved.
+        </p>
+      </div>
+    </div>
+  </div>
+
   <div id="command-palette-overlay" class="lock-overlay command-palette-overlay hidden"
     role="dialog" aria-modal="true" aria-label="Agent command palette">
     <div class="card glass command-palette-card">
@@ -8803,61 +8871,37 @@
               </details>
             </div>
 
-            <!-- Item 40's "mini AI chat" half: app-guidance only, small and
-                 basic by design (not a second full Chat tab), no persisted
-                 history: nothing here is written to the database, so a new
-                 chat starts blank and this one forgets on reload by design.
-                 -->
-            <div class="settings-group help-chat-group" id="help-chat-group">
+            <!-- **One Atlas, not two** (INBOX 224, the owner: "there is
+                 still the second atlas interface in the settings help page").
+                 The chat that used to be printed here now lives at the top of
+                 this file and opens as a sheet from everywhere, including
+                 here: two copies of one assistant is two places for it to
+                 drift, and the Settings page was the copy nobody could reach
+                 from anywhere else. What is left is the way in, and three
+                 questions to start with, which is what the page actually owed
+                 the reader. -->
+            <div class="settings-group atlas-row">
               <div class="row space-between">
-                <!-- `setting-subhead`, which is this app's recipe for a
-                     sub-heading inside a settings group, and it was missing.
-                     Measured in the running modal: this h4 rendered at
-                     16px/700, the browser's own default, while every h3 on
-                     the page around it is 12px/600 and the two About
-                     sub-headings that do carry the class are 13.6px/600. A
-                     sub-heading larger and heavier than the heading it sits
-                     under is hierarchy upside down, and nothing in the app
-                     had ever styled it. -->
                 <div class="row help-head">
                   <h4 class="flush setting-subhead"><i class="ph ph-compass ph-lead" aria-hidden="true"></i> Ask Atlas</h4>
                   <button type="button" class="icon-only ghost small graph-help-toggle"
-                    data-help-for="help-chat-help" aria-controls="help-chat-help" aria-expanded="false"
-                    title="About this chat" aria-label="About this chat">
+                    data-help-for="atlas-row-help" aria-controls="atlas-row-help" aria-expanded="false"
+                    title="About Atlas" aria-label="About Atlas">
                     <i class="ph ph-question" aria-hidden="true"></i>
                   </button>
                 </div>
-                <button type="button" id="help-chat-clear" class="ghost small" title="Clear this chat and start over">
-                  <i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> New chat
-                </button>
+                <button type="button" id="atlas-open" class="ghost small"><i class="ph ph-chat-teardrop-text ph-lead" aria-hidden="true"></i> Open Atlas</button>
               </div>
               <p class="muted">Atlas explains the app, from your utility model, never from your notes.</p>
-              <div class="help-body hidden" id="help-chat-help" role="dialog" aria-label="About this chat">
+              <div class="help-body hidden" id="atlas-row-help" role="dialog" aria-label="About Atlas">
                 <p>
-                  Atlas is named for a book of maps: it is the reference you
-                  open to find your way around this app. Quick "how do I…"
-                  answers about MemoryMap itself, from your utility model, not
-                  your notes, and nothing here is saved.
+                  Atlas is named for a book of maps: the reference you open to
+                  find your way around this app. It answers from the topics
+                  above, says so when it is not sure, cannot read your notes,
+                  and keeps nothing you ask it.
                 </p>
               </div>
-              <!-- **Atlas says what it is before it is asked** (INBOX 204, the owner:
-                   "improve its capabillity and knowledge"). An empty log under a
-                   field is a chat that has to be guessed at: what it knows, what
-                   it will refuse, whether what you type is kept. It is markup
-                   rather than script because it is what is true before anything
-                   has happened, and `renderHelpChatMessage` hides it on the first
-                   turn and `#help-chat-clear` brings it back. -->
-              <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite" aria-label="Help chat">
-                <p id="help-chat-empty" class="muted help-chat-empty">
-                  Ask where a feature lives, what a setting does, or which tab
-                  you want. Atlas answers from the app's own help, says so when
-                  it is not sure, and cannot read your notes or your documents.
-                </p>
-              </div>
-              <form id="help-chat-form" class="row help-chat-form">
-                <input type="text" id="help-chat-input" data-needs-model="Atlas answers with your utility model" placeholder="e.g. How do I turn off web search?" maxlength="1000" autocomplete="off" aria-label="Ask Atlas a question">
-                <button type="submit" id="help-chat-send" data-needs-model="Atlas answers with your utility model" class="primary small">Ask</button>
-              </form>
+              <div class="atlas-starters" id="atlas-row-starters"></div>
             </div>
           </section>
 

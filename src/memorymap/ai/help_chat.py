@@ -587,6 +587,21 @@ def _matching_topics(question: str) -> list[dict]:
     return [topic for _, topic in scored[:MAX_TOPICS]]
 
 
+#: **Which help topics an answer was built from, in words** (INBOX 224: "a
+#: scrolling transcript in bubbles with the source help topic under each
+#: answer"). The badge beside an answer names where to *go* ("Reminders", the
+#: tab); this names where the answer came *from*, which is a different claim
+#: and the one that makes the answer checkable: the same topic is on the Help
+#: page in full.
+#:
+#: The name is derived from the id rather than added as a thirty-second field
+#: per topic. The ids are already written as words with hyphens between them
+#: ("command-palette", "files-images"), so one rule here reads better than
+#: thirty-one hand-written titles that can disagree with the ids beside them.
+def source_names(topics: list[dict]) -> list[str]:
+    return [topic["id"].replace("-", " ").capitalize() for topic in topics]
+
+
 def badges_for(topics: list[dict]) -> list[dict]:
     """The quick-access chips for a set of matched topics, de-duplicated by
     label and capped: same cap as `MAX_TOPICS`, since each matched topic
@@ -643,9 +658,9 @@ def answer(
     `{"content": str, "badges": list[dict]}`."""
     question = question.strip()[:MAX_MESSAGE_CHARS]
     if not question:
-        return {"content": "", "badges": []}
+        return {"content": "", "badges": [], "sources": []}
     if not ollama.is_running():
-        return {"content": OFFLINE_MESSAGE, "badges": []}
+        return {"content": OFFLINE_MESSAGE, "badges": [], "sources": []}
 
     topics = topics_for(question, tab)
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
@@ -685,4 +700,8 @@ def answer(
 
     reply = ollama.chat(model_manager.utility_model(), messages, mode="quick")
     content = reply["content"].strip()
-    return {"content": content, "badges": badges_for(topics)}
+    return {
+        "content": content,
+        "badges": badges_for(topics),
+        "sources": source_names(topics),
+    }

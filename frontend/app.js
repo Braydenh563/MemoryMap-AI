@@ -35772,16 +35772,23 @@ initBottomTabBar();
 // `build` fills the card; the caller gets the `close` it can call from a row.
 // Focus goes to the first thing in the sheet on open and back to whatever had
 // it on close, which for the More sheet is the button that opened it.
-function openSheet({ label, name, build, returnFocus = document.activeElement, onClose = null }) {
+//: `variant` is one word, added as `sheet-<variant>` to both the overlay and
+//: the card, for a sheet that has to sit somewhere other than across the foot
+//: of the window. One user so far, Atlas (INBOX 224), which is a chat and
+//: therefore a column: the full-width sheet gave it 1356px lines at 1440. It
+//: is a class rather than a second recipe so everything else about a sheet,
+//: the scrim, the tier, the head with its X, Escape and the backdrop press,
+//: stays the one thing it already is.
+function openSheet({ label, name, build, variant = "", returnFocus = document.activeElement, onClose = null }) {
   const overlay = document.createElement("div");
-  overlay.className = "modal-overlay sheet-overlay";
+  overlay.className = `modal-overlay sheet-overlay${variant ? ` sheet-${variant}` : ""}`;
   overlay.dataset.sheet = name || "";
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-modal", "true");
   overlay.setAttribute("aria-label", label);
 
   const card = document.createElement("div");
-  card.className = "card modal-card sheet-card";
+  card.className = `card modal-card sheet-card${variant ? ` sheet-card-${variant}` : ""}`;
   //: The title row carries the one way out that is visible: Escape and a
   //: press on the scrim both close a sheet, and neither is discoverable
   //: from inside it (INBOX 204: "can you add an exit or x button to the top

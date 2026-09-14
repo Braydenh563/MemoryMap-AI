@@ -34,21 +34,6 @@ with its owner named in the entry.
 
 ## Open items
 
-241. **Mid-work drop, 2026-09-14, verbatim (the owner), Ask persistence.**
-    "the grounding, intext numbered referencing, and sources that appeared
-    in the ask subtab in notes, dissappeared on reload and didnt persist.
-    they didnt persist when I reaccessed them through the history panel."
-    Owner: notes agent.
-
-240. **Mid-work drop, 2026-09-14, verbatim (the owner), Write with AI
-    boxes.** "when I clicked on the 'your thoughts' text box in the write
-    with ai notes subtab, the box instantly shortened in height from what
-    it was. same with the 'the draft' textbox as well." Owner: notes agent.
-
-239. **Mid-work drop, 2026-09-14, verbatim (the owner), the table full
-    view.** "I opened up the table full view but there was no way to close
-    it so I had to hard refresh the app." Owner: notes agent (documents).
-
 238. **Mid-work drop, 2026-09-14, verbatim (the owner), board and map
     notes.** "when I expand the size of notes in the whiteboard and mindmap,
     the text goes out of the panel border, the state of note objects in the

@@ -1222,7 +1222,13 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
     )
 
 
-def _save_ask_turn(session: Session, question: str, answer: str, prepared: dict) -> None:
+def _save_ask_turn(
+    session: Session,
+    question: str,
+    answer: str,
+    prepared: dict,
+    grounding: list[dict] | None = None,
+) -> None:
     """Durable record of one Ask-box turn, for routes_ask_history.py's browse
     panel. Only ever called for `notes_only` requests (the Ask box's own
     flag, §35A) with a real answer, a small-talk turn on that box always
@@ -1238,6 +1244,11 @@ def _save_ask_turn(session: Session, question: str, answer: str, prepared: dict)
             when_phrase=prepared["when_phrase"],
             match_info=json.dumps(prepared["match_info"]),
             connected_ids=json.dumps(prepared["connected_ids"]),
+            #: The citations as they were written, so the history panel can
+            #: redraw the numbered markers and the "grounded in" chips rather
+            #: than reopening a turn as bare prose (INBOX 241). The rows are
+            #: already plain dicts of primitives by the time they reach here.
+            grounding=json.dumps(grounding or []),
         )
     )
     session.commit()
@@ -1737,8 +1748,13 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         yield event({"type": "answer", "delta": f"\n\nSomething went wrong: {safe_value(exc)}"})
     conversational = not intent.needs_retrieval(prepared["intent"])
     candidates = _grounding_candidates(req.session, prepared["notes"], touched_note_ids)
+    #: Kept past the branch below so the saved turn carries the same rows the
+    #: client was just sent (INBOX 241). A conversational turn, or one nothing
+    #: could be grounded against, saves an empty list, which is the truth about
+    #: that answer rather than a gap.
+    grounding: list[dict] = []
     if not conversational and candidates and answer_text:
-        grounding = ground_answer_sentences(answer_text, candidates)
+        grounding = ground_answer_sentences(answer_text, candidates) or []
         if grounding:
             # A touched note is not in `raw_results`, so the client has
             # no text to name it by; the label rides on each entry.
@@ -1750,7 +1766,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
                 row["label"] = labels.get(row["note_id"], "")
             yield event({"type": "grounding", "sentences": grounding})
     if req.body.notes_only and answer_text:
-        _save_ask_turn(req.session, req.question, answer_text, prepared)
+        _save_ask_turn(req.session, req.question, answer_text, prepared, grounding)
     yield event({"type": "done"})
 
 

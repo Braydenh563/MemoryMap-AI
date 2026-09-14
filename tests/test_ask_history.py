@@ -111,6 +111,53 @@ def test_a_turn_s_match_info_survives_to_browse_it_back(ai_client, fake_ollama, 
     assert turn["connected_ids"] == []
 
 
+def test_a_turn_s_citations_survive_to_browse_it_back(ai_client, fake_ollama, session):
+    """INBOX 241, the owner: "the grounding, intext numbered referencing, and
+    sources that appeared in the ask subtab in notes, dissappeared on reload
+    and didnt persist. they didnt persist when I reaccessed them through the
+    history panel."
+
+    The turn carries the sentence-level grounding it was answered with, in the
+    same shape the live `grounding` stream event has, so the history panel can
+    redraw the numbered markers and the chip strip from the row alone. The
+    sources need nothing extra: they are built from `raw_results`, which the
+    turn has always kept, and this asserts they are still there beside it.
+    """
+    entry = manager.create_entry(session, "The beans need netting next week")
+    session.commit()
+    #: A sentence lifted from the note, which is what the grounder matches on.
+    fake_ollama.librarian_reply = "The beans need netting next week."
+    _ask(ai_client, "what did I write about beans")
+
+    turn_id = ai_client.get("/ask-history").json()["turns"][0]["id"]
+    turn = ai_client.get(f"/ask-history/{turn_id}").json()
+    assert turn["grounding"], turn
+    row = turn["grounding"][0]
+    assert row["note_id"] == entry.id
+    #: The client's citation walker finds a marker's sentence by matching this
+    #: text against the rendered answer, so an empty or reshaped `sentence`
+    #: would leave the row unusable even though it round-tripped.
+    assert row["sentence"] in fake_ollama.librarian_reply
+    assert isinstance(row["start"], int) and isinstance(row["end"], int)
+    #: And the sources the same markers point at.
+    assert [r["id"] for r in turn["raw_results"]] == [entry.id]
+
+
+def test_a_citation_whose_note_is_gone_is_dropped(ai_client, fake_ollama, session):
+    """Same rule the results themselves follow. A marker is a link, and one
+    pointing at a note the reader can no longer open is worse than none."""
+    entry = manager.create_entry(session, "The beans need netting next week")
+    session.commit()
+    fake_ollama.librarian_reply = "The beans need netting next week."
+    _ask(ai_client, "what did I write about beans")
+    turn_id = ai_client.get("/ask-history").json()["turns"][0]["id"]
+    assert ai_client.get(f"/ask-history/{turn_id}").json()["grounding"]
+
+    entry.is_private = True
+    session.commit()
+    assert ai_client.get(f"/ask-history/{turn_id}").json()["grounding"] == []
+
+
 def test_a_note_deleted_since_is_dropped_not_shown_stale(ai_client, fake_ollama, session):
     entry = manager.create_entry(session, "The beans need netting next week")
     session.commit()

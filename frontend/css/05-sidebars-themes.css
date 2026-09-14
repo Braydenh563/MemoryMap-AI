@@ -1960,6 +1960,19 @@ body.resizing-sidebar {
   color: var(--ink);
 }
 
+/* The seam falls between every pair of items in the shell, and the pair the
+   two rules above cannot see is a `.code-copy` following the ⋯ (INBOX 239's
+   close X, which is last in the bar). Written as the general case so the next
+   button appended after the menu gets its divider too. */
+.code-actions > .menu-wrap + .code-copy {
+  box-shadow: inset 1px 0 0 var(--border);
+}
+
+.code-actions > .menu-wrap + .code-copy:hover,
+.code-actions > .menu-wrap + .code-copy:focus-visible {
+  box-shadow: inset 1px 0 0 transparent;
+}
+
 /* In full view the bar is the panel's title row: it sits still while the
    table scrolls under it. */
 .md-table-block.is-full > .code-bar {

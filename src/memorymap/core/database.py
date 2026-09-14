@@ -691,6 +691,19 @@ class AskTurn(Base, WorkspaceMixin):
     # answer originally had, not results with no reason attached.
     match_info: Mapped[str] = mapped_column(Text, default="{}")
     connected_ids: Mapped[str] = mapped_column(Text, default="[]")
+    # The sentence-level citations the answer was drawn with: the rows
+    # `ground_answer_sentences` produced, each a sentence, a note id, the
+    # span inside that note and a label. Saved for the same reason
+    # `match_info` is (INBOX 241, the owner: "the grounding, intext numbered
+    # referencing, and sources that appeared in the ask subtab in notes,
+    # dissappeared on reload and didnt persist. they didnt persist when I
+    # reaccessed them through the history panel"). Recomputing them on read
+    # was the alternative and is not equivalent: grounding is a function of
+    # the answer *and* of the notes as they were, so a turn browsed back a
+    # week later would silently get different numbers against the same
+    # sentences. The sources list needs nothing here, it is built from
+    # `raw_result_ids`, which this table has always kept.
+    grounding: Mapped[str] = mapped_column(Text, default="[]")
     # Pinned turns survive "clear history" and sort first: the same shape
     # Conversation.pinned already uses for saved chats.
     pinned: Mapped[bool] = mapped_column(Boolean, default=False)

@@ -27554,6 +27554,68 @@ line that carried a dash.
     `--row-h` and `--row-gap` and is registered in `test_ui_recipes.py`'s
     `LIST_ROWS`, which is the lint that caught it taking the token without the
     pair.
+239. **Mid-work drop, 2026-09-14, verbatim (the owner), the table full
+    view.** "I opened up the table full view but there was no way to close
+    it so I had to hard refresh the app." Owner: notes agent (documents).
+    **Fixed 3dc956e.** Two faults, measured on :8802 with
+    `scratchpad/ui-sweeps/tablefullclose.js`: the only drawn way out was the ⋯
+    menu's Back row, and `kebabMenu` reparents its dropdown to `<body>` at
+    `z-index: 1020` while the panel is a fixed surface at 2400, so the row drew
+    at 1166,248 with `elementFromPoint` returning `DIV.md-table-wrap` and a real
+    click left the panel open; Escape worked the whole time and nothing said so.
+    Now: a 28x28 X at the head's right edge (border 0px, ground transparent, so
+    it is part of the bar's shell, reachable, named "Close full view (Escape)"),
+    the panel takes focus on open and hands it back to the opener on all three
+    exits, and an escaped menu is lifted one tier above its opener's surface
+    (2401 over 2400), so Back reads back as `BUTTON.menu-item` under the pointer
+    and closes the panel. The bubble's bar is unchanged at two controls.
+
+240. **Mid-work drop, 2026-09-14, verbatim (the owner), Write with AI
+    boxes.** "when I clicked on the 'your thoughts' text box in the write
+    with ai notes subtab, the box instantly shortened in height from what
+    it was. same with the 'the draft' textbox as well." Owner: notes agent.
+    **Fixed bf1452e.** Reproduced and measured on :8802 with
+    `scratchpad/ui-sweeps/draftboxes.js`: both boxes were 330.3px and came back
+    146px on the first focus, a loss of 184.3px each. Nothing shrinks them; the
+    first focus mounts the editor (`mountNoteSurface`, documents.js) and wraps
+    the textarea in a `.note-surface` div, so the item `.draft-column`'s flex
+    layout was stretching is no longer the box but a wrapper with no flex
+    declaration, as tall as `.note-surface-box`'s own `min-height: 9rem`. The
+    wrapper now takes the host's flex role, its `min-height` floor and its
+    drawn height as a `flex-basis`, and the stretch rules let the editor fill
+    it. After: 330.3 to 339.9 and 330.3 to 330.0, the two columns level at 468,
+    and an 80-line draft scrolls inside its box without growing it. Only a
+    profile that has opened Documents ever saw this: documents.js is lazy.
+
+241. **Mid-work drop, 2026-09-14, verbatim (the owner), Ask persistence.**
+    "the grounding, intext numbered referencing, and sources that appeared
+    in the ask subtab in notes, dissappeared on reload and didnt persist.
+    they didnt persist when I reaccessed them through the history panel."
+    Owner: notes agent. **Fixed ae2a12f.** Two halves. The store: `ask_turns`
+    kept the answer, the result ids and why each result matched, and nothing
+    at all about the citations, so they could not come back from anywhere. It
+    has a `grounding` column now (migration `d3b7c2a91e45`, guarded the same
+    way the audit-log one is against `_add_missing_columns` having got there
+    first), written by the stream from the same rows it just sent the client,
+    and returned by `GET /ask-history/{id}` minus any row whose note has since
+    been deleted or made private. The render: `viewAskHistoryTurn` drew the
+    prose, the results and the badges and stopped, and its two `replaceChildren`
+    calls took the previous answer's foot down without putting this one's back
+    up; it now calls `renderAnswerGrounding` and `renderAskAnswerFoot` from an
+    `answerObject`, the same two the live path ends on. Measured on :8802 with
+    `scratchpad/ui-sweeps/askhistorycite.js` against a seeded turn
+    (`scratchpad/seed_ask_turn.py`, no model runs in the sandbox): 1 in-text
+    marker, 1 "grounded in" chip, the foot and the sources panel both shown
+    with 1 source card, 0 console errors, and the marker count never above the
+    cited-note count (the live path's repair pass would double them here).
+    `tests/test_ask_history.py` proves the round-trip and the drop, and
+    `tests/test_ask_answer_object.py` that the history path draws the object.
+    **The reload half, said plainly:** an Ask answer has never survived a
+    reload at all, measured (after `location.reload()` the panel is back to
+    `#ask-idle`, the answer element empty), so what "persist on reload" can
+    mean here is the way back through the history panel, which now carries
+    everything. Restoring the last answer into the page at boot would be a new
+    behaviour, not this bug, and is not built.
 
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 

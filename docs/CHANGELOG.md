@@ -29,6 +29,16 @@ below). Versioning is `0.x` while the app stabilises.
   and "Skills" badges under a help answer did nothing while "Chat" worked
   (INBOX 234).
 
+- An Ask answer keeps its citations. `ask_turns` stores the sentence-level
+  grounding it was written with, and a turn reopened from the history panel
+  draws the same numbered in-text references, "grounded in" chips and source
+  cards the live answer had (INBOX 241).
+- The Writing Room's two boxes keep their height when you click into them: the
+  editor's wrapper takes over the stretching the textarea was doing, so neither
+  box drops 184px on its first focus (INBOX 240).
+- A table in full view can be closed: an X in the panel's head that names
+  Escape, focus handed back to the button that opened it, and the ⋯ menu's
+  Back row lifted above the panel it was drawing behind (INBOX 239).
 - The agent hand-off files are one ledger: `docs/roadmap/agent-remaining/OPEN.md`
   carries every still-open item from the 38 finished files, by surface, with the
   file, the id and the next step, and those files move whole to

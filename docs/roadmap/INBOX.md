@@ -74,6 +74,13 @@ with its owner named in the entry.
     `ai/__init__.py`, one clause in the prompts that speak as the app,
     tested under the prose budget; the help chat's `GUIDE_NAME` is that
     constant. Frontend half: chrome.
+    **Decision, 2026-09-14 (the owner asked how to tell the two apart):**
+    one name, two hats, said by the surface and by one clause. The
+    librarian (chat, filing, the agent) is "Atlas" with the clause "You are
+    Atlas, this notebook's librarian."; the help sheet is "Atlas, about the
+    app" in its head and its clause is "You are Atlas, answering about the
+    app itself, never from the notes." Nothing else differs: same mark,
+    same voice, no persona prose in either.
 
 224. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the Atlas
     chat.** "can you improve and modernise the ui design of the atlas chat

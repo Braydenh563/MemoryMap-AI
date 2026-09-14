@@ -34,6 +34,35 @@ with its owner named in the entry.
 
 ## Open items
 
+225. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), a core
+    persona.** "I was wondering if atlas or another named persona can be the
+    core persona of the application as the librarian?? idk, the persona cant
+    be too token heavy though, just as a theme yk??" **Decision:** Atlas is
+    the name of the notebook's AI everywhere the app speaks as it (the
+    status dot's label, "Atlas filed this under Work", the chat empty
+    state, the popup agent's greeting, the help chat), as copy and one
+    mark, not as prompt text: the model prompts gain at most one clause
+    ("You are Atlas, this notebook's librarian.") under
+    `agent.PROSE_BUDGET_CHARS`, and no persona prose, backstory or tone
+    instructions anywhere. One constant (`AI_NAME`) in the frontend and one
+    in `ai/` so a rename is one edit each; Settings, Models keeps the model's
+    own name beside it ("Atlas, running qwen2.5:7b"). Owner: chrome after
+    214 and 215; the backend clause and constant, backend2 after its list.
+
+224. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the Atlas
+    chat.** "can you improve and modernise the ui design of the atlas chat
+    interface??" Screenshot: a full-width overlay with a bare card, a title
+    row, two paragraphs of explanation, one input and an Ask button, and
+    nothing else on the screen. Target: the same recipe as the popup agent
+    (one look for the two assistants): a sheet anchored bottom-right, a
+    head with the Atlas mark, name and one-line description, three starter
+    chips ("Where do reminders live?", "How do I turn off web search?",
+    "What does Performance mode do?"), a scrolling transcript in bubbles
+    with the source help topic under each answer, a composer dock at the
+    foot (input, icon-only send, `data-help-for` '?'), New chat in the
+    kebab. Measured: no element wider than the sheet at 1440, 1024 and 390;
+    contrast 4.5:1 both themes; Escape and the X both close. Owner: chrome.
+
 221. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), auto
     update.** "make sure all the auto update whether upon new release or
     following main works which can be adjusted and set in settings and make

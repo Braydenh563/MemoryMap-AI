@@ -3891,6 +3891,33 @@ function wireEscapedActionMenu(wrap) {
     }
     menu.style.left = `${Math.round(left)}px`;
     menu.style.top = `${Math.round(top)}px`;
+    //: **Escaping a clipping ancestor can drop the menu below the surface it
+    //: belongs to, and that is a second bug wearing the first one's clothes**
+    //: (INBOX 239). `<body>` is a lower place to stand than some of the things
+    //: this app draws: the escaped menu is `z-index: 1020` from the
+    //: stylesheet, and a table block in full view is a fixed panel at 2400, so
+    //: the ⋯ menu opened *inside* that panel drew underneath it. Measured on
+    //: :8802: the menu's Back row at 1166,248 with `elementFromPoint` at its
+    //: centre returning `DIV.md-table-wrap`, and a real click at that point
+    //: leaving the panel open, which is the "no way to close it" report.
+    //:
+    //: The honest rule is the one this reparenting broke: a menu belongs above
+    //: the surface it was opened from. So the opener's own positioned
+    //: ancestors are read and the highest of them wins, once, at open time.
+    //: Nothing is written when the stylesheet's own tier is already higher,
+    //: which is every other caller in the app, so this is inert until a menu
+    //: is opened inside a surface that outranks it.
+    //: Cleared before it is read, or the second pass (a resize, the retry
+    //: frame) measures the lift this one wrote and decides it is already high
+    //: enough, which alternates between the two values on every resize.
+    menu.style.zIndex = "";
+    const ownZ = Number(getComputedStyle(menu).zIndex) || 0;
+    let over = 0;
+    for (let el = opener.parentElement; el && el !== document.body; el = el.parentElement) {
+      const z = Number(getComputedStyle(el).zIndex);
+      if (Number.isFinite(z) && z > over) over = z;
+    }
+    menu.style.zIndex = over >= ownZ ? String(over + 1) : "";
     //: Placed, so it may be seen (see the guard at the top of this
     //: function for what this is undoing).
     menu.style.visibility = "";
@@ -3937,9 +3964,11 @@ function wireEscapedActionMenu(wrap) {
       menu.style.top = "";
       menu.style.visibility = "";
       // The height decisions are the escape's, not the menu's own: left
-      // behind they would cap it in its home position too.
+      // behind they would cap it in its home position too. The same goes for
+      // the tier the escape may have lifted it to (INBOX 239).
       menu.style.maxHeight = "";
       menu.style.overflowY = "";
+      menu.style.zIndex = "";
     }
   });
   observer.observe(menu, { attributes: true, attributeFilter: ["class"] });
@@ -24886,6 +24915,38 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
   //: it was on the way out; `placeholder` is what keeps its place in the
   //: answer, since the surrounding prose has no other mark for it.
   let placeholder = null;
+  //: **A panel with no visible way out is a panel people hard-refresh out of**
+  //: (INBOX 239, the owner: "I opened up the table full view but there was no
+  //: way to close it so I had to hard refresh the app"). Two things were true
+  //: at once, and only the second one is a stylesheet's fault:
+  //:
+  //: - The only route out that was *drawn* was the ⋯ menu's last row, and in
+  //:   full view it does not work. `kebabMenu` reparents its dropdown to
+  //:   `<body>` to escape clipping ancestors (`wireEscapedActionMenu`), where
+  //:   it is `position: fixed; z-index: 1020`, and this panel is a sibling of
+  //:   it at `z-index: 2400`. Measured on :8802 in the documents tab: the Back
+  //:   row drew at 1166,248 and `elementFromPoint` at its centre returned
+  //:   `DIV.md-table-wrap`, so the click landed on the table and the panel
+  //:   stayed open. Fixed at the source in `wireEscapedActionMenu`, which now
+  //:   lifts an escaped menu above whatever surface its opener sits in.
+  //: - Escape worked the whole time, and nothing said so. A keystroke nobody
+  //:   is told about is not an affordance, so the panel gets the X every other
+  //:   dismissable surface in this app has (`.sheet-close`'s shape, in the
+  //:   bar that is already this panel's head) and it names the key in its
+  //:   own tooltip.
+  const close = smallButton("ph:x", "Close full view (Escape)", () => leave());
+  //: `code-copy` is the bar's own segmented grammar, not a copy affordance:
+  //: `.code-actions > .code-copy` is what strips a button's border and ground
+  //: so it reads as one item of the shell rather than a chip dropped on it
+  //: (the rule's own comment, in 05-sidebars-themes.css). Without it this X
+  //: arrives as a bordered pill inside a tinted pill, which is the exact
+  //: shape INBOX 188 was raised about.
+  close.classList.add("code-copy", "md-table-close");
+  close.hidden = true;
+  //: Where the focus was when the panel opened, so leaving puts it back there
+  //: rather than on `<body>`, which is where a removed button leaves it and
+  //: from which the next Tab starts the page again.
+  let returnFocusTo = null;
   const leave = () => {
     block.classList.remove("is-full");
     //: The dragged sizes stay in `colSizes`/`rowSizes` and come off the DOM:
@@ -24899,10 +24960,16 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
       placeholder = null;
     }
     full.textContent = "Full view";
+    close.hidden = true;
     //: The menu is built below and reads these two labels; leaving full view
     //: by Escape has to put its rows back the way pressing Back would.
     syncMenuLabels();
     document.removeEventListener("keydown", onKey, true);
+    //: Only when it is still on the page and still focusable: the block is
+    //: re-parented on the way out, and an answer that re-rendered underneath
+    //: the panel has taken its opener with it.
+    if (returnFocusTo && returnFocusTo.isConnected) returnFocusTo.focus();
+    returnFocusTo = null;
   };
   const onKey = (event) => {
     if (event.key === "Escape") {
@@ -24912,6 +24979,10 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
   };
   full.addEventListener("click", () => {
     if (block.classList.contains("is-full")) return leave();
+    //: Read before the move: `document.activeElement` is the ⋯ opener the row
+    //: was chosen from, and one line later that button is inside a panel that
+    //: has left its bubble.
+    returnFocusTo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     placeholder = document.createComment("table in full view");
     block.replaceWith(placeholder);
     document.body.appendChild(block);
@@ -24921,6 +24992,11 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
     setTableView(colSizes || rowSizes ? "sized" : "fit");
     addGrips();
     full.textContent = "Back";
+    close.hidden = false;
+    //: The panel's own dismissal takes the focus, so Escape and Tab both act
+    //: on the panel rather than on the page it covered, and a keyboard reader
+    //: lands on the way out first.
+    close.focus();
     document.addEventListener("keydown", onKey, true);
   });
   //: **One Copy button and a ⋯ for the rest** (INBOX 188, the owner: "the
@@ -24982,6 +25058,10 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
   actions.append(
     button("⧉ Copy", "Copy the cells, tab-separated, for a spreadsheet", (event) => copyToClipboard(tsv, event.currentTarget)),
     menu,
+    //: Last in the bar, which puts it at the panel's top-right corner, where
+    //: every other X in this app is. Hidden in a bubble: there is nothing to
+    //: close there.
+    close,
     fit,
     full
   );

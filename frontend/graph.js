@@ -69,42 +69,6 @@ let graphAdjacency = null; // Map<id, Set<neighbourId>>
 // the existing lines would show a chain with holes in it (§9).
 let graphTraceLayer = null;
 
-// How much of a linked note's text a link chip shows. Long enough to know
-// which note it is, short enough that four of them are a row rather than a
-// paragraph: a chip is a signpost, and a signpost with a sentence on it is
-// not a signpost. The full text is the chip's tooltip.
-const LINK_CHIP_CHARS = 28;
-
-// How much of a note the list shows before clamping it. Roughly ten lines at
-// a comfortable reading width, long enough that a normal note is never
-// clipped, short enough that one essay can't take the whole screen.
-const LONG_NOTE_CHARS = 500;
-const LONG_NOTE_LINES = 10;
-// Which notes the user has opened out, for this session. Not persisted: it is
-// a reading position, not a preference.
-const expandedNotes = new Set();
-
-// The character count decides which notes *might* be too tall; only a
-// measurement can say whether one actually is, because that depends on the
-// width it is rendered at. So the clamp goes on optimistically and this takes
-// it back off wherever the note fits after all, a "Show more" on a note that
-// is fully visible is worse than no clamping at all.
-//
-// It bails when the list is off screen: this renders inside a `display: none`
-// sub-tab, where every measurement is 0. `showNotesSection` calls it again on
-// the way in, which is the moment the numbers become real.
-function settleNoteClamps() {
-  const list = $("entry-list");
-  if (!list || !list.offsetParent) return;
-  for (const content of list.querySelectorAll(".entry-content.entry-clamped")) {
-    const toggle = content.parentElement?.querySelector(".entry-more");
-    if (content.scrollHeight <= content.clientHeight + 4) {
-      content.classList.remove("entry-clamped");
-      toggle?.remove();
-    }
-  }
-}
-
 //: The largest a node can get, from `graphNodeRadius` below: its 9px base
 //: plus the 12px ceiling on the centrality bonus (the access bonus caps
 //: lower, and `Math.max` takes one or the other, never both). Named because

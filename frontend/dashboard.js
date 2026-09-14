@@ -341,6 +341,13 @@ function paintDashClock() {
 //: each asked for it on their own, so a boot fetched it five times at about
 //: 200 ms each (measured 2026-09-13). The first caller's promise is shared
 //: for two seconds; a widget that renders later than that asks afresh.
+//:
+//: The body called *itself* when this was written, which no test could see and
+//: no probe reported as an error: the recursion blew the stack on the first
+//: call, every one of the seven call sites has a `.catch`, and the widgets that
+//: read stats simply drew their empty state. What gave it away was the boot
+//: fetch log, where `/insights/stats` did not appear at all, having gone from
+//: five requests to none rather than to one.
 let dashStatsInflight = null;
 let dashStatsAt = 0;
 function fetchDashStats() {
@@ -351,6 +358,52 @@ function fetchDashStats() {
   return dashStatsInflight;
 }
 
+//: **One `/graph` per moment, not one per widget**, the same shape and the
+//: same reason as `fetchDashStats` above. Three widgets read the edge list
+//: (most-linked, orphan notes, tensions) and all three render in the same
+//: pass, so the `cacheMs` two of them passed could never help: a read cache
+//: is only a cache once a response has come back, and these three requests
+//: were in flight together. Measured at boot: three `/graph` builds, which is
+//: the most expensive endpoint on the dashboard's list.
+let dashGraphInflight = null;
+let dashGraphAt = 0;
+function fetchDashGraph() {
+  const now = Date.now();
+  if (dashGraphInflight && now - dashGraphAt < 2000) return dashGraphInflight;
+  dashGraphAt = now;
+  dashGraphInflight = apiJson("/graph", { silent: true });
+  return dashGraphInflight;
+}
+
+//: **One reminder walk per moment.** Three places on this tab want every
+//: reminder (the greeting line's due count, the stat tile, and the reminders
+//: widget), and all three render in the same pass, so a cold start walked
+//: `/reminders` three times over (WORLD_CLASS_PLAN A2). To the end of the
+//: list, not the first page: `/reminders` is `due_at` ascending, so a first
+//: page of old, ticked-off rows would hide everything upcoming
+//: (`agent-remaining/list-paging.md`).
+let dashRemindersInflight = null;
+let dashRemindersAt = 0;
+function dashReminders() {
+  const now = Date.now();
+  if (dashRemindersInflight && now - dashRemindersAt < 2000) return dashRemindersInflight;
+  dashRemindersAt = now;
+  dashRemindersInflight = apiPagedList("/reminders", 200);
+  return dashRemindersInflight;
+}
+
+//: The notebook, for the four widgets that want the whole of it.
+//:
+//: `entriesEverLoaded`, not `allEntries.length`: an empty list is an answer,
+//: and reading it as "not loaded yet" meant a notebook with nothing in it
+//: fetched the whole of `/entries` again per widget per render, boot included,
+//: to be told the same thing (WORLD_CLASS_PLAN A2). A new notebook is exactly
+//: the one where the empty state is what the person is looking at.
+function dashEntries() {
+  if (entriesEverLoaded) return Promise.resolve(allEntries);
+  return apiJson("/entries", { cacheMs: 4000 });
+}
+
 async function renderDashSubmessage() {
   const el = $("dash-submessage");
   if (!el) return;
@@ -358,8 +411,9 @@ async function renderDashSubmessage() {
     fetchDashStats().catch(() => null),
     // To the end: `/reminders` is `due_at` ascending, so a first page of
     // old, ticked-off rows would hide everything upcoming from this count
-    // (`archive/agent-remaining/list-paging.md`).
-    apiPagedList("/reminders", 200).catch(() => []),
+    // (`archive/agent-remaining/list-paging.md`); `dashReminders` shares
+    // the one fetch across the widgets that need it.
+    dashReminders().catch(() => []),
   ]);
   const bits = [];
   if (stats) {
@@ -509,7 +563,7 @@ async function renderDashStats() {
   const [stats, reminders] = await Promise.all([
     fetchDashStats().catch(() => null),
     // To the end, same reason as the widget above.
-    apiPagedList("/reminders", 200).catch(() => []),
+    dashReminders().catch(() => []),
   ]);
 
   const now = new Date();
@@ -1017,7 +1071,7 @@ async function renderContinueLink(row) {
   if (!row || !row.isConnected) return;
   let entries = [];
   try {
-    entries = allEntries.length ? allEntries : await apiJson("/entries", { cacheMs: 4000 });
+    entries = await dashEntries();
   } catch {
     return; // a dashboard that cannot reach the notes still draws the rest
   }
@@ -1410,11 +1464,13 @@ function gettingStartedCard() {
 }
 
 async function renderDashboard() {
-  // The saved layout lives in preferences, after a page reload this can
-  // run before startApp has fetched them, so fetch here if needed.
-  if (!prefsCache) {
-    prefsCache = await apiJson("/preferences").catch(() => null);
-  }
+  // The saved layout lives in preferences, after a page reload this can run
+  // before startApp has fetched them. `loadPreferences` (app.js) is the shared
+  // reader: the cache if it is filled, otherwise the request already in flight,
+  // which on a cold start is startApp's own. It used to be a second
+  // `GET /preferences` here, and the dashboard is the first tab, so a cold
+  // start made it every time (WORLD_CLASS_PLAN A2).
+  await loadPreferences().catch(() => null);
   renderDashboardGreeting();
   renderDashStats().catch(() => {});
   renderQuickLinks();
@@ -2288,9 +2344,7 @@ function miniEntryList(body, entries, emptyText) {
 // The fetch fallback only matters if a widget somehow renders before that
 // first load, and mirrors the pattern renderRandomNoteWidget already uses.
 async function renderPinnedWidget(body) {
-  const entries = (
-    allEntries.length ? allEntries : await apiJson("/entries", { cacheMs: 4000 })
-  ).filter((e) => e.pinned);
+  const entries = (await dashEntries()).filter((e) => e.pinned);
   miniEntryList(body, entries.slice(0, 5), "Star a note and it shows up here.");
 }
 
@@ -2307,8 +2361,8 @@ async function renderMostUsedWidget(body) {
 // didn't already have a version of.
 async function renderMostLinkedWidget(body) {
   const [entries, data] = await Promise.all([
-    allEntries.length ? Promise.resolve(allEntries) : apiJson("/entries", { cacheMs: 4000 }),
-    apiJson("/graph").catch(() => null),
+    dashEntries(),
+    fetchDashGraph().catch(() => null),
   ]);
   const degree = new Map();
   for (const edge of (data && data.edges) || []) {
@@ -2325,7 +2379,7 @@ async function renderMostLinkedWidget(body) {
 }
 
 async function renderRecentNotesWidget(body) {
-  const entries = allEntries.length ? allEntries : await apiJson("/entries", { cacheMs: 4000 });
+  const entries = await dashEntries();
   const newest = [...entries].sort(
     (a, b) => new Date(b.created_at) - new Date(a.created_at)
   );
@@ -2333,7 +2387,7 @@ async function renderRecentNotesWidget(body) {
 }
 
 async function renderTopTagsWidget(body) {
-  const entries = allEntries.length ? allEntries : await apiJson("/entries", { cacheMs: 4000 });
+  const entries = await dashEntries();
   const counts = new Map();
   for (const entry of entries) {
     for (const tag of entry.tags || []) counts.set(tag, (counts.get(tag) || 0) + 1);
@@ -2576,7 +2630,7 @@ async function renderRemindersWidget(body) {
   // To the end before filtering: taking four open ones out of a first page
   // that happens to be all done would show "no open reminders" to someone who
   // has plenty.
-  const reminders = (await apiPagedList("/reminders", 200)).filter((r) => !r.done).slice(0, 4);
+  const reminders = (await dashReminders()).filter((r) => !r.done).slice(0, 4);
   if (!reminders.length) {
     body.textContent = "No open reminders: add one in the Reminders tab.";
     body.classList.add("muted");
@@ -2837,9 +2891,7 @@ function paintFadedNotes(body, items) {
 }
 
 async function renderRandomShuffle(body) {
-  const entries = allEntries.length
-    ? allEntries
-    : await apiJson("/entries", { cacheMs: 4000 }).catch(() => []);
+  const entries = await dashEntries().catch(() => []);
   if (!entries.length) {
     body.textContent = "Save some notes and one will resurface here.";
     body.classList.add("muted"); // not `className +=`, which stacks on re-render
@@ -3166,13 +3218,16 @@ function dashEmpty(body, text) {
 
 async function renderBoardsWidget(body) {
   // Every board, not the first page: the widget ranks them by how much is on
-  // them, and the busiest board is not necessarily on page one. No `cacheMs`
-  // with it: `apiPagedList` goes through `api`, which has no read cache, so
-  // the option would have read as a cache that was never there. One widget
-  // asks for this list, once per dashboard render, which is what the four
-  // seconds were protecting `/entries` from and this list does not need.
-  const boards = await apiPagedList("/whiteboard/boards", 200, { silent: true }).catch(() => null);
-  const usable = (boards || []).filter((b) => (b.node_count + b.sketch_count + (b.object_count || 0)) > 0);
+  // them, and the busiest board is not necessarily on page one. That is the
+  // same walk `loadMapBoardIndex` (app.js) makes for the note list's map
+  // chips, with the same page size, and at boot the two ran within a tick of
+  // each other: two walks of every board before the first tab had finished
+  // drawing (WORLD_CLASS_PLAN A2). Sharing it means the widget can read
+  // counts up to the index's eight seconds old, which is the age at which a
+  // board's node count changes the order of a five-row list and nothing more.
+  await loadMapBoardIndex().catch(() => null);
+  const boards = mapBoardRows();
+  const usable = boards.filter((b) => (b.node_count + b.sketch_count + (b.object_count || 0)) > 0);
   if (!usable.length) {
     dashEmpty(body, "Draw a board or build a concept map and it will show up here.");
     return;
@@ -3282,7 +3337,7 @@ const DASH_OPEN_TASK = /^[ \t]*(?:[-*+]|\d+[.)])[ \t]+\[[ \t]\]/gm;
 const DASH_DONE_TASK = /^[ \t]*(?:[-*+]|\d+[.)])[ \t]+\[[xX]\]/gm;
 
 async function renderUnfinishedWidget(body) {
-  const entries = allEntries.length ? allEntries : await apiJson("/entries", { cacheMs: 4000 });
+  const entries = await dashEntries();
   const withTasks = [];
   for (const entry of entries) {
     const content = entry.content || "";
@@ -3320,8 +3375,8 @@ async function renderUnfinishedWidget(body) {
 
 async function renderOrphanNotesWidget(body) {
   const [entries, graph] = await Promise.all([
-    allEntries.length ? Promise.resolve(allEntries) : apiJson("/entries", { cacheMs: 4000 }),
-    apiJson("/graph", { cacheMs: 4000, silent: true }).catch(() => null),
+    dashEntries(),
+    fetchDashGraph().catch(() => null),
   ]);
   // The same degree map `renderMostLinkedWidget` builds, read for its zeroes
   // instead of its peaks.
@@ -3438,8 +3493,8 @@ async function renderOrphanNotesWidget(body) {
  */
 async function renderTensionsWidget(body) {
   const [entries, graph] = await Promise.all([
-    allEntries.length ? Promise.resolve(allEntries) : apiJson("/entries", { cacheMs: 4000 }),
-    apiJson("/graph", { cacheMs: 4000, silent: true }).catch(() => null),
+    dashEntries(),
+    fetchDashGraph().catch(() => null),
   ]);
   // Already-accepted tensions are the one part that *is* cheap to show: they
   // are ordinary links with a type, so the graph already carries them.

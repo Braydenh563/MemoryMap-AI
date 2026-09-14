@@ -725,9 +725,15 @@ function startApp() {
   // staying on the default it painted a moment ago.
   const looksReady = step("restore your settings", async () => {
     if (!prefsCache) {
-      prefsCache = await apiJson("/preferences", { silent: true }).catch(() => null);
+      await loadPreferences().catch(() => null);
     }
-    if (prefsCache && seedUiStateFromServer(prefsCache.ui_state)) {
+    const restored = prefsCache ? seedUiStateFromServer(prefsCache.ui_state) : false;
+    //: The server has had its say, whether it had anything to say or not, so
+    //: mirrored writes may be saved from here on (A2). Set before the repaint
+    //: below rather than after it, so a throw in any of those five calls cannot
+    //: leave the session unable to back up a setting.
+    uiStateSeeded = true;
+    if (restored) {
       // The same three calls the theme picker makes, in the same order: the
       // root attributes, then the light/dark choice and the palette, neither
       // of which re-records itself as a manual override.
@@ -912,6 +918,12 @@ async function reportTimezone() {
   } catch {
     return; // an environment without Intl still works, just on server time
   }
+  //: Awaited, not read straight off `prefsCache` (A2): every `startApp` step
+  //: runs in parallel, so this one used to reach the comparison before the
+  //: boot GET had answered, find `prefsCache` still null, and PUT the same
+  //: zone the server already had on every single cold start. With the shared
+  //: reader the comparison has something to compare.
+  await loadPreferences().catch(() => null);
   if (!zone || (prefsCache && prefsCache.timezone === zone)) return;
   prefsCache = await apiJson("/preferences", {
     method: "PUT",
@@ -922,8 +934,13 @@ async function reportTimezone() {
 
 // The per-tab data loads switchTab performs, without the tab-switching itself.
 // Kept beside switchTab's own dispatch so the two can't drift apart.
-function refreshActiveTab() {
+async function refreshActiveTab() {
   const name = localStorage.getItem("activeTab") || "notes";
+  //: The tab on screen may be one whose code arrives on demand (A1), and this
+  //: is the boot-time call that loads its data: `renderGraph`, `loadDocuments`
+  //: and `loadLibrary` below are all defined in a file that is fetched here.
+  const lazy = TAB_MODULES[name];
+  if (lazy) await ensureModule(lazy);
 
   // Relocate the back-to-top button so it aligns with the chat area bounds
   const scrollTopBtn = document.querySelector(".scroll-top");
@@ -957,8 +974,11 @@ const BUILTIN_TEMPLATES = [
 ];
 
 async function loadTemplates() {
-  // Built-ins + the user's own (kept in preferences).
-  prefsCache = await apiJson("/preferences").catch(() => prefsCache);
+  // Built-ins + the user's own (kept in preferences). Shared with the two
+  // other boot readers (A2): at boot this joins the one request in flight, and
+  // afterwards it reads the cache every PUT in this file keeps current, which
+  // is why `saveTemplateList` (PUT, then this) still shows the new template.
+  await loadPreferences().catch(() => prefsCache);
   // Saved filters live in the same payload, so draw them while it's fresh.
   renderSavedSearches();
   const custom = (prefsCache && prefsCache.custom_templates) || [];
@@ -2236,14 +2256,36 @@ let mapBoardIndexCache = null;
 //: index rather than the response.
 let mapBoardIndexAt = 0;
 const MAP_BOARD_INDEX_MS = 8000;
+//: The walk in flight, if there is one. The eight seconds above only help a
+//: caller that arrives after an earlier one has *finished*, and at boot they
+//: do not arrive like that: the note list and the agent panel both ask within
+//: the same tick, both find an empty cache, and both walk every page of
+//: `/whiteboard/boards` (WORLD_CLASS_PLAN A2, measured as the same request
+//: twice). A second caller joins the first walk instead.
+let mapBoardIndexWalk = null;
 
-async function loadMapBoardIndex() {
-  if (mapBoardIndexCache && Date.now() - mapBoardIndexAt < MAP_BOARD_INDEX_MS) return mapBoardIndexCache;
-  const rows = await apiPagedList("/whiteboard/boards", 200, { silent: true }).catch(() => null);
-  if (!rows) return mapBoardIndexCache || new Map();
-  mapBoardIndexAt = Date.now();
-  mapBoardIndexCache = new Map(rows.filter((b) => b.id != null).map((b) => [b.id, b]));
-  return mapBoardIndexCache;
+function loadMapBoardIndex() {
+  if (mapBoardIndexCache && Date.now() - mapBoardIndexAt < MAP_BOARD_INDEX_MS) {
+    return Promise.resolve(mapBoardIndexCache);
+  }
+  if (mapBoardIndexWalk) return mapBoardIndexWalk;
+  mapBoardIndexWalk = apiPagedList("/whiteboard/boards", 200, { silent: true })
+    .catch(() => null)
+    .then((rows) => {
+      //: The walk failed. The stale index is better than none, and an empty
+      //: Map keeps `mapBoardById` and friends synchronous for their callers.
+      //: Deliberately not cached as an answer: `mapBoardIndexAt` is untouched,
+      //: so the next caller tries again rather than waiting out the eight
+      //: seconds on a failure.
+      if (!rows) return mapBoardIndexCache || new Map();
+      mapBoardIndexAt = Date.now();
+      mapBoardIndexCache = new Map(rows.filter((b) => b.id != null).map((b) => [b.id, b]));
+      return mapBoardIndexCache;
+    })
+    .finally(() => {
+      mapBoardIndexWalk = null;
+    });
+  return mapBoardIndexWalk;
 }
 
 //: The board behind an entry id, or null, synchronous, because the callers
@@ -2279,6 +2321,92 @@ function mapBoardTitled(needle) {
 function mapBoardRows() {
   return mapBoardIndexCache ? [...mapBoardIndexCache.values()] : [];
 }
+
+//: ---------------------------------------------------------------------------
+//: **Shared by surfaces that are not loaded yet** (WORLD_CLASS_PLAN A1). Five
+//: files now arrive on first use rather than at boot (`ensureModule` below),
+//: and a `const` in one of them is a *lexical* global: a bare read of it from
+//: here throws ReferenceError until that file has run, which no `typeof`
+//: guard and no `window.` stub can paper over. Everything in this block was
+//: read by app.js's own boot path (the note list) or by `editor.js`, both of
+//: which run with no tab open at all, so each one moved here, to the file
+//: that is always present, rather than pinning its whole module to boot.
+//:
+//: None of it is graph, library or document logic: the clamp is the note
+//: list's, the size formatter is read by four files, and the page sizes are
+//: the paging contract the backend publishes. They were in those files only
+//: because that is where the app.js split happened to leave them.
+
+// How much of a linked note's text a link chip shows. Long enough to know
+// which note it is, short enough that four of them are a row rather than a
+// paragraph: a chip is a signpost, and a signpost with a sentence on it is
+// not a signpost. The full text is the chip's tooltip.
+const LINK_CHIP_CHARS = 28;
+
+// How much of a note the list shows before clamping it. Roughly ten lines at
+// a comfortable reading width, long enough that a normal note is never
+// clipped, short enough that one essay can't take the whole screen.
+const LONG_NOTE_CHARS = 500;
+const LONG_NOTE_LINES = 10;
+// Which notes the user has opened out, for this session. Not persisted: it is
+// a reading position, not a preference.
+const expandedNotes = new Set();
+
+// The character count decides which notes *might* be too tall; only a
+// measurement can say whether one actually is, because that depends on the
+// width it is rendered at. So the clamp goes on optimistically and this takes
+// it back off wherever the note fits after all, a "Show more" on a note that
+// is fully visible is worse than no clamping at all.
+//
+// It bails when the list is off screen: this renders inside a `display: none`
+// sub-tab, where every measurement is 0. `showNotesSection` calls it again on
+// the way in, which is the moment the numbers become real.
+function settleNoteClamps() {
+  const list = $("entry-list");
+  if (!list || !list.offsetParent) return;
+  for (const content of list.querySelectorAll(".entry-content.entry-clamped")) {
+    const toggle = content.parentElement?.querySelector(".entry-more");
+    if (content.scrollHeight <= content.clientHeight + 4) {
+      content.classList.remove("entry-clamped");
+      toggle?.remove();
+    }
+  }
+}
+
+
+//: **The facts about a file, as facts.** Asked for directly with the Files
+//: sub-tab redesign: "the card format is difficult with files as they can be
+//: quite long and large, a single image or ocr caption doesnt fit them. there
+//: should be details on the name, a generated description that cna happen,
+//: file details such as the type, size, topic/category, linked notes and
+//: other features."
+//:
+//: A tile could show a thumbnail, a name and a caption; everything else a
+//: person actually brings to a file list, how big is it, how many pages,
+//: when did it arrive, has it been read, was either absent or buried. These
+//: are the ones the row can state in one line.
+function formatFileSize(bytes) {
+  const size = Number(bytes) || 0;
+  if (size <= 0) return ""; // unknown, or the file is gone, say nothing
+  if (size < 1024) return `${size} B`;
+  const units = ["KB", "MB", "GB"];
+  let value = size / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  // One decimal below 10 (2.4 MB reads better than 2 MB), none above it.
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
+}
+
+
+//: The page size each of those lists is asked for, matching the server's own
+//: default (routes_documents.DOCUMENTS_PAGE_SIZE and routes_files
+//: .MEDIA_PAGE_SIZE): one request for any realistic notebook, more only when
+//: there genuinely is more.
+const DOCUMENTS_PAGE_SIZE = 200;
+const MEDIA_PAGE_SIZE = 200;
 
 //: **The star that says a note is a favourite, in both states.**
 //:
@@ -10297,21 +10425,19 @@ function showEntrySkeletons() {
   }
 }
 
-// A page of the plain list, matches the backend's own default
-// (ENTRIES_PAGE_SIZE in routes_entries.py). Most real notebooks fit on one
-// page; a notebook that has grown for years pages in the background below.
-const ENTRIES_PAGE_SIZE = 1000;
+// A page of the plain list. Smaller than the backend's own default
+// (`ENTRIES_PAGE_SIZE = 1000` in routes_entries.py, still the cap a caller
+// gets by asking for nothing) on purpose, WORLD_CLASS_PLAN A2: the boot
+// request for the whole notebook was the slowest fetch a cold start made, 258
+// ms measured, and everything it carried past the first screenful was paid for
+// before anything drew. The loop below renders each page as it lands, so this
+// is the size of the first paint, not of the list: a notebook larger than this
+// still ends up exactly as complete, one page later.
+const ENTRIES_PAGE_SIZE = 200;
 
 async function loadEntries() {
   const generation = ++_entriesLoadGeneration;
   showEntrySkeletons();
-  //: **What the note list needs to draw a `[[map]]` as a map chip**, filled
-  //: here rather than per note card: `renderNoteInline` is synchronous and
-  //: runs once per wiki link, so it cannot fetch. Deliberately not awaited: 
-  //: the list paints now, and a chip drawn before this lands falls back to the
-  //: link's own text without its node count rather than to nothing at all.
-  //: `apiJson`'s `cacheMs` means a rapid sequence of loads costs one request.
-  loadMapBoardIndex();
 
   const isSemantic = $("semantic-search-toggle")?.checked;
   if (isSemantic && noteSearch) {
@@ -10327,6 +10453,7 @@ async function loadEntries() {
     renderSidebar();
     loadCategories();
     renderEntries();
+    ensureMapChipsFor(results, generation);
     fillCategoryOptions($("entry-category"), null);
     refreshTagSuggestions();
     return;
@@ -10356,6 +10483,7 @@ async function loadEntries() {
 
     renderStatusBar(); // the notebook's size changed, and the bar reads it here
     renderEntries();
+    ensureMapChipsFor(page, generation);
     if (first || offset >= total) {
       renderSidebar();
       // Categories the AI has filed notes into since the last load need
@@ -10370,6 +10498,32 @@ async function loadEntries() {
     if (page.length === 0) break; // safety: never loop forever on a stale total
   }
   nudgeUntaggedNotes();
+}
+
+//: **What the note list needs to draw a `[[map]]` as a map chip**, fetched
+//: once and only for a notebook that has one.
+//:
+//: `renderNoteInline` is synchronous and runs once per wiki link, so it cannot
+//: fetch; the index has to be in memory before the render. It used to be
+//: filled unconditionally at the top of `loadEntries`, which meant
+//: `GET /whiteboard/boards?limit=200` on every cold start, 204 ms measured,
+//: for a notebook that may contain no `[[` at all (WORLD_CLASS_PLAN A2). Now
+//: the page that has just arrived is asked first, so a notebook with no wiki
+//: links never asks for boards and one that has them asks once.
+//:
+//: The re-render is the half the old placement never had: fired and not
+//: awaited, the index always landed *after* the render it was for, and the
+//: chips stayed plain text until something else redrew the list. Guarded on
+//: the load generation, because a newer `loadEntries` may have taken over
+//: while this was in flight and its list is the one on screen.
+function ensureMapChipsFor(page, generation) {
+  if (mapBoardIndexCache) return; // one index per session, as it always was
+  if (!page.some((entry) => String(entry.content || "").includes("[["))) return;
+  loadMapBoardIndex()
+    .then(() => {
+      if (generation === _entriesLoadGeneration) renderEntries();
+    })
+    .catch(() => {});
 }
 
 //: **The app notices what the person has not got round to** (INBOX 162).
@@ -25560,7 +25714,11 @@ async function goToTabHistory(next) {
       return;
     }
     if (settingsModalOpen()) closeSettingsModal();
-    switchTab(entry.tab);
+    //: Awaited: every branch below reaches straight into the tab's own file
+    //: (`openWhiteboardBoard`, `openDocument`, `graphFocusModeId`), and two of
+    //: those are lazily loaded now (A1). `graphFocusModeId` in particular is a
+    //: `let` in graph.js, which no stand-in can supply.
+    await switchTab(entry.tab);
     // The sub-tab is restored after the tab, because both restore paths below
     // act on elements the tab switch has just revealed.
     if (entry.tab === "notes" && entry.section) {
@@ -25770,7 +25928,7 @@ document.addEventListener("click", (event) => {
   }
 });
 
-function switchTab(name) {
+async function switchTab(name) {
   // Profiled directly: leaving the Graph tab left `graphSimulation` running
   //, it is only ever `.stop()`-ed "before every rebuild" (graph.js), never
   // on navigating away: so its tick handler kept costing real main-thread
@@ -25802,6 +25960,19 @@ function switchTab(name) {
   }
   // The generative-art animation only needs to run while it's on screen.
   if (name !== "dashboard") stopArt();
+  //: **The page is revealed first and its data loaded second, with the tab's
+  //: own code fetched in between** (WORLD_CLASS_PLAN A1). Everything above
+  //: this line is DOM and it stays synchronous, so a tab press still paints
+  //: the new page in the same frame it was pressed in; everything below calls
+  //: into the file that draws the tab, which for Graph, Library and Documents
+  //: may not have been fetched yet. `ensureModule` resolves immediately once
+  //: a bundle is in, so this costs one microtask on every visit after the
+  //: first. Callers do not await this function (a tab press is not something
+  //: to wait on), and the three that do need the tab's code on the next line
+  //: say so: the back/forward restore, `#conv-browse-all`, and
+  //: `refreshActiveTab`.
+  const lazy = TAB_MODULES[name];
+  if (lazy) await ensureModule(lazy);
   if (name === "chat") {
     renderChatEmptyState(); // welcome placeholder when the thread is empty
     loadChatSuggestions();
@@ -28601,6 +28772,39 @@ let prefsCache = null;
 // with the pre-save value and left the checkbox showing it permanently,
 // not just for the moment the save was in flight.
 let prefsSaveInFlight = null;
+
+//: **One GET /preferences per boot** (WORLD_CLASS_PLAN A2). The whole of
+//: `startApp` runs its steps in parallel, and three of them wanted the
+//: preferences: the settings restore, `loadTemplates` (custom templates and
+//: saved searches live in the same payload) and `reportTimezone`. Each did its
+//: own `apiJson("/preferences")`, so a cold start asked for the same document
+//: twice and then decided what to do with the second copy. Measured: two GETs
+//: at 311 ms and 290 ms on this sandbox, of 24 boot fetches.
+//:
+//: This is `fetchDashStats`'s shape, for the same reason: the cache if it is
+//: filled, otherwise the one request already in flight, otherwise a new one.
+//: Every PUT in this file assigns its own response to `prefsCache`, so the
+//: cache is current after a save and a caller that has just written does not
+//: need `refresh`; pass it where a *server-side* change is expected (another
+//: window, or a job that writes preferences behind the app's back).
+let prefsInflight = null;
+
+function loadPreferences({ refresh = false } = {}) {
+  if (!refresh && prefsCache) return Promise.resolve(prefsCache);
+  if (prefsInflight) return prefsInflight;
+  //: Silent: the one boot caller that cared about the error is the settings
+  //: restore, and behind the lock screen a 401 here is the lock screen's
+  //: message, not a second toast about preferences (§35E).
+  prefsInflight = apiJson("/preferences", { silent: true })
+    .then((prefs) => {
+      prefsCache = prefs;
+      return prefs;
+    })
+    .finally(() => {
+      prefsInflight = null;
+    });
+  return prefsInflight;
+}
 
 async function renderPrefs() {
   if (prefsSaveInFlight) await prefsSaveInFlight.catch(() => {});
@@ -34639,6 +34843,55 @@ function mirroredUiKeys() {
 
 let uiStateSaveTimer = null;
 
+//: Whether the boot restore has had its turn. Until it has, this browser does
+//: not yet know what the server is holding, and a save would be a guess: the
+//: tab restore writes `activeTab` at module level, which schedules a save for
+//: 800 ms later, and on this sandbox that lands *before* the unlock and the
+//: `/preferences` read that follows it have finished. So a cold start wrote a
+//: `ui_state` built from a browser that had not been given its settings back
+//: yet, which is both a wasted PUT (A2) and, on a browser that had lost
+//: `localStorage`, the one write that could make the loss permanent.
+//:
+//: Dropped rather than deferred, the same as the `authToken()` guard below and
+//: for the same reason: `watchMirroredUiKeys` sees every later write, so the
+//: next real change saves, and nothing here is the only copy of anything.
+let uiStateSeeded = false;
+
+//: The mirrored state the server is known to be holding, as the same JSON this
+//: file would send. Null until something establishes it: either the boot seed
+//: below (the server told us) or a save that came back (we told the server).
+//:
+//: **Why it exists** (WORLD_CLASS_PLAN A2). `seedUiStateFromServer` writes the
+//: server's copy into `localStorage`, and `watchMirroredUiKeys` has patched
+//: `setItem` to schedule a save on exactly those keys, so every cold start
+//: ended with a PUT of the document it had just been given. One of the four
+//: `/preferences` requests a boot was making was this round trip, and the same
+//: shape fires again whenever a control is set to the value it already had.
+let uiStateOnServer = null;
+
+//: The payload, built from `localStorage`, in `mirroredUiKeys()` order so two
+//: of these are comparable as strings.
+function uiStatePayload() {
+  const state = {};
+  for (const key of mirroredUiKeys()) {
+    const value = localStorage.getItem(key);
+    if (value != null) state[key] = String(value).slice(0, 400);
+  }
+  return state;
+}
+
+//: The same shape, built from a server document, so the comparison is between
+//: like and like: the server's `ui_state` can carry keys this build no longer
+//: mirrors (an old key, a key from a newer version), and those must not read as
+//: a difference worth a write.
+function uiStateFingerprint(state) {
+  const out = {};
+  for (const key of mirroredUiKeys()) {
+    if (state[key] != null) out[key] = String(state[key]).slice(0, 400);
+  }
+  return JSON.stringify(out);
+}
+
 // Write the mirrored keys to the server, coalesced. Debounced because the
 // appearance panel fires a change per slider tick, and a preferences write per
 // tick would be a write per pixel of a corner-radius drag.
@@ -34652,18 +34905,24 @@ function saveUiState() {
     // investigating. §35E-bis found exactly this in the reminder poll; the
     // guard is the same one, for the same reason.
     if (!authToken()) return;
-    const state = {};
-    for (const key of mirroredUiKeys()) {
-      const value = localStorage.getItem(key);
-      if (value != null) state[key] = String(value).slice(0, 400);
-    }
+    if (!uiStateSeeded) return;
+    const state = uiStatePayload();
+    const sending = JSON.stringify(state);
+    //: Nothing has changed since the server and this browser last agreed, so
+    //: there is nothing to back up. Local still wins when they differ: this
+    //: only skips the write, it never skips a difference.
+    if (sending === uiStateOnServer) return;
     // Silent and best-effort. This is a backup of something that already
     // worked locally; a toast about it would be noise about a copy.
     apiJson("/preferences", {
       method: "PUT",
       body: JSON.stringify({ ui_state: state }),
       silent: true,
-    }).catch(() => {});
+    })
+      .then(() => {
+        uiStateOnServer = sending;
+      })
+      .catch(() => {});
   }, 800);
 }
 
@@ -34715,6 +34974,14 @@ function seedUiStateFromServer(state) {
       restored += 1;
     }
   }
+  //: What the server is holding, recorded so the saves those `setItem` calls
+  //: just scheduled can tell "this browser had lost its settings and has now
+  //: been given them back" from "the person changed something" (A2). Set after
+  //: the loop and before the 800 ms debounce fires, so the first save of the
+  //: session compares against it. A browser that kept a key the server does not
+  //: have still differs here, and still writes: local wins, as the comment
+  //: above says, and that is the case this must not swallow.
+  uiStateOnServer = uiStateFingerprint(state);
   return restored > 0;
 }
 
@@ -34843,6 +35110,175 @@ function ensureP5() {
     });
   }
   return p5Loading;
+}
+
+//: **A tab's code arrives when the tab does** (WORLD_CLASS_PLAN A1). Measured
+//: on this head before the change: 13 blocking scripts and 1,699 KB of
+//: compressed JS parsed before the first tab could draw, of which whiteboard
+//: (678 KB), documents (640 KB), library (404 KB) and the two graph files
+//: (334 KB) are surfaces most sessions never open. `ensureP5` above is the
+//: same idea for the one decoration that was bigger than all of them.
+//:
+//: Two bundles, not five, because the five files are not five independent
+//: modules: library.js renders the boards gallery from whiteboard.js and the
+//: documents list from documents.js, whiteboard.js calls back into both, and
+//: documents.js renders the library's own filters. That cycle is real (it is
+//: one surface split across three files, not three surfaces), so splitting it
+//: further would only mean loading two thirds of it and waiting for the rest.
+//: The graph pair has no edge into it at all once `formatFileSize` moved to
+//: this file, so it stands alone.
+//:
+//: `async = false` on a dynamically inserted script is what keeps them in
+//: document order: a dynamic script defaults to async, and library.js running
+//: before documents.js would be a different program.
+const LAZY_MODULES = {
+  graph: ["/graph.js", "/graph-canvas.js"],
+  //: The order the `<script>` tags had, kept: every cross-file call between
+  //: these three is inside a function rather than at parse time, so it is not
+  //: load-bearing, but it is the order the three files' own headers describe.
+  library: ["/documents.js", "/whiteboard.js", "/library.js"],
+};
+
+//: Which bundle a tab needs before its own dispatch runs. `documents` is the
+//: document editor the Library opens, which is why it shares the Library's
+//: bundle rather than having one of its own.
+const TAB_MODULES = { graph: "graph", library: "library", documents: "library" };
+
+const lazyModuleLoads = new Map();
+
+//: **The stamp is read off the page, never rebuilt from `__version__`.** Every
+//: local URL carries `?v=<version>`, and `RevalidatedStatic`
+//: (src/memorymap/api/app.py) splices a per-process boot token onto the stamps
+//: *inside index.html's served body* so a fresh launch of the desktop window
+//: can never reuse the last launch's cache. That token exists only in the
+//: markup, so a script this file inserts has to copy the stamp a real tag is
+//: already wearing; a hard-coded `?v=0.3.0` here would be a second, staler
+//: cache key for the same file, which is the exact bug that splice exists to
+//: prevent.
+function lazyAssetStamp() {
+  const src = document.querySelector('script[src*="/app.js?"]')?.getAttribute("src") || "";
+  const query = src.indexOf("?");
+  return query === -1 ? "" : src.slice(query);
+}
+
+function ensureModule(name) {
+  const files = LAZY_MODULES[name];
+  if (!files) return Promise.resolve(false);
+  const pending = lazyModuleLoads.get(name);
+  if (pending) return pending;
+  const stamp = lazyAssetStamp();
+  const loaded = Promise.all(
+    files.map(
+      (file) =>
+        new Promise((resolve) => {
+          const script = document.createElement("script");
+          script.async = false; // document order, not network order
+          script.src = file + stamp;
+          script.onload = () => resolve(true);
+          script.onerror = () => resolve(false);
+          document.head.appendChild(script);
+        })
+    )
+  ).then((results) => results.every(Boolean));
+  lazyModuleLoads.set(name, loaded);
+  return loaded;
+}
+
+//: **The entry points that can be reached before their own file exists.**
+//:
+//: Most calls into a lazy module happen on its own tab, after `switchTab` has
+//: awaited it. These are the ones that do not: a map chip in the note list
+//: opens a board, the command palette opens a document, the notes editor's
+//: bold button is documents.js's `applyMarkdown`, and eight of graph.js's
+//: functions are read as *bare identifiers* by this file's own top-level
+//: wiring (the click listener this file binds on `#graph-popup-close` names
+//: `closeGraphPopup` as a bare identifier), which is evaluated the moment that
+//: line runs and would throw ReferenceError with graph.js absent.
+//:
+//: Each name below gets a stand-in that loads the bundle and then calls the
+//: real function, which has replaced the stand-in by then: a top-level
+//: `function foo()` in a classic script rebinds `globalThis.foo`, so no
+//: hand-off is needed beyond looking the name up again.
+//:
+//: Two rules decide what is on this list, and both matter:
+//:
+//: 1. **Only functions whose return value nobody reads.** A stand-in has to
+//:    return a promise, so a function whose answer is used in the same
+//:    statement cannot have one. `docEventFromCm` is the sharp case: editor.js
+//:    reads it as `if (typeof docEventFromCm === "function" &&
+//:    docEventFromCm(event.target)) return;`, and a promise is truthy, so a
+//:    stand-in there would swallow every keystroke in the note editor. Those
+//:    functions are left off, and their `typeof` guard then means what it
+//:    says: the document surface is not loaded, so this is not one.
+//: 2. **Only functions a person's own gesture reaches.** `loadLibrary` and
+//:    `renderLibrary` are deliberately absent: they are called from "refresh
+//:    the list if it is on screen" guards after an OCR pass or an import
+//:    finishes, and a stand-in would pull 1.7 MB in the background because a
+//:    caption came back. Skipping is the right answer when the Library has
+//:    never been opened; opening it loads and renders it anyway.
+const LAZY_ENTRY_POINTS = {
+  graph: [
+    "clearTrace",
+    "closeGraphNewNote",
+    "closeGraphPopup",
+    "exportGraphPng",
+    "openGraphNewNote",
+    "placeGraphPopup",
+    "renderGraph",
+    "saveGraphNewNote",
+    "saveGraphPopup",
+    "setTracePanelOpen",
+    "syncGraphPopupSave",
+  ],
+  library: [
+    "applyMarkdown",
+    "closeBinnedReader",
+    "closeDocAiPanel",
+    "createConceptMap",
+    "createDocument",
+    "createNewBoard",
+    "expandNoteIntoDocument",
+    "flashLibraryItem",
+    "focusLibraryFile",
+    "initDocSidebarTabs",
+    "loadDocuments",
+    "markDocDirty",
+    "mountDocToolbarControlsFor",
+    "mountGutterFor",
+    "openDocDictionary",
+    "openDocTemplateDialog",
+    "openDocument",
+    "renderDocStorage",
+    "saveDocument",
+    "showDocSidebarSection",
+    "toggleDocFindBar",
+    "wbOpenBoardSearch",
+    "wbShowBoardsLanding",
+    "wbShowCanvasView",
+    "wbToggleNavigator",
+    "wireMarkdownToolbar",
+    "wireMdFormatShortcuts",
+    "openWhiteboardBoard",
+  ],
+};
+
+for (const [module, names] of Object.entries(LAZY_ENTRY_POINTS)) {
+  for (const name of names) {
+    // A name this file (or another that always loads) already defines is that
+    // file's, and must not be shadowed.
+    if (typeof window[name] === "function") continue;
+    const standIn = (...args) =>
+      ensureModule(module).then(() => {
+        const real = window[name];
+        //: The module failed to load (offline, or the file is gone). Calling
+        //: the stand-in again here would recurse forever, so this is where it
+        //: stops, quietly: the control does nothing, which is what it did
+        //: before this list existed.
+        if (typeof real !== "function" || real === standIn) return undefined;
+        return real(...args);
+      });
+    window[name] = standIn;
+  }
 }
 
 function renderEmblem(holder, size = 34, { animate = false } = {}) {
@@ -36730,8 +37166,12 @@ window.addEventListener("tabSwitched", () => {
   if (!$("global-find-bar").classList.contains("hidden")) closeGlobalFind();
 });
 
-$("conv-browse-all").addEventListener("click", () => {
-  switchTab("library");
+$("conv-browse-all").addEventListener("click", async () => {
+  //: Awaited: `libraryKind` is a `let` in library.js and the two renders are
+  //: its functions, so all three need that file present (A1). Without the
+  //: await the assignment would create a stray global that library.js then
+  //: shadows, and the Library would open unfiltered.
+  await switchTab("library");
   libraryKind = "chat";
   renderLibraryFilters();
   renderLibrary();

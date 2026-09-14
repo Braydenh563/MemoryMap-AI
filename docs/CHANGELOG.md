@@ -17,8 +17,21 @@ below). Versioning is `0.x` while the app stabilises.
 
 - Boot is lighter: p5 (1 MB, decoration only) loads in idle time on first use
   rather than as a blocking script, and the dashboard's seven widgets share one
-  `/insights/stats` fetch (44 boot fetches to 35). The audit these came from is
-  WORLD_CLASS_PLAN "Audit, 2026-09-13 night" (INBOX 209).
+  `/insights/stats` fetch (44 boot fetches to 35). The graph, documents,
+  whiteboard and library code now arrives on the first visit to the tab that
+  needs it rather than before anything draws: 8 scripts and 1,072 KB at boot,
+  from 13 and 1,699. Boot also stopped asking for the same thing twice:
+  preferences once rather than four times, the graph once rather than three
+  times, the board list and the note list once each, and the notes list's
+  first page is 200 notes rather than the whole notebook. The audit these came
+  from is WORLD_CLASS_PLAN "Audit, 2026-09-13 night" (INBOX 209).
+
+### Fixed
+
+- The dashboard's shared `/insights/stats` reader called itself instead of the
+  endpoint, so every widget that reads the notebook's totals drew its empty
+  state and no request was made at all. Each of the seven call sites has a
+  `catch`, which is why nothing showed in the console.
 
 - At a higher browser zoom the tab strip no longer runs under the header
   controls (1152 to 1240 measured at 0px overlap) and a mind map's top bar

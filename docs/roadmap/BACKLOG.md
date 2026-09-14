@@ -4150,7 +4150,7 @@ restated.
     a gate rather than a probe.
 
 
-## 18. After PR 144: professional use (the owner's stated next block, 2026-09-14)
+## 115. After PR 144: professional use (the owner's stated next block, 2026-09-14)
 
 "After this pr I intend to do a full lot of fixes and refinements for
 professional use." WORLD_CLASS_PLAN 18 (H6) holds the gated version;

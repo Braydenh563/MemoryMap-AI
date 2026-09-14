@@ -2443,3 +2443,18 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .chip.file-chip {
   margin-bottom: var(--space-2);
 }
+
+/* The Guide's thinking while it is thinking, above the answer it is working
+   towards (`helpChatStreamTurn`). A sign of life, not a transcript: clipped to
+   about two lines and scrolled to the newest text, so a model that reasons for
+   two hundred words does not push the panel around while it does it. It is
+   removed when the turn finishes; what stays is the answer. */
+.help-chat-think {
+  max-height: 2.6em;
+  overflow: hidden;
+  font-size: var(--text-xs);
+  line-height: 1.3;
+  white-space: pre-wrap;
+  margin-bottom: var(--space-2);
+  opacity: 0.75;
+}

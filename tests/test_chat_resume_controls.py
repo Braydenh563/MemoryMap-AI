@@ -43,3 +43,27 @@ def test_the_status_bar_names_the_scope_not_the_persona() -> None:
     name is in the tooltip, which also survives renaming the persona."""
     assert 'word.textContent = "Guide";' in APP
     assert "Ask ${guideName} how this app works" in APP
+
+
+def test_the_popup_agent_writes_its_thinking_as_it_arrives() -> None:
+    """Reported: "the popup agent doesnt stream thinking ... the thinking only
+    shows up after the response is finished". It was accumulated and prepended
+    at the end because the box is closed, which is true of the box and beside
+    the point for the wait, where the reasoning is the only thing to show."""
+    assert "thinkingBox = cmdPaletteThinkingBox(\"\");" in APP
+    assert "thinkingBox.open = true;" in APP
+    #: Closed when the answer lands, so a finished turn still reads answer
+    #: first, and never drawn twice.
+    assert "thinkingBox.open = false;" in APP
+
+
+def test_the_guide_reads_a_stream_and_can_fall_back() -> None:
+    settings = (
+        __import__("pathlib").Path(__file__).resolve().parent.parent
+        / "frontend" / "settings.js"
+    ).read_text(encoding="utf-8")
+    assert "async function helpChatStreamTurn({ pending, signal, body })" in settings
+    assert 'fetch("/help/ask/stream"' in settings
+    #: The one-shot route stays as the fallback for a proxy that buffers.
+    assert 'return apiJson("/help/ask", {' in settings
+    assert 'className = "help-chat-think muted"' in settings

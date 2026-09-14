@@ -43462,6 +43462,10 @@ async function cmdPaletteAsk(text) {
   let meta = null;
   let stats = null;
   let thinkingRaw = "";
+  //: The box the reasoning is written into while it is being produced, made
+  //: on the first delta rather than up front so a turn that never thinks out
+  //: loud does not grow an empty one.
+  let thinkingBox = null;
   //: Which tool ran last, for the line the run ends on. The label is the
   //: harness's own (`ph:books Listed notes (…)`), so the icon token has to be
   //: stripped before it can be quoted inside another label.
@@ -43495,11 +43499,29 @@ async function cmdPaletteAsk(text) {
         meta = event;
         found = event?.raw_results || [];
       },
-      //: Accumulated, not rendered per delta: the box is closed, so there is
-      //: nothing on screen to keep up to date, and re-rendering a <pre> on
-      //: every token would be work nobody can see.
+      //: **Written as it is thought.** Reported: "the popup agent doesnt
+      //: stream thinking ... the thinking only shows up after the response is
+      //: finished". It was accumulated here and prepended at the end, on the
+      //: reasoning that the box is closed so nobody could see it: true of the
+      //: box, and beside the point for the wait, which is the part of a turn
+      //: where the reasoning is the only thing there is to show. The box is
+      //: open while the turn runs and closes when the answer arrives, so a
+      //: finished turn still reads answer-first.
+      //:
+      //: `textContent` on one `<pre>`, not a re-render: the cost the old
+      //: comment was avoiding was markdown, and this is plain text.
       onThinking: (delta) => {
         thinkingRaw += delta;
+        if (!thinkingBox) {
+          thinkingBox = cmdPaletteThinkingBox("");
+          thinkingBox.open = true;
+          agentMsg.prepend(thinkingBox);
+        }
+        const pre = thinkingBox.querySelector(".tool-chip-result");
+        if (pre) {
+          pre.textContent = thinkingRaw;
+          pre.scrollTop = pre.scrollHeight;
+        }
       },
       //: An agent turn reports once per round. Same accumulation the Chat tab
       //: does: output tokens add up, the prompt is the largest one sent, and
@@ -43589,7 +43611,15 @@ async function cmdPaletteAsk(text) {
     //: order the Chat tab reads in, so moving between the two surfaces does
     //: not mean learning a second layout.
     if (thinkingRaw.trim()) {
-      agentMsg.prepend(cmdPaletteThinkingBox(thinkingRaw.trim()));
+      //: Already on screen if the model thought out loud: closed now, with the
+      //: trailing blank lines trimmed, rather than added a second time.
+      if (thinkingBox) {
+        thinkingBox.open = false;
+        const pre = thinkingBox.querySelector(".tool-chip-result");
+        if (pre) pre.textContent = thinkingRaw.trim();
+      } else {
+        agentMsg.prepend(cmdPaletteThinkingBox(thinkingRaw.trim()));
+      }
     }
     const metaRow = cmdPaletteMetaRow({
       meta,

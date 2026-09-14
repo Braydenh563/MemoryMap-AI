@@ -3560,8 +3560,20 @@ async function submitHelpChatQuestion(question) {
   helpChatAppendRow(pending);
   if (input) input.value = "";
   try {
-    const result = await apiJson("/help/ask", {
-      method: "POST",
+    //: **Streamed, with the thinking shown while it is being done.**
+    //: Reported: the reply "will be blurted out really fast like it isnt
+    //: streaming but just outputting at once", and the thinking "only shows
+    //: up after the response is finished". Both were honest descriptions of
+    //: what this did: `/help/ask` answers in one piece, so the writing was a
+    //: timer here rather than a model typing, and nothing about the turn
+    //: could be shown until all of it existed. `/help/ask/stream` sends the
+    //: thinking and the answer as they are produced.
+    //:
+    //: `helpChatStreamTurn` falls back to the one-shot call and the old
+    //: reveal when a stream cannot be opened, so a proxy that buffers, or a
+    //: build where the route is missing, still answers.
+    const result = await helpChatStreamTurn({
+      pending,
       signal,
       //: **Where the question was asked from** (INBOX 190: "give it more
       //: knowledge"). The Guide opens over every tab now, so the tab is half
@@ -3570,22 +3582,17 @@ async function submitHelpChatQuestion(question) {
       //: what is on screen, which is better reference material than anything
       //: this could be told about a surface in the abstract, and it is already
       //: written, reviewed and kept in step with the UI by the lints.
-      body: JSON.stringify({
+      body: {
         question,
         history: helpChatHistory,
         tab: typeof agentCurrentTab === "function" ? agentCurrentTab() : null,
         context: helpChatOnScreenHelp(),
-      }),
+      },
     });
     const content = result?.content || "Sorry, I couldn't answer that.";
-    //: **The answer is written in, not dropped in.** `/help/ask` answers in
-    //: one piece, so the reveal is the app's own (the owner: "the atlas chat
-    //: interface doesnt have message streaming or the caret writing
-    //: animation"): the pending row loses its dots and grows the answer a
-    //: few words a frame under the same `.is-streaming` caret Chat uses for
-    //: its real token stream, then the finished row with its sources and
-    //: badges takes its place. Reduced motion shows the whole answer at once.
-    const shown = await helpChatReveal(pending, content, signal);
+    //: What was on screen when the turn ended: the streamed text itself, or,
+    //: on the fallback path, whatever the timed reveal had reached.
+    const shown = result?.shown ?? (await helpChatReveal(pending, content, signal));
     pending.remove();
     //: Stopped mid-reveal: what was shown stays, marked, and the history
     //: keeps the whole answer so a follow-up still makes sense to the model.
@@ -3613,8 +3620,88 @@ async function submitHelpChatQuestion(question) {
   }
 }
 
+//: One streamed turn of the help chat, written into `pending` as it arrives.
+//:
+//: Returns the same `{content, badges, sources}` the one-shot route returns,
+//: plus `shown`, the text that actually reached the screen (they differ when
+//: the reader stopped the answer half way). Falls back to `/help/ask` and the
+//: timed reveal on any failure to open or read the stream, so the panel
+//: answers even where streaming does not survive the trip.
+async function helpChatStreamTurn({ pending, signal, body }) {
+  let response;
+  try {
+    response = await fetch("/help/ask/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal,
+      body: JSON.stringify(body),
+    });
+    if (!response.ok || !response.body) throw new Error("no stream");
+  } catch (error) {
+    if (signal?.aborted || error?.name === "AbortError") throw error;
+    return apiJson("/help/ask", {
+      method: "POST",
+      signal,
+      body: JSON.stringify(body),
+    });
+  }
+
+  pending.classList.remove("is-pending");
+  pending.classList.add("is-streaming");
+  pending.replaceChildren();
+  //: The thinking, live, in its own muted block above the answer. It is a
+  //: sign of life rather than a transcript, so it is clipped by CSS to the
+  //: last couple of lines and goes away when the turn is over: what stays is
+  //: the answer, which is the part worth reading twice.
+  const think = document.createElement("div");
+  think.className = "help-chat-think muted";
+  think.hidden = true;
+  const prose = document.createElement("div");
+  pending.append(think, prose);
+  const list = $("help-chat-messages");
+  const toBottom = () => { if (list) list.scrollTop = list.scrollHeight; };
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffered = "";
+  let text = "";
+  let done = null;
+  const take = (line) => {
+    if (!line.trim()) return;
+    let event;
+    try { event = JSON.parse(line); } catch { return; }
+    if (event.type === "thinking") {
+      think.hidden = false;
+      think.textContent += event.text || "";
+      think.scrollTop = think.scrollHeight;
+    } else if (event.type === "delta") {
+      text += event.text || "";
+      renderMarkdown(prose, text);
+    } else if (event.type === "done") {
+      done = event;
+    }
+    toBottom();
+  };
+  while (true) {
+    const chunk = await reader.read();
+    if (chunk.done) break;
+    buffered += decoder.decode(chunk.value, { stream: true });
+    const lines = buffered.split("\n");
+    buffered = lines.pop() || "";
+    for (const line of lines) take(line);
+  }
+  take(buffered);
+  return {
+    content: done?.content || text,
+    badges: done?.badges || [],
+    sources: done?.sources || [],
+    shown: text,
+  };
+}
+
 //: Resolves to the text shown so far: the whole answer, or, when the signal
-//: fired mid-reveal, the words that had appeared by then.
+//: fired mid-reveal, the words that had appeared by then. Still the path a
+//: fallback to `/help/ask` takes; the streamed turn writes its own text.
 function helpChatReveal(row, content, signal = null) {
   return new Promise((resolve) => {
     row.classList.remove("is-pending");

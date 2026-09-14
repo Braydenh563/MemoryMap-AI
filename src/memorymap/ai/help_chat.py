@@ -32,6 +32,7 @@ handed on each call.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 
 from memorymap import SUPPORT_EMAIL
 from memorymap.ai import AI_NAME
@@ -645,28 +646,19 @@ def topics_for(question: str, tab: str | None = None) -> list[dict]:
     return topics
 
 
-def answer(
+def _prompt_for(
     question: str,
-    model_manager: ModelManager,
-    ollama: Provider,
-    history: list[dict] | None = None,
-    tab: str | None = None,
-    context: str | None = None,
-) -> dict:
-    """One turn of the help chat.
+    history: list[dict] | None,
+    tab: str | None,
+    context: str | None,
+) -> tuple[list[dict], list[dict]]:
+    """The messages one turn sends, and the topics they were built from.
 
-    `history` is whatever the caller is holding client-side for the current
-    session (see module docstring): never read from or written to the
-    database. `tab` is the surface the question was asked from and `context`
-    that surface's own help copy, both optional and both only ever used to
-    choose and extend the reference notes. Returns
-    `{"content": str, "badges": list[dict]}`."""
-    question = question.strip()[:MAX_MESSAGE_CHARS]
-    if not question:
-        return {"content": "", "badges": [], "sources": []}
-    if not ollama.is_running():
-        return {"content": OFFLINE_MESSAGE, "badges": [], "sources": []}
-
+    Split out of `answer` so the streamed turn cannot build a different
+    prompt from the one-shot turn: the two differ only in how the reply
+    comes back, and a second copy of this is how a fix to one surface's
+    grounding quietly misses the other.
+    """
     topics = topics_for(question, tab)
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     if tab:
@@ -702,7 +694,83 @@ def answer(
         if role in ("user", "assistant") and content:
             messages.append({"role": role, "content": content[:MAX_MESSAGE_CHARS]})
     messages.append({"role": "user", "content": question})
+    return messages, topics
 
+
+def answer_stream(
+    question: str,
+    model_manager: ModelManager,
+    ollama: Provider,
+    history: list[dict] | None = None,
+    tab: str | None = None,
+    context: str | None = None,
+) -> Iterator[dict]:
+    """The same turn, streamed.
+
+    Reported: the Guide's reply "will be blurted out really fast like it isnt
+    streaming but just outputting at once", and its thinking "only shows up
+    after the response is finished". Both were true and neither was a bug in
+    the client: `/help/ask` answered in one piece after the whole reply had
+    been generated, and the panel faked the writing with a timer, which is
+    why it ran at a speed no model types at and why the thinking could not
+    appear until there was nothing left to wait for.
+
+    Yields `{"type": "thinking"|"delta", "text": str}` as the model produces
+    them and one closing `{"type": "done", ...}` carrying the badges and
+    sources, which are known before the first token but are sent last so the
+    client has one place to finish a turn.
+    """
+    question = question.strip()[:MAX_MESSAGE_CHARS]
+    if not question:
+        yield {"type": "done", "content": "", "badges": [], "sources": []}
+        return
+    if not ollama.is_running():
+        yield {"type": "delta", "text": OFFLINE_MESSAGE}
+        yield {"type": "done", "content": OFFLINE_MESSAGE, "badges": [], "sources": []}
+        return
+
+    messages, topics = _prompt_for(question, history, tab, context)
+    pieces: list[str] = []
+    for piece in ollama.chat_stream(model_manager.utility_model(), messages, mode="quick"):
+        thinking = piece.get("thinking_delta")
+        if thinking:
+            yield {"type": "thinking", "text": thinking}
+        delta = piece.get("content_delta")
+        if delta:
+            pieces.append(delta)
+            yield {"type": "delta", "text": delta}
+    content = "".join(pieces).strip()
+    yield {
+        "type": "done",
+        "content": content,
+        "badges": badges_for(topics),
+        "sources": source_names(topics),
+    }
+
+
+def answer(
+    question: str,
+    model_manager: ModelManager,
+    ollama: Provider,
+    history: list[dict] | None = None,
+    tab: str | None = None,
+    context: str | None = None,
+) -> dict:
+    """One turn of the help chat.
+
+    `history` is whatever the caller is holding client-side for the current
+    session (see module docstring): never read from or written to the
+    database. `tab` is the surface the question was asked from and `context`
+    that surface's own help copy, both optional and both only ever used to
+    choose and extend the reference notes. Returns
+    `{"content": str, "badges": list[dict]}`."""
+    question = question.strip()[:MAX_MESSAGE_CHARS]
+    if not question:
+        return {"content": "", "badges": [], "sources": []}
+    if not ollama.is_running():
+        return {"content": OFFLINE_MESSAGE, "badges": [], "sources": []}
+
+    messages, topics = _prompt_for(question, history, tab, context)
     reply = ollama.chat(model_manager.utility_model(), messages, mode="quick")
     content = reply["content"].strip()
     return {

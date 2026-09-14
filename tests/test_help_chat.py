@@ -402,3 +402,53 @@ def test_new_chat_is_offered_after_a_stopped_question():
     assert 'const said = helpChatHistory.length > 0 || Boolean($("help-chat-messages")?.querySelector(".help-chat-msg"))' in js
     finally_block = js[js.index("    helpChatSetBusy(false);") :]
     assert "renderHelpChatMenu();" in finally_block[:120]
+
+
+def test_the_help_turn_can_be_streamed(monkeypatch):
+    """Reported of the Guide: the reply "will be blurted out really fast like
+    it isnt streaming but just outputting at once", and its thinking "only
+    shows up after the response is finished". Both followed from the route
+    answering in one piece: the panel could only fake the writing with a timer
+    and had nothing to show until the whole turn existed."""
+
+    class FakeProvider:
+        def is_running(self):
+            return True
+
+        def chat_stream(self, model, messages, mode=None):
+            yield {"thinking_delta": "weighing it up"}
+            yield {"content_delta": "Press "}
+            yield {"content_delta": "the button."}
+
+    class FakeManager:
+        def utility_model(self):
+            return "test-model"
+
+    events = list(
+        help_chat.answer_stream("how do I save?", FakeManager(), FakeProvider())
+    )
+    assert [e["type"] for e in events] == ["thinking", "delta", "delta", "done"]
+    assert events[0]["text"] == "weighing it up"
+    assert events[-1]["content"] == "Press the button."
+
+
+def test_the_streamed_turn_sends_the_same_prompt_as_the_one_shot_turn():
+    """One builder for both, so a fix to the grounding of one surface cannot
+    miss the other."""
+    streamed, topics = help_chat._prompt_for("how do I save?", [], "notes", "")
+    assert streamed[0]["content"] == help_chat.SYSTEM_PROMPT
+    assert streamed[-1] == {"role": "user", "content": "how do I save?"}
+    assert isinstance(topics, list)
+
+
+def test_a_stopped_provider_still_answers_the_streamed_turn():
+    class Offline:
+        def is_running(self):
+            return False
+
+    class FakeManager:
+        def utility_model(self):
+            return "test-model"
+
+    events = list(help_chat.answer_stream("anything", FakeManager(), Offline()))
+    assert events[-1]["content"] == help_chat.OFFLINE_MESSAGE

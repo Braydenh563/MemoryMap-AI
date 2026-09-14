@@ -62,6 +62,18 @@ with its owner named in the entry.
     foot (input, icon-only send, `data-help-for` '?'), New chat in the
     kebab. Measured: no element wider than the sheet at 1440, 1024 and 390;
     contrast 4.5:1 both themes; Escape and the X both close. Owner: chrome.
+    **More from the owner, 2026-09-14:** "also make atlas more accessible
+    and have suggestions to ask it something here and there like in
+    tooltips or the help page in settings etc." Target, added to 224: every
+    `data-help-for` popover ends with one line "Ask Atlas: <a question about
+    this control>" that opens the Atlas sheet with that question typed in;
+    the Settings Help page has an "Ask Atlas" row at its head with three
+    starter chips; the palette lists "Ask Atlas" as a command and matches
+    typed questions ending in "?" to it; the empty states of Notes, Chat
+    and Library carry one Atlas suggestion each; the keyboard shortcut is
+    listed in the shortcuts sheet. The questions come from one table
+    (`ATLAS_PROMPTS`, keyed by help id) so copy stays in one place. Measured:
+    a popover's Atlas line opens the sheet with the question in the input.
 
 221. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), auto
     update.** "make sure all the auto update whether upon new release or

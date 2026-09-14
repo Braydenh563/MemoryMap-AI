@@ -344,6 +344,21 @@ which is its own slow cost when the next session reads it. The same three sympto
 console are the signature: one real error, then `X is not defined` and
 `Cannot access Y before initialization` from everything declared after it.
 
+## How to proceed after PR 144 (the owner asked, 2026-09-14)
+
+The full answer is `docs/ROADMAP.md`, "How to proceed after PR 144",
+rewritten today to 147 lines: the plan table with where each plan stands,
+the ordered queue (speed budget H7, the professional-use block BACKLOG
+115, `agent-remaining/OPEN.md` surface by surface with each plan's open
+phase, UI Phase 11, then WORLD_CLASS_PLAN 18's horizon H1 to H8), and the
+rules that do not change. In one breath: every open item now lives in
+exactly one of INBOX (the owner's reports), `OPEN.md` (what the agents
+left, 134 bullets by surface), a plan's open phase, or BACKLOG; nothing
+open lives in HANDOVER or HISTORY. A session starts by reading CLAUDE.md,
+this file's standing orders and Now line, INBOX, then `OPEN.md` and the
+plan for the surface in hand. Brief 33 in SESSION_BRIEFS is the next
+session's brief.
+
 **Now (2026-09-14 early, Fable orchestrating): four more agents on the
 owner's night reports and the audit.** INBOX 195 to 199, 211 and the aurora
 half of 210 landed (`ea7b370`, `6437125`, `3440988`); chrome, mapux, backend2

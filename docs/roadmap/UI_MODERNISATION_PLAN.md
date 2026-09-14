@@ -67,6 +67,129 @@ one of them and is judged by a count, not by looking at a screenshot.
   "AI sparkle" anywhere in this plan. The glass stays where it reads as
   material (the shell, a floating panel) and goes where it reads as effect.
 
+## Decisions made
+
+Standing order 3: a decision recorded here is not re-opened. A missing one
+becomes an INBOX entry with a one-line recommendation, which is then taken.
+
+- **A picker that adds to a list is an adder, not a `<select>`** (the owner,
+  2026-09-12, on the capture form's "Add to document" box, INBOX 116). A
+  `<select>` is the right control for choosing *a* value in a form: it shows
+  what it holds. Where the answer is a set rather than a value, the picked
+  items are chips and the control that adds one is a button that opens the
+  app's own menu (`labelledMenu`, DESIGN.md's recipe index), so the control
+  never has to lie about holding a value it cannot show. The failure this
+  replaces is exactly that lie: the old handler wrote `value = ""` after
+  every pick, so the box snapped back to "None" and read as broken.
+  Applies wherever the same shape appears next, not only to this row.
+
+- **Two writing columns are two of the same column** (Brief 22, the Write
+  with AI panel, 2026-09-12). Where a panel puts two editors side by side,
+  each column is a label, the box, one optional field and one line of
+  actions, in that order, and the box is the only thing that stretches. What
+  it replaces, measured at 1440x900: boxes of 189.2 and 330.3px from
+  `rows="7"` and `rows="14"`, a left column ending 107px above the right one
+  with nothing in the gap, an instruction input wedged between two buttons
+  that do not read it, and an action row of four weights with a text field
+  among the buttons. The two optional fields ride the `.ask-composer`
+  recipe, which is also what makes the two rows the same height and so the
+  two boxes equal: a row that is the same recipe in both columns is the same
+  height in both.
+
+**Paragraphs to '?' popovers: the decisions.** Copied whole from
+`archive/agent-remaining/help-popovers.md` on 2026-09-14 (INBOX 220) so they
+survive its archiving; the numbering is that file's.
+
+1. **Section/group-level intros ("why does this area exist") convert.
+   Field-level hints (attached to one specific control) and
+   destructive/safety-critical warnings stay inline.** First stated in
+   the Appearance/Custom CSS commit `6f31b6b`: hiding "what does turning
+   this on do" behind a click, right where the control is, is worse than
+   the extra line; hiding a section's own "why does this area exist" text
+   is not, since nobody needs it to operate the section moment to moment.
+   Governs every item below.
+
+2. **The Tesseract OCR per-package caveat (Packages settings) stays
+   inline, decided now.** It is a different shape from every other item
+   on this list, and was left open deliberately in an earlier pass rather
+   than converted blind: the caveat text is built by `renderExtras()` in
+   `frontend/app.js`, one row at a time from server data (`caveat=` on the
+   extra's own definition), not static markup in `index.html`, so
+   `count.py` structurally cannot see it either way. Decision: leave it
+   inline. It reads as a field-level warning attached to one specific
+   row's Install/Reinstall/Remove action ("what happens if I click this"),
+   not a section-level "why does Packages exist" aside, so decision 1
+   already covers it; the different shape (JS-generated per row) is a
+   reason the fix would look different, not a reason to weigh the
+   question differently. A per-row `data-help-for` pair generated
+   dynamically is possible if a future session wants the audit script to
+   see it too, but is not needed for the copy rule itself: the caveat is
+   already one or two sentences, not a wall of prose.
+
+3. **Account & security's "If you forget your password" pair (the two
+   paragraphs around `python -m memorymap --reset-password`) stays
+   inline, decided in commit `9f32b22`.** Same reasoning as decision 2,
+   applied to a destructive command instead of a per-row caveat: the text
+   describes irrecoverable private-note loss right next to the command
+   that triggers it, so it is a safety-critical warning attached to one
+   action, not a section intro.
+
+4. **Five more items decided the same way, this pass, once
+   `count.py`'s remaining list was checked against what actually renders
+   around each:**
+   - Command palette intro (`#command-palette-intro`, ~line 315): the
+     comment directly above it in the markup argues for keeping it
+     visible ("What it can do, said out loud... These are real examples...
+     they are replaced by the conversation the moment there is one"). The
+     paragraph's whole purpose is to be seen before anything else is
+     typed; a popover would undo that.
+   - Documents' "Where are my documents kept?" dialog (`#doc-storage-dialog`,
+     ~line 425), Tensions' "Where you disagreed with yourself" dialog
+     (`#tensions-dialog`, ~line 477), Ask's idle screen
+     (`#ask-idle`, ~line 956), the document history dialog
+     (`#doc-history-dialog`, ~line 3049), and Meeting notes'
+     (`#meeting-overlay`, ~line 8223) own intro: all five are already
+     inside a `<dialog>` opened from a link-styled button, or (Ask's case)
+     a one-time idle screen replaced the moment it is used. Each is
+     already the progressive-disclosure step decision 1 asks for; putting
+     a `data-help-for` popover inside a dialog that is itself the
+     click-to-reveal step would hide the content twice.
+   - About's hero tagline ("A 100% offline, local-first notebook...",
+     `.about-hero`, ~line 7706): this is the app's own one-line identity
+     statement directly under its name and emblem, the shortest and most
+     essential text on the page, not an explanatory aside about why the
+     About section exists. Converting an app's own tagline on its own
+     About page into something the reader has to click to see would be
+     backwards.
+
+5. **Field-level hints already decided inline in earlier passes, listed
+   here so nobody re-checks them:** the settings-tools sub-group hints
+   (`tool-focus-help`/`small-model-help`, already popovers via `e6e48a9`),
+   `#progress-motion-row`'s inline hint, the model-latency `<small>`
+   under Diagnostics ("How long each kind of job has been taking...",
+   ~line 6059 in the old numbering), the thinking-dots motion hint
+   (~6439), `#log-terminal-hint`, `#desktop-console-hint`, and
+   `#desktop-tray-hint`. Each sits directly beside, or is toggled by, the
+   one control it explains.
+
+6. **The two JS strings (`countjs.py`) checked this pass, both decided
+   inline, for the same reason as decision 2 (Tesseract):** the
+   dashboard's Tensions widget explain line
+   (`frontend/dashboard.js:3156`, "Similar-notes search finds what
+   belongs together...") and the Library skills panel's Background
+   workers hint (`frontend/library.js:1649`, "Lets the AI work through
+   your notebook on its own..."). Both are one or two sentences built
+   with `document.createElement`, the same JS-generated shape as the
+   Tesseract caveat, and both are short enough that they are not the
+   wall-of-prose problem this task targeted. Converting either properly
+   needs the trigger and panel created and inserted into the live DOM
+   before `initHelpToggles(root)` runs against that subtree (it is only
+   ever called once, at load, against the whole document today; no
+   dynamic render anywhere in the app calls it a second time yet), which
+   is a real behaviour change worth its own render-path regression check
+   rather than a same-session, same-commit add. Left inline; `countjs.py`
+   will keep reporting TOTAL 2 until a future pass does that properly.
+
 ## Phase 0 — tooling and acceptance gates (½ session)
 
 1. Add `tests/test_ui_signatures.py`: a static lint that counts distinct
@@ -225,7 +348,690 @@ that need building rather than fixing.
 6. **The agent activity panel** — see
    [AGENT_SKILLS_REFORM.md](AGENT_SKILLS_REFORM.md) Phase C, which owns it.
 
+### Built — items 1, 3, 4 and 5
+
+Moved to HISTORY.md ("Moved from the plans, 2026-09-09", UI_MODERNISATION_PLAN.md) on 2026-09-09: a plan holds open work only.
+
+### Decided, 2026-09-13 — how the page reader is reached (do not remake)
+
+From INBOX 125: "alsi I want an easier and more accessible way to access the
+ocr workspace as a proper and more central feature." Triaged against the
+running app first, because "already exists" is where triage starts, and four
+doors were already there: the Files row's own filled "Read this" / "Open
+reader" (the 2026-09-12 decision above), the image card's kebab, the
+lightbox's "Read text with AI" and its kebab's "See text on the page", and the
+toast that offers the way back while a read is still running.
+
+What every one of them has in common is the answer: **each door starts from a
+file you have already found.** There is no way in from "I want to read
+something", and the reader is absent from both of the app's own "what can this
+do" surfaces. That is the same gap, in the same words, as the meeting
+recorder's ("I would also like the meeting notes popup to be expanded as a
+proper feature ... which is also accessible throughout the app, not just from
+the dashboard"), and it gets the same answer, because inventing a second
+pattern for the same shape is what DESIGN.md's recipe index exists to stop.
+
+- **The command palette and Tools & features, and nothing new.** Ctrl/Cmd-K
+  reaches "Read a document or image with AI" from any tab, and the features
+  browser lists it beside Attachments, which is the entry a person who does
+  not know the reader exists will actually meet. Those two are the app's
+  answer to "make X reachable from anywhere"; a fifth per-file door, a nav
+  item or a dock button would each be a new pattern for a feature that already
+  has four.
+- **It opens on a file rather than on a picker**, in this order: the file you
+  last had open in it, else the most recently added readable file, else the
+  Files sub-tab with a line saying there is nothing to read yet. The reader's
+  own rail already lists every image and file in the notebook (it learned to
+  load them itself when "if I open it from the lightbox when viewing an image,
+  no other files or images show" was reported), so a picker in front of it
+  would be a second list of the list it already has.
+- **No new markup.** Both entries are rows in existing catalogues, so there is
+  no new id, no new surface and nothing for the recipe index to cover.
+
+### Decided, 2026-09-12 — what a Files row is for (do not remake)
+
+From INBOX 115, "the files rows in files still needs some ui improvement and
+redesign, and better function". The row had grown by accretion: five
+full-width blocks in a 1218px column, each carrying one short string, 257px
+tall at 1440. The question "what should a file row let you do without opening
+anything" is settled here so the next pass adds to a shape rather than
+restacking it.
+
+- **Two ranks, not five.** The name is the row. Under it, one wrapping line of
+  facts at one rank: what the file is (kind, size, pages, added), whether it
+  has been read and how much came out, and where it is used. Under that, the
+  description, which is the only prose and the only thing that may take two
+  lines. Anything new joins one of those three or it does not go on the row.
+- **Four verbs, without opening anything**: open it in the reader (the row's
+  one filled control), save a copy of the original, rename, delete. The last
+  three live in the kebab, which is where every other list in this app puts
+  them. "Save a copy" is the one a file list must have and this one did not:
+  nothing in the Library could get a file back out of the notebook.
+- **A fact is not a control and a control is not a chip.** The reading badge
+  states; the "Used in" chips open the note they name; the kebab acts. A row
+  that draws all three the same way is the report this decision answers.
+
+### Decided, 2026-09-12 — what the bottom of a picture card is (do not remake)
+
+From INBOX 115 ("the bottom of the image cards in the library images
+subsaection needs a desperate redesign and funection") and INBOX 118 after the
+first pass ("still poorly designed and look unprofessional"). The Files row
+decision above settles a row; this settles the card, which is a different
+shape and was being restacked every pass.
+
+- **The card is a picture and one paragraph about it.** Its name is on the
+  photograph, its description under it, clamped to two lines, and nothing else
+  is a permanent row. A card with nothing in it is short.
+- **A fact is a line of text, a disclosure is a control, and neither is the
+  other.** Where the picture is used is a count you read (`Used in 2 places`,
+  the smallest type on the card, no ground, nothing to press). Whether text
+  was found in it is a fold, present only when something is folded. One
+  control holding both is what INBOX 118 called unprofessional.
+- **Everything you can do to a picture is a row of the card's kebab**, not a
+  control on it: open full size, copy the markdown reference, write a
+  description, type the text in it, rename, save a copy, the two AI readers,
+  and one row per place it is used. Two to three controls on a card at rest,
+  against nine to ten before this work.
+- **The grid wants equal heights, and the photograph pays for them.** The tile
+  is a column, the frame is the one child that grows, with a 9rem floor and a
+  16rem ceiling. Measured on six seeded cards at 1440: 261.5px each, bottoms
+  within 0.1px, pictures 144 to 249.9px, and 1.0px of slack under the
+  emptiest card against 54.5px before. The cost, and it is the accepted one:
+  the six descriptions start at six different heights, because the only other
+  places to put the difference are a hole under the short cards (what the
+  owner reported) or reserved empty rows (what the owner reported first).
+- **Provenance is inside the fold**, with the reading it describes. "Described
+  by X, read by Y" has been called noise twice (INBOX 56 and the second design
+  batch) and is not coming back to the outside of the card.
+
+Built in `75a1d62`, `65cf876` and `4dd3f57`; probed by `scratchpad/ui-sweeps/imagecardfoot.js`
+(shape and, with `pixelcontrast.py`, contrast from the rendered pixels) and
+`imagecardmenu.js` (the menu rows, run rather than assumed).
+
+**Reported a third time, 2026-09-13, and the decision above is not what was
+wrong.** "redesign the bottom text area of the image cards in the library
+images subtab again ... the block reads as four unrelated rows of different
+weights, and the cards are uneven in height because some have the disclosure
+and some do not." Measured before touching anything: the cards were already
+equal (261.5px, bottoms within 0.1px), so what reads as uneven is what is
+*inside* them, and it was three rows under the picture at three adjacent type
+sizes (13.6 / 12 / 11.2px) with a foot running 9.6px to 115.5px across one row.
+Three amendments, none of which reopens a bullet above:
+
+- **The count and the fold share one line of facts**, which is the Files rows'
+  own `.library-file-meta` shape rather than a new one. They are still two
+  objects, one you read and one you press, which is what "a fact is a line of
+  text, a disclosure is a control" asks for; they simply no longer take a row
+  each. The fold's label on a card is "Text" (the full phrase is its tooltip
+  and the heading inside it) because "Used in 2 places" plus a 128.8px chip
+  does not fit the 161px a tile has, and a wrapped facts line puts the
+  unevenness straight back.
+- **The description holds its second line open** (`min-height: 2lh` while
+  clamped, picture cards only). A one-line caption left the card 21.8px
+  shorter inside than its neighbour, and the grid pays that out as a taller
+  photograph, which is the unevenness the report names.
+- **A two-row subgrid was built, measured, and taken out**, and this is the
+  bullet above being confirmed rather than remade: it does equalise every
+  picture (144px) and every foot (118.5px), and it puts the difference back
+  as a hole, 75px under the shortest card. The three places to put that
+  difference are still a bigger picture, a hole, or unequal cards, and the
+  first is still the least bad.
+
+Measured after, at 1440 on the same six seeded cards, in both themes: every
+card with a caption and a fact is 240.7px with a 144px picture and a 95.7px
+foot, the facts line is 32px whether it carries a chip or a word, the tail
+under the last line is 0px, an opened fold takes the card's full width (159px
+of 180px, no overflow) and the row grows with it, and contrast is 7.48 / 7.53 /
+6.56 in light and 6.47 / 6.44 / 5.06 in dark.
+
+## Phase 8 — control docks: one grammar for every tab's head (2 sessions)
+
+**The instruction, verbatim** (after Phases 0–7 were built):
+
+> I would like you to go through the tabs and subtabs and features and
+> redesign the controls and elements often in the top docks or bottom docks
+> professionally. A lot of them just feel like buttons and elements chucked
+> at the top of the main panels. […] So many of the main control elements at
+> the top of each tab or subtab feel soo fake and rudimentary, not
+> professional, they aren't aligned, they just feel like features there and
+> note intentionally designed. Use all your ui and ux skills, features need
+> to be properly grouped, use drop downs if you see fit but don't over use
+> them, think spacing, alignment, hierarchy, learnability (A MUST! ALL
+> ELEMENTS AND CONTTOLS OF THE SAME TYPE AND FUNCTION NEED TO BE, ACT, AND
+> PLACED THE SAME APP-WIDE), accessibility.
+
+**Measured at 1440 before this phase** (`scratchpad/…/docks.js`, one row
+per dock: controls, distinct control heights, kinds):
+
+| Dock | Controls | Heights | What the eye reads |
+| --- | --- | --- | --- |
+| Graph toolbar | 28 | 1 / 24 / 25 / 32 | two segments, a select, five buttons, a filled "New note" *and* "Concept maps" in the head row, a count and a legend below — every feature the tab has, in a row |
+| Library head + toolbar | 2 + 16 | 18 / 30 / 36 | two switches, a segmented sort **and** a sort select saying the same thing, a view segment, a filter select, then eleven chips |
+| Notes toolbar | 14 | 32 / 36 | title, refresh, Select, view segment, search, Semantic, help, sort, page size |
+| Whiteboard top bar | 17 | 32 / 36 | back, board select, rename, add, layout select, then search, minimap, five menus, Library, fullscreen |
+| Documents header + strip | 9 + 26 | 28 / 32 / 36 | see DOCUMENTS_PLAN.md §3.2 |
+| Timeline toolbar | 9 | 24 / 32 | View, a select, Today, Options, Highlight, a filter, a count, help |
+| Reminders | 1 + 8 + 4 | 28 / 44 | a magic row, eight presets, four due buttons — three rows of ghost buttons |
+| Chat | 1 + 6 | 28 / 36 | a filled New, then a toolbar of six at a different height |
+
+Seven docks, seven layouts. Phases 1–5 fixed the *recipes* (heights,
+radii, gaps); what they did not fix is the **grammar** — what goes where,
+in what order, in what kind of control — and that is what "chucked at the
+top" means.
+
+### The dock grammar (the rule the whole phase enforces)
+
+One dock, three zones, read left to right, the same on every tab and every
+sub-tab:
+
+```
+[ Title · context ]  [ Search ]  [ Filter ▾ ] [ Sort ▾ ] [ View ⋮⋮ ]   ·   [ Primary ] [ ⋯ ]
+   identity            find        narrow       order      how          ·     act      more
+```
+
+1. **Identity first**: the title (or breadcrumb) and, when the surface has
+   one, its context chip (the board's name, the space, a count). Never a
+   control.
+2. **Find, narrow, order, view — in that order, always.** Search is the
+   first control after the title on every list surface. Filters are one
+   `Filter ▾` popover (the Notes sheet from Phase 5 is the model) or a chip
+   row *below* the dock, never both. Sort is one select, never a segment
+   and a select. View is one segmented control with icons (rows / cards /
+   grid), never text.
+3. **One primary action, at the right, filled.** `New note`, `New
+   document`, `New board`, `Send`. A second filled button in a dock is a
+   defect. Everything else is ghost or icon-only.
+4. **Utilities at the far right, in a fixed order**: refresh, help, ⋯.
+   Refresh is always the same icon in the same place; help is always last.
+5. **Seven visible controls per row, then overflow.** An eighth goes into
+   `⋯` or a named popover (`Options ▾`, `Insert ▾`). Menus are for verbs
+   that are used sometimes; a verb used every minute stays in the row.
+6. **One height, one baseline, two gaps.** `--control-h-lg` for every
+   control in a dock, `--space-3` inside a group, `--space-4` between
+   groups (Phase 2's numbers), the group boundary drawn by gap alone —
+   never by a rule or a border.
+7. **The same control does the same thing everywhere.** A segmented
+   control changes *view*; a select changes *sort or filter*; a switch is a
+   *setting* and lives in a popover or in Settings, not in a dock; a chip
+   is a *filter you can see*. A control that breaks this on one tab is
+   moved, not styled.
+8. **Accessible by construction**: every dock is `role="toolbar"` with
+   roving tabindex (arrow keys move between controls), every icon-only
+   control has `aria-label` and a tooltip, every popover is
+   `aria-expanded`/`aria-controls`, focus returns to the opener on close,
+   contrast ≥ 4.5:1 measured with `pngpixel.py`.
+
+### The work, surface by surface
+
+Each is one commit, before/after inventory in the message, driven in
+Chromium at 1440 / 1024 / 820 / 390.
+
+1. **The lint first.** `tests/test_dock_grammar.py`: statically, for every
+   element marked `data-dock`, at most one `.primary`/filled button, no
+   `input[type=checkbox]` outside a popover, no text-only segmented control,
+   and the utilities in order. `scratchpad/ui-sweeps/docks.js` becomes the
+   runtime sweep: controls per row, heights per row, zone order.
+2. **Graph** (worst first): title + count; search; `Layout ▾` and
+   `Colour ▾` as one `View ▾` popover holding both segments and the
+   options; saved views as one select with save/delete inside it; `Refresh`,
+   `Export` into `⋯`; one primary (`New note`); `Concept maps` becomes a
+   link in the identity zone. 28 → ≤ 9 visible.
+3. **Library** (All and every sub-tab, one recipe): title; search; `Filter
+   ▾` (semantic, include bin, kind); one sort select; one view segment;
+   `＋ Create`; refresh; help. The chip row stays *below* as the visible
+   filter. The duplicate segmented sort goes. Sub-tabs (Documents, Boards,
+   Images, Files, Links, Contents, Skills) take the identical zones with
+   their own words.
+4. **Notes**: the toolbar from Phase 5 already has search-first and a
+   filters sheet at ≤ 600; apply the sheet at every width as `Filter ▾`, one
+   sort select, the view segment, `Select` into `⋯`.
+5. **Whiteboard**: identity (back · board select · rename) left; search;
+   the five menus stay (they are verbs used sometimes) but at one height
+   and one gap; minimap, Library, fullscreen as utilities right; the map
+   controls (chip, layout, Tidy) as the context chip and a `Layout ▾`.
+6. **Documents**: DOCUMENTS_PLAN.md Phase 1 owns the editor's own chrome;
+   the *Documents list* dock follows item 3.
+7. **Timeline, Reminders, Chat, Dashboard**: Timeline onto the grammar
+   (View segment with icons, `Options ▾`, search, Today as the primary);
+   Reminders' three rows of ghost buttons become one row (the magic field)
+   plus one `Presets ▾` popover, with the due chips as the visible filter;
+   Chat's toolbar at the dock height with `New chat` as the one filled
+   control; the Dashboard hero's clock and greeting as identity, its two
+   quick actions as primary + ghost.
+8. **Settings sections** already have one form recipe (Phase 5.1); their
+   heads take the grammar's identity zone only.
+
+Acceptance: `docks.js` reports **one height per dock**, zone order correct
+on every tab and sub-tab, ≤ 7 visible controls per row, exactly one filled
+control per dock; `test_dock_grammar.py` green; `errors.js` 0 findings at
+all four widths; a keyboard-only pass (Tab into each dock, arrows across
+it, Enter opens a popover, Escape closes it and returns focus) scripted in
+`scratchpad/ui-sweeps/keys.js`.
+
+### The two bars that are not docks (added by direct instruction)
+
+- **The top bar** (`#top-bar`: logo, space switcher, notifications, theme,
+  settings, lock, quit) and **the tab bar**: one height, one gap, utilities
+  in the same order as every dock's, the space switcher as a select-shaped
+  control rather than a button that looks like a tab. Phone: the tab bar
+  moves to the bottom (Phase 9).
+- **The whiteboard top bar** (`#wb-topbar`): a menu bar is its own valid
+  pattern (Insert · Edit · Arrange · View · Board) but it follows the
+  dock's zones — identity (Boards ‹, board select, rename, new; the Map
+  chip, layout, Tidy), find (search, navigator), the menus, actions
+  (Library, fullscreen) — one height, and its menus on the `.dock-menu`
+  recipe so they close on pick, outside click and Escape like every other
+  menu. The floating tool palette and the properties panel take the
+  popover shell. Nothing on the board may feel like a different app.
+### Built, second sitting
+
+Moved to HISTORY.md ("Moved from the plans, 2026-09-09", UI_MODERNISATION_PLAN.md) on 2026-09-09: a plan holds open work only.
+
+## Phase 9 — responsive by device, on purpose (1 session)
+
+**The instruction, verbatim:** "Also intentional and adjusted design that
+alters specifically for smaller resolutions like for iPad, tablet, iPhone
+etc."
+
+Phase 5's phone work was reactive — each 390px finding fixed where it was
+found. This phase makes the breakpoints a design, stated once:
+
+| Width | Device | What changes, app-wide |
+| --- | --- | --- |
+| ≥ 1100 | desktop, iPad landscape with a sidebar | the layout above; sidebars open |
+| 820–1100 | iPad landscape, small laptop | sidebars collapse to icons; docks keep seven controls; whiteboard properties panel becomes a sheet |
+| 600–820 | iPad portrait | one column; sidebars are sheets from the left; docks keep identity + search + `Filter ▾` + primary, the rest in `⋯`; two-up card grids |
+| < 600 | iPhone | the phone rules from Phase 5, applied to every tab: strips scroll, one control row, the primary action pinned bottom-right as a floating button, bottom docks (chat composer, the documents formatting bar) above the on-screen keyboard |
+
+Rules: touch targets 44 × 44 CSS px at < 820 (`--target-min` steps up in
+the 820 media block, not per component); `env(safe-area-inset-*)` on the
+top bar, the status bar and every bottom dock; `hover:` styles gated behind
+`@media (hover: hover)`; the tab bar becomes a bottom tab bar at < 600
+(thumb reach), with the top bar keeping identity and utilities only;
+`prefers-reduced-motion` honoured in the same block.
+
+Acceptance: `errors.js` at **390, 820, 1024 and 1440**, 0 findings on
+every tab and sub-tab; `all.sh` gains `WIDTH=820`; a `touch.js` sweep
+(Playwright `hasTouch`, `isMobile`) taps every dock control on Notes,
+Library and Chat at 390 and asserts each hit target ≥ 44px and that no tap
+lands on two controls; screenshots at all four widths in the shots set.
+
+## Built — Phase 9
+
+Moved to HISTORY.md ("Moved from the plans, 2026-09-09", UI_MODERNISATION_PLAN.md) on 2026-09-09: a plan holds open work only.
+
 ## Not in this plan
 
 New features. The plan is subtraction and alignment; the feature backlog
 (BACKLOG.md) waits until the shell is quiet.
+
+## Phase 10 — the Liquid Glass adoptions (½ session)
+
+DESIGN.md's "Taken from Liquid Glass and the HIG" rules 2, 3, 4, 8, 10 and
+12, as the placed items below (INBOX 100 to 104). Rules 2, 3 and 12 are
+built (100, 101, 103; moved to HISTORY.md, "Moved from the plans,
+2026-09-09"). Rule 4's `.glass-clear` and `--text-on-glass` (102) are open
+and carry a measurement that changes the question, below. Rule 10's
+receding tab bar (104) is phone work and moves to Phase 11 with the rest of
+it. Deliberately not taken: refraction and lensing (measured too costly),
+title-case headers.
+
+## Phase 11 — the phone, done properly (1 to 2 sessions, next session or later)
+
+The owner, 2026-09-09: "the mobile view still needs quite a lot of work but
+that isn't for this PR, scope and plan it for later sessions." Phase 9's
+under-600 rules are moved here whole; this PR ships desktop and tablet.
+
+**Decisions (made here).** The phone is a design of its own, not the
+desktop squeezed: one column, one thing at a time, the primary action
+within thumb reach, every panel a sheet, every list a full-width row.
+Standalone (installed) mode and the browser tab get the same layout;
+`env(safe-area-inset-*)` on every fixed edge. Nothing is hidden that the
+desktop has; it is reached through a sheet or a ⋯ menu instead.
+
+1. **Navigation.** The five-item bar and its More sheet are built (2026-09-13;
+   the block, with its numbers, is in HISTORY.md, "Moved from the plans,
+   2026-09-13"). What is left of item 1, in order:
+
+   - **The recede to icons on scroll down and back on scroll up (INBOX 104):
+     built** (2026-09-13); the block, with its numbers, is in HISTORY.md
+     ("Moved from the plans, 2026-09-13").
+   - **The top bar's own reduction**: the title, the AI dot and one action. It
+     is two rows at some widths and has never been measured at 320 with the
+     wordmark, the space switcher and the two control clusters in it.
+
+2. **Notes.** Capture as a full-height sheet from the floating + button;
+   the list as full-width rows with swipe actions (pin, bin) matched to
+   the row's menu (the HIG rule); filters in a sheet; the note view as a
+   page with a back button, its actions in a bottom bar.
+3. **Chat.** The composer above the keyboard with the attachments and
+   mode in one row; sources as a sheet; the sidebar as a sheet from the
+   left edge; the popup agent unavailable on the phone (the chat is the
+   agent).
+4. **Graph.** Pan and pinch, tap to select, long-press for the node
+   menu (no right click), lasso by long-press then drag, the docks as one
+   bottom sheet with the colour rule, groups and views; the node panel as
+   a sheet.
+5. **Library and Files.** Two-up cards, the reader full-screen with a
+   bottom bar; upload from the share sheet.
+6. **Documents.** Read view by default, Edit as a full-screen sheet with
+   the selection toolbar only (no strip), the outline as a sheet.
+7. **Whiteboard and maps.** View and light edit only on a phone (pan,
+   zoom, select, move, edit text); creation tools in a sheet; the mind
+   map's + handles are touch-sized.
+8. **Settings, dashboard, timeline, reminders.** Settings as a page list
+   (sections as rows) with a back button; dashboard widgets one column;
+   timeline as the table view; reminders as rows with swipe done.
+9. **Touch.** The 44px half is built (2026-09-13, the block is in HISTORY.md,
+   "Moved from the plans, 2026-09-13"): `scratchpad/ui-sweeps/phone.js` walks
+   every tab whole rather than dock by dock and reports 0 findings at 390x844
+   and 430x932. Still open: no hover-only affordance (every hover state has a
+   tap equivalent), and long-press replacing right-click app-wide.
+10. **The status bar at 320: taken, the first way.** Measured 2026-09-12,
+    after the header was made to fit: at 320 x 844 the page still scrolled
+    sideways, 355 in 320, and the bar was the cause (its six surviving items
+    need 355px: the AI dot 28, reminders 18, the nav group 147, undo 44, redo
+    44, the agent dot 18, plus gaps). The bar is deliberately `nowrap`, since
+    a wrapped status bar changes the height of the window's furniture as its
+    own text changes, so of the two options here it took the scroller: below
+    400 the bar scrolls with the `edge-fade` recipe every other overflowing
+    strip uses, and nothing is hidden. Measured after: the page is 320 in 320
+    and 360 in 360, and every width from 320 to 1024 is clean. The second
+    option, one action and a sheet, is still the right end state and is this
+    phase's own item 1.
+
+**What is actually open here, measured (2026-09-13, at 360, 390 and 820).**
+Before building any of the ten items above, the running app was measured, because
+two of them turned out to be mostly done and one of them turned out to be a
+different problem than the list says.
+
+- **The bottom tab bar exists and is five columns** (`#phone-tab-dock`,
+  10-responsive.css; `dockTabBar`, app.js). Measured at 390, 360 and 320: five
+  columns, every caption whole, one row, flush to the bottom edge, no sideways
+  scroll. The block is in HISTORY.md.
+- **Touch is clean across the band.** `touch.js` with `hasTouch` and
+  `isMobile`: 17 surfaces, 0 findings at 390, 360 and 320. The last of them was
+  the settings sheet's head being squashed to 36px around a 44px control row
+  (fixed 2026-09-13, 10-responsive.css); the same squash is there at every
+  width and is invisible above 360 because the head does not wrap, so the
+  general fix is open work for whoever owns that surface.
+- **The sheets: one recipe, two in place, and the boundary between them is now
+  written down** (2026-09-13). `openSheet` builds a *modal bottom* sheet out of
+  nothing; the two that predate it are *in-place* sheets, elements already on
+  the page that become one inside a band. They are not being moved onto
+  `openSheet`, and that is a decision rather than a postponement: each would
+  lose the thing it was built for (the sidebar keeps a rail on screen carrying
+  its own opener, which is the way back; the graph's is deliberately not modal,
+  so the map it came from stays visible as the sheet's origin), and it would
+  mean moving a live subtree in and out of a dialog on every open. What they do
+  share, from this session, is the dismissal: `wireInPlaceSheetDismissal` in
+  app.js gives both a captured Escape, a press outside and focus back on the
+  opener. DESIGN.md's "A sheet" row carries the boundary;
+  `tests/test_ui_recipes.py` holds the ratchet at two and the shared dismissal.
+  Measured with `scratchpad/ui-sweeps/sheetdismiss.js` at 390: the sidebar
+  sheet opens from its rail, a captured Escape closes it past a handler on
+  `document.body` that stops Escape (the bubbling one it had never saw that
+  event at all), a press outside closes it, and focus lands back on the toggle
+  with `aria-expanded="false"`; the More sheet the same.
+- **A finding at 820, which is not a phone at all: fixed** (2026-09-13). The
+  header was 112px there, two rows, on a band whose own rule says "the tabs are
+  icons, and the header is one row", and the buttons were 36px tall. The block,
+  with its arithmetic, is in HISTORY.md ("Moved from the plans, 2026-09-13").
+
+11. **Gates.** `scratchpad/ui-sweeps/phone.js` exists (2026-09-13) and holds
+    four of them per tab at 390x844 and 430x932: no horizontal scroll (page and
+    inside every surface), no control under 44px, one column, and the primary
+    action's y reported. Two of the list are not in it, for reasons worth
+    keeping: **the primary action's position is reported and not failed**,
+    because four of the seven tabs have no filled action at all (the graph's is
+    a menu row) and inventing one is a design decision a sweep does not get to
+    make; and **the composer above a simulated keyboard cannot be measured
+    here**, because the sandbox has no soft keyboard and Playwright does not
+    fake one, so `visualViewport` never shrinks. Two taps to anything is in
+    `phonetabs.js` and `phonemore.js` already. Still open: errors.js and
+    contrast.js at 390 (this session runs them at the end), and the screenshot
+    set for the owner.
+
+## Placed from INBOX, 2026-09-09
+
+The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
+
+Built and moved to HISTORY.md ("Moved from the plans, 2026-09-09"): 100 the
+scroll edge effect, 101 the concentric corner token and its lint, 103 the
+menus that open out of their opener.
+
+102. **Clear glass with a scrim, and text on glass**: `.glass-clear` (blur
+    only, `--card` at 30%) for the whiteboard's floating panels and the
+    graph's docks over the art, paired with `--glass-scrim` (35% ink) when
+    the surface is light; `--text-on-glass` one contrast step above
+    `--text` on every blurred surface. Owner: Opus. Size S.
+
+    **Measured before building it, and the numbers move the decision**
+    (2026-09-09, 1440x900, the running app):
+
+    - `--text-on-glass` has no deficit to close. The menu row on the Notes
+      kebab and on the dock's Filter menu is **15.25:1** in light and
+      **14.14:1** in dark (`scratchpad/ui-sweeps/onglass.js`), because those
+      surfaces are `--modal-bg` at 96% rather than thin glass, and
+      contrast.js reports **0** low-contrast items on every tab and ten
+      Settings sections in *both* themes. A token that raises 15:1 to 16:1
+      is a token nothing needs.
+    - `.glass-clear` on `.whiteboard-floating-panel` would reverse a
+      recorded decision. That panel was deliberately moved *up* to
+      `--modal-bg`, with the reason written beside it in
+      06-timeline-dialogs.css: at the page-card tier it "read visibly
+      thinner than every sibling panel" over the board's own art.
+    - The one surface where the variant is honest is the graph's floating
+      zoom pill, which is `--card` plus `--glass-filter` over the animated
+      background, and it shares the floating-control recipe with
+      `.scroll-top`, so changing one changes both.
+
+    **Recommendation, to be taken unless the owner says otherwise**: keep
+    `.glass-clear` and `--glass-scrim` for a surface that actually floats
+    over media (a whiteboard image background, the lightbox), build it with
+    that surface rather than ahead of it, and drop `--text-on-glass` until a
+    measurement asks for it. Rule 4 in DESIGN.md stays as the principle.
+
+104. **The phone tab bar recedes on scroll** (icons only on scroll down,
+    full on scroll up), never hidden. Built (2026-09-13); the block is in
+    HISTORY.md ("Moved from the plans, 2026-09-13").
+
+94. **Background animations: fix, refine and improve.** Owner: UI Phase 3
+    follow-up (Opus): each style gets a measured frame cost, a still frame
+    under Performance mode, no seams at the edges, the intensity slider
+    changes something visible at every step.
+
+    Three of the four are done and are in HISTORY.md ("Moved from the plans,
+    2026-09-09"): the frame cost per style is measured and printed by
+    `scratchpad/ui-sweeps/bgart.js` (aurora +21ms, constellation +20ms,
+    waves +17ms, bubbles +17ms, mesh +28ms with a 167ms worst frame, over a
+    16.6ms idle baseline, headless and therefore software-rasterised);
+    Performance mode now stops the art dead, which it did not before because
+    `bg-motion: moving` bypassed the only test it reached the art through;
+    and there are no seams (the canvas is resized with the window and covers
+    it exactly at 1440x900, 900x1200 and 1600x800). Two of the five styles
+    also ignored the intensity slider's density and now scale with it.
+
+    **What is left is the fourth**: does the slider change something a
+    person notices at *every* step? Two ways of measuring it failed and both
+    are written into the sweep so they are not repeated: ink on the canvas
+    varies more between two boots of the same settings than it does across
+    the slider (every style places its marks with `p.random`), and the frame
+    cost at the two ends moves by less than the environment's noise. The
+    honest next step is a human looking at five screenshots, or a change of
+    design so the slider drives something with a large signature (the wash's
+    own alpha, say) rather than the population alone.
+60. **Dashboard "Jump to / Run a skill / stat tiles" section**: built, moved
+    to HISTORY.md ("Moved from the plans, 2026-09-09"). The band fills its own
+    width, carries a Continue pill and a fortnight sparkline, and every skill
+    pill says when it last ran.
+
+## Placed from INBOX, 2026-09-09 (the owner's evening batch)
+
+Global, cross-surface. Phase 9 (responsive) and Phase 10 (Liquid Glass)
+own most of these.
+
+Five of these are built and are in HISTORY.md ("Moved from the plans,
+2026-09-09"): the quick-nav chord's guide and its three new second keys, the
+dashboard's back-to-top threshold, the heatmap's size, and the dark palette's
+glass. What is left is below.
+
+- "ctrl s for saving settings changes while on the settings modal doesnt
+  work and it needs visual confirmation as well."
+- "there are also still wrapping issues in the packages tab with the
+  buttons, titles, and badges" (screenshot: the Tesseract row's title, its
+  Installed badge, and Reinstall / Remove on three lines).
+- "the panels and sidebars in windows actually go quite far down below
+  where the scroll should stop, and the ai skill sidebar isnt 100%
+  height."
+- "the containers of all the ui in each tab page have hard corner
+  rectangular edges so I want that fixed because the shadows make the cut
+  off pretty obvious."
+- "the links edit save and cancel buttons arent consistent" (screenshot: an
+  accent pill beside a grey rounded rectangle at a different radius and
+  height).
+- "the words 'write something first' is at the bottom of the note capture
+  tab when I didnt do anything?? maybe I fumbled a button": a validation
+  message shown on load rather than on submit.
+- "I was in the ocr workspace and the model dropdown combobox at the top
+  bar didnt open."
+- "I think the screen shots on the readme need an update from all the ui
+  changes."
+
+## Placed from INBOX, 2026-09-13
+
+186. **The timeline dock's kind buttons.** Built (2026-09-13); the block, with
+    its numbers, is in HISTORY.md ("Moved from the plans, 2026-09-13"). One
+    decision made here and not to be remade: a fixed filter set is a `.seg`
+    well and not a row of chips, because a chip is a filter you can take off
+    and these four are always all four. The variant is `.seg-multi` in
+    DESIGN.md's recipe index, with `tests/test_ui_recipes.py` holding it.
+
+
+165. **Mid-work drop, 2026-09-13, verbatim (the owner), the Library's selection
+    bar, one screenshot ("1 selected" with Open, Delete, Done).** "I want the
+    selected bars to be sticky to the top of the screen when scrolling".
+
+    **Built** (2026-09-13). One recipe for all seven bars, `.library-contextbar`
+    plus the new `.selectbar`, in DESIGN.md's recipe index with
+    `tests/test_ui_recipes.py` holding it: sticky at `--selectbar-top`, the
+    accent tint stacked over `--modal-bg-opaque` so the list cannot show
+    through it, and the Notes and timeline bars moved off their own hand-built
+    paint onto the shared strip. `--selectbar-top` is zero for every bar whose
+    scroller starts below its sub-tab strip, and `var(--notes-sticky-top)` on
+    `#tab-notes`, which is the trap commit 27167e3 records. The Library's own
+    "All" bar moved out of the controls card to be a child of the scrolling
+    section: sticky only travels as far as its own parent, and that card ends
+    above the grid. Measured with `scratchpad/ui-sweeps/selstick.js` in both
+    themes: before, the Notes bar at y=-465 with 677px of list scrolled; after,
+    four bars parked at their scroller's top edge (offset 0, and 56 under the
+    Notes strip) through 7,136px, 1,552px, 5,025px and 2,701px of scroll, and
+    the timeline's bar sticky over a table that pages rather than scrolls. 0
+    console errors, contrast.js 31 surfaces ok.
+
+    Found, not fixed: `selectMode` in app.js is one flag shared by the Notes
+    list and the timeline table, so leaving Notes in select mode turns the
+    timeline's own Select off on the first press. The sweep works round it and
+    records why.
+164. **Mid-work drop, 2026-09-13, verbatim (the owner), three surfaces, one
+    screenshot of a board card's preview (a wash of rounded blobs and one
+    squiggle over "3 cards, 8 sketches, 1 item").** "board previews need
+    upgrading and fixing, the graph minimap needs an upgrade, and the image
+    cards in the library images subtab need a massive improvement in ui and
+    ux." The fourth report on the picture cards; the third (145) was fixed the
+    same day, so this one is about what is left after it.
+
+    **Board previews: built** (2026-09-13). Three faults, each measured with
+    `scratchpad/ui-sweeps/boardpreview.js`, which seeds the owner's own board (3
+    cards, 8 sketches, 1 item) and exits non-zero on any of them.
+
+    - *The one squiggle.* A sketch is stored with `x = 0, y = 0` and its path in
+      absolute board coordinates, so the preview drew all eight at the board's
+      origin at one default size: 8 marks at 1 position, 1 size. The server
+      reads the stroke's own box now (`_sketch_preview`, the server's copy of
+      the canvas's `wbPathBBox`, and the reason it is a copy is written there)
+      and also sends the tool and the ink, so `mapPreviewSketch` draws a
+      rectangle as a rectangle, a circle as a circle, a line corner to corner
+      and a pen stroke as a scribble filling its box. After: 8 marks, 8
+      positions, 7 sizes, and 3 inks on the card where there was 1.
+    - *The blobs.* A block's corner was 0.35 of its own short side, measured at
+      8.66px on a 24.7px block, which is 35%: not a rounded rectangle and
+      nothing like the canvas's own 7%. Capped in the preview's nominal units as
+      well as by the fraction, so it is one corner at both sizes the preview
+      draws at. After: 2.35px, 8%.
+    - *The titles.* Three cards titled "Retry budget", "Ingest pipeline" and
+      "Open questions" drew "Retr…", "Inge…" and "Open…", because a label went
+      *inside* its block whenever five characters fitted. Inside is now for a
+      label that nearly all fits, which is the map topic it was built for; a
+      note's title goes beside its block, where the budget is 16 and it arrives
+      whole.
+
+    Also: a picture on the board takes the picture glyph and `--muted` rather
+    than a third shade of the same accent (it is the one item with no words of
+    its own, and the server deliberately sends no label for it). Regression
+    checks: `preview.js` on four cards (a map keeps its 6 labels, 2 inside, and
+    its 5 edges; contrast 4.77:1), `boardsthumb.js` unchanged at 72x40 with a
+    fill ratio of 0.852, `errors.js` 0 errors and 0 layout findings.
+
+    **The graph minimap: built** (2026-09-13), measured with
+    `scratchpad/ui-sweeps/graphminimap.js`, which seeds a hub-and-spokes notebook
+    and asks five questions of the panel.
+
+    Before, on a 192-note map with 39 links: 192 dots, **0 edges**, 0 marks for
+    the note in hand. The viewport rectangle and drag-to-pan were already right
+    (the frame moved 8.8px on a 260px pan; a drag across the panel moved the
+    canvas centre 23.6px) and are untouched. What was missing is the half that
+    makes an overview an overview: a scatter of points says where the notes are
+    and nothing about what is joined to what. The links are drawn under the dots
+    now, deduped (the adjacency map holds both directions) and built once per
+    render rather than once per paint, because a cooling layout paints every
+    eighth tick; the list is strided to a cap of 600 lines, evenly, for the same
+    reason the dots already are. And the note that is selected, or the one the
+    keyboard is on, takes a ring in `--ink`: the two pieces of state that already
+    mean "the one in hand", read rather than duplicated. After: 39 edges, 1 ring,
+    in both themes, 0 console errors.
+
+    Not verified: the drag-fps gate in `graph.js` reports 43.9 fps against its
+    own 55, with the renderer drawing in 5.30ms of a 16ms budget. That is the
+    sandbox limit HISTORY.md records under "What the gate does not meet, and why"
+    (7.9 fps with the layout hot, 59.2 with the worker stopped and nothing else
+    changed), not a cost of this change, but it was not measured against the base
+    branch this session.
+
+    **The picture cards, fourth report: the part that was broken is built**
+    (2026-09-13), measured with `scratchpad/ui-sweeps/imagecard4.js`, which asks
+    about use rather than paint (`imagecard3.js` still owns the geometry).
+
+    The fault: **the card's own action was pointer-only.** Opening the picture is
+    the whole point of a gallery, and it was a click handler on an `<img>` and
+    another on the filename. Measured on a resting card, the controls a keyboard
+    could reach were the selection tick and the Rename button: so a keyboard
+    could select a picture and rename it but could not open one, and a screen
+    reader was read the file's `alt` with nothing to say it did anything. The
+    thumbnail is now the control it already behaved like (`role="button"`,
+    `tabindex="0"`, "Open <name>", Enter and Space), with the ring drawn *inside*
+    the frame because the frame clips and an outside ring is clipped away
+    entirely. After: Tab reaches it, Enter opens the lightbox, the ring is 2px
+    solid accent at -4px, 0 console errors. The cursor was already `zoom-in`, so
+    the card was telling a pointer the truth and a keyboard nothing.
+
+    **Measured and deliberately not changed: the hole a row-mate's open fold
+    leaves.** At rest the row is right: seven cards all 240.7px tall with 1px
+    under the last line, and the picture taking the slack (229.1px on a card with
+    no caption against 144px on one with a caption and a reading). Open one card's
+    fold and the row goes to 411.1px: every picture grows to its 16rem ceiling and
+    the leftover becomes a hole of 59 to 145px under the other six cards' last
+    lines. That ceiling is the recorded decision (a 583px picture in a 176px
+    column was the alternative, and a two-row subgrid was built, measured and
+    taken back out because it put the same hole back at *rest*), so this is the
+    trade-off working as written rather than an oversight. The three ways out, for
+    whoever takes it next: a shorter fold body (11rem keeps about six lines and
+    was chosen for that), a taller picture ceiling (the poster), or a caption
+    clamp that grows into the slack (not expressible in CSS today).
+
+    Also fixed here: `imagecard3.js`'s open-to-shut ratio was taken across the
+    whole gallery, so on 182 cards it compared two different rows and reported
+    2.63 against its own limit of 2. The report it gates is about cards "side by
+    side", which is one grid row: row-scoped it reads 1.71, the figure commit
+    e5a0a19 recorded.
+

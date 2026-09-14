@@ -1,11 +1,11 @@
 """Find and merge near-duplicate notes.
 
-Finding them needs no AI — it's word overlap on normalised text, so it works
+Finding them needs no AI, it's word overlap on normalised text, so it works
 with nothing running and the score is explainable rather than a black box.
 
 Merging is where judgement helps, so it comes two ways. With the AI running it
 can write one note that keeps everything the originals said. Without it, the
-notes are joined with a separator, which is worse prose but loses nothing —
+notes are joined with a separator, which is worse prose but loses nothing, 
 and losing nothing is the only property that actually matters here.
 """
 
@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -64,20 +64,40 @@ def _joined(entries: list[Entry]) -> str:
     return "\n\n---\n\n".join(e.content.strip() for e in entries)
 
 
+#: How many duplicate groups one response carries. A group is several whole
+#: notes, so this list is heavier per row than any other in the app, and the
+#: screen it feeds is one somebody works through a group at a time.
+#: Default equal to the maximum, same reason as the two above: the one caller
+#: (`app.js` 36995) reads `{threshold, groups, total}` whole.
+DUPLICATE_PAGE_SIZE = 500
+DUPLICATE_PAGE_SIZE_MAX = 500
+
+
 @router.get("")
 def list_duplicates(
     threshold: float = duplicates.DEFAULT_THRESHOLD,
+    limit: int = Query(default=DUPLICATE_PAGE_SIZE, ge=1, le=DUPLICATE_PAGE_SIZE_MAX),
+    offset: int = Query(default=0, ge=0),
     session: Session = Depends(get_session),
 ) -> dict:
-    """Groups of notes that look like the same note."""
+    """A page of the groups of notes that look like the same note.
+
+    `total` is every group the scan found, not the page: the number the screen
+    opens with ("11 possible duplicates") has to be the real one, or the first
+    thing this feature says is wrong.
+    """
     threshold = min(max(threshold, 0.4), 1.0)
     groups = duplicates.find_duplicates(session, threshold)
-    return {"threshold": threshold, "groups": groups}
+    return {
+        "threshold": threshold,
+        "groups": groups[offset : offset + limit],
+        "total": len(groups),
+    }
 
 
 @router.post("/preview")
 def preview_merge(body: PreviewBody, session: Session = Depends(get_session)) -> dict:
-    """What the merged note would say — shown before anything is changed."""
+    """What the merged note would say, shown before anything is changed."""
     entries = _load(session, body.ids)
     fallback = _joined(entries)
     ollama = deps.get_ollama()
@@ -100,7 +120,7 @@ def merge_notes(body: MergeBody, session: Session = Depends(get_session)) -> dic
 
     The originals go to the recycle bin rather than being destroyed. A merge is
     the one operation here that can silently lose writing, so it has to be
-    undoable — the bin is that undo.
+    undoable: the bin is that undo.
     """
     entries = _load(session, body.ids)
     preview = preview_merge(PreviewBody(ids=body.ids, use_ai=body.use_ai), session)

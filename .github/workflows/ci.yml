@@ -51,6 +51,16 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
+      # Nine tests shell out to `node --check` or to the markdown and export
+      # helpers in tests-e2e, and skip themselves when node is missing. On a
+      # developer machine that is right; here it meant they had never run at
+      # all, on any job, which is the shape of a test that cannot fail (audit
+      # A9). No npm install: `node --check` and the helpers need the runtime
+      # and nothing else, so this costs a few seconds per matrix leg.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -59,6 +69,49 @@ jobs:
 
       - name: Run the test suite
         run: python -m pytest
+
+  pdf:
+    # Fourteen tests need the PDF rasteriser (pypdfium2 plus Pillow), which is
+    # an optional extra nobody installs by default, so page images, page
+    # captions, the page OCR reads and the region crops were skipped on every
+    # run of the job above (audit A9: "tests that never run here"). One job,
+    # one Python version, the extra installed, and only the files that are
+    # gated on it: the point is that the code runs somewhere on every push,
+    # not that the whole suite runs twice.
+    name: Tests (PDF extra)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies and the PDF extra
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+          pip install pypdfium2 Pillow
+
+      - name: The rasteriser is really there
+        run: python -c "from memorymap.core import pdfpages; assert pdfpages.available()"
+
+      - name: Run the tests that need it
+        run: |
+          python -m pytest \
+            tests/test_pdfpages.py \
+            tests/test_docview.py \
+            tests/test_files_describe.py \
+            tests/test_media_api.py \
+            tests/test_ocr_model.py \
+            tests/test_ocr_page_read.py \
+            tests/test_ocr_page_reads_persist.py \
+            tests/test_ocr_pdf_regions.py \
+            tests/test_ocr_regions.py \
+            tests/test_page_captions.py
 
   e2e:
     # roadmap ANALYSIS.md §31 / ROADMAP.md §38.2: the job above fakes every

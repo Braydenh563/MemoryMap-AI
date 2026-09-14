@@ -1,0 +1,64 @@
+// Links for the README's graph shot: every note joins its category's ring,
+// eight hubs gather a dozen links each (so node size, which follows degree,
+// varies), and a handful of cross-category links tie the clusters together.
+// Through `POST /entries/{id}/links`, the same route the app uses.
+//
+//   BASE=http://127.0.0.1:8782 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
+//     node scratchpad/ui-sweeps/seed-graph-links.js
+const { boot } = require('./lib.js');
+(async () => {
+  const { browser, page } = await boot();
+  await page.evaluate((v) => { window.__SPARSE = v; }, !!process.env.SPARSE);
+  const out = await page.evaluate(async () => {
+    const list = await apiPagedList('/entries', 200);
+    const notes = list.filter((e) => e && e.id && !e.is_draft);
+    const byCat = {};
+    for (const n of notes) (byCat[n.category || 'Uncategorised'] ||= []).push(n);
+    const pairs = new Set();
+    const wanted = [];
+    const add = (a, b, reason) => {
+      if (!a || !b || a.id === b.id) return;
+      const key = a.id < b.id ? `${a.id}-${b.id}` : `${b.id}-${a.id}`;
+      if (pairs.has(key)) return;
+      pairs.add(key);
+      wanted.push([a.id, b.id, reason]);
+    };
+    let seed = 7;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const hubs = [];
+    //: SPARSE=1: the artistic version for the README (the owner: "not all
+    //: notes have to be linked, make it artistic"): each category is a
+    //: loose tree, one note in three stays unlinked, two hubs, six bridges.
+    const sparse = window.__SPARSE;
+    for (const [cat, group] of Object.entries(byCat)) {
+      if (sparse) {
+        for (let i = 1; i < group.length; i++) {
+          if (rnd() < 0.33) continue;
+          add(group[i], group[Math.floor(rnd() * i)], `Both filed under ${cat}`);
+        }
+        continue;
+      }
+      for (let i = 0; i < group.length; i++) add(group[i], group[(i + 1) % group.length], `Both filed under ${cat}`);
+      const hub = group[Math.floor(rnd() * group.length)];
+      hubs.push(hub);
+      for (const other of group.slice(0, 14)) add(hub, other, `${hub.title || 'This note'} is the one the others in ${cat} come back to`);
+    }
+    if (sparse) {
+      const big = Object.values(byCat).sort((a, b) => b.length - a.length).slice(0, 2);
+      for (const group of big) { const hub = group[0]; hubs.push(hub); for (const other of group.slice(1, 9)) add(hub, other, `${hub.title || 'This note'} is where the ${group[0].category || 'notes'} thread starts`); }
+    }
+    for (let i = 0; i < (sparse ? 6 : 40); i++) {
+      const a = notes[Math.floor(rnd() * notes.length)], b = notes[Math.floor(rnd() * notes.length)];
+      add(a, b, 'Mentions the same people and dates');
+    }
+    if (!sparse) for (let i = 0; i < hubs.length; i++) add(hubs[i], hubs[(i + 1) % hubs.length], 'Two threads that keep meeting');
+    let ok = 0, fail = 0;
+    for (const [sid, tid, reason] of wanted) {
+      const r = await api(`/entries/${sid}/links`, { method: 'POST', body: JSON.stringify({ target_id: tid, reason }) }).catch(() => null);
+      if (r && r.ok) ok++; else fail++;
+    }
+    return { notes: notes.length, cats: Object.keys(byCat).length, wanted: wanted.length, ok, fail };
+  });
+  console.log(JSON.stringify(out));
+  await browser.close();
+})().catch((e) => { console.error(e); process.exit(1); });

@@ -88,7 +88,7 @@ def test_bands_can_be_tags_instead(client):
 
 
 def test_bands_can_be_threads_a_root_and_its_continuations(client):
-    """§87.6 — "a note with children sprouts a branch," using the thread
+    """§87.6: "a note with children sprouts a branch," using the thread
     structure `Entry.parent_id` already stores rather than category or tag."""
     root = _save(client, "trip planning")
     _save(client, "booked flights", parent_id=root["id"])
@@ -97,7 +97,7 @@ def test_bands_can_be_threads_a_root_and_its_continuations(client):
 
     bands = {b["name"]: b["count"] for b in client.get("/timeline?group=thread").json()["bands"]}
     assert bands["trip planning"] == 3
-    # The lone note isn't a thread, so it doesn't get its own lane — it
+    # The lone note isn't a thread, so it doesn't get its own lane, it
     # folds into the shared band the same way a long tail of small
     # category/tag bands already does.
     from memorymap.api.routes_timeline import THREAD_BAND
@@ -106,7 +106,7 @@ def test_bands_can_be_threads_a_root_and_its_continuations(client):
 
 
 def test_a_thread_whose_root_is_outside_the_window_still_bands(client, session):
-    """A parent older than the visible range isn't fetched a second time —
+    """A parent older than the visible range isn't fetched a second time, 
     the child just becomes a root of its own, the same honest
     simplification the `days` filter already asks the rest of the view to
     accept, rather than a crash or a silently dropped note."""
@@ -179,7 +179,7 @@ def test_a_scale_or_grouping_it_does_not_know_is_refused(client):
 
 def test_a_truncated_preview_says_so(client):
     """A bare `[:120]` slice cuts a long note off mid-word with nothing on
-    screen to say there's more — reported as the grid view's cards missing
+    screen to say there's more: reported as the grid view's cards missing
     an ellipsis. A short note is untouched; a long one ends in one."""
     from memorymap.api.routes_timeline import PREVIEW_CHARS
 
@@ -192,3 +192,220 @@ def test_a_truncated_preview_says_so(client):
     assert previews[short["id"]] == "a short note well under the preview limit"
     assert previews[long_note["id"]].endswith("…")
     assert len(previews[long_note["id"]]) == PREVIEW_CHARS
+
+
+def test_a_row_carries_what_the_table_view_puts_in_its_columns(client):
+    """TIMELINE_PLAN decision 6: the table's columns are date, title, kind,
+    category, space, tags, words and links, and the view renders from the row
+    model and from nothing else. Three of those were not in the payload, so a
+    column could only ever have been blank or a second request per row.
+
+    The word count is words, not characters: `preview` has already thrown the
+    characters away, and it is the number a person thinks in.
+    """
+    first = _save(client, "the first note, which is six words long")
+    second = _save(client, f"a second note linking to [[{first['id']}]]")
+
+    rows = {note["id"]: note for note in client.get("/timeline").json()["notes"]}
+
+    assert rows[first["id"]]["words"] == 8
+    # The default space is named, not slugged: a column has to be readable.
+    assert rows[first["id"]]["space"]
+    assert rows[first["id"]]["space"] != ""
+    # A link counts on both sides, which is what a "links" column means: how
+    # many notes this one is joined to.
+    assert rows[second["id"]]["links"] >= 0
+    assert set(rows[first["id"]]) >= {"space", "words", "links", "tags", "category"}
+
+
+def test_the_view_is_paged_rather_than_capped(client, session):
+    """TIMELINE_PLAN decision 9: `MAX_NOTES` goes, pagination replaces it.
+
+    The cap was 1,500 rows with nothing after it and nothing on screen to say
+    so: a notebook past it lost its older notes silently. A page has a cursor,
+    and the cursor is `created_at|id` rather than an offset, so a note saved
+    while someone is reading cannot shift the page under them.
+    """
+    for i in range(5):
+        note = _save(client, f"note {i}")
+        _age(session, note["id"], i)
+
+    first = client.get("/timeline?limit=2").json()
+    assert len(first["notes"]) == 2
+    assert first["has_more"] is True
+    assert first["next_cursor"]
+
+    second = client.get(f"/timeline?limit=2&cursor={first['next_cursor']}").json()
+    assert len(second["notes"]) == 2
+    seen = [note["id"] for note in first["notes"]] + [n["id"] for n in second["notes"]]
+    assert len(set(seen)) == 4, "a page repeated a note"
+    # Newest first, all the way through the pages: by when they were written,
+    # which is what the cursor orders by (the ids run the other way here,
+    # because each note is backdated one day further than the last).
+    written = [n["written_at"] for n in first["notes"]] + [n["written_at"] for n in second["notes"]]
+    assert written == sorted(written, reverse=True)
+
+    last = client.get(f"/timeline?limit=2&cursor={second['next_cursor']}").json()
+    assert last["has_more"] is False
+    assert last["next_cursor"] is None
+
+
+def test_a_page_still_carries_the_density_of_the_whole_range(client, session):
+    """The scrubber is the overview someone drags to get somewhere, so it is
+    the whole range or it is a map of the part already on screen."""
+    for i in range(6):
+        note = _save(client, f"note {i}")
+        _age(session, note["id"], i * 3)
+
+    page = client.get("/timeline?limit=2").json()
+    assert len(page["notes"]) == 2
+    # Six notes, six different days, all of them in the strip.
+    assert sum(page["density"].values()) == 6
+    assert len(page["density"]) == 6
+
+
+def test_a_cursor_it_cannot_read_is_refused_rather_than_ignored(client):
+    """A silently ignored cursor is a view that starts again at the top on
+    every page, which reads as duplicated notes rather than as an error."""
+    assert client.get("/timeline?cursor=not-a-cursor").status_code == 422
+    assert client.get("/timeline?limit=0").status_code == 422
+    assert client.get("/timeline?limit=5000").status_code == 422
+
+
+# --- kinds: the journal is not only its notes (TIMELINE_PLAN.md Phase 4) ------
+
+
+def _document(client, title="Field notes", content="# Field notes\nthe first line"):
+    response = client.post("/documents", json={"title": title, "content": content})
+    assert response.status_code in (200, 201), response.text
+    return response.json()
+
+
+def _reminder(client, text="ring the landlord back", days=1):
+    due = (utcnow() + timedelta(days=days)).isoformat()
+    response = client.post("/reminders", json={"text": text, "due_at": due})
+    assert response.status_code in (200, 201), response.text
+    return response.json()
+
+
+def _kinds(body) -> list[str]:
+    return [row["kind"] for row in body["notes"]]
+
+
+def test_a_document_and_a_reminder_are_rows_in_the_feed(client):
+    _save(client, "a note about the roof")
+    _document(client)
+    _reminder(client)
+
+    body = client.get("/timeline").json()
+    assert sorted(set(_kinds(body))) == ["document", "note", "reminder"]
+    #: Every row says what it is and carries an identity that is unique across
+    #: kinds: note 1 and document 1 are two different things.
+    assert len({row["key"] for row in body["notes"]}) == len(body["notes"])
+    assert all(row["key"].startswith(row["kind"] + ":") for row in body["notes"])
+
+
+def test_a_reminder_sits_on_the_day_it_is_due_and_says_so(client):
+    _reminder(client, days=3)
+    row = client.get("/timeline").json()["notes"][0]
+    assert row["kind"] == "reminder"
+    #: The same claim a note makes when it only mentions a date, and the row
+    #: says it the same way, so the view can be honest in one place.
+    assert row["placed_by"] == "due"
+    assert row["at"][:10] == (utcnow() + timedelta(days=3)).date().isoformat()
+
+
+def test_a_document_sits_where_it_was_started_not_where_it_was_last_saved(client):
+    """A document that plotted at `updated_at` would walk forwards through the
+    feed every time it was opened, which is the one thing a journal must not
+    do."""
+    document = _document(client)
+    client.put(f"/documents/{document['id']}", json={"content": "# Field notes\nmore"})
+    row = [r for r in client.get("/timeline").json()["notes"] if r["kind"] == "document"][0]
+    assert row["at"] == row["written_at"]
+    assert "updated_at" in row
+
+
+def test_kind_narrows_the_feed_and_a_board_is_not_a_note(client, session):
+    note = _save(client, "an ordinary note")
+    board = _save(client, "# My map")
+    session.get(Entry, board["id"]).is_board = True
+    session.commit()
+    _document(client)
+    _reminder(client)
+
+    assert _kinds(client.get("/timeline?kind=note").json()) == ["note"]
+    assert _kinds(client.get("/timeline?kind=board").json()) == ["board"]
+    assert _kinds(client.get("/timeline?kind=document").json()) == ["document"]
+    assert sorted(_kinds(client.get("/timeline?kind=note,document").json())) == [
+        "document",
+        "note",
+    ]
+    assert client.get("/timeline?kind=note").json()["notes"][0]["id"] == note["id"]
+
+
+def test_an_unknown_kind_is_refused_rather_than_silently_empty(client):
+    """The failure that reads as "the timeline is broken"."""
+    assert client.get("/timeline?kind=notes").status_code == 422
+    assert client.get("/timeline?kind=").status_code == 200  # empty means all
+
+
+def test_paging_across_three_tables_loses_nothing_and_repeats_nothing(client):
+    _save(client, "a note about the roof")
+    _document(client)
+    _reminder(client)
+
+    seen = []
+    cursor = None
+    for _ in range(5):
+        url = "/timeline?limit=1" + (f"&cursor={cursor}" if cursor else "")
+        body = client.get(url).json()
+        seen += [row["key"] for row in body["notes"]]
+        cursor = body["next_cursor"]
+        if not cursor:
+            break
+    assert len(seen) == 3, seen
+    assert len(set(seen)) == 3, seen
+
+
+def test_a_cursor_from_before_the_other_kinds_existed_still_works(client, session):
+    """A reader half way down the feed when the app updates keeps their place
+    rather than getting a 422 on the next scroll."""
+    import base64
+
+    first = _save(client, "the older note")
+    _age(session, first["id"], 5)
+    _save(client, "the newer note")
+    entry = session.get(Entry, first["id"])
+    old_style = base64.urlsafe_b64encode(
+        f"{(entry.created_at + timedelta(days=1)).isoformat()}|{entry.id + 1}".encode()
+    ).decode()
+
+    body = client.get(f"/timeline?cursor={old_style}").json()
+    assert [row["id"] for row in body["notes"] if row["kind"] == "note"] == [first["id"]]
+
+
+def test_the_density_strip_counts_every_kind_the_feed_shows(client):
+    """A week spent writing one long document would otherwise read as empty."""
+    _document(client)
+    body = client.get("/timeline?kind=document").json()
+    assert sum(body["density"].values()) == 1
+    assert sum(client.get("/timeline?kind=note").json()["density"].values()) == 0
+
+
+def test_the_row_list_is_called_rows_with_notes_kept_for_one_release(client):
+    """`notes` held documents, boards and reminders, which is a name that lies.
+
+    Both keys carry the same list while a cached frontend can still be older
+    than this server: the desktop window and the service worker both keep a
+    build of `app.js` across an upgrade, and `body.notes.map` on an undefined
+    empties the Timeline with nothing on screen to say why. The old key goes in
+    the release after this one.
+    """
+    _save(client, "a note about the roof")
+    _document(client)
+    _reminder(client)
+
+    body = client.get("/timeline").json()
+    assert body["rows"] == body["notes"]
+    assert {row["kind"] for row in body["rows"]} == {"note", "document", "reminder"}

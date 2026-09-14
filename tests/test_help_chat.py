@@ -22,7 +22,7 @@ def test_ask_with_only_whitespace_is_a_no_op_not_a_model_call(ai_client, fake_ol
     # itself is what actually guards against calling the model on nothing.
     response = ai_client.post("/help/ask", json={"question": " "})
     assert response.status_code == 200
-    assert response.json() == {"content": "", "badges": []}
+    assert response.json() == {"content": "", "badges": [], "sources": []}
 
 
 def test_ask_with_working_model(ai_client, fake_ollama):
@@ -35,7 +35,7 @@ def test_ask_with_working_model(ai_client, fake_ollama):
 
 
 def test_ask_never_writes_history_server_side(ai_client, fake_ollama):
-    # Two independent calls with no shared state get no cross-talk — proof
+    # Two independent calls with no shared state get no cross-talk, proof
     # this endpoint never reads a database table for context.
     fake_ollama.librarian_reply = "Answer one."
     first = ai_client.post("/help/ask", json={"question": "q1"}).json()
@@ -66,7 +66,7 @@ def test_help_chat_answer_function_is_grounded_in_app_guidance_only():
 
 
 def test_ask_grounds_the_model_in_the_matching_reference_notes(ai_client, fake_ollama):
-    # The model has no idea what MemoryMap is on its own — item 40's whole
+    # The model has no idea what MemoryMap is on its own, item 40's whole
     # "never invent a feature" instruction is only followable if the prompt
     # actually hands it real facts. Assert the reference text lands in the
     # messages sent to the model, not just that the reply looks plausible.
@@ -79,7 +79,7 @@ def test_ask_grounds_the_model_in_the_matching_reference_notes(ai_client, fake_o
 
 
 def test_ask_with_no_matching_topic_sends_no_reference_block(ai_client, fake_ollama):
-    fake_ollama.librarian_reply = "I'm not sure — try the Help topics above."
+    fake_ollama.librarian_reply = "I'm not sure: try the Help topics above."
     ai_client.post("/help/ask", json={"question": "purple elephants dance quietly"})
     sent = fake_ollama.chat_calls[-1]
     assert not any("Reference notes" in m["content"] for m in sent)
@@ -120,13 +120,13 @@ def test_every_help_topic_has_a_non_empty_body_and_badge():
 
 
 # Reported live: clicking the "Whiteboard" badge (a `data-goto-tab="whiteboard"`
-# button) blanked the whole app — `switchTab()` hides every tab panel and shows
+# button) blanked the whole app, `switchTab()` hides every tab panel and shows
 # none when given a name that matches no real tab, since "whiteboard" is a
 # Library *sub*-tab, not a top-level one, and the badge system only knows how to
 # switch to a top-level tab.
 #
 # **Read out of app.js rather than copied into a literal here.** The original
-# list was hand-copied and named "documents" among the sub-tabs — true when it
+# list was hand-copied and named "documents" among the sub-tabs: true when it
 # was written, and false since Documents was promoted to a tab of its own. So
 # this test spent that time refusing a badge that would have worked perfectly,
 # which is the failure mode a duplicated constant always eventually has. The
@@ -156,5 +156,249 @@ def test_every_badge_tab_is_a_real_top_level_tab():
         if tab is not None:
             assert tab in REAL_TOP_LEVEL_TABS, (
                 f"{topic['id']!r}'s badge points at {tab!r}, which switchTab() "
-                "can't resolve — it isn't one of the app's top-level tabs"
+                "can't resolve: it isn't one of the app's top-level tabs"
             )
+
+
+# --- INBOX 190: the Guide is reachable from every tab, so it is told which ---
+
+
+def test_the_tab_pulls_in_its_own_topics_for_a_question_that_names_none(
+    ai_client, fake_ollama
+):
+    """"How does this work?" has no keyword in it and used to match nothing.
+
+    That is the question the Guide gets most now that it opens from every
+    tab's header rather than only from the bottom of the Help pane, and with
+    no reference notes the system prompt tells the model to say it is not
+    sure, which is the one answer that is never useful.
+    """
+    fake_ollama.librarian_reply = "The graph draws a dot per note."
+    ai_client.post("/help/ask", json={"question": "how does this work?", "tab": "graph"})
+    sent = fake_ollama.chat_calls[-1]
+    reference = [m["content"] for m in sent if "Reference notes" in m["content"]]
+    assert reference, "a tab with topics must ground the answer even with no keyword match"
+    assert "graph" in reference[0].lower()
+    assert any("graph tab open" in m["content"] for m in sent)
+
+
+def test_what_the_question_names_still_wins_over_the_tab(ai_client, fake_ollama):
+    # Asking about reminders from the Graph tab is a question about reminders.
+    fake_ollama.librarian_reply = "Reminders tab."
+    ai_client.post(
+        "/help/ask", json={"question": "how do I set a reminder?", "tab": "graph"}
+    )
+    reference = [
+        m["content"] for m in fake_ollama.chat_calls[-1] if "Reference notes" in m["content"]
+    ]
+    assert reference
+    assert help_chat.topics_for("how do I set a reminder?", "graph")[0]["id"] == "reminders"
+
+
+def test_an_unknown_tab_adds_nothing_rather_than_failing(ai_client, fake_ollama):
+    fake_ollama.librarian_reply = "Not sure."
+    response = ai_client.post(
+        "/help/ask", json={"question": "how does this work?", "tab": "nonesuch"}
+    )
+    assert response.status_code == 200
+    assert help_chat.topics_for("how does this work?", "nonesuch") == []
+
+
+def test_the_surfaces_own_help_copy_reaches_the_model_and_is_capped(
+    ai_client, fake_ollama
+):
+    """The client sends the `.help-body` text of whatever is on screen.
+
+    It is the app's own wording, which makes it the best reference note there
+    is; it is also user-supplied input on the wire, so the cap is asserted
+    here rather than trusted to the browser that sent it.
+    """
+    fake_ollama.librarian_reply = "That toggle turns web search off."
+    ai_client.post(
+        "/help/ask",
+        json={
+            "question": "what is this toggle?",
+            "tab": "notes",
+            "context": "A quiet marker on a note you have not read since it changed.",
+        },
+    )
+    sent = fake_ollama.chat_calls[-1]
+    assert any("quiet marker on a note" in m["content"] for m in sent)
+
+    over = "x" * (help_chat.MAX_CONTEXT_CHARS + 500)
+    response = ai_client.post(
+        "/help/ask", json={"question": "what is this?", "context": over}
+    )
+    # The route's own Field(max_length=...) refuses it rather than truncating,
+    # which is the shape every other bounded body field in this app has.
+    assert response.status_code == 422
+
+
+def test_no_tab_behaves_exactly_as_before(ai_client, fake_ollama):
+    fake_ollama.librarian_reply = "Reminders tab."
+    ai_client.post("/help/ask", json={"question": "how do I set a reminder?"})
+    sent = fake_ollama.chat_calls[-1]
+    assert not [m for m in sent if "tab open" in m["content"]]
+    assert help_chat.topics_for("how do I set a reminder?") == help_chat._matching_topics(
+        "how do I set a reminder?"
+    )
+
+
+# --- INBOX 204: the guide has a name, and knows what it is -------------------
+
+
+def test_the_guide_is_named_once_and_the_interface_agrees(ai_client, fake_ollama):
+    """CHAT_PLAN decision 15. The owner asked for "a name fitting for the
+    application like a persona"; a persona whose name is typed out in nine
+    places is a persona that gets renamed in eight of them.
+
+    So the server holds one constant, the frontend holds one constant, and this
+    asserts that the word in the model's prompt is the word on the screen.
+    """
+    from pathlib import Path
+
+    frontend = Path(__file__).resolve().parents[1] / "frontend"
+    settings_js = (frontend / "settings.js").read_text(encoding="utf-8")
+    index = (frontend / "index.html").read_text(encoding="utf-8")
+
+    assert help_chat.GUIDE_NAME == "Atlas"
+    #: Spelt once on each side (INBOX 225): the frontend's `AI_NAME` is the
+    #: word, and `GUIDE_NAME` reads it, so the guide and the librarian can
+    #: never drift apart by one edit.
+    assert f'const AI_NAME = "{help_chat.GUIDE_NAME}"' in settings_js
+    assert "const GUIDE_NAME = AI_NAME" in settings_js
+    #: The sheet's own title comes from that constant rather than a literal.
+    assert "label: GUIDE_NAME," in settings_js
+    #: And the one surface that is markup says the same word.
+    assert f"Ask {help_chat.GUIDE_NAME}</h4>" in index
+    #: The model is told who it is in the first system message, not in a
+    #: reference note that a question may or may not pull in.
+    assert help_chat.SYSTEM_PROMPT.startswith(f"You are {help_chat.GUIDE_NAME},")
+    assert help_chat.GUIDE_NAME in help_chat.OFFLINE_MESSAGE
+
+
+def test_the_guide_can_answer_what_it_is():
+    """It could not. "Who are you?" and "what can you do?" carry none of the
+    feature keywords, so no topic matched, and the prompt tells the model to
+    say it is not sure when it has no reference notes: the guide answered "I'm
+    not sure" to the first question anybody asks a chat.
+    """
+    for question in ("who are you?", "what can you do?", "what is Atlas?"):
+        ids = [topic["id"] for topic in help_chat.topics_for(question)]
+        assert "guide" in ids, question
+    body = next(t for t in help_chat.HELP_TOPICS if t["id"] == "guide")["body"]
+    #: The three facts that make it useful rather than just present: the model
+    #: it uses, what it cannot see, and that nothing is kept.
+    assert "utility model" in body
+    assert "cannot read your notes" in body
+    assert "nothing said to it is saved" in body
+
+
+def test_the_empty_chat_says_what_it_is_and_the_first_turn_retires_it():
+    """An empty log under a field is a chat that has to be guessed at. The
+    description is markup (it is true before anything has happened) and the
+    two places that change the transcript are the two that have to know about
+    it: the first appended row hides it, "New chat" brings it back.
+    """
+    from pathlib import Path
+
+    frontend = Path(__file__).resolve().parents[1] / "frontend"
+    index = (frontend / "index.html").read_text(encoding="utf-8")
+    settings_js = (frontend / "settings.js").read_text(encoding="utf-8")
+
+    assert 'id="help-chat-empty"' in index
+    assert "cannot read your notes or your documents" in index
+    start = settings_js.index("function helpChatAppendRow(")
+    assert 'empty.hidden = true' in settings_js[start : settings_js.index("\n}\n", start)]
+    #: New chat is a menu row since INBOX 224, not a button in the head.
+    start = settings_js.index("function helpChatNewChat(")
+    clear = settings_js[start : settings_js.index("\n}\n", start)]
+    #: `replaceChildren()` here took the description away with the transcript
+    #: and left a blank rectangle under the field.
+    assert "list.replaceChildren()" not in clear
+    assert 'empty.hidden = false' in clear
+
+
+def test_every_atlas_prompt_hangs_off_a_help_panel_that_exists():
+    """INBOX 224: the questions the app offers to ask Atlas live in one table,
+    keyed by the id of the `data-help-for` panel they belong under.
+
+    A key that names no panel is invisible: `addAtlasLine` looks the panel up
+    and finds nothing, so the line simply never appears and nothing says so.
+    Three of the first eight keys written were wrong in exactly that way, and
+    only a sweep against the running app found them.
+    """
+    from pathlib import Path
+
+    frontend = Path(__file__).resolve().parents[1] / "frontend"
+    app = (frontend / "app.js").read_text(encoding="utf-8")
+    index = (frontend / "index.html").read_text(encoding="utf-8")
+
+    table = app[app.index("const ATLAS_PROMPTS = {") :]
+    table = table[: table.index("\n};")]
+    keys = re.findall(r'"([a-z0-9-]+)": "', table)
+    assert len(keys) >= 8, keys
+    panels = set(re.findall(r'data-help-for="([^"]+)"', index))
+    missing = [key for key in keys if key not in panels]
+    assert not missing, f"ATLAS_PROMPTS keys with no help popover: {missing}"
+    #: And every question reads as a question, since that is what is printed
+    #: after "Ask Atlas: ".
+    asked = re.findall(r'": "([^"]+)"', table)
+    assert all(q.endswith("?") for q in asked), [q for q in asked if not q.endswith("?")]
+
+
+def test_the_palette_offers_a_typed_question_to_atlas():
+    """A jump list has no answer for "how do I turn off web search?", so the
+    box went empty, which reads as "this app has no answer"."""
+    from pathlib import Path
+
+    app = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text(
+        encoding="utf-8"
+    )
+    start = app.index("function paletteMatches(")
+    body = app[start : app.index("\n}\n", start)]
+    assert 'endsWith("?")' in body and "askAtlasAbout" in body
+    #: `docs` is declared in the Library's lazy bundle, so the palette's own
+    #: document search has to survive its absence: it threw on the first
+    #: keystroke of a fresh load until this guard.
+    assert 'typeof docs === "undefined"' in body
+
+
+def test_atlas_has_a_shortcut_and_it_is_in_the_registry():
+    """In `DEFAULT_SHORTCUTS`, which is what puts it in the shortcuts sheet and
+    in the collision check, rather than bound in a listener of its own."""
+    from pathlib import Path
+
+    app = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text(
+        encoding="utf-8"
+    )
+    start = app.index("const DEFAULT_SHORTCUTS = {")
+    table = app[start : app.index("\n};", start)]
+    assert "askAtlas: {" in table
+    assert "askAtlas: () => askAtlasAbout" in app
+
+
+def test_atlas_has_a_stop_while_a_question_is_out():
+    """The owner, 2026-09-14: "there's no way to stop a response on the atlas
+    interface window". The send button is the stop while busy: the request
+    carries an abort signal, the reveal checks it, and a click while busy
+    aborts instead of submitting."""
+    from pathlib import Path
+
+    js = (Path(__file__).resolve().parents[1] / "frontend" / "settings.js").read_text(encoding="utf-8")
+    assert "helpChatAbort = new AbortController()" in js
+    ask = js[js.index('apiJson("/help/ask"'):]
+    assert "signal," in ask[:200]
+    assert "function helpChatReveal(row, content, signal = null)" in js
+    assert "if (signal?.aborted)" in js
+    assert 'sendBtn.type = busy ? "button" : "submit"' in js
+    assert 'icon.className = busy ? "ph ph-stop"' in js
+
+
+def test_new_chat_is_offered_after_a_stopped_question():
+    from pathlib import Path
+
+    js = (Path(__file__).resolve().parents[1] / "frontend" / "settings.js").read_text(encoding="utf-8")
+    assert 'const said = helpChatHistory.length > 0 || Boolean($("help-chat-messages")?.querySelector(".help-chat-msg"))' in js
+    finally_block = js[js.index("    helpChatSetBusy(false);") :]
+    assert "renderHelpChatMenu();" in finally_block[:120]

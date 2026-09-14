@@ -1,6 +1,6 @@
 """The Ask box's browsable history (routes_ask_history.py).
 
-Every notes-only question the Ask box answers is now durable — the request
+Every notes-only question the Ask box answers is now durable, the request
 that led to this: *"I want the ask feature to be basically a personal notes
 browser"*. `chat_stream` (routes_chat.py) writes the turn; this file only
 reads, searches, pins and deletes.
@@ -38,14 +38,14 @@ def test_a_real_question_is_saved_to_history(ai_client, fake_ollama, session):
 
 def test_small_talk_is_not_saved(ai_client, fake_ollama):
     """A greeting on the Ask box never reaches the model (it hints instead),
-    so there is no answer to save — see test_ask_focus.py."""
+    so there is no answer to save, see test_ask_focus.py."""
     fake_ollama.librarian_reply = "Hello there!"
     _ask(ai_client, "hey")
     assert ai_client.get("/ask-history").json()["total"] == 0
 
 
 def test_the_chat_tab_never_writes_ask_history(ai_client, fake_ollama):
-    """Only `notes_only` turns are the Ask box's own — the Chat tab already
+    """Only `notes_only` turns are the Ask box's own: the Chat tab already
     gets its own durable history via /conversations."""
     fake_ollama.librarian_reply = "Hello there!"
     with ai_client.stream("POST", "/chat/stream", json={"question": "hey"}) as r:
@@ -95,7 +95,7 @@ def test_getting_one_turn_hydrates_its_notes(ai_client, fake_ollama, session):
 
 def test_a_turn_s_match_info_survives_to_browse_it_back(ai_client, fake_ollama, session):
     """The badge the live Ask answer shows ("Matched 'beans'") must still be
-    there when the same turn is reopened from history — the whole point of
+    there when the same turn is reopened from history, the whole point of
     saving match_info/connected_ids alongside the turn (routes_chat.py's
     _save_ask_turn) rather than only the note ids."""
     entry = manager.create_entry(session, "The beans need netting next week")
@@ -109,6 +109,53 @@ def test_a_turn_s_match_info_survives_to_browse_it_back(ai_client, fake_ollama, 
     assert info["type"] == "keyword"
     assert "beans" in info["terms"]
     assert turn["connected_ids"] == []
+
+
+def test_a_turn_s_citations_survive_to_browse_it_back(ai_client, fake_ollama, session):
+    """INBOX 241, the owner: "the grounding, intext numbered referencing, and
+    sources that appeared in the ask subtab in notes, dissappeared on reload
+    and didnt persist. they didnt persist when I reaccessed them through the
+    history panel."
+
+    The turn carries the sentence-level grounding it was answered with, in the
+    same shape the live `grounding` stream event has, so the history panel can
+    redraw the numbered markers and the chip strip from the row alone. The
+    sources need nothing extra: they are built from `raw_results`, which the
+    turn has always kept, and this asserts they are still there beside it.
+    """
+    entry = manager.create_entry(session, "The beans need netting next week")
+    session.commit()
+    #: A sentence lifted from the note, which is what the grounder matches on.
+    fake_ollama.librarian_reply = "The beans need netting next week."
+    _ask(ai_client, "what did I write about beans")
+
+    turn_id = ai_client.get("/ask-history").json()["turns"][0]["id"]
+    turn = ai_client.get(f"/ask-history/{turn_id}").json()
+    assert turn["grounding"], turn
+    row = turn["grounding"][0]
+    assert row["note_id"] == entry.id
+    #: The client's citation walker finds a marker's sentence by matching this
+    #: text against the rendered answer, so an empty or reshaped `sentence`
+    #: would leave the row unusable even though it round-tripped.
+    assert row["sentence"] in fake_ollama.librarian_reply
+    assert isinstance(row["start"], int) and isinstance(row["end"], int)
+    #: And the sources the same markers point at.
+    assert [r["id"] for r in turn["raw_results"]] == [entry.id]
+
+
+def test_a_citation_whose_note_is_gone_is_dropped(ai_client, fake_ollama, session):
+    """Same rule the results themselves follow. A marker is a link, and one
+    pointing at a note the reader can no longer open is worse than none."""
+    entry = manager.create_entry(session, "The beans need netting next week")
+    session.commit()
+    fake_ollama.librarian_reply = "The beans need netting next week."
+    _ask(ai_client, "what did I write about beans")
+    turn_id = ai_client.get("/ask-history").json()["turns"][0]["id"]
+    assert ai_client.get(f"/ask-history/{turn_id}").json()["grounding"]
+
+    entry.is_private = True
+    session.commit()
+    assert ai_client.get(f"/ask-history/{turn_id}").json()["grounding"] == []
 
 
 def test_a_note_deleted_since_is_dropped_not_shown_stale(ai_client, fake_ollama, session):

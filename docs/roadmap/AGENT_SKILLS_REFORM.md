@@ -101,11 +101,12 @@ This is the "text dump in your face" half.
   confirmed this session. Check the plain-chat tool path as well as the agent
   and skill paths.
 
-### Phase D — recovery (½ session)
+### Phase D — recovery
 
-- Resume from a stalled step (the state is already recorded).
-- Edit a step's text and re-run just that step.
-- "Why did this stall?" — the contract that was not met, in one sentence.
+Built, 2026-09-13: see HISTORY.md, "Moved from the plans, 2026-09-13". Two of
+the three were already standing when the phase was opened (resume, and the
+one-sentence reason on a stalled step); the third, editing a step and running
+just that step, is `skill_only_step`/`skill_step_text`.
 
 ## Acceptance
 
@@ -114,3 +115,11 @@ This is the "text dump in your face" half.
   contract met.
 - The activity panel opens on a run list, not a wall of text.
 - Tool calls are visible in the chat transcript for all three paths.
+
+## Built — Phases A and B, backend only
+
+Moved to HISTORY.md ("Moved from the plans, 2026-09-09", AGENT_SKILLS_REFORM.md) on 2026-09-09: a plan holds open work only.
+
+## Built — Phase C, the run as a readable object
+
+Moved to HISTORY.md ("Moved from the plans, 2026-09-09", AGENT_SKILLS_REFORM.md) on 2026-09-09: a plan holds open work only.

@@ -158,8 +158,10 @@ below). Versioning is `0.x` while the app stabilises.
   workflow now starts the frozen app and waits for its page before it
   packages or uploads it, on both platforms; `--reset-password` no longer
   needs a console to confirm.
-- A marquee on the whiteboard selects circles: their path is written with
-  absolute arcs, which the bounding-box parser did not read (INBOX 252).
+- Circles on the whiteboard can be moved, resized and rotated again, alone
+  or in a marquee selection: their path is written with absolute arcs,
+  which neither the bounding-box walk nor the transform walk read (INBOX
+  252, 255).
 - The built-in librarian persona is Atlas; a preference saved under the old
   name keeps working (INBOX 237). The help page's Ask Atlas row has room
   above it and the Advanced response settings sit above Installed models

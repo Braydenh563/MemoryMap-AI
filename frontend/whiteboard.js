@@ -11615,6 +11615,30 @@ function wbTransformPathD(d, { dx = 0, dy = 0, sx = 1, sy = 1, rotate = 0, ancho
       const [mdx, mdy] = mapDelta(edx, edy);
       out.push(cmd, rx, ry, rot, large, sweep, mdx, mdy);
       px += edx; py += edy;
+    } else if (cmd === "A") {
+      //: The circle tool writes absolute arcs (`wbShapeDims`), and this walk
+      //: knew only the relative spelling, so it fell into the "unrecognised
+      //: token" branch below and handed the path back unchanged: a circle
+      //: could be selected and never moved, resized or rotated (the owner,
+      //: 2026-09-14: "I still cant drag and select shapes"; measured in
+      //: `scratchpad/ui-sweeps/marquee.js`, the pen strokes moved and every
+      //: circle stayed). The endpoint is a point, so it maps as one.
+      const rx = parseFloat(tokens[i++]) * sx, ry = parseFloat(tokens[i++]) * sy;
+      const rot = parseFloat(tokens[i++]) + rotate, large = tokens[i++], sweep = tokens[i++];
+      const ex = parseFloat(tokens[i++]), ey = parseFloat(tokens[i++]);
+      const [mx, my] = mapPoint(ex, ey);
+      out.push(cmd, rx, ry, rot, large, sweep, mx, my);
+      px = ex; py = ey;
+    } else if (cmd === "H") {
+      const x = parseFloat(tokens[i++]);
+      const [mx, my] = mapPoint(x, py);
+      out.push("L", mx, my);
+      px = x;
+    } else if (cmd === "V") {
+      const y = parseFloat(tokens[i++]);
+      const [mx, my] = mapPoint(px, y);
+      out.push("L", mx, my);
+      py = y;
     } else if (cmd === "Z" || cmd === "z") {
       out.push(cmd);
     } else {

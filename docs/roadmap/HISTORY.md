@@ -27736,6 +27736,18 @@ line that carried a dash.
     as stable; the label says who the switch is for;
     `tests/test_update_channel_packaged.py`.
 
+255. **Mid-work drop, 2026-09-14, verbatim (the owner), the whiteboard
+    (screenshot: a smiley of two circles and a line inside a dashed
+    selection box, the align bar showing).** "I still cant drag and select
+    shapes on the whiteboard or mindmap". Measured (`scratchpad/ui-sweeps/
+    marquee.js`): the marquee selects 6 of 6 sketches on the head; dragging
+    the group moved the pen strokes and left every circle where it was,
+    the grabbed one included. Cause: `wbTransformPathD` knew relative arcs
+    only, and a circle is written with absolute `A`, so every move, resize
+    and rotation handed the path back unchanged. **Fixed:** `A`, `H` and
+    `V` are transformed; the probe now moves the circle 320 to 440;
+    `tests/test_wb_path_bbox.py` runs both walks in node.
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

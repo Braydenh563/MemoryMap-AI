@@ -1,101 +1,46 @@
-// INBOX 180: "I cant drag highlight to select shapes". Drags a rectangle over
-// empty canvas on a board and on a map, and asks what came back selected.
-const { boot } = require('./lib.js');
+const { boot } = require("./lib.js");
 (async () => {
-  const { page, browser } = await boot({});
-  page.on('pageerror', (e) => console.log('PAGEERROR', e.message));
-  await page.click('[data-tab="library"]');
+  const { browser, page } = await boot();
+  await page.evaluate(async () => { switchTab("library"); await ensureModule("library"); });
   await page.waitForTimeout(800);
-  await page.click('#library-subtabs [data-target="library-view-whiteboard"]');
-  await page.waitForTimeout(1500);
-
-  const run = async (type, opts = {}) => {
-    const setup = await page.evaluate(async (label) => {
-      const boardType = label.startsWith('map') ? 'map' : 'board';
-      const v = document.getElementById('library-view-whiteboard');
-      for (const s of document.querySelectorAll('[id^="library-view-"]')) s.classList.toggle('hidden', s !== v);
-      await initWhiteboard();
-      const board = await apiJson('/whiteboard/boards', {
-        method: 'POST',
-        body: JSON.stringify({ name: `marquee ${boardType} ${Date.now()}`, type: boardType }),
-      });
-      window.currentBoardId = board.id;
-      wbShowCanvasView();
-      await fetchWhiteboardState(board.id);
-      // Three text objects in a row near the origin.
-      for (let i = 0; i < 3; i++) {
-        await apiJson('/whiteboard/objects', {
-          method: 'POST',
-          body: JSON.stringify({
-            board_id: board.id, kind: boardType === 'map' ? 'topic' : 'text',
-            x: 80 + i * 220, y: 120, width: 180, height: 70,
-            data: { content: `thing ${i}` },
-          }),
-        });
-      }
-      await fetchWhiteboardState(board.id);
-      renderWhiteboardNow();
-      await new Promise((r) => setTimeout(r, 400));
-      if (typeof setWbTool === 'function') setWbTool('select');
-      // Optionally leave the board somewhere other than the identity
-      // transform, which is where every earlier probe of this ran.
-      if (window.__zoomTo) window.__zoomTo();
-      await new Promise((r) => setTimeout(r, 300));
-      if (window.__preselect) wbSelectAllItems();
-      // Where the three objects are on screen, and a clear patch of canvas.
-      const boxes = (wbState.objects || []).map((o) => ({ id: o.id, kind: o.kind, x: o.x, y: o.y, w: o.width, h: o.height }));
-      const el = [...document.querySelectorAll('.wb-object')].map((e) => {
-        const r = e.getBoundingClientRect();
-        return { l: Math.round(r.left), t: Math.round(r.top), r: Math.round(r.right), b: Math.round(r.bottom) };
-      });
-      const cbox = document.getElementById('whiteboard-container').getBoundingClientRect();
-      return { container: { l: Math.round(cbox.left), t: Math.round(cbox.top), r: Math.round(cbox.right), b: Math.round(cbox.bottom) }, board: board.id, tool: window.currentTool, objects: boxes.length, boxes, el, sel: wbMultiSelection.size };
-    }, type);
-    console.log(`${type}: objects ${setup.objects}, tool ${setup.tool}, on screen`, JSON.stringify(setup.el));
-    if (!setup.el.length) { console.log(`${type}: nothing drawn, cannot drag`); return; }
-    const box = setup.container;
-    const left = Math.max(box.l + 8, Math.min(...setup.el.map((e) => e.l)) - 40);
-    const top = Math.max(box.t + 8, Math.min(...setup.el.map((e) => e.t)) - 40);
-    const right = Math.min(box.r - 8, Math.max(...setup.el.map((e) => e.r)) + 40);
-    const bottom = Math.min(box.b - 8, Math.max(...setup.el.map((e) => e.b)) + 40);
-    const under = await page.evaluate(([x, y]) => {
-      const el = document.elementFromPoint(x, y);
-      return el ? el.tagName.toLowerCase() + '.' + (typeof el.className === 'string' ? el.className : el.className.baseVal || '') : 'none';
-    }, [left, top]);
-    console.log(`${type}: drag ${left},${top} -> ${right},${bottom}; under the start point: ${under}`);
-    await page.mouse.move(left, top);
-    await page.mouse.down();
-    await page.mouse.move(left + 30, top + 20, { steps: 5 });
-    const mid = await page.evaluate(() => ({
-      marquees: document.querySelectorAll('.wb-marquee').length,
-      box: (() => { const m = document.querySelector('.wb-marquee'); return m ? m.getAttribute('width') + 'x' + m.getAttribute('height') : null; })(),
-    }));
-    await page.mouse.move(right, bottom, { steps: 20 });
-    await page.mouse.up();
-    await page.waitForTimeout(400);
-    const after = await page.evaluate(() => ({
-      selected: wbMultiSelection.size,
-      keys: [...wbMultiSelection],
-      strays: document.querySelectorAll('.wb-marquee').length,
-      highlighted: document.querySelectorAll('.wb-selected').length,
-      transform: (() => { const g = document.getElementById('wb-zoom-group'); return g ? g.getAttribute('transform') : null; })(),
-    }));
-    console.log(`${type}: mid-drag ${JSON.stringify(mid)} -> after ${JSON.stringify(after)}`);
-  };
-
-  await run('board');
-  await run('map');
-  // Same two, with the board panned and zoomed first: every earlier probe of
-  // this ran at the identity transform, and a person's board never is.
-  await page.evaluate(() => {
-    window.__zoomTo = () => {
-      const sel = d3.select('#whiteboard-container');
-      wbZoom.transform(sel, d3.zoomIdentity.translate(160, 90).scale(0.62));
-    };
+  await page.evaluate(async () => { await openWhiteboardBoard(null); });
+  await page.waitForTimeout(2000);
+  const seeded = await page.evaluate(async () => {
+    const mk = (d) => apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify({ data: JSON.stringify({ d, color: "#7fd", width: 3, shape: "pen" }), x: 0, y: 0, z: 5, board_id: window.currentBoardId }) });
+    await mk("M 300 300 L 340 320 L 380 300");                              // pen stroke
+    await mk("M 320 400 A 30 30 0 1 0 380 400 A 30 30 0 1 0 320 400 Z");   // circle via absolute arcs
+    if (typeof renderWhiteboard === "function") renderWhiteboard();
+    await new Promise((r) => setTimeout(r, 800));
+    const c = document.getElementById("whiteboard-container").getBoundingClientRect();
+    return { sketches: wbState.sketches.length, tool: window.currentTool, container: [Math.round(c.left), Math.round(c.top), Math.round(c.width), Math.round(c.height)] };
   });
-  await run('board (panned and zoomed)');
-  await run('map (panned and zoomed)');
-  await page.evaluate(() => { window.__preselect = true; });
-  await run('board (panned, everything already selected)');
+  await page.evaluate(() => { document.querySelector('#wb-tool-group button[data-tool="select"]')?.click(); });
+  await page.waitForTimeout(300);
+  // world (200,250)-(450,470) → screen via the zoom transform
+  const pts = await page.evaluate(() => {
+    const svg = document.getElementById("wb-svg-layer");
+    const g = document.getElementById("wb-zoom-group");
+    const m = g.getScreenCTM();
+    const to = (x, y) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f];
+    return { a: to(200, 250), b: to(450, 470), tool: window.currentTool };
+  });
+  await page.mouse.move(pts.a[0], pts.a[1]);
+  await page.mouse.down();
+  await page.mouse.move(pts.a[0] + 20, pts.a[1] + 20, { steps: 4 });
+  await page.mouse.move(pts.b[0], pts.b[1], { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  const result = await page.evaluate(() => ({ selected: [...wbMultiSelection], tool: window.currentTool, target: document.elementFromPoint(400, 400)?.className?.baseVal ?? document.elementFromPoint(400,400)?.className }));
+  // Now drag the group by one of its shapes: the circle's centre is world (350,400).
+  const before = await page.evaluate(() => wbState.sketches.map((s) => JSON.parse(s.data).d.slice(0, 24)));
+  const c = await page.evaluate(() => { const m = document.getElementById("wb-zoom-group").getScreenCTM(); return [m.a * 350 + m.e, m.d * 400 + m.f, m.a * 320 + m.e, m.d * 400 + m.f]; });
+  await page.mouse.move(c[2], c[3]);   // on the circle's stroke (left edge)
+  await page.mouse.down();
+  await page.mouse.move(c[2] + 60, c[3] + 40, { steps: 6 });
+  await page.mouse.move(c[2] + 120, c[3] + 80, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(600);
+  const after = await page.evaluate(([c0, c1]) => ({ d: wbState.sketches.map((s) => JSON.parse(s.data).d.slice(0, 24)), selected: [...wbMultiSelection], hit: document.elementFromPoint(c0, c1)?.tagName }), [c[2], c[3]]);
+  console.log(JSON.stringify({ seeded, result, before, after }));
   await browser.close();
 })();

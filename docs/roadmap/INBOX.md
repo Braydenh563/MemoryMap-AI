@@ -168,3 +168,8 @@ with its owner named in the entry.
     (b) a "Repair MemoryMap" shortcut installed beside the app that runs
     them. Depends on 251's facts.
 
+256. **Mid-work drop, 2026-09-14, verbatim (the owner).** "if the user
+    experiences errors, suggest that they download the support bundle and
+    send it to my email at "brayden.hoyle@outlook.com" even open the email
+    dialogue for them. also have atlas suggest it if the user asks them
+    about an error."

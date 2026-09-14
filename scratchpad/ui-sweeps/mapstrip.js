@@ -90,7 +90,7 @@ async function newBoard(page, name, type) {
   await page.waitForTimeout(400);
   const placed = await page.evaluate((id) => {
     const strip = document.getElementById("wb-map-strip");
-    const bar = document.getElementById("wb-selection-bar");
+    const bar = document.getElementById("wb-context");
     const node = document.querySelector(`.wb-object[data-id="${id}"]`);
     const s = strip.getBoundingClientRect();
     const n = node.getBoundingClientRect();
@@ -103,20 +103,28 @@ async function newBoard(page, name, type) {
       w: Math.round(s.width),
       h: Math.round(s.height),
       hostW: Math.round(document.getElementById("library-view-whiteboard").getBoundingClientRect().width),
+      hostRight: Math.round(document.getElementById("library-view-whiteboard").getBoundingClientRect().right),
+      hostLeft: Math.round(document.getElementById("library-view-whiteboard").getBoundingClientRect().left),
       right: Math.round(s.right),
+      left: Math.round(s.left),
       view: window.innerWidth,
       pageScroll: document.documentElement.scrollWidth,
     };
   }, kidId);
-  check("a map node gets the strip and the board's bar stands down",
+  check("a map node gets the strip and the board's context bar stands down",
     placed.stripShown && placed.barHidden, JSON.stringify(placed));
   check("the strip sits clear of the node and centred on it",
     // Above the node, or below it when it no longer fits above: that is
     // `wbUpdateSelectionBar`'s own documented fallback, and at 390 the strip
     // is two rows tall and takes it. Centred on the node unless the canvas is
     // too narrow to centre it there, where the 8px clamp pins it inside.
+    // ...or pinned against an edge by that clamp, which is what a strip wider
+    // than the room beside the node it belongs to has to do. Measured at 1440:
+    // the strip is 959px and the node sits right of centre, so centring it
+    // would put its right edge past the canvas and it stops 8px inside instead.
     ((placed.above > 20 && placed.above < 90) || (placed.below >= 10 && placed.below < 40))
-      && (Math.abs(placed.dx) <= 2 || placed.w >= placed.hostW - 16),
+      && (Math.abs(placed.dx) <= 2 || placed.w >= placed.hostW - 16
+        || placed.hostRight - placed.right <= 10 || placed.left - placed.hostLeft <= 10),
     JSON.stringify(placed));
   // At 1440 this is the same single row it always was; at 390 it wraps to two
   // instead of standing 392px wide in a 364px canvas and out of the window.
@@ -334,9 +342,10 @@ async function newBoard(page, name, type) {
     };
   }, kidId);
   check("right-click on a topic opens the ring, not the board's flat menu",
-    ring.open && ring.flat && ring.n === 8 && ring.role === "toolbar",
+    ring.open && ring.flat && ring.n === 6 && ring.role === "toolbar",
     JSON.stringify({ open: ring.open, flat: ring.flat, n: ring.n, role: ring.role }));
-  check("its eight slots sit on one circle around the node",
+  // Six since §12.5, which took the other two to the topic's own menu.
+  check("its six slots sit on one circle around the node",
     ring.spread <= 2 && Math.min(...ring.radii) > 40 && ring.offset <= 82,
     JSON.stringify({ radii: ring.radii, spread: ring.spread, offset: ring.offset }));
 
@@ -355,24 +364,35 @@ async function newBoard(page, name, type) {
   check("Alt turns the add slots into the remove slots, and says so",
     alted.icon.includes("ph-trash") && alted.danger
       && /Remove this topic only/.test(alted.title)
-      && unalted.includes("elbow"),
+      && unalted.includes("arrow-elbow-down-right"),
     JSON.stringify({ alted, unalted }));
 
-  // A trunk cannot be severed, and the slot says so instead of doing nothing.
+  // Cutting a topic free left the ring for the topic's own menu (§12.5), and
+  // there it is not offered at all on a trunk rather than offered and refused:
+  // a menu is a list of what you can do, so the item that cannot apply is the
+  // one that is not written. The menu is opened from the keyboard (Shift+F10),
+  // which is also the §12.5 claim that the menu is reachable without a pointer.
   await page.keyboard.press("Escape");
   await page.waitForTimeout(200);
   const rootId = await page.evaluate(() => wbMapIndex().roots[0].id);
   await page.evaluate((id) => selectWbItem("object", id), rootId);
   await frame();
-  await page.click(`.wb-object[data-id="${rootId}"]`, { button: "right" });
+  await page.keyboard.press("Shift+F10");
   await page.waitForTimeout(400);
-  const severState = await page.evaluate(() => {
-    const b = document.getElementById("wb-radial-sever");
-    return { disabled: b.disabled, title: b.title };
-  });
-  check("sever is refused on a trunk and says why",
-    severState.disabled === true && /already a trunk/.test(severState.title),
-    JSON.stringify(severState));
+  const trunkMenu = await page.evaluate(() =>
+    [...document.querySelectorAll(".wb-ctx-menu:not(.hidden) .menu-item")].map((i) => i.textContent.trim()));
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+  await page.evaluate((id) => selectWbItem("object", id), kidId);
+  await frame();
+  await page.keyboard.press("Shift+F10");
+  await page.waitForTimeout(400);
+  const kidMenu = await page.evaluate(() =>
+    [...document.querySelectorAll(".wb-ctx-menu:not(.hidden) .menu-item")].map((i) => i.textContent.trim()));
+  const cutOf = (rows) => rows.filter((r) => /Cut this topic free/.test(r)).length;
+  check("cutting free is offered on a branch and withheld on a trunk",
+    cutOf(kidMenu) === 1 && cutOf(trunkMenu) === 0 && trunkMenu.length > 6,
+    `trunk ${trunkMenu.length} items, branch ${kidMenu.length}`);
   await page.keyboard.press("Escape");
   await page.waitForTimeout(200);
 
@@ -385,9 +405,14 @@ async function newBoard(page, name, type) {
   const before = await page.evaluate(() => wbMapIndex().nodes.length);
   await page.evaluate((id) => selectWbItem("object", id), kidId);
   await frame();
-  await page.click(`.wb-object[data-id="${kidId}"]`, { button: "right" });
+  // Copy a branch is the topic's menu now too (§12.5), reached by its words.
+  await page.keyboard.press("Shift+F10");
   await page.waitForTimeout(400);
-  await page.click("#wb-radial-copy");
+  await page.evaluate(() => {
+    const row = [...document.querySelectorAll(".wb-ctx-menu:not(.hidden) .menu-item")]
+      .find((i) => /Copy this branch/.test(i.textContent));
+    row.click();
+  });
   await page.waitForTimeout(3000);
   const copied = await page.evaluate((id) => {
     const i = wbMapIndex();
@@ -478,12 +503,26 @@ async function newBoard(page, name, type) {
       lineWidth: getComputedStyle(line).strokeWidth,
       events: getComputedStyle(h).pointerEvents,
       groupEvents: getComputedStyle(document.querySelector(".wb-map-edges")).pointerEvents,
-      sameD: h.getAttribute("d") === line.getAttribute("d"),
+      // NOT the same `d` as the visible line, and deliberately: a tree edge's
+      // default shape is a ribbon, a filled closed outline, and a stroke
+      // around a closed shape is a hit area shaped like a hoop with a hole
+      // down the middle of the line it is meant to catch. So the hit path is
+      // the centreline (`wbMapEdgePathD`) while the drawn one is the ribbon.
+      // What can be measured is that the two cover the same run of the canvas:
+      // the ribbon is that centreline thickened, so their boxes agree to
+      // within the ribbon's own half-width.
+      open: !/[zZ]/.test(h.getAttribute("d")),
+      box: (() => {
+        const a = h.getBBox();
+        const b = line.getBBox();
+        return [a.x - b.x, a.y - b.y, a.width - b.width, a.height - b.height].map((n) => Math.round(n));
+      })(),
     };
   }, kidId);
   check("a line has a target wide enough to hit, over an inert group",
     hit && hit.events === "stroke" && hit.groupEvents === "none"
-      && parseFloat(hit.width) >= 12 && parseFloat(hit.lineWidth) <= 3 && hit.sameD,
+      && parseFloat(hit.width) >= 12 && parseFloat(hit.lineWidth) <= 3
+      && hit.open && hit.box.every((n) => Math.abs(n) <= 12),
     JSON.stringify(hit));
 
   const box = await page.evaluate((id) => {
@@ -498,15 +537,23 @@ async function newBoard(page, name, type) {
     return {
       open: !el.classList.contains("hidden"),
       slots: el.querySelectorAll(".wb-map-radial-slot").length,
-      curveActive: document.getElementById("wb-link-curve").classList.contains("active"),
+      words: [...el.querySelectorAll(".wb-map-radial-slot")].map((b) => b.id),
       nodeRingClosed: document.getElementById("wb-map-radial").classList.contains("hidden"),
     };
   });
-  check("right-click on a line opens the line's own ring",
-    linkRing.open && linkRing.slots === 8 && linkRing.curveActive && linkRing.nodeRingClosed,
+  check("right-click on a line opens the line's own ring, and it keeps three",
+    linkRing.open && linkRing.slots === 3 && linkRing.nodeRingClosed
+      && linkRing.words.join(",") === "wb-link-reverse,wb-link-label,wb-link-cut",
     JSON.stringify(linkRing));
 
-  await page.click("#wb-link-elbow");
+  // The three line shapes are one picker in the strip now (§12.5: a shape is a
+  // look, and the ring's curve/elbow/straight wrote the same field the strip
+  // does). Driven here through the strip, on the child whose line it is.
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(250);
+  await page.evaluate((id) => selectWbItem("object", id), kidId);
+  await page.waitForTimeout(500);
+  await page.selectOption("#wb-map-edge-shape", "elbow");
   await page.waitForTimeout(1100);
   const elbowed = await page.evaluate((id) => {
     const line = document.querySelector(`.wb-map-edge[data-child="${id}"]`);
@@ -616,6 +663,11 @@ async function newBoard(page, name, type) {
   // resting opacity without this measured a hovered node twice.
   await page.mouse.move(4, 4);
   await page.waitForTimeout(250);
+  // The pointer is parked off every node first: `.wb-map-node:hover` draws the
+  // grips row too, so a cursor left on the node from the last gesture makes
+  // "quiet at rest" unmeasurable.
+  await page.mouse.move(4, 4);
+  await page.waitForTimeout(250);
   const gripped = await page.evaluate(async (id) => {
     const node = document.querySelector(`.wb-object[data-id="${id}"]`);
     const grip = node.querySelector(".wb-map-size-grip");
@@ -624,10 +676,13 @@ async function newBoard(page, name, type) {
     // from the checks above, so the class comes off to read the resting state
     // and goes straight back on. Reading it while selected is what the first
     // version of this check did, and it measured nothing.
+    // The fade is on the grips row, not on either grip: reading the button's
+    // own opacity measures nothing, it is 1 whether the row is drawn or not.
+    const grips = node.querySelector(".wb-map-grips");
     node.classList.remove("wb-selected");
-    const atRest = getComputedStyle(grip).opacity;
+    const atRest = getComputedStyle(grips).opacity;
     node.classList.add("wb-selected");
-    const shown = getComputedStyle(grip).opacity;
+    const shown = getComputedStyle(grips).opacity;
     const r = grip.getBoundingClientRect();
     const before = getComputedStyle(node).fontSize;
     const send = (type, y, extra) => grip.dispatchEvent(new PointerEvent(type, {
@@ -882,12 +937,12 @@ async function newBoard(page, name, type) {
       radius: Math.min(...radii),
     };
   });
-  check("a topic in the corner keeps all eight of its ring's slots reachable",
-    ringed.open && ringed.n === 8
+  check("a topic in the corner keeps all six of its ring's slots reachable",
+    ringed.open && ringed.n === 6
       && ringed.minLeft >= ringed.hostLeft && ringed.minTop >= ringed.barBottom
       && ringed.maxRight <= ringed.w && ringed.maxBottom <= ringed.h,
     JSON.stringify(ringed));
-  check("and the slid ring is still a ring, not eight clamped buttons",
+  check("and the slid ring is still a ring, not six clamped buttons",
     ringed.spread <= 2 && ringed.radius > 60,
     JSON.stringify({ spread: ringed.spread, radius: ringed.radius }));
 
@@ -912,7 +967,7 @@ async function newBoard(page, name, type) {
     };
   });
   check("a line ring opened at the far corner stays inside the window too",
-    linkClamped.open && linkClamped.n === 8
+    linkClamped.open && linkClamped.n === 3
       && linkClamped.maxRight <= linkClamped.w && linkClamped.maxBottom <= linkClamped.h,
     JSON.stringify(linkClamped));
 

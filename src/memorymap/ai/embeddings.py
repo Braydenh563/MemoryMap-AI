@@ -155,6 +155,12 @@ def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # 
                     "could not warm the retrieval matrix", exc_info=True
                 )
 
+    # **Not on `core/jobs.py`'s pool, deliberately** (WORLD_CLASS_PLAN A3).
+    # The pool bounds the jobs that *multiply*: one per upload, three per
+    # picture, so a folder of 200 is 600 threads. This is one thread per
+    # process, it runs once at startup, and putting it on the shared queue
+    # would make the first search of a session wait behind whatever OCR a
+    # bulk import had already queued. One is not a concurrency problem.
     threading.Thread(target=run, name="embedding-warmup", daemon=True).start()
 
 
@@ -313,7 +319,7 @@ def embedding_text(session: Session, entry: Entry) -> str:
         if labels:
             parts.append("Filed under: " + ", ".join(labels))
     except Exception:  # noqa: BLE001  # enrichment must never block an embedding
-        pass
+        logger.debug("no category or tags for entry %s", entry.id, exc_info=True)
 
     # What this note's own attached files say. The same reasoning as the
     # media captions below, for the half of the app that stores files as
@@ -332,15 +338,15 @@ def embedding_text(session: Session, entry: Entry) -> str:
             text = " ".join(str(item).strip() for item in found if item)
             if text:
                 parts.append(f"{attachment.filename}: {text[:2000]}")
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception:  # noqa: BLE001  # an attachment must never block an embedding
+        logger.debug("no attachment text for entry %s", entry.id, exc_info=True)
 
     try:
         extra = media_process.media_text_for(session, entry.content)
         if extra:
             parts.append(extra)
     except Exception:  # noqa: BLE001  # enrichment must never block an embedding
-        pass
+        logger.debug("no media text for entry %s", entry.id, exc_info=True)
     return "\n".join(parts)
 
 
@@ -532,8 +538,10 @@ class EmbeddingService:
             model = SentenceTransformer(DEFAULT_ST_MODEL, local_files_only=True)
             logger.info("embedding model loaded from local cache")
             return model
-        except Exception:
-            pass  # not cached yet (or the cache is stale/corrupt), fetch it for real
+        except Exception:  # noqa: BLE001  # not cached, stale or corrupt; fetch it
+            logger.debug(
+                "%s is not in the local cache, fetching it", DEFAULT_ST_MODEL, exc_info=True
+            )
         return SentenceTransformer(DEFAULT_ST_MODEL)
 
     def _embed_with_sentence_transformers(self, text: str) -> np.ndarray | None:
@@ -621,6 +629,11 @@ class EmbeddingService:
                 importlib.invalidate_caches()
                 self.reset_failure_state()
 
+        # Also not on the pool, and this one would be an outright bug there:
+        # it waits on someone else's pip process, which is minutes. A bounded
+        # pool worker held that long with captions queued behind it is the
+        # pool starving itself, the exact failure a queue is supposed to
+        # prevent. One per process, at most once ever (`_auto_install_attempted`).
         threading.Thread(
             target=_retry_once_installed, name="embedding-auto-install-watch", daemon=True
         ).start()

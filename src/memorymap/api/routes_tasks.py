@@ -30,6 +30,7 @@ from pydantic import BaseModel, Field
 from memorymap.ai import embeddings as embeddings_module
 from memorymap.ai import model_manager as jobs
 from memorymap.core import bgtasks, deps, embedmodels, extras, filejobs, taskhistory
+from memorymap.core import jobs as bgpool
 
 router = APIRouter(tags=["tasks"])
 
@@ -133,6 +134,12 @@ def collect() -> list[dict]:
     # Reading an attached file: "Describe with AI", the local OCR pass, and
     # the vision read. Same not-cancellable reasoning as the three above.
     tasks.extend(filejobs.running())
+
+    # Queued and running background work: the captions, OCR passes and
+    # document reads a bulk upload starts. Before the bounded pool these were
+    # loose threads that the panel could not see at all, so a folder of 200
+    # pictures looked exactly like an idle app (WORLD_CLASS_PLAN A3).
+    tasks.extend(bgpool.pending())
 
     # Autonomous optimization task
     from memorymap.ai import autonomous

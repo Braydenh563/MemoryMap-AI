@@ -247,6 +247,24 @@ def parameter_count(name: str) -> float | None:
         return None
 
 
+def is_small_model(name: str) -> bool | None:
+    """Is a model of this name small enough to need the simplified treatment?
+
+    True / False / **None for "the name doesn't say"**, and the three states
+    matter: a caller that collapses None into True narrows every run on an
+    unrecognised name, one that collapses it into False never turns on for the
+    models this exists for. Every caller in the app treats None as off and
+    says so where it does.
+
+    Split out of `ModelManager.chat_model_is_small` (which now calls it) for
+    the agent loop: `run_agent` may be running the utility model or an
+    explicit override rather than the chat model, so it has to ask about the
+    model it is *actually* about to call, not about the preference.
+    """
+    size = parameter_count(name)
+    return None if size is None else size < SMALL_MODEL_PARAMS_B
+
+
 class ModelManager:
     """Reads/writes the active-model preferences."""
 
@@ -266,8 +284,7 @@ class ModelManager:
         this exists for. The one caller (`small_model_mode` = "auto") treats
         None as off and says so.
         """
-        size = parameter_count(self.chat_model())
-        return None if size is None else size < SMALL_MODEL_PARAMS_B
+        return is_small_model(self.chat_model())
 
     def utility_model(self) -> str:
         """The model for quick background jobs, filing (janitor), the

@@ -14,6 +14,61 @@ below). Versioning is `0.x` while the app stabilises.
 - Aurora's trails end and its ring no longer stamps itself into them (INBOX
   210). The Library's Create chooser is a column of named rows like the
   documents' template dialog (211).
+- The tests that never ran anywhere now run in CI. The unit job installs node,
+  so the nine tests that shell out to `node --check` and the plain markdown and
+  export scripts stop skipping themselves, and a new `pdf` job installs the
+  rasteriser extra (`pypdfium2`, `Pillow`), asserts `pdfpages.available()` and
+  runs the ten files gated on it. Measured with the extra present: 159 tests in
+  those files, none skipped.
+
+- Nine failures that said nothing now say it at debug. The `except Exception:
+  pass` handlers in the embedding enrichment (4), the entity pass, the vision
+  read, the two PDF page closes and the task history each log with `exc_info`
+  and name what was being attempted; `entities.py` and `taskhistory.py` had no
+  logger at all to say it through, and now do. None of the handlers widened.
+
+- The graph and timeline routes name their optional parts. `graph` was 355
+  lines and 58 branches and is 227 and 29, with the three opt-in blocks as
+  `_add_entity_nodes`, `_add_document_nodes` and `_add_map_edges`; `timeline`
+  was 346 and 53 and is 248 and 39, with the three row builders as
+  `_place_notes`, `_place_documents` and `_place_reminders`. No behaviour
+  changed: 118 graph and mind map tests and 27 timeline tests pass either side.
+
+- The chat stream route is a resolve and a stream, not one 424-line function.
+  `chat_stream` is now 71 lines: what one call settles before it opens the
+  stream is a `_StreamRequest` record, the no-tools path is `_plain_events`
+  (149 lines) and the NDJSON writer is `_stream_lines` (219), both module-level
+  rather than closures. No behaviour changed; 264 chat and skill tests pass.
+
+- A skill run reads as a setup, a step and a finish. `_run_skill` was 682 lines
+  and 82 branches; it is now 301 and 36, with one step's attempts, contract and
+  paging in `_run_one_step` (401 lines), the run's decisions on a `_RunSetup`
+  record and what it learns on a `_RunState`. No behaviour changed: the 88
+  skills tests and the run, verifier and agent files pass either side.
+
+- The agent's turn reads as three stages rather than one long one. `run_agent`
+  was 875 lines and 68 branches by the same AST ruler the audit used
+  (`scratchpad/probe_complexity.py`); it is now 279 and 37, with the setup in
+  `_prepare_turn` (248 lines), one tool call and its guards in `_dispatch_call`
+  (405), and the ledgers the rounds share on a `_TurnState` record. No
+  behaviour changed: the same 306 agent, chat and skill tests pass before and
+  after.
+
+- The agent knows how big its model is. `run_agent` now asks
+  `model_manager.is_small_model` about the model it is actually going to call,
+  the same predicate the skills path uses, and a small model gets the core
+  tools without the orchestration three, the short descriptions, and four
+  rounds rather than six plus six earned. Measured on one turn with a 32k
+  window: 11 tools and 3,828 schema bytes against 56 and 27,250. A model whose
+  name does not say its size is left alone.
+
+- Background work is bounded. Every upload used to spawn up to three threads of
+  its own (Tesseract, the caption, the vision read) plus a document read, so a
+  folder of 200 pictures was 600 threads against one Tesseract and one local
+  model. `core/jobs.py` is now one pool with two lanes: the CPU lane is the core
+  count capped at four, the model lane is one worker, and every
+  `*_in_background` enqueues on it. The activity panel lists what is queued, and
+  shutdown drops the queue inside a deadline instead of draining it.
 
 - Boot is lighter: p5 (1 MB, decoration only) loads in idle time on first use
   rather than as a blocking script, and the dashboard's seven widgets share one

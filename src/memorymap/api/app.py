@@ -64,7 +64,16 @@ from memorymap.api import (
     routes_whiteboard,
 )
 from memorymap.api.routes_auth import require_unlock
-from memorymap.core import backup, bgtasks, deps, events, logbuffer, security, startup_status
+from memorymap.core import (
+    backup,
+    bgtasks,
+    deps,
+    events,
+    jobs,
+    logbuffer,
+    security,
+    startup_status,
+)
 from memorymap.core.deps import init_app_state
 from memorymap.entry import manager
 
@@ -425,6 +434,13 @@ def _register_error_handlers(app: FastAPI) -> None:
         )
 
 
+#: How long shutdown waits for the background pool's workers. Short: the only
+#: thing that can still be running is one job (a Tesseract pass or a model
+#: call), the workers are daemons, and a quit that waits for a vision read of
+#: a 20-page scan is the hang `core/bgtasks.py` was written to prevent.
+_JOB_SHUTDOWN_SECONDS = 3.0
+
+
 def create_app() -> FastAPI:
     # First, before any singleton is built. This catches `uvicorn … --workers 4`
     # run directly against this factory, which is the only way the app can be
@@ -471,6 +487,13 @@ def create_app() -> FastAPI:
         # shutdown that fails to shut down is worse than one that leaves a
         # line in the log.
         bgtasks.stop_all()
+        # The bounded pool (core/jobs.py) is the other half: `stop_all`
+        # handles the jobs that own something interruptible, and this one
+        # drops the queue of captions and OCR passes behind it. A deadline
+        # rather than a join, because the job in flight may be inside a model
+        # call that cannot be interrupted and the workers are daemons: see
+        # `jobs.Pool.shutdown`.
+        jobs.shutdown(deadline=_JOB_SHUTDOWN_SECONDS)
 
     # No auto-mounted `/docs`, `/redoc` or `/openapi.json`. Two reasons, and
     # the second is the one that matters. The Swagger and ReDoc pages load

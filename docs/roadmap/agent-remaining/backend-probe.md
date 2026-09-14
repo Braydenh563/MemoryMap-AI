@@ -1,3 +1,17 @@
+# The audit's backend rows, 2026-09-13 night (A3 to A9)
+
+Brief: WORLD_CLASS_PLAN "Audit, 2026-09-13 night", rows A3, A4, A5, A6, A9 in
+that order. One commit per row (A5 one per function), `gate.sh --changed` after
+each, tests first.
+
+| Row | State | Commit |
+| --- | --- | --- |
+| A3 bounded job pool | done | `8b9da9e` |
+| A4 small-model agent | done | (this commit) |
+| A5 five functions split | `run_agent` done, `_run_skill` next | (this commit) |
+| A6 nine silent excepts | not started | |
+| A9 CI skips | not started | |
+
 # The backend refinement pass, 2026-09-13 evening
 
 The owner's order was "refine the backend", worked as the list in the brief:
@@ -263,3 +277,41 @@ session spends its probes somewhere new.
   one) rather than refused, because a save that fails over one long tag
   throws the note away, and a tag list past 200 is a paste rather than a set
   of labels.
+
+## Running log, the audit rows (append only, newest last)
+
+- done: A5's first function. `run_agent` 875 lines / 68 branches to 279 / 37 by
+  `scratchpad/probe_complexity.py`, split into `_prepare_turn` (248), a
+  `_TurnState` record of the ledgers a turn carries, and `_dispatch_call` (405,
+  one tool call and its guards, returning True when the tool ended the turn).
+  306 tests across the six agent files plus chat, skills and tool cards pass
+  either side. next: A5's `_run_skill` (`src/memorymap/ai/skill_runner.py`,
+  682 lines / 82 branches).
+- done: A5's second function. `_run_skill` 682 lines / 82 branches to 301 / 36:
+  `_RunSetup` (what the run decided before its first step), `_RunState` (what it
+  learns), `_run_one_step` (401 lines, one step, returning "next", "again" or
+  "stop"). 88 skills tests plus 211 in the run, verifier, chat and agent files
+  pass. The trap: the extracted step's last `return "next"` landed one level in,
+  so a finished step returned None and the run loop spun at 84% CPU without
+  advancing. Caught by `tests/test_skills.py` hanging, not by a lint.
+  next: A5's `chat_stream` (`api/routes_chat.py`, 424 lines / 11 branches).
+- done: A5's third function. `chat_stream` 424 lines / 11 branches to 71 / 11;
+  the two closures are now `_plain_events` (149) and `_stream_lines` (219) with
+  a `_StreamRequest` record carrying the fifteen values they used to close
+  over. 264 tests across the seven chat files, skills and run_skill pass.
+  next: A5's `graph` then `timeline`.
+- done: A5's last two. `graph` 355/58 to 227/29 and `timeline` 346/53 to
+  248/39, the opt-in blocks and the row builders out as named helpers. 118
+  graph and mind map tests, 27 timeline tests. A5 is complete: all five
+  functions split, marked done in WORLD_CLASS_PLAN. next: A6, then A9.
+- done: A6. The nine `except Exception: pass` in `ai/embeddings.py` (4),
+  `ai/entities.py`, `ai/vision_ocr.py`, `core/pdfpages.py` (2) and
+  `core/taskhistory.py` log at debug with `exc_info` and name the attempt;
+  two modules gained the logger they lacked. `grep -A1 'except Exception'`
+  over those five files finds no `pass` left. next: A9.
+- done: A9. `actions/setup-node@v7` in the unit job (no npm needed: the nine
+  tests run `node --check` and plain scripts) and a new `pdf` job on 3.12 that
+  installs `pypdfium2 Pillow`, asserts `pdfpages.available()` and runs the ten
+  gated files. Measured here with the extra present: 159 tests, 0 skipped.
+  Not verified: the CI runners themselves, which only a push can show.
+  next: INBOX 221, the launchers against the auto-update settings.

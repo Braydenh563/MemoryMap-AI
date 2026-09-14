@@ -13,6 +13,8 @@ background pass (`ai/autonomous.py`) when `auto_entities_enabled` is on.
 
 from __future__ import annotations
 
+import logging
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -26,6 +28,8 @@ from memorymap.core.database import (
     like_escape,
     utcnow,
 )
+
+logger = logging.getLogger("memorymap.entities")
 
 # A note this short rarely names anything worth its own node, cheaper to
 # skip than to spend a model call finding nothing, the same reasoning
@@ -148,7 +152,7 @@ def extract_entities_pass(
                     if not already:
                         session.add(EntityMention(entity_id=entity.id, entry_id=entry.id))
         except Exception:  # noqa: BLE001  # one bad note must not stop the pass
-            pass
+            logger.debug("entity extraction failed on entry %s", entry.id, exc_info=True)
         finally:
             entry.entities_extracted_at = utcnow()
             processed += 1

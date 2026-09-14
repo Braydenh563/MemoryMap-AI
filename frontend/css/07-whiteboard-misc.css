@@ -9138,10 +9138,18 @@ input[type="file"] {
   flex: 1 1 auto;
 }
 
+/* **Em, not a token.** Reported: "the icons in mindmap nodes dont resize with
+   the text or size of the node". A topic's own text size is written on the
+   node as a px `font-size` (`wbMapApplyNodeStyle`), and a token here is an
+   absolute value, so dragging the Aa grip to 40px left the glyph beside it at
+   the 1.05rem it started at, a star a third the height of the word it marks.
+   An em is measured against the node's own size, so the glyph now grows and
+   shrinks with the label it belongs to. The ratio is the one the token gave
+   at the default size, so a node nobody has resized looks exactly as it did. */
 .wb-map-node-icon {
   flex: 0 0 auto;
   color: var(--wb-branch);
-  font-size: var(--text-lg);
+  font-size: 1.15em;
 }
 
 .wb-map-text {
@@ -9268,8 +9276,19 @@ input[type="file"] {
    show, which this file has already had to fix twice (see `.wb-map-count`). */
 .wb-map-grips {
   position: absolute;
-  left: var(--space-1);
-  bottom: var(--space-1);
+  /* **Above the node's top left corner, not inside its bottom left one**
+     (the owner, with a screenshot of the Aa sitting under the add button:
+     "the mind map text size 'Aa' thing clashes with the popups buttons, can
+     they be moved to the top left or right or smth"). `.wb-map-actions` was
+     itself moved to hang off the *bottom left* from outside the node, which
+     put it straight back over the grips this rule had moved there to avoid
+     it. Outside the top edge is the one corner of the four with nothing on
+     it: the count and the chevron own the right hand side, the actions own
+     the bottom. Outside rather than inset, so the row never covers the label
+     on a small topic. */
+  left: 0;
+  bottom: auto;
+  top: calc(var(--space-7) * -1);
   display: flex;
   align-items: center;
   gap: var(--space-1);

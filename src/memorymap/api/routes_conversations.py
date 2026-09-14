@@ -110,6 +110,14 @@ class TurnBody(BaseModel):
     #: switches, and each past message should say what answered it, not what
     #: the live #chat-mode-seg toggle happens to show now (ROADMAP §89.4).
     used_tools: bool | None = None
+    #: What the chat's Resume and Edit-step buttons need in order to exist
+    #: again after the conversation is reopened. Reported: the buttons "arent
+    #: persistent and disappeared when I came back to the chat", because they
+    #: were built from the live stream's own variables and nothing wrote the
+    #: run's state down. Kept as an opaque dict for the same reason `stats`
+    #: and `steps` are: the client owns its shape, and a schema here would
+    #: have to be changed in lockstep with a button's options.
+    resume: dict | None = None
 
 
 class RenameBody(BaseModel):
@@ -126,6 +134,8 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
         assistant["tools"] = turn.tools
     if turn.steps:
         assistant["steps"] = turn.steps
+    if turn.resume:
+        assistant["resume"] = turn.resume
     if turn.tokens:
         assistant["tokens"] = turn.tokens
     if turn.stats:

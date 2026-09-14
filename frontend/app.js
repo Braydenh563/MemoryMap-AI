@@ -11378,6 +11378,38 @@ function clickableResult(entry) {
 //: same" order independently is how they drift apart again. Optional, so the
 //: Ask box's own call keeps its existing behaviour until it grows a panel to
 //: agree with.
+//: **One numbering, read by everything that prints a digit.** Reported of the
+//: Ask tab: "In-text referencing and grounding in the ask subtab doesn't
+//: stick, the wrong numbers will be used and in the wrong spot, and the
+//: numbers wont match the grounding". Three things there number the same
+//: sources: the markers in the prose, the "Grounded in" chips under it and
+//: the Sources panel below that. Each counted for itself, so a note could be
+//: 1 in the prose, 2 on a chip and 3 in the panel, and the Chat tab had
+//: already been given the panel's order for exactly this reason while Ask had
+//: not. A function rather than a convention: two loops that agree today are
+//: two loops that disagree after the next edit to either.
+//:
+//: A note the panel did not list (it caps its rows) keeps a number after the
+//: listed ones rather than none at all: an unnumbered citation is worse than
+//: one whose row needs scrolling to.
+function citationNumbers(sentences, orderedSources = null) {
+  const numberFor = new Map();
+  if (orderedSources && orderedSources.length) {
+    orderedSources.forEach((source, index) => {
+      if (source && source.kind === "note") numberFor.set(source.id, index + 1);
+    });
+    let next = orderedSources.length + 1;
+    for (const g of sentences || []) {
+      if (!numberFor.has(g.note_id)) numberFor.set(g.note_id, next++);
+    }
+  } else {
+    for (const g of sentences || []) {
+      if (!numberFor.has(g.note_id)) numberFor.set(g.note_id, numberFor.size + 1);
+    }
+  }
+  return numberFor;
+}
+
 function addInlineCitations(answerEl, sentences, rawResults, orderedSources = null) {
   const targets = [
     ...(answerEl && !answerEl.nodeType ? [...answerEl] : answerEl ? [answerEl] : []),
@@ -11386,24 +11418,7 @@ function addInlineCitations(answerEl, sentences, rawResults, orderedSources = nu
   const byId = new Map((rawResults || []).map((entry) => [entry.id, entry]));
   // One number per note, in the order they are first cited, the numbering a
   // reader expects, rather than note ids, which mean nothing to anyone.
-  const numberFor = new Map();
-  if (orderedSources && orderedSources.length) {
-    //: The panel's numbering, so a marker and a row that carry the same digit
-    //: are the same source. A note the panel did not list (it caps its rows)
-    //: keeps a number after the listed ones rather than none at all: an
-    //: unnumbered citation is worse than one whose row needs scrolling to.
-    orderedSources.forEach((source, index) => {
-      if (source && source.kind === "note") numberFor.set(source.id, index + 1);
-    });
-    let next = orderedSources.length + 1;
-    for (const g of sentences) {
-      if (!numberFor.has(g.note_id)) numberFor.set(g.note_id, next++);
-    }
-  } else {
-    for (const g of sentences) {
-      if (!numberFor.has(g.note_id)) numberFor.set(g.note_id, numberFor.size + 1);
-    }
-  }
+  const numberFor = citationNumbers(sentences, orderedSources);
   // Longest first: when one grounded sentence is a prefix of another, marking
   // the short one first would leave the long one unmatchable.
   const wanted = [...sentences]
@@ -11563,12 +11578,15 @@ function renderRelatedElsewhere(target, items) {
 //: corrections since Brief 23 while nothing in the browser wrote one). Left
 //: optional because the third caller rebuilds an old chat from storage, and
 //: a click on a source from last week is not evidence about today's ranking.
-function renderAnswerGrounding(target, sentences, rawResults, answerEl = null, question = "") {
+function renderAnswerGrounding(
+  target, sentences, rawResults, answerEl = null, question = "", orderedSources = null
+) {
   if (!target) return;
   // The markers go in the answer itself; the chip row below is their key.
-  // Both are built from the same `sentences`, so they cannot disagree about
-  // which note is number 2.
-  addInlineCitations(answerEl, sentences, rawResults);
+  // Both are built from the same `sentences` and the same numbering
+  // (`citationNumbers`), so they cannot disagree about which note is number 2,
+  // and passing the panel's order in makes the third thing on screen agree too.
+  addInlineCitations(answerEl, sentences, rawResults, orderedSources);
   target.replaceChildren();
   if (!sentences || !sentences.length) {
     target.classList.add("hidden");
@@ -11586,10 +11604,16 @@ function renderAnswerGrounding(target, sentences, rawResults, answerEl = null, q
   label.className = "muted answer-grounding-label";
   label.textContent = "Grounded in:";
   target.appendChild(label);
-  let n = 0;
-  for (const [noteId, forSentences] of byNote) {
+  const numberFor = citationNumbers(sentences, orderedSources);
+  //: Drawn in the order the digits run, not in the order the sentences
+  //: happened to arrive: a key whose rows read 2, 1, 3 is a key you have to
+  //: search rather than read.
+  const chips = [...byNote.entries()].sort(
+    (a, b) => (numberFor.get(a[0]) || 0) - (numberFor.get(b[0]) || 0)
+  );
+  for (const [noteId, forSentences] of chips) {
     const entry = byId.get(noteId);
-    n += 1;
+    const n = numberFor.get(noteId) || 0;
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "chip result-reason-chip result-reason-connected answer-grounding-chip";
@@ -12376,17 +12400,15 @@ async function askQuestion(preset) {
         answerStats = event;
       },
       onGrounding: (event) => {
-        //: Remembered as well as rendered, see the re-application after the
-        //: final markdown pass below, which is why the inline markers were
-        //: never visible.
+        //: **Remembered here, drawn once at the end.** This used to draw the
+        //: chips and the markers the moment the event arrived, which is
+        //: before the answer has finished streaming and before the Sources
+        //: panel exists. Both were then wrong in the way the owner reported:
+        //: the markers were placed into prose that was still growing (and
+        //: thrown away by the final markdown pass a moment later), and the
+        //: chips were numbered with nothing to agree with, so the digits did
+        //: not match the panel the foot drew underneath them.
         groundedSentences = event.sentences || [];
-        renderAnswerGrounding(
-          $("ai-answer-grounding"),
-          event.sentences,
-          groundingRawResults,
-          answerBox,
-          question
-        );
       },
     });
 
@@ -12401,12 +12423,9 @@ async function askQuestion(preset) {
     //: `done`, so this was true of every answer that had any: the feature ran,
     //: correctly, and its output survived for a few milliseconds.
     //:
-    //: Re-applied rather than moved, because the live render during streaming
-    //: is what makes the answer readable as it arrives; the markers simply
-    //: have to be the last thing written.
-    if (!hinted && groundedSentences.length) {
-      addInlineCitations(answerBox, groundedSentences, groundingRawResults);
-    }
+    //: Applied once, here, rather than during the stream, because the live
+    //: render is what makes the answer readable as it arrives and the markers
+    //: simply have to be the last thing written, against the finished text.
     if (!hinted) {
       conversation.push({ question, answer: answerRaw });
       show("retry-btn", "copy-btn", "speak-btn", "new-chat-btn");
@@ -12415,17 +12434,30 @@ async function askQuestion(preset) {
       //: (the sentences and the sources they came from) are only complete when
       //: the last event has arrived, and a foot that rearranges itself under a
       //: reader mid-answer is worse than one that appears when the answer does.
-      renderAskAnswerFoot(
-        answerObject({
+      //: Built before the grounding is drawn rather than after, so the chips
+      //: and the markers can be numbered from the panel's own list of sources
+      //: (`citationNumbers`). The Chat tab has done this since the panel
+      //: existed; the Ask tab numbered each of the three for itself, which is
+      //: the "numbers wont match the grounding" that was reported.
+      const answer = answerObject({
+        question,
+        text: answerRaw,
+        grounding: groundedSentences,
+        meta: answerMeta,
+        related: relatedItems,
+        stats: answerStats,
+      });
+      if (groundedSentences.length) {
+        renderAnswerGrounding(
+          $("ai-answer-grounding"),
+          groundedSentences,
+          groundingRawResults,
+          answerBox,
           question,
-          text: answerRaw,
-          grounding: groundedSentences,
-          meta: answerMeta,
-          related: relatedItems,
-          stats: answerStats,
-        }),
-        answerMeta
-      );
+          answer.sources
+        );
+      }
+      renderAskAnswerFoot(answer, answerMeta);
       //: Not awaited: it is a second model call, and the answer is already on
       //: screen. The same contract `offerFollowups` has in the Chat tab.
       renderAskFollowups(question, answerRaw);
@@ -12657,24 +12689,25 @@ async function viewAskHistoryTurn(id) {
   //: a remembered answer rather than one just written.
   const groundingRows = turn.grounding || [];
   const historyMeta = { raw_results: turn.raw_results || [] };
+  //: Built first, for its `sources`: a reopened turn numbers its markers,
+  //: chips and panel rows together, the same way the live path does.
+  const remembered = answerObject({
+    question: turn.question,
+    text: turn.answer,
+    grounding: groundingRows,
+    meta: historyMeta,
+  });
   if (groundingRows.length) {
     renderAnswerGrounding(
       $("ai-answer-grounding"),
       groundingRows,
       historyMeta.raw_results,
       answerBox,
-      turn.question
+      turn.question,
+      remembered.sources
     );
   }
-  renderAskAnswerFoot(
-    answerObject({
-      question: turn.question,
-      text: turn.answer,
-      grounding: groundingRows,
-      meta: historyMeta,
-    }),
-    historyMeta
-  );
+  renderAskAnswerFoot(remembered, historyMeta);
   $("ai-thinking").textContent = "";
   //: A remembered turn says *when* rather than *what by*: the model that
   //: answered it may not even be installed any more. The tooltip carries the
@@ -18596,6 +18629,128 @@ function closeChatDockMore() {
   $("chat-dock-more-btn").setAttribute("aria-expanded", "false");
 }
 
+//: **The way onward, built in one place so both paths draw the same buttons.**
+//:
+//: Reported: "the continue step and edit step buttons in the chat arent
+//: persistent and disappeared when I came back to the chat". They were built
+//: only while the stream was finishing, from local variables (`stopped`,
+//: `stoppedAtStep`, the skill and its inputs) that nothing wrote down, so a
+//: run you stopped offered Resume until the moment you changed tab and then
+//: silently stopped offering it, with the run's work still sitting there and
+//: no way back to it. The state is saved on the turn now (`resume` in the
+//: turn body) and `openConversation` calls this with it, which is the same
+//: shape the Sources panel, the grounding chips and the followups each had
+//: to be given for the same reason.
+//:
+//: One function rather than a copy in the reopen path: the comment on
+//: `assistantMessageActions` is about exactly this pair of paths drifting.
+function appendRunResumeControls(bubble, spec) {
+  if (!bubble || !spec) return;
+  const stopped = Boolean(spec.stopped);
+  const stoppedAtStep = typeof spec.stoppedAtStep === "number" ? spec.stoppedAtStep : null;
+  const pausedForManual = Boolean(spec.pausedForManual);
+  const ranOutOfRounds = Boolean(spec.ranOutOfRounds);
+  const editStepAction = (index) => ({
+    label: `ph:pencil-simple Edit step ${index + 1}`,
+    title: "Rewrite this step and run just it, leaving the rest for afterwards",
+    onClick: async () => {
+      const text = await promptDialog(
+        `Rewrite step ${index + 1} and run just that step. Earlier steps are ` +
+          "not repeated, and the rest of the skill is left to resume afterwards.",
+        spec.timeline?.stepText?.(index) || "",
+        { confirmLabel: "Run this step" }
+      );
+      if (!text || !text.trim()) return false;
+      sendChatMessage(`${spec.skill}: step ${index + 1}`, {
+        skill: spec.skill,
+        skillInputs: spec.skillInputs || {},
+        skillOnlyStep: index,
+        skillStepText: text.trim(),
+        skipPlanMode: true,
+      });
+      return true;
+    },
+  });
+
+  if (stopped && stoppedAtStep !== null && spec.skill) {
+    bubble.appendChild(
+      continueRunControls({
+        also: editStepAction(stoppedAtStep),
+        label: `ph:play Resume from step ${stoppedAtStep + 1}`,
+        hint: "You stopped this. Earlier steps are not repeated.",
+        onClick: () =>
+          sendChatMessage(`${spec.skill}: from step ${stoppedAtStep + 1}`, {
+            skill: spec.skill,
+            skillInputs: spec.skillInputs || {},
+            skillFromStep: stoppedAtStep,
+            skipPlanMode: true,
+          }),
+      })
+    );
+  } else if (stopped && (spec.skill || spec.hasTools)) {
+    //: A stopped run with no step to name, a plain agent turn, or a skill
+    //: stopped before its first step finished. It still did work worth not
+    //: repeating, so the offer is the same one the round limit gets.
+    bubble.appendChild(
+      continueRunControls({
+        label: "ph:play Resume",
+        hint: "Picks up from what it had already done.",
+        onClick: () =>
+          sendChatMessage(
+            "Continue from where you stopped. Don't redo what you have " +
+              "already done: carry on with what is left, and say when it is " +
+              "all finished.",
+            { useTools: true }
+          ),
+      })
+    );
+  } else if (!stopped && stoppedAtStep !== null && spec.skill && pausedForManual) {
+    bubble.appendChild(
+      manualPauseControls({
+        onContinue: (note) =>
+          sendChatMessage(`${spec.skill}: from step ${stoppedAtStep + 1}`, {
+            skill: spec.skill,
+            skillInputs: spec.skillInputs || {},
+            skillFromStep: stoppedAtStep,
+            skillManual: true,
+            skillManualNote: note,
+            skipPlanMode: true,
+          }),
+      })
+    );
+  } else if (!stopped && stoppedAtStep !== null && spec.skill) {
+    bubble.appendChild(
+      continueRunControls({
+        also: editStepAction(stoppedAtStep),
+        label: `ph:arrow-clockwise Resume from step ${stoppedAtStep + 1}`,
+        hint: "Earlier steps are not repeated.",
+        onClick: () =>
+          sendChatMessage(`${spec.skill}: from step ${stoppedAtStep + 1}`, {
+            skill: spec.skill,
+            skillInputs: spec.skillInputs || {},
+            skillFromStep: stoppedAtStep,
+            skipPlanMode: true,
+          }),
+      })
+    );
+  } else if (!stopped && ranOutOfRounds) {
+    bubble.appendChild(
+      continueRunControls({
+        label: "→ Continue",
+        hint: "Picks up from what it had already done.",
+        onClick: () =>
+          sendChatMessage(
+            "Continue from where you stopped. Don't redo what you have " +
+              "already done: carry on with what is left, and say when it is " +
+              "all finished.",
+            { useTools: true }
+          ),
+      })
+    );
+  }
+}
+
+
 async function sendChatMessage(preset, opts = {}) {
   const input = $("chat-input");
   const status = $("chat-status");
@@ -19449,104 +19604,18 @@ async function sendChatMessage(preset, opts = {}) {
   //: works is to run the whole skill again, every earlier step of which writes
   //: to the notebook. It runs that step and stops, so the rest of the skill is
   //: still there to resume afterwards.
-  const editStepAction = (index) => ({
-    label: `ph:pencil-simple Edit step ${index + 1}`,
-    title: "Rewrite this step and run just it, leaving the rest for afterwards",
-    onClick: async () => {
-      const text = await promptDialog(
-        `Rewrite step ${index + 1} and run just that step. Earlier steps are ` +
-          "not repeated, and the rest of the skill is left to resume afterwards.",
-        timeline.stepText?.(index) || "",
-        { confirmLabel: "Run this step" }
-      );
-      if (!text || !text.trim()) return false;
-      sendChatMessage(`${opts.skill}: step ${index + 1}`, {
-        skill: opts.skill,
-        skillInputs: opts.skillInputs || {},
-        skillOnlyStep: index,
-        skillStepText: text.trim(),
-        skipPlanMode: true,
-      });
-      return true;
-    },
-  });
-
-  if (stopped && stoppedAtStep !== null && opts.skill) {
-    bubble.appendChild(
-      continueRunControls({
-        also: editStepAction(stoppedAtStep),
-        label: `ph:play Resume from step ${stoppedAtStep + 1}`,
-        hint: "You stopped this. Earlier steps are not repeated.",
-        onClick: () =>
-          sendChatMessage(`${opts.skill}: from step ${stoppedAtStep + 1}`, {
-            skill: opts.skill,
-            skillInputs: opts.skillInputs || {},
-            skillFromStep: stoppedAtStep,
-            skipPlanMode: true,
-          }),
-      })
-    );
-  } else if (stopped && (opts.skill || toolEvents.length)) {
-    //: A stopped run with no step to name, a plain agent turn, or a skill
-    //: stopped before its first step finished. It still did work worth not
-    //: repeating, so the offer is the same one the round limit gets.
-    bubble.appendChild(
-      continueRunControls({
-        label: "ph:play Resume",
-        hint: "Picks up from what it had already done.",
-        onClick: () =>
-          sendChatMessage(
-            "Continue from where you stopped. Don't redo what you have " +
-              "already done: carry on with what is left, and say when it is " +
-              "all finished.",
-            { useTools: true }
-          ),
-      })
-    );
-  } else if (!stopped && stoppedAtStep !== null && opts.skill && pausedForManual) {
-    bubble.appendChild(
-      manualPauseControls({
-        onContinue: (note) =>
-          sendChatMessage(`${opts.skill}: from step ${stoppedAtStep + 1}`, {
-            skill: opts.skill,
-            skillInputs: opts.skillInputs || {},
-            skillFromStep: stoppedAtStep,
-            skillManual: true,
-            skillManualNote: note,
-            skipPlanMode: true,
-          }),
-      })
-    );
-  } else if (!stopped && stoppedAtStep !== null && opts.skill) {
-    bubble.appendChild(
-      continueRunControls({
-        also: editStepAction(stoppedAtStep),
-        label: `ph:arrow-clockwise Resume from step ${stoppedAtStep + 1}`,
-        hint: "Earlier steps are not repeated.",
-        onClick: () =>
-          sendChatMessage(`${opts.skill}: from step ${stoppedAtStep + 1}`, {
-            skill: opts.skill,
-            skillInputs: opts.skillInputs || {},
-            skillFromStep: stoppedAtStep,
-            skipPlanMode: true,
-          }),
-      })
-    );
-  } else if (!stopped && ranOutOfRounds) {
-    bubble.appendChild(
-      continueRunControls({
-        label: "→ Continue",
-        hint: "Picks up from what it had already done.",
-        onClick: () =>
-          sendChatMessage(
-            "Continue from where you stopped. Don't redo what you have " +
-              "already done: carry on with what is left, and say when it is " +
-              "all finished.",
-            { useTools: true }
-          ),
-      })
-    );
-  }
+  //: Built from this turn's own state and, on a reopened conversation, from
+  //: the copy of it saved with the turn. See `appendRunResumeControls`.
+  const resumeState = {
+    skill: opts.skill || null,
+    skillInputs: opts.skillInputs || {},
+    stopped,
+    stoppedAtStep,
+    pausedForManual,
+    ranOutOfRounds,
+    hasTools: toolEvents.length,
+  };
+  appendRunResumeControls(bubble, { ...resumeState, timeline });
   chatScrollToEnd();
   if (toolsActed) refreshAfterToolChanges(); // the AI changed real data
   if (handoff) {
@@ -19631,6 +19700,17 @@ async function sendChatMessage(preset, opts = {}) {
       // conversation can span mode switches, so this has to be per-turn, not
       // read off the toggle's current state on reload.
       used_tools: effectiveUseTools,
+      //: What the Resume and Edit-step buttons need to exist again after a
+      //: reload (`appendRunResumeControls`). Sent only for a turn that has
+      //: somewhere to resume *to*: an ordinary answer would otherwise carry
+      //: five null fields on every row for the sake of a button it never
+      //: draws.
+      resume:
+        resumeState.stoppedAtStep !== null ||
+        resumeState.stopped ||
+        resumeState.ranOutOfRounds
+          ? resumeState
+          : null,
       // How long the answer took, measured here because the client is the only
       // thing that saw the whole turn: the server reports per-round timings,
       // and an agent turn is several rounds plus the tool calls between them.
@@ -21726,6 +21806,15 @@ async function openConversation(id) {
       // chip is not a slightly different chip.
       if (message.followups) {
         renderFollowups(handles.bubble, message.followups);
+      }
+      //: And the Resume and Edit-step buttons, which disappeared on reopen for
+      //: the same reason and are rebuilt through the same function the live
+      //: path uses, from the state saved with the turn.
+      if (message.resume) {
+        appendRunResumeControls(handles.bubble, {
+          ...message.resume,
+          timeline: handles.timeline,
+        });
       }
       const turnIndex = chatConv.turns.length; // index this pair will occupy
       if (message.edited) handles.bubble.appendChild(editedMarker());
@@ -33019,12 +33108,18 @@ function renderStatusBar() {
     glyph.className = "ph ph-compass";
     glyph.setAttribute("aria-hidden", "true");
     const word = document.createElement("span");
-    //: The name, from the one place that holds it (settings.js `GUIDE_NAME`,
-    //: CHAT_PLAN decision 15), with the word it replaced as the fallback for
-    //: the moment before that module has run.
-    word.textContent = typeof GUIDE_NAME === "string" ? GUIDE_NAME : "Guide";
+    //: **The dock says the scope, the tooltip says who answers.** This read
+    //: `GUIDE_NAME` ("Atlas") and sat next to "Ask", so the bar offered two
+    //: buttons that both mean "talk to the AI" and neither said which one
+    //: knows about your notes and which one knows about the app. A name is
+    //: also the one label here that a setting can invalidate: the persona is
+    //: renameable, so a button spelling it either goes stale or stops reading
+    //: as help. The word is the scope; the name is on hover, where the panel
+    //: it opens introduces Atlas anyway.
+    word.textContent = "Guide";
+    const guideName = typeof GUIDE_NAME === "string" ? GUIDE_NAME : "Atlas";
     guide.append(glyph, word);
-    guide.title = `Ask ${word.textContent} how this app works, from any tab`;
+    guide.title = `Ask ${guideName} how this app works, from any tab`;
   }
 }
 

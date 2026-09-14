@@ -404,3 +404,41 @@ def test_a_search_pages_over_its_own_matches(client):
     assert page.headers["X-Total-Count"] == "5"
     tail = client.get("/conversations", params={"q": "marmoset", "limit": 2, "offset": 4})
     assert len(tail.json()) == 1
+
+
+def test_a_stopped_run_keeps_what_resume_needs(client):
+    """The chat's Resume and Edit-step buttons survive reopening the chat.
+
+    Reported: they "arent persistent and disappeared when I came back to the
+    chat". They were drawn from the live stream's own variables, so the work a
+    stopped run had already done was still there with nothing offering to
+    carry on from it. The client saves the run's state on the turn and draws
+    the same buttons from it on reopen, which is what this holds: the field is
+    carried through the save and comes back on the assistant message.
+    """
+    state = {
+        "skill": "Tidy the inbox",
+        "skillInputs": {"tag": "unsorted"},
+        "stopped": True,
+        "stoppedAtStep": 2,
+        "pausedForManual": False,
+        "ranOutOfRounds": False,
+        "hasTools": 3,
+    }
+    created = client.post(
+        "/conversations",
+        json={"question": "run it", "answer": "stopped early", "resume": state},
+    )
+    assert created.status_code == 201
+    full = client.get(f"/conversations/{created.json()['id']}").json()
+    assistant = [m for m in full["messages"] if m["role"] == "assistant"][0]
+    assert assistant["resume"] == state
+
+
+def test_an_ordinary_turn_carries_no_resume_field(client):
+    """Nothing to resume to, nothing stored: the field is omitted rather than
+    written as a row of nulls on every answer in the notebook."""
+    created = client.post("/conversations", json={"question": "hello", "answer": "hi"})
+    full = client.get(f"/conversations/{created.json()['id']}").json()
+    assistant = [m for m in full["messages"] if m["role"] == "assistant"][0]
+    assert "resume" not in assistant

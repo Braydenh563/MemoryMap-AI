@@ -105,12 +105,13 @@ class RunBudget:
             self.stopped = (
                 f"this run reached its budget of {self.tokens:,} tokens after "
                 f"{self.rounds} rounds. Resume picks up from here, or raise the "
-                "budget in Settings."
+                "budget in Settings, under Tools, Run budget."
             )
         elif self.seconds and self.elapsed() >= self.seconds:
             self.stopped = (
                 f"this run reached its time budget of {int(self.seconds)}s. "
-                "Resume picks up from here, or raise the budget in Settings."
+                "Resume picks up from here, or raise the budget in Settings, "
+                "under Tools, Run budget."
             )
         return self.stopped
 

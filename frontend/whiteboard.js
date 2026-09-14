@@ -12791,6 +12791,23 @@ function renderWhiteboard() {
   // and give it the same "Show more"/"Show less" control and wording as
   // `.entry-more`, keyed by this whiteboard node's id in `wbExpandedNodes`
   // (not the note's own id: the same note can sit on the board twice).
+  //: A card that is showing its whole note sizes to the note, with the stored
+  //: height kept as a floor so collapsing puts the box back exactly where the
+  //: person left it and an expanded card never becomes *smaller* than the one
+  //: they sized by hand. `height: ""` rather than `auto` so the element falls
+  //: back to the stylesheet's own rule rather than to a second hard value.
+  function wbCardExpandHeight(el, d) {
+    if (!el) return;
+    const stored = d.height ? `${d.height}px` : "";
+    if (wbExpandedNodes.has(d.id)) {
+      el.style.height = "";
+      el.style.minHeight = stored;
+    } else {
+      el.style.height = stored;
+      el.style.minHeight = "";
+    }
+  }
+
   nodeEnter.each(function (d) {
     const card = d3.select(this);
     const entry = entriesById.get(String(d.entry_id));
@@ -12848,6 +12865,15 @@ function renderWhiteboard() {
       else wbExpandedNodes.add(d.id);
       contentEl.classList.toggle("wb-card-content-clamped", !expanded());
       toggle.text(expanded() ? "Show less" : "Show more");
+      //: The box has to grow with what is now inside it. Reported with a
+      //: screenshot of a poem running three paragraphs out through the
+      //: bottom edge of its own card: a placed note carries a stored
+      //: `height`, written below as an inline style, and "Show more" only
+      //: ever unclamped the text, so the extra lines were laid out beyond a
+      //: box that still measured what it did when the text was clipped.
+      //: Applied to this card directly as well as in the merge below,
+      //: because nothing redraws the board on a toggle.
+      wbCardExpandHeight(this.closest(".wb-node") || card.node(), d);
     });
   });
 
@@ -12867,7 +12893,10 @@ function renderWhiteboard() {
   nodeSelection.merge(nodeEnter)
     .style("transform", wbItemTransform)
     .style("width", (d) => (d.width ? `${d.width}px` : ""))
-    .style("height", (d) => (d.height ? `${d.height}px` : ""))
+    //: An expanded card is sized by its text, not by the height it was saved
+    //: at (see `wbCardExpandHeight`), so a redraw does not clip it again.
+    .style("height", (d) => (d.height && !wbExpandedNodes.has(d.id) ? `${d.height}px` : ""))
+    .style("min-height", (d) => (d.height && wbExpandedNodes.has(d.id) ? `${d.height}px` : ""))
     .style("z-index", d => d.z);
 
   nodeSelection.exit().remove();

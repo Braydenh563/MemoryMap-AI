@@ -29407,10 +29407,15 @@ async function checkForUpdate(silent = false) {
   }
   if (!result || !result.checked) {
     if (!silent && status) {
+      //: The server's own sentence when it wrote one. It knows which of
+      //: "offline", "no release published yet" and "rate-limited" happened,
+      //: and all three used to be printed here as the first: reported with a
+      //: screenshot of "Couldn't reach GitHub" on a machine that was online,
+      //: which it was, and had nothing to update to.
       status.textContent =
         result && result.reason === "disabled"
           ? "Enable the checkbox above, then try again."
-          : "Couldn't reach GitHub to check for updates.";
+          : (result && result.message) || "Couldn't reach GitHub to check for updates.";
     }
     applyBtn?.classList.add("hidden");
     return;

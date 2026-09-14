@@ -358,18 +358,57 @@ def check_for_update() -> dict:
             "pipeline yet: no nightly Windows installer is published on "
             "every push. Switch back to Stable to get real update checks.",
         }
+    #: **Three different failures, three different sentences.** Reported with
+    #: a screenshot of Settings saying "Couldn't reach GitHub to check for
+    #: updates" on a machine that was plainly online: every failure here
+    #: collapsed into one reason, and the most likely one by far is not a
+    #: network fault at all. A repository with no published release answers
+    #: `/releases/latest` with 404, which raised and was reported as
+    #: unreachable, so the honest message ("there is nothing to update to
+    #: yet") could never be shown. Rate limiting (60 requests an hour for an
+    #: unauthenticated caller, and this check runs on a timer) is the second.
+    #: The comment on the old log line knew all three and the reader was told
+    #: none of them.
     try:
         response = requests.get(
             f"{GITHUB_REPO_API}/releases/latest", timeout=4, headers=GITHUB_HEADERS
         )
+    except Exception:
+        logger.info("update check could not reach GitHub", exc_info=True)
+        return {
+            "checked": False,
+            "reason": "unreachable",
+            "message": "Couldn't reach GitHub to check for updates.",
+        }
+    if response.status_code == 404:
+        return {
+            "checked": False,
+            "reason": "no_releases",
+            "message": (
+                "No release has been published yet, so there is nothing to "
+                "update to. You are on the newest version there is."
+            ),
+        }
+    if response.status_code in (403, 429):
+        return {
+            "checked": False,
+            "reason": "rate_limited",
+            "message": (
+                "GitHub is rate-limiting this machine. The check will work "
+                "again within the hour."
+            ),
+        }
+    try:
         response.raise_for_status()
         release = response.json()
         latest = str(release.get("tag_name") or "").lstrip("vV")
     except Exception:
-        logger.info(
-            "update check failed (offline, rate-limited, or no releases yet)", exc_info=True
-        )
-        return {"checked": False, "reason": "unreachable"}
+        logger.info("update check got an answer it could not read", exc_info=True)
+        return {
+            "checked": False,
+            "reason": "unreachable",
+            "message": "GitHub answered with something this couldn't read.",
+        }
 
     update_available = bool(latest) and _version_tuple(latest) > _version_tuple(__version__)
     asset = _windows_asset(release) if (update_available and _can_auto_apply()) else None

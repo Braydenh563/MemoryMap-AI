@@ -505,7 +505,49 @@ def test_check_reports_unreachable_when_offline(client, app_state, monkeypatch):
     monkeypatch.setattr(routes_update.requests, "get", _offline)
     response = client.get("/update/check")
     assert response.status_code == 200
-    assert response.json() == {"checked": False, "reason": "unreachable"}
+    body = response.json()
+    assert body["checked"] is False
+    assert body["reason"] == "unreachable"
+    assert "Couldn't reach GitHub" in body["message"]
+
+
+class _Answer:
+    """The parts of a requests response this route reads."""
+
+    def __init__(self, status_code: int) -> None:
+        self.status_code = status_code
+
+    def raise_for_status(self) -> None:
+        raise AssertionError("a classified status must not reach raise_for_status")
+
+    def json(self) -> dict:
+        raise AssertionError("a classified status must not be parsed")
+
+
+def test_a_repo_with_no_releases_is_not_reported_as_offline(client, app_state, monkeypatch):
+    """Reported with a screenshot of Settings saying "Couldn't reach GitHub to
+    check for updates" on a machine that was online. A repository with nothing
+    published answers /releases/latest with 404, which this reported as a
+    network failure, so the true and reassuring answer (there is nothing to
+    update to, you are on the newest version there is) could never be shown."""
+    app_state.set_preference("update_check_enabled", True)
+    app_state.set_preference("update_channel", "stable")
+    monkeypatch.setattr(routes_update.requests, "get", lambda *a, **k: _Answer(404))
+    body = client.get("/update/check").json()
+    assert body["reason"] == "no_releases"
+    assert "nothing to update to" in body["message"]
+
+
+def test_rate_limiting_says_so(client, app_state, monkeypatch):
+    """Sixty requests an hour for an unauthenticated caller, and this check
+    runs on a timer: the second most likely failure, and it recovers on its
+    own, which is the part worth saying."""
+    app_state.set_preference("update_check_enabled", True)
+    app_state.set_preference("update_channel", "stable")
+    monkeypatch.setattr(routes_update.requests, "get", lambda *a, **k: _Answer(403))
+    body = client.get("/update/check").json()
+    assert body["reason"] == "rate_limited"
+    assert "rate-limiting" in body["message"]
 
 
 def test_check_finds_an_update_and_reports_the_windows_asset(client, app_state, monkeypatch):

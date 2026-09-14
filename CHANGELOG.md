@@ -7,6 +7,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The mind map's own sweep reads the map it draws: the last two failures in
+  `scratchpad/ui-sweeps/mindmap.js` were its own sampling, a fixed 64 points
+  along a path whose spacing grows with the edge. One sample per pixel, on the
+  edge belonging to the pair being measured, and the gap after a drag is 0px.
+  76/76, from 74/76.
 - An empty mind map now says how to start, once for the browser: one line under
   the template offer pointing at the topic's own ring and at Tab, gone the
   moment a map has more than its root. The map's rail carries a '?' that names

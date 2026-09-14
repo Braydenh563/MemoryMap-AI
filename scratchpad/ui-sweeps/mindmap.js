@@ -799,8 +799,16 @@ function check(label, ok, detail) {
       pairs += 1;
       const pr = rectOf(o.parent_id), cr = rectOf(o.id);
       if (!pr || !cr) { worst = Infinity; continue; }
+      // The edge for this pair by its own attributes, and every path only as a
+      // fallback. Walking all of them was O(pairs x paths x samples), which on
+      // the 200-node map below is tens of millions of `getPointAtLength` calls
+      // and minutes of wall clock once the sample count follows the path's
+      // length (see below).
+      const own = document.querySelector(
+        `.wb-map-edges .wb-map-edge[data-parent="${o.parent_id}"][data-child="${o.id}"]`
+      );
       let best = Infinity;
-      for (const path of paths) {
+      for (const path of (own ? [own] : paths)) {
         // **Sampled along the path, not read off its two ends.** A tree edge's
         // default shape is a ribbon (`wbMapEdgeIsRibbon`): a filled closed
         // outline that leaves the parent wide and reaches the child narrow, so
@@ -811,11 +819,20 @@ function check(label, ok, detail) {
         // "Meets both of its nodes" is what the eye is actually asserting:
         // some point of the path touches the parent's box and some point
         // touches the child's.
+        // **One sample per pixel of the path, not sixty-four of them.** A
+        // fixed 64 samples is a spacing of `total / 64`, so the nearest sample
+        // to the true point of contact can be half that away from it, and the
+        // measurement's own error grows with the edge. That is what the last
+        // two failures in this file were: 0px at rest and 2.6px after a drag
+        // that made the edge longer, on a path spacing of about 5px. At one
+        // sample per pixel the same artifact is at most 0.5px, under every
+        // bar here, and a 2px reading is then the app's.
         const total = path.getTotalLength();
+        const steps = Math.min(1200, Math.max(64, Math.ceil(total)));
         let toParent = Infinity;
         let toChild = Infinity;
-        for (let i = 0; i <= 64; i++) {
-          const q = toScreen(path.getPointAtLength((total * i) / 64));
+        for (let i = 0; i <= steps; i++) {
+          const q = toScreen(path.getPointAtLength((total * i) / steps));
           toParent = Math.min(toParent, dist(q, pr));
           toChild = Math.min(toChild, dist(q, cr));
         }

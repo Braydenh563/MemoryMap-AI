@@ -315,3 +315,29 @@ session spends its probes somewhere new.
   gated files. Measured here with the extra present: 159 tests, 0 skipped.
   Not verified: the CI runners themselves, which only a push can show.
   next: INBOX 221, the launchers against the auto-update settings.
+
+## INBOX 221, the launchers against the update settings
+
+**What was verified, in two lines.** `start.sh` and `start.bat` both read
+`auto_update_enabled` and `update_channel` from the app's own
+`preferences.json` before the update step, and `tests/test_launcher_update_settings.py`
+(30 tests) proves it by pulling `mm_update_plan` out of the live `start.sh`
+with `sed` and running it against files `ConfigManager` itself wrote: off
+gives "off", on plus stable gives "stable", on plus main gives "main", a
+missing or corrupt file gives "main", and `./start.sh --doctor` run end to
+end says "off in Settings" or names the channel. `start.bat` has contract
+tests only, because Windows cannot run here, and that is said in the file.
+
+**Found while doing it, and fixed:** `./start.sh` into a brand new data
+directory exited 2 with an empty terminal about one run in eight (`set -e` +
+`set -o pipefail` + `ls` on a glob the background `tee` had not created yet).
+2 in 10 before, 30 clean after.
+
+**Not verified:** no Windows machine, so `start.bat`'s new `:pull_stable` and
+`:pull_main` subroutines are read, not run; and no release tag exists in this
+repository yet, so the stable channel's `git merge --ff-only <tag>` was never
+exercised against a real tag.
+
+**For the orchestrator at merge:** INBOX 221 was filed after this worktree was
+cut, so the entry is not in this branch's `INBOX.md` and `inbox_resolve.py 221`
+cannot be run from here. Mark it fixed against the launcher commit.

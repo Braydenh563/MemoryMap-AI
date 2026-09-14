@@ -2983,6 +2983,7 @@ $("log-filter").addEventListener("input", () => {
 $("logs-copy").addEventListener("click", copyLogs);
 $("logs-clear").addEventListener("click", clearLogs);
 $("logs-bundle").addEventListener("click", downloadSupportBundle);
+$("logs-email-bundle").addEventListener("click", () => emailSupportReport(""));
 
 $("log-follow").addEventListener("change", (event) => {
   logFollowPinned = event.target.checked;

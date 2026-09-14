@@ -27748,6 +27748,12 @@ line that carried a dash.
     `V` are transformed; the probe now moves the circle 320 to 440;
     `tests/test_wb_path_bbox.py` runs both walks in node.
 
+256. **Mid-work drop, 2026-09-14, verbatim (the owner).** "if the user
+    experiences errors, suggest that they download the support bundle and
+    send it to my email at "brayden.hoyle@outlook.com" even open the email
+    dialogue for them. also have atlas suggest it if the user asks them
+    about an error."
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

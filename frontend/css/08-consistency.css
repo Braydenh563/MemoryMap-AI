@@ -2423,3 +2423,14 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 #settings-help .atlas-row {
   margin-top: var(--space-6);
 }
+
+/* The error toast's Report this: the toast's own button rule sized it to a
+   43px control in a 65px toast (measured, scratchpad/ui-sweeps/toasthelp.js);
+   a toast action is a small ghost, the same height as its close button. */
+.toast .toast-help {
+  height: 1.75rem;
+  min-height: 1.75rem;
+  padding: 0 var(--space-3);
+  margin-left: var(--space-2);
+  white-space: nowrap;
+}

@@ -32081,6 +32081,41 @@ function toastCloseButton(note, timer) {
 //: notice, and it is the whole message plus severity that must match, not
 //: just the timing, so two different toasts arriving close together both
 //: still show.
+//: Where a support bundle goes; the same string as `memorymap.SUPPORT_EMAIL`
+//: (tests/test_support_email.py keeps them equal).
+const SUPPORT_EMAIL = "brayden.hoyle@outlook.com";
+
+//: **A report by email, with the bundle saved first** (INBOX 256, the owner:
+//: "suggest that they download the support bundle and send it to my email
+//: ... even open the email dialogue for them"). The bundle is a download,
+//: never an attachment a page can add itself, so the order is: save it,
+//: then open the person's mail app on a message that names the file to
+//: attach. The address is also put on the clipboard, because a webview
+//: without a mail handler opens nothing and says nothing.
+async function emailSupportReport(about) {
+  if (typeof downloadSupportBundle === "function") await downloadSupportBundle();
+  //: The version is read off the page's own stamped script URL, the one
+  //: thing every build carries without another request.
+  const stamp = (document.querySelector('script[src*="app.js?v="]')?.getAttribute("src") || "").split("?v=")[1] || "";
+  const subject = encodeURIComponent(`MemoryMap AI report${stamp ? ` (${stamp.split("-")[0]})` : ""}`);
+  const body = encodeURIComponent(
+    (about ? `What happened: ${about}\n\n` : "What happened: \n\n") +
+      "Please attach memorymap-support-bundle.zip, which was just saved to your downloads.\n"
+  );
+  try {
+    await navigator.clipboard?.writeText?.(SUPPORT_EMAIL);
+  } catch {
+    // no clipboard in this context: the address is in the toast below
+  }
+  const link = document.createElement("a");
+  link.href = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  toast(`Your mail app should open. The address, ${SUPPORT_EMAIL}, is on your clipboard too.`);
+}
+
 let lastToastKey = "";
 let lastToastAt = 0;
 function toast(message, isError = false, { exempt = false } = {}) {
@@ -32096,7 +32131,23 @@ function toast(message, isError = false, { exempt = false } = {}) {
   const text = document.createElement("span");
   text.textContent = message;
   note.appendChild(text);
-  const timer = setTimeout(() => note.remove(), 5500);
+  //: An error toast carries the way to report it (INBOX 256): one small
+  //: button that saves the support bundle and opens a mail to the owner
+  //: with the message already in it. Plain toasts stay plain.
+  if (isError) {
+    const help = document.createElement("button");
+    help.type = "button";
+    help.className = "ghost small toast-help";
+    help.textContent = "Report this";
+    help.title = `Save the support bundle and email it to ${SUPPORT_EMAIL}`;
+    help.addEventListener("click", () => {
+      clearTimeout(timer);
+      note.remove();
+      emailSupportReport(message);
+    });
+    note.appendChild(help);
+  }
+  const timer = setTimeout(() => note.remove(), isError ? 9000 : 5500);
   note.appendChild(toastCloseButton(note, timer));
   box.appendChild(note);
 }

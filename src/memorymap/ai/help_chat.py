@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import re
 
+from memorymap import SUPPORT_EMAIL
 from memorymap.ai import AI_NAME
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.provider import Provider
@@ -69,7 +70,10 @@ SYSTEM_PROMPT = (
     "of guessing. Keep answers short: a few sentences or a short numbered "
     "list of steps: and name the exact tab or settings section involved. "
     "Write plainly, in sentence case, with no exclamation marks and no "
-    "greeting before the answer."
+    "greeting before the answer. If the person describes an error, a crash "
+    "or something that does not work, add one line at the end: open "
+    "Settings, then Logs, press Email it under the support bundle, and the "
+    f"report goes to {SUPPORT_EMAIL} with the bundle to attach."
 )
 
 OFFLINE_MESSAGE = (

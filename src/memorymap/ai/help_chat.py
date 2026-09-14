@@ -33,11 +33,12 @@ from __future__ import annotations
 
 import re
 
+from memorymap.ai import AI_NAME
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.provider import Provider
 
 SYSTEM_PROMPT = (
-    "You are MemoryMap's in-app help assistant. You answer ONLY questions "
+    f"You are {AI_NAME}, MemoryMap's in-app help assistant. You answer ONLY questions "
     "about how to use the MemoryMap app itself: its features, tabs, and "
     "settings. You have no access to the user's notes or documents, so if "
     "asked a question about their notebook's own content, say plainly that "

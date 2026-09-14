@@ -7,6 +7,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The notebook's AI is called Atlas. One constant, `memorymap.ai.AI_NAME`, and
+  one clause at the head of the three prompts that speak as the app: the chat
+  and Ask librarian, the agent, and the in-app help chat. A theme, not a
+  persona: no backstory, no tone instructions, and a persona the user wrote is
+  left exactly as they wrote it. The untrimmable prose went down rather than
+  up, from 52 characters to 41, because the clause is shorter than the
+  sentence it replaced.
+
 - The launchers obey the update settings. `start.sh` and `start.bat` ran
   `git pull --ff-only` on every launch of a git checkout whatever Settings
   said, so both switches in Settings, About were half true: "Update

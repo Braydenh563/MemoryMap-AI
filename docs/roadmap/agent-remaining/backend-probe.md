@@ -341,3 +341,23 @@ exercised against a real tag.
 **For the orchestrator at merge:** INBOX 221 was filed after this worktree was
 cut, so the entry is not in this branch's `INBOX.md` and `inbox_resolve.py 221`
 cannot be run from here. Mark it fixed against the launcher commit.
+
+## INBOX 225, the name (backend half)
+
+`memorymap.ai.AI_NAME = "Atlas"`, and one clause at the head of
+`librarian.DEFAULT_PERSONA` (which the chat, Ask and the agent all default
+to) and of `help_chat.SYSTEM_PROMPT`. `tests/test_ai_name.py`, 6 tests: the
+name is written down once, each of the three prompts says it exactly once and
+starts with it, a user's own persona is not decorated with it, and the
+untrimmable prose is still inside `PROSE_BUDGET_CHARS` (it went down, 52
+characters to 41, because the clause is shorter than the sentence it
+replaced).
+
+**Found, not fixed, and not this agent's files:** `frontend/app.js` line
+21492 mirrors the backend's built-in personas and still carries the old
+Librarian text, so Settings, Personas shows the pre-Atlas sentence for that
+built-in until the frontend half of 225 is done. One line.
+
+**For the orchestrator at merge:** like 221, INBOX 225 was filed after this
+worktree was cut, so `inbox_resolve.py` cannot be run from here; mark the
+backend half done against the Atlas commit.

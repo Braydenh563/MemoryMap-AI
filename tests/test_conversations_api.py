@@ -262,9 +262,10 @@ def test_edited_builtin_persona_overrides_and_resets(ai_client, fake_ollama):
     # …and removing the override resets to the default prompt.
     ai_client.put("/preferences", json={"personas": []})
     ai_client.post("/chat", json={"question": "any jokes?", "persona": "Librarian"})
-    assert "librarian of the user's personal notebook" in fake_ollama.chat_calls[-1][0][
-        "content"
-    ].lower()
+    # The built-in's own text, which is `librarian.DEFAULT_PERSONA` and now
+    # carries the app's name (INBOX 225): asserted through the constant so a
+    # rename of the assistant is not a broken test in an unrelated file.
+    assert librarian.DEFAULT_PERSONA.lower() in fake_ollama.chat_calls[-1][0]["content"].lower()
 
 
 def test_active_persona_preference_is_default(ai_client, fake_ollama):

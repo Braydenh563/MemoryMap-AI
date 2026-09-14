@@ -84,6 +84,56 @@ const ACTION_OF_ID = {
 (async () => {
   const { browser, page } = await boot({ viewport: VIEWPORT });
   await newBoard(page, `Places map ${Date.now()}`);
+
+  // --- 0. the first open: the hint, and the rail's "where is everything" ----
+  // Before a topic is added, which is the only moment the hint exists. The
+  // browser context is fresh per run, so `wbMapFirstHintDone` is unset here.
+  const firstOpen = await page.evaluate(() => {
+    const hint = document.getElementById("wb-map-first-hint");
+    const card = document.getElementById("wb-map-templates");
+    const root = document.querySelector(".wb-map-node")?.closest(".wb-object");
+    const canvas = document.getElementById("library-view-whiteboard").getBoundingClientRect();
+    const box = hint ? hint.getBoundingClientRect() : null;
+    const rootBox = root ? root.getBoundingClientRect() : null;
+    const overlap = (a, b) => (a && b
+      ? Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left))
+        * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top))
+      : -1);
+    return {
+      shown: Boolean(hint) && !hint.hidden && !card.hidden && box.width > 0 && box.height > 0,
+      words: (hint?.textContent || "").trim().split(/\s+/).length,
+      inside: box ? Math.round(box.left - canvas.left) >= 0 && Math.round(box.right - canvas.right) <= 0 : false,
+      overRoot: Math.round(overlap(box, rootBox)),
+      stored: (() => { try { return localStorage.getItem("wbMapFirstHintDone"); } catch { return "err"; } })(),
+    };
+  });
+  check("an empty map says how to start, once", firstOpen.shown && firstOpen.stored === null,
+    `${firstOpen.words} words, flag ${firstOpen.stored}`);
+  check("the hint is inside the canvas and off the root topic",
+    firstOpen.inside && firstOpen.overRoot === 0,
+    `inside ${firstOpen.inside}, ${firstOpen.overRoot}px2 over the root`);
+
+  // The rail's '?': the one place that names all three surfaces.
+  await page.click('#wb-tool-group [data-help-for="wb-map-places-help"]');
+  await page.waitForTimeout(400);
+  const help = await page.evaluate(() => {
+    const panel = document.getElementById("wb-map-places-help");
+    const r = panel.getBoundingClientRect();
+    const t = panel.textContent.toLowerCase();
+    return {
+      open: !panel.classList.contains("hidden"),
+      onScreen: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight,
+      names: ["ring", "strip", "rail"].filter((w) => t.includes(w)).length,
+      keys: ["tab", "enter", "shift and f10"].filter((w) => t.includes(w)).length,
+      expanded: document.querySelector('[data-help-for="wb-map-places-help"]').getAttribute("aria-expanded"),
+    };
+  });
+  check("the rail's help names all three surfaces and the keys",
+    help.open && help.onScreen && help.names === 3 && help.keys === 3 && help.expanded === "true",
+    JSON.stringify(help));
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+
   await page.evaluate(async () => {
     const root = wbMapIndex().roots[0];
     const kid = await wbMapAddChild(root.id);
@@ -238,6 +288,23 @@ const ACTION_OF_ID = {
   });
   check("Shift+F10 opens the topic's own menu", !menuOpen && menuNow.open && menuNow.items > 6,
     `${menuNow.items} items, open ${menuNow.open}`);
+
+  // --- 5. the hint is spent -------------------------------------------------
+  // A second new map, after the first one grew: the flag is written and the
+  // line does not come back.
+  await page.keyboard.press("Escape");
+  await newBoard(page, `Second map ${Date.now()}`);
+  const spent = await page.evaluate(() => {
+    const hint = document.getElementById("wb-map-first-hint");
+    const card = document.getElementById("wb-map-templates");
+    return {
+      hidden: hint.hidden,
+      cardShown: !card.hidden,
+      stored: (() => { try { return localStorage.getItem("wbMapFirstHintDone"); } catch { return "err"; } })(),
+    };
+  });
+  check("the hint is gone on the next map, and the offer is not",
+    spent.hidden && spent.cardShown && spent.stored === "1", JSON.stringify(spent));
 
   const bad = results.filter((r) => !r.ok);
   console.log(`\n${VIEWPORT.width}x${VIEWPORT.height}: ${results.length - bad.length}/${results.length} passed`);

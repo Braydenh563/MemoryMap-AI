@@ -3328,6 +3328,45 @@ function wbSyncMapTemplates(passed = null) {
   // being read one branch at a time is not a map anyone wants a starting shape
   // for.
   panel.hidden = !index || dismissed || Boolean(wbMapFocusState) || index.nodes.length > 1;
+  wbSyncMapFirstHint(index);
+}
+
+//: **The first-open hint, shown once for this browser** (MINDMAP_PLAN §12.5,
+//: "the empty map says how to start"; the audit in `agent-remaining/mindmap.md`
+//: found six actions reachable only from a ring nobody meets by accident).
+//:
+//: The lifetime the decision asks for is "gone on the first topic added and
+//: never shown again", which is a *browser* flag rather than the templates
+//: card's own per-board one: the point of the sentence is to teach that a topic
+//: carries a ring, and a person who has built a branch has learned it. So the
+//: flag is written the moment any map is seen with more than its root, which is
+//: the same event the templates offer withdraws on.
+//:
+//: Written on the way past rather than on a node-created event on purpose:
+//: this runs on every map render, so a map built in another tab, imported from
+//: an outline or grown by the agent retires the hint just as a Tab press does.
+const WB_MAP_FIRST_HINT_KEY = "wbMapFirstHintDone";
+
+function wbSyncMapFirstHint(index) {
+  const hint = document.getElementById("wb-map-first-hint");
+  if (!hint) return;
+  let done = false;
+  try {
+    done = Boolean(localStorage.getItem(WB_MAP_FIRST_HINT_KEY));
+  } catch {
+    // A browser that refuses storage shows the hint every time, which is the
+    // gentler of the two failures: the alternative is never showing it.
+    done = false;
+  }
+  if (!done && index && index.nodes.length > 1) {
+    done = true;
+    try {
+      localStorage.setItem(WB_MAP_FIRST_HINT_KEY, "1");
+    } catch {
+      // Same reason as above.
+    }
+  }
+  hint.hidden = done;
 }
 
 function wbDismissMapTemplates() {

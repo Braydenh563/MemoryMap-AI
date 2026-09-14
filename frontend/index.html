@@ -4340,6 +4340,22 @@
         <span class="muted">A few branches to push against, or ignore this and press Tab.</span>
         <div class="wb-map-templates-row" id="wb-map-template-row"></div>
         <button type="button" id="wb-map-templates-dismiss" class="ghost small icon-only" title="No thanks: start from the root" aria-label="Hide the template suggestions"><i class="ph ph-x" aria-hidden="true"></i></button>
+        <!-- **The first-open hint** (MINDMAP_PLAN §12.5, "the empty map says
+             how to start"). One line, under the offer above it, saying the two
+             things the audit found nobody discovers by accident: that a topic
+             carries a ring of its own, and that the same two edits are a key.
+
+             Shown once for this browser, not once per map: the flag is
+             `wbMapFirstHintDone` and `wbSyncMapTemplates` writes it the moment
+             a map has more than its root, so the second map anyone opens is
+             not told again what the first one taught.
+
+             Inside the offer's card rather than a second card under it: two
+             floating notes stacked over one canvas is the clutter this section
+             is against, and both have the same moment (a map that is still
+             just its root). `flex-basis: 100%` puts it on its own line under
+             the four shapes, which is where the decision asks for it. -->
+        <p class="wb-map-first-hint muted" id="wb-map-first-hint" hidden>Click a topic for its ring of actions, or press Tab to add one under it.</p>
       </div>
       <!-- **A map is never a dead end** (MINDMAP_PLAN.md §12.0). Reported:
            "if i delete all nodes in a mindmap, I cant make more nodes". It was
@@ -4786,6 +4802,41 @@
         <button id="wb-map-focus-here" class="ghost icon-button" type="button" title="Show this branch and its neighbours only (F)" aria-label="Show this branch and its neighbours only (F)">
           <i class="ph ph-crosshair" aria-hidden="true"></i>
         </button>
+        <!-- **Where everything on a map lives, in one place** (INBOX 200, the
+             owner: "what controls and tools are available and where, and how
+             the item radials are used is confusing"; the answer is
+             MINDMAP_PLAN §12.5's three surfaces with one job each). The rail is
+             the map's own surface, so the sentence that names all three belongs
+             on it, and it is the `data-help-for` recipe rather than a fourth
+             paragraph on the canvas (DESIGN.md, the recipe index). Markup only:
+             `initHelpToggles` wires every pair on the page. -->
+        <button type="button" class="icon-only ghost small graph-help-toggle"
+          data-help-for="wb-map-places-help" aria-controls="wb-map-places-help"
+          aria-expanded="false" title="Where the map's controls live"
+          aria-label="Where the map's controls live">
+          <i class="ph ph-question" aria-hidden="true"></i>
+        </button>
+        </div>
+        <div class="help-body hidden" id="wb-map-places-help" role="dialog"
+          aria-label="Where the map's controls live">
+          <p>
+            Every action has one place. Click a topic and its ring says what you
+            can do to it from here: add a topic under it, add one beside it,
+            fold it, delete it, connect it to another, and More for the rest.
+          </p>
+          <p>
+            The strip under the bar is how the topic and its line look: bold,
+            core idea, size, colour, icon, shape and the line's own weight.
+            Right-click a line for what only a line has: reverse it, label it,
+            cut it.
+          </p>
+          <p>
+            This rail is the map itself: a new trunk, focus on one branch, the
+            layout and a tidy. Every ring slot is also a key, so Tab adds a
+            topic under the selected one, Enter one beside it, C folds, Delete
+            removes, Shift and C connects, and Shift and F10 opens the topic's
+            own menu.
+          </p>
         </div>
       </div>
       <!-- **Layout, moved out of the top bar** (MINDMAP_PLAN §12.1 item 1, and

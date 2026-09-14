@@ -403,15 +403,26 @@ not open. That is the same shape as the emblems and belongs to whoever owns
   checks, green at 1440x900 and 390x844), `mapring.js` (7 checks, green light
   and dark, and it opens by the gesture again, below). Top bar 60 controls to
   40; the ring's own reach 164px to 88px around an ordinary topic.
-- done `9d48764`: INBOX 201. A core idea is told apart four ways at once from
+- done `2a310ec`: INBOX 201. A core idea is told apart four ways at once from
   the one strip toggle: the ellipse (only where no shape was chosen by hand),
   a ground filled in the branch colour, one step larger type (13.6px to
   15.64px) and a star. The ink on the fill is computed per colour by WCAG
   luminance, so the label clears 4.5:1 on all ten palette entries (worst
   4.62:1 on `#4e79a7`). `scratchpad/ui-sweeps/mapcore.js` 16/16 light and
   16/16 dark at 1440x900 (10 checks before).
-- next: the empty map's first-open hint, then the sweeps that name removed ids
-  (`mapstrip.js`, `mapdock.js`, `mindmap.js`, `radialfit.js`).
+- done `31c914e`: the first-open hint and the rail's help. One line under the
+  template offer ("Click a topic for its ring of actions, or press Tab to add
+  one under it"), shown once per browser (`wbMapFirstHintDone`, written the
+  moment any map has more than its root) and a `data-help-for` '?' on the
+  rail's Map section naming the ring, the strip and the rail with their keys.
+  `scratchpad/ui-sweeps/mapplaces.js` 15/15 at 1440x900 and 15/15 at 390x844
+  (11 checks before). The narrow run found the hint pushing the offer card
+  over the map's only topic by 3,755px2 (card to y=430 against a root at
+  y=411), which is the overlap `wb-map-templates` was fixed for once already:
+  the offer's title now folds at phone width, where the four named shape
+  buttons say the same thing, and the clearance is 24px.
+- next: the sweeps that name removed ids (`mapstrip.js`, `mapdock.js`,
+  `mindmap.js`, `radialfit.js`), then `mapnarrow.js` and `errors.js`.
 
 ## The eighth run, in order, as it lands
 

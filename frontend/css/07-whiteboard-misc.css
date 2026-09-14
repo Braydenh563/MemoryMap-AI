@@ -4699,6 +4699,17 @@ summary:not(.icon-only):not(.icon-button) {
   gap: var(--space-2);
 }
 
+/* **The first-open hint** (MINDMAP_PLAN §12.5). Its own line under the four
+   shapes rather than a fifth item wrapping beside them: `flex-basis: 100%` in
+   the card's own wrap. `--text-sm` because it is the quietest thing in the
+   card, under both the title and the sentence that explains the offer. */
+.wb-map-first-hint {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
 /* **The offer must not cover the thing it is an offer about.** Measured at
    390x844 on a new map: the card wrapped to 335x237 at the top of the canvas
    and the map's only topic sat at y 411 to 455, so the card's own box overlaps
@@ -4709,7 +4720,24 @@ summary:not(.icon-only):not(.icon-button) {
    the offer, and the sentence under the title is an explanation of an offer
    whose four shapes are named on the buttons themselves. */
 @media (max-width: 48rem) {
-  .wb-map-templates > .muted {
+  /* `:not(.wb-map-first-hint)` because the hint is the one `.muted` line in
+     this card that is not an explanation of the offer: it is what a person who
+     ignores the offer needs, and at phone width it is the only thing telling
+     them a topic has a ring at all. */
+  .wb-map-templates > .muted:not(.wb-map-first-hint) {
+    display: none;
+  }
+
+  /* The offer's title goes with it at this width, for the same reason and with
+     a measurement behind it: the card is anchored to the top of the canvas and
+     the map is framed at its centre, so every line the card grows costs
+     clearance over the map's only topic. Measured at 390x844 with the hint and
+     the title both drawn, the card ran to y=430 against a root topic at y=411,
+     3,755px2 across it, which is the overlap the offer was already fixed for
+     once. The four buttons under it are named shapes and the card's own
+     `aria-label` still says "Start from a template", so nothing is lost that
+     was not already said twice. */
+  .wb-map-templates-title {
     display: none;
   }
 

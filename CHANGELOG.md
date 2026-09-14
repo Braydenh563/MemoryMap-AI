@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- An empty mind map now says how to start, once for the browser: one line under
+  the template offer pointing at the topic's own ring and at Tab, gone the
+  moment a map has more than its root. The map's rail carries a '?' that names
+  all three surfaces and the keys behind them (INBOX 200).
 - A mind map's core idea is told apart four ways at once (INBOX 201): the
   ellipse, a ground filled in its own branch colour with the ink that reads on
   it, one step larger type and a star before the label, all from the one toggle

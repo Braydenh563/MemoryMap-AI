@@ -36,3 +36,17 @@ def test_an_anchor_answers_a_double_click_by_fitting_the_text() -> None:
     #: Measured from the element's own layout, never estimated from the text.
     assert 'el.style.height = "auto";' in WB
     assert "el.scrollHeight" in WB
+
+
+def test_a_multi_selection_gets_one_box_with_working_anchors() -> None:
+    """Reported with two screenshots: "the highlight select only highlights the
+    shapes, it doesnt show the box and enchor points as it should like when I
+    individually select them". The group box scales its items through the same
+    transform a single shape's handles use, so the two cannot drift apart."""
+    assert "function wbRenderMultiSelectionHandles()" in WB
+    assert "wbRenderMultiSelectionHandles();" in WB
+    body = WB[WB.index("function wbRenderMultiSelectionHandles()") :]
+    body = body[: body.index("\nfunction wbRenderSketchHandles()")]
+    assert "wbSketchResizeTransform(bbox, handle, rawDX, rawDY" in body
+    #: A render mid-drag would replace the handle the gesture is bound to.
+    assert "wbScheduleRender();" not in body.split('.on("end"')[0].split('.on("drag"')[1]

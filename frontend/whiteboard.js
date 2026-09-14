@@ -6473,6 +6473,9 @@ function wbApplySelectionHighlight() {
   // Only for the single-item selection, a multi-selection has no one
   // bounding box to hang 8 handles off, and resizing a set isn't built.
   wbRenderSketchHandles();
+  //: And the box round a sweep that caught more than one thing, which is the
+  //: same affordance for the same gesture (see `wbRenderMultiSelectionHandles`).
+  wbRenderMultiSelectionHandles();
   wbUpdateContextBar();
   // The map dock's own buttons act on the selected topic, so they follow the
   // selection for the same reason the properties panel above does.
@@ -12109,6 +12112,168 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
 // card/object's own always-present handles) a sketch has no fixed element to
 // attach 8 children to; it's rebuilt on every selection change and after
 // every `wbScheduleRender()` re-applies the current selection.
+//: **A sweep that caught several things gets one box round all of them.**
+//: Reported with two screenshots: "the highlight select only highlights the
+//: shapes, it doesnt show the box and enchor points as it should like when I
+//: individually select them". A single selection has had a box and eight
+//: anchors for a long time; a multi-selection had only each item's own
+//: highlight, so a face drawn from four shapes read as four selected things
+//: with no handle between them.
+//:
+//: The anchors work, rather than being drawn for the look of it: they scale
+//: every selected item about the opposite corner, which is the one gesture a
+//: group box is *for*. The maths is `wbSketchResizeTransform`, the same
+//: function a single shape's handles already use, so a group resize and a
+//: shape resize cannot drift apart (shift-to-square included).
+//:
+//: No rotate handle. Rotating a group means rotating each item about the
+//: group's centre, which for a card means a rotation *and* a move, and for a
+//: sketch means baking a rotation into a path that is already rotated. It is
+//: a real feature, not a line of code, and an unbuilt one is better absent
+//: than drawn and inert.
+function wbMultiSelectionEntries() {
+  const entries = [];
+  for (const key of wbMultiSelection) {
+    const sep = key.indexOf(":");
+    const kind = key.slice(0, sep);
+    const id = Number(key.slice(sep + 1));
+    if (kind === "node") {
+      const node = (wbState.nodes || []).find((n) => n.id === id);
+      if (node) entries.push({ kind, item: node });
+    } else if (kind === "object") {
+      const object = (wbState.objects || []).find((o) => o.id === id);
+      if (object) entries.push({ kind, item: object });
+    } else if (kind === "sketch") {
+      const sketch = (wbState.sketches || []).find((k) => k.id === id);
+      const parsed = sketch ? wbSketchParsedData(sketch) : null;
+      //: A link has no `d` of its own (it is recomputed from its endpoints
+      //: every render), so it cannot be scaled and is not part of the box.
+      if (sketch && parsed) entries.push({ kind, item: sketch, parsed });
+    }
+  }
+  return entries;
+}
+
+//: Every kind measured in board units, which is the one frame the three of
+//: them share: a card's size lives on the element (its height is the text's
+//: until someone drags it), an object carries its own, and a sketch's is its
+//: path's extent.
+function wbEntryBox(entry) {
+  if (entry.kind === "sketch") {
+    const bbox = wbPathBBox(entry.parsed.d);
+    return bbox ? { minX: bbox.minX, minY: bbox.minY, maxX: bbox.maxX, maxY: bbox.maxY } : null;
+  }
+  const { item } = entry;
+  const el = document.querySelector(WB_SELECTOR_BY_KIND[entry.kind](item.id));
+  const w = item.width || el?.offsetWidth || WB_CARD_DEFAULT_SIZE.w;
+  const h = item.height || el?.offsetHeight || WB_CARD_DEFAULT_SIZE.h;
+  return { minX: item.x, minY: item.y, maxX: item.x + w, maxY: item.y + h };
+}
+
+function wbRenderMultiSelectionHandles() {
+  const entries = wbMultiSelectionEntries();
+  if (entries.length < 2) return;
+  const boxes = entries.map((entry) => ({ entry, box: wbEntryBox(entry) })).filter((row) => row.box);
+  if (boxes.length < 2) return;
+  const bbox = {
+    minX: Math.min(...boxes.map((row) => row.box.minX)),
+    minY: Math.min(...boxes.map((row) => row.box.minY)),
+    maxX: Math.max(...boxes.map((row) => row.box.maxX)),
+    maxY: Math.max(...boxes.map((row) => row.box.maxY)),
+  };
+  const group = d3.select("#wb-zoom-group")
+    .append("g")
+    .attr("class", "wb-sketch-handle-group wb-multi-handle-group");
+  group.append("rect")
+    .attr("class", "wb-sketch-selection-box")
+    .attr("x", bbox.minX - 2).attr("y", bbox.minY - 2)
+    .attr("width", (bbox.maxX - bbox.minX) + 4)
+    .attr("height", (bbox.maxY - bbox.minY) + 4);
+
+  //: The state every frame of the drag is computed from. Taken once at the
+  //: start rather than read back off the items, which would compound each
+  //: frame's rounding into a shape that drifts while you hold the mouse
+  //: still, the accumulation bug the single-shape handles document.
+  let start = null;
+  for (const handle of ["nw", "n", "ne", "e", "se", "s", "sw", "w"]) {
+    const hx = handle.includes("w") ? bbox.minX : handle.includes("e") ? bbox.maxX : (bbox.minX + bbox.maxX) / 2;
+    const hy = handle.includes("n") ? bbox.minY : handle.includes("s") ? bbox.maxY : (bbox.minY + bbox.maxY) / 2;
+    let rawDX = 0, rawDY = 0;
+    group.append("rect")
+      .attr("class", "wb-sketch-resize-handle")
+      .attr("data-handle", handle)
+      .attr("x", hx - 5).attr("y", hy - 5)
+      .attr("width", 10).attr("height", 10)
+      .style("cursor", `${handle}-resize`)
+      .call(
+        d3.drag()
+          .on("start", (event) => {
+            event.sourceEvent.stopPropagation();
+            rawDX = 0;
+            rawDY = 0;
+            start = boxes.map((row) => ({
+              entry: row.entry,
+              box: row.box,
+              d: row.entry.kind === "sketch" ? row.entry.parsed.d : null,
+            }));
+          })
+          .on("drag", (event) => {
+            if (!start) return;
+            const zoom = d3.zoomTransform(document.getElementById("whiteboard-container"));
+            rawDX += event.dx / zoom.k;
+            rawDY += event.dy / zoom.k;
+            const t = wbSketchResizeTransform(bbox, handle, rawDX, rawDY, event.sourceEvent.shiftKey);
+            for (const row of start) {
+              if (row.entry.kind === "sketch") {
+                const newD = wbTransformPathD(row.d, t);
+                const selector = `.sketch-group[data-id="${row.entry.item.id}"]`;
+                document.querySelector(`${selector} .sketch-path`)?.setAttribute("d", newD);
+                document.querySelector(`${selector} .sketch-hitbox`)?.setAttribute("d", newD);
+                row.entry.item._liveD = newD;
+                continue;
+              }
+              const item = row.entry.item;
+              item.x = t.anchorX + (row.box.minX - t.anchorX) * t.sx;
+              item.y = t.anchorY + (row.box.minY - t.anchorY) * t.sy;
+              item.width = Math.max(WB_OBJECT_MIN_SIZE, (row.box.maxX - row.box.minX) * t.sx);
+              item.height = Math.max(WB_OBJECT_MIN_SIZE, (row.box.maxY - row.box.minY) * t.sy);
+              //: Written straight to the element rather than through a
+              //: render: a render rebuilds the selection chrome, which
+              //: includes the very handle this drag is bound to, and the
+              //: gesture dies the moment its element is replaced. The
+              //: single-shape handles avoid the same trap the same way.
+              const el = document.querySelector(WB_SELECTOR_BY_KIND[row.entry.kind](item.id));
+              if (el) {
+                el.style.transform = wbItemTransform(item);
+                el.style.width = `${item.width}px`;
+                el.style.height = `${item.height}px`;
+              }
+            }
+          })
+          .on("end", async () => {
+            if (!start) return;
+            const rows = start;
+            start = null;
+            //: Saved one at a time rather than in parallel: each write is the
+            //: whole row, and the board's stale-client recovery reloads
+            //: everything, which a burst of simultaneous writes would race.
+            for (const row of rows) {
+              if (row.entry.kind === "sketch") {
+                const live = row.entry.item._liveD;
+                delete row.entry.item._liveD;
+                if (live) await wbSaveSketchD(row.entry.item, live);
+              } else if (row.entry.kind === "node") {
+                await wbSaveNode(row.entry.item);
+              } else {
+                await wbSaveObject(row.entry.item);
+              }
+            }
+            wbScheduleRender();
+          })
+      );
+  }
+}
+
 function wbRenderSketchHandles() {
   wbClearSketchHandles();
   if (!wbSelectedItem || wbSelectedItem.kind !== "sketch") return;

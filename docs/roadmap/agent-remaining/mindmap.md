@@ -453,6 +453,9 @@ not open. That is the same shape as the emblems and belongs to whoever owns
   path at that sample count is tens of millions of `getPointAtLength` calls on
   the 200-node map). The gap is 0px at rest, mid-drag, after the drop, on the
   pinned second drag, on a root drag and after a reload.
+- done `5b6d1e5`: INBOX 200 and 201 marked and moved to HISTORY's "INBOX
+  resolved", with this run's numbers in 200's entry. 200's other surfaces (its
+  first sentence asks for a sweep of the whole app) stay the orchestrator's.
 - next: nothing in this run's list. The open work is "Left to do" item 2
   (MINDMAP_PLAN §12.1 item 2's five sub-items, four with a recorded reason for
   being left), item 5 (INBOX 43's second half, judged a redesign rather than a

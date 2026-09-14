@@ -66,12 +66,6 @@ with its owner named in the entry.
     backend's built-in list and `frontend/app.js`'s mirror of it. Owner:
     chrome2.
 
-236. **Mid-work drop, 2026-09-14, verbatim (the owner), the chat empty
-    state's '?'.** "the about this chat '?' tooltip button in the chat empty
-    interface, and it shouldnt be there, its right in the middle of
-    everything, move it somewhere else like in a corner or smth." Owner:
-    chrome2.
-
 235. **Mid-work drop, 2026-09-14, verbatim (the owner), Settings.** "I feel
     like the advanced response settings should be above the installed models
     tab, and/or in the preferences settings page with the advanced search."

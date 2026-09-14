@@ -27497,6 +27497,21 @@ line that carried a dash.
     `LIST_ROWS`, which is the lint that caught it taking the token without the
     pair.
 
+236. **Mid-work drop, 2026-09-14, verbatim (the owner), the chat empty
+    state's '?'.** "the about this chat '?' tooltip button in the chat empty
+    interface, and it shouldnt be there, its right in the middle of
+    everything, move it somewhere else like in a corner or smth." Owner:
+    chrome2.
+    **Fixed f46d287.** `scratchpad/ui-sweeps/chatemptyhelp.js`, 1440x900:
+    before, the '?' was static at 1090,406, at the end of the centred sentence
+    134px down a 529x326 welcome, and pressing it did nothing (aria-expanded
+    stayed "false", `#chat-empty-help` 0x0). After: absolute at 1103,284, 8px
+    in from the welcome's top right corner and 241px off its centre line,
+    still icon-only with `data-help-for`, and the popover opens at 416x117,
+    inside the window and hit-testable. The dead half was its own bug:
+    `initHelpToggles` runs once at boot and this welcome is built when Chat is
+    first opened, so it is now wired after insertion.
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

@@ -14,6 +14,33 @@ below). Versioning is `0.x` while the app stabilises.
 - Aurora's trails end and its ring no longer stamps itself into them (INBOX
   210). The Library's Create chooser is a column of named rows like the
   documents' template dialog (211).
+- The notebook's AI is called Atlas. One constant, `memorymap.ai.AI_NAME`, and
+  one clause at the head of the three prompts that speak as the app: the chat
+  and Ask librarian, the agent, and the in-app help chat. A theme, not a
+  persona: no backstory, no tone instructions, and a persona the user wrote is
+  left exactly as they wrote it. The untrimmable prose went down rather than
+  up, from 52 characters to 41, because the clause is shorter than the
+  sentence it replaced.
+
+- The launchers obey the update settings. `start.sh` and `start.bat` ran
+  `git pull --ff-only` on every launch of a git checkout whatever Settings
+  said, so both switches in Settings, About were half true: "Update
+  automatically" turned off still updated the code on the next launch, and
+  "Stable (tagged releases)" still followed whatever branch was checked out.
+  Both now read `auto_update_enabled` and `update_channel` out of
+  `preferences.json` before anything else happens: off does nothing and ticks
+  the step "Off in Settings", main fast-forwards the branch as before, and
+  stable fetches the tags and fast-forwards to the newest release tag only.
+  Both paths stay `--ff-only`, so neither can rewrite local work. A source
+  checkout defaults to on, which is what it has always done.
+- The first launch of a fresh install sometimes did nothing at all. `set -e`
+  plus `set -o pipefail` plus a log rotation whose glob matched nothing yet,
+  because the `tee` that creates the log runs in the background, ended
+  `start.sh` with exit code 2 and an empty terminal. Measured at 2 failures in
+  10 brand new data directories before, 30 clean runs after. The doctor also
+  now recognises a `git worktree` checkout, where `.git` is a file rather than
+  a directory, which `start.bat` already did.
+
 - The tests that never ran anywhere now run in CI. The unit job installs node,
   so the nine tests that shell out to `node --check` and the plain markdown and
   export scripts stop skipping themselves, and a new `pdf` job installs the

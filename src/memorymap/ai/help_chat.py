@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import re
 
+from memorymap.ai import AI_NAME
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.provider import Provider
 
@@ -49,7 +50,7 @@ from memorymap.ai.provider import Provider
 #: Every surface that says the name reads it from here or from
 #: `GUIDE_NAME` in the frontend, because a persona whose name is typed out in
 #: nine places is a persona with nine chances to be renamed in eight.
-GUIDE_NAME = "Atlas"
+GUIDE_NAME = AI_NAME  # one name for the notebook's AI (INBOX 225), spelt once in ai/__init__
 
 SYSTEM_PROMPT = (
     f"You are {GUIDE_NAME}, the in-app guide to MemoryMap, a local-first "

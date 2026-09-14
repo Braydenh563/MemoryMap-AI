@@ -7,7 +7,7 @@ sentence, never an exception, because the raw results are shown anyway.
 
 from __future__ import annotations
 
-from memorymap.ai import context
+from memorymap.ai import AI_NAME, context
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
 from memorymap.core.logbuffer import safe_value
@@ -54,7 +54,7 @@ def model_error_message(model: str, error: Exception) -> str:
 
 # The persona is WHO the assistant is; the grounding is non-negotiable
 # and survives any persona swap, answers always come from the notes.
-DEFAULT_PERSONA = "You are the librarian of the user's personal notebook."
+DEFAULT_PERSONA = f"You are {AI_NAME}, this notebook's librarian."
 GROUNDING = (
     "Answer the user's question in plain English using ONLY the notes "
     "provided. If the notes don't answer the question, say so honestly."

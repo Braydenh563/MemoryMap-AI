@@ -219,9 +219,18 @@ if [ -z "${MM_LOG_ACTIVE:-}" ]; then
     # Ten days of launches is plenty to answer "what changed since it last
     # worked", and this folder is inside the user's notebook - it must never
     # be the thing that fills a disk.
+    # **`|| true`, and it is not decoration.** `set -e` and `set -o pipefail`
+    # are both on (top of this file). `tee` above is a *background* process,
+    # so on a fresh install the log file it is about to create may not exist
+    # yet when this line runs; the glob then stays unexpanded, `ls` exits 2,
+    # pipefail hands that 2 to the pipeline, and errexit ends the launcher
+    # right here with exit code 2 and nothing printed. Measured: 1 run in 8
+    # of `./start.sh --doctor` into a brand new data directory, and 30 runs
+    # in a row into an existing one without a single failure, which is why
+    # it reads as "sometimes the app just does not start the first time".
     ls -1t "$MM_LOG_DIR"/launcher-*.log 2>/dev/null | tail -n +11 | while read -r old; do
       rm -f "$old" 2>/dev/null || true
-    done
+    done || true
   fi
 else
   MM_LOG="$MM_LOG_ACTIVE"
@@ -479,6 +488,64 @@ is_network_error() {
     "$1" 2>/dev/null
 }
 
+# --- What Settings says about updating --------------------------------
+# **The launcher obeys the app's own update settings** (INBOX 221, the
+# owner: "make sure all the auto update whether upon new release or
+# following main works which can be adjusted and set in settings and make
+# sure the bat and sh files stick to the set things in those settings").
+#
+# Before this, the self-update below ran `git pull --ff-only` on every
+# launch of a git checkout, whatever Settings -> About said. Both switches
+# there were therefore half true: "Update automatically" turned off still
+# updated the code on the next launch, and "Stable (tagged releases)"
+# still followed whatever branch was checked out. A switch that does not
+# switch anything is worse than no switch.
+#
+# Read straight out of `preferences.json` with `sed`, the same way the
+# doctor's provider row already reads `llm_provider`, and for the same
+# reason: this runs before `.venv` exists on a first launch, so there is
+# no Python to ask. The file the app writes is one line of JSON, so one
+# capture per key is enough; a missing file or an unreadable one means the
+# default, which is what the app itself does (core/config.py).
+mm_pref_str() {  # $1 key, $2 default
+  local file="$MM_DATA_DIR/preferences.json" value=""
+  if [ -f "$file" ]; then
+    value="$(sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" "$file" | head -1)"
+  fi
+  [ -n "$value" ] || value="$2"
+  printf '%s' "$value"
+}
+
+mm_pref_bool() {  # $1 key, $2 default (0 or 1)
+  local file="$MM_DATA_DIR/preferences.json" value=""
+  if [ -f "$file" ]; then
+    value="$(sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\([a-z]*\).*/\1/p" "$file" | head -1)"
+  fi
+  case "$value" in
+    true) printf '1' ;;
+    false) printf '0' ;;
+    *) printf '%s' "$2" ;;
+  esac
+}
+
+# One word for what this launch will do about updating: "off", "main" or
+# "stable". Kept as one function so the doctor's row and the update step
+# itself can never disagree about what is about to happen, which is the
+# whole of what INBOX 221 asked to be able to see.
+#
+# The default is on, and it is on for a source checkout only: that is what
+# `git pull` on every launch has always done here, so someone who has never
+# opened Settings sees no change. A packaged Windows install keeps the
+# default off (core/config.py: downloading and running an installer unasked
+# is a different size of consequence), and has no `.git` to pull anyway.
+mm_update_plan() {
+  if [ "$(mm_pref_bool auto_update_enabled 1)" = "0" ]; then
+    printf 'off'
+  else
+    printf '%s' "$(mm_pref_str update_channel main)"
+  fi
+}
+
 # --- Is something already on the port? --------------------------------
 # Two questions, not one: "is the port busy" and "is it busy with US". The
 # second one turns the commonest support message in this whole project ("it
@@ -615,13 +682,15 @@ mm_doctor() {
 
   # 5. The update path. Bounded at 5s with the same low-speed flags the pull
   # itself uses, so this row cannot be slower than the thing it describes.
-  if [ ! -d ".git" ]; then
+  if [ "$(mm_update_plan)" = "off" ]; then
+    mm_row ok "Updates" "off in Settings, so a launch will not change this checkout"
+  elif [ ! -e ".git" ]; then
     mm_row warn "Updates" "not a git checkout, so ./start.sh cannot self-update"
   elif ! command -v git >/dev/null 2>&1; then
     mm_row warn "Updates" "git is not installed, so ./start.sh cannot self-update"
   elif run_with_timeout 5 git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=5 \
          ls-remote --exit-code origin HEAD >/dev/null 2>&1; then
-    mm_row ok "Updates" "the git remote answered"
+    mm_row ok "Updates" "the git remote answered, channel: $(mm_update_plan)"
   else
     mm_row warn "Updates" "the git remote did not answer in 5 seconds" "Offline, or behind a proxy. The app still runs: use --no-update to skip the check."
   fi
@@ -802,7 +871,15 @@ fi
 # Pull first so a launch always runs the latest code, then re-exec the
 # (possibly updated) script so a changed file can't corrupt this run.
 # The MM_CHILD guard prevents an endless loop.
-if [ -z "${MM_CHILD:-}" ] && [ "$MM_NO_UPDATE" = "0" ] && command -v git >/dev/null 2>&1 && [ -d .git ]; then
+# What Settings says, decided once (see `mm_update_plan`). "off" means the
+# user turned automatic updates off and nothing below touches the working
+# tree; "main" is the branch this checkout is on; "stable" is the newest
+# release tag and nothing newer, which is the whole difference between the
+# two channels for a source install. Read outside the guard so the message
+# after the block can say which of the two reasons it was.
+MM_UPDATE_PLAN="$(mm_update_plan)"
+if [ -z "${MM_CHILD:-}" ] && [ "$MM_NO_UPDATE" = "0" ] && [ "$MM_UPDATE_PLAN" != "off" ] \
+     && command -v git >/dev/null 2>&1 && [ -e .git ]; then
   mm_status "$MM_STEP_UPDATE" "Update" "Checking for updates on GitHub" "active"
   echo " Checking for updates..."
   GIT_LOG="$(mktemp 2>/dev/null || echo "/tmp/mm_git_$$.log")"
@@ -817,8 +894,39 @@ if [ -z "${MM_CHILD:-}" ] && [ "$MM_NO_UPDATE" = "0" ] && command -v git >/dev/n
   # `run_with_timeout` is the hard wall-clock backstop for a connect phase
   # that never gets that far - a DNS query or a proxy handshake that hangs
   # before a single byte comes back, which the low-speed options don't see.
-  if run_with_timeout 8 git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=5 \
-       pull --ff-only >"$GIT_LOG" 2>&1; then
+  #
+  # **Two channels, one shape.** "main" fast-forwards the branch, which is
+  # what this always did. "stable" fetches the tags and fast-forwards to the
+  # newest `v*` release tag instead, so a checkout on that channel moves
+  # only when a release is cut, never on an ordinary push. Both are
+  # `--ff-only`, so neither can ever rewrite or merge over local work: a
+  # checkout that has diverged is left exactly as it is and the step says so.
+  if [ "$MM_UPDATE_PLAN" = "stable" ]; then
+    MM_UPDATE_OK=1
+    if run_with_timeout 8 git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=5 \
+         fetch --tags --quiet origin >"$GIT_LOG" 2>&1; then
+      # `--sort=-v:refname` is git's own version ordering, so v1.10.0 comes
+      # before v1.9.0 rather than after it the way a plain sort would have it.
+      MM_LATEST_TAG="$(git tag -l 'v*' --sort=-v:refname 2>/dev/null | head -1)"
+      if [ -z "$MM_LATEST_TAG" ]; then
+        # Not an error and not a lie: the stable channel means "move when a
+        # release is cut", and no release has been cut. Reported through the
+        # same failure path as everything else so there is exactly one place
+        # that decides what the step row says.
+        echo "no release tag to move to on the stable channel" > "$GIT_LOG"
+        MM_UPDATE_OK=0
+      else
+        git merge --ff-only "$MM_LATEST_TAG" >"$GIT_LOG" 2>&1 || MM_UPDATE_OK=0
+      fi
+    else
+      MM_UPDATE_OK=0
+    fi
+  else
+    MM_UPDATE_OK=1
+    run_with_timeout 8 git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=5 \
+      pull --ff-only >"$GIT_LOG" 2>&1 || MM_UPDATE_OK=0
+  fi
+  if [ "$MM_UPDATE_OK" = "1" ]; then
     # git's own progress line ("Already up to date." / "Fast-forward...") is
     # genuinely useful - captured above only so a *failure* can be
     # classified, not to hide it on the success path.
@@ -832,7 +940,11 @@ if [ -z "${MM_CHILD:-}" ] && [ "$MM_NO_UPDATE" = "0" ] && command -v git >/dev/n
       export MM_UPDATED_FROM="$MM_VERSION_BEFORE"
       export MM_UPDATED_TO="$MM_VERSION_AFTER"
     fi
-    mm_status "$MM_STEP_UPDATE" "Update" "Up to date" "done"
+    if [ "$MM_UPDATE_PLAN" = "stable" ]; then
+      mm_status "$MM_STEP_UPDATE" "Update" "Up to date on the stable channel" "done"
+    else
+      mm_status "$MM_STEP_UPDATE" "Update" "Up to date" "done"
+    fi
   else
     if is_network_error "$GIT_LOG"; then
       echo "        No internet - skipping update check."
@@ -850,6 +962,13 @@ if [ -z "${MM_CHILD:-}" ] && [ "$MM_NO_UPDATE" = "0" ] && command -v git >/dev/n
 fi
 if [ "$MM_NO_UPDATE" = "1" ]; then
   mm_status "$MM_STEP_UPDATE" "Update" "Skipped, --no-update" "done"
+elif [ "$MM_UPDATE_PLAN" = "off" ] && [ -z "${MM_CHILD:-}" ]; then
+  # Said out loud and ticked as a real outcome, the same way every other
+  # skipped update here is: a step that says nothing at all is the shape of
+  # the "it only loads up to step 3 of 5" report the .bat's own two silent
+  # exits produced.
+  echo "        Automatic updates are off in Settings, staying on this version."
+  mm_status "$MM_STEP_UPDATE" "Update" "Off in Settings" "done"
 fi
 
 echo

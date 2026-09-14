@@ -97,8 +97,15 @@ def test_apply_refuses_when_auto_update_is_off(client, app_state, monkeypatch):
     """update_check_enabled alone is not enough, asked for directly, a
     separate switch for "turn auto update off entirely" that this endpoint
     has to respect even when checking is on and the build could otherwise
-    apply one."""
+    apply one.
+
+    Set explicitly rather than left to the default: a source checkout now
+    defaults this to on, because that is what start.sh/start.bat have always
+    done and the launchers read the same switch (INBOX 221). A frozen Windows
+    build, which is the only one this endpoint can act on, still defaults to
+    off; what this test is about is the switch, not the default."""
     app_state.set_preference("update_check_enabled", True)
+    app_state.set_preference("auto_update_enabled", False)
     monkeypatch.setattr(routes_update.sys, "platform", "win32")
     monkeypatch.setattr(routes_update.sys, "frozen", True, raising=False)
     response = client.post("/update/apply")

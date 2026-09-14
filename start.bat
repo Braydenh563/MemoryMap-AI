@@ -390,6 +390,38 @@ if "!MM_REINSTALL!"=="1" if exist ".venv" (
   rmdir /s /q ".venv" >nul 2>nul
 )
 
+REM --- What Settings says about updating -------------------------------
+REM  **The launcher obeys the app's own update settings** (INBOX 221, the
+REM  owner: "make sure all the auto update whether upon new release or
+REM  following main works which can be adjusted and set in settings and make
+REM  sure the bat and sh files stick to the set things in those settings").
+REM
+REM  Before this, the block below ran `git pull --ff-only` on every launch of
+REM  a git checkout whatever Settings -> About said, so both switches there
+REM  were half true: "Update automatically" turned off still updated the code
+REM  on the next launch, and "Stable (tagged releases)" still followed
+REM  whatever branch was checked out.
+REM
+REM  Read straight out of preferences.json with findstr, the same way
+REM  start.sh reads it with sed, and for the same reason: this runs before
+REM  .venv exists on a first launch, so there is no Python to ask. The app
+REM  writes that file with indent=2 (core\atomic_io.py), one key per line, so
+REM  a key and its value on the same line is the whole of the parse.
+REM
+REM  The default is on, and on for a source checkout only: that is what a
+REM  `git pull` on every launch has always done here, so someone who has
+REM  never opened Settings sees no change. A packaged Windows install keeps
+REM  the default off (core\config.py) and has no .git to pull anyway.
+set "MM_UPDATE_PLAN=main"
+set "MM_PREFS_FILE=!MM_DATA_DIR!\preferences.json"
+if not exist "!MM_PREFS_FILE!" goto :update_plan_done
+findstr /I /R /C:"auto_update_enabled.*false" "!MM_PREFS_FILE!" >nul 2>nul
+if not errorlevel 1 set "MM_UPDATE_PLAN=off"
+if "!MM_UPDATE_PLAN!"=="off" goto :update_plan_done
+findstr /I /R /C:"update_channel.*stable" "!MM_PREFS_FILE!" >nul 2>nul
+if not errorlevel 1 set "MM_UPDATE_PLAN=stable"
+:update_plan_done
+
 REM --- 0. Self-update, then re-launch a FRESH copy --------------------
 REM  A running .bat is read from disk by byte offset, so a git pull that
 REM  rewrites this file mid-run would corrupt it. To stay safe we pull,
@@ -416,6 +448,7 @@ REM  and the flags now make the entry conditions three questions rather
 REM  than one.
 if defined MM_CHILD goto :after_update
 if "!MM_NO_UPDATE!"=="1" goto :no_update
+if "!MM_UPDATE_PLAN!"=="off" goto :updates_off
 REM  **A skipped step is still a step, and these two jumps are the whole of
 REM  the "only loads up to step 3/5 and then it loads" report.** The splash's
 REM  bar is a count of steps that reached `done` over the total
@@ -449,8 +482,14 @@ REM server (and browser tab) exist, so nothing else can tell "was I
 REM just updated?" without this.
 call :read_version MM_VERSION_BEFORE
 set "MM_GIT_LOG=%TEMP%\mm_git_update_%RANDOM%.log"
-git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=5 pull --ff-only > "!MM_GIT_LOG!" 2>&1
-set "MM_GIT_STATUS=!errorlevel!"
+REM  **Two channels, one shape.** "main" fast-forwards the branch, which is
+REM  what this always did. "stable" fetches the tags and fast-forwards to the
+REM  newest v* release tag instead, so a checkout on that channel moves only
+REM  when a release is cut, never on an ordinary push. Both are --ff-only, so
+REM  neither can rewrite or merge over local work: a checkout that has
+REM  diverged is left exactly as it is and the step says so.
+if "!MM_UPDATE_PLAN!"=="stable" call :pull_stable
+if not "!MM_UPDATE_PLAN!"=="stable" call :pull_main
 if "!MM_GIT_STATUS!"=="0" type "!MM_GIT_LOG!"
 if defined MM_LOG type "!MM_GIT_LOG!" >> "!MM_LOG!" 2>nul
 if "!MM_GIT_STATUS!"=="0" call :read_version MM_VERSION_AFTER
@@ -480,6 +519,13 @@ set "MM_RC=!errorlevel!"
 endlocal & exit /b %MM_RC%
 :no_update
 call :status !MM_STEP_UPDATE! "Update" "Skipped, --no-update" "done"
+goto :after_update
+:updates_off
+REM  Said out loud and ticked as a real outcome, the same way every other
+REM  skipped update here is: the two silent exits above this block are what
+REM  produced the "it only loads up to step 3 of 5" report.
+echo         Automatic updates are off in Settings, staying on this version.
+call :status !MM_STEP_UPDATE! "Update" "Off in Settings" "done"
 :after_update
 
 echo.
@@ -1180,6 +1226,33 @@ REM  start.bat has already been bitten by once (see the top-of-file note
 REM  on parens inside IF blocks). routes_update.py strips the quotes on
 REM  the Python side instead, where it's one `.strip('"')` and not a
 REM  cmd.exe quoting puzzle.
+:pull_main
+REM  Fast-forward the branch this checkout is on: the "main" channel.
+git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=5 pull --ff-only > "!MM_GIT_LOG!" 2>&1
+set "MM_GIT_STATUS=!errorlevel!"
+exit /b 0
+
+:pull_stable
+REM  Fast-forward to the newest release tag and no further: the "stable"
+REM  channel. `--sort=-v:refname` is git's own version ordering, so v1.10.0
+REM  comes before v1.9.0 rather than after it the way a plain sort has it.
+git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=5 fetch --tags --quiet origin > "!MM_GIT_LOG!" 2>&1
+set "MM_GIT_STATUS=!errorlevel!"
+if not "!MM_GIT_STATUS!"=="0" exit /b 0
+set "MM_LATEST_TAG="
+for /f "usebackq delims=" %%T in (`git tag -l "v*" --sort^=-v:refname 2^>nul`) do if not defined MM_LATEST_TAG set "MM_LATEST_TAG=%%T"
+if not defined MM_LATEST_TAG (
+  REM  Not an error and not a lie: the stable channel means "move when a
+  REM  release is cut", and no release has been cut. Reported through the
+  REM  same failure path as everything else, so one place decides the row.
+  echo no release tag to move to on the stable channel > "!MM_GIT_LOG!"
+  set "MM_GIT_STATUS=1"
+  exit /b 0
+)
+git merge --ff-only "!MM_LATEST_TAG!" > "!MM_GIT_LOG!" 2>&1
+set "MM_GIT_STATUS=!errorlevel!"
+exit /b 0
+
 :read_version
 set "MM_VER_TMP="
 for /f "tokens=1,2,* delims= " %%A in ('findstr /B "__version__" "src\memorymap\__init__.py" 2^>nul') do set "MM_VER_TMP=%%C"

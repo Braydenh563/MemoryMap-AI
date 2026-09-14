@@ -232,19 +232,32 @@ class ConfigManager:
         from starting: we just fall back to defaults.
         """
         prefs = dict(DEFAULT_PREFERENCES)
-        # A source checkout (git clone + start.sh/start.bat) already auto-
-        # updates on every launch via `git pull` on whatever branch is
-        # checked out: that IS tracking main, unconditionally, before this
-        # preference is ever read. Defaulting such an install to "stable"
-        # would point its *other* update path (routes_update.py's GitHub-
-        # releases check) at a channel that install has no way to actually
-        # apply anyway (can_auto_apply requires a frozen Windows build), so
-        # it would just silently do nothing useful. A packaged Windows
-        # install has the opposite situation, no git pull, no main branch
-        # to track: so it keeps "stable", the one channel it can act on.
-        # Overridden below by whatever the user has actually saved, the
-        # moment they have ever touched the setting themselves.
-        prefs["update_channel"] = "stable" if getattr(sys, "frozen", False) else "main"
+        # A source checkout (git clone + start.sh/start.bat) updates on every
+        # launch via `git pull` on whatever branch is checked out: that IS
+        # tracking main. Defaulting such an install to "stable" would point
+        # its *other* update path (routes_update.py's GitHub-releases check)
+        # at a channel that install has no way to actually apply anyway
+        # (can_auto_apply requires a frozen Windows build), so it would just
+        # silently do nothing useful. A packaged Windows install has the
+        # opposite situation, no git pull, no main branch to track: so it
+        # keeps "stable", the one channel it can act on. Overridden below by
+        # whatever the user has actually saved, the moment they have ever
+        # touched the setting themselves.
+        source_install = not getattr(sys, "frozen", False)
+        prefs["update_channel"] = "main" if source_install else "stable"
+        # **The same default, for the same install, for the switch beside it**
+        # (INBOX 221). The launchers now read `auto_update_enabled` and do
+        # nothing at all when it is off, which is what the owner asked for and
+        # what the switch has always claimed. That makes the *default* load-
+        # bearing in a way it was not: leaving it False for a source checkout
+        # would silently stop `git pull` on every clone in existence, which is
+        # a behaviour change nobody asked for and would read as the launcher
+        # breaking. So a source checkout defaults to on, which is exactly what
+        # it has always done, and the switch is now what turns it off. A
+        # packaged Windows install keeps the default off for the reason
+        # written against `auto_update_enabled` itself: downloading and
+        # running an installer unasked is a different size of consequence.
+        prefs["auto_update_enabled"] = source_install
         if self.preferences_path.exists():
             try:
                 prefs.update(json.loads(self.preferences_path.read_text()))

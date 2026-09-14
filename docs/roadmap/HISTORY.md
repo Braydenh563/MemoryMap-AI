@@ -27024,6 +27024,21 @@ line that carried a dash.
     shown, 0 page errors, and `test_frontend_load_order.py` fails on any
     lazy file that waits for the event again.
 
+221. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), auto
+    update.** "make sure all the auto update whether upon new release or
+    following main works which can be adjusted and set in settings and make
+    sure the bat and sh files stick to the set things in those settings."
+    Trace `start-desktop.bat`/`.sh` and the launcher's update step against
+    the Settings values (channel: release or main; on or off); a test per
+    launcher that reads the setting the way the launcher does. Owner:
+    backend2, after its audit rows.
+    **Fixed 31db292 (backend2), merged.** Both launchers read the update
+    channel and switch from Settings; `tests/test_launcher_update_settings.py`
+    (30 tests) covers the release and main channels and the off state for
+    each. Not verified: `start.bat`'s new steps are read, not run (no Windows
+    machine); no release tag exists in the repository yet, so the stable
+    channel's fast-forward to a tag has never met a real tag.
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

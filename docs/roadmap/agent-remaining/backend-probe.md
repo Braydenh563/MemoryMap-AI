@@ -7,10 +7,15 @@ each, tests first.
 | Row | State | Commit |
 | --- | --- | --- |
 | A3 bounded job pool | done | `8b9da9e` |
-| A4 small-model agent | done | (this commit) |
-| A5 five functions split | `run_agent` done, `_run_skill` next | (this commit) |
-| A6 nine silent excepts | not started | |
-| A9 CI skips | not started | |
+| A4 small-model agent | done | `ccbf6f1` |
+| A5 five functions split | done, all five | `d50cb96`, `14eeb48`, `352d8b7`, `0c219f2` |
+| A6 nine silent excepts | done | `f5c6b29` |
+| A9 CI skips | done | `9fbc406` |
+| INBOX 221 launchers vs Settings | done | `31db292` |
+| INBOX 225 the name, backend half | done | `e024e49` |
+
+Nothing on this list is open. The three "for the orchestrator at merge" notes
+at the bottom of this file are the only things left, and none of them is code.
 
 # The backend refinement pass, 2026-09-13 evening
 
@@ -315,3 +320,59 @@ session spends its probes somewhere new.
   gated files. Measured here with the extra present: 159 tests, 0 skipped.
   Not verified: the CI runners themselves, which only a push can show.
   next: INBOX 221, the launchers against the auto-update settings.
+
+## INBOX 221, the launchers against the update settings
+
+**What was verified, in two lines.** `start.sh` and `start.bat` both read
+`auto_update_enabled` and `update_channel` from the app's own
+`preferences.json` before the update step, and `tests/test_launcher_update_settings.py`
+(30 tests) proves it by pulling `mm_update_plan` out of the live `start.sh`
+with `sed` and running it against files `ConfigManager` itself wrote: off
+gives "off", on plus stable gives "stable", on plus main gives "main", a
+missing or corrupt file gives "main", and `./start.sh --doctor` run end to
+end says "off in Settings" or names the channel. `start.bat` has contract
+tests only, because Windows cannot run here, and that is said in the file.
+
+**Found while doing it, and fixed:** `./start.sh` into a brand new data
+directory exited 2 with an empty terminal about one run in eight (`set -e` +
+`set -o pipefail` + `ls` on a glob the background `tee` had not created yet).
+2 in 10 before, 30 clean after.
+
+**Not verified:** no Windows machine, so `start.bat`'s new `:pull_stable` and
+`:pull_main` subroutines are read, not run; and no release tag exists in this
+repository yet, so the stable channel's `git merge --ff-only <tag>` was never
+exercised against a real tag.
+
+**For the orchestrator at merge:** INBOX 221 was filed after this worktree was
+cut, so the entry is not in this branch's `INBOX.md` and `inbox_resolve.py 221`
+cannot be run from here. Mark it fixed against the launcher commit.
+
+## INBOX 225, the name (backend half)
+
+`memorymap.ai.AI_NAME = "Atlas"`, and one clause at the head of
+`librarian.DEFAULT_PERSONA` (which the chat, Ask and the agent all default
+to) and of `help_chat.SYSTEM_PROMPT`. `tests/test_ai_name.py`, 6 tests: the
+name is written down once, each of the three prompts says it exactly once and
+starts with it, a user's own persona is not decorated with it, and the
+untrimmable prose is still inside `PROSE_BUDGET_CHARS` (it went down, 52
+characters to 41, because the clause is shorter than the sentence it
+replaced).
+
+**Found, not fixed, and not this agent's files:** `frontend/app.js` line
+21492 mirrors the backend's built-in personas and still carries the old
+Librarian text, so Settings, Personas shows the pre-Atlas sentence for that
+built-in until the frontend half of 225 is done. One line.
+
+**For the orchestrator at merge:** like 221, INBOX 225 was filed after this
+worktree was cut, so `inbox_resolve.py` cannot be run from here; mark the
+backend half done against the Atlas commit.
+
+## Stopped here (orchestrator's stop order, 84% usage)
+
+Everything on the list above is committed and pushed; the working tree is
+clean and there is no WIP commit to pick up. The one thing not finished is a
+**local full-suite run**: it was 17% through (about 500 tests, all passing)
+when the stop order came and was killed. Every commit passed
+`scripts/gate.sh --staged`, and the targeted tests for the files each commit
+touched were run and are named in the running log above. CI runs the full
+suite on the push.

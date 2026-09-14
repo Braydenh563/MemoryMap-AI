@@ -70,6 +70,10 @@ with its owner named in the entry.
     in `ai/` so a rename is one edit each; Settings, Models keeps the model's
     own name beside it ("Atlas, running qwen2.5:7b"). Owner: chrome after
     214 and 215; the backend clause and constant, backend2 after its list.
+    **Backend half fixed e024e49 (backend2), merged:** `AI_NAME` in
+    `ai/__init__.py`, one clause in the prompts that speak as the app,
+    tested under the prose budget; the help chat's `GUIDE_NAME` is that
+    constant. Frontend half: chrome.
 
 224. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the Atlas
     chat.** "can you improve and modernise the ui design of the atlas chat
@@ -103,15 +107,6 @@ with its owner named in the entry.
     handlers of the old box are removed together (`test_frontend_ids.py`,
     `test_frontend_handlers.py`), and `test_help_chat.py` keeps its route
     tests. Measured: exactly one `#help-chat` surface in the DOM.
-
-221. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), auto
-    update.** "make sure all the auto update whether upon new release or
-    following main works which can be adjusted and set in settings and make
-    sure the bat and sh files stick to the set things in those settings."
-    Trace `start-desktop.bat`/`.sh` and the launcher's update step against
-    the Settings values (channel: release or main; on or off); a test per
-    launcher that reads the setting the way the launcher does. Owner:
-    backend2, after its audit rows.
 
 220. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the docs
     and how to proceed.** "make sure all the other docs like architecture.md

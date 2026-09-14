@@ -7,6 +7,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The document dock's ⋯ menu stays inside the window. Its panel was capped by
+  a flat share of the window height rather than by the room under the button,
+  so at 1440x700 it ran 114px past the bottom edge with its last row out of
+  reach; it is now capped to the room it has, scrolls inside that, and opens
+  upward when there is less than 240px below (INBOX 233).
+
 - The kebab menus open on top of the surface they belong to. An escaped ⋯
   menu sat at z-index 1020, chosen when the only thing it opened over was a
   dialog at 1010, so the popup agent's foot menu drew behind the command

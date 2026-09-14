@@ -25908,14 +25908,80 @@ document.addEventListener("click", (event) => {
 //: which is most of these menus, so nothing changes for a dock menu that
 //: already had room. The whiteboard's top-bar menus call the same function;
 //: this handler used to hold its own copy of it.
+//: **The document dock's own ⋯ is the third menu in this family and was in
+//: neither handler.** Reported (INBOX 233): "the documents kebab button in
+//: the top right corner goes off the bottom of my screen." Measured at
+//: 1440x700 with a document open (`scratchpad/ui-sweeps/dockebab.js`): the
+//: panel is 17 rows wanting 704px, drawn at 286x636 from y=178, so its bottom
+//: edge lands 114px past the window and "Delete document" (840 to 876) cannot
+//: be reached by scrolling the panel either, because the panel's own scroll
+//: port ends off-screen.
+//:
+//: 636 is `.doc-dock-menu-list`'s flat `calc(100vh - var(--space-9) * 2)`,
+//: which is the whole bug in one number: a cap measured from the top of the
+//: *window* rather than from the top of the *menu*, exactly the shape this
+//: handler's comment above describes for the dock menus. `#doc-dock-menu`
+//: carries `.doc-dock-menu` without `.dock-menu` (it predates that recipe)
+//: and is not a `.doc-toolbar-menu` either, so `clampToolbarMenu` skipped it
+//: too, and nothing measured it at all.
+//:
+//: So it joins this handler rather than getting a fourth implementation, and
+//: `placeDockMenuInWindow` below is the one addition the recipe was missing:
+//: a side to open on. `escapeAndCapMenu` caps downward from wherever the menu
+//: already is, which is right for a menu with room under it and useless for
+//: one opened near the bottom edge, where the honest answer is to open
+//: upward instead.
+function placeDockMenuInWindow(details, list) {
+  const opener = details.querySelector("summary") || details;
+  const margin = 8;
+  //: Every open starts from the stylesheet's own geometry: a stale cap or a
+  //: stale side changes the measurement that decides this one.
+  details.classList.remove("doc-dock-menu-up");
+  list.style.maxHeight = "none";
+  list.style.overflowY = "";
+  const anchor = opener.getBoundingClientRect();
+  const box = list.getBoundingClientRect();
+  //: Not laid out (a `<details>` in a hidden pane, the all-zero rect
+  //: `clampToolbarMenu` documents): leave the stylesheet's cap alone rather
+  //: than write a number derived from zeroes.
+  if (!box.height || !anchor.height) {
+    list.style.maxHeight = "";
+    return;
+  }
+  //: The gap is measured, not assumed: it is `top: calc(100% + var(--space-2))`
+  //: today and a token is free to change.
+  const gap = Math.max(0, Math.round(box.top - anchor.bottom));
+  const roomBelow = Math.round(window.innerHeight - box.top - margin);
+  const roomAbove = Math.round(anchor.top - gap - margin);
+  //: **Upward only when below is too little to be a menu at all**, and only
+  //: when above is actually better. 240px is about five rows plus the panel's
+  //: own padding: above that a capped, scrolling menu under the button is
+  //: still a menu, and moving it to the other side of its own button is the
+  //: more surprising change of the two.
+  const goUp = roomBelow < 240 && roomAbove > roomBelow;
+  if (goUp) details.classList.add("doc-dock-menu-up");
+  //: The floor keeps a menu opened against an edge a menu rather than a slit,
+  //: the same 120 `escapeAndCapMenu` uses.
+  const room = Math.max(120, goUp ? roomAbove : roomBelow);
+  if (box.height > room) {
+    list.style.maxHeight = `${room}px`;
+    list.style.overflowY = "auto";
+  }
+}
+
 document.addEventListener(
   "toggle",
   (event) => {
     const menu = event.target;
-    if (!(menu instanceof HTMLElement) || !menu.matches("details.dock-menu")) return;
+    if (!(menu instanceof HTMLElement)) return;
+    const isDock = menu.matches("details.dock-menu");
+    //: The dock kebab's own shape: a `.doc-dock-menu` that is neither a dock
+    //: menu nor one of the editor toolbars `clampToolbarMenu` owns.
+    const isDockKebab = !isDock && menu.matches("details.doc-dock-menu:not(.doc-toolbar-menu)");
+    if (!isDock && !isDockKebab) return;
     // Once escaped, the list is a child of <body>, not of `menu`: cache the
     // reference the first time so a later close/reopen can still find it.
-    const list = menu._dockMenuList || menu.querySelector(".dock-menu-list");
+    const list = menu._dockMenuList || menu.querySelector(".dock-menu-list, .doc-dock-menu-list");
     if (!list) return;
     menu._dockMenuList = list;
     if (!menu.open) {
@@ -25924,6 +25990,12 @@ document.addEventListener(
       // next open starts from the stylesheet's own numbers, not a stale one.
       restoreEscapedMenu(list);
       list.style.maxHeight = "";
+      list.style.overflowY = "";
+      menu.classList.remove("doc-dock-menu-up");
+      return;
+    }
+    if (isDockKebab) {
+      placeDockMenuInWindow(menu, list);
       return;
     }
     menu.classList.remove("dock-menu-flip");

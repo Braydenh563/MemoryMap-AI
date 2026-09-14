@@ -26881,3 +26881,28 @@ line that carried a dash.
     24, 72), every title's left edge at 1101px, every button's left edge
     at 1379px and 28px tall, rows 56px apart.
 
+222. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the glass
+    look.** "is the glass look the best it can be?? are there any repos or
+    publicly accessible libraries where they have made really cheap glass
+    aesthetics we could borrow from?? or should we keep as is right now??"
+    A judgement for the orchestrator's final report, with the measured
+    frame cost of the current glass-off list as its evidence; no code
+    unless a cheaper technique is found and measured. Owner: orchestrator.
+    **Answered, 2026-09-14 (no code).** Keep it. Measured today
+    (`scratchpad/ui-sweeps/glass.js`, 1440x900): three to four blurred
+    elements at rest per tab (the top bar, one card, the scroll-top button,
+    the graph's zoom pill), the content panels carry no `backdrop-filter`,
+    and the gate in `tests/test_perf_mode.py` holds blur under 10% of the
+    viewport. The background art is the only thing that costs frames
+    (+17 to +28 ms a frame, `bgart.js`), and Performance mode turns it off.
+    Every public "glassmorphism" library or generator is the same
+    primitive, `backdrop-filter: blur()` over a translucent fill with a
+    hairline and a highlight; there is no cheaper blur in the browser. The
+    one cheaper technique, a pre-blurred copy of the background positioned
+    under each panel, only works for a still background, and this app's
+    stills already skip the blur. What could still improve is not cost
+    but character: a specular rim on the modal tier (one gradient border,
+    no filter) and a slightly stronger tint difference between the two
+    tiers in dark mode. Both are one CSS token each, for the professional
+    pass, not this PR.
+

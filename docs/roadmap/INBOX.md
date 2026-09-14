@@ -34,14 +34,6 @@ with its owner named in the entry.
 
 ## Open items
 
-222. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the glass
-    look.** "is the glass look the best it can be?? are there any repos or
-    publicly accessible libraries where they have made really cheap glass
-    aesthetics we could borrow from?? or should we keep as is right now??"
-    A judgement for the orchestrator's final report, with the measured
-    frame cost of the current glass-off list as its evidence; no code
-    unless a cheaper technique is found and measured. Owner: orchestrator.
-
 221. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), auto
     update.** "make sure all the auto update whether upon new release or
     following main works which can be adjusted and set in settings and make

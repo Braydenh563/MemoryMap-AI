@@ -250,7 +250,7 @@ extended per phase.
 
 All five items. The record, with every measurement and every decision, is in
 HISTORY.md ("From DOCUMENTS_PLAN.md Phase 3", items 1 to 3 and items 4 and 5);
-what the phase left open is in `agent-remaining/documents-phase4.md`.
+what the phase left open is in `archive/agent-remaining/documents-phase4.md`.
 
 **The syntax this phase decided, kept here because later phases read it**:
 `:::columns` opens a columns block, `:::column` starts the next column, `:::`
@@ -494,7 +494,7 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2
 
 ## Built, Phase 2 steps 2 to 4 (the engine under the editor), 2026-09-09
 
-Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2026-09-09: a plan holds open work only. What is left open from this phase is in `agent-remaining/documents-engine.md`.
+Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2026-09-09: a plan holds open work only. What is left open from this phase is in `archive/agent-remaining/documents-engine.md`.
 
 ## Built — Phase 0
 
@@ -504,7 +504,7 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2
 
 Moved to HISTORY.md ("From DOCUMENTS_PLAN.md Phase 3", two entries) on
 2026-09-12: a plan holds open work only. What the phase left behind is in
-`agent-remaining/documents-phase4.md`.
+`archive/agent-remaining/documents-phase4.md`.
 
 ## Placed from INBOX: 107d, the segmented mini bars
 
@@ -772,7 +772,7 @@ on 2026-09-13: decisions D1 to D5 are built and measured, and a plan holds
 open work only. The rules that outlive the pass are two rows in
 `docs/DESIGN.md`'s recipe index (a viewport popup, and one feature drawn on
 several surfaces), kept by `tests/test_ui_recipes.py`. What is left open is
-in `agent-remaining/editor-intelligence.md`.
+in `archive/agent-remaining/editor-intelligence.md`.
 
 ## 13. What a self-contained HTML export is: decided 2026-09-13
 
@@ -839,5 +839,5 @@ this session did not have a reason to force.
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-12", DOCUMENTS_PLAN.md) on
 2026-09-12: a plan holds open work only. What is left open is in
-`agent-remaining/doc-sidebar.md`.
+`archive/agent-remaining/doc-sidebar.md`.
 

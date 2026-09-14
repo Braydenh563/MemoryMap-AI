@@ -6671,7 +6671,7 @@ editing the stylesheets at once and 07-whiteboard-misc.css is the file all
 three reach for.
 
 **The tab strip fits its own row between 600 and 820.** The last measured
-fault in `agent-remaining/responsive.md` that belonged to a tablet rather
+fault in `archive/agent-remaining/responsive.md` that belonged to a tablet rather
 than a phone. Measured with the new `scratchpad/ui-sweeps/tabfit.js`, which
 prints what the seven tabs need against what the row has:
 
@@ -6781,7 +6781,7 @@ the same five panel signatures as before. Thirteen lints, `ruff`, and
   so it is not this batch; found, not fixed.
 
 The remaining list, per surface and breakpoint with files and next steps, is
-in [`agent-remaining/responsive.md`](agent-remaining/responsive.md).
+in [`archive/agent-remaining/responsive.md`](archive/agent-remaining/responsive.md).
 
 ### Built, the map exports, the boards dock and the paint lint, 2026-09-09
 
@@ -7266,7 +7266,7 @@ The phase is complete. The space landed first (below); the gear button
 and the label collision pass with its probe (INBOX 27) landed in the session
 after it, and the hover-during-a-pan bug (INBOX 28) was fixed on the branch
 and confirmed here rather than assumed. What is left of the graph is Phases 3
-to 5 and the list in `docs/roadmap/agent-remaining/graph.md`.
+to 5 and the list in `docs/roadmap/archive/agent-remaining/graph.md`.
 
 #### What landed
 
@@ -7407,7 +7407,7 @@ scrolling inside a 488px box with the cut row in sight.
   (`graph.js` `physics: ...?.checked ?? true`), which is a span and now a
   section: saved views have always stored `physics: true` and restoring one
   has always been a no-op. Found here, not fixed; it is in
-  `agent-remaining/graph.md`.
+  `archive/agent-remaining/graph.md`.
 
 ### From DOCUMENTS_PLAN.md
 
@@ -7615,7 +7615,7 @@ wrong. Every number below was read out of a running Chromium.
   does.
 
 **Found while measuring and left open** (carried in
-`agent-remaining/documents-batch.md` and in the plan): `enhanceSelect`
+`archive/agent-remaining/documents-batch.md` and in the plan): `enhanceSelect`
 (app.js ~18427) rebuilds every `<select>` as a shell with a `<button>` opener
 and takes the native element out of the tab order, so `select.focus()`
 focuses nothing app-wide and a `keydown` bound to a select never fires; the
@@ -7704,7 +7704,7 @@ materialising the whole document per character.
   document focused the global search box and swallowed the rest of the word.
   Stopped at the editor's own host in the bubble phase; the app.js guard
   itself is still wrong for the next contenteditable and is written up in
-  `agent-remaining/documents-engine.md`.
+  `archive/agent-remaining/documents-engine.md`.
 - **The `/` menu and the `[[` picker never opened.** editor.js hung their
   trigger check off a DOM `input` event, and the engine raises none for a
   typed character. The listener body is `editorHandleInput` now and the
@@ -7729,7 +7729,7 @@ document rather than as a second copy of it.
 end (the bundle failing to load was simulated with a flag, not by a blocked
 request); and `revalidateSelection` in app.js still resolves a selection's
 surface with `document.getElementById(surfaceId)`, which now finds the stale
-fallback textarea, see `agent-remaining/documents-engine.md`.
+fallback textarea, see `archive/agent-remaining/documents-engine.md`.
 
 ### From DOCUMENTS_PLAN.md
 
@@ -8163,7 +8163,7 @@ sweeps. Six lints green.
   reasoned, not observed.
 
 The full remaining list, per surface and breakpoint with files, selectors and
-next steps, is in [`agent-remaining/responsive.md`](agent-remaining/responsive.md).
+next steps, is in [`archive/agent-remaining/responsive.md`](archive/agent-remaining/responsive.md).
 
 ### From AGENT_SKILLS_REFORM.md
 
@@ -8929,7 +8929,7 @@ named beside it in HANDOVER's completion table.
     and under 400 nodes every label draws, and the dense cluster is
     unreadable. Decision: collision avoidance per frame, highest degree
     first; a label that would overlap one already drawn waits for hover or
-    zoom. Owner: GRAPH Phase 2 (agent-remaining/graph.md).
+    zoom. Owner: GRAPH Phase 2 (archive/agent-remaining/graph.md).
 28. **(fixed, 0b26491, confirmed with an assertion in 5825b77)**
     **Panning the graph highlights one unlinked node** and shows its label
     while the rest dims. A pan must never change hover or focus. Owner:
@@ -21849,7 +21849,7 @@ done-when item 4 and 5), in priority order.
     rows in the Library list, 230 tiles in the gallery, a search for a row on
     the server's second page finds it. **Left:** the Reminders tab, whose
     file was held by another agent, and five other first-page-only callers,
-    all in `docs/roadmap/agent-remaining/list-paging.md` with their numbers.
+    all in `docs/roadmap/archive/agent-remaining/list-paging.md` with their numbers.
 
 121. **Found by the orchestrator 2026-09-12, by the sweep that could not
     see it before.** Extending `errors.js` past the seven tab-bar buttons
@@ -21931,7 +21931,7 @@ done-when item 4 and 5), in priority order.
       written into UI_MODERNISATION_PLAN ("Decided, 2026-09-12").
     - "and the documents page sidebar needs redesigning as well, both for
       outline and documents but mostly outline." **Fixed** (`e457ba4`
-      through `cb776a7`, written up in `agent-remaining/doc-sidebar.md` and
+      through `cb776a7`, written up in `archive/agent-remaining/doc-sidebar.md` and
       HISTORY.md, "From DOCUMENTS_PLAN.md: the Documents sidebar, both
       tabs"): both tabs rebuilt and measured in a browser in both themes,
       with `scratchpad/ui-sweeps/docsidebarshape.js` as the sweep, 14
@@ -22071,7 +22071,7 @@ comment in `app.js` already records in as many words ("the same yellow that
 tints a white page turns to mud on a dark one, and this app has a dark
 theme"). Decision 7 says multiply, so multiply is what is built; the
 recommendation and the numbers are in
-`docs/roadmap/agent-remaining/whiteboard-phases.md`, along with the other half
+`docs/roadmap/archive/agent-remaining/whiteboard-phases.md`, along with the other half
 of decision 7 that is not built, the quick-sketch pad sharing this code rather
 than keeping its own copy.
 
@@ -22230,7 +22230,7 @@ tabs a new and improved look." Relaunch text, verbatim. Read CLAUDE.md,
 DESIGN.md's recipe index, UI_MODERNISATION_PLAN Phases 5 and 6 (the
 per-surface pass and designed states), and INBOX 116. Shared worktree,
 commit per step, never push, `scripts/gate.sh --changed` per step,
-five-line report, `agent-remaining/notes-subtabs.md` before stopping.
+five-line report, `archive/agent-remaining/notes-subtabs.md` before stopping.
 
 Where: `frontend/index.html` from line 586 (`#tab-notes`): `#capture`
 (the form from 732), `#writing-room` (849), `#ask`; the handlers in
@@ -22820,7 +22820,7 @@ the real cost of `embed_text` per query are untested. The startup warm was
 exercised by the suite, not by watching a cold desktop launch. No notebook
 larger than 5,000 entries was built.
 
-### From `agent-remaining/brief7-event-log.md`: the event log's open items
+### From `archive/agent-remaining/brief7-event-log.md`: the event log's open items
 
 Four of the seven items Brief 7 left. What is still open, with its next
 step, stays in that file; the decisions are there too, since they are the
@@ -22910,7 +22910,7 @@ Found and fixed on the way: `_forget_links_to` called `.get` on whatever
 JSON array (which the API accepts, and an import can produce) turned an
 unrelated card's deletion into a 500.
 
-### From `agent-remaining/brief7-event-log.md`: the event log's last three gaps
+### From `archive/agent-remaining/brief7-event-log.md`: the event log's last three gaps
 
 The three the second run left, plus one found while measuring. What is still
 open stays in that file, with the decisions this run added (6 and 7).
@@ -23144,10 +23144,10 @@ before the next starts:
 2. DOCUMENTS_PLAN Phase 1 (Opus, next free slot): the chrome; INBOX 18's
    "squashed" report did not reproduce at 1440 (see inbox.md), retest
    with the Outline panel open and a long title.
-3. UI_MODERNISATION Phase 9 remainder (`agent-remaining/responsive.md`).
+3. UI_MODERNISATION Phase 9 remainder (`archive/agent-remaining/responsive.md`).
 4. AGENT_SKILLS_REFORM Phase D, recovery.
 5. MINDMAP_PLAN Phases 4 to 5 and `agent-remaining/mindmap.md`.
-6. `agent-remaining/help-popovers.md` and `timeline.md` bug items (Sonnet),
+6. `archive/agent-remaining/help-popovers.md` and `timeline.md` bug items (Sonnet),
    then WORLD_CLASS 12 S7 (LIKE escaping, one helper, 18 sites, Sonnet).
 
 INBOX open items ride with the phase that owns them (the owner column in
@@ -23558,7 +23558,7 @@ the behaviour that shipped before this.
 **Open from item 4, and it is the half the plan asked for that is not here.**
 "searchable from the Library's filter" is not built: `library.js` was another
 agent's file. The properties are parsed and editable, and nothing filters on
-them. It is written up in `agent-remaining/documents-phase4.md`.
+them. It is written up in `archive/agent-remaining/documents-phase4.md`.
 ## INBOX resolved, 2026-09-13
 
 162. **Mid-work drop, 2026-09-13, verbatim (the owner), the app as an
@@ -23914,7 +23914,7 @@ them. It is written up in `agent-remaining/documents-phase4.md`.
     The shots predate most of this session's surfaces (the docks, the
     documents editor, the mind maps, the timeline), and there are fewer of
     them than the app has places worth showing.
-134. **Fixed, 2026-09-13 (the catalog audit landed with a lint proving every row resolves to code; see agent-remaining/picker-catalog-readme.md).** **Mid-work drop, 2026-09-13, verbatim (the owner), one screenshot of the
+134. **Fixed, 2026-09-13 (the catalog audit landed with a lint proving every row resolves to code; see archive/agent-remaining/picker-catalog-readme.md).** **Mid-work drop, 2026-09-13, verbatim (the owner), one screenshot of the
     Tools and features dialog.** "the tools and features popup content is
     poorly text aligned between the headers and the content, and make sure
     the command pallate and that tools and features popup are up to date"
@@ -26230,7 +26230,7 @@ stale at that point, which is why both briefs start by reconciling them with
 Queue after them, in the owner's stated order: (1) Brief 24, the derived
 facts pipeline (I9, the ten markers left in `test_learned_spec.py`), written
 this session and ready to hand to an agent; (2) GRAPH Phase 4b and 6b and
-`agent-remaining/graph.md`; (3) UI Phase 11, the phone, whose first item is
+`archive/agent-remaining/graph.md`; (3) UI Phase 11, the phone, whose first item is
 now measured and written down (the status bar at 320); (4) TIMELINE_PLAN and
 CHAT_PLAN Phases 2 and 3, untouched this session, last.
 
@@ -26840,7 +26840,7 @@ line that carried a dash.
       its own visual judgement call, none reproduced live this pass.
       Placed here rather than fixed blind.
     **Reproduced and fixed, 2026-09-12** (measurements in the commits and in
-    `agent-remaining/visual-c.md`):
+    `archive/agent-remaining/visual-c.md`):
     - **Boards & maps widget: fixed.** The thumbnail was a 40.5 by 40.5 square
       drawing its own border and fill with the board letterboxed inside it, so
       a 100x65.7 board came out 38.5 by 25.3 with 7.6px of empty band above and

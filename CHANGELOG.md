@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The agent hand-off files are one ledger: `docs/roadmap/agent-remaining/OPEN.md`
+  carries every still-open item from the 38 finished files, by surface, with the
+  file, the id and the next step, and those files move whole to
+  `docs/roadmap/archive/agent-remaining/` (INBOX 220).
 - Aurora's trails end and its ring no longer stamps itself into them (INBOX
   210). The Library's Create chooser is a column of named rows like the
   documents' template dialog (211).

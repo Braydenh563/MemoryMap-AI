@@ -2160,7 +2160,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    neighbours, and that second effect was never chosen. Measured: the pictures
    do *not* grow when the row does (144px open and shut), so the 213px is
    entirely empty card, which also corrects the note in
-   `agent-remaining/ui-phase-11.md` that said the pictures grow to their
+   `archive/agent-remaining/ui-phase-11.md` that said the pictures grow to their
    `max-height` ceiling.
 
    `align-self` on the tile rather than `align-items` on the grid, and only

@@ -1,6 +1,6 @@
 // The five docks as surfaces: how many distinct fills, radii, borders and
 // control heights each one draws. This is the table in
-// docs/roadmap/agent-remaining/consistency.md section 3, which was light theme
+// docs/roadmap/archive/agent-remaining/consistency.md section 3, which was light theme
 // at 1440 only; `THEME=dark` on the same script is the check it asked for.
 // W=1024 for the wrap check, which also reports whether a zone other than
 // `.dock-actions` wrapped first (a stray leading hairline at the second row's

@@ -2,7 +2,7 @@
 //
 // UI_MODERNISATION_PLAN Phase 9's iPad-portrait band (600 to 820) is the one
 // width range where the seven tabs neither fit in the header nor move to the
-// bottom: `agent-remaining/responsive.md` item 3 measured 574px of room
+// bottom: `archive/agent-remaining/responsive.md` item 3 measured 574px of room
 // against 608px of tabs at 600, so the strip scrolled sideways and the header
 // took a second row for it.
 //

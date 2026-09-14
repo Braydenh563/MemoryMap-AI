@@ -1,7 +1,7 @@
 // The editor with the engine refused: the path `docCmBroken` exists for.
 //
 // Carried as "not verified" through three of this plan's sessions (see
-// `docs/roadmap/agent-remaining/documents-phase4.md`, "the fallback textarea
+// `docs/roadmap/archive/agent-remaining/documents-phase4.md`, "the fallback textarea
 // path ... nothing has been driven in a browser with the engine off"), and now
 // load-bearing for a second surface: DOCUMENTS_PLAN Phase 8 mounts the same
 // engine in every note box, and `mountNoteSurface` is written to hand back the

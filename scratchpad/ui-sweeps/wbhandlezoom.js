@@ -1,6 +1,6 @@
 // A grip is the same size to the hand at every zoom level.
 //
-// `agent-remaining/whiteboard-phases.md` item 3: "a sketch's handles scale
+// `archive/agent-remaining/whiteboard-phases.md` item 3: "a sketch's handles scale
 // with the zoom; a card's do not". A card's and a text box's handles are
 // absolutely positioned HTML at a CSS pixel size, so they are 10px at any
 // zoom; a sketch's are SVG rects of 10 *board units* inside `#wb-zoom-group`,

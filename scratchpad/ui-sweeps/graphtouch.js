@@ -1,5 +1,5 @@
 // The graph on a phone, and the world constant, the two lines
-// `docs/roadmap/agent-remaining/graph.md` carried under "Not verified":
+// `docs/roadmap/archive/agent-remaining/graph.md` carried under "Not verified":
 // "touch and pinch on the map are still untested, and so is the graph at a
 // phone width beyond the panel", and "the world constant in `gcWorldFor` (1.6
 // to 1.25) is not exercised at 35 or 300 notes, where the viewport floor

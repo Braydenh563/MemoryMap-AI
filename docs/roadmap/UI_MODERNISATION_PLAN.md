@@ -96,6 +96,100 @@ becomes an INBOX entry with a one-line recommendation, which is then taken.
   two boxes equal: a row that is the same recipe in both columns is the same
   height in both.
 
+**Paragraphs to '?' popovers: the decisions.** Copied whole from
+`archive/agent-remaining/help-popovers.md` on 2026-09-14 (INBOX 220) so they
+survive its archiving; the numbering is that file's.
+
+1. **Section/group-level intros ("why does this area exist") convert.
+   Field-level hints (attached to one specific control) and
+   destructive/safety-critical warnings stay inline.** First stated in
+   the Appearance/Custom CSS commit `6f31b6b`: hiding "what does turning
+   this on do" behind a click, right where the control is, is worse than
+   the extra line; hiding a section's own "why does this area exist" text
+   is not, since nobody needs it to operate the section moment to moment.
+   Governs every item below.
+
+2. **The Tesseract OCR per-package caveat (Packages settings) stays
+   inline, decided now.** It is a different shape from every other item
+   on this list, and was left open deliberately in an earlier pass rather
+   than converted blind: the caveat text is built by `renderExtras()` in
+   `frontend/app.js`, one row at a time from server data (`caveat=` on the
+   extra's own definition), not static markup in `index.html`, so
+   `count.py` structurally cannot see it either way. Decision: leave it
+   inline. It reads as a field-level warning attached to one specific
+   row's Install/Reinstall/Remove action ("what happens if I click this"),
+   not a section-level "why does Packages exist" aside, so decision 1
+   already covers it; the different shape (JS-generated per row) is a
+   reason the fix would look different, not a reason to weigh the
+   question differently. A per-row `data-help-for` pair generated
+   dynamically is possible if a future session wants the audit script to
+   see it too, but is not needed for the copy rule itself: the caveat is
+   already one or two sentences, not a wall of prose.
+
+3. **Account & security's "If you forget your password" pair (the two
+   paragraphs around `python -m memorymap --reset-password`) stays
+   inline, decided in commit `9f32b22`.** Same reasoning as decision 2,
+   applied to a destructive command instead of a per-row caveat: the text
+   describes irrecoverable private-note loss right next to the command
+   that triggers it, so it is a safety-critical warning attached to one
+   action, not a section intro.
+
+4. **Five more items decided the same way, this pass, once
+   `count.py`'s remaining list was checked against what actually renders
+   around each:**
+   - Command palette intro (`#command-palette-intro`, ~line 315): the
+     comment directly above it in the markup argues for keeping it
+     visible ("What it can do, said out loud... These are real examples...
+     they are replaced by the conversation the moment there is one"). The
+     paragraph's whole purpose is to be seen before anything else is
+     typed; a popover would undo that.
+   - Documents' "Where are my documents kept?" dialog (`#doc-storage-dialog`,
+     ~line 425), Tensions' "Where you disagreed with yourself" dialog
+     (`#tensions-dialog`, ~line 477), Ask's idle screen
+     (`#ask-idle`, ~line 956), the document history dialog
+     (`#doc-history-dialog`, ~line 3049), and Meeting notes'
+     (`#meeting-overlay`, ~line 8223) own intro: all five are already
+     inside a `<dialog>` opened from a link-styled button, or (Ask's case)
+     a one-time idle screen replaced the moment it is used. Each is
+     already the progressive-disclosure step decision 1 asks for; putting
+     a `data-help-for` popover inside a dialog that is itself the
+     click-to-reveal step would hide the content twice.
+   - About's hero tagline ("A 100% offline, local-first notebook...",
+     `.about-hero`, ~line 7706): this is the app's own one-line identity
+     statement directly under its name and emblem, the shortest and most
+     essential text on the page, not an explanatory aside about why the
+     About section exists. Converting an app's own tagline on its own
+     About page into something the reader has to click to see would be
+     backwards.
+
+5. **Field-level hints already decided inline in earlier passes, listed
+   here so nobody re-checks them:** the settings-tools sub-group hints
+   (`tool-focus-help`/`small-model-help`, already popovers via `e6e48a9`),
+   `#progress-motion-row`'s inline hint, the model-latency `<small>`
+   under Diagnostics ("How long each kind of job has been taking...",
+   ~line 6059 in the old numbering), the thinking-dots motion hint
+   (~6439), `#log-terminal-hint`, `#desktop-console-hint`, and
+   `#desktop-tray-hint`. Each sits directly beside, or is toggled by, the
+   one control it explains.
+
+6. **The two JS strings (`countjs.py`) checked this pass, both decided
+   inline, for the same reason as decision 2 (Tesseract):** the
+   dashboard's Tensions widget explain line
+   (`frontend/dashboard.js:3156`, "Similar-notes search finds what
+   belongs together...") and the Library skills panel's Background
+   workers hint (`frontend/library.js:1649`, "Lets the AI work through
+   your notebook on its own..."). Both are one or two sentences built
+   with `document.createElement`, the same JS-generated shape as the
+   Tesseract caveat, and both are short enough that they are not the
+   wall-of-prose problem this task targeted. Converting either properly
+   needs the trigger and panel created and inserted into the live DOM
+   before `initHelpToggles(root)` runs against that subtree (it is only
+   ever called once, at load, against the whole document today; no
+   dynamic render anywhere in the app calls it a second time yet), which
+   is a real behaviour change worth its own render-path regression check
+   rather than a same-session, same-commit add. Left inline; `countjs.py`
+   will keep reporting TOTAL 2 until a future pass does that properly.
+
 ## Phase 0 — tooling and acceptance gates (½ session)
 
 1. Add `tests/test_ui_signatures.py`: a static lint that counts distinct

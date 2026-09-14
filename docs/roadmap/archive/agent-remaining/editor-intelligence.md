@@ -5,7 +5,7 @@ Agent: Opus, 2026-09-13, in the shared worktree on
 go offscreen"), with 142 and 128 folded in. Commits `14a6780` (the cause and
 the fix), `556324b` (the two recipes and their lints), and the documentation
 move that follows them. The previous pass's list is
-`agent-remaining/prose-intelligence.md` and every item on it is still open;
+`archive/agent-remaining/prose-intelligence.md` and every item on it is still open;
 this file is only what this pass added.
 
 ## What the bug actually was

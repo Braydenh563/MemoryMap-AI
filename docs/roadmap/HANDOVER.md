@@ -359,23 +359,31 @@ this file's standing orders and Now line, INBOX, then `OPEN.md` and the
 plan for the surface in hand. Brief 33 in SESSION_BRIEFS is the next
 session's brief.
 
-**Now (2026-09-14 morning, Fable orchestrating): PR #144 merged, or about
-to be.** Every agent landed: docs (`878f78d`), chrome (`a4481a1`,
-`ecdc7dd`), boot (`9066947`), backend2 (`bcf66c1`, `5d1d2ec`), mapux
-(`1752862`). The morning's reports 213 to 227 are filed; 216, 217, 218,
-221, 222, 223, 227 fixed and in HISTORY. Open in INBOX with owners: 224's
-Atlas entry points and 225's frontend half (chrome's last commit holds the
-rest; anything it did not push carries to the next PR), 214's and 215's
-measurements if chrome's report says any is missing, 226 (a flicker not
-reproduced, needs the owner's theme and style), 209, 210, 213, 219 and 220
-as records of what was done. **Next PR:** `docs/ROADMAP.md`, "How to
-proceed after PR 144"; Brief 33. Traps this session: a search-and-replace
-that rewrites a function's own body (`fetchDashStats` recursed), an early
-return above the branch that was meant to handle the case (`startBgArt`),
+**Now (2026-09-14 midday, Fable orchestrating): PR #144 waits on the
+owner's go-ahead to merge; CI on the head is the last gate.** Every agent
+landed: docs, chrome, boot, backend2, mapux, chrome2 (`284f440`: 230, 231,
+233, 234, 236) and notes (`942fdc6`: 239, 240, 241, and the citation
+inventory fix). The owner's afternoon reports 242 to 253 are filed; all
+but 246 (boards and maps on notes) and 253 (one-click recovery, placed in
+WORLD_CLASS_PLAN H6) are fixed and in HISTORY. Open in INBOX: 213, 220,
+225 (frontend copy half), 226 (not reproduced), 228, 232, 238, 246, 253.
+**The release blocker found today:** the packaged Windows build has no
+console, uvicorn's formatter read `sys.stderr.isatty()` on None, and the
+app died at launch; `_ensure_std_streams` (`4ed7456`) is the fix and the
+next tag carries it. **After the merge:** tag `v0.3.0`, which builds the
+installers; the owner's brother needs that installer. **Next PR:**
+`docs/ROADMAP.md`, "How to proceed after PR 144"; OPEN.md holds 232, 238
+and 246 with their facts. Traps this session: a search-and-replace that
+rewrites a function's own body (`fetchDashStats` recursed), an early
+return above the branch meant to handle the case (`startBgArt`),
 `DOMContentLoaded` in a file that loads on demand (nine wirings never
-ran), a `.wb-tool-group button` rule catching a select's face, Tesseract's
-OpenMP oversubscription (42 s to 0.28 s with one thread), and a `&&`
-chain after `grep` that commits on a failed gate (read the failed line).
+ran), a lazy bundle taking the note editor's focus listener with it (the
+graph popup opened raw), a `const` in a later script read at load
+(`AI_NAME`, the app did not boot; lint added), pytest's capture swapping
+`sys.stdout` back between a fixture and the body, Tesseract's OpenMP
+oversubscription (42 s to 0.28 s with one thread), and `tail -1 &&` or
+`grep &&` chains that commit on a failed gate (read the failed line;
+four times this session).
 
 **Now (2026-09-14 early, Fable orchestrating): four more agents on the
 owner's night reports and the audit.** INBOX 195 to 199, 211 and the aurora

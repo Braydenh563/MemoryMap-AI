@@ -359,6 +359,24 @@ this file's standing orders and Now line, INBOX, then `OPEN.md` and the
 plan for the surface in hand. Brief 33 in SESSION_BRIEFS is the next
 session's brief.
 
+**Now (2026-09-14 morning, Fable orchestrating): PR #144 merged, or about
+to be.** Every agent landed: docs (`878f78d`), chrome (`a4481a1`,
+`ecdc7dd`), boot (`9066947`), backend2 (`bcf66c1`, `5d1d2ec`), mapux
+(`1752862`). The morning's reports 213 to 227 are filed; 216, 217, 218,
+221, 222, 223, 227 fixed and in HISTORY. Open in INBOX with owners: 224's
+Atlas entry points and 225's frontend half (chrome's last commit holds the
+rest; anything it did not push carries to the next PR), 214's and 215's
+measurements if chrome's report says any is missing, 226 (a flicker not
+reproduced, needs the owner's theme and style), 209, 210, 213, 219 and 220
+as records of what was done. **Next PR:** `docs/ROADMAP.md`, "How to
+proceed after PR 144"; Brief 33. Traps this session: a search-and-replace
+that rewrites a function's own body (`fetchDashStats` recursed), an early
+return above the branch that was meant to handle the case (`startBgArt`),
+`DOMContentLoaded` in a file that loads on demand (nine wirings never
+ran), a `.wb-tool-group button` rule catching a select's face, Tesseract's
+OpenMP oversubscription (42 s to 0.28 s with one thread), and a `&&`
+chain after `grep` that commits on a failed gate (read the failed line).
+
 **Now (2026-09-14 early, Fable orchestrating): four more agents on the
 owner's night reports and the audit.** INBOX 195 to 199, 211 and the aurora
 half of 210 landed (`ea7b370`, `6437125`, `3440988`); chrome, mapux, backend2

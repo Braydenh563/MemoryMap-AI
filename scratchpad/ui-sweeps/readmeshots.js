@@ -42,7 +42,7 @@ const SHOTS = [
 (async () => {
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
-  await ctx.addInitScript(() => {
+  await ctx.addInitScript(({ gravity, spread }) => {
     try {
       localStorage.setItem('theme', 'light');
       localStorage.setItem('onboardingDone', '1');
@@ -53,10 +53,10 @@ const SHOTS = [
       //: reader can see the shape of. Both are ordinary settings a person can
       //: reach from the graph's own controls, not a state only a script can
       //: produce.
-      localStorage.setItem('graph-gravity', '85');
-      localStorage.setItem('graph-spread', '35');
+      localStorage.setItem('graph-gravity', gravity);
+      localStorage.setItem('graph-spread', spread);
     } catch (e) {}
-  });
+  }, { gravity: process.env.GRAPH_GRAVITY || '85', spread: process.env.GRAPH_SPREAD || '35' });
   const page = await ctx.newPage();
   await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#lock-password', { state: 'visible', timeout: 20000 });
@@ -140,6 +140,12 @@ const SHOTS = [
       //: their first evening with it, and nothing in the old set showed that
       //: any of it existed.
       await page.evaluate(() => openSettingsModal('appearance'));
+      await page.waitForTimeout(2500);
+    }
+    if (shot.file === 'graph' && process.env.GRAPH_LABELS === 'off') {
+      //: The map as a constellation: labels off is the graph's own View
+      //: setting, and with them off the shape of the notebook is the picture.
+      await page.evaluate(() => { const box = document.getElementById('graph-labels'); if (box && box.checked) { box.checked = false; box.dispatchEvent(new Event('change', { bubbles: true })); } });
       await page.waitForTimeout(2500);
     }
     if (shot.sub === 'ocr') {

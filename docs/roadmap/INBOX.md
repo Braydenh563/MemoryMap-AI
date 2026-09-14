@@ -100,12 +100,6 @@ with its owner named in the entry.
     muted accent, a fill on hover only, group labels small without rules,
     one column below 480px. Owner: chrome2.
 
-230. **Mid-work drop, 2026-09-14, verbatim (the owner), the popup agent's
-    kebab.** "this more actions kebab button at the bottom of the popup agent
-    doesnt show any dropdown menu." Measured (`scratchpad/palkebab.js`): the
-    menu opens (2 items, 200x87 at 795,753) at z-index 1020 under the
-    palette overlay at 2000, so it draws behind the panel. Owner: chrome2.
-
 229. **Mid-work drop, 2026-09-14, verbatim (the owner), the graph
     screenshot.** "redo the graph readme screenshot and make it really
     impressive." Owner: orchestrator.

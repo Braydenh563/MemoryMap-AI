@@ -27451,6 +27451,19 @@ line that carried a dash.
     and a Settings-internal section link still runs once (openSettingsModal 0
     times, closeSettingsModal 0 times).
 
+230. **Mid-work drop, 2026-09-14, verbatim (the owner), the popup agent's
+    kebab.** "this more actions kebab button at the bottom of the popup agent
+    doesnt show any dropdown menu." Measured (`scratchpad/palkebab.js`): the
+    menu opens (2 items, 200x87 at 795,753) at z-index 1020 under the
+    palette overlay at 2000, so it draws behind the panel. Owner: chrome2.
+    **Fixed 7916d4c.** `scratchpad/ui-sweeps/palkebab2.js`: before, the menu
+    opened with 2 rows, 200x87 at 795,753 at z-index 1020, and
+    `document.elementFromPoint` on its own first row returned `p.starter-verb`
+    (a paragraph of the palette card); after, the same menu at the same place
+    is z-index 2550 and that point returns the menu's own row. The Atlas
+    sheet's kebab was already on top over the sheet's 1010 and still is, at
+    the new tier.
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

@@ -3087,13 +3087,31 @@ kbd {
    `.modal-overlay` (`z-index: 1010`) rather than its descendant, and 30
    loses that fight outright, the menu was live in the DOM, correctly
    positioned, and completely invisible, painted underneath the modal.
-   1020 matches this app's own tier system (above the modal's 1010, below
-   the toast box's 1050: see `.modal-overlay`'s own comment in
-   01-forms-settings.css for the full ladder). */
+   1020 matched this app's own tier system while the only surfaces a kebab
+   could open over were the dialogs (above the modal's 1010, below the toast
+   box's 1050: see `.modal-overlay`'s own comment in 01-forms-settings.css).
+
+   **It is now 2550** (INBOX 230: "this more actions kebab button at the
+   bottom of the popup agent doesnt show any dropdown menu"). Measured with
+   `scratchpad/ui-sweeps/palkebab2.js`: the popup agent's foot menu opened
+   with two rows, 200x87 at 795,753, reparented to <body> and correctly
+   placed, and `document.elementFromPoint` on its own first row returned
+   `p.starter-verb`, a paragraph of the palette card. The command palette is
+   `z-index: 2000` (07-whiteboard-misc.css), and an escaped menu is a sibling
+   of that overlay rather than a descendant, so 1020 lost the same fight the
+   comment above describes, one tier further up.
+
+   A kebab can be opened from any surface, and the tier that fixes this class
+   rather than this one menu is "above every overlay a kebab can appear on":
+   the palette (2000), the table full view (2400) and the help popover
+   (2500), under the pointer-anchored menu host (2600, which hosts an escaped
+   menu itself) and the boot splash (3000). The same reasoning, and the same
+   numbers, as `.help-popover`'s 2500 in 08-consistency.css; a dialog added
+   above 2550 must raise this with it. */
 .action-menu.action-menu-escaped {
   position: fixed;
   right: auto;
-  z-index: 1020;
+  z-index: 2550;
 }
 
 /* `.select-menu`'s `min-width: 100%` (07-whiteboard-misc.css) means "at

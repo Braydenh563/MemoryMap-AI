@@ -7,6 +7,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The kebab menus open on top of the surface they belong to. An escaped ⋯
+  menu sat at z-index 1020, chosen when the only thing it opened over was a
+  dialog at 1010, so the popup agent's foot menu drew behind the command
+  palette at 2000 and looked like a button that does nothing (INBOX 230). The
+  tier is now above every overlay a kebab can appear on.
+
 - Atlas's answer badges that name a Settings section now open it. The
   delegated click handler matched `[data-goto-tab]` only, so the "Web search"
   and "Skills" badges under a help answer did nothing while "Chat" worked

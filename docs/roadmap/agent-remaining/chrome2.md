@@ -6,7 +6,8 @@ INBOX 234, 230, 233, 231, 236, 235, 237 in that order. Sweeps under
 ## Landed
 
 - 234, Atlas section badges, `3dbe0e5`.
+- 230, escaped kebab menus above every overlay (z-index 2550).
 
 ## Next
 
-- 230, the popup agent foot kebab z-index (next).
+- 233, the documents kebab running off the bottom (next), `kebabMenu`/`clampToolbarMenu` in app.js.

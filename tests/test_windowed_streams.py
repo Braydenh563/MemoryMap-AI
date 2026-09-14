@@ -16,25 +16,30 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "src" / "memorymap" / "__main__.py").read_text(encoding="utf-8")
 
 
+#: pytest re-installs its own capture streams at the start of every test
+#: phase, so the streams are set to None inside the test body, never from a
+#: fixture: a fixture's None was swapped back before the body ran and the
+#: guard saw a real stream.
 @pytest.fixture
 def no_console(monkeypatch, tmp_path):
     monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    return tmp_path
+
+
+def _without_console(monkeypatch):
     monkeypatch.setattr(sys, "stdout", None)
     monkeypatch.setattr(sys, "stderr", None)
-    yield tmp_path
 
 
-def test_streams_are_real_files_afterwards(no_console):
+def test_streams_are_real_files_afterwards(no_console, monkeypatch):
+    _without_console(monkeypatch)
     entry._ensure_std_streams()
-    assert sys.stdout is not None and sys.stderr is not None
-    assert sys.stderr.isatty() is False
+    out, err = sys.stdout, sys.stderr
+    assert out is not None and err is not None and err.isatty() is False
     print("a line that must not raise")
-    sys.stdout.flush()
-    #: conftest's own autouse fixture also points the data dir somewhere
-    #: under tmp_path, and pytest's capture may wrap the stream, so the log
-    #: is found rather than assumed.
-    logs = list(no_console.rglob("desktop-stdio.log"))
-    assert logs, "no desktop-stdio.log was opened under the data dir"
+    out.flush()
+    assert Path(out.name).name == "desktop-stdio.log"
+    assert "a line that must not raise" in Path(out.name).read_text(encoding="utf-8")
 
 
 def test_real_streams_are_left_alone():
@@ -43,7 +48,8 @@ def test_real_streams_are_left_alone():
     assert (sys.stdout, sys.stderr) == before
 
 
-def test_uvicorns_formatter_can_be_built_without_a_console(no_console):
+def test_uvicorns_formatter_can_be_built_without_a_console(no_console, monkeypatch):
+    _without_console(monkeypatch)
     entry._ensure_std_streams()
     from uvicorn.logging import DefaultFormatter
 

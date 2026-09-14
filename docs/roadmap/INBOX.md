@@ -79,12 +79,6 @@ with its owner named in the entry.
     And: "in the help settings page, there is no gap between the atlas
     section and the faq dropdowns." Owner: chrome2.
 
-233. **Mid-work drop, 2026-09-14, verbatim (the owner), the documents
-    kebab.** "the documents kebab button in the top right corner goes off the
-    bottom of my screen." The menu needs a max height inside the viewport
-    with its own scroll, or to open upward when there is no room below.
-    Owner: chrome2 (the menu recipe).
-
 232. **Mid-work drop, 2026-09-14, verbatim (the owner), the live view.**
     "the md rendering on the live view, like in the documents page, needs to
     be improved, especially for codeblocks and potentially for other things

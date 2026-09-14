@@ -27464,6 +27464,20 @@ line that carried a dash.
     sheet's kebab was already on top over the sheet's 1010 and still is, at
     the new tier.
 
+233. **Mid-work drop, 2026-09-14, verbatim (the owner), the documents
+    kebab.** "the documents kebab button in the top right corner goes off the
+    bottom of my screen." The menu needs a max height inside the viewport
+    with its own scroll, or to open upward when there is no room below.
+    Owner: chrome2 (the menu recipe).
+    **Fixed 68d69eb.** `scratchpad/ui-sweeps/dockebab.js`, one document open,
+    1440x700: before, the panel was 17 rows wanting 704px drawn at 286x636
+    from y=178, 114px past the window, and "Delete document" (840 to 876)
+    could not be reached by scrolling the panel either, its own scroll port
+    ending off-screen. After: 286x514, capped to the 514px under its own top,
+    scrolling, last row reachable, 8px clear of the bottom edge; at 900 tall it
+    is uncapped as before. With the opener pushed down to leave 90px below, the
+    panel opens upward, 286x552 at y=7, inside the window at both edges.
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

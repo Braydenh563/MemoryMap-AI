@@ -33,6 +33,14 @@ Items, in order: 239, 240, 241, 238, 232.
   the foot and sources panel with 1 card, 0 console errors. The reload half is
   answered in the INBOX entry: an Ask answer has never survived a reload at
   all, so the way back is the history panel, which now carries everything.
+- The full suite run after 241 found one failure, fixed in `38a572a`:
+  `tests/test_inline_citations.py::test_every_grounding_call_site_passes_the_answer_element`
+  enumerates the surfaces that call `renderAnswerGrounding` and 241 adds a
+  fourth (the history panel). The rule is unchanged and still enforced, every
+  call site passes an answer element; the inventory names the new surface, and
+  its docstring says why a fifth has to come back to it. Nothing else in the
+  suite failed. A clean re-run was started and had not finished at the
+  deadline: `/tmp/mm-notes/fullsuite2.log`.
 
 ## Next
 

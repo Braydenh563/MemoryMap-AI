@@ -98,6 +98,29 @@ def test_ask_builds_the_answer_object_and_draws_the_chat_tabs_components():
         assert f'id="{element}"' in MARKUP, element
 
 
+def test_a_browsed_turn_is_drawn_as_the_answer_object_too():
+    """INBOX 241: reopening a turn from the history panel redrew the prose and
+    the results and stopped, so the citations and the source cards were lost
+    the moment an answer was browsed rather than asked.
+
+    The same two calls the live path ends on: `renderAnswerGrounding`, which
+    puts the numbered markers into the answer as well as drawing the chip row
+    that is their key, and the foot built from `answerObject`.
+    """
+    start = APP.index("async function viewAskHistoryTurn(")
+    body = APP[start : APP.index("\nasync function toggleAskHistoryPin(", start)]
+    for call in ("renderAnswerGrounding(", "renderAskAnswerFoot(", "answerObject("):
+        assert call in body, call
+    assert body.index("renderAnswerGrounding(") < body.index("renderAskAnswerFoot(")
+    #: And exactly once, from inside `renderAnswerGrounding`. A second pass
+    #: here would mark every grounded sentence twice: the live path's own
+    #: second call is a repair for a re-render this path does not do.
+    assert "addInlineCitations(" not in body
+    #: Drawn from what the route sends, not recomputed in the browser: the
+    #: grounding is a fact about the answer as it was written.
+    assert "turn.grounding" in body
+
+
 def test_related_items_are_not_written_into_the_box_that_clears_them():
     """The bug the restructuring found: `renderAnswerGrounding` opens with
     `replaceChildren()`, and the grounding event always arrives after the

@@ -111,7 +111,38 @@ def get_ask_turn(turn_id: int, session: Session = Depends(get_session)) -> dict:
         # field existed fall back to "no explanation" rather than an error.
         "match_info": json.loads(turn.match_info or "{}"),
         "connected_ids": json.loads(turn.connected_ids or "[]"),
+        #: The sentence-level citations, so a reopened turn draws the same
+        #: numbered markers and the same "grounded in" strip the live answer
+        #: had (INBOX 241).
+        "grounding": _live_grounding(session, turn),
     }
+
+
+def _live_grounding(session: Session, turn: AskTurn) -> list[dict]:
+    """The turn's citations, minus any whose note is gone.
+
+    Same rule `get_ask_turn` applies to the results themselves: a note
+    deleted or made private since the answer was written is dropped rather
+    than shown. A citation is a link, so a marker pointing at a note the
+    reader cannot open is worse than no marker at all.
+
+    Checked against the database rather than against `raw_results`, which
+    would be the cheaper test and the wrong one: a grounding row can name a
+    note the model read through a tool, and `routes_chat.py`'s own comment
+    at the point these are built says so ("a touched note is not in
+    `raw_results`"). Filtering by the result set would silently delete those
+    citations from every agent-written turn.
+    """
+    rows = json.loads(turn.grounding or "[]")
+    wanted = {row.get("note_id") for row in rows if isinstance(row.get("note_id"), int)}
+    if not wanted:
+        return []
+    live = {
+        e.id
+        for e in session.scalars(select(Entry).where(Entry.id.in_(wanted)))
+        if not e.is_deleted and not e.is_private
+    }
+    return [row for row in rows if row.get("note_id") in live]
 
 
 @router.put("/{turn_id}/pin")

@@ -12628,6 +12628,53 @@ async function viewAskHistoryTurn(id) {
   $("ai-answer-grounding").classList.add("hidden");
   clearAskAnswerFoot();
   $("thinking-box").classList.add("hidden");
+  //: **A reopened turn is the answer object, not a paragraph of its text**
+  //: (INBOX 241, the owner: "the grounding, intext numbered referencing, and
+  //: sources that appeared in the ask subtab in notes, dissappeared on reload
+  //: and didnt persist. they didnt persist when I reaccessed them through the
+  //: history panel"). The two clears above are still right, they are what
+  //: takes the *previous* answer's foot down, and until now nothing put this
+  //: one's back up: the panel redrew the prose, the results and the badges and
+  //: stopped, so every citation and every source card was lost the moment a
+  //: turn was browsed rather than asked.
+  //:
+  //: Built from the same two calls the live path ends on,
+  //: `renderAnswerGrounding` (which puts the numbered markers into the answer
+  //: itself as well as drawing the chip row that is their key) and the foot
+  //: from `answerObject`. The live path calls `addInlineCitations` a second
+  //: time after those, and this deliberately does not: there it is a repair,
+  //: its final `renderMarkdown` rebuilds the answer element and throws the
+  //: markers away, whereas here the markdown is rendered *before* the
+  //: grounding, so the markers are already the last thing written. Calling it
+  //: again would mark every grounded sentence twice, the walker's `placed` set
+  //: being per call and the guard only skipping text already inside a marker.
+  //: `meta` carries only `raw_results` because that is all `chatSourcesFrom`
+  //: reads for a notes-only turn, which every Ask turn is.
+  //:
+  //: What is deliberately *not* rebuilt: the follow-up chips and the stats
+  //: line. Both are a fresh model call and a live timing, neither belongs to
+  //: the turn being reopened, and `setAnsweredBy` below already says this is
+  //: a remembered answer rather than one just written.
+  const groundingRows = turn.grounding || [];
+  const historyMeta = { raw_results: turn.raw_results || [] };
+  if (groundingRows.length) {
+    renderAnswerGrounding(
+      $("ai-answer-grounding"),
+      groundingRows,
+      historyMeta.raw_results,
+      answerBox,
+      turn.question
+    );
+  }
+  renderAskAnswerFoot(
+    answerObject({
+      question: turn.question,
+      text: turn.answer,
+      grounding: groundingRows,
+      meta: historyMeta,
+    }),
+    historyMeta
+  );
   $("ai-thinking").textContent = "";
   //: A remembered turn says *when* rather than *what by*: the model that
   //: answered it may not even be installed any more. The tooltip carries the

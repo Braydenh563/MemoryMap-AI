@@ -347,7 +347,7 @@ function fetchDashStats() {
   const now = Date.now();
   if (dashStatsInflight && now - dashStatsAt < 2000) return dashStatsInflight;
   dashStatsAt = now;
-  dashStatsInflight = fetchDashStats();
+  dashStatsInflight = apiJson("/insights/stats");
   return dashStatsInflight;
 }
 

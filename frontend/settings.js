@@ -2533,7 +2533,12 @@ const BG_ART_BUILDERS = {
 
 function startBgArt() {
   stopBgArt();
-  if (typeof p5 === "undefined") return;
+  //: No early return on a missing `p5` here: it is loaded on demand
+  //: (`ensureP5`, app.js), and the one boot-time call to this function
+  //: arrives before it lands. An early return at this point is why the art
+  //: never appeared on a fresh login (the setting was on, the file loaded
+  //: later for the emblem, and nothing called back); the branch at the end
+  //: waits for the file and starts the art then.
   // Wanting a calm background isn't the same as wanting a calm interface, so
   // the art has its own setting. "Moving" is an explicit request and wins over
   // the reduced-motion hint: the hint exists to protect people from motion
@@ -2632,10 +2637,12 @@ function startBgArt() {
     //: callers do not wait, so the sketch mounts when the file lands; the
     //: instance check keeps two from stacking when the setting flips twice.
     ensureP5().then((ok) => {
-      if (!ok || bgArtInstance) return;
-      bgArtInstance = new p5(sketch);
-      const late = document.getElementById("bg-art-canvas");
-      if (late) late.className = "bg-art-canvas";
+      //: Re-enter rather than mount the captured sketch: the setting or the
+      //: theme may have changed while the file loaded (unlock applies the
+      //: appearance, and `stopBgArt` may have run), so the prefs are read
+      //: again and a flipped-off setting mounts nothing.
+      if (!ok || bgArtInstance || !bgArtOn()) return;
+      startBgArt();
     });
     return;
   }

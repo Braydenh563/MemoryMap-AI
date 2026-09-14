@@ -12231,11 +12231,46 @@ function wbRenderMultiSelectionHandles() {
   const group = d3.select("#wb-zoom-group")
     .append("g")
     .attr("class", "wb-sketch-handle-group wb-multi-handle-group");
-  group.append("rect")
-    .attr("class", "wb-sketch-selection-box")
-    .attr("x", bbox.minX - 2).attr("y", bbox.minY - 2)
-    .attr("width", (bbox.maxX - bbox.minX) + 4)
-    .attr("height", (bbox.maxY - bbox.minY) + 4);
+  const boxRect = group.append("rect").attr("class", "wb-sketch-selection-box");
+
+  //: **The chrome is laid out from a box rather than drawn at fixed points.**
+  //: Reported: "the group selection outline doesnt resize with the objects
+  //: selected in side them when resizing or rotating the group selection".
+  //: Every part of it was positioned once, from the bbox as it stood when the
+  //: selection was made, so a drag moved the items and left the outline and
+  //: its eight anchors behind: you were pulling a handle that was no longer on
+  //: the corner it belonged to, with the box crossing the middle of what it
+  //: was supposed to contain. One function that can be called again with a
+  //: new box, from every frame of the drag, is the fix; a redraw is not,
+  //: because it would replace the element the gesture is bound to.
+  const handleAt = new Map();
+  let stem = null, spinDot = null;
+  function layoutGroupChrome(box) {
+    boxRect
+      .attr("x", box.minX - 2).attr("y", box.minY - 2)
+      .attr("width", (box.maxX - box.minX) + 4)
+      .attr("height", (box.maxY - box.minY) + 4);
+    for (const [name, el] of handleAt) {
+      const hx = name.includes("w") ? box.minX : name.includes("e") ? box.maxX : (box.minX + box.maxX) / 2;
+      const hy = name.includes("n") ? box.minY : name.includes("s") ? box.maxY : (box.minY + box.maxY) / 2;
+      el.attr("x", hx - 5).attr("y", hy - 5);
+    }
+    const cx = (box.minX + box.maxX) / 2;
+    if (stem) stem.attr("x1", cx).attr("y1", box.minY).attr("x2", cx).attr("y2", box.minY - 28);
+    if (spinDot) spinDot.attr("cx", cx).attr("cy", box.minY - 28);
+  }
+
+  //: The box the items now occupy, given the scale this frame is applying.
+  //: The same arithmetic the items themselves get, so the outline cannot
+  //: disagree with what it is drawn around.
+  function scaledBox(t) {
+    return {
+      minX: t.anchorX + (bbox.minX - t.anchorX) * t.sx,
+      minY: t.anchorY + (bbox.minY - t.anchorY) * t.sy,
+      maxX: t.anchorX + (bbox.maxX - t.anchorX) * t.sx,
+      maxY: t.anchorY + (bbox.maxY - t.anchorY) * t.sy,
+    };
+  }
 
   //: The state every frame of the drag is computed from. Taken once at the
   //: start rather than read back off the items, which would compound each
@@ -12246,7 +12281,7 @@ function wbRenderMultiSelectionHandles() {
     const hx = handle.includes("w") ? bbox.minX : handle.includes("e") ? bbox.maxX : (bbox.minX + bbox.maxX) / 2;
     const hy = handle.includes("n") ? bbox.minY : handle.includes("s") ? bbox.maxY : (bbox.minY + bbox.maxY) / 2;
     let rawDX = 0, rawDY = 0;
-    group.append("rect")
+    const handleEl = group.append("rect")
       .attr("class", "wb-sketch-resize-handle")
       .attr("data-handle", handle)
       .attr("x", hx - 5).attr("y", hy - 5)
@@ -12312,6 +12347,7 @@ function wbRenderMultiSelectionHandles() {
                 el.style.height = `${item.height}px`;
               }
             }
+            layoutGroupChrome(scaledBox(t));
           })
           .on("end", async () => {
             if (!start) return;
@@ -12320,6 +12356,7 @@ function wbRenderMultiSelectionHandles() {
             await wbSaveMultiSnapshot(rows);
           })
       );
+    handleAt.set(handle, handleEl);
   }
 
   //: **And a rotate point above the box** (the owner: "the group boxes dont
@@ -12336,11 +12373,11 @@ function wbRenderMultiSelectionHandles() {
   const centerX = (bbox.minX + bbox.maxX) / 2;
   const centerY = (bbox.minY + bbox.maxY) / 2;
   const handleY = bbox.minY - 28;
-  group.append("line")
+  stem = group.append("line")
     .attr("class", "wb-rotate-handle-stem")
     .attr("x1", centerX).attr("y1", bbox.minY).attr("x2", centerX).attr("y2", handleY);
   let spin = null;
-  group.append("circle")
+  spinDot = group.append("circle")
     .attr("class", "wb-sketch-rotate-handle")
     .attr("cx", centerX).attr("cy", handleY).attr("r", 6)
     .style("cursor", "grab")
@@ -12384,14 +12421,25 @@ function wbRenderMultiSelectionHandles() {
             const el = document.querySelector(WB_SELECTOR_BY_KIND[row.entry.kind](item.id));
             if (el) el.style.transform = wbItemTransform(item);
           }
+          //: The outline turns with what it contains rather than being
+          //: recomputed as a new upright box: a box that stayed level while
+          //: its contents turned is the "doesnt rotate with them" half of the
+          //: same report, and an upright box round a turned set is also the
+          //: wrong shape, since the set no longer fills it.
+          group.attr("transform", `rotate(${angle} ${centerX} ${centerY})`);
         })
         .on("end", async () => {
           if (!spin) return;
           const rows = spin;
           spin = null;
+          //: Dropped, not kept: the render that follows the save rebuilds this
+          //: whole group from the items' new positions, and a transform left
+          //: on it would be applied a second time on top of them.
+          group.attr("transform", null);
           await wbSaveMultiSnapshot(rows);
         })
     );
+  layoutGroupChrome(bbox);
 }
 
 function wbRenderSketchHandles() {

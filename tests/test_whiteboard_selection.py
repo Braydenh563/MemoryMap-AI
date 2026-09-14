@@ -111,3 +111,18 @@ def test_every_undo_door_leads_to_the_board_while_one_is_open() -> None:
     assert app.count("if (boardHistoryActive()) {") >= 2
     assert "window.wbCanUndo?.()" in app and "window.wbCanRedo?.()" in app
     assert "window.wbCanUndo = () => wbUndoStack.length > 0;" in WB
+
+
+def test_the_group_outline_follows_the_drag() -> None:
+    """Reported: "the group selection outline doesnt resize with the objects
+    selected in side them when resizing or rotating the group selection". Every
+    part of the chrome was positioned once from the box as it stood when the
+    selection was made, so a drag left the outline and its anchors behind."""
+    body = WB[WB.index("function wbRenderMultiSelectionHandles()") :]
+    body = body[: body.index("\nfunction wbRenderSketchHandles()")]
+    assert "function layoutGroupChrome(box)" in body
+    assert "layoutGroupChrome(scaledBox(t));" in body
+    #: A rotation turns the outline with its contents rather than leaving a
+    #: level box round a turned set, and is dropped before the render.
+    assert 'group.attr("transform", `rotate(${angle} ${centerX} ${centerY})`);' in body
+    assert 'group.attr("transform", null);' in body

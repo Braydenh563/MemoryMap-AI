@@ -36,27 +36,47 @@ Items, in order: 239, 240, 241, 238, 232.
 
 ## Next
 
-1. 238, board and map note objects: expanded text overflows the panel border,
-   the expanded state must persist with the object, export warns when notes are
-   collapsed and never carries "Show more"/"Show less". `frontend/whiteboard.js`,
-   `src/memorymap/api/routes_whiteboard.py`, `tests/test_whiteboard.py`.
-2. 232, the documents live view's markdown, code blocks first: hide the fence
-   marker lines when the caret is outside the block, a header row with the
-   language and a copy button, and check tables, blockquotes and task lists.
-   `frontend/documents.js` live plugin plus `frontend/css/09-editor.css`.
-3. 246, added to this batch by the orchestrator, 2026-09-14 (the item is on
-   the branch, not yet in this worktree's INBOX). The owner: "I also want to be
-   able to attach whiteboards and mindmaps to notes. and I want it to show in
-   notes if they are attached to or referenced in/by a document, note,
-   whiteboard, or mindmap." Three parts, checked by the orchestrator:
-   (a) `GET /entries/{id}/connections` (routes_entries.py) reads the legacy
-   `WhiteboardNode` table only, while a current board embeds a note as a
-   `WhiteboardObject` of kind "note" with `data.ref_id` and a mind map is a
-   board of type "map", so both go in, labelled board or map; (b) a connect-menu
-   item "Put on a board or map" beside "Add to a document" (app.js) with an
-   inline picker that POSTs `/whiteboard/objects`; (c) one muted chip row on the
-   note card from a batched counts endpoint (one request per render, `ids=`),
-   clicking it opens Connections. Tests first for the endpoint and the counts.
+Cut short by the PR deadline (the orchestrator, 2026-09-14). 238 and 232 are
+untouched: no code was written for either, so the tree holds no half-finished
+work. What the reading found is below so the next session starts at the change.
+
+1. **238, board and map note objects.** INBOX 238, still open. Three parts.
+   - *The text leaves the card.* A card's size is stored
+     (`WhiteboardNode.width/height`) and written as an inline `width`/`height`
+     in `renderWhiteboard` (`frontend/whiteboard.js` around 12695), and
+     `.wb-card` (`frontend/css/06-timeline-dialogs.css` around 3169) has no
+     `overflow`, so expanding past `.wb-card-content-clamped`'s 8-line clamp
+     (around 3274) spills the note over the border. Recommended fix, not yet
+     made: `overflow: hidden` on `.wb-card`, and an expanded
+     `.wb-card-content` gets `flex: 1 1 auto; min-height: 0; overflow-y: auto`
+     so a long note scrolls inside the card the reader sized. Measure
+     `scrollHeight` against the card's own rect before and after.
+   - *The expanded state does not persist.* `wbExpandedNodes`
+     (whiteboard.js around 167) is a module-level `Set` keyed by node id, and
+     its own comment says it is deliberately not persisted. `WhiteboardNode`
+     (`src/memorymap/core/database.py` around 1128) has no JSON column, so
+     this wants a boolean column plus a migration (the shape
+     `migrations/versions/d3b7c2a91e45_ask_turn_grounding.py` uses, guard
+     included) and the node PATCH route accepting it.
+   - *The export.* Checked and **not** reproduced as stated: the SVG and PNG
+     exports build from the data, not the DOM (`wbBuildExportSvg`, whiteboard.js
+     around 7888), so "Show more"/"Show less" cannot reach them; the Markdown,
+     OPML and FreeMind exports are rendered server-side from the map objects
+     (`routes_whiteboard.py` `export_board`, around 3204). What is real is the
+     other half of the owner's sentence: a note card exports as
+     `notePreviewText(entry.content).slice(0, 160)`, truncated whether or not
+     the card is expanded, so the warning he asks for is owed, and the
+     truncation itself is worth raising with him as the actual bug. Reproduce
+     an export and grep it for "Show more" before writing any code.
+2. **232, the documents live view's markdown**, code blocks first: hide the
+   fence marker lines when the caret is outside the block, a header row with
+   the language and a copy button, and check tables, blockquotes and task
+   lists. `frontend/documents.js` live plugin plus `frontend/css/09-editor.css`.
+   Untouched, nothing read yet.
+3. **246, boards and maps on a note.** Not to be built now, by the
+   orchestrator's instruction; the facts are filed in
+   `docs/roadmap/agent-remaining/OPEN.md` under "Notes and capture", and INBOX
+   246 stays open.
 
 ## Found, not fixed
 

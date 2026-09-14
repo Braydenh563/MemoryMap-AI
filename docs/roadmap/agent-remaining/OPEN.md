@@ -400,6 +400,26 @@ being written by running agents stay beside this one.
 - **INBOX 38's bulk-move action is still to build.** The chip and label are
   the visibility fix that lets a person tell which space a survivor is in;
   moving a batch of them is the item's own D2 owner line. [batch-a.md]
+- **Boards and maps on a note, and what a note is referenced by (INBOX 246,
+  still open).** The owner: "I also want to be able to attach whiteboards and
+  mindmaps to notes. and I want it to show in notes if they are attached to or
+  referenced in/by a document, note, whiteboard, or mindmap." What exists,
+  checked: `GET /entries/{id}/connections` (routes_entries.py, around 1935)
+  returns outgoing, incoming, documents, boards and files, and the note card's
+  kebab has a Connections item (app.js, around 4698; `openConnections` around
+  3969). Three gaps. (1) That route's boards group reads the legacy
+  `WhiteboardNode` table only, while a current board embeds a note as a
+  `WhiteboardObject` of kind "note" carrying `data.ref_id` (routes_graph.py
+  around 370 shows the read) and a mind map is a board of type "map"
+  (routes_whiteboard.py around 2148): both go in, labelled board or map.
+  (2) There is no way from a note to put it on a board: a connect-menu item
+  "Put on a board or map" beside "Add to a document" (app.js around 4760), with
+  an inline picker of boards that POSTs `/whiteboard/objects` with kind note,
+  `data.ref_id` and a free position. (3) A card shows nothing until Connections
+  is opened: one muted chip row on it ("In 2 documents · on 1 board · linked by
+  3 notes") from a batched counts endpoint called once per render (`ids=`),
+  opening Connections on click. Tests first for the endpoint and the counts, a
+  Playwright measurement that the chip renders. [notes.md]
 
 ## App wide: shell, phone and the shared recipes
 

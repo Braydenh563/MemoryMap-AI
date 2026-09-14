@@ -840,8 +840,12 @@ def _run_one_step(setup: _RunSetup, run: _RunState, index: int) -> Iterator[dict
             if not run.started:
                 # Nothing has been shown yet, so the caller can still fall
                 # back to a plain answer. Once a step has run, it cannot.
+                # An explicit "stop", not a bare return: the loop above
+                # advances only on "next" and leaves only on "stop", so the
+                # None a bare return hands it would run this same step again
+                # for ever (CodeQL, mixed implicit and explicit returns).
                 yield first
-                return
+                return "stop"
             yield {
                 "type": "step",
                 "index": index,

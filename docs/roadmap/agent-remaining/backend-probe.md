@@ -7,10 +7,15 @@ each, tests first.
 | Row | State | Commit |
 | --- | --- | --- |
 | A3 bounded job pool | done | `8b9da9e` |
-| A4 small-model agent | done | (this commit) |
-| A5 five functions split | `run_agent` done, `_run_skill` next | (this commit) |
-| A6 nine silent excepts | not started | |
-| A9 CI skips | not started | |
+| A4 small-model agent | done | `ccbf6f1` |
+| A5 five functions split | done, all five | `d50cb96`, `14eeb48`, `352d8b7`, `0c219f2` |
+| A6 nine silent excepts | done | `f5c6b29` |
+| A9 CI skips | done | `9fbc406` |
+| INBOX 221 launchers vs Settings | done | `31db292` |
+| INBOX 225 the name, backend half | done | `e024e49` |
+
+Nothing on this list is open. The three "for the orchestrator at merge" notes
+at the bottom of this file are the only things left, and none of them is code.
 
 # The backend refinement pass, 2026-09-13 evening
 

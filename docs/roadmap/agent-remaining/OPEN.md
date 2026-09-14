@@ -502,6 +502,19 @@ being written by running agents stay beside this one.
 
 ## Settings and help
 
+- **INBOX 235, the Settings Help page and the Models order** (chrome2, not
+  started, cut by the PR deadline). `frontend/index.html` only, leaving
+  `SETTINGS_SECTIONS` alone: a `var(--space-4)` gap between the Ask Atlas row
+  and the FAQ group on Help (the row sits by the `data-goto-section="help"`
+  block, ~line 9117), and the "Advanced response settings" group moved above
+  "Installed models" on the Models page. [chrome2.md]
+- **INBOX 237, the built-in Librarian persona is Atlas** (chrome2, not
+  started). `frontend/app.js` ~line 21492 mirrors the backend's built-ins:
+  rename the built-in card to Atlas, description "Atlas, this notebook's
+  librarian: files, links and answers from your notes.", on both sides (the
+  backend's list lives with `resolve_persona_prompt`), keeping the id
+  "Librarian" so stored preferences still resolve. Test in
+  `tests/test_personas*`. [chrome2.md]
 - **"Advanced response settings" sits 20.8px right of its siblings.** It is
   inside a `<summary>` (`#sampling-box`, `frontend/index.html` ~line 5326) and
   the disclosure marker precedes it; 54 of the 55 Settings headings share one

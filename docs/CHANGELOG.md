@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The chat welcome's '?' moves to its top right corner, out of the middle of
+  the sentence it was in, and it opens: the welcome is built after boot, so its
+  help trigger had never been wired to anything (INBOX 236).
+
 - The popup agent's suggested questions are rows, not pills. Fourteen bordered
   buttons in two ruled columns are now quiet rows with no edge at rest, the
   family glyph in a quieted accent, a ground that arrives with the pointer, and

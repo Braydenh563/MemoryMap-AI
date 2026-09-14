@@ -88,6 +88,24 @@ below). Versioning is `0.x` while the app stabilises.
   state and no request was made at all. Each of the seven call sites has a
   `catch`, which is why nothing showed in the console.
 
+- The mind map's control sweep is closed (INBOX 200): 112 controls audited, one
+  place per action, the top bar 60 controls to 40 and the ring's reach 164px to
+  88px, with every ring action also a key and also in the topic's own menu.
+- The mind map's own sweep reads the map it draws: the last two failures in
+  `scratchpad/ui-sweeps/mindmap.js` were its own sampling, a fixed 64 points
+  along a path whose spacing grows with the edge. One sample per pixel, on the
+  edge belonging to the pair being measured, and the gap after a drag is 0px.
+  76/76, from 74/76.
+- An empty mind map now says how to start, once for the browser: one line under
+  the template offer pointing at the topic's own ring and at Tab, gone the
+  moment a map has more than its root. The map's rail carries a '?' that names
+  all three surfaces and the keys behind them (INBOX 200).
+- A mind map's core idea is told apart four ways at once (INBOX 201): the
+  ellipse, a ground filled in its own branch colour with the ink that reads on
+  it, one step larger type and a star before the label, all from the one toggle
+  in the strip. The ink is computed per colour, so the label clears 4.5:1 on
+  every palette entry in both themes (worst 4.62:1, `scratchpad/ui-sweeps/mapcore.js`,
+  16 checks light and dark). A topic given a shape by hand keeps it.
 - At a higher browser zoom the tab strip no longer runs under the header
   controls (1152 to 1240 measured at 0px overlap) and a mind map's top bar
   folds its picker and Library label from 1216px down (INBOX 195). A board
@@ -113,6 +131,8 @@ below). Versioning is `0.x` while the app stabilises.
   off, and one line of intro rather than four (205). The in-app guide is called
   Atlas, can say what it is and what it cannot see, shows that before the first
   question, and reads as a column rather than a 1356px line (204).
+
+- The mind map has one place per action (INBOX 200). The node ring is six slots that say what they are, not eight icon-only discs; the topic strip holds every look, including the line shapes that were on the line ring; the dock holds what acts on the map. The ring and the strip are never open together, every ring slot is also a key, and the topic's own menu (the ring's More, or Shift+F10) carries all of it. A map no longer shows the board's Insert and Arrange menus: 60 controls in its top bar before, 40 after.
 
 ### Added
 

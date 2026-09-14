@@ -81,6 +81,11 @@ function check(label, ok, detail) {
         align: cs.textAlign,
         weight: ts ? ts.fontWeight : "",
         shadow: cs.boxShadow.length,
+        // INBOX 201: the fill, the ink on it, the step of size and the star.
+        bg: cs.backgroundColor,
+        ink: cs.color,
+        textPx: ts ? +parseFloat(ts.fontSize).toFixed(2) : 0,
+        icon: node.querySelector(".wb-map-node-icon")?.className || "",
       };
     };
     const before = { core: read(core.id), plain: read(plain.id) };
@@ -155,6 +160,85 @@ function check(label, ok, detail) {
     out.afterReset.cls);
   check("the strip still sits inside the canvas", out.strip.right <= 0 && out.strip.w < out.strip.canvasW,
     `strip ${out.strip.w}x${out.strip.h} in ${out.strip.canvasW}, ${out.strip.right}px past the right edge`);
+
+  // --- INBOX 201: told apart three ways at once ------------------------------
+  // The node above was reset to the branch by the last step, so this pass marks
+  // a fresh one and then walks the whole palette on it. The ink is computed per
+  // colour in `wbCoreInkFor`, so a single colour proves nothing: the claim is
+  // "every palette entry clears 4.5:1", and that is ten measurements.
+  const ways = await page.evaluate(async () => {
+    const id = wbMapIndex()?.nodes?.find((n) => n.kind === "topic" && n.data?.content === "The core idea")?.id
+      || document.querySelector(".wb-map-node")?.closest(".wb-object")?.dataset.id;
+    selectWbItem("object", id);
+    await new Promise((r) => setTimeout(r, 400));
+    document.getElementById("wb-map-core").click();
+    await new Promise((r) => setTimeout(r, 800));
+    const node = document.querySelector(`.wb-object[data-id="${id}"]`);
+    const sibling = [...document.querySelectorAll(".wb-map-node")]
+      .map((n) => n.closest(".wb-object"))
+      .find((n) => n && n.dataset.id !== id);
+    const px = (el) => +parseFloat(getComputedStyle(el.querySelector(".wb-map-text")).fontSize).toFixed(2);
+    const marked = {
+      radius: Math.round(parseFloat(getComputedStyle(node).borderTopLeftRadius)),
+      align: getComputedStyle(node).textAlign,
+      shape: node.dataset.shape || "",
+      icon: node.querySelector(".wb-map-node-icon")?.className || "",
+      core: px(node),
+      plain: sibling ? px(sibling) : 0,
+      bg: getComputedStyle(node).backgroundColor,
+      plainBg: sibling ? getComputedStyle(sibling).backgroundColor : "",
+    };
+
+    // A topic given a shape of its own keeps it: the toggle adds, never takes.
+    const shapeSelect = document.getElementById("wb-map-shape");
+    shapeSelect.value = "rect";
+    shapeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 700));
+    const chosen = { radius: Math.round(parseFloat(getComputedStyle(node).borderTopLeftRadius)) };
+    shapeSelect.value = "";
+    shapeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 700));
+
+    // The palette, entry by entry, read off the rendered node.
+    const rgb = (v) => (String(v).match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+    const lum = (c) => {
+      const [r, g, b] = c.map((n) => {
+        const x = n / 255;
+        return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const ratio = (a, b) => {
+      const [hi, lo] = lum(a) >= lum(b) ? [lum(a), lum(b)] : [lum(b), lum(a)];
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    const picker = document.getElementById("wb-map-strip-color");
+    const swatches = (window.d3?.schemeTableau10 || []).slice(0, 10);
+    const rows = [];
+    for (const colour of swatches) {
+      picker.value = colour;
+      picker.dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 450));
+      const cs = getComputedStyle(node);
+      rows.push({ colour, bg: cs.backgroundColor, ink: cs.color, ratio: +ratio(rgb(cs.backgroundColor), rgb(cs.color)).toFixed(2) });
+    }
+    return { marked, chosen, rows };
+  });
+
+  check("a core idea takes the ellipse without writing a shape",
+    ways.marked.radius >= 40 && ways.marked.align === "center" && ways.marked.shape === "",
+    `radius ${ways.marked.radius}px, ${ways.marked.align}, shape "${ways.marked.shape}"`);
+  check("a shape chosen by hand survives the core mark", ways.chosen.radius === 0,
+    `box radius ${ways.chosen.radius}px`);
+  check("a core idea is filled, its plain sibling is not",
+    ways.marked.bg !== ways.marked.plainBg,
+    `${ways.marked.bg} against ${ways.marked.plainBg}`);
+  check("a core idea reads one step larger", ways.marked.core > ways.marked.plain,
+    `${ways.marked.plain}px -> ${ways.marked.core}px`);
+  check("a core idea carries the star", /ph-star/.test(ways.marked.icon), ways.marked.icon || "(none)");
+  const worst = ways.rows.reduce((a, r) => (r.ratio < a.ratio ? r : a), ways.rows[0] || { ratio: 0, colour: "(none)" });
+  check("the label clears 4.5:1 on every palette entry", ways.rows.length === 10 && worst.ratio >= 4.5,
+    `${ways.rows.length} colours, worst ${worst.ratio}:1 on ${worst.colour} (${worst.ink})`);
 
   await page.screenshot({ path: `${OUT}/mapcore-${process.env.THEME || "light"}.png` });
   const bad = results.filter((r) => !r.ok);

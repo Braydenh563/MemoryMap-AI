@@ -20,6 +20,19 @@ const VIEWPORT = (() => {
 })();
 
 const results = [];
+// The ring is opened the way §12.5 says it opens: on the topic itself. Through
+// the app's own `wbOpenMapRadial` rather than a right-click, because this sweep
+// is about the dock and the gesture has its own checks in `mapring.js`.
+async function openRing(page, id) {
+  await page.evaluate((nodeId) => {
+    selectWbItem("object", nodeId);
+    // The node object, not its id: `wbItemBBox` takes the object and a ring
+    // asked for an id opens nowhere.
+    wbOpenMapRadial(wbMapIndex().byId.get(nodeId));
+  }, id);
+  await page.waitForTimeout(400);
+}
+
 function check(label, ok, detail) {
   results.push({ label, ok: Boolean(ok) });
   console.log(`${ok ? "PASS" : "FAIL"}  ${label}${detail ? "  " + detail : ""}`);
@@ -63,8 +76,11 @@ const liveSections = () =>
     !map.includes("Draw") && !map.includes("Shapes") && !map.includes("Add"),
     JSON.stringify(map)
   );
-  check("a map gains its own topic and branch sections",
-    map.includes("Topics") && map.includes("Branch"), JSON.stringify(map));
+  // "Branch" went with §12.5: folding, the branch colour and the two adds are
+  // the ring's and the strip's now, and what the dock keeps is what acts on the
+  // map itself. `mapplaces.js` is the sweep that gates that split.
+  check("a map gains its own topic and layout sections",
+    map.includes("Topics") && map.includes("Layout"), JSON.stringify(map));
   check("move, connect and edit stay shared",
     map.includes("Select and move") && map.includes("Connect") && map.includes("Edit"));
 
@@ -80,10 +96,10 @@ const liveSections = () =>
     clearWbSelection();
     wbSyncMapToolState();
     const d = (id) => document.getElementById(id).disabled;
-    return { root: d("wb-map-add-root"), child: d("wb-map-add-child"), sib: d("wb-map-add-sibling") };
+    return { root: d("wb-map-add-root"), focus: d("wb-map-focus-here"), tidy: d("wb-map-tidy") };
   });
-  check("with nothing selected only Add topic is live",
-    idle.root === false && idle.child && idle.sib, JSON.stringify(idle));
+  check("with nothing selected the map's own controls are live and Focus is not",
+    idle.root === false && idle.tidy === false && idle.focus === true, JSON.stringify(idle));
 
   const roots = await page.evaluate(() => wbMapIndex().roots.length);
   await page.click("#wb-map-add-root");
@@ -94,7 +110,10 @@ const liveSections = () =>
 
   await page.evaluate(() => selectWbItem("object", wbMapIndex().roots[0].id));
   await page.waitForTimeout(300);
-  await page.click("#wb-map-add-child");
+  // Add child is the ring's first slot since §12.5, so the ring is opened on
+  // the topic and the slot pressed, which is the gesture a person makes.
+  await openRing(page, await page.evaluate(() => wbMapIndex().roots[0].id));
+  await page.click("#wb-radial-child");
   await page.waitForTimeout(1400);
   await page.keyboard.press("Escape");
   const kids = await page.evaluate(() => {
@@ -103,11 +122,12 @@ const liveSections = () =>
   });
   check("Add child grows the selected topic", kids === 1, String(kids));
 
-  await page.evaluate(() => {
+  const firstKid = await page.evaluate(() => {
     const i = wbMapIndex();
-    selectWbItem("object", i.childrenOf.get(i.roots[0].id)[0].id);
+    return i.childrenOf.get(i.roots[0].id)[0].id;
   });
-  await page.click("#wb-map-add-sibling");
+  await openRing(page, firstKid);
+  await page.click("#wb-radial-sibling");
   await page.waitForTimeout(1400);
   await page.keyboard.press("Escape");
   const kids2 = await page.evaluate(() => {
@@ -116,17 +136,22 @@ const liveSections = () =>
   });
   check("Add sibling adds beside it", kids2 === 2, String(kids2));
 
-  await page.evaluate(() => selectWbItem("object", wbMapIndex().roots[0].id));
-  await page.click("#wb-map-collapse");
+  // Fold is the ring's third slot, and the caret that flips is the node's own
+  // chevron rather than a copy of it in the dock.
+  const rootNow = await page.evaluate(() => wbMapIndex().roots[0].id);
+  await openRing(page, rootNow);
+  await page.click("#wb-radial-collapse");
   await page.waitForTimeout(900);
-  const folded = await page.evaluate(() => ({
-    collapsed: Boolean(wbMapIndex().roots[0].data?.collapsed),
-    icon: document.getElementById("wb-map-collapse-icon").className,
-  }));
-  check("collapse folds the branch and flips the caret",
+  const folded = await page.evaluate((id) => ({
+    collapsed: Boolean(wbMapIndex().byId.get(id).data?.collapsed),
+    icon: document.querySelector(`.wb-object[data-id="${id}"] .wb-map-collapse i`)?.className || "",
+  }), rootNow);
+  check("the ring's fold folds the branch and flips the node's caret",
     folded.collapsed && folded.icon.includes("right"), JSON.stringify(folded));
-  await page.click("#wb-map-collapse");
+  await openRing(page, rootNow);
+  await page.click("#wb-radial-collapse");
   await page.waitForTimeout(900);
+  await page.keyboard.press("Escape");
 
   // Branch colour: a topic inside a branch carries its colour down and onto
   // the edge; a trunk colours only its own card (§12.0, and the pair of
@@ -134,10 +159,10 @@ const liveSections = () =>
   const trunk = await page.evaluate(() => {
     selectWbItem("object", wbMapIndex().roots[0].id);
     wbSyncMapToolState();
-    const el = document.getElementById("wb-map-branch-color");
+    const el = document.getElementById("wb-map-strip-color");
     return { disabled: el.disabled, title: el.title };
   });
-  check("a trunk's picker says it colours the trunk alone",
+  check("a trunk's strip picker says it colours the trunk alone",
     trunk.disabled === false && /trunk colours its own card/.test(trunk.title),
     JSON.stringify(trunk));
   await page.evaluate(async () => {
@@ -150,7 +175,7 @@ const liveSections = () =>
     const i = wbMapIndex();
     selectWbItem("object", i.childrenOf.get(i.roots[0].id)[0].id);
     wbSyncMapToolState();
-    const el = document.getElementById("wb-map-branch-color");
+    const el = document.getElementById("wb-map-strip-color");
     el.value = "#b5179e";
     el.dispatchEvent(new Event("change", { bubbles: true }));
   });
@@ -163,12 +188,16 @@ const liveSections = () =>
     return {
       stored: kid.data?.color,
       grandkid: c.get(i.childrenOf.get(kid.id)[0].id),
-      edge: edge ? getComputedStyle(edge).stroke : "none",
+      // A tree edge's default shape is a ribbon, a filled closed outline, so
+      // the branch colour is its `fill`; a stroked shape (the three the strip
+      // offers) carries the same colour as `stroke`. Both are read, and the
+      // check wants the colour on whichever of the two this edge uses.
+      edge: edge ? [getComputedStyle(edge).fill, getComputedStyle(edge).stroke] : [],
     };
   });
   check("branch colour carries down and paints the edge",
     colour.stored === "#b5179e" && colour.grandkid === "#b5179e"
-      && colour.edge === "rgb(181, 23, 158)",
+      && colour.edge.includes("rgb(181, 23, 158)"),
     JSON.stringify(colour));
 
   await page.evaluate(() => selectWbItem("object", wbMapIndex().roots[0].id));
@@ -263,7 +292,7 @@ const liveSections = () =>
   const pickerLive = await page.evaluate(() => {
     selectWbItem("object", wbMapIndex().roots[0].id);
     wbSyncMapToolState();
-    const el = document.getElementById("wb-map-branch-color");
+    const el = document.getElementById("wb-map-strip-color");
     return { disabled: el.disabled, title: el.title };
   });
   check("and the picker is live on a trunk, saying what it colours",

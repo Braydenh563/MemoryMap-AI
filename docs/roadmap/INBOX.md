@@ -209,31 +209,3 @@ with its owner named in the entry.
     row (evidence, cost, fix, who), the cheap and safe fixes made in the
     same pass, the rest briefed to agents. Owner: orchestrator.
 
-201. **Mid-work drop, 2026-09-13 night, verbatim (the owner), mind map core
-    nodes.** "I want more and better ways to differentiate core idea nodes
-    in the mindmap". Goes with 200's mind map sweep: a core node today is
-    an ellipse with a heavier ground (`26aa946`); the ask is for more ways
-    (size, colour, weight, an icon, a filled shape) and for them to read as
-    one thing. Owner: orchestrator, in the 200 sweep.
-
-200. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the whole
-    app, the mind map first.** "I think you fable need to do a full ux sweep
-    for better intuitive design and function. especially with the mindmap,
-    it needs a lot of ux and usability improvement, like the way the
-    controls are available, what controls and tools are available and where,
-    and how the item radials are used is confusing and doesnt feel clean".
-    The owner's decision, which reopens MINDMAP_PLAN section 12's ring: the
-    set of controls, where each lives and how the ring is used are to be
-    redesigned, not adjusted. Taken as a sweep by the orchestrator, surface
-    by surface, mind map first, each change measured.
-
-## Placed (last 20, newest first)
-
-- 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.
-- 2026-09-13: 162, 159 placed in WORLD_CLASS_PLAN.md.
-- 2026-09-13: 165, 164 placed in UI_MODERNISATION_PLAN.md.
-- 2026-09-08: dashboard hero preference, New note tile colours, sub-tab
-  arrow keys, Files reading, sidebar toggle, mindmap bugs, line numbers,
-  docks as one bar, timeline redesign, responsive design, em-dashes,
-  paragraphs to popovers, security review: all placed (HANDOVER "flagged
-  list") and most built.

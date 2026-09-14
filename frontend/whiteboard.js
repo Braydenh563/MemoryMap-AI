@@ -3328,6 +3328,45 @@ function wbSyncMapTemplates(passed = null) {
   // being read one branch at a time is not a map anyone wants a starting shape
   // for.
   panel.hidden = !index || dismissed || Boolean(wbMapFocusState) || index.nodes.length > 1;
+  wbSyncMapFirstHint(index);
+}
+
+//: **The first-open hint, shown once for this browser** (MINDMAP_PLAN §12.5,
+//: "the empty map says how to start"; the audit in `agent-remaining/mindmap.md`
+//: found six actions reachable only from a ring nobody meets by accident).
+//:
+//: The lifetime the decision asks for is "gone on the first topic added and
+//: never shown again", which is a *browser* flag rather than the templates
+//: card's own per-board one: the point of the sentence is to teach that a topic
+//: carries a ring, and a person who has built a branch has learned it. So the
+//: flag is written the moment any map is seen with more than its root, which is
+//: the same event the templates offer withdraws on.
+//:
+//: Written on the way past rather than on a node-created event on purpose:
+//: this runs on every map render, so a map built in another tab, imported from
+//: an outline or grown by the agent retires the hint just as a Tab press does.
+const WB_MAP_FIRST_HINT_KEY = "wbMapFirstHintDone";
+
+function wbSyncMapFirstHint(index) {
+  const hint = document.getElementById("wb-map-first-hint");
+  if (!hint) return;
+  let done = false;
+  try {
+    done = Boolean(localStorage.getItem(WB_MAP_FIRST_HINT_KEY));
+  } catch {
+    // A browser that refuses storage shows the hint every time, which is the
+    // gentler of the two failures: the alternative is never showing it.
+    done = false;
+  }
+  if (!done && index && index.nodes.length > 1) {
+    done = true;
+    try {
+      localStorage.setItem(WB_MAP_FIRST_HINT_KEY, "1");
+    } catch {
+      // Same reason as above.
+    }
+  }
+  hint.hidden = done;
 }
 
 function wbDismissMapTemplates() {
@@ -3750,6 +3789,63 @@ function wbBuildMapNode(el, d) {
     .append("i").attr("class", "ph ph-bookmarks-simple").attr("aria-hidden", "true");
 }
 
+//: **The ink a core node's label takes on its own fill** (INBOX 201: "I want
+//: more and better ways to differentiate core idea nodes in the mindmap", and
+//: MINDMAP_PLAN §12.5's decision that a core idea is told apart by shape,
+//: weight and size at once).
+//:
+//: A core node is filled in its branch colour, so its label sits on a
+//: saturated surface rather than on the card, and nothing in CSS can work out
+//: which of black or white to write on `var(--wb-branch)`: `color-mix` cannot
+//: branch on luminance, and a branch colour is a palette entry or anything the
+//: colour picker was pointed at. So it is computed here, once per painted
+//: node, by WCAG relative luminance.
+//:
+//: **Pure black and pure white, not the app's ink tokens.** The worst case is
+//: a colour exactly at the crossover, where both candidates contrast equally:
+//: with 0 and 1 that tie is 4.58:1, over the 4.5 bar, and every softer pair
+//: drops it under (a `#0f1115` dark ink brings the same tie to 4.32:1, which
+//: is a fail on some part of any palette). On a coloured fill this reads as
+//: chart ink rather than as text on a page, which is what it is.
+//:
+//: The two themes need no second branch: the fill is the same palette entry in
+//: both, so the contrast this returns holds in both.
+const WB_CORE_INK_DARK = "#000000";
+const WB_CORE_INK_LIGHT = "#ffffff";
+
+function wbColourChannels(colour) {
+  const value = String(colour || "").trim();
+  const hex = value.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (hex) {
+    const raw = hex[1];
+    const wide = raw.length === 3 ? raw.split("").map((c) => c + c).join("") : raw;
+    return [0, 2, 4].map((i) => parseInt(wide.slice(i, i + 2), 16));
+  }
+  const rgb = value.match(/rgba?\(([^)]+)\)/i);
+  if (rgb) {
+    const parts = rgb[1].split(",").map((n) => parseFloat(n));
+    if (parts.length >= 3 && parts.every((n) => Number.isFinite(n))) return parts.slice(0, 3);
+  }
+  return null;
+}
+
+function wbRelativeLuminance(channels) {
+  const [r, g, b] = channels.map((c) => {
+    const v = Math.min(255, Math.max(0, c)) / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function wbCoreInkFor(colour) {
+  const channels = wbColourChannels(colour);
+  if (!channels) return null;
+  const l = wbRelativeLuminance(channels);
+  const onDark = (l + 0.05) / 0.05;
+  const onLight = 1.05 / (l + 0.05);
+  return onDark >= onLight ? WB_CORE_INK_DARK : WB_CORE_INK_LIGHT;
+}
+
 //: The half that changes: label, branch colour, chevron, badge. Runs for
 //: every visible map node on every render, so it does no work that the enter
 //: selection could have done once.
@@ -3773,6 +3869,13 @@ function wbPaintMapNode(el, d, index, colors) {
   const colour = colors?.get(d.id);
   if (colour) node.style.setProperty("--wb-branch", colour);
   else node.style.removeProperty("--wb-branch");
+  //: A core node is filled in that colour, so its label needs the ink that
+  //: reads on it: see `wbCoreInkFor`. Written for every node rather than only
+  //: the core ones, because a node marked core after this pass ran would
+  //: otherwise take the previous node's ink until the next render.
+  const ink = colour ? wbCoreInkFor(colour) : null;
+  if (ink) node.style.setProperty("--wb-core-ink", ink);
+  else node.style.removeProperty("--wb-core-ink");
 
   const children = index?.childrenOf.get(d.id) || [];
   const collapsed = Boolean(d.data?.collapsed);
@@ -3850,7 +3953,13 @@ function wbPaintMapNodeStyle(node, d) {
   if (icon) {
     // A topic wears what it was given; a reference node falls back to the
     // icon for its kind, which is what says "this is a note, not a topic".
-    const chosen = data.icon || (WB_MAP_REFERENCE_KINDS.has(d.kind) ? null : "");
+    //: **A star before the label on a core idea** (INBOX 201, the fourth of the
+    //: four ways: shape, weight, size and a glyph). It is the icon element the
+    //: node already has rather than a fifth child, so a core node that was
+    //: given an icon of its own keeps that one: an explicit choice beats a
+    //: mark, the same rule bold already follows against core's own weight.
+    const core = Boolean(data.core) && !WB_MAP_REFERENCE_KINDS.has(d.kind);
+    const chosen = data.icon || (core ? "star" : (WB_MAP_REFERENCE_KINDS.has(d.kind) ? null : ""));
     const name = chosen || (WB_MAP_REFERENCE_KINDS.has(d.kind)
       ? (WB_MAP_ICONS[d.kind] || WB_MAP_ICONS.topic).replace(/^ph-/, "")
       : "");
@@ -5480,50 +5589,13 @@ function wbSyncToolSurfaces(isMap) {
 //: the button is still there to be read. "Add a top-level topic" is never
 //: disabled, that is the one that has to work on an empty map.
 function wbSyncMapToolState() {
-  const node = wbSelectedMapNode();
-  const collapse = document.getElementById("wb-map-collapse");
-  const colour = document.getElementById("wb-map-branch-color");
-  for (const id of ["wb-map-add-child", "wb-map-add-sibling", "wb-map-focus-here"]) {
-    const button = document.getElementById(id);
-    if (button) button.disabled = !node;
-  }
-  if (collapse) {
-    collapse.disabled = !node;
-    const folded = Boolean(node?.data?.collapsed);
-    const icon = document.getElementById("wb-map-collapse-icon");
-    if (icon) icon.className = `ph ph-caret-circle-${folded ? "right" : "down"}`;
-    const label = folded ? "Open the selected branch again (C)" : "Fold the selected branch away (C)";
-    collapse.title = label;
-    collapse.setAttribute("aria-label", label);
-  }
-  if (colour) {
-    //: **A node carries its colour on its own card, so a trunk can set one
-    //: too** (MINDMAP_PLAN.md §12.0, decided after the previous run left the
-    //: picker disabled on a root). The earlier reasoning was that a colour
-    //: paints only the line coming *into* a node, and a root has no incoming
-    //: line: true of the edge, false of the card. `wbPaintMapNode` already
-    //: writes `--wb-branch` on every node from the same map `wbMapColors`
-    //: returns, and `.wb-map-node` already draws that as the 4px spine down
-    //: its leading edge, so a root's own colour was drawn all along and only
-    //: the control refused to set it. What stays true is that it does not
-    //: *cascade*: the roots' children are the first-level topics and start
-    //: the palette over by design (`wbMapColors`'s own comment), which is
-    //: Coggle's rule, so a trunk's colour marks the trunk and leaves its
-    //: branches their own colours. The title says which of the two it is.
-    const index = node ? wbMapIndex() : null;
-    const isRoot = Boolean(node) && !(node.parent_id != null && index.byId.has(node.parent_id));
-    colour.disabled = !node;
-    colour.title = isRoot
-      ? "Topic colour: a trunk colours its own card, each branch under it keeps its own"
-      : "Branch colour: it carries down to everything under this topic";
-    // The colour it is *actually drawn in*, which for most nodes is the one
-    // inherited from the branch rather than anything stored on the node: a
-    // picker that opens on white over a blue branch is a picker that lies.
-    if (node) {
-      const effective = wbMapColors(index).get(node.id);
-      if (effective && /^#[0-9a-f]{6}$/i.test(effective)) colour.value = effective;
-    }
-  }
+  //: Only Focus reads the selection now. Add a child, add one beside, fold and
+  //: the branch colour all left the dock with §12.5: the ring holds the first
+  //: three and the strip holds the colour, so the dock keeps what acts on the
+  //: *map*. "Add a top-level topic" is never disabled, that is the one that
+  //: has to work on an empty map.
+  const focus = document.getElementById("wb-map-focus-here");
+  if (focus) focus.disabled = !wbSelectedMapNode();
 }
 
 //: --- the node edit strip (MINDMAP_PLAN.md §12.1 item 2) ---------------------
@@ -5594,6 +5666,11 @@ function wbSyncMapStrip(node) {
     }
     if (parented) {
       setSelect("wb-map-edge-width", data.edge_width || "");
+      //: The line's shape (§12.5, from the link ring). "Curved" is stored as
+      //: no value at all, the same rule "M" and the solid spine follow: the
+      //: default has to stay the default so a later change to how a map draws
+      //: its lines reaches every map that never chose.
+      setSelect("wb-map-edge-shape", data.edge_style || "");
       const dash = document.getElementById("wb-map-edge-dashed");
       if (dash) {
         const on = Boolean(data.edge_dashed);
@@ -5615,17 +5692,24 @@ function wbSyncMapStrip(node) {
           : "Put an arrowhead on the line into this topic";
       }
     }
-    const link = document.getElementById("wb-map-strip-link");
-    if (link) {
-      const has = Boolean(data.link);
-      link.classList.toggle("active", has);
-      link.title = has ? `Change where this topic points (${data.link})` : "Link this topic to a page";
-    }
     const colour = document.getElementById("wb-map-strip-color");
     if (colour) {
-      // The colour it is *drawn* in, which for most nodes is inherited from
-      // the branch: same rule (and the same reason) as the dock's own picker.
-      const effective = wbMapColors(wbMapIndex()).get(node.id);
+      //: **A node carries its colour on its own card, so a trunk can set one
+      //: too** (MINDMAP_PLAN.md §12.0). A colour paints the line coming *into*
+      //: a node, which a root has none of, and it also paints the card, which
+      //: every node has: `wbPaintMapNode` writes `--wb-branch` on all of them
+      //: and `.wb-map-node` draws it as the bar down the leading edge. What is
+      //: true is that it does not *cascade* from a trunk: the roots' children
+      //: start the palette over by design (`wbMapColors`), which is Coggle's
+      //: rule. The title says which of the two this press will do. It reads
+      //: the colour the node is *actually drawn in*, inherited or its own: a
+      //: picker that opens on white over a blue branch is a picker that lies.
+      const index = wbMapIndex();
+      const isRoot = !(node.parent_id != null && index.byId.has(node.parent_id));
+      colour.title = isRoot
+        ? "Topic colour: a trunk colours its own card, each branch under it keeps its own"
+        : "Branch colour: it carries down to everything under this topic";
+      const effective = wbMapColors(index).get(node.id);
       if (effective && /^#[0-9a-f]{6}$/i.test(effective)) colour.value = effective;
     }
   } finally {
@@ -5654,6 +5738,33 @@ async function wbMapSetNodeStyle(node, patch) {
   if (el) wbPaintMapNodeStyle(el, node);
   await wbSaveObject(node);
   wbUpdateSelectionBar();
+}
+
+//: **Where a topic points** (§12.1 item 2's "link", moved out of the strip by
+//: §12.5). It is not a look, so it is not the strip's; it is one of the things
+//: the node's own menu offers, beside "add from the library", which is the
+//: other way a topic comes to stand for something else.
+async function wbMapEditLink(node) {
+  if (!node) return;
+  const current = node.data?.link || "";
+  const next = await promptDialog(
+    "Where should this topic point? An http, https or mailto address.",
+    current,
+    { confirmLabel: current ? "Update the link" : "Add the link" }
+  );
+  //: **An empty answer changes nothing, it does not remove the link.**
+  //: `promptDialog` resolves with `""` for Escape, for Cancel and for an
+  //: empty field alike (`close("")` on all three paths), so "empty means
+  //: remove" would make Escape destructive, which is the one thing Escape
+  //: must never be. Removing a link is "Unlink" in the same menu, where a
+  //: destructive action can say what it is.
+  const trimmed = String(next ?? "").trim();
+  if (!trimmed) return;
+  if (!WB_MAP_LINK_SCHEMES.test(trimmed)) {
+    toast("A topic's link has to be an http, https or mailto address.", true);
+    return;
+  }
+  await wbMapSetNodeStyle(node, { link: trimmed });
 }
 
 //: --- the node radial (MINDMAP_PLAN.md §12.1 item 3) ------------------------
@@ -5810,36 +5921,22 @@ function wbSizeMapRadial(ring, hostRect, clear) {
   const base = Math.hypot(box.left + box.width / 2 - origin.left,
     box.top + box.height / 2 - origin.top);
   if (!base) return;
-  const want = Math.max(clear.w, clear.h) / 2 + box.width / 2 + 8;
-  const fits = Math.min(hostRect.width, hostRect.height) / 2 - box.width / 2 - 8;
+  //: **The clearance is vertical, because a slot is a wide pill** (§12.5). It
+  //: used to be `max(w, h) / 2 + slotWidth / 2 + 8`, which was right for eight
+  //: 28px discs on one circle and is wrong for six 112px pills: taking the
+  //: node's *width* against the slot's width pushed the ring out to 164px
+  //: around an ordinary 200x44 topic, a hoop twice the node's own size.
+  //:
+  //: What a pill has to clear is the node's height, and the binding slot is
+  //: one of the four diagonals, whose centre sits at half the radius: so
+  //: `0.5r - slotHeight / 2 >= clear.h / 2 + 8`, which is the r below. The top
+  //: and bottom slots, at the full radius, then clear it twice over, and the
+  //: diagonals may overlap the node's *columns* without ever touching it,
+  //: which is what keeps the ring tight around a wide topic.
+  const want = clear.h + box.height + 16;
+  const fits = Math.min(hostRect.width, hostRect.height) / 2 - box.height / 2 - 8;
   const r = Math.min(want, base * 2.5, Math.max(base, fits));
   if (r > base + 1) ring.style.setProperty("--wb-radial-r", `${Math.round(r)}px`);
-}
-
-//: How far an open ring pokes past the node it surrounds, top and bottom, in
-//: the coordinates `wbUpdateSelectionBar` places the strip in. A ring wide
-//: enough to clear a 200px topic reaches 136px from its centre, which is over
-//: the strip the same node already has above it: measured before this, two of
-//: the eight slots were drawn on the strip's own selects. The strip stands off
-//: the ring rather than off the node while the ring is open, and goes back
-//: when it closes. Measured off the slots, not off the ring's box, which is a
-//: zero-sized point (`wbPlaceMapRadial`), and off the live ring rather than
-//: from the radius, so a ring the clamp has slid reports where it actually is.
-function wbMapRadialOverhang(hostRect, top, bottom) {
-  const none = { above: 0, below: 0 };
-  const ring = document.getElementById("wb-map-radial");
-  if (!ring || ring.classList.contains("hidden")) return none;
-  let minTop = Infinity, maxBottom = -Infinity;
-  for (const slot of ring.children) {
-    const r = slot.getBoundingClientRect();
-    if (!r.width && !r.height) continue;
-    minTop = Math.min(minTop, r.top);
-    maxBottom = Math.max(maxBottom, r.bottom);
-  }
-  if (!Number.isFinite(minTop)) return none;
-  const above = hostRect.top + top - minTop;
-  const below = maxBottom - (hostRect.top + bottom);
-  return { above: above > 0 ? above + 8 : 0, below: below > 0 ? below + 8 : 0 };
 }
 
 //: The node whose ring is open wears a class while it is open, because two of
@@ -5871,13 +5968,13 @@ function wbCloseMapRadial() {
 function wbSyncMapRadialAlt(alt) {
   const pairs = [
     ["wb-radial-child", alt
-      ? ["ph-trash", "Remove this branch: this topic and everything under it"]
-      : ["ph-arrow-elbow-down-right", "Add a branch off this topic (Tab). Hold Alt to remove the branch instead"]],
+      ? ["ph-trash", "Remove branch", "Remove this branch: this topic and everything under it"]
+      : ["ph-arrow-elbow-down-right", "Add child", "Add a branch off this topic (Tab). Hold Alt to remove the branch instead"]],
     ["wb-radial-sibling", alt
-      ? ["ph-minus-circle", "Remove this topic only: its branches move up to its parent"]
-      : ["ph-arrow-down", "Add a topic beside this one (Enter). Hold Alt to remove this topic and keep its branch"]],
+      ? ["ph-minus-circle", "Remove topic", "Remove this topic only: its branches move up to its parent"]
+      : ["ph-arrow-down", "Add beside", "Add a topic beside this one (Enter). Hold Alt to remove this topic and keep its branch"]],
   ];
-  for (const [id, [icon, title]] of pairs) {
+  for (const [id, [icon, word, title]] of pairs) {
     const button = document.getElementById(id);
     if (!button) continue;
     button.classList.toggle("wb-map-radial-danger", alt);
@@ -5887,6 +5984,11 @@ function wbSyncMapRadialAlt(alt) {
     //: are two actions each, and the modifier that swaps them was only ever
     //: stated in a tooltip's second sentence. The ring's caption reads this.
     button.dataset.altHint = alt ? "Let go of Alt to add instead" : "Hold Alt to remove instead";
+    //: The drawn word too, not only the icon and the tooltip (§12.5): a slot
+    //: that says "Add child" while Alt is held and the icon is a bin is worse
+    //: than one that says nothing.
+    const name = button.querySelector(".wb-map-radial-name");
+    if (name) name.textContent = word;
     const glyph = button.querySelector("i");
     if (glyph) glyph.className = `ph ${icon}`;
   }
@@ -5923,18 +6025,13 @@ function wbOpenMapRadial(node) {
     const label = folded ? "Open this branch again (C)" : "Fold this branch away (C)";
     collapse.title = label;
     collapse.setAttribute("aria-label", label);
+    const name = collapse.querySelector(".wb-map-radial-name");
+    if (name) name.textContent = folded ? "Unfold" : "Fold";
+    //: A leaf has nothing to fold. Disabled rather than gone: a ring whose
+    //: slots move about with the node under them is a ring nobody can learn.
+    collapse.disabled = (wbMapIndex().childrenOf.get(node.id) || []).length === 0;
     const glyph = collapse.querySelector("i");
     if (glyph) glyph.className = `ph ph-caret-circle-${folded ? "right" : "down"}`;
-  }
-  const sever = document.getElementById("wb-radial-sever");
-  // A trunk has no parent to be cut from, and a slot that cannot act says so
-  // rather than doing nothing (the same rule the dock's own controls follow).
-  if (sever) {
-    const rooted = node.parent_id == null || !wbMapIndex().byId.has(node.parent_id);
-    sever.disabled = rooted;
-    sever.title = rooted
-      ? "This topic is already a trunk of its own"
-      : "Cut this topic free of its parent, as a trunk of its own";
   }
   wbMarkMapRadialNode(node.id);
   wbUpdateSelectionBar();
@@ -6229,26 +6326,6 @@ function wbOpenMapLinkRadial(childId, clientX, clientY) {
 }
 
 function wbSyncMapLinkRadial(child, index) {
-  const style = child.data?.edge_style || "curve";
-  for (const [id, name] of [
-    ["wb-link-curve", "curve"], ["wb-link-elbow", "elbow"], ["wb-link-straight", "straight"],
-  ]) {
-    document.getElementById(id)?.classList.toggle("active", style === name);
-  }
-  const dashed = document.getElementById("wb-link-dashed");
-  if (dashed) {
-    const on = Boolean(child.data?.edge_dashed);
-    dashed.classList.toggle("active", on);
-    dashed.setAttribute("aria-pressed", on ? "true" : "false");
-    dashed.title = on ? "Draw this line solid again" : "Dash this line";
-  }
-  const colour = document.getElementById("wb-link-color");
-  if (colour) {
-    // What the line is *drawn* in, which is the branch's colour unless this
-    // node carries its own: the same rule the dock and the strip follow.
-    const effective = wbMapColors(index).get(child.id);
-    if (effective && /^#[0-9a-f]{6}$/i.test(effective)) colour.value = effective;
-  }
   const reverse = document.getElementById("wb-link-reverse");
   if (reverse) {
     // Turning a line around makes the parent a child of the child. If the
@@ -6303,6 +6380,26 @@ function wbSyncMapChrome() {
   //: one changes the board rather than reporting it.
   const kind = document.getElementById("wb-board-kind-label");
   if (kind) kind.textContent = isMap ? "Turn into a whiteboard" : "Turn into a mind map";
+  //: **The board menus a map has no use for** (MINDMAP_PLAN §12.5, INBOX 200:
+  //: "what controls and tools are available and where"). The dock already
+  //: hides thirteen board-only tools on a map (`wbSyncToolSurfaces`); the top
+  //: bar was still offering the same things again as menus. Insert places a
+  //: sticky, a text box, a shape or a bare note card, none of which a tree can
+  //: hold (everything on a map is a node with a parent, which is what the map
+  //: strip's own "Add from the library" makes). Arrange aligns, distributes
+  //: and re-orders by hand, which is the layout's job on a map. Measured on a
+  //: map of twelve topics before this: 60 controls reachable from the top bar,
+  //: 21 of them board-only.
+  //:
+  //: Hidden, not disabled, for the reason the chip and the layout picker
+  //: already are: a whole menu that can never apply here is not something to
+  //: read past on every map.
+  for (const id of ["wb-insert-menu", "wb-arrange-menu"]) {
+    const menu = document.getElementById(id);
+    const wrap = menu?.closest(".wb-board-menu-wrap");
+    if (wrap) wrap.hidden = isMap;
+    if (isMap) menu?.classList.add("hidden");
+  }
   const chip = document.getElementById("wb-map-chip");
   const picker = document.getElementById("wb-map-layout");
   const tidy = document.getElementById("wb-map-tidy");
@@ -6466,6 +6563,17 @@ function wbUpdateSelectionBar() {
     hideBoth();
     return;
   }
+  //: **The ring and the strip are never open at once** (MINDMAP_PLAN §12.5).
+  //: They answer two different questions about the same topic, "what do I do
+  //: with this" and "how should it look", and both of them are placed from
+  //: the node's own box: what that produced was a strip shoved 136px clear of
+  //: the ring, or drawn across it (INBOX 114). One at a time is the honest
+  //: shape, and it costs nothing, the ring closes on the next click and the
+  //: strip is back.
+  if (mapNode && wbMapRadialFor === mapNode.id) {
+    hideBoth();
+    return;
+  }
   if (!sel && !multi) {
     // Nothing selected. The bar may still be open on a held drawing tool, in
     // which case it is anchored to the rail and `wbUpdateContextBar` placed
@@ -6526,25 +6634,13 @@ function wbUpdateSelectionBar() {
   // panel appears."
   const gapAbove = 44, gapBelow = 10;
   const left = Math.max(8, Math.min(hostRect.width - w - 8, cx - w / 2));
-  //: With this node's ring open, the strip clears the *ring* rather than the
-  //: node: a ring wide enough to clear a 200px topic reaches 136px from the
-  //: node's centre, and two of its eight slots were drawn on the strip's own
-  //: selects (INBOX 114). Raised to the ring's reach, not added to the 44
-  //: above, which is the room a card's rotate handle needs and a topic has no
-  //: handle: adding the two pushed the strip past the floor below.
-  let overAbove = 0, overBelow = 0;
-  if (mapNode && wbMapRadialFor === mapNode.id) {
-    const over = wbMapRadialOverhang(hostRect, top, bottom);
-    overAbove = over.above ? Math.max(0, over.above + gapBelow - gapAbove) : 0;
-    overBelow = over.below;
-  }
   // Above the item; below it when the top bar would cover the bar. The floor
   // is the bar's own clearance and not the ring's: a floor raised by the room
   // the ring takes *below* the node is what sent the strip down there.
   const topBar = document.getElementById("wb-topbar")?.getBoundingClientRect();
   const floor = topBar ? topBar.bottom - hostRect.top + gapBelow : 56;
-  let y = top - h - gapAbove - overAbove;
-  if (y < floor) y = bottom + gapBelow + overBelow;
+  let y = top - h - gapAbove;
+  if (y < floor) y = bottom + gapBelow;
   active.style.left = `${Math.round(left)}px`;
   active.style.top = `${Math.round(y)}px`;
 }
@@ -6953,31 +7049,60 @@ function wbBuildContextMenu(kind) {
     item("Copy", "Ctrl/Cmd+C", () => wbCopySelection());
     item("Cut", "Ctrl/Cmd+X", () => wbCutSelection());
   }
-  //: The two ways to grow a map, on the node you just right-clicked
-  //: (MINDMAP_PLAN.md §5 item 11). The hover controls on the node itself are
-  //: the primary affordance; this is the discoverable one, a right-click is
-  //: where people look for "what can I do with this", and the `+`/library
-  //: buttons only appear once the pointer is already on the node.
+  //: **The whole of what a topic can do, in words** (MINDMAP_PLAN §12.5, INBOX
+  //: 200: "how the item radials are used is confusing and doesnt feel clean").
+  //:
+  //: A right-click on a map node opens the ring, so this menu used to be dead
+  //: code on a map: the audit found all eight of its items unreachable there.
+  //: It is now the ring's own "More" and the ContextMenu key, and it carries
+  //: every action on a topic, the six in the ring included, because §12.5's
+  //: rule is that the ring is a shortcut and never the only way. A list of
+  //: words also beats a ring of icons for the things that are rarely wanted
+  //: and hard to name in one glyph.
   const mapNode = wbSelectedMapNode();
   if (mapNode && wbMultiSelection.size <= 1) {
+    const index = wbMapIndex();
+    const folded = Boolean(mapNode.data?.collapsed);
+    const kids = (index.childrenOf.get(mapNode.id) || []).length;
+    const rooted = mapNode.parent_id == null || !index.byId.has(mapNode.parent_id);
     item("Add a child topic", "Tab", () => wbMapAddChild(mapNode.id));
+    item("Add a topic beside this one", "Enter", () => wbMapAddSibling(mapNode.id));
     item("Add from the library…", "Point a new child at a note, document, file or link", () =>
       wbMapAddReference(mapNode.id)
     );
+    item(mapNode.data?.link ? "Change where this topic points…" : "Link this topic to a page…",
+      "An http, https or mailto address", () => wbMapEditLink(mapNode));
+    item("Connect this topic to another", "Shift+C, then drag to the other topic", () => {
+      selectWbTool("link-straight");
+      toast("Drag from this topic to the one it should join.");
+    });
+    if (kids) item(folded ? "Open this branch again" : "Fold this branch away", "C", () =>
+      wbMapToggleCollapse(mapNode.id)
+    );
     //: Focus (§5 item 18). On the node's own menu because focus is about one
     //: node: "show me around here" is a thing you say pointing at something.
-    item("Focus here", "F", () => wbMapSetFocus(mapNode.id));
-    //: The other half of the dock's colour picker: a colour wheel can set a
-    //: colour but has no way to say "none", and without this a node that was
-    //: coloured once could never rejoin its branch.
-    if (mapNode.data?.color) {
-      item("Reset the colour to the branch", "Inherit this branch's colour again", async () => {
-        mapNode.data = { ...mapNode.data, color: null };
-        await wbSaveObject(mapNode);
-        renderWhiteboardNow();
-        wbSyncMapToolState();
+    item(wbMapFocusState && wbMapFocusState.id === mapNode.id ? "Show the whole map again" : "Focus here",
+      "F", () => {
+        if (wbMapFocusState && wbMapFocusState.id === mapNode.id) wbMapClearFocus();
+        else wbMapSetFocus(mapNode.id);
       });
-    }
+    //: Tidy one branch. The dock's broom tidies the map; this is the same pass
+    //: with `onlyBranch`, which is the half that used to be a ring slot.
+    if (kids) item("Lay this branch out again", "Tidy this topic and everything under it", async () => {
+      const moved = await wbMapTidy({ onlyBranch: mapNode.id, quiet: true });
+      toast(moved
+        ? `Laid out ${moved} topic${moved === 1 ? "" : "s"}.`
+        : "This branch is already where the layout puts it.");
+    });
+    item("Copy this branch", "This topic and everything under it, beside itself", () =>
+      wbMapCopyBranch(mapNode.id)
+    );
+    if (!rooted) item("Cut this topic free of its parent", "It becomes a trunk of its own", () =>
+      wbMapSever(mapNode.id)
+    );
+    item("Back to the branch", "Drop this topic's own colour, size, weight, alignment, shape, icon, link and line", () =>
+      wbMapResetToBranch(mapNode.id)
+    );
   }
   // Asked for directly. Available for every kind, a sketch reorders
   // against other sketches, a card/object against both (wbZOrderPeers'
@@ -6990,6 +7115,28 @@ function wbBuildContextMenu(kind) {
 
 function wbCloseContextMenu() {
   wbCtxMenuEl?.classList.add("hidden");
+}
+
+//: **The node's own menu, opened deliberately** (§12.5). The right-click on a
+//: map node belongs to the ring, so this is the other door: the ring's "More"
+//: slot and the ContextMenu key (Shift+F10 on a keyboard without one). It is
+//: the same builder and the same clamp the pointer route uses, because two
+//: menus for one node is how the two come to say different things.
+function wbOpenMapNodeMenu(node, clientX, clientY) {
+  if (!node) return;
+  const menu = wbBuildContextMenu("object");
+  menu.classList.remove("hidden");
+  menu.style.left = `${clientX}px`;
+  menu.style.top = `${clientY}px`;
+  const margin = 8;
+  const rect = menu.getBoundingClientRect();
+  if (rect.right > window.innerWidth - margin) {
+    menu.style.left = `${Math.max(margin, window.innerWidth - rect.width - margin)}px`;
+  }
+  if (rect.bottom > window.innerHeight - margin) {
+    menu.style.top = `${Math.max(margin, window.innerHeight - rect.height - margin)}px`;
+  }
+  menu.querySelector(".menu-item")?.focus();
 }
 
 //: Selects whatever the gesture landed on (unless it's already part of a
@@ -8645,20 +8792,6 @@ async function initWhiteboard() {
   //: these call the same functions Tab, Enter, F and the node's own chevron
   //: call, so the two routes cannot drift.
   $("wb-map-add-root")?.addEventListener("click", () => wbMapAddChild(null));
-  $("wb-map-add-child")?.addEventListener("click", () => {
-    const node = wbSelectedMapNode();
-    if (node) wbMapAddChild(node.id);
-  });
-  $("wb-map-add-sibling")?.addEventListener("click", () => {
-    const node = wbSelectedMapNode();
-    if (node) wbMapAddSibling(node.id);
-  });
-  $("wb-map-collapse")?.addEventListener("click", async () => {
-    const node = wbSelectedMapNode();
-    if (!node) return;
-    await wbMapToggleCollapse(node.id);
-    wbSyncMapToolState();
-  });
   //: Focus is one key in both directions (see the F handler), so it is one
   //: button in both directions too.
   $("wb-map-focus-here")?.addEventListener("click", () => {
@@ -8666,19 +8799,6 @@ async function initWhiteboard() {
     if (!node) return;
     if (wbMapFocusState && wbMapFocusState.id === node.id) wbMapClearFocus();
     else wbMapSetFocus(node.id);
-  });
-  //: Branch colour (§12.0: "styling is per node, with inheritance down the
-  //: branch"). `wbMapColors` has read `data.color` and carried it down to
-  //: every descendant since Phase 2, and nothing in the app could write it:
-  //: the colour of a branch was whatever the palette handed out. This is that
-  //: control. `change` rather than `input` so dragging across a colour wheel
-  //: writes once, the same rule the board background picker follows.
-  $("wb-map-branch-color")?.addEventListener("change", async (e) => {
-    const node = wbSelectedMapNode();
-    if (!node) return;
-    node.data = { ...node.data, color: e.target.value };
-    await wbSaveObject(node);
-    renderWhiteboardNow();
   });
   //: **The ring names what is under the pointer.** See the caption's own rule
   //: in 07-whiteboard-misc.css: eight icon-only circles are eight guesses
@@ -8697,7 +8817,14 @@ async function initWhiteboard() {
       const hint = slot.dataset.altHint;
       caption.textContent = hint ? `${label} · ${hint}` : label;
     };
-    const clear = () => { caption.textContent = ""; };
+    //: **At rest the caption says the keys** (§12.5, and the brief's "show them
+    //: in the ring's caption"): every slot in the ring is also a key, and the
+    //: ring is meant to be a shortcut rather than the only way in. So the
+    //: caption is never empty on the node ring: it names the slot under the
+    //: pointer, and the key set when nothing is under it. `data-rest` is on the
+    //: markup so the copy sits with the rest of the ring's words.
+    const clear = () => { caption.textContent = caption.dataset.rest || ""; };
+    caption.textContent = caption.dataset.rest || "";
     ring.addEventListener("pointerover", (event) => say(event.target));
     ring.addEventListener("pointerout", clear);
     ring.addEventListener("focusin", (event) => say(event.target));
@@ -8723,22 +8850,34 @@ async function initWhiteboard() {
     event.altKey ? wbMapRemoveKeepingBranch(node.id) : wbMapAddSibling(node.id)
   ));
   radialSlot("wb-radial-collapse", (node) => wbMapToggleCollapse(node.id));
-  radialSlot("wb-radial-tidy", async (node) => {
-    const moved = await wbMapTidy({ onlyBranch: node.id, quiet: true });
-    toast(moved
-      ? `Laid out ${moved} topic${moved === 1 ? "" : "s"}.`
-      : "This branch is already where the layout puts it.");
+  radialSlot("wb-radial-delete", (node) => wbMapDeleteSubtree(node.id));
+  //: **Connect, from the topic in hand** (§12.5, INBOX 180: "I cant properly
+  //: reconnect things that are disconnected"). The connector was a tool in the
+  //: dock and nothing on the node, so joining a loose topic to the tree meant
+  //: knowing that the tool existed and that `wbMapJoinByLink` reads a line
+  //: between a loose node and a tree node as "attach it". This slot picks that
+  //: tool and says what to do with it, which is the whole of the discovery
+  //: problem; the drag itself is the tool's, unchanged.
+  radialSlot("wb-radial-connect", () => {
+    selectWbTool("link-straight");
+    toast("Drag from this topic to the one it should join.");
   });
-  radialSlot("wb-radial-copy", (node) => wbMapCopyBranch(node.id));
-  //: **The library add, not the line's label.** The ring holds eight, and a
-  //: right-click on a map node used to open the flat menu, which carried
-  //: "Add from the library…": taking that away would have left the reference
-  //: node reachable only from the hover row on the node itself. The line's
-  //: label kept its own route, on the link ring, where a line's own property
-  //: belongs.
-  radialSlot("wb-radial-ref", (node) => wbMapAddReference(node.id));
-  radialSlot("wb-radial-sever", (node) => wbMapSever(node.id));
-  radialSlot("wb-radial-reset", (node) => wbMapResetToBranch(node.id));
+  //: **More: the node's own menu** (§12.5). A right-click on a map node opens
+  //: the ring, which means the flat menu it used to open was unreachable: the
+  //: audit found all eight of its items dead on a map node. The ring keeps six
+  //: slots and this is the door to the rest, so nothing is ring-only and the
+  //: menu is a list of words rather than a ring of icons for the actions that
+  //: are easier to read than to aim at.
+  $("wb-radial-more")?.addEventListener("click", (event) => {
+    const node = wbMapRadialNode();
+    const ring = document.getElementById("wb-map-radial");
+    const box = ring?.getBoundingClientRect();
+    wbCloseMapRadial();
+    if (!node) return;
+    const x = event.clientX || box?.left || 0;
+    const y = event.clientY || box?.top || 0;
+    wbOpenMapNodeMenu(node, x, y);
+  });
 
   //: The link ring (§12.1 item 4). Same shape as the node ring's slots, one
   //: difference: the colour well is an `<input>`, so it listens for `change`
@@ -8759,30 +8898,7 @@ async function initWhiteboard() {
   };
   linkSlot("wb-link-reverse", (node) => wbMapReverseEdge(node.id));
   linkSlot("wb-link-label", (node) => wbMapLabelEdge(node.id));
-  for (const [id, style] of [
-    ["wb-link-curve", "curve"], ["wb-link-elbow", "elbow"], ["wb-link-straight", "straight"],
-  ]) {
-    // `curve` is stored as no value at all, the way the strip's "M" is: the
-    // default has to stay the default, or a map full of nodes pinned to
-    // "curve" would stop following a later change to how a map draws.
-    linkSlot(id, async (node) => {
-      await wbMapSetNodeStyle(node, { edge_style: style === "curve" ? null : style });
-      renderWhiteboardNow();
-    });
-  }
-  linkSlot("wb-link-dashed", async (node) => {
-    await wbMapSetNodeStyle(node, { edge_dashed: !node.data?.edge_dashed || null });
-    renderWhiteboardNow();
-  });
   linkSlot("wb-link-cut", (node) => wbMapSever(node.id));
-  $("wb-link-color")?.addEventListener("change", async (e) => {
-    const node = linkNode();
-    wbCloseMapLinkRadial();
-    if (!node) return;
-    node.data = { ...node.data, color: e.target.value };
-    await wbSaveObject(node);
-    renderWhiteboardNow();
-  });
 
   //: The node edit strip (§12.1 item 2). Every handler reads the selection at
   //: the moment it fires rather than closing over a node: the strip is one set
@@ -8869,6 +8985,23 @@ async function initWhiteboard() {
     });
     renderWhiteboardNow();
   });
+  //: The line's shape, from the link ring (§12.5). `curve` is stored as no
+  //: value at all, the way the strip's "M" is: the default has to stay the
+  //: default, or a map full of nodes pinned to "curve" would stop following a
+  //: later change to how a map draws.
+  $("wb-map-edge-shape")?.addEventListener("change", async (e) => {
+    if (wbMapStripSyncing) return;
+    const node = wbSelectedMapNode();
+    if (!node) return;
+    await wbMapSetNodeStyle(node, { edge_style: e.target.value || null });
+    renderWhiteboardNow();
+  });
+  //: Back to the branch, from the node ring (§12.5): it drops every choice the
+  //: rest of this strip makes, so it is the last control in it.
+  $("wb-map-reset")?.addEventListener("click", () => {
+    const node = wbSelectedMapNode();
+    if (node) wbMapResetToBranch(node.id);
+  });
   $("wb-map-strip-color")?.addEventListener("change", async (e) => {
     const node = wbSelectedMapNode();
     if (!node) return;
@@ -8877,29 +9010,6 @@ async function initWhiteboard() {
     node.data = { ...node.data, color: e.target.value };
     await wbSaveObject(node);
     renderWhiteboardNow();
-  });
-  $("wb-map-strip-link")?.addEventListener("click", async () => {
-    const node = wbSelectedMapNode();
-    if (!node) return;
-    const current = node.data?.link || "";
-    const next = await promptDialog(
-      "Where should this topic point? An http, https or mailto address.",
-      current,
-      { confirmLabel: current ? "Update the link" : "Add the link" }
-    );
-    //: **An empty answer changes nothing, it does not remove the link.**
-    //: `promptDialog` resolves with `""` for Escape, for Cancel and for an
-    //: empty field alike (`close("")` on all three paths), so "empty means
-    //: remove" would make Escape destructive, which is the one thing Escape
-    //: must never be. Removing a link is "Unlink" on the node radial, where
-    //: a destructive action can say what it is.
-    const trimmed = String(next ?? "").trim();
-    if (!trimmed) return;
-    if (trimmed && !WB_MAP_LINK_SCHEMES.test(trimmed)) {
-      toast("A topic's link has to be an http, https or mailto address.", true);
-      return;
-    }
-    await wbMapSetNodeStyle(node, { link: trimmed });
   });
   $("wb-map-tidy")?.addEventListener("click", async () => {
     const moved = await wbMapTidy({ quiet: true });
@@ -10137,9 +10247,11 @@ async function initWhiteboard() {
       //: differently from a board. So Space folds a branch where the plan
       //: asked it to, on the fold control itself: with the keyboard focus on
       //: a node's chevron or the dock's Collapse button, this handler stands
-      //: aside and the browser's own button activation runs. `C` is the key
+      //: aside and the browser's own button activation runs (the dock's own
+      //: Collapse button left with §12.5; the ring's Fold slot took its place).
+      //: `C` is the key
       //: for the same thing with the canvas focused (below).
-      if (document.activeElement?.closest(".wb-map-collapse, #wb-map-collapse")) return;
+      if (document.activeElement?.closest(".wb-map-collapse, #wb-radial-collapse")) return;
       // preventDefault so the page does not scroll under the board, and so a
       // focused toolbar button is not "clicked" by the space that is panning.
       e.preventDefault();
@@ -10199,7 +10311,28 @@ async function initWhiteboard() {
       //: cross-link, which is the only thing C could usefully mean there.
       if ((e.key === "c" || e.key === "C") && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
+        //: **Shift+C connects instead** (§12.5, so that every slot in the ring
+        //: is also a key). On a board Shift+C is the curved connector, so this
+        //: is the same letter doing the same kind of thing with a topic in
+        //: hand: pick the connector and say what to drag.
+        if (e.shiftKey) {
+          selectWbTool("link-straight");
+          toast("Drag from this topic to the one it should join.");
+          return;
+        }
         wbMapToggleCollapse(mapNode.id);
+        return;
+      }
+      //: The ring's "More" as a key: the platform's own menu key, and Shift+F10
+      //: for the keyboards without one. Both are what a browser fires for a
+      //: context menu, so this is the same gesture the pointer makes, from the
+      //: keyboard, and it is why nothing in the node's menu is pointer-only.
+      if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+        e.preventDefault();
+        const el = document.querySelector(`.wb-object[data-id="${mapNode.id}"]`);
+        const box = el?.getBoundingClientRect();
+        wbCloseMapRadial();
+        wbOpenMapNodeMenu(mapNode, box ? box.left + box.width / 2 : 0, box ? box.bottom + 4 : 0);
         return;
       }
       //: F focuses here, and F again lets the whole map back (§5 item 18).

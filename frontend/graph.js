@@ -2461,6 +2461,8 @@ async function renderGraphSvg() {
   //: toggle is a redraw and never a rebuild of the simulation.
   const curvedBox = $("graph-curved");
   if (curvedBox) curvedBox.checked = localStorage.getItem("graph-curved") === "1";
+  const nebulaBox = $("graph-nebula");
+  if (nebulaBox) nebulaBox.checked = localStorage.getItem("graph-nebula") !== "0";
   graphCatchUpLabels();
 
   // A plain-language readout of what's on screen, so the map isn't a
@@ -4619,5 +4621,12 @@ initGraphDockHeightToken();
 
 $("graph-curved")?.addEventListener("change", (event) => {
   localStorage.setItem("graph-curved", event.target.checked ? "1" : "0");
+  if (typeof gcRequestDraw === "function") gcRequestDraw();
+});
+
+//: The cluster wash is on by default and remembered off (the owner: "the
+//: nebulae could be a togglable feature??"); like Curved links it is a redraw.
+$("graph-nebula")?.addEventListener("change", (event) => {
+  localStorage.setItem("graph-nebula", event.target.checked ? "1" : "0");
   if (typeof gcRequestDraw === "function") gcRequestDraw();
 });

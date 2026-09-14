@@ -406,7 +406,9 @@ function gcNodeSprite(colour, radiusPx, hub) {
   //: for a hub only, a soft bloom of its colour behind it. A gradient body
   //: was tried and read as "fake or too realistic"; a highlight dot as "a
   //: bowling ball". Neither belongs in an interface of flat glass.
-  const glow = hub ? Math.round(r * 1.2) + 4 : 0;
+  //: Every node glows a little (the owner: "I didnt mind the soft glow");
+  //: a hub's glow is wider and a shade stronger, which is how a hub is told.
+  const glow = hub ? Math.round(r * 1.2) + 4 : Math.round(r * 0.7) + 2;
   const ring = Math.max(1, Math.round(r * 0.18));
   const half = r + ring + glow + 1;
   const size = half * 2;
@@ -414,10 +416,10 @@ function gcNodeSprite(colour, radiusPx, hub) {
   canvas.width = size;
   canvas.height = size;
   const c = canvas.getContext("2d");
-  if (hub && gcHexToRgb(colour)) {
+  if (gcHexToRgb(colour)) {
     const bloom = c.createRadialGradient(half, half, r * 0.9, half, half, half);
     const rgb = gcHexToRgb(colour).join(", ");
-    bloom.addColorStop(0, `rgba(${rgb}, 0.22)`);
+    bloom.addColorStop(0, `rgba(${rgb}, ${hub ? 0.24 : 0.16})`);
     bloom.addColorStop(1, `rgba(${rgb}, 0)`);
     c.fillStyle = bloom;
     c.beginPath();
@@ -445,6 +447,7 @@ function gcNodeSprite(colour, radiusPx, hub) {
 //: (a soft field, not a drawn shape). Seven gradients a frame; a hull would
 //: be a shape, and shapes lie about where a cluster ends.
 function gcDrawNebulae(ctx, s, inView) {
+  if (localStorage.getItem("graph-nebula") === "0") return;
   const dark = document.documentElement.getAttribute("data-theme") === "dark";
   const groups = new Map();
   for (const node of s.nodes) {

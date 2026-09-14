@@ -1735,7 +1735,9 @@ versions.
 ### H6 Professional use (the PR after 144; M, mixed)
 
 The owner's stated next block: refinements for daily professional use.
-The list, each with its gate: import from Obsidian, Notion export and
+The list, each with its gate: one-click recovery (INBOX 253: a launcher that
+repairs a start that fails, and a Repair shortcut beside the app, gated by
+a deliberately broken venv coming back without a prompt); import from Obsidian, Notion export and
 Apple Notes (round-trip test per format); print and PDF export of a
 document with its citations; keyboard-complete (every dock action
 reachable, `keys.js` extended to every tab); a WCAG AA audit with

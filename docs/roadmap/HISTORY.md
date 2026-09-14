@@ -27686,6 +27686,15 @@ line that carried a dash.
     opens the target; a section link inside Settings still stays in
     Settings.
 
+252. **Mid-work drop, 2026-09-14, verbatim (the owner), the whiteboard.**
+    "when I drag over shapes with the select tool, they dont get selected".
+    Cause: the circle tool writes absolute arcs (`A`) and `wbPathBBox` read
+    only the relative form, so a circle's box was its first point.
+    **Fixed:** absolute `A`, `H` and `V` are parsed; `tests/test_wb_path_bbox.py`
+    runs the function in node on the circle tool's own path. Rectangles and
+    polygons (`M`/`L`) were never affected; if a rectangle still misses,
+    that is a second cause and needs a screenshot.
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

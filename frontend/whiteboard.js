@@ -11654,16 +11654,28 @@ function wbPathBBox(d) {
     } else if (cmd === "v") {
       py += parseFloat(tokens[i++]);
       visit(px, py);
-    } else if (cmd === "a") {
+    } else if (cmd === "a" || cmd === "A") {
       const rx = parseFloat(tokens[i++]), ry = parseFloat(tokens[i++]);
       i += 3; // x-axis-rotation, large-arc-flag, sweep-flag: unused for a bbox
-      const ex = parseFloat(tokens[i++]), ey = parseFloat(tokens[i++]);
+      let ex = parseFloat(tokens[i++]), ey = parseFloat(tokens[i++]);
+      //: The circle tool writes absolute arcs (`A`, `wbShapeDims`), and this
+      //: parser only knew the relative spelling: a circle's box collapsed to
+      //: its first point, so a marquee dragged over one selected nothing
+      //: unless it happened to cover that point (INBOX 252, the owner: "when
+      //: I drag over shapes with the select tool, they dont get selected").
+      if (cmd === "A") { ex -= px; ey -= py; }
       // Exact for the axis-aligned circle/ellipse this tool ever draws: two
       // half-arcs whose shared chord's midpoint is the ellipse's own centre.
       const midX = px + ex / 2, midY = py + ey / 2;
       visit(midX - rx, midY - ry);
       visit(midX + rx, midY + ry);
       px += ex; py += ey;
+    } else if (cmd === "H") {
+      px = parseFloat(tokens[i++]);
+      visit(px, py);
+    } else if (cmd === "V") {
+      py = parseFloat(tokens[i++]);
+      visit(px, py);
     }
     // Z/z closes back to the last M, doesn't move the pen for bbox purposes.
   }

@@ -3479,6 +3479,11 @@ cosmetic, not chased given the session's remaining budget.
   long name wraps onto a second line instead of forcing horizontal scroll.
 
 **Reported, not reproduced — logged rather than guessed at:**
+- **From INBOX 111's second batch (2026-09-09), still not reproduced live
+  as of 2026-09-14:** the boards and maps widget's visual design, the AI
+  skills sidebar not reaching full height, square tab corners, the chat
+  panel shadow, and the light-versus-dark glass difference. Each needs a
+  window size and a screenshot to become a bug; none has one.
 - **The back-to-top button reportedly appears on a page that isn't
   scrollable.** Read `scrollTopTargetEl()`/the `update()` loop
   (app.js, ~L15949-16069): each tab's scroll target is either a nested

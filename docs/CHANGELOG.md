@@ -7,6 +7,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The tests that never ran anywhere now run in CI. The unit job installs node,
+  so the nine tests that shell out to `node --check` and the plain markdown and
+  export scripts stop skipping themselves, and a new `pdf` job installs the
+  rasteriser extra (`pypdfium2`, `Pillow`), asserts `pdfpages.available()` and
+  runs the ten files gated on it. Measured with the extra present: 159 tests in
+  those files, none skipped.
+
 - Nine failures that said nothing now say it at debug. The `except Exception:
   pass` handlers in the embedding enrichment (4), the entity pass, the vision
   read, the two PDF page closes and the task history each log with `exc_info`

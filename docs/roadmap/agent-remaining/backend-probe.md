@@ -309,3 +309,9 @@ session spends its probes somewhere new.
   `core/taskhistory.py` log at debug with `exc_info` and name the attempt;
   two modules gained the logger they lacked. `grep -A1 'except Exception'`
   over those five files finds no `pass` left. next: A9.
+- done: A9. `actions/setup-node@v7` in the unit job (no npm needed: the nine
+  tests run `node --check` and plain scripts) and a new `pdf` job on 3.12 that
+  installs `pypdfium2 Pillow`, asserts `pdfpages.available()` and runs the ten
+  gated files. Measured here with the extra present: 159 tests, 0 skipped.
+  Not verified: the CI runners themselves, which only a push can show.
+  next: INBOX 221, the launchers against the auto-update settings.

@@ -155,8 +155,20 @@ def resolve_persona_prompt(name: str | None, config) -> str | None:
             continue
         for persona in list(custom) + BUILTIN_PERSONAS:
             if persona.get("name") == candidate and persona.get("prompt"):
-                return persona["prompt"]
+                return fill_ai_name(persona["prompt"])
     return None
+
+
+#: The placeholder a custom persona may write for the assistant's name (the
+#: owner, 2026-09-14: "allow the user to use the {ai_name} in their custom
+#: personas if they want ... make sure they know the syntax"). One spelling,
+#: lower case with the underscore, stated beside the prompt box in Settings
+#: and substituted here, so the same text works whatever the name becomes.
+AI_NAME_PLACEHOLDER = "{ai_name}"
+
+
+def fill_ai_name(prompt: str) -> str:
+    return prompt.replace(AI_NAME_PLACEHOLDER, AI_NAME)
 
 
 # The user's communication-style preference tweaks the tone.

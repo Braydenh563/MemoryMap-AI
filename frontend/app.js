@@ -14480,9 +14480,11 @@ function personaOptions() {
   // the instructions the model is given aren't a 200-character preview.
   const fullPrompt = (name) =>
     (overrides.get(name) || {}).prompt || builtinPersonas()[name] || "";
+  //: The preview shows the text the model gets, so `{ai_name}` is filled
+  //: here the way `librarian.fill_ai_name` fills it on the server.
   const showPrompt = (name) => {
     $("persona-prompt-text").textContent =
-      fullPrompt(name) || "This persona adds no instructions of its own.";
+      fullPrompt(name).replaceAll("{ai_name}", aiNameNow()) || "This persona adds no instructions of its own.";
   };
   showPrompt(active);
   select.onchange = () => {

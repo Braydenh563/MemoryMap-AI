@@ -3389,6 +3389,11 @@ function helpChatIsNearBottom() {
 //: wearing its "about the app" hat.
 const AI_NAME = "Atlas";
 const GUIDE_NAME = AI_NAME;
+//: The persona hint's "(Atlas)" follows the name too.
+{
+  const hint = document.getElementById("persona-placeholder-hint");
+  if (hint) hint.textContent = `Write {ai_name} where the assistant's name should go and it reads as the app's AI name (${AI_NAME}). Optional.`;
+}
 
 function helpChatAppendRow(row) {
   const list = $("help-chat-messages");

@@ -256,6 +256,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A custom persona may write `{ai_name}` for the assistant's name; the
+  Personas page says so beside the box, and the preview shows the filled
+  text (INBOX 258).
 - A report by email: every error toast has Report this, which saves the
   support bundle and opens your mail app addressed to the developer with
   the error in the message; Settings, Logs has Email the support bundle in

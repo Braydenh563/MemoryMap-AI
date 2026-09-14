@@ -47,3 +47,20 @@ def test_the_persona_text_the_app_shows_is_the_text_the_model_gets():
 
     assert match.group(1).replace("${name}", AI_NAME) == librarian.DEFAULT_PERSONA
     assert "BUILTIN_PERSONAS" not in app, "the persona table must be built from the name, not a literal"
+
+
+def test_a_custom_persona_may_write_the_placeholder():
+    config = _Config({"personas": [{"name": "Pirate", "prompt": "You are {ai_name}, a pirate."}]})
+    from memorymap.ai import AI_NAME
+
+    assert librarian.resolve_persona_prompt("Pirate", config) == f"You are {AI_NAME}, a pirate."
+
+
+def test_the_placeholder_is_explained_beside_the_prompt_box_and_filled_in_the_preview():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    html = (root / "frontend" / "index.html").read_text(encoding="utf-8")
+    app = (root / "frontend" / "app.js").read_text(encoding="utf-8")
+    assert 'id="persona-placeholder-hint"' in html and "{ai_name}" in html
+    assert 'replaceAll("{ai_name}", aiNameNow())' in app

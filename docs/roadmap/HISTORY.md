@@ -27769,6 +27769,15 @@ line that carried a dash.
     ASGI layer (`RequestPulse`); `tests/test_embedding_warmup.py` holds
     the wait, the cap and the no-request case.
 
+258. **Mid-work drop, 2026-09-14, verbatim (the owner).** "allow the user
+    to use the {ai_name} in their custom personas if they want, or not, but
+    make sure they know the syntax to use for the app to recognise it".
+    **Fixed:** `{ai_name}` in any persona prompt reads as the AI's name
+    (`librarian.fill_ai_name`, applied when the prompt is resolved); the
+    Settings, Personas box carries a one-line hint naming the spelling and
+    the current name; the "What this persona tells the AI" preview shows
+    the filled text. `tests/test_persona_atlas.py`.
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

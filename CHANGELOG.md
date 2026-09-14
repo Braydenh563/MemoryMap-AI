@@ -7,6 +7,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The graph and timeline routes name their optional parts. `graph` was 355
+  lines and 58 branches and is 227 and 29, with the three opt-in blocks as
+  `_add_entity_nodes`, `_add_document_nodes` and `_add_map_edges`; `timeline`
+  was 346 and 53 and is 248 and 39, with the three row builders as
+  `_place_notes`, `_place_documents` and `_place_reminders`. No behaviour
+  changed: 118 graph and mind map tests and 27 timeline tests pass either side.
+
 - The chat stream route is a resolve and a stream, not one 424-line function.
   `chat_stream` is now 71 lines: what one call settles before it opens the
   stream is a `_StreamRequest` record, the no-tools path is `_plain_events`

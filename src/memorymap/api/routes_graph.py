@@ -221,6 +221,181 @@ def graph_match(q: str = Query(default="", max_length=200), session: Session = D
     hits = search_manager.keyword_search(session, words, limit=5000)
     return {"ids": [entry.id for entry in hits]}
 
+def _add_entity_nodes(
+    session: Session, nodes: list[dict], edges: list[dict], node_ids: set[int]
+) -> None:
+    """The entities the notes mention, as their own nodes and edges.
+
+    Lifted out of `graph` unchanged (WORLD_CLASS_PLAN A5): the route was
+    355 lines, of which three opt-in blocks like this one were 130. An
+    entity node's id is prefixed (`entity:5`) so it can never collide with
+    an Entry id, which is what lets this be opt-in without breaking a
+    consumer that assumes every node id is a note.
+    """
+    from memorymap.core.database import Entity, EntityMention
+
+    mentions = list(
+        session.execute(
+            select(EntityMention.entity_id, EntityMention.entry_id).where(
+                EntityMention.entry_id.in_(node_ids)
+            )
+        )
+    )
+    entity_ids = {m.entity_id for m in mentions}
+    if entity_ids:
+        entities = {
+            e.id: e for e in session.scalars(select(Entity).where(Entity.id.in_(entity_ids)))
+        }
+        for entity_id, entity in entities.items():
+            nodes.append(
+                {
+                    "id": f"entity:{entity_id}",
+                    "type": "entity",
+                    "preview": entity.name,
+                    "category": "Entity",
+                    "created_at": entity.created_at.isoformat(),
+                }
+            )
+        for mention in mentions:
+            if mention.entity_id in entities:
+                edges.append(
+                    {
+                        "source": f"entity:{mention.entity_id}",
+                        "target": mention.entry_id,
+                        "kind": "entity",
+                    }
+                )
+
+
+def _add_document_nodes(
+    session: Session, nodes: list[dict], edges: list[dict], node_ids: set[int]
+) -> None:
+    """The documents attached to the notes, as their own nodes and edges.
+
+    Lifted out of `graph` unchanged (WORLD_CLASS_PLAN A5). Same shape and
+    same reason as `_add_entity_nodes`: a prefixed id, an edge per real
+    `DocumentLink`, and nothing wired into centrality or the path index,
+    both of which are built entirely around Entry.
+    """
+    from memorymap.core.database import Document, DocumentLink
+
+    doc_links = list(
+        session.execute(
+            select(DocumentLink.document_id, DocumentLink.entry_id).where(
+                DocumentLink.entry_id.in_(node_ids)
+            )
+        )
+    )
+    document_ids = {link.document_id for link in doc_links}
+    if document_ids:
+        documents = {
+            d.id: d
+            for d in session.scalars(
+                select(Document).where(Document.id.in_(document_ids))
+            )
+        }
+        for document_id, document in documents.items():
+            nodes.append(
+                {
+                    "id": f"document:{document_id}",
+                    "type": "document",
+                    "preview": document.title,
+                    "category": "Document",
+                    "created_at": document.created_at.isoformat(),
+                }
+            )
+        for link in doc_links:
+            if link.document_id in documents:
+                edges.append(
+                    {
+                        "source": f"document:{link.document_id}",
+                        "target": link.entry_id,
+                        "kind": "document",
+                    }
+                )
+
+
+
+def _add_map_edges(
+    session: Session,
+    entries: list,
+    nodes: list[dict],
+    edges: list[dict],
+    node_ids: set[int],
+    taken: set[frozenset[int]],
+) -> None:
+    """Which notes each mind map is made of, as edges to the board node.
+
+    Lifted out of `graph` unchanged (WORLD_CLASS_PLAN A5). **No new node
+    is created**, which is what separates this from the two above: a board
+    *is* an `Entry`, so it is already in `nodes`; what was missing was that
+    the node never said it was a map and its membership was invisible.
+    `taken` is the route's own pair ledger, passed in so a map edge cannot
+    duplicate a link edge the note already had.
+    """
+    from memorymap.api.routes_whiteboard import _board_settings
+    from memorymap.core.database import WhiteboardObject
+
+    board_ids = {e.id for e in entries if getattr(e, "is_board", False)}
+    if board_ids:
+        by_id = {n["id"]: n for n in nodes}
+        maps: set[int] = set()
+        for entry in entries:
+            if entry.id not in board_ids:
+                continue
+            board_type, _layout = _board_settings(entry)
+            node = by_id.get(entry.id)
+            if node is None:
+                continue
+            # `board` and `map` both, because the graph's own reason for
+            # marking these is that a board of any kind is not a note the
+            # way every other node here is, and a whiteboard that says so
+            # is more honest than one drawn as a note with a heading.
+            node["type"] = board_type
+            if board_type == "map":
+                maps.add(entry.id)
+        if maps:
+            #: **`kind == "note"` only, and this is not a tidiness
+            #: preference.** The first version queried every
+            #: `MAP_REFERENCE_KINDS` row and filtered on `ref_id in
+            #: node_ids` afterwards, reasoning that a document/file/
+            #: bookmark id simply would not be an entry id. It is: these
+            #: are four independent autoincrement sequences, so document 1
+            #: and note 1 both exist in any notebook with one of each.
+            #: `tests/test_mindmap.py` caught it emitting `{source: 1,
+            #: target: 1}`, a map joined to *itself* through a document
+            #: node: on the second row it was ever given. An id is only
+            #: meaningful with its table, and the kind is the table.
+            rows = session.execute(
+                select(WhiteboardObject.board_id, WhiteboardObject.data).where(
+                    WhiteboardObject.board_id.in_(maps),
+                    WhiteboardObject.kind == "note",
+                )
+            )
+            for board_id, raw in rows:
+                try:
+                    ref_id = (json.loads(raw or "{}") or {}).get("ref_id")
+                except (TypeError, ValueError):
+                    # A row edited by hand, or written before `data` was
+                    # JSON. A map node nobody can read points at nothing.
+                    continue
+                # A note that has since been deleted, or a private one the
+                # caller's `entries` query never returned: an edge naming a
+                # node the client did not receive is silently dropped by
+                # d3, which is an invisible failure rather than a visible
+                # one.
+                if not isinstance(ref_id, int) or ref_id not in node_ids:
+                    continue
+                # A map that somehow points at itself is not a connection.
+                if ref_id == board_id:
+                    continue
+                pair = frozenset((board_id, ref_id))
+                if pair in taken:
+                    continue
+                taken.add(pair)
+                edges.append({"source": board_id, "target": ref_id, "kind": "map"})
+
+
 @router.get("/graph")
 def graph(
     similarity: bool = False,
@@ -407,39 +582,7 @@ def graph(
     # never collide with one; the frontend's own node-shape code is what
     # tells the two apart, not a numeric range.
     if include_entities:
-        from memorymap.core.database import Entity, EntityMention
-
-        mentions = list(
-            session.execute(
-                select(EntityMention.entity_id, EntityMention.entry_id).where(
-                    EntityMention.entry_id.in_(node_ids)
-                )
-            )
-        )
-        entity_ids = {m.entity_id for m in mentions}
-        if entity_ids:
-            entities = {
-                e.id: e for e in session.scalars(select(Entity).where(Entity.id.in_(entity_ids)))
-            }
-            for entity_id, entity in entities.items():
-                nodes.append(
-                    {
-                        "id": f"entity:{entity_id}",
-                        "type": "entity",
-                        "preview": entity.name,
-                        "category": "Entity",
-                        "created_at": entity.created_at.isoformat(),
-                    }
-                )
-            for mention in mentions:
-                if mention.entity_id in entities:
-                    edges.append(
-                        {
-                            "source": f"entity:{mention.entity_id}",
-                            "target": mention.entry_id,
-                            "kind": "entity",
-                        }
-                    )
+        _add_entity_nodes(session, nodes, edges, node_ids)
 
     # Tier 2 item 16: "documents in the graph", off by default, same reason
     # and same shape as include_entities just above (a document id is
@@ -456,43 +599,7 @@ def graph(
     # materially bigger, separate change from making a document visible and
     # connected in the first place.
     if include_documents:
-        from memorymap.core.database import Document, DocumentLink
-
-        doc_links = list(
-            session.execute(
-                select(DocumentLink.document_id, DocumentLink.entry_id).where(
-                    DocumentLink.entry_id.in_(node_ids)
-                )
-            )
-        )
-        document_ids = {link.document_id for link in doc_links}
-        if document_ids:
-            documents = {
-                d.id: d
-                for d in session.scalars(
-                    select(Document).where(Document.id.in_(document_ids))
-                )
-            }
-            for document_id, document in documents.items():
-                nodes.append(
-                    {
-                        "id": f"document:{document_id}",
-                        "type": "document",
-                        "preview": document.title,
-                        "category": "Document",
-                        "created_at": document.created_at.isoformat(),
-                    }
-                )
-            for link in doc_links:
-                if link.document_id in documents:
-                    edges.append(
-                        {
-                            "source": f"document:{link.document_id}",
-                            "target": link.entry_id,
-                            "kind": "document",
-                        }
-                    )
-
+        _add_document_nodes(session, nodes, edges, node_ids)
     #: **A mind map, and the notes it is made of** (MINDMAP_PLAN.md §5 item
     #: 13). This is the "decide once" call §3.3 makes and §5 item 13 restates:
     #: *a map's membership is a link; a node's position is not.* So the only
@@ -514,67 +621,7 @@ def graph(
     #: with forty notes on it would add forty edges to a picture nobody asked
     #: to change.
     if include_maps:
-        from memorymap.api.routes_whiteboard import _board_settings
-        from memorymap.core.database import WhiteboardObject
-
-        board_ids = {e.id for e in entries if getattr(e, "is_board", False)}
-        if board_ids:
-            by_id = {n["id"]: n for n in nodes}
-            maps: set[int] = set()
-            for entry in entries:
-                if entry.id not in board_ids:
-                    continue
-                board_type, _layout = _board_settings(entry)
-                node = by_id.get(entry.id)
-                if node is None:
-                    continue
-                # `board` and `map` both, because the graph's own reason for
-                # marking these is that a board of any kind is not a note the
-                # way every other node here is, and a whiteboard that says so
-                # is more honest than one drawn as a note with a heading.
-                node["type"] = board_type
-                if board_type == "map":
-                    maps.add(entry.id)
-            if maps:
-                #: **`kind == "note"` only, and this is not a tidiness
-                #: preference.** The first version queried every
-                #: `MAP_REFERENCE_KINDS` row and filtered on `ref_id in
-                #: node_ids` afterwards, reasoning that a document/file/
-                #: bookmark id simply would not be an entry id. It is: these
-                #: are four independent autoincrement sequences, so document 1
-                #: and note 1 both exist in any notebook with one of each.
-                #: `tests/test_mindmap.py` caught it emitting `{source: 1,
-                #: target: 1}`, a map joined to *itself* through a document
-                #: node: on the second row it was ever given. An id is only
-                #: meaningful with its table, and the kind is the table.
-                rows = session.execute(
-                    select(WhiteboardObject.board_id, WhiteboardObject.data).where(
-                        WhiteboardObject.board_id.in_(maps),
-                        WhiteboardObject.kind == "note",
-                    )
-                )
-                for board_id, raw in rows:
-                    try:
-                        ref_id = (json.loads(raw or "{}") or {}).get("ref_id")
-                    except (TypeError, ValueError):
-                        # A row edited by hand, or written before `data` was
-                        # JSON. A map node nobody can read points at nothing.
-                        continue
-                    # A note that has since been deleted, or a private one the
-                    # caller's `entries` query never returned: an edge naming a
-                    # node the client did not receive is silently dropped by
-                    # d3, which is an invisible failure rather than a visible
-                    # one.
-                    if not isinstance(ref_id, int) or ref_id not in node_ids:
-                        continue
-                    # A map that somehow points at itself is not a connection.
-                    if ref_id == board_id:
-                        continue
-                    pair = frozenset((board_id, ref_id))
-                    if pair in taken:
-                        continue
-                    taken.add(pair)
-                    edges.append({"source": board_id, "target": ref_id, "kind": "map"})
+        _add_map_edges(session, entries, nodes, edges, node_ids, taken)
 
     return {"nodes": nodes, "edges": edges, "categories": categories}
 

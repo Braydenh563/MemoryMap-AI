@@ -300,3 +300,7 @@ session spends its probes somewhere new.
   a `_StreamRequest` record carrying the fifteen values they used to close
   over. 264 tests across the seven chat files, skills and run_skill pass.
   next: A5's `graph` then `timeline`.
+- done: A5's last two. `graph` 355/58 to 227/29 and `timeline` 346/53 to
+  248/39, the opt-in blocks and the row builders out as named helpers. 118
+  graph and mind map tests, 27 timeline tests. A5 is complete: all five
+  functions split, marked done in WORLD_CLASS_PLAN. next: A6, then A9.

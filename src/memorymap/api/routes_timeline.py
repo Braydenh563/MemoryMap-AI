@@ -181,6 +181,137 @@ def _bucket_start(when: datetime, scale: str) -> str:
     return when.date().replace(month=1, day=1).isoformat()
 
 
+def _place_notes(
+    entries: list,
+    placed: list[dict],
+    scale: str,
+    resolved: dict,
+    categories: dict,
+    spaces: dict,
+    links: dict,
+) -> None:
+    """One feed row per note, placed by the date the note is *about*.
+
+    Lifted out of `timeline` unchanged (WORLD_CLASS_PLAN A5): the route
+    was 346 lines, of which the three row builders were 100. Everything
+    this reads was batched into one query per column by the caller, which
+    is why they arrive as dicts rather than as a session to ask again.
+    """
+    for entry in entries:
+        mention = resolved.get(entry.id)
+        at = mention.at if mention else entry.created_at
+        text = manager.readable_content(entry)
+        placed.append(
+            {
+                "id": entry.id,
+                #: **Identity across four kinds.** Note 3 and document 3 are
+                #: two different things, and a view that keys its rows, its
+                #: open state and its keyboard focus on the bare id would put
+                #: one of them where the other should be. The id stays (it is
+                #: what a row opens); this is what identifies the row.
+                "kind": "board" if entry.is_board else "note",
+                "key": f"{'board' if entry.is_board else 'note'}:{entry.id}",
+                "_at": _naive(at),
+                "at": at.isoformat(),
+                "bucket": _bucket_start(at, scale),
+                # Said out loud so the view can be honest: this note is here
+                # because of what it talks about, not when it was typed.
+                "placed_by": "mentioned" if mention else "written",
+                "phrase": mention.phrase if mention else "",
+                "written_at": entry.created_at.isoformat(),
+                "category": categories.get(entry.category_id, manager.UNCATEGORISED),
+                "tags": manager.entry_tags(entry),
+                # Only read by `_thread_bands` (group=thread): carried for
+                # every note regardless of the chosen group so switching to
+                # "Thread" never needs a second fetch.
+                "parent_id": entry.parent_id,
+                "pinned": entry.pinned,
+                # The space's own name, not its id: the id is a slug nobody
+                # named, and the column has to be readable. It falls back to
+                # the id for a space that has been deleted out from under its
+                # notes, which is more honest than an empty cell.
+                "space": spaces.get(entry.workspace_id, entry.workspace_id),
+                # A word count, not a character count: it is the number people
+                # think in, and `_clip` has already thrown the characters away.
+                "words": len(text.split()),
+                "links": len(links.get(entry.id, [])),
+                "preview": _clip(text),
+            }
+        )
+
+
+def _place_documents(documents_found: list, placed: list[dict], scale: str, spaces: dict) -> None:
+    """One feed row per document, placed by when it was started.
+
+    Lifted out of `timeline` unchanged (WORLD_CLASS_PLAN A5). Not by when
+    it was last saved: a note plots where it was written, and a document
+    that plotted at `updated_at` would walk forwards through the feed every
+    time it was opened, which is the one thing a journal must not do.
+    """
+    for document in documents_found:
+        placed.append(
+            {
+                "id": document.id,
+                "kind": "document",
+                "key": f"document:{document.id}",
+                "_at": _naive(document.created_at),
+                "at": document.created_at.isoformat(),
+                "bucket": _bucket_start(document.created_at, scale),
+                "placed_by": "written",
+                "phrase": "",
+                "written_at": document.created_at.isoformat(),
+                "updated_at": document.updated_at.isoformat(),
+                "category": "",
+                "tags": [],
+                "parent_id": None,
+                "pinned": False,
+                "space": spaces.get(document.workspace_id, document.workspace_id),
+                "words": len((document.content or "").split()),
+                "links": 0,
+                "preview": _clip(_first_line(document.content or "")),
+                "title": document.title or "Untitled",
+                "file_type": document.file_type,
+            }
+        )
+
+
+
+def _place_reminders(reminders_found: list, placed: list[dict], scale: str, spaces: dict) -> None:
+    """One feed row per reminder, placed by the date it is due.
+
+    Lifted out of `timeline` unchanged (WORLD_CLASS_PLAN A5).
+    """
+    for reminder in reminders_found:
+        placed.append(
+            {
+                "id": reminder.id,
+                "kind": "reminder",
+                "key": f"reminder:{reminder.id}",
+                "_at": _naive(reminder.due_at),
+                "at": reminder.due_at.isoformat(),
+                "bucket": _bucket_start(reminder.due_at, scale),
+                #: The same word a note gets when it sits on a date it only
+                #: talks about, because it is the same claim: this row is here
+                #: for what it is about, not for when it was typed.
+                "placed_by": "due",
+                "phrase": "",
+                "written_at": reminder.created_at.isoformat(),
+                "category": "",
+                "tags": [],
+                "parent_id": None,
+                "pinned": False,
+                "space": spaces.get(reminder.workspace_id, reminder.workspace_id),
+                "words": len((reminder.text or "").split()),
+                "links": 0,
+                "preview": _clip(reminder.text or ""),
+                "title": reminder.text or "Reminder",
+                "done": reminder.done,
+                "priority": reminder.priority,
+                "entry_id": reminder.entry_id,
+            }
+        )
+
+
 @router.get("")
 def timeline(
     # Days by default: a month bucket puts a whole month of notes in one
@@ -366,108 +497,10 @@ def timeline(
     links = manager.links_for_entries_bulk(session, [entry.id for entry in entries])
 
     placed = []
-    for entry in entries:
-        mention = resolved.get(entry.id)
-        at = mention.at if mention else entry.created_at
-        text = manager.readable_content(entry)
-        placed.append(
-            {
-                "id": entry.id,
-                #: **Identity across four kinds.** Note 3 and document 3 are
-                #: two different things, and a view that keys its rows, its
-                #: open state and its keyboard focus on the bare id would put
-                #: one of them where the other should be. The id stays (it is
-                #: what a row opens); this is what identifies the row.
-                "kind": "board" if entry.is_board else "note",
-                "key": f"{'board' if entry.is_board else 'note'}:{entry.id}",
-                "_at": _naive(at),
-                "at": at.isoformat(),
-                "bucket": _bucket_start(at, scale),
-                # Said out loud so the view can be honest: this note is here
-                # because of what it talks about, not when it was typed.
-                "placed_by": "mentioned" if mention else "written",
-                "phrase": mention.phrase if mention else "",
-                "written_at": entry.created_at.isoformat(),
-                "category": categories.get(entry.category_id, manager.UNCATEGORISED),
-                "tags": manager.entry_tags(entry),
-                # Only read by `_thread_bands` (group=thread): carried for
-                # every note regardless of the chosen group so switching to
-                # "Thread" never needs a second fetch.
-                "parent_id": entry.parent_id,
-                "pinned": entry.pinned,
-                # The space's own name, not its id: the id is a slug nobody
-                # named, and the column has to be readable. It falls back to
-                # the id for a space that has been deleted out from under its
-                # notes, which is more honest than an empty cell.
-                "space": spaces.get(entry.workspace_id, entry.workspace_id),
-                # A word count, not a character count: it is the number people
-                # think in, and `_clip` has already thrown the characters away.
-                "words": len(text.split()),
-                "links": len(links.get(entry.id, [])),
-                "preview": _clip(text),
-            }
-        )
+    _place_notes(entries, placed, scale, resolved, categories, spaces, links)
 
-    #: **A document row.** Placed by when it was started, not by when it was
-    #: last saved: a note plots where it was written and a document that plots
-    #: at `updated_at` would walk forwards through the feed every time it was
-    #: opened, which is the one thing a journal must not do. `updated_at` rides
-    #: along for the table's column.
-    for document in documents_found:
-        placed.append(
-            {
-                "id": document.id,
-                "kind": "document",
-                "key": f"document:{document.id}",
-                "_at": _naive(document.created_at),
-                "at": document.created_at.isoformat(),
-                "bucket": _bucket_start(document.created_at, scale),
-                "placed_by": "written",
-                "phrase": "",
-                "written_at": document.created_at.isoformat(),
-                "updated_at": document.updated_at.isoformat(),
-                "category": "",
-                "tags": [],
-                "parent_id": None,
-                "pinned": False,
-                "space": spaces.get(document.workspace_id, document.workspace_id),
-                "words": len((document.content or "").split()),
-                "links": 0,
-                "preview": _clip(_first_line(document.content or "")),
-                "title": document.title or "Untitled",
-                "file_type": document.file_type,
-            }
-        )
-
-    for reminder in reminders_found:
-        placed.append(
-            {
-                "id": reminder.id,
-                "kind": "reminder",
-                "key": f"reminder:{reminder.id}",
-                "_at": _naive(reminder.due_at),
-                "at": reminder.due_at.isoformat(),
-                "bucket": _bucket_start(reminder.due_at, scale),
-                #: The same word a note gets when it sits on a date it only
-                #: talks about, because it is the same claim: this row is here
-                #: for what it is about, not for when it was typed.
-                "placed_by": "due",
-                "phrase": "",
-                "written_at": reminder.created_at.isoformat(),
-                "category": "",
-                "tags": [],
-                "parent_id": None,
-                "pinned": False,
-                "space": spaces.get(reminder.workspace_id, reminder.workspace_id),
-                "words": len((reminder.text or "").split()),
-                "links": 0,
-                "preview": _clip(reminder.text or ""),
-                "title": reminder.text or "Reminder",
-                "done": reminder.done,
-                "priority": reminder.priority,
-                "entry_id": reminder.entry_id,
-            }
-        )
+    _place_documents(documents_found, placed, scale, spaces)
+    _place_reminders(reminders_found, placed, scale, spaces)
 
     #: **The merge.** Three sources, each already in order, cut to one page
     #: here rather than in SQL: a UNION over three tables with three different

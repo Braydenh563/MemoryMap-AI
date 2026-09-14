@@ -26372,3 +26372,21 @@ line that carried a dash.
 # Handover
 
 **Next: [`PLAN.md`](PLAN.md)** — the scoped professional-grade plan (whiteboard, documents, backend, agent harness, performance), in ship order with measurements. Written by direct instruction; start there.
+## INBOX resolved, 2026-09-14
+
+201. **Mid-work drop, 2026-09-13 night, verbatim (the owner), mind map core
+    nodes.** "I want more and better ways to differentiate core idea nodes
+    in the mindmap". Goes with 200's mind map sweep: a core node today is
+    an ellipse with a heavier ground (`26aa946`); the ask is for more ways
+    (size, colour, weight, an icon, a filled shape) and for them to read as
+    one thing. Owner: orchestrator, in the 200 sweep.
+
+    **Fixed `9d48764`.** Four ways at once from the one toggle: the ellipse
+    (a core topic with no shape of its own takes it; one chosen by hand is
+    kept), a ground filled in the branch colour, one step larger type
+    (13.6px to 15.64px against a plain sibling) and a star before the label.
+    The ink on the fill is computed per colour by WCAG luminance, so the
+    label clears 4.5:1 on all ten palette entries in both themes (worst
+    4.62:1 on `#4e79a7`). `scratchpad/ui-sweeps/mapcore.js`, 16/16 light and
+    16/16 dark at 1440x900.
+

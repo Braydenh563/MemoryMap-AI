@@ -3750,6 +3750,63 @@ function wbBuildMapNode(el, d) {
     .append("i").attr("class", "ph ph-bookmarks-simple").attr("aria-hidden", "true");
 }
 
+//: **The ink a core node's label takes on its own fill** (INBOX 201: "I want
+//: more and better ways to differentiate core idea nodes in the mindmap", and
+//: MINDMAP_PLAN §12.5's decision that a core idea is told apart by shape,
+//: weight and size at once).
+//:
+//: A core node is filled in its branch colour, so its label sits on a
+//: saturated surface rather than on the card, and nothing in CSS can work out
+//: which of black or white to write on `var(--wb-branch)`: `color-mix` cannot
+//: branch on luminance, and a branch colour is a palette entry or anything the
+//: colour picker was pointed at. So it is computed here, once per painted
+//: node, by WCAG relative luminance.
+//:
+//: **Pure black and pure white, not the app's ink tokens.** The worst case is
+//: a colour exactly at the crossover, where both candidates contrast equally:
+//: with 0 and 1 that tie is 4.58:1, over the 4.5 bar, and every softer pair
+//: drops it under (a `#0f1115` dark ink brings the same tie to 4.32:1, which
+//: is a fail on some part of any palette). On a coloured fill this reads as
+//: chart ink rather than as text on a page, which is what it is.
+//:
+//: The two themes need no second branch: the fill is the same palette entry in
+//: both, so the contrast this returns holds in both.
+const WB_CORE_INK_DARK = "#000000";
+const WB_CORE_INK_LIGHT = "#ffffff";
+
+function wbColourChannels(colour) {
+  const value = String(colour || "").trim();
+  const hex = value.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (hex) {
+    const raw = hex[1];
+    const wide = raw.length === 3 ? raw.split("").map((c) => c + c).join("") : raw;
+    return [0, 2, 4].map((i) => parseInt(wide.slice(i, i + 2), 16));
+  }
+  const rgb = value.match(/rgba?\(([^)]+)\)/i);
+  if (rgb) {
+    const parts = rgb[1].split(",").map((n) => parseFloat(n));
+    if (parts.length >= 3 && parts.every((n) => Number.isFinite(n))) return parts.slice(0, 3);
+  }
+  return null;
+}
+
+function wbRelativeLuminance(channels) {
+  const [r, g, b] = channels.map((c) => {
+    const v = Math.min(255, Math.max(0, c)) / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function wbCoreInkFor(colour) {
+  const channels = wbColourChannels(colour);
+  if (!channels) return null;
+  const l = wbRelativeLuminance(channels);
+  const onDark = (l + 0.05) / 0.05;
+  const onLight = 1.05 / (l + 0.05);
+  return onDark >= onLight ? WB_CORE_INK_DARK : WB_CORE_INK_LIGHT;
+}
+
 //: The half that changes: label, branch colour, chevron, badge. Runs for
 //: every visible map node on every render, so it does no work that the enter
 //: selection could have done once.
@@ -3773,6 +3830,13 @@ function wbPaintMapNode(el, d, index, colors) {
   const colour = colors?.get(d.id);
   if (colour) node.style.setProperty("--wb-branch", colour);
   else node.style.removeProperty("--wb-branch");
+  //: A core node is filled in that colour, so its label needs the ink that
+  //: reads on it: see `wbCoreInkFor`. Written for every node rather than only
+  //: the core ones, because a node marked core after this pass ran would
+  //: otherwise take the previous node's ink until the next render.
+  const ink = colour ? wbCoreInkFor(colour) : null;
+  if (ink) node.style.setProperty("--wb-core-ink", ink);
+  else node.style.removeProperty("--wb-core-ink");
 
   const children = index?.childrenOf.get(d.id) || [];
   const collapsed = Boolean(d.data?.collapsed);
@@ -3850,7 +3914,13 @@ function wbPaintMapNodeStyle(node, d) {
   if (icon) {
     // A topic wears what it was given; a reference node falls back to the
     // icon for its kind, which is what says "this is a note, not a topic".
-    const chosen = data.icon || (WB_MAP_REFERENCE_KINDS.has(d.kind) ? null : "");
+    //: **A star before the label on a core idea** (INBOX 201, the fourth of the
+    //: four ways: shape, weight, size and a glyph). It is the icon element the
+    //: node already has rather than a fifth child, so a core node that was
+    //: given an icon of its own keeps that one: an explicit choice beats a
+    //: mark, the same rule bold already follows against core's own weight.
+    const core = Boolean(data.core) && !WB_MAP_REFERENCE_KINDS.has(d.kind);
+    const chosen = data.icon || (core ? "star" : (WB_MAP_REFERENCE_KINDS.has(d.kind) ? null : ""));
     const name = chosen || (WB_MAP_REFERENCE_KINDS.has(d.kind)
       ? (WB_MAP_ICONS[d.kind] || WB_MAP_ICONS.topic).replace(/^ph-/, "")
       : "");

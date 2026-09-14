@@ -8763,6 +8763,14 @@ input[type="file"] {
   /* The stated default when a node has no branch of its own: the root, and
      any node on a map whose palette has not been reached yet. */
   --wb-branch: var(--accent);
+  /* **The ink a core node writes on its own fill**, declared here so the rules
+     below can use it plainly (a `var(--x, fallback)` on a token this
+     stylesheet never declares is what `tests/test_style_scale.py` refuses, and
+     rightly: the fallback would be what renders). `wbPaintMapNode` overwrites
+     it per node, as an inline custom property computed from that node's branch
+     colour by WCAG luminance; this value is what the one frame before the
+     first paint uses, and what a node with no branch colour keeps. */
+  --wb-core-ink: var(--ink);
   /* **The branch colour, made readable as a line.** `wbMapColors` assigns
      `d3.schemeTableau10`, which is a palette designed for *fills*, an area
      of colour large enough to identify. Drawn as a 4px spine on a near-white
@@ -8862,22 +8870,37 @@ input[type="file"] {
   text-align: center;
 }
 
-/* **A core idea** (MINDMAP_PLAN.md item 177: "a node marked as a core idea,
-   with its own shape set and a heavier weight"). Weight, in all three senses
-   the word carries on a map: the type is heavier, the node's own outline is
-   heavier, and the spine that carries the branch colour is wider, so a core
-   node reads as the thing a branch hangs off from across the whole canvas
-   rather than only when you are next to it.
+/* **A core idea, told apart three ways at once** (INBOX 201: "I want more and
+   better ways to differentiate core idea nodes in the mindmap"; the decision is
+   MINDMAP_PLAN §12.5).
 
-   Deliberately *not* a fill in the branch colour, which is the obvious way to
-   do this and the wrong one: `.wb-map-node`'s own comment says why, a node
-   filled with a palette entry makes its label fight its background at every
-   colour, and the spine already states the grouping.
+   The first answer to item 177 was weight alone: a heavier outline, a wider
+   spine and a bolder label. That is one signal in three places, and on a map of
+   twenty coloured branches it is the signal that loses. So a core node now
+   differs in **shape** (the ellipse the strip offers it), in **weight** (a
+   filled ground in its own branch colour, with the ink that reads on it) and in
+   **size** (one step of type larger), with a star before the label.
+
+   The fill overrides this file's own earlier reasoning, which was that "a whole
+   node filled with the branch colour makes the text fight its own background at
+   every palette entry". That is true of a fill with an inherited text colour,
+   which is what it would have been; it is not true of one whose ink is chosen
+   per colour. `--wb-core-ink` is computed in `wbPaintMapNode` by WCAG
+   luminance and is black or white, so the label clears 4.5:1 on every palette
+   entry and on anything the colour picker is pointed at, in both themes. The
+   fallback is `--ink` for the one frame before a paint has run.
+
+   `1.15em`, not a token: it has to compose with the strip's own four sizes and
+   with the text-size grip, so "one step larger" means one step larger than
+   whatever this node was already set to, not a fixed number that would undo a
+   size someone chose.
 
    Placed above `.wb-map-bold` on purpose: the two set the same property on
    the same element at the same specificity, so source order decides, and a
    node someone explicitly made bold should be bold rather than merely core. */
 .wb-map-node.wb-map-core {
+  background: var(--wb-branch);
+  color: var(--wb-core-ink);
   border-width: 2px;
   border-left-width: 6px;
   box-shadow: var(--glass-shadow), 0 0 0 1px color-mix(in srgb, var(--wb-branch-edge) 45%, transparent);
@@ -8885,6 +8908,34 @@ input[type="file"] {
 
 .wb-map-node.wb-map-core .wb-map-text {
   font-weight: 600;
+  font-size: 1.15em;
+}
+
+/* **The third of the three ways: the shape** (INBOX 201, MINDMAP_PLAN §12.5's
+   "one toggle in the strip sets all of them"). Marking a topic core gives it
+   the ellipse, which is the shape item 177's own list named for a core idea,
+   without writing anything into the node's `shape` field.
+
+   `:not([data-shape])` is what keeps the toggle from being a thief: a topic
+   someone put in a box or on a pill by hand keeps the shape they chose and
+   still gains the fill, the size and the star. Only a topic that never had an
+   opinion about its shape takes the ellipse, which is the "rounded" default
+   every topic starts on. The three declarations are the ellipse rule's own,
+   repeated rather than shared through a selector list because the two rules
+   answer different questions and the ellipse one is reached by a value in the
+   strip's own picker. */
+.wb-map-node.wb-map-core:not([data-shape]) {
+  border-radius: 50%;
+  padding-inline: var(--space-7);
+  text-align: center;
+}
+
+/* The star, the count badge and the chevron on a core node all sit on the fill,
+   so they take the same ink as the label rather than the muted grey they wear
+   on a card. */
+.wb-map-node.wb-map-core .wb-map-node-icon,
+.wb-map-node.wb-map-core .wb-map-count {
+  color: var(--wb-core-ink);
 }
 
 /* A map that grows downward carries the spine on the top edge (see below), so

@@ -7,6 +7,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- A mind map's core idea is told apart four ways at once (INBOX 201): the
+  ellipse, a ground filled in its own branch colour with the ink that reads on
+  it, one step larger type and a star before the label, all from the one toggle
+  in the strip. The ink is computed per colour, so the label clears 4.5:1 on
+  every palette entry in both themes (worst 4.62:1, `scratchpad/ui-sweeps/mapcore.js`,
+  16 checks light and dark). A topic given a shape by hand keeps it.
 - At a higher browser zoom the tab strip no longer runs under the header
   controls (1152 to 1240 measured at 0px overlap) and a mind map's top bar
   folds its picker and Library label from 1216px down (INBOX 195). A board

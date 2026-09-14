@@ -141,13 +141,6 @@ measured or built in earlier commits and is marked there.
     the last style recalculation, how many elements transition, whether the
     blurred surfaces repaint one by one. Owner: orchestrator.
 
-201. **Mid-work drop, 2026-09-13 night, verbatim (the owner), mind map core
-    nodes.** "I want more and better ways to differentiate core idea nodes
-    in the mindmap". Goes with 200's mind map sweep: a core node today is
-    an ellipse with a heavier ground (`26aa946`); the ask is for more ways
-    (size, colour, weight, an icon, a filled shape) and for them to read as
-    one thing. Owner: orchestrator, in the 200 sweep.
-
 200. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the whole
     app, the mind map first.** "I think you fable need to do a full ux sweep
     for better intuitive design and function. especially with the mindmap,

@@ -397,15 +397,21 @@ not open. That is the same shape as the emblems and belongs to whoever owns
 ### The ninth run, in order, as it lands
 
 - done `8a24e22`: the audit above (`scratchpad/ui-sweeps/mapaudit.js`).
-- done `STEP2`: §12.5 built. The ring is six labelled slots, the strip holds
+- done `59d63cc`: §12.5 built. The ring is six labelled slots, the strip holds
   every look, the dock holds the map's own, the line ring keeps three, and the
   topic's menu carries all of it. `scratchpad/ui-sweeps/mapplaces.js` (11
   checks, green at 1440x900 and 390x844), `mapring.js` (7 checks, green light
   and dark, and it opens by the gesture again, below). Top bar 60 controls to
   40; the ring's own reach 164px to 88px around an ordinary topic.
-- next: INBOX 201, core nodes read three ways at once, then the empty map's
-  first-open hint, then the sweeps that name removed ids (`mapstrip.js`,
-  `mapdock.js`, `mindmap.js`, `radialfit.js`).
+- done `9d48764`: INBOX 201. A core idea is told apart four ways at once from
+  the one strip toggle: the ellipse (only where no shape was chosen by hand),
+  a ground filled in the branch colour, one step larger type (13.6px to
+  15.64px) and a star. The ink on the fill is computed per colour by WCAG
+  luminance, so the label clears 4.5:1 on all ten palette entries (worst
+  4.62:1 on `#4e79a7`). `scratchpad/ui-sweeps/mapcore.js` 16/16 light and
+  16/16 dark at 1440x900 (10 checks before).
+- next: the empty map's first-open hint, then the sweeps that name removed ids
+  (`mapstrip.js`, `mapdock.js`, `mindmap.js`, `radialfit.js`).
 
 ## The eighth run, in order, as it lands
 

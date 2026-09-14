@@ -295,3 +295,8 @@ session spends its probes somewhere new.
   so a finished step returned None and the run loop spun at 84% CPU without
   advancing. Caught by `tests/test_skills.py` hanging, not by a lint.
   next: A5's `chat_stream` (`api/routes_chat.py`, 424 lines / 11 branches).
+- done: A5's third function. `chat_stream` 424 lines / 11 branches to 71 / 11;
+  the two closures are now `_plain_events` (149) and `_stream_lines` (219) with
+  a `_StreamRequest` record carrying the fifteen values they used to close
+  over. 264 tests across the seven chat files, skills and run_skill pass.
+  next: A5's `graph` then `timeline`.

@@ -7,6 +7,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The chat stream route is a resolve and a stream, not one 424-line function.
+  `chat_stream` is now 71 lines: what one call settles before it opens the
+  stream is a `_StreamRequest` record, the no-tools path is `_plain_events`
+  (149 lines) and the NDJSON writer is `_stream_lines` (219), both module-level
+  rather than closures. No behaviour changed; 264 chat and skill tests pass.
+
 - A skill run reads as a setup, a step and a finish. `_run_skill` was 682 lines
   and 82 branches; it is now 301 and 36, with one step's attempts, contract and
   paging in `_run_one_step` (401 lines), the run's decisions on a `_RunSetup`

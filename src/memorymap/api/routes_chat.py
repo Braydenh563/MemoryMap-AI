@@ -17,6 +17,7 @@ import logging
 import mimetypes
 import re
 from collections.abc import Iterator
+from dataclasses import dataclass
 from itertools import chain
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -1349,6 +1350,411 @@ def _related_elsewhere(session: Session, question: str) -> list[dict]:
 
 
 
+@dataclass(slots=True)
+class _StreamRequest:
+    """Everything one `/chat/stream` call settles before it opens the stream.
+
+    These fifteen values were locals read off a closure, which is fine until
+    the two closures reading them are 150 and 219 lines long and the route
+    they sit in is 424 (WORLD_CLASS_PLAN A5). As a record they can be passed
+    to a module-level stage, and the route reads as what it is: resolve the
+    request, then stream it.
+    """
+
+    body: ChatRequest
+    session: Session
+    ollama: object
+    model_manager: object
+    history: list[dict]
+    persona_prompt: str | None
+    mode: str
+    #: The uploads themselves, with their data URIs, for the caption fallback.
+    images_raw: list
+    #: The data URIs actually sent to the model, empty when it cannot see them.
+    images: list[str]
+    #: What the captions say instead, when it cannot.
+    image_context: str
+    use_tools: bool
+    #: The skill or plan this turn is running, None for an ordinary question.
+    skill: dict | None
+    #: The skill's own instruction when there is one, else what the user asked.
+    question: str
+    allowed_tools: list[str] | None
+
+
+def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> Iterator[dict]:
+    """The pre-Wave-G behaviour: stream a grounded answer, no tools."""
+    if prepared["stats"] is not None:
+        #: **A counted answer, streamed as one piece.** See the same branch
+        #: in `chat()`: the number is already exact and already a sentence,
+        #: so there is nothing to generate and nothing to wait for. It
+        #: arrives before a local model would have finished loading, and it
+        #: arrives at all when no model is running.
+        yield {"type": "answer", "delta": prepared["stats"]["text"]}
+        return
+    conversational = not intent.needs_retrieval(prepared["intent"])
+    if conversational and req.body.notes_only:
+        # The Notes tab's Ask box has one job (§35A). A greeting is the one
+        # input it has nothing to do with, so it says what it is for rather
+        # than spending a model round chatting back.
+        #
+        # Its own event type, not an "answer". Reported after the first
+        # version shipped: a paragraph of instructions sitting where the
+        # answer goes, beside a results panel reading "No matching
+        # records", reads as the app having failed. As a hint the client
+        # can render it as what it is, a prompt with questions you can
+        # click: and can leave the empty results panel out, since nothing
+        # was searched for.
+        yield {
+            "type": "hint",
+            "text": librarian.ASK_IS_FOR_NOTES,
+            "examples": librarian.ASK_EXAMPLES,
+        }
+        return
+    if conversational:
+        # Small talk: no notes, no grounding, no "I couldn't find any
+        # notes matching that" in reply to "hey".
+        if not ollama_running:
+            offline = (
+                librarian.OFFLINE_ABOUT_APP
+                if prepared["intent"] == "about_app"
+                else librarian.OFFLINE_SMALLTALK
+            )
+            yield {"type": "answer", "delta": offline}
+            return
+        messages = librarian.build_conversational_messages(
+            f"{req.question}\n\n{req.image_context}" if req.image_context else req.question,
+            prepared["intent"],
+            style=prepared["style"],
+            profile=prepared["profile"],
+            history=req.history,
+            persona_prompt=req.persona_prompt,
+            mode=req.mode,
+            images=req.images,
+        )
+    elif not prepared["notes"] and not req.images_raw:
+        # An attached image and "no matching notes" are unrelated: 
+        # retrieval never sees the image, so an empty search result
+        # must not stand in for "there's nothing to look at" (same fix
+        # as `librarian.answer`'s own guard).
+        yield {"type": "answer", "delta": librarian.NO_RESULTS_MESSAGE}
+        # …but the notebook is more than its notes. See
+        # `_related_elsewhere`: a question answered by a document, a saved
+        # chat or a reminder used to end here regardless.
+        related = _related_elsewhere(req.session, req.question)
+        if related:
+            kinds = sorted({item["kind"] for item in related})
+            yield {
+                "type": "answer",
+                "delta": (
+                    " There "
+                    + ("is" if len(related) == 1 else "are")
+                    + f" {len(related)} other "
+                    + ("item" if len(related) == 1 else "items")
+                    + " that mention it, in your "
+                    + " and ".join(f"{k}s" for k in kinds)
+                    + "."
+                ),
+            }
+            yield {"type": "related", "items": related}
+        return
+    elif not ollama_running:
+        yield {"type": "answer", "delta": librarian.OFFLINE_MESSAGE}
+        return
+    else:
+        messages = librarian.build_messages(
+            f"{req.question}\n\n{req.image_context}" if req.image_context else req.question,
+            prepared["notes"],
+            style=prepared["style"],
+            profile=prepared["profile"],
+            history=req.history,
+            persona_prompt=req.persona_prompt,
+            mode=req.mode,
+            images=req.images,
+            # The streaming path is the one people actually use, and it was
+            # the one with no cap on how much of the notebook it sent. Same
+            # budget the blocking `librarian.answer` now builds: measured
+            # against the model this turn will really stream from, which is
+            # the same `chat_model()` passed to `chat_stream` below.
+            budget=librarian.plan_budget(
+                req.model_manager.chat_model(),
+                req.ollama,
+                prepared["style"],
+                prepared["profile"],
+                req.persona_prompt,
+                req.mode,
+            ),
+            # The Ask box's own brief on the streaming path too, this is
+            # the one people actually use, so a fix only on the blocking
+            # route above would be a fix nobody sees.
+            ask_overview=req.body.notes_only,
+        )
+    # §88.4 item 4: the same per-stage token estimate agent.py's tool
+    # path now attaches to its own stats event (chars/4, no tool
+    # schemas on this path by definition, see build_messages' own
+    # docstring above). Computed once, not per streamed chunk.
+    composition_tokens = {
+        "system": len(messages[0]["content"]) // context.CHARS_PER_TOKEN,
+        "history": sum(len(m["content"]) for m in messages[1:-1]) // context.CHARS_PER_TOKEN,
+        "notes": len(messages[-1]["content"]) // context.CHARS_PER_TOKEN,
+        "tool_schemas": 0,
+    }
+    streamed_any = False
+    try:
+        for piece in req.ollama.chat_stream(req.model_manager.chat_model(), messages, req.mode):
+            if "thinking_delta" in piece:
+                yield {"type": "thinking", "delta": piece["thinking_delta"]}
+            elif "stats" in piece:
+                # Token counts + timings for the message metadata line.
+                yield {"type": "stats", **piece["stats"], "composition": composition_tokens}
+            else:
+                streamed_any = True
+                yield {"type": "answer", "delta": piece["content_delta"]}
+    except OllamaError as exc:
+        # The model died mid-answer, tell the user, keep the results.
+        # By construction this is reached only after the `elif not
+        # ollama_running` branch above already passed, so this is never
+        # "Ollama isn't running" (see librarian.model_error_message's
+        # own docstring for why that distinction matters).
+        #
+        # Logged, not just shown in the answer: reported directly: this
+        # failure reached the chat bubble but never the Settings → Logs
+        # viewer, since nothing here ever routed it through `logging` at
+        # all. The exception is already fully described in the message
+        # this yields; logging it is what makes it show up in the one
+        # place the caveat at the top of CLAUDE.md says to check first.
+        logging.getLogger("memorymap.chat").warning(
+            "chat: model call failed for %r: %s", req.model_manager.chat_model(), exc
+        )
+        prefix = "\n\n" if streamed_any else ""
+        yield {
+            "type": "answer",
+            "delta": f"{prefix}{librarian.model_error_message(req.model_manager.chat_model(), exc)}",
+        }
+
+
+def _stream_lines(req: _StreamRequest) -> Iterator[str]:
+    def event(payload: dict) -> str:
+        return json.dumps(payload) + "\n"
+
+    # Flush a first byte immediately. The semantic search below can be a
+    # slow cold start (loading the embedding model, warming the index);
+    # emitting this now means the browser's stream opens right away and
+    # its "typing…" indicator keeps animating instead of looking frozen
+    # while the whole request blocks (user-reported lag).
+    yield event({"type": "status", "stage": "searching"})
+
+    # Retrieval happens INSIDE the stream now, not before it, that's the
+    # whole latency win. Nothing before this line touches the model.
+    prepared = _prepare(
+        req.session,
+        req.question,
+        req.body.note_ids,
+        force_notes_intent=req.body.answering_agent,
+        attached_notes_only=req.body.attached_notes_only,
+        document_ids=req.body.document_ids,
+        file_ids=req.body.file_ids,
+        board_ids=req.body.board_ids,
+        # Asking vs requesting, decided from what the caller can already
+        # do rather than from a new flag: `notes_only` is the Notes tab's
+        # Ask box, and tools-off is the Chat tab's Ask mode. Anything that
+        # can reach for a tool, Request mode, the palette, a skill or plan
+        # run: is a request. `use_tools` is resolved above, so the saved
+        # preference is accounted for and an unset flag cannot land a
+        # Request turn in the chip row.
+        surface=ASK_SURFACE if (req.body.notes_only or not req.use_tools) else AGENT_SURFACE,
+    )
+    ollama_running = req.ollama.is_running()
+    # In agent mode the model can act even when nothing matched, "save a
+    # note about X" must work on an empty notebook.
+    will_answer = ollama_running and (
+        bool(prepared["notes"])
+        or bool(req.images_raw)
+        or req.use_tools
+        or not intent.needs_retrieval(prepared["intent"])
+    )
+
+    yield event(
+        {
+            "type": "meta",
+            "raw_results": [r.model_dump(mode="json") for r in prepared["raw_results"]],
+            "search_mode": prepared["search_mode"],
+            "connected_ids": prepared["connected_ids"],
+            "match_info": prepared["match_info"],
+            "when_phrase": prepared["when_phrase"],
+            "answered_by": req.model_manager.chat_model() if will_answer else None,
+            "ollama_running": ollama_running,
+        }
+    )
+
+    events: Iterator[dict] = _plain_events(req, prepared, ollama_running)
+    # Small talk never goes near the agent: "hey" is not a request to do
+    # anything, and handing it a toolbox invites it to invent an errand.
+    if ollama_running and req.use_tools and intent.needs_retrieval(prepared["intent"]):
+        shared = {
+            "style": prepared["style"],
+            "profile": prepared["profile"],
+            "history": req.history,
+            "persona_prompt": req.persona_prompt,
+        }
+        if req.skill:
+            # A skill runs step by step, the runner emits the plan, ticks
+            # each step, and ends with what changed. Its first event has
+            # the same meaning as the agent's, so the fallback below is
+            # unchanged.
+            agent_events = skill_runner.run_skill(
+                req.session,
+                req.skill["skill"],
+                req.body.skill_inputs or {},
+                prepared["notes"],
+                req.model_manager,
+                req.ollama,
+                start_at=req.body.skill_from_step,
+                only_step=req.body.skill_only_step,
+                step_text=req.body.skill_step_text,
+                manual=req.body.skill_manual,
+                manual_note=req.body.skill_manual_note,
+                small_model=_small_model_mode(),
+                # The run's own budget (Brief 13), read from the user's
+                # settings here rather than inside the runner so that the
+                # runner stays testable without app state and so a caller
+                # with its own budget (an eval, a background job) can pass
+                # one instead.
+                budget=run_budget.from_settings(deps.get_config()),
+                **shared,
+            )
+        else:
+            agent_events = agent.run_agent(
+                req.session,
+                req.question,
+                prepared["notes"],
+                req.model_manager,
+                req.ollama,
+                mode=req.mode,
+                allowed_tools=req.allowed_tools,
+                images=req.images,
+                image_context=req.image_context,
+                **shared,
+            )
+        # Everything `agent.run_agent`/`skill_runner.run_skill` themselves
+        # expect to go wrong (OllamaError, ToolsUnsupportedError) is
+        # already caught inside them and turned into a real event, this
+        # is the outer boundary, for whatever isn't. Reported directly: a
+        # skill run that "failed before even completing the first step
+        # ... no answer and no tool call", an exception here had nothing
+        # catching it, so it killed the generator and the stream just
+        # ended with nothing rendered, no error, the plan card (if any)
+        # never even reaching the page. Silence was the bug, not the
+        # underlying failure, which is why this doesn't try to guess
+        # which failure it was, it says what actually happened and stays
+        # on stage instead of vanishing.
+        try:
+            first = next(agent_events, None)
+        except Exception as exc:  # noqa: BLE001  # the outer boundary
+            logging.getLogger("memorymap.chat").exception(
+                "%s: unhandled error before the first event: %s",
+                "skill run" if req.skill else "agent turn",
+                exc,
+            )
+            first = {
+                "type": "answer",
+                "delta": f"Something went wrong before it could start: {exc}",
+            }
+        if first is None or first.get("type") == "unsupported":
+            # The active model can't do tool calls, plain Q&A, never
+            # a hard dependency.
+            pass
+        else:
+            events = chain([first], agent_events)
+    # ROADMAP.md item 36's frontend half: the non-streaming /chat already
+    # grounds its answer, but the live Ask box only ever calls this
+    # streaming route. Accumulated here (not computed per-delta: the
+    # sentence splitter needs the whole answer, and this is a handful of
+    # deltas' worth of string concatenation, not a hot loop) and sent as
+    # its own event once the answer is fully in, direct-Q&A only.
+    answer_text = ""
+    # Every note a tool read during the turn is a grounding candidate,
+    # not only the retrieval set. Reported: an agent answer that named
+    # three notes cited one, and a skill run cited none. The retrieval
+    # set is what the *search* found before the model started; in
+    # Agent mode and in a skill run the model then reads notes of its
+    # own choosing through `get_note`, `search_notes`, `related_notes`,
+    # and those are exactly the notes its answer is about. `touched` on
+    # each tool event already names them (it is what the transcript's
+    # action line opens), so this collects ids and loads the text once,
+    # after the answer is in.
+    touched_note_ids: list[int] = []
+    # **A blank line wherever the transcript starts a new paragraph.**
+    #
+    # Measured while fixing INBOX 40. A multi-round turn (an agent answer,
+    # every skill run) emits its prose in bursts with a step or a tool
+    # call between them, and the client draws each burst as its own block
+    # (`agentTimeline.startAnswer`, and `timeline.text()` joins them with
+    # a blank line). Concatenating the raw deltas here instead glued the
+    # last sentence of one round to the first of the next: "…in it.I
+    # checked…". `split_sentences` splits on `.` followed by whitespace,
+    # so that pair is one unsplittable "sentence" that exists in no
+    # paragraph on screen: the grounding row it produces can never be
+    # found by the client's citation walker, and both real sentences lose
+    # their marker. On a nine-step run the whole answer collapsed into a
+    # single such sentence and the run cited nothing at all, which is
+    # exactly what was reported.
+    #
+    # The set below is the events that begin a new prose block in the
+    # transcript, so this string keeps the same shape as what the reader
+    # sees. Anything else (`meta`, `token`, `stats`) is bookkeeping and
+    # must not break a paragraph in half.
+    paragraph_breaks = {"thinking", "tool", "step", "plan", "result"}
+    in_prose = False
+    try:
+        for payload in events:
+            kind = payload.get("type")
+            if kind == "answer":
+                if answer_text and not in_prose:
+                    answer_text += "\n\n"
+                answer_text += payload.get("delta") or ""
+                in_prose = True
+            elif kind in paragraph_breaks:
+                in_prose = False
+                if kind == "tool":
+                    for item in payload.get("touched") or []:
+                        if item.get("kind") == "note" and isinstance(item.get("id"), int):
+                            touched_note_ids.append(item["id"])
+            yield event(payload)
+    except Exception as exc:  # noqa: BLE001  # same outer boundary as above,
+        # for a failure that shows up partway through rather than before
+        # the first event (a later skill step, say). Same fix: say what
+        # happened instead of the stream just stopping.
+        logging.getLogger("memorymap.chat").exception(
+            "%s: unhandled error mid-stream: %s",
+            "skill run" if req.skill else "agent turn",
+            exc,
+        )
+        # CodeQL: "information exposure through an exception" (#296): 
+        # `exc`'s own str() is untrusted and can embed a file path or
+        # connection detail; same sanitiser librarian.model_error_message
+        # already trusts for this exact shape.
+        yield event({"type": "answer", "delta": f"\n\nSomething went wrong: {safe_value(exc)}"})
+    conversational = not intent.needs_retrieval(prepared["intent"])
+    candidates = _grounding_candidates(req.session, prepared["notes"], touched_note_ids)
+    if not conversational and candidates and answer_text:
+        grounding = ground_answer_sentences(answer_text, candidates)
+        if grounding:
+            # A touched note is not in `raw_results`, so the client has
+            # no text to name it by; the label rides on each entry.
+            labels = {
+                note["id"]: " ".join(str(note.get("content") or "").split())[:60]
+                for note in candidates
+            }
+            for row in grounding:
+                row["label"] = labels.get(row["note_id"], "")
+            yield event({"type": "grounding", "sentences": grounding})
+    if req.body.notes_only and answer_text:
+        _save_ask_turn(req.session, req.question, answer_text, prepared)
+    yield event({"type": "done"})
+
+
+
 @router.post("/stream")
 def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     """NDJSON stream. Line types, in order:
@@ -1397,380 +1803,27 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
         # `use_tools: false` with an action skill still means the skill.
         use_tools = True
 
-    def plain_events(prepared: dict, ollama_running: bool) -> Iterator[dict]:
-        """The pre-Wave-G behaviour: stream a grounded answer, no tools."""
-        if prepared["stats"] is not None:
-            #: **A counted answer, streamed as one piece.** See the same branch
-            #: in `chat()`: the number is already exact and already a sentence,
-            #: so there is nothing to generate and nothing to wait for. It
-            #: arrives before a local model would have finished loading, and it
-            #: arrives at all when no model is running.
-            yield {"type": "answer", "delta": prepared["stats"]["text"]}
-            return
-        conversational = not intent.needs_retrieval(prepared["intent"])
-        if conversational and body.notes_only:
-            # The Notes tab's Ask box has one job (§35A). A greeting is the one
-            # input it has nothing to do with, so it says what it is for rather
-            # than spending a model round chatting back.
-            #
-            # Its own event type, not an "answer". Reported after the first
-            # version shipped: a paragraph of instructions sitting where the
-            # answer goes, beside a results panel reading "No matching
-            # records", reads as the app having failed. As a hint the client
-            # can render it as what it is, a prompt with questions you can
-            # click: and can leave the empty results panel out, since nothing
-            # was searched for.
-            yield {
-                "type": "hint",
-                "text": librarian.ASK_IS_FOR_NOTES,
-                "examples": librarian.ASK_EXAMPLES,
-            }
-            return
-        if conversational:
-            # Small talk: no notes, no grounding, no "I couldn't find any
-            # notes matching that" in reply to "hey".
-            if not ollama_running:
-                offline = (
-                    librarian.OFFLINE_ABOUT_APP
-                    if prepared["intent"] == "about_app"
-                    else librarian.OFFLINE_SMALLTALK
-                )
-                yield {"type": "answer", "delta": offline}
-                return
-            messages = librarian.build_conversational_messages(
-                f"{question}\n\n{image_context}" if image_context else question,
-                prepared["intent"],
-                style=prepared["style"],
-                profile=prepared["profile"],
-                history=history,
-                persona_prompt=persona_prompt,
-                mode=mode,
-                images=images,
-            )
-        elif not prepared["notes"] and not images_raw:
-            # An attached image and "no matching notes" are unrelated: 
-            # retrieval never sees the image, so an empty search result
-            # must not stand in for "there's nothing to look at" (same fix
-            # as `librarian.answer`'s own guard).
-            yield {"type": "answer", "delta": librarian.NO_RESULTS_MESSAGE}
-            # …but the notebook is more than its notes. See
-            # `_related_elsewhere`: a question answered by a document, a saved
-            # chat or a reminder used to end here regardless.
-            related = _related_elsewhere(session, question)
-            if related:
-                kinds = sorted({item["kind"] for item in related})
-                yield {
-                    "type": "answer",
-                    "delta": (
-                        " There "
-                        + ("is" if len(related) == 1 else "are")
-                        + f" {len(related)} other "
-                        + ("item" if len(related) == 1 else "items")
-                        + " that mention it, in your "
-                        + " and ".join(f"{k}s" for k in kinds)
-                        + "."
-                    ),
-                }
-                yield {"type": "related", "items": related}
-            return
-        elif not ollama_running:
-            yield {"type": "answer", "delta": librarian.OFFLINE_MESSAGE}
-            return
-        else:
-            messages = librarian.build_messages(
-                f"{question}\n\n{image_context}" if image_context else question,
-                prepared["notes"],
-                style=prepared["style"],
-                profile=prepared["profile"],
-                history=history,
-                persona_prompt=persona_prompt,
-                mode=mode,
-                images=images,
-                # The streaming path is the one people actually use, and it was
-                # the one with no cap on how much of the notebook it sent. Same
-                # budget the blocking `librarian.answer` now builds: measured
-                # against the model this turn will really stream from, which is
-                # the same `chat_model()` passed to `chat_stream` below.
-                budget=librarian.plan_budget(
-                    model_manager.chat_model(),
-                    ollama,
-                    prepared["style"],
-                    prepared["profile"],
-                    persona_prompt,
-                    mode,
-                ),
-                # The Ask box's own brief on the streaming path too, this is
-                # the one people actually use, so a fix only on the blocking
-                # route above would be a fix nobody sees.
-                ask_overview=body.notes_only,
-            )
-        # §88.4 item 4: the same per-stage token estimate agent.py's tool
-        # path now attaches to its own stats event (chars/4, no tool
-        # schemas on this path by definition, see build_messages' own
-        # docstring above). Computed once, not per streamed chunk.
-        composition_tokens = {
-            "system": len(messages[0]["content"]) // context.CHARS_PER_TOKEN,
-            "history": sum(len(m["content"]) for m in messages[1:-1]) // context.CHARS_PER_TOKEN,
-            "notes": len(messages[-1]["content"]) // context.CHARS_PER_TOKEN,
-            "tool_schemas": 0,
-        }
-        streamed_any = False
-        try:
-            for piece in ollama.chat_stream(model_manager.chat_model(), messages, mode):
-                if "thinking_delta" in piece:
-                    yield {"type": "thinking", "delta": piece["thinking_delta"]}
-                elif "stats" in piece:
-                    # Token counts + timings for the message metadata line.
-                    yield {"type": "stats", **piece["stats"], "composition": composition_tokens}
-                else:
-                    streamed_any = True
-                    yield {"type": "answer", "delta": piece["content_delta"]}
-        except OllamaError as exc:
-            # The model died mid-answer, tell the user, keep the results.
-            # By construction this is reached only after the `elif not
-            # ollama_running` branch above already passed, so this is never
-            # "Ollama isn't running" (see librarian.model_error_message's
-            # own docstring for why that distinction matters).
-            #
-            # Logged, not just shown in the answer: reported directly: this
-            # failure reached the chat bubble but never the Settings → Logs
-            # viewer, since nothing here ever routed it through `logging` at
-            # all. The exception is already fully described in the message
-            # this yields; logging it is what makes it show up in the one
-            # place the caveat at the top of CLAUDE.md says to check first.
-            logging.getLogger("memorymap.chat").warning(
-                "chat: model call failed for %r: %s", model_manager.chat_model(), exc
-            )
-            prefix = "\n\n" if streamed_any else ""
-            yield {
-                "type": "answer",
-                "delta": f"{prefix}{librarian.model_error_message(model_manager.chat_model(), exc)}",
-            }
-
-    def lines() -> Iterator[str]:
-        def event(payload: dict) -> str:
-            return json.dumps(payload) + "\n"
-
-        # Flush a first byte immediately. The semantic search below can be a
-        # slow cold start (loading the embedding model, warming the index);
-        # emitting this now means the browser's stream opens right away and
-        # its "typing…" indicator keeps animating instead of looking frozen
-        # while the whole request blocks (user-reported lag).
-        yield event({"type": "status", "stage": "searching"})
-
-        # Retrieval happens INSIDE the stream now, not before it, that's the
-        # whole latency win. Nothing before this line touches the model.
-        prepared = _prepare(
-            session,
-            question,
-            body.note_ids,
-            force_notes_intent=body.answering_agent,
-            attached_notes_only=body.attached_notes_only,
-            document_ids=body.document_ids,
-            file_ids=body.file_ids,
-            board_ids=body.board_ids,
-            # Asking vs requesting, decided from what the caller can already
-            # do rather than from a new flag: `notes_only` is the Notes tab's
-            # Ask box, and tools-off is the Chat tab's Ask mode. Anything that
-            # can reach for a tool, Request mode, the palette, a skill or plan
-            # run: is a request. `use_tools` is resolved above, so the saved
-            # preference is accounted for and an unset flag cannot land a
-            # Request turn in the chip row.
-            surface=ASK_SURFACE if (body.notes_only or not use_tools) else AGENT_SURFACE,
-        )
-        ollama_running = ollama.is_running()
-        # In agent mode the model can act even when nothing matched, "save a
-        # note about X" must work on an empty notebook.
-        will_answer = ollama_running and (
-            bool(prepared["notes"])
-            or bool(images_raw)
-            or use_tools
-            or not intent.needs_retrieval(prepared["intent"])
-        )
-
-        yield event(
-            {
-                "type": "meta",
-                "raw_results": [r.model_dump(mode="json") for r in prepared["raw_results"]],
-                "search_mode": prepared["search_mode"],
-                "connected_ids": prepared["connected_ids"],
-                "match_info": prepared["match_info"],
-                "when_phrase": prepared["when_phrase"],
-                "answered_by": model_manager.chat_model() if will_answer else None,
-                "ollama_running": ollama_running,
-            }
-        )
-
-        events: Iterator[dict] = plain_events(prepared, ollama_running)
-        # Small talk never goes near the agent: "hey" is not a request to do
-        # anything, and handing it a toolbox invites it to invent an errand.
-        if ollama_running and use_tools and intent.needs_retrieval(prepared["intent"]):
-            shared = {
-                "style": prepared["style"],
-                "profile": prepared["profile"],
-                "history": history,
-                "persona_prompt": persona_prompt,
-            }
-            if skill:
-                # A skill runs step by step, the runner emits the plan, ticks
-                # each step, and ends with what changed. Its first event has
-                # the same meaning as the agent's, so the fallback below is
-                # unchanged.
-                agent_events = skill_runner.run_skill(
-                    session,
-                    skill["skill"],
-                    body.skill_inputs or {},
-                    prepared["notes"],
-                    model_manager,
-                    ollama,
-                    start_at=body.skill_from_step,
-                    only_step=body.skill_only_step,
-                    step_text=body.skill_step_text,
-                    manual=body.skill_manual,
-                    manual_note=body.skill_manual_note,
-                    small_model=_small_model_mode(),
-                    # The run's own budget (Brief 13), read from the user's
-                    # settings here rather than inside the runner so that the
-                    # runner stays testable without app state and so a caller
-                    # with its own budget (an eval, a background job) can pass
-                    # one instead.
-                    budget=run_budget.from_settings(deps.get_config()),
-                    **shared,
-                )
-            else:
-                agent_events = agent.run_agent(
-                    session,
-                    question,
-                    prepared["notes"],
-                    model_manager,
-                    ollama,
-                    mode=mode,
-                    allowed_tools=allowed_tools,
-                    images=images,
-                    image_context=image_context,
-                    **shared,
-                )
-            # Everything `agent.run_agent`/`skill_runner.run_skill` themselves
-            # expect to go wrong (OllamaError, ToolsUnsupportedError) is
-            # already caught inside them and turned into a real event, this
-            # is the outer boundary, for whatever isn't. Reported directly: a
-            # skill run that "failed before even completing the first step
-            # ... no answer and no tool call", an exception here had nothing
-            # catching it, so it killed the generator and the stream just
-            # ended with nothing rendered, no error, the plan card (if any)
-            # never even reaching the page. Silence was the bug, not the
-            # underlying failure, which is why this doesn't try to guess
-            # which failure it was, it says what actually happened and stays
-            # on stage instead of vanishing.
-            try:
-                first = next(agent_events, None)
-            except Exception as exc:  # noqa: BLE001  # the outer boundary
-                logging.getLogger("memorymap.chat").exception(
-                    "%s: unhandled error before the first event: %s",
-                    "skill run" if skill else "agent turn",
-                    exc,
-                )
-                first = {
-                    "type": "answer",
-                    "delta": f"Something went wrong before it could start: {exc}",
-                }
-            if first is None or first.get("type") == "unsupported":
-                # The active model can't do tool calls, plain Q&A, never
-                # a hard dependency.
-                pass
-            else:
-                events = chain([first], agent_events)
-        # ROADMAP.md item 36's frontend half: the non-streaming /chat already
-        # grounds its answer, but the live Ask box only ever calls this
-        # streaming route. Accumulated here (not computed per-delta: the
-        # sentence splitter needs the whole answer, and this is a handful of
-        # deltas' worth of string concatenation, not a hot loop) and sent as
-        # its own event once the answer is fully in, direct-Q&A only.
-        answer_text = ""
-        # Every note a tool read during the turn is a grounding candidate,
-        # not only the retrieval set. Reported: an agent answer that named
-        # three notes cited one, and a skill run cited none. The retrieval
-        # set is what the *search* found before the model started; in
-        # Agent mode and in a skill run the model then reads notes of its
-        # own choosing through `get_note`, `search_notes`, `related_notes`,
-        # and those are exactly the notes its answer is about. `touched` on
-        # each tool event already names them (it is what the transcript's
-        # action line opens), so this collects ids and loads the text once,
-        # after the answer is in.
-        touched_note_ids: list[int] = []
-        # **A blank line wherever the transcript starts a new paragraph.**
-        #
-        # Measured while fixing INBOX 40. A multi-round turn (an agent answer,
-        # every skill run) emits its prose in bursts with a step or a tool
-        # call between them, and the client draws each burst as its own block
-        # (`agentTimeline.startAnswer`, and `timeline.text()` joins them with
-        # a blank line). Concatenating the raw deltas here instead glued the
-        # last sentence of one round to the first of the next: "…in it.I
-        # checked…". `split_sentences` splits on `.` followed by whitespace,
-        # so that pair is one unsplittable "sentence" that exists in no
-        # paragraph on screen: the grounding row it produces can never be
-        # found by the client's citation walker, and both real sentences lose
-        # their marker. On a nine-step run the whole answer collapsed into a
-        # single such sentence and the run cited nothing at all, which is
-        # exactly what was reported.
-        #
-        # The set below is the events that begin a new prose block in the
-        # transcript, so this string keeps the same shape as what the reader
-        # sees. Anything else (`meta`, `token`, `stats`) is bookkeeping and
-        # must not break a paragraph in half.
-        paragraph_breaks = {"thinking", "tool", "step", "plan", "result"}
-        in_prose = False
-        try:
-            for payload in events:
-                kind = payload.get("type")
-                if kind == "answer":
-                    if answer_text and not in_prose:
-                        answer_text += "\n\n"
-                    answer_text += payload.get("delta") or ""
-                    in_prose = True
-                elif kind in paragraph_breaks:
-                    in_prose = False
-                    if kind == "tool":
-                        for item in payload.get("touched") or []:
-                            if item.get("kind") == "note" and isinstance(item.get("id"), int):
-                                touched_note_ids.append(item["id"])
-                yield event(payload)
-        except Exception as exc:  # noqa: BLE001  # same outer boundary as above,
-            # for a failure that shows up partway through rather than before
-            # the first event (a later skill step, say). Same fix: say what
-            # happened instead of the stream just stopping.
-            logging.getLogger("memorymap.chat").exception(
-                "%s: unhandled error mid-stream: %s",
-                "skill run" if skill else "agent turn",
-                exc,
-            )
-            # CodeQL: "information exposure through an exception" (#296): 
-            # `exc`'s own str() is untrusted and can embed a file path or
-            # connection detail; same sanitiser librarian.model_error_message
-            # already trusts for this exact shape.
-            yield event({"type": "answer", "delta": f"\n\nSomething went wrong: {safe_value(exc)}"})
-        conversational = not intent.needs_retrieval(prepared["intent"])
-        candidates = _grounding_candidates(session, prepared["notes"], touched_note_ids)
-        if not conversational and candidates and answer_text:
-            grounding = ground_answer_sentences(answer_text, candidates)
-            if grounding:
-                # A touched note is not in `raw_results`, so the client has
-                # no text to name it by; the label rides on each entry.
-                labels = {
-                    note["id"]: " ".join(str(note.get("content") or "").split())[:60]
-                    for note in candidates
-                }
-                for row in grounding:
-                    row["label"] = labels.get(row["note_id"], "")
-                yield event({"type": "grounding", "sentences": grounding})
-        if body.notes_only and answer_text:
-            _save_ask_turn(session, question, answer_text, prepared)
-        yield event({"type": "done"})
+    req = _StreamRequest(
+        body=body,
+        session=session,
+        ollama=ollama,
+        model_manager=model_manager,
+        history=history,
+        persona_prompt=persona_prompt,
+        mode=mode,
+        images_raw=images_raw,
+        images=images,
+        image_context=image_context,
+        use_tools=use_tools,
+        skill=skill,
+        question=question,
+        allowed_tools=allowed_tools,
+    )
 
     # X-Accel-Buffering: no tells reverse proxies (nginx) not to buffer the
     # stream, so tokens reach the browser as they're produced.
     return StreamingResponse(
-        lines(),
+        _stream_lines(req),
         media_type="application/x-ndjson",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )

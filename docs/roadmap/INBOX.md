@@ -34,6 +34,17 @@ with its owner named in the entry.
 
 ## Open items
 
+226. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), a flicker.**
+    "theres a flickering just above the bottom bar??" / "i was on the
+    dashboard". Reproduce first: sample the band above `#status-bar` on the
+    dashboard at 100 ms for four seconds and count pixel changes; log DOM
+    mutations in the same band. Suspects, in order: a widget re-rendering
+    on a timer (the Rediscover widget re-asks when its list empties; the
+    reminders and stats fetches were just shared by the boot agent), the
+    scroll-top button toggling on a scroll-height change, the status bar's
+    new Guide slot being redrawn by the header's model poll. Owner:
+    orchestrator, now.
+
 225. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), a core
     persona.** "I was wondering if atlas or another named persona can be the
     core persona of the application as the librarian?? idk, the persona cant

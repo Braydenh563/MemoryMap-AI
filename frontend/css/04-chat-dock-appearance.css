@@ -87,6 +87,9 @@
      it scrolls internally instead of pushing the canvas below it down. */
   max-height: 5.5rem;
   overflow-y: auto;
+  /* Inset like the panel around it: the chips sat on this box's own edges
+     (the owner, 2026-09-14: "there's just no padding around the text"). */
+  padding: var(--space-2) var(--space-3);
 }
 
 /* Arrow + reason, one unit between two note chips, quiet relative to the

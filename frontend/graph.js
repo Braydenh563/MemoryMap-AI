@@ -3797,7 +3797,30 @@ function renderGraphPopupActions(entry) {
 function closeGraphPopup() {
   graphPopupId = null;
   $("graph-popup").classList.add("hidden");
+  clearGraphKeyboardFocus();
 }
+
+//: **Keyboard focus ends when the keyboard leaves.** `focusGraphNode` is
+//: reached only by the arrow and Tab navigation, and nothing ever unset
+//: it: after one keyboard step the note kept its ring and its label for the
+//: rest of the visit, including with Labels off (the owner, 2026-09-14:
+//: "there's still a note label showing even when I have them off??"). The
+//: focus clears when the map loses keyboard focus, when a pointer takes
+//: over on the canvas, and when the popup closes.
+function clearGraphKeyboardFocus() {
+  if (graphKeyboardId === null && graphHoveredId === null) return;
+  const wasHovered = graphHoveredId === graphKeyboardId;
+  graphKeyboardId = null;
+  if (wasHovered) graphHoveredId = null;
+  if (typeof applyGraphHighlight === "function") applyGraphHighlight();
+  if (typeof gcRequestDraw === "function") gcRequestDraw();
+}
+$("graph-box")?.addEventListener("focusout", (event) => {
+  if (!$("graph-box").contains(event.relatedTarget)) clearGraphKeyboardFocus();
+});
+$("graph-box")?.addEventListener("pointerdown", () => {
+  if (graphKeyboardId !== null) clearGraphKeyboardFocus();
+});
 
 async function saveGraphPopup() {
   if (graphPopupId === null) return;

@@ -27815,6 +27815,16 @@ line that carried a dash.
     overlay's trace result and suggestions panel carry the dock's own
     padding (reasoned; not measured in a browser).
 
+263. **Mid-work drop, 2026-09-14, verbatim (the owner), the graph
+    (screenshot: Labels off, one note ringed and labelled "I thought the
+    movie I...").** "there's still a note label showing even when I have
+    them off??" Cause: the ring is keyboard focus (`focusGraphNode`, from
+    the arrow and Tab navigation) and nothing ever cleared it, so one
+    keyboard step kept that note's ring and label for the visit. **Fixed:**
+    keyboard focus clears when the map loses focus, when a pointer takes
+    over on the canvas, and when the popup closes. Also the trace's path box
+    now carries inner padding (the owner: "no padding around the text").
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

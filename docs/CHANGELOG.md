@@ -146,6 +146,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A note's keyboard-focus ring and label on the graph end when the
+  keyboard leaves the map, a pointer takes over or the popup closes, so
+  Labels off means off (INBOX 263). The trace's path box has inner padding.
 - The graph trace's result panel has the dock's padding, so a one-line
   result is no longer a strip the height of its text (INBOX 262).
 - A file chip in a note's body has room below it before the badges row

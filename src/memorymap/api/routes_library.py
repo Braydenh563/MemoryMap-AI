@@ -71,14 +71,35 @@ ACTIVITY_DETAIL_CHARS = 400
 #: the raw `##`.
 _MD_BLOCK_MARKER = re.compile(r"^(?:#{1,6}\s+|>\s?)", re.MULTILINE)
 
+#: The rest of what a one-line preview must not show (the owner, with a
+#: Library screenshot: "inline md characters show in the document
+#: descriptions", the rows reading `[[# Girl with bell]]`, `**bold** and
+#: *italic*` and `| Example Table | |------|`). In order: a table's rule
+#: line goes whole; a list marker at the start of a line goes; a wiki link
+#: becomes its title (the alias when it has one, the `#` of a heading link
+#: dropped); a table's pipes become spaces; and any bold, underline or
+#: strike marker `strip_inline_markdown` could not pair (a marker split by
+#: the clip, or a run like `***`) goes on its own rather than surviving as
+#: `Offline Links**:`.
+_MD_TABLE_RULE = re.compile(r"^\s*\|?(?:\s*:?-{2,}:?\s*\|)+\s*:?-*:?\s*$", re.MULTILINE)
+_MD_LIST_MARKER = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+", re.MULTILINE)
+_MD_WIKI_LINK = re.compile(r"\[\[#?\s*([^\]\n|]{1,300})(?:\|([^\]\n]{1,300}))?\]\]")
+_MD_TABLE_PIPE = re.compile(r"\s*\|\s*")
+_MD_LOOSE_MARKER = re.compile(r"\*\*|__|~~|(?<!\w)\*(?=\w)|(?<=\w)\*(?!\w)")
+
 
 def _clip(text: str, limit: int = PREVIEW_CHARS) -> str:
-    text = _MD_BLOCK_MARKER.sub("", text or "")
+    text = _MD_TABLE_RULE.sub("", text or "")
+    text = _MD_BLOCK_MARKER.sub("", text)
+    text = _MD_LIST_MARKER.sub("", text)
+    text = _MD_WIKI_LINK.sub(lambda m: (m.group(2) or m.group(1)).strip(), text)
     # An image-only note (a sketch, most often, but any note that's just a
     # pasted image works the same way) read as literal `![sketch](/media/
     # ...)` here: the graph's node labels had the identical bug and this is
     # the same fix, factored out so a third copy of it never has to happen.
     text = strip_inline_markdown(text)
+    text = _MD_TABLE_PIPE.sub(" ", text)
+    text = _MD_LOOSE_MARKER.sub("", text)
     text = " ".join(text.split())
     return text if len(text) <= limit else text[: limit - 1] + "…"
 

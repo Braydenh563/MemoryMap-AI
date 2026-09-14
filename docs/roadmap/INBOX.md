@@ -210,3 +210,11 @@ with its owner named in the entry.
   paragraphs to popovers, security review: all placed (HANDOVER "flagged
   list") and most built.
 
+246. **Mid-work drop, 2026-09-14, verbatim (the owner).** "I also want to
+    be able to attach whiteboards and mindmaps to notes. and I want it to
+    show in notes if they are attached to or referenced in/by a document,
+    note, whiteboard, or mindmap." Recommendation: the note edit form's
+    attach menu gains Board and Mind map (the same reference the board
+    already stores when it embeds a note, written from the note's side),
+    and the note card gets a "Referenced by" row listing documents, notes,
+    boards and maps that carry it, from one backlinks endpoint.

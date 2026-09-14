@@ -110,6 +110,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A Library row's preview is plain words: wiki links read as their titles,
+  table rules, list markers and pipes are gone, and a bold marker the clip
+  split no longer survives (INBOX 244). The Create picker is sized to its
+  five rows rather than the 880px modal width (INBOX 245).
 - The graph's node popup opens with its body rendered again (headings,
   bold, pictures), and the capture box, the edit form and the draft get the
   note editor on their first focus from a fresh boot: the editor's bundle

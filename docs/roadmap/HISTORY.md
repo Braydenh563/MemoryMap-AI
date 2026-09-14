@@ -27481,6 +27481,22 @@ line that carried a dash.
     option, Length by similarity (on), shortens a line by its score. The
     preset is a slider pair already; not added.
 
+244. **Mid-work drop, 2026-09-14, verbatim (the owner), the Library list
+    (screenshot: a document row whose description reads "Offline Links**:
+    [[# Girl with bell]], [[# CAB432 ...]]" and another with "**bold** and
+    *italic*", "| Example Table | |------|").** "inline md characters show
+    in the document descriptions."
+    **Fixed:** `_clip` in routes_library.py now drops table rules and list
+    markers, turns wiki links into their titles, spaces table pipes and
+    removes any marker the inline stripper could not pair;
+    `tests/test_library_preview_plain.py` holds the screenshot's cases.
+245. **Mid-work drop, 2026-09-14, verbatim (the owner), the Library's
+    Create panel (screenshot: a five-row list in a modal spanning nearly the
+    full 1910px width, the rows in the left third).** "this create panel
+    popup in the library is overly wide."
+    **Fixed:** `.library-create-picker` is 30rem wide (reasoned, not
+    measured in a browser).
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

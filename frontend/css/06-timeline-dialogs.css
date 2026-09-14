@@ -1235,6 +1235,14 @@
   justify-content: center;
 }
 
+/* The picker is five short rows and one line of help, and `.modal-card`'s
+   880px is for surfaces with columns; at that width the rows sat in the
+   left third of an empty card (the owner: "this create panel popup in the
+   library is overly wide", a 1910px screenshot). Sized to its content. */
+.library-create-picker {
+  width: min(30rem, 96vw);
+}
+
 /* --- the Ask box explaining itself (§35A) ----------------------------------
    Shown when someone types a greeting into a box that searches notes. It is
    styled as a prompt, NOT as an answer or an error: the first version put a

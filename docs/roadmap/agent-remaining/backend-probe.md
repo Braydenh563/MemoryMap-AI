@@ -366,3 +366,13 @@ built-in until the frontend half of 225 is done. One line.
 **For the orchestrator at merge:** like 221, INBOX 225 was filed after this
 worktree was cut, so `inbox_resolve.py` cannot be run from here; mark the
 backend half done against the Atlas commit.
+
+## Stopped here (orchestrator's stop order, 84% usage)
+
+Everything on the list above is committed and pushed; the working tree is
+clean and there is no WIP commit to pick up. The one thing not finished is a
+**local full-suite run**: it was 17% through (about 500 tests, all passing)
+when the stop order came and was killed. Every commit passed
+`scripts/gate.sh --staged`, and the targeted tests for the files each commit
+touched were run and are named in the running log above. CI runs the full
+suite on the push.

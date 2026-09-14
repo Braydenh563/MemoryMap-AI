@@ -2948,9 +2948,17 @@ $("settings-modal").addEventListener("click", (event) => {
 //: ("clicking the hyperlinked badges under atlas responses doesnt work").
 //: The sheet closes first for the same reason the modal does: a tab switch
 //: behind an overlay is invisible.
+//: `[data-goto-section]` too, not only `[data-goto-tab]` (INBOX 234: "the web
+//: search and skills hyperlinked badges in the atlas interface dont work",
+//: while Chat did). A help answer's badge names either a tab, a Settings
+//: section, or both, and the section-only ones were landing on nothing at all
+//: outside the Settings modal. The modal's own links keep their own handler
+//: above: matching them here as well would close and re-open the modal under
+//: the pointer.
 document.addEventListener("click", (event) => {
-  const link = event.target.closest("[data-goto-tab]");
+  const link = event.target.closest("[data-goto-tab], [data-goto-section]");
   if (!link) return;
+  if (!link.dataset.gotoTab && link.closest("#settings-modal")) return;
   if (link.closest("#settings-modal")) closeSettingsModal();
   if (link.closest('[data-sheet="guide"]') && typeof helpChatSheetClose === "function") helpChatSheetClose();
   if (link.dataset.gotoSection) {

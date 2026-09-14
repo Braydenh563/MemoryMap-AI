@@ -891,6 +891,9 @@ def test_a_panel_head_is_identity_one_fact_and_actions_that_do_not_wrap() -> Non
 LIST_ROWS = {
     ".timeline-row": ".timeline-rows",
     ".bookmark-row": ".bookmark-list",
+    #: The popup agent's starters (INBOX 231). The grid is both the list and
+    #: the rows' only selector, so the container it is spaced by is itself.
+    ".command-palette-examples": ".command-palette-examples",
 }
 
 

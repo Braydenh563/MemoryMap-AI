@@ -79,38 +79,12 @@ with its owner named in the entry.
     And: "in the help settings page, there is no gap between the atlas
     section and the faq dropdowns." Owner: chrome2.
 
-234. **Mid-work drop, 2026-09-14, verbatim (the owner), Atlas badges.**
-    "the web search and skills hyperlinked badges in the atlas interface
-    dont work" (Chat works). Those two carry `data-goto-section` without
-    `data-goto-tab`, and the document handler only matches the tab
-    attribute. Owner: chrome2, first.
-
-233. **Mid-work drop, 2026-09-14, verbatim (the owner), the documents
-    kebab.** "the documents kebab button in the top right corner goes off the
-    bottom of my screen." The menu needs a max height inside the viewport
-    with its own scroll, or to open upward when there is no room below.
-    Owner: chrome2 (the menu recipe).
-
 232. **Mid-work drop, 2026-09-14, verbatim (the owner), the live view.**
     "the md rendering on the live view, like in the documents page, needs to
     be improved, especially for codeblocks and potentially for other things
     as well." Screenshot: a fenced block renders as a dark slab with the
     fence lines as empty numbered rows above and below, link chips wrap
     oddly. Owner: notes agent (documents.js).
-
-231. **Mid-work drop, 2026-09-14, verbatim (the owner), the popup agent's
-    starters.** "these suggested questions in the popup agent are really ugly
-    and that area needs a better modern and more professional redesign."
-    Screenshot: bordered pill buttons in a two-column grid under uppercase
-    ruled headers. Target: quiet rows with no border at rest, an icon in
-    muted accent, a fill on hover only, group labels small without rules,
-    one column below 480px. Owner: chrome2.
-
-230. **Mid-work drop, 2026-09-14, verbatim (the owner), the popup agent's
-    kebab.** "this more actions kebab button at the bottom of the popup agent
-    doesnt show any dropdown menu." Measured (`scratchpad/palkebab.js`): the
-    menu opens (2 items, 200x87 at 795,753) at z-index 1020 under the
-    palette overlay at 2000, so it draws behind the panel. Owner: chrome2.
 
 228. **Mid-work drop, 2026-09-14, verbatim (the owner), the close.** "after
     you have finished all these, done the final bug sweep, make sure

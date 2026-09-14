@@ -3608,6 +3608,18 @@ span > .chip {
   visibility: visible;
 }
 
+/* **The other side of the button** (INBOX 233). `placeDockMenuInWindow`
+   (app.js) adds this when the room under the opener is less than 240px and
+   there is more of it above: the panel then grows upward from the button
+   instead of down past the bottom of the window. Nothing else about it
+   changes, which is why this is a class on the `<details>` rather than an
+   inline `top`: the placement stays the stylesheet's, the side is the
+   measurement's. */
+.doc-dock-menu.doc-dock-menu-up > .doc-dock-menu-list {
+  top: auto;
+  bottom: calc(100% + var(--space-2));
+}
+
 .doc-dock-menu-item {
   justify-content: flex-start;
   text-align: left;

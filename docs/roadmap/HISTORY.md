@@ -27496,6 +27496,64 @@ line that carried a dash.
     popup in the library is overly wide."
     **Fixed:** `.library-create-picker` is 30rem wide (reasoned, not
     measured in a browser).
+234. **Mid-work drop, 2026-09-14, verbatim (the owner), Atlas badges.**
+    "the web search and skills hyperlinked badges in the atlas interface
+    dont work" (Chat works). Those two carry `data-goto-section` without
+    `data-goto-tab`, and the document handler only matches the tab
+    attribute. Owner: chrome2, first.
+    **Fixed 3dbe0e5.** `scratchpad/ui-sweeps/atlasbadge.js`, the three badge
+    shapes injected through `renderHelpChatMessage` and clicked in the real
+    sheet: before, "Web search" and "Skills" left the sheet open, the modal
+    closed and the section on `models`; after, each closes the sheet and opens
+    Settings on `websearch` and `skills`, "Chat" still switches to the chat tab,
+    and a Settings-internal section link still runs once (openSettingsModal 0
+    times, closeSettingsModal 0 times).
+
+230. **Mid-work drop, 2026-09-14, verbatim (the owner), the popup agent's
+    kebab.** "this more actions kebab button at the bottom of the popup agent
+    doesnt show any dropdown menu." Measured (`scratchpad/palkebab.js`): the
+    menu opens (2 items, 200x87 at 795,753) at z-index 1020 under the
+    palette overlay at 2000, so it draws behind the panel. Owner: chrome2.
+    **Fixed 7916d4c.** `scratchpad/ui-sweeps/palkebab2.js`: before, the menu
+    opened with 2 rows, 200x87 at 795,753 at z-index 1020, and
+    `document.elementFromPoint` on its own first row returned `p.starter-verb`
+    (a paragraph of the palette card); after, the same menu at the same place
+    is z-index 2550 and that point returns the menu's own row. The Atlas
+    sheet's kebab was already on top over the sheet's 1010 and still is, at
+    the new tier.
+
+233. **Mid-work drop, 2026-09-14, verbatim (the owner), the documents
+    kebab.** "the documents kebab button in the top right corner goes off the
+    bottom of my screen." The menu needs a max height inside the viewport
+    with its own scroll, or to open upward when there is no room below.
+    Owner: chrome2 (the menu recipe).
+    **Fixed 68d69eb.** `scratchpad/ui-sweeps/dockebab.js`, one document open,
+    1440x700: before, the panel was 17 rows wanting 704px drawn at 286x636
+    from y=178, 114px past the window, and "Delete document" (840 to 876)
+    could not be reached by scrolling the panel either, its own scroll port
+    ending off-screen. After: 286x514, capped to the 514px under its own top,
+    scrolling, last row reachable, 8px clear of the bottom edge; at 900 tall it
+    is uncapped as before. With the opener pushed down to leave 90px below, the
+    panel opens upward, 286x552 at y=7, inside the window at both edges.
+
+231. **Mid-work drop, 2026-09-14, verbatim (the owner), the popup agent's
+    starters.** "these suggested questions in the popup agent are really ugly
+    and that area needs a better modern and more professional redesign."
+    Screenshot: bordered pill buttons in a two-column grid under uppercase
+    ruled headers. Target: quiet rows with no border at rest, an icon in
+    muted accent, a fill on hover only, group labels small without rules,
+    one column below 480px. Owner: chrome2.
+    **Fixed d7d15b7.** `scratchpad/ui-sweeps/starters.js`, both themes, 1440
+    and 390: the rows are `.starter` alone (the `ghost small` pills are gone),
+    border `rgba(0, 0, 0, 0)` and background `rgba(0, 0, 0, 0)` at rest, ground
+    `rgba(31, 36, 48, 0.08)` in light and `rgba(255, 255, 255, 0.09)` in dark
+    under the pointer, the six group labels at 12px with `border-bottom 0px`,
+    14 rows of 272x42 in two columns at 1440 and 356x42 in one at 390, none of
+    them clipped. The family glyph is a quieted accent, 3.59:1 on the panel in
+    light and 3.7:1 in dark, beside labels at 10:1 and 7.4:1. The list sits on
+    `--row-h` and `--row-gap` and is registered in `test_ui_recipes.py`'s
+    `LIST_ROWS`, which is the lint that caught it taking the token without the
+    pair.
 
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 

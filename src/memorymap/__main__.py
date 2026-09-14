@@ -370,7 +370,33 @@ _STARTUP_PHASE_PERCENT = {
 RELAUNCHED_HIDDEN_EXIT_CODE = 42
 
 
+def _ensure_std_streams() -> None:
+    """A windowed (no console) PyInstaller build starts with `sys.stdout` and
+    `sys.stderr` set to None. uvicorn's default log formatter asks
+    `sys.stderr.isatty()` while `dictConfig` builds it, so the packaged app
+    died at start with "Unable to configure formatter 'default'" before it
+    had bound a port, and a person who had auto-updated into that build could
+    not open the app at all (reported 2026-09-14 with two photographs of the
+    dialog, INBOX 251). Both streams are routed to a log file under the data
+    dir, so uvicorn, any `print`, and any traceback have somewhere to go; the
+    null device is the fallback when the data dir cannot be written."""
+    if sys.stdout is not None and sys.stderr is not None:
+        return
+    stream = None
+    try:
+        log_dir = Path(os.environ.get("MEMORYMAP_DATA_DIR") or "data").resolve() / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        stream = open(log_dir / "desktop-stdio.log", "a", encoding="utf-8", buffering=1)  # noqa: SIM115
+    except OSError:
+        stream = open(os.devnull, "w", encoding="utf-8")  # noqa: SIM115
+    if sys.stdout is None:
+        sys.stdout = stream
+    if sys.stderr is None:
+        sys.stderr = stream
+
+
 def _run_server() -> None:
+    _ensure_std_streams()
     uvicorn.run(create_app(), host=HOST, port=PORT, log_level="info")
 
 
@@ -1634,6 +1660,7 @@ def _reset_password() -> int:
 
 
 def main() -> None:
+    _ensure_std_streams()
     parser = argparse.ArgumentParser(prog="memorymap", description="MemoryMap AI")
     parser.add_argument(
         "--desktop",

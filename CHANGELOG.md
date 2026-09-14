@@ -146,6 +146,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- **The packaged Windows app starts again.** It is built without a console,
+  so `sys.stdout` and `sys.stderr` were None and uvicorn's log formatter
+  failed on `sys.stderr.isatty()` before a port was bound: "Unable to
+  configure formatter 'default'" on launch, and an auto-update into such a
+  build left the app unopenable. Both streams now go to
+  `<data dir>/logs/desktop-stdio.log` first (INBOX 251).
 - A marquee on the whiteboard selects circles: their path is written with
   absolute arcs, which the bounding-box parser did not read (INBOX 252).
 - The built-in librarian persona is Atlas; a preference saved under the old

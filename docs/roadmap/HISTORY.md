@@ -27695,6 +27695,29 @@ line that carried a dash.
     polygons (`M`/`L`) were never affected; if a rectangle still misses,
     that is a second cause and needs a screenshot.
 
+251. **Mid-work drop, 2026-09-14, verbatim (the owner).** "My brother
+    downloaded the app a while ago, but I dont think the update features
+    wok because he says it wont let him access the app anymore??" Not
+    reproducible from here: no error text, no version, no install kind.
+    What decides it: (a) if the window opens on the lock screen and the
+    password is refused, that is the vault, not the updater; (b) if the
+    window is blank or closes, `start-desktop.bat --doctor` and
+    `<data dir>/logs` say why; (c) the in-app updater only applies on the
+    packaged Windows build (`_can_auto_apply`) and otherwise says so. Next
+    step: get the screen he sees and the doctor output, then triage.
+    **Fixed.** Two photographs arrived: "Failed to execute script
+    '__main__'... Unable to configure formatter 'default'", caused by
+    `AttributeError: 'NoneType' object has no attribute 'isatty'` in
+    uvicorn's logging setup. The packaged build is windowed
+    (`console=False` in the spec), so `sys.stdout` and `sys.stderr` are
+    None, and uvicorn's formatter asks `sys.stderr.isatty()`. Every
+    packaged build since that formatter was reached would have died at
+    start. `_ensure_std_streams()` in `__main__.py` routes both streams to
+    `<data dir>/logs/desktop-stdio.log` before anything runs;
+    `tests/test_windowed_streams.py` builds uvicorn's formatter with the
+    streams set to None. The next release carries it; until then the fix
+    for him is a fresh install of that release.
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

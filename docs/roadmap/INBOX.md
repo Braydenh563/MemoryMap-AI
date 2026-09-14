@@ -157,17 +157,6 @@ with its owner named in the entry.
     and the note card gets a "Referenced by" row listing documents, notes,
     boards and maps that carry it, from one backlinks endpoint.
 
-251. **Mid-work drop, 2026-09-14, verbatim (the owner).** "My brother
-    downloaded the app a while ago, but I dont think the update features
-    wok because he says it wont let him access the app anymore??" Not
-    reproducible from here: no error text, no version, no install kind.
-    What decides it: (a) if the window opens on the lock screen and the
-    password is refused, that is the vault, not the updater; (b) if the
-    window is blank or closes, `start-desktop.bat --doctor` and
-    `<data dir>/logs` say why; (c) the in-app updater only applies on the
-    packaged Windows build (`_can_auto_apply`) and otherwise says so. Next
-    step: get the screen he sees and the doctor output, then triage.
-
 253. **Mid-work drop, 2026-09-14, verbatim (the owner).** "the app needs
     to work even if it cant update or isnt available to the internet, and it
     needs to be automatically recoverable and revivable for the user with

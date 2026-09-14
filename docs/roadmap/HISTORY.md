@@ -26468,3 +26468,43 @@ line that carried a dash.
 # Handover
 
 **Next: [`PLAN.md`](PLAN.md)** — the scoped professional-grade plan (whiteboard, documents, backend, agent harness, performance), in ship order with measurements. Written by direct instruction; start there.
+## INBOX resolved, 2026-09-14
+
+203. **Mid-work drop, 2026-09-13 night, verbatim (the owner), AI features
+    with no model.** "and many ai exclusive features are still enabled even
+    when an ai isnt available or running...". `44ed975` put the "no model
+    connected" state where you are; the ask is the other half: every
+    AI-only control disabled, with the reason, while `/models/status` says
+    nothing is running. Inventory first: grep the ids that call the AI
+    routes and the `data-needs-model` (or equivalent) attribute that exists,
+    then one function that toggles them all from the model status.
+    Owner: orchestrator.
+    **Measured, attributed and fixed.** The inventory came first and is the
+    whole story: `AI_ONLY_CONTROLS` in `app.js` listed seven ids, and eight
+    more controls that cannot answer without a model were live with no model.
+    Four had arrived on their surfaces since the array was written
+    (`improve-retry`, `extract-commit`, `doc-ai-run`, `wb-boards-generate`),
+    Chat's own box and Send were never in it, nor was the guide's, and the
+    dashboard's digest button carried its own private copy of the check that
+    said "start Ollama" to somebody running llama.cpp. An array in one file is
+    the wrong home for a fact about a control on another surface, so the
+    reason now lives on the control: `data-needs-model="<why>"` in the markup,
+    and one `syncModelGatedControls(status)` off the `/models/status` poll
+    reads the document rather than a list. It restores rather than enables, so
+    a control with a busy state of its own (Save notes while it saves, the
+    guide's Ask for the length of a question) is not handed back mid-run by
+    the next tick. `tests/test_frontend_ids.py` holds the inventory with the
+    route each control reaches, and fails both ways: a listed control with no
+    attribute, and an attribute on a control the list does not know.
+    Measured (`scratchpad/ui-sweeps/chrome203.js`, the status route stubbed
+    both ways, 1440x900): with no model, 15 of 15 marked controls disabled and
+    carrying the reason plus "Connect a model in Settings", 0 left live
+    (before: 7 of 15). With a model, 0 disabled and 0 left holding the offline
+    tooltip. That second number was 9 on the first pass, which is a bug this
+    found in its own gate: the saved title was kept under a truthiness test,
+    so a control with no title of its own saved the gated sentence over its
+    empty original on the next poll tick and then restored it as the original.
+    Not gated, deliberately: Ask, Save, search, tags, the graph, reminders,
+    documents, and the meeting note's Save, each of which does its job without
+    a model and says so.
+

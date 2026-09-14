@@ -220,8 +220,14 @@
 }
 
 /* A control that needs the AI, while the AI isn't running. Reads as
-   unavailable rather than broken, the cursor and tooltip explain why. */
-button.ai-unavailable {
+   unavailable rather than broken, the cursor and tooltip explain why.
+   Fields as well as buttons since INBOX 203: Chat's own box and the guide's
+   are gated the same way, and a field left at full strength beside a faded
+   Send reads as though the typing is going somewhere. */
+button.ai-unavailable,
+input.ai-unavailable,
+textarea.ai-unavailable,
+select.ai-unavailable {
   opacity: 0.5;
   cursor: not-allowed;
 }

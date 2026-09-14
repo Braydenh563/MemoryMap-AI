@@ -23,7 +23,9 @@ below). Versioning is `0.x` while the app stabilises.
   a phone (206), and opens in front of the popup agent rather than behind it
   (205). Switching light and dark is one repaint rather than a dissolve at
   three speeds, and the background art is rebuilt after it rather than during
-  it (202).
+  it (202). Every control that needs a model says so and is disabled while
+  none is running, 15 of them rather than the 7 an array in one file had kept
+  up with (203).
 
 ### Added
 

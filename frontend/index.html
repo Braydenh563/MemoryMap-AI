@@ -941,7 +941,7 @@
                  ones beside it. -->
             <button id="sketch-btn" class="ghost" type="button" title="Draw a quick sketch and save it as a note" aria-label="Open the sketch pad"><i class="ph ph-palette ph-lead" aria-hidden="true"></i> Sketch</button>
             <button id="mic-note" class="ghost" type="button" title="Dictate a note (local Whisper)" aria-label="Dictate a note"><i class="ph ph-microphone ph-lead" aria-hidden="true"></i> Dictate</button>
-            <button id="improve-btn" class="ghost" type="button" title="Let the AI proofread or rewrite this before you save" aria-label="Improve writing with AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Improve</button>
+            <button id="improve-btn" data-needs-model="Proofreading needs the local AI" class="ghost" type="button" title="Let the AI proofread or rewrite this before you save" aria-label="Improve writing with AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Improve</button>
           </div>
           <!-- Files waiting to go onto this note when it saves. Reported
                directly: "when I uplaod pdfs to a note, they are in pure md
@@ -1070,7 +1070,7 @@
                   title="Stop the AI: nothing you've written is changed"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
                 <button id="draft-undo" class="ghost" type="button" disabled
                   title="Nothing to undo yet"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Undo</button>
-                <button id="draft-compose"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Draft it</button>
+                <button id="draft-compose" data-needs-model="Drafting needs the local AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Draft it</button>
               </div>
               <p id="draft-status" class="status" role="status"></p>
             </div>
@@ -1095,7 +1095,7 @@
                   placeholder="Optional, comma separated (e.g. joke, work)">
               </div>
               <div class="row draft-controls draft-actions-row">
-                <button id="draft-extract" class="ghost" type="button"
+                <button id="draft-extract" data-needs-model="Extracting notes needs the local AI" class="ghost" type="button"
                   title="Split this into one or more notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
                 <button id="draft-discard" class="ghost" type="button">Discard</button>
                 <button id="draft-save"><i class="ph ph-floppy-disk ph-lead" aria-hidden="true"></i> Save as note</button>
@@ -1863,10 +1863,10 @@
             <!-- A textarea, not an input: a three-sentence question used to
                  scroll sideways inside one line. Enter still sends; Shift+Enter
                  is a newline, which an <input> could not offer at all. -->
-            <textarea id="chat-input" rows="1" class="autogrow chat-input"
+            <textarea id="chat-input" data-needs-model="Chat is answered by the local AI" rows="1" class="autogrow chat-input"
               placeholder="Ask your notebook anything…"></textarea>
             <button id="mic-chat" class="ghost icon-only" title="Dictate your question (local Whisper)" aria-label="Dictate your question"><i class="ph ph-microphone" aria-hidden="true"></i></button>
-            <button id="chat-send">Send</button>
+            <button id="chat-send" data-needs-model="Chat is answered by the local AI">Send</button>
             <button id="chat-stop" class="ghost danger hidden" title="Stop the answer"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
             </div>
             <!-- One strip, four groups, hairlines between them.
@@ -3174,7 +3174,7 @@
                  its own ("Formatting ▾" and three icons) under this row, 
                  measured, 139px of chrome above the first line at 1440. One
                  button here, one strip that appears below only while on. -->
-            <button id="doc-ai" class="ghost small" type="button"
+            <button id="doc-ai" data-needs-model="AI editing needs the local AI" class="ghost small" type="button"
               title="Ask the AI to rewrite this document, or the text you've selected"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> AI edit</button>
             <!-- Export and delete, folded away. Same `<details>` disclosure
                  the Library's image tiles use, for the same reason: the
@@ -3213,7 +3213,7 @@
                      both are worth having. -->
                 <button id="doc-history" class="menu-item doc-dock-menu-item" type="button"
                   title="Every version this document has had, and a way back to any of them"><i class="ph ph-clock-counter-clockwise ph-lead" aria-hidden="true"></i> History</button>
-                <button id="doc-extract" class="menu-item doc-dock-menu-item" type="button"
+                <button id="doc-extract" data-needs-model="Extracting notes needs the local AI" class="menu-item doc-dock-menu-item" type="button"
                   title="Turn this document, or the text you have selected, into one or more notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
                 <button id="doc-export-md" class="menu-item doc-dock-menu-item" type="button"
                   title="Download as a .md file"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Download as .md</button>
@@ -3625,7 +3625,7 @@
           <input id="doc-ai-instruction" type="text" maxlength="500"
             placeholder="e.g. “tighten this”, “make it more formal”"
             aria-label="What should the AI do?">
-          <button id="doc-ai-run"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Suggest an edit</button>
+          <button id="doc-ai-run" data-needs-model="AI editing needs the local AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Suggest an edit</button>
           <button id="doc-ai-cancel-run" class="ghost hidden" type="button"
             title="Stop the AI: the document is untouched"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
         </div>
@@ -3688,7 +3688,7 @@
              break) so the quick path stays quick. -->
         <textarea id="reminder-magic" maxlength="1000" rows="1" class="autogrow"
           placeholder="Magic add: e.g. “Call mum tomorrow evening, high priority”"></textarea>
-        <button id="reminder-magic-add" class="ghost"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Add</button>
+        <button id="reminder-magic-add" data-needs-model="Reading a reminder from a sentence needs the local AI" class="ghost"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Add</button>
       </div>
       <p id="reminder-magic-status" class="status" role="status"></p>
       <div class="reminder-form">
@@ -4266,7 +4266,7 @@
             <details class="doc-dock-menu dock-menu dock-more" id="library-boards-more">
               <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
               <div class="doc-dock-menu-list dock-menu-list">
-                <button id="wb-boards-generate" class="doc-dock-menu-item" type="button" title="Pick some notes and let the app propose a map of them"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Map from notes…</button>
+                <button id="wb-boards-generate" data-needs-model="Proposing a map from your notes needs the local AI" class="doc-dock-menu-item" type="button" title="Pick some notes and let the app propose a map of them"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Map from notes…</button>
                 <button id="wb-boards-import" class="doc-dock-menu-item" type="button" title="Import a mind map from an OPML, FreeMind or Markdown outline"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Import outline…</button>
               </div>
             </details>
@@ -5125,7 +5125,7 @@
             </div>
             <div class="wb-menu-section hidden" data-wb-ctx="more-notes">
               <span class="wb-panel-group-label">Notes</span>
-              <button type="button" class="wb-menu-item" id="wb-extract-notes" title="Turn the selected notes' content into one or more new notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i><span>Extract notes</span></button>
+              <button type="button" class="wb-menu-item" id="wb-extract-notes" data-needs-model="Extracting notes needs the local AI" title="Turn the selected notes' content into one or more new notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i><span>Extract notes</span></button>
             </div>
             <div class="wb-menu-section hidden" data-wb-ctx="more-mindmap">
               <span class="wb-panel-group-label">Arrange as mind map</span>
@@ -6228,7 +6228,7 @@
       <div id="extract-notes-list" class="extract-notes-list"></div>
       <div id="extract-links-list" class="extract-links-list"></div>
       <div class="row">
-        <button id="extract-commit"><i class="ph ph-floppy-disk ph-lead" aria-hidden="true"></i> Save notes</button>
+        <button id="extract-commit" data-needs-model="Extracting notes needs the local AI"><i class="ph ph-floppy-disk ph-lead" aria-hidden="true"></i> Save notes</button>
         <button id="extract-cancel" class="ghost" type="button">Cancel</button>
       </div>
     </div>
@@ -8741,8 +8741,8 @@
               </div>
               <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite" aria-label="Help chat"></div>
               <form id="help-chat-form" class="row help-chat-form">
-                <input type="text" id="help-chat-input" placeholder="e.g. How do I turn off web search?" maxlength="1000" autocomplete="off" aria-label="Ask the guide a question">
-                <button type="submit" id="help-chat-send" class="primary small">Ask</button>
+                <input type="text" id="help-chat-input" data-needs-model="The guide answers with your utility model" placeholder="e.g. How do I turn off web search?" maxlength="1000" autocomplete="off" aria-label="Ask the guide a question">
+                <button type="submit" id="help-chat-send" data-needs-model="The guide answers with your utility model" class="primary small">Ask</button>
               </form>
             </div>
           </section>
@@ -9181,7 +9181,7 @@
       <p id="improve-status" class="status" role="status"></p>
       <div class="row">
         <button id="improve-apply">Use the suggestion</button>
-        <button id="improve-retry" class="ghost small">Try again</button>
+        <button id="improve-retry" data-needs-model="Proofreading needs the local AI" class="ghost small">Try again</button>
       </div>
     </div>
   </div>

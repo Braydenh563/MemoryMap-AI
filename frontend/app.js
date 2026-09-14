@@ -7632,10 +7632,11 @@ function selectionMenuItems() {
   );
 
   // AI-only, and disabled rather than hidden when the model is off, the same
-  // convention AI_ONLY_CONTROLS applies to every other AI action, so the
+  // convention `data-needs-model` applies to every other AI action, so the
   // capability stays discoverable and the reason is on the item itself.
-  // (`AI_ONLY_CONTROLS` itself keys off element ids, and these items are built
-  // fresh on every open, so they carry the state directly instead.)
+  // (That attribute is read from the markup by `syncModelGatedControls`, and
+  // these items are built fresh on every open, so they carry the state
+  // directly instead.)
   items.push(
     makeMenuItem(
       "ph:scissors Extract notes…",
@@ -31918,7 +31919,7 @@ async function refreshModelStatus() {
     modelStatus = null; // locked or unreachable: pill shows the worst case
   }
   renderAiPill();
-  syncAiOnlyControls();
+  syncModelGatedControls();
   // The status bar's job slot rides this loop rather than starting one of its
   // own, so it inherits the whole cadence: one second while something is
   // running, thirty when idle, two minutes behind a hidden tab. Idle, `/tasks`
@@ -31956,26 +31957,32 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // Controls that can only do their job with a chat model running. Left
-// enabled, they look available and only fail once you've committed to them, 
+// enabled, they look available and only fail once you've committed to them,
 // you type a note, press AI Improve, wait, and get an apology. Disabling them
 // with a reason attached says the same thing before you spend the effort.
 //
-// Deliberately NOT in here: Save, Ask, search, tags, categories, the graph,
-// reminders, documents. Those work fully without any AI and must never look
-// diminished by its absence, the notebook is the point, the AI is a helper.
-const AI_ONLY_CONTROLS = [
-  ["improve-btn", "Proofreading needs the local AI"],
-  ["reminder-magic-add", "Reading a reminder from a sentence needs the local AI"],
-  ["draft-compose", "Drafting needs the local AI"],
-  ["doc-ai", "AI editing needs the local AI"],
-  // Extract notes (BACKLOG.md §62): without the AI it can only hand back
-  // the selection as one plain, unlinked note, a materially weaker result
-  // than what the button promises, so it's disabled here rather than left
-  // to explain that after the fact, same as Draft and AI edit above.
-  ["draft-extract", "Extracting notes needs the local AI"],
-  ["doc-extract", "Extracting notes needs the local AI"],
-  ["wb-extract-notes", "Extracting notes needs the local AI"],
-];
+//: **The list lives in the markup, not here** (INBOX 203, the owner: "many ai
+//: exclusive features are still enabled even when an ai isnt available or
+//: running"). It was seven ids in an array in this file, and the array was the
+//: thing that fell behind: a control added to a surface months later has no
+//: reason to know this file exists, so four that arrived since
+//: (`improve-retry`, `extract-commit`, `doc-ai-run`, `wb-boards-generate`)
+//: stayed live with no model, as did Chat's own field and Send and the
+//: guide's.
+//:
+//: So the reason is an attribute on the control, `data-needs-model="<why>"`,
+//: and this function asks the document rather than carrying a copy of it.
+//: `tests/test_frontend_ids.py` holds the inventory: every control whose
+//: handler reaches an AI route is listed there and must carry the attribute,
+//: which is the half a grep cannot enforce on its own.
+//:
+//: Deliberately NOT marked: Save, Ask, search, tags, categories, the graph,
+//: reminders, documents, and the meeting note's Save. Those work fully
+//: without any AI and must never look diminished by its absence, the notebook
+//: is the point and the AI is a helper; Ask in particular falls back to the
+//: search results beside it and says so, and the meeting save summarises when
+//: it can and files the note either way (`saveMeetingNote`), so disabling
+//: either would take away the working half.
 
 //: **The one sentence a disabled AI control says** (CHAT_PLAN.md decision 11:
 //: "every AI control is visible, disabled, with a tooltip 'Connect a model in
@@ -31991,19 +31998,44 @@ function aiIsOff() {
   return modelStatus ? modelStatus.ollama_running === false : false;
 }
 
-function syncAiOnlyControls() {
-  const off = aiIsOff();
-  for (const [id, reason] of AI_ONLY_CONTROLS) {
-    const button = $(id);
-    if (!button) continue;
-    button.disabled = off;
-    button.classList.toggle("ai-unavailable", off);
+//: **Why this restores rather than enables.** The status poll runs this every
+//: tick, one second while a job is going, and some of the gated controls have a
+//: busy state of their own: Save notes is disabled until the extract has notes
+//: to save and again while it saves, the guide's Ask is disabled for the length
+//: of a question. A plain `disabled = off` would hand all of those back mid-run
+//: on the next tick. So the gate records that it was the one that closed a
+//: control and reopens only what it closed.
+function syncModelGatedControls(status = modelStatus) {
+  const off = status ? status.ollama_running === false : false;
+  for (const control of document.querySelectorAll("[data-needs-model]")) {
+    const reason = control.dataset.needsModel;
     if (off) {
-      if (!button.dataset.enabledTitle) button.dataset.enabledTitle = button.title || "";
-      button.title = `${reason}. ${AI_OFFLINE_HINT}.`;
-    } else if (button.dataset.enabledTitle !== undefined) {
-      button.title = button.dataset.enabledTitle;
+      if (!control.disabled) {
+        control.dataset.modelGated = "1";
+        control.disabled = true;
+      }
+      //: `=== undefined`, not a truthiness test, and the saved copy is dropped
+      //: once it has been put back. A control whose own title is empty saves
+      //: "" here, and `!""` is true, so on the next tick of the poll (one
+      //: second while a job runs) the gated sentence was saved over the empty
+      //: original and then restored as if it were the original: nine of the
+      //: fifteen kept "Connect a model in Settings" as their tooltip after the
+      //: model came back. Measured: 9 of 15 wrong, now 0.
+      if (control.dataset.enabledTitle === undefined) {
+        control.dataset.enabledTitle = control.title || "";
+      }
+      control.title = `${reason}. ${AI_OFFLINE_HINT}.`;
+    } else {
+      if (control.dataset.modelGated) {
+        control.disabled = false;
+        delete control.dataset.modelGated;
+      }
+      if (control.dataset.enabledTitle !== undefined) {
+        control.title = control.dataset.enabledTitle;
+        delete control.dataset.enabledTitle;
+      }
     }
+    control.classList.toggle("ai-unavailable", off);
   }
   //: The link half of decision 11. A tooltip on a disabled control is read by
   //: somebody who already suspects the answer; a person who does not know why

@@ -110,11 +110,18 @@ def test_related_items_are_not_written_into_the_box_that_clears_them():
 
 def test_ask_is_never_disabled_when_the_model_is_off():
     """Decision 11. Ask answers from search alone, so greying it out would hide
-    the one thing that still works."""
-    start = APP.index("const AI_ONLY_CONTROLS = [")
-    table = APP[start : APP.index("\n];", start)]
-    for never in ('"ask-btn"', '"question"', '"stop-btn"'):
-        assert never not in table, never
+    the one thing that still works.
+
+    The gate reads `data-needs-model` off the markup now (INBOX 203), so this
+    is a claim about the markup: Ask's own three controls carry no such
+    attribute, and nothing marks them from script either.
+    """
+    for never in ("ask-btn", "question", "stop-btn"):
+        block = re.search(r'\sid="%s"[^>]*>' % never, MARKUP)
+        assert block, never
+        assert "data-needs-model" not in block.group(0), never
+    assert "dataset.needsModel =" not in APP
+    assert "setAttribute(\"data-needs-model\"" not in APP
 
 
 # --- the popup agent (CHAT_PLAN.md decision 9) --------------------------------
@@ -185,7 +192,7 @@ def test_the_toggle_never_offers_to_use_nothing():
 def test_every_ai_only_control_names_settings_not_one_provider():
     """It said "start Ollama to use this", which is the wrong instruction for
     the two other providers this app supports."""
-    start = APP.index("function syncAiOnlyControls(")
+    start = APP.index("function syncModelGatedControls(")
     body = APP[start : APP.index("\n}\n", start)]
     assert "AI_OFFLINE_HINT" in body
     assert "start Ollama to use this" not in APP

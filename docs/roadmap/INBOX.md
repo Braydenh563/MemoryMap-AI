@@ -124,16 +124,6 @@ measured or built in earlier commits and is marked there.
     corners, on the title's row, closes on click). The persona half stays
     open with 200.
 
-203. **Mid-work drop, 2026-09-13 night, verbatim (the owner), AI features
-    with no model.** "and many ai exclusive features are still enabled even
-    when an ai isnt available or running...". `44ed975` put the "no model
-    connected" state where you are; the ask is the other half: every
-    AI-only control disabled, with the reason, while `/models/status` says
-    nothing is running. Inventory first: grep the ids that call the AI
-    routes and the `data-needs-model` (or equivalent) attribute that exists,
-    then one function that toggles them all from the model status.
-    Owner: orchestrator.
-
 201. **Mid-work drop, 2026-09-13 night, verbatim (the owner), mind map core
     nodes.** "I want more and better ways to differentiate core idea nodes
     in the mindmap". Goes with 200's mind map sweep: a core node today is

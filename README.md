@@ -16,29 +16,26 @@
 
 ---
 
-Type a thought. A local AI files it, tags it and links it to what you
-already wrote. Later, ask a question in plain English and get an answer
-together with the notes it came from, so you can check it.
+Type a thought. A local model files it, tags it and links it to what you
+already wrote. Ask a question later and get an answer beside the notes it
+came from, sentence by sentence, so you can check it. Everything runs on
+your own computer: no account, no cloud, no telemetry. Your notes are one
+SQLite file in a folder you control, and the whole app works with no model
+running at all.
 
 ```
 capture a thought
-  -> the AI files it
+  -> Atlas files it
   -> ask a question
   -> an answer, with the notes behind it
 ```
-
-The AI files, you decide: everything it does can be seen, edited and
-undone. Everything runs on your own computer. No account, no cloud, no
-telemetry.
-Your notes are a SQLite file in a folder you control, and the app is fully
-usable with no AI model running at all.
 
 <p align="center">
   <img src="docs/screenshots/dashboard.png" alt="The MemoryMap AI dashboard: capture streak, notebook statistics, a constellation of your notes, pinned notes and recent activity" width="850">
 </p>
 
 <details>
-<summary><b>Twelve more screenshots</b>: Notes, Chat, Graph, Library, boards, concept maps, Documents, Timeline, Reminders, the features browser, the command palette and Appearance</summary>
+<summary><b>Thirteen more screenshots</b>: Notes, Chat, Graph, Library, the OCR workspace, boards, concept maps, Documents, Timeline, Reminders, the features browser, the command palette and Appearance</summary>
 <br>
 
 <p align="center">
@@ -62,13 +59,18 @@ usable with no AI model running at all.
 </p>
 
 <p align="center">
+  <img src="docs/screenshots/ocr.png" alt="The OCR workspace: a scanned page of meeting notes on the left, every region Tesseract read on the right with its confidence, and Save as note below" width="850">
+  <br><sub><b>OCR workspace</b>: a scanned page read locally, region by region, checkable and editable before it becomes a note</sub>
+</p>
+
+<p align="center">
   <img src="docs/screenshots/whiteboard.png" alt="A whiteboard board: coloured cards in three columns under a banner, with the tool rail along the bottom" width="850">
   <br><sub><b>Boards</b>: cards, drawings and images you arrange yourself</sub>
 </p>
 
 <p align="center">
   <img src="docs/screenshots/map.png" alt="A concept map: a central topic with coloured branches and leaves, and the keyboard hints for growing it" width="850">
-  <br><sub><b>Concept maps</b>: a branch with Tab, one beside it with Enter, tidied on demand</sub>
+  <br><sub><b>Mind maps</b>: a branch with Tab, one beside it with Enter, core ideas told apart by shape, fill and size</sub>
 </p>
 
 <p align="center">
@@ -245,7 +247,8 @@ vulnerability, see [SECURITY.md](SECURITY.md).
 ## Developing
 
 ```
-pytest                          # 3,000+ tests, about eight minutes, fully offline
+pytest                          # 3,600+ tests, ten to fifteen minutes, fully offline
+bash scripts/gate.sh --changed  # the routine local gate: lints, node --check, ruff, the tests that name your files
 ruff check .                    # what CI lints with
 node --check frontend/app.js    # the frontend has no build step
 ```
@@ -275,11 +278,12 @@ Python 3.11 to 3.13 on every push.
 
 ## Status
 
-Version 0.3.0. The core is built and stable: capture, chat, the graph,
-documents, the whiteboard and mind maps, private notes, themes, desktop
-packaging for Windows and Linux. Current work is a modernisation of the
-whole interface and a redesign of the graph, documents, timeline and chat
-surfaces, tracked in [docs/ROADMAP.md](docs/ROADMAP.md) and recorded in
+Version 0.3.0. The core is built and stable: capture, chat with checkable
+answers, the graph, documents, boards and mind maps, the OCR workspace,
+private notes, themes, desktop packaging for Windows and Linux. The
+interface was rebuilt on one design system in this release, measured
+rather than eyeballed, and the in-app guide has a name. What comes next,
+in order, is in [docs/ROADMAP.md](docs/ROADMAP.md); what changed is in
 [CHANGELOG.md](CHANGELOG.md).
 
 ## Licence

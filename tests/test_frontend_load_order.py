@@ -253,20 +253,42 @@ def test_lazy_bundles_do_not_wait_for_domcontentloaded():
         )
 
 
+def _function_body(source: str, name: str) -> str:
+    match = re.search(r"^(?:async )?function " + re.escape(name) + r"\(", source, re.M)
+    if not match:
+        return ""
+    depth = 0
+    for index in range(match.start(), len(source)):
+        if source[index] == "{":
+            depth += 1
+        elif source[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[match.start() : index + 1]
+    return source[match.start() :]
+
+
 def test_app_js_does_not_read_a_later_scripts_constant_at_load():
     """`const` declarations are not hoisted across script elements either.
-    settings.js declares `AI_NAME`; a top-level statement in app.js that read
-    it threw `ReferenceError: AI_NAME is not defined` at boot and the app
-    never drew, and the walk above cannot see it because it only follows
-    function calls. Any read counts, since a function body runs at load the
-    moment something at load calls it. Read the name through `aiNameNow()`."""
+    settings.js declares `AI_NAME`; `renderPlanToggle()`, called from app.js's
+    own top-level code, read it, threw `ReferenceError: AI_NAME is not
+    defined` at boot, and the app never drew. The walk above only follows
+    function *definitions*, so it could not see a constant. This looks at
+    app.js's top-level lines and, one level down, the bodies of the functions
+    those lines call as statements. A read inside a function that only runs
+    later (a click handler, a renderer) is fine, and `typeof X` is the guard."""
     app = (FRONTEND / "app.js").read_text(encoding="utf-8")
-    later = set()
-    for name in _script_order()[_script_order().index("app.js") + 1 :]:
+    order = _script_order()
+    later: set[str] = set()
+    for name in order[order.index("app.js") + 1 :]:
         later.update(re.findall(r"^const ([A-Z][A-Z0-9_]+) =", (FRONTEND / name).read_text(encoding="utf-8"), re.M))
+    top = _top_level(app)
+    at_load = top
+    for function in {m.group(1) for m in STATEMENT_CALL.finditer(top)} - NOT_CALLS:
+        at_load += "\n" + _function_body(app, function)
     hits = [
         line.strip()[:80]
-        for line in app.split("\n")
+        for line in at_load.split("\n")
         for name in later
         if re.search(r"(?<![\w$.])" + re.escape(name) + r"(?![\w$])", line.split("//")[0])
         and "typeof " + name not in line

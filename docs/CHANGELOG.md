@@ -343,6 +343,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Local OCR pins Tesseract to one OpenMP thread unless `OMP_THREAD_LIMIT`
+  is already set: measured 42 s against 0.28 s for one line of text in a
+  four-core container, the thread oversubscription Tesseract's own docs
+  warn about, which on a laptop beside a running model made every image
+  read look hung.
 - The generative background art did not appear after a fresh login:
   `startBgArt` returned early when p5 was not yet loaded, before its own
   on-demand branch. The early return is gone and the callback re-enters

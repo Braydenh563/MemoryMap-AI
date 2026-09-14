@@ -1752,6 +1752,20 @@ summary > .ph-lead,
    groups, and read as one until there was air between them. Reported with a
    screenshot: "there's no gap between the ask the guide box and help
    dropdowns panel". The group gap every other Settings section uses. */
+/* **A chat is a column, not a wall** (INBOX 204: "modernise and redesign /
+   improve the ui and ux for the help ai"). The sheet recipe is deliberately
+   full width at every width, which is right for a list of rows and wrong for a
+   transcript: opened at 1440 the guide's messages ran 1356px wide, around 200
+   characters a line, against the 60 to 80 every other reading surface in this
+   app holds itself to. The cap is on the chat inside the sheet, not on the
+   sheet, so nothing else built from that recipe moves. Measured: 1356px, now
+   704px, centred. */
+[data-sheet="guide"] .help-chat-group {
+  max-width: 44rem;
+  margin-inline: auto;
+  width: 100%;
+}
+
 .help-accordion + .help-chat-group {
   margin-top: var(--space-6);
 }

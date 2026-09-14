@@ -2,7 +2,7 @@
 
 Branch `agent/wip-chrome`, worktree cut from `claude/epic-ramanujan-8xocc0`
 at `ea7b370` plus `0718e1d` (INBOX 207 and 208 filed). Port 8801, data dir
-`/tmp/mm-chrome`. Sweeps: `scratchpad/ui-sweeps/chrome203.js`, `chrome208.js`, `chrome205starters.js`, `chromehelp.js` (the header
+`/tmp/mm-chrome`. Sweeps: `scratchpad/ui-sweeps/chrome203.js`, `chrome208.js`, `chrome205starters.js`, `chrome204guide.js`, `chromehelp.js` (the header
 cluster, the status bar slots, the help popover's first painted frame and
 cap, the palette popover's stacking, the theme switch, the model-gated
 inventory) and `chrome207.js` (both slots open their panels, 390 and the
@@ -19,23 +19,22 @@ More sheet).
 - INBOX 202, the theme switch: `2340728`. 24 transitions to 0, the canvas
   rebuilds off the click.
 - INBOX 203, every AI-only control gated by `data-needs-model` off one
-  `syncModelGatedControls`: this commit. 7 of 15 gated before, 15 of 15 now;
+  `syncModelGatedControls`: `4edd29d`. 7 of 15 gated before, 15 of 15 now;
   0 left holding the offline tooltip once a model is back.
-
 - INBOX 208, the popup agent's foot row: `3d37443`. 75px and 124px tall,
   now 51px and 61px, one line per caption in all three states.
-- INBOX 205 second half, the starters as a set: this commit. 0 of 14 chips
+- INBOX 205 second half, the starters as a set: `2e001bb`. 0 of 14 chips
   with an icon, now 14 of 14 over 7 glyphs, labels left-aligned at one x,
   6 of 6 families ruled, 222px of scroll at 390 now 149px.
+- INBOX 204 second half, the guide is Atlas: this commit. One constant each
+  side, 0 strays on the surface, a `guide` topic so it can say what it is,
+  an empty state that retires on the first turn, transcript 1356px to 670px.
 
 ## Next, in order
 
-1. INBOX 204 second half: the Guide's persona (a fitting name, taken as a
-   decision), its empty-state self-description, `/help/ask` context with the
-   tab's help lines, README features and shortcuts.
-2. INBOX 214: the Notes/Boards/Documents/Reminders tab buttons as one
+1. INBOX 214: the Notes/Boards/Documents/Reminders tab buttons as one
    segmented control, `.dock` grammar, measured.
-3. INBOX 215: "Save as chat" in the palette's foot menu, posting the popup
+2. INBOX 215: "Save as chat" in the palette's foot menu, posting the popup
    agent's transcript to `/conversations` and opening it in the Chat tab.
 
 ## Not verified

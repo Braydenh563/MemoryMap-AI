@@ -3326,9 +3326,18 @@ function helpChatIsNearBottom() {
   return list.scrollHeight - list.scrollTop - list.clientHeight < 40;
 }
 
+//: The guide's name, read from here everywhere the interface says it
+//: (CHAT_PLAN.md decision 15). `help_chat.GUIDE_NAME` is the same word on the
+//: server, where the model is told it.
+const GUIDE_NAME = "Atlas";
+
 function helpChatAppendRow(row) {
   const list = $("help-chat-messages");
   if (!list || !row) return;
+  //: The self-description stands down as soon as there is a transcript: it
+  //: answers "what is this" and the answer above it now does that better.
+  const empty = $("help-chat-empty");
+  if (empty) empty.hidden = true;
   const stick = helpChatIsNearBottom();
   list.appendChild(row);
   if (stick) list.scrollTop = list.scrollHeight;
@@ -3480,7 +3489,16 @@ $("help-chat-form")?.addEventListener("submit", (event) => {
 $("help-chat-clear")?.addEventListener("click", () => {
   helpChatHistory = [];
   const list = $("help-chat-messages");
-  if (list) list.replaceChildren();
+  //: Everything except the self-description, which is what an empty chat is
+  //: supposed to show: `replaceChildren()` took it with the transcript and
+  //: left a blank rectangle under the field.
+  if (list) {
+    for (const child of [...list.children]) {
+      if (child.id !== "help-chat-empty") child.remove();
+    }
+  }
+  const empty = $("help-chat-empty");
+  if (empty) empty.hidden = false;
   $("help-chat-input")?.focus();
 });
 
@@ -3513,7 +3531,7 @@ function openHelpChat() {
   }
   helpChatHome = { parent: group.parentNode, next: group.nextSibling };
   const close = openSheet({
-    label: "Guide",
+    label: GUIDE_NAME,
     name: "guide",
     build: (card) => {
       card.appendChild(group);

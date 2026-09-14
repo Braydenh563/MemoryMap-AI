@@ -32385,9 +32385,12 @@ function renderStatusBar() {
     glyph.className = "ph ph-compass";
     glyph.setAttribute("aria-hidden", "true");
     const word = document.createElement("span");
-    word.textContent = "Guide";
+    //: The name, from the one place that holds it (settings.js `GUIDE_NAME`,
+    //: CHAT_PLAN decision 15), with the word it replaced as the fallback for
+    //: the moment before that module has run.
+    word.textContent = typeof GUIDE_NAME === "string" ? GUIDE_NAME : "Guide";
     guide.append(glyph, word);
-    guide.title = "Ask the guide how this app works, from any tab";
+    guide.title = `Ask ${word.textContent} how this app works, from any tab`;
   }
 }
 

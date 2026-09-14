@@ -74,24 +74,6 @@ measured or built in earlier commits and is marked there.
 
 ## Open items
 
-204. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the Guide
-    (screenshot: the Guide sheet, "Ask the guide" with a '?' and New chat,
-    "Quick app help from your utility model, not your notes", a "hey" bubble
-    and the no-model reply, the Ask field).** "can you add an exit or x
-    button to the top right of the guide ai panel??" and, a minute later:
-    "and also modernise and redesign/improve the ui and ux for the help ai.
-    give the help ai a name fitting for the application like a persona and
-    improve its capabillity and knowledge". Two halves: the X (every sheet
-    from the `openSheet` recipe gets one, top right, so the fix is one
-    place); the persona, which is a decision the chat agent took as "Guide"
-    (CHAT_PLAN decision 14) and the owner now asks to be a fitting name and
-    a persona with more knowledge. Owner: orchestrator, with the 200 sweep.
-    **The X: done.** Every sheet from the `openSheet` recipe carries a
-    `.sheet-head` with the title and an icon-only close at the top right
-    (measured on the Guide: 28x28, 25px in from the card's top and right
-    corners, on the title's row, closes on click). The persona half stays
-    open with 200.
-
 201. **Mid-work drop, 2026-09-13 night, verbatim (the owner), mind map core
     nodes.** "I want more and better ways to differentiate core idea nodes
     in the mindmap". Goes with 200's mind map sweep: a core node today is

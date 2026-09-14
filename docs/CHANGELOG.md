@@ -29,7 +29,9 @@ below). Versioning is `0.x` while the app stabilises.
   state rather than two or three lines of wrapped captions, 75px and 124px
   before, 51px and 61px now (208). Its starters read as a set: a glyph per
   verb family on all 14, labels left-aligned behind them, each family ruled
-  off, and one line of intro rather than four (205).
+  off, and one line of intro rather than four (205). The in-app guide is called
+  Atlas, can say what it is and what it cannot see, shows that before the first
+  question, and reads as a column rather than a 1356px line (204).
 
 ### Added
 

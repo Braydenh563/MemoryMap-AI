@@ -6285,7 +6285,7 @@
                opens, and the chat itself moves into that sheet rather than
                being built a second time. -->
           <button id="settings-guide-btn" class="ghost small icon-only" type="button"
-            title="Ask the guide how this app works" aria-label="Ask the guide how this app works"><i class="ph ph-question" aria-hidden="true"></i></button>
+            title="Ask Atlas how this app works" aria-label="Ask Atlas how this app works"><i class="ph ph-question" aria-hidden="true"></i></button>
           <span class="row status-nav" role="group" aria-label="Move between pages" id="settings-modal-nav" data-status-slot="nav">
             <button id="settings-nav-back" class="ghost small icon-only" type="button" disabled title="Nothing to go back to" aria-label="Nothing to go back to"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
             <button id="settings-nav-forward" class="ghost small icon-only" type="button" disabled title="Nothing to go forward to" aria-label="Nothing to go forward to"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
@@ -8738,7 +8738,7 @@
                      under is hierarchy upside down, and nothing in the app
                      had ever styled it. -->
                 <div class="row help-head">
-                  <h4 class="flush setting-subhead"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Ask the guide</h4>
+                  <h4 class="flush setting-subhead"><i class="ph ph-compass ph-lead" aria-hidden="true"></i> Ask Atlas</h4>
                   <button type="button" class="icon-only ghost small graph-help-toggle"
                     data-help-for="help-chat-help" aria-controls="help-chat-help" aria-expanded="false"
                     title="About this chat" aria-label="About this chat">
@@ -8749,17 +8749,32 @@
                   <i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> New chat
                 </button>
               </div>
-              <p class="muted">Quick app help from your utility model, not your notes.</p>
+              <p class="muted">Atlas explains the app, from your utility model, never from your notes.</p>
               <div class="help-body hidden" id="help-chat-help" role="dialog" aria-label="About this chat">
                 <p>
-                  Quick "how do I…" answers about MemoryMap itself, from your
-                  utility model, not your notes, and nothing here is saved.
+                  Atlas is named for a book of maps: it is the reference you
+                  open to find your way around this app. Quick "how do I…"
+                  answers about MemoryMap itself, from your utility model, not
+                  your notes, and nothing here is saved.
                 </p>
               </div>
-              <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite" aria-label="Help chat"></div>
+              <!-- **Atlas says what it is before it is asked** (INBOX 204, the owner:
+                   "improve its capabillity and knowledge"). An empty log under a
+                   field is a chat that has to be guessed at: what it knows, what
+                   it will refuse, whether what you type is kept. It is markup
+                   rather than script because it is what is true before anything
+                   has happened, and `renderHelpChatMessage` hides it on the first
+                   turn and `#help-chat-clear` brings it back. -->
+              <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite" aria-label="Help chat">
+                <p id="help-chat-empty" class="muted help-chat-empty">
+                  Ask where a feature lives, what a setting does, or which tab
+                  you want. Atlas answers from the app's own help, says so when
+                  it is not sure, and cannot read your notes or your documents.
+                </p>
+              </div>
               <form id="help-chat-form" class="row help-chat-form">
-                <input type="text" id="help-chat-input" data-needs-model="The guide answers with your utility model" placeholder="e.g. How do I turn off web search?" maxlength="1000" autocomplete="off" aria-label="Ask the guide a question">
-                <button type="submit" id="help-chat-send" data-needs-model="The guide answers with your utility model" class="primary small">Ask</button>
+                <input type="text" id="help-chat-input" data-needs-model="Atlas answers with your utility model" placeholder="e.g. How do I turn off web search?" maxlength="1000" autocomplete="off" aria-label="Ask Atlas a question">
+                <button type="submit" id="help-chat-send" data-needs-model="Atlas answers with your utility model" class="primary small">Ask</button>
               </form>
             </div>
           </section>

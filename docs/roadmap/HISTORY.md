@@ -26586,3 +26586,56 @@ line that carried a dash.
     box with the caret after it, and using one adds the Recent group with its
     clock.
 
+204. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the Guide
+    (screenshot: the Guide sheet, "Ask the guide" with a '?' and New chat,
+    "Quick app help from your utility model, not your notes", a "hey" bubble
+    and the no-model reply, the Ask field).** "can you add an exit or x
+    button to the top right of the guide ai panel??" and, a minute later:
+    "and also modernise and redesign/improve the ui and ux for the help ai.
+    give the help ai a name fitting for the application like a persona and
+    improve its capabillity and knowledge". Two halves: the X (every sheet
+    from the `openSheet` recipe gets one, top right, so the fix is one
+    place); the persona, which is a decision the chat agent took as "Guide"
+    (CHAT_PLAN decision 14) and the owner now asks to be a fitting name and
+    a persona with more knowledge. Owner: orchestrator, with the 200 sweep.
+    **The X: done.** Every sheet from the `openSheet` recipe carries a
+    `.sheet-head` with the title and an icon-only close at the top right
+    (measured on the Guide: 28x28, 25px in from the card's top and right
+    corners, on the title's row, closes on click). The persona half stays
+    open with 200.
+    **The persona: decided, taken and measured.** The name is Atlas
+    (CHAT_PLAN.md decision 15, which supersedes decision 13's naming half: the
+    owner asked for a fitting name twice and "Guide" was a label, not a name).
+    An atlas is a book of maps, the thing you open to find your way around a
+    place you are already standing in, which is what this chat is for an app
+    called MemoryMap, and the status bar already drew it with a compass. It
+    keeps what decision 13 was actually protecting: a reference work claims no
+    personality, does not pretend to know the reader, and does not imply it has
+    read the notebook it cannot see. The name lives in two constants,
+    `help_chat.GUIDE_NAME` and `GUIDE_NAME` in settings.js, and a test asserts
+    the word in the model's prompt is the word on the screen.
+    Knowledge and capability, the other half of the ask: the guide could not
+    say what it was. "Who are you?" and "what can you do?" carry none of the
+    feature keywords, nothing matched, and the prompt tells the model to say it
+    is not sure when it has no reference notes, so the first question anybody
+    asks a chat was answered "I'm not sure". There is a `guide` topic now,
+    holding the three facts that make it useful (the utility model it runs on,
+    that it cannot see the notebook, that nothing is kept), and the system
+    prompt carries the persona and this app's copy rules rather than only its
+    refusals. The empty chat says the same thing in the interface: a
+    description under the field before the first turn, retired by the first
+    message and brought back by New chat.
+    Measured (`scratchpad/ui-sweeps/chrome204guide.js`, 1440x900 and 390x844):
+    the status slot reads "Atlas" with "Ask Atlas how this app works, from any
+    tab"; the sheet's title, the pane's subhead and every `title`,
+    `aria-label` and placeholder inside the chat agree, 0 strays matching
+    "guide" left on the surface; the description shows before the first turn,
+    is hidden after a turn with 2 rows on screen, and is back with 0 rows after
+    New chat. And the transcript is a column now rather than a wall: the sheet
+    recipe is full width by decision, which gave the guide 1356px lines at
+    1440, so the chat inside it is capped and centred, 1356px to 670px, with
+    nothing else built from that recipe touched.
+    `/help/ask` already carried the tab and the tab's own help copy
+    (`helpChatOnScreenHelp`, `TAB_TOPICS`, `MAX_CONTEXT_CHARS`), so that part
+    of the brief was checked rather than rebuilt.
+

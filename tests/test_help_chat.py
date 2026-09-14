@@ -242,3 +242,73 @@ def test_no_tab_behaves_exactly_as_before(ai_client, fake_ollama):
     assert help_chat.topics_for("how do I set a reminder?") == help_chat._matching_topics(
         "how do I set a reminder?"
     )
+
+
+# --- INBOX 204: the guide has a name, and knows what it is -------------------
+
+
+def test_the_guide_is_named_once_and_the_interface_agrees(ai_client, fake_ollama):
+    """CHAT_PLAN decision 15. The owner asked for "a name fitting for the
+    application like a persona"; a persona whose name is typed out in nine
+    places is a persona that gets renamed in eight of them.
+
+    So the server holds one constant, the frontend holds one constant, and this
+    asserts that the word in the model's prompt is the word on the screen.
+    """
+    from pathlib import Path
+
+    frontend = Path(__file__).resolve().parents[1] / "frontend"
+    settings_js = (frontend / "settings.js").read_text(encoding="utf-8")
+    index = (frontend / "index.html").read_text(encoding="utf-8")
+
+    assert help_chat.GUIDE_NAME == "Atlas"
+    assert f'const GUIDE_NAME = "{help_chat.GUIDE_NAME}"' in settings_js
+    #: The sheet's own title comes from that constant rather than a literal.
+    assert "label: GUIDE_NAME," in settings_js
+    #: And the one surface that is markup says the same word.
+    assert f"Ask {help_chat.GUIDE_NAME}</h4>" in index
+    #: The model is told who it is in the first system message, not in a
+    #: reference note that a question may or may not pull in.
+    assert help_chat.SYSTEM_PROMPT.startswith(f"You are {help_chat.GUIDE_NAME},")
+    assert help_chat.GUIDE_NAME in help_chat.OFFLINE_MESSAGE
+
+
+def test_the_guide_can_answer_what_it_is():
+    """It could not. "Who are you?" and "what can you do?" carry none of the
+    feature keywords, so no topic matched, and the prompt tells the model to
+    say it is not sure when it has no reference notes: the guide answered "I'm
+    not sure" to the first question anybody asks a chat.
+    """
+    for question in ("who are you?", "what can you do?", "what is Atlas?"):
+        ids = [topic["id"] for topic in help_chat.topics_for(question)]
+        assert "guide" in ids, question
+    body = next(t for t in help_chat.HELP_TOPICS if t["id"] == "guide")["body"]
+    #: The three facts that make it useful rather than just present: the model
+    #: it uses, what it cannot see, and that nothing is kept.
+    assert "utility model" in body
+    assert "cannot read your notes" in body
+    assert "nothing said to it is saved" in body
+
+
+def test_the_empty_chat_says_what_it_is_and_the_first_turn_retires_it():
+    """An empty log under a field is a chat that has to be guessed at. The
+    description is markup (it is true before anything has happened) and the
+    two places that change the transcript are the two that have to know about
+    it: the first appended row hides it, "New chat" brings it back.
+    """
+    from pathlib import Path
+
+    frontend = Path(__file__).resolve().parents[1] / "frontend"
+    index = (frontend / "index.html").read_text(encoding="utf-8")
+    settings_js = (frontend / "settings.js").read_text(encoding="utf-8")
+
+    assert 'id="help-chat-empty"' in index
+    assert "cannot read your notes or your documents" in index
+    start = settings_js.index("function helpChatAppendRow(")
+    assert 'empty.hidden = true' in settings_js[start : settings_js.index("\n}\n", start)]
+    start = settings_js.index('$("help-chat-clear")?.addEventListener')
+    clear = settings_js[start : settings_js.index("\n});", start)]
+    #: `replaceChildren()` here took the description away with the transcript
+    #: and left a blank rectangle under the field.
+    assert "list.replaceChildren()" not in clear
+    assert 'empty.hidden = false' in clear

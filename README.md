@@ -187,8 +187,9 @@ duplicates on a schedule you set. It never deletes anything.
 
 Also: a command palette (`Ctrl`/`Cmd`+`K`), read-aloud, opt-in web search,
 themes over several colour palettes, interface zoom, daily local backups,
-and an in-app guide under Settings that answers "how do I" questions from
-the app's own documentation without ever reading your notes.
+and Atlas, an in-app guide reachable from the status bar on every tab, which
+answers "how do I" questions from the app's own documentation without ever
+reading your notes.
 
 ## The AI, and life without it
 

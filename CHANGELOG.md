@@ -27,7 +27,9 @@ below). Versioning is `0.x` while the app stabilises.
   none is running, 15 of them rather than the 7 an array in one file had kept
   up with (203). The popup agent's foot row is one control high in every
   state rather than two or three lines of wrapped captions, 75px and 124px
-  before, 51px and 61px now (208).
+  before, 51px and 61px now (208). Its starters read as a set: a glyph per
+  verb family on all 14, labels left-aligned behind them, each family ruled
+  off, and one line of intro rather than four (205).
 
 ### Added
 

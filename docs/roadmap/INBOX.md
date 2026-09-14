@@ -74,26 +74,6 @@ measured or built in earlier commits and is marked there.
 
 ## Open items
 
-205. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the popup
-    agent.** "the '?' tooltip dropdown in the popup agent shows behind the
-    panel instead of in front. and I want you to improve and redesign the
-    suggestions and quick prompts in the popup agent." Two halves: the
-    `data-help-for` popover's stacking inside `#command-palette-overlay`
-    (a z-index under the panel, or a blurred ancestor confining it: measure
-    `elementFromPoint` at the popover's centre); the starters (`2602c32`,
-    per-tab since `6147863`) redesigned as a set, with the 200 sweep.
-    Owner: orchestrator.
-    **The stacking: fixed.** Not a blurred ancestor, which is the usual cause
-    here (the panel already leaves for `<body>` on open): the tier.
-    `.help-popover` is `z-index: 1020`, chosen for the dialogs at 1010, and
-    `.command-palette-overlay` is 2000, so every '?' inside the palette opened
-    under it. The popover is 2500 now, above the palette and the full-view
-    table (2400) and below the pointer menu host (2600) and the boot splash
-    (3000). Measured (`scratchpad/ui-sweeps/chrome205.js`):
-    `document.elementFromPoint` at the popover's own centre is inside the
-    popover in the palette, in Settings and on a plain page; it was a span
-    belonging to the palette card. The starters stay open below.
-
 204. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the Guide
     (screenshot: the Guide sheet, "Ask the guide" with a '?' and New chat,
     "Quick app help from your utility model, not your notes", a "hey" bubble

@@ -41271,6 +41271,19 @@ const AGENT_STARTERS = [
   { group: "Do", label: "Link related notes", text: "Link notes that belong together." },
 ];
 
+//: One glyph per family, and the two groups that are not families of their own
+//: take the shape of what they are: the tab group is a place, the recents are a
+//: clock. The icons live here rather than on each row of the table above
+//: because an icon belongs to the group, and a table that repeats it twelve
+//: times is a table with twelve chances to disagree with itself.
+const AGENT_STARTER_ICONS = {
+  Capture: "note-pencil",
+  Find: "magnifying-glass",
+  Summarise: "text-align-left",
+  Remind: "bell",
+  Do: "lightning",
+};
+
 //: **And the ones that only make sense where you are** (INBOX 190: "it needs
 //: to be more versatile and usable across the whole app, the user should be
 //: able to use it as the guiding hand"). The twelve above are the agent's
@@ -41385,30 +41398,41 @@ function renderAgentStarters() {
   if (!box) return;
   box.replaceChildren();
   const groups = [];
-  //: Where you are, first: see AGENT_TAB_STARTERS for why.
+  //: Where you are, first: see AGENT_TAB_STARTERS for why. `slice()` because
+  //: the loop below appends into whichever group it last pushed, and the tab
+  //: table is a constant: without the copy, opening the palette twice on the
+  //: same tab grew that tab's row permanently.
   const tab = agentCurrentTab();
   const here = AGENT_TAB_STARTERS[tab];
-  if (here) groups.push([`On ${agentTabLabel(tab)}`, here]);
+  if (here) groups.push([`On ${agentTabLabel(tab)}`, here.slice(), "map-pin"]);
   const recent = agentStarterRecents();
-  if (recent.length) groups.push(["Recent", recent]);
+  if (recent.length) groups.push(["Recent", recent, "clock-counter-clockwise"]);
   for (const starter of AGENT_STARTERS) {
     const last = groups[groups.length - 1];
     if (last && last[0] === starter.group) last[1].push(starter);
-    else groups.push([starter.group, [starter]]);
+    else groups.push([starter.group, [starter], AGENT_STARTER_ICONS[starter.group]]);
   }
-  for (const [name, items] of groups) {
+  for (const [name, items, icon] of groups) {
     const label = document.createElement("p");
     //: `.eyebrow` is the app's one small-label recipe (01-forms-settings.css,
     //: DESIGN.md's recipe index); `.starter-verb` only makes it span the two
-    //: columns of the starter grid.
+    //: columns of the starter grid and rule a hairline under itself.
     label.className = "starter-verb eyebrow";
     label.textContent = name;
     box.appendChild(label);
     for (const item of items) {
       const button = document.createElement("button");
       button.type = "button";
-      button.className = "ghost small";
-      button.textContent = item.label;
+      button.className = "ghost small starter";
+      //: **The family's icon, on every one of its members** (INBOX 205, the
+      //: owner: "I want you to improve and redesign the suggestions and quick
+      //: prompts in the popup agent"). Fourteen identical text pills in a
+      //: two-column grid is a wall: the eye has to read every label to find
+      //: the one it wants, and the five verbs the set is built around were
+      //: carried only by a heading three rows up. One glyph per family makes
+      //: the group legible from the chip itself, which is what lets the set be
+      //: scanned by shape rather than read in full.
+      setLabel(button, `ph:${icon} ${item.label}`);
       button.dataset.example = item.text;
       button.title = /\s$/.test(item.text)
         ? `Start a message: ${item.text.trim()}…`

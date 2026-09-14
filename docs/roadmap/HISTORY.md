@@ -26538,3 +26538,51 @@ line that carried a dash.
     at 390, and is 51px and 61px now, the same in all three states. The 61 is
     the phone's 44px touch target rather than the desktop's 28.
 
+205. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the popup
+    agent.** "the '?' tooltip dropdown in the popup agent shows behind the
+    panel instead of in front. and I want you to improve and redesign the
+    suggestions and quick prompts in the popup agent." Two halves: the
+    `data-help-for` popover's stacking inside `#command-palette-overlay`
+    (a z-index under the panel, or a blurred ancestor confining it: measure
+    `elementFromPoint` at the popover's centre); the starters (`2602c32`,
+    per-tab since `6147863`) redesigned as a set, with the 200 sweep.
+    Owner: orchestrator.
+    **The stacking: fixed.** Not a blurred ancestor, which is the usual cause
+    here (the panel already leaves for `<body>` on open): the tier.
+    `.help-popover` is `z-index: 1020`, chosen for the dialogs at 1010, and
+    `.command-palette-overlay` is 2000, so every '?' inside the palette opened
+    under it. The popover is 2500 now, above the palette and the full-view
+    table (2400) and below the pointer menu host (2600) and the boot splash
+    (3000). Measured (`scratchpad/ui-sweeps/chrome205.js`):
+    `document.elementFromPoint` at the popover's own centre is inside the
+    popover in the palette, in Settings and on a plain page; it was a span
+    belonging to the palette card. The starters stay open below.
+    **The starters: redesigned as a set, measured.** What was there was
+    fourteen identical text pills, centred, in a two-column grid, under six
+    headings that were plain paragraphs floating in the same grid. Nothing in
+    a chip said which of the five verb families it belonged to, so the family
+    name three rows up was the only thing carrying the structure, and the eye
+    had to read every label to find one. Three changes, each of them a rule
+    the set now keeps: every starter carries its family's glyph (Capture a
+    pencil, Find a glass, Summarise the text-align mark, Remind a bell, Do a
+    bolt), with the two groups that are not families taking the shape of what
+    they are, a pin for the tab you are on and a clock for the recents; every
+    label is left-aligned behind its glyph, so the labels start at one x
+    instead of raggedly around a centre; and every family name is ruled off
+    with the app's own hairline rather than floating. The panel's opening
+    paragraph went from four lines to one, with the rest behind the '?' that
+    was already there (standing order 6).
+    Measured (`scratchpad/ui-sweeps/chrome205starters.js`, the status route
+    stubbed as running because the panel disables its starters without a
+    model, 1440x900 and 390x844): 0 of 14 chips carried an icon, now 14 of 14,
+    across 7 distinct glyphs with 0 of them blank (a name outside the vendored
+    Phosphor subset draws nothing, silently, which is why
+    `test_ask_answer_object.py` now checks the seven against the font);
+    `justify-content` centre on all 14, now flex-start on all 14, every label
+    at 14px from its chip's left edge; 0 of 6 family names ruled, now 6 of 6.
+    The set is denser despite the rules: at 390 it scrolled 222px, now 149px;
+    at 1440 it fits without scrolling as it did before, with the intro block
+    562px tall rather than 585. A stem clicked on its glyph still lands in the
+    box with the caret after it, and using one adds the Recent group with its
+    clock.
+

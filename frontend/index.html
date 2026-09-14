@@ -350,8 +350,10 @@
           Ctrl+Shift+A opens and closes this from any tab, or use the wand in
           the header. Enter sends, Shift+Enter starts a line, Down moves into
           the starters and Escape closes. It uses the same model, tools and
-          notebook the Chat tab does, so anything it writes or files is real;
-          tick the box below to hand it whatever you have open.
+          notebook the Chat tab does, so anything it writes or files is real,
+          and it answers from what you have written; tick the box below to
+          hand it whatever you have open. It remembers this conversation until
+          you press Start over.
         </p>
       </div>
       <div class="command-palette-bar">
@@ -382,10 +384,16 @@
              than hiding them (decision 11: visible, disabled, with the way to
              fix it beside them). -->
         <div id="command-palette-offline" class="ai-offline-note hidden"></div>
+        <!-- One line, which is all standing order 6 allows a section, and all
+             that is left after INBOX 205: this was four lines of a paragraph
+             standing between the reader and the set of starters that is the
+             actual answer to "what can it do". The rest of it (the tools it
+             shares with Chat, that it remembers the conversation) is behind
+             the '?' at the top of this panel, with everything else that is
+             longer than a line. -->
         <p class="muted">
-          It can read and search your notes, write and file new ones, set
-          reminders, and answer from what you have written, the same tools
-          the Chat tab uses. It remembers this conversation until you clear it.
+          It can read and search your notes, write and file new ones, and set
+          reminders.
         </p>
         <!-- Twelve, grouped by verb, and built by `renderAgentStarters`
              (app.js) rather than written out here: the group a starter belongs

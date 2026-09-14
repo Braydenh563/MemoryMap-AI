@@ -141,6 +141,35 @@ def test_the_popup_agent_offers_twelve_starters_grouped_by_verb():
     assert list(dict.fromkeys(groups)) == ["Capture", "Find", "Summarise", "Remind", "Do"]
 
 
+def test_every_starter_family_has_a_glyph_that_the_app_actually_ships():
+    """INBOX 205: the set reads as five families plus two, one glyph each.
+
+    Two ways this breaks silently. A family added to the table with no row in
+    `AGENT_STARTER_ICONS` renders `ph-undefined`, a class that matches nothing;
+    and a name that is not in the vendored Phosphor subset draws nothing at all
+    (see `tests/test_icon_names.py` for why that is invisible). Neither throws,
+    neither logs, and both look like a chip that lost its icon.
+    """
+    start = APP.index("const AGENT_STARTER_ICONS = {")
+    table = APP[start : APP.index("\n};", start)]
+    icons = dict(re.findall(r'(\w+): "([a-z0-9-]+)"', table))
+    groups = set(re.findall(r'group: "(\w+)"', _starter_table()))
+    assert groups <= set(icons), f"starter families with no glyph: {groups - set(icons)}"
+    #: The two groups that are not families of their own (the tab's own row and
+    #: the recents) name their glyph in the renderer instead.
+    renderer = APP[APP.index("function renderAgentStarters(") :]
+    renderer = renderer[: renderer.index("\n}\n")]
+    wanted = set(icons.values()) | set(re.findall(r', "([a-z-]+)"\]\)', renderer))
+    available = set(
+        re.findall(
+            r"\.ph-([a-z0-9-]+):before",
+            (FRONTEND / "vendor" / "phosphor" / "style.css").read_text(encoding="utf-8"),
+        )
+    )
+    assert len(wanted) == 7, sorted(wanted)
+    assert wanted <= available, f"not in the vendored subset: {sorted(wanted - available)}"
+
+
 def test_a_starter_is_a_stem_or_a_whole_instruction_and_never_both():
     """The trailing space is the contract the click handler reads: a stem waits
     with the caret after it, anything else runs on the press. A starter ending

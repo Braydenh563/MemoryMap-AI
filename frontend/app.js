@@ -13561,10 +13561,21 @@ function renderChatEmptyState() {
     activePersona === "Librarian" ? `Explore your notebook with ${aiName}` : `Chat with your ${activePersona}`;
   const blurb = document.createElement("p");
   blurb.className = "muted chat-empty-line";
-  blurb.append(document.createTextNode("Ask anything; the answers come from your saved notes. "));
+  //: No trailing space: the '?' that used to follow this sentence is in the
+  //: corner now (INBOX 236), and a line ending in a space is a line that
+  //: centres a pixel off.
+  blurb.append(document.createTextNode("Ask anything; the answers come from your saved notes."));
+  //: **The '?' goes to the corner** (INBOX 236, the owner: "the about this
+  //: chat '?' tooltip button in the chat empty interface ... shouldnt be
+  //: there, its right in the middle of everything, move it somewhere else
+  //: like in a corner or smth"). Measured before the move
+  //: (`scratchpad/ui-sweeps/chatemptyhelp.js`, 1440x900): 32x32 at 1090,406,
+  //: sitting at the end of the centred sentence, 134px down the middle of a
+  //: 529x326 welcome. It keeps `data-help-for`, which is the recipe; only
+  //: where it sits changes, through `.chat-empty-help-toggle`.
   const helpToggle = document.createElement("button");
   helpToggle.type = "button";
-  helpToggle.className = "icon-only ghost small graph-help-toggle";
+  helpToggle.className = "icon-only ghost small graph-help-toggle chat-empty-help-toggle";
   helpToggle.setAttribute("data-help-for", "chat-empty-help");
   helpToggle.setAttribute("aria-controls", "chat-empty-help");
   helpToggle.setAttribute("aria-expanded", "false");
@@ -13574,7 +13585,6 @@ function renderChatEmptyState() {
   helpIcon.className = "ph ph-question";
   helpIcon.setAttribute("aria-hidden", "true");
   helpToggle.appendChild(helpIcon);
-  blurb.appendChild(helpToggle);
   const helpBody = document.createElement("div");
   helpBody.className = "help-body hidden";
   helpBody.id = "chat-empty-help";
@@ -13586,7 +13596,7 @@ function renderChatEmptyState() {
     "answer. In Agent mode it can also create, tag, link and organise notes " +
     "for you, and asks before anything it cannot undo.";
   helpBody.appendChild(helpText);
-  empty.append(emblem, title, blurb, helpBody);
+  empty.append(emblem, title, blurb, helpToggle, helpBody);
   //: One line about the other assistant (INBOX 224). The empty chat is where
   //: somebody asks the app a question it cannot answer from notes, "how do I
   //: turn this off", and Atlas is the one that can.
@@ -13604,6 +13614,20 @@ function renderChatEmptyState() {
     empty.appendChild(suggest);
   }
   box.appendChild(empty);
+  //: **And the '?' is wired here, because it did not work at all.** Measured
+  //: before the move (`scratchpad/ui-sweeps/chatemptyhelp.js`): clicking it
+  //: left `aria-expanded` at "false" and `#chat-empty-help` at 0x0.
+  //: `initHelpToggles()` runs once at boot over the document, and this welcome
+  //: is built when the Chat tab is first opened, so its trigger was never
+  //: wired: the one help button in the app built after boot, and the only one
+  //: that was dead.
+  //:
+  //: **After `box.appendChild`, not before.** `initHelpToggles` resolves the
+  //: panel with `document.getElementById`, so called while the welcome is
+  //: still a detached subtree it finds nothing and skips the trigger silently,
+  //: which is exactly the bug it is here to fix (and the same trap
+  //: `openHelpChat` records for its own two post-build calls).
+  if (typeof initHelpToggles === "function") initHelpToggles(empty);
   // Animated like the ai-mark: a new chat is the AI waiting, and the slow
   // turn says so. Stills itself under Settings → Appearance → reduced motion.
   renderEmblem(emblem, 52, { animate: true }); // after insertion: see addAssistantBubble

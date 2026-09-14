@@ -335,6 +335,25 @@
   margin: 0;
 }
 
+/* **The '?' in the corner, not in the sentence** (INBOX 236). The welcome is a
+   centred column, and a help button in the middle of it is the first thing the
+   eye lands on and the last thing a person opening a new chat wants. Top right
+   of the welcome's own box is where this app puts a help button on every other
+   surface (`.help-head > .graph-help-toggle`), and absolute keeps it out of the
+   column's flow so the three lines stay centred on each other.
+
+   `.chat-empty` gains the positioning context for it; it has nothing else
+   positioned inside it. */
+.chat-empty {
+  position: relative;
+}
+
+.chat-empty-help-toggle {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+}
+
 /* Inside the welcome the chips are the *call to action*, so they get room and
    a centre line; in the dock (where they go back the moment a message arrives)
    they stay the quiet single row they were. */

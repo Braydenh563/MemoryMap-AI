@@ -27211,6 +27211,39 @@ line that carried a dash.
     turned off, and `.seg-multi` stays in DESIGN.md's index with the second row
     beside it saying when to reach for each.
 
+215. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), popup
+    agent sessions.** "I want to be able to save conversations with the
+    popup agent as a permanent chat session." A "Save as chat" action in the
+    palette's foot menu that posts the transcript to `/conversations` and
+    opens it in the Chat tab; the palette then shows "Saved" and a link.
+    Owner: chrome, after its list.
+    **Measured and fixed.** The palette's turns were held in one array
+    (`cmdPaletteTurns`) with exactly one way out of it, Start over, which threw
+    them away: a conversation that was worth keeping had to be retyped into the
+    Chat tab. "Save as chat" posts the first turn to `/conversations`, which
+    makes the conversation and takes its title from the question, then appends
+    the rest to `/conversations/<id>/turns`, which is the same sequence the
+    Chat tab performs live rather than a second way to write the same row.
+    It lives in the foot's menu, and the menu is the change to the row: 208
+    left Start over as an icon-only button and offered "or a menu item", and
+    two icon buttons beside a toggle is the shape 208 reported in the first
+    place. One `kebabMenu` holds both, with each row dead until there is
+    something to save or to clear.
+    The confirmation is a toast with an action rather than a link in the status
+    line: that line is one ellipsised line in a row with a toggle and a menu
+    (208 again), so a long title would have pushed the way in off the end of
+    it. The palette says "Saved as a chat" and the toast says which one and
+    offers "Open it", which closes the palette, switches to Chat and opens the
+    thread; nothing switches tab unless it is pressed.
+    Measured (`scratchpad/ui-sweeps/chrome215save.js`, 1440x900 and 390x844,
+    the turns pushed in directly because the sandbox has no model): with
+    nothing asked, 2 rows and 2 of them unavailable; with two turns, both live,
+    and the save writes a conversation of 4 messages in the order
+    user, assistant, user, assistant, first "What did I write this week?" and
+    last "Filed it under Home.", titled from the first question. The foot row
+    is still 51px at 1440 and 61px at 390, and the opener is 28x28 on a desktop
+    and 44x44 on a phone.
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

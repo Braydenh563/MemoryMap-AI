@@ -47,7 +47,9 @@ below). Versioning is `0.x` while the app stabilises.
   question, and reads as a column rather than a 1356px line (204). The
   Timeline's four kind filters are one dropdown that says what it is set to,
   441px of dock row down to 121px, so they no longer collide with the controls
-  beside them at 150% zoom (214).
+  beside them at 150% zoom (214). A conversation with the popup agent can be
+  kept: "Save as chat" in its foot menu writes it to the Chat tab and offers
+  the thread (215).
 
 ### Added
 

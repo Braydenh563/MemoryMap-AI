@@ -416,17 +416,15 @@
           <input type="checkbox" id="command-palette-use-note">
           <span id="command-palette-use-note-text">Nothing open to use</span></label>
         <span id="command-palette-status" class="muted text-sm" role="status"></span>
-        <!-- Icon-only, with the words in the tooltip and the label (INBOX 208,
-             the owner, of this row: "can you fix the ui of and redesign the ui
-             of these buttons"). "Start over" is two words this row does not
-             have across for: at 390 it was a 68px pill with its caption broken
-             over two lines beside a three-line toggle, and the row stood 124px
-             tall. It is a secondary action on a panel whose primary action is
-             typing, so it takes the app's icon-only ghost recipe and gives the
-             width back to the toggle beside it. -->
-        <button type="button" id="command-palette-clear" class="ghost small icon-only"
-          aria-label="Start over"
-          title="Start over: forget this conversation"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
+        <!-- One menu, not a row of buttons (INBOX 208, the owner, of this
+             row: "can you fix the ui of and redesign the ui of these
+             buttons", which offered "an icon-only ghost button with a
+             tooltip, or a menu item"; INBOX 215 asked for a second action in
+             it, "Save as chat", and two icon buttons beside a toggle is the
+             shape 208 reported). `kebabMenu` fills it, which is the app's one
+             menu recipe: it clamps, escapes a clipping ancestor and closes on
+             an outside click, none of which a hand-built one here would. -->
+        <span id="command-palette-menu" class="command-palette-foot-menu"></span>
         <!-- Not `.ghost`, and that is the whole change. Reported: "the button
              at the bottom of the popup agent for stop and clear doesnt have
              the affordance look." Stop is the only action offered while a run

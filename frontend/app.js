@@ -41726,6 +41726,88 @@ function cmdPaletteReset() {
   cmdPaletteResults.replaceChildren();
   $("command-palette-intro")?.classList.remove("hidden");
   $("command-palette-status").textContent = "";
+  renderCmdPaletteMenu();
+}
+
+//: **Keeping a conversation that was never meant to be kept** (INBOX 215, the
+//: owner: "I want to be able to save conversations with the popup agent as a
+//: permanent chat session"). The palette holds its turns in `cmdPaletteTurns`
+//: and nothing else: it is a scratch window over whatever tab you are on, and
+//: Start over throws the lot away. This posts them as a real conversation, the
+//: same shape the Chat tab writes, and hands you the thread.
+//:
+//: The first turn creates it (the route makes the title from the question) and
+//: the rest are appended, which is exactly the sequence the Chat tab performs
+//: live; there is no bulk endpoint and adding one to save a round trip per
+//: turn would be a second way to write the same row.
+async function cmdPaletteSaveAsChat() {
+  if (!cmdPaletteTurns.length) return;
+  const status = $("command-palette-status");
+  setLabel(status, "ph:circle-notch Saving…");
+  try {
+    const [first, ...rest] = cmdPaletteTurns;
+    const conversation = await apiJson("/conversations", {
+      method: "POST",
+      body: JSON.stringify({ question: first.question, answer: first.answer }),
+    });
+    for (const turn of rest) {
+      await apiJson(`/conversations/${conversation.id}/turns`, {
+        method: "POST",
+        body: JSON.stringify({ question: turn.question, answer: turn.answer }),
+      });
+    }
+    //: **The confirmation is a toast with an action, not a link in the status
+    //: line.** The status line is one line that ellipsises (it sits in a row
+    //: with a toggle and a menu, INBOX 208), so a title of any length would
+    //: have pushed the way in off the end of it. `toastAction` is the app's
+    //: own recipe for "it is done, and here is the thing": the message names
+    //: the conversation, the button opens it, and nothing switches tab
+    //: underneath a panel that is still open unless it is pressed.
+    setLabel(status, "ph:check-circle Saved as a chat");
+    toastAction(`Saved as "${conversation.title}"`, "Open it", () => {
+      toggleAgentPalette();
+      switchTab("chat");
+      return openConversation(conversation.id);
+    });
+    //: The list behind the Chat tab's sidebar is stale the moment this lands,
+    //: and it is cheap to refresh: without it the new thread is missing until
+    //: something else happens to reload it.
+    loadConversationList().catch(() => {});
+    renderCmdPaletteMenu();
+  } catch (error) {
+    setLabel(status, "ph:warning-circle Could not save this conversation");
+  }
+}
+
+//: The foot's one menu. Rebuilt rather than wired once, because what it offers
+//: depends on whether there is anything to save yet, and a menu that offers a
+//: dead row is the "control that does nothing when pressed" this app keeps
+//: being told about. `kebabMenu` is the recipe (DESIGN.md's index).
+function renderCmdPaletteMenu() {
+  const host = $("command-palette-menu");
+  if (!host || typeof kebabMenu !== "function") return;
+  const saved = cmdPaletteTurns.length;
+  host.replaceChildren(
+    kebabMenu(
+      [
+        {
+          label: "ph:floppy-disk Save as chat",
+          title: saved
+            ? "Keep this conversation in the Chat tab"
+            : "Ask the agent something first, then this can keep the conversation",
+          disabled: !saved,
+          run: () => (saved ? cmdPaletteSaveAsChat() : undefined),
+        },
+        {
+          label: "ph:arrow-counter-clockwise Start over",
+          title: "Forget this conversation and start over",
+          disabled: !saved,
+          run: () => (saved ? cmdPaletteReset() : undefined),
+        },
+      ],
+      "More actions for this conversation"
+    )
+  );
 }
 
 function cmdPaletteBusy(busy) {
@@ -41735,7 +41817,7 @@ function cmdPaletteBusy(busy) {
   //: kept" failure in CLAUDE.md section 6, arriving by accident.
   cmdPaletteInput.disabled = busy || aiIsOff();
   $("command-palette-stop")?.classList.toggle("hidden", !busy);
-  $("command-palette-clear")?.classList.toggle("hidden", busy);
+  $("command-palette-menu")?.classList.toggle("hidden", busy);
   //: **The state line is written by the run, not by this** (INBOX 190: the
   //: agent should say "what it is working on and which tool ran"). This used
   //: to write "Working…" on the way in and blank on the way out, which is a
@@ -42365,6 +42447,9 @@ async function cmdPaletteAsk(text) {
         ...[...touched.values()].filter((item) => item.kind === "note"),
       ]);
       cmdPaletteTurns.push({ question: text, answer: answerRaw });
+      //: The first turn is what turns "Save as chat" from a dead row into a
+      //: live one, so the menu is rebuilt here rather than only on reset.
+      renderCmdPaletteMenu();
     }
     //: Below the answer, and always when there were results, the model's
     //: prose is free to summarise or to leave a note out, but what retrieval
@@ -42493,7 +42578,8 @@ cmdPaletteInput.addEventListener("keydown", (e) => {
   cmdPaletteAsk(text);
 });
 
-$("command-palette-clear")?.addEventListener("click", cmdPaletteReset);
+//: Built at boot and again after every turn: see `renderCmdPaletteMenu`.
+renderCmdPaletteMenu();
 $("command-palette-stop")?.addEventListener("click", () => cmdPaletteRun?.abort());
 $("command-palette-intro")?.addEventListener("click", (e) => {
   const example = e.target.closest("[data-example]");

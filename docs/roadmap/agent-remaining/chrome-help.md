@@ -2,7 +2,7 @@
 
 Branch `agent/wip-chrome`, worktree cut from `claude/epic-ramanujan-8xocc0`
 at `ea7b370` plus `0718e1d` (INBOX 207 and 208 filed). Port 8801, data dir
-`/tmp/mm-chrome`. Sweeps: `scratchpad/ui-sweeps/chrome203.js`, `chrome208.js`, `chrome205starters.js`, `chrome204guide.js`, `chrome214kinds.js`, `chromehelp.js` (the header
+`/tmp/mm-chrome`. Sweeps: `scratchpad/ui-sweeps/chrome203.js`, `chrome208.js`, `chrome205starters.js`, `chrome204guide.js`, `chrome214kinds.js`, `chrome215save.js`, `chromehelp.js` (the header
 cluster, the status bar slots, the help popover's first painted frame and
 cap, the palette popover's stacking, the theme switch, the model-gated
 inventory) and `chrome207.js` (both slots open their panels, 390 and the
@@ -30,17 +30,19 @@ More sheet).
   side, 0 strays on the surface, a `guide` topic so it can say what it is,
   an empty state that retires on the first turn, transcript 1356px to 670px.
 
-- INBOX 214, the Timeline's kind filter as one dropdown: this commit. 441px
+- INBOX 214, the Timeline's kind filter as one dropdown: `531bd42`. 441px
   of dock row to 121px, 0 overlaps at 1440, 1024 and 960 (150% zoom).
+
+- INBOX 215, the popup agent's conversation kept: this commit. One foot
+  menu with both rows, 4 messages written in order, titled from the first
+  question.
 
 ## Next, in order
 
-1. INBOX 215: "Save as chat" in the palette's foot menu, posting the popup
-   agent's transcript to `/conversations` and opening it in the Chat tab.
-2. INBOX 224: the Atlas sheet on the popup agent's recipe, the Settings Help
+1. INBOX 224: the Atlas sheet on the popup agent's recipe, the Settings Help
    page's own chat box removed in the same change (one surface, not two), the
    `ATLAS_PROMPTS` table and the five places that offer a question.
-3. INBOX 225: `AI_NAME` in the frontend and Atlas as the notebook AI's name
+2. INBOX 225: `AI_NAME` in the frontend and Atlas as the notebook AI's name
    in the copy (the one backend prompt clause is backend2's).
 
 ## Not verified

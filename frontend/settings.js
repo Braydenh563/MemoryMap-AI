@@ -3608,6 +3608,7 @@ async function submitHelpChatQuestion(question) {
     helpChatBusy = false;
     helpChatAbort = null;
     helpChatSetBusy(false);
+    renderHelpChatMenu();
     input?.focus();
   }
 }
@@ -3675,7 +3676,12 @@ function helpChatNewChat() {
 function renderHelpChatMenu() {
   const host = $("help-chat-menu");
   if (!host || typeof kebabMenu !== "function") return;
-  const said = helpChatHistory.length > 0;
+  //: "Said" is what the transcript shows, not only what the model answered:
+  //: a question stopped before its answer never reaches the history, and
+  //: New chat stayed disabled over a transcript with a question and
+  //: "Stopped." in it (the owner, 2026-09-14: "I cant select new chat on
+  //: the atlas panel if I stopped a response and didnt let it finish").
+  const said = helpChatHistory.length > 0 || Boolean($("help-chat-messages")?.querySelector(".help-chat-msg"));
   host.replaceChildren(
     kebabMenu(
       [

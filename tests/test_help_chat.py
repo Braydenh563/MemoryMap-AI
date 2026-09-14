@@ -393,3 +393,12 @@ def test_atlas_has_a_stop_while_a_question_is_out():
     assert "if (signal?.aborted)" in js
     assert 'sendBtn.type = busy ? "button" : "submit"' in js
     assert 'icon.className = busy ? "ph ph-stop"' in js
+
+
+def test_new_chat_is_offered_after_a_stopped_question():
+    from pathlib import Path
+
+    js = (Path(__file__).resolve().parents[1] / "frontend" / "settings.js").read_text(encoding="utf-8")
+    assert 'const said = helpChatHistory.length > 0 || Boolean($("help-chat-messages")?.querySelector(".help-chat-msg"))' in js
+    finally_block = js[js.index("    helpChatSetBusy(false);") :]
+    assert "renderHelpChatMenu();" in finally_block[:120]

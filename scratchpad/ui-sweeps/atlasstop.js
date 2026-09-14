@@ -10,7 +10,7 @@ const { boot } = require("./lib.js");
   const busy = await page.evaluate(() => { const b = document.getElementById("help-chat-send"); return { title: b.title, type: b.type, icon: b.querySelector("i").className, disabled: b.disabled }; });
   await page.evaluate(() => document.getElementById("help-chat-send").click());
   await page.waitForTimeout(600);
-  const after = await page.evaluate(() => { const b = document.getElementById("help-chat-send"); const rows = [...document.querySelectorAll("#help-chat-messages .help-chat-msg")]; return { title: b.title, type: b.type, last: rows.at(-1)?.textContent.trim().slice(0, 40), busy: typeof helpChatBusy !== "undefined" ? helpChatBusy : null }; });
+  const after = await page.evaluate(() => { const b = document.getElementById("help-chat-send"); const rows = [...document.querySelectorAll("#help-chat-messages .help-chat-msg")]; const item = document.querySelector("#help-chat-menu [role=menuitem], #help-chat-menu button.menu-item, #help-chat-menu button"); return { title: b.title, type: b.type, last: rows.at(-1)?.textContent.trim().slice(0, 40), busy: typeof helpChatBusy !== "undefined" ? helpChatBusy : null, newChatDisabled: item ? item.disabled || item.getAttribute("aria-disabled") : "no item" }; });
   console.log(JSON.stringify({ busy, after }));
   await browser.close();
 })();

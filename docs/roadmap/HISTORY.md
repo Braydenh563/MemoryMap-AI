@@ -27785,6 +27785,9 @@ line that carried a dash.
     where it is, the shown words stay marked "(stopped)", and the history
     keeps the whole answer. `tests/test_help_chat.py`. Measured in
     Chromium: the button reads Stop while busy and Ask Atlas after.
+    Follow-up: New chat stayed disabled after a stop, because it counted
+    the model's answers rather than the transcript; it now counts the
+    rows shown and is re-rendered when a question ends however it ends.
 260. **Mid-work drop, 2026-09-14, verbatim (the owner), Settings, Personas
     (screenshot: the dashboard greeting's persona select drawn as an empty
     box with a chevron beside Regenerate greeting).** "this dashbaord

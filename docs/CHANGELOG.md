@@ -146,6 +146,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A file chip in a note's body has room below it before the badges row
+  (INBOX 261).
 - The dashboard greeting's persona select no longer draws empty when the
   saved name is the built-in's old one or a persona since deleted (INBOX
   260).

@@ -2434,3 +2434,12 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   margin-left: var(--space-2);
   white-space: nowrap;
 }
+
+/* A file chip rendered inline in a note's body (the Ask sub-tab's source
+   cards, `fileChip` in compact mode) sat flush against the badges row under
+   it: the chip is the body's last child and the meta row carries no top
+   margin of its own (the owner, 2026-09-14, with a screenshot). One row gap,
+   the same the meta row uses between its own wrapped lines. */
+.chip.file-chip {
+  margin-bottom: var(--space-2);
+}

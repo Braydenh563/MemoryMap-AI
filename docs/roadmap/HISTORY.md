@@ -27794,6 +27794,14 @@ line that carried a dash.
     enhanced opener drew nothing. **Fixed:** the old name reads as Atlas
     and any other unknown name as "Same as Chat" (`renderDashboardPersonaSelect`).
 
+261. **Mid-work drop, 2026-09-14, verbatim (the owner), Notes, Ask sub-tab
+    (screenshot: a source card, the file chip "cab432_lecture_agents.pdf"
+    flush against the category, AI 72% and space badges under it).**
+    "there's no space or gap between the uploaded file in the note and the
+    badges and tags". **Fixed:** `.chip.file-chip` carries a `--space-2`
+    bottom margin (reasoned from the DOM: the chip is the body's last child
+    and `.entry-meta` has no top margin; not measured in a browser).
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

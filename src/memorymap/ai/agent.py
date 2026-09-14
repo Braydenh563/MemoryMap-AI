@@ -1882,6 +1882,8 @@ def _dispatch_call(
     )
 
 
+    return False
+
 def run_agent(
     session: Session,
     question: str,

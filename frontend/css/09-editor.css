@@ -806,6 +806,36 @@
   max-height: 22rem;
 }
 
+/* **A box the page was stretching keeps its height when the engine arrives**
+   (INBOX 240). `mountNoteSurface` stamps this class when the textarea it is
+   wrapping was a growing item of a flex parent, which the wrapper then has to
+   be instead: see that function's comment for the 330.3px to 146px the two
+   Writing Room boxes lost without it.
+
+   The three rules below are the same idea at each level: the wrapper grows,
+   the editor fills the wrapper, and the scroller stops holding a height of its
+   own. `min-height: 0` on the first two because a flex item's default
+   `min-height: auto` refuses to shrink below its content, which is what turns
+   a long note into a column that pushes its own footer off the page instead of
+   scrolling. These have to sort after the two blocks above (same specificity,
+   and `.note-surface-box` is on the same element), so they stay here. */
+.note-surface-stretch {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.note-surface-stretch .cm-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.note-surface-stretch .cm-editor .cm-scroller {
+  min-height: 0;
+  max-height: none;
+}
+
 /* Laid over the view rather than hidden: same box, no ink, no pointer, out of
    the tab order (the mount sets `tabindex="-1"` as well, because a stylesheet
    cannot). */

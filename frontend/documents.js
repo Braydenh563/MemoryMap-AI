@@ -9122,8 +9122,62 @@ async function mountNoteSurface(host, options = {}) {
     return textareaSurface(host);
   }
   if (!CM || noteSurfaceViews.has(host)) return noteSurfaceFor(host) || textareaSurface(host);
+  //: **A box its own layout was stretching has to go on being stretched, and
+  //: the wrapper is what the layout can see now** (INBOX 240, the owner: "when
+  //: I clicked on the 'your thoughts' text box in the write with ai notes
+  //: subtab, the box instantly shortened in height from what it was. same with
+  //: the 'the draft' textbox as well").
+  //:
+  //: Measured on :8802 with `scratchpad/ui-sweeps/draftboxes.js`: both Writing
+  //: Room boxes were 330.3px tall and came back 146px on the first focus, a
+  //: loss of 184.3px each. Nothing shrank them. `.draft-column` is a flex
+  //: column and `.draft-column textarea` is `flex: 1 1 auto`, so the box was
+  //: taking the column's slack; one line below, the textarea is no longer a
+  //: child of the column at all, this wrapper is, and a `div` with no flex
+  //: declaration is `flex: 0 1 auto`, i.e. as tall as its content, which is
+  //: `.note-surface-box`'s own `min-height: 9rem` (144px) plus the padding.
+  //:
+  //: So the wrapper takes the role rather than the number: a host that was a
+  //: growing item of a flex parent hands that over, and the stretch rules in
+  //: 09-editor.css let the editor fill the height instead of capping it. Read
+  //: before the move, because one line later the parent is this wrapper.
+  //: General rather than a `#draft-thoughts` rule: every note box in
+  //: `NOTE_SURFACES` is somewhere a layout may stretch, and the next one added
+  //: would hit this the same way with nothing to warn it.
+  const hostStyle = getComputedStyle(host);
+  const parent = host.parentNode;
+  const parentStyle = parent instanceof Element ? getComputedStyle(parent) : null;
+  const stretched =
+    !!parentStyle &&
+    (parentStyle.display === "flex" || parentStyle.display === "inline-flex") &&
+    Number(hostStyle.flexGrow) > 0;
   const wrap = document.createElement("div");
-  wrap.className = `note-surface note-surface-${settings.size}`;
+  wrap.className = `note-surface note-surface-${settings.size}${stretched ? " note-surface-stretch" : ""}`;
+  //: **And the floor moves with it.** A stretching item is only as tall as the
+  //: row lets it be, and what stops the row itself collapsing is the box's own
+  //: `min-height` (`.draft-column textarea` declares 11rem, "the floor is four
+  //: lines"). Left behind on the invisible mirror, the stretch rules made
+  //: things worse rather than better: measured with the class and without this
+  //: line, the draft column fell from 477.8px to 179.9 and its box to 42,
+  //: because nothing in the column had an intrinsic height any more. Carried
+  //: as an inline length because it is this box's number, not a rule anything
+  //: else should inherit.
+  //:
+  //: **And the height it was already drawn at is the basis, not a fresh
+  //: guess.** `flex: 1 1 auto` sizes an item from its content, and a textarea's
+  //: content height is its `rows` attribute (7 and 14 here, 189.2px and
+  //: 330.3px measured); an editor view has no such thing, so the row it is in
+  //: has nothing to be tall for. With the class and the floor alone the draft
+  //: column still fell from 477.8px to 314 and its box to 176, the floor
+  //: exactly. Handing the wrapper the host's own measured height as its
+  //: `flex-basis` is what carries the `rows` across: the item asks the row for
+  //: the height it already had, and grows or shrinks from there like any other.
+  if (stretched) {
+    const drawn = host.getBoundingClientRect().height;
+    if (drawn > 0) wrap.style.flexBasis = `${Math.round(drawn)}px`;
+    const floor = Number.parseFloat(hostStyle.minHeight);
+    if (Number.isFinite(floor) && floor > 0) wrap.style.minHeight = `${floor}px`;
+  }
   wrap.noteSurfaceHost = host;
   host.parentNode.insertBefore(wrap, host);
   wrap.appendChild(host);

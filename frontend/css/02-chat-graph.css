@@ -345,13 +345,18 @@
    `.chat-empty` gains the positioning context for it; it has nothing else
    positioned inside it. */
 .chat-empty {
-  position: relative;
+  /* Static on purpose: the welcome is a 52ch column centred in the pane, so
+     a corner of *its* box is still the middle of the page (the owner, after
+     the first move: "the '?' tooltip button on a new chat is kinda in the
+     middle of the page still??"). `#chat-messages` is the positioned
+     ancestor, so the button lands in the pane's own top-right corner. */
+  position: static;
 }
 
 .chat-empty-help-toggle {
   position: absolute;
-  top: var(--space-3);
-  right: var(--space-3);
+  top: var(--space-4);
+  right: var(--space-4);
 }
 
 /* Inside the welcome the chips are the *call to action*, so they get room and

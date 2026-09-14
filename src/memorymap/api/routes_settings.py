@@ -463,7 +463,7 @@ def get_preferences() -> dict:
         "custom_templates": config.get_preference("custom_templates", []),
         "personas": config.get_preference("personas", []),
         "custom_themes": config.get_preference("custom_themes", []),
-        "active_persona": config.get_preference("active_persona", "Librarian"),
+        "active_persona": config.get_preference("active_persona", "Atlas"),
         "dashboard_persona": config.get_preference("dashboard_persona", ""),
         "dashboard_layout": config.get_preference(
             "dashboard_layout", {"order": [], "hidden": []}

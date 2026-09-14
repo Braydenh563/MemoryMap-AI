@@ -43,21 +43,6 @@ with its owner named in the entry.
     their contents will be shown, the export shouldnt include things like
     the show less/more text as well." Owner: notes agent (whiteboard.js).
 
-237. **Mid-work drop, 2026-09-14, verbatim (the owner), the librarian
-    persona.** "the librarian persona hasnt been adjusted to be atlas acting
-    as the librarian." The built-in persona card reads "Librarian, built-in,
-    You are the librarian of the user's personal notebook." Target: the
-    built-in is named Atlas with the one clause from 225, in both the
-    backend's built-in list and `frontend/app.js`'s mirror of it. Owner:
-    chrome2.
-
-235. **Mid-work drop, 2026-09-14, verbatim (the owner), Settings.** "I feel
-    like the advanced response settings should be above the installed models
-    tab, and/or in the preferences settings page with the advanced search."
-    Decision: the group moves above Installed models on the Models page.
-    And: "in the help settings page, there is no gap between the atlas
-    section and the faq dropdowns." Owner: chrome2.
-
 232. **Mid-work drop, 2026-09-14, verbatim (the owner), the live view.**
     "the md rendering on the live view, like in the documents page, needs to
     be improved, especially for codeblocks and potentially for other things
@@ -171,3 +156,4 @@ with its owner named in the entry.
     already stores when it embeds a note, written from the note's side),
     and the note card gets a "Referenced by" row listing documents, notes,
     boards and maps that carry it, from one backlinks endpoint.
+

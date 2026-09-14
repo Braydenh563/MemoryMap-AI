@@ -2416,3 +2416,10 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .help-popover {
   z-index: 2500;
 }
+
+/* The help page's Ask Atlas row follows the topics accordion directly; the
+   accordion's last row carries no bottom margin, so the two touched (INBOX
+   235: "there is no gap between the atlas section and the faq dropdowns"). */
+#settings-help .atlas-row {
+  margin-top: var(--space-6);
+}

@@ -447,7 +447,8 @@ function gcNodeSprite(colour, radiusPx, hub) {
 //: (a soft field, not a drawn shape). Seven gradients a frame; a hull would
 //: be a shape, and shapes lie about where a cluster ends.
 function gcDrawNebulae(ctx, s, inView) {
-  if (localStorage.getItem("graph-nebula") === "0") return;
+  const nebulaBox = s.size === "full" ? gcEl("graph-nebula") : null;
+  if (nebulaBox ? !nebulaBox.checked : localStorage.getItem("graph-nebula") === "0") return;
   const dark = document.documentElement.getAttribute("data-theme") === "dark";
   const groups = new Map();
   for (const node of s.nodes) {
@@ -715,7 +716,12 @@ function gcDraw(s = gcTab) {
   })();
 
   gcDrawNebulae(ctx, s, inView);
-  const curvedLinks = localStorage.getItem("graph-curved") === "1";
+  //: Read from the switch itself, like the labels above, so what the menu
+  //: shows and what is drawn cannot disagree (the owner: "it is showing
+  //: curved links even when it is visibly off??"); the stored value only
+  //: stands in for a pane, which has no switch.
+  const curvedBox = s.size === "full" ? gcEl("graph-curved") : null;
+  const curvedLinks = curvedBox ? curvedBox.checked : localStorage.getItem("graph-curved") === "1";
 
   // --- edges -------------------------------------------------------------
   // Bucketed by recipe and by whether they are dimmed, so the context's

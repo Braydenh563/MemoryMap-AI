@@ -1162,7 +1162,7 @@ function featureCatalog() {
       { name: "Chat", desc: "A full conversation with your notebook, saved and resumable.", run: () => { switchTab("chat"); $("chat-input").focus(); } },
       { name: "Attach to a message", desc: "Point a message at notes, documents, files, images or a map you already have.", run: () => { switchTab("chat"); $("attach-note").click(); } },
       { name: "Saved conversations", desc: "Every chat is kept, searchable, and can be picked up later.", run: () => switchTab("chat") },
-      { name: "Personas", desc: "Change the assistant's voice: Librarian, Coach, Analyst, or your own.", run: () => openSettingsModal("personas") },
+      { name: "Personas", desc: "Change the assistant's voice: Atlas, Coach, Analyst, or your own.", run: () => openSettingsModal("personas") },
       { name: "Skills", desc: "One-click requests like “Summarise my week”; can act on your notes.", run: () => openSettingsModal("skills") },
       { name: "Agent mode", desc: "Let the assistant use its tools, search your notes, open a page, create, tag, link and organise.", run: () => switchTab("chat") },
       // The popup agent has the same capability as Chat's agent mode and is

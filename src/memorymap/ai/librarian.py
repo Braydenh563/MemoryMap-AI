@@ -114,8 +114,12 @@ ABOUT_APP_BRIEF = (
 )
 
 # Built-in personas. Users add their own in Settings → Personas.
+#: The built-in librarian is Atlas (INBOX 237: "the librarian persona hasnt
+#: been adjusted to be atlas acting as the librarian"). A preference saved
+#: under the old name still resolves through `PERSONA_ALIASES`.
+PERSONA_ALIASES = {"Librarian": "Atlas"}
 BUILTIN_PERSONAS = [
-    {"name": "Librarian", "prompt": DEFAULT_PERSONA},
+    {"name": "Atlas", "prompt": DEFAULT_PERSONA},
     {
         "name": "Coach",
         "prompt": (
@@ -142,11 +146,16 @@ def resolve_persona_prompt(name: str | None, config) -> str | None:
     chat routes, the dashboard greeting, and chat auto-naming, so the voice the
     user picked is used consistently everywhere.
     """
-    wanted = name or config.get_preference("active_persona", "Librarian")
+    wanted = name or config.get_preference("active_persona", "Atlas")
     custom = config.get_preference("personas", [])
-    for persona in list(custom) + BUILTIN_PERSONAS:
-        if persona.get("name") == wanted and persona.get("prompt"):
-            return persona["prompt"]
+    #: A custom persona saved under the old name wins over the alias, so an
+    #: override of "Librarian" keeps working as written.
+    for candidate in (wanted, PERSONA_ALIASES.get(wanted)):
+        if not candidate:
+            continue
+        for persona in list(custom) + BUILTIN_PERSONAS:
+            if persona.get("name") == candidate and persona.get("prompt"):
+                return persona["prompt"]
     return None
 
 

@@ -27632,6 +27632,45 @@ line that carried a dash.
     `initHelpToggles` runs once at boot and this welcome is built when Chat is
     first opened, so it is now wired after insertion.
 
+237. **Mid-work drop, 2026-09-14, verbatim (the owner), the librarian
+    persona.** "the librarian persona hasnt been adjusted to be atlas acting
+    as the librarian." The built-in persona card reads "Librarian, built-in,
+    You are the librarian of the user's personal notebook." Target: the
+    built-in is named Atlas with the one clause from 225, in both the
+    backend's built-in list and `frontend/app.js`'s mirror of it. Owner:
+    chrome2.
+    **Fixed:** the built-in persona is named Atlas in `librarian.py`, the
+    settings default and the chat's persona list; "Librarian" saved before
+    the rename resolves to it (`PERSONA_ALIASES`, `personaDisplayName`), and
+    a custom override under the old name still wins.
+    `tests/test_persona_atlas.py`.
+235. **Mid-work drop, 2026-09-14, verbatim (the owner), Settings.** "I feel
+    like the advanced response settings should be above the installed models
+    tab, and/or in the preferences settings page with the advanced search."
+    Decision: the group moves above Installed models on the Models page.
+    And: "in the help settings page, there is no gap between the atlas
+    section and the faq dropdowns." Owner: chrome2.
+    **Fixed:** `#settings-help .atlas-row` gets `margin-top: var(--space-6)`
+    above the topics accordion, and the Advanced response settings block now
+    sits above Installed models in the Models section (reasoned, not
+    measured).
+247. **Mid-work drop, 2026-09-14, verbatim (the owner), the graph (screenshot:
+    the View panel with Curved links off, links drawn as arcs).** "it is
+    showing curved links even when it is visibly off??" Not reproduced in
+    Chromium (`scratchpad/ui-sweeps/curvedprobe.js`: with the switch off,
+    every sampled link had ink at its straight midpoint). **Fixed** by
+    construction anyway: the renderer now reads the switch itself (like
+    Labels) rather than the stored value, so the menu and the drawing
+    cannot disagree; Cluster glow the same.
+
+248. **Mid-work drop, 2026-09-14, verbatim (the owner), the empty Chat
+    (screenshot: the '?' at 1304,247 beside the centred emblem in a 1826px
+    pane).** "the '?' tooltip button on a new chat is kinda in the middle of
+    the page still??" The first move (236) put it in the corner of the
+    welcome's own 52ch box. **Fixed:** `.chat-empty` is static and the
+    button positions against `#chat-messages`, the pane's top-right
+    (reasoned, not measured).
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

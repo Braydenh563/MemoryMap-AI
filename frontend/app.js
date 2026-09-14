@@ -13226,7 +13226,7 @@ function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0, u
       metaItem(usedTools ? "Agent" : "Ask", {
         icon: usedTools ? "ph:robot" : "ph:chat-circle",
         title: usedTools
-          ? "Answered in Agent mode, the Librarian could use tools."
+          ? `Answered in Agent mode, ${AI_NAME} could use tools.`
           : "Answered in Ask mode, read-only, no tools used.",
         kind: "mode",
       })
@@ -13627,14 +13627,14 @@ function renderChatEmptyState() {
   // that stayed generic regardless of which persona was active, so opening
   // a new chat under "Coach" or a custom persona still greeted you as
   // nobody in particular (ROADMAP Tier 3 §21).
-  const activePersona = (prefsCache && prefsCache.active_persona) || "Librarian";
+  const activePersona = personaDisplayName(prefsCache && prefsCache.active_persona);
   //: The default librarian is Atlas (INBOX 225): the empty chat says so by
   //: name, and the explanation that used to sit under it as a paragraph is
   //: one line with the rest behind the app's '?' (the owner: "the text below
   //: it needs to be updated and potentially moved to a '?' tooltip button").
   const aiName = typeof AI_NAME === "string" ? AI_NAME : "Atlas";
   title.textContent =
-    activePersona === "Librarian" ? `Explore your notebook with ${aiName}` : `Chat with your ${activePersona}`;
+    activePersona === AI_NAME ? `Explore your notebook with ${aiName}` : `Chat with your ${activePersona}`;
   const blurb = document.createElement("p");
   blurb.className = "muted chat-empty-line";
   //: No trailing space: the '?' that used to follow this sentence is in the
@@ -14455,9 +14455,9 @@ function personaOptions() {
   // is stored under the same name); the active one pre-selected.
   const select = $("persona-select");
   const custom = (prefsCache && prefsCache.personas) || [];
-  const active = (prefsCache && prefsCache.active_persona) || "Librarian";
+  const active = personaDisplayName(prefsCache && prefsCache.active_persona);
   const names = [
-    ...new Set(["Librarian", "Coach", "Analyst", ...custom.map((p) => p.name)]),
+    ...new Set([AI_NAME, "Coach", "Analyst", ...custom.map((p) => p.name)]),
   ];
   // name -> its prompt, so the dropdown can describe each persona on hover.
   const overrides = new Map(custom.map((p) => [p.name, p]));
@@ -21814,8 +21814,14 @@ async function loadChatSuggestions() {
 // Personas section in Settings (Wave C, editing + reset in Wave D).
 // Mirrors the backend's built-ins: editing one saves an override with the
 // same name (the saved list wins), and Reset deletes the override.
+//: The built-in librarian is Atlas; a preference saved as "Librarian" from
+//: before the rename reads as Atlas everywhere (INBOX 237).
+function personaDisplayName(name) {
+  return !name || name === "Librarian" ? AI_NAME : name;
+}
+
 const BUILTIN_PERSONAS = {
-  Librarian: "You are the librarian of the user's personal notebook.",
+  Atlas: "You are the librarian of the user's personal notebook.",
   Coach:
     "You are an encouraging personal coach reviewing the user's notes. " +
     "Spot patterns, celebrate progress, and suggest one concrete next step.",
@@ -38357,7 +38363,7 @@ function renderPlanToggle() {
   button.classList.toggle("active", planModeOn);
   button.title = planModeOn
     ? "Plan mode is on, your next message is planned first, and the steps are shown before anything touches your notes. Click to turn off."
-    : "Plan mode: plan the request first, the Librarian draws the steps and shows them before it starts";
+    : `Plan mode: plan the request first, ${AI_NAME} draws the steps and shows them before it starts`;
 }
 
 // Applied by sendChatMessage on the way out, so every route into it, the Send

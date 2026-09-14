@@ -146,6 +146,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The built-in librarian persona is Atlas; a preference saved under the old
+  name keeps working (INBOX 237). The help page's Ask Atlas row has room
+  above it and the Advanced response settings sit above Installed models
+  (INBOX 235). The graph's Curved links and Cluster glow switches are what
+  the renderer reads, so the menu cannot show one thing and draw another
+  (INBOX 247). The empty chat's '?' sits in the pane's corner, not the
+  welcome column's (INBOX 248).
 - A Library row's preview is plain words: wiki links read as their titles,
   table rules, list markers and pipes are gone, and a bold marker the clip
   split no longer survives (INBOX 244). The Create picker is sized to its

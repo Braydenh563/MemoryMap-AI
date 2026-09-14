@@ -89,16 +89,25 @@ def _grounding_call_args(app_js: str) -> list[list[str]]:
 
 
 def test_every_grounding_call_site_passes_the_answer_element(app_js):
-    """Three surfaces render grounding, the Ask box, a live chat turn, and a
-    reopened conversation. A call site that forgets the fourth argument gets
-    the chips and silently no markers, which is exactly the half-wired state
-    this file exists to prevent."""
+    """Four surfaces render grounding: the Ask box, a live chat turn, a
+    reopened conversation, and a turn reopened from the Ask history panel
+    (INBOX 241, which is why the fourth is here). A call site that forgets the
+    fourth argument gets the chips and silently no markers, which is exactly
+    the half-wired state this file exists to prevent.
+
+    The inventory is spelled out rather than counted loosely on purpose: a new
+    surface has to come here and say so, which is how a fifth one gets read
+    against this rule instead of quietly inheriting it.
+    """
     calls = _grounding_call_args(app_js)
-    assert len(calls) == 3, f"expected 3 call sites, found {len(calls)}"
+    assert len(calls) == 4, f"expected 4 call sites, found {len(calls)}"
     fourth = sorted(args[3] for args in calls if len(args) > 3)
-    assert len(fourth) == 3, f"a call site passes no answer element: {calls}"
+    assert len(fourth) == 4, f"a call site passes no answer element: {calls}"
     assert fourth == sorted(
         [
+            #: `askQuestion`'s live answer, and `viewAskHistoryTurn`'s
+            #: remembered one, which render into the same element.
+            "answerBox",
             "answerBox",
             'bubble.querySelectorAll(".bubble-answer")',
             'handles.bubble?.querySelectorAll(".bubble-answer") || null',

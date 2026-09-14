@@ -994,6 +994,61 @@ async function downloadSupportBundle() {
 
 // --- theme ----------------------------------------------------------------------
 
+//: **A theme switch is one repaint, not a cross-fade and two canvas
+//: rebuilds** (INBOX 202, the owner: "switching between light and dark mode
+//: is realllly glitchy and takes a bit to load").
+//:
+//: Measured before this (`scratchpad/ui-sweeps/chrome202.js`,
+//: `chrome202art.js`, headless at 1440x900): the click starts 24 CSS
+//: transitions, on background-color and the four border colours, running
+//: 120ms, 160ms and 200ms depending on which rule the surface got its
+//: transition from. That is what "glitchy" describes: the app does not
+//: change theme, it dissolves into the other one at three speeds at once,
+//: while the 79 `backdrop-filter` surfaces re-composite over a ground that is
+//: itself still moving.
+//:
+//: And the two generative canvases are torn down and rebuilt *inside the
+//: click*: `startBgArt()` removes the p5 instance and its canvas and builds a
+//: new sketch, and `refreshArtForTheme()` does the same to the dashboard
+//: constellation. With the background art on, the click's own synchronous
+//: work measured 10.9ms against 7.4ms with it off, and the canvas is visibly
+//: absent while it is rebuilt, which is the "takes a bit to load" half.
+//:
+//: So: the colours are applied with transitions suppressed, which makes the
+//: switch a single frame, and the canvas work is moved off the click to the
+//: frame after the new colours have painted. Both rebuilds are coalesced, so
+//: pressing the toggle five times rebuilds the art once rather than five
+//: times.
+let themeArtTimer = 0;
+
+function repaintThemeAtOnce(apply) {
+  const root = document.documentElement;
+  root.classList.add("theme-switching");
+  apply();
+  //: Force the new custom properties to be computed while the suppression is
+  //: still on, so no transition can be started from the old values.
+  void getComputedStyle(root).backgroundColor;
+  //: Two frames: one for the browser to paint the new colours, one to be sure
+  //: that paint has happened before transitions are allowed back. Removing it
+  //: in the first frame re-arms them against values that have not landed yet,
+  //: which is the same cross-fade with extra steps.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => root.classList.remove("theme-switching"));
+  });
+}
+
+function scheduleThemeArt() {
+  if (themeArtTimer) cancelAnimationFrame(themeArtTimer);
+  themeArtTimer = requestAnimationFrame(() => {
+    themeArtTimer = 0;
+    if (bgArtOn()) startBgArt();
+    //: The dashboard constellation reads light-or-dark when it is built, so
+    //: it is rebuilt too; it returns immediately when the dashboard is not on
+    //: screen.
+    refreshArtForTheme();
+  });
+}
+
 function toggleTheme() {
   const root = document.documentElement;
   // Current effective theme: explicit choice, else the OS preference.
@@ -1001,21 +1056,20 @@ function toggleTheme() {
     root.dataset.theme ||
     (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   const next = current === "dark" ? "light" : "dark";
-  root.dataset.theme = next;
   localStorage.setItem("theme", next); // remembered across restarts
-  
-  // Clear any custom background colour that would otherwise override the new theme
-  localStorage.removeItem("page-bg");
-  localStorage.removeItem("page-bg-dark");
-  applyPageBackground(null);
-  if (document.getElementById("page-bg-custom")) {
-    document.getElementById("page-bg-custom").value = "#f5f7fb";
-  }
-  
-  applyResolvedMode();
-  if (bgArtOn()) startBgArt(); // recolour the background for the new theme
-  refreshArtForTheme(); // …and the dashboard constellation, which reads the
-                        // mode when it is built rather than on every frame
+
+  repaintThemeAtOnce(() => {
+    root.dataset.theme = next;
+    // Clear any custom background colour that would otherwise override the new theme
+    localStorage.removeItem("page-bg");
+    localStorage.removeItem("page-bg-dark");
+    applyPageBackground(null);
+    if (document.getElementById("page-bg-custom")) {
+      document.getElementById("page-bg-custom").value = "#f5f7fb";
+    }
+    applyResolvedMode();
+  });
+  scheduleThemeArt();
 }
 
 // --- Wave J: accent themes + generative background --------------------------------
@@ -1930,36 +1984,42 @@ function applyResolvedMode() {
 // Follow the OS while the choice is "System", without a reload.
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
   if (effectiveTheme() === "system") {
-    applyResolvedMode();
-    if (bgArtOn()) startBgArt();
-    refreshArtForTheme();
+    //: Same one-frame repaint the toggle uses (INBOX 202): the OS changing
+    //: mode under the app is the same event as the button, arriving by
+    //: another route.
+    repaintThemeAtOnce(applyResolvedMode);
+    scheduleThemeArt();
   }
 });
 
 function applyThemeChoice(choice, remember = true) {
-  if (choice === "system") {
-    delete document.documentElement.dataset.theme;
-    if (remember) localStorage.removeItem("theme");
-  } else {
-    document.documentElement.dataset.theme = choice;
-    if (remember) localStorage.setItem("theme", choice);
-  }
-  // Clear any custom background colour when explicitly switching themes,
-  // otherwise the user thinks the theme toggle is broken because the custom
-  // colour is overriding the new theme's native background.
   if (remember) {
-    localStorage.removeItem("page-bg");
-    localStorage.removeItem("page-bg-dark");
-    applyPageBackground(null);
-    if ($("page-bg-custom")) $("page-bg-custom").value = "#f5f7fb";
+    if (choice === "system") localStorage.removeItem("theme");
+    else localStorage.setItem("theme", choice);
   }
-  applyResolvedMode();
-  if (bgArtOn()) startBgArt();
+  //: The attribute that changes every colour in the app is set INSIDE the
+  //: repaint (INBOX 202), not before it: set outside, the transitions it
+  //: starts are already running by the time they are suppressed.
+  repaintThemeAtOnce(() => {
+    if (choice === "system") delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = choice;
+    // Clear any custom background colour when explicitly switching themes,
+    // otherwise the user thinks the theme toggle is broken because the custom
+    // colour is overriding the new theme's native background.
+    if (remember) {
+      localStorage.removeItem("page-bg");
+      localStorage.removeItem("page-bg-dark");
+      applyPageBackground(null);
+      if ($("page-bg-custom")) $("page-bg-custom").value = "#f5f7fb";
+    }
+    applyResolvedMode();
+    renderBrandLogo();
+  });
   // The dashboard constellation reads light-or-dark when it is built, so it
   // has to be rebuilt too, the background art already was, which is why only
-  // this one appeared stuck on the old mode.
-  refreshArtForTheme();
-  renderBrandLogo();
+  // this one appeared stuck on the old mode. Both are off the click now
+  // (INBOX 202), coalesced into one frame after the colours have landed.
+  scheduleThemeArt();
 }
 
 function _segActive(groupId, attr, value) {
@@ -3298,9 +3358,18 @@ function helpChatIsNearBottom() {
   return list.scrollHeight - list.scrollTop - list.clientHeight < 40;
 }
 
+//: The guide's name, read from here everywhere the interface says it
+//: (CHAT_PLAN.md decision 15). `help_chat.GUIDE_NAME` is the same word on the
+//: server, where the model is told it.
+const GUIDE_NAME = "Atlas";
+
 function helpChatAppendRow(row) {
   const list = $("help-chat-messages");
   if (!list || !row) return;
+  //: The self-description stands down as soon as there is a transcript: it
+  //: answers "what is this" and the answer above it now does that better.
+  const empty = $("help-chat-empty");
+  if (empty) empty.hidden = true;
   const stick = helpChatIsNearBottom();
   list.appendChild(row);
   if (stick) list.scrollTop = list.scrollHeight;
@@ -3452,7 +3521,16 @@ $("help-chat-form")?.addEventListener("submit", (event) => {
 $("help-chat-clear")?.addEventListener("click", () => {
   helpChatHistory = [];
   const list = $("help-chat-messages");
-  if (list) list.replaceChildren();
+  //: Everything except the self-description, which is what an empty chat is
+  //: supposed to show: `replaceChildren()` took it with the transcript and
+  //: left a blank rectangle under the field.
+  if (list) {
+    for (const child of [...list.children]) {
+      if (child.id !== "help-chat-empty") child.remove();
+    }
+  }
+  const empty = $("help-chat-empty");
+  if (empty) empty.hidden = false;
   $("help-chat-input")?.focus();
 });
 
@@ -3485,7 +3563,7 @@ function openHelpChat() {
   }
   helpChatHome = { parent: group.parentNode, next: group.nextSibling };
   const close = openSheet({
-    label: "Guide",
+    label: GUIDE_NAME,
     name: "guide",
     build: (card) => {
       card.appendChild(group);
@@ -3504,5 +3582,7 @@ function openHelpChat() {
   return close;
 }
 
-$("guide-btn")?.addEventListener("click", () => openHelpChat());
+//: The header's '?' became the status bar's Guide slot with INBOX 207;
+//: app.js binds that one, because the status bar is its markup and it can
+//: reach this function through `window` by the time a click happens.
 $("settings-guide-btn")?.addEventListener("click", () => openHelpChat());

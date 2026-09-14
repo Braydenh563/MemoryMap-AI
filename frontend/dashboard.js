@@ -2527,15 +2527,14 @@ async function renderDigestWidget(body) {
     runGeneration(); // one is already running (from before a tab switch)
   } else {
     const generate = smallButton("Generate this week's digest", "", runGeneration, false);
-    // Built dynamically, so it can't live in AI_ONLY_CONTROLS, mark it here
-    // instead. A dashboard button that only fails once you press it is exactly
-    // the thing that makes the app feel broken when the AI simply isn't on.
-    if (modelStatus && modelStatus.ollama_running === false) {
-      generate.disabled = true;
-      generate.classList.add("ai-unavailable");
-      generate.title = "The weekly digest is written by the local AI, start Ollama to generate one.";
-    }
+    //: Built here rather than in `index.html`, so it carries the reason on
+    //: itself and then asks the one gate to read it (INBOX 203). It used to
+    //: carry its own copy of the check and its own sentence, which said "start
+    //: Ollama" to somebody running llama.cpp; `syncModelGatedControls` owns
+    //: that wording for every AI control in the app, this one included.
+    generate.dataset.needsModel = "The weekly digest is written by the local AI";
     body.appendChild(generate);
+    if (typeof syncModelGatedControls === "function") syncModelGatedControls();
   }
 }
 

@@ -2017,24 +2017,35 @@
   background: var(--border);
 }
 
-/* **The header's icon buttons, as two clusters** (the owner, with a
-   screenshot of five separately outlined squares: "is there a better way to
-   modernise and improve the ui for these buttons in the top bar"). One
-   tinted shell per group with a hairline between the items, which is the
-   same segmented grammar the chat dock and the answer blocks' bars use, and
-   it keeps the meaning the old divider carried: the everyday toggles in one
-   group, the two that end a session in the other. */
+/* **The header's icon buttons, on the header's own ground** (the owner, twice
+   over the same row of controls: first "is there a better way to modernise
+   and improve the ui for these buttons in the top bar", answered with one
+   tinted shell per group and a hairline between the items, and then, once the
+   wand and the '?' had left for the status bar with INBOX 207, "it feels out
+   of place").
+
+   Both readings are about the same thing: a segmented well says its items are
+   one control in several positions, which is true of the chat dock's modes
+   and the answer block's bar and is not true of a bell, a theme toggle and
+   Settings. With five items in it the shell at least grouped them; with three
+   it drew a box around three unrelated buttons, in the one strip of the app
+   that should read as a surface rather than as a row of widgets.
+
+   So: no shell, no seams, no outlined squares. Plain icon-only ghost buttons
+   on the header, one spacing step apart, at the height of a tab button, which
+   is the other thing the strip carries and the height the eye lines them up
+   against. The grouping the shell used to carry is now what it was before it:
+   distance, `.header-cluster-end`'s own margin plus `.header-divider`, which
+   is what separates Quit from the everyday toggles. */
 .header-cluster {
   display: inline-flex;
   align-items: center;
-  gap: 0;
-  padding: 2px;
-  border-radius: var(--radius-pill);
-  background: var(--chip-bg);
+  gap: var(--space-2);
+  background: none;
 }
 
 .header-cluster-end {
-  margin-left: var(--space-2);
+  margin-left: var(--space-3);
 }
 
 .header-cluster > button,
@@ -2043,11 +2054,10 @@
   border-radius: var(--radius-inner);
   background: transparent;
   box-shadow: none;
-}
-
-.header-cluster > * + *:not(.hidden),
-.header-cluster > .notif-wrap + button {
-  box-shadow: inset 1px 0 0 var(--border);
+  /* The tab strip's own height token, so the two sets of controls in the
+     header sit on one line rather than nearly on one. */
+  height: var(--header-control-h);
+  min-height: 0;
 }
 
 .header-cluster > button:hover,

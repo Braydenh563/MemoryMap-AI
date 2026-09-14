@@ -3194,6 +3194,16 @@ function placeHelpPopover(panel, trigger, retry = true) {
     : window.innerWidth - margin - box.width;
   let left = anchor.left + anchor.width / 2 - box.width / 2;
   left = Math.min(Math.max(left, minLeft), Math.max(minLeft, maxLeft));
+  //: **The window is the hard bound, the surface is the preference** (INBOX
+  //: 206, measured at 390x844: the capture popover sat at x=73 with a 358px
+  //: body and ran 41px past the right edge of the screen). When the surface
+  //: is narrower than the popover plus its margins, which is every card on a
+  //: phone, `maxLeft` falls below `minLeft` and the clamp above resolves to
+  //: `minLeft`, the card's own left edge, with nothing left to stop the
+  //: right-hand side leaving the window. Clamping to the viewport last cannot
+  //: make the surface fit worse: it only ever pulls the panel back towards
+  //: the middle of the screen.
+  left = Math.min(Math.max(left, margin), Math.max(margin, window.innerWidth - margin - box.width));
   let top = anchor.bottom + 10;
   let above = false;
   if (top + box.height > window.innerHeight - margin) {
@@ -3236,6 +3246,10 @@ function wireHelpPopover(trigger, panel) {
       panel.classList.remove("help-popover", "help-popover-above");
       panel.style.left = "";
       panel.style.top = "";
+      //: Cleared with the rest of the inline placement: an element left
+      //: `visibility: hidden` in its home tree is an element some other
+      //: feature will one day show and find invisible.
+      panel.style.visibility = "";
       if (homeParent) homeParent.insertBefore(panel, homeNext);
       trigger.setAttribute("aria-expanded", "false");
     },
@@ -3245,6 +3259,16 @@ function wireHelpPopover(trigger, panel) {
     homeParent = panel.parentElement;
     homeNext = panel.nextSibling;
     document.body.appendChild(panel);
+    //: **Hidden before it is shown, revealed only by the placement**
+    //: (INBOX 206: "popups still flicker for a split second at the top left
+    //: and then appear in the right place"). Removing `hidden` first and
+    //: placing afterwards is safe only while nothing between the two can
+    //: yield to the compositor, which is true of this function today and is
+    //: not a property anyone editing it can see. Setting `visibility` here
+    //: makes the invariant local: the panel is laid out, so it can be
+    //: measured, and the only line that can make it visible is the one in
+    //: `placeHelpPopover` that runs after `left`/`top` are written.
+    panel.style.visibility = "hidden";
     panel.classList.remove("hidden");
     // `.setting-hint`'s own collapsed state is a max-height animation, not a
     // `hidden` class: an inline hint has to be un-collapsed as well, or the
@@ -7608,10 +7632,11 @@ function selectionMenuItems() {
   );
 
   // AI-only, and disabled rather than hidden when the model is off, the same
-  // convention AI_ONLY_CONTROLS applies to every other AI action, so the
+  // convention `data-needs-model` applies to every other AI action, so the
   // capability stays discoverable and the reason is on the item itself.
-  // (`AI_ONLY_CONTROLS` itself keys off element ids, and these items are built
-  // fresh on every open, so they carry the state directly instead.)
+  // (That attribute is read from the markup by `syncModelGatedControls`, and
+  // these items are built fresh on every open, so they carry the state
+  // directly instead.)
   items.push(
     makeMenuItem(
       "ph:scissors Extract notes…",
@@ -31894,7 +31919,7 @@ async function refreshModelStatus() {
     modelStatus = null; // locked or unreachable: pill shows the worst case
   }
   renderAiPill();
-  syncAiOnlyControls();
+  syncModelGatedControls();
   // The status bar's job slot rides this loop rather than starting one of its
   // own, so it inherits the whole cadence: one second while something is
   // running, thirty when idle, two minutes behind a hidden tab. Idle, `/tasks`
@@ -31932,26 +31957,32 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // Controls that can only do their job with a chat model running. Left
-// enabled, they look available and only fail once you've committed to them, 
+// enabled, they look available and only fail once you've committed to them,
 // you type a note, press AI Improve, wait, and get an apology. Disabling them
 // with a reason attached says the same thing before you spend the effort.
 //
-// Deliberately NOT in here: Save, Ask, search, tags, categories, the graph,
-// reminders, documents. Those work fully without any AI and must never look
-// diminished by its absence, the notebook is the point, the AI is a helper.
-const AI_ONLY_CONTROLS = [
-  ["improve-btn", "Proofreading needs the local AI"],
-  ["reminder-magic-add", "Reading a reminder from a sentence needs the local AI"],
-  ["draft-compose", "Drafting needs the local AI"],
-  ["doc-ai", "AI editing needs the local AI"],
-  // Extract notes (BACKLOG.md §62): without the AI it can only hand back
-  // the selection as one plain, unlinked note, a materially weaker result
-  // than what the button promises, so it's disabled here rather than left
-  // to explain that after the fact, same as Draft and AI edit above.
-  ["draft-extract", "Extracting notes needs the local AI"],
-  ["doc-extract", "Extracting notes needs the local AI"],
-  ["wb-extract-notes", "Extracting notes needs the local AI"],
-];
+//: **The list lives in the markup, not here** (INBOX 203, the owner: "many ai
+//: exclusive features are still enabled even when an ai isnt available or
+//: running"). It was seven ids in an array in this file, and the array was the
+//: thing that fell behind: a control added to a surface months later has no
+//: reason to know this file exists, so four that arrived since
+//: (`improve-retry`, `extract-commit`, `doc-ai-run`, `wb-boards-generate`)
+//: stayed live with no model, as did Chat's own field and Send and the
+//: guide's.
+//:
+//: So the reason is an attribute on the control, `data-needs-model="<why>"`,
+//: and this function asks the document rather than carrying a copy of it.
+//: `tests/test_frontend_ids.py` holds the inventory: every control whose
+//: handler reaches an AI route is listed there and must carry the attribute,
+//: which is the half a grep cannot enforce on its own.
+//:
+//: Deliberately NOT marked: Save, Ask, search, tags, categories, the graph,
+//: reminders, documents, and the meeting note's Save. Those work fully
+//: without any AI and must never look diminished by its absence, the notebook
+//: is the point and the AI is a helper; Ask in particular falls back to the
+//: search results beside it and says so, and the meeting save summarises when
+//: it can and files the note either way (`saveMeetingNote`), so disabling
+//: either would take away the working half.
 
 //: **The one sentence a disabled AI control says** (CHAT_PLAN.md decision 11:
 //: "every AI control is visible, disabled, with a tooltip 'Connect a model in
@@ -31967,19 +31998,44 @@ function aiIsOff() {
   return modelStatus ? modelStatus.ollama_running === false : false;
 }
 
-function syncAiOnlyControls() {
-  const off = aiIsOff();
-  for (const [id, reason] of AI_ONLY_CONTROLS) {
-    const button = $(id);
-    if (!button) continue;
-    button.disabled = off;
-    button.classList.toggle("ai-unavailable", off);
+//: **Why this restores rather than enables.** The status poll runs this every
+//: tick, one second while a job is going, and some of the gated controls have a
+//: busy state of their own: Save notes is disabled until the extract has notes
+//: to save and again while it saves, the guide's Ask is disabled for the length
+//: of a question. A plain `disabled = off` would hand all of those back mid-run
+//: on the next tick. So the gate records that it was the one that closed a
+//: control and reopens only what it closed.
+function syncModelGatedControls(status = modelStatus) {
+  const off = status ? status.ollama_running === false : false;
+  for (const control of document.querySelectorAll("[data-needs-model]")) {
+    const reason = control.dataset.needsModel;
     if (off) {
-      if (!button.dataset.enabledTitle) button.dataset.enabledTitle = button.title || "";
-      button.title = `${reason}. ${AI_OFFLINE_HINT}.`;
-    } else if (button.dataset.enabledTitle !== undefined) {
-      button.title = button.dataset.enabledTitle;
+      if (!control.disabled) {
+        control.dataset.modelGated = "1";
+        control.disabled = true;
+      }
+      //: `=== undefined`, not a truthiness test, and the saved copy is dropped
+      //: once it has been put back. A control whose own title is empty saves
+      //: "" here, and `!""` is true, so on the next tick of the poll (one
+      //: second while a job runs) the gated sentence was saved over the empty
+      //: original and then restored as if it were the original: nine of the
+      //: fifteen kept "Connect a model in Settings" as their tooltip after the
+      //: model came back. Measured: 9 of 15 wrong, now 0.
+      if (control.dataset.enabledTitle === undefined) {
+        control.dataset.enabledTitle = control.title || "";
+      }
+      control.title = `${reason}. ${AI_OFFLINE_HINT}.`;
+    } else {
+      if (control.dataset.modelGated) {
+        control.disabled = false;
+        delete control.dataset.modelGated;
+      }
+      if (control.dataset.enabledTitle !== undefined) {
+        control.title = control.dataset.enabledTitle;
+        delete control.dataset.enabledTitle;
+      }
     }
+    control.classList.toggle("ai-unavailable", off);
   }
   //: The link half of decision 11. A tooltip on a disabled control is read by
   //: somebody who already suspects the answer; a person who does not know why
@@ -32315,6 +32371,26 @@ function renderStatusBar() {
     //: attribute rather than the source.
     const meta = STATUS_META_KEY.startsWith("⌘") ? "⌘" : "Ctrl";
     agent.title = `Ask the agent anything, from any tab (${meta}+Shift+A)`;
+  }
+
+  //: The Guide, built the same way one control along (INBOX 207): it left the
+  //: header cluster with the wand, and the pair belongs together, one does
+  //: things to your notes and the other explains the app. A compass rather
+  //: than the header's '?', because a '?' beside a labelled word reads as
+  //: help about the word.
+  const guide = $("status-guide");
+  if (guide) {
+    guide.replaceChildren();
+    const glyph = document.createElement("i");
+    glyph.className = "ph ph-compass";
+    glyph.setAttribute("aria-hidden", "true");
+    const word = document.createElement("span");
+    //: The name, from the one place that holds it (settings.js `GUIDE_NAME`,
+    //: CHAT_PLAN decision 15), with the word it replaced as the fallback for
+    //: the moment before that module has run.
+    word.textContent = typeof GUIDE_NAME === "string" ? GUIDE_NAME : "Guide";
+    guide.append(glyph, word);
+    guide.title = `Ask ${word.textContent} how this app works, from any tab`;
   }
 }
 
@@ -36934,6 +37010,12 @@ $("status-reminders").addEventListener("click", () => switchTab("reminders"));
 $("status-task").addEventListener("click", () => openSettingsModal("tasks"));
 $("status-command").addEventListener("click", () => openPalette());
 $("status-agent")?.addEventListener("click", () => toggleAgentPalette());
+//: settings.js owns the Guide sheet and loads after this file, so the lookup
+//: is deferred to the click rather than taken now. The same shape the phone's
+//: More sheet already uses for the same function.
+$("status-guide")?.addEventListener("click", () => {
+  if (typeof openHelpChat === "function") openHelpChat();
+});
 
 // Paint it before any poll lands, so the bar is furniture from the first frame
 // rather than four boxes that pop into existence a second later.
@@ -40359,6 +40441,14 @@ const STATUS_SLOTS = [
     label: "Ask the agent",
     hint: "Open the agent over whatever you are doing, from any tab",
   },
+  //: Added with INBOX 207, when the Guide left the header cluster. A slot
+  //: added later appears by default for everyone, which is what storing the
+  //: hidden set rather than the shown one buys (the note above).
+  {
+    key: "guide",
+    label: "Guide",
+    hint: "Ask the guide how this app works, from any tab",
+  },
 ];
 
 function hiddenStatusSlots() {
@@ -41217,6 +41307,19 @@ const AGENT_STARTERS = [
   { group: "Do", label: "Link related notes", text: "Link notes that belong together." },
 ];
 
+//: One glyph per family, and the two groups that are not families of their own
+//: take the shape of what they are: the tab group is a place, the recents are a
+//: clock. The icons live here rather than on each row of the table above
+//: because an icon belongs to the group, and a table that repeats it twelve
+//: times is a table with twelve chances to disagree with itself.
+const AGENT_STARTER_ICONS = {
+  Capture: "note-pencil",
+  Find: "magnifying-glass",
+  Summarise: "text-align-left",
+  Remind: "bell",
+  Do: "lightning",
+};
+
 //: **And the ones that only make sense where you are** (INBOX 190: "it needs
 //: to be more versatile and usable across the whole app, the user should be
 //: able to use it as the guiding hand"). The twelve above are the agent's
@@ -41331,30 +41434,41 @@ function renderAgentStarters() {
   if (!box) return;
   box.replaceChildren();
   const groups = [];
-  //: Where you are, first: see AGENT_TAB_STARTERS for why.
+  //: Where you are, first: see AGENT_TAB_STARTERS for why. `slice()` because
+  //: the loop below appends into whichever group it last pushed, and the tab
+  //: table is a constant: without the copy, opening the palette twice on the
+  //: same tab grew that tab's row permanently.
   const tab = agentCurrentTab();
   const here = AGENT_TAB_STARTERS[tab];
-  if (here) groups.push([`On ${agentTabLabel(tab)}`, here]);
+  if (here) groups.push([`On ${agentTabLabel(tab)}`, here.slice(), "map-pin"]);
   const recent = agentStarterRecents();
-  if (recent.length) groups.push(["Recent", recent]);
+  if (recent.length) groups.push(["Recent", recent, "clock-counter-clockwise"]);
   for (const starter of AGENT_STARTERS) {
     const last = groups[groups.length - 1];
     if (last && last[0] === starter.group) last[1].push(starter);
-    else groups.push([starter.group, [starter]]);
+    else groups.push([starter.group, [starter], AGENT_STARTER_ICONS[starter.group]]);
   }
-  for (const [name, items] of groups) {
+  for (const [name, items, icon] of groups) {
     const label = document.createElement("p");
     //: `.eyebrow` is the app's one small-label recipe (01-forms-settings.css,
     //: DESIGN.md's recipe index); `.starter-verb` only makes it span the two
-    //: columns of the starter grid.
+    //: columns of the starter grid and rule a hairline under itself.
     label.className = "starter-verb eyebrow";
     label.textContent = name;
     box.appendChild(label);
     for (const item of items) {
       const button = document.createElement("button");
       button.type = "button";
-      button.className = "ghost small";
-      button.textContent = item.label;
+      button.className = "ghost small starter";
+      //: **The family's icon, on every one of its members** (INBOX 205, the
+      //: owner: "I want you to improve and redesign the suggestions and quick
+      //: prompts in the popup agent"). Fourteen identical text pills in a
+      //: two-column grid is a wall: the eye has to read every label to find
+      //: the one it wants, and the five verbs the set is built around were
+      //: carried only by a heading three rows up. One glyph per family makes
+      //: the group legible from the chip itself, which is what lets the set be
+      //: scanned by shape rather than read in full.
+      setLabel(button, `ph:${icon} ${item.label}`);
       button.dataset.example = item.text;
       button.title = /\s$/.test(item.text)
         ? `Start a message: ${item.text.trim()}…`
@@ -41475,11 +41589,18 @@ function syncAgentOpenNoteToggle() {
   //: Now it says what kind the thing is and what it is called, and when there
   //: is nothing it says what would count as something.
   const word = subject ? AGENT_SUBJECT_WORDS[subject.kind] || subject.kind : null;
-  text.textContent = subject
-    ? `Use this ${word}: ${subject.label}`
-    : "Nothing open to use (open a note, document, board or map first)";
+  //: **One short line, and the sentence behind it** (INBOX 208). The empty
+  //: state used to carry its own instructions in the label, "Nothing open to
+  //: use (open a note, document, board or map first)", which is a caption for
+  //: a checkbox written as a paragraph: three lines at 390 and two at 1440, on
+  //: a row that is otherwise one control high. A label says what the control
+  //: does; the tooltip below, which has always carried the longer sentence,
+  //: says what to do about it. The open case keeps the thing's name, which is
+  //: the point of INBOX 190, and the CSS ellipsises a long one rather than
+  //: wrapping it, so the title repeats it in full.
+  text.textContent = subject ? `Use this ${word}: ${subject.label}` : "Nothing open to use";
   label.title = subject
-    ? `Send this ${word} with what you ask, so the agent works on it`
+    ? `Send this ${word}, ${subject.label}, with what you ask, so the agent works on it`
     : "Open a note, a document, a board or a mind map first, then the agent can work on it";
 }
 
@@ -41526,10 +41647,9 @@ cmdPaletteOverlay.addEventListener("click", (e) => {
 // offers a control you can see and this one asked you to know a key.
 $("command-palette-close").addEventListener("click", () => toggleAgentPalette());
 
-//: The header's wand: the palette's one visible way in (INBOX 190). The chord
-//: still works and is named in the button's tooltip, which is how anybody
-//: finds out a chord exists.
-$("agent-btn")?.addEventListener("click", () => toggleAgentPalette());
+//: The header's wand moved to the status bar with INBOX 207; the slot's own
+//: listener sits beside the rest of the bar's, and the chord is named in its
+//: tooltip, which is how anybody finds out a chord exists.
 
 //: **The agent bar keeps a conversation, and says so.** Reported: "the popup
 //: agent needs more features, capability, and learnability, there's no way to

@@ -1257,7 +1257,16 @@ body.has-agent-monitor #tab-library .library-view-section {
 .command-palette-examples {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-2);
+  /* Tighter down the page than across it (INBOX 205). These are rows of one
+     list, not a grid of tiles: the vertical gap is what separates a starter
+     from the next starter in the same family, which the family's hairline
+     already separates from the next family, so it can be the smallest step on
+     the scale. The horizontal gap stays a step wider because there the two
+     columns are genuinely different items side by side. It is also what pays
+     for the hairlines: the set was 45px past the fold at 1440 before any of
+     this, 75px with the rules added and their spacing, and 45px again now. */
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
 }
 
 /* The verb a group of starters belongs to (CHAT_PLAN.md decision 9's
@@ -1266,11 +1275,29 @@ body.has-agent-monitor #tab-library .library-view-section {
    recipe; this rule adds the span and the rhythm and nothing else. */
 .starter-verb {
   grid-column: 1 / -1;
+  /* A hairline under the family name, not just space above it (INBOX 205).
+     Five headings floating in a two-column grid of pills read as five more
+     pills; a rule under each one says where a family starts and ends, which
+     is the whole job the heading was there to do. The tighter top margin is
+     what pays for the rule: the set was 45px past the fold at 1440. */
   margin: var(--space-3) 0 var(--space-1);
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--border-light);
 }
 
 .starter-verb:first-child {
   margin-top: 0;
+}
+
+/* **A starter is a row, not a caption.** Centred text in a grid of buttons of
+   different lengths gives a ragged pair of inner edges and no column for the
+   eye to run down; every one of these starts with its family's glyph, so the
+   glyphs line up and the labels start at one place. `flex-start` rather than
+   the button recipe's `center`, and nothing else: the height, radius, ground
+   and hover all stay the app's own ghost button. */
+.command-palette-examples > button.starter {
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .command-palette-foot {
@@ -1288,6 +1315,39 @@ body.has-agent-monitor #tab-library .library-view-section {
    a turn is running, so the row never changes length. */
 .command-palette-foot > #command-palette-status {
   margin-right: auto;
+}
+
+/* **The row is one control high, whatever is in it** (INBOX 208). The toggle
+   is the only thing here whose text is variable (it names the open note, and
+   a note can be called anything), so it is the one thing that has to be told
+   it may not grow the row: it takes the space that is left and ellipsises,
+   rather than wrapping to two lines at 1440 and three at 390 and pushing
+   "Start over" out of line with the checkbox. The status is a `role="status"`
+   that the agent writes a sentence into mid-run, so it is held to one line for
+   the same reason. Measured: 75px at 1440 and 124px at 390, now 51px at both. */
+.command-palette-foot > #command-palette-use-note-label {
+  min-width: 0;
+  flex: 0 1 auto;
+  /* `.row` wraps at phone widths, which put the checkbox on one line and its
+     caption on the next and took the row back to 76px at 390 even with the
+     caption ellipsised. This one never wraps: the caption gives characters
+     instead, which is what the ellipsis is for. */
+  flex-wrap: nowrap;
+}
+
+.command-palette-foot > #command-palette-use-note-label > #command-palette-use-note-text,
+.command-palette-foot > #command-palette-status {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* The status gives first: it is a progress line, the toggle is a control you
+   are about to press. A zero basis that grows lets it take the slack and hand
+   it back before the label loses a character. */
+.command-palette-foot > #command-palette-status {
+  flex: 1 1 0;
 }
 
 /* The agent activity monitor. */

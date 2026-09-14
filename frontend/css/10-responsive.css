@@ -705,19 +705,12 @@ header#top-bar,
     display: none;
   }
 
-  /* **Two controls too many for a 390px header.** The agent's wand and the
-     Guide's '?' joined the first header cluster with INBOX 190, taking it
-     from three controls to five: measured at 390 with them in, the bar's
-     scrollWidth is 407px against a 390px client and the whole page scrolls
-     sideways, which is the one thing the responsive band exists to prevent.
-     Below 600 they move into the phone's More sheet
-     (`openPhoneMoreSheet`, app.js), which is where Settings already went for
-     the same reason; above it they stay in the header, where the measurement
-     says there is room (1440, 1024 and 820 all fit with 0px of overflow). */
-  #agent-btn,
-  #guide-btn {
-    display: none;
-  }
+  /* The rule that hid the agent's wand and the Guide's '?' here is gone with
+     the buttons: measured at 390 with them in the header, the bar's
+     scrollWidth was 407px against a 390px client, and hiding them on phones
+     was the tell that the header could not afford them at any width. INBOX
+     207 moved both to the status bar (#status-agent, #status-guide) and left
+     the phone's More sheet rows where they already were. */
 }
 
 /* --- band 4 (under 600): the editor's own targets (DOCUMENTS_PLAN Phase 6) ---

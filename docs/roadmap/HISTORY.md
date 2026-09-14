@@ -24962,6 +24962,101 @@ them. It is written up in `archive/agent-remaining/documents-phase4.md`.
     line, five rows (icon, name, one line of what it makes), Cancel at the
     foot. Measured: 5 rows, one width (820px), 55px each, focus on the
     first, Cancel present.
+207. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the header
+    (screenshot: the header's five icon buttons: bell, magic wand, '?',
+    theme, gear).** "move the help bot to the bottom bar instead of having
+    it in the top bar buttons, also the popup agent is already accessible in
+    the bottom bar so it doesnt need to be in the top bar buttons either".
+    The wand (`#command-palette-btn` or equivalent) and the '?' (`#guide-btn`)
+    leave `.header-controls`; the Guide joins the bottom bar (the status bar
+    on desktop, `#phone-tab-dock`'s More sheet on a phone) beside the agent.
+    Owner: orchestrator.
+    **Fixed.** Both buttons left `.header-controls`; the Guide is
+    `#status-guide` in the status bar beside `#status-agent`, same shape, its
+    own `data-status-slot` so it can be hidden from Settings like the rest.
+    Measured (`scratchpad/ui-sweeps/chromehelp.js`, `chrome207.js`, 1440x900
+    then 390x844): the header cluster is three buttons (bell, theme, gear),
+    was five; the status bar shows Ask and Guide; the Ask slot opens the
+    palette and the Guide slot opens the Guide sheet; at 390 the page's
+    scrollWidth is 390 against a 390px client, the header overflows by 0px,
+    and the More sheet still lists Ask the agent and Guide at 44px a row.
+    **And the half the owner added once the two had left** ("it feels out of
+    place"): the segmented wells are gone. A tinted shell with hairline seams
+    says its items are one control in several positions, which was a stretch
+    at five items and wrong at three. The bell, theme and gear, and the lock
+    and power pair, are plain icon-only ghost buttons on the header's own
+    ground, one spacing step apart, at the tab strip's own height token; the
+    grouping is distance again (`.header-cluster-end`'s margin and
+    `.header-divider`). Measured (`scratchpad/ui-sweeps/chromehdr.js`, light
+    and dark): 0 seam shadows and 0 shells, was 5 seams and 2 shells; cluster
+    height 36px against a tab button's 36px, was 40px; gap 6.4px (one step);
+    header overflow 0px. The one button reading a background in the dark pass
+    is `#theme-btn` under the pointer that had just switched the theme, which
+    is the hover tint.
+
+206. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the help
+    popovers (screenshot: the capture box's '?' popover running the full
+    height of the window, "A note is plain text. These few things do
+    something extra:" through the callouts bullet, with a scrollbar).** "the
+    note capture tooltip popup takes up the height of the screen. and popups
+    still flicker for a split second at the top left and then appear in the
+    right place :(". Two things: the `data-help-for` popover's height (cap
+    it and let it scroll, or cut the copy: standing order 6 says one line
+    per section and the long help behind the '?', but a popover is not a
+    page); and the first-frame flash at 0,0 before placement, which is the
+    popover being shown before it is positioned (measure the first painted
+    rect after `hidden` is removed). Owner: orchestrator.
+    **Fixed.** The height was two rules fighting: `.help-popover` declares
+    `min(24rem, 70vh)` where it is defined, then joins the shared
+    floating-surface list in `07-whiteboard-misc.css`, whose
+    `max-height: calc(100vh - var(--space-9) * 2)` is right for a menu and
+    replaced the popover's ceiling with 836px of a 900px window. The ceiling
+    is `min(60vh, 32rem)` in `08-consistency.css` now, after both.
+    Measured (`scratchpad/ui-sweeps/chromehelp.js`, `chrome206.js`): the
+    capture popover is 512px at 1440x900 (was 751px), 420px at 1024x700 and
+    506px at 390x844, each the computed cap, each scrolling its 749px of
+    content, and inside the window at all three.
+    **The flash was not reproduced and is now impossible rather than
+    unlikely.** The first painted rect after the open is the final rect in
+    every run at every size (1440x900: 984,195; 1024x700: 571,207; 390x844:
+    16,231), because the click places the panel in the same task that shows
+    it. `wireHelpPopover` sets `visibility: hidden` before removing `hidden`
+    all the same, so the reveal can only come from the line in
+    `placeHelpPopover` that runs after `left`/`top` are written; the
+    invariant is local now rather than a property of the order of two
+    statements. **Found while measuring, and fixed with it:** at 390 the
+    popover was clamped to its card and ran 41px past the right edge of the
+    screen (x=73, body 358px, window 390px), because a card narrower than the
+    popover makes the surface clamp resolve to the card's left edge. The
+    viewport is the hard bound now: x=16 at 390, right edge 374.
+
+202. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the theme
+    switch.** "switching between light and dark mode is realllly glitchy
+    and takes a bit to load". Measure the switch: time from the click to
+    the last style recalculation, how many elements transition, whether the
+    blurred surfaces repaint one by one. Owner: orchestrator.
+    **Measured, attributed and fixed.** Two causes, both counted
+    (`scratchpad/ui-sweeps/chrome202.js`, `chrome202art.js`, headless
+    1440x900). One: the click starts 24 CSS transitions, on background-color
+    and the four border colours, at 120ms, 160ms and 200ms depending on which
+    rule each surface took its transition from, so the app does not change
+    theme, it dissolves into the other one at three speeds while 79
+    `backdrop-filter` surfaces re-composite over a ground that is itself still
+    moving. Two: both generative canvases are torn down and rebuilt inside the
+    click (`startBgArt`, `refreshArtForTheme`), which is the "takes a bit to
+    load" half, and is why the cost rose from 7.4ms of synchronous work with
+    the background art off to 10.9ms with it on.
+    Now: `repaintThemeAtOnce` (settings.js) holds a `theme-switching` class on
+    `:root` while the new values are applied and painted, and
+    `00-tokens-shell.css` suppresses every transition under it, so the window
+    changes in one step; the canvas rebuilds moved to the frame after that
+    paint and are coalesced, so five presses rebuild once.
+    Measured after: transitions started by a switch 24 to 0; the click's own
+    synchronous work with the art on and the dashboard open 10.7ms to 7.2ms
+    (headless medians of six, noisy at this size, 10.1ms on a second pass); the
+    mode still flips, the suppression class is gone again a frame later, and
+    the art canvas is rebuilt. **Not verified:** the desktop webview, which is
+    the window the report came from; the numbers above are headless Chromium.
 
 ## Moved from the plans, 2026-09-13
 
@@ -28811,4 +28906,172 @@ working on it. This project's failure mode is not forgetting to write things
 down — it is writing them somewhere a later session does not read, and then
 rebuilding or re-deriving them. One ordered list, in the file every session is
 told to open first.
+203. **Mid-work drop, 2026-09-13 night, verbatim (the owner), AI features
+    with no model.** "and many ai exclusive features are still enabled even
+    when an ai isnt available or running...". `44ed975` put the "no model
+    connected" state where you are; the ask is the other half: every
+    AI-only control disabled, with the reason, while `/models/status` says
+    nothing is running. Inventory first: grep the ids that call the AI
+    routes and the `data-needs-model` (or equivalent) attribute that exists,
+    then one function that toggles them all from the model status.
+    Owner: orchestrator.
+    **Measured, attributed and fixed.** The inventory came first and is the
+    whole story: `AI_ONLY_CONTROLS` in `app.js` listed seven ids, and eight
+    more controls that cannot answer without a model were live with no model.
+    Four had arrived on their surfaces since the array was written
+    (`improve-retry`, `extract-commit`, `doc-ai-run`, `wb-boards-generate`),
+    Chat's own box and Send were never in it, nor was the guide's, and the
+    dashboard's digest button carried its own private copy of the check that
+    said "start Ollama" to somebody running llama.cpp. An array in one file is
+    the wrong home for a fact about a control on another surface, so the
+    reason now lives on the control: `data-needs-model="<why>"` in the markup,
+    and one `syncModelGatedControls(status)` off the `/models/status` poll
+    reads the document rather than a list. It restores rather than enables, so
+    a control with a busy state of its own (Save notes while it saves, the
+    guide's Ask for the length of a question) is not handed back mid-run by
+    the next tick. `tests/test_frontend_ids.py` holds the inventory with the
+    route each control reaches, and fails both ways: a listed control with no
+    attribute, and an attribute on a control the list does not know.
+    Measured (`scratchpad/ui-sweeps/chrome203.js`, the status route stubbed
+    both ways, 1440x900): with no model, 15 of 15 marked controls disabled and
+    carrying the reason plus "Connect a model in Settings", 0 left live
+    (before: 7 of 15). With a model, 0 disabled and 0 left holding the offline
+    tooltip. That second number was 9 on the first pass, which is a bug this
+    found in its own gate: the saved title was kept under a truthiness test,
+    so a control with no title of its own saved the gated sentence over its
+    empty original on the next poll tick and then restored it as the original.
+    Not gated, deliberately: Ask, Save, search, tags, the graph, reminders,
+    documents, and the meeting note's Save, each of which does its job without
+    a model and says so.
+
+208. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the popup
+    agent's foot (screenshot: the "Use the open note" toggle with its label
+    wrapped to two lines, "Nothing open to use (open a note, document, board
+    or map first)", beside a "Start over" button whose caption also wraps
+    to two lines).** "can you fix the ui of and redesign the ui of these
+    buttons at the bottom of the popup agent??" The foot row
+    (`.command-palette-foot`): the disabled state's copy is too long for a
+    toggle's label (one short line, the long reason behind the toggle's
+    `title` or a `data-help-for`), and Start over is an icon-only ghost
+    button with a tooltip, or a menu item, not a two-line pill. Owner:
+    chrome agent, with 205.
+    **Measured and fixed.** Both faults were one fault: the row is a nowrap
+    flex row of four things, and two of them were allowed to bring their own
+    height. The toggle's caption carried its own instructions ("Nothing open
+    to use (open a note, document, board or map first)"), which is a paragraph
+    in a checkbox's label: two lines at 1440, three at 390. It says "Nothing
+    open to use" now, and the sentence about what to open, which the label's
+    `title` has always carried, is the only place it lives. The open case
+    keeps the thing's name (INBOX 190) and ellipsises a long one rather than
+    wrapping it, with the full name in the title. "Start over" is the app's
+    icon-only ghost recipe with its words in the tooltip and the aria-label:
+    at 390 it was a 68px pill with its caption broken across two lines. The
+    status line, which the agent writes a sentence into mid-run, is held to
+    one line for the same reason, and gives its width back first.
+    Measured (`scratchpad/ui-sweeps/chrome208.js`, three states: nothing open,
+    a deliberately long map title with a long status beside it, and mid-run
+    with Stop in Start over's place): the foot row was 75px at 1440 and 124px
+    at 390, and is 51px and 61px now, the same in all three states. The 61 is
+    the phone's 44px touch target rather than the desktop's 28.
+
+205. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the popup
+    agent.** "the '?' tooltip dropdown in the popup agent shows behind the
+    panel instead of in front. and I want you to improve and redesign the
+    suggestions and quick prompts in the popup agent." Two halves: the
+    `data-help-for` popover's stacking inside `#command-palette-overlay`
+    (a z-index under the panel, or a blurred ancestor confining it: measure
+    `elementFromPoint` at the popover's centre); the starters (`2602c32`,
+    per-tab since `6147863`) redesigned as a set, with the 200 sweep.
+    Owner: orchestrator.
+    **The stacking: fixed.** Not a blurred ancestor, which is the usual cause
+    here (the panel already leaves for `<body>` on open): the tier.
+    `.help-popover` is `z-index: 1020`, chosen for the dialogs at 1010, and
+    `.command-palette-overlay` is 2000, so every '?' inside the palette opened
+    under it. The popover is 2500 now, above the palette and the full-view
+    table (2400) and below the pointer menu host (2600) and the boot splash
+    (3000). Measured (`scratchpad/ui-sweeps/chrome205.js`):
+    `document.elementFromPoint` at the popover's own centre is inside the
+    popover in the palette, in Settings and on a plain page; it was a span
+    belonging to the palette card. The starters stay open below.
+    **The starters: redesigned as a set, measured.** What was there was
+    fourteen identical text pills, centred, in a two-column grid, under six
+    headings that were plain paragraphs floating in the same grid. Nothing in
+    a chip said which of the five verb families it belonged to, so the family
+    name three rows up was the only thing carrying the structure, and the eye
+    had to read every label to find one. Three changes, each of them a rule
+    the set now keeps: every starter carries its family's glyph (Capture a
+    pencil, Find a glass, Summarise the text-align mark, Remind a bell, Do a
+    bolt), with the two groups that are not families taking the shape of what
+    they are, a pin for the tab you are on and a clock for the recents; every
+    label is left-aligned behind its glyph, so the labels start at one x
+    instead of raggedly around a centre; and every family name is ruled off
+    with the app's own hairline rather than floating. The panel's opening
+    paragraph went from four lines to one, with the rest behind the '?' that
+    was already there (standing order 6).
+    Measured (`scratchpad/ui-sweeps/chrome205starters.js`, the status route
+    stubbed as running because the panel disables its starters without a
+    model, 1440x900 and 390x844): 0 of 14 chips carried an icon, now 14 of 14,
+    across 7 distinct glyphs with 0 of them blank (a name outside the vendored
+    Phosphor subset draws nothing, silently, which is why
+    `test_ask_answer_object.py` now checks the seven against the font);
+    `justify-content` centre on all 14, now flex-start on all 14, every label
+    at 14px from its chip's left edge; 0 of 6 family names ruled, now 6 of 6.
+    The set is denser despite the rules: at 390 it scrolled 222px, now 149px;
+    at 1440 it fits without scrolling as it did before, with the intro block
+    562px tall rather than 585. A stem clicked on its glyph still lands in the
+    box with the caret after it, and using one adds the Recent group with its
+    clock.
+
+204. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the Guide
+    (screenshot: the Guide sheet, "Ask the guide" with a '?' and New chat,
+    "Quick app help from your utility model, not your notes", a "hey" bubble
+    and the no-model reply, the Ask field).** "can you add an exit or x
+    button to the top right of the guide ai panel??" and, a minute later:
+    "and also modernise and redesign/improve the ui and ux for the help ai.
+    give the help ai a name fitting for the application like a persona and
+    improve its capabillity and knowledge". Two halves: the X (every sheet
+    from the `openSheet` recipe gets one, top right, so the fix is one
+    place); the persona, which is a decision the chat agent took as "Guide"
+    (CHAT_PLAN decision 14) and the owner now asks to be a fitting name and
+    a persona with more knowledge. Owner: orchestrator, with the 200 sweep.
+    **The X: done.** Every sheet from the `openSheet` recipe carries a
+    `.sheet-head` with the title and an icon-only close at the top right
+    (measured on the Guide: 28x28, 25px in from the card's top and right
+    corners, on the title's row, closes on click). The persona half stays
+    open with 200.
+    **The persona: decided, taken and measured.** The name is Atlas
+    (CHAT_PLAN.md decision 15, which supersedes decision 13's naming half: the
+    owner asked for a fitting name twice and "Guide" was a label, not a name).
+    An atlas is a book of maps, the thing you open to find your way around a
+    place you are already standing in, which is what this chat is for an app
+    called MemoryMap, and the status bar already drew it with a compass. It
+    keeps what decision 13 was actually protecting: a reference work claims no
+    personality, does not pretend to know the reader, and does not imply it has
+    read the notebook it cannot see. The name lives in two constants,
+    `help_chat.GUIDE_NAME` and `GUIDE_NAME` in settings.js, and a test asserts
+    the word in the model's prompt is the word on the screen.
+    Knowledge and capability, the other half of the ask: the guide could not
+    say what it was. "Who are you?" and "what can you do?" carry none of the
+    feature keywords, nothing matched, and the prompt tells the model to say it
+    is not sure when it has no reference notes, so the first question anybody
+    asks a chat was answered "I'm not sure". There is a `guide` topic now,
+    holding the three facts that make it useful (the utility model it runs on,
+    that it cannot see the notebook, that nothing is kept), and the system
+    prompt carries the persona and this app's copy rules rather than only its
+    refusals. The empty chat says the same thing in the interface: a
+    description under the field before the first turn, retired by the first
+    message and brought back by New chat.
+    Measured (`scratchpad/ui-sweeps/chrome204guide.js`, 1440x900 and 390x844):
+    the status slot reads "Atlas" with "Ask Atlas how this app works, from any
+    tab"; the sheet's title, the pane's subhead and every `title`,
+    `aria-label` and placeholder inside the chat agree, 0 strays matching
+    "guide" left on the surface; the description shows before the first turn,
+    is hidden after a turn with 2 rows on screen, and is back with 0 rows after
+    New chat. And the transcript is a column now rather than a wall: the sheet
+    recipe is full width by decision, which gave the guide 1356px lines at
+    1440, so the chat inside it is capped and centred, 1356px to 670px, with
+    nothing else built from that recipe touched.
+    `/help/ask` already carried the tab and the tab's own help copy
+    (`helpChatOnScreenHelp`, `TAB_TOPICS`, `MAX_CONTEXT_CHARS`), so that part
+    of the brief was checked rather than rebuilt.
 

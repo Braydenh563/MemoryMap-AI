@@ -2224,9 +2224,10 @@ label.setting-check,
   margin-bottom: 0.5rem;
 }
 
-.help-chat-messages:empty {
-  display: none;
-}
+/* `.help-chat-messages:empty { display: none }` stood here, and with INBOX 204
+   it could never match again: the log holds the guide's own description of
+   itself before the first turn, so it is never empty. Removed rather than left
+   as a rule that reads as live and is not. */
 
 .help-chat-msg {
   max-width: 85%;

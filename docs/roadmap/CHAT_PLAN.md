@@ -172,9 +172,11 @@ and every run ends with a verification line and an Undo.
     asked it to, in an app whose first line of description is that it is
     offline. The host in words is the half of a favicon that carries meaning.
 
-13. **The help chat is called the Guide, and it is a sheet reachable from
-    anywhere** (INBOX 193, filed and taken 2026-09-13; asked for in INBOX 190,
-    "give it a fitting name??"). "Guide" rather than a person's name or a
+13. **The help chat is a sheet reachable from anywhere** (INBOX 193, filed
+    and taken 2026-09-13; asked for in INBOX 190, "give it a fitting name??").
+    **Its name is decision 15's, not this one's**: "Guide" here was superseded
+    a day later by the owner, and the paragraph below is kept as written
+    because the reasoning in it is what decision 15 had to answer. "Guide" rather than a person's name or a
     mascot: it explains the app and nothing else, it cannot read the notebook,
     and a name implying a personality would be the second thing in this app
     claiming to be an assistant while being the one that knows least about
@@ -185,6 +187,28 @@ and every run ends with a verification line and an Undo.
     by id) and a second copy would be a second set of ids. Reachable from the
     header's '?' on every tab and from the head the fifteen Settings panes
     share.
+
+15. **The guide is called Atlas** (INBOX 204, the owner: "give the help ai a
+    name fitting for the application like a persona and improve its
+    capabillity and knowledge"). This supersedes decision 13's naming half,
+    one day after it was taken, because the owner asked twice and "Guide" was
+    the wrong answer both times: INBOX 190's "give it a fitting name??" was
+    read as a request for a label, and a label is what it got.
+    An atlas is a book of maps: the thing you open to find your way around a
+    place you are already standing in, which is what this chat is for an app
+    called MemoryMap, and it is already drawn with a compass in the status
+    bar. It also keeps decision 13's actual objection intact, which was never
+    to names as such but to a name that claims a personality: a reference work
+    has no personality to claim, does not pretend to know the reader, and does
+    not imply it has read the notebook it cannot see. The voice in the system
+    prompt is the same restraint the rest of this app's copy keeps: plain,
+    sentence case, no greeting before the answer, and it says what it is when
+    asked rather than inventing a character.
+    The name lives in exactly two constants, `help_chat.GUIDE_NAME` and
+    `GUIDE_NAME` in settings.js, and `tests/test_help_chat.py` asserts the
+    word in the model's prompt is the word on the screen. A `guide` entry in
+    `HELP_TOPICS` is what lets it answer "who are you" and "what can you do",
+    which matched no topic at all before and so were answered "I'm not sure".
 
 14. **The popup agent's own reach is the header, not seven docks** (INBOX
     190). The ask was "usable across the whole app"; the header is the one

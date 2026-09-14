@@ -267,25 +267,19 @@
           </div>
         </div>
       </span>
-      <!-- **The agent and the guide, on every tab** (INBOX 190, the owner:
-           "it needs to be more versatile and usable across the whole app, the
-           user should be able to use it as the guiding hand and everything",
-           and "is there a way to make the help chat bot more accessible
-           throughout the settings modal and also even accessible application
-           wide").
-
-           Both were reachable by one route each and neither route was
-           visible: the popup agent by a chord nothing on screen mentioned,
-           and the guide by opening Settings and scrolling to the bottom of
-           the Help pane. They go in the header cluster rather than into each
-           tab's own dock: the header is the one piece of chrome that is on
-           every tab, a dock belongs to the surface under it, and seven copies
-           of one control is seven places for it to drift. The shortcut is in
-           the tooltip, which is how this app teaches its chords. -->
-      <button id="agent-btn" class="ghost small icon-only" title="Ask the agent to do something (Ctrl+Shift+A)"
-        aria-label="Ask the agent to do something"><i class="ph ph-magic-wand" aria-hidden="true"></i></button>
-      <button id="guide-btn" class="ghost small icon-only" title="Ask the guide how this app works"
-        aria-label="Ask the guide how this app works"><i class="ph ph-question" aria-hidden="true"></i></button>
+      <!-- **The agent and the guide are not here any more** (INBOX 190 put
+           them here, INBOX 207 moved them on). Both are still on every tab,
+           which was 190's point; the header is not where a thing you open a
+           few times an hour belongs once it has taken the cluster from three
+           controls to five. Measured at 390 with them in, the bar's
+           scrollWidth was 407px against a 390px client, and the fix then was
+           a media query hiding them on phones, which is the tell: a control
+           the narrow band cannot afford is a control the wide band is only
+           tolerating. They live in the status bar now, beside the command
+           hint that teaches the same kind of chord (#status-agent,
+           #status-guide), and in the phone's More sheet, which is where
+           Settings already went. The header keeps the three that act on the
+           window itself: notifications, theme, Settings. -->
       <button id="theme-btn" class="ghost small icon-only" title="Toggle light/dark" aria-label="Toggle light or dark theme"><i class="ph ph-circle-half" aria-hidden="true"></i></button>
       <button id="settings-btn" class="ghost small icon-only" title="Settings" aria-label="Settings"><i class="ph ph-gear" aria-hidden="true"></i></button>
       </span>
@@ -356,8 +350,10 @@
           Ctrl+Shift+A opens and closes this from any tab, or use the wand in
           the header. Enter sends, Shift+Enter starts a line, Down moves into
           the starters and Escape closes. It uses the same model, tools and
-          notebook the Chat tab does, so anything it writes or files is real;
-          tick the box below to hand it whatever you have open.
+          notebook the Chat tab does, so anything it writes or files is real,
+          and it answers from what you have written; tick the box below to
+          hand it whatever you have open. It remembers this conversation until
+          you press Start over.
         </p>
       </div>
       <div class="command-palette-bar">
@@ -388,10 +384,16 @@
              than hiding them (decision 11: visible, disabled, with the way to
              fix it beside them). -->
         <div id="command-palette-offline" class="ai-offline-note hidden"></div>
+        <!-- One line, which is all standing order 6 allows a section, and all
+             that is left after INBOX 205: this was four lines of a paragraph
+             standing between the reader and the set of starters that is the
+             actual answer to "what can it do". The rest of it (the tools it
+             shares with Chat, that it remembers the conversation) is behind
+             the '?' at the top of this panel, with everything else that is
+             longer than a line. -->
         <p class="muted">
-          It can read and search your notes, write and file new ones, set
-          reminders, and answer from what you have written, the same tools
-          the Chat tab uses. It remembers this conversation until you clear it.
+          It can read and search your notes, write and file new ones, and set
+          reminders.
         </p>
         <!-- Twelve, grouped by verb, and built by `renderAgentStarters`
              (app.js) rather than written out here: the group a starter belongs
@@ -412,10 +414,19 @@
              true before the palette has been opened. -->
         <label id="command-palette-use-note-label" class="row align-center checkbox-label small">
           <input type="checkbox" id="command-palette-use-note">
-          <span id="command-palette-use-note-text">Nothing open to use (open a note, document, board or map first)</span></label>
+          <span id="command-palette-use-note-text">Nothing open to use</span></label>
         <span id="command-palette-status" class="muted text-sm" role="status"></span>
-        <button type="button" id="command-palette-clear" class="ghost small"
-          title="Forget this conversation and start over"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Start over</button>
+        <!-- Icon-only, with the words in the tooltip and the label (INBOX 208,
+             the owner, of this row: "can you fix the ui of and redesign the ui
+             of these buttons"). "Start over" is two words this row does not
+             have across for: at 390 it was a 68px pill with its caption broken
+             over two lines beside a three-line toggle, and the row stood 124px
+             tall. It is a secondary action on a panel whose primary action is
+             typing, so it takes the app's icon-only ghost recipe and gives the
+             width back to the toggle beside it. -->
+        <button type="button" id="command-palette-clear" class="ghost small icon-only"
+          aria-label="Start over"
+          title="Start over: forget this conversation"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
         <!-- Not `.ghost`, and that is the whole change. Reported: "the button
              at the bottom of the popup agent for stop and clear doesnt have
              the affordance look." Stop is the only action offered while a run
@@ -947,7 +958,7 @@
                  ones beside it. -->
             <button id="sketch-btn" class="ghost" type="button" title="Draw a quick sketch and save it as a note" aria-label="Open the sketch pad"><i class="ph ph-palette ph-lead" aria-hidden="true"></i> Sketch</button>
             <button id="mic-note" class="ghost" type="button" title="Dictate a note (local Whisper)" aria-label="Dictate a note"><i class="ph ph-microphone ph-lead" aria-hidden="true"></i> Dictate</button>
-            <button id="improve-btn" class="ghost" type="button" title="Let the AI proofread or rewrite this before you save" aria-label="Improve writing with AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Improve</button>
+            <button id="improve-btn" data-needs-model="Proofreading needs the local AI" class="ghost" type="button" title="Let the AI proofread or rewrite this before you save" aria-label="Improve writing with AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Improve</button>
           </div>
           <!-- Files waiting to go onto this note when it saves. Reported
                directly: "when I uplaod pdfs to a note, they are in pure md
@@ -1076,7 +1087,7 @@
                   title="Stop the AI: nothing you've written is changed"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
                 <button id="draft-undo" class="ghost" type="button" disabled
                   title="Nothing to undo yet"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Undo</button>
-                <button id="draft-compose"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Draft it</button>
+                <button id="draft-compose" data-needs-model="Drafting needs the local AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Draft it</button>
               </div>
               <p id="draft-status" class="status" role="status"></p>
             </div>
@@ -1101,7 +1112,7 @@
                   placeholder="Optional, comma separated (e.g. joke, work)">
               </div>
               <div class="row draft-controls draft-actions-row">
-                <button id="draft-extract" class="ghost" type="button"
+                <button id="draft-extract" data-needs-model="Extracting notes needs the local AI" class="ghost" type="button"
                   title="Split this into one or more notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
                 <button id="draft-discard" class="ghost" type="button">Discard</button>
                 <button id="draft-save"><i class="ph ph-floppy-disk ph-lead" aria-hidden="true"></i> Save as note</button>
@@ -1869,10 +1880,10 @@
             <!-- A textarea, not an input: a three-sentence question used to
                  scroll sideways inside one line. Enter still sends; Shift+Enter
                  is a newline, which an <input> could not offer at all. -->
-            <textarea id="chat-input" rows="1" class="autogrow chat-input"
+            <textarea id="chat-input" data-needs-model="Chat is answered by the local AI" rows="1" class="autogrow chat-input"
               placeholder="Ask your notebook anything…"></textarea>
             <button id="mic-chat" class="ghost icon-only" title="Dictate your question (local Whisper)" aria-label="Dictate your question"><i class="ph ph-microphone" aria-hidden="true"></i></button>
-            <button id="chat-send">Send</button>
+            <button id="chat-send" data-needs-model="Chat is answered by the local AI">Send</button>
             <button id="chat-stop" class="ghost danger hidden" title="Stop the answer"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
             </div>
             <!-- One strip, four groups, hairlines between them.
@@ -3180,7 +3191,7 @@
                  its own ("Formatting ▾" and three icons) under this row, 
                  measured, 139px of chrome above the first line at 1440. One
                  button here, one strip that appears below only while on. -->
-            <button id="doc-ai" class="ghost small" type="button"
+            <button id="doc-ai" data-needs-model="AI editing needs the local AI" class="ghost small" type="button"
               title="Ask the AI to rewrite this document, or the text you've selected"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> AI edit</button>
             <!-- Export and delete, folded away. Same `<details>` disclosure
                  the Library's image tiles use, for the same reason: the
@@ -3219,7 +3230,7 @@
                      both are worth having. -->
                 <button id="doc-history" class="menu-item doc-dock-menu-item" type="button"
                   title="Every version this document has had, and a way back to any of them"><i class="ph ph-clock-counter-clockwise ph-lead" aria-hidden="true"></i> History</button>
-                <button id="doc-extract" class="menu-item doc-dock-menu-item" type="button"
+                <button id="doc-extract" data-needs-model="Extracting notes needs the local AI" class="menu-item doc-dock-menu-item" type="button"
                   title="Turn this document, or the text you have selected, into one or more notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
                 <button id="doc-export-md" class="menu-item doc-dock-menu-item" type="button"
                   title="Download as a .md file"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Download as .md</button>
@@ -3631,7 +3642,7 @@
           <input id="doc-ai-instruction" type="text" maxlength="500"
             placeholder="e.g. “tighten this”, “make it more formal”"
             aria-label="What should the AI do?">
-          <button id="doc-ai-run"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Suggest an edit</button>
+          <button id="doc-ai-run" data-needs-model="AI editing needs the local AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Suggest an edit</button>
           <button id="doc-ai-cancel-run" class="ghost hidden" type="button"
             title="Stop the AI: the document is untouched"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
         </div>
@@ -3694,7 +3705,7 @@
              break) so the quick path stays quick. -->
         <textarea id="reminder-magic" maxlength="1000" rows="1" class="autogrow"
           placeholder="Magic add: e.g. “Call mum tomorrow evening, high priority”"></textarea>
-        <button id="reminder-magic-add" class="ghost"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Add</button>
+        <button id="reminder-magic-add" data-needs-model="Reading a reminder from a sentence needs the local AI" class="ghost"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Add</button>
       </div>
       <p id="reminder-magic-status" class="status" role="status"></p>
       <div class="reminder-form">
@@ -4272,7 +4283,7 @@
             <details class="doc-dock-menu dock-menu dock-more" id="library-boards-more">
               <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
               <div class="doc-dock-menu-list dock-menu-list">
-                <button id="wb-boards-generate" class="doc-dock-menu-item" type="button" title="Pick some notes and let the app propose a map of them"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Map from notes…</button>
+                <button id="wb-boards-generate" data-needs-model="Proposing a map from your notes needs the local AI" class="doc-dock-menu-item" type="button" title="Pick some notes and let the app propose a map of them"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Map from notes…</button>
                 <button id="wb-boards-import" class="doc-dock-menu-item" type="button" title="Import a mind map from an OPML, FreeMind or Markdown outline"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Import outline…</button>
               </div>
             </details>
@@ -5131,7 +5142,7 @@
             </div>
             <div class="wb-menu-section hidden" data-wb-ctx="more-notes">
               <span class="wb-panel-group-label">Notes</span>
-              <button type="button" class="wb-menu-item" id="wb-extract-notes" title="Turn the selected notes' content into one or more new notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i><span>Extract notes</span></button>
+              <button type="button" class="wb-menu-item" id="wb-extract-notes" data-needs-model="Extracting notes needs the local AI" title="Turn the selected notes' content into one or more new notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i><span>Extract notes</span></button>
             </div>
             <div class="wb-menu-section hidden" data-wb-ctx="more-mindmap">
               <span class="wb-panel-group-label">Arrange as mind map</span>
@@ -5799,6 +5810,13 @@
          nobody switches on advertises nothing, and it joins STATUS_SLOTS so
          it can be hidden from Settings like every other slot here. -->
     <button id="status-agent" class="status-item" type="button" data-status-slot="agent"></button>
+    <!-- The Guide, beside the agent, same shape (INBOX 207). The two are a
+         pair: one does things to your notes, the other explains the app, and
+         a person reaching for either is asking the same question, "who do I
+         ask". Splitting them across the header and the status bar was the
+         reason the Guide kept being reported as hard to find. Its own slot
+         key so it can be hidden on its own from Settings. -->
+    <button id="status-guide" class="status-item" type="button" data-status-slot="guide"></button>
     <!-- Off by default, unlike the STATUS_SLOTS group above (app.js): a
          clock is not one of the bar's existing permanent landmarks, so it
          does not appear for everyone the moment this shipped. Asked for
@@ -6227,7 +6245,7 @@
       <div id="extract-notes-list" class="extract-notes-list"></div>
       <div id="extract-links-list" class="extract-links-list"></div>
       <div class="row">
-        <button id="extract-commit"><i class="ph ph-floppy-disk ph-lead" aria-hidden="true"></i> Save notes</button>
+        <button id="extract-commit" data-needs-model="Extracting notes needs the local AI"><i class="ph ph-floppy-disk ph-lead" aria-hidden="true"></i> Save notes</button>
         <button id="extract-cancel" class="ghost" type="button">Cancel</button>
       </div>
     </div>
@@ -6267,7 +6285,7 @@
                opens, and the chat itself moves into that sheet rather than
                being built a second time. -->
           <button id="settings-guide-btn" class="ghost small icon-only" type="button"
-            title="Ask the guide how this app works" aria-label="Ask the guide how this app works"><i class="ph ph-question" aria-hidden="true"></i></button>
+            title="Ask Atlas how this app works" aria-label="Ask Atlas how this app works"><i class="ph ph-question" aria-hidden="true"></i></button>
           <span class="row status-nav" role="group" aria-label="Move between pages" id="settings-modal-nav" data-status-slot="nav">
             <button id="settings-nav-back" class="ghost small icon-only" type="button" disabled title="Nothing to go back to" aria-label="Nothing to go back to"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
             <button id="settings-nav-forward" class="ghost small icon-only" type="button" disabled title="Nothing to go forward to" aria-label="Nothing to go forward to"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
@@ -8720,7 +8738,7 @@
                      under is hierarchy upside down, and nothing in the app
                      had ever styled it. -->
                 <div class="row help-head">
-                  <h4 class="flush setting-subhead"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Ask the guide</h4>
+                  <h4 class="flush setting-subhead"><i class="ph ph-compass ph-lead" aria-hidden="true"></i> Ask Atlas</h4>
                   <button type="button" class="icon-only ghost small graph-help-toggle"
                     data-help-for="help-chat-help" aria-controls="help-chat-help" aria-expanded="false"
                     title="About this chat" aria-label="About this chat">
@@ -8731,17 +8749,32 @@
                   <i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> New chat
                 </button>
               </div>
-              <p class="muted">Quick app help from your utility model, not your notes.</p>
+              <p class="muted">Atlas explains the app, from your utility model, never from your notes.</p>
               <div class="help-body hidden" id="help-chat-help" role="dialog" aria-label="About this chat">
                 <p>
-                  Quick "how do I…" answers about MemoryMap itself, from your
-                  utility model, not your notes, and nothing here is saved.
+                  Atlas is named for a book of maps: it is the reference you
+                  open to find your way around this app. Quick "how do I…"
+                  answers about MemoryMap itself, from your utility model, not
+                  your notes, and nothing here is saved.
                 </p>
               </div>
-              <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite" aria-label="Help chat"></div>
+              <!-- **Atlas says what it is before it is asked** (INBOX 204, the owner:
+                   "improve its capabillity and knowledge"). An empty log under a
+                   field is a chat that has to be guessed at: what it knows, what
+                   it will refuse, whether what you type is kept. It is markup
+                   rather than script because it is what is true before anything
+                   has happened, and `renderHelpChatMessage` hides it on the first
+                   turn and `#help-chat-clear` brings it back. -->
+              <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite" aria-label="Help chat">
+                <p id="help-chat-empty" class="muted help-chat-empty">
+                  Ask where a feature lives, what a setting does, or which tab
+                  you want. Atlas answers from the app's own help, says so when
+                  it is not sure, and cannot read your notes or your documents.
+                </p>
+              </div>
               <form id="help-chat-form" class="row help-chat-form">
-                <input type="text" id="help-chat-input" placeholder="e.g. How do I turn off web search?" maxlength="1000" autocomplete="off" aria-label="Ask the guide a question">
-                <button type="submit" id="help-chat-send" class="primary small">Ask</button>
+                <input type="text" id="help-chat-input" data-needs-model="Atlas answers with your utility model" placeholder="e.g. How do I turn off web search?" maxlength="1000" autocomplete="off" aria-label="Ask Atlas a question">
+                <button type="submit" id="help-chat-send" data-needs-model="Atlas answers with your utility model" class="primary small">Ask</button>
               </form>
             </div>
           </section>
@@ -9180,7 +9213,7 @@
       <p id="improve-status" class="status" role="status"></p>
       <div class="row">
         <button id="improve-apply">Use the suggestion</button>
-        <button id="improve-retry" class="ghost small">Try again</button>
+        <button id="improve-retry" data-needs-model="Proofreading needs the local AI" class="ghost small">Try again</button>
       </div>
     </div>
   </div>

@@ -110,11 +110,18 @@ def test_related_items_are_not_written_into_the_box_that_clears_them():
 
 def test_ask_is_never_disabled_when_the_model_is_off():
     """Decision 11. Ask answers from search alone, so greying it out would hide
-    the one thing that still works."""
-    start = APP.index("const AI_ONLY_CONTROLS = [")
-    table = APP[start : APP.index("\n];", start)]
-    for never in ('"ask-btn"', '"question"', '"stop-btn"'):
-        assert never not in table, never
+    the one thing that still works.
+
+    The gate reads `data-needs-model` off the markup now (INBOX 203), so this
+    is a claim about the markup: Ask's own three controls carry no such
+    attribute, and nothing marks them from script either.
+    """
+    for never in ("ask-btn", "question", "stop-btn"):
+        block = re.search(r'\sid="%s"[^>]*>' % never, MARKUP)
+        assert block, never
+        assert "data-needs-model" not in block.group(0), never
+    assert "dataset.needsModel =" not in APP
+    assert "setAttribute(\"data-needs-model\"" not in APP
 
 
 # --- the popup agent (CHAT_PLAN.md decision 9) --------------------------------
@@ -132,6 +139,35 @@ def test_the_popup_agent_offers_twelve_starters_grouped_by_verb():
     assert table.count("{ group:") == 12, table.count("{ group:")
     groups = re.findall(r'group: "(\w+)"', table)
     assert list(dict.fromkeys(groups)) == ["Capture", "Find", "Summarise", "Remind", "Do"]
+
+
+def test_every_starter_family_has_a_glyph_that_the_app_actually_ships():
+    """INBOX 205: the set reads as five families plus two, one glyph each.
+
+    Two ways this breaks silently. A family added to the table with no row in
+    `AGENT_STARTER_ICONS` renders `ph-undefined`, a class that matches nothing;
+    and a name that is not in the vendored Phosphor subset draws nothing at all
+    (see `tests/test_icon_names.py` for why that is invisible). Neither throws,
+    neither logs, and both look like a chip that lost its icon.
+    """
+    start = APP.index("const AGENT_STARTER_ICONS = {")
+    table = APP[start : APP.index("\n};", start)]
+    icons = dict(re.findall(r'(\w+): "([a-z0-9-]+)"', table))
+    groups = set(re.findall(r'group: "(\w+)"', _starter_table()))
+    assert groups <= set(icons), f"starter families with no glyph: {groups - set(icons)}"
+    #: The two groups that are not families of their own (the tab's own row and
+    #: the recents) name their glyph in the renderer instead.
+    renderer = APP[APP.index("function renderAgentStarters(") :]
+    renderer = renderer[: renderer.index("\n}\n")]
+    wanted = set(icons.values()) | set(re.findall(r', "([a-z-]+)"\]\)', renderer))
+    available = set(
+        re.findall(
+            r"\.ph-([a-z0-9-]+):before",
+            (FRONTEND / "vendor" / "phosphor" / "style.css").read_text(encoding="utf-8"),
+        )
+    )
+    assert len(wanted) == 7, sorted(wanted)
+    assert wanted <= available, f"not in the vendored subset: {sorted(wanted - available)}"
 
 
 def test_a_starter_is_a_stem_or_a_whole_instruction_and_never_both():
@@ -185,7 +221,7 @@ def test_the_toggle_never_offers_to_use_nothing():
 def test_every_ai_only_control_names_settings_not_one_provider():
     """It said "start Ollama to use this", which is the wrong instruction for
     the two other providers this app supports."""
-    start = APP.index("function syncAiOnlyControls(")
+    start = APP.index("function syncModelGatedControls(")
     body = APP[start : APP.index("\n}\n", start)]
     assert "AI_OFFLINE_HINT" in body
     assert "start Ollama to use this" not in APP

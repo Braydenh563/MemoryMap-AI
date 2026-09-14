@@ -28,7 +28,23 @@ below). Versioning is `0.x` while the app stabilises.
   backticks while the caret is elsewhere; the graph node popup opens rendered
   and no longer repeats the note's own pictures (198). Today's note is one
   press, one note, and jumps to it (199). Every sheet has a close button in
-  its title row (204).
+  its title row (204). The agent and the Guide leave the header for the
+  bottom bar, which takes the header cluster from five buttons to three, and
+  the header's icon buttons lose their segmented wells for the header's own
+  ground (207). A help '?' popover is capped at a reading height and scrolls
+  instead of running the height of the window, and stays inside the window on
+  a phone (206), and opens in front of the popup agent rather than behind it
+  (205). Switching light and dark is one repaint rather than a dissolve at
+  three speeds, and the background art is rebuilt after it rather than during
+  it (202). Every control that needs a model says so and is disabled while
+  none is running, 15 of them rather than the 7 an array in one file had kept
+  up with (203). The popup agent's foot row is one control high in every
+  state rather than two or three lines of wrapped captions, 75px and 124px
+  before, 51px and 61px now (208). Its starters read as a set: a glyph per
+  verb family on all 14, labels left-aligned behind them, each family ruled
+  off, and one line of intro rather than four (205). The in-app guide is called
+  Atlas, can say what it is and what it cannot see, shows that before the first
+  question, and reads as a column rather than a 1356px line (204).
 
 ### Added
 

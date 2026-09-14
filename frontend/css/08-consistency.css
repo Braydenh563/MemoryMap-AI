@@ -1752,6 +1752,20 @@ summary > .ph-lead,
    groups, and read as one until there was air between them. Reported with a
    screenshot: "there's no gap between the ask the guide box and help
    dropdowns panel". The group gap every other Settings section uses. */
+/* **A chat is a column, not a wall** (INBOX 204: "modernise and redesign /
+   improve the ui and ux for the help ai"). The sheet recipe is deliberately
+   full width at every width, which is right for a list of rows and wrong for a
+   transcript: opened at 1440 the guide's messages ran 1356px wide, around 200
+   characters a line, against the 60 to 80 every other reading surface in this
+   app holds itself to. The cap is on the chat inside the sheet, not on the
+   sheet, so nothing else built from that recipe moves. Measured: 1356px, now
+   704px, centred. */
+[data-sheet="guide"] .help-chat-group {
+  max-width: 44rem;
+  margin-inline: auto;
+  width: 100%;
+}
+
 .help-accordion + .help-chat-group {
   margin-top: var(--space-6);
 }
@@ -2170,4 +2184,57 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    moment the fold shuts. */
 .library-image-grid:has(.library-image-card-fold[open]) .library-image-tile {
   align-self: start;
+}
+
+/* --- the help popover is a popover, not a page (INBOX 206) -----------------
+   Reported with a screenshot of the capture box's '?' running the whole
+   height of the window: "the note capture tooltip popup takes up the height
+   of the screen".
+
+   Two rules were fighting and the wrong one won. `.help-popover` declares
+   `max-height: min(24rem, 70vh)` where it is defined
+   (`03-dashboard-widgets.css`), and then joins the shared floating-surface
+   list in `07-whiteboard-misc.css` whose job is "a menu taller than the
+   viewport must still reach its last item": that list sets
+   `max-height: calc(100vh - var(--space-9) * 2)`, which at 900px is 836px, and
+   it is a later file at the same specificity, so it silently replaced the
+   popover's own ceiling with very nearly the window.
+
+   The list's rule is right for a menu, whose items are the content and which
+   has nowhere else to put them. A help popover's content is prose with a
+   scrollbar, so its ceiling is a reading measure rather than the window: 32rem
+   (512px), or 60vh on a short window, whichever is smaller. This file, because
+   it is the one that comes after 07 and because the two rules it reconciles
+   both belong where they are.
+
+   `--help-caret-x` and the scroll behaviour are untouched; only the ceiling
+   moves. */
+.help-popover {
+  max-height: min(60vh, 32rem);
+}
+
+/* --- a help popover opens over the surface that asked for it (INBOX 205) ---
+   Reported: "the '?' tooltip dropdown in the popup agent shows behind the
+   panel instead of in front". Measured inside `#command-palette-overlay`
+   (`scratchpad/ui-sweeps/chromehelp.js`): the popover is placed correctly,
+   at 428,186 with a 416x189 body, and `document.elementFromPoint` at its own
+   centre returns a span belonging to the palette card, not the popover.
+
+   Not a blurred ancestor this time, which is the usual cause here: the panel
+   already leaves for `<body>` on open. It is the tier. `.help-popover` is
+   `z-index: 1020`, chosen when the surfaces it opened over were the dialogs
+   at 1010, and the command palette sits at 2000 (`07-whiteboard-misc.css`),
+   above the whole dialog range, so every '?' inside it opened underneath it.
+
+   The popover is transient, is dismissed by the next click anywhere, and is
+   always opened from a trigger on whatever surface is topmost: so its tier is
+   "above the surfaces a '?' can appear on" rather than a fixed place in the
+   dialog stack. 2500 clears the palette (2000) and the full-view table
+   (2400), and stays under the pointer-anchored menu host (2600) and the boot
+   splash (3000), neither of which can be open at the same time as a '?'.
+
+   A dialog added above 2500 must raise this with it, which is why the numbers
+   above are named rather than left to be rediscovered. */
+.help-popover {
+  z-index: 2500;
 }

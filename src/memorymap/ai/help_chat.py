@@ -36,8 +36,26 @@ import re
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.provider import Provider
 
+#: **The guide's name, in one place** (INBOX 204, the owner: "give the help ai
+#: a name fitting for the application like a persona and improve its
+#: capabillity and knowledge"; CHAT_PLAN.md section 4 decision 15, which
+#: supersedes decision 13's naming half). An atlas is a book of maps, the thing
+#: you open to find your way around a place you are already standing in, which
+#: is exactly what this chat is for an app called MemoryMap. It is a name for a
+#: reference work rather than for a person, so decision 13's actual objection
+#: still holds: nothing here claims a personality, or to know the reader, or to
+#: have read a word of their notebook.
+#:
+#: Every surface that says the name reads it from here or from
+#: `GUIDE_NAME` in the frontend, because a persona whose name is typed out in
+#: nine places is a persona with nine chances to be renamed in eight.
+GUIDE_NAME = "Atlas"
+
 SYSTEM_PROMPT = (
-    "You are MemoryMap's in-app help assistant. You answer ONLY questions "
+    f"You are {GUIDE_NAME}, the in-app guide to MemoryMap, a local-first "
+    "notebook. Your name is the name of a book of maps: you are a reference "
+    "the person opens to find their way around the app, and you say so if "
+    "asked who you are. You answer ONLY questions "
     "about how to use the MemoryMap app itself: its features, tabs, and "
     "settings. You have no access to the user's notes or documents, so if "
     "asked a question about their notebook's own content, say plainly that "
@@ -48,11 +66,13 @@ SYSTEM_PROMPT = (
     "are given, or they don't cover the question, say plainly that you're "
     "not sure and suggest checking the Help topics above this chat instead "
     "of guessing. Keep answers short: a few sentences or a short numbered "
-    "list of steps: and name the exact tab or settings section involved."
+    "list of steps: and name the exact tab or settings section involved. "
+    "Write plainly, in sentence case, with no exclamation marks and no "
+    "greeting before the answer."
 )
 
 OFFLINE_MESSAGE = (
-    "The AI guide isn't available right now (the local model doesn't seem "
+    f"{GUIDE_NAME} isn't available right now (the local model doesn't seem "
     "to be running): the Help topics above still work without it."
 )
 
@@ -331,6 +351,33 @@ HELP_TOPICS: list[dict] = [
             "itself on battery power."
         ),
         "badge": {"label": "Preferences", "section": "preferences"},
+    },
+    {
+        #: **The guide's entry about itself** (INBOX 204: "improve its
+        #: capabillity and knowledge"). The one question every chat is asked
+        #: first, "what are you, and what can you do", was the one question
+        #: this one had no reference note for: with no topic matched the
+        #: prompt tells the model to say it is not sure, so the guide
+        #: answered "I'm not sure" when asked what it was. Its own name is a
+        #: keyword because a person who has just read "Atlas" at the top of
+        #: the sheet will type it.
+        "id": "guide",
+        "keywords": (
+            "atlas", "guide", "who are you", "what are you", "your name",
+            "yourself", "what can you do", "what do you do",
+        ),
+        "body": (
+            "Atlas is this app's in-app guide, named for a book of maps. It "
+            "answers how-to questions about MemoryMap itself from the app's "
+            "own help: where a feature lives, what a setting does, which tab "
+            "to be on. It uses the utility model in Settings -> Models, not "
+            "the chat model, it cannot read your notes or documents (ask the "
+            "Chat or Ask tab for those), and nothing said to it is saved: the "
+            "conversation is gone on reload, and \"New chat\" clears it now. "
+            "It is reachable from the status bar on every tab, from the head "
+            "of every Settings pane, and from Settings -> Help."
+        ),
+        "badge": {"label": "Help", "section": "help"},
     },
     {
         "id": "command-palette",

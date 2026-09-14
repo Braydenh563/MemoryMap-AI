@@ -233,3 +233,76 @@ def test_every_appearance_setting_has_a_default():
         f"APPEARANCE_DEFAULTS: {missing}. Each one resolves to undefined and is "
         "written into a CSS custom property as that word."
     )
+
+
+#: Every control whose own handler reaches a route that cannot answer without a
+#: model, with the route that makes it so (INBOX 203, the owner: "many ai
+#: exclusive features are still enabled even when an ai isnt available or
+#: running"). This is the inventory; `data-needs-model` on the element is the
+#: implementation, and `syncModelGatedControls` (app.js) reads the attribute
+#: rather than a list in the code, because the list in the code is what fell
+#: behind: it carried seven of these fifteen.
+#:
+#: Adding an AI control means adding it here and marking it in the markup. A
+#: control that degrades without a model does NOT belong here: Ask falls back
+#: to the search results beside it and says so, and the meeting note's Save
+#: summarises when it can and files the note either way, so neither is gated.
+MODEL_GATED_CONTROLS = {
+    "improve-btn": "/entries/improve",
+    "improve-retry": "/entries/improve",
+    "draft-compose": "/drafts/compose",
+    "draft-extract": "/entries/extract/preview",
+    "extract-commit": "/entries/extract/commit",
+    "doc-ai": "/documents/<id>/ai-edit",
+    "doc-ai-run": "/documents/<id>/ai-edit",
+    "doc-extract": "/entries/extract/preview",
+    "wb-extract-notes": "/entries/extract/preview",
+    "wb-boards-generate": "/whiteboard/boards/propose",
+    "reminder-magic-add": "/reminders/parse",
+    "chat-send": "/chat/stream",
+    "chat-input": "/chat/stream",
+    "help-chat-send": "/help/ask",
+    "help-chat-input": "/help/ask",
+}
+
+
+def test_every_ai_only_control_says_it_needs_a_model():
+    """A control that only fails once pressed is what makes an app feel broken.
+
+    The failure this catches is silent in every other way: the control looks
+    available, the click reaches a route, the route has no model, and the
+    apology arrives after the person has committed to the action.
+    """
+    markup = _markup()
+    missing = sorted(
+        ident
+        for ident in MODEL_GATED_CONTROLS
+        if 'id="%s" data-needs-model="' % ident not in markup
+    )
+    assert not missing, (
+        "These controls call an AI route but do not carry data-needs-model in "
+        f"index.html, so nothing disables them when no model is running: {missing}"
+    )
+
+
+def test_every_model_gated_control_gives_a_reason_and_is_in_the_inventory():
+    """The attribute's value is the sentence the disabled control shows."""
+    markup = _markup()
+    marked = dict(re.findall(r'\sid="([^"]+)" data-needs-model="([^"]*)"', markup))
+    blank = sorted(ident for ident, why in marked.items() if not why.strip())
+    assert not blank, f"data-needs-model with no reason to show: {blank}"
+    # An element marked in the markup but absent from the inventory above is
+    # the same drift in the other direction: the list stops describing the app.
+    stray = sorted(set(marked) - set(MODEL_GATED_CONTROLS))
+    assert not stray, (
+        "These carry data-needs-model but are not in MODEL_GATED_CONTROLS, so "
+        f"the inventory no longer says what is gated: {stray}"
+    )
+    # Every marked element must be one with a disabled state of its own, which
+    # is what makes the attribute enough by itself: no wrappers.
+    for ident in MODEL_GATED_CONTROLS:
+        block = re.search(r'<(\w+)[^>]*\sid="%s" data-needs-model=' % ident, markup)
+        assert block, f"{ident} is not marked on an element of its own"
+        assert block.group(1) in {"button", "input", "textarea", "select"}, (
+            f"{ident} is a <{block.group(1)}>, which has no disabled state to set"
+        )

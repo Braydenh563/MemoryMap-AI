@@ -35161,6 +35161,25 @@ function lazyAssetStamp() {
   return query === -1 ? "" : src.slice(query);
 }
 
+//: **A lazy bundle's "when the page is ready" is now.** Three of the files
+//: `ensureModule` inserts wrapped their top-level wiring in a
+//: `DOMContentLoaded` listener, which was right when they were `<script>`
+//: tags in the head and wrong the moment they loaded on first use: the
+//: event had fired minutes earlier, the listener never ran, and every
+//: Library sub-tab was a button with no handler ("I cant click on any of
+//: the library subtabs"). This runs the wiring at once when the document is
+//: already parsed and defers it only while it is still loading, so a file
+//: behaves the same whether it arrived at boot or on demand.
+//: A microtask, not a direct call: the wiring sits in the middle of its file
+//: and reads `let` bindings declared further down (`libraryMediaKind`), which
+//: a direct call reached before they existed ("Cannot access before
+//: initialization"). A microtask runs once the whole script has evaluated,
+//: which is the same moment `DOMContentLoaded` gave a boot-time script.
+function onDomReady(fn) {
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", fn);
+  else queueMicrotask(fn);
+}
+
 function ensureModule(name) {
   const files = LAZY_MODULES[name];
   if (!files) return Promise.resolve(false);

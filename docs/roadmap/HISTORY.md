@@ -27010,6 +27010,20 @@ line that carried a dash.
     144x28 shell (`scratchpad/mapsel2.js`). Now 159x28, the shell's full
     width, field-shaped, reading "Tree, sideways".
 
+227. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the
+    Library.** "I cant click on any of the library subtabs :(" **Fixed
+    (this commit).** The boot agent made `library.js`, `whiteboard.js`,
+    `documents.js`, `graph.js` and `graph-canvas.js` load on first use
+    (audit A1), and nine top-level wirings in those files were wrapped in a
+    `DOMContentLoaded` listener, an event that had fired long before the
+    file arrived: the sub-tab switcher, the media view, the boards
+    controls and the graph pane never wired. Reproduced
+    (`scratchpad/libtabs.js`): 7 of 8 sub-tabs left their view hidden on
+    click. `onDomReady` (app.js) runs the wiring in a microtask when the
+    document is already parsed; the same probe now shows 8 of 8 views
+    shown, 0 page errors, and `test_frontend_load_order.py` fails on any
+    lazy file that waits for the event again.
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.
@@ -29130,4 +29144,3 @@ told to open first.
     The other surfaces this item's first sentence asks for ("a full ux sweep"
     of the whole app) are the orchestrator's own, surface by surface, and are
     not claimed here.
-

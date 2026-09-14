@@ -237,3 +237,17 @@ def test_the_stand_ins_name_functions_that_exist():
     assert not orphans, (
         "LAZY_ENTRY_POINTS names these, which no lazily-loaded file defines: " + ", ".join(orphans)
     )
+
+
+def test_lazy_bundles_do_not_wait_for_domcontentloaded():
+    """A file `ensureModule` inserts on first use arrives long after
+    `DOMContentLoaded` fired, so a listener on that event never runs. Seven
+    of library.js's top-level wirings were wrapped that way and every Library
+    sub-tab lost its click handler the day the bundle went lazy. Lazy files
+    wire through `onDomReady` (app.js), which runs at once when the document
+    is already parsed."""
+    for file in _lazy_order():
+        text = (FRONTEND / file).read_text(encoding="utf-8")
+        assert 'addEventListener("DOMContentLoaded"' not in text, (
+            f"{file} waits for DOMContentLoaded; use onDomReady() so it wires when loaded on demand"
+        )

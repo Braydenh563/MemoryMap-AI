@@ -1908,7 +1908,7 @@ function libraryDocSort() {
   return LIBRARY_DOC_SORTS[stored] ? stored : "newest";
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+onDomReady(() => {
   const select = document.getElementById("library-docs-sort");
   if (!select) return;
   select.value = libraryDocSort();
@@ -2348,7 +2348,7 @@ function setLibraryMediaView(mode) {
   applyLibraryMediaView();
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+onDomReady(() => {
   document
     .getElementById("library-media-view-preview")
     ?.addEventListener("click", () => setLibraryMediaView("preview"));
@@ -4604,7 +4604,7 @@ function ocrAllText() {
   return ocrWorkspaceRegions.map((region) => region.text).join("\n\n").trim();
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+onDomReady(() => {
   $("ocr-close")?.addEventListener("click", () => closeOcrWorkspace());
   $("ocr-workspace")?.addEventListener("click", (event) => {
     //: Click the backdrop to close, the card to keep working, the same rule
@@ -5481,7 +5481,7 @@ function libraryMediaSort() {
 //: task you are in the middle of, and a filter that silently persisted across
 //: sessions is how a Library comes back next week apparently missing half its
 //: files. Same reasoning the notes list uses for its own transient filters.
-document.addEventListener("DOMContentLoaded", () => {
+onDomReady(() => {
   const select = document.getElementById("library-media-sort");
   if (select) {
     select.value = libraryMediaSort();
@@ -6979,7 +6979,7 @@ function filterLibraryImagesGallery() {
 // this split registers its top-level listeners as bare statements instead
 // (safe because every <script> here loads after body content), but there
 // was no reason to change that shape while moving it.
-document.addEventListener("DOMContentLoaded", () => {
+onDomReady(() => {
   const librarySubtabs = document.getElementById("library-subtabs");
   if (librarySubtabs) {
     const buttons = librarySubtabs.querySelectorAll("button");
@@ -7413,7 +7413,7 @@ async function bulkDeleteLibraryBoards() {
   if (typeof renderLibraryBoardsGallery === "function") renderLibraryBoardsGallery();
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+onDomReady(() => {
   // The bar goes right above the grid it governs, same placement the
   // Documents/Files sub-tabs' own bars have in index.html.
   const boardsGrid = document.getElementById("library-boards-grid");
@@ -7785,7 +7785,7 @@ function bookmarkSort() {
   return BOOKMARK_SORTS[stored] ? stored : "newest";
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+onDomReady(() => {
   const select = document.getElementById("bookmark-sort");
   if (!select) return;
   select.value = bookmarkSort();

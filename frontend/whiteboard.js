@@ -13686,7 +13686,7 @@ async function dragEndNode(event, d) {
 // sub-tabs), and it has moved to library.js, which is the Library's actual
 // home now (ROADMAP.md §88.3 flagged this as "an accident worth fixing
 // while splitting"). Only these two survive here, unchanged.
-document.addEventListener("DOMContentLoaded", () => {
+onDomReady(() => {
   $("wb-boards-new")?.addEventListener("click", async () => {
     wbShowCanvasView();
     await createNewBoard();
@@ -13797,7 +13797,7 @@ window.wbVisibleBoards = function wbVisibleBoards(boards, needle) {
   return fixed.length ? [...fixed, ...shown.filter((b) => b.id !== null)] : shown;
 };
 
-document.addEventListener("DOMContentLoaded", () => {
+onDomReady(() => {
   const select = $("library-boards-sort");
   if (!select) return;
   select.value = boardSort();

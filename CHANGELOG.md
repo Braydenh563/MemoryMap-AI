@@ -83,6 +83,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Library's sub-tabs, the boards controls and the graph pane did not
+  wire when their files loaded on first use: their top-level setup waited
+  for `DOMContentLoaded`, which had already fired. They wire through
+  `onDomReady` now, and a lint fails any lazy file that waits for the event.
 - The dashboard's shared `/insights/stats` reader called itself instead of the
   endpoint, so every widget that reads the notebook's totals drew its empty
   state and no request was made at all. Each of the seven call sites has a

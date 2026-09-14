@@ -2681,8 +2681,4 @@ function graphPaneWire() {
   graphPaneFollow();
 }
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", graphPaneWire);
-} else {
-  graphPaneWire();
-}
+onDomReady(graphPaneWire);

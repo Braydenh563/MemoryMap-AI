@@ -376,3 +376,20 @@ def test_atlas_has_a_shortcut_and_it_is_in_the_registry():
     table = app[start : app.index("\n};", start)]
     assert "askAtlas: {" in table
     assert "askAtlas: () => askAtlasAbout" in app
+
+
+def test_atlas_has_a_stop_while_a_question_is_out():
+    """The owner, 2026-09-14: "there's no way to stop a response on the atlas
+    interface window". The send button is the stop while busy: the request
+    carries an abort signal, the reveal checks it, and a click while busy
+    aborts instead of submitting."""
+    from pathlib import Path
+
+    js = (Path(__file__).resolve().parents[1] / "frontend" / "settings.js").read_text(encoding="utf-8")
+    assert "helpChatAbort = new AbortController()" in js
+    ask = js[js.index('apiJson("/help/ask"'):]
+    assert "signal," in ask[:200]
+    assert "function helpChatReveal(row, content, signal = null)" in js
+    assert "if (signal?.aborted)" in js
+    assert 'sendBtn.type = busy ? "button" : "submit"' in js
+    assert 'icon.className = busy ? "ph ph-stop"' in js

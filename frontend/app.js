@@ -21976,7 +21976,15 @@ function renderDashboardPersonaSelect(names) {
     option.textContent = name;
     select.appendChild(option);
   }
-  select.value = current;
+  //: A saved name that is no longer in the list (the built-in was
+  //: "Librarian" before it became Atlas; a custom persona can be deleted)
+  //: left the select with no selected option, which the enhanced opener
+  //: drew as an empty box with a chevron (the owner, 2026-09-14: "this
+  //: dashboard welcome message persona dropdown box is broken visually").
+  //: The old built-in reads as the new one; anything else unknown reads as
+  //: "Same as Chat", which is what the server falls back to as well.
+  const wanted = personaDisplayName(current) === current || current === "Librarian" ? personaDisplayName(current) : current;
+  select.value = names.includes(wanted) ? wanted : "";
 }
 
 async function addPersona() {

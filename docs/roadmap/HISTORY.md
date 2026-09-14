@@ -27778,6 +27778,22 @@ line that carried a dash.
     the current name; the "What this persona tells the AI" preview shows
     the filled text. `tests/test_persona_atlas.py`.
 
+259. **Mid-work drop, 2026-09-14, verbatim (the owner).** "there's no way
+    to stop a response on the atlas interface window". **Fixed:** while a
+    question is out the send button is Stop (square glyph, same place); a
+    click aborts the request through the fetch signal or halts the reveal
+    where it is, the shown words stay marked "(stopped)", and the history
+    keeps the whole answer. `tests/test_help_chat.py`. Measured in
+    Chromium: the button reads Stop while busy and Ask Atlas after.
+260. **Mid-work drop, 2026-09-14, verbatim (the owner), Settings, Personas
+    (screenshot: the dashboard greeting's persona select drawn as an empty
+    box with a chevron beside Regenerate greeting).** "this dashbaord
+    welcome message persona dropdown box is broken visually". Cause: a
+    saved `dashboard_persona` of "Librarian" (the built-in's old name) no
+    longer matched an option, so the select had no selected option and the
+    enhanced opener drew nothing. **Fixed:** the old name reads as Atlas
+    and any other unknown name as "Same as Chat" (`renderDashboardPersonaSelect`).
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

@@ -3507,12 +3507,47 @@ function helpChatOnScreenHelp() {
   );
 }
 
+//: **Stop** (the owner, 2026-09-14: "there's no way to stop a response on
+//: the atlas interface window"). While a question is out, the send button
+//: is the stop button: same place, same size, a square glyph, and a click
+//: aborts the request through the fetch signal or halts the reveal where it
+//: is. The composer's submit is a form submit; while busy the button is
+//: `type="button"` so a click reaches the stop handler and not the form.
+let helpChatAbort = null;
+
+function helpChatSetBusy(busy) {
+  const sendBtn = $("help-chat-send");
+  if (!sendBtn) return;
+  sendBtn.type = busy ? "button" : "submit";
+  //: `data-needs-model` may have disabled the button; a request that is out
+  //: must be stoppable regardless, so the disabled state is parked while
+  //: busy and put back after.
+  if (busy) {
+    sendBtn.dataset.wasDisabled = sendBtn.disabled ? "1" : "";
+    sendBtn.disabled = false;
+  } else if (sendBtn.dataset.wasDisabled === "1") {
+    sendBtn.disabled = true;
+    delete sendBtn.dataset.wasDisabled;
+  }
+  sendBtn.title = busy ? "Stop" : "Ask Atlas";
+  sendBtn.setAttribute("aria-label", sendBtn.title);
+  sendBtn.classList.toggle("is-stop", busy);
+  const icon = sendBtn.querySelector("i");
+  if (icon) icon.className = busy ? "ph ph-stop" : "ph ph-paper-plane-right";
+}
+
+function helpChatStop() {
+  if (!helpChatBusy) return;
+  helpChatAbort?.abort();
+}
+
 async function submitHelpChatQuestion(question) {
   if (helpChatBusy || !question.trim()) return;
   helpChatBusy = true;
   const input = $("help-chat-input");
-  const sendBtn = $("help-chat-send");
-  if (sendBtn) sendBtn.disabled = true;
+  helpChatAbort = new AbortController();
+  const signal = helpChatAbort.signal;
+  helpChatSetBusy(true);
   renderHelpChatMessage("user", question);
   // Same "thinking" indicator every other AI-backed surface uses
   // (typingDots(), app.js) rather than a static "Thinking…" line: asked
@@ -3527,6 +3562,7 @@ async function submitHelpChatQuestion(question) {
   try {
     const result = await apiJson("/help/ask", {
       method: "POST",
+      signal,
       //: **Where the question was asked from** (INBOX 190: "give it more
       //: knowledge"). The Guide opens over every tab now, so the tab is half
       //: the question: "how does this work?" means one thing on the Graph tab
@@ -3549,27 +3585,36 @@ async function submitHelpChatQuestion(question) {
     //: few words a frame under the same `.is-streaming` caret Chat uses for
     //: its real token stream, then the finished row with its sources and
     //: badges takes its place. Reduced motion shows the whole answer at once.
-    await helpChatReveal(pending, content);
+    const shown = await helpChatReveal(pending, content, signal);
     pending.remove();
+    //: Stopped mid-reveal: what was shown stays, marked, and the history
+    //: keeps the whole answer so a follow-up still makes sense to the model.
     renderHelpChatMessage(
       "assistant",
-      content,
-      result?.badges || [],
-      result?.sources || []
+      signal.aborted ? `${shown.trimEnd()} (stopped)` : content,
+      signal.aborted ? [] : result?.badges || [],
+      signal.aborted ? [] : result?.sources || []
     );
     helpChatHistory.push({ role: "user", content: question });
     helpChatHistory.push({ role: "assistant", content });
-  } catch {
+  } catch (error) {
     pending.remove();
-    renderHelpChatMessage("assistant", "Something went wrong asking that, try again.");
+    if (signal.aborted || error?.name === "AbortError") {
+      renderHelpChatMessage("assistant", "Stopped.");
+    } else {
+      renderHelpChatMessage("assistant", "Something went wrong asking that, try again.");
+    }
   } finally {
     helpChatBusy = false;
-    if (sendBtn) sendBtn.disabled = false;
+    helpChatAbort = null;
+    helpChatSetBusy(false);
     input?.focus();
   }
 }
 
-function helpChatReveal(row, content) {
+//: Resolves to the text shown so far: the whole answer, or, when the signal
+//: fired mid-reveal, the words that had appeared by then.
+function helpChatReveal(row, content, signal = null) {
   return new Promise((resolve) => {
     row.classList.remove("is-pending");
     row.classList.add("is-streaming");
@@ -3578,12 +3623,16 @@ function helpChatReveal(row, content) {
     const words = content.split(/(\s+)/);
     let shown = 0;
     const step = () => {
+      if (signal?.aborted) {
+        resolve(words.slice(0, shown).join(""));
+        return;
+      }
       shown = still ? words.length : Math.min(words.length, shown + 2);
       renderMarkdown(row, words.slice(0, shown).join(""));
       const list = $("help-chat-messages");
       if (list) list.scrollTop = list.scrollHeight;
       if (shown >= words.length) {
-        setTimeout(resolve, 150);
+        setTimeout(() => resolve(content), 150);
         return;
       }
       setTimeout(step, 24);
@@ -3595,6 +3644,11 @@ function helpChatReveal(row, content) {
 $("help-chat-form")?.addEventListener("submit", (event) => {
   event.preventDefault();
   submitHelpChatQuestion($("help-chat-input")?.value || "");
+});
+$("help-chat-send")?.addEventListener("click", (event) => {
+  if (!helpChatBusy) return; // a plain send is the form's submit
+  event.preventDefault();
+  helpChatStop();
 });
 
 //: New chat, which was a labelled button in the head row and is a menu row

@@ -146,6 +146,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The dashboard greeting's persona select no longer draws empty when the
+  saved name is the built-in's old one or a persona since deleted (INBOX
+  260).
 - The embedding model's warm-up waits for the app to go quiet after its
   first requests, so the dashboard's counts no longer load behind the
   torch import when you log in right after launch (INBOX 257).
@@ -256,6 +259,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Atlas can be stopped: while a question is out the send button is Stop,
+  and a click aborts the request or halts the reveal where it is (INBOX
+  259).
 - A custom persona may write `{ai_name}` for the assistant's name; the
   Personas page says so beside the box, and the preview shows the filled
   text (INBOX 258).

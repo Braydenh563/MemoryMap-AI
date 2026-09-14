@@ -9,8 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 - Boot is lighter: p5 (1 MB, decoration only) loads in idle time on first use
   rather than as a blocking script, and the dashboard's seven widgets share one
-  `/insights/stats` fetch (44 boot fetches to 35). The audit these came from is
-  WORLD_CLASS_PLAN "Audit, 2026-09-13 night" (INBOX 209).
+  `/insights/stats` fetch (44 boot fetches to 35). The graph, documents,
+  whiteboard and library code now arrives on the first visit to the tab that
+  needs it rather than before anything draws: 8 scripts and 1,072 KB at boot,
+  from 13 and 1,699. The audit these came from is WORLD_CLASS_PLAN "Audit,
+  2026-09-13 night" (INBOX 209).
 
 - At a higher browser zoom the tab strip no longer runs under the header
   controls (1152 to 1240 measured at 0px overlap) and a mind map's top bar

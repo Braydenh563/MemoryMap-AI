@@ -46,6 +46,44 @@ INDEX = FRONTEND / "index.html"
 #: shims, and the guard is the point of them.
 BOOT_SHIMS = {"boot-guard.js", "theme-boot.js"}
 
+#: The bundles `ensureModule` fetches on the first visit to a tab that needs
+#: them (WORLD_CLASS_PLAN row A1). They are not `<script>` tags in index.html
+#: any more, but the rule this file exists for is unchanged for them: they run
+#: after every script index.html lists, and inside a bundle they run in the
+#: order the table gives, because `ensureModule` sets `async = false`. Reading
+#: the table out of app.js rather than restating it here means a file moved
+#: between bundles is checked in its new position on the next run.
+LAZY_TABLE = re.compile(r"const LAZY_MODULES = \{(.*?)\n\};", re.S)
+
+
+def _lazy_order() -> list[str]:
+    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    table = LAZY_TABLE.search(app)
+    assert table, "app.js has no LAZY_MODULES table; has the lazy loader moved?"
+    names = [name for name in re.findall(r'"/([A-Za-z0-9_.-]+\.js)"', table.group(1))]
+    assert names, "the LAZY_MODULES table lists no files"
+    for name in names:
+        assert (FRONTEND / name).exists(), f"LAZY_MODULES names {name}, which does not exist"
+    return names
+
+
+#: The stand-ins app.js installs for the lazy bundles' entry points. A name on
+#: this table is bound by app.js's own top-level code (the loop under the
+#: table replaces `window[name]` with a function that fetches the bundle and
+#: then calls the real one), so for the purposes of the walk below it is
+#: defined by app.js and not by the file it finally comes from.
+ENTRY_POINT_TABLE = re.compile(r"const LAZY_ENTRY_POINTS = \{(.*?)\n\};", re.S)
+
+
+def _stand_ins() -> set[str]:
+    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    table = ENTRY_POINT_TABLE.search(app)
+    assert table, "app.js has no LAZY_ENTRY_POINTS table; has the lazy loader moved?"
+    names = set(re.findall(r'"([A-Za-z_$][\w$]*)"', table.group(1)))
+    assert names, "the LAZY_ENTRY_POINTS table lists no names"
+    return names
+
+
 def _script_order() -> list[str]:
     html = INDEX.read_text(encoding="utf-8")
     names: list[str] = []
@@ -54,6 +92,9 @@ def _script_order() -> list[str]:
         if (FRONTEND / name).exists() and name not in names:
             names.append(name)
     assert names, "no local scripts found in index.html"
+    for name in _lazy_order():
+        if name not in names:
+            names.append(name)
     return names
 
 
@@ -82,6 +123,12 @@ def test_no_script_calls_a_later_script_from_its_own_top_level():
     for name in order:
         for function in re.findall(r"^(?:async )?function ([A-Za-z_$][\w$]*)\(", sources[name], re.M):
             defined_in.setdefault(function, name)
+    #: A lazy bundle's entry point is reachable from the moment app.js installs
+    #: its stand-in, which is what that table is for, so the walk must read it
+    #: as app.js's own. Without this the walk would report every one of them and
+    #: the only way to quiet it would be to load the bundles at boot again.
+    for function in _stand_ins():
+        defined_in[function] = "app.js"
 
     problems = []
     for index, name in enumerate(order):
@@ -125,4 +172,68 @@ def test_the_paging_helper_is_reachable_from_the_script_that_boots_with_it():
     assert order.index(home[0]) <= order.index(callers[0]), (
         f"apiPagedList lives in {home[0]}, which index.html loads after "
         f"{callers[0]}, and app.js reaches it from `initNotesSubtabs` at load"
+    )
+
+
+def test_every_lazy_name_app_js_reads_at_load_has_a_stand_in():
+    """The rule that replaced the `<script>` order for the lazy bundles.
+
+    graph.js used to be loaded *before* app.js, because app.js's own top-level
+    wiring reads eight of its functions as bare identifiers
+    (`addEventListener("click", closeGraphPopup)`), and a `function`
+    declaration hoists inside its own script element only. Now that the bundle
+    arrives on the first visit to the tab, those reads are ReferenceErrors
+    unless app.js has bound the name itself first, which is what
+    `LAZY_ENTRY_POINTS` does.
+
+    So: every function a lazy bundle defines and app.js names anywhere in its
+    own top-level code has to be on that table. This is the half
+    `test_no_script_calls_a_later_script_from_its_own_top_level` above cannot
+    see, because that one only looks at calls written as statements, and most
+    of these are references handed to `addEventListener`.
+    """
+    lazy_files = _lazy_order()
+    lazy_functions: dict[str, str] = {}
+    for name in lazy_files:
+        source = (FRONTEND / name).read_text(encoding="utf-8")
+        for function in re.findall(r"^(?:async )?function ([A-Za-z_$][\w$]*)\(", source, re.M):
+            lazy_functions.setdefault(function, name)
+
+    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    #: app.js's own declarations win: a name it defines is its, and the install
+    #: loop skips it for exactly that reason.
+    own = set(re.findall(r"^(?:async )?function ([A-Za-z_$][\w$]*)\(", app, re.M))
+    stand_ins = _stand_ins()
+
+    missing: list[str] = []
+    for line in _top_level(app).split("\n"):
+        code = re.sub(r'"[^"]*"|\'[^\']*\'|`[^`]*`', '""', line).split("//")[0]
+        for match in re.finditer(r"[A-Za-z_$][\w$]*", code):
+            function = match.group(0)
+            if match.start() and code[match.start() - 1] == ".":
+                continue
+            if function in own or function in stand_ins:
+                continue
+            if function in lazy_functions:
+                missing.append(f"{function} ({lazy_functions[function]}), app.js: {line.strip()[:80]}")
+
+    assert not missing, (
+        "app.js names these lazily-loaded functions in its own top-level code "
+        "but has no stand-in for them, so the name is undefined until the tab "
+        "is opened: " + "; ".join(sorted(set(missing)))
+    )
+
+
+def test_the_stand_ins_name_functions_that_exist():
+    """A stand-in for a name nothing defines is a control that silently does
+    nothing: `ensureModule` resolves, the lookup finds the stand-in itself, and
+    the call returns undefined. Renaming a function in a lazy file without
+    touching the table is how that happens."""
+    lazy_functions: set[str] = set()
+    for name in _lazy_order():
+        source = (FRONTEND / name).read_text(encoding="utf-8")
+        lazy_functions.update(re.findall(r"^(?:async )?function ([A-Za-z_$][\w$]*)\(", source, re.M))
+    orphans = sorted(_stand_ins() - lazy_functions)
+    assert not orphans, (
+        "LAZY_ENTRY_POINTS names these, which no lazily-loaded file defines: " + ", ".join(orphans)
     )

@@ -922,8 +922,13 @@ async function reportTimezone() {
 
 // The per-tab data loads switchTab performs, without the tab-switching itself.
 // Kept beside switchTab's own dispatch so the two can't drift apart.
-function refreshActiveTab() {
+async function refreshActiveTab() {
   const name = localStorage.getItem("activeTab") || "notes";
+  //: The tab on screen may be one whose code arrives on demand (A1), and this
+  //: is the boot-time call that loads its data: `renderGraph`, `loadDocuments`
+  //: and `loadLibrary` below are all defined in a file that is fetched here.
+  const lazy = TAB_MODULES[name];
+  if (lazy) await ensureModule(lazy);
 
   // Relocate the back-to-top button so it aligns with the chat area bounds
   const scrollTopBtn = document.querySelector(".scroll-top");
@@ -25621,7 +25626,11 @@ async function goToTabHistory(next) {
       return;
     }
     if (settingsModalOpen()) closeSettingsModal();
-    switchTab(entry.tab);
+    //: Awaited: every branch below reaches straight into the tab's own file
+    //: (`openWhiteboardBoard`, `openDocument`, `graphFocusModeId`), and two of
+    //: those are lazily loaded now (A1). `graphFocusModeId` in particular is a
+    //: `let` in graph.js, which no stand-in can supply.
+    await switchTab(entry.tab);
     // The sub-tab is restored after the tab, because both restore paths below
     // act on elements the tab switch has just revealed.
     if (entry.tab === "notes" && entry.section) {
@@ -25831,7 +25840,7 @@ document.addEventListener("click", (event) => {
   }
 });
 
-function switchTab(name) {
+async function switchTab(name) {
   // Profiled directly: leaving the Graph tab left `graphSimulation` running
   //, it is only ever `.stop()`-ed "before every rebuild" (graph.js), never
   // on navigating away: so its tick handler kept costing real main-thread
@@ -25863,6 +25872,19 @@ function switchTab(name) {
   }
   // The generative-art animation only needs to run while it's on screen.
   if (name !== "dashboard") stopArt();
+  //: **The page is revealed first and its data loaded second, with the tab's
+  //: own code fetched in between** (WORLD_CLASS_PLAN A1). Everything above
+  //: this line is DOM and it stays synchronous, so a tab press still paints
+  //: the new page in the same frame it was pressed in; everything below calls
+  //: into the file that draws the tab, which for Graph, Library and Documents
+  //: may not have been fetched yet. `ensureModule` resolves immediately once
+  //: a bundle is in, so this costs one microtask on every visit after the
+  //: first. Callers do not await this function (a tab press is not something
+  //: to wait on), and the three that do need the tab's code on the next line
+  //: say so: the back/forward restore, `#conv-browse-all`, and
+  //: `refreshActiveTab`.
+  const lazy = TAB_MODULES[name];
+  if (lazy) await ensureModule(lazy);
   if (name === "chat") {
     renderChatEmptyState(); // welcome placeholder when the thread is empty
     loadChatSuggestions();
@@ -34855,6 +34877,175 @@ function ensureP5() {
   return p5Loading;
 }
 
+//: **A tab's code arrives when the tab does** (WORLD_CLASS_PLAN A1). Measured
+//: on this head before the change: 13 blocking scripts and 1,699 KB of
+//: compressed JS parsed before the first tab could draw, of which whiteboard
+//: (678 KB), documents (640 KB), library (404 KB) and the two graph files
+//: (334 KB) are surfaces most sessions never open. `ensureP5` above is the
+//: same idea for the one decoration that was bigger than all of them.
+//:
+//: Two bundles, not five, because the five files are not five independent
+//: modules: library.js renders the boards gallery from whiteboard.js and the
+//: documents list from documents.js, whiteboard.js calls back into both, and
+//: documents.js renders the library's own filters. That cycle is real (it is
+//: one surface split across three files, not three surfaces), so splitting it
+//: further would only mean loading two thirds of it and waiting for the rest.
+//: The graph pair has no edge into it at all once `formatFileSize` moved to
+//: this file, so it stands alone.
+//:
+//: `async = false` on a dynamically inserted script is what keeps them in
+//: document order: a dynamic script defaults to async, and library.js running
+//: before documents.js would be a different program.
+const LAZY_MODULES = {
+  graph: ["/graph.js", "/graph-canvas.js"],
+  //: The order the `<script>` tags had, kept: every cross-file call between
+  //: these three is inside a function rather than at parse time, so it is not
+  //: load-bearing, but it is the order the three files' own headers describe.
+  library: ["/documents.js", "/whiteboard.js", "/library.js"],
+};
+
+//: Which bundle a tab needs before its own dispatch runs. `documents` is the
+//: document editor the Library opens, which is why it shares the Library's
+//: bundle rather than having one of its own.
+const TAB_MODULES = { graph: "graph", library: "library", documents: "library" };
+
+const lazyModuleLoads = new Map();
+
+//: **The stamp is read off the page, never rebuilt from `__version__`.** Every
+//: local URL carries `?v=<version>`, and `RevalidatedStatic`
+//: (src/memorymap/api/app.py) splices a per-process boot token onto the stamps
+//: *inside index.html's served body* so a fresh launch of the desktop window
+//: can never reuse the last launch's cache. That token exists only in the
+//: markup, so a script this file inserts has to copy the stamp a real tag is
+//: already wearing; a hard-coded `?v=0.3.0` here would be a second, staler
+//: cache key for the same file, which is the exact bug that splice exists to
+//: prevent.
+function lazyAssetStamp() {
+  const src = document.querySelector('script[src*="/app.js?"]')?.getAttribute("src") || "";
+  const query = src.indexOf("?");
+  return query === -1 ? "" : src.slice(query);
+}
+
+function ensureModule(name) {
+  const files = LAZY_MODULES[name];
+  if (!files) return Promise.resolve(false);
+  const pending = lazyModuleLoads.get(name);
+  if (pending) return pending;
+  const stamp = lazyAssetStamp();
+  const loaded = Promise.all(
+    files.map(
+      (file) =>
+        new Promise((resolve) => {
+          const script = document.createElement("script");
+          script.async = false; // document order, not network order
+          script.src = file + stamp;
+          script.onload = () => resolve(true);
+          script.onerror = () => resolve(false);
+          document.head.appendChild(script);
+        })
+    )
+  ).then((results) => results.every(Boolean));
+  lazyModuleLoads.set(name, loaded);
+  return loaded;
+}
+
+//: **The entry points that can be reached before their own file exists.**
+//:
+//: Most calls into a lazy module happen on its own tab, after `switchTab` has
+//: awaited it. These are the ones that do not: a map chip in the note list
+//: opens a board, the command palette opens a document, the notes editor's
+//: bold button is documents.js's `applyMarkdown`, and eight of graph.js's
+//: functions are read as *bare identifiers* by this file's own top-level
+//: wiring (the click listener this file binds on `#graph-popup-close` names
+//: `closeGraphPopup` as a bare identifier), which is evaluated the moment that
+//: line runs and would throw ReferenceError with graph.js absent.
+//:
+//: Each name below gets a stand-in that loads the bundle and then calls the
+//: real function, which has replaced the stand-in by then: a top-level
+//: `function foo()` in a classic script rebinds `globalThis.foo`, so no
+//: hand-off is needed beyond looking the name up again.
+//:
+//: Two rules decide what is on this list, and both matter:
+//:
+//: 1. **Only functions whose return value nobody reads.** A stand-in has to
+//:    return a promise, so a function whose answer is used in the same
+//:    statement cannot have one. `docEventFromCm` is the sharp case: editor.js
+//:    reads it as `if (typeof docEventFromCm === "function" &&
+//:    docEventFromCm(event.target)) return;`, and a promise is truthy, so a
+//:    stand-in there would swallow every keystroke in the note editor. Those
+//:    functions are left off, and their `typeof` guard then means what it
+//:    says: the document surface is not loaded, so this is not one.
+//: 2. **Only functions a person's own gesture reaches.** `loadLibrary` and
+//:    `renderLibrary` are deliberately absent: they are called from "refresh
+//:    the list if it is on screen" guards after an OCR pass or an import
+//:    finishes, and a stand-in would pull 1.7 MB in the background because a
+//:    caption came back. Skipping is the right answer when the Library has
+//:    never been opened; opening it loads and renders it anyway.
+const LAZY_ENTRY_POINTS = {
+  graph: [
+    "clearTrace",
+    "closeGraphNewNote",
+    "closeGraphPopup",
+    "exportGraphPng",
+    "openGraphNewNote",
+    "placeGraphPopup",
+    "renderGraph",
+    "saveGraphNewNote",
+    "saveGraphPopup",
+    "setTracePanelOpen",
+    "syncGraphPopupSave",
+  ],
+  library: [
+    "applyMarkdown",
+    "closeBinnedReader",
+    "closeDocAiPanel",
+    "createConceptMap",
+    "createDocument",
+    "createNewBoard",
+    "expandNoteIntoDocument",
+    "flashLibraryItem",
+    "focusLibraryFile",
+    "initDocSidebarTabs",
+    "loadDocuments",
+    "markDocDirty",
+    "mountDocToolbarControlsFor",
+    "mountGutterFor",
+    "openDocDictionary",
+    "openDocTemplateDialog",
+    "openDocument",
+    "renderDocStorage",
+    "saveDocument",
+    "showDocSidebarSection",
+    "toggleDocFindBar",
+    "wbOpenBoardSearch",
+    "wbShowBoardsLanding",
+    "wbShowCanvasView",
+    "wbToggleNavigator",
+    "wireMarkdownToolbar",
+    "wireMdFormatShortcuts",
+    "openWhiteboardBoard",
+  ],
+};
+
+for (const [module, names] of Object.entries(LAZY_ENTRY_POINTS)) {
+  for (const name of names) {
+    // A name this file (or another that always loads) already defines is that
+    // file's, and must not be shadowed.
+    if (typeof window[name] === "function") continue;
+    const standIn = (...args) =>
+      ensureModule(module).then(() => {
+        const real = window[name];
+        //: The module failed to load (offline, or the file is gone). Calling
+        //: the stand-in again here would recurse forever, so this is where it
+        //: stops, quietly: the control does nothing, which is what it did
+        //: before this list existed.
+        if (typeof real !== "function" || real === standIn) return undefined;
+        return real(...args);
+      });
+    window[name] = standIn;
+  }
+}
+
 function renderEmblem(holder, size = 34, { animate = false } = {}) {
   if (!holder) return;
   if (typeof p5 === "undefined") {
@@ -36740,8 +36931,12 @@ window.addEventListener("tabSwitched", () => {
   if (!$("global-find-bar").classList.contains("hidden")) closeGlobalFind();
 });
 
-$("conv-browse-all").addEventListener("click", () => {
-  switchTab("library");
+$("conv-browse-all").addEventListener("click", async () => {
+  //: Awaited: `libraryKind` is a `let` in library.js and the two renders are
+  //: its functions, so all three need that file present (A1). Without the
+  //: await the assignment would create a stray global that library.js then
+  //: shadows, and the Library would open unfiltered.
+  await switchTab("library");
   libraryKind = "chat";
   renderLibraryFilters();
   renderLibrary();

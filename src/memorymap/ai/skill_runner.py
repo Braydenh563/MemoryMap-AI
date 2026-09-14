@@ -559,6 +559,15 @@ def _contract_met(spec: dict, called: set[str], changed: list[dict], answer: str
         return True  # a plain string step: unchecked, exactly as before
     if expects == "answer_only":
         return bool(answer)
+    #: **A change that may not be needed.** Words satisfy it, because "they
+    #: all hold up" is a real answer to "unlink the ones that do not", and
+    #: forcing a call here would fail every honest run with nothing to fix.
+    #: What stops that being a licence to narrate is the transcript rather
+    #: than the contract: the step says which of the two happened (see
+    #: `no_change` where this is reported), so a step that changed nothing
+    #: cannot read as one that did.
+    if expects == "tool_optional":
+        return bool(answer) or bool(called & set(spec.get("tools") or []))
     if expects == "notes_changed":
         return bool(changed)
     named = set(spec.get("tools") or [])
@@ -1087,6 +1096,21 @@ def _run_one_step(setup: _RunSetup, run: _RunState, index: int) -> Iterator[dict
             )
         if handed_over or _contract_met(spec, called, step_changes, answer):
             done: dict = {"type": "step", "index": index, "state": "done", "text": step}
+            #: **A step that could have changed something and did not says
+            #: so.** The owner, reading a run's own reasoning: nine shipped
+            #: steps name a tool and declare `answer_only`, so a model that
+            #: writes "I used unlink_notes to remove the link between #12 and
+            #: #45" without calling anything ticks the step green over an
+            #: untouched notebook. The contract cannot forbid that without
+            #: failing every honest run with nothing to fix, so the
+            #: transcript carries the difference instead: `no_change` is
+            #: drawn as a caveat on the row, and a reader can tell the two
+            #: apart at a glance.
+            if spec.get("expects") == "tool_optional" and not (
+                called & set(spec.get("tools") or [])
+            ):
+                done["no_change"] = True
+                done["reason"] = "nothing was changed in this step"
             if truncated:
                 done["reason"] = truncated
                 done["truncated"] = True

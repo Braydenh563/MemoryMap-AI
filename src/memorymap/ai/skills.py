@@ -65,13 +65,25 @@ MAX_STEP = 300
 #: - `tool_called`, at least one tool ran (any of `tools`, if named).
 #: - `notes_changed`, the step actually changed something in the notebook.
 #: - `answer_only`, words are the deliverable; a judgement or a report.
+#: - `tool_optional`, the step asks for a change that may legitimately turn
+#:   out not to be needed ("unlink the ones that do not hold up. If they all
+#:   hold up, say so"). Words alone satisfy it, because "nothing needed
+#:   doing" is a real outcome, **but a step that ends this way says so in the
+#:   transcript**: `no_change` on the step event, drawn as a caveat on the
+#:   row. Reported by the owner while reading a run's own reasoning: nine
+#:   shipped steps named a tool and declared `answer_only`, so a model that
+#:   wrote "I used unlink_notes to remove the link between #12 and #45"
+#:   without calling anything ticked the step green and left the notebook
+#:   untouched. Forcing `tool_called` there would fail every honest run with
+#:   nothing to fix; saying which of the two happened costs nothing and can
+#:   never be wrong.
 #:
 #: A **plain string step has no contract at all**, and that is deliberate:
 #: every skill saved before this existed is a list of strings, as is every
 #: ad-hoc plan and everything the settings textarea writes. Applying a guessed
 #: contract to those would stall runs that work today, so an unchecked step
 #: advances exactly as it did before.
-STEP_EXPECTS = ("tool_called", "notes_changed", "answer_only")
+STEP_EXPECTS = ("tool_called", "notes_changed", "answer_only", "tool_optional")
 
 #: How many times a step whose contract was not met is re-prompted before the
 #: run gives up on it. Two, because the nudges do different jobs: the first
@@ -858,7 +870,8 @@ _AUDIT_SKILLS: list[dict] = [
                 "Merge each group with rename_tag, onto the name you picked; "
                 "renaming a tag onto an existing one merges them. If you found "
                 "no duplicates, say so and move on.",
-                "answer_only",
+                "tool_optional",
+                "rename_tag",
             ),
             _step(
                 "List the notes whose tags may not match what they actually "
@@ -875,11 +888,13 @@ _AUDIT_SKILLS: list[dict] = [
             _step(
                 "Use tag_note to remove the tags that do not fit. If they all "
                 "fit, say so rather than removing something to look busy.",
-                "answer_only",
+                "tool_optional",
+                "tag_note",
             ),
             _step(
                 "Use tag_note to add better tags where a note is under-tagged.",
-                "answer_only",
+                "tool_optional",
+                "tag_note",
             ),
             _step(
                 "Tell me every change you made, grouped by what kind it was.",
@@ -910,17 +925,20 @@ _AUDIT_SKILLS: list[dict] = [
             _step(
                 "Create the categories you proposed with create_category. If "
                 "you proposed none, say so.",
-                "answer_only",
+                "tool_optional",
+                "create_category",
             ),
             _step(
                 "Rename the categories whose names no longer fit, with "
                 "rename_category.",
-                "answer_only",
+                "tool_optional",
+                "rename_category",
             ),
             _step(
                 "Merge the categories that are really the same thing, with "
                 "merge_categories.",
-                "answer_only",
+                "tool_optional",
+                "merge_categories",
             ),
             _step(
                 "Read a note with get_note before deciding where it belongs, "
@@ -928,7 +946,12 @@ _AUDIT_SKILLS: list[dict] = [
                 "tool_called",
                 "get_note",
             ),
-            _step("Move each note into the right category with edit_note.", "answer_only"),
+            _step(
+                "Move each note into the right category with edit_note: one "
+                "call per note.",
+                "tool_optional",
+                "edit_note",
+            ),
             _step("Tell me what you changed and how many notes moved.", "answer_only"),
         ],
         # `delete_category` is deliberately absent. It is destructive, so it
@@ -951,15 +974,46 @@ _AUDIT_SKILLS: list[dict] = [
         "when_to_use": "when the graph has links that no longer make sense",
         "prompt": "Check the links between my notes: remove the ones that don't hold up, add the ones that should be there.",
         "steps": [
+            #: **A step may not ask for a judgement the model has no way to
+            #: make** (the owner, with the run's own reasoning: "some of the
+            #: skills need refining"). This read "Pick a well-connected note",
+            #: and the model said so in as many words: *"I don't have a metric
+            #: for 'well-connected' other than the output of related_notes"*.
+            #: So it spent one attempt listing notes, picked one with no links
+            #: at all, and only reached the call the step asked for on the
+            #: third. The criterion was circular: the tool that measures how
+            #: connected a note is, is the tool this step is asking it to
+            #: call. Naming a note is now the step's only decision, and the
+            #: recovery from a bad guess is written down rather than left to
+            #: be worked out.
+            #: **And it cannot pick a note it has not seen.** The owner, on
+            #: reading the run's reasoning: "How can related notes be called
+            #: if the model doesnt even know what notes there are to pick
+            #: from". The model reached the same conclusion and called
+            #: `list_notes` to find out, which was the sensible move and
+            #: which this step then counted as a failure, because the
+            #: contract named a different tool. The listing is a step of its
+            #: own now, so the move the model already wanted to make is the
+            #: one it is asked for.
             _step(
-                "Pick a well-connected note and use related_notes to see what "
-                "it connects to, and how.",
+                "Call list_notes to see what is in the notebook.",
+                "tool_called",
+                "list_notes",
+            ),
+            _step(
+                "Call related_notes on one of the notes that came back, to "
+                "see what it links to and how. If it comes back with no "
+                "links, call it again on a different one.",
                 "tool_called",
                 "related_notes",
             ),
+            #: One call per note, said out loud, for the same reason: "read
+            #: the notes on both ends of each link" is a loop the model has to
+            #: hold in its head, and a small one narrates the loop instead of
+            #: running it (measured: three attempts, no call, then a stall).
             _step(
-                "Read the notes on both ends of each existing link with "
-                "get_note.",
+                "Call get_note on each note at the other end of those links: "
+                "one call per note, starting with the first.",
                 "tool_called",
                 "get_note",
             ),
@@ -971,7 +1025,8 @@ _AUDIT_SKILLS: list[dict] = [
             _step(
                 "Use unlink_notes on the ones that do not hold up. If they all "
                 "hold up, say so rather than removing one anyway.",
-                "answer_only",
+                "tool_optional",
+                "unlink_notes",
             ),
             _step(
                 "Use related_notes with include_suggestions to find notes that "
@@ -987,7 +1042,8 @@ _AUDIT_SKILLS: list[dict] = [
             ),
             _step(
                 "Use link_notes only where the connection is real.",
-                "answer_only",
+                "tool_optional",
+                "link_notes",
             ),
             _step(
                 "Report what you unlinked and what you linked, with the reason "
@@ -1012,9 +1068,20 @@ _AUDIT_SKILLS: list[dict] = [
             "delete anything yourself."
         ),
         "steps": [
+            #: The listing first, for the reason "Fix my links" has it: a
+            #: model cannot name a note it has not seen, and one asked to
+            #: anyway either guesses an id or spends its attempts working out
+            #: that it should list them, which the contract then counts as a
+            #: failure for naming a different tool.
             _step(
-                "Use related_notes with include_suggestions on a few notes to "
-                "find ones that read alike but were never linked.",
+                "Call list_notes to see what is in the notebook.",
+                "tool_called",
+                "list_notes",
+            ),
+            _step(
+                "Call related_notes with include_suggestions on a few of "
+                "those notes, to find ones that read alike but were never "
+                "linked.",
                 "tool_called",
                 "related_notes",
             ),
@@ -1032,7 +1099,8 @@ _AUDIT_SKILLS: list[dict] = [
             _step(
                 "Link the members of each group together with link_notes, so "
                 "they are easy to find again.",
-                "answer_only",
+                "tool_optional",
+                "link_notes",
             ),
             _step(
                 "Tell me you have not deleted or merged anything.",
@@ -1213,7 +1281,8 @@ BUILTIN_SKILLS: list[dict] = [
             ),
             _step(
                 "Link each pair you are confident about with link_notes.",
-                "answer_only",
+                "tool_optional",
+                "link_notes",
             ),
             _step(
                 "Give me a short summary of what you connected, and why.",
@@ -1285,7 +1354,8 @@ BUILTIN_SKILLS: list[dict] = [
             _step(
                 "Set a reminder with set_reminder for each action that has a "
                 "time in it.",
-                "answer_only",
+                "tool_optional",
+                "set_reminder",
             ),
             _step(
                 "Give me the rest as a short list of what is still open.",
@@ -1381,7 +1451,8 @@ BUILTIN_SKILLS: list[dict] = [
             _step(
                 "Set a reminder for the first milestone with set_reminder, and "
                 "ask before setting the rest.",
-                "answer_only",
+                "tool_optional",
+                "set_reminder",
             ),
         ],
         "inputs": [
@@ -1489,7 +1560,8 @@ BUILTIN_SKILLS: list[dict] = [
             _step(
                 "Save it with save_skill once they confirm, using exactly the "
                 "steps and tools agreed, not a paraphrase.",
-                "answer_only",
+                "tool_optional",
+                "save_skill",
             ),
         ],
         "inputs": [{"name": "task", "label": "What do you want to turn into a skill?"}],

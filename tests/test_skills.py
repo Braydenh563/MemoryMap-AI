@@ -1085,3 +1085,50 @@ def test_the_chat_offers_to_edit_the_step_a_run_stopped_on():
     #: And it reaches the wire. `!= null` rather than truthiness, or step 0
     #: would be dropped as falsy.
     assert "if (skillOnlyStep != null) body.skill_only_step = skillOnlyStep;" in app
+
+
+def test_no_shipped_step_names_a_tool_it_does_not_check_for():
+    """The owner, reading a run's own reasoning: "check that the other skills
+    arent poorly worded or designed, and make sure the system still catches
+    them not being carried out".
+
+    Nine shipped steps named a tool and declared `answer_only`, so a model
+    that wrote "I used unlink_notes to remove the link between #12 and #45"
+    without calling anything ticked the step green over an untouched notebook.
+    They are `tool_optional` now: words still satisfy them, because "they all
+    hold up" is a real answer, but a step that changed nothing says so.
+
+    The one exception is the step that *forbids* the call, where requiring it
+    would be the opposite of what the step is for.
+    """
+    import re
+
+    from memorymap.ai import skills as skills_mod
+
+    tools = {t for sk in skills_mod.BUILTIN_SKILLS for t in (sk.get("tools") or [])}
+    offenders = []
+    for skill in skills_mod.BUILTIN_SKILLS:
+        for index, spec in enumerate(
+            skills_mod._step_specs(skill, None, skill.get("tools", [])), 1
+        ):
+            named = {t for t in tools if re.search(rf"\b{re.escape(t)}\b", spec["text"])}
+            if named and spec["expects"] == "answer_only":
+                offenders.append(f"{skill['name']} step {index}: {sorted(named)}")
+    assert offenders == ["Find where I disagreed with myself step 3: ['link_notes']"], offenders
+
+
+def test_a_step_may_not_ask_for_a_note_before_anything_has_listed_one():
+    """The owner: "How can related notes be called if the model doesnt even
+    know what notes there are to pick from". The first step of a skill whose
+    first tool takes a note id has to be the listing, not the id."""
+    from memorymap.ai import skills as skills_mod
+
+    needs_an_id = {"get_note", "related_notes", "link_notes", "unlink_notes", "tag_note"}
+    for skill in skills_mod.BUILTIN_SKILLS:
+        specs = skills_mod._step_specs(skill, None, skill.get("tools", []))
+        if not specs:
+            continue
+        first = specs[0]
+        assert not (set(first["tools"]) & needs_an_id), (
+            f"{skill['name']} opens by asking for a note it has not seen: {first['text']}"
+        )

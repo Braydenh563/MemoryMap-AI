@@ -15721,11 +15721,20 @@ function agentTimeline(holder) {
     //: over again one layer up. `stalled` gets it for the same reason: it is
     //: the state that *ends* a run, and "why did this stall?" should not need
     //: a second click.
+    //: **A finished step with a caveat says it on the row.** `done` carries a
+    //: reason in two cases and neither was drawn: a step that ran out of
+    //: pages with notes left unread, and one whose change turned out not to
+    //: be needed (`no_change`). Both are the same class of thing the states
+    //: below already explain: a green tick that means less than it looks
+    //: like. The owner's report is the reason this matters, a step that says
+    //: "I unlinked the ones that did not hold up" over an untouched notebook
+    //: reads exactly like one that did the work.
     if (
       (state === "failed" ||
         state === "stalled" ||
         state === "retrying" ||
         state === "replanned" ||
+        state === "done" ||
         state === "paging") &&
       (reason || state === "retrying" || state === "replanned" || state === "paging")
     ) {

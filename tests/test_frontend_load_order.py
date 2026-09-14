@@ -251,3 +251,24 @@ def test_lazy_bundles_do_not_wait_for_domcontentloaded():
         assert 'addEventListener("DOMContentLoaded"' not in text, (
             f"{file} waits for DOMContentLoaded; use onDomReady() so it wires when loaded on demand"
         )
+
+
+def test_app_js_does_not_read_a_later_scripts_constant_at_load():
+    """`const` declarations are not hoisted across script elements either.
+    settings.js declares `AI_NAME`; a top-level statement in app.js that read
+    it threw `ReferenceError: AI_NAME is not defined` at boot and the app
+    never drew, and the walk above cannot see it because it only follows
+    function calls. Any read counts, since a function body runs at load the
+    moment something at load calls it. Read the name through `aiNameNow()`."""
+    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    later = set()
+    for name in _script_order()[_script_order().index("app.js") + 1 :]:
+        later.update(re.findall(r"^const ([A-Z][A-Z0-9_]+) =", (FRONTEND / name).read_text(encoding="utf-8"), re.M))
+    hits = [
+        line.strip()[:80]
+        for line in app.split("\n")
+        for name in later
+        if re.search(r"(?<![\w$.])" + re.escape(name) + r"(?![\w$])", line.split("//")[0])
+        and "typeof " + name not in line
+    ]
+    assert not hits, "app.js reads a later script's constant at load: " + "; ".join(hits)

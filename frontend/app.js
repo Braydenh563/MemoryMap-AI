@@ -13226,7 +13226,7 @@ function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0, u
       metaItem(usedTools ? "Agent" : "Ask", {
         icon: usedTools ? "ph:robot" : "ph:chat-circle",
         title: usedTools
-          ? `Answered in Agent mode, ${AI_NAME} could use tools.`
+          ? `Answered in Agent mode, ${aiNameNow()} could use tools.`
           : "Answered in Ask mode, read-only, no tools used.",
         kind: "mode",
       })
@@ -13632,9 +13632,9 @@ function renderChatEmptyState() {
   //: name, and the explanation that used to sit under it as a paragraph is
   //: one line with the rest behind the app's '?' (the owner: "the text below
   //: it needs to be updated and potentially moved to a '?' tooltip button").
-  const aiName = typeof AI_NAME === "string" ? AI_NAME : "Atlas";
+  const aiName = aiNameNow();
   title.textContent =
-    activePersona === AI_NAME ? `Explore your notebook with ${aiName}` : `Chat with your ${activePersona}`;
+    activePersona === aiName ? `Explore your notebook with ${aiName}` : `Chat with your ${activePersona}`;
   const blurb = document.createElement("p");
   blurb.className = "muted chat-empty-line";
   //: No trailing space: the '?' that used to follow this sentence is in the
@@ -14457,7 +14457,7 @@ function personaOptions() {
   const custom = (prefsCache && prefsCache.personas) || [];
   const active = personaDisplayName(prefsCache && prefsCache.active_persona);
   const names = [
-    ...new Set([AI_NAME, "Coach", "Analyst", ...custom.map((p) => p.name)]),
+    ...new Set([aiNameNow(), "Coach", "Analyst", ...custom.map((p) => p.name)]),
   ];
   // name -> its prompt, so the dropdown can describe each persona on hover.
   const overrides = new Map(custom.map((p) => [p.name, p]));
@@ -21814,10 +21814,19 @@ async function loadChatSuggestions() {
 // Personas section in Settings (Wave C, editing + reset in Wave D).
 // Mirrors the backend's built-ins: editing one saves an override with the
 // same name (the saved list wins), and Reset deletes the override.
+//: The app's AI is named in settings.js (`AI_NAME`), which index.html loads
+//: after this file, so anything here that runs at load must not read the
+//: constant itself: `renderPlanToggle()` does, and the first version of this
+//: threw at boot and the app never drew. A function call resolves at call
+//: time, and the fallback is the same word.
+function aiNameNow() {
+  return typeof AI_NAME === "string" ? AI_NAME : "Atlas";
+}
+
 //: The built-in librarian is Atlas; a preference saved as "Librarian" from
 //: before the rename reads as Atlas everywhere (INBOX 237).
 function personaDisplayName(name) {
-  return !name || name === "Librarian" ? AI_NAME : name;
+  return !name || name === "Librarian" ? aiNameNow() : name;
 }
 
 const BUILTIN_PERSONAS = {
@@ -38363,7 +38372,7 @@ function renderPlanToggle() {
   button.classList.toggle("active", planModeOn);
   button.title = planModeOn
     ? "Plan mode is on, your next message is planned first, and the steps are shown before anything touches your notes. Click to turn off."
-    : `Plan mode: plan the request first, ${AI_NAME} draws the steps and shows them before it starts`;
+    : `Plan mode: plan the request first, ${aiNameNow()} draws the steps and shows them before it starts`;
 }
 
 // Applied by sendChatMessage on the way out, so every route into it, the Send

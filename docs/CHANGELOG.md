@@ -169,7 +169,11 @@ below). Versioning is `0.x` while the app stabilises.
   the thread (215). Atlas is one chat rather than two: a sheet on the popup
   agent's recipe with a head, starters, bubbles and a composer, the source help
   topics under each answer, and the Settings page holding the way in rather
-  than a second copy of the box (224).
+  than a second copy of the box (224). Atlas is offered where the question
+  comes up: a line under eleven help popovers, in three empty states, as a
+  palette command, and as Ctrl+Shift+H, all from one table (224). The command
+  palette stopped rendering results after the first keystroke until the Library
+  had been opened once.
 
 - The mind map has one place per action (INBOX 200). The node ring is six slots that say what they are, not eight icon-only discs; the topic strip holds every look, including the line shapes that were on the line ring; the dock holds what acts on the map. The ring and the strip are never open together, every ring slot is also a key, and the topic's own menu (the ring's More, or Shift+F10) carries all of it. A map no longer shows the board's Insert and Arrange menus: 60 controls in its top bar before, 40 after.
 

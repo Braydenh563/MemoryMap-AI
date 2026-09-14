@@ -27280,6 +27280,105 @@ line that carried a dash.
     each. Not verified: `start.bat`'s new steps are read, not run (no Windows
     machine); no release tag exists in the repository yet, so the stable
     channel's fast-forward to a tag has never met a real tag.
+224. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the Atlas
+    chat.** "can you improve and modernise the ui design of the atlas chat
+    interface??" Screenshot: a full-width overlay with a bare card, a title
+    row, two paragraphs of explanation, one input and an Ask button, and
+    nothing else on the screen. Target: the same recipe as the popup agent
+    (one look for the two assistants): a sheet anchored bottom-right, a
+    head with the Atlas mark, name and one-line description, three starter
+    chips ("Where do reminders live?", "How do I turn off web search?",
+    "What does Performance mode do?"), a scrolling transcript in bubbles
+    with the source help topic under each answer, a composer dock at the
+    foot (input, icon-only send, `data-help-for` '?'), New chat in the
+    kebab. Measured: no element wider than the sheet at 1440, 1024 and 390;
+    contrast 4.5:1 both themes; Escape and the X both close. Owner: chrome.
+    **More from the owner, 2026-09-14:** "also make atlas more accessible
+    and have suggestions to ask it something here and there like in
+    tooltips or the help page in settings etc." Target, added to 224: every
+    `data-help-for` popover ends with one line "Ask Atlas: <a question about
+    this control>" that opens the Atlas sheet with that question typed in;
+    the Settings Help page has an "Ask Atlas" row at its head with three
+    starter chips; the palette lists "Ask Atlas" as a command and matches
+    typed questions ending in "?" to it; the empty states of Notes, Chat
+    and Library carry one Atlas suggestion each; the keyboard shortcut is
+    listed in the shortcuts sheet. The questions come from one table
+    (`ATLAS_PROMPTS`, keyed by help id) so copy stays in one place. Measured:
+    a popover's Atlas line opens the sheet with the question in the input.
+    **And, 2026-09-14:** "also there is still the second atlas interface in
+    the settings help page." One interface, not two: the Settings Help
+    page's own chat (the older "Ask the guide" box) goes, and its place is
+    the "Ask Atlas" row above, which opens the one sheet; the ids and
+    handlers of the old box are removed together (`test_frontend_ids.py`,
+    `test_frontend_handlers.py`), and `test_help_chat.py` keeps its route
+    tests. Measured: exactly one `#help-chat` surface in the DOM.
+    **The sheet and the second interface: built and measured.** The chat was a
+    settings group printed inside Settings, Help, which `openHelpChat()` picked
+    up and carried into a full-width sheet: a bare card, a title row, two
+    paragraphs and one input. It is built as a chat now, on the popup agent's
+    recipe, in its own hidden host at the top of `index.html` rather than
+    inside the Settings page, so there is one copy of it and Settings, Help
+    holds the way in instead of a second box.
+    The sheet: a head with the compass mark, the name and one line; three
+    starter chips from one table (`ATLAS_STARTERS`), which the Settings row
+    reads as well; a transcript in bubbles with the source help topics under
+    each answer; a composer along the foot (the field, an icon-only send, the
+    '?' popover and the kebab); New chat in that kebab rather than as a second
+    labelled button in the head. `openSheet` gained a `variant`, one word
+    stamped as `sheet-<word>` on the overlay and `sheet-card-<word>` on the
+    card, so the corner anchoring is the recipe rather than a third hand-built
+    sheet; `test_ui_recipes.py` lists the two class names and asserts that only
+    `openSheet` writes them.
+    The source line is new on the wire: `help_chat.source_names` returns the
+    topics an answer was actually built from, and the bubble says "From the
+    app's help: Reminders, Shortcuts" under it. That is a different claim from
+    the badge beside it, which says where to *go*, and it is the one that makes
+    an answer checkable against the same topic on the Help page.
+    Measured (`scratchpad/ui-sweeps/chrome224atlas.js`, 1440x900, 1024x820 and
+    390x844, both themes): 1 `#help-chat-group` in the document and 0 of them
+    inside `#settings-help`, with the Settings row and its 3 chips in its
+    place; the card is 448px wide anchored 10px from the right edge and on the
+    foot at 1440 and 1024, and the full 390px at phone width; 0 of the four
+    parts (head, starters, transcript, composer) wider than the card at any of
+    the three; 3 starters, 4 controls in the composer, 1 kebab row ("New
+    chat"); a turn hides the starters and the empty state, leaves 2 bubbles and
+    prints the source line; contrast measured on all 7 text elements in the
+    card, 0 under their threshold, lowest 7.4:1 in light and 7.86:1 in dark
+    against a 4.5 requirement; Escape closes it, the X closes it, and the one
+    copy is back in its host afterwards both times.
+    **And the five places that offer a question: built and measured.** One
+    table, `ATLAS_PROMPTS` in app.js, keyed by the id of the `data-help-for`
+    panel the question belongs under, beside `ATLAS_STARTERS`, so every piece
+    of Atlas copy is in one file and a popover and the question it suggests
+    cannot describe two different controls. Eleven panels have one: the ones
+    whose subject has more to it than a paragraph can hold, not all
+    forty-nine, because a suggestion under a popover that already answers the
+    question is noise. `addAtlasLine` appends the line as `initHelpToggles`
+    wires each popover, so a new one is a row in the table and nothing else.
+    The other four: an "Ask Atlas about the app" command in the palette, and a
+    line typed there ending in "?" offered to Atlas at the top of the results
+    (a jump list has no answer for "how do I turn off web search?", so the box
+    went empty, which reads as "this app has no answer"); one line each in the
+    Notes, Chat and Library empty states, from the same builder; and
+    `askAtlas` in `DEFAULT_SHORTCUTS` at Ctrl+Shift+H, which is what puts it in
+    the shortcuts sheet and in the collision check rather than in a listener of
+    its own.
+    Measured (`scratchpad/ui-sweeps/chrome224prompts.js`, 1440x900 and
+    390x844): 11 of 11 table entries have their line and 0 lines hang off a
+    panel the table does not name; the three empty states carry one each;
+    typing "how do I turn off web search?" in the palette puts "Ask Atlas: how
+    do I turn off web search?" first and typing "atlas" finds the command;
+    the shortcut reads Ctrl+Shift+H, "Ask Atlas about the app"; and pressing
+    the line under the popup agent's own '?' opens the sheet with "What can the
+    popup agent do that Chat cannot?" already asked and the box empty again.
+    A lint now holds the table (`test_help_chat.py`): three of the first eight
+    keys named panels that do not exist, and a key that names no panel is
+    invisible, the line simply never appears.
+    **Found and fixed on the way:** the command palette threw
+    `ReferenceError: docs is not defined` on its first keystroke and stopped
+    rendering results from then on, in any session that had not opened the
+    Library. `docs` is declared in documents.js, which is in the Library's lazy
+    bundle, and `paletteMatches` read it unguarded.
 
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 

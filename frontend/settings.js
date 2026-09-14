@@ -3361,7 +3361,11 @@ function helpChatIsNearBottom() {
 //: The guide's name, read from here everywhere the interface says it
 //: (CHAT_PLAN.md decision 15). `help_chat.GUIDE_NAME` is the same word on the
 //: server, where the model is told it.
-const GUIDE_NAME = "Atlas";
+//: One name for the notebook's AI, spelt once (INBOX 225); the backend's
+//: `AI_NAME` in ai/__init__.py is the same word. The guide is the same Atlas
+//: wearing its "about the app" hat.
+const AI_NAME = "Atlas";
+const GUIDE_NAME = AI_NAME;
 
 function helpChatAppendRow(row) {
   const list = $("help-chat-messages");
@@ -3582,17 +3586,10 @@ function renderHelpChatMenu() {
   );
 }
 
-//: **The three questions Atlas is opened for** (INBOX 224: three starter
-//: chips, the same idea as the popup agent's starters at the same size). One
-//: table, read by both the sheet and the row in Settings, Help, because two
-//: lists of the same three questions is one list that will be edited and one
-//: that will not.
-const ATLAS_STARTERS = [
-  "Where do reminders live?",
-  "How do I turn off web search?",
-  "What does Performance mode do?",
-];
-
+//: The three questions Atlas is opened for, read from `ATLAS_STARTERS` in
+//: app.js: every piece of Atlas copy lives in that one table beside
+//: `ATLAS_PROMPTS`, and both hosts here read it (INBOX 224).
+//:
 //: Both hosts are filled from here, and either may be absent (the Settings
 //: modal is built once and the sheet exists only while it is open), so this
 //: fills whichever it finds.
@@ -3601,7 +3598,7 @@ function renderAtlasStarters() {
     const host = $(id);
     if (!host) continue;
     host.replaceChildren();
-    for (const question of ATLAS_STARTERS) {
+    for (const question of typeof ATLAS_STARTERS === "object" ? ATLAS_STARTERS : []) {
       const chip = document.createElement("button");
       chip.type = "button";
       chip.className = "ghost small atlas-starter";
@@ -3624,6 +3621,12 @@ function renderAtlasStarters() {
 //: fills a box and waits is a chip that has done half a job.
 function askAtlas(question) {
   const input = $("help-chat-input");
+  //: An empty question is the plain "open Atlas" door (the palette command,
+  //: the shortcut): open the sheet, put the caret in the field, ask nothing.
+  if (!question) {
+    input?.focus();
+    return;
+  }
   if (input) input.value = question;
   submitHelpChatQuestion(question);
 }

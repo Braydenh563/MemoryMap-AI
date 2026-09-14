@@ -13517,6 +13517,22 @@ function regenerateLastAnswer() {
   });
 }
 
+//: One line offering Atlas a question, for the empty states that are a person
+//: looking at a surface they have not used yet. Built here rather than written
+//: into three blocks of markup, for the same reason the popover line is.
+function atlasSuggestion(question) {
+  const line = document.createElement("p");
+  line.className = "muted help-atlas";
+  const ask = document.createElement("button");
+  ask.type = "button";
+  ask.className = "linklike";
+  ask.textContent = `Ask Atlas: ${question}`;
+  ask.title = "Opens Atlas with this question";
+  ask.addEventListener("click", () => askAtlasAbout(question));
+  line.appendChild(ask);
+  return line;
+}
+
 // The welcome shown in an empty chat so the page isn't a blank box.
 function renderChatEmptyState() {
   const box = $("chat-messages");
@@ -13544,6 +13560,10 @@ function renderChatEmptyState() {
     "Ask a question and the AI answers from your saved notes. Turn on “AI can " +
     "make changes” and it can create, tag, link, and organise notes for you too.";
   empty.append(emblem, title, blurb);
+  //: One line about the other assistant (INBOX 224). The empty chat is where
+  //: somebody asks the app a question it cannot answer from notes, "how do I
+  //: turn this off", and Atlas is the one that can.
+  empty.appendChild(atlasSuggestion("What can the AI change in my notebook?"));
   //: **The starters belong in the empty state, not in a strip above the
   //: composer.** Measured at 1440px: the welcome was a 326px column of centred
   //: text in a 1062px pane with four suggestion chips jammed against the
@@ -29692,6 +29712,9 @@ function paletteCommands() {
     // Tensions lives in a dialog; the board's overview and find bar live on a
     // board you have to be on already.
     { label: "ph:scales Tensions: find where I disagreed with myself", run: () => openTensions() },
+    //: Atlas is a surface with no tab of its own, which is exactly what a
+    //: command palette is for (INBOX 224).
+    { label: "ph:compass Ask Atlas about the app", run: () => askAtlasAbout("") },
     {
       label: "ph:map-trifold Board overview",
       run: () => {
@@ -29959,6 +29982,18 @@ function paletteMatches(query) {
   );
   if (!lowered) return commands;
 
+  //: **A question typed into the palette is a question** (INBOX 224). The
+  //: palette is a jump list, so "how do I turn off web search?" matches
+  //: nothing in it and the box goes empty, which reads as "this app has no
+  //: answer". A line ending in a question mark is offered to Atlas instead,
+  //: first, with everything the palette did find underneath.
+  if (query.trim().endsWith("?")) {
+    commands.unshift({
+      label: `ph:compass Ask Atlas: ${query.trim()}`,
+      run: () => askAtlasAbout(query.trim()),
+    });
+  }
+
   // Notes: match body or title.
   const notes = allEntries
     .filter((e) =>
@@ -29972,8 +30007,17 @@ function paletteMatches(query) {
       run: () => flashEntry(e.id),
     }));
 
-  // Documents: title search against the in-memory docs list.
-  const docMatches = docs
+  //: Documents: title search against the in-memory docs list.
+  //:
+  //: **`docs` may not exist yet**, and this threw when it did not. It is
+  //: declared in documents.js, which is in the Library's lazy bundle
+  //: (`LAZY_MODULES`), so on a fresh load the palette's very first keystroke
+  //: raised `ReferenceError: docs is not defined` inside `renderPalette` and
+  //: the list stopped rendering from then on: the palette looked like it had
+  //: no answers for anything typed into it until the Library had been visited
+  //: once. Found while measuring INBOX 224's own palette line, in a page that
+  //: had never opened the Library.
+  const docMatches = (typeof docs === "undefined" ? [] : docs)
     .filter((d) => paletteText(d.title).includes(lowered))
     .slice(0, 3)
     .map((d) => ({
@@ -36864,14 +36908,92 @@ initHelpToggle("contents-help", "contents-intro");
 // Re-runnable, and `wireHelpPopover`'s own `panel.dataset.helpPopover` guard
 // means a second pass over an already-wired pair does nothing, which matters
 // because Settings renders some of its sections lazily.
+//: **Every question the app offers to ask Atlas, in one table** (INBOX 224,
+//: the owner: "also make atlas more accessible and have suggestions to ask it
+//: something here and there like in tooltips or the help page in settings
+//: etc."). Keyed by the id of the `data-help-for` panel it belongs under, so a
+//: '?' popover and the question it suggests cannot describe two different
+//: controls: they are looked up by the same key.
+//:
+//: Not all forty-nine popovers: a suggestion under a popover that already
+//: answers the question is noise, and a table of forty-nine questions would be
+//: forty-nine pieces of copy nobody re-reads. These are the panels whose
+//: subject has more to it than the panel can hold.
+const ATLAS_PROMPTS = {
+  "command-palette-help": "What can the popup agent do that Chat cannot?",
+  "help-chat-help": "What can you help me with?",
+  "graph-show-help": "What do entity and board nodes add to the graph?",
+  "autonomous-ai-help": "What can the AI change in my notebook on its own?",
+  "websearch-help": "How do I turn off web search?",
+  "battery-mode-help": "What does Performance mode do?",
+  "memory-help": "What does the app remember about me?",
+  "backups-help": "Where are my backups kept, and how do I restore one?",
+  "utility-model-help": "What is the utility model used for?",
+  "templates-help": "How do I make a template of my own?",
+  "statusbar-help": "What is the status bar telling me?",
+};
+
+//: The three offered before anything is asked. Here rather than in settings.js
+//: so every piece of Atlas copy is in one file, and read from there.
+const ATLAS_STARTERS = [
+  "Where do reminders live?",
+  "How do I turn off web search?",
+  "What does Performance mode do?",
+];
+
+//: The one door, so every suggestion in the app opens the same sheet with the
+//: same question. settings.js owns the chat, and it loads after this file, so
+//: this is checked rather than assumed: before settings.js has run there is no
+//: sheet to open, and a suggestion pressed in that window should do nothing
+//: rather than throw.
+function askAtlasAbout(question) {
+  if (typeof openHelpChat !== "function" || typeof askAtlas !== "function") return;
+  openHelpChat();
+  askAtlas(question);
+}
+
+//: The line at the foot of a help popover: the popover says what the control
+//: does, and this offers the question it cannot answer in a paragraph. Added
+//: here rather than written into forty-nine blocks of markup, and guarded by a
+//: flag because `initHelpToggles` is re-runnable (Settings builds some of its
+//: sections lazily).
+function addAtlasLine(panel) {
+  const question = ATLAS_PROMPTS[panel.id];
+  if (!question || panel.dataset.atlasLine) return;
+  panel.dataset.atlasLine = "1";
+  const line = document.createElement("p");
+  line.className = "help-atlas";
+  const ask = document.createElement("button");
+  ask.type = "button";
+  ask.className = "linklike";
+  ask.textContent = `Ask Atlas: ${question}`;
+  ask.title = "Opens Atlas with this question";
+  ask.addEventListener("click", () => askAtlasAbout(question));
+  line.appendChild(ask);
+  panel.appendChild(line);
+}
+
 function initHelpToggles(root = document) {
   for (const trigger of root.querySelectorAll("[data-help-for]")) {
     const panel = document.getElementById(trigger.dataset.helpFor);
-    if (panel) wireHelpPopover(trigger, panel);
+    if (!panel) continue;
+    wireHelpPopover(trigger, panel);
+    addAtlasLine(panel);
   }
 }
 window.initHelpToggles = initHelpToggles;
 initHelpToggles();
+
+//: The two empty states that are markup rather than script (the Chat tab's is
+//: built in `renderChatEmptyState`). Appended once, here, so all three read
+//: from the one builder: a hidden empty state is still in the document, so
+//: there is nothing to wait for.
+for (const [id, question] of [
+  ["empty-message", "How does the app decide where a note goes?"],
+  ["library-empty", "What can I keep in the Library?"],
+]) {
+  $(id)?.appendChild(atlasSuggestion(question));
+}
 
 //: **The concept-map door, in the tab people look for it in.** Reported: "the
 //: concept map feature is there in the graph but I have no clue how to use it,
@@ -39557,6 +39679,12 @@ const DEFAULT_SHORTCUTS = {
   // every other chord by `test_frontend_shortcuts.py`, appears in the
   // shortcuts help, and can be rebound like all the rest.
   askAgent: { keys: "Ctrl+Shift+A", label: "Ask the agent anything" },
+  //: Beside the agent's own chord, because they are the pair: one does things
+  //: to your notes and the other explains the app. In the registry rather than
+  //: bound loose, which is what puts it in the shortcuts sheet (INBOX 224's
+  //: "the keyboard shortcut is listed in the shortcuts sheet": the sheet is
+  //: built from this table, so listing it and declaring it are one act).
+  askAtlas: { keys: "Ctrl+Shift+H", label: "Ask Atlas about the app" },
   whiteboard: { keys: "Ctrl+Shift+B", label: "Open the whiteboard" },
   settings: { keys: "Ctrl+,", label: "Open settings" },
   attachNote: { keys: "Ctrl+Shift+P", label: "Clip a note to your next question" },
@@ -39900,6 +40028,7 @@ function runShortcut(id) {
     },
     quickSketch: openSketch,
     askAgent: toggleAgentPalette,
+    askAtlas: () => askAtlasAbout(""),
     whiteboard: () => switchTab("whiteboard"),
     settings: () => openSettingsModal(),
     attachNote: () => {

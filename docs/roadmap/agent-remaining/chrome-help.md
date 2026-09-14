@@ -37,44 +37,18 @@ More sheet).
   with both rows, 4 messages written in order, titled from the first
   question.
 
-- INBOX 224, first half, the Atlas sheet and the one surface: this commit.
+- INBOX 224, first half, the Atlas sheet and the one surface: `3632a1a`.
   1 `#help-chat-group` in the document and 0 in Settings, a 448px card in the
   corner, 0 contrast findings in either theme, Escape and X both close.
+- INBOX 224, second half, Atlas offered where the question comes up: this
+  commit. 11 of 11 popover lines, 3 empty states, a palette command and a
+  typed "?" routed to it, Ctrl+Shift+H. Found on the way: the command palette
+  threw on its first keystroke until the Library had been opened once.
 
 ## Next, in order
 
-Neither is started yet; the head is clean, so a session picking this up
-starts at step 1.
-
-1. **INBOX 224, part (c) only; (a) and (b) landed above.** The rest:
-   (c) The sheet itself, rebuilt on the popup agent's recipe so the two
-   assistants share one look: anchored bottom-right, a head with the Atlas
-   mark, the name and one line, three starter chips ("Where do reminders
-   live?", "How do I turn off web search?", "What does Performance mode
-   do?"), a scrolling transcript in bubbles with the source help topic under
-   each answer, a composer dock at the foot (input, icon-only send,
-   `data-help-for` '?'), New chat in the kebab. Start from `openHelpChat()`
-   in settings.js (it moves `#help-chat-group` into an `openSheet` and puts
-   it back, so the sheet is where the shape lives) and from
-   `.command-palette-panel` in 07-whiteboard-misc.css for the recipe to
-   match. (b) The Settings Help page's own chat box goes in the same commit,
-   which is the owner's "there is still the second atlas interface in the
-   settings help page": `#help-chat-group` and its ids and handlers leave
-   `index.html` and settings.js together (`test_frontend_ids.py`,
-   `test_frontend_handlers.py` fail on half a removal), replaced by an "Ask
-   Atlas" row with three starter chips that opens the one sheet;
-   `test_help_chat.py`'s route tests stay as they are. Measure: exactly one
-   help-chat surface in the DOM. (c) `ATLAS_PROMPTS`, keyed by help id, and
-   the five places that offer a question from it: a line at the end of every
-   `data-help-for` popover, the Settings Help row, an "Ask Atlas" command in
-   the palette plus a typed line ending in "?" routed to it, one suggestion
-   in the Notes, Chat and Library empty states, and the shortcut listed in
-   the shortcuts sheet. Measure: a popover's Atlas line opens the sheet with
-   the question already in the input, at 1440 and 390; no element wider than
-   the sheet at 1440, 1024 and 390; contrast 4.5:1 in both themes; Escape and
-   the X both close.
-2. **INBOX 225, Atlas as the notebook's AI everywhere the app speaks as it.**
-   One `AI_NAME` constant in the frontend (settings.js already holds
+1. **INBOX 225, Atlas as the notebook's AI everywhere the app speaks as it.**
+   One `AI_NAME` constant in the frontend (settings.js holds
    `GUIDE_NAME = "Atlas"` from INBOX 204: fold the two into one rather than
    adding a second), then the copy: the status dot's label, "Atlas filed this
    under Work", the chat empty state, the popup agent's greeting, and

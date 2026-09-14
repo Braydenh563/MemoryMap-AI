@@ -1588,3 +1588,123 @@ rather than an array, so they are bounded at their maximum and need no
 frontend change.
 
 
+
+## 18. The next horizon, written 2026-09-14 at the close of PR 144
+
+**Where the plan stands.** Built and moved to HISTORY: B1 the event log,
+B3 the retrieval engine with explanations, B5's verifier and budget
+(Brief 13), I4 resurfacing with its dashboard surface, I9 the learned
+store with its Settings page, the first pass of I1, the tensions kernel
+behind B4 (`ai/tensions.py`, `ai/entities.py`), and the whole of the
+consistency contract in §1 as lints. The audit above (A1 to A9) lands in
+this PR: the bounded job pool is the first half of B2. Open, in the order
+they pay back: B2's resume-after-kill, I3 open questions, I6 evidence
+cards, I8 the model bench, I2 the margin reader, I5 time travel, B7 the
+API contract, B8 extensions, B6 sync. The dossiers D1 to D15 were largely
+absorbed by UI phases 0 to 11 and the per-surface plans; what each still
+owes is one line in `agent-remaining/OPEN.md`.
+
+**What "revolutionary" has to mean now.** The two asymmetries in §15 hold:
+the model is free and idle, and the corpus is one mind. Every cloud
+notebook in the §2 table has since shipped a chat box over notes; none has
+shipped a notebook that works on itself overnight, shows its reasoning
+sentence by sentence, or can be audited and corrected as a habit. That
+gap is the product. The horizon below is ordered so each item makes the
+next one measurable, and each names its gate, because a feature without a
+number is a demo.
+
+### H1 The night shift, finished (I1 second pass; L, Opus)
+
+What exists: `ai/autonomous.py` and `ai/janitor.py` run scheduled passes;
+`core/events.py` records every change; I9 shows what was learned. What is
+missing is the morning: a report card that says what the notebook did
+while you slept, with one undo per line. Build: a `night_runs` table (run
+id, started, finished, model, passes, changes, cost in tokens and
+seconds); a dashboard card "Overnight" listing each change as a sentence
+with Undo and Never again (the I7 correction); a Settings row for the
+window (start, stop, battery guard). Gate: a seeded notebook of 200 notes
+runs a night in under ten minutes on a 4B model against the fake
+transport, every change is undoable, and the report card's count equals
+the event log's count for that run. Test first: `tests/test_night_runs.py`.
+
+### H2 Evidence cards and open questions (I6 then I3; L, Opus)
+
+What exists: the Ask answer object carries per-sentence citations
+(`test_ask_answer_object.py`); the chat's checkable answers. Build I6 as
+the surface: each sentence of an answer is a card that opens to the
+passage, the note, the date and the retrieval score's three parts (§4
+B3), with "wrong" as a correction that retrains the ranker's weights
+(I7). Then I3: a question the model could not answer from the notebook
+becomes a row in "Open questions" with the notes that came closest, and
+the night shift retries it when new notes arrive. Gate: 95% of sentences
+cited on the seeded notebook; a corrected citation changes the next
+answer's ranking (asserted, not eyeballed).
+
+### H3 The model bench (I8; M, Opus)
+
+The one question every local-AI user asks and no product answers: which
+model is best on my notes, on my machine. Build: Settings, Models, "Try
+on my notebook": the app runs a fixed set of twelve tasks (file, link,
+answer, summarise, plan a skill) against each installed model over a
+sample of the person's own notes, scores them with the verifier from B5,
+times them, and shows a table with a recommendation. Everything local, one
+click, resumable. Gate: fake-transport tests for scoring and resume;
+`docs/MODELS.md` cites the bench instead of guessing.
+
+### H4 The notebook as a local service for other agents (B7 and B8; M, Opus)
+
+The next year's local agents (coding agents, desktop assistants) will want
+a memory. MemoryMap already has the tools (58 in `ai/tools/`), the
+permission gates and the audit log. Build: a versioned `/api/v1` contract
+generated from the routers (schema behind auth, B7), and an MCP server in
+`src/memorymap/mcp/` exposing the same tools with the same "asks first"
+rules, so any local agent can read and write the notebook and every write
+lands in the event log with the agent named. Gate: the MCP server passes
+the same tool tests as the in-app agent; an external write shows in the
+activity panel within one poll.
+
+### H5 Sync without a server (B6; L, design first)
+
+Design now, build after H1 to H4: an encrypted append-only export of the
+event log (B1 makes this possible) to a folder the person already syncs
+(any file-sync tool), and an importer that replays another device's log
+with last-writer-wins per field and a conflict list for the rest. No
+server, no account. Gate: two data dirs converge after each replays the
+other's log; a conflicting edit appears once, in the Library, with both
+versions.
+
+### H6 Professional use (the PR after 144; M, mixed)
+
+The owner's stated next block: refinements for daily professional use.
+The list, each with its gate: import from Obsidian, Notion export and
+Apple Notes (round-trip test per format); print and PDF export of a
+document with its citations; keyboard-complete (every dock action
+reachable, `keys.js` extended to every tab); a WCAG AA audit with
+`contrast.js` and `touch.js` as the standing gates; multi-window on the
+desktop (a document in its own window); a first-run tour that ends in a
+first note and a first question, measured by time to first answer.
+
+### H7 The speed budget (A1 continued; S each)
+
+Boot JS under 1 MB compressed (from 1.7 MB), first paint under 300 ms on
+the reference laptop, every list over 200 rows virtualised, `/entries`
+paged everywhere. `scratchpad/ui-sweeps/boottime.js` is the gate and its
+numbers go in the CHANGELOG with each step.
+
+### H8 Time travel and the margin reader (I5, I2; M each, Opus)
+
+I5: "what did I think about X in March" as a first-class query, the
+retrieval engine's date signal exposed as a slider on the Ask surface,
+with the answer's cards grouped by month. I2: the second reader in the
+document editor, a margin that fills with the person's own related notes
+as they write, from the same engine, with the link-strength explanation
+under each. Both reuse B3; both gate on the 150 ms budget for a
+keystroke-to-margin update.
+
+### The order, and the rule
+
+H7 first (it makes every later measurement honest), then H1, H2, H3, H6,
+H4, H8, H5. One horizon item per PR, its Built block moved to HISTORY at
+the end, its numbers in the CHANGELOG. Nothing above is started until
+`OPEN.md` is empty for the surface it touches: a revolution on top of an
+unfixed report is how the "fixed again" rounds happened.

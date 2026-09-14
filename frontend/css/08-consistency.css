@@ -1872,6 +1872,16 @@ summary > .ph-lead,
   flex: 0 0 auto;
 }
 
+/* The line that offers Atlas a question, under a help popover and in an empty
+   state (INBOX 224). Small, muted and set apart from the paragraph above it by
+   a rule: it is an offer, not another sentence of the explanation. */
+.help-atlas {
+  margin: var(--space-2) 0 0;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-light);
+  font-size: var(--text-sm);
+}
+
 /* The citation under an answer: where it came from, not somewhere to go. */
 .help-chat-source {
   margin: var(--space-1) 0 0;

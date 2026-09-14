@@ -313,3 +313,62 @@ def test_the_empty_chat_says_what_it_is_and_the_first_turn_retires_it():
     #: and left a blank rectangle under the field.
     assert "list.replaceChildren()" not in clear
     assert 'empty.hidden = false' in clear
+
+
+def test_every_atlas_prompt_hangs_off_a_help_panel_that_exists():
+    """INBOX 224: the questions the app offers to ask Atlas live in one table,
+    keyed by the id of the `data-help-for` panel they belong under.
+
+    A key that names no panel is invisible: `addAtlasLine` looks the panel up
+    and finds nothing, so the line simply never appears and nothing says so.
+    Three of the first eight keys written were wrong in exactly that way, and
+    only a sweep against the running app found them.
+    """
+    from pathlib import Path
+
+    frontend = Path(__file__).resolve().parents[1] / "frontend"
+    app = (frontend / "app.js").read_text(encoding="utf-8")
+    index = (frontend / "index.html").read_text(encoding="utf-8")
+
+    table = app[app.index("const ATLAS_PROMPTS = {") :]
+    table = table[: table.index("\n};")]
+    keys = re.findall(r'"([a-z0-9-]+)": "', table)
+    assert len(keys) >= 8, keys
+    panels = set(re.findall(r'data-help-for="([^"]+)"', index))
+    missing = [key for key in keys if key not in panels]
+    assert not missing, f"ATLAS_PROMPTS keys with no help popover: {missing}"
+    #: And every question reads as a question, since that is what is printed
+    #: after "Ask Atlas: ".
+    asked = re.findall(r'": "([^"]+)"', table)
+    assert all(q.endswith("?") for q in asked), [q for q in asked if not q.endswith("?")]
+
+
+def test_the_palette_offers_a_typed_question_to_atlas():
+    """A jump list has no answer for "how do I turn off web search?", so the
+    box went empty, which reads as "this app has no answer"."""
+    from pathlib import Path
+
+    app = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text(
+        encoding="utf-8"
+    )
+    start = app.index("function paletteMatches(")
+    body = app[start : app.index("\n}\n", start)]
+    assert 'endsWith("?")' in body and "askAtlasAbout" in body
+    #: `docs` is declared in the Library's lazy bundle, so the palette's own
+    #: document search has to survive its absence: it threw on the first
+    #: keystroke of a fresh load until this guard.
+    assert 'typeof docs === "undefined"' in body
+
+
+def test_atlas_has_a_shortcut_and_it_is_in_the_registry():
+    """In `DEFAULT_SHORTCUTS`, which is what puts it in the shortcuts sheet and
+    in the collision check, rather than bound in a listener of its own."""
+    from pathlib import Path
+
+    app = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text(
+        encoding="utf-8"
+    )
+    start = app.index("const DEFAULT_SHORTCUTS = {")
+    table = app[start : app.index("\n};", start)]
+    assert "askAtlas: {" in table
+    assert "askAtlas: () => askAtlasAbout" in app

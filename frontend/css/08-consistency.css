@@ -1871,6 +1871,48 @@ summary > .ph-lead,
 .atlas-menu {
   flex: 0 0 auto;
 }
+/* One height for the field and the send beside it (the owner: "the send
+   button and text box are different heights and sizes"): both take the
+   app's large control height and the field's radius, so the row reads as
+   one instrument rather than a box next to a badge. */
+.atlas-composer > #help-chat-input,
+.atlas-composer > button {
+  height: 2.5rem;
+  min-height: 2.5rem;
+  border-radius: var(--radius-md);
+}
+.atlas-composer > button.icon-only {
+  width: 2.5rem;
+}
+/* In the sheet the head carries the mark, the name and the line, so the
+   intro block that repeated all three is not shown there; it stays for the
+   Settings Help page, where there is no sheet head. */
+.atlas-chat.atlas-docked .atlas-intro {
+  display: none;
+}
+.sheet-card-corner .sheet-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.atlas-head-words {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+.atlas-head-name {
+  font-weight: 600;
+}
+.atlas-head-line {
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+.sheet-head > .atlas-menu {
+  margin-left: auto;
+  margin-right: var(--space-2);
+}
 
 /* The line that offers Atlas a question, under a help popover and in an empty
    state (INBOX 224). Small, muted and set apart from the paragraph above it by

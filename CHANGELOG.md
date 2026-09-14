@@ -110,6 +110,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Atlas's answer badges did nothing in the sheet (their click handler was
+  delegated on the Settings modal); the sheet head now carries the mark,
+  the name, the one-line description and the kebab beside the close, the
+  composer's field and buttons share one 40px height, and answers are
+  written in under the caret rather than dropped in whole.
 - The Library's sub-tabs, the boards controls and the graph pane did not
   wire when their files loaded on first use: their top-level setup waited
   for `DOMContentLoaded`, which had already fired. They wire through

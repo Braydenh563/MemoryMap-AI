@@ -2942,10 +2942,21 @@ $("settings-modal").addEventListener("click", (event) => {
 // whatever Settings section happens to mention it, asked for directly,
 // after the Settings-only links above shipped without this half. Closes
 // the modal first: a tab switch happening behind it would be invisible.
-$("settings-modal").addEventListener("click", (event) => {
+//: On `document`, not the Settings modal: the Atlas chat now opens in a
+//: sheet outside the modal (INBOX 224), and its answer badges ("Chat",
+//: "Skills") were `[data-goto-tab]` buttons nothing listened to there
+//: ("clicking the hyperlinked badges under atlas responses doesnt work").
+//: The sheet closes first for the same reason the modal does: a tab switch
+//: behind an overlay is invisible.
+document.addEventListener("click", (event) => {
   const link = event.target.closest("[data-goto-tab]");
   if (!link) return;
-  closeSettingsModal();
+  if (link.closest("#settings-modal")) closeSettingsModal();
+  if (link.closest('[data-sheet="guide"]') && typeof helpChatSheetClose === "function") helpChatSheetClose();
+  if (link.dataset.gotoSection) {
+    openSettingsModal(link.dataset.gotoSection);
+    return;
+  }
   switchTab(link.dataset.gotoTab);
 });
 
@@ -3513,20 +3524,22 @@ async function submitHelpChatQuestion(question) {
         context: helpChatOnScreenHelp(),
       }),
     });
-    pending.remove();
     const content = result?.content || "Sorry, I couldn't answer that.";
-    const row = renderHelpChatMessage(
+    //: **The answer is written in, not dropped in.** `/help/ask` answers in
+    //: one piece, so the reveal is the app's own (the owner: "the atlas chat
+    //: interface doesnt have message streaming or the caret writing
+    //: animation"): the pending row loses its dots and grows the answer a
+    //: few words a frame under the same `.is-streaming` caret Chat uses for
+    //: its real token stream, then the finished row with its sources and
+    //: badges takes its place. Reduced motion shows the whole answer at once.
+    await helpChatReveal(pending, content);
+    pending.remove();
+    renderHelpChatMessage(
       "assistant",
       content,
       result?.badges || [],
       result?.sources || []
     );
-    // The typewriter caret (`.is-streaming`, already built for Chat's real
-    // token stream) settles for a moment rather than blinking forever, 
-    // this reply arrived in one piece, so pretending it is still being
-    // written would be the misleading kind of animation, not the honest one.
-    row?.classList.add("is-streaming");
-    setTimeout(() => row?.classList.remove("is-streaming"), 700);
     helpChatHistory.push({ role: "user", content: question });
     helpChatHistory.push({ role: "assistant", content });
   } catch {
@@ -3537,6 +3550,29 @@ async function submitHelpChatQuestion(question) {
     if (sendBtn) sendBtn.disabled = false;
     input?.focus();
   }
+}
+
+function helpChatReveal(row, content) {
+  return new Promise((resolve) => {
+    row.classList.remove("is-pending");
+    row.classList.add("is-streaming");
+    row.replaceChildren();
+    const still = document.documentElement.dataset.motion === "reduced" || content.length < 40;
+    const words = content.split(/(\s+)/);
+    let shown = 0;
+    const step = () => {
+      shown = still ? words.length : Math.min(words.length, shown + 2);
+      renderMarkdown(row, words.slice(0, shown).join(""));
+      const list = $("help-chat-messages");
+      if (list) list.scrollTop = list.scrollHeight;
+      if (shown >= words.length) {
+        setTimeout(resolve, 150);
+        return;
+      }
+      setTimeout(step, 24);
+    };
+    step();
+  });
 }
 
 $("help-chat-form")?.addEventListener("submit", (event) => {
@@ -3648,6 +3684,8 @@ function askAtlas(question) {
 //: would duplicate the ids, which the frontend lints refuse for good reason.
 let helpChatHome = null;
 
+let helpChatSheetClose = null;
+
 function openHelpChat() {
   const group = $("help-chat-group");
   if (!group) return null;
@@ -3659,6 +3697,8 @@ function openHelpChat() {
     return null;
   }
   helpChatHome = { parent: group.parentNode, next: group.nextSibling };
+  const menu = $("help-chat-menu");
+  const menuHome = menu ? { parent: menu.parentNode, next: menu.nextSibling } : null;
   const close = openSheet({
     label: GUIDE_NAME,
     name: "guide",
@@ -3669,15 +3709,41 @@ function openHelpChat() {
     variant: "corner",
     build: (card) => {
       card.appendChild(group);
+      group.classList.add("atlas-docked");
+      //: The head says who is talking, once: the mark, the name and the
+      //: one-line description that used to sit in a second block under a
+      //: second "Atlas" (the owner: "redesign this top section"). The
+      //: kebab sits top right beside the close, where a menu is expected,
+      //: rather than fourth in the composer row.
+      const head = card.querySelector(".sheet-head");
+      const title = head?.querySelector(".sheet-title");
+      if (title) {
+        const mark = group.querySelector(".atlas-mark")?.cloneNode(true);
+        const words = document.createElement("span");
+        words.className = "atlas-head-words";
+        const name = document.createElement("span");
+        name.className = "atlas-head-name";
+        name.textContent = GUIDE_NAME;
+        const line = document.createElement("span");
+        line.className = "muted atlas-head-line";
+        line.textContent = "About the app, never your notes";
+        words.append(name, line);
+        title.replaceChildren(...(mark ? [mark] : []), words);
+      }
+      if (menu && head) head.insertBefore(menu, head.querySelector(".sheet-close"));
     },
     onClose: () => {
       //: Back exactly where it was, so the Help pane is whole the next time
       //: it is opened. `insertBefore` with a null `next` appends, which is
       //: the correct behaviour when it was the last child.
+      group.classList.remove("atlas-docked");
+      if (menu && menuHome) menuHome.parent.insertBefore(menu, menuHome.next);
       if (helpChatHome) helpChatHome.parent.insertBefore(group, helpChatHome.next);
       helpChatHome = null;
+      helpChatSheetClose = null;
     },
   });
+  helpChatSheetClose = close;
   //: **After `openSheet` returns, not inside its `build`.** `build` is handed
   //: the card before the card is in the document, so both of these looked the
   //: chat up by id and found nothing: the starters survived only because they

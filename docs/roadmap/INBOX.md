@@ -45,10 +45,6 @@ with its owner named in the entry.
     with ai notes subtab, the box instantly shortened in height from what
     it was. same with the 'the draft' textbox as well." Owner: notes agent.
 
-239. **Mid-work drop, 2026-09-14, verbatim (the owner), the table full
-    view.** "I opened up the table full view but there was no way to close
-    it so I had to hard refresh the app." Owner: notes agent (documents).
-
 238. **Mid-work drop, 2026-09-14, verbatim (the owner), board and map
     notes.** "when I expand the size of notes in the whiteboard and mindmap,
     the text goes out of the panel border, the state of note objects in the

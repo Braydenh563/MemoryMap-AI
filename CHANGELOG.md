@@ -7,6 +7,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- A table in full view can be closed: an X in the panel's head that names
+  Escape, focus handed back to the button that opened it, and the ⋯ menu's
+  Back row lifted above the panel it was drawing behind (INBOX 239).
 - The agent hand-off files are one ledger: `docs/roadmap/agent-remaining/OPEN.md`
   carries every still-open item from the 38 finished files, by surface, with the
   file, the id and the next step, and those files move whole to

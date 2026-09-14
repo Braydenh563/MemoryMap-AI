@@ -27438,6 +27438,22 @@ line that carried a dash.
     same pass, the rest briefed to agents. Owner: orchestrator.
     **Done, 2026-09-14:** the audit is WORLD_CLASS_PLAN "Audit, 2026-09-13 night", rows A1 to A9 all landed in this PR.
 
+239. **Mid-work drop, 2026-09-14, verbatim (the owner), the table full
+    view.** "I opened up the table full view but there was no way to close
+    it so I had to hard refresh the app." Owner: notes agent (documents).
+    **Fixed 3dc956e.** Two faults, measured on :8802 with
+    `scratchpad/ui-sweeps/tablefullclose.js`: the only drawn way out was the ⋯
+    menu's Back row, and `kebabMenu` reparents its dropdown to `<body>` at
+    `z-index: 1020` while the panel is a fixed surface at 2400, so the row drew
+    at 1166,248 with `elementFromPoint` returning `DIV.md-table-wrap` and a real
+    click left the panel open; Escape worked the whole time and nothing said so.
+    Now: a 28x28 X at the head's right edge (border 0px, ground transparent, so
+    it is part of the bar's shell, reachable, named "Close full view (Escape)"),
+    the panel takes focus on open and hands it back to the opener on all three
+    exits, and an escaped menu is lifted one tier above its opener's surface
+    (2401 over 2400), so Back reads back as `BUTTON.menu-item` under the pointer
+    and closes the panel. The bubble's bar is unchanged at two controls.
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

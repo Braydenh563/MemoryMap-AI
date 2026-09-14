@@ -74,6 +74,13 @@ with its owner named in the entry.
     listed in the shortcuts sheet. The questions come from one table
     (`ATLAS_PROMPTS`, keyed by help id) so copy stays in one place. Measured:
     a popover's Atlas line opens the sheet with the question in the input.
+    **And, 2026-09-14:** "also there is still the second atlas interface in
+    the settings help page." One interface, not two: the Settings Help
+    page's own chat (the older "Ask the guide" box) goes, and its place is
+    the "Ask Atlas" row above, which opens the one sheet; the ids and
+    handlers of the old box are removed together (`test_frontend_ids.py`,
+    `test_frontend_handlers.py`), and `test_help_chat.py` keeps its route
+    tests. Measured: exactly one `#help-chat` surface in the DOM.
 
 221. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), auto
     update.** "make sure all the auto update whether upon new release or

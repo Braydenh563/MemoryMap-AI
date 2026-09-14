@@ -14462,7 +14462,7 @@ function personaOptions() {
   // name -> its prompt, so the dropdown can describe each persona on hover.
   const overrides = new Map(custom.map((p) => [p.name, p]));
   const describe = (name) => {
-    const prompt = (overrides.get(name) || {}).prompt || BUILTIN_PERSONAS[name] || "";
+    const prompt = (overrides.get(name) || {}).prompt || builtinPersonas()[name] || "";
     return prompt.length > 200 ? prompt.slice(0, 199) + "…" : prompt;
   };
   select.replaceChildren();
@@ -14479,7 +14479,7 @@ function personaOptions() {
   // The full prompt, not the hover excerpt: the preview panel exists precisely so
   // the instructions the model is given aren't a 200-character preview.
   const fullPrompt = (name) =>
-    (overrides.get(name) || {}).prompt || BUILTIN_PERSONAS[name] || "";
+    (overrides.get(name) || {}).prompt || builtinPersonas()[name] || "";
   const showPrompt = (name) => {
     $("persona-prompt-text").textContent =
       fullPrompt(name) || "This persona adds no instructions of its own.";
@@ -21829,15 +21829,23 @@ function personaDisplayName(name) {
   return !name || name === "Librarian" ? aiNameNow() : name;
 }
 
-const BUILTIN_PERSONAS = {
-  Atlas: "You are Atlas, this notebook's librarian.",
-  Coach:
-    "You are an encouraging personal coach reviewing the user's notes. " +
-    "Spot patterns, celebrate progress, and suggest one concrete next step.",
-  Analyst:
-    "You are a precise analyst. Extract the facts, numbers, and patterns " +
-    "from the notes and organise your answer clearly.",
-};
+//: A function, not a table: the librarian is named after the app's AI
+//: (`AI_NAME`, settings.js), so its key and its prompt are built from that
+//: name when asked for, the same way `librarian.DEFAULT_PERSONA` is built
+//: from the backend's `AI_NAME` (the owner, 2026-09-14: "since you were
+//: using {ai name} as the ai name variable, should that be used instead??").
+function builtinPersonas() {
+  const name = aiNameNow();
+  return {
+    [name]: `You are ${name}, this notebook's librarian.`,
+    Coach:
+      "You are an encouraging personal coach reviewing the user's notes. " +
+      "Spot patterns, celebrate progress, and suggest one concrete next step.",
+    Analyst:
+      "You are a precise analyst. Extract the facts, numbers, and patterns " +
+      "from the notes and organise your answer clearly.",
+  };
+}
 
 let personaEditing = null; // name currently in inline-edit mode
 
@@ -21858,14 +21866,14 @@ async function renderPersonas() {
   list.replaceChildren();
 
   const rows = [
-    ...Object.keys(BUILTIN_PERSONAS).map((name) => ({
+    ...Object.keys(builtinPersonas()).map((name) => ({
       name,
       builtin: true,
       overridden: overrides.has(name),
-      prompt: overrides.has(name) ? overrides.get(name).prompt : BUILTIN_PERSONAS[name],
+      prompt: overrides.has(name) ? overrides.get(name).prompt : builtinPersonas()[name],
     })),
     ...custom
-      .filter((p) => !(p.name in BUILTIN_PERSONAS))
+      .filter((p) => !(p.name in builtinPersonas()))
       .map((p) => ({ ...p, builtin: false, overridden: false })),
   ];
 

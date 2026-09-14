@@ -41,5 +41,9 @@ def test_the_persona_text_the_app_shows_is_the_text_the_model_gets():
     from pathlib import Path
 
     app = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text(encoding="utf-8")
-    match = re.search(r'^  Atlas: "([^"]+)",', app, re.M)
-    assert match and match.group(1) == librarian.DEFAULT_PERSONA
+    match = re.search(r"^    \[name\]: `([^`]+)`,", app, re.M)
+    assert match, "app.js's builtinPersonas() has no templated librarian row"
+    from memorymap.ai import AI_NAME
+
+    assert match.group(1).replace("${name}", AI_NAME) == librarian.DEFAULT_PERSONA
+    assert "BUILTIN_PERSONAS" not in app, "the persona table must be built from the name, not a literal"

@@ -512,7 +512,7 @@ def test_a_source_install_on_main_is_told_it_is_already_following_main(
     monkeypatch.setattr(routes_update.sys, "frozen", False, raising=False)
     body = client.get("/update/check").json()
     assert body["reason"] == "channel_source_main"
-    assert "pull it on every launch" in body["message"]
+    assert "pull them on every launch" in body["message"]
 
 
 def test_check_reports_unreachable_when_offline(client, app_state, monkeypatch):

@@ -9056,10 +9056,53 @@
                    fabricating one here would be exactly the kind of silent
                    lie CLAUDE.md calls out as costly. Storing the choice is
                    real; the behaviour catches up once that pipeline exists. -->
+              <!-- **Two words nobody outside this repository knows.** The
+                   owner: "what does stable mean?? can you make it clearer in
+                   the ui for the user?" The label said "Track the main branch
+                   instead of stable releases" and then spent a parenthesis on
+                   start.bat, which explains the mechanism to someone who
+                   already knows what a branch is and says nothing to anyone
+                   else. "Main" and "stable" are git and release-engineering
+                   words; what a person is choosing between is "the version
+                   that was finished and tested" and "whatever was written
+                   this week". The label is that choice, the line under it is
+                   the consequence, and the branch names live in the '?'
+                   where the people who want them can find them. -->
               <label class="check-row">
                 <input type="checkbox" id="pref-update-channel-main">
-                <span>Track the main branch instead of stable releases (source installs started by start.bat or start.sh pull main; the packaged app keeps checking stable releases)</span>
+                <span>Follow the newest changes instead of finished releases</span>
               </label>
+              <div class="row setting-dependent">
+                <p class="muted text-sm flush">
+                  Off is the safer choice: you get versions that were finished
+                  and tested.
+                </p>
+                <button type="button" class="icon-only ghost small" data-help-for="update-channel-help"
+                  aria-controls="update-channel-help" title="What these two mean"
+                  aria-label="What these two mean"><i class="ph ph-question" aria-hidden="true"></i></button>
+              </div>
+              <div class="help-body hidden" id="update-channel-help" role="dialog" aria-label="What these two mean">
+                <p>
+                  <strong>Finished releases</strong> (off, the default): a
+                  version that has been given a number, built and tested, the
+                  way any app you install updates. A few a month at most, and
+                  each one says what changed.
+                </p>
+                <p>
+                  <strong>The newest changes</strong> (on): the code as it is
+                  being written, day by day. New things reach you sooner, and
+                  so do the mistakes in them. Worth it if you like being early
+                  or you are reporting bugs.
+                </p>
+                <p>
+                  Which one you can actually use depends on how this copy was
+                  installed. A copy started by start.bat or start.sh can
+                  follow the newest changes, because it pulls them from GitHub
+                  itself on every launch (the main branch). The packaged app
+                  has no way to do that, so it always installs releases, and
+                  this switch changes nothing for it.
+                </p>
+              </div>
               <!-- Indented under the two switches it belongs to, for the same
                    reason `#update-check-row` is: a control that only makes
                    sense in terms of the setting above it should look like it

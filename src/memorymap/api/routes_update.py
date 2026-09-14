@@ -368,9 +368,10 @@ def check_for_update() -> dict:
             "checked": False,
             "reason": "channel_source_main",
             "message": (
-                "This copy follows the main branch: start.bat and start.sh "
-                "pull it on every launch, so it is already as new as main. "
-                "Release checks apply on the Stable channel."
+                "This copy follows the newest changes: start.bat and "
+                "start.sh pull them on every launch, so it is already up to "
+                "date. Turn off \"Follow the newest changes\" below to be "
+                "told about finished releases instead."
             ),
         }
     #: **Three different failures, three different sentences.** Reported with

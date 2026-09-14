@@ -923,6 +923,8 @@ def _path_bbox(d: str) -> tuple[float, float, float, float] | None:
                 px, py = px + ex, py + ey
             # Z/z closes back to the last M and moves nothing.
     except _PathEnd:
+        # Path data ended mid-command; keep the bounds accumulated so far.
+        # This function is intentionally tolerant of truncated stroke paths.
         pass
     if min_x == float("inf"):
         return None

@@ -5493,6 +5493,16 @@ button.ghost.danger:hover {
   padding: var(--space-2) var(--space-3);
 }
 
+/* The trace's result and the suggestions got the shell above (border, ground)
+   without its padding: a one-line "no route within 6 steps" drew as a strip
+   the height of its text with the words on the border, and a found route's
+   "6 steps" line sat clipped against the panel's top (the owner, 2026-09-14,
+   two screenshots). The same inset as the dock. */
+.graph-overlay .graph-trace-result,
+.graph-overlay #link-suggestions:not(.hidden) {
+  padding: var(--space-2) var(--space-3);
+}
+
 /* The help panel was absolutely positioned against the card (a popover under
    a toolbar that used to sit in the flow). In the column it is a row like the
    others, right-aligned under the "?" it opens from. */

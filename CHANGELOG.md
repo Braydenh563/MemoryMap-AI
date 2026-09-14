@@ -146,6 +146,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The graph trace's result panel has the dock's padding, so a one-line
+  result is no longer a strip the height of its text (INBOX 262).
 - A file chip in a note's body has room below it before the badges row
   (INBOX 261).
 - The dashboard greeting's persona select no longer draws empty when the

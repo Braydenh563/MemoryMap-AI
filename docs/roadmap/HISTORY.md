@@ -27805,6 +27805,16 @@ line that carried a dash.
     bottom margin (reasoned from the DOM: the chip is the body's last child
     and `.entry-meta` has no top margin; not measured in a browser).
 
+262. **Mid-work drop, 2026-09-14, verbatim (the owner), the graph's Trace
+    (two screenshots: "They're both connected to other notes, but there's
+    no route between them within 6 steps." drawn as a strip the height of
+    its text; a found route with its "6 steps" line clipped at the panel
+    top).** "I cant see the trace at all?? and that text line is verrry
+    thin" then "actually now i can see it". The first pair had no route
+    (the message says so); the strip itself was the bug. **Fixed:** the
+    overlay's trace result and suggestions panel carry the dock's own
+    padding (reasoned; not measured in a browser).
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

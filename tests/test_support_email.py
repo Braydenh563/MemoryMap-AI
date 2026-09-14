@@ -34,8 +34,11 @@ def test_an_error_toast_carries_the_report_button():
     assert 'help.textContent = "Report this"' in toast
 
 
-def test_the_logs_dock_has_the_email_button_and_it_is_wired():
-    assert 'id="logs-email-bundle"' in HTML
+def test_the_logs_menu_has_the_email_row_and_it_is_wired():
+    """In the kebab, not the bar: a fourth control beside Support bundle
+    wrapped the actions row to two lines at the settings width."""
+    row = HTML[HTML.index('id="logs-email-bundle"') - 200 : HTML.index('id="logs-email-bundle"') + 60]
+    assert 'class="doc-dock-menu-item"' in row
     assert '$("logs-email-bundle").addEventListener("click"' in SETTINGS
 
 

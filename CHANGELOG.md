@@ -255,7 +255,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 - A report by email: every error toast has Report this, which saves the
   support bundle and opens your mail app addressed to the developer with
-  the error in the message; Settings, Logs has Email it; and Atlas points
+  the error in the message; Settings, Logs has Email the support bundle in
+  its menu; and Atlas points
   a question about an error the same way (INBOX 256).
 - The `m` chord reaches both assistants: `m` then `a` opens Atlas, `m` then
   `p` the popup agent (INBOX 249). A link out of any overlay closes that

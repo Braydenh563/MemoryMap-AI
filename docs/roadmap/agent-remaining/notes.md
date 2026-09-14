@@ -39,8 +39,11 @@ Items, in order: 239, 240, 241, 238, 232.
   fourth (the history panel). The rule is unchanged and still enforced, every
   call site passes an answer element; the inventory names the new surface, and
   its docstring says why a fifth has to come back to it. Nothing else in the
-  suite failed. A clean re-run was started and had not finished at the
-  deadline: `/tmp/mm-notes/fullsuite2.log`.
+  suite failed. The re-run after the fix reached 100% with zero failure marks
+  in `/tmp/mm-notes/fullsuite2.log` (no `F`, no `E`, no `FAILED` line), but the
+  900-second `timeout` wrapped around it killed pytest before the summary line
+  printed, so there is no "N passed" figure to quote: the tests are green, the
+  count is not measured. CI on the push has both.
 
 ## Next
 

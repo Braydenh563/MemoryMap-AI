@@ -335,6 +335,15 @@ def check_for_update() -> dict:
     if not config.get_preference("update_check_enabled", False):
         return {"checked": False, "reason": "disabled"}
     channel = config.get_preference("update_channel", "stable")
+    #: "Track the main branch" is a launcher setting: `start.bat` and
+    #: `start.sh` pull main instead of a tag on a source install, and that
+    #: works. The packaged app has no source to pull and no nightly
+    #: installer, so for it the choice reads as stable rather than as
+    #: silence: a person who switched it on in the packaged app still hears
+    #: about a release (the owner, 2026-09-14: "make sure all of these are
+    #: actually functional and properly do as they say").
+    if channel == "main" and getattr(sys, "frozen", False):
+        channel = "stable"
     if channel == "main":
         # Honest, not fabricated: there is no nightly-build CI pipeline
         # that tags/publishes a Windows asset on every main-branch push,

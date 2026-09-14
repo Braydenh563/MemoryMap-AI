@@ -146,6 +146,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The packaged app still checks stable releases when "Track the main
+  branch" is on (that switch is the source-install launchers'), and its
+  label says so (INBOX 254).
 - **The packaged Windows app starts again.** It is built without a console,
   so `sys.stdout` and `sys.stderr` were None and uvicorn's log formatter
   failed on `sys.stderr.isatty()` before a port was bound: "Unable to

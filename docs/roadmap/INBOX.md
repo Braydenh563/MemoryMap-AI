@@ -167,3 +167,4 @@ with its owner named in the entry.
     (`--doctor` and `--reinstall` exist but are flags, not a button), and
     (b) a "Repair MemoryMap" shortcut installed beside the app that runs
     them. Depends on 251's facts.
+

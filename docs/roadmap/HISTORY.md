@@ -27718,6 +27718,24 @@ line that carried a dash.
     streams set to None. The next release carries it; until then the fix
     for him is a fresh install of that release.
 
+254. **Mid-work drop, 2026-09-14, verbatim (the owner), Settings, Updates
+    (screenshot: Check GitHub off, Check now, Update automatically off,
+    "Track the main branch instead of stable releases (not yet available)"
+    on, Choose a specific version, Dev view on, Closing keeps in tray on).**
+    "make sure all of these are actually functional and properly do as they
+    say". Walked: Check GitHub gates `GET /update/check`; Check now calls
+    it; Update automatically gates `POST /update/apply` (packaged Windows
+    only, the UI says so through `can_auto_apply`); Choose a specific
+    version lists `GET /update/releases` and installs one; Dev view and
+    Closing keeps in tray are read by `__main__.py` and the launchers
+    (`tests/test_launcher_update_settings.py`). The one that did not do
+    what it said: Track the main branch is real on a source install
+    (start.bat and start.sh pull main) but the packaged app answered every
+    check with "channel unavailable", so with it on the owner's build
+    heard about no release. **Fixed:** the packaged app reads that channel
+    as stable; the label says who the switch is for;
+    `tests/test_update_channel_packaged.py`.
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

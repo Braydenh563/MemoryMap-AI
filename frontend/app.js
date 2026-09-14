@@ -41529,11 +41529,18 @@ function syncAgentOpenNoteToggle() {
   //: Now it says what kind the thing is and what it is called, and when there
   //: is nothing it says what would count as something.
   const word = subject ? AGENT_SUBJECT_WORDS[subject.kind] || subject.kind : null;
-  text.textContent = subject
-    ? `Use this ${word}: ${subject.label}`
-    : "Nothing open to use (open a note, document, board or map first)";
+  //: **One short line, and the sentence behind it** (INBOX 208). The empty
+  //: state used to carry its own instructions in the label, "Nothing open to
+  //: use (open a note, document, board or map first)", which is a caption for
+  //: a checkbox written as a paragraph: three lines at 390 and two at 1440, on
+  //: a row that is otherwise one control high. A label says what the control
+  //: does; the tooltip below, which has always carried the longer sentence,
+  //: says what to do about it. The open case keeps the thing's name, which is
+  //: the point of INBOX 190, and the CSS ellipsises a long one rather than
+  //: wrapping it, so the title repeats it in full.
+  text.textContent = subject ? `Use this ${word}: ${subject.label}` : "Nothing open to use";
   label.title = subject
-    ? `Send this ${word} with what you ask, so the agent works on it`
+    ? `Send this ${word}, ${subject.label}, with what you ask, so the agent works on it`
     : "Open a note, a document, a board or a mind map first, then the agent can work on it";
 }
 

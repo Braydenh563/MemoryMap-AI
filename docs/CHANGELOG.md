@@ -25,7 +25,9 @@ below). Versioning is `0.x` while the app stabilises.
   three speeds, and the background art is rebuilt after it rather than during
   it (202). Every control that needs a model says so and is disabled while
   none is running, 15 of them rather than the 7 an array in one file had kept
-  up with (203).
+  up with (203). The popup agent's foot row is one control high in every
+  state rather than two or three lines of wrapped captions, 75px and 124px
+  before, 51px and 61px now (208).
 
 ### Added
 

@@ -26508,3 +26508,33 @@ line that carried a dash.
     documents, and the meeting note's Save, each of which does its job without
     a model and says so.
 
+208. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the popup
+    agent's foot (screenshot: the "Use the open note" toggle with its label
+    wrapped to two lines, "Nothing open to use (open a note, document, board
+    or map first)", beside a "Start over" button whose caption also wraps
+    to two lines).** "can you fix the ui of and redesign the ui of these
+    buttons at the bottom of the popup agent??" The foot row
+    (`.command-palette-foot`): the disabled state's copy is too long for a
+    toggle's label (one short line, the long reason behind the toggle's
+    `title` or a `data-help-for`), and Start over is an icon-only ghost
+    button with a tooltip, or a menu item, not a two-line pill. Owner:
+    chrome agent, with 205.
+    **Measured and fixed.** Both faults were one fault: the row is a nowrap
+    flex row of four things, and two of them were allowed to bring their own
+    height. The toggle's caption carried its own instructions ("Nothing open
+    to use (open a note, document, board or map first)"), which is a paragraph
+    in a checkbox's label: two lines at 1440, three at 390. It says "Nothing
+    open to use" now, and the sentence about what to open, which the label's
+    `title` has always carried, is the only place it lives. The open case
+    keeps the thing's name (INBOX 190) and ellipsises a long one rather than
+    wrapping it, with the full name in the title. "Start over" is the app's
+    icon-only ghost recipe with its words in the tooltip and the aria-label:
+    at 390 it was a 68px pill with its caption broken across two lines. The
+    status line, which the agent writes a sentence into mid-run, is held to
+    one line for the same reason, and gives its width back first.
+    Measured (`scratchpad/ui-sweeps/chrome208.js`, three states: nothing open,
+    a deliberately long map title with a long status beside it, and mid-run
+    with Stop in Start over's place): the foot row was 75px at 1440 and 124px
+    at 390, and is 51px and 61px now, the same in all three states. The 61 is
+    the phone's 44px touch target rather than the desktop's 28.
+

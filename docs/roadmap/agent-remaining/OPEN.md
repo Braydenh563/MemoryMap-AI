@@ -1,5 +1,54 @@
 # OPEN: everything still open from the agent files, in one place
 
+## What is left after PR 144, in the order to build it (written 2026-09-14)
+
+The owner's brief for the next session is one line: "here's what's left,
+read the handover and OPEN.md, please finish and build all of these". This
+section is the "these". Each row points at where the detail lives; the
+bullets further down this file and the plan sections hold the file, id,
+measurements and next step. Work top to bottom: bugs the owner reported,
+then the plan tails by surface, then the horizon.
+
+**A. The owner's open reports (INBOX numbers; the entries are in INBOX.md)**
+
+| # | What is left | Where |
+| --- | --- | --- |
+| 238 | Board and map note cards: text overflows the card when expanded, expand state does not persist, and export should warn when cards are collapsed. The bug underneath: a note card exports truncated at 160 characters whether expanded or not (SVG, PNG and the outline formats). | WHITEBOARD_PLAN, this file's Whiteboard section |
+| 246 | Attach a board or map to a note from the note's connect menu (a `WhiteboardObject` of kind note with `data.ref_id`), the Connections dialog reading both the legacy `WhiteboardNode` table and current note objects, boards and maps told apart, and a "referenced by" chip row on the note card from one batched counts endpoint. | this file's Notes section; routes_entries.py `entry_connections` |
+| 232 | Live view markdown beyond code fences: tables, callouts, task lists and images rendered in place, the fence and marks hidden while the caret is outside. | DOCUMENTS_PLAN Phase 2 tail, documents.js `docLivePlugin` |
+| 253 | One-click recovery: a launcher that repairs a start that fails (venv, dependencies, migrations) without a prompt, and a Repair shortcut beside the app; gated by a deliberately broken venv coming back. | WORLD_CLASS_PLAN H6 |
+| 225 | The frontend copy sweep: every place the app still speaks as "the AI", "the assistant" or "the guide" where it means Atlas. | INBOX 225's second half |
+| 226 | A flicker above the bottom bar on the dashboard, never reproduced here; needs the owner's theme, art setting and zoom. | INBOX 226 |
+| 213, 220, 228 | Documentation leftovers recorded in their entries. | INBOX |
+
+**B. Plan tails, by surface**
+
+| Plan | Still open |
+| --- | --- |
+| DOCUMENTS_PLAN | Phase 3 item 4's Library filter by frontmatter property; Phase 4 items 3 to 5 (outline drag-to-reorder with breadcrumbs, the editor command palette and shortcut sheet from one table, daily notes and the templates gallery); Phase 5 items 2 to 4 (version history UI with diff and restore, AI edit with a per-hunk diff preview and findings rendered as findings, focus and typewriter modes with reading typography and a print stylesheet); Phase 6 and Phase 8 tails in this file's Documents section. |
+| UI_MODERNISATION_PLAN | Phase 8's three docks still over the seven-control ceiling; Phase 11 items 1 to 9, the phone done properly. |
+| GRAPH_PLAN | Phase 5 (positions saved on views, the `?since=` cursor); Phase 6's node panel redesign; the local pane's Show switches; 6b the minimap. |
+| WHITEBOARD_PLAN | Decision 7's other half; the phone context bar comparison; sketch handles at zoom; the arrange panel items. |
+| MINDMAP_PLAN | The mapux agent's leftover list (this file's Mind map section). |
+| CHAT_PLAN | Phase 1's other half, which note grounds a sentence (blocked on Brief 12's eval fixtures); Phase 4's harness items. |
+| TIMELINE_PLAN | Section 7's two measurements. |
+| AGENT_SKILLS_REFORM | Phase D verified against a real model, which needs WORLD_CLASS_PLAN section 9's dev-only runner first. |
+
+**C. The horizon (WORLD_CLASS_PLAN, one item per PR, in its own stated order)**
+
+H7 the speed budget, H9's perf gate and usage ledger, H1 the night shift,
+H2 evidence cards and open questions, H3 the model bench, H6 professional
+use (imports, print and PDF, keyboard-complete, WCAG audit, multi-window,
+first-run tour; 253 is its first row), H4 the API contract and extensions,
+H8 time travel and the margin reader, H5 sync. Behind them the backend
+moves B2's second half, B4, B6 to B8 and the inventions I1 to I3 and I5 to
+I8, each with its spec test named in the plan.
+
+**Done-when for the next session:** sections A and B empty, each Built
+block moved to HISTORY, the CHANGELOG carrying the numbers, CI green, and a
+PR opened per the standing orders. Section C is one item per PR after that.
+
+
 One bullet per open item, consolidated 2026-09-14 from the 38 finished agent
 files now in [`../archive/agent-remaining/`](../archive/agent-remaining/)
 (INBOX 220). Each bullet names the file, the id or selector, and the next

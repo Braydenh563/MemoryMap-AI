@@ -372,8 +372,9 @@ console, uvicorn's formatter read `sys.stderr.isatty()` on None, and the
 app died at launch; `_ensure_std_streams` (`4ed7456`) is the fix and the
 next tag carries it. **After the merge:** tag `v0.3.0`, which builds the
 installers; the owner's brother needs that installer. **Next PR:**
-`docs/ROADMAP.md`, "How to proceed after PR 144"; OPEN.md holds 232, 238
-and 246 with their facts. Traps this session: a search-and-replace that
+`docs/roadmap/agent-remaining/OPEN.md`, "What is left after PR 144", is
+the whole list in build order (the owner's reports, the plan tails, the
+horizon); `docs/ROADMAP.md`, "How to proceed after PR 144", is the method. Traps this session: a search-and-replace that
 rewrites a function's own body (`fetchDashStats` recursed), an early
 return above the branch meant to handle the case (`startBgArt`),
 `DOMContentLoaded` in a file that loads on demand (nine wirings never

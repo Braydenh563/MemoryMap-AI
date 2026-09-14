@@ -27471,6 +27471,36 @@ line that carried a dash.
     and an 80-line draft scrolls inside its box without growing it. Only a
     profile that has opened Documents ever saw this: documents.js is lazy.
 
+241. **Mid-work drop, 2026-09-14, verbatim (the owner), Ask persistence.**
+    "the grounding, intext numbered referencing, and sources that appeared
+    in the ask subtab in notes, dissappeared on reload and didnt persist.
+    they didnt persist when I reaccessed them through the history panel."
+    Owner: notes agent. **Fixed ae2a12f.** Two halves. The store: `ask_turns`
+    kept the answer, the result ids and why each result matched, and nothing
+    at all about the citations, so they could not come back from anywhere. It
+    has a `grounding` column now (migration `d3b7c2a91e45`, guarded the same
+    way the audit-log one is against `_add_missing_columns` having got there
+    first), written by the stream from the same rows it just sent the client,
+    and returned by `GET /ask-history/{id}` minus any row whose note has since
+    been deleted or made private. The render: `viewAskHistoryTurn` drew the
+    prose, the results and the badges and stopped, and its two `replaceChildren`
+    calls took the previous answer's foot down without putting this one's back
+    up; it now calls `renderAnswerGrounding` and `renderAskAnswerFoot` from an
+    `answerObject`, the same two the live path ends on. Measured on :8802 with
+    `scratchpad/ui-sweeps/askhistorycite.js` against a seeded turn
+    (`scratchpad/seed_ask_turn.py`, no model runs in the sandbox): 1 in-text
+    marker, 1 "grounded in" chip, the foot and the sources panel both shown
+    with 1 source card, 0 console errors, and the marker count never above the
+    cited-note count (the live path's repair pass would double them here).
+    `tests/test_ask_history.py` proves the round-trip and the drop, and
+    `tests/test_ask_answer_object.py` that the history path draws the object.
+    **The reload half, said plainly:** an Ask answer has never survived a
+    reload at all, measured (after `location.reload()` the panel is back to
+    `#ask-idle`, the answer element empty), so what "persist on reload" can
+    mean here is the way back through the history panel, which now carries
+    everything. Restoring the last answer into the page at boot would be a new
+    behaviour, not this bug, and is not built.
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

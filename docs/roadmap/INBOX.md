@@ -34,12 +34,6 @@ with its owner named in the entry.
 
 ## Open items
 
-241. **Mid-work drop, 2026-09-14, verbatim (the owner), Ask persistence.**
-    "the grounding, intext numbered referencing, and sources that appeared
-    in the ask subtab in notes, dissappeared on reload and didnt persist.
-    they didnt persist when I reaccessed them through the history panel."
-    Owner: notes agent.
-
 238. **Mid-work drop, 2026-09-14, verbatim (the owner), board and map
     notes.** "when I expand the size of notes in the whiteboard and mindmap,
     the text goes out of the panel border, the state of note objects in the

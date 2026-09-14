@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- An Ask answer keeps its citations. `ask_turns` stores the sentence-level
+  grounding it was written with, and a turn reopened from the history panel
+  draws the same numbered in-text references, "grounded in" chips and source
+  cards the live answer had (INBOX 241).
 - The Writing Room's two boxes keep their height when you click into them: the
   editor's wrapper takes over the stretching the textarea was doing, so neither
   box drops 184px on its first focus (INBOX 240).

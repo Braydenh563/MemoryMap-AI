@@ -233,16 +233,16 @@ vulnerability, see [SECURITY.md](SECURITY.md).
 
 | Document | What it answers |
 | --- | --- |
-| [docs/INSTALL.md](docs/INSTALL.md) | The Windows installer, the launcher script, manual setup, updating and uninstalling |
-| [docs/MODELS.md](docs/MODELS.md) | Which model to pick for your machine, and using a backend other than Ollama |
-| [docs/PRIVACY.md](docs/PRIVACY.md) | What touches the network and when, private-note encryption, session security |
-| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | The common problems and their fixes |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the pieces fit: request lifecycle, data model, the AI stack, where to change any given thing |
-| [docs/DESIGN.md](docs/DESIGN.md) | The design system every screen is written against |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | What is open, in order, with the reasoning |
-| [CHANGELOG.md](CHANGELOG.md) | What changed, release by release |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Setup, tests and opening a pull request |
-| [SECURITY.md](SECURITY.md) | How to report a vulnerability |
+| [INSTALL](docs/INSTALL.md) | The Windows installer, the launcher script, manual setup, updating and uninstalling |
+| [MODELS](docs/MODELS.md) | Which model to pick for your machine, and using a backend other than Ollama |
+| [PRIVACY](docs/PRIVACY.md) | What touches the network and when, private-note encryption, session security |
+| [TROUBLESHOOTING](docs/TROUBLESHOOTING.md) | The common problems and their fixes |
+| [ARCHITECTURE](docs/ARCHITECTURE.md) | How the pieces fit: request lifecycle, data model, the AI stack, where to change any given thing |
+| [DESIGN](docs/DESIGN.md) | The design system every screen is written against |
+| [ROADMAP](docs/ROADMAP.md) | What is open, in order, with the reasoning |
+| [CHANGELOG](CHANGELOG.md) | What changed, release by release |
+| [CONTRIBUTING](CONTRIBUTING.md) | Setup, tests and opening a pull request |
+| [SECURITY](SECURITY.md) | How to report a vulnerability |
 
 ## Developing
 

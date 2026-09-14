@@ -5,13 +5,17 @@ Port 8804, data dir `/tmp/mm-boot2`. Probes: `scratchpad/ui-sweeps/boottime.js`
 is visited) and `scratchpad/ui-sweeps/fetchwho.js` (which line made a fetch, by
 stack).
 
-## Baseline on this head, measured
+## Baseline, before either row (kept, because both rows are ratchets)
 
-`boottime.js` at 1440x900, fresh profile: 13 script files, 1,699 KB JS, 24 boot
-fetches, DCL 631 ms, first tab `dashboard`. Repeated at boot: `/preferences`
-twice by GET (app.js `startApp` line 728 and `loadTemplates` line 961) plus
-twice by PUT, `/entries` twice. `/whiteboard/boards?limit=200` comes from
-`loadMapBoardIndex()` inside `loadEntries`.
+`boottime.js` at 1440x900, fresh profile, **empty notebook**: 13 script files,
+1,699 KB JS, 24 boot fetches, DCL 631 ms, first tab `dashboard`.
+
+An empty notebook understates the fetch count badly, which is why A2 was
+re-measured against a seeded one (`seed-notebook.sh`): half the dashboard's
+widgets bail on their empty state before they fetch. On thirteen notes and one
+board the same head made **34** boot fetches, repeating `/preferences` four
+times, `/graph` three, and `/whiteboard/boards`, `/chat/recent`,
+`/entries/most-accessed` and `/reminders` twice each.
 
 ## Done
 
@@ -27,7 +31,7 @@ twice by PUT, `/entries` twice. `/whiteboard/boards?limit=200` comes from
   removing one name and by mistyping another.
 
 - A2, whole row. Measured on a 13-note notebook with one board and one `[[`
-  link (`scratchpad/seed.sh` in the session scratch made it), before and after,
+  link (`scratchpad/ui-sweeps/seed-notebook.sh` makes it), before and after,
   same server: **boot fetches 34 to 29**, and the 29 includes `/insights/stats`,
   which the 34 never asked for because `fetchDashStats` called itself. Per
   document: `/preferences` 4 to 1, `/graph` 3 to 1, dashboard `/reminders` 3 to

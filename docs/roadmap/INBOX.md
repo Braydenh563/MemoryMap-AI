@@ -86,14 +86,6 @@ with its owner named in the entry.
     fence lines as empty numbered rows above and below, link chips wrap
     oddly. Owner: notes agent (documents.js).
 
-231. **Mid-work drop, 2026-09-14, verbatim (the owner), the popup agent's
-    starters.** "these suggested questions in the popup agent are really ugly
-    and that area needs a better modern and more professional redesign."
-    Screenshot: bordered pill buttons in a two-column grid under uppercase
-    ruled headers. Target: quiet rows with no border at rest, an icon in
-    muted accent, a fill on hover only, group labels small without rules,
-    one column below 480px. Owner: chrome2.
-
 229. **Mid-work drop, 2026-09-14, verbatim (the owner), the graph
     screenshot.** "redo the graph readme screenshot and make it really
     impressive." Owner: orchestrator.

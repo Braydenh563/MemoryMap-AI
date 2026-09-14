@@ -27478,6 +27478,25 @@ line that carried a dash.
     is uncapped as before. With the opener pushed down to leave 90px below, the
     panel opens upward, 286x552 at y=7, inside the window at both edges.
 
+231. **Mid-work drop, 2026-09-14, verbatim (the owner), the popup agent's
+    starters.** "these suggested questions in the popup agent are really ugly
+    and that area needs a better modern and more professional redesign."
+    Screenshot: bordered pill buttons in a two-column grid under uppercase
+    ruled headers. Target: quiet rows with no border at rest, an icon in
+    muted accent, a fill on hover only, group labels small without rules,
+    one column below 480px. Owner: chrome2.
+    **Fixed d7d15b7.** `scratchpad/ui-sweeps/starters.js`, both themes, 1440
+    and 390: the rows are `.starter` alone (the `ghost small` pills are gone),
+    border `rgba(0, 0, 0, 0)` and background `rgba(0, 0, 0, 0)` at rest, ground
+    `rgba(31, 36, 48, 0.08)` in light and `rgba(255, 255, 255, 0.09)` in dark
+    under the pointer, the six group labels at 12px with `border-bottom 0px`,
+    14 rows of 272x42 in two columns at 1440 and 356x42 in one at 390, none of
+    them clipped. The family glyph is a quieted accent, 3.59:1 on the panel in
+    light and 3.7:1 in dark, beside labels at 10:1 and 7.4:1. The list sits on
+    `--row-h` and `--row-gap` and is registered in `test_ui_recipes.py`'s
+    `LIST_ROWS`, which is the lint that caught it taking the token without the
+    pair.
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

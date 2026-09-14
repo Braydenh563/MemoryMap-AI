@@ -7,6 +7,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The Writing Room's two boxes keep their height when you click into them: the
+  editor's wrapper takes over the stretching the textarea was doing, so neither
+  box drops 184px on its first focus (INBOX 240).
 - A table in full view can be closed: an X in the panel's head that names
   Escape, focus handed back to the button that opened it, and the ⋯ menu's
   Back row lifted above the panel it was drawing behind (INBOX 239).

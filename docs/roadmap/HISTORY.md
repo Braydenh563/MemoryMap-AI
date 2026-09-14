@@ -27454,6 +27454,23 @@ line that carried a dash.
     (2401 over 2400), so Back reads back as `BUTTON.menu-item` under the pointer
     and closes the panel. The bubble's bar is unchanged at two controls.
 
+240. **Mid-work drop, 2026-09-14, verbatim (the owner), Write with AI
+    boxes.** "when I clicked on the 'your thoughts' text box in the write
+    with ai notes subtab, the box instantly shortened in height from what
+    it was. same with the 'the draft' textbox as well." Owner: notes agent.
+    **Fixed bf1452e.** Reproduced and measured on :8802 with
+    `scratchpad/ui-sweeps/draftboxes.js`: both boxes were 330.3px and came back
+    146px on the first focus, a loss of 184.3px each. Nothing shrinks them; the
+    first focus mounts the editor (`mountNoteSurface`, documents.js) and wraps
+    the textarea in a `.note-surface` div, so the item `.draft-column`'s flex
+    layout was stretching is no longer the box but a wrapper with no flex
+    declaration, as tall as `.note-surface-box`'s own `min-height: 9rem`. The
+    wrapper now takes the host's flex role, its `min-height` floor and its
+    drawn height as a `flex-basis`, and the stretch rules let the editor fill
+    it. After: 330.3 to 339.9 and 330.3 to 330.0, the two columns level at 468,
+    and an 80-line draft scrolls inside its box without growing it. Only a
+    profile that has opened Documents ever saw this: documents.js is lazy.
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

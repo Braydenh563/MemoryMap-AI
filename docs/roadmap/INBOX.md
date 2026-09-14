@@ -40,11 +40,6 @@ with its owner named in the entry.
     they didnt persist when I reaccessed them through the history panel."
     Owner: notes agent.
 
-240. **Mid-work drop, 2026-09-14, verbatim (the owner), Write with AI
-    boxes.** "when I clicked on the 'your thoughts' text box in the write
-    with ai notes subtab, the box instantly shortened in height from what
-    it was. same with the 'the draft' textbox as well." Owner: notes agent.
-
 238. **Mid-work drop, 2026-09-14, verbatim (the owner), board and map
     notes.** "when I expand the size of notes in the whiteboard and mindmap,
     the text goes out of the panel border, the state of note objects in the

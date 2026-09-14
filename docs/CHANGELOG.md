@@ -7,6 +7,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Atlas's answer badges that name a Settings section now open it. The
+  delegated click handler matched `[data-goto-tab]` only, so the "Web search"
+  and "Skills" badges under a help answer did nothing while "Chat" worked
+  (INBOX 234).
+
 - The agent hand-off files are one ledger: `docs/roadmap/agent-remaining/OPEN.md`
   carries every still-open item from the 38 finished files, by surface, with the
   file, the id and the next step, and those files move whole to

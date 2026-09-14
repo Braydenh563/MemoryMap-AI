@@ -409,3 +409,27 @@ def test_the_row_list_is_called_rows_with_notes_kept_for_one_release(client):
     body = client.get("/timeline").json()
     assert body["rows"] == body["notes"]
     assert {row["kind"] for row in body["rows"]} == {"note", "document", "reminder"}
+
+
+def test_starting_todays_note_opens_the_composer_rather_than_writing_it():
+    """Asked for directly: the timeline's "Start today's note" button "shouldnt
+    make the note yet, it should open the capture tab and put in the date text
+    in the title and focus on the main text area".
+
+    It used to POST the day's note on the press, so a press you thought better
+    of left an empty dated note in the notebook, and the button beside it
+    (which only appears when the day has no note) disappeared with it. The
+    suite cannot open a browser, so what is held here is that the handler
+    shows the capture section and fills the title rather than calling the
+    endpoint.
+    """
+    from pathlib import Path
+
+    app = (Path(__file__).resolve().parent.parent / "frontend" / "app.js").read_text(
+        encoding="utf-8"
+    )
+    body = app[app.index("function startTodaysNote()") :]
+    body = body[: body.index("\n}\n")]
+    assert '/entries/daily/' not in body, "the press must not write a note"
+    assert 'showNotesSection("capture")' in body
+    assert '$("entry-title")' in body and '$("entry-content")' in body

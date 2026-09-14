@@ -27158,8 +27158,8 @@ function timelineBucketSection(bucket, scale, density, isToday = bucket.rows.len
         ? smallButton("ph:calendar-dot Today's note", "Open today's journal note", () =>
             focusTimelineRow(existing.key)
           )
-        : smallButton("ph:plus Start today's note", "Make today's journal note and open it", (event) =>
-            startTodaysNote(event?.currentTarget || null)
+        : smallButton("ph:plus Start today's note", "Open a new note with today's date in the title", () =>
+            startTodaysNote()
           )
     );
   }
@@ -27180,40 +27180,33 @@ function timelineBucketSection(bucket, scale, density, isToday = bucket.rows.len
 //: (`dailyNoteTitle`). Nothing else about it is special, which is the point:
 //: it is searchable, it is in the graph, it exports, and a notebook opened in
 //: another editor still has it.
-let todaysNoteBusy = false;
-async function startTodaysNote(button = null) {
-  //: One press is one note, however slow the first press is (INBOX 199: five
-  //: presses over twenty seconds made five notes and showed none of them).
-  //: Two guards: the button says it is busy and ignores presses until the
-  //: note is on screen, and the request is `POST /entries/daily/{day}`, which
-  //: returns the day's note if it exists rather than making another, so even
-  //: a press from a second window cannot duplicate it.
-  if (todaysNoteBusy) return;
-  todaysNoteBusy = true;
-  if (button) {
-    button.disabled = true;
-    button.setAttribute("aria-busy", "true");
-  }
-  const key = timelineBucketKey(new Date(), "day");
-  const made = await apiJson(`/entries/daily/${key}`, { method: "POST" }).catch((error) => {
-    toast(error.message || "Couldn't make today's note.", true);
-    return null;
-  });
-  todaysNoteBusy = false;
-  if (button) {
-    button.disabled = false;
-    button.removeAttribute("aria-busy");
-  }
-  if (!made) return;
-  //: The list is reloaded before the jump so the row exists to jump to; the
-  //: old order rendered the timeline, switched tabs and flashed an id the
-  //: Notes list had not fetched yet, which read as "nothing happened".
-  await Promise.all([renderTimeline(), typeof loadEntries === "function" ? loadEntries() : null]);
-  //: Straight into the editor, because the note is empty and the only reason
-  //: to make one is to write in it.
+//: **The button opens the composer, it does not write the note.** Asked for
+//: directly: "if I click on the 'start today's note' button in the timeline,
+//: it shouldnt make the note yet, it should open the capture tab and put in
+//: the date text in the title and focus on the main text area". It used to
+//: `POST /entries/daily/{day}` on the press, so a press you thought better of
+//: left an empty note dated today in the notebook, in the graph and in every
+//: export, and the day then had a note, which is what the button beside it
+//: checks: pressing it once took the offer away and gave you nothing to
+//: write in.
+//:
+//: Nothing is saved until the composer's own Save, which is also what makes
+//: the duplicate guard unnecessary: five presses now fill the same two fields
+//: five times rather than making five notes (INBOX 199). The endpoint stays
+//: for the agent's own `add to today's note` tool, which has no composer.
+function startTodaysNote() {
+  const title = dailyNoteTitle(timelineBucketKey(new Date(), "day"));
   switchTab("notes");
-  showNotesSection("browse");
-  flashEntry(made.id);
+  showNotesSection("capture");
+  const titleBox = $("entry-title");
+  const body = $("entry-content");
+  //: Only into an empty box. Someone who pressed this with a half-written
+  //: note in the composer wants the date, not their draft's title replaced,
+  //: and the body is never touched for the same reason.
+  if (titleBox && !titleBox.value.trim()) titleBox.value = title;
+  //: The caret goes where the writing goes, after the section has been shown:
+  //: `focus()` on a box inside a hidden panel does nothing at all.
+  setTimeout(() => body?.focus(), 0);
 }
 
 // One Tab stop for the feed, kept on the row the reader was on. A repaint

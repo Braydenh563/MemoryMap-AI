@@ -7,6 +7,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- A skill run reads as a setup, a step and a finish. `_run_skill` was 682 lines
+  and 82 branches; it is now 301 and 36, with one step's attempts, contract and
+  paging in `_run_one_step` (401 lines), the run's decisions on a `_RunSetup`
+  record and what it learns on a `_RunState`. No behaviour changed: the 88
+  skills tests and the run, verifier and agent files pass either side.
+
 - The agent's turn reads as three stages rather than one long one. `run_agent`
   was 875 lines and 68 branches by the same AST ruler the audit used
   (`scratchpad/probe_complexity.py`); it is now 279 and 37, with the setup in

@@ -287,3 +287,11 @@ session spends its probes somewhere new.
   306 tests across the six agent files plus chat, skills and tool cards pass
   either side. next: A5's `_run_skill` (`src/memorymap/ai/skill_runner.py`,
   682 lines / 82 branches).
+- done: A5's second function. `_run_skill` 682 lines / 82 branches to 301 / 36:
+  `_RunSetup` (what the run decided before its first step), `_RunState` (what it
+  learns), `_run_one_step` (401 lines, one step, returning "next", "again" or
+  "stop"). 88 skills tests plus 211 in the run, verifier, chat and agent files
+  pass. The trap: the extracted step's last `return "next"` landed one level in,
+  so a finished step returned None and the run loop spun at 84% CPU without
+  advancing. Caught by `tests/test_skills.py` hanging, not by a lint.
+  next: A5's `chat_stream` (`api/routes_chat.py`, 424 lines / 11 branches).

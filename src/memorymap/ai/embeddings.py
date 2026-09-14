@@ -319,7 +319,7 @@ def embedding_text(session: Session, entry: Entry) -> str:
         if labels:
             parts.append("Filed under: " + ", ".join(labels))
     except Exception:  # noqa: BLE001  # enrichment must never block an embedding
-        pass
+        logger.debug("no category or tags for entry %s", entry.id, exc_info=True)
 
     # What this note's own attached files say. The same reasoning as the
     # media captions below, for the half of the app that stores files as
@@ -338,15 +338,15 @@ def embedding_text(session: Session, entry: Entry) -> str:
             text = " ".join(str(item).strip() for item in found if item)
             if text:
                 parts.append(f"{attachment.filename}: {text[:2000]}")
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception:  # noqa: BLE001  # an attachment must never block an embedding
+        logger.debug("no attachment text for entry %s", entry.id, exc_info=True)
 
     try:
         extra = media_process.media_text_for(session, entry.content)
         if extra:
             parts.append(extra)
     except Exception:  # noqa: BLE001  # enrichment must never block an embedding
-        pass
+        logger.debug("no media text for entry %s", entry.id, exc_info=True)
     return "\n".join(parts)
 
 
@@ -538,8 +538,10 @@ class EmbeddingService:
             model = SentenceTransformer(DEFAULT_ST_MODEL, local_files_only=True)
             logger.info("embedding model loaded from local cache")
             return model
-        except Exception:
-            pass  # not cached yet (or the cache is stale/corrupt), fetch it for real
+        except Exception:  # noqa: BLE001  # not cached, stale or corrupt; fetch it
+            logger.debug(
+                "%s is not in the local cache, fetching it", DEFAULT_ST_MODEL, exc_info=True
+            )
         return SentenceTransformer(DEFAULT_ST_MODEL)
 
     def _embed_with_sentence_transformers(self, text: str) -> np.ndarray | None:

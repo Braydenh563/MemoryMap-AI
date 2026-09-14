@@ -31,9 +31,12 @@ refuses to run with more than one worker (`deps.refuse_multiple_workers`), so
 
 from __future__ import annotations
 
+import logging
 import threading
 from collections import deque
 from datetime import datetime, timezone
+
+logger = logging.getLogger("memorymap.taskhistory")
 
 #: How many finished jobs to remember. Enough to cover a first-run sequence
 #: (embedding warm-up, a model pull, a re-index, a SearXNG install) several
@@ -88,7 +91,7 @@ def record(
                 }
             )
     except Exception:  # noqa: BLE001  # bookkeeping must never break the job
-        pass
+        logger.debug("could not record the %r task", name, exc_info=True)
 
 
 def recent(limit: int = MAX_ENTRIES) -> list[dict]:

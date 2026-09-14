@@ -7,6 +7,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Nine failures that said nothing now say it at debug. The `except Exception:
+  pass` handlers in the embedding enrichment (4), the entity pass, the vision
+  read, the two PDF page closes and the task history each log with `exc_info`
+  and name what was being attempted; `entities.py` and `taskhistory.py` had no
+  logger at all to say it through, and now do. None of the handlers widened.
+
 - The graph and timeline routes name their optional parts. `graph` was 355
   lines and 58 branches and is 227 and 29, with the three opt-in blocks as
   `_add_entity_nodes`, `_add_document_nodes` and `_add_map_edges`; `timeline`

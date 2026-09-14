@@ -182,7 +182,7 @@ def render_pages(path: Path, limit: int = MAX_PAGES) -> list[bytes]:
                 try:
                     document.close()
                 except Exception:  # noqa: BLE001  # nothing left to release
-                    pass
+                    logger.debug("closing %r after rasterising failed", path, exc_info=True)
     except Exception as exc:  # noqa: BLE001  # see the docstring
         logger.info("couldn't rasterise %r: %s", path, exc)
         return pages
@@ -244,7 +244,7 @@ def render_page(path: Path, index: int) -> bytes | None:
                 try:
                     document.close()
                 except Exception:  # noqa: BLE001  # already rendered or already failed
-                    pass
+                    logger.debug("closing %r after one page failed", path, exc_info=True)
     except Exception as exc:  # noqa: BLE001  # a viewer must not 500 on a bad file
         logger.info("couldn't rasterise page %d of %r: %s", safe_index, path, exc)
         return None

@@ -304,3 +304,8 @@ session spends its probes somewhere new.
   248/39, the opt-in blocks and the row builders out as named helpers. 118
   graph and mind map tests, 27 timeline tests. A5 is complete: all five
   functions split, marked done in WORLD_CLASS_PLAN. next: A6, then A9.
+- done: A6. The nine `except Exception: pass` in `ai/embeddings.py` (4),
+  `ai/entities.py`, `ai/vision_ocr.py`, `core/pdfpages.py` (2) and
+  `core/taskhistory.py` log at debug with `exc_info` and name the attempt;
+  two modules gained the logger they lacked. `grep -A1 'except Exception'`
+  over those five files finds no `pass` left. next: A9.

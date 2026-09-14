@@ -318,7 +318,7 @@ def pdf_vision_ocr_and_store(upload_id: int, pdf_path: Path, force: bool = False
         if (docview.extract(pdf_path).text or "").strip():
             return None  # has a real text layer; nothing for a model to add
     except Exception:  # noqa: BLE001  # an unreadable PDF just means "try the model"
-        pass
+        logger.debug("no text layer read from %s, trying the model", pdf_path, exc_info=True)
 
     reader = pdf_reader_or_none()
     if reader is None:

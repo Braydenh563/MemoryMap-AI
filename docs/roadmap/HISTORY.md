@@ -26866,3 +26866,18 @@ line that carried a dash.
       back-to-top button, the files description, and the documents code editor
       (DOCUMENTS_PLAN Phase 3).
 
+216. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the
+    Rediscover widget.** "can your redesign and fix the text alignment of the
+    rediscover dashboard widget??" The screenshot: link titles wrap to two
+    lines, the "Never again" buttons sit at different heights, and the rows
+    do not share a left edge. Fix: one grid per row (title, meta, actions)
+    with the title on one line ellipsised, the buttons in one right-aligned
+    column, gap tokens; measured with `getBoundingClientRect` on every row's
+    button and title left edge. Owner: orchestrator.
+    **Fixed (this commit).** Each row is a two-column grid: title on one
+    line (ellipsised, full title in the tooltip) over the reason, and an
+    icon-only Never again in a right column. Measured
+    (`scratchpad/faded.js`, 1440x900): titles 28px in every row (were 48,
+    24, 72), every title's left edge at 1101px, every button's left edge
+    at 1379px and 28px tall, rows 56px apart.
+

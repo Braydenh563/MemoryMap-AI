@@ -2789,13 +2789,17 @@ function paintFadedNotes(body, items) {
     const card = document.createElement("div");
     card.className = "faded-card";
 
+    const main = document.createElement("div");
+    main.className = "faded-main";
     const title = document.createElement("button");
     title.type = "button";
     title.className = "linklike faded-title";
     title.textContent = item.title || "Untitled note";
-    title.title = "Open this note in the Notes tab";
+    //: One line, ellipsised, so the full title is the tooltip; the reason
+    //: line beneath is what the row is for.
+    title.title = `${item.title || "Untitled note"}: open in the Notes tab`;
     title.addEventListener("click", () => flashEntry(item.id));
-    card.appendChild(title);
+    main.appendChild(title);
 
     if (item.reason) {
       const why = document.createElement("p");
@@ -2803,10 +2807,15 @@ function paintFadedNotes(body, items) {
       // The facts, not the score: "120 days old, no links, never opened" is
       // checkable and "0.82" is not.
       why.textContent = item.reason;
-      card.appendChild(why);
+      main.appendChild(why);
     }
+    card.appendChild(main);
 
-    const dismiss = smallButton("ph:x Never again", "Stop showing this note here", async () => {
+    //: Icon-only, in its own column: the label "Never again" under a
+    //: three-line title put every row's control at a different height and
+    //: the widget read as a stack of uneven blocks (INBOX 216). The words
+    //: stay as the name and the tooltip.
+    const dismiss = smallButton("ph:x", "Never again: stop showing this note here", async () => {
       dismiss.disabled = true;
       try {
         await apiJson("/learned/corrections", {

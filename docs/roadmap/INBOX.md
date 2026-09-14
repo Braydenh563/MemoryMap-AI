@@ -77,15 +77,6 @@ with its owner named in the entry.
     agent); README rewritten in plain prose; PR 144's title and body
     rewritten from the CHANGELOG. Owner: orchestrator, after the merges.
 
-216. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the
-    Rediscover widget.** "can your redesign and fix the text alignment of the
-    rediscover dashboard widget??" The screenshot: link titles wrap to two
-    lines, the "Never again" buttons sit at different heights, and the rows
-    do not share a left edge. Fix: one grid per row (title, meta, actions)
-    with the title on one line ellipsised, the buttons in one right-aligned
-    column, gap tokens; measured with `getBoundingClientRect` on every row's
-    button and title left edge. Owner: orchestrator.
-
 215. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), popup
     agent sessions.** "I want to be able to save conversations with the
     popup agent as a permanent chat session." A "Save as chat" action in the

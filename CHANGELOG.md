@@ -339,6 +339,17 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The generative background art did not appear after a fresh login:
+  `startBgArt` returned early when p5 was not yet loaded, before its own
+  on-demand branch. The early return is gone and the callback re-enters
+  with the current prefs.
+- Four dashboard widgets (Stats, Streak, Notebook constellation,
+  Categories) read "Couldn't load this widget.": `fetchDashStats` called
+  itself. A test pins the shape.
+- The Rediscover widget's rows are one grid each: a one-line title over
+  the reason and an icon-only Never again in a right column, so every row
+  shares one shape (titles were 48, 24 and 72px tall with the control at
+  three heights).
 - `SpaceResponse`'s Pydantic V1-style `class Config: from_attributes = True`
   warned `PydanticDeprecatedSince20` on every request that returned a space.
   Moved to `model_config = ConfigDict(from_attributes=True)`; it was the only

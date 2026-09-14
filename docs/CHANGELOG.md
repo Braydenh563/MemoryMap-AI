@@ -151,7 +151,10 @@ below). Versioning is `0.x` while the app stabilises.
   failed on `sys.stderr.isatty()` before a port was bound: "Unable to
   configure formatter 'default'" on launch, and an auto-update into such a
   build left the app unopenable. Both streams now go to
-  `<data dir>/logs/desktop-stdio.log` first (INBOX 251).
+  `<data dir>/logs/desktop-stdio.log` first (INBOX 251). The release
+  workflow now starts the frozen app and waits for its page before it
+  packages or uploads it, on both platforms; `--reset-password` no longer
+  needs a console to confirm.
 - A marquee on the whiteboard selects circles: their path is written with
   absolute arcs, which the bounding-box parser did not read (INBOX 252).
 - The built-in librarian persona is Atlas; a preference saved under the old

@@ -131,6 +131,32 @@ jobs:
         run: |
           pyinstaller packaging/windows/memorymap.spec --distpath dist --workpath build --noconfirm
 
+      # The frozen app has no console (`console=False` in the spec), and the
+      # 0.2.x build died at launch because uvicorn's log formatter asked
+      # `sys.stderr.isatty()` on None: nothing in this workflow ever ran what
+      # it had built. This runs it: the binary must serve its page from a
+      # fresh data dir inside a minute, or the release does not happen.
+      - name: Smoke test the frozen app
+        shell: bash
+        env:
+          MEMORYMAP_DATA_DIR: ${{ runner.temp }}/mm-smoke
+          MEMORYMAP_PORT: "8765"
+        run: |
+          "dist/MemoryMap AI/MemoryMap AI.exe" &
+          pid=$!
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://127.0.0.1:8765/; then
+              echo "the frozen app served its page after ${i}s"
+              kill $pid || true
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "the frozen app did not answer within 60 s"
+          cat "$MEMORYMAP_DATA_DIR/logs/desktop-stdio.log" 2>/dev/null || true
+          kill $pid || true
+          exit 1
+
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 
@@ -185,6 +211,32 @@ jobs:
       - name: Build the frozen app (PyInstaller)
         run: |
           pyinstaller packaging/linux/memorymap.spec --distpath dist --workpath build --noconfirm
+
+      # The frozen app has no console (`console=False` in the spec), and the
+      # 0.2.x build died at launch because uvicorn's log formatter asked
+      # `sys.stderr.isatty()` on None: nothing in this workflow ever ran what
+      # it had built. This runs it: the binary must serve its page from a
+      # fresh data dir inside a minute, or the release does not happen.
+      - name: Smoke test the frozen app
+        shell: bash
+        env:
+          MEMORYMAP_DATA_DIR: ${{ runner.temp }}/mm-smoke
+          MEMORYMAP_PORT: "8765"
+        run: |
+          "dist/MemoryMap AI/MemoryMap AI" &
+          pid=$!
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://127.0.0.1:8765/; then
+              echo "the frozen app served its page after ${i}s"
+              kill $pid || true
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "the frozen app did not answer within 60 s"
+          cat "$MEMORYMAP_DATA_DIR/logs/desktop-stdio.log" 2>/dev/null || true
+          kill $pid || true
+          exit 1
 
       - name: Zip the build
         env:

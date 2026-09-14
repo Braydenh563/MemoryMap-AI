@@ -1641,10 +1641,16 @@ def _reset_password() -> int:
         else:
             print("  · You have no private notes, so nothing is unrecoverable.")
 
-        answer = input("\nType RESET to confirm: ").strip()
-        if answer != "RESET":
-            print("Cancelled: nothing was changed.")
-            return 1
+        #: The packaged app has no console, so there is nothing to read the
+        #: answer from; the flag itself is the confirmation there (it cannot
+        #: be typed by accident from a shortcut). A terminal still asks.
+        if sys.stdin is None:
+            print("No console to confirm on: the --reset-password flag is taken as the answer.")
+        else:
+            answer = input("\nType RESET to confirm: ").strip()
+            if answer != "RESET":
+                print("Cancelled: nothing was changed.")
+                return 1
 
         session.delete(user)
         # The wrapped key is useless once its password is gone; leaving it

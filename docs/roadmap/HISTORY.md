@@ -27001,7 +27001,14 @@ line that carried a dash.
     tiers in dark mode. Both are one CSS token each, for the professional
     pass, not this PR.
 
-
+223. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the map
+    rail's layout picker.** "this selector is out of alignment and crushed
+    in the bottom bar of the mindmap" (screenshot: a circle reading "T." with
+    a chevron). **Fixed (this commit).** The picker's face is a
+    `.select-opener` button and the rail's tool rule (`.wb-tool-group
+    button`: 36px, round) caught it: measured 36x36 at 50% radius inside a
+    144x28 shell (`scratchpad/mapsel2.js`). Now 159x28, the shell's full
+    width, field-shaped, reading "Tree, sideways".
 
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
@@ -29074,4 +29081,3 @@ told to open first.
     `/help/ask` already carried the tab and the tab's own help copy
     (`helpChatOnScreenHelp`, `TAB_TOPICS`, `MAX_CONTEXT_CHARS`), so that part
     of the brief was checked rather than rebuilt.
-

@@ -89,6 +89,13 @@ with its owner named in the entry.
     active one indistinguishable at a glance. Target: one segmented control
     (`.dock` grammar), icon and label, the active segment filled and the
     rest quiet, equal heights, measured. Owner: chrome, after its list.
+    **More from the owner, 2026-09-14:** "is there another better ui and ux
+    way to visualise these buttons?? maybe make them in a dropdown or
+    smth?? because they clash with the ui at large zoom and they dont fit
+    visually." Screenshot: at browser zoom the four pills (`#timeline-kinds`,
+    `.seg.seg-multi`) overlap the list toggle and Options. **Decision:** one
+    `kebabMenu` dropdown, ghost, labelled "Show" with the current state as
+    its text, four checkable rows inside; never wraps. Sent to chrome.
 
 213. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the last
     scan.** "finish all the agents, scan for bugs and high complexity one

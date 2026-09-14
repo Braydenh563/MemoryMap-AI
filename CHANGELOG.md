@@ -359,6 +359,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The mind map rail's layout picker was a 36px circle reading "T.": the
+  rail's round tool-button rule caught the select's face. It fills its
+  shell now, field-shaped.
 - Local OCR pins Tesseract to one OpenMP thread unless `OMP_THREAD_LIMIT`
   is already set: measured 42 s against 0.28 s for one line of text in a
   four-core container, the thread oversubscription Tesseract's own docs

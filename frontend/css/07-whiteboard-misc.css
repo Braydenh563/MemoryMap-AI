@@ -11801,3 +11801,22 @@ header#top-bar {
   opacity: 0.85;
   font-style: italic;
 }
+
+/* **A swept-up shape looks selected.** Reported: "shapes like circles and
+   lines dont visibly select and show anchor points when I highlight select
+   over them". A one-item sweep now promotes to the single selection, which
+   draws the bbox and its eight anchors (`wbRenderSketchHandles`); a sweep
+   that caught several has no one box to hang anchors off, and until now had
+   no decoration at all, so half a dozen selected shapes looked exactly like
+   none.
+
+   The glow goes on the hit band rather than the shape's own stroke: the band
+   already follows the path (an ellipse's curve, a line's diagonal) and is 20px
+   wide, so making it faintly visible reads as a halo round the shape without
+   touching the colour, dash or weight the shape was drawn with. A
+   `stroke-dasharray` here would redraw the shape as dashed, which is the map's
+   own grammar for a cross-link. */
+.sketch-group.wb-selected .sketch-hitbox {
+  stroke: var(--accent);
+  stroke-opacity: 0.2;
+}

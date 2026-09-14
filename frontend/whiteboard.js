@@ -10742,6 +10742,17 @@ async function initWhiteboard() {
   // link drag is running (`wbLinkDragActive`), that path already redraws
   // hints every frame from the live pointer position, and this would just
   // be a second, slightly-stale write to the same DOM nodes.
+  //: On the container, not on each handle: the handles are rebuilt by the
+  //: render on every change, and a listener bound per handle is a listener
+  //: lost on the next repaint (the mistake `wbWireContextMenu` documents).
+  containerEl.addEventListener("dblclick", (e) => {
+    const handle = e.target.closest?.(".wb-resize-handle, .wb-map-resize-grip");
+    if (!handle) return;
+    e.preventDefault();
+    e.stopPropagation();
+    wbFitToText(handle.closest(".wb-object, .node-card"));
+  });
+
   containerEl.addEventListener("pointermove", (e) => {
     if (!window.currentTool || !window.currentTool.startsWith("link-")) return;
     if (wbLinkDragActive) return;
@@ -10791,7 +10802,26 @@ async function initWhiteboard() {
         wbMultiSelection.add(wbMultiKey("sketch", sketch.id));
       }
     }
+    //: **A sweep that caught one thing selects that thing properly.**
+    //: Reported: "shapes like circles and lines dont visibly select and show
+    //: anchor points when I highlight select over them". A drawn shape is a
+    //: sketch, and a sketch's selection box and its eight anchors are drawn
+    //: by `wbRenderSketchHandles`, which only ever runs for the *single*
+    //: selection: a marquee cleared that and put the id in the multi set
+    //: instead, where a sketch had no decoration of any kind. So sweeping
+    //: over a circle really did select it and really did show nothing.
+    //: Promoting a one-item sweep is the honest fix rather than a second
+    //: decoration: one item selected by a sweep and the same item selected by
+    //: a click are the same selection, and should look and behave the same.
+    //: (A sweep over several still has no one box to hang anchors off, which
+    //: is why the class also has a visible style of its own now.)
     wbSelectedItem = null;
+    if (wbMultiSelection.size === 1) {
+      const key = [...wbMultiSelection][0];
+      const sep = key.indexOf(":");
+      wbMultiSelection.clear();
+      wbSelectedItem = { kind: key.slice(0, sep), id: Number(key.slice(sep + 1)) };
+    }
     wbMarqueeJustSelected = true;
     wbApplySelectionHighlight();
   });
@@ -10890,7 +10920,26 @@ async function initWhiteboard() {
         wbMultiSelection.add(wbMultiKey("sketch", sketch.id));
       }
     }
+    //: **A sweep that caught one thing selects that thing properly.**
+    //: Reported: "shapes like circles and lines dont visibly select and show
+    //: anchor points when I highlight select over them". A drawn shape is a
+    //: sketch, and a sketch's selection box and its eight anchors are drawn
+    //: by `wbRenderSketchHandles`, which only ever runs for the *single*
+    //: selection: a marquee cleared that and put the id in the multi set
+    //: instead, where a sketch had no decoration of any kind. So sweeping
+    //: over a circle really did select it and really did show nothing.
+    //: Promoting a one-item sweep is the honest fix rather than a second
+    //: decoration: one item selected by a sweep and the same item selected by
+    //: a click are the same selection, and should look and behave the same.
+    //: (A sweep over several still has no one box to hang anchors off, which
+    //: is why the class also has a visible style of its own now.)
     wbSelectedItem = null;
+    if (wbMultiSelection.size === 1) {
+      const key = [...wbMultiSelection][0];
+      const sep = key.indexOf(":");
+      wbMultiSelection.clear();
+      wbSelectedItem = { kind: key.slice(0, sep), id: Number(key.slice(sep + 1)) };
+    }
     wbMarqueeJustSelected = true;
     wbApplySelectionHighlight();
   });
@@ -12925,6 +12974,69 @@ const WB_OBJECT_MIN_SIZE = 40;
 //: each build the body by hand, and it was exactly that duplication that
 //: let a save silently drop `group_id` back to null the first time this
 //: file added it (nothing reminded the third copy to include the new field).
+//: **Double-tap an anchor and the box fits its text.** Asked for directly: "I
+//: want to be able tot double tap anchor edges to auto resize notes,
+//: textboxes, and nstickynotes etc to auto size adjust to the text in them".
+//: The drag already resizes by hand; this is the same handle saying "as
+//: small as it can be and still show everything", which is the size people
+//: are dragging towards most of the time and cannot hit exactly.
+//:
+//: Height only. A text box's width is a line-length decision (the text
+//: rewraps as it changes, so "fit the width" has no fixed point: narrowing
+//: makes it taller, which makes nothing shorter), and its height is the one
+//: dimension with a single right answer for a given width.
+//:
+//: `height: auto` then `scrollHeight`: the element's own layout is the only
+//: thing that knows what the text, at this width, in this font, actually
+//: needs. Measured live rather than estimated from character counts, which is
+//: the version of this that is wrong for every font but the one it was tuned
+//: against.
+async function wbFitToText(el) {
+  if (!el) return;
+  const id = Number(el.dataset.id);
+  const isNode = el.classList.contains("node-card");
+  const item = isNode
+    ? (wbState.nodes || []).find((n) => n.id === id)
+    : (wbState.objects || []).find((o) => o.id === id);
+  if (!item) return;
+  //: A map topic has no stored height at all until someone drags one in
+  //: (`sized`), and its own rule is "the text owns the height". Fitting one
+  //: is therefore not a new number, it is dropping the number: the same
+  //: "Back to the branch" the context menu offers for every other hand-set
+  //: property.
+  if (WB_MAP_KINDS.has(item.kind)) {
+    if (!item.data?.sized) {
+      toast("This topic is already sized to its text.");
+      return;
+    }
+    item.data = { ...item.data, sized: false };
+    item.height = null;
+    el.style.removeProperty("min-height");
+    await wbSaveObject(item);
+    wbScheduleRender();
+    toast("Sized to its text.");
+    return;
+  }
+  const previous = el.style.height;
+  el.style.height = "auto";
+  const fitted = Math.ceil(el.scrollHeight);
+  el.style.height = previous;
+  if (!fitted) return;
+  //: The same floor the resize drag uses, so a fit cannot produce a box that
+  //: a drag would refuse to make.
+  const next = Math.max(WB_OBJECT_MIN_SIZE, fitted);
+  if (Math.abs((item.height || 0) - next) < 2) {
+    toast("Already sized to its text.");
+    return;
+  }
+  item.height = next;
+  el.style.height = `${next}px`;
+  if (isNode) await wbSaveNode(item);
+  else await wbSaveObject(item);
+  wbScheduleRender();
+  toast("Sized to its text.");
+}
+
 async function wbSaveNode(node) {
   try {
     const saved = await apiJson(`/whiteboard/nodes/${node.id}`, {

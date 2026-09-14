@@ -10478,7 +10478,7 @@ let captureStagedFiles = [];
 async function loadCaptureDocuments() {
   //: To the end, not the first page: the picker exists to file this note
   //: under *any* document, and a document past the server's page would be
-  //: invisible with nothing on screen saying so (`agent-remaining/
+  //: invisible with nothing on screen saying so (`archive/agent-remaining/
   //: list-paging.md`). `apiPagedList` is one request at any realistic size.
   const documents = await apiPagedList("/documents", 200).catch(() => []);
   renderCaptureDocuments(documents);
@@ -11252,7 +11252,7 @@ function addInlineCitations(answerEl, sentences, rawResults, orderedSources = nu
         flashEntry(g.note_id);
       });
       //: **Hover shows the passage, not the whole note** (CHAT_PLAN decision
-      //: 2, the last step of `agent-remaining/chat-timeline-skills.md` item
+      //: 2, the last step of `archive/agent-remaining/chat-timeline-skills.md` item
       //: 1). The span has been on every grounding row since the passage
       //: scorer landed and nothing on screen read it, so a mark said "note 4"
       //: where it could say which forty words of note 4. The card is the
@@ -23534,7 +23534,7 @@ async function loadReminders() {
   //: push everything upcoming off the list, which is exactly the silent loss
   //: paging was added to prevent. Reading to the end keeps the grouping below
   //: unchanged and loses nothing; a real pager is the better answer at
-  //: thousands and is written up in `agent-remaining/list-paging.md`.
+  //: thousands and is written up in `archive/agent-remaining/list-paging.md`.
   const all = await apiPagedList("/reminders", 200).catch(() => []);
   const groupsBox = $("reminder-groups");
   groupsBox.replaceChildren();

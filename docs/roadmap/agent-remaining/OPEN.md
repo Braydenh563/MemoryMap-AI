@@ -1,6 +1,6 @@
 # OPEN: everything still open from the agent files, in one place
 
-One bullet per open item, consolidated 2026-09-14 from the 36 finished agent
+One bullet per open item, consolidated 2026-09-14 from the 38 finished agent
 files now in [`../archive/agent-remaining/`](../archive/agent-remaining/)
 (INBOX 220). Each bullet names the file, the id or selector, and the next
 step; the source file is in brackets so the full account, with its

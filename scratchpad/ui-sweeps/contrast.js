@@ -12,7 +12,7 @@ const {boot}=require('./lib.js');
 // Library row rather than from `[data-tab]`, so a sweep that clicked the tab
 // bar never once measured them: three whole surfaces, one of them the
 // documents editor, had never been contrast-checked when this was found
-// (`agent-remaining/image-cards.md`, 2026-09-12). `switchTab` is how the app
+// (`archive/agent-remaining/image-cards.md`, 2026-09-12). `switchTab` is how the app
 // itself gets there, so it is how this gets there.
 const TABS=['dashboard','notes','chat','graph','library','timeline','reminders','documents','whiteboard'];
 // The sub-tabs, which are whole screens wearing one tab's id. Notes has four

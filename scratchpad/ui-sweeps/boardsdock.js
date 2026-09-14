@@ -1,6 +1,6 @@
 // The Library's Boards-and-maps dock, measured (the owner: "the ui at the top
 // of the boards and maps subtab dock is broken and miss wrapped. remember
-// responsive design!"), and the exact reading `agent-remaining/wrap-sweep.md`
+// responsive design!"), and the exact reading `archive/agent-remaining/wrap-sweep.md`
 // asks the next person to take: the `.dock-actions` wrap mode at a wide
 // viewport, and the `top` of every control in the dock.
 //

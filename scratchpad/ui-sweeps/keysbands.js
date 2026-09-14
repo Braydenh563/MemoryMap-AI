@@ -1,5 +1,5 @@
 // The keyboard-only pass per band that Phase 8's acceptance asked for and
-// Phase 9 never ran (`agent-remaining/responsive.md` section 7). Three
+// Phase 9 never ran (`archive/agent-remaining/responsive.md` section 7). Three
 // questions, each about something the responsive work introduced:
 //
 //   1. The sidebar sheet (below 820). Does focus enter it when it opens, and

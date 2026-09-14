@@ -1,5 +1,5 @@
 // CHAT_PLAN decision 2's last unbuilt half, and the last open step of
-// `docs/roadmap/agent-remaining/chat-timeline-skills.md` item 1: "hover
+// `docs/roadmap/archive/agent-remaining/chat-timeline-skills.md` item 1: "hover
 // highlights `note.content.slice(start, end)`".
 //
 //   BASE=http://127.0.0.1:8795 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \

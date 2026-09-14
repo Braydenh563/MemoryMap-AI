@@ -97,7 +97,7 @@ becomes an INBOX entry with a one-line recommendation, which is then taken.
   height in both.
 
 **Paragraphs to '?' popovers: the decisions.** Copied whole from
-`agent-remaining/help-popovers.md` on 2026-09-14 (INBOX 220) so they
+`archive/agent-remaining/help-popovers.md` on 2026-09-14 (INBOX 220) so they
 survive its archiving; the numbering is that file's.
 
 1. **Section/group-level intros ("why does this area exist") convert.

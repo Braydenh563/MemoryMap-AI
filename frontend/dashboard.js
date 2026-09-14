@@ -358,7 +358,7 @@ async function renderDashSubmessage() {
     fetchDashStats().catch(() => null),
     // To the end: `/reminders` is `due_at` ascending, so a first page of
     // old, ticked-off rows would hide everything upcoming from this count
-    // (`agent-remaining/list-paging.md`).
+    // (`archive/agent-remaining/list-paging.md`).
     apiPagedList("/reminders", 200).catch(() => []),
   ]);
   const bits = [];

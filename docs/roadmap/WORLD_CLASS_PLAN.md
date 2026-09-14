@@ -394,7 +394,7 @@ with the id list, and `tests/test_events.py` (the spec, formerly strict
 xfail throughout) passes with no markers left. History, restore by event
 and `GET /events?since=` are live; what the log does not yet feed (sync,
 global undo of an AI action, the Timeline strip) is in
-`docs/roadmap/agent-remaining/brief7-event-log.md`.
+`docs/roadmap/archive/agent-remaining/brief7-event-log.md`.
 
 **Decisions made (do not remake).** Copied whole from the agent file
 on 2026-09-14 (INBOX 220) so they survive its archiving.
@@ -473,7 +473,7 @@ three per-request scans of every stored vector.
 `tests/test_search_engine_spec.py` passes with no markers left. Measured on
 the sandbox: keyword 0.6ms and hybrid 0.6ms on 5,000 entries (gates 50 and
 200), similarity for one note 18.0ms to 0.0ms. What is left is in
-`docs/roadmap/agent-remaining/brief11-retrieval-engine.md`.
+`docs/roadmap/archive/agent-remaining/brief11-retrieval-engine.md`.
 
 **Decisions made** (the three the plan had made differently, revised against
 the code and taken; the reasons are in HISTORY):

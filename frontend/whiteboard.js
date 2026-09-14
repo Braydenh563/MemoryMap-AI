@@ -7531,6 +7531,11 @@ async function wbApplyHistoryEntry(from, to) {
 // shape, a link, or a note card. Asked for implicitly by adding an eraser:
 // a tool whose whole job is deleting things you swipe over needs a safety
 // net more than any other control on this toolbar.
+//: On `window` because app.js owns the Ctrl+Z chord for the whole app and
+//: hands it here while a board is open (see the board's keydown handler).
+window.wbUndo = wbUndo;
+window.wbRedo = wbRedo;
+
 async function wbUndo() {
   try {
     if (!(await wbApplyHistoryEntry(wbUndoStack, wbRedoStack))) return;
@@ -10379,21 +10384,17 @@ async function initWhiteboard() {
       deleteWbSelection();
       return;
     }
-    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
-      e.preventDefault();
-      wbUndo();
-      return;
-    }
-    // Both common redo chords: Ctrl+Shift+Z (the sketch pad's own
-    // convention) and Ctrl+Y (Windows' more familiar one).
-    if (
-      (e.ctrlKey || e.metaKey) &&
-      ((e.shiftKey && e.key.toLowerCase() === "z") || (!e.shiftKey && e.key.toLowerCase() === "y"))
-    ) {
-      e.preventDefault();
-      wbRedo();
-      return;
-    }
+    //: **Undo and redo are not bound here any more.** Reported: "ctrl z undo
+    //: and redo cont trigger in the whiteboard/mind map". Two listeners on
+    //: `document` both matched the chord: the app's own global stack
+    //: (`shortcuts.undo`) and this one. `preventDefault` does not stop another
+    //: listener, so both ran, and which of the two stacks answered depended on
+    //: which had something in it: press it with a deleted note in the app's
+    //: stack and the board's move was left alone while a note came back
+    //: somewhere else entirely. The app's handler hands the chord to
+    //: `wbUndo`/`wbRedo` when a board is open, which is one owner for one
+    //: shortcut, the same handoff Ctrl+F already uses. They stay on `window`
+    //: below for it to call.
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "c") {
       if (wbCopySelection()) e.preventDefault();
       return;
@@ -12170,6 +12171,36 @@ function wbEntryBox(entry) {
   return { minX: item.x, minY: item.y, maxX: item.x + w, maxY: item.y + h };
 }
 
+//: What every frame of a group drag is computed from, taken once at the
+//: start: reading it back off the items each frame compounds the rounding
+//: into a shape that drifts while the pointer is still.
+function wbMultiSnapshot(boxes) {
+  return boxes.map((row) => ({
+    entry: row.entry,
+    box: row.box,
+    d: row.entry.kind === "sketch" ? row.entry.parsed.d : null,
+    rotation: row.entry.kind === "sketch" ? 0 : (row.entry.item.rotation || 0),
+  }));
+}
+
+//: Saving a whole group, one write at a time. Each write is the item's whole
+//: row and the board's stale-client recovery reloads everything, which a
+//: burst of simultaneous writes would race.
+async function wbSaveMultiSnapshot(rows) {
+  for (const row of rows) {
+    if (row.entry.kind === "sketch") {
+      const live = row.entry.item._liveD;
+      delete row.entry.item._liveD;
+      if (live) await wbSaveSketchD(row.entry.item, live);
+    } else if (row.entry.kind === "node") {
+      await wbSaveNode(row.entry.item);
+    } else {
+      await wbSaveObject(row.entry.item);
+    }
+  }
+  wbScheduleRender();
+}
+
 function wbRenderMultiSelectionHandles() {
   const entries = wbMultiSelectionEntries();
   if (entries.length < 2) return;
@@ -12181,6 +12212,13 @@ function wbRenderMultiSelectionHandles() {
     maxX: Math.max(...boxes.map((row) => row.box.maxX)),
     maxY: Math.max(...boxes.map((row) => row.box.maxY)),
   };
+  //: Each shape's own box and anchors as well as the group's, because that is
+  //: what the same sweep already gives a card or a text box: they carry their
+  //: handles as children and `.wb-selected` reveals them, while a shape has
+  //: nowhere to keep any and had none drawn at all.
+  for (const row of boxes) {
+    if (row.entry.kind === "sketch") wbDrawSketchHandles(row.entry.item);
+  }
   const group = d3.select("#wb-zoom-group")
     .append("g")
     .attr("class", "wb-sketch-handle-group wb-multi-handle-group");
@@ -12211,18 +12249,28 @@ function wbRenderMultiSelectionHandles() {
             event.sourceEvent.stopPropagation();
             rawDX = 0;
             rawDY = 0;
-            start = boxes.map((row) => ({
-              entry: row.entry,
-              box: row.box,
-              d: row.entry.kind === "sketch" ? row.entry.parsed.d : null,
-            }));
+            start = wbMultiSnapshot(boxes);
           })
           .on("drag", (event) => {
             if (!start) return;
             const zoom = d3.zoomTransform(document.getElementById("whiteboard-container"));
             rawDX += event.dx / zoom.k;
             rawDY += event.dy / zoom.k;
-            const t = wbSketchResizeTransform(bbox, handle, rawDX, rawDY, event.sourceEvent.shiftKey);
+            const raw = wbSketchResizeTransform(bbox, handle, rawDX, rawDY, event.sourceEvent.shiftKey);
+            //: **A corner scales a group proportionally** (the owner: "when I
+            //: try to resizr the multiple selected objects with the group box,
+            //: the items all go out of proportion and funky"). A single shape
+            //: stretching on one axis is a shape being reshaped, which is what
+            //: you asked for by grabbing its corner; a *set* of things doing it
+            //: is every circle in the set turning into a different ellipse and
+            //: every card into a different rectangle, which is never what the
+            //: gesture meant. The driving axis wins, so the corner still
+            //: follows the pointer in the direction it was pulled, and shift
+            //: releases the lock for a deliberate stretch.
+            const corner = handle.length === 2;
+            const free = event.sourceEvent.shiftKey;
+            const k = Math.abs(raw.sx - 1) >= Math.abs(raw.sy - 1) ? raw.sx : raw.sy;
+            const t = corner && !free ? { ...raw, sx: k, sy: k } : raw;
             for (const row of start) {
               if (row.entry.kind === "sketch") {
                 const newD = wbTransformPathD(row.d, t);
@@ -12237,6 +12285,12 @@ function wbRenderMultiSelectionHandles() {
               item.y = t.anchorY + (row.box.minY - t.anchorY) * t.sy;
               item.width = Math.max(WB_OBJECT_MIN_SIZE, (row.box.maxX - row.box.minX) * t.sx);
               item.height = Math.max(WB_OBJECT_MIN_SIZE, (row.box.maxY - row.box.minY) * t.sy);
+              //: The drag accumulator is a running position from the *last*
+              //: drag, and anything that moves an item behind its back has to
+              //: drop it or the next drag starts from where the item used to
+              //: be.
+              delete item._rawX;
+              delete item._rawY;
               //: Written straight to the element rather than through a
               //: render: a render rebuilds the selection chrome, which
               //: includes the very handle this drag is bound to, and the
@@ -12254,24 +12308,81 @@ function wbRenderMultiSelectionHandles() {
             if (!start) return;
             const rows = start;
             start = null;
-            //: Saved one at a time rather than in parallel: each write is the
-            //: whole row, and the board's stale-client recovery reloads
-            //: everything, which a burst of simultaneous writes would race.
-            for (const row of rows) {
-              if (row.entry.kind === "sketch") {
-                const live = row.entry.item._liveD;
-                delete row.entry.item._liveD;
-                if (live) await wbSaveSketchD(row.entry.item, live);
-              } else if (row.entry.kind === "node") {
-                await wbSaveNode(row.entry.item);
-              } else {
-                await wbSaveObject(row.entry.item);
-              }
-            }
-            wbScheduleRender();
+            await wbSaveMultiSnapshot(rows);
           })
       );
   }
+
+  //: **And a rotate point above the box** (the owner: "the group boxes dont
+  //: have a rotate point at the top"). Every item turns about the group's
+  //: centre, which for a card or a text box is a move *and* a rotation of its
+  //: own: the box travels round the centre and then faces the new direction.
+  //: A shape has no rotation column, so its turn is baked into the path the
+  //: same way its own rotate handle bakes one.
+  //:
+  //: The angle is absolute, read straight off the pointer's bearing from the
+  //: centre, which is what makes the handle follow the cursor rather than
+  //: drift by a per-frame delta. Shift snaps to 15 degrees, the same as
+  //: everywhere else on this board.
+  const centerX = (bbox.minX + bbox.maxX) / 2;
+  const centerY = (bbox.minY + bbox.maxY) / 2;
+  const handleY = bbox.minY - 28;
+  group.append("line")
+    .attr("class", "wb-rotate-handle-stem")
+    .attr("x1", centerX).attr("y1", bbox.minY).attr("x2", centerX).attr("y2", handleY);
+  let spin = null;
+  group.append("circle")
+    .attr("class", "wb-sketch-rotate-handle")
+    .attr("cx", centerX).attr("cy", handleY).attr("r", 6)
+    .style("cursor", "grab")
+    .call(
+      d3.drag()
+        .on("start", (event) => {
+          event.sourceEvent.stopPropagation();
+          spin = wbMultiSnapshot(boxes);
+        })
+        .on("drag", (event) => {
+          if (!spin) return;
+          const angle = wbSketchAngleFromCenterDeg(
+            centerX, centerY, event.sourceEvent, event.sourceEvent.shiftKey
+          );
+          const theta = (angle * Math.PI) / 180;
+          const cos = Math.cos(theta), sin = Math.sin(theta);
+          for (const row of spin) {
+            if (row.entry.kind === "sketch") {
+              const newD = wbTransformPathD(row.d, {
+                rotate: angle, anchorX: centerX, anchorY: centerY,
+              });
+              const selector = `.sketch-group[data-id="${row.entry.item.id}"]`;
+              document.querySelector(`${selector} .sketch-path`)?.setAttribute("d", newD);
+              document.querySelector(`${selector} .sketch-hitbox`)?.setAttribute("d", newD);
+              row.entry.item._liveD = newD;
+              continue;
+            }
+            const item = row.entry.item;
+            const w = row.box.maxX - row.box.minX, h = row.box.maxY - row.box.minY;
+            //: The box turns about its own centre (`wbItemTransform` translates
+            //: and then rotates, so the origin is the element's middle), which
+            //: is why the point carried round the group's centre is the item's
+            //: centre and not its corner.
+            const relX = row.box.minX + w / 2 - centerX;
+            const relY = row.box.minY + h / 2 - centerY;
+            item.x = centerX + relX * cos - relY * sin - w / 2;
+            item.y = centerY + relX * sin + relY * cos - h / 2;
+            item.rotation = (row.rotation + angle) % 360;
+            delete item._rawX;
+            delete item._rawY;
+            const el = document.querySelector(WB_SELECTOR_BY_KIND[row.entry.kind](item.id));
+            if (el) el.style.transform = wbItemTransform(item);
+          }
+        })
+        .on("end", async () => {
+          if (!spin) return;
+          const rows = spin;
+          spin = null;
+          await wbSaveMultiSnapshot(rows);
+        })
+    );
 }
 
 function wbRenderSketchHandles() {
@@ -12279,6 +12390,20 @@ function wbRenderSketchHandles() {
   if (!wbSelectedItem || wbSelectedItem.kind !== "sketch") return;
   const sketch = wbState.sketches.find((s) => s.id === wbSelectedItem.id);
   if (!sketch) return;
+  wbDrawSketchHandles(sketch);
+}
+
+//: **One shape's own box and anchors**, split out from the single-selection
+//: renderer above so a sweep can draw them for every shape it caught. The
+//: owner, with a screenshot of a selected face beside a pair of selected
+//: notes: "when I drag select shapes, the individual anchor/rotate boxes dont
+//: appear ... see how its fine for the notes but the shapes and lines arent
+//: selected visually and individually??" A card and a text box carry their
+//: eight handles as children of the element, so `.wb-selected` alone reveals
+//: them; a shape is a path in the SVG layer with nowhere to keep handles, and
+//: this is the only thing that draws them. It ran for the single selection
+//: only, which is exactly the difference the screenshot shows.
+function wbDrawSketchHandles(sketch) {
   // A link sketch has no `.d` of its own: `wbSketchParsedData` returns
   // null for it, and the 8-point bbox resize handles below make no sense
   // for a path recomputed fresh from its endpoints every render anyway.
@@ -13346,8 +13471,19 @@ function renderWbObjects(canvas) {
     d._rawX = (d._rawX ?? d.x) + event.dx / transform.k;
     d._rawY = (d._rawY ?? d.y) + event.dy / transform.k;
     const bypassSnap = event.sourceEvent?.altKey;
-    d.x = wbSnap(d._rawX, bypassSnap);
-    d.y = wbSnap(d._rawY, bypassSnap);
+    //: **Snapped by how far it moved, not by where it is** (the owner:
+    //: "dragging a objects doesnt stay on the mouse and goes off to the side
+    //: of where my mouse was on the object when I started dragging it").
+    //: Rounding the absolute position means an item that was not already on a
+    //: grid line jumps up to half a cell the instant the drag begins and then
+    //: stays that far from the cursor for the rest of it: the item is under
+    //: your pointer when you press and beside it when you move. Rounding the
+    //: *delta* keeps the grab point exactly where you took hold of it and
+    //: still moves in whole grid steps, and for the ordinary case (an item
+    //: that is already on the grid, because it was placed or dragged with
+    //: snap on) the two are the same number.
+    d.x = d._dragOriginX + wbSnap(d._rawX - d._dragOriginX, bypassSnap);
+    d.y = d._dragOriginY + wbSnap(d._rawY - d._dragOriginY, bypassSnap);
     // Smart alignment guides: asked for directly ("draw.io and Microsoft
     // PowerPoint have... dotted alignment rule guides"). Same Alt bypass as
     // grid-snap just above: holding it means "no snap assistance at all
@@ -13913,8 +14049,19 @@ function dragging(event, d) {
     // grid lock, the same convention Figma/Illustrator use, a per-call
     // bypass rather than touching the snap toggle itself.
     const bypassSnap = event.sourceEvent?.altKey;
-    d.x = wbSnap(d._rawX, bypassSnap);
-    d.y = wbSnap(d._rawY, bypassSnap);
+    //: **Snapped by how far it moved, not by where it is** (the owner:
+    //: "dragging a objects doesnt stay on the mouse and goes off to the side
+    //: of where my mouse was on the object when I started dragging it").
+    //: Rounding the absolute position means an item that was not already on a
+    //: grid line jumps up to half a cell the instant the drag begins and then
+    //: stays that far from the cursor for the rest of it: the item is under
+    //: your pointer when you press and beside it when you move. Rounding the
+    //: *delta* keeps the grab point exactly where you took hold of it and
+    //: still moves in whole grid steps, and for the ordinary case (an item
+    //: that is already on the grid, because it was placed or dragged with
+    //: snap on) the two are the same number.
+    d.x = d._dragOriginX + wbSnap(d._rawX - d._dragOriginX, bypassSnap);
+    d.y = d._dragOriginY + wbSnap(d._rawY - d._dragOriginY, bypassSnap);
     // Smart alignment guides: asked for directly ("draw.io and Microsoft
     // PowerPoint have... dotted alignment rule guides"). Same Alt bypass as
     // grid-snap just above: one modifier, "no snap assistance", not two.

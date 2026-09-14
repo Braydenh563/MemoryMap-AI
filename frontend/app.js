@@ -39592,6 +39592,19 @@ document.addEventListener("keydown", (e) => {
       if ((id === "undo" || id === "redo") && inTextField) continue;
       if (matchesShortcut(e, def.keys)) {
         e.preventDefault();
+        //: **A board owns undo while it is open.** Reported: "ctrl z undo and
+        //: redo cont trigger in the whiteboard/mind map". The board has its
+        //: own stack (moves, resizes, deletes on the canvas) and had its own
+        //: listener for this chord, so both ran and whichever stack happened
+        //: to be non-empty answered: press Ctrl+Z after moving a shape and a
+        //: note you deleted ten minutes ago came back instead. One owner for
+        //: one shortcut, the same handoff `openGlobalFind` already does for
+        //: the board's search.
+        const board = document.getElementById("library-view-whiteboard");
+        if ((id === "undo" || id === "redo") && board && !board.classList.contains("hidden")) {
+          (id === "undo" ? window.wbUndo : window.wbRedo)?.();
+          return;
+        }
         runShortcut(id);
         return;
       }

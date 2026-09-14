@@ -13552,14 +13552,41 @@ function renderChatEmptyState() {
   // a new chat under "Coach" or a custom persona still greeted you as
   // nobody in particular (ROADMAP Tier 3 §21).
   const activePersona = (prefsCache && prefsCache.active_persona) || "Librarian";
+  //: The default librarian is Atlas (INBOX 225): the empty chat says so by
+  //: name, and the explanation that used to sit under it as a paragraph is
+  //: one line with the rest behind the app's '?' (the owner: "the text below
+  //: it needs to be updated and potentially moved to a '?' tooltip button").
+  const aiName = typeof AI_NAME === "string" ? AI_NAME : "Atlas";
   title.textContent =
-    activePersona === "Librarian" ? "Chat with your notebook" : `Chat with your ${activePersona}`;
+    activePersona === "Librarian" ? `Explore your notebook with ${aiName}` : `Chat with your ${activePersona}`;
   const blurb = document.createElement("p");
-  blurb.className = "muted";
-  blurb.textContent =
-    "Ask a question and the AI answers from your saved notes. Turn on “AI can " +
-    "make changes” and it can create, tag, link, and organise notes for you too.";
-  empty.append(emblem, title, blurb);
+  blurb.className = "muted chat-empty-line";
+  blurb.append(document.createTextNode("Ask anything; the answers come from your saved notes. "));
+  const helpToggle = document.createElement("button");
+  helpToggle.type = "button";
+  helpToggle.className = "icon-only ghost small graph-help-toggle";
+  helpToggle.setAttribute("data-help-for", "chat-empty-help");
+  helpToggle.setAttribute("aria-controls", "chat-empty-help");
+  helpToggle.setAttribute("aria-expanded", "false");
+  helpToggle.title = "About this chat";
+  helpToggle.setAttribute("aria-label", "About this chat");
+  const helpIcon = document.createElement("i");
+  helpIcon.className = "ph ph-question";
+  helpIcon.setAttribute("aria-hidden", "true");
+  helpToggle.appendChild(helpIcon);
+  blurb.appendChild(helpToggle);
+  const helpBody = document.createElement("div");
+  helpBody.className = "help-body hidden";
+  helpBody.id = "chat-empty-help";
+  helpBody.setAttribute("role", "dialog");
+  helpBody.setAttribute("aria-label", "About this chat");
+  const helpText = document.createElement("p");
+  helpText.textContent =
+    `${aiName} answers from your saved notes and shows the notes behind each ` +
+    "answer. In Agent mode it can also create, tag, link and organise notes " +
+    "for you, and asks before anything it cannot undo.";
+  helpBody.appendChild(helpText);
+  empty.append(emblem, title, blurb, helpBody);
   //: One line about the other assistant (INBOX 224). The empty chat is where
   //: somebody asks the app a question it cannot answer from notes, "how do I
   //: turn this off", and Atlas is the one that can.

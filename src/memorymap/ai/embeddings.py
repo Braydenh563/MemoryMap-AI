@@ -45,6 +45,40 @@ _warmup = {"running": False, "started": False, "error": False}
 #: shorter than anyone takes to write a first note. Tests set it to zero.
 WARMUP_DELAY_SECONDS = 2.0
 
+#: **The warm-up also waits for the app to go quiet** (the owner, 2026-09-14:
+#: the dashboard's counts "took a while for their stats to load, like the
+#: length it took the embedding model to warm up"). The fixed pause above
+#: let the first page through, but a person who logs in a few seconds after
+#: launch lands on the dashboard exactly as the torch import begins, and
+#: that import holds the GIL for seconds: a count query that takes
+#: milliseconds waits behind it. So after the pause the thread waits until
+#: no request has arrived for `WARMUP_IDLE_SECONDS` (the dashboard's burst
+#: is over), and at most `WARMUP_MAX_WAIT_SECONDS` in total, so a window
+#: that is never opened still warms. `note_request` is called by the ASGI
+#: layer on every request; before the first one the app is idle by
+#: definition and the warm-up goes straight on.
+WARMUP_IDLE_SECONDS = 2.5
+WARMUP_MAX_WAIT_SECONDS = 60.0
+_pulse = {"at": 0.0}
+_idle_wait = threading.Event()
+
+
+def note_request() -> None:
+    """Called for every HTTP request; the warm-up reads it to stay out of the
+    way while a page is loading."""
+    _pulse["at"] = time.monotonic()
+
+
+def _wait_for_idle() -> None:
+    deadline = time.monotonic() + WARMUP_MAX_WAIT_SECONDS
+    while time.monotonic() < deadline:
+        if _pulse["at"] == 0.0:
+            return
+        quiet = time.monotonic() - _pulse["at"]
+        if quiet >= WARMUP_IDLE_SECONDS:
+            return
+        _idle_wait.wait(min(0.5, max(0.01, WARMUP_IDLE_SECONDS - quiet)))
+
 
 def _notebook_has_notes(session_factory) -> bool:  # noqa: ANN001
     """Whether there is anything a warm model could be for.
@@ -93,6 +127,7 @@ def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # 
         #: before the heavy import begins; the model is still warm long before
         #: anyone has typed a note.
         time.sleep(WARMUP_DELAY_SECONDS)
+        _wait_for_idle()
         #: **And an empty notebook warms nothing.** A first run has no note to
         #: search and no note to file, so loading a model for it costs the
         #: slowest part of startup for nothing; the first save loads it, which

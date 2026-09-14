@@ -30,3 +30,16 @@ def test_the_old_name_resolves_to_atlas():
 def test_a_custom_override_under_the_old_name_still_wins():
     config = _Config({"personas": [{"name": "Librarian", "prompt": "grumpy"}]})
     assert librarian.resolve_persona_prompt("Librarian", config) == "grumpy"
+
+
+def test_the_persona_text_the_app_shows_is_the_text_the_model_gets():
+    """"What this persona tells the AI" reads app.js's mirror of the
+    built-ins; it said "the librarian of the user's personal notebook" while
+    the model was told "You are Atlas, this notebook's librarian" (the owner,
+    2026-09-14: "atlas's librarian persona should be You are Atlas...")."""
+    import re
+    from pathlib import Path
+
+    app = (Path(__file__).resolve().parents[1] / "frontend" / "app.js").read_text(encoding="utf-8")
+    match = re.search(r'^  Atlas: "([^"]+)",', app, re.M)
+    assert match and match.group(1) == librarian.DEFAULT_PERSONA

@@ -146,6 +146,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The embedding model's warm-up waits for the app to go quiet after its
+  first requests, so the dashboard's counts no longer load behind the
+  torch import when you log in right after launch (INBOX 257).
 - The packaged app still checks stable releases when "Track the main
   branch" is on (that switch is the source-install launchers'), and its
   label says so (INBOX 254).

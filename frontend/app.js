@@ -21830,7 +21830,7 @@ function personaDisplayName(name) {
 }
 
 const BUILTIN_PERSONAS = {
-  Atlas: "You are the librarian of the user's personal notebook.",
+  Atlas: "You are Atlas, this notebook's librarian.",
   Coach:
     "You are an encouraging personal coach reviewing the user's notes. " +
     "Spot patterns, celebrate progress, and suggest one concrete next step.",

@@ -27643,7 +27643,9 @@ line that carried a dash.
     settings default and the chat's persona list; "Librarian" saved before
     the rename resolves to it (`PERSONA_ALIASES`, `personaDisplayName`), and
     a custom override under the old name still wins.
-    `tests/test_persona_atlas.py`.
+    `tests/test_persona_atlas.py`. Follow-up the same day: the prompt text
+    the app shows for it now matches the model's ("You are Atlas, this
+    notebook's librarian."), kept equal by a test.
 235. **Mid-work drop, 2026-09-14, verbatim (the owner), Settings.** "I feel
     like the advanced response settings should be above the installed models
     tab, and/or in the preferences settings page with the advanced search."
@@ -27753,6 +27755,19 @@ line that carried a dash.
     send it to my email at "brayden.hoyle@outlook.com" even open the email
     dialogue for them. also have atlas suggest it if the user asks them
     about an error."
+
+257. **Mid-work drop, 2026-09-14, verbatim (the owner), the dashboard
+    strip (screenshot: 29 notes, 1 this week, 0 day streak, 0 reminders,
+    the 14-day bars).** "these dashboard items took a while for thier
+    stats to load, like the length it took the embedding model to warm
+    up". Cause, reasoned not measured (no embedding model in the sandbox):
+    the warm-up's fixed 2 s pause let the first page through, but a login
+    a few seconds after launch lands on the dashboard as the torch import
+    begins, and that import holds the GIL for seconds, so a millisecond
+    count query waits behind it. **Fixed:** the warm-up also waits until
+    no request has arrived for 2.5 s (at most 60 s), fed by a one-line
+    ASGI layer (`RequestPulse`); `tests/test_embedding_warmup.py` holds
+    the wait, the cap and the no-request case.
 
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 

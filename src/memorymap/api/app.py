@@ -441,6 +441,21 @@ def _register_error_handlers(app: FastAPI) -> None:
 _JOB_SHUTDOWN_SECONDS = 3.0
 
 
+class RequestPulse:
+    """Pure ASGI, one line of work per request: tells the embedding warm-up
+    that the app is busy, so the model load waits for a quiet moment rather
+    than landing on top of the dashboard's first fetches
+    (`ai.embeddings.note_request`)."""
+
+    def __init__(self, app) -> None:  # noqa: ANN001
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:  # noqa: ANN001
+        if scope.get("type") == "http":
+            embeddings.note_request()
+        await self.app(scope, receive, send)
+
+
 def create_app() -> FastAPI:
     # First, before any singleton is built. This catches `uvicorn … --workers 4`
     # run directly against this factory, which is the only way the app can be
@@ -567,6 +582,7 @@ def create_app() -> FastAPI:
         ),
     )
     app.add_middleware(security.OriginCheckMiddleware)
+    app.add_middleware(RequestPulse)
     app.add_middleware(
         security.SecurityHeadersMiddleware,
         # Tracks index.html rather than freezing one policy at startup, see

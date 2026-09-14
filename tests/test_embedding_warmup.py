@@ -31,6 +31,7 @@ def fresh_warmup(monkeypatch):
     """Each test starts from a process that has not warmed yet, with no pause."""
     monkeypatch.setattr(embeddings, "_warmup", {"running": False, "started": False, "error": False})
     monkeypatch.setattr(embeddings, "WARMUP_DELAY_SECONDS", 0)
+    monkeypatch.setattr(embeddings, "_pulse", {"at": 0.0})
     # Nothing to backfill and no matrix to warm: not what is under test.
     monkeypatch.setattr(embeddings, "backfill_missing", lambda *_a, **_k: None)
 
@@ -99,3 +100,53 @@ def test_the_helper_reads_the_real_table(tmp_path):
     with engine.begin() as conn:
         conn.execute(text("INSERT INTO entries (id) VALUES (1)"))
     assert embeddings._notebook_has_notes(factory) is True
+
+
+def test_the_load_waits_for_the_app_to_go_quiet(fresh_warmup, monkeypatch):
+    """A dashboard loading right after login must not share the CPU with the
+    torch import: while requests keep arriving the warm-up holds off, and it
+    goes once the app has been quiet for the idle window."""
+    import time
+
+    monkeypatch.setattr(embeddings, "_notebook_has_notes", lambda _f: True)
+    monkeypatch.setattr(embeddings, "WARMUP_IDLE_SECONDS", 0.3)
+    monkeypatch.setattr(embeddings, "WARMUP_MAX_WAIT_SECONDS", 10)
+    service = _Service()
+    embeddings.note_request()
+    started = time.monotonic()
+    embeddings.start_warmup(service, session_factory=lambda: None)
+    for _ in range(4):
+        time.sleep(0.1)
+        embeddings.note_request()
+    assert service.calls == 0, "the model loaded while requests were still arriving"
+    assert service.done.wait(3)
+    assert time.monotonic() - started >= 0.6
+
+
+def test_a_never_visited_app_still_warms_within_the_cap(fresh_warmup, monkeypatch):
+    import time
+
+    monkeypatch.setattr(embeddings, "_notebook_has_notes", lambda _f: True)
+    monkeypatch.setattr(embeddings, "WARMUP_IDLE_SECONDS", 5)
+    monkeypatch.setattr(embeddings, "WARMUP_MAX_WAIT_SECONDS", 0.4)
+    service = _Service()
+    stop = False
+
+    def keep_busy():
+        while not stop:
+            embeddings.note_request()
+            time.sleep(0.05)
+
+    busy = threading.Thread(target=keep_busy, daemon=True)
+    busy.start()
+    embeddings.start_warmup(service, session_factory=lambda: None)
+    assert service.done.wait(3)
+    stop = True
+
+
+def test_no_request_yet_means_no_wait(fresh_warmup, monkeypatch):
+    monkeypatch.setattr(embeddings, "_notebook_has_notes", lambda _f: True)
+    monkeypatch.setattr(embeddings, "WARMUP_IDLE_SECONDS", 5)
+    service = _Service()
+    embeddings.start_warmup(service, session_factory=lambda: None)
+    assert service.done.wait(1)

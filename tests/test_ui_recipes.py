@@ -235,20 +235,52 @@ def test_a_fixed_filter_set_is_one_well_rather_than_a_row_of_chips() -> None:
 
 
 # And the other half of the same recipe, which is behaviour rather than paint:
-# every segment of a multi-toggle well says whether it is on, because no single
-# segment is "the" answer the way it is in an exclusive one.
-def test_every_segment_of_a_multi_toggle_well_says_whether_it_is_on() -> None:
+# a toggle set says which of its members are on. It said so with `aria-pressed`
+# per segment while it was a well; since INBOX 214 it is a dock menu of checkbox
+# rows, where the state is the checkbox's own and the browser announces it, and
+# the caption on the closed button is what says it when the menu is shut.
+def test_a_multi_toggle_filter_set_says_which_of_its_members_are_on() -> None:
     app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
     start = app.index("function renderTimelineKinds(")
     body = app[start : app.index("\n}\n", start)]
-    assert 'setAttribute("aria-pressed"' in body, (
-        "renderTimelineKinds builds the segments of a `.seg-multi` and must set "
-        "`aria-pressed` on each: without it a screen reader hears four buttons "
-        "and no states"
+    assert 'type = "checkbox"' in body, (
+        "renderTimelineKinds builds the rows of a dock menu and each carries a "
+        "real checkbox: the state is the control's own, not a class"
     )
-    assert '"seg-label"' in body, (
-        "the word in a segment is a `.seg-label` span so 10-responsive.css can "
-        "hide it below 1200 without taking the accessible name with it"
+    assert "doc-dock-menu-check" in body, (
+        "a switch row in a dock menu is `.doc-dock-menu-check`, which is what "
+        "keeps the menu open while it is pressed: a menu that shuts on the "
+        "click hides the only feedback a switch gives"
+    )
+    assert "syncTimelineKindsLabel(" in body, (
+        "the closed button is the only thing that says what the filter is set "
+        "to, so building the rows has to write the caption too"
+    )
+    #: `change`, not `click`: the checkbox is inside its own <label>, so a press
+    #: on the words fires a click on both and a click handler toggles twice.
+    handler = app[app.index('$("timeline-kinds")?.addEventListener') :][:200]
+    assert handler.startswith('$("timeline-kinds")?.addEventListener("change"'), handler[:80]
+
+
+# A filter set whose members can outgrow the row it sits in is a dropdown, not
+# a well (INBOX 214, the owner: "they clash with the ui at large zoom and they
+# dont fit visually"). This is the ratchet on the shape, since the well is the
+# thing it would drift back to.
+def test_the_timeline_kind_filter_is_one_button_rather_than_four() -> None:
+    page = re.sub(
+        r"<!--.*?-->", "", (ROOT / "frontend" / "index.html").read_text(encoding="utf-8"), flags=re.S
+    )
+    start = page.index('id="timeline-kinds-menu"')
+    block = page[page.rindex("<details", 0, start) : page.index("</details>", start)]
+    assert "dock-menu" in block and "doc-dock-menu-btn" in block, block[:200]
+    assert 'id="timeline-kinds-label"' in block, (
+        "the button says what the filter is set to, so it needs the span that "
+        "carries the state"
+    )
+    assert 'id="timeline-kinds" class="seg seg-multi"' not in page, (
+        "the Timeline's kind filter is a dock menu now, not a `.seg-multi` well: "
+        "four glyphs and four words is 441px of a dock row that also holds a "
+        "search box, a view switch and Options, which is what INBOX 214 reports"
     )
 def test_a_thumb_bar_rides_the_keyboard_inset_it_did_not_measure() -> None:
     """DESIGN.md's recipe for a bar above the on-screen keyboard.

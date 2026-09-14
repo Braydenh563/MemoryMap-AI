@@ -44,7 +44,10 @@ below). Versioning is `0.x` while the app stabilises.
   verb family on all 14, labels left-aligned behind them, each family ruled
   off, and one line of intro rather than four (205). The in-app guide is called
   Atlas, can say what it is and what it cannot see, shows that before the first
-  question, and reads as a column rather than a 1356px line (204).
+  question, and reads as a column rather than a 1356px line (204). The
+  Timeline's four kind filters are one dropdown that says what it is set to,
+  441px of dock row down to 121px, so they no longer collide with the controls
+  beside them at 150% zoom (214).
 
 ### Added
 

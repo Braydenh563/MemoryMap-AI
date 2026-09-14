@@ -125,45 +125,66 @@ const { boot } = require('./lib.js');
   check('2 today: the journal note wears the calendar marker',
     /calendar-dot/.test(afterDaily.marker), afterDaily.marker);
 
-  // --- gate 3: the kind chips in the dock -------------------------------------
+  // --- gate 3: the kind filter in the dock ------------------------------------
+  // One dropdown since INBOX 214, not four segments: the button carries the
+  // state when the menu is shut, the four toggles live in the menu.
+  const shut = await page.evaluate(() => {
+    const button = document.getElementById('timeline-kinds-btn');
+    const search = document.getElementById('timeline-search');
+    return {
+      caption: document.getElementById('timeline-kinds-label').textContent,
+      inDock: !!button.closest('.dock'),
+      h: Math.round(button.getBoundingClientRect().height),
+      w: Math.round(button.getBoundingClientRect().width),
+      searchH: Math.round(search.getBoundingClientRect().height),
+    };
+  });
+  check('3 kinds: one button in the dock, at the dock control height, saying the state',
+    shut.inDock && Math.abs(shut.h - shut.searchH) <= 1 && shut.caption === 'Kinds: all',
+    `"${shut.caption}", ${shut.w}x${shut.h}px, search ${shut.searchH}px`);
+
+  await page.click('#timeline-kinds-btn');
+  await page.waitForTimeout(300);
   const chips = await page.evaluate(() => {
     const box = document.getElementById('timeline-kinds');
-    return [...box.querySelectorAll('[data-timeline-kind]')].map((b) => ({
-      key: b.dataset.timelineKind,
-      label: b.textContent.trim(),
-      on: b.getAttribute('aria-pressed') === 'true',
-      inDock: !!b.closest('.dock'),
-      h: Math.round(b.getBoundingClientRect().height),
+    return [...box.querySelectorAll('[data-timeline-kind]')].map((input) => ({
+      key: input.dataset.timelineKind,
+      label: input.closest('label').textContent.replace(/\s+/g, ' ').trim(),
+      on: input.checked,
+      inMenu: !!input.closest('.doc-dock-menu-list'),
+      h: Math.round(input.closest('label').getBoundingClientRect().height),
     }));
   });
-  // A chip carries its count when rows of that kind are loaded; a kind with
-  // none loaded carries its bare label rather than "(0)", which would be a
+  // A row carries its count when rows of that kind are loaded; a kind with
+  // none loaded carries its bare label rather than "0", which would be a
   // claim about the whole notebook made from one page of it.
   const loaded = new Set(rows.map((r) => r.kind));
-  check('3 chips: four, in the dock, all on, each loaded kind with its count',
-    chips.length === 4 && chips.every((c) => c.on && c.inDock) &&
-      chips.every((c) => (loaded.has(c.key) ? /\(\d+\)/.test(c.label) : true)),
+  check('3 kinds: four rows in the menu, all on, each loaded kind with its count',
+    chips.length === 4 && chips.every((c) => c.on && c.inMenu) &&
+      chips.every((c) => (loaded.has(c.key) ? /\d/.test(c.label) : true)),
     chips.map((c) => c.label).join(' · '));
-  const controlHeight = await page.evaluate(
-    () => Math.round(document.getElementById('timeline-search').getBoundingClientRect().height)
-  );
-  check('3 chips: the same height as the dock control beside them',
-    chips.every((c) => Math.abs(c.h - controlHeight) <= 1),
-    `chips ${[...new Set(chips.map((c) => c.h))].join('/')}px, search ${controlHeight}px`);
+  check('3 kinds: the rows are one height',
+    new Set(chips.map((c) => c.h)).size === 1,
+    `rows ${[...new Set(chips.map((c) => c.h))].join('/')}px`);
 
-  // Turning one off refetches, and the rows of that kind go.
+  // Turning one off refetches, the rows of that kind go, the caption follows,
+  // and the menu stays open so the next one can be ticked without reopening.
   const requests = [];
   page.on('request', (r) => { if (r.url().includes('/timeline?')) requests.push(r.url()); });
-  await page.click('[data-timeline-kind="reminder"]');
+  await page.click('#timeline-kinds input[data-timeline-kind="reminder"]');
   await page.waitForTimeout(2000);
   const afterOff = await page.evaluate(() => ({
     kinds: [...new Set([...document.querySelectorAll('#timeline-feed .timeline-row')].map((li) => li.dataset.kind))],
-    pressed: document.querySelector('[data-timeline-kind="reminder"]').getAttribute('aria-pressed'),
+    checked: document.querySelector('#timeline-kinds input[data-timeline-kind="reminder"]').checked,
+    caption: document.getElementById('timeline-kinds-label').textContent,
+    open: document.getElementById('timeline-kinds-menu').open,
   }));
-  check('3 chips: pressing one refetches and the rows go',
-    !afterOff.kinds.includes('reminder') && afterOff.pressed === 'false' &&
+  check('3 kinds: ticking one refetches, the rows go, the caption and the menu follow',
+    !afterOff.kinds.includes('reminder') && afterOff.checked === false && afterOff.open &&
+      afterOff.caption === 'Kinds: notes, boards, documents' &&
       requests.some((u) => /kind=/.test(u)),
-    `kinds left ${afterOff.kinds.join(', ')}, ${requests.length} request(s), last "${(requests[requests.length - 1] || '').split('?')[1] || ''}"`);
+    `kinds left ${afterOff.kinds.join(', ')}, "${afterOff.caption}", menu open=${afterOff.open}, ${requests.length} request(s)`);
+  await page.click('#timeline-search');
 
   // --- gate 4: the dock still fits, and nothing scrolls sideways ---------------
   const layout = [];

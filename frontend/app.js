@@ -25656,7 +25656,14 @@ document.addEventListener("click", (event) => {
   // `.action-menu-escaped` already gets in the pointerdown-close listener
   // for `.action-menu` (search this file for that class).
   const item = event.target.closest(".dock-menu .doc-dock-menu-item, .action-menu-escaped .doc-dock-menu-item");
-  if (item) {
+  //: Except a switch, which is the exception documents.js already makes for
+  //: its own dock kebab and makes for the same reason: every other row does
+  //: one thing and is finished, so closing is right, while a switch has a
+  //: state you have to be able to see move, and a menu that shuts on the click
+  //: hides the only feedback it gives. Added with INBOX 214, where the
+  //: Timeline's four kind toggles moved into a dock menu and turning two of
+  //: them off meant opening it twice.
+  if (item && !event.target.closest(".doc-dock-menu-check")) {
     const menu = item.closest("details.dock-menu") || item.closest(".doc-dock-menu-list")?._escapedHome?.parent;
     // After the item's own handler has run: closing first would move focus
     // and, for a toggle, leave its aria-expanded one step behind.
@@ -26085,20 +26092,33 @@ function timelineIsDailyNote(row) {
   return row.kind === "note" && row.title.trim() === dailyNoteTitle(timelineBucketKey(row.when, "day"));
 }
 
-//: **One control, not four** (INBOX 186: "these buttons in the top of the
-//: timeline dock are ugly and need a redesign/restructuring"). The four kinds
-//: were four `.library-chip`s at four different widths (121 / 102 / 162 / 158px
-//: measured at 1440), which is the dock grammar's own counter-example: a chip
-//: is a filter you can take *off*, and these four are always all four, never
-//: removable and never empty. They are a toggle set, so they are a `.seg`
-//: well: `.seg-multi`, the independent-toggles variant, where every segment
-//: carries its own `aria-pressed` rather than one of them being the choice.
+//: **One control, not four, and now one button rather than one well** (INBOX
+//: 186: "these buttons in the top of the timeline dock are ugly and need a
+//: redesign/restructuring"; INBOX 214, the owner, of what replaced them: "is
+//: there another better ui and ux way to visualise these buttons?? maybe make
+//: them in a dropdown or smth?? because they clash with the ui at large zoom
+//: and they dont fit visually").
 //:
-//: The count leaves the visible label for the title and the accessible name.
-//: The reason for having it at all is kept ("a filter you have to press to
-//: find out is empty wastes the press"); what is dropped is the width a
-//: parenthesised number costs, which is the difference between labels that fit
-//: a dock row and labels that do not (10-responsive.css has the arithmetic).
+//: The history is worth keeping because each step was right about the step
+//: before it. Four `.library-chip`s at four different widths (121 / 102 / 162
+//: / 158px at 1440) were the dock grammar's own counter-example: a chip is a
+//: filter you can take *off*, and these four are always all four, never
+//: removable and never empty. A `.seg.seg-multi` well fixed that: one ground,
+//: one height, `aria-pressed` per segment. What it could not fix is width.
+//: Four glyphs and four words is 441px of a row that also holds a search box,
+//: a view switch and an Options menu, so at 150% browser zoom (960 CSS px of
+//: window) it ran into them; and with all four on, which is the resting state,
+//: four accent fills say nothing at all.
+//:
+//: A dropdown is one width at every zoom, and it can say in words what four
+//: fills could not: "Kinds: all", or "Kinds: notes, boards". "Kinds" rather
+//: than "Show" because `#timeline-filter-clear`, two controls along, already
+//: says "Show: <band>", and one dock row with two different "Show:"es is worse
+//: than either wording is good.
+//:
+//: The count stays in the row's tooltip and its accessible name rather than in
+//: the caption ("a filter you have to press to find out is empty wastes the
+//: press"), and in a menu row there is now room for it on screen as well.
 function renderTimelineKinds() {
   const box = $("timeline-kinds");
   if (!box) return;
@@ -26108,39 +26128,66 @@ function renderTimelineKinds() {
   box.replaceChildren();
   for (const kind of TIMELINE_KINDS) {
     const on = chosen.includes(kind.key);
-    const button = document.createElement("button");
-    button.type = "button";
-    if (on) button.className = "active";
-    button.dataset.timelineKind = kind.key;
-    button.setAttribute("aria-pressed", String(on));
+    //: A `<label>` wrapping its own checkbox, which is what makes the row a
+    //: 40px target rather than a 16px box with words beside it, and what lets
+    //: the browser own the checked state. `.doc-dock-menu-check` is the class
+    //: that keeps the menu open on a press: every other row in a dock menu
+    //: does something and is finished, and a switch whose menu shuts on the
+    //: click hides the only feedback it gives.
+    const row = document.createElement("label");
+    row.className = "menu-item doc-dock-menu-item doc-dock-menu-check checkbox-label";
     const count = counts.get(kind.key);
     const held = count === undefined ? "" : `, ${count} in view`;
-    button.title = on
+    row.title = on
       ? `Stop showing ${kind.label.toLowerCase()}${held}`
       : `Show ${kind.label.toLowerCase()} in the timeline${held}`;
-    //: The last one on cannot be turned off: see `timelineKindChoice`.
-    if (on && chosen.length === 1) {
-      button.disabled = true;
-      button.title = "At least one kind has to be shown";
-    }
-    const icon = document.createElement("span");
-    icon.className = `ph ${kind.glyph}`;
+    const icon = document.createElement("i");
+    icon.className = `ph ${kind.glyph} ph-lead`;
     icon.setAttribute("aria-hidden", "true");
-    //: The word is hidden by CSS below 1200 rather than dropped, so a segment's
-    //: accessible name is the word at every width and the icon-only state is
-    //: not a button a screen reader announces as "button".
     const label = document.createElement("span");
-    label.className = "seg-label";
     label.textContent = kind.label;
-    button.append(icon, label);
-    //: And the count for a reader who never sees the tooltip.
+    //: The count, on screen this time: a menu row has the width for it, which
+    //: is the whole reason it was a tooltip in a 441px well.
     if (count !== undefined) {
-      const read = document.createElement("span");
-      read.className = "visually-hidden";
-      read.textContent = held;
-      button.appendChild(read);
+      const many = document.createElement("span");
+      many.className = "muted timeline-kind-count";
+      many.textContent = ` ${count}`;
+      label.appendChild(many);
     }
-    box.appendChild(button);
+    const box_ = document.createElement("input");
+    box_.type = "checkbox";
+    box_.checked = on;
+    box_.dataset.timelineKind = kind.key;
+    //: The last one on cannot be turned off: see `timelineKindChoice`. A
+    //: disabled checkbox rather than a hidden row, so the set stays four.
+    if (on && chosen.length === 1) {
+      box_.disabled = true;
+      row.title = "At least one kind has to be shown";
+    }
+    row.append(icon, label, box_);
+    box.appendChild(row);
+  }
+  syncTimelineKindsLabel(chosen);
+}
+
+//: **What the button says when the menu is shut**, which is the whole of what
+//: a dropdown has to give back for the four fills it replaced. "all" when
+//: nothing is filtered out, otherwise the kinds that are on, in the table's
+//: order and in lower case, because this is a sentence fragment and not a set
+//: of labels.
+function syncTimelineKindsLabel(chosen = timelineKindChoice()) {
+  const label = $("timeline-kinds-label");
+  if (!label) return;
+  const all = chosen.length === TIMELINE_KINDS.length;
+  const words = TIMELINE_KINDS.filter((kind) => chosen.includes(kind.key)).map((kind) =>
+    kind.label.toLowerCase()
+  );
+  label.textContent = `Kinds: ${all ? "all" : words.join(", ")}`;
+  const button = $("timeline-kinds-btn");
+  if (button) {
+    button.title = all
+      ? "Which kinds of thing the journal shows: all four"
+      : `Showing ${words.join(", ")}. Press to change which kinds the journal shows`;
   }
 }
 
@@ -27454,13 +27501,18 @@ $("timeline-band").addEventListener("change", (event) => {
   paintTimeline();
 });
 
-//: One delegated handler on the row, not one per chip: the chips are rebuilt
-//: after every fetch, and a listener bound per chip would accumulate with them
+//: One delegated handler on the list, not one per row: the rows are rebuilt
+//: after every fetch, and a listener bound per row would accumulate with them
 //: (`tests/test_frontend_handlers.py` exists because of exactly that shape).
-$("timeline-kinds")?.addEventListener("click", (event) => {
-  const chip = event.target.closest("[data-timeline-kind]");
-  if (!chip || chip.disabled) return;
-  toggleTimelineKind(chip.dataset.timelineKind);
+//:
+//: `change`, not `click`, since INBOX 214: the control is a checkbox inside
+//: its own `<label>`, so a press on the words fires a click on the label and a
+//: second one on the input it labels, and a click handler would toggle the
+//: kind twice and land back where it started.
+$("timeline-kinds")?.addEventListener("change", (event) => {
+  const box = event.target.closest("[data-timeline-kind]");
+  if (!box || box.disabled) return;
+  toggleTimelineKind(box.dataset.timelineKind);
 });
 
 $("timeline-filter-clear").addEventListener("click", () => {

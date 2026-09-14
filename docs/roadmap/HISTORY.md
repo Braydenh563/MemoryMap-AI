@@ -27169,7 +27169,47 @@ line that carried a dash.
     tiers in dark mode. Both are one CSS token each, for the professional
     pass, not this PR.
 
-
+214. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the tab
+    buttons.** "can you redesign these buttons better if they havent been
+    already??" The screenshot: the Notes, Boards, Documents and Reminders
+    tab buttons as four filled pills with icons, each a different width, the
+    active one indistinguishable at a glance. Target: one segmented control
+    (`.dock` grammar), icon and label, the active segment filled and the
+    rest quiet, equal heights, measured. Owner: chrome, after its list.
+    **Measured and fixed, as a dropdown.** The segmented control the entry
+    asks for was already there (INBOX 186 built it: `.seg.seg-multi`, one
+    well, one height, `aria-pressed` per segment), which is why the owner's
+    second line is the real report: "is there another better ui and ux way to
+    visualise these buttons?? maybe make them in a dropdown or smth?? because
+    they clash with the ui at large zoom and they dont fit visually". A well
+    of four is as wide as its four labels, and measured at 1440 that is 441px
+    of a dock row that also holds a search box, a view switch and an Options
+    menu; at 150% browser zoom (960 CSS px of window) there is not room for
+    all of it. The resting state made it worse rather than better: all four
+    kinds are on by default, so all four segments were accent-filled, four
+    fills saying nothing.
+    It is one `details.dock-menu` now, the recipe the Options button one
+    control along already uses, with a ghost summary that carries the state in
+    words ("Kinds: all", "Kinds: notes, boards") and four
+    `.doc-dock-menu-check` rows behind it, each an icon, a word, its count and
+    a checkbox. Two departures from the recorded decision, both with a reason:
+    `details.dock-menu` rather than `kebabMenu`, because `kebabMenu` closes on
+    every item press, so turning three kinds off would be three openings and
+    the check mark you are pressing for is the one thing you would not see
+    move; and "Kinds:" rather than "Show:", because `#timeline-filter-clear`
+    two controls along already says "Show: <band>".
+    Measured (`scratchpad/ui-sweeps/chrome214kinds.js`, at 1440, 1024 and 960
+    CSS px, the last being 150% zoom on a 1440 screen): the control was 441px
+    wide and is 121px at all three, the same 36px height as the search box
+    beside it; every pair of children of the timeline dock checked for an
+    intersection, 0 overlaps at each width and 0px of page overflow; the menu
+    holds 4 rows, all 36px, each with its glyph and its checkbox; ticking one
+    refetches with `kind=`, drops those rows, rewrites the caption to "Kinds:
+    notes, documents, reminders" and leaves the menu open. The Phase 4 gate
+    (`timelinekinds.js`) and the INBOX 186 sweep (`timelinedock.js`) are
+    updated to the new shape and both green, the last kind on still cannot be
+    turned off, and `.seg-multi` stays in DESIGN.md's index with the second row
+    beside it saying when to reach for each.
 
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
@@ -29074,4 +29114,3 @@ working on it. This project's failure mode is not forgetting to write things
 down — it is writing them somewhere a later session does not read, and then
 rebuilding or re-deriving them. One ordered list, in the file every session is
 told to open first.
-

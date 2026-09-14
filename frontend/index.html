@@ -2191,16 +2191,33 @@
                dimming them in place (TIMELINE_PLAN decision 2). -->
           <input type="search" id="timeline-search" class="timeline-search" placeholder="Find notes…" aria-label="Find matching notes">
           <!-- Which kinds of thing the journal holds (TIMELINE_PLAN.md Phase 4,
-               decision 9), as one control rather than four loose ones. The four
-               are a toggle set that is always all four, never removable and
-               never empty, so the dock grammar's own line applies: `.seg` for a
-               set of choices, a chip only for a filter you can take off. It was
-               a `.dock-chip-row` of `.library-chip`s at four different widths,
-               which is what INBOX 186 is about. `.seg-multi` is the
-               independent-toggles variant of the well (DESIGN.md's index);
-               `renderTimelineKinds` fills it, and a kind is a *server* filter,
-               so pressing one refetches. -->
-          <div id="timeline-kinds" class="seg seg-multi" role="group" aria-label="Kinds of thing to show"></div>
+               decision 9), as one control rather than four loose ones. It was
+               four `.library-chip`s (INBOX 186), then a `.seg.seg-multi` well
+               of four segments, and it is a dropdown now (INBOX 214, the
+               owner: "is there another better ui and ux way to visualise these
+               buttons?? maybe make them in a dropdown or smth?? because they
+               clash with the ui at large zoom and they dont fit visually").
+               The well was the right recipe for a fixed toggle set and the
+               wrong one for this row: four words plus four glyphs is 441px of
+               a dock that also holds a search box, a view switch and Options,
+               so at 150% zoom it ran into them. One button is one width at
+               every zoom, and the state that was carried by four fills is
+               carried by the button's own caption.
+
+               `details.dock-menu`, the recipe the Options button one control
+               along already uses (DESIGN.md's index lists it beside
+               `kebabMenu`), because a `kebabMenu` row closes the menu when it
+               is pressed: turning three kinds off would be three openings, and
+               the check mark you are pressing for is the one thing you would
+               not see move. `.doc-dock-menu-check` is the row that stays open,
+               the same one the documents dock uses for its two switches.
+               `renderTimelineKinds` fills the list and writes the caption, and
+               a kind is a *server* filter, so ticking one refetches. -->
+          <details class="doc-dock-menu dock-menu" id="timeline-kinds-menu">
+            <summary class="ghost small doc-dock-menu-btn" id="timeline-kinds-btn"
+              title="Which kinds of thing the journal shows"><i class="ph ph-funnel ph-lead" aria-hidden="true"></i> <span id="timeline-kinds-label">Kinds: all</span> <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
+            <div class="doc-dock-menu-list dock-menu-list" id="timeline-kinds" role="group" aria-label="Kinds of thing to show"></div>
+          </details>
           <!-- The one filter here that *is* removable, and therefore the one
                chip: the band ("show only Work"). It read as a ghost button
                sitting among four chips before, which is the other half of the

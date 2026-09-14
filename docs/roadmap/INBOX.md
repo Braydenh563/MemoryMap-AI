@@ -82,14 +82,6 @@ with its owner named in the entry.
     opens it in the Chat tab; the palette then shows "Saved" and a link.
     Owner: chrome, after its list.
 
-214. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the tab
-    buttons.** "can you redesign these buttons better if they havent been
-    already??" The screenshot: the Notes, Boards, Documents and Reminders
-    tab buttons as four filled pills with icons, each a different width, the
-    active one indistinguishable at a glance. Target: one segmented control
-    (`.dock` grammar), icon and label, the active segment filled and the
-    rest quiet, equal heights, measured. Owner: chrome, after its list.
-
 213. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the last
     scan.** "finish all the agents, scan for bugs and high complexity one
     last time, and let me know when the pr is ready to merge / make sure to

@@ -296,7 +296,15 @@
 
    The icon and the word sit in the segment together, and the word is hidden
    below 1200 (10-responsive.css) rather than dropped, so the accessible name
-   is the same at every width. */
+   is the same at every width.
+
+   **No user in the page as of INBOX 214**, and kept deliberately. The Timeline
+   was the one, and four words plus four glyphs is as wide as its four labels:
+   441px of a dock that also holds a search box, a view switch and Options, so
+   at 150% browser zoom it collided with them and it moved to a dock menu
+   (DESIGN.md's index has both rows and which to reach for). The recipe is
+   right for a set whose row has the width, which is why this is documentation
+   rather than dead paint. */
 .seg-multi {
   flex-wrap: nowrap;
   margin-bottom: 0;

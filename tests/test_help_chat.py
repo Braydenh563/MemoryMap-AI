@@ -262,7 +262,11 @@ def test_the_guide_is_named_once_and_the_interface_agrees(ai_client, fake_ollama
     index = (frontend / "index.html").read_text(encoding="utf-8")
 
     assert help_chat.GUIDE_NAME == "Atlas"
-    assert f'const GUIDE_NAME = "{help_chat.GUIDE_NAME}"' in settings_js
+    #: Spelt once on each side (INBOX 225): the frontend's `AI_NAME` is the
+    #: word, and `GUIDE_NAME` reads it, so the guide and the librarian can
+    #: never drift apart by one edit.
+    assert f'const AI_NAME = "{help_chat.GUIDE_NAME}"' in settings_js
+    assert "const GUIDE_NAME = AI_NAME" in settings_js
     #: The sheet's own title comes from that constant rather than a literal.
     assert "label: GUIDE_NAME," in settings_js
     #: And the one surface that is markup says the same word.

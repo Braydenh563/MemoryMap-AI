@@ -104,7 +104,8 @@ const SHOTS = [
   await page.waitForTimeout(900);
 
   const done = [];
-  for (const shot of SHOTS) {
+  //: ONLY=graph retakes one file, for a re-seed that only that shot needs.
+  for (const shot of SHOTS.filter((s) => !process.env.ONLY || s.file === process.env.ONLY)) {
     await page.click(`[data-tab="${shot.tab}"]`).catch(() => {});
     await page.waitForTimeout(2500);
     if (shot.sub === 'board') {

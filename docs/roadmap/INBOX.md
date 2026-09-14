@@ -34,6 +34,93 @@ with its owner named in the entry.
 
 ## Open items
 
+241. **Mid-work drop, 2026-09-14, verbatim (the owner), Ask persistence.**
+    "the grounding, intext numbered referencing, and sources that appeared
+    in the ask subtab in notes, dissappeared on reload and didnt persist.
+    they didnt persist when I reaccessed them through the history panel."
+    Owner: notes agent.
+
+240. **Mid-work drop, 2026-09-14, verbatim (the owner), Write with AI
+    boxes.** "when I clicked on the 'your thoughts' text box in the write
+    with ai notes subtab, the box instantly shortened in height from what
+    it was. same with the 'the draft' textbox as well." Owner: notes agent.
+
+239. **Mid-work drop, 2026-09-14, verbatim (the owner), the table full
+    view.** "I opened up the table full view but there was no way to close
+    it so I had to hard refresh the app." Owner: notes agent (documents).
+
+238. **Mid-work drop, 2026-09-14, verbatim (the owner), board and map
+    notes.** "when I expand the size of notes in the whiteboard and mindmap,
+    the text goes out of the panel border, the state of note objects in the
+    whiteboard and mindmap for if they are expanded or not should be
+    persistant, and when exporting a whiteboard and/or mindmap, the user
+    should be warned if any of their notes arent expanded and that not all
+    their contents will be shown, the export shouldnt include things like
+    the show less/more text as well." Owner: notes agent (whiteboard.js).
+
+237. **Mid-work drop, 2026-09-14, verbatim (the owner), the librarian
+    persona.** "the librarian persona hasnt been adjusted to be atlas acting
+    as the librarian." The built-in persona card reads "Librarian, built-in,
+    You are the librarian of the user's personal notebook." Target: the
+    built-in is named Atlas with the one clause from 225, in both the
+    backend's built-in list and `frontend/app.js`'s mirror of it. Owner:
+    chrome2.
+
+236. **Mid-work drop, 2026-09-14, verbatim (the owner), the chat empty
+    state's '?'.** "the about this chat '?' tooltip button in the chat empty
+    interface, and it shouldnt be there, its right in the middle of
+    everything, move it somewhere else like in a corner or smth." Owner:
+    chrome2.
+
+235. **Mid-work drop, 2026-09-14, verbatim (the owner), Settings.** "I feel
+    like the advanced response settings should be above the installed models
+    tab, and/or in the preferences settings page with the advanced search."
+    Decision: the group moves above Installed models on the Models page.
+    And: "in the help settings page, there is no gap between the atlas
+    section and the faq dropdowns." Owner: chrome2.
+
+234. **Mid-work drop, 2026-09-14, verbatim (the owner), Atlas badges.**
+    "the web search and skills hyperlinked badges in the atlas interface
+    dont work" (Chat works). Those two carry `data-goto-section` without
+    `data-goto-tab`, and the document handler only matches the tab
+    attribute. Owner: chrome2, first.
+
+233. **Mid-work drop, 2026-09-14, verbatim (the owner), the documents
+    kebab.** "the documents kebab button in the top right corner goes off the
+    bottom of my screen." The menu needs a max height inside the viewport
+    with its own scroll, or to open upward when there is no room below.
+    Owner: chrome2 (the menu recipe).
+
+232. **Mid-work drop, 2026-09-14, verbatim (the owner), the live view.**
+    "the md rendering on the live view, like in the documents page, needs to
+    be improved, especially for codeblocks and potentially for other things
+    as well." Screenshot: a fenced block renders as a dark slab with the
+    fence lines as empty numbered rows above and below, link chips wrap
+    oddly. Owner: notes agent (documents.js).
+
+231. **Mid-work drop, 2026-09-14, verbatim (the owner), the popup agent's
+    starters.** "these suggested questions in the popup agent are really ugly
+    and that area needs a better modern and more professional redesign."
+    Screenshot: bordered pill buttons in a two-column grid under uppercase
+    ruled headers. Target: quiet rows with no border at rest, an icon in
+    muted accent, a fill on hover only, group labels small without rules,
+    one column below 480px. Owner: chrome2.
+
+230. **Mid-work drop, 2026-09-14, verbatim (the owner), the popup agent's
+    kebab.** "this more actions kebab button at the bottom of the popup agent
+    doesnt show any dropdown menu." Measured (`scratchpad/palkebab.js`): the
+    menu opens (2 items, 200x87 at 795,753) at z-index 1020 under the
+    palette overlay at 2000, so it draws behind the panel. Owner: chrome2.
+
+229. **Mid-work drop, 2026-09-14, verbatim (the owner), the graph
+    screenshot.** "redo the graph readme screenshot and make it really
+    impressive." Owner: orchestrator.
+
+228. **Mid-work drop, 2026-09-14, verbatim (the owner), the close.** "after
+    you have finished all these, done the final bug sweep, make sure
+    everything is finished for the pr, and finish the pr, merging it into
+    main." Owner: orchestrator, last.
+
 226. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), a flicker.**
     "theres a flickering just above the bottom bar??" / "i was on the
     dashboard". Reproduce first: sample the band above `#status-bar` on the
@@ -108,18 +195,6 @@ with its owner named in the entry.
     WORLD_CLASS_PLAN 18 written. Left: the ROADMAP rewrite and the
     HANDOVER "how to proceed" block, after the four agents merge.
 
-219. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the
-    README and the PR.** "can you update the screenshots in the readme and
-    also update the readme itself?? make sure it is proper professional and
-    not ai slop. make it impressive, and make sure the screenshot choices are
-    actually intentional... like the ocr workspace could be one?? and update
-    the pr title and description." And: "make sure to update and refine the
-    world class plan, extend it and make it revolutionary." Screenshots
-    captured from the running app in both themes with seeded data (the OCR
-    workspace, the mind map, the graph, the documents editor, the popup
-    agent); README rewritten in plain prose; PR 144's title and body
-    rewritten from the CHANGELOG. Owner: orchestrator, after the merges.
-
 213. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the last
     scan.** "finish all the agents, scan for bugs and high complexity one
     last time, and let me know when the pr is ready to merge / make sure to
@@ -127,51 +202,6 @@ with its owner named in the entry.
     And: "once absolutely everything is done and the roadmap documents are
     cleaned etc, all the agent branches are merged into this one etc, merge
     this pr for me." Owner: orchestrator; the merge is the last act.
-
-210. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the
-    background art.** "oh! can you fix the aurora flowing ribbons
-    animation?? it needs refining and fixing, the trails never end and the
-    trails get reset by the rotating middle graphic. I like the waves graphic
-    and the constelations one isnt bad either but the others could do with
-    some improvements." The styles live in `frontend/settings.js`
-    (`startBgArt`, one `style.frame(t)` per name) and the dashboard's copy in
-    `dashboard.js`. Aurora: the translucent wash never clears a trail fully
-    (the alpha floor leaves a residue), and the emblem's redraw clears a
-    rectangle through it. Fix: a fade that reaches the ground within N
-    frames (measure the pixel after the ribbon has passed with
-    `pngpixel.py`), and the emblem drawn on its own canvas layer above the
-    art rather than clearing into it. Then a pass over each style but waves
-    and constellations. And: "also with animation movement, I might want the
-    ai generating animations and all the little small ones, but just not the
-    background to move." A "Background moves" switch of its own beside the
-    style picker, separate from Reduce motion: off draws one frame and stops
-    the loop; everything else keeps its motion. Owner: orchestrator, then an
-    agent.
-    **Aurora: fixed. The switch: it exists.** The ring is drawn on its own
-    layer and composited each frame, so it no longer stamps itself into the
-    trail buffer; the stronger sixth-frame wash that made a mark reach the
-    ground in a second was **reverted the same hour**: at 30 frames a second
-    it pulsed five times a second ("there's a flashing", "the flashing is
-    everywhere"). The residue is arithmetic (a 10% blend cannot move a pixel
-    that is within three levels of the ground), so the fix has to be a
-    different technique, not a stronger wash: the trails on their own
-    layer, cleared and redrawn from a short history of positions, which
-    ends a trail by construction. Open, for the agent. The
-    background's own movement is Settings, Appearance, Background,
-    Movement: Still, separate from Reduce motion; "everything else moves"
-    is what that choice already does. Left open: the pass over bubbles and
-    mesh (waves and constellations are liked as they are).
-
-209. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the whole
-    application.** "ok fable, I want to make the most of you now, I need you
-    to poke holes in this application, find weakness, find poor backend
-    design, find high complexity, find bugs we have missed, maximise speed,
-    security, improve the agent harness and ensure it is the best it can be
-    for all local model sizes. polish the app and fix usability issues, fill
-    missing gaps." Taken as the orchestrator's own audit, recorded in
-    WORLD_CLASS_PLAN.md under "Audit, 2026-09-13 night" with a finding per
-    row (evidence, cost, fix, who), the cheap and safe fixes made in the
-    same pass, the rest briefed to agents. Owner: orchestrator.
 
 ## Placed (last 20, newest first)
 

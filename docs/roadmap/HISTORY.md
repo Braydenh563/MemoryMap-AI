@@ -27380,6 +27380,64 @@ line that carried a dash.
     Library. `docs` is declared in documents.js, which is in the Library's lazy
     bundle, and `paletteMatches` read it unguarded.
 
+219. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the
+    README and the PR.** "can you update the screenshots in the readme and
+    also update the readme itself?? make sure it is proper professional and
+    not ai slop. make it impressive, and make sure the screenshot choices are
+    actually intentional... like the ocr workspace could be one?? and update
+    the pr title and description." And: "make sure to update and refine the
+    world class plan, extend it and make it revolutionary." Screenshots
+    captured from the running app in both themes with seeded data (the OCR
+    workspace, the mind map, the graph, the documents editor, the popup
+    agent); README rewritten in plain prose; PR 144's title and body
+    rewritten from the CHANGELOG. Owner: orchestrator, after the merges.
+    **Done, 2026-09-14:** README rewritten with fourteen retaken screenshots (the OCR workspace among them); PR 144 title and body rewritten; WORLD_CLASS_PLAN 18 written.
+210. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the
+    background art.** "oh! can you fix the aurora flowing ribbons
+    animation?? it needs refining and fixing, the trails never end and the
+    trails get reset by the rotating middle graphic. I like the waves graphic
+    and the constelations one isnt bad either but the others could do with
+    some improvements." The styles live in `frontend/settings.js`
+    (`startBgArt`, one `style.frame(t)` per name) and the dashboard's copy in
+    `dashboard.js`. Aurora: the translucent wash never clears a trail fully
+    (the alpha floor leaves a residue), and the emblem's redraw clears a
+    rectangle through it. Fix: a fade that reaches the ground within N
+    frames (measure the pixel after the ribbon has passed with
+    `pngpixel.py`), and the emblem drawn on its own canvas layer above the
+    art rather than clearing into it. Then a pass over each style but waves
+    and constellations. And: "also with animation movement, I might want the
+    ai generating animations and all the little small ones, but just not the
+    background to move." A "Background moves" switch of its own beside the
+    style picker, separate from Reduce motion: off draws one frame and stops
+    the loop; everything else keeps its motion. Owner: orchestrator, then an
+    agent.
+    **Aurora: fixed. The switch: it exists.** The ring is drawn on its own
+    layer and composited each frame, so it no longer stamps itself into the
+    trail buffer; the stronger sixth-frame wash that made a mark reach the
+    ground in a second was **reverted the same hour**: at 30 frames a second
+    it pulsed five times a second ("there's a flashing", "the flashing is
+    everywhere"). The residue is arithmetic (a 10% blend cannot move a pixel
+    that is within three levels of the ground), so the fix has to be a
+    different technique, not a stronger wash: the trails on their own
+    layer, cleared and redrawn from a short history of positions, which
+    ends a trail by construction. Open, for the agent. The
+    background's own movement is Settings, Appearance, Background,
+    Movement: Still, separate from Reduce motion; "everything else moves"
+    is what that choice already does. Left open: the pass over bubbles and
+    mesh (waves and constellations are liked as they are).
+    **Placed, 2026-09-14:** BACKLOG 115 row 13 holds the residue and the bubbles and mesh pass.
+209. **Mid-work drop, 2026-09-13 night, verbatim (the owner), the whole
+    application.** "ok fable, I want to make the most of you now, I need you
+    to poke holes in this application, find weakness, find poor backend
+    design, find high complexity, find bugs we have missed, maximise speed,
+    security, improve the agent harness and ensure it is the best it can be
+    for all local model sizes. polish the app and fix usability issues, fill
+    missing gaps." Taken as the orchestrator's own audit, recorded in
+    WORLD_CLASS_PLAN.md under "Audit, 2026-09-13 night" with a finding per
+    row (evidence, cost, fix, who), the cheap and safe fixes made in the
+    same pass, the rest briefed to agents. Owner: orchestrator.
+    **Done, 2026-09-14:** the audit is WORLD_CLASS_PLAN "Audit, 2026-09-13 night", rows A1 to A9 all landed in this PR.
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

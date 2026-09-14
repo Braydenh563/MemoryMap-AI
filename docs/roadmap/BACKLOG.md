@@ -4171,6 +4171,7 @@ a session or less and names its gate.
 | 10 | Encrypted export and import of the whole notebook (one file, one password) | export, wipe, import, diff equals zero in a test |
 | 11 | The activity log as an audit trail a professional can hand over (who, what, when, export CSV) | every event kind exported with its fields |
 | 12 | Startup and boot under the speed budget on a five-year-old laptop | `boottime.js` numbers in the CHANGELOG per step |
+| 13 | The aurora background's residue (INBOX 210): trails on their own layer redrawn from a short position history, then a pass over the bubbles and mesh styles | `pngpixel.py` reads the ground colour where a ribbon passed two seconds earlier |
 
 Rows 1, 2, 7 and 10 are the ones people ask about before they trust a
 notebook with work; do those first.

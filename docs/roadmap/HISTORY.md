@@ -27671,6 +27671,21 @@ line that carried a dash.
     button positions against `#chat-messages`, the pane's top-right
     (reasoned, not measured).
 
+249. **Mid-work drop, 2026-09-14, verbatim (the owner).** "is there a
+    hotkey ot keybind, as well as an 'm' key navigation to open the atlas
+    window and popup agent??" Answer: Ctrl+Shift+A (popup agent) and
+    Ctrl+Shift+H (Atlas) exist in the shortcuts registry and sheet; the
+    chord had neither. **Fixed:** `m` then `a` opens Atlas, `m` then `p`
+    the popup agent, shown in the chord guide like the rest.
+250. **Mid-work drop, 2026-09-14, verbatim (the owner).** "If I click a
+    hyperlink to a place that isnt in the settings modal or popup Im
+    currently viewing, the modal or other popup I clicked the link in should
+    close, or vise versa." **Fixed:** the `[data-goto-tab]` /
+    `[data-goto-section]` handler closes every overlay the chord closer
+    knows (Settings, the palette, the sketch pad, Atlas's sheet) before it
+    opens the target; a section link inside Settings still stays in
+    Settings.
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

@@ -40069,6 +40069,12 @@ const CHORD_ACTIONS = {
   s: { label: "Settings", run: () => openSettingsModal() },
   q: { label: "Quick sketch", run: () => openSketch() },
   v: { label: "Meeting notes", run: () => openMeetingRecorder() },
+  //: The two assistants (INBOX 249, the owner: "is there a hotkey ot keybind,
+  //: as well as an 'm' key navigation to open the atlas window and popup
+  //: agent??"). Ctrl+Shift+A and Ctrl+Shift+H are theirs in the registry
+  //: above; these are the chord's spellings of the same two.
+  a: { label: "Atlas", run: () => askAtlasAbout("") },
+  p: { label: "Popup agent", run: () => toggleAgentPalette() },
 };
 const TAB_JUMP_WINDOW_MS = 900;
 let tabJumpArmedAt = 0;
@@ -40085,6 +40091,8 @@ function closeOverlaysForChord() {
   if (palette && !palette.classList.contains("hidden")) closePalette();
   const sketch = document.getElementById("sketch-overlay");
   if (sketch && !sketch.classList.contains("hidden")) closeSketch();
+  //: Atlas's sheet, when it is open (settings.js owns the closer).
+  if (typeof helpChatSheetClose === "function") helpChatSheetClose();
 }
 
 //: **The chord's guide, and why it is not a toast any more.** Reported with a

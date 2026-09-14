@@ -237,6 +237,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The `m` chord reaches both assistants: `m` then `a` opens Atlas, `m` then
+  `p` the popup agent (INBOX 249). A link out of any overlay closes that
+  overlay first (INBOX 250).
 - The night pass reads what it already knows in one query instead of one per
   note. Measured on a re-run with nothing new to derive: 9 statements over 5
   notes and 44 over 45 before, flat after.

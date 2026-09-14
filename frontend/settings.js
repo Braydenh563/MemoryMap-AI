@@ -2959,8 +2959,11 @@ document.addEventListener("click", (event) => {
   const link = event.target.closest("[data-goto-tab], [data-goto-section]");
   if (!link) return;
   if (!link.dataset.gotoTab && link.closest("#settings-modal")) return;
-  if (link.closest("#settings-modal")) closeSettingsModal();
-  if (link.closest('[data-sheet="guide"]') && typeof helpChatSheetClose === "function") helpChatSheetClose();
+  //: Whatever the link was clicked inside closes, not only Settings and the
+  //: Atlas sheet: the popup agent, the sketch pad (INBOX 250, the owner: "the
+  //: modal or other popup I clicked the link in should close"). The chord's
+  //: closer already knows every overlay that can hold the keyboard.
+  closeOverlaysForChord();
   if (link.dataset.gotoSection) {
     openSettingsModal(link.dataset.gotoSection);
     return;

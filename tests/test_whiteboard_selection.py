@@ -96,6 +96,18 @@ def test_the_board_owns_undo_while_it_is_open() -> None:
     map". Two listeners matched the chord and whichever stack was non-empty
     answered. The board's own binding is gone and app.js hands it over."""
     app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
-    assert '(id === "undo" ? window.wbUndo : window.wbRedo)?.();' in app
+    assert "await window.wbUndo();" in app
     assert "window.wbUndo = wbUndo;" in WB
     assert "wbUndo();\n      return;" not in WB
+
+
+def test_every_undo_door_leads_to_the_board_while_one_is_open() -> None:
+    """Asked for directly: "make sure redo is handled too. the undo and redo
+    buttons in the bottom bar should work across the whole application". The
+    status bar's buttons, the Ctrl+Z chord and the palette all go through
+    performUndo/performRedo, which is where the handoff lives."""
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    assert "function boardHistoryActive()" in app
+    assert app.count("if (boardHistoryActive()) {") >= 2
+    assert "window.wbCanUndo?.()" in app and "window.wbCanRedo?.()" in app
+    assert "window.wbCanUndo = () => wbUndoStack.length > 0;" in WB

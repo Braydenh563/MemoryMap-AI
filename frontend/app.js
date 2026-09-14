@@ -32380,7 +32380,26 @@ function pushEntryPutUndo(entryId, label, beforeBody, afterBody) {
   );
 }
 
+//: **Whose stack a press belongs to.** The board keeps its own history
+//: (moves, resizes, deletes on the canvas), which the app's stack knows
+//: nothing about, so while a board is open every door to undo has to lead
+//: there: the status bar's two buttons, the Ctrl+Z chord, and the command
+//: palette alike. Asked for directly: "make sure redo is handled too. the
+//: undo and redo buttons in the bottom bar should work across the whole
+//: application". Deciding it here rather than at each door is what stops the
+//: three drifting: the buttons used to drive the app's stack while the chord
+//: drove both.
+function boardHistoryActive() {
+  const board = document.getElementById("library-view-whiteboard");
+  return Boolean(board && !board.classList.contains("hidden") && window.wbUndo);
+}
+
 async function performUndo() {
+  if (boardHistoryActive()) {
+    await window.wbUndo();
+    renderUndoBar();
+    return;
+  }
   const action = undoStack.pop();
   if (!action) return;
   try {
@@ -32397,6 +32416,11 @@ async function performUndo() {
 }
 
 async function performRedo() {
+  if (boardHistoryActive()) {
+    await window.wbRedo?.();
+    renderUndoBar();
+    return;
+  }
   const action = redoStack.pop();
   if (!action) return;
   try {
@@ -32414,10 +32438,31 @@ function renderUndoBar() {
   const undoBtn = $("status-undo");
   const redoBtn = $("status-redo");
   if (!undoBtn || !redoBtn) return;
-  const last = undoStack[undoStack.length - 1];
-  const next = redoStack[redoStack.length - 1];
-  undoBtn.disabled = !last;
-  redoBtn.disabled = !next;
+  //: A board's own stack has no labels to name in the tooltip (its entries
+  //: are "move this shape back", not a sentence), so the pair falls back to
+  //: the plain verbs while one is open, and takes its enabled state from the
+  //: board's counts: a button that is lit when there is nothing behind it is
+  //: the thing that makes people stop trusting it.
+  const onBoard = boardHistoryActive();
+  const last = onBoard ? null : undoStack[undoStack.length - 1];
+  const next = onBoard ? null : redoStack[redoStack.length - 1];
+  undoBtn.disabled = onBoard ? !window.wbCanUndo?.() : !last;
+  redoBtn.disabled = onBoard ? !window.wbCanRedo?.() : !next;
+  if (onBoard) {
+    paintStatusItem("status-undo", {
+      icon: "ph:arrow-u-up-left",
+      title: window.wbCanUndo?.()
+        ? `Undo the last change on this board (${shortcuts.undo.keys})`
+        : "Nothing to undo",
+    });
+    paintStatusItem("status-redo", {
+      icon: "ph:arrow-u-up-right",
+      title: window.wbCanRedo?.()
+        ? `Redo the last change on this board (${shortcuts.redo.keys})`
+        : "Nothing to redo",
+    });
+    return;
+  }
   paintStatusItem("status-undo", {
     icon: "ph:arrow-u-up-left",
     //: The right-click gesture is named here because a hidden gesture is not a
@@ -39592,19 +39637,9 @@ document.addEventListener("keydown", (e) => {
       if ((id === "undo" || id === "redo") && inTextField) continue;
       if (matchesShortcut(e, def.keys)) {
         e.preventDefault();
-        //: **A board owns undo while it is open.** Reported: "ctrl z undo and
-        //: redo cont trigger in the whiteboard/mind map". The board has its
-        //: own stack (moves, resizes, deletes on the canvas) and had its own
-        //: listener for this chord, so both ran and whichever stack happened
-        //: to be non-empty answered: press Ctrl+Z after moving a shape and a
-        //: note you deleted ten minutes ago came back instead. One owner for
-        //: one shortcut, the same handoff `openGlobalFind` already does for
-        //: the board's search.
-        const board = document.getElementById("library-view-whiteboard");
-        if ((id === "undo" || id === "redo") && board && !board.classList.contains("hidden")) {
-          (id === "undo" ? window.wbUndo : window.wbRedo)?.();
-          return;
-        }
+        //: The chord goes through the same `performUndo`/`performRedo` the
+        //: status bar's buttons press, which is where the board handoff
+        //: lives (`boardHistoryActive`), so all three doors agree.
         runShortcut(id);
         return;
       }

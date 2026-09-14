@@ -7267,6 +7267,10 @@ function wbUpdateUndoRedoButtons() {
   const redoBtn = document.getElementById("wb-redo");
   if (undoBtn) undoBtn.disabled = wbUndoStack.length === 0;
   if (redoBtn) redoBtn.disabled = wbRedoStack.length === 0;
+  //: The status bar's pair is the same pair, one floor down (`renderUndoBar`
+  //: reads `wbCanUndo`/`wbCanRedo` while a board is open), so it is repainted
+  //: with these rather than left showing the app stack's state.
+  if (typeof renderUndoBar === "function") renderUndoBar();
 }
 
 function wbPushUndo(entry) {
@@ -7535,6 +7539,11 @@ async function wbApplyHistoryEntry(from, to) {
 //: hands it here while a board is open (see the board's keydown handler).
 window.wbUndo = wbUndo;
 window.wbRedo = wbRedo;
+//: And whether there is anything on either stack, so the status bar's two
+//: buttons can be lit or dimmed by the board's own history rather than by the
+//: app's, which knows nothing about a shape that moved.
+window.wbCanUndo = () => wbUndoStack.length > 0;
+window.wbCanRedo = () => wbRedoStack.length > 0;
 
 async function wbUndo() {
   try {

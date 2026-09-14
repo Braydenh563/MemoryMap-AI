@@ -44,6 +44,17 @@ with its owner named in the entry.
     scroll-top button toggling on a scroll-height change, the status bar's
     new Guide slot being redrawn by the header's model poll. Owner:
     orchestrator, now.
+    **Not reproduced on the merged head, 2026-09-14** (`scratchpad/
+    flicker2.js`, `flicker3.js`, 1440x900, dashboard, 60 frames at 60 to
+    100 ms): with the art off, the only pixels changing in the 120px band
+    above the status bar are none (the status bar's own AI spinner is the
+    one moving thing on screen); with the art on and Movement: Still, zero
+    frame changes and zero `startBgArt`/`stopBgArt` calls or canvas swaps
+    in four seconds; with the art moving, every strip changes, which is the
+    art. The ten inline-style writes seen on `.dash-widget` sections are the
+    one-time span pass, not a loop. Left open for the owner: which theme,
+    which background style, and whether the desktop window or a browser
+    tab; a screenshot with the flicker in it names the element.
 
 225. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), a core
     persona.** "I was wondering if atlas or another named persona can be the

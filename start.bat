@@ -514,6 +514,24 @@ call :bail_if_cancelled
 if defined MM_CANCELLED goto :cancelled
 REM  !MM_ARGS! rather than nothing: the child re-parses the flags this run
 REM  was given, so --port, --no-browser and the rest survive the relaunch.
+REM
+REM  **A relaunch with nothing to relaunch carries on instead of dying.**
+REM  Reported with a screenshot: "Checking for updates..." and then
+REM  '""' is not recognized as an internal or external command, followed by
+REM  "MemoryMap AI has stopped." That is this line with MM_SELF empty: cmd
+REM  sees `call "" ` and reports the empty program name, the script exits,
+REM  and the app never starts at all. MM_SELF is captured from %~f0 at the
+REM  top and nothing after :parse_args may read %~f0 again (the test holds
+REM  that line), so the only repair available here is to skip the relaunch
+REM  and go on launching this copy: the update has already landed on disk,
+REM  and the worst case is that it takes effect on the next start rather
+REM  than this one. A launcher that starts the app is better than one that
+REM  is right about needing to restart and leaves the person with nothing.
+if not defined MM_SELF (
+  echo         Carrying on with this launch: the update will take effect next time.
+  call :log "self-update relaunch skipped: MM_SELF was empty"
+  goto :after_update
+)
 call "!MM_SELF!" !MM_ARGS!
 set "MM_RC=!errorlevel!"
 endlocal & exit /b %MM_RC%

@@ -816,3 +816,23 @@ class TestBothUninstallersRejectAnExportWithNoPath:
     def test_both_say_the_same_thing(self):
         assert "--export needs a path" in _read(UNINSTALL_SH)
         assert "--export needs a path" in _read(UNINSTALL_BAT)
+
+
+def test_the_self_update_relaunch_cannot_run_an_empty_command():
+    """Reported with a screenshot: "Checking for updates..." then
+    `'""' is not recognized as an internal or external command` and
+    "MemoryMap AI has stopped".
+
+    That is the self-update relaunch with `MM_SELF` empty: cmd reports the
+    empty program name and the script exits, so the app never starts. The
+    update has already landed on disk by then, so the repair is to skip the
+    relaunch and carry on launching this copy rather than to die.
+    """
+    start_bat = (ROOT / "start.bat").read_text(encoding="utf-8", errors="replace")
+    relaunch = start_bat.index('call "!MM_SELF!" !MM_ARGS!')
+    guard = start_bat.rindex("if not defined MM_SELF (", 0, relaunch)
+    between = start_bat[guard:relaunch]
+    assert "goto :after_update" in between, (
+        "the empty-MM_SELF guard must carry on with the launch, not fall "
+        "through to the call it is guarding"
+    )

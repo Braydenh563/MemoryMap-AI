@@ -22,7 +22,7 @@ def test_ask_with_only_whitespace_is_a_no_op_not_a_model_call(ai_client, fake_ol
     # itself is what actually guards against calling the model on nothing.
     response = ai_client.post("/help/ask", json={"question": " "})
     assert response.status_code == 200
-    assert response.json() == {"content": "", "badges": []}
+    assert response.json() == {"content": "", "badges": [], "sources": []}
 
 
 def test_ask_with_working_model(ai_client, fake_ollama):
@@ -306,8 +306,9 @@ def test_the_empty_chat_says_what_it_is_and_the_first_turn_retires_it():
     assert "cannot read your notes or your documents" in index
     start = settings_js.index("function helpChatAppendRow(")
     assert 'empty.hidden = true' in settings_js[start : settings_js.index("\n}\n", start)]
-    start = settings_js.index('$("help-chat-clear")?.addEventListener')
-    clear = settings_js[start : settings_js.index("\n});", start)]
+    #: New chat is a menu row since INBOX 224, not a button in the head.
+    start = settings_js.index("function helpChatNewChat(")
+    clear = settings_js[start : settings_js.index("\n}\n", start)]
     #: `replaceChildren()` here took the description away with the transcript
     #: and left a blank rectangle under the field.
     assert "list.replaceChildren()" not in clear

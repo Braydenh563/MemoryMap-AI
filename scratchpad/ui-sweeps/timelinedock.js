@@ -54,8 +54,11 @@ const SPACING = { '0.25rem': 4, '0.4rem': 6.4, '0.5rem': 8, '0.6rem': 9.6, '0.8r
         return { x: r1(b.x), y: r1(b.y), w: r1(b.width), h: r1(b.height) };
       };
       const dock = document.querySelector('#tab-timeline .dock');
-      const well = document.getElementById('timeline-kinds');
-      const segs = [...well.querySelectorAll('button')];
+      // INBOX 214: the four kinds are a dropdown now, not a well of four
+      // segments. The control is the button; its rows are measured with the
+      // menu open, in chrome214kinds.js.
+      const well = document.getElementById('timeline-kinds-btn');
+      const segs = [];
       const clear = document.getElementById('timeline-filter-clear');
       // Every other control the dock shows on its top row, by the same
       // definition docks.js uses: the thing you press, not its parts.
@@ -63,15 +66,7 @@ const SPACING = { '0.25rem': 4, '0.4rem': 6.4, '0.5rem': 8, '0.6rem': 9.6, '0.8r
       return {
         dockH: box(dock).h,
         wellBox: box(well),
-        wellGap: getComputedStyle(well).gap,
-        segRows: [...new Set(segs.map((b) => Math.round(b.getBoundingClientRect().y)))].length,
-        segBoxes: segs.map((b) => box(b)),
-        segNames: segs.map((b) => (b.getAttribute('aria-label') || b.textContent).trim()),
-        segPressed: segs.map((b) => b.getAttribute('aria-pressed')),
-        labelShown: segs.map((b) => {
-          const l = b.querySelector('.seg-label');
-          return !!(l && l.getBoundingClientRect().width > 1);
-        }),
+        wellCaption: (document.getElementById('timeline-kinds-label') || {}).textContent || '',
         otherHeights: [...new Set(others.map((o) => Math.round(o.getBoundingClientRect().height)))],
         chipsInZone: [...document.querySelectorAll('#tab-timeline .dock-find .library-chip')].length,
         clearIsChip: clear ? clear.classList.contains('library-chip') : null,
@@ -79,47 +74,23 @@ const SPACING = { '0.25rem': 4, '0.4rem': 6.4, '0.5rem': 8, '0.6rem': 9.6, '0.8r
       };
     });
     const tag = `@${width}`;
-    console.log(tag, 'dock', r.dockH + 'px', 'well', JSON.stringify(r.wellBox), 'segs', JSON.stringify(r.segBoxes.map((b) => b.w + 'x' + b.h)));
+    console.log(tag, 'dock', r.dockH + 'px', 'kinds button', JSON.stringify(r.wellBox), `"${r.wellCaption}"`);
 
-    check(`${tag} the kinds are one row`, r.segRows === 1, `${r.segRows} row(s), dock ${r.dockH}px`);
-    // The *well* is the control; its cells are inset by the well's own padding
-    // on purpose (08-consistency.css, and docks.js's own note about counting a
-    // segment three times). So the height that has to match the bar is the
-    // well's, and what the cells have to do is stay inside it.
-    const segH = [...new Set(r.segBoxes.map((b) => Math.round(b.h)))];
     check(
-      `${tag} the well is the dock's own height`,
+      `${tag} the kinds button is the dock's own height`,
       r.otherHeights.length === 1 && Math.round(r.wellBox.h) === r.otherHeights[0],
-      `well ${r.wellBox.h}, the rest of the dock ${r.otherHeights.join('/')}`
+      `button ${r.wellBox.h}, the rest of the dock ${r.otherHeights.join('/')}`
     );
     check(
-      `${tag} the cells stay inside the well`,
-      segH.length === 1 && segH[0] <= Math.round(r.wellBox.h),
-      `cells ${segH.join('/')} in a ${r.wellBox.h}px well`
-    );
-    const gapPx = parseFloat(r.wellGap);
-    check(
-      `${tag} the gap is on the spacing scale`,
-      Object.values(SPACING).some((v) => Math.abs(v - gapPx) < 0.35) || gapPx < 3,
-      `${r.wellGap} (scale: ${Object.values(SPACING).join(', ')}; under 3px is the well's own hairline)`
-    );
-    check(
-      `${tag} every segment is named whatever is drawn`,
-      r.segNames.every((n) => n && n.length > 2),
-      r.segNames.join(' | ')
-    );
-    check(`${tag} every segment says whether it is on`, r.segPressed.every((p) => p === 'true' || p === 'false'), r.segPressed.join('/'));
-    const wantWords = width >= 1200;
-    check(
-      `${tag} the words are ${wantWords ? 'in' : 'out'}`,
-      r.labelShown.every((s) => s === wantWords),
-      r.labelShown.join('/')
+      `${tag} the button says what the filter is set to`,
+      /^Kinds: /.test(r.wellCaption.trim()),
+      `"${r.wellCaption.trim()}"`
     );
     if (width < 600) {
       check(
-        `${tag} every segment is a 44px target`,
-        r.segBoxes.every((b) => b.w >= 44 && b.h >= 44),
-        r.segBoxes.map((b) => b.w + 'x' + b.h).join(' ')
+        `${tag} the kinds button is a 44px target`,
+        r.wellBox.h >= 44,
+        `${r.wellBox.w}x${r.wellBox.h}`
       );
     }
     check(`${tag} no sideways scroll`, r.pageWide <= width, `${r.pageWide} in ${width}`);
@@ -131,21 +102,24 @@ const SPACING = { '0.25rem': 4, '0.4rem': 6.4, '0.5rem': 8, '0.6rem': 9.6, '0.8r
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.waitForTimeout(400);
   const before = await page.evaluate(() => document.querySelectorAll('#tab-timeline .timeline-row').length);
-  await page.click('#timeline-kinds button[data-timeline-kind="note"]');
+  await page.click('#timeline-kinds-btn');
+  await page.waitForTimeout(300);
+  await page.click('#timeline-kinds input[data-timeline-kind="note"]');
   await page.waitForTimeout(1500);
   const after = await page.evaluate(() => ({
     rows: document.querySelectorAll('#tab-timeline .timeline-row').length,
-    pressed: document.querySelector('#timeline-kinds button[data-timeline-kind="note"]').getAttribute('aria-pressed'),
+    checked: document.querySelector('#timeline-kinds input[data-timeline-kind="note"]').checked,
+    caption: document.getElementById('timeline-kinds-label').textContent,
   }));
-  check('a segment still filters', after.rows < before && after.pressed === 'false', `${before} rows, then ${after.rows}, pressed ${after.pressed}`);
+  check('a kind still filters', after.rows < before && after.checked === false, `${before} rows, then ${after.rows}, "${after.caption}"`);
 
   const lastOne = await page.evaluate(async () => {
     for (const key of ['board', 'document']) {
-      document.querySelector(`#timeline-kinds button[data-timeline-kind="${key}"]`).click();
+      document.querySelector(`#timeline-kinds input[data-timeline-kind="${key}"]`).click();
       await new Promise((r) => setTimeout(r, 1200));
     }
-    const left = [...document.querySelectorAll('#timeline-kinds button')].filter((b) => b.getAttribute('aria-pressed') === 'true');
-    return { on: left.length, disabled: left.every((b) => b.disabled) };
+    const left = [...document.querySelectorAll('#timeline-kinds input')].filter((i) => i.checked);
+    return { on: left.length, disabled: left.every((i) => i.disabled) };
   });
   check('the last kind on cannot be turned off', lastOne.on === 1 && lastOne.disabled, JSON.stringify(lastOne));
 

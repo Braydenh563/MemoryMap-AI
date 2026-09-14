@@ -3370,12 +3370,17 @@ function helpChatAppendRow(row) {
   //: answers "what is this" and the answer above it now does that better.
   const empty = $("help-chat-empty");
   if (empty) empty.hidden = true;
+  //: The starters go with it: they are the empty state's other half, and three
+  //: chips above a running transcript is the wall the popup agent's own
+  //: starters were told about.
+  $("help-chat-starters")?.classList.add("hidden");
+  renderHelpChatMenu();
   const stick = helpChatIsNearBottom();
   list.appendChild(row);
   if (stick) list.scrollTop = list.scrollHeight;
 }
 
-function renderHelpChatMessage(role, content, badges = []) {
+function renderHelpChatMessage(role, content, badges = [], sources = []) {
   const list = $("help-chat-messages");
   if (!list) return null;
   const row = document.createElement("div");
@@ -3384,6 +3389,18 @@ function renderHelpChatMessage(role, content, badges = []) {
     renderMarkdown(row, content);
   } else {
     row.textContent = content;
+  }
+  //: **Where the answer came from** (INBOX 224). Atlas answers only from the
+  //: app's own help topics, and saying which ones is the difference between a
+  //: model that might be making it up and a reference that can be checked: the
+  //: reader can open the same topic in Settings, Help and read the whole of
+  //: it. Under the answer, in the app's own muted small type, not a chip: a
+  //: chip is something to press and these are a citation.
+  if (role === "assistant" && sources.length) {
+    const from = document.createElement("p");
+    from.className = "muted help-chat-source";
+    from.textContent = `From the app's help: ${sources.join(", ")}`;
+    row.appendChild(from);
   }
   if (badges.length) {
     const badgeRow = document.createElement("div");
@@ -3494,7 +3511,12 @@ async function submitHelpChatQuestion(question) {
     });
     pending.remove();
     const content = result?.content || "Sorry, I couldn't answer that.";
-    const row = renderHelpChatMessage("assistant", content, result?.badges || []);
+    const row = renderHelpChatMessage(
+      "assistant",
+      content,
+      result?.badges || [],
+      result?.sources || []
+    );
     // The typewriter caret (`.is-streaming`, already built for Chat's real
     // token stream) settles for a moment rather than blinking forever, 
     // this reply arrived in one piece, so pretending it is still being
@@ -3518,7 +3540,11 @@ $("help-chat-form")?.addEventListener("submit", (event) => {
   submitHelpChatQuestion($("help-chat-input")?.value || "");
 });
 
-$("help-chat-clear")?.addEventListener("click", () => {
+//: New chat, which was a labelled button in the head row and is a menu row
+//: now (INBOX 224): the head says who is talking, and a second labelled button
+//: up there was what made that row two buttons wide. `kebabMenu` is the app's
+//: one menu recipe.
+function helpChatNewChat() {
   helpChatHistory = [];
   const list = $("help-chat-messages");
   //: Everything except the self-description, which is what an empty chat is
@@ -3531,8 +3557,76 @@ $("help-chat-clear")?.addEventListener("click", () => {
   }
   const empty = $("help-chat-empty");
   if (empty) empty.hidden = false;
+  $("help-chat-starters")?.classList.remove("hidden");
   $("help-chat-input")?.focus();
-});
+}
+
+function renderHelpChatMenu() {
+  const host = $("help-chat-menu");
+  if (!host || typeof kebabMenu !== "function") return;
+  const said = helpChatHistory.length > 0;
+  host.replaceChildren(
+    kebabMenu(
+      [
+        {
+          label: "ph:arrow-counter-clockwise New chat",
+          title: said
+            ? "Forget this conversation and start over"
+            : "Nothing asked yet, so there is nothing to clear",
+          disabled: !said,
+          run: () => (said ? helpChatNewChat() : undefined),
+        },
+      ],
+      "More actions for this chat"
+    )
+  );
+}
+
+//: **The three questions Atlas is opened for** (INBOX 224: three starter
+//: chips, the same idea as the popup agent's starters at the same size). One
+//: table, read by both the sheet and the row in Settings, Help, because two
+//: lists of the same three questions is one list that will be edited and one
+//: that will not.
+const ATLAS_STARTERS = [
+  "Where do reminders live?",
+  "How do I turn off web search?",
+  "What does Performance mode do?",
+];
+
+//: Both hosts are filled from here, and either may be absent (the Settings
+//: modal is built once and the sheet exists only while it is open), so this
+//: fills whichever it finds.
+function renderAtlasStarters() {
+  for (const id of ["help-chat-starters", "atlas-row-starters"]) {
+    const host = $(id);
+    if (!host) continue;
+    host.replaceChildren();
+    for (const question of ATLAS_STARTERS) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "ghost small atlas-starter";
+      chip.textContent = question;
+      chip.title = `Ask Atlas: ${question}`;
+      //: From the Settings row the chip has to open the sheet first; from
+      //: inside the sheet it is already open and this is a no-op.
+      chip.addEventListener("click", () => {
+        openHelpChat();
+        askAtlas(question);
+      });
+      host.appendChild(chip);
+    }
+  }
+}
+
+//: The one way in with a question already chosen: used by the starters, and
+//: by every other place in the app that offers an Atlas question (INBOX 224's
+//: second half). Sends it rather than only typing it, because a chip that
+//: fills a box and waits is a chip that has done half a job.
+function askAtlas(question) {
+  const input = $("help-chat-input");
+  if (input) input.value = question;
+  submitHelpChatQuestion(question);
+}
 
 //: **The Guide, and it has a name now** (INBOX 190, the owner: "maybe give it
 //: more knowledge and capabilitie/function and give it a fitting name??";
@@ -3565,6 +3659,11 @@ function openHelpChat() {
   const close = openSheet({
     label: GUIDE_NAME,
     name: "guide",
+    //: Anchored bottom right rather than across the foot of the window (INBOX
+    //: 224): a chat is a column, and the full-width sheet gave Atlas 1356px
+    //: lines at 1440. The variant is a class on the recipe, so every other
+    //: sheet in the app is untouched.
+    variant: "corner",
     build: (card) => {
       card.appendChild(group);
     },
@@ -3576,6 +3675,13 @@ function openHelpChat() {
       helpChatHome = null;
     },
   });
+  //: **After `openSheet` returns, not inside its `build`.** `build` is handed
+  //: the card before the card is in the document, so both of these looked the
+  //: chat up by id and found nothing: the starters survived only because they
+  //: are also built once at boot, and the kebab did not survive at all (it was
+  //: empty until the first answer happened to rebuild it).
+  renderAtlasStarters();
+  renderHelpChatMenu();
   //: `openSheet` focuses the first focusable in the card, which here is the
   //: head's '?' toggle. The field is what a person opening a chat wants.
   $("help-chat-input")?.focus();
@@ -3586,3 +3692,8 @@ function openHelpChat() {
 //: app.js binds that one, because the status bar is its markup and it can
 //: reach this function through `window` by the time a click happens.
 $("settings-guide-btn")?.addEventListener("click", () => openHelpChat());
+$("atlas-open")?.addEventListener("click", () => openHelpChat());
+
+//: The Settings row's chips are built once, with the modal: the sheet's are
+//: built each time it opens, since the sheet is thrown away on close.
+renderAtlasStarters();

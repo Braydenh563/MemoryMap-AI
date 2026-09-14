@@ -191,6 +191,43 @@ def test_a_complete_starter_runs_and_a_stem_does_not():
     assert "cmdPaletteAsk(starter.trim())" in handler
 
 
+def test_the_palette_can_keep_its_conversation_and_says_where_it_went():
+    """INBOX 215, the owner: "I want to be able to save conversations with the
+    popup agent as a permanent chat session."
+
+    The palette's turns live in `cmdPaletteTurns` and nowhere else, so this is
+    the only path off that array. Three claims: the first turn creates the
+    conversation and the rest are appended (the create route takes one turn and
+    makes the title from its question), the foot's menu is the app's own menu
+    recipe rather than a fifth hand-built one, and the row is dead until there
+    is something to save.
+    """
+    start = APP.index("async function cmdPaletteSaveAsChat(")
+    body = APP[start : APP.index("\n}\n", start)]
+    assert '"/conversations"' in body and 'method: "POST"' in body
+    assert "/turns`" in body, "the turns after the first are appended"
+    assert "toastAction(" in body, (
+        "the way into the saved thread is a toast action: the status line is "
+        "one ellipsised line and a long title would push a link off the end"
+    )
+
+    start = APP.index("function renderCmdPaletteMenu(")
+    menu = APP[start : APP.index("\n}\n", start)]
+    assert "kebabMenu(" in menu, (
+        "the palette's foot menu is `kebabMenu` (DESIGN.md's recipe index): it "
+        "clamps, escapes a clipping ancestor and closes on an outside click"
+    )
+    assert "Save as chat" in menu and "Start over" in menu
+    assert "disabled: !saved" in menu, (
+        "with nothing asked yet there is nothing to save and nothing to clear, "
+        "and a row that does nothing when pressed is what this app keeps being "
+        "told about"
+    )
+    #: The menu is rebuilt when the thing it depends on changes, or it offers a
+    #: dead row for the whole of the first conversation.
+    assert APP.count("renderCmdPaletteMenu()") >= 3
+
+
 def test_the_open_note_toggle_scopes_the_run_to_what_is_open():
     start = APP.index("function agentScopeForRun(")
     body = APP[start : APP.index("\n}\n", start)]

@@ -309,6 +309,74 @@
   </div>
 
   <!-- Global Command Palette -->
+  <!-- **Atlas, the app's guide, in one place** (INBOX 224, the owner: "can
+       you improve and modernise the ui design of the atlas chat interface??").
+       It was a settings group printed inside Settings, Help, which
+       `openHelpChat()` picked up and carried into a sheet: a bare card, a
+       title row, two paragraphs and one input. It is built as a chat here,
+       on the popup agent's recipe, so the app's two assistants read as one
+       idea: a head that says who is talking, starters that say what to ask, a
+       transcript in bubbles, and a composer along the foot.
+
+       Parked in this hidden host rather than in the sheet, because the chat is
+       stateful (a running transcript, a form, handlers bound by id) and the
+       sheet is built and thrown away on every open; `openHelpChat()` moves
+       this one copy in and puts it back on close. -->
+  <div id="atlas-host" hidden>
+    <div class="settings-group help-chat-group atlas-chat" id="help-chat-group">
+      <div class="atlas-intro">
+        <span class="atlas-mark" aria-hidden="true"><i class="ph ph-compass" aria-hidden="true"></i></span>
+        <div class="atlas-intro-words">
+          <p class="atlas-name">Atlas</p>
+          <p class="muted atlas-line">Explains the app, from your utility model, never from your notes.</p>
+        </div>
+      </div>
+      <!-- Three, not a wall: the popup agent's starters are the same idea at
+           the same size, and these are the three questions the help topics
+           are asked most often to answer. `renderAtlasStarters` fills both
+           this and the Settings row from one table. -->
+      <div class="atlas-starters" id="help-chat-starters"></div>
+      <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite" aria-label="Atlas">
+        <!-- **Atlas says what it is before it is asked** (INBOX 204, the owner:
+             "improve its capabillity and knowledge"). An empty log under a
+             field is a chat that has to be guessed at: what it knows, what it
+             will refuse, whether what you type is kept. Markup rather than
+             script because it is what is true before anything has happened,
+             and `renderHelpChatMessage` hides it on the first turn while New
+             chat brings it back. -->
+        <p id="help-chat-empty" class="muted help-chat-empty">
+          Ask where a feature lives, what a setting does, or which tab you
+          want. Atlas answers from the app's own help, says so when it is not
+          sure, and cannot read your notes or your documents.
+        </p>
+      </div>
+      <!-- The composer, along the foot, which is where the popup agent puts
+           its own: input, an icon-only send at the app's one icon-button size,
+           and the '?' that every surface in this app carries for the longer
+           explanation. New chat is in the kebab beside them: it is the row's
+           second action and a labelled button for it is what made the old head
+           row two buttons wide. -->
+      <form id="help-chat-form" class="row help-chat-form atlas-composer">
+        <input type="text" id="help-chat-input" data-needs-model="Atlas answers with your utility model" placeholder="Ask about the app…" maxlength="1000" autocomplete="off" aria-label="Ask Atlas a question">
+        <button type="submit" id="help-chat-send" data-needs-model="Atlas answers with your utility model" class="icon-only" title="Ask Atlas" aria-label="Ask Atlas"><i class="ph ph-paper-plane-right" aria-hidden="true"></i></button>
+        <button type="button" class="icon-only ghost small graph-help-toggle"
+          data-help-for="help-chat-help" aria-controls="help-chat-help" aria-expanded="false"
+          title="About this chat" aria-label="About this chat">
+          <i class="ph ph-question" aria-hidden="true"></i>
+        </button>
+        <span id="help-chat-menu" class="atlas-menu"></span>
+      </form>
+      <div class="help-body hidden" id="help-chat-help" role="dialog" aria-label="About this chat">
+        <p>
+          Atlas is named for a book of maps: it is the reference you open to
+          find your way around this app. Quick "how do I…" answers about
+          MemoryMap itself, from your utility model, not your notes, and
+          nothing here is saved.
+        </p>
+      </div>
+    </div>
+  </div>
+
   <div id="command-palette-overlay" class="lock-overlay command-palette-overlay hidden"
     role="dialog" aria-modal="true" aria-label="Agent command palette">
     <div class="card glass command-palette-card">
@@ -416,17 +484,15 @@
           <input type="checkbox" id="command-palette-use-note">
           <span id="command-palette-use-note-text">Nothing open to use</span></label>
         <span id="command-palette-status" class="muted text-sm" role="status"></span>
-        <!-- Icon-only, with the words in the tooltip and the label (INBOX 208,
-             the owner, of this row: "can you fix the ui of and redesign the ui
-             of these buttons"). "Start over" is two words this row does not
-             have across for: at 390 it was a 68px pill with its caption broken
-             over two lines beside a three-line toggle, and the row stood 124px
-             tall. It is a secondary action on a panel whose primary action is
-             typing, so it takes the app's icon-only ghost recipe and gives the
-             width back to the toggle beside it. -->
-        <button type="button" id="command-palette-clear" class="ghost small icon-only"
-          aria-label="Start over"
-          title="Start over: forget this conversation"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
+        <!-- One menu, not a row of buttons (INBOX 208, the owner, of this
+             row: "can you fix the ui of and redesign the ui of these
+             buttons", which offered "an icon-only ghost button with a
+             tooltip, or a menu item"; INBOX 215 asked for a second action in
+             it, "Save as chat", and two icon buttons beside a toggle is the
+             shape 208 reported). `kebabMenu` fills it, which is the app's one
+             menu recipe: it clamps, escapes a clipping ancestor and closes on
+             an outside click, none of which a hand-built one here would. -->
+        <span id="command-palette-menu" class="command-palette-foot-menu"></span>
         <!-- Not `.ghost`, and that is the whole change. Reported: "the button
              at the bottom of the popup agent for stop and clear doesnt have
              the affordance look." Stop is the only action offered while a run
@@ -2191,16 +2257,33 @@
                dimming them in place (TIMELINE_PLAN decision 2). -->
           <input type="search" id="timeline-search" class="timeline-search" placeholder="Find notes…" aria-label="Find matching notes">
           <!-- Which kinds of thing the journal holds (TIMELINE_PLAN.md Phase 4,
-               decision 9), as one control rather than four loose ones. The four
-               are a toggle set that is always all four, never removable and
-               never empty, so the dock grammar's own line applies: `.seg` for a
-               set of choices, a chip only for a filter you can take off. It was
-               a `.dock-chip-row` of `.library-chip`s at four different widths,
-               which is what INBOX 186 is about. `.seg-multi` is the
-               independent-toggles variant of the well (DESIGN.md's index);
-               `renderTimelineKinds` fills it, and a kind is a *server* filter,
-               so pressing one refetches. -->
-          <div id="timeline-kinds" class="seg seg-multi" role="group" aria-label="Kinds of thing to show"></div>
+               decision 9), as one control rather than four loose ones. It was
+               four `.library-chip`s (INBOX 186), then a `.seg.seg-multi` well
+               of four segments, and it is a dropdown now (INBOX 214, the
+               owner: "is there another better ui and ux way to visualise these
+               buttons?? maybe make them in a dropdown or smth?? because they
+               clash with the ui at large zoom and they dont fit visually").
+               The well was the right recipe for a fixed toggle set and the
+               wrong one for this row: four words plus four glyphs is 441px of
+               a dock that also holds a search box, a view switch and Options,
+               so at 150% zoom it ran into them. One button is one width at
+               every zoom, and the state that was carried by four fills is
+               carried by the button's own caption.
+
+               `details.dock-menu`, the recipe the Options button one control
+               along already uses (DESIGN.md's index lists it beside
+               `kebabMenu`), because a `kebabMenu` row closes the menu when it
+               is pressed: turning three kinds off would be three openings, and
+               the check mark you are pressing for is the one thing you would
+               not see move. `.doc-dock-menu-check` is the row that stays open,
+               the same one the documents dock uses for its two switches.
+               `renderTimelineKinds` fills the list and writes the caption, and
+               a kind is a *server* filter, so ticking one refetches. -->
+          <details class="doc-dock-menu dock-menu" id="timeline-kinds-menu">
+            <summary class="ghost small doc-dock-menu-btn" id="timeline-kinds-btn"
+              title="Which kinds of thing the journal shows"><i class="ph ph-funnel ph-lead" aria-hidden="true"></i> <span id="timeline-kinds-label">Kinds: all</span> <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
+            <div class="doc-dock-menu-list dock-menu-list" id="timeline-kinds" role="group" aria-label="Kinds of thing to show"></div>
+          </details>
           <!-- The one filter here that *is* removable, and therefore the one
                chip: the band ("show only Work"). It read as a ghost button
                sitting among four chips before, which is the other half of the
@@ -8788,61 +8871,37 @@
               </details>
             </div>
 
-            <!-- Item 40's "mini AI chat" half: app-guidance only, small and
-                 basic by design (not a second full Chat tab), no persisted
-                 history: nothing here is written to the database, so a new
-                 chat starts blank and this one forgets on reload by design.
-                 -->
-            <div class="settings-group help-chat-group" id="help-chat-group">
+            <!-- **One Atlas, not two** (INBOX 224, the owner: "there is
+                 still the second atlas interface in the settings help page").
+                 The chat that used to be printed here now lives at the top of
+                 this file and opens as a sheet from everywhere, including
+                 here: two copies of one assistant is two places for it to
+                 drift, and the Settings page was the copy nobody could reach
+                 from anywhere else. What is left is the way in, and three
+                 questions to start with, which is what the page actually owed
+                 the reader. -->
+            <div class="settings-group atlas-row">
               <div class="row space-between">
-                <!-- `setting-subhead`, which is this app's recipe for a
-                     sub-heading inside a settings group, and it was missing.
-                     Measured in the running modal: this h4 rendered at
-                     16px/700, the browser's own default, while every h3 on
-                     the page around it is 12px/600 and the two About
-                     sub-headings that do carry the class are 13.6px/600. A
-                     sub-heading larger and heavier than the heading it sits
-                     under is hierarchy upside down, and nothing in the app
-                     had ever styled it. -->
                 <div class="row help-head">
                   <h4 class="flush setting-subhead"><i class="ph ph-compass ph-lead" aria-hidden="true"></i> Ask Atlas</h4>
                   <button type="button" class="icon-only ghost small graph-help-toggle"
-                    data-help-for="help-chat-help" aria-controls="help-chat-help" aria-expanded="false"
-                    title="About this chat" aria-label="About this chat">
+                    data-help-for="atlas-row-help" aria-controls="atlas-row-help" aria-expanded="false"
+                    title="About Atlas" aria-label="About Atlas">
                     <i class="ph ph-question" aria-hidden="true"></i>
                   </button>
                 </div>
-                <button type="button" id="help-chat-clear" class="ghost small" title="Clear this chat and start over">
-                  <i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> New chat
-                </button>
+                <button type="button" id="atlas-open" class="ghost small"><i class="ph ph-chat-teardrop-text ph-lead" aria-hidden="true"></i> Open Atlas</button>
               </div>
               <p class="muted">Atlas explains the app, from your utility model, never from your notes.</p>
-              <div class="help-body hidden" id="help-chat-help" role="dialog" aria-label="About this chat">
+              <div class="help-body hidden" id="atlas-row-help" role="dialog" aria-label="About Atlas">
                 <p>
-                  Atlas is named for a book of maps: it is the reference you
-                  open to find your way around this app. Quick "how do I…"
-                  answers about MemoryMap itself, from your utility model, not
-                  your notes, and nothing here is saved.
+                  Atlas is named for a book of maps: the reference you open to
+                  find your way around this app. It answers from the topics
+                  above, says so when it is not sure, cannot read your notes,
+                  and keeps nothing you ask it.
                 </p>
               </div>
-              <!-- **Atlas says what it is before it is asked** (INBOX 204, the owner:
-                   "improve its capabillity and knowledge"). An empty log under a
-                   field is a chat that has to be guessed at: what it knows, what
-                   it will refuse, whether what you type is kept. It is markup
-                   rather than script because it is what is true before anything
-                   has happened, and `renderHelpChatMessage` hides it on the first
-                   turn and `#help-chat-clear` brings it back. -->
-              <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite" aria-label="Help chat">
-                <p id="help-chat-empty" class="muted help-chat-empty">
-                  Ask where a feature lives, what a setting does, or which tab
-                  you want. Atlas answers from the app's own help, says so when
-                  it is not sure, and cannot read your notes or your documents.
-                </p>
-              </div>
-              <form id="help-chat-form" class="row help-chat-form">
-                <input type="text" id="help-chat-input" data-needs-model="Atlas answers with your utility model" placeholder="e.g. How do I turn off web search?" maxlength="1000" autocomplete="off" aria-label="Ask Atlas a question">
-                <button type="submit" id="help-chat-send" data-needs-model="Atlas answers with your utility model" class="primary small">Ask</button>
-              </form>
+              <div class="atlas-starters" id="atlas-row-starters"></div>
             </div>
           </section>
 

@@ -114,6 +114,43 @@ with its owner named in the entry.
     handlers of the old box are removed together (`test_frontend_ids.py`,
     `test_frontend_handlers.py`), and `test_help_chat.py` keeps its route
     tests. Measured: exactly one `#help-chat` surface in the DOM.
+    **The sheet and the second interface: built and measured.** The chat was a
+    settings group printed inside Settings, Help, which `openHelpChat()` picked
+    up and carried into a full-width sheet: a bare card, a title row, two
+    paragraphs and one input. It is built as a chat now, on the popup agent's
+    recipe, in its own hidden host at the top of `index.html` rather than
+    inside the Settings page, so there is one copy of it and Settings, Help
+    holds the way in instead of a second box.
+    The sheet: a head with the compass mark, the name and one line; three
+    starter chips from one table (`ATLAS_STARTERS`), which the Settings row
+    reads as well; a transcript in bubbles with the source help topics under
+    each answer; a composer along the foot (the field, an icon-only send, the
+    '?' popover and the kebab); New chat in that kebab rather than as a second
+    labelled button in the head. `openSheet` gained a `variant`, one word
+    stamped as `sheet-<word>` on the overlay and `sheet-card-<word>` on the
+    card, so the corner anchoring is the recipe rather than a third hand-built
+    sheet; `test_ui_recipes.py` lists the two class names and asserts that only
+    `openSheet` writes them.
+    The source line is new on the wire: `help_chat.source_names` returns the
+    topics an answer was actually built from, and the bubble says "From the
+    app's help: Reminders, Shortcuts" under it. That is a different claim from
+    the badge beside it, which says where to *go*, and it is the one that makes
+    an answer checkable against the same topic on the Help page.
+    Measured (`scratchpad/ui-sweeps/chrome224atlas.js`, 1440x900, 1024x820 and
+    390x844, both themes): 1 `#help-chat-group` in the document and 0 of them
+    inside `#settings-help`, with the Settings row and its 3 chips in its
+    place; the card is 448px wide anchored 10px from the right edge and on the
+    foot at 1440 and 1024, and the full 390px at phone width; 0 of the four
+    parts (head, starters, transcript, composer) wider than the card at any of
+    the three; 3 starters, 4 controls in the composer, 1 kebab row ("New
+    chat"); a turn hides the starters and the empty state, leaves 2 bubbles and
+    prints the source line; contrast measured on all 7 text elements in the
+    card, 0 under their threshold, lowest 7.4:1 in light and 7.86:1 in dark
+    against a 4.5 requirement; Escape closes it, the X closes it, and the one
+    copy is back in its host afterwards both times.
+    Still open on this entry: the `ATLAS_PROMPTS` table and the five places
+    that offer a question (the `data-help-for` popovers, the palette command,
+    the three empty states, the shortcuts sheet).
 
 220. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the docs
     and how to proceed.** "make sure all the other docs like architecture.md
@@ -146,28 +183,6 @@ with its owner named in the entry.
     workspace, the mind map, the graph, the documents editor, the popup
     agent); README rewritten in plain prose; PR 144's title and body
     rewritten from the CHANGELOG. Owner: orchestrator, after the merges.
-
-215. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), popup
-    agent sessions.** "I want to be able to save conversations with the
-    popup agent as a permanent chat session." A "Save as chat" action in the
-    palette's foot menu that posts the transcript to `/conversations` and
-    opens it in the Chat tab; the palette then shows "Saved" and a link.
-    Owner: chrome, after its list.
-
-214. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the tab
-    buttons.** "can you redesign these buttons better if they havent been
-    already??" The screenshot: the Notes, Boards, Documents and Reminders
-    tab buttons as four filled pills with icons, each a different width, the
-    active one indistinguishable at a glance. Target: one segmented control
-    (`.dock` grammar), icon and label, the active segment filled and the
-    rest quiet, equal heights, measured. Owner: chrome, after its list.
-    **More from the owner, 2026-09-14:** "is there another better ui and ux
-    way to visualise these buttons?? maybe make them in a dropdown or
-    smth?? because they clash with the ui at large zoom and they dont fit
-    visually." Screenshot: at browser zoom the four pills (`#timeline-kinds`,
-    `.seg.seg-multi`) overlap the list toggle and Options. **Decision:** one
-    `kebabMenu` dropdown, ghost, labelled "Show" with the current state as
-    its text, four checkable rows inside; never wraps. Sent to chrome.
 
 213. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the last
     scan.** "finish all the agents, scan for bugs and high complexity one
@@ -222,3 +237,13 @@ with its owner named in the entry.
     row (evidence, cost, fix, who), the cheap and safe fixes made in the
     same pass, the rest briefed to agents. Owner: orchestrator.
 
+## Placed (last 20, newest first)
+
+- 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.
+- 2026-09-13: 162, 159 placed in WORLD_CLASS_PLAN.md.
+- 2026-09-13: 165, 164 placed in UI_MODERNISATION_PLAN.md.
+- 2026-09-08: dashboard hero preference, New note tile colours, sub-tab
+  arrow keys, Files reading, sidebar toggle, mindmap bugs, line numbers,
+  docks as one bar, timeline redesign, responsive design, em-dashes,
+  paragraphs to popovers, security review: all placed (HANDOVER "flagged
+  list") and most built.

@@ -25814,7 +25814,14 @@ document.addEventListener("click", (event) => {
   // `.action-menu-escaped` already gets in the pointerdown-close listener
   // for `.action-menu` (search this file for that class).
   const item = event.target.closest(".dock-menu .doc-dock-menu-item, .action-menu-escaped .doc-dock-menu-item");
-  if (item) {
+  //: Except a switch, which is the exception documents.js already makes for
+  //: its own dock kebab and makes for the same reason: every other row does
+  //: one thing and is finished, so closing is right, while a switch has a
+  //: state you have to be able to see move, and a menu that shuts on the click
+  //: hides the only feedback it gives. Added with INBOX 214, where the
+  //: Timeline's four kind toggles moved into a dock menu and turning two of
+  //: them off meant opening it twice.
+  if (item && !event.target.closest(".doc-dock-menu-check")) {
     const menu = item.closest("details.dock-menu") || item.closest(".doc-dock-menu-list")?._escapedHome?.parent;
     // After the item's own handler has run: closing first would move focus
     // and, for a toggle, leave its aria-expanded one step behind.
@@ -26256,20 +26263,33 @@ function timelineIsDailyNote(row) {
   return row.kind === "note" && row.title.trim() === dailyNoteTitle(timelineBucketKey(row.when, "day"));
 }
 
-//: **One control, not four** (INBOX 186: "these buttons in the top of the
-//: timeline dock are ugly and need a redesign/restructuring"). The four kinds
-//: were four `.library-chip`s at four different widths (121 / 102 / 162 / 158px
-//: measured at 1440), which is the dock grammar's own counter-example: a chip
-//: is a filter you can take *off*, and these four are always all four, never
-//: removable and never empty. They are a toggle set, so they are a `.seg`
-//: well: `.seg-multi`, the independent-toggles variant, where every segment
-//: carries its own `aria-pressed` rather than one of them being the choice.
+//: **One control, not four, and now one button rather than one well** (INBOX
+//: 186: "these buttons in the top of the timeline dock are ugly and need a
+//: redesign/restructuring"; INBOX 214, the owner, of what replaced them: "is
+//: there another better ui and ux way to visualise these buttons?? maybe make
+//: them in a dropdown or smth?? because they clash with the ui at large zoom
+//: and they dont fit visually").
 //:
-//: The count leaves the visible label for the title and the accessible name.
-//: The reason for having it at all is kept ("a filter you have to press to
-//: find out is empty wastes the press"); what is dropped is the width a
-//: parenthesised number costs, which is the difference between labels that fit
-//: a dock row and labels that do not (10-responsive.css has the arithmetic).
+//: The history is worth keeping because each step was right about the step
+//: before it. Four `.library-chip`s at four different widths (121 / 102 / 162
+//: / 158px at 1440) were the dock grammar's own counter-example: a chip is a
+//: filter you can take *off*, and these four are always all four, never
+//: removable and never empty. A `.seg.seg-multi` well fixed that: one ground,
+//: one height, `aria-pressed` per segment. What it could not fix is width.
+//: Four glyphs and four words is 441px of a row that also holds a search box,
+//: a view switch and an Options menu, so at 150% browser zoom (960 CSS px of
+//: window) it ran into them; and with all four on, which is the resting state,
+//: four accent fills say nothing at all.
+//:
+//: A dropdown is one width at every zoom, and it can say in words what four
+//: fills could not: "Kinds: all", or "Kinds: notes, boards". "Kinds" rather
+//: than "Show" because `#timeline-filter-clear`, two controls along, already
+//: says "Show: <band>", and one dock row with two different "Show:"es is worse
+//: than either wording is good.
+//:
+//: The count stays in the row's tooltip and its accessible name rather than in
+//: the caption ("a filter you have to press to find out is empty wastes the
+//: press"), and in a menu row there is now room for it on screen as well.
 function renderTimelineKinds() {
   const box = $("timeline-kinds");
   if (!box) return;
@@ -26279,39 +26299,66 @@ function renderTimelineKinds() {
   box.replaceChildren();
   for (const kind of TIMELINE_KINDS) {
     const on = chosen.includes(kind.key);
-    const button = document.createElement("button");
-    button.type = "button";
-    if (on) button.className = "active";
-    button.dataset.timelineKind = kind.key;
-    button.setAttribute("aria-pressed", String(on));
+    //: A `<label>` wrapping its own checkbox, which is what makes the row a
+    //: 40px target rather than a 16px box with words beside it, and what lets
+    //: the browser own the checked state. `.doc-dock-menu-check` is the class
+    //: that keeps the menu open on a press: every other row in a dock menu
+    //: does something and is finished, and a switch whose menu shuts on the
+    //: click hides the only feedback it gives.
+    const row = document.createElement("label");
+    row.className = "menu-item doc-dock-menu-item doc-dock-menu-check checkbox-label";
     const count = counts.get(kind.key);
     const held = count === undefined ? "" : `, ${count} in view`;
-    button.title = on
+    row.title = on
       ? `Stop showing ${kind.label.toLowerCase()}${held}`
       : `Show ${kind.label.toLowerCase()} in the timeline${held}`;
-    //: The last one on cannot be turned off: see `timelineKindChoice`.
-    if (on && chosen.length === 1) {
-      button.disabled = true;
-      button.title = "At least one kind has to be shown";
-    }
-    const icon = document.createElement("span");
-    icon.className = `ph ${kind.glyph}`;
+    const icon = document.createElement("i");
+    icon.className = `ph ${kind.glyph} ph-lead`;
     icon.setAttribute("aria-hidden", "true");
-    //: The word is hidden by CSS below 1200 rather than dropped, so a segment's
-    //: accessible name is the word at every width and the icon-only state is
-    //: not a button a screen reader announces as "button".
     const label = document.createElement("span");
-    label.className = "seg-label";
     label.textContent = kind.label;
-    button.append(icon, label);
-    //: And the count for a reader who never sees the tooltip.
+    //: The count, on screen this time: a menu row has the width for it, which
+    //: is the whole reason it was a tooltip in a 441px well.
     if (count !== undefined) {
-      const read = document.createElement("span");
-      read.className = "visually-hidden";
-      read.textContent = held;
-      button.appendChild(read);
+      const many = document.createElement("span");
+      many.className = "muted timeline-kind-count";
+      many.textContent = ` ${count}`;
+      label.appendChild(many);
     }
-    box.appendChild(button);
+    const box_ = document.createElement("input");
+    box_.type = "checkbox";
+    box_.checked = on;
+    box_.dataset.timelineKind = kind.key;
+    //: The last one on cannot be turned off: see `timelineKindChoice`. A
+    //: disabled checkbox rather than a hidden row, so the set stays four.
+    if (on && chosen.length === 1) {
+      box_.disabled = true;
+      row.title = "At least one kind has to be shown";
+    }
+    row.append(icon, label, box_);
+    box.appendChild(row);
+  }
+  syncTimelineKindsLabel(chosen);
+}
+
+//: **What the button says when the menu is shut**, which is the whole of what
+//: a dropdown has to give back for the four fills it replaced. "all" when
+//: nothing is filtered out, otherwise the kinds that are on, in the table's
+//: order and in lower case, because this is a sentence fragment and not a set
+//: of labels.
+function syncTimelineKindsLabel(chosen = timelineKindChoice()) {
+  const label = $("timeline-kinds-label");
+  if (!label) return;
+  const all = chosen.length === TIMELINE_KINDS.length;
+  const words = TIMELINE_KINDS.filter((kind) => chosen.includes(kind.key)).map((kind) =>
+    kind.label.toLowerCase()
+  );
+  label.textContent = `Kinds: ${all ? "all" : words.join(", ")}`;
+  const button = $("timeline-kinds-btn");
+  if (button) {
+    button.title = all
+      ? "Which kinds of thing the journal shows: all four"
+      : `Showing ${words.join(", ")}. Press to change which kinds the journal shows`;
   }
 }
 
@@ -27625,13 +27672,18 @@ $("timeline-band").addEventListener("change", (event) => {
   paintTimeline();
 });
 
-//: One delegated handler on the row, not one per chip: the chips are rebuilt
-//: after every fetch, and a listener bound per chip would accumulate with them
+//: One delegated handler on the list, not one per row: the rows are rebuilt
+//: after every fetch, and a listener bound per row would accumulate with them
 //: (`tests/test_frontend_handlers.py` exists because of exactly that shape).
-$("timeline-kinds")?.addEventListener("click", (event) => {
-  const chip = event.target.closest("[data-timeline-kind]");
-  if (!chip || chip.disabled) return;
-  toggleTimelineKind(chip.dataset.timelineKind);
+//:
+//: `change`, not `click`, since INBOX 214: the control is a checkbox inside
+//: its own `<label>`, so a press on the words fires a click on the label and a
+//: second one on the input it labels, and a click handler would toggle the
+//: kind twice and land back where it started.
+$("timeline-kinds")?.addEventListener("change", (event) => {
+  const box = event.target.closest("[data-timeline-kind]");
+  if (!box || box.disabled) return;
+  toggleTimelineKind(box.dataset.timelineKind);
 });
 
 $("timeline-filter-clear").addEventListener("click", () => {
@@ -35739,16 +35791,23 @@ initBottomTabBar();
 // `build` fills the card; the caller gets the `close` it can call from a row.
 // Focus goes to the first thing in the sheet on open and back to whatever had
 // it on close, which for the More sheet is the button that opened it.
-function openSheet({ label, name, build, returnFocus = document.activeElement, onClose = null }) {
+//: `variant` is one word, added as `sheet-<variant>` to both the overlay and
+//: the card, for a sheet that has to sit somewhere other than across the foot
+//: of the window. One user so far, Atlas (INBOX 224), which is a chat and
+//: therefore a column: the full-width sheet gave it 1356px lines at 1440. It
+//: is a class rather than a second recipe so everything else about a sheet,
+//: the scrim, the tier, the head with its X, Escape and the backdrop press,
+//: stays the one thing it already is.
+function openSheet({ label, name, build, variant = "", returnFocus = document.activeElement, onClose = null }) {
   const overlay = document.createElement("div");
-  overlay.className = "modal-overlay sheet-overlay";
+  overlay.className = `modal-overlay sheet-overlay${variant ? ` sheet-${variant}` : ""}`;
   overlay.dataset.sheet = name || "";
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-modal", "true");
   overlay.setAttribute("aria-label", label);
 
   const card = document.createElement("div");
-  card.className = "card modal-card sheet-card";
+  card.className = `card modal-card sheet-card${variant ? ` sheet-card-${variant}` : ""}`;
   //: The title row carries the one way out that is visible: Escape and a
   //: press on the scrim both close a sheet, and neither is discoverable
   //: from inside it (INBOX 204: "can you add an exit or x button to the top
@@ -42133,6 +42192,88 @@ function cmdPaletteReset() {
   cmdPaletteResults.replaceChildren();
   $("command-palette-intro")?.classList.remove("hidden");
   $("command-palette-status").textContent = "";
+  renderCmdPaletteMenu();
+}
+
+//: **Keeping a conversation that was never meant to be kept** (INBOX 215, the
+//: owner: "I want to be able to save conversations with the popup agent as a
+//: permanent chat session"). The palette holds its turns in `cmdPaletteTurns`
+//: and nothing else: it is a scratch window over whatever tab you are on, and
+//: Start over throws the lot away. This posts them as a real conversation, the
+//: same shape the Chat tab writes, and hands you the thread.
+//:
+//: The first turn creates it (the route makes the title from the question) and
+//: the rest are appended, which is exactly the sequence the Chat tab performs
+//: live; there is no bulk endpoint and adding one to save a round trip per
+//: turn would be a second way to write the same row.
+async function cmdPaletteSaveAsChat() {
+  if (!cmdPaletteTurns.length) return;
+  const status = $("command-palette-status");
+  setLabel(status, "ph:circle-notch Saving…");
+  try {
+    const [first, ...rest] = cmdPaletteTurns;
+    const conversation = await apiJson("/conversations", {
+      method: "POST",
+      body: JSON.stringify({ question: first.question, answer: first.answer }),
+    });
+    for (const turn of rest) {
+      await apiJson(`/conversations/${conversation.id}/turns`, {
+        method: "POST",
+        body: JSON.stringify({ question: turn.question, answer: turn.answer }),
+      });
+    }
+    //: **The confirmation is a toast with an action, not a link in the status
+    //: line.** The status line is one line that ellipsises (it sits in a row
+    //: with a toggle and a menu, INBOX 208), so a title of any length would
+    //: have pushed the way in off the end of it. `toastAction` is the app's
+    //: own recipe for "it is done, and here is the thing": the message names
+    //: the conversation, the button opens it, and nothing switches tab
+    //: underneath a panel that is still open unless it is pressed.
+    setLabel(status, "ph:check-circle Saved as a chat");
+    toastAction(`Saved as "${conversation.title}"`, "Open it", () => {
+      toggleAgentPalette();
+      switchTab("chat");
+      return openConversation(conversation.id);
+    });
+    //: The list behind the Chat tab's sidebar is stale the moment this lands,
+    //: and it is cheap to refresh: without it the new thread is missing until
+    //: something else happens to reload it.
+    loadConversationList().catch(() => {});
+    renderCmdPaletteMenu();
+  } catch (error) {
+    setLabel(status, "ph:warning-circle Could not save this conversation");
+  }
+}
+
+//: The foot's one menu. Rebuilt rather than wired once, because what it offers
+//: depends on whether there is anything to save yet, and a menu that offers a
+//: dead row is the "control that does nothing when pressed" this app keeps
+//: being told about. `kebabMenu` is the recipe (DESIGN.md's index).
+function renderCmdPaletteMenu() {
+  const host = $("command-palette-menu");
+  if (!host || typeof kebabMenu !== "function") return;
+  const saved = cmdPaletteTurns.length;
+  host.replaceChildren(
+    kebabMenu(
+      [
+        {
+          label: "ph:floppy-disk Save as chat",
+          title: saved
+            ? "Keep this conversation in the Chat tab"
+            : "Ask the agent something first, then this can keep the conversation",
+          disabled: !saved,
+          run: () => (saved ? cmdPaletteSaveAsChat() : undefined),
+        },
+        {
+          label: "ph:arrow-counter-clockwise Start over",
+          title: "Forget this conversation and start over",
+          disabled: !saved,
+          run: () => (saved ? cmdPaletteReset() : undefined),
+        },
+      ],
+      "More actions for this conversation"
+    )
+  );
 }
 
 function cmdPaletteBusy(busy) {
@@ -42142,7 +42283,7 @@ function cmdPaletteBusy(busy) {
   //: kept" failure in CLAUDE.md section 6, arriving by accident.
   cmdPaletteInput.disabled = busy || aiIsOff();
   $("command-palette-stop")?.classList.toggle("hidden", !busy);
-  $("command-palette-clear")?.classList.toggle("hidden", busy);
+  $("command-palette-menu")?.classList.toggle("hidden", busy);
   //: **The state line is written by the run, not by this** (INBOX 190: the
   //: agent should say "what it is working on and which tool ran"). This used
   //: to write "Working…" on the way in and blank on the way out, which is a
@@ -42772,6 +42913,9 @@ async function cmdPaletteAsk(text) {
         ...[...touched.values()].filter((item) => item.kind === "note"),
       ]);
       cmdPaletteTurns.push({ question: text, answer: answerRaw });
+      //: The first turn is what turns "Save as chat" from a dead row into a
+      //: live one, so the menu is rebuilt here rather than only on reset.
+      renderCmdPaletteMenu();
     }
     //: Below the answer, and always when there were results, the model's
     //: prose is free to summarise or to leave a note out, but what retrieval
@@ -42900,7 +43044,8 @@ cmdPaletteInput.addEventListener("keydown", (e) => {
   cmdPaletteAsk(text);
 });
 
-$("command-palette-clear")?.addEventListener("click", cmdPaletteReset);
+//: Built at boot and again after every turn: see `renderCmdPaletteMenu`.
+renderCmdPaletteMenu();
 $("command-palette-stop")?.addEventListener("click", () => cmdPaletteRun?.abort());
 $("command-palette-intro")?.addEventListener("click", (e) => {
   const example = e.target.closest("[data-example]");

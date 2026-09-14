@@ -42205,7 +42205,15 @@ function renderAgentStarters() {
     for (const item of items) {
       const button = document.createElement("button");
       button.type = "button";
-      button.className = "ghost small starter";
+      //: **A row, not a pill** (INBOX 231, the owner: "these suggested
+      //: questions in the popup agent are really ugly and that area needs a
+      //: better modern and more professional redesign"). `ghost small` drew
+      //: fourteen bordered pills in two columns, which is fourteen outlines
+      //: competing with each other and with the box above them. `.starter`
+      //: alone is DESIGN.md's row recipe instead: no edge at rest, the ground
+      //: arriving with the pointer. The class stays on the button, so the
+      //: table above, the click handler and the recents are untouched.
+      button.className = "starter";
       //: **The family's icon, on every one of its members** (INBOX 205, the
       //: owner: "I want you to improve and redesign the suggestions and quick
       //: prompts in the popup agent"). Fourteen identical text pills in a

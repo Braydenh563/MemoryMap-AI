@@ -7,6 +7,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The popup agent's suggested questions are rows, not pills. Fourteen bordered
+  buttons in two ruled columns are now quiet rows with no edge at rest, the
+  family glyph in a quieted accent, a ground that arrives with the pointer, and
+  one column below 480px (INBOX 231).
+
 - The document dock's ⋯ menu stays inside the window. Its panel was capped by
   a flat share of the window height rather than by the room under the button,
   so at 1440x700 it ran 114px past the bottom edge with its last row out of

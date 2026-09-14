@@ -1266,7 +1266,21 @@ body.has-agent-monitor #tab-library .library-view-section {
      for the hairlines: the set was 45px past the fold at 1440 before any of
      this, 75px with the rules added and their spacing, and 45px again now. */
   column-gap: var(--space-2);
-  row-gap: var(--space-1);
+  /* **The list-row gap, since the rows are list rows now** (INBOX 231, and
+     DESIGN.md's recipe index: a row is `--row-h` with its list on
+     `--row-gap`). It was `--space-1`, chosen when these were pills whose own
+     edges did the separating; with the edges gone the pair of tokens is what
+     keeps this list the same rhythm as every other list in the app. */
+  row-gap: var(--row-gap);
+}
+
+/* One column on a phone (INBOX 231). Two columns of rows in a 390px window
+   leaves each label around 150px, which ellipsises most of them; the card
+   scrolls, so the honest trade is height. */
+@media (max-width: 480px) {
+  .command-palette-examples {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* The verb a group of starters belongs to (CHAT_PLAN.md decision 9's
@@ -1275,29 +1289,64 @@ body.has-agent-monitor #tab-library .library-view-section {
    recipe; this rule adds the span and the rhythm and nothing else. */
 .starter-verb {
   grid-column: 1 / -1;
-  /* A hairline under the family name, not just space above it (INBOX 205).
-     Five headings floating in a two-column grid of pills read as five more
-     pills; a rule under each one says where a family starts and ends, which
-     is the whole job the heading was there to do. The tighter top margin is
-     what pays for the rule: the set was 45px past the fold at 1440. */
-  margin: var(--space-3) 0 var(--space-1);
-  padding-bottom: var(--space-1);
-  border-bottom: 1px solid var(--border-light);
+  /* **The rule under the family name is gone** (INBOX 231). It was added
+     (INBOX 205) because five headings floating in a grid of pills read as
+     five more pills: with the pills gone the rows themselves are quiet, and
+     the hairline is then the loudest mark in a panel of suggestions, ruling
+     off groups of two. Space above and the eyebrow's own size and colour are
+     what say "new family" now, which is what every other grouped list in the
+     app does. */
+  margin: var(--space-4) 0 var(--space-1);
 }
 
 .starter-verb:first-child {
   margin-top: 0;
 }
 
-/* **A starter is a row, not a caption.** Centred text in a grid of buttons of
-   different lengths gives a ragged pair of inner edges and no column for the
-   eye to run down; every one of these starts with its family's glyph, so the
-   glyphs line up and the labels start at one place. `flex-start` rather than
-   the button recipe's `center`, and nothing else: the height, radius, ground
-   and hover all stay the app's own ghost button. */
+/* **A starter is a row, not a caption**, and since INBOX 231 not a pill
+   either: "these suggested questions in the popup agent are really ugly and
+   that area needs a better modern and more professional redesign", over a
+   screenshot of fourteen bordered pills in two columns under ruled headings.
+
+   This is DESIGN.md's row recipe, the one `.timeline-row` sets and the
+   document comments borrow: a transparent 1px border so the hairline it gains
+   under the pointer moves nothing, and the ground arriving with the pointer
+   rather than an edge drawn around every row at rest. What it keeps from the
+   old rule is the only part that was working: left-aligned, glyph first, so
+   the glyphs line up and every label starts at one place.
+
+   `.ghost` is deliberately not on these buttons any more, so the tonal
+   button's ground and hairline are not there to be overridden: what is set
+   below is what a bare `<button>` would otherwise take from its own base rule
+   (an accent ground, 600 weight). */
 .command-palette-examples > button.starter {
   justify-content: flex-start;
   text-align: left;
+  gap: var(--space-2);
+  min-height: var(--row-h);
+  padding: var(--space-1) var(--space-2);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 500;
+}
+
+.command-palette-examples > button.starter:hover {
+  background: var(--surface-3);
+  border-color: var(--divider);
+}
+
+/* The family's glyph in a quieted accent: it is a mark saying which family a
+   row belongs to, read down the column rather than word by word, and at full
+   accent fourteen of them are fourteen bright dots over the one thing on this
+   panel that is actually accent-coloured (the Ask button in the foot). Mixed
+   towards `--muted` rather than given an opacity, so it stays a real colour
+   that the contrast sweep can measure in both themes. */
+.command-palette-examples > button.starter .ph-lead {
+  color: color-mix(in srgb, var(--accent) 70%, var(--muted));
 }
 
 .command-palette-foot {

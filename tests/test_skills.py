@@ -1073,7 +1073,10 @@ def test_the_chat_offers_to_edit_the_step_a_run_stopped_on():
     assert "skillStepText: text.trim()" in body
     #: The box opens on the instruction that actually ran, which for a
     #: re-planned step is not the one in the catalogue.
-    assert "timeline.stepText?.(index)" in body
+    #: `spec.timeline`, since the controls moved into `appendRunResumeControls`
+    #: so a reopened conversation can draw them too: the timeline is passed in
+    #: rather than closed over.
+    assert "spec.timeline?.stepText?.(index)" in body
 
     #: On both of the stopped-run controls, not only one: a run you stopped and
     #: a run that stalled are the same question ("now what") with the same two

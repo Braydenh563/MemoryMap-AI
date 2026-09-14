@@ -36,7 +36,11 @@ def test_it_is_actually_called(app_js):
     """CLAUDE.md's own "features that never ran once" category: a function
     with no call site is not a feature. `renderAnswerGrounding` is the one
     place that has both the sentences and the answer element."""
-    assert "addInlineCitations(answerEl, sentences, rawResults)" in app_js
+    #: The fourth argument is the Sources panel's own ordering, added when the
+    #: Ask tab's markers, chips and panel were made to count the same way
+    #: (`citationNumbers`): the call site is what this test is about, not its
+    #: arity, but naming it here keeps the assertion honest about the shape.
+    assert "addInlineCitations(answerEl, sentences, rawResults, orderedSources)" in app_js
 
 
 def _grounding_call_args(app_js: str) -> list[list[str]]:

@@ -31,24 +31,24 @@
        every later file's var() calls depend on. See
        tests/test_style_scale.py's STYLE_FILES for the list the design-token
        lint reads instead of a single style.css path. -->
-  <link rel="stylesheet" href="/css/00-tokens-shell.css?v=0.3.0">
-  <link rel="stylesheet" href="/css/01-forms-settings.css?v=0.3.0">
-  <link rel="stylesheet" href="/css/02-chat-graph.css?v=0.3.0">
-  <link rel="stylesheet" href="/css/03-dashboard-widgets.css?v=0.3.0">
-  <link rel="stylesheet" href="/css/04-chat-dock-appearance.css?v=0.3.0">
-  <link rel="stylesheet" href="/css/05-sidebars-themes.css?v=0.3.0">
-  <link rel="stylesheet" href="/css/06-timeline-dialogs.css?v=0.3.0">
-  <link rel="stylesheet" href="/css/07-whiteboard-misc.css?v=0.3.0">
-  <link rel="stylesheet" href="/css/08-consistency.css?v=0.3.0">
+  <link rel="stylesheet" href="/css/00-tokens-shell.css?v=0.3.1">
+  <link rel="stylesheet" href="/css/01-forms-settings.css?v=0.3.1">
+  <link rel="stylesheet" href="/css/02-chat-graph.css?v=0.3.1">
+  <link rel="stylesheet" href="/css/03-dashboard-widgets.css?v=0.3.1">
+  <link rel="stylesheet" href="/css/04-chat-dock-appearance.css?v=0.3.1">
+  <link rel="stylesheet" href="/css/05-sidebars-themes.css?v=0.3.1">
+  <link rel="stylesheet" href="/css/06-timeline-dialogs.css?v=0.3.1">
+  <link rel="stylesheet" href="/css/07-whiteboard-misc.css?v=0.3.1">
+  <link rel="stylesheet" href="/css/08-consistency.css?v=0.3.1">
   <!-- The documents editor's own layout, last so it is the final word on the
        panes it lays out. CodeMirror's *internals* are styled from the theme
        object in documents.js instead: adopted stylesheets sort after document
        stylesheets, so a rule here could not override one of its own. -->
-  <link rel="stylesheet" href="/css/09-editor.css?v=0.3.0">
+  <link rel="stylesheet" href="/css/09-editor.css?v=0.3.1">
   <!-- Phases 9 and 10 of UI_MODERNISATION_PLAN: the tablet bands and the
        Liquid Glass adoptions. Last, so it wins ties on source order, and its
        own file so three agents can edit the stylesheets at once. -->
-  <link rel="stylesheet" href="/css/10-responsive.css?v=0.3.0">
+  <link rel="stylesheet" href="/css/10-responsive.css?v=0.3.1">
   <!-- **Its own file, not an inline block, and that is the point.** The CSP
        allows inline scripts only by sha256 hash, and `create_app` computes
        those hashes from index.html **once at startup**. A server still
@@ -58,7 +58,7 @@
        the loading screen". A guard that exists to report a broken boot must
        not itself be the thing that breaks, and `script-src 'self'` covers a
        same-origin file unconditionally. -->
-  <script src="/boot-guard.js?v=0.3.0"></script>
+  <script src="/boot-guard.js?v=0.3.1"></script>
   <!-- **Its own file for the same reason boot-guard.js is**, and this one
        was reported: "[browser/csp] blocked script-src-elem: inline". The
        policy has no `'unsafe-inline'`, so an inline block has to be named by
@@ -74,7 +74,7 @@
        class rather than one more of its causes. It stays a plain synchronous
        script element in the head, so it still runs before first paint and the
        anti-flash guarantee is unchanged. -->
-  <script src="/theme-boot.js?v=0.3.0"></script>
+  <script src="/theme-boot.js?v=0.3.1"></script>
 </head>
 <body>
   <!-- The very first thing in <body>, on purpose: painted before any data
@@ -9674,7 +9674,7 @@
        read out of graph.js, documents.js and library.js could not be
        stood in for at all (a `const` in a classic script is a lexical
        global), so they moved into app.js. -->
-  <script src="/app.js?v=0.3.0"></script>
+  <script src="/app.js?v=0.3.1"></script>
   <!-- The editor layer: the "/" command menu, the block frames it inserts, and
        the caret-anchored popup the document editor's [[ autocomplete uses.
        Loaded after app.js, and it stays at boot: every cross-file call it
@@ -9685,7 +9685,7 @@
        arrived, and the two that could run sooner (`applyMarkdown`,
        `docEventFromCm`) are on app.js's stand-in list and its typeof-guard
        list respectively. -->
-  <script src="/editor.js?v=0.3.0"></script>
+  <script src="/editor.js?v=0.3.1"></script>
   <!-- Dashboard: widgets, masonry packing, the generative-art widget (§88.3
        of the app.js-split plan). Loaded after app.js and shares its global
        scope; every cross-file call happens at runtime (inside a function or
@@ -9697,7 +9697,7 @@
        closure) moved here along with the functions they call, the same fix
        documents.js made for `initDocSidebarTabs()`, see dashboard.js's own
        header for the full explanation. -->
-  <script src="/dashboard.js?v=0.3.0"></script>
+  <script src="/dashboard.js?v=0.3.1"></script>
   <!-- Settings: the modal shell, the logs console, and appearance (theme,
        accent, curated palettes, saved looks, the generative background
        preview): §88.3 of the app.js-split plan, the fourth and LAST file.
@@ -9717,6 +9717,6 @@
        event-listener closure: see this file's own header for the full
        account of what moved, what stayed in app.js and why, and the two
        hazards this ordering fixes. -->
-  <script src="/settings.js?v=0.3.0"></script>
+  <script src="/settings.js?v=0.3.1"></script>
 </body>
 </html>

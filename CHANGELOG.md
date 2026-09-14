@@ -7,6 +7,38 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-14
+
+- The status bar's help button says "Guide", not the assistant's name. It sat
+  beside "Ask" reading "Atlas", so the bar offered two buttons that both mean
+  "talk to the AI" and neither said which knows your notes and which knows the
+  app. The name is in the tooltip, which also survives renaming the persona.
+
+- A placed note that is showing its whole text sizes to the text. It kept the
+  height it was saved at, so "Show more" ran a long note out through the bottom
+  edge of its own card.
+
+- A mind map node's icon grows with the node's own text instead of staying at
+  the size it started at, and the text-size and resize grips moved off the
+  corner where the add buttons hang.
+
+- The chat's Resume and Edit-step buttons survive reopening a conversation.
+  They were built from the live stream's own variables, so a run you stopped
+  offered to carry on until you changed tab.
+
+- The Ask tab's citation markers, its "Grounded in" chips and its Sources panel
+  are numbered together, from one list, and the grounding is drawn once against
+  the finished answer rather than into prose that is still streaming.
+
+- The timeline's "Start today's note" opens the composer with the date in the
+  title instead of writing an empty note on the press.
+
+- A shape swept up by the selection rectangle shows its selection box and its
+  eight anchors, and double tapping an anchor fits a note, text box or sticky
+  to its text.
+
+- A run that stops on its budget says where the setting is.
+
 - The chat welcome's '?' moves to its top right corner, out of the middle of
   the sentence it was in, and it opens: the welcome is built after boot, so its
   help trigger had never been wired to anything (INBOX 236).

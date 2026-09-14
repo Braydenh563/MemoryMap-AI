@@ -396,6 +396,59 @@ and `GET /events?since=` are live; what the log does not yet feed (sync,
 global undo of an AI action, the Timeline strip) is in
 `docs/roadmap/agent-remaining/brief7-event-log.md`.
 
+**Decisions made (do not remake).** Copied whole from the agent file
+on 2026-09-14 (INBOX 220) so they survive its archiving.
+
+1. **Retention is compaction, and the policy is ninety days with the newest
+   five kept.** Deletion would break replay. A run of events older than
+   ninety days folds into one snapshot holding the whole state at that
+   point; the rows behind it keep action, actor, detail and time and lose
+   only their values. Five newest kept rather than twenty because
+   `EntryRevision` already keeps the last twenty versions of every note for
+   ever, so twenty here was a second copy of the same thing and collapsed
+   nothing on an ordinary notebook.
+2. **What compaction gives up, it says.** Restoring a version whose values
+   are gone answers 410 with the reason; the History sheet renders "The text
+   from this change is no longer kept." in that row.
+3. **No `VACUUM` in the compaction pass.** The freed pages are reused
+   immediately, so the file stops growing, and `ai/autonomous.py`'s
+   `_vacuum` already returns them to the disk on its own schedule.
+4. **A board's replayable entity is the item, not the board.** A note is one
+   row and replays to one dict; a board is a note plus everything on it. So
+   `whiteboard_node`, `whiteboard_sketch` and `whiteboard_object` each
+   replay through `events.replay`, the board's own events (created,
+   duplicated, generated, imported, settings changed) sit on `board`, and a
+   board's whole state is the union of its items' replays.
+5. **`rename_board` is not wrapped in a write scope.** Its title change goes
+   through `manager.update_entry`; a scope would fold that note's own edit
+   into the board's event and take it out of the note's history. The board's
+   settings get their own event beside the note's, so that request records
+   two events on two entities, by design.
+6. **A compacted event reports what it is, not an edit.** A snapshot's
+   `after` is the whole state, so `/events` read it as one change that set
+   every field at once. The feed now reports `changed: []` and `snapshot`,
+   the number of events the row stands for, and reports `compacted` on the
+   rows whose values were dropped. A count rather than a span of time
+   because the count is what the compactor knows and stays right when a
+   later run folds more events into the same snapshot; the rows behind it
+   keep their own timestamps for a reader that wants the dates.
+7. **The AI's board tools write through the same helpers as the routes.**
+   Four `@events.writes` helpers at the top of `ai/tools/whiteboard.py`
+   (`_place_card`, `_draw_link`, `_place_object`, `_new_board`), and the
+   payload builders (`events.node_state` and its two siblings, plus
+   `events.board_state`) moved to `core/events.py` so both writers share
+   one idea of an entity's state. The two batch tools stay undecorated and
+   record one event per item: decorating a loop folds a whole batch into
+   one event, which is the shape that lost the replay. The tools' entity
+   types follow the routes' vocabulary (`whiteboard_node`,
+   `whiteboard_sketch`, `whiteboard_object`, `board`); the old
+   `mindmap`, `mindmap_node`, `mindmap_link`, `whiteboard_link` and
+   `whiteboard_diagram` names had no reader.
+8. **The index lives in `_INDEXES` and in a migration.** The startup path is
+   what reaches an existing notebook; the migration is what reaches a
+   database upgraded through Alembic alone. Both use IF NOT EXISTS, so they
+   cannot disagree.
+
 ### B2 The job runtime: durable, resumable, observable
 
 Today long work runs in threads with no persistence (MODERNISATION_AUDIT

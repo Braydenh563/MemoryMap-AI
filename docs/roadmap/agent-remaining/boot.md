@@ -26,7 +26,19 @@ twice by PUT, `/entries` twice. `/whiteboard/boards?limit=200` comes from
   and no stand-in names a function that does not exist. Both proven to fail by
   removing one name and by mistyping another.
 
+- A2, whole row. Measured on a 13-note notebook with one board and one `[[`
+  link (`scratchpad/seed.sh` in the session scratch made it), before and after,
+  same server: **boot fetches 34 to 29**, and the 29 includes `/insights/stats`,
+  which the 34 never asked for because `fetchDashStats` called itself. Per
+  document: `/preferences` 4 to 1, `/graph` 3 to 1, dashboard `/reminders` 3 to
+  1, `/whiteboard/boards` 2 to 1, `/entries` 2 to 1. `errors.js` clean at four
+  widths, 0 page errors.
+
 ## Next
 
-- A2: `/preferences` once at boot, the notes list's first page at 200, boards
-  off the boot path.
+- Nothing on A1 or A2. Found and not fixed, both the same shape as the fixed
+  ones but across the app.js/dashboard.js boundary rather than inside one file,
+  so each wants a shared reader in app.js rather than a dashboard-local one:
+  `/chat/recent` twice at boot (`loadRecentQuestions`, app.js boot step, and
+  `renderQuestionsWidget`) and `/entries/most-accessed` twice
+  (`loadMostUsed`, app.js boot step, and `renderMostUsedWidget`).

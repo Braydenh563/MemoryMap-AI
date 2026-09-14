@@ -725,9 +725,15 @@ function startApp() {
   // staying on the default it painted a moment ago.
   const looksReady = step("restore your settings", async () => {
     if (!prefsCache) {
-      prefsCache = await apiJson("/preferences", { silent: true }).catch(() => null);
+      await loadPreferences().catch(() => null);
     }
-    if (prefsCache && seedUiStateFromServer(prefsCache.ui_state)) {
+    const restored = prefsCache ? seedUiStateFromServer(prefsCache.ui_state) : false;
+    //: The server has had its say, whether it had anything to say or not, so
+    //: mirrored writes may be saved from here on (A2). Set before the repaint
+    //: below rather than after it, so a throw in any of those five calls cannot
+    //: leave the session unable to back up a setting.
+    uiStateSeeded = true;
+    if (restored) {
       // The same three calls the theme picker makes, in the same order: the
       // root attributes, then the light/dark choice and the palette, neither
       // of which re-records itself as a manual override.
@@ -912,6 +918,12 @@ async function reportTimezone() {
   } catch {
     return; // an environment without Intl still works, just on server time
   }
+  //: Awaited, not read straight off `prefsCache` (A2): every `startApp` step
+  //: runs in parallel, so this one used to reach the comparison before the
+  //: boot GET had answered, find `prefsCache` still null, and PUT the same
+  //: zone the server already had on every single cold start. With the shared
+  //: reader the comparison has something to compare.
+  await loadPreferences().catch(() => null);
   if (!zone || (prefsCache && prefsCache.timezone === zone)) return;
   prefsCache = await apiJson("/preferences", {
     method: "PUT",
@@ -962,8 +974,11 @@ const BUILTIN_TEMPLATES = [
 ];
 
 async function loadTemplates() {
-  // Built-ins + the user's own (kept in preferences).
-  prefsCache = await apiJson("/preferences").catch(() => prefsCache);
+  // Built-ins + the user's own (kept in preferences). Shared with the two
+  // other boot readers (A2): at boot this joins the one request in flight, and
+  // afterwards it reads the cache every PUT in this file keeps current, which
+  // is why `saveTemplateList` (PUT, then this) still shows the new template.
+  await loadPreferences().catch(() => prefsCache);
   // Saved filters live in the same payload, so draw them while it's fresh.
   renderSavedSearches();
   const custom = (prefsCache && prefsCache.custom_templates) || [];
@@ -2241,14 +2256,36 @@ let mapBoardIndexCache = null;
 //: index rather than the response.
 let mapBoardIndexAt = 0;
 const MAP_BOARD_INDEX_MS = 8000;
+//: The walk in flight, if there is one. The eight seconds above only help a
+//: caller that arrives after an earlier one has *finished*, and at boot they
+//: do not arrive like that: the note list and the agent panel both ask within
+//: the same tick, both find an empty cache, and both walk every page of
+//: `/whiteboard/boards` (WORLD_CLASS_PLAN A2, measured as the same request
+//: twice). A second caller joins the first walk instead.
+let mapBoardIndexWalk = null;
 
-async function loadMapBoardIndex() {
-  if (mapBoardIndexCache && Date.now() - mapBoardIndexAt < MAP_BOARD_INDEX_MS) return mapBoardIndexCache;
-  const rows = await apiPagedList("/whiteboard/boards", 200, { silent: true }).catch(() => null);
-  if (!rows) return mapBoardIndexCache || new Map();
-  mapBoardIndexAt = Date.now();
-  mapBoardIndexCache = new Map(rows.filter((b) => b.id != null).map((b) => [b.id, b]));
-  return mapBoardIndexCache;
+function loadMapBoardIndex() {
+  if (mapBoardIndexCache && Date.now() - mapBoardIndexAt < MAP_BOARD_INDEX_MS) {
+    return Promise.resolve(mapBoardIndexCache);
+  }
+  if (mapBoardIndexWalk) return mapBoardIndexWalk;
+  mapBoardIndexWalk = apiPagedList("/whiteboard/boards", 200, { silent: true })
+    .catch(() => null)
+    .then((rows) => {
+      //: The walk failed. The stale index is better than none, and an empty
+      //: Map keeps `mapBoardById` and friends synchronous for their callers.
+      //: Deliberately not cached as an answer: `mapBoardIndexAt` is untouched,
+      //: so the next caller tries again rather than waiting out the eight
+      //: seconds on a failure.
+      if (!rows) return mapBoardIndexCache || new Map();
+      mapBoardIndexAt = Date.now();
+      mapBoardIndexCache = new Map(rows.filter((b) => b.id != null).map((b) => [b.id, b]));
+      return mapBoardIndexCache;
+    })
+    .finally(() => {
+      mapBoardIndexWalk = null;
+    });
+  return mapBoardIndexWalk;
 }
 
 //: The board behind an entry id, or null, synchronous, because the callers
@@ -10363,21 +10400,19 @@ function showEntrySkeletons() {
   }
 }
 
-// A page of the plain list, matches the backend's own default
-// (ENTRIES_PAGE_SIZE in routes_entries.py). Most real notebooks fit on one
-// page; a notebook that has grown for years pages in the background below.
-const ENTRIES_PAGE_SIZE = 1000;
+// A page of the plain list. Smaller than the backend's own default
+// (`ENTRIES_PAGE_SIZE = 1000` in routes_entries.py, still the cap a caller
+// gets by asking for nothing) on purpose, WORLD_CLASS_PLAN A2: the boot
+// request for the whole notebook was the slowest fetch a cold start made, 258
+// ms measured, and everything it carried past the first screenful was paid for
+// before anything drew. The loop below renders each page as it lands, so this
+// is the size of the first paint, not of the list: a notebook larger than this
+// still ends up exactly as complete, one page later.
+const ENTRIES_PAGE_SIZE = 200;
 
 async function loadEntries() {
   const generation = ++_entriesLoadGeneration;
   showEntrySkeletons();
-  //: **What the note list needs to draw a `[[map]]` as a map chip**, filled
-  //: here rather than per note card: `renderNoteInline` is synchronous and
-  //: runs once per wiki link, so it cannot fetch. Deliberately not awaited: 
-  //: the list paints now, and a chip drawn before this lands falls back to the
-  //: link's own text without its node count rather than to nothing at all.
-  //: `apiJson`'s `cacheMs` means a rapid sequence of loads costs one request.
-  loadMapBoardIndex();
 
   const isSemantic = $("semantic-search-toggle")?.checked;
   if (isSemantic && noteSearch) {
@@ -10393,6 +10428,7 @@ async function loadEntries() {
     renderSidebar();
     loadCategories();
     renderEntries();
+    ensureMapChipsFor(results, generation);
     fillCategoryOptions($("entry-category"), null);
     refreshTagSuggestions();
     return;
@@ -10422,6 +10458,7 @@ async function loadEntries() {
 
     renderStatusBar(); // the notebook's size changed, and the bar reads it here
     renderEntries();
+    ensureMapChipsFor(page, generation);
     if (first || offset >= total) {
       renderSidebar();
       // Categories the AI has filed notes into since the last load need
@@ -10436,6 +10473,32 @@ async function loadEntries() {
     if (page.length === 0) break; // safety: never loop forever on a stale total
   }
   nudgeUntaggedNotes();
+}
+
+//: **What the note list needs to draw a `[[map]]` as a map chip**, fetched
+//: once and only for a notebook that has one.
+//:
+//: `renderNoteInline` is synchronous and runs once per wiki link, so it cannot
+//: fetch; the index has to be in memory before the render. It used to be
+//: filled unconditionally at the top of `loadEntries`, which meant
+//: `GET /whiteboard/boards?limit=200` on every cold start, 204 ms measured,
+//: for a notebook that may contain no `[[` at all (WORLD_CLASS_PLAN A2). Now
+//: the page that has just arrived is asked first, so a notebook with no wiki
+//: links never asks for boards and one that has them asks once.
+//:
+//: The re-render is the half the old placement never had: fired and not
+//: awaited, the index always landed *after* the render it was for, and the
+//: chips stayed plain text until something else redrew the list. Guarded on
+//: the load generation, because a newer `loadEntries` may have taken over
+//: while this was in flight and its list is the one on screen.
+function ensureMapChipsFor(page, generation) {
+  if (mapBoardIndexCache) return; // one index per session, as it always was
+  if (!page.some((entry) => String(entry.content || "").includes("[["))) return;
+  loadMapBoardIndex()
+    .then(() => {
+      if (generation === _entriesLoadGeneration) renderEntries();
+    })
+    .catch(() => {});
 }
 
 //: **The app notices what the person has not got round to** (INBOX 162).
@@ -28685,6 +28748,39 @@ let prefsCache = null;
 // not just for the moment the save was in flight.
 let prefsSaveInFlight = null;
 
+//: **One GET /preferences per boot** (WORLD_CLASS_PLAN A2). The whole of
+//: `startApp` runs its steps in parallel, and three of them wanted the
+//: preferences: the settings restore, `loadTemplates` (custom templates and
+//: saved searches live in the same payload) and `reportTimezone`. Each did its
+//: own `apiJson("/preferences")`, so a cold start asked for the same document
+//: twice and then decided what to do with the second copy. Measured: two GETs
+//: at 311 ms and 290 ms on this sandbox, of 24 boot fetches.
+//:
+//: This is `fetchDashStats`'s shape, for the same reason: the cache if it is
+//: filled, otherwise the one request already in flight, otherwise a new one.
+//: Every PUT in this file assigns its own response to `prefsCache`, so the
+//: cache is current after a save and a caller that has just written does not
+//: need `refresh`; pass it where a *server-side* change is expected (another
+//: window, or a job that writes preferences behind the app's back).
+let prefsInflight = null;
+
+function loadPreferences({ refresh = false } = {}) {
+  if (!refresh && prefsCache) return Promise.resolve(prefsCache);
+  if (prefsInflight) return prefsInflight;
+  //: Silent: the one boot caller that cared about the error is the settings
+  //: restore, and behind the lock screen a 401 here is the lock screen's
+  //: message, not a second toast about preferences (§35E).
+  prefsInflight = apiJson("/preferences", { silent: true })
+    .then((prefs) => {
+      prefsCache = prefs;
+      return prefs;
+    })
+    .finally(() => {
+      prefsInflight = null;
+    });
+  return prefsInflight;
+}
+
 async function renderPrefs() {
   if (prefsSaveInFlight) await prefsSaveInFlight.catch(() => {});
   prefsCache = await apiJson("/preferences");
@@ -34671,6 +34767,55 @@ function mirroredUiKeys() {
 
 let uiStateSaveTimer = null;
 
+//: Whether the boot restore has had its turn. Until it has, this browser does
+//: not yet know what the server is holding, and a save would be a guess: the
+//: tab restore writes `activeTab` at module level, which schedules a save for
+//: 800 ms later, and on this sandbox that lands *before* the unlock and the
+//: `/preferences` read that follows it have finished. So a cold start wrote a
+//: `ui_state` built from a browser that had not been given its settings back
+//: yet, which is both a wasted PUT (A2) and, on a browser that had lost
+//: `localStorage`, the one write that could make the loss permanent.
+//:
+//: Dropped rather than deferred, the same as the `authToken()` guard below and
+//: for the same reason: `watchMirroredUiKeys` sees every later write, so the
+//: next real change saves, and nothing here is the only copy of anything.
+let uiStateSeeded = false;
+
+//: The mirrored state the server is known to be holding, as the same JSON this
+//: file would send. Null until something establishes it: either the boot seed
+//: below (the server told us) or a save that came back (we told the server).
+//:
+//: **Why it exists** (WORLD_CLASS_PLAN A2). `seedUiStateFromServer` writes the
+//: server's copy into `localStorage`, and `watchMirroredUiKeys` has patched
+//: `setItem` to schedule a save on exactly those keys, so every cold start
+//: ended with a PUT of the document it had just been given. One of the four
+//: `/preferences` requests a boot was making was this round trip, and the same
+//: shape fires again whenever a control is set to the value it already had.
+let uiStateOnServer = null;
+
+//: The payload, built from `localStorage`, in `mirroredUiKeys()` order so two
+//: of these are comparable as strings.
+function uiStatePayload() {
+  const state = {};
+  for (const key of mirroredUiKeys()) {
+    const value = localStorage.getItem(key);
+    if (value != null) state[key] = String(value).slice(0, 400);
+  }
+  return state;
+}
+
+//: The same shape, built from a server document, so the comparison is between
+//: like and like: the server's `ui_state` can carry keys this build no longer
+//: mirrors (an old key, a key from a newer version), and those must not read as
+//: a difference worth a write.
+function uiStateFingerprint(state) {
+  const out = {};
+  for (const key of mirroredUiKeys()) {
+    if (state[key] != null) out[key] = String(state[key]).slice(0, 400);
+  }
+  return JSON.stringify(out);
+}
+
 // Write the mirrored keys to the server, coalesced. Debounced because the
 // appearance panel fires a change per slider tick, and a preferences write per
 // tick would be a write per pixel of a corner-radius drag.
@@ -34684,18 +34829,24 @@ function saveUiState() {
     // investigating. §35E-bis found exactly this in the reminder poll; the
     // guard is the same one, for the same reason.
     if (!authToken()) return;
-    const state = {};
-    for (const key of mirroredUiKeys()) {
-      const value = localStorage.getItem(key);
-      if (value != null) state[key] = String(value).slice(0, 400);
-    }
+    if (!uiStateSeeded) return;
+    const state = uiStatePayload();
+    const sending = JSON.stringify(state);
+    //: Nothing has changed since the server and this browser last agreed, so
+    //: there is nothing to back up. Local still wins when they differ: this
+    //: only skips the write, it never skips a difference.
+    if (sending === uiStateOnServer) return;
     // Silent and best-effort. This is a backup of something that already
     // worked locally; a toast about it would be noise about a copy.
     apiJson("/preferences", {
       method: "PUT",
       body: JSON.stringify({ ui_state: state }),
       silent: true,
-    }).catch(() => {});
+    })
+      .then(() => {
+        uiStateOnServer = sending;
+      })
+      .catch(() => {});
   }, 800);
 }
 
@@ -34747,6 +34898,14 @@ function seedUiStateFromServer(state) {
       restored += 1;
     }
   }
+  //: What the server is holding, recorded so the saves those `setItem` calls
+  //: just scheduled can tell "this browser had lost its settings and has now
+  //: been given them back" from "the person changed something" (A2). Set after
+  //: the loop and before the 800 ms debounce fires, so the first save of the
+  //: session compares against it. A browser that kept a key the server does not
+  //: have still differs here, and still writes: local wins, as the comment
+  //: above says, and that is the case this must not swallow.
+  uiStateOnServer = uiStateFingerprint(state);
   return restored > 0;
 }
 

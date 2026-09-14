@@ -274,7 +274,7 @@ function gcReadTokens(s = gcTab) {
 //: `.graph-edge-similar` in the DOM to run `getComputedStyle` against. The
 //: colours still come from tokens (above), so a theme change moves both.
 const GC_EDGE_STYLES = {
-  link: { width: 1.6, alpha: 0.55, dash: null, colour: "muted" },
+  link: { width: 1.4, alpha: 0.42, dash: null, colour: "muted" },
   thread: { width: 1.4, alpha: 0.55, dash: [7, 4], colour: "muted" },
   similar: { width: 1.2, alpha: 0.55, dash: [2, 5], colour: "accent" },
   map: { width: 1.3, alpha: 0.7, dash: [1, 4], colour: "accent" },
@@ -282,7 +282,7 @@ const GC_EDGE_STYLES = {
   entity: { width: 1.6, alpha: 0.55, dash: null, colour: "muted" },
   document: { width: 1.6, alpha: 0.55, dash: null, colour: "muted" },
 };
-const GC_EDGE_REASONED = { width: 2.2, alpha: 0.8, dash: null, colour: "accent" };
+const GC_EDGE_REASONED = { width: 1.5, alpha: 0.5, dash: null, colour: "accent" };
 const GC_EDGE_CONTRADICTS = { width: 2.2, alpha: 0.85, dash: [6, 4], colour: "error" };
 
 function gcEdgeStyle(edge) {
@@ -367,6 +367,119 @@ function gcEnsureCanvas(s = gcTab) {
 //: the smaller the node the louder it read. Half the distance, half the light
 //: and a little longer to travel it keeps the gesture (the node comes forward
 //: under the pointer) without the pop.
+//: **A node is a sprite, not three arcs.** The owner on the flat discs with
+//: a halo ring: "the visual part of the main graph design needs a better
+//: look", and on a first attempt with a highlight dot: "makes it look like a
+//: bowling ball". So: one soft radial fill per node (a little lighter at the
+//: centre, the category colour at the edge, no dot), a one-pixel rim a shade
+//: darker than the fill so the disc has an edge against any background, and
+//: a glow outside it that is wide and faint for a hub and narrow for a leaf.
+//: Drawn once per colour and size into an offscreen canvas at the current
+//: zoom and pixel ratio, then `drawImage`d, which is what keeps a
+//: two-thousand-node map inside the frame budget: a radial gradient per node
+//: per frame would not be.
+const gcSpriteCache = new Map();
+
+function gcHexToRgb(colour) {
+  const m = /^#([0-9a-f]{6})$/i.exec(String(colour || "").trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function gcShade(colour, towards, t) {
+  const rgb = gcHexToRgb(colour);
+  if (!rgb) return colour;
+  const mix = rgb.map((c) => Math.round(c + (towards - c) * t));
+  return `rgb(${mix[0]}, ${mix[1]}, ${mix[2]})`;
+}
+
+function gcNodeSprite(colour, radiusPx, hub) {
+  const r = Math.max(2, Math.round(radiusPx));
+  const key = `${colour}|${r}|${hub ? 1 : 0}|${gcTokens.card}`;
+  let sprite = gcSpriteCache.get(key);
+  if (sprite) return sprite;
+  if (gcSpriteCache.size > 600) gcSpriteCache.clear();
+  //: Flat, like every other mark in the app (DESIGN.md: one fill, one edge,
+  //: no rendered light): the category colour as a disc, a ring in the
+  //: card's own colour so a node reads clear of the links it sits on, and
+  //: for a hub only, a soft bloom of its colour behind it. A gradient body
+  //: was tried and read as "fake or too realistic"; a highlight dot as "a
+  //: bowling ball". Neither belongs in an interface of flat glass.
+  const glow = hub ? Math.round(r * 1.2) + 4 : 0;
+  const ring = Math.max(1, Math.round(r * 0.18));
+  const half = r + ring + glow + 1;
+  const size = half * 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const c = canvas.getContext("2d");
+  if (hub && gcHexToRgb(colour)) {
+    const bloom = c.createRadialGradient(half, half, r * 0.9, half, half, half);
+    const rgb = gcHexToRgb(colour).join(", ");
+    bloom.addColorStop(0, `rgba(${rgb}, 0.22)`);
+    bloom.addColorStop(1, `rgba(${rgb}, 0)`);
+    c.fillStyle = bloom;
+    c.beginPath();
+    c.arc(half, half, half, 0, Math.PI * 2);
+    c.fill();
+  }
+  c.fillStyle = gcTokens.card || "#ffffff";
+  c.beginPath();
+  c.arc(half, half, r + ring, 0, Math.PI * 2);
+  c.fill();
+  c.fillStyle = colour;
+  c.beginPath();
+  c.arc(half, half, r, 0, Math.PI * 2);
+  c.fill();
+  sprite = { canvas, half };
+  gcSpriteCache.set(key, sprite);
+  return sprite;
+}
+
+//: **A nebula behind each cluster.** The one thing a map of a notebook can
+//: show that a list cannot is where the mass is, and seven clusters of
+//: same-coloured dots say it only once the eye has done the grouping. A wide,
+//: very faint radial wash of the cluster's colour behind each group does the
+//: grouping for the eye, in the same language as the app's background art
+//: (a soft field, not a drawn shape). Seven gradients a frame; a hull would
+//: be a shape, and shapes lie about where a cluster ends.
+function gcDrawNebulae(ctx, s, inView) {
+  const dark = document.documentElement.getAttribute("data-theme") === "dark";
+  const groups = new Map();
+  for (const node of s.nodes) {
+    if (!Number.isFinite(node.x) || !gcVisibleAtTime(node, s)) continue;
+    const g = groups.get(node.colour) || { colour: node.colour, xs: [], ys: [] };
+    g.xs.push(node.x);
+    g.ys.push(node.y);
+    groups.set(node.colour, g);
+  }
+  //: Additive in dark mode, so two washes that overlap brighten where the
+  //: clusters meet instead of muddying to brown; on a light ground the plain
+  //: blend is the one that stays faint.
+  const previous = ctx.globalCompositeOperation;
+  if (dark) ctx.globalCompositeOperation = "lighter";
+  for (const g of groups.values()) {
+    if (g.xs.length < 3) continue;
+    const rgb = gcHexToRgb(g.colour);
+    if (!rgb) continue;
+    const cx = g.xs.reduce((a, b) => a + b, 0) / g.xs.length;
+    const cy = g.ys.reduce((a, b) => a + b, 0) / g.ys.length;
+    let spread = 0;
+    for (let i = 0; i < g.xs.length; i++) spread += (g.xs[i] - cx) ** 2 + (g.ys[i] - cy) ** 2;
+    const radius = Math.sqrt(spread / g.xs.length) * 1.6 + 40;
+    if (!inView({ x: cx, y: cy, r: radius })) continue;
+    const wash = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+    wash.addColorStop(0, `rgba(${rgb.join(", ")}, ${dark ? 0.09 : 0.06})`);
+    wash.addColorStop(1, `rgba(${rgb.join(", ")}, 0)`);
+    ctx.fillStyle = wash;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalCompositeOperation = previous;
+}
+
 const GC_HOVER_GROW = 3;         // half the gap from a core to its own halo
 const GC_HOVER_HALO_GROW = 1.5;  // and the halo keeps clear by the same half
 const GC_HOVER_MS = 190;
@@ -598,6 +711,9 @@ function gcDraw(s = gcTab) {
     return box ? box.checked : true;
   })();
 
+  gcDrawNebulae(ctx, s, inView);
+  const curvedLinks = localStorage.getItem("graph-curved") === "1";
+
   // --- edges -------------------------------------------------------------
   // Bucketed by recipe and by whether they are dimmed, so the context's
   // stroke state is set once per bucket rather than once per edge. A dashed
@@ -638,6 +754,20 @@ function gcDraw(s = gcTab) {
         edge._path2d = new Path2D(s.tree.arc ? arcPath(edge) : hierarchyPath(edge, s.tree.radial));
       }
       bucket.path.addPath(edge._path2d);
+    } else if (curvedLinks) {
+      //: A quadratic curve bowed to one side by an eighth of its length, the
+      //: side chosen by the endpoints' ids so the same link bows the same way
+      //: whichever end the simulation lists first, and a link that is drawn
+      //: twice (both directions) lands on itself.
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const side = String(a.id) < String(b.id) ? 1 : -1;
+      const bow = Math.min(len * 0.14, 48) * side;
+      const cx = (a.x + b.x) / 2 - (dy / len) * bow;
+      const cy = (a.y + b.y) / 2 + (dx / len) * bow;
+      bucket.path.moveTo(a.x, a.y);
+      bucket.path.quadraticCurveTo(cx, cy, b.x, b.y);
     } else {
       bucket.path.moveTo(a.x, a.y);
       bucket.path.lineTo(b.x, b.y);
@@ -664,7 +794,6 @@ function gcDraw(s = gcTab) {
   // the ordinary ring. Only the handful of nodes that are hovered, matched,
   // pinned, held, hub or on a path get their own stroke.
   const haloByColour = new Map();
-  const coreByColour = new Map();
   const ringed = [];
   const hubs = { path: new Path2D(), any: false };
   const labelled = [];
@@ -678,9 +807,14 @@ function gcDraw(s = gcTab) {
     const key = `${node.colour}|${dim}`;
     let halo = haloByColour.get(key);
     if (!halo) {
-      halo = { colour: node.colour, dim, path: new Path2D() };
+      //: Four batched fills per colour, not two: a soft glow outside the halo
+      //: and a shine inside the core (the SVG renderer has both; the canvas
+      //: renderer had flat discs, and the owner asked for nodes that look
+      //: "more visually pleasing while keeping it professional"). Batched
+      //: per colour like the halo, so the cost is two fills per colour per
+      //: frame rather than two per node.
+      halo = { colour: node.colour, dim, nodes: [] };
       haloByColour.set(key, halo);
-      coreByColour.set(key, { colour: node.colour, dim, path: new Path2D() });
     }
     //: The hover growth, applied once and remembered on the node, so the core,
     //: the halo, the plain ring, the hub ring and the special ring below all
@@ -694,11 +828,8 @@ function gcDraw(s = gcTab) {
     if (heat > 0) hotHalos.push({ node, heat });
     const r = node.r + node._grow;
     const haloR = node.r + 6 + gcHoverGrow(node, GC_HOVER_HALO_GROW, s);
-    halo.path.moveTo(node.x + haloR, node.y);
-    halo.path.arc(node.x, node.y, haloR, 0, Math.PI * 2);
-    const core = coreByColour.get(key);
-    core.path.moveTo(node.x + r, node.y);
-    core.path.arc(node.x, node.y, r, 0, Math.PI * 2);
+    void haloR;
+    halo.nodes.push(node);
     drawn.push(node);
     node._dim = dim;
     const focused = node.id === s.hoveredId || node.id === gcKeyboardId(s);
@@ -740,14 +871,19 @@ function gcDraw(s = gcTab) {
       labelled.push(node);
     }
   }
-  for (const [key, halo] of haloByColour) {
-    ctx.globalAlpha = halo.dim ? 0.05 : 0.18;
-    ctx.fillStyle = halo.colour;
-    ctx.fill(halo.path);
-    const core = coreByColour.get(key);
-    ctx.globalAlpha = core.dim ? GC_DIM_ALPHA : 1;
-    ctx.fillStyle = core.colour;
-    ctx.fill(core.path);
+  //: Sprites at the zoom's own pixel size, so a node stays crisp at any
+  //: scale; the sizes are rounded to whole pixels, which keeps the cache to
+  //: a few dozen entries per colour.
+  const pixelScale = k * (s.dpr || 1);
+  for (const halo of haloByColour.values()) {
+    ctx.globalAlpha = halo.dim ? GC_DIM_ALPHA : 1;
+    for (const node of halo.nodes) {
+      const rWorld = node.r + node._grow;
+      const hub = (s.adj.get(node.id) || { size: 0 }).size >= 3;
+      const sprite = gcNodeSprite(halo.colour, rWorld * pixelScale, hub);
+      const halfWorld = sprite.half / pixelScale;
+      ctx.drawImage(sprite.canvas, node.x - halfWorld, node.y - halfWorld, halfWorld * 2, halfWorld * 2);
+    }
   }
   //: The hovered node's halo, lit. A second fill over the one the batch
   //: already laid down, because pulling this node out of its colour batch to
@@ -774,22 +910,11 @@ function gcDraw(s = gcTab) {
 
   // The ordinary ring (`.graph-core { stroke: var(--card) }`) in one pass.
   ctx.globalAlpha = 1;
-  ctx.strokeStyle = gcTokens.card;
-  ctx.lineWidth = 2 / k;
-  const plain = new Path2D();
-  for (const node of drawn) {
-    if (node._dim) continue;
-    plain.moveTo(node.x + node.r + node._grow, node.y);
-    plain.arc(node.x, node.y, node.r + node._grow, 0, Math.PI * 2);
-  }
-  ctx.stroke(plain);
-  if (hubs.any) {
-    // Well-connected notes get a brighter ring so the structure of the
-    // notebook is visible without reading a single label.
-    ctx.strokeStyle = gcTokens.accent;
-    ctx.lineWidth = 2.5 / k;
-    ctx.stroke(hubs.path);
-  }
+  //: No card-coloured ring and no accent ring on hubs any more: the sprite
+  //: carries its own rim, and a hub is told by its size and its wider glow
+  //: rather than by a painted outline (`hubs` is still gathered so the
+  //: keyboard and hover paths that read it keep working).
+  void hubs;
 
   gcDrawSelection(ctx, k, s);
   for (const item of ringed) {

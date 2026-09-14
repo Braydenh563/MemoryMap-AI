@@ -42,7 +42,7 @@ const SHOTS = [
 (async () => {
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
-  await ctx.addInitScript(({ gravity, spread }) => {
+  await ctx.addInitScript(({ gravity, spread, curved }) => {
     try {
       localStorage.setItem('theme', 'light');
       localStorage.setItem('onboardingDone', '1');
@@ -55,8 +55,9 @@ const SHOTS = [
       //: produce.
       localStorage.setItem('graph-gravity', gravity);
       localStorage.setItem('graph-spread', spread);
+      if (curved) localStorage.setItem('graph-curved', '1');
     } catch (e) {}
-  }, { gravity: process.env.GRAPH_GRAVITY || '85', spread: process.env.GRAPH_SPREAD || '35' });
+  }, { gravity: process.env.GRAPH_GRAVITY || '85', spread: process.env.GRAPH_SPREAD || '35', curved: process.env.GRAPH_CURVED === '1' });
   const page = await ctx.newPage();
   await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#lock-password', { state: 'visible', timeout: 20000 });

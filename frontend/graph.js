@@ -2455,6 +2455,12 @@ async function renderGraphSvg() {
   // Labels toggle: when off, labels only appear on hover (declutters a big
   // map). Driven by a class so toggling never rebuilds the simulation.
   $("graph-box").classList.toggle("graph-labels-hidden", !$("graph-labels").checked);
+  //: Curved links (the owner: "should we add the option to make connection
+  //: lines bezier instead?? ... togglable??"): a View option, remembered
+  //: like the others, read by the canvas renderer on every frame, so the
+  //: toggle is a redraw and never a rebuild of the simulation.
+  const curvedBox = $("graph-curved");
+  if (curvedBox) curvedBox.checked = localStorage.getItem("graph-curved") === "1";
   graphCatchUpLabels();
 
   // A plain-language readout of what's on screen, so the map isn't a
@@ -4610,3 +4616,8 @@ function initGraphViews() {
 // calls are idempotent (`_heightWired`), and the observer's first callback
 // arrives with a real height as soon as the card stops being display:none.
 initGraphDockHeightToken();
+
+$("graph-curved")?.addEventListener("change", (event) => {
+  localStorage.setItem("graph-curved", event.target.checked ? "1" : "0");
+  if (typeof gcRequestDraw === "function") gcRequestDraw();
+});

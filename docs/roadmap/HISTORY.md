@@ -27447,6 +27447,19 @@ line that carried a dash.
     so the map shows seven clusters, hubs drawn larger by degree, and the
     links between them; retaken with `ONLY=graph readmeshots.js`.
 
+242. **Mid-work drop, 2026-09-14, verbatim (the owner), the graph's look.**
+    "is it possible to make the graph nodes look more visually pleasing
+    while keeping it professional and modern?" / "I think the visual part
+    of the main graph design needs a better look, the graph movement and
+    features and everything is fine, just how the nodes look maybe??" /
+    on a first attempt with a highlight dot: "the dot on them makes it look
+    like a bowling ball". **Fixed (this commit).** Canvas nodes are cached
+    gradient sprites: a soft radial fill without a dot, a one-pixel darker
+    rim, a glow wide on hubs and narrow on leaves; the halo ring and the
+    accent hub ring are gone; links thinner and fainter. Measured: 0 page
+    errors on the graph tab (`scratchpad/graphtab.js`); the README graph
+    retaken (`docs/screenshots/graph.png`, 61 notes, 62 links, labels off).
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

@@ -950,6 +950,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The graph's look, kept flat to match the rest of the app: each node is
+  its category colour with a ring in the card colour so it reads clear of
+  the links, hubs alone carry a soft bloom, the halo ring and the accent
+  ring on hubs are gone, links are thinner and fainter, and a faint wash of
+  each cluster's colour sits behind it so the shape of the notebook reads
+  before a single label does. Nodes are drawn from cached sprites, so a
+  large map costs no more than before. New View option: Curved links.
 - **The graph's touch gestures and its world constant are measured, not
   assumed.** `scratchpad/ui-sweeps/graphtouch.js` drives a real touch context:
   a 96x48 one-finger drag moves the camera 107.3px and a pinch from 80px to

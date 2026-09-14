@@ -98,6 +98,21 @@ the rest of this run.
 | Their exports, their viewport clamp, the dark/narrow pass, and node shape | HISTORY, same date, "what the sixth run closed behind items 2 to 9". The shape list is a §12.0 decision. |
 | The two open decisions (Space, a trunk's colour) | MINDMAP_PLAN §12.0, decided 2026-09-12 with the reason for each. |
 
+## Green on this head (the ninth run's last measurement)
+
+Every one of these was run against `8fbe541` on a fresh data dir at port 8802.
+
+| Sweep | Result |
+| --- | --- |
+| `mapplaces.js` | **15/15** at 1440x900 and **15/15** at 390x844 (11 before) |
+| `mapcore.js` | **16/16** light and **16/16** dark at 1440x900 (10 before) |
+| `mapstrip.js` | **39/39** at 1440 light, 1440 dark and 390x844 |
+| `mapdock.js` | **26/26** at 1440x900 and 390x844 |
+| `mapring.js` | **7/7** light (and dark, from the eighth run) |
+| `mindmap.js` | **76/76**, from 74/76 |
+| `mapnarrow.js` | **3/3** at 390x844 |
+| `errors.js` | 0 page errors and 0 layout findings at every width |
+
 ## The sweeps that gate this
 
 | Sweep | Checks |
@@ -410,7 +425,7 @@ not open. That is the same shape as the emblems and belongs to whoever owns
   luminance, so the label clears 4.5:1 on all ten palette entries (worst
   4.62:1 on `#4e79a7`). `scratchpad/ui-sweeps/mapcore.js` 16/16 light and
   16/16 dark at 1440x900 (10 checks before).
-- done `31c914e`: the first-open hint and the rail's help. One line under the
+- done `2db94de`: the first-open hint and the rail's help. One line under the
   template offer ("Click a topic for its ring of actions, or press Tab to add
   one under it"), shown once per browser (`wbMapFirstHintDone`, written the
   moment any map has more than its root) and a `data-help-for` '?' on the
@@ -421,8 +436,27 @@ not open. That is the same shape as the emblems and belongs to whoever owns
   y=411), which is the overlap `wb-map-templates` was fixed for once already:
   the offer's title now folds at phone width, where the four named shape
   buttons say the same thing, and the clearance is 24px.
-- next: the sweeps that name removed ids (`mapstrip.js`, `mapdock.js`,
-  `mindmap.js`, `radialfit.js`), then `mapnarrow.js` and `errors.js`.
+- done `8448f20`: the sweeps that named ids §12.5 removed. `mapstrip.js` reads
+  six ring slots and three line-ring slots, the context bar's id (`#wb-context`
+  since `5796258`, where `#wb-selection-bar` went), cut-free and copy-branch
+  from the topic's menu, the grips **row's** own fade rather than the grip's
+  (which is opacity 1 whether drawn or not), and a hit path that is the
+  centreline of a ribbon rather than the same `d`. 39/39 at 1440 light, 1440
+  dark and 390x844. `mapdock.js` drives the two adds and the fold from the ring
+  and the colour from the strip, and reads the ribbon's `fill` as well as a
+  stroke: 26/26 at both widths.
+- done `8fbe541`: `mindmap.js` 76/76, from 74/76. The last two failures were
+  its own measurement again: a fixed 64 samples along a path is a spacing that
+  grows with the edge (about 5px after the drag that made it longer), so a
+  perfectly attached edge read 2.6px adrift. One sample per pixel, and only on
+  the edge carrying the pair's own `data-parent`/`data-child` (walking every
+  path at that sample count is tens of millions of `getPointAtLength` calls on
+  the 200-node map). The gap is 0px at rest, mid-drag, after the drop, on the
+  pinned second drag, on a root drag and after a reload.
+- next: nothing in this run's list. The open work is "Left to do" item 2
+  (MINDMAP_PLAN §12.1 item 2's five sub-items, four with a recorded reason for
+  being left), item 5 (INBOX 43's second half, judged a redesign rather than a
+  consistency fix, see below) and item 6 (the AI half, still unexercised).
 
 ## The eighth run, in order, as it lands
 

@@ -7,6 +7,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The mind map's control sweep is closed (INBOX 200): 112 controls audited, one
+  place per action, the top bar 60 controls to 40 and the ring's reach 164px to
+  88px, with every ring action also a key and also in the topic's own menu.
 - The mind map's own sweep reads the map it draws: the last two failures in
   `scratchpad/ui-sweeps/mindmap.js` were its own sampling, a fixed 64 points
   along a path whose spacing grows with the edge. One sample per pixel, on the

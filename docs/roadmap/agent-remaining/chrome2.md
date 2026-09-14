@@ -5,9 +5,8 @@ INBOX 234, 230, 233, 231, 236, 235, 237 in that order. Sweeps under
 
 ## Landed
 
-- (pending)
+- 234, Atlas section badges, `3dbe0e5`.
 
 ## Next
 
-- 234, `frontend/settings.js` near line 2950: the document click handler
-  matches `[data-goto-tab], [data-goto-section]`.
+- 230, the popup agent foot kebab z-index (next).

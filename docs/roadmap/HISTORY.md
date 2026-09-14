@@ -27438,6 +27438,19 @@ line that carried a dash.
     same pass, the rest briefed to agents. Owner: orchestrator.
     **Done, 2026-09-14:** the audit is WORLD_CLASS_PLAN "Audit, 2026-09-13 night", rows A1 to A9 all landed in this PR.
 
+234. **Mid-work drop, 2026-09-14, verbatim (the owner), Atlas badges.**
+    "the web search and skills hyperlinked badges in the atlas interface
+    dont work" (Chat works). Those two carry `data-goto-section` without
+    `data-goto-tab`, and the document handler only matches the tab
+    attribute. Owner: chrome2, first.
+    **Fixed 3dbe0e5.** `scratchpad/ui-sweeps/atlasbadge.js`, the three badge
+    shapes injected through `renderHelpChatMessage` and clicked in the real
+    sheet: before, "Web search" and "Skills" left the sheet open, the modal
+    closed and the section on `models`; after, each closes the sheet and opens
+    Settings on `websearch` and `skills`, "Chat" still switches to the chat tab,
+    and a Settings-internal section link still runs once (openSettingsModal 0
+    times, closeSettingsModal 0 times).
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

@@ -1760,10 +1760,55 @@ as they write, from the same engine, with the link-strength explanation
 under each. Both reuse B3; both gate on the 150 ms budget for a
 keystroke-to-margin update.
 
+### H9 Polish in use (the owner's question, 2026-09-14; S to M each)
+
+Asked at the close of PR 144: what else makes the app better *in use*,
+not on a feature list. Checked against the code first (undo toasts, the
+service worker, skeletons, chunk-on-scroll lists, saved searches, the
+daily note, the first-run pass and the doctor route all exist), so each
+row below is a gap, with its gate:
+
+- **A local usage ledger.** Count every feature's use on this machine
+  only (a table, never sent anywhere), shown in Settings as "what you
+  use", and used to rank the palette and the Show menu by frequency. The
+  first notebook that tells its owner which of itself is dead weight.
+  Gate: a feature unused for ninety days is listed, and the palette's
+  top five are the five most used.
+- **Time to first answer as the onboarding number.** The first-run path
+  ends in a real question answered from a real note, timed; the tour is
+  cut to whatever gets that under two minutes on a cold laptop. Gate:
+  the number in the CHANGELOG, measured by a sweep that starts from an
+  empty data dir.
+- **Simple mode.** A Settings switch that hides the tabs and settings a
+  new person does not need (Timeline, Boards, the learned store, the
+  advanced response settings) until they are reached for; every hidden
+  thing reachable from the palette. Gate: the tab bar shows four tabs
+  on a fresh install and the docks lint still passes.
+- **Speculative retrieval.** Retrieval starts on a typing pause in Ask
+  and Chat, before Enter, so the first token arrives sooner; the model
+  is warmed on boot and kept resident. Gate: median time to first token
+  on the reference laptop, before and after, in the CHANGELOG.
+- **The perf gate in CI.** `boottime.js` and a per-action timing sweep
+  (open each tab, open a note, ask a question against the fake server)
+  run on every push with a budget per number; a regression fails the
+  build like a lint. Gate: the workflow, and one deliberate regression
+  caught before merge.
+- **Screen readers as a standing sweep.** axe-core over every tab in
+  both themes, next to `contrast.js` and `touch.js`, with the count
+  ratcheted to zero. Gate: the sweep in `all.sh`, zero serious findings.
+- **Quick capture from anywhere.** A global hotkey on the desktop build
+  that opens a one-line capture over any app, and the PWA's share target
+  on a phone on the same network. Gate: a note captured without the app
+  in front, under three seconds, in both cases.
+- **Retry as a grammar.** Every failed request shows the same inline
+  "try again" with the reason, never a toast alone; `errors.js` gains a
+  fault-injection pass (the fake server returns 500 on one route at a
+  time). Gate: zero routes whose failure leaves the surface blank.
+
 ### The order, and the rule
 
-H7 first (it makes every later measurement honest), then H1, H2, H3, H6,
-H4, H8, H5. One horizon item per PR, its Built block moved to HISTORY at
+H7 first (it makes every later measurement honest), then H9's perf gate
+and usage ledger, then H1, H2, H3, H6, H4, H8, H5. One horizon item per PR, its Built block moved to HISTORY at
 the end, its numbers in the CHANGELOG. Nothing above is started until
 `OPEN.md` is empty for the surface it touches: a revolution on top of an
 unfixed report is how the "fixed again" rounds happened.

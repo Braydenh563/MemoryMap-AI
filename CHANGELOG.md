@@ -110,6 +110,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The graph's node popup opens with its body rendered again (headings,
+  bold, pictures), and the capture box, the edit form and the draft get the
+  note editor on their first focus from a fresh boot: the editor's bundle
+  became Library-only when the tabs went lazy, so nothing mounted until
+  that tab had been visited; app.js now fetches it on the first focus of a
+  note box and the popup mounts it on open (INBOX 242).
 - Atlas's answer badges did nothing in the sheet (their click handler was
   delegated on the Settings modal); the sheet head now carries the mark,
   the name, the one-line description and the kebab beside the close, the
@@ -950,6 +956,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The graph's gravity slider moves the centring pull and the spacing between
+  nodes along with the repulsion, so maximum gravity is tight rather than
+  merely less loose (unchanged at the default), and a new View option,
+  Length by similarity, on by default, draws a strongly related pair closer
+  than a weak one (INBOX 243).
 - The graph's look, kept flat to match the rest of the app: each node is
   its category colour with a ring in the card colour so it reads clear of
   the links, every node carries a soft glow (wider on hubs; the earlier

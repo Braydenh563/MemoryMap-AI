@@ -27460,6 +27460,27 @@ line that carried a dash.
     errors on the graph tab (`scratchpad/graphtab.js`); the README graph
     retaken (`docs/screenshots/graph.png`, 61 notes, 62 links, labels off).
 
+242. **Mid-work drop, 2026-09-14, verbatim (the owner), the graph node
+    popup (two screenshots: "Ice Breakers:" and "Girl with bell" popups,
+    the body showing raw `**...**`, `# ...` and `![...](/media/...)`).**
+    "the graph popup panels no longer auto render the md and images".
+    Cause: the note editor and its focus listener live in documents.js,
+    which the lazy bundles made Library-only, and the popup stopped
+    focusing its box (198), so nothing mounted. Fixed: app.js keeps the
+    note box ids and fetches the bundle on first focus; the popup mounts
+    on open.
+243. **Mid-work drop, 2026-09-14, verbatim (the owner), the graph.**
+    "maximum gravity still seems quite spread apart, idk but smth still
+    seems off about the distance between nodes and clusters etc. maybe
+    different options can be togglable?? distance based on similarity
+    score or smth??" Recommendation: link length from the link's
+    similarity (strong links short), a wider gravity range, and a
+    "Tight / Balanced / Loose" layout preset in the View menu.
+    **Fixed:** the gravity slider now moves the centring pull and the
+    collide padding with the repulsion (unchanged at 50), and a new View
+    option, Length by similarity (on), shortens a line by its score. The
+    preset is a slider pair already; not added.
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

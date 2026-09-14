@@ -132,3 +132,18 @@ def test_the_note_surface_does_not_borrow_the_document_pipeline() -> None:
     assert "docFindingsPlugin" not in region, (
         "a note surface is drawing the document's prose findings"
     )
+
+
+def test_app_js_mirrors_the_table_for_the_boot_time_door():
+    """documents.js is a lazy bundle, so its delegated focus listener is not
+    there on a fresh boot. app.js keeps the same ids in `NOTE_SURFACE_IDS`
+    and fetches the bundle on the first focus of one of them; a box added to
+    one list and not the other is a bare textarea until the Library tab has
+    been visited, which is invisible to every other test here."""
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    start = app.index("const NOTE_SURFACE_IDS = new Set([")
+    block = app[start : app.index("]);", start)]
+    ids = set(re.findall(r'"([a-z0-9-]+)"', block))
+    assert ids == _table_ids(), (
+        f"app.js NOTE_SURFACE_IDS {sorted(ids)} differs from documents.js NOTE_SURFACES {sorted(_table_ids())}"
+    )

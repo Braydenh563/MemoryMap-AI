@@ -1851,6 +1851,27 @@ async function renderGraphSvg() {
   const spread = Number(localStorage.getItem("graph-spread") ?? 50);
   const spreadScale = 0.5 + spread / 50; // 0.5×–2.5× the base link distance
   const gravityScale = 0.4 + gravity / 41.7; // stronger pull → tighter clusters
+  //: **Gravity moves the whole layout, not the repulsion alone.** At 100 the
+  //: slider only ever weakened the charge, and the centring pull and the
+  //: collide padding stayed at their defaults, so the map at maximum
+  //: gravity still sat as far apart as those two let it (the owner:
+  //: "maximum gravity still seems quite spread apart"). `pull` is 1 at the
+  //: default of 50, so the out-of-the-box layout is unchanged; above it the
+  //: centring strengthens and the padding between nodes narrows, below it
+  //: the reverse, within bounds that keep labels legible.
+  const pull = gravityScale / 1.6;
+  const collidePad = Math.max(12, Math.min(48, 24 / pull));
+  //: **Link length by similarity** (View menu, on by default): a similarity
+  //: line carries its score and a deduced link its confidence, and a strong
+  //: relation should read as a short one. 1.3x the base length at 0, 0.7x at
+  //: 1; a link with no score keeps the base length.
+  const lengthByScore = localStorage.getItem("graph-length-score") !== "0";
+  const linkLength = (d) => {
+    const base = (d.kind === "similar" ? 130 : 80) * spreadScale;
+    const score = lengthByScore ? d.score ?? d.reason_confidence : null;
+    if (typeof score !== "number" || Number.isNaN(score)) return base;
+    return base * (1.3 - 0.6 * Math.max(0, Math.min(1, score)));
+  };
 
   graphSimulation = tree
     ? null
@@ -1873,15 +1894,15 @@ async function renderGraphSvg() {
       d3
         .forceLink(edges)
         .id((d) => d.id)
-        .distance((d) => (d.kind === "similar" ? 130 : 80) * spreadScale)
+        .distance(linkLength)
     )
     // More repulsion + a mild centring pull → notes spread out and fill
     // the space instead of clumping in the middle (Wave N polish).
     .force("charge", d3.forceManyBody().strength(-340 / gravityScale))
     .force("center", d3.forceCenter(width / 2, height / 2))
-    .force("x", d3.forceX(width / 2).strength(0.04))
-    .force("y", d3.forceY(height / 2).strength(0.06))
-    .force("collide", d3.forceCollide().radius((d) => graphNodeRadius(d) + 24));
+    .force("x", d3.forceX(width / 2).strength(0.04 * pull))
+    .force("y", d3.forceY(height / 2).strength(0.06 * pull))
+    .force("collide", d3.forceCollide().radius((d) => graphNodeRadius(d) + collidePad));
   // How much larger than the visible frame the simulation may spread. 1.8 is
   // not arbitrary: the clamp below has to be loose enough that the repulsion
   // and collide forces, not the walls, decide where a node ends up, at 1.0
@@ -2463,6 +2484,8 @@ async function renderGraphSvg() {
   if (curvedBox) curvedBox.checked = localStorage.getItem("graph-curved") === "1";
   const nebulaBox = $("graph-nebula");
   if (nebulaBox) nebulaBox.checked = localStorage.getItem("graph-nebula") !== "0";
+  const lengthBox = $("graph-length-score");
+  if (lengthBox) lengthBox.checked = localStorage.getItem("graph-length-score") !== "0";
   graphCatchUpLabels();
 
   // A plain-language readout of what's on screen, so the map isn't a
@@ -3213,6 +3236,17 @@ async function openGraphPopup(event, node) {
   //: set and while the panel is visible, which it now is.
   if (typeof autoGrow === "function") autoGrow($("graph-popup-content"));
   placeGraphPopup(); // now that it's at its real height
+  //: The body opens rendered, not as raw markdown waiting for a click: the
+  //: editor used to mount on the box's first focus, and since the popup
+  //: focuses the dialog rather than the box (INBOX 198) that focus never
+  //: came. Mounting here also fetches the editor's bundle on the first
+  //: popup of a session (app.js, `mountNoteSurfaceNow`). The view is taller
+  //: than the textarea it replaces, so the popup is placed once more.
+  if (typeof mountNoteSurfaceNow === "function") {
+    mountNoteSurfaceNow($("graph-popup-content")).then(() => {
+      if (graphPopupId === node.id) placeGraphPopup();
+    });
+  }
   //: The dialog takes focus, not the note's text box: focusing the box put
   //: its caret in the markdown, so the popup opened on raw `![...](...)`
   //: and only rendered once you clicked away (INBOX 198). Escape and Tab
@@ -4629,4 +4663,11 @@ $("graph-curved")?.addEventListener("change", (event) => {
 $("graph-nebula")?.addEventListener("change", (event) => {
   localStorage.setItem("graph-nebula", event.target.checked ? "1" : "0");
   if (typeof gcRequestDraw === "function") gcRequestDraw();
+});
+
+//: Link length by similarity changes the forces, so it is a relayout rather
+//: than a redraw (the owner: "distance based on similarity score or smth??").
+$("graph-length-score")?.addEventListener("change", (event) => {
+  localStorage.setItem("graph-length-score", event.target.checked ? "1" : "0");
+  renderGraph();
 });

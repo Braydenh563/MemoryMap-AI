@@ -35326,6 +35326,51 @@ function ensureModule(name) {
   return loaded;
 }
 
+//: **The note editor's door, kept at boot.** The rendering editor every note
+//: box gets (documents.js's `NOTE_SURFACES` table and `mountNoteSurface`)
+//: mounts on the box's first focus through a listener *in documents.js*,
+//: which is in the Library bundle now. So on a fresh boot the capture box,
+//: the edit form, the draft and the graph's popup all stayed bare textareas
+//: until the Library tab had been visited once (the owner: "the graph popup
+//: panels no longer auto render the md and images"). This listener is the
+//: half that has to live in the file that is always loaded: it fetches the
+//: bundle on the first focus of a note box and hands the mount over. Once
+//: the bundle is in, its own listener runs on every later focus and this
+//: one steps aside. `NOTE_SURFACE_IDS` mirrors the table's keys, and
+//: `tests/test_note_surface.py` fails when the two drift.
+const NOTE_SURFACE_IDS = new Set([
+  "entry-content",
+  "entry-edit-content",
+  "graph-popup-content",
+  "graph-new-content",
+  "draft-text",
+  "draft-thoughts",
+]);
+
+//: Mount the editor on one note box now, fetching the bundle if it is not in
+//: yet. Resolves to the surface (or null when the engine is unavailable) so
+//: a caller that sizes itself to the box can re-place afterwards. Used by
+//: the graph popup, which opens rendered rather than waiting for a click.
+function mountNoteSurfaceNow(host) {
+  if (!host || !NOTE_SURFACE_IDS.has(host.id)) return Promise.resolve(null);
+  return ensureModule("library").then((ok) => {
+    if (!ok || typeof mountNoteSurface !== "function" || typeof NOTE_SURFACES !== "object") return null;
+    return mountNoteSurface(host, NOTE_SURFACES[host.id]);
+  });
+}
+
+document.addEventListener("focusin", (event) => {
+  const host = event.target;
+  if (!(host instanceof HTMLTextAreaElement) || !NOTE_SURFACE_IDS.has(host.id)) return;
+  //: documents.js is in: its own delegated listener mounts and focuses.
+  if (typeof mountNoteSurface === "function") return;
+  mountNoteSurfaceNow(host).then((surface) => {
+    //: Focus moved on while the bundle was fetching: mount, but do not
+    //: steal the caret back.
+    if (surface && surface.kind === "codemirror" && document.activeElement === host) surface.focus();
+  });
+});
+
 //: **The entry points that can be reached before their own file exists.**
 //:
 //: Most calls into a lazy module happen on its own tab, after `switchTab` has

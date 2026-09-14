@@ -1881,8 +1881,8 @@ def _dispatch_call(
         {"role": "tool", "tool_name": name, "content": payload}
     )
 
-
     return False
+
 
 def run_agent(
     session: Session,

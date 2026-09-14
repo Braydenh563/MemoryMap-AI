@@ -40,13 +40,24 @@ def test_the_mode_names_are_the_current_ones() -> None:
 
 
 def test_the_test_count_claim_is_not_stale_by_an_order() -> None:
-    """A rough gate: the README's "N,000+ tests" must be within one thousand
-    of the collected count, which the suite knows without running."""
-    claim = re.search(r"(\d),000\+ tests", README)
-    assert claim, "README should state the test count as N,000+ tests"
+    """A rough gate: the README's "N,N00+ tests" must be at or under the
+    collected count, and within a thousand of it.
+
+    The figure is written by hand, and the hundreds digit is part of the
+    sentence ("3,600+ tests"): an earlier version of this gate read only
+    the thousands form and failed the build the first time the owner wrote
+    a truer number, which is the lint being wrong rather than the README.
+    The bound is the one that matters either way: a claim of more tests
+    than the tree defines is a false claim, and a claim a thousand short is
+    stale. `approx` counts `def test_` lines rather than collected cases,
+    so it undercounts parametrised tests; the claim sits at or below it.
+    """
+    claim = re.search(r"(\d,\d00)\+ tests", README)
+    assert claim, "README should state the test count as N,N00+ tests"
     files = list((ROOT / "tests").glob("test_*.py"))
     approx = sum(len(re.findall(r"^\s*def test_", f.read_text(encoding='utf-8'), re.M)) for f in files)
-    assert int(claim.group(1)) * 1000 <= approx < (int(claim.group(1)) + 2) * 1000, (
+    claimed = int(claim.group(1).replace(",", ""))
+    assert claimed <= approx < claimed + 1000, (
         f"README claims {claim.group(0)}, the tree defines about {approx}"
     )
 

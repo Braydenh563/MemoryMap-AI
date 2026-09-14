@@ -66,7 +66,7 @@ def _leading_name(selector: str) -> str:
     selector = selector.strip()
     if selector.startswith("@"):
         return ""
-    token = re.split(r"[\s>+~:\[]", selector, 1)[0]
+    token = re.split(r"[\s>+~:\[]", selector, maxsplit=1)[0]
     return token or selector
 
 

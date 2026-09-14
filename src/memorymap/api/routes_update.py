@@ -345,18 +345,33 @@ def check_for_update() -> dict:
     if channel == "main" and getattr(sys, "frozen", False):
         channel = "stable"
     if channel == "main":
-        # Honest, not fabricated: there is no nightly-build CI pipeline
-        # that tags/publishes a Windows asset on every main-branch push,
-        # so reporting "up to date" or a fake version here would be a lie
-        # this project's own CLAUDE.md explicitly calls out as costly.
-        # Storing the preference is real (a user genuinely can pick it);
-        # what it *does* stays honest until that pipeline exists.
+        #: **A source install on this channel is not broken, it is already
+        #: doing it.** Reported with a screenshot of this panel saying main
+        #: "isn't wired up to a build pipeline yet: switch back to Stable",
+        #: on a checkout launched by `start.bat`, which pulls main on every
+        #: launch. The toggle two rows below says so in its own label. The
+        #: sentence was written for the packaged app, where there is no
+        #: source to pull and no nightly installer, and telling someone to
+        #: leave the channel that is working for them is the opposite of the
+        #: advice they need.
+        #:
+        #: Still `checked: false`: there is no *release* to compare against
+        #: on this channel and inventing one would be the lie the honest
+        #: message below already avoids. What changes is which true sentence
+        #: the reader gets.
+        #: Only a source install reaches this: the line above has already
+        #: rewritten the packaged app's "main" to "stable", because it has no
+        #: source to pull and a release is the only thing it can install. So
+        #: the old sentence here, written for that case, could only ever be
+        #: read by the one kind of install it was wrong about.
         return {
             "checked": False,
-            "reason": "channel_unavailable",
-            "message": "Tracking the main branch isn't wired up to a build "
-            "pipeline yet: no nightly Windows installer is published on "
-            "every push. Switch back to Stable to get real update checks.",
+            "reason": "channel_source_main",
+            "message": (
+                "This copy follows the main branch: start.bat and start.sh "
+                "pull it on every launch, so it is already as new as main. "
+                "Release checks apply on the Stable channel."
+            ),
         }
     #: **Three different failures, three different sentences.** Reported with
     #: a screenshot of Settings saying "Couldn't reach GitHub to check for

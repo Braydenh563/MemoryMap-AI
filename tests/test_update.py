@@ -492,7 +492,27 @@ def test_check_honestly_refuses_to_fabricate_main_channel_updates(client, app_st
     assert response.status_code == 200
     body = response.json()
     assert body["checked"] is False
-    assert body["reason"] == "channel_unavailable"
+    #: Never a fabricated version, and never the packaged app's sentence
+    #: either: a frozen build's "main" is rewritten to "stable" before this,
+    #: so the only install that gets here is one that really does pull main.
+    assert body["reason"] == "channel_source_main"
+
+
+def test_a_source_install_on_main_is_told_it_is_already_following_main(
+    client, app_state, monkeypatch
+):
+    """Reported with a screenshot of the panel telling a checkout launched by
+    start.bat that main "isn't wired up to a build pipeline yet: switch back
+    to Stable". start.bat pulls main on every launch, which the toggle's own
+    label says, so that copy is already as new as main and the advice was
+    backwards. The packaged build, which has no source to pull, still gets the
+    original sentence."""
+    app_state.set_preference("update_check_enabled", True)
+    app_state.set_preference("update_channel", "main")
+    monkeypatch.setattr(routes_update.sys, "frozen", False, raising=False)
+    body = client.get("/update/check").json()
+    assert body["reason"] == "channel_source_main"
+    assert "pull it on every launch" in body["message"]
 
 
 def test_check_reports_unreachable_when_offline(client, app_state, monkeypatch):
@@ -595,6 +615,9 @@ def test_releases_unavailable_on_the_main_channel(client, app_state):
     response = client.get("/update/releases")
     body = response.json()
     assert body["available"] is False
+    #: `/update/releases` is the "pick a specific version" list, a different
+    #: endpoint with its own reason: it is the *check* that learned to tell a
+    #: source install apart from a packaged one.
     assert body["reason"] == "channel_unavailable"
 
 

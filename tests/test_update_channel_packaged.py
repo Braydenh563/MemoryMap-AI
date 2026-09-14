@@ -26,7 +26,10 @@ def test_a_source_install_on_main_is_told_the_check_is_the_launchers(monkeypatch
     _config(monkeypatch, {"update_check_enabled": True, "update_channel": "main"})
     monkeypatch.setattr(sys, "frozen", False, raising=False)
     result = routes_update.check_for_update()
-    assert result["checked"] is False and result["reason"] == "channel_unavailable"
+    #: The launcher's job, and it says so: this copy pulls main on every
+    #: start, so telling it to switch back to Stable (the sentence written
+    #: for the packaged app, which cannot pull anything) was backwards.
+    assert result["checked"] is False and result["reason"] == "channel_source_main"
 
 
 def test_the_packaged_app_on_main_checks_stable_releases(monkeypatch):

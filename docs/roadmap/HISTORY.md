@@ -27438,6 +27438,15 @@ line that carried a dash.
     same pass, the rest briefed to agents. Owner: orchestrator.
     **Done, 2026-09-14:** the audit is WORLD_CLASS_PLAN "Audit, 2026-09-13 night", rows A1 to A9 all landed in this PR.
 
+229. **Mid-work drop, 2026-09-14, verbatim (the owner), the graph
+    screenshot.** "redo the graph readme screenshot and make it really
+    impressive." Owner: orchestrator.
+    **Fixed (this commit).** The screenshot notebook carries 127 notes and
+    246 links (`scratchpad/ui-sweeps/seed-graph-links.js`: a ring per
+    category, a hub per category with fourteen links, forty cross-links),
+    so the map shows seven clusters, hubs drawn larger by degree, and the
+    links between them; retaken with `ONLY=graph readmeshots.js`.
+
 ## ROADMAP archive, 2026-09-14 (moved whole from ROADMAP.md)
 
 The entry-point file was rewritten at the close of PR 144; these sections are its previous body, verbatim, so every section number and every "decided against" still resolves. Open items from them live in the plans, `agent-remaining/OPEN.md` and BACKLOG.

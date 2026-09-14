@@ -112,10 +112,6 @@ with its owner named in the entry.
     menu opens (2 items, 200x87 at 795,753) at z-index 1020 under the
     palette overlay at 2000, so it draws behind the panel. Owner: chrome2.
 
-229. **Mid-work drop, 2026-09-14, verbatim (the owner), the graph
-    screenshot.** "redo the graph readme screenshot and make it really
-    impressive." Owner: orchestrator.
-
 228. **Mid-work drop, 2026-09-14, verbatim (the owner), the close.** "after
     you have finished all these, done the final bug sweep, make sure
     everything is finished for the pr, and finish the pr, merging it into

@@ -25,6 +25,7 @@ now says so in its first line.
 | [roadmap/WORLD_CLASS_PLAN.md](roadmap/WORLD_CLASS_PLAN.md) | The week and the quarter, the consistency contract, the flaw classes. **Start here.** How far each plan is: the table at the top of HANDOVER.md. |
 | [roadmap/SESSION_BRIEFS.md](roadmap/SESSION_BRIEFS.md) | One complete brief per session of the week, with the operating protocol for smaller models. **Take one brief and start.** |
 | [roadmap/INBOX.md](roadmap/INBOX.md) and [roadmap/SESSION_BRIEFS.md](roadmap/SESSION_BRIEFS.md) Brief 18 | The owner's open reports with owners and decisions, and the complete open scope in working order (2026-09-09). |
+| [roadmap/agent-remaining/OPEN.md](roadmap/agent-remaining/OPEN.md) | Every open item the finished agent files left, by surface, each with its file, id and next step (consolidated 2026-09-14; the files themselves are in `roadmap/archive/agent-remaining/`). |
 | [roadmap/UI_MODERNISATION_PLAN.md](roadmap/UI_MODERNISATION_PLAN.md) | Phases 0 to 10 built; Phase 11 (the phone, done properly) open. |
 | [roadmap/DOCUMENTS_PLAN.md](roadmap/DOCUMENTS_PLAN.md) | Phases 0, 1 and 2 built in full; Phases 3 to 8 open. |
 | [roadmap/GRAPH_PLAN.md](roadmap/GRAPH_PLAN.md) | Phases 1 to 6 built; Phase 4 part two, 6b (minimap) and the local pane open. |

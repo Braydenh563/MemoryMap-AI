@@ -528,7 +528,12 @@
       </div>
     </div>
     <div id="agent-monitor-runs" class="monitor-runs"></div>
-    <p id="agent-monitor-empty" class="muted monitor-empty">Nothing has run yet this session.</p>
+    <div id="agent-monitor-empty" class="empty-state monitor-empty">
+      <span class="empty-icon" aria-hidden="true"><i class="ph ph-robot ph-lead" aria-hidden="true"></i></span>
+      <p class="empty-title">Nothing has run yet</p>
+      <p class="muted">The agent runs in the background. Open the command palette to start a task.</p>
+      <button class="ghost small" type="button" id="agent-monitor-open-action"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Open Agent</button>
+    </div>
     <div id="agent-monitor-logs" class="monitor-logs hidden"></div>
   </aside>
 
@@ -573,6 +578,9 @@
   <dialog id="space-delete-dialog" class="card space-dialog">
     <h3>Delete this space?</h3>
     <p>Its notes are not deleted, they move to the Default space, so nothing is lost. The space itself goes away.</p>
+    <label for="space-delete-confirm-name">Type the space name to confirm:</label>
+    <input type="text" id="space-delete-confirm-name" autocomplete="off">
+    <input type="hidden" id="space-delete-expected-name">
     <input type="hidden" id="space-delete-id">
     <p id="space-delete-error" class="status error" role="alert"></p>
     <div class="row right space-dialog-actions">
@@ -666,7 +674,12 @@
       <h3>AI edit history</h3>
       <p class="muted">Every AI edit accepted into this document. Revert any of them, it's recorded too, so nothing here is ever lost.</p>
       <ul id="doc-ai-history-list" class="doc-ai-history-list"></ul>
-      <p id="doc-ai-history-empty" class="muted hidden">No AI edits yet.</p>
+      <div id="doc-ai-history-empty" class="empty-state hidden">
+        <span class="empty-icon" aria-hidden="true"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i></span>
+        <p class="empty-title">No AI edits yet</p>
+        <p class="muted">Use the "Write with AI" tab to improve your document.</p>
+        <button class="ghost small" type="button" id="doc-ai-history-open-action"><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i> Write with AI</button>
+      </div>
       <div class="row right space-dialog-actions">
         <button type="button" class="ghost" data-close-dialog="doc-ai-history-dialog">Close</button>
       </div>
@@ -3327,35 +3340,43 @@
                   title="Every version this document has had, and a way back to any of them"><i class="ph ph-clock-counter-clockwise ph-lead" aria-hidden="true"></i> History</button>
                 <button id="doc-extract" data-needs-model="Extracting notes needs the local AI" class="menu-item doc-dock-menu-item" type="button"
                   title="Turn this document, or the text you have selected, into one or more notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
-                <button id="doc-export-md" class="menu-item doc-dock-menu-item" type="button"
-                  title="Download as a .md file"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Download as .md</button>
-                <!-- **One HTML file that needs nothing else**
-                     (DOCUMENTS_PLAN Phase 7). Rendered in the browser from the
-                     pane that is already rendered, with its images as data
-                     URIs and a stylesheet of its own, because there is no
-                     server-side markdown renderer here and the plan forbids
-                     adding one. The glyph is the download arrow the app's
-                     other four export actions use. -->
-                <button id="doc-export-html" class="menu-item doc-dock-menu-item" type="button"
-                  title="Download as one self-contained .html file, images and all"><i class="ph ph-file-html ph-lead" aria-hidden="true"></i> Download as .html</button>
-                <!-- **The markdown with its pictures beside it**
-                     (DOCUMENTS_PLAN Phase 7). `Download as .md` hands over the
-                     text alone, and a document with images in it then opens
-                     somewhere else with `/media/…` links that resolve to
-                     nothing. This is the same markdown in a zip with every
-                     image in `assets/` and the links rewritten to match, built
-                     on the server because the files are on the server. -->
-                <button id="doc-export-zip" class="menu-item doc-dock-menu-item" type="button"
-                  title="Download the markdown and its images as one zip"><i class="ph ph-file-zip ph-lead" aria-hidden="true"></i> Download with images (.zip)</button>
-                <!-- Word, when this install has python-docx. Offered whatever
-                     the answer is: a menu that hides what an install cannot do
-                     leaves a person wondering whether the app can do it at
-                     all, and the endpoint's own 501 says which package is
-                     missing and what is available instead. -->
-                <button id="doc-export-docx" class="menu-item doc-dock-menu-item" type="button"
-                  title="Download as a Word .docx file"><i class="ph ph-file-doc ph-lead" aria-hidden="true"></i> Download as .docx</button>
-                <button id="doc-export-pdf" class="menu-item doc-dock-menu-item" type="button"
-                  title="Print or save as PDF"><i class="ph ph-file-pdf ph-lead" aria-hidden="true"></i> Print or save as PDF</button>
+                <details class="dock-menu-section" id="doc-export-group">
+                  <summary class="menu-item doc-dock-menu-item" aria-haspopup="menu" aria-expanded="false" title="Download this document in various formats">
+                    <span><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Download as</span>
+                    <span class="menu-submenu-arrow" aria-hidden="true">▾</span>
+                  </summary>
+                  <div class="action-menu submenu" role="menu" id="doc-export-submenu">
+                    <button id="doc-export-md" class="menu-item doc-dock-menu-item" type="button"
+                      title="Download as a .md file"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Download as .md</button>
+                    <!-- **One HTML file that needs nothing else**
+                         (DOCUMENTS_PLAN Phase 7). Rendered in the browser from the
+                         pane that is already rendered, with its images as data
+                         URIs and a stylesheet of its own, because there is no
+                         server-side markdown renderer here and the plan forbids
+                         adding one. The glyph is the download arrow the app's
+                         other four export actions use. -->
+                    <button id="doc-export-html" class="menu-item doc-dock-menu-item" type="button"
+                      title="Download as one self-contained .html file, images and all"><i class="ph ph-file-html ph-lead" aria-hidden="true"></i> Download as .html</button>
+                    <!-- **The markdown with its pictures beside it**
+                         (DOCUMENTS_PLAN Phase 7). `Download as .md` hands over the
+                         text alone, and a document with images in it then opens
+                         somewhere else with `/media/…` links that resolve to
+                         nothing. This is the same markdown in a zip with every
+                         image in `assets/` and the links rewritten to match, built
+                         on the server because the files are on the server. -->
+                    <button id="doc-export-zip" class="menu-item doc-dock-menu-item" type="button"
+                      title="Download the markdown and its images as one zip"><i class="ph ph-file-zip ph-lead" aria-hidden="true"></i> Download with images (.zip)</button>
+                    <!-- Word, when this install has python-docx. Offered whatever
+                         the answer is: a menu that hides what an install cannot do
+                         leaves a person wondering whether the app can do it at
+                         all, and the endpoint's own 501 says which package is
+                         missing and what is available instead. -->
+                    <button id="doc-export-docx" class="menu-item doc-dock-menu-item" type="button"
+                      title="Download as a Word .docx file"><i class="ph ph-file-doc ph-lead" aria-hidden="true"></i> Download as .docx</button>
+                    <button id="doc-export-pdf" class="menu-item doc-dock-menu-item" type="button"
+                      title="Print or save as PDF"><i class="ph ph-file-pdf ph-lead" aria-hidden="true"></i> Print or save as PDF</button>
+                  </div>
+                </details>
                 <!-- Asked for directly: "there should be the option to have
                      the tool bar as a horizontal scroll or expanded." Expanded
                      (wrapping) is the default because it is also what stops the

@@ -47,7 +47,59 @@ logger = logging.getLogger("memorymap.ocr")
 OCR_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"})
 
 def tesseract_available() -> bool:
-    return shutil.which("tesseract") is not None
+    """Whether the ``tesseract`` binary is reachable.
+
+    On Windows, the standard installer drops the binary in
+    ``C:\\Program Files\\Tesseract-OCR`` (or the x86 variant) but does
+    **not** always add that directory to PATH.  ``shutil.which`` then
+    returns ``None`` even though the binary is right there — reported
+    directly: "Tesseract installed but not recognised".
+
+    The fallback probes the two standard Program Files directories.
+    When found, the directory is appended to PATH (so every later
+    ``shutil.which`` in this process succeeds too) and
+    ``pytesseract.tesseract_cmd`` is pointed at the binary explicitly,
+    so pytesseract's own subprocess call finds it immediately.
+    """
+    if shutil.which("tesseract") is not None:
+        return True
+    if sys.platform == "win32":
+        found = _probe_windows_tesseract()
+        if found is not None:
+            # Tell pytesseract exactly where the binary is, so its own
+            # subprocess.run call works even before the PATH change
+            # propagates to child-process environments.
+            try:
+                import pytesseract as _pt
+                _pt.pytesseract.tesseract_cmd = str(found)
+            except ImportError:
+                pass
+            # Also add to PATH so shutil.which succeeds on the next call
+            # and any other code that searches PATH finds it too.
+            os.environ["PATH"] = (
+                os.environ.get("PATH", "") + os.pathsep + str(found.parent)
+            )
+            logger.info("found tesseract at %s (not on PATH, added)", found)
+            return True
+    return False
+
+
+@functools.lru_cache(maxsize=1)
+def _probe_windows_tesseract() -> Path | None:
+    """Check the two standard Program Files directories where the
+    Tesseract Windows installer drops ``tesseract.exe``.
+
+    Cached: the filesystem doesn't change mid-process, and this is
+    called on every status poll.
+    """
+    for env_var in ("ProgramFiles", "ProgramFiles(x86)"):
+        root = os.environ.get(env_var, "")
+        if not root:
+            continue
+        candidate = Path(root) / "Tesseract-OCR" / "tesseract.exe"
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def _one_thread_for_tesseract() -> None:
@@ -454,8 +506,10 @@ def attempt_binary_install(timeout: int = BINARY_INSTALL_TIMEOUT) -> tuple[bool,
     last_error = ""
     for attempt in attempts:
         try:
+            _no_window = 0x08000000 if sys.platform == "win32" else 0
             result = subprocess.run(  # noqa: S603  # fixed args from the table above, no shell
-                attempt, capture_output=True, text=True, timeout=timeout
+                attempt, capture_output=True, text=True, timeout=timeout,
+                creationflags=_no_window,
             )
         except FileNotFoundError:
             continue  # `sudo` itself isn't installed: fall through to the bare command

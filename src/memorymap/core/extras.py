@@ -423,12 +423,18 @@ def _run_uninstall(extra: Extra) -> None:
             *extra.packages,
         ]
         _state.step = f"pip uninstall {' '.join(extra.packages)}"
+        # CREATE_NO_WINDOW: on Windows desktop mode, pip is a subprocess
+        # that would otherwise briefly flash a console window for every
+        # install/uninstall — reported as "appdata terminal windows keep
+        # appearing for a split second". The flag is a no-op on non-Windows.
+        flags = 0x08000000 if sys.platform == "win32" else 0  # CREATE_NO_WINDOW
         process = subprocess.Popen(  # noqa: S603  # fixed args from the allowlist, no shell
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
+            creationflags=flags,
         )
         _state.process = process
         for line in process.stdout or []:
@@ -538,12 +544,14 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
             *constraint,
         ]
         _state.step = f"pip install {' '.join(extra.packages)}"
+        flags = 0x08000000 if sys.platform == "win32" else 0  # CREATE_NO_WINDOW
         process = subprocess.Popen(  # noqa: S603  # fixed args from the allowlist, no shell
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
+            creationflags=flags,
         )
         _state.process = process
         for line in process.stdout or []:

@@ -9581,6 +9581,7 @@ $("doc-export-html").addEventListener("click", exportDocumentHtml);
 $("doc-export-zip").addEventListener("click", exportDocumentBundle);
 $("doc-export-docx").addEventListener("click", exportDocumentDocx);
 $("doc-export-pdf").addEventListener("click", exportDocumentPdf);
+
 $("doc-delete").addEventListener("click", deleteCurrentDocument);
 $("doc-attach-bookmark").addEventListener("click", attachBookmarkToDocument);
 $("doc-ai").addEventListener("click", openDocAiPanel);
@@ -14160,3 +14161,10 @@ function docWatchLock() {
   }).observe(overlay, { attributes: true, attributeFilter: ["class"] });
 }
 docWatchLock();
+
+$("doc-ai-history-open-action")?.addEventListener("click", () => {
+  const dialog = document.getElementById("doc-ai-history-dialog");
+  if (dialog) dialog.close();
+  const btn = document.querySelector('button[data-section="writing-room"]');
+  if (btn) btn.click();
+});

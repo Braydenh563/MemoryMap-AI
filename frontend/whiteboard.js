@@ -75,6 +75,10 @@ function wbZoomFilter(event) {
   // mousemove reports the held set, and the drag half of the gesture needs to
   // pass the filter too.
   if (event.button === 1 || (event.buttons & 4) === 4) return true;
+  // Right click pans the board, but only on empty canvas so nodes keep their context menu
+  if (event.type !== "wheel" && (event.button === 2 || (event.buttons & 2) === 2)) {
+    return !event.target?.closest?.(".node-card, .sketch-group, .wb-object");
+  }
   // Touch: only in Pan. A finger drag while a brush is selected is a stroke,
   // and stealing it for a pan would make the board undrawable on a tablet.
   if (event.type.startsWith("touch")) return window.currentTool === "pan";
@@ -167,12 +171,6 @@ let wbLinkDragActive = false;
 const wbExpandedNodes = new Set();
 // {action: "delete"|"create", kind: "sketch"|"node", payload, id}. Bounded
 // so an hour of erasing doesn't grow this forever; only the newest matters.
-let wbUndoStack = [];
-// ROADMAP.md Tier 2 §11: a redo stack, the same shape as the sketch pad's
-// own history: cleared whenever a fresh action is pushed onto wbUndoStack,
-// since redoing something that predates a new action would resurrect a
-// version of the board the newer action never saw.
-let wbRedoStack = [];
 const WB_UNDO_MAX = 20;
 // Ids currently mid-DELETE. The eraser's mouseenter can fire again for the
 // same still-on-screen item before its first DELETE round-trip resolves (a
@@ -386,13 +384,13 @@ const WB_ALIGN_SNAP_PX = 6; // board units: matches WB_GRID_SPACING's own order 
 //: once, on the first move, and reused until the pointer is released.
 let wbGuideBoxCache = null;
 
-function wbGuideBoxes(excludeKind, excludeId) {
-  const key = `${excludeKind}:${excludeId}`;
+function wbGuideBoxes(excludeKeys) {
+  const key = excludeKeys ? Array.from(excludeKeys).sort().join(",") : "";
   if (wbGuideBoxCache && wbGuideBoxCache.key === key) return wbGuideBoxCache.boxes;
   const boxes = [];
   for (const [kind, listName] of [["node", "nodes"], ["object", "objects"]]) {
     for (const item of wbState[listName] || []) {
-      if (kind === excludeKind && item.id === excludeId) continue;
+      if (excludeKeys && excludeKeys.has(wbMultiKey(kind, item.id))) continue;
       const box = wbItemBBox(kind, item);
       if (box) boxes.push(box);
     }
@@ -409,10 +407,10 @@ function wbClearGuideBoxCache() {
 window.addEventListener("pointerup", wbClearGuideBoxCache, true);
 window.addEventListener("pointercancel", wbClearGuideBoxCache, true);
 
-function wbAlignmentGuides(excludeKind, excludeId, x, y, w, h) {
+function wbAlignmentGuides(excludeKeys, x, y, w, h) {
   const dragged = { left: x, centerX: x + w / 2, right: x + w, top: y, centerY: y + h / 2, bottom: y + h };
   let bestX = null, bestY = null;
-  const others = wbGuideBoxes(excludeKind, excludeId);
+  const others = wbGuideBoxes(excludeKeys);
   {
     for (const box of others) {
       const other = {
@@ -6865,6 +6863,8 @@ function wbApplyBulkMove(origin, dx, dy) {
       if (entry.mapEdges?.length) wbUpdateMapEdges(entry.mapEdges);
     }
   }
+  const handleGroup = document.querySelector(".wb-multi-handle-group");
+  if (handleGroup) handleGroup.setAttribute("transform", `translate(${dx}, ${dy})`);
 }
 
 //: **A map's own nodes go in one request.** A tidy of a two hundred node map
@@ -7262,273 +7262,68 @@ function wbWireContextMenu(selection, kind) {
     .on("pointerup.wbctx pointercancel.wbctx pointermove.wbctx", cancelHold);
 }
 
-function wbUpdateUndoRedoButtons() {
-  const undoBtn = document.getElementById("wb-undo");
-  const redoBtn = document.getElementById("wb-redo");
-  if (undoBtn) undoBtn.disabled = wbUndoStack.length === 0;
-  if (redoBtn) redoBtn.disabled = wbRedoStack.length === 0;
-  //: The status bar's pair is the same pair, one floor down (`renderUndoBar`
-  //: reads `wbCanUndo`/`wbCanRedo` while a board is open), so it is repainted
-  //: with these rather than left showing the app stack's state.
-  if (typeof renderUndoBar === "function") renderUndoBar();
-}
 
 function wbPushUndo(entry) {
-  wbUndoStack.push(entry);
-  if (wbUndoStack.length > WB_UNDO_MAX) wbUndoStack.shift();
-  // A fresh action makes whatever redo history existed unreachable, the
-  // same rule the sketch pad's own `sketchSaveSnapshot` already follows.
-  wbRedoStack = [];
-  wbUpdateUndoRedoButtons();
-}
+  if (!window.pushUndo) return;
+  
+  let currentUndoEntry = entry;
+  let currentRedoEntry = null;
 
-// The shared half of undo and redo: pop one entry off `from`, apply its
-// inverse, and push what would undo *that* onto `to`. Undo and redo are
-// each other's mirror image: pop from one stack, push the reverse onto
-// the other: so one function drives both rather than two near-duplicates
-// that could drift apart.
-//: Per-kind: the collection endpoint, which key in `wbState` holds it, and
-//: how to turn a live item back into a POST body. One table rather than a
-//: three-way ternary repeated at every call site, adding the "object" kind
-//: (images/text boxes) here is the only change `wbApplyHistoryEntry` needed
-//: to cover them too.
-const WB_KIND_INFO = {
-  sketch: {
-    base: "/whiteboard/sketches",
-    list: "sketches",
-    payload: (d) => ({ data: d.data, board_id: d.board_id, x: d.x, y: d.y, z: d.z, group_id: d.group_id ?? null }),
-  },
-  node: {
-    base: "/whiteboard/nodes",
-    list: "nodes",
-    payload: (d) => ({
-      entry_id: d.entry_id, board_id: d.board_id, x: d.x, y: d.y, z: d.z,
-      width: d.width ?? null, height: d.height ?? null, rotation: d.rotation ?? null,
-      group_id: d.group_id ?? null,
-    }),
-  },
-  object: {
-    base: "/whiteboard/objects",
-    list: "objects",
-    payload: (d) => ({
-      kind: d.kind, data: d.data, board_id: d.board_id,
-      x: d.x, y: d.y, z: d.z, width: d.width, height: d.height,
-      rotation: d.rotation ?? null, group_id: d.group_id ?? null,
-    }),
-  },
-};
-
-//: A card/object's CSS transform: translate always, plus a rotate(deg)
-//: about its own centre when it has one. `translate() rotate()` (in that
-//: order) is the standard idiom for "move this box, then spin it in
-//: place": `transform-origin`'s default (50% 50%) is resolved once in the
-//: element's own untransformed box, so the rotation pivots on the box's own
-//: centre regardless of where the translate moved it to, the reverse order
-//: would instead swing the box around a point offset from its own body.
-//: **A drag handle that lives inside the thing it moves needs a container
-//: that doesn't.** Reported directly: text boxes "spasm positions and are
-//: basically unmovable".
-//:
-//: `d3.drag` measures each frame's `event.dx/dy` between two `d3.pointer`
-//: readings taken against its *container*, and that container defaults to
-//: `this.parentNode`. For a drag bound to the item itself (`objDrag`) the
-//: parent is `#wb-html-layer`, which holds still while one object moves, so
-//: the deltas are true screen pixels and `/ transform.k` converts them to
-//: board units correctly. But `.wb-object-grip` and `.wb-resize-handle` are
-//: *children* of the item, so their default container is the item, and the
-//: item's own `transform` is rewritten on every frame of the drag. For an
-//: HTML element `d3.pointer` returns `clientX - getBoundingClientRect().left`,
-//: so the origin it measures from moves by exactly the amount just applied
-//: and the next frame's delta is cancelled against it. The box judders in
-//: place instead of following the cursor.
-//:
-//: Only text objects get a grip (an image has no contenteditable competing
-//: for its body), which is why this was reported for text boxes alone. The
-//: resize handles have the same flaw on the `w`/`n` corners only: those are
-//: the ones that move `x`/`y` as well as the size, which is the standing
-//: "zoom-drift in move/resize handles" report.
-//:
-//: Pointing every such drag at the item's own parent is a no-op for the
-//: handles that were already fine (a stable origin either way) and a fix for
-//: the ones that were not.
-function wbStableDragContainer(itemSelector) {
-  return function () {
-    return this.closest(itemSelector)?.parentNode || this.parentNode;
+  const getLabel = (e) => {
+    if (e.action === "batch") return "multiple whiteboard changes";
+    if (e.action === "create") return `created a ${e.kind}`;
+    if (e.action === "delete") return `deleted a ${e.kind}`;
+    if (e.action === "move") return `moved/resized a ${e.kind}`;
+    return "whiteboard edit";
   };
+
+  window.pushUndo(
+    getLabel(entry),
+    async function () {
+      if (currentUndoEntry) {
+        currentRedoEntry = await wbApplyHistoryEntry(currentUndoEntry);
+        if (typeof wbScheduleRender === "function") wbScheduleRender();
+      }
+    },
+    async function () {
+      if (currentRedoEntry) {
+        currentUndoEntry = await wbApplyHistoryEntry(currentRedoEntry);
+        if (typeof wbScheduleRender === "function") wbScheduleRender();
+      }
+    }
+  );
 }
 
-//: **A text box is a box first and a text field second.** The other half of
-//: the same report ("I can't drag text boxes... basically unmovable"): the
-//: `.wb-text-content` was `contenteditable` from the moment it rendered and
-//: fills the box edge to edge, so it swallowed every pointerdown before the
-//: object's own drag could see one. The only draggable surface left was the
-//: grip and a ~0.5rem strip of padding, and grabbing anywhere else did
-//: nothing at all, which reads as "broken" rather than "aim for the handle".
-//:
-//: So the box is only editable once you ask it to be, which is what every
-//: canvas app with text does (Figma, Excalidraw, PowerPoint): drag it like
-//: any other object, double-click to get a caret, blur to go back. A box
-//: made by the text tool starts in edit mode, since the whole point of
-//: click-to-place is typing straight away.
-//: **Rendered markdown in a text box or sticky, toggleable.** Asked for
-//: directly. Editing always shows the raw text, markdown you cannot see is
-//: markdown you cannot fix, so this paints the rendered form only when the
-//: box is not being edited, and `wbBeginTextEdit` puts the source back.
-function wbPaintTextContent(contentEl, d) {
-  if (!contentEl) return;
-  const raw = d.data.content || "";
-  if (d.data.md && raw.trim() && typeof renderMarkdown === "function") {
-    contentEl.replaceChildren();
-    contentEl.classList.add("wb-text-md");
-    renderMarkdown(contentEl, raw);
-    return;
-  }
-  contentEl.classList.remove("wb-text-md");
-  contentEl.textContent = raw;
-}
-
-//: Wrap the selection inside a text box (or the whole text, when nothing is
-//: selected) in a markdown marker, the formatting bar a text box never had.
-function wbWrapTextSelection(marker) {
-  const item = wbSelectedTextObjectOrNull();
-  if (!item) return;
-  const el = document.querySelector(`.wb-object[data-id="${item.id}"] .wb-text-content`);
-  const raw = item.data.content || "";
-  const sel = window.getSelection();
-  let next;
-  if (el && el.isContentEditable && sel && sel.rangeCount && !sel.isCollapsed && el.contains(sel.anchorNode)) {
-    const picked = sel.toString();
-    next = raw.replace(picked, `${marker}${picked}${marker}`);
-  } else {
-    next = raw.trim() ? `${marker}${raw}${marker}` : raw;
-  }
-  item.data = { ...item.data, content: next };
-  wbSaveObject(item);
-  wbScheduleRender();
-}
-
-function wbBulletTextLines() {
-  const item = wbSelectedTextObjectOrNull();
-  if (!item) return;
-  const lines = (item.data.content || "").split("\n");
-  const allBulleted = lines.every((line) => !line.trim() || line.trimStart().startsWith("- "));
-  item.data = {
-    ...item.data,
-    content: lines
-      .map((line) => (!line.trim() ? line : allBulleted ? line.replace(/^(\s*)- /, "$1") : `- ${line}`))
-      .join("\n"),
-  };
-  wbSaveObject(item);
-  wbScheduleRender();
-}
-
-function wbBeginTextEdit(contentEl) {
-  if (!contentEl || contentEl.isContentEditable) return;
-  //: Back to the source while editing, whatever the rendered view showed.
-  const objectEl = contentEl.closest(".wb-object");
-  const item = (wbState.objects || []).find((o) => String(o.id) === objectEl?.dataset.id);
-  if (item) {
-    contentEl.classList.remove("wb-text-md");
-    contentEl.textContent = item.data.content || "";
-  }
-  contentEl.setAttribute("contenteditable", "true");
-  contentEl.closest(".wb-object")?.classList.add("wb-text-editing");
-  contentEl.focus();
-}
-
-function wbEndTextEdit(contentEl) {
-  if (!contentEl) return;
-  contentEl.setAttribute("contenteditable", "false");
-  contentEl.closest(".wb-object")?.classList.remove("wb-text-editing");
-}
-
-function wbItemTransform(d) {
-  const rot = d.rotation ? ` rotate(${d.rotation}deg)` : "";
-  return `translate(${d.x}px, ${d.y}px)${rot}`;
-}
-
-//: A screen-space point's angle from a screen-space centre, in degrees,
-//: 0-360, with "straight up" (the rotate handle's own resting position) as
-//: 0: so an untouched handle already reads as the item's actual rotation.
-//: `shiftSnap` rounds to the nearest 15°, the same modifier convention as
-//: shift-to-constrain while drawing a shape.
-//: `wbAngleFromCenterDeg`, but for a sketch's rotate handle specifically, 
-//: the center it's given is in *board* space (the same coordinate space
-//: `d` itself uses), while the pointer only ever arrives in *screen*
-//: space (`clientX`/`clientY`). The resize-handle drag just above this
-//: function divides `event.dx` by the zoom scale by hand for the same
-//: reason: an SVG child's d3.drag coordinates are not auto-corrected for
-//: an ancestor `<g transform>` in this app's actual DOM, so the two
-//: spaces have to be reconciled explicitly rather than assumed to match.
-function wbSketchAngleFromCenterDeg(boardCx, boardCy, sourceEvent, shiftSnap) {
-  const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-  const rect = wbCanvasOriginRect();
-  const screenCx = boardCx * transform.k + transform.x + rect.left;
-  const screenCy = boardCy * transform.k + transform.y + rect.top;
-  return wbAngleFromCenterDeg(screenCx, screenCy, sourceEvent.clientX, sourceEvent.clientY, shiftSnap);
-}
-
-function wbAngleFromCenterDeg(cx, cy, px, py, shiftSnap) {
-  let deg = Math.atan2(py - cy, px - cx) * (180 / Math.PI) + 90;
-  deg = ((deg % 360) + 360) % 360;
-  if (shiftSnap) deg = Math.round(deg / 15) * 15 % 360;
-  return Math.round(deg);
-}
-
-async function wbApplyHistoryEntry(from, to) {
-  const entry = from.pop();
-  if (!entry) return false;
+async function wbApplyHistoryEntry(entry) {
+  if (!entry) return null;
   if (entry.action === "batch") {
-    // A single user gesture that touched several items at once, an
-    // arrow-key nudge on a multi-selection, or an alignment/distribute pass
-    //, needs to undo/redo as the one action it visibly was, not N separate
-    // Undo presses. Bundles N sub-entries and replays each through this same
-    // function (recursively: none of the sub-actions are themselves
-    // batches), re-bundling whatever came back as the one reverse entry.
     const reverse = [];
     for (const sub of entry.entries) {
-      const subTo = [];
-      await wbApplyHistoryEntry([sub], subTo);
-      if (subTo.length) reverse.push(subTo[0]);
+      const subReverse = await wbApplyHistoryEntry(sub);
+      if (subReverse) reverse.push(subReverse);
     }
-    to.push({ action: "batch", entries: reverse });
-    return true;
+    return { action: "batch", entries: reverse };
   }
   const { base, list, payload: toPayload } = WB_KIND_INFO[entry.kind];
   if (entry.action === "delete") {
-    // This entry means "bring back what was deleted". Applying it recreates
-    // the item; reversing *that* is deleting the newly-recreated one again.
     const restored = await apiJson(base, { method: "POST", body: JSON.stringify(entry.payload) });
     wbState[list].push(restored);
-    to.push({ action: "create", kind: entry.kind, id: restored.id });
+    return { action: "create", kind: entry.kind, id: restored.id };
   } else if (entry.action === "move") {
-    // A drag, resize, or nudge's own undo: asked for directly ("account
-    // for resizes, rotates, positional movement"). `before` is the item's
-    // whole payload (x/y, width/height, a sketch's own `d`) as it was right
-    // before the change, so this one action type covers move and resize
-    // both: restoring is the same PUT either way, just a different set of
-    // fields differing from the current row. Mirrors the delete/create pair
-    // above: capture the *current* state before overwriting it, so the
-    // pushed reverse entry can undo the undo.
     const item = wbState[list].find((i) => i.id === entry.id);
-    if (!item) return true; // stale: nothing to restore, but the stack still advances
+    if (!item) return null;
     const current = toPayload(item);
     const restored = await apiJson(`${base}/${entry.id}`, { method: "PUT", body: JSON.stringify(entry.before) });
     Object.assign(item, restored);
-    to.push({ action: "move", kind: entry.kind, id: entry.id, before: current });
+    return { action: "move", kind: entry.kind, id: entry.id, before: current };
   } else {
-    // This entry means "remove what was created". The item's current data
-    // has to be captured *before* deleting it, once gone, nothing else
-    // remembers what it looked like, and the reverse of this reverse (a
-    // future redo/undo) needs a real payload to recreate it from, not a
-    // blank one.
     const item = wbState[list].find((i) => i.id === entry.id);
     const payload = item && toPayload(item);
     await apiJson(`${base}/${entry.id}`, { method: "DELETE" });
     wbState[list] = wbState[list].filter((i) => i.id !== entry.id);
-    if (payload) to.push({ action: "delete", kind: entry.kind, payload });
+    if (payload) return { action: "delete", kind: entry.kind, payload };
   }
-  return true;
+  return null;
 }
 
 // Reverses the single most recent create or delete, a sketch stroke, a
@@ -7537,37 +7332,15 @@ async function wbApplyHistoryEntry(from, to) {
 // net more than any other control on this toolbar.
 //: On `window` because app.js owns the Ctrl+Z chord for the whole app and
 //: hands it here while a board is open (see the board's keydown handler).
-window.wbUndo = wbUndo;
-window.wbRedo = wbRedo;
 //: And whether there is anything on either stack, so the status bar's two
 //: buttons can be lit or dimmed by the board's own history rather than by the
 //: app's, which knows nothing about a shape that moved.
-window.wbCanUndo = () => wbUndoStack.length > 0;
-window.wbCanRedo = () => wbRedoStack.length > 0;
 
-async function wbUndo() {
-  try {
-    if (!(await wbApplyHistoryEntry(wbUndoStack, wbRedoStack))) return;
-    wbUpdateUndoRedoButtons();
-    wbScheduleRender();
-  } catch {
-    toast("Couldn't undo that.", true);
-  }
-}
 
 // Reapplies whatever the most recent undo took back, asked for directly
 // (`wbUndoStack` "exists; nothing analogous does"). Pushes the reverse onto
 // `wbUndoStack`, so undo/redo/undo/redo keeps working rather than only
 // ever reversing once.
-async function wbRedo() {
-  try {
-    if (!(await wbApplyHistoryEntry(wbRedoStack, wbUndoStack))) return;
-    wbUpdateUndoRedoButtons();
-    wbScheduleRender();
-  } catch {
-    toast("Couldn't redo that.", true);
-  }
-}
 
 // Images and text boxes, the two new object kinds, created here and
 // rendered by `renderWbObjects`. One shared creator (a POST plus the usual
@@ -10758,13 +10531,24 @@ async function initWhiteboard() {
   //: On the container, not on each handle: the handles are rebuilt by the
   //: render on every change, and a listener bound per handle is a listener
   //: lost on the next repaint (the mistake `wbWireContextMenu` documents).
-  containerEl.addEventListener("dblclick", (e) => {
+  //: Double-tap auto-size (INBOX). The browser's native `dblclick` event does
+  //: not fire reliably (or at all) on touch devices when the element has a D3
+  //: drag handler (since touchstart is prevented). A capturing pointerdown
+  //: listener sees the tap before D3 stops propagation.
+  containerEl.addEventListener("pointerdown", (e) => {
     const handle = e.target.closest?.(".wb-resize-handle, .wb-map-resize-grip");
     if (!handle) return;
-    e.preventDefault();
-    e.stopPropagation();
-    wbFitToText(handle.closest(".wb-object, .node-card"));
-  });
+    const now = Date.now();
+    const last = Number(handle.dataset.lastTap || 0);
+    if (now - last < 400) {
+      handle.dataset.lastTap = "0";
+      e.preventDefault();
+      e.stopPropagation(); // Stop D3 drag from starting on the second tap
+      wbFitToText(handle.closest(".wb-object, .node-card"));
+    } else {
+      handle.dataset.lastTap = String(now);
+    }
+  }, { capture: true });
 
   containerEl.addEventListener("pointermove", (e) => {
     if (!window.currentTool || !window.currentTool.startsWith("link-")) return;
@@ -12215,11 +11999,26 @@ function wbRenderMultiSelectionHandles() {
   if (entries.length < 2) return;
   const boxes = entries.map((entry) => ({ entry, box: wbEntryBox(entry) })).filter((row) => row.box);
   if (boxes.length < 2) return;
+  const trueBoxes = boxes.map((row) => {
+    const rot = row.entry.kind === "sketch" ? 0 : (row.entry.item.rotation || 0);
+    if (!rot) return row.box;
+    const c = wbBoxCenter(row.box);
+    const p1 = wbRotatePoint({ x: row.box.minX, y: row.box.minY }, c, rot);
+    const p2 = wbRotatePoint({ x: row.box.maxX, y: row.box.minY }, c, rot);
+    const p3 = wbRotatePoint({ x: row.box.minX, y: row.box.maxY }, c, rot);
+    const p4 = wbRotatePoint({ x: row.box.maxX, y: row.box.maxY }, c, rot);
+    return {
+      minX: Math.min(p1.x, p2.x, p3.x, p4.x),
+      minY: Math.min(p1.y, p2.y, p3.y, p4.y),
+      maxX: Math.max(p1.x, p2.x, p3.x, p4.x),
+      maxY: Math.max(p1.y, p2.y, p3.y, p4.y)
+    };
+  });
   const bbox = {
-    minX: Math.min(...boxes.map((row) => row.box.minX)),
-    minY: Math.min(...boxes.map((row) => row.box.minY)),
-    maxX: Math.max(...boxes.map((row) => row.box.maxX)),
-    maxY: Math.max(...boxes.map((row) => row.box.maxY)),
+    minX: Math.min(...trueBoxes.map((b) => b.minX)),
+    minY: Math.min(...trueBoxes.map((b) => b.minY)),
+    maxX: Math.max(...trueBoxes.map((b) => b.maxX)),
+    maxY: Math.max(...trueBoxes.map((b) => b.maxY)),
   };
   //: Each shape's own box and anchors as well as the group's, because that is
   //: what the same sweep already gives a card or a text box: they carry their
@@ -12256,8 +12055,14 @@ function wbRenderMultiSelectionHandles() {
       el.attr("x", hx - 5).attr("y", hy - 5);
     }
     const cx = (box.minX + box.maxX) / 2;
-    if (stem) stem.attr("x1", cx).attr("y1", box.minY).attr("x2", cx).attr("y2", box.minY - 28);
-    if (spinDot) spinDot.attr("cx", cx).attr("cy", box.minY - 28);
+    if (stem) {
+      stem.attr("x1", cx).attr("y1", box.minY).attr("x2", cx).attr("y2", box.minY - 28);
+      stem.style("transform-origin", `${cx}px ${box.minY}px`);
+    }
+    if (spinDot) {
+      spinDot.attr("cx", cx).attr("cy", box.minY - 28);
+      spinDot.style("transform-origin", `${cx}px ${box.minY}px`);
+    }
   }
 
   //: The box the items now occupy, given the scale this frame is applying.
@@ -12375,11 +12180,13 @@ function wbRenderMultiSelectionHandles() {
   const handleY = bbox.minY - 28;
   stem = group.append("line")
     .attr("class", "wb-rotate-handle-stem")
-    .attr("x1", centerX).attr("y1", bbox.minY).attr("x2", centerX).attr("y2", handleY);
+    .attr("x1", centerX).attr("y1", bbox.minY).attr("x2", centerX).attr("y2", handleY)
+    .style("transform-origin", `${centerX}px ${bbox.minY}px`);
   let spin = null;
   spinDot = group.append("circle")
     .attr("class", "wb-sketch-rotate-handle")
     .attr("cx", centerX).attr("cy", handleY).attr("r", 6)
+    .style("transform-origin", `${centerX}px ${bbox.minY}px`)
     .style("cursor", "grab")
     .call(
       d3.drag()
@@ -12700,7 +12507,7 @@ function renderWhiteboard() {
       wbScheduleRender();
     } catch (e) {
       console.error(e);
-      wbUndoStack.pop(); // the delete never happened, so neither did the undo entry
+      if (window.popUndo) window.popUndo(); // the delete never happened, so neither did the undo entry
     } finally {
       wbDeleting.delete(deletingKey);
     }
@@ -13014,7 +12821,7 @@ function renderWhiteboard() {
       wbScheduleRender();
     } catch (e) {
       console.error(e);
-      wbUndoStack.pop();
+      if (window.popUndo) window.popUndo();
     } finally {
       wbDeleting.delete(deletingKey);
     }
@@ -13465,7 +13272,7 @@ function renderWbObjects(canvas) {
       wbScheduleRender();
     } catch (e) {
       console.error(e);
-      wbUndoStack.pop();
+      if (window.popUndo) window.popUndo();
     } finally {
       wbDeleting.delete(deletingKey);
     }
@@ -13545,8 +13352,33 @@ function renderWbObjects(canvas) {
     // PowerPoint have... dotted alignment rule guides"). Same Alt bypass as
     // grid-snap just above: holding it means "no snap assistance at all
     // for this drag", one concept, not two separate modifier keys to learn.
-    if (!bypassSnap && !d._bulkOrigin) {
-      const { dx, dy, guideLines } = wbAlignmentGuides("object", d.id, d.x, d.y, d.width, d.height);
+    if (!bypassSnap) {
+      let excludeKeys, gx, gy, gw, gh;
+      if (d._bulkOrigin) {
+        excludeKeys = wbMultiSelection;
+        let oMinX = Infinity, oMinY = Infinity, oMaxX = -Infinity, oMaxY = -Infinity;
+        for (const entry of d._bulkOrigin.values()) {
+          let box;
+          if (entry.kind === "sketch") {
+            box = wbPathBBox(entry.d);
+          } else {
+            box = { minX: entry.x, minY: entry.y, maxX: entry.x + (entry.item.width || WB_CARD_DEFAULT_SIZE.w), maxY: entry.y + (entry.item.height || WB_CARD_DEFAULT_SIZE.h) };
+          }
+          if (box) {
+            oMinX = Math.min(oMinX, box.minX); oMinY = Math.min(oMinY, box.minY);
+            oMaxX = Math.max(oMaxX, box.maxX); oMaxY = Math.max(oMaxY, box.maxY);
+          }
+        }
+        gx = oMinX + (d.x - d._dragOriginX);
+        gy = oMinY + (d.y - d._dragOriginY);
+        gw = oMaxX - oMinX;
+        gh = oMaxY - oMinY;
+      } else {
+        excludeKeys = new Set([wbMultiKey("object", d.id)]);
+        gx = d.x; gy = d.y;
+        gw = d.width || WB_CARD_DEFAULT_SIZE.w; gh = d.height || WB_CARD_DEFAULT_SIZE.h;
+      }
+      const { dx, dy, guideLines } = wbAlignmentGuides(excludeKeys, gx, gy, gw, gh);
       d.x += dx;
       d.y += dy;
       wbShowAlignmentGuides(guideLines);
@@ -14122,9 +13954,35 @@ function dragging(event, d) {
     // Smart alignment guides: asked for directly ("draw.io and Microsoft
     // PowerPoint have... dotted alignment rule guides"). Same Alt bypass as
     // grid-snap just above: one modifier, "no snap assistance", not two.
-    if (!bypassSnap && !d._bulkOrigin) {
-      const w = d.width || WB_CARD_DEFAULT_SIZE.w, h = d.height || WB_CARD_DEFAULT_SIZE.h;
-      const { dx, dy, guideLines } = wbAlignmentGuides("node", d.id, d.x, d.y, w, h);
+    if (!bypassSnap) {
+      let excludeKeys, gx, gy, gw, gh;
+      if (d._bulkOrigin) {
+        excludeKeys = wbMultiSelection;
+        let oMinX = Infinity, oMinY = Infinity, oMaxX = -Infinity, oMaxY = -Infinity;
+        for (const entry of d._bulkOrigin.values()) {
+          let box;
+          if (entry.kind === "sketch") {
+            box = wbPathBBox(entry.d);
+          } else {
+            const ew = entry.item.width || WB_CARD_DEFAULT_SIZE.w;
+            const eh = entry.item.height || WB_CARD_DEFAULT_SIZE.h;
+            box = { minX: entry.x, minY: entry.y, maxX: entry.x + ew, maxY: entry.y + eh };
+          }
+          if (box) {
+            oMinX = Math.min(oMinX, box.minX); oMinY = Math.min(oMinY, box.minY);
+            oMaxX = Math.max(oMaxX, box.maxX); oMaxY = Math.max(oMaxY, box.maxY);
+          }
+        }
+        gx = oMinX + (d.x - d._dragOriginX);
+        gy = oMinY + (d.y - d._dragOriginY);
+        gw = oMaxX - oMinX;
+        gh = oMaxY - oMinY;
+      } else {
+        excludeKeys = new Set([wbMultiKey("node", d.id)]);
+        gx = d.x; gy = d.y;
+        gw = d.width || WB_CARD_DEFAULT_SIZE.w; gh = d.height || WB_CARD_DEFAULT_SIZE.h;
+      }
+      const { dx, dy, guideLines } = wbAlignmentGuides(excludeKeys, gx, gy, gw, gh);
       d.x += dx;
       d.y += dy;
       wbShowAlignmentGuides(guideLines);

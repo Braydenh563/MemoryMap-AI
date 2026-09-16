@@ -2921,7 +2921,11 @@ wireBackdropClose($("settings-modal"), () => closeSettingsModal()); // backdrop 
 for (const button of document.querySelectorAll("#settings-nav button")) {
   button.addEventListener("click", () => showSettingsSection(button.dataset.section));
 }
-$("settings-search")?.addEventListener("input", (e) => filterSettings(e.target.value));
+let filterSettingsTimer;
+$("settings-search")?.addEventListener("input", (e) => {
+  clearTimeout(filterSettingsTimer);
+  filterSettingsTimer = setTimeout(() => filterSettings(e.target.value), 200);
+});
 $("settings-search")?.addEventListener("keydown", (e) => {
   // Escape clears the filter rather than closing the whole panel, closing on
   // Escape while someone is mid-search loses both the search and their place.

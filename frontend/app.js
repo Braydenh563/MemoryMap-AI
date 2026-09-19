@@ -10480,11 +10480,7 @@ function paintEntriesProgress() {
 
 function scheduleEntriesProgress() {
   if (_entriesProgressTimer !== null) return;
-  _entriesProgressTimer = setTimeout(() => {
-    _entriesProgressTimer = null;
-    renderStatusBar();
-    renderEntries();
-  }, ENTRIES_PROGRESS_MS);
+  _entriesProgressTimer = setTimeout(paintEntriesProgress, ENTRIES_PROGRESS_MS);
 }
 
 async function loadEntries() {

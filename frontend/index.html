@@ -9076,6 +9076,20 @@
                 </div>
                 <span class="setting-control muted" id="health-jobs">, </span>
               </div>
+              <!-- `GET /search/stats` says in its own docstring that "the
+                   Settings page and a session report both want this", and the
+                   Settings page had never asked: the route had no caller
+                   anywhere in the app. It answers the question behind every
+                   "why did search not find my note" report, which is whether
+                   the thing was indexed at all and whether the vectors are
+                   loaded. -->
+              <div class="setting-row setting-row-stack">
+                <div class="setting-label">
+                  <span>Search index</span>
+                  <small class="muted">What the search can see, per kind, and whether the meaning-based half is loaded yet.</small>
+                </div>
+                <span class="setting-control muted" id="health-search">, </span>
+              </div>
               <div class="setting-row setting-row-stack">
                 <div class="setting-label">
                   <span>Model latency</span>

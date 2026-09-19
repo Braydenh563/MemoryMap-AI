@@ -408,6 +408,26 @@ async function renderHealthBlock() {
   // start; the block did not draw them (BACKLOG §116.1 item 2). Seconds with
   // one decimal, because a caption takes 3.2s and a re-index 40s, and "3210
   // ms" is a number nobody reads at a glance.
+  //: What the search engine has to work with. Its own route says the Settings
+  //: page wants this and the Settings page had never asked; it answers the
+  //: question behind every "search did not find my note", which is whether
+  //: the note is in the index at all and whether the vectors are warm. Kinds
+  //: with nothing in them are left out: six zeroes say less than the two
+  //: numbers that are not.
+  const search = $("health-search");
+  if (search) {
+    const stats = await apiJson("/search/stats", { silent: true }).catch(() => null);
+    if (!stats) search.textContent = ", ";
+    else {
+      const kinds = Object.entries(stats.index || {})
+        .filter(([, n]) => n > 0)
+        .map(([kind, n]) => `${n} ${kind}${n === 1 ? "" : "s"}`);
+      const vectors = stats.vectors
+        ? `${stats.vectors} vectors${stats.vectors_warm ? "" : " (not loaded yet)"}`
+        : "no vectors yet, keyword search only";
+      search.textContent = `${kinds.length ? kinds.join(" \u00b7 ") : "nothing indexed yet"} \u00b7 ${vectors}`;
+    }
+  }
   if (latency) {
     const secs = (ms) => `${(ms / 1000).toFixed(ms >= 10000 ? 0 : 1)}s`;
     const rows = Object.entries(health.latency_ms_by_kind || {})
@@ -419,7 +439,7 @@ async function renderHealthBlock() {
 
 // --- finding a setting (§36B) ------------------------------------------------------
 //
-// Fourteen sections, grouped three ways. The grouping helps, and it is only
+// Eighteen sections, grouped four ways. The grouping helps, and it is only
 // ever right for some people, "where do I turn off web search?" is a guess
 // between The AI and System until you have learned the layout, and "where is
 // the corner rounding?" is a guess even after you have.
@@ -435,8 +455,8 @@ async function renderHealthBlock() {
 //
 // "Live" does not have to mean "recomputed per keystroke", though, and it
 // used to. `section.textContent` walks a whole subtree and builds one
-// string, `.toLowerCase()` then copies it, and both ran for all seventeen
-// sections on every character typed.
+// string, `.toLowerCase()` then copies it, and both ran for every one of
+// them on every character typed.
 //
 // Measured on a fresh notebook at 1440x900 (scratchpad sweep, 2026-09-19):
 // 17 sections, 63,093 characters rebuilt and lowercased per pass, 0.265 ms

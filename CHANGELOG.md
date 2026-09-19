@@ -14,14 +14,30 @@ below). Versioning is `0.x` while the app stabilises.
   a row and no later run overwrites it; delete one and the same thing is
   never derived again; switch any of the seven background readers off, or
   pause all of them at once; export the lot as JSON, or forget it all
-  without touching a note. The backend for this shipped on 2026-09-13 and
-  nothing in the app had ever called it.
+  without touching a note, and a "Read my notes now" button that runs the
+  night pass on demand and says what it found. The backend for all of this
+  shipped on 2026-09-13 and nothing in the app had ever called it.
+
+- Settings, About now shows what the search can actually see: how many notes,
+  documents and files are in the index, and whether the meaning-based half is
+  loaded. `GET /search/stats` says in its own docstring that the Settings page
+  wants this, and the Settings page had never asked.
 
 ### Fixed
 
 - A search in what the notebook learned counted rows it was not showing, so
   the table's pager offered pages that were not there. The page and the
   count are narrowed by one function now.
+
+- The graph's minimap no longer writes "NaN" into the viewport rectangle.
+  Measured intermittently on a four thousand note notebook: 112 console
+  errors in one sweep, all of them `<rect> attribute x: Expected length,
+  "NaN"` and the same for y, width and height. Captured at the write, the
+  zoom transform itself held NaN while the dimensions and every node
+  position were finite. The minimap checks everything it reads now, and the
+  three places the app builds a zoom transform refuse to build one out of a
+  number that is not one: `Math.min`/`Math.max` propagate NaN rather than
+  clamping it, so the scale clamps that looked like guards were not.
 
 - The app calls its AI by name. Atlas was the name in the chat sheet and in
   the prompts, and everywhere else the interface still said "the AI": 68

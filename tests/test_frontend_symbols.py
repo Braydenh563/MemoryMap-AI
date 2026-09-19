@@ -324,6 +324,64 @@ def test_every_function_the_browser_calls_exists():
     )
 
 
+#: The files that share the page's one global scope. `graph-worker.js` runs
+#: in a `Worker`, which has a scope of its own, so a name it declares cannot
+#: collide with the page's.
+WORKER_FILES = frozenset({"graph-worker.js", "sw.js"})
+
+#: A top-level declaration, which is what the global scope actually holds.
+#: Not the nested ones `DECLARATIONS` collects: a `const` inside a function
+#: is that function's, and two of those are not a collision.
+TOP_LEVEL = re.compile(
+    r"^(?:async\s+)?function\s+([A-Za-z_$][\w$]*)|^(?:const|let|var)\s+([A-Za-z_$][\w$]*)",
+    re.M,
+)
+
+
+def _top_level_declarations() -> dict[str, list[str]]:
+    owners: dict[str, list[str]] = {}
+    for path in sorted(FRONTEND.glob("*.js")):
+        if path.name in WORKER_FILES:
+            continue
+        text = _strip(path.read_text(encoding="utf-8"))
+        for match in TOP_LEVEL.finditer(text):
+            name = match.group(1) or match.group(2)
+            line = text.count("\n", 0, match.start()) + 1
+            owners.setdefault(name, []).append(f"{path.name}:{line}")
+    return owners
+
+
+def test_no_top_level_name_is_declared_twice():
+    """Two declarations of one name, and the later script silently wins.
+
+    This is the tax on the app's shape: `index.html` loads six classic
+    scripts into one global scope, so `function foo()` in app.js and
+    `function foo()` in dashboard.js are the same binding, and whichever
+    parses last is the one that runs. Nothing warns. `node --check` is
+    per-file and cannot see it, and the only symptom is that a feature
+    behaves like a different feature.
+
+    It found one on the day it was written: `renderOnThisDayWidget` was
+    declared twice in `dashboard.js`, once fetching `/insights/on-this-day`
+    from the server and once building the list from `allEntries`. The second
+    won, so the first was dead and so was the endpoint it called.
+
+    A `function` redeclaration is legal JavaScript and a `const` one is a
+    SyntaxError only within a single file, which is why the same-file case
+    has to be checked here too rather than left to the parser.
+    """
+    clashes = {
+        name: where for name, where in _top_level_declarations().items() if len(where) > 1
+    }
+    assert not clashes, (
+        "a top-level name declared more than once. Every file in frontend/ "
+        "shares one global scope, so the later declaration silently replaces "
+        "the earlier one and the code under it becomes unreachable. Rename "
+        "one, or delete the copy that lost:\n"
+        + "\n".join(f"  {name}: {', '.join(where)}" for name, where in sorted(clashes.items()))
+    )
+
+
 def test_every_shared_constant_exists():
     """The same question for SCREAMING_SNAKE names, which are never called
     and so are invisible to the check above. `WB_KIND_INFO`, the table undo

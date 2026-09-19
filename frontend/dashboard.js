@@ -2466,15 +2466,6 @@ async function renderQuestionsWidget(body) {
   body.appendChild(box);
 }
 
-async function renderOnThisDayWidget(body) {
-  const matches = await apiJson("/insights/on-this-day");
-  miniEntryList(
-    body,
-    matches,
-    "Notes you captured on this date in past months will resurface here."
-  );
-}
-
 // Weekly digest caching (Wave J follow-up). The AI digest is expensive,
 // so once it's generated it STAYS until you regenerate, and it resets
 // itself each day. Generation is a module-level promise, so switching

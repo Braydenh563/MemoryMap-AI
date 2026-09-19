@@ -246,11 +246,18 @@ with its owner named in the entry.
       reads it. **Recommendation:** a brief in WORLD_CLASS_PLAN B1, not an
       improvisation here: it is a surface, not a wire-up.
     - `GET /resurface/near/{entry_id}`: "the faded notes closest to the one
-      being read", built and tested, with nowhere in the app that reads a
-      note asking for it. **Recommendation:** one row under an opened note,
-      on the existing card recipe, filtered to the current space. Worth
-      doing; it is the only one of these that is a missing feature rather
-      than a missing wire.
+      being read", built and tested, and there is nowhere in the app that
+      reads a note. Checked before recommending anything: a note is a card
+      in a list, and the only thing resembling a detail view is the inline
+      edit form (`editingId`), which is a form. `lastOpenedEntryId` exists
+      but only feeds the agent's "what am I looking at" subject. So this is
+      a surface, not a wire-up, and probably why it was never wired.
+      **Recommendation:** decide the surface first. The cheapest honest one
+      is a row inside the edit form, under the tags, reusing
+      `paintFadedNotes` from dashboard.js (the route returns the same
+      `_card` shape the dashboard widget already renders); the better one
+      is the note detail view this app does not have, which is a plan item
+      rather than an INBOX item.
     `POST /auth/rotate-vault-key` was on this list until the probe learned
     to read `` `/auth/${mode === "setup" ? "setup" : "unlock"}` ``; it is
     still uncalled, and re-keying the vault has no UI. Filed here rather

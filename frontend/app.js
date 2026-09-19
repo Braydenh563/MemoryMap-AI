@@ -30424,7 +30424,11 @@ function paletteMatches(query) {
     .map((c) => ({
       group: "Conversations",
       label: `ph:chat-circle ${c.title}`,
-      run: () => loadChatHistory(c.id),
+      //: `openConversation`, the one function that loads a saved chat back
+      //: into the pane. This said `loadChatHistory`, which nothing defines,
+      //: so picking a conversation out of the command palette raised a
+      //: ReferenceError and the palette closed on an unchanged screen.
+      run: () => openConversation(c.id),
     }));
 
   // Files: matched on the name you gave the file and on its caption, because
@@ -37246,7 +37250,14 @@ $("pref-smart-model-routing").addEventListener("change", (e) =>
 );
 
 $("semantic-search-toggle")?.addEventListener("change", () => {
-  if (noteSearch) loadAllNotes();
+  // `loadEntries`, which is what re-runs the list with the toggle's new
+  // state: this said `loadAllNotes()`, a name no file in frontend/ has ever
+  // defined, so turning semantic search on or off while a search term was in
+  // the box raised a ReferenceError and left the old results on screen.
+  // `tests/test_frontend_symbols.py` is what found it. The same pair, "set
+  // the term, then reload if semantic is on", is written out at the
+  // "Search the notebook" selection action.
+  if (noteSearch) loadEntries();
 });
 // The review panel for the background librarian (ROADMAP §40 item 2).
 //

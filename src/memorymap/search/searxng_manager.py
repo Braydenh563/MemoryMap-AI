@@ -47,6 +47,7 @@ import threading
 import time
 from pathlib import Path
 
+from memorymap.core.subproc import NO_WINDOW
 from memorymap.search import websearch
 
 # The port SearXNG listens on. 8888 by default, but that is a popular number
@@ -196,6 +197,7 @@ def _run_streaming(
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
+            creationflags=NO_WINDOW,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise SearxngError(f"Couldn't run {args[0]}: {exc}") from exc
@@ -261,6 +263,7 @@ def _run(
             timeout=timeout,
             check=False,
             env=env,
+            creationflags=NO_WINDOW,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise SearxngError(f"Couldn't run {args[0]}: {exc}") from exc

@@ -161,10 +161,98 @@ let wbErasing = false;
 // anchor-hint redraw with a second, slightly-stale one.
 let wbLinkDragActive = false;
 // Which attached-note cards are expanded past their clamp, keyed by node id
-// (the whiteboard attachment, not the note itself), same "remember per card
-// for the session" shape as `expandedNotes` on the Notes list. A plain `let`
-// module-level Set, not persisted: reopening the board later re-clamps.
-const wbExpandedNodes = new Set();
+// (the whiteboard attachment, not the note itself), same "remember per card"
+// shape as `expandedNotes` on the Notes list.
+//
+//: **Kept across sessions**, asked for directly: "the state of note objects
+//: in the whiteboard and mindmap for if they are expanded or not should be
+//: persistant" (INBOX 238). It was a session-only Set, so every reload
+//: re-clamped a board someone had spent a minute opening the right cards on.
+//:
+//: In `localStorage`, which is where every other thing this board remembers
+//: about how it is being *looked at* already lives: the grid and snap
+//: settings, the alignment guide colours, the background colour and image,
+//: the navigator's open state, the map's perspective. Which cards are open
+//: is that kind of fact, not part of the board's content, and keeping it
+//: here needs no migration and no round trip on a click.
+//:
+//: One key rather than one per board: a node id is unique across boards, so
+//: nothing is gained by splitting it, and a single list is what makes the
+//: cap below able to bound the whole thing.
+const WB_EXPANDED_KEY = "wb-expanded-nodes";
+//: Enough for any real board, and a ceiling so this cannot grow forever as
+//: boards and their cards are deleted. Deleting a board does not come back
+//: here to tidy up, and it should not have to: the oldest entries fall off
+//: instead, and the only cost of dropping one is a card that opens clamped.
+const WB_EXPANDED_MAX = 500;
+
+const wbExpandedNodes = new Set(
+  (() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(WB_EXPANDED_KEY) || "[]");
+      return Array.isArray(saved) ? saved.filter((id) => Number.isFinite(id)) : [];
+    } catch {
+      //: A key someone edited by hand, or a storage a browser has switched
+      //: off. Neither is worth failing the whole board's script over, and
+      //: "every card opens clamped" is the same as the old behaviour.
+      return [];
+    }
+  })()
+);
+
+function wbSaveExpandedNodes() {
+  try {
+    //: Newest last, so the slice keeps the cards most recently opened. A
+    //: `Set` iterates in insertion order, which is what makes that true
+    //: without tracking a timestamp per id.
+    const ids = [...wbExpandedNodes].slice(-WB_EXPANDED_MAX);
+    if (ids.length !== wbExpandedNodes.size) {
+      wbExpandedNodes.clear();
+      for (const id of ids) wbExpandedNodes.add(id);
+    }
+    localStorage.setItem(WB_EXPANDED_KEY, JSON.stringify(ids));
+  } catch {
+    //: Storage full or blocked. The board still works; it just forgets.
+  }
+}
+
+//: Show the "Show more" only on the cards that are actually hiding
+//: something. Every read happens before every write, deliberately: a loop
+//: that measured one card and then changed it would force the browser to
+//: lay the whole board out again for the next measurement, which on a two
+//: hundred card board is two hundred reflows instead of one.
+//:
+//: An expanded card always keeps its control, whatever it measures: with
+//: the clip off, its content fits by definition, so asking the same
+//: question of it would hide the only way back to "Show less".
+function wbSyncCardClamps() {
+  const wanted = [];
+  for (const card of document.querySelectorAll(".node-card")) {
+    const content = card.querySelector(".wb-card-content");
+    const toggle = card.querySelector(".wb-card-more");
+    if (!content || !toggle) continue;
+    wanted.push([
+      toggle,
+      !content.classList.contains("wb-card-content-clamped") ||
+        content.scrollHeight > content.clientHeight + 1,
+    ]);
+  }
+  for (const [toggle, needed] of wanted) toggle.hidden = !needed;
+}
+
+//: One sync per frame however many renders asked for it. `renderWhiteboard`
+//: runs on every state change and a drag can fire several in a frame;
+//: measuring once at the end of the frame is both cheaper and more correct,
+//: since it reads the layout every one of those renders has settled into.
+let wbClampSyncFrame = null;
+function wbScheduleCardClampSync() {
+  if (wbClampSyncFrame !== null) return;
+  wbClampSyncFrame = requestAnimationFrame(() => {
+    wbClampSyncFrame = null;
+    wbSyncCardClamps();
+  });
+}
+
 // {action: "delete"|"create", kind: "sketch"|"node", payload, id}. Bounded
 // so an hour of erasing doesn't grow this forever; only the newest matters.
 let wbUndoStack = [];
@@ -4298,8 +4386,14 @@ async function wbMapJoinByLink(source, target) {
 function wbMapOpenReference(d) {
   const refId = d.data?.ref_id;
   if (!refId) return;
-  if (d.kind === "note" && typeof openEntryEditor === "function") {
-    openEntryEditor(refId);
+  //: `flashEntry` is the app's one door to a note: it switches to Notes,
+  //: puts the "browse" sub-tab up, clears the filters that would hide the
+  //: target, and scrolls to the card. This named `openEntryEditor`, which no
+  //: file defines, and the `typeof` guard meant the failure was silent: a
+  //: double-click on a note node fell through to the "open it from the
+  //: Library" toast, which is the message for the kinds that have no door.
+  if (d.kind === "note" && typeof flashEntry === "function") {
+    flashEntry(refId);
     return;
   }
   if (d.kind === "document" && typeof openDocument === "function") {
@@ -7754,8 +7848,8 @@ function wbSvgText(lines, x, y, { fontSize = 13, fill = "#1f2430", lineHeight } 
   return `<text x="${x}" y="${y}" font-family="sans-serif" font-size="${fontSize}" fill="${fill}">${tspans}</text>`;
 }
 
-function wbSvgWrappedText(text, x, y, maxWidth) {
-  return wbSvgText(wbSvgWrapLines(text, maxWidth), x, y);
+function wbSvgWrappedText(text, x, y, maxWidth, maxLines) {
+  return wbSvgText(wbSvgWrapLines(text, maxWidth, maxLines), x, y);
 }
 
 // The board's full extent, every card and sketch, with padding, computed
@@ -7907,12 +8001,23 @@ function wbBuildExportSvg(scope) {
     const el = document.querySelector(`.node-card[data-id="${node.id}"]`);
     const w = el ? el.offsetWidth : 250;
     const h = el ? el.offsetHeight : 150;
-    const label = entry ? notePreviewText(entry.content || "").slice(0, 160) : `Note ${node.entry_id}`;
+    const label = entry ? notePreviewText(entry.content || "") : `Note ${node.entry_id}`;
     parts.push(`<g transform="translate(${node.x}, ${node.y})">`);
     parts.push(
       `<rect width="${w}" height="${h}" rx="10" fill="#ffffffcc" stroke="#8888aa" stroke-width="1.5" />`
     );
-    parts.push(wbSvgWrappedText(label || "Empty note", 14, 24, w - 28));
+    //: **As many lines as the card itself is showing**, from the card's own
+    //: measured height. This used to take the first 160 characters and then
+    //: wrap them into at most six lines, which was two fixed answers to a
+    //: question the box already answers: a card someone had dragged to 700px
+    //: and expanded to show the whole note still exported six lines of it.
+    //: `h` is `el.offsetHeight`, the live card, so an expanded card exports
+    //: what it shows and a collapsed one exports what it shows.
+    //: 24 is the text's own baseline offset, 16 the line height `wbSvgText`
+    //: uses at font size 13, and 12 leaves the last line clear of the rounded
+    //: bottom edge.
+    const cardLines = Math.max(1, Math.floor((h - 24 - 12) / 16));
+    parts.push(wbSvgWrappedText(label || "Empty note", 14, 24, w - 28, cardLines));
     parts.push("</g>");
   }
 
@@ -8451,17 +8556,23 @@ const WB_EXPORT_FORMATS = [
     run: (scope) => wbExportPdf(scope),
   },
   {
-    value: "markdown", label: "Markdown", scopes: ["whole"], map: true,
+    //: `drawsCards: false`: these three read the notes themselves rather
+    //: than drawing the cards, so nothing is clipped out of them and the
+    //: export dialog's collapsed-notes warning would be a warning about
+    //: nothing. Named for what the dialog asks rather than inferred from
+    //: `map`, which happens to select the same three today and means
+    //: something else.
+    value: "markdown", label: "Markdown", scopes: ["whole"], map: true, drawsCards: false,
     note: "The map as an indented outline.",
     run: () => wbExportMapText("markdown"),
   },
   {
-    value: "opml", label: "OPML", scopes: ["whole"], map: true,
+    value: "opml", label: "OPML", scopes: ["whole"], map: true, drawsCards: false,
     note: "The interchange format every mind mapper reads.",
     run: () => wbExportMapText("opml"),
   },
   {
-    value: "freemind", label: "FreeMind", scopes: ["whole"], map: true,
+    value: "freemind", label: "FreeMind", scopes: ["whole"], map: true, drawsCards: false,
     note: "For FreeMind and Freeplane.",
     run: () => wbExportMapText("freemind"),
   },
@@ -8501,6 +8612,28 @@ function wbSyncExportSeg(seg, chosen, allowed) {
   }
 }
 
+//: How many note cards in this scope are hiding text behind their clamp.
+//:
+//: Asked for directly: "when exporting a whiteboard and/or mindmap, the user
+//: should be warned if any of their notes arent expanded and that not all
+//: their contents will be shown" (INBOX 238). Counted from the live cards
+//: rather than from the notes, because the question is whether *this card*
+//: is clipping, which depends on the box it was dragged to and not on how
+//: long the note is.
+function wbClippedCardCount(scope) {
+  const onlyKeys = scope === "selection" ? wbSelectedKeys() : null;
+  let clipped = 0;
+  for (const node of wbState.nodes) {
+    if (onlyKeys && !onlyKeys.has(wbMultiKey("node", node.id))) continue;
+    const content = document.querySelector(
+      `.node-card[data-id="${node.id}"] .wb-card-content`
+    );
+    if (!content || !content.classList.contains("wb-card-content-clamped")) continue;
+    if (content.scrollHeight > content.clientHeight + 1) clipped += 1;
+  }
+  return clipped;
+}
+
 function wbExportBoard() {
   const hasSelection = wbMultiSelection.size > 0 || Boolean(wbSelectedItem);
   const isMap = wbIsMap();
@@ -8531,6 +8664,9 @@ function wbExportBoard() {
   scopeLabel.textContent = "How much";
   const note = document.createElement("p");
   note.className = "confirm-text wb-export-note";
+  const warning = document.createElement("p");
+  warning.className = "confirm-text wb-export-note status wb-export-warning";
+  warning.hidden = true;
 
   const scopeSeg = wbExportSegment("How much to export", WB_EXPORT_SCOPES, scope, (value) => {
     scope = value;
@@ -8553,6 +8689,16 @@ function wbExportBoard() {
     // Two sentences, the format's and the scope's, so the line reads the same
     // way round whichever of the two was changed last.
     note.textContent = [format.note, chosenScope ? `${chosenScope.title}.` : ""].filter(Boolean).join(" ");
+    //: Only for the formats that draw the cards. A mind map's outline and its
+    //: text exports read the notes themselves, so nothing is clipped out of
+    //: those and saying otherwise would be a warning about nothing.
+    const clipped = format.drawsCards === false ? 0 : wbClippedCardCount(scope);
+    warning.hidden = clipped === 0;
+    warning.textContent = clipped
+      ? `${clipped} note${clipped === 1 ? " is" : "s are"} collapsed, so only the ` +
+        `text you can see on ${clipped === 1 ? "it" : "them"} will be in the picture. ` +
+        `Open ${clipped === 1 ? "it" : "them"} with "Show more" first to export the whole note.`
+      : "";
   }
 
   let settled = false;
@@ -8591,7 +8737,7 @@ function wbExportBoard() {
   const exportBtn = smallButton("Export", "Export", go, false);
   exportBtn.id = "wb-export-go";
   row.append(smallButton("Cancel", "Cancel", close), exportBtn);
-  card.append(head, formatLabel, formatSeg, scopeLabel, scopeSeg, note, row);
+  card.append(head, formatLabel, formatSeg, scopeLabel, scopeSeg, note, warning, row);
   overlay.appendChild(card);
   wireBackdropClose(overlay, close);
   document.addEventListener("keydown", onKey, true);
@@ -13247,13 +13393,29 @@ function renderWhiteboard() {
       return;
     }
     renderMarkdown(contentEl, text);
-    const isLong = text.length > LONG_NOTE_CHARS || text.split("\n").length > LONG_NOTE_LINES;
-    if (!isLong) return;
+    //: **Whether a note needs a "Show more" is a question about the box, not
+    //: about the note.** This used to ask `text.length > LONG_NOTE_CHARS ||
+    //: lines > LONG_NOTE_LINES`, the Notes list's own rule, and returned
+    //: early for anything under it. But the Notes list shows a note in a
+    //: column as tall as the page, while a board card is exactly as tall as
+    //: the person dragged it to, so the two questions have different
+    //: answers: measured, a 324-character note (well under the 500-character
+    //: threshold) in a 320x120 card laid out 215px of text, 112px of it
+    //: below the card's own bottom edge, with no clamp and no way to ask for
+    //: the rest. That is INBOX 238's "the text goes out of the panel
+    //: border".
+    //:
+    //: So the toggle is built for every note that has text, and
+    //: `wbSyncCardClamps` below hides it again on the cards where everything
+    //: already fits. Hidden rather than absent because the answer changes
+    //: whenever the card is resized, and a button that has to be created on
+    //: a resize is a button that will be missing after one.
     const expanded = () => wbExpandedNodes.has(d.id);
     contentEl.classList.toggle("wb-card-content-clamped", !expanded());
     const toggle = card.append("button")
       .attr("type", "button")
       .attr("class", "entry-more wb-card-more")
+      .attr("hidden", "")
       .text(expanded() ? "Show less" : "Show more");
     toggle.on("click", (event) => {
       event.stopPropagation();
@@ -13270,6 +13432,11 @@ function renderWhiteboard() {
       //: Applied to this card directly as well as in the merge below,
       //: because nothing redraws the board on a toggle.
       wbCardExpandHeight(this.closest(".wb-node") || card.node(), d);
+      //: Collapsing brings the clip back, which can make the toggle itself
+      //: unnecessary (a note that fits the box it was collapsed into), so
+      //: the answer is recomputed rather than assumed to still hold.
+      wbSyncCardClamps();
+      wbSaveExpandedNodes();
     });
   });
 
@@ -13293,9 +13460,22 @@ function renderWhiteboard() {
     //: at (see `wbCardExpandHeight`), so a redraw does not clip it again.
     .style("height", (d) => (d.height && !wbExpandedNodes.has(d.id) ? `${d.height}px` : ""))
     .style("min-height", (d) => (d.height && wbExpandedNodes.has(d.id) ? `${d.height}px` : ""))
-    .style("z-index", d => d.z);
+    .style("z-index", d => d.z)
+    //: The eight-line cap is for the card that has never been resized and so
+    //: has no height of its own to clip against. A card with a stored height
+    //: does, and applying both would clamp a 700px card to eight lines and
+    //: leave the rest of it empty under a "Show more" hiding nothing.
+    .each(function (d) {
+      this.querySelector(".wb-card-content")
+        ?.classList.toggle("wb-card-content-capped", !d.height);
+    });
 
   nodeSelection.exit().remove();
+
+  //: After the heights above are on the elements, not before: the question
+  //: each card is being asked is whether its text fits the box this render
+  //: just gave it.
+  wbScheduleCardClampSync();
 
   renderWbObjects(canvas);
 

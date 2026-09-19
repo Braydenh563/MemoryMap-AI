@@ -463,3 +463,56 @@ def test_searxng_stop_reverts_to_duckduckgo(client, monkeypatch):
     assert body["running"] is False
     # The dead instance must not stay configured.
     assert client.get("/preferences").json()["searxng_url"] == ""
+
+
+def test_the_daemon_probe_is_not_respawned_for_every_status_call(monkeypatch):
+    """`status()` asks `docker_available()` and the web search strip re-asks
+    `status()` every two seconds while an install settles. Against a stopped
+    Docker Desktop each of those spawns `docker info` and waits up to
+    `DAEMON_PROBE_TIMEOUT` for it, holding a threadpool worker the whole
+    time. The answer changes when somebody opens an application, so it is
+    worth remembering for a few seconds."""
+    from memorymap.search import searxng_docker
+
+    searxng_docker.forget_docker_daemon_state()
+    monkeypatch.setattr(searxng_manager.shutil, "which", lambda name: "/usr/bin/docker")
+    spawns = {"count": 0}
+
+    class Ok:
+        returncode = 0
+
+    def counted(*args, **kwargs):
+        spawns["count"] += 1
+        return Ok()
+
+    monkeypatch.setattr(searxng_manager.subprocess, "run", counted)
+    for _ in range(10):
+        assert searxng_docker.docker_available() is True
+    assert spawns["count"] == 1
+
+    # And the answer is asked for again the moment something could have
+    # changed it, which is what the Start button calls.
+    searxng_docker.forget_docker_daemon_state()
+    assert searxng_docker.docker_available() is True
+    assert spawns["count"] == 2
+
+
+def test_a_daemon_that_cannot_be_run_at_all_is_asked_again(monkeypatch):
+    """The `OSError` arm is "docker could not be started as a process", which
+    is the answer most likely to be wrong in a moment (a daemon coming up),
+    and it is the one that costs nothing to repeat because it failed without
+    waiting for the timeout. So it is deliberately not remembered."""
+    from memorymap.search import searxng_docker
+
+    searxng_docker.forget_docker_daemon_state()
+    monkeypatch.setattr(searxng_manager.shutil, "which", lambda name: "/usr/bin/docker")
+    spawns = {"count": 0}
+
+    def refuses(*args, **kwargs):
+        spawns["count"] += 1
+        raise OSError("no daemon")
+
+    monkeypatch.setattr(searxng_manager.subprocess, "run", refuses)
+    assert searxng_docker.docker_available() is False
+    assert searxng_docker.docker_available() is False
+    assert spawns["count"] == 2

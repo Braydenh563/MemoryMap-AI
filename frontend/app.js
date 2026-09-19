@@ -33804,9 +33804,26 @@ async function renderEmbedModels() {
 
     const head = document.createElement("div");
     head.className = "entry-meta";
+    //: **The name and this row's status are one column; the buttons are the
+    //: other.** The same shape the packages list above already uses, and for
+    //: the reason recorded there (INBOX 107c): `.extras-row .entry-meta` is
+    //: `flex-wrap: nowrap` so the buttons never drop below the title, which
+    //: means whatever cannot shrink pushes the row off its own edge instead.
+    //:
+    //: This list was built the other way, with "✓ 1015 KB on disk" inside
+    //: `.entry-actions`, which is `flex: 0 0 auto`. Measured at 820px: the
+    //: chip 164px plus Re-download 122px plus Remove 91px made a 390px block
+    //: that would not shrink, against 458px of row holding an 80px name, so
+    //: Settings, Extras scrolled sideways (496 against 492). The status is
+    //: not an action; moving it into `.entry-title`, which is the shrinking
+    //: column and wraps inside itself, leaves the buttons 219px and lets the
+    //: name and the chip take the rest.
+    const title = document.createElement("div");
+    title.className = "entry-title";
     const name = document.createElement("strong");
     name.textContent = model.label + (model.default ? " · default" : "");
-    head.appendChild(name);
+    title.appendChild(name);
+    head.appendChild(title);
 
     const actions = document.createElement("span");
     actions.className = "entry-actions";
@@ -33814,12 +33831,12 @@ async function renderEmbedModels() {
       const busy = document.createElement("span");
       busy.className = "muted";
       busy.textContent = "Downloading…";
-      actions.appendChild(busy);
+      title.appendChild(busy);
     } else if (model.installed) {
       const done = document.createElement("span");
       done.className = "extras-installed";
       done.textContent = `✓ ${model.on_disk} on disk`;
-      actions.appendChild(done);
+      title.appendChild(done);
       // The same argument the packages' Reinstall makes: "the directory is
       // there" is not "the model is sound". A download interrupted halfway
       // leaves a snapshot that loads and produces nonsense, and fetching over

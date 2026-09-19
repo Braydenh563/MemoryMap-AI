@@ -18,6 +18,15 @@ below). Versioning is `0.x` while the app stabilises.
   night pass on demand and says what it found. The backend for all of this
   shipped on 2026-09-13 and nothing in the app had ever called it.
 
+- A new check in the merge gate catches a request that fails where nobody is
+  told. `errors.js` watches the console, which sees a thrown exception; it
+  does not see a 404 or a 500 read into a `.catch(() => null)`, which is how
+  most of this app reads a response it can live without, and which is the
+  other half of "it does nothing and says nothing". The app currently passes
+  it: zero failing requests across seven tabs, four Notes sub-tabs, six
+  Library views and all eighteen Settings sections, on a fresh notebook and
+  on one with four thousand notes.
+
 - The tag autocomplete offers the tags you actually use first, and offers
   all of them. It was built from the notes loaded so far, which on a large
   notebook means it is missing whatever has not paged in yet, and sorted

@@ -105,7 +105,7 @@
 //: `showSettingsSection` un-hides by iterating it, so a section left out is
 //: rendered, in the DOM, and never shown. Found by driving it: the Extras
 //: panel had five rows in it and a nav button that appeared to do nothing.
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "memory", "websearch", "appearance", "templates", "shortcuts", "preferences", "account", "extras", "tasks", "data", "logs", "help", "about"];
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "memory", "learned", "websearch", "appearance", "templates", "shortcuts", "preferences", "account", "extras", "tasks", "data", "logs", "help", "about"];
 
 // Which settings section is on screen. The Background tasks list polls while
 // it is open, and needs to know that it is.
@@ -149,6 +149,7 @@ function showSettingsSection(name) {
   if (name === "templates") renderTemplateSettings();
   if (name === "tools") renderToolSettings();
   if (name === "memory") renderMemorySettings().catch(() => {});
+  if (name === "learned") renderLearned().catch(() => {});
   if (name === "tasks") renderAutonomousReview().catch(() => {});
   if (name === "tasks") {
     apiJson("/preferences")
@@ -3984,3 +3985,374 @@ $("atlas-open")?.addEventListener("click", () => openHelpChat());
 //: The Settings row's chips are built once, with the modal: the sheet's are
 //: built each time it opens, since the sheet is thrown away on close.
 renderAtlasStarters();
+
+// =============================================================================
+// What it learned (WORLD_CLASS_PLAN I9)
+// =============================================================================
+//
+// **The backend has been complete since 2026-09-13 and nothing called it.**
+// Found by scanning all 319 routes against every path the frontend fetches:
+// `GET /learned`, `GET|PUT /learned/switches`, `PATCH|DELETE /learned/{id}`,
+// `POST /learned/{id}/reset`, `GET /learned/export` and `DELETE /learned` had
+// no caller anywhere. The plan's own words for why that matters: "a model
+// that is wrong quietly is worse than no model", and every one of those
+// routes exists so a person can see the model being wrong and say so. With
+// no screen, `derived_facts` grew where nobody could read it.
+//
+// Built against what the backend ships rather than against the whole spec:
+// there is no `POST /learned/bulk`, so there are no bulk actions here. An
+// invented client-side loop over N rows is not the same thing (it is N
+// requests that can half fail), and the honest version of that row is a
+// backend route, not a for-loop.
+
+//: One page. 50 rather than the route's 100 default: this is a settings
+//: panel inside a modal, and a hundred rows is a scroll nobody finishes.
+const LEARNED_PAGE = 50;
+
+//: What each switch is, in the words a person would use. The keys are
+//: `ai/facts.py`'s `SWITCHES`, and a key that appears there and not here
+//: still renders, under its own name, rather than vanishing: a switch the
+//: person cannot see is a switch they cannot turn off, which is the one
+//: thing this section exists to prevent.
+const LEARNED_SWITCH_COPY = {
+  night_shift: ["Night shift", "Reads notes you have added or changed and works out what they claim."],
+  margin_reader: ["Margin reader", "Adds notes in the margin of a note as you read it."],
+  open_questions: ["Open questions", "Collects the questions your notes leave unanswered."],
+  resurfacing: ["Resurfacing", "Brings notes you have not looked at in a while back to the dashboard."],
+  evidence_checks: ["Evidence checks", "Looks for what in your notes supports or contradicts a claim."],
+  corrections: ["Learning from corrections", "Remembers when you refile a note or dismiss a suggestion, and stops repeating it."],
+  model_bench: ["Model bench", "Compares your installed models on your own notes."],
+};
+
+//: The master, which is not one of the seven: `facts.switches()` reports it
+//: alongside them and, when it is on, reports every other one as off.
+const LEARNED_MASTER = "paused";
+
+//: What a derived kind is called. `ai/facts.py`'s `KINDS` is ("claim",
+//: "question") today and the plan adds more (tensions, duplicates, entities,
+//: dates); an unknown kind shows its own name rather than being dropped.
+const LEARNED_KIND_COPY = {
+  claim: "Claim",
+  question: "Open question",
+};
+
+let learnedOffset = 0;
+let learnedTotal = 0;
+//: The filter typing debounce, so a search box does not fire a request per
+//: keystroke against a table that can hold thousands of rows.
+let learnedSearchTimer = null;
+
+function learnedKindLabel(kind) {
+  return LEARNED_KIND_COPY[kind] || String(kind || "").replace(/_/g, " ") || "Fact";
+}
+
+async function renderLearnedSwitches() {
+  const host = $("learned-switches");
+  const banner = $("learned-paused-banner");
+  if (!host) return;
+  const switches = await apiJson("/learned/switches").catch(() => null);
+  if (!switches) {
+    host.replaceChildren();
+    return;
+  }
+  const paused = Boolean(switches[LEARNED_MASTER]);
+  host.replaceChildren();
+
+  //: The master first and set apart, because it is the answer to "stop all of
+  //: this now" and a person looking for that is not going to read seven rows
+  //: to find it.
+  const masterRow = document.createElement("label");
+  masterRow.className = "checkbox-label row align-center";
+  const masterBox = document.createElement("input");
+  masterBox.type = "checkbox";
+  masterBox.id = "learned-pause-all";
+  masterBox.checked = paused;
+  const masterText = document.createElement("span");
+  masterText.append(document.createTextNode("Pause all learning"));
+  const masterHint = document.createElement("small");
+  masterHint.className = "muted";
+  masterHint.textContent = "Nothing below runs while this is on. What has already been worked out is kept.";
+  masterText.appendChild(masterHint);
+  masterRow.append(masterBox, masterText);
+  masterBox.addEventListener("change", async () => {
+    await learnedSetSwitch(LEARNED_MASTER, masterBox.checked);
+  });
+  host.appendChild(masterRow);
+
+  for (const [name, value] of Object.entries(switches)) {
+    if (name === LEARNED_MASTER) continue;
+    const [title, hint] = LEARNED_SWITCH_COPY[name] || [name.replace(/_/g, " "), ""];
+    const row = document.createElement("label");
+    row.className = "checkbox-label row align-center";
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = Boolean(value);
+    //: Disabled rather than hidden while paused: the master says these are
+    //: off, and a row that disappeared would leave no way to see what the
+    //: master is holding down.
+    box.disabled = paused;
+    const text = document.createElement("span");
+    text.append(document.createTextNode(title));
+    if (hint) {
+      const small = document.createElement("small");
+      small.className = "muted";
+      small.textContent = hint;
+      text.appendChild(small);
+    }
+    row.append(box, text);
+    box.addEventListener("change", async () => {
+      await learnedSetSwitch(name, box.checked);
+    });
+    host.appendChild(row);
+  }
+
+  if (banner) {
+    banner.classList.toggle("hidden", !paused);
+    banner.textContent = paused
+      ? `Paused. ${learnedTotal} thing${learnedTotal === 1 ? "" : "s"} already worked out are kept and stay editable below.`
+      : "";
+  }
+}
+
+async function learnedSetSwitch(name, value) {
+  try {
+    await apiJson("/learned/switches", {
+      method: "PUT",
+      body: JSON.stringify({ [name]: value }),
+    });
+  } catch (error) {
+    toast(error.message, true);
+  }
+  //: Re-read rather than trust the click: the master turns the other seven
+  //: off in the *reply*, not in the request, so the only correct picture of
+  //: the switches after any write is the one the server just sent back.
+  await renderLearnedSwitches();
+}
+
+function learnedRow(fact) {
+  const li = document.createElement("li");
+  li.className = "entry-item learned-row";
+  li.dataset.factId = String(fact.id);
+
+  const head = document.createElement("div");
+  head.className = "row align-center learned-row-head";
+  const kind = document.createElement("span");
+  kind.className = "chip";
+  kind.textContent = learnedKindLabel(fact.kind);
+  head.appendChild(kind);
+  if (fact.edited_by_user) {
+    const edited = document.createElement("span");
+    edited.className = "chip";
+    edited.textContent = "Edited by you";
+    edited.title = "No later run overwrites this";
+    head.appendChild(edited);
+  }
+  li.appendChild(head);
+
+  const text = document.createElement("p");
+  text.className = "learned-text";
+  text.textContent = fact.text;
+  li.appendChild(text);
+
+  //: Where it came from, which is the whole difference between a claim you
+  //: can check and a sentence an app asserted at you.
+  const meta = document.createElement("p");
+  meta.className = "muted learned-meta";
+  const parts = [];
+  if (fact.model) parts.push(fact.model);
+  if (typeof fact.confidence === "number") parts.push(`${Math.round(fact.confidence * 100)}% sure`);
+  if (fact.computed_at && typeof relativeTime === "function") parts.push(relativeTime(fact.computed_at));
+  meta.textContent = parts.join(" · ");
+  li.appendChild(meta);
+
+  const actions = document.createElement("div");
+  actions.className = "row entry-actions";
+  if (fact.entry_id) {
+    actions.appendChild(
+      smallButton("ph:arrow-square-out Open the note", "Open the note this came from", () => {
+        closeSettingsModal();
+        flashEntry(fact.entry_id);
+      })
+    );
+  }
+  actions.appendChild(
+    smallButton("ph:pencil-simple Edit", "Correct what this says", () => learnedEdit(fact))
+  );
+  if (fact.edited_by_user) {
+    actions.appendChild(
+      smallButton("ph:arrow-counter-clockwise Reset", "Put the model's own words back", () =>
+        learnedReset(fact)
+      )
+    );
+  }
+  actions.appendChild(
+    smallButton("ph:trash Delete", "Delete this, and never work it out again", () => learnedDelete(fact))
+  );
+  li.appendChild(actions);
+  return li;
+}
+
+async function renderLearnedList() {
+  const list = $("learned-list");
+  const empty = $("learned-empty");
+  const count = $("learned-count");
+  if (!list) return;
+  const kind = $("learned-kind")?.value || "";
+  const q = $("learned-search")?.value.trim() || "";
+  const query = new URLSearchParams({ limit: String(LEARNED_PAGE), offset: String(learnedOffset) });
+  if (kind) query.set("kind", kind);
+  if (q) query.set("q", q);
+  const data = await apiJson(`/learned?${query}`).catch(() => null);
+  if (!data) {
+    list.replaceChildren();
+    if (count) count.textContent = "Couldn't load what it learned.";
+    return;
+  }
+  learnedTotal = Number(data.total) || 0;
+  list.replaceChildren(...data.items.map(learnedRow));
+  if (empty) empty.classList.toggle("hidden", data.items.length > 0 || Boolean(q) || Boolean(kind));
+  if (count) {
+    if (!learnedTotal) count.textContent = q || kind ? "Nothing matches." : "";
+    else {
+      const from = learnedOffset + 1;
+      const to = learnedOffset + data.items.length;
+      count.textContent = `${from} to ${to} of ${learnedTotal}`;
+    }
+  }
+  const prev = $("learned-prev");
+  const next = $("learned-next");
+  if (prev) prev.disabled = learnedOffset <= 0;
+  if (next) next.disabled = learnedOffset + LEARNED_PAGE >= learnedTotal;
+  //: The pager disappears rather than sitting there greyed out when one page
+  //: is the whole table, which is every notebook until it is not.
+  $("learned-pager")?.classList.toggle("hidden", learnedTotal <= LEARNED_PAGE);
+}
+
+async function learnedEdit(fact) {
+  //: `promptDialog`, the app's one text dialog, rather than an inline
+  //: textarea grown in the row: standing order 11, new UI comes from the
+  //: recipe index. Its field is one line, which suits a derived claim (20 to
+  //: 300 characters by `facts.MIN_SENTENCE_CHARS`/`MAX_SENTENCE_CHARS`).
+  const next = await promptDialog("What should this say?", fact.text, { confirmLabel: "Save" });
+  //: Empty is Cancel here, the way it is at every other `promptDialog` call
+  //: site in the app: the dialog resolves with `""` for Cancel, for Escape
+  //: and for a backdrop click alike, so a caller that treated empty as a
+  //: value would answer a cancelled dialog with an error toast. Clearing the
+  //: box and pressing Save therefore also does nothing, which is right:
+  //: deleting a fact is the button next to this one.
+  if (!next.trim() || next.trim() === fact.text.trim()) return;
+  try {
+    await apiJson(`/learned/${fact.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ text: next.trim() }),
+    });
+    toast("Saved. No later run will overwrite it.");
+    renderLearnedList();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+async function learnedReset(fact) {
+  try {
+    await apiJson(`/learned/${fact.id}/reset`, { method: "POST" });
+    toast("Put the model's own words back.");
+    renderLearnedList();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+async function learnedDelete(fact) {
+  const ok = await confirmDialog(
+    "Delete this and never work it out again?\n\nYour note is not touched. The deletion is remembered, so the next run will not derive the same thing.",
+    { confirmLabel: "Delete" }
+  );
+  if (!ok) return;
+  try {
+    await api(`/learned/${fact.id}`, { method: "DELETE" });
+    //: The page can be left holding nothing if the last row of the last page
+    //: went, which reads as a bug ("it deleted everything"). Step back one
+    //: page first, exactly as the note list does.
+    if (learnedOffset > 0 && learnedTotal - 1 <= learnedOffset) {
+      learnedOffset = Math.max(0, learnedOffset - LEARNED_PAGE);
+    }
+    renderLearnedList();
+    renderLearnedSwitches();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+async function learnedForget() {
+  const ok = await confirmDialog(
+    "Forget everything the notebook has worked out?\n\nEvery derived claim, question and learned preference goes. Your notes, their history and everything you told it to remember are untouched. This cannot be undone.",
+    { confirmLabel: "Forget it all" }
+  );
+  if (!ok) return;
+  try {
+    await api("/learned", {
+      method: "DELETE",
+      body: JSON.stringify({ confirm: true }),
+    });
+    learnedOffset = 0;
+    toast("Forgotten. Your notes are exactly as they were.");
+    renderLearned();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+async function learnedExport() {
+  try {
+    const data = await apiJson("/learned/export");
+    const day = new Date().toISOString().slice(0, 10);
+    await downloadJson(`memorymap-learned-${day}.json`, data);
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+//: Built once, with the modal, not per open: these are static controls and
+//: rebinding them on every visit is how a settings panel ends up with six
+//: copies of one listener.
+function wireLearnedSection() {
+  const kind = $("learned-kind");
+  if (kind && kind.options.length <= 1) {
+    for (const [value, label] of Object.entries(LEARNED_KIND_COPY)) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      kind.appendChild(option);
+    }
+  }
+  kind?.addEventListener("change", () => {
+    learnedOffset = 0;
+    renderLearnedList();
+  });
+  $("learned-search")?.addEventListener("input", () => {
+    clearTimeout(learnedSearchTimer);
+    learnedSearchTimer = setTimeout(() => {
+      learnedOffset = 0;
+      renderLearnedList();
+    }, 250);
+  });
+  $("learned-prev")?.addEventListener("click", () => {
+    learnedOffset = Math.max(0, learnedOffset - LEARNED_PAGE);
+    renderLearnedList();
+  });
+  $("learned-next")?.addEventListener("click", () => {
+    learnedOffset += LEARNED_PAGE;
+    renderLearnedList();
+  });
+  $("learned-export")?.addEventListener("click", learnedExport);
+  $("learned-forget")?.addEventListener("click", learnedForget);
+}
+
+async function renderLearned() {
+  //: The list first, so the switches' "N things kept" line has a number.
+  await renderLearnedList();
+  await renderLearnedSwitches();
+}
+
+wireLearnedSection();

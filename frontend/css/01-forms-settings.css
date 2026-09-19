@@ -5110,3 +5110,54 @@ select {
     min-height: var(--target-min);
   }
 }
+
+/* --- what it learned (WORLD_CLASS_PLAN I9) -------------------------------
+   Rows on `.entry-item`, the list recipe, so this needs only what makes a
+   derived fact read as one: the text large enough to judge, the provenance
+   quiet under it, and the row's actions where every other list already puts
+   them. Nothing here sets a colour, a radius or a spacing that is not a
+   token. */
+.learned-row-head {
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.learned-text {
+  margin: 0 0 var(--space-2);
+  /* The claim is the row. A note title elsewhere in the app is `--text-lg`
+     inside a list row; a derived sentence is body copy, and reading it is
+     the whole action this screen asks for. */
+  font-size: var(--text-body);
+  color: var(--ink);
+  /* One derived claim can be three hundred characters (facts.py's
+     MAX_SENTENCE_CHARS) and can hold a pasted identifier with no spaces in
+     it, which would otherwise widen the row, the list and the modal. */
+  overflow-wrap: anywhere;
+}
+
+.learned-meta {
+  margin: 0 0 var(--space-2);
+  font-size: 0.75rem;
+}
+
+/* The pager sits under the list, not beside it: the count belongs between
+   its two buttons, which is where a reader looks for "where am I". */
+#learned-pager {
+  gap: var(--space-2);
+  align-items: center;
+  margin-top: var(--space-2);
+}
+
+/* Each switch is a `.checkbox-label`, the app's own recipe, so the only
+   thing this adds is the gap that keeps seven of them from reading as one
+   block. */
+#learned-switches .checkbox-label + .checkbox-label {
+  margin-top: var(--space-2);
+}
+
+/* The master is not one of the seven and must not look like one. */
+#learned-switches .checkbox-label:first-child {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-3);
+}

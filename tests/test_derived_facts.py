@@ -209,3 +209,38 @@ def test_every_number_this_pipeline_takes_is_bounded(ai_client, fake_ollama):
     long = ai_client.patch(f"/learned/{fact['id']}", json={"text": "x" * 2001})
     assert long.status_code == 422
     assert ai_client.patch(f"/learned/{fact['id']}", json={"text": "x" * 2000}).status_code == 200
+
+
+def test_a_search_narrows_the_total_as_well_as_the_page(ai_client, fake_ollama):
+    """The pager reads that total, so a count that ignores the filter offers
+    pages that are not there.
+
+    Found by building the Settings section this route exists for: searching
+    "follow" returned four rows and a total of a dozen, and the table's
+    "Older" button stayed lit with nothing behind it. The page and the count
+    were narrowed by two separate lists of clauses and only one of them had
+    ever been given the search.
+    """
+    ai_client.post(
+        "/entries",
+        json={
+            "content": (
+                "The deploy should wait for the audit. Should we follow up with the vendor? "
+                "The vendor should answer before Friday."
+            )
+        },
+    )
+    ai_client.post("/night/run", json={"budget": 2000})
+    everything = ai_client.get("/learned").json()
+    assert everything["total"] == len(everything["items"]) > 1
+
+    found = ai_client.get("/learned", params={"q": "follow up"}).json()
+    assert found["items"], "the search matched nothing, so it proves nothing"
+    assert found["total"] == len(found["items"]), found
+    assert found["total"] < everything["total"], found
+
+    #: And the same for the two filters together, since they are applied by
+    #: one function now and a regression would take both.
+    both = ai_client.get("/learned", params={"q": "follow up", "kind": "question"}).json()
+    assert both["total"] == len(both["items"]), both
+    assert all(row["kind"] == "question" for row in both["items"]), both

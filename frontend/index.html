@@ -6472,7 +6472,7 @@
              clue which screen held what, so finding anything meant reading
              every label. The groups answer "what am I changing?" first. -->
         <nav class="modal-nav" id="settings-nav" aria-label="Settings sections">
-          <!-- Fourteen sections, grouped three ways. Grouping helps and is only
+          <!-- Eighteen sections, grouped four ways. Grouping helps and is only
                ever right for some people: "where do I turn off web search?" is
                a guess between The AI and System until you have learned the
                layout. Searching the sections' actual contents turns that guess
@@ -6489,6 +6489,7 @@
             <button data-section="skills">Skills</button>
             <button data-section="tools">Tools it can use</button>
             <button data-section="memory">What it remembers</button>
+            <button data-section="learned">What it learned</button>
             <button data-section="websearch">Web search</button>
           </div>
 
@@ -7080,6 +7081,86 @@
               Nothing saved yet. Tell Atlas a preference in chat and ask it to
               remember, and it will appear here.
             </p>
+          </section>
+
+          <!-- What the notebook learned (WORLD_CLASS_PLAN I9). The backend has
+               been complete since 2026-09-13 and had no caller at all: a scan
+               of every route against every path the frontend fetches found
+               `GET /learned`, its switches, its export and its whole
+               edit/delete/reset lifecycle unreachable from the app. This is
+               the section the plan specified, built against what the backend
+               actually ships (so no bulk actions: there is no
+               `POST /learned/bulk`).
+
+               Next to "What it remembers" on purpose, and the pair is the
+               reason both names are short: one is what you told it, the other
+               is what it worked out, and the only way a person finds the
+               second is by recognising it beside the first. -->
+          <section class="settings-section hidden" id="settings-learned">
+            <div class="row help-head">
+              <h3>What it learned</h3>
+              <button type="button" class="icon-only ghost small graph-help-toggle"
+                data-help-for="learned-help" aria-controls="learned-help" aria-expanded="false"
+                title="About what it learned" aria-label="About what it learned">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
+            </div>
+            <p class="muted">Everything Atlas worked out on its own, yours to correct, delete or switch off.</p>
+            <div class="help-body hidden" id="learned-help" role="dialog" aria-label="About what it learned">
+              <p>
+                "What it remembers" is what you told it. This is what it
+                worked out by itself while reading your notes: a claim it
+                thinks a note makes, a question it thinks a note leaves open.
+                Every row says which note it came from, which model decided
+                it and how sure it was.
+              </p>
+              <p>
+                A model that is wrong quietly is worse than no model, so all
+                of it is yours: edit a row and no later run overwrites it,
+                delete one and the same thing is never worked out again, or
+                switch the whole thing off and keep your notes exactly as
+                they are.
+              </p>
+            </div>
+
+            <div class="settings-group" id="learned-switches-group">
+              <h3>What may run</h3>
+              <p class="muted">Each of these reads your notes in the background. Off means it computes nothing and shows nothing.</p>
+              <p class="status hidden" id="learned-paused-banner" role="status"></p>
+              <div id="learned-switches"></div>
+            </div>
+
+            <div class="settings-group">
+              <h3>What it worked out</h3>
+              <p class="muted">One row per thing derived, newest first.</p>
+              <div class="row align-center">
+                <label for="learned-kind" class="visually-hidden">Kind</label>
+                <select id="learned-kind" aria-label="Kind of derived fact" title="Kind of derived fact">
+                  <option value="">All kinds</option>
+                </select>
+                <input id="learned-search" type="search" placeholder="Search what it learned…"
+                  aria-label="Search what it learned">
+              </div>
+              <p class="status hidden" id="learned-status" role="status"></p>
+              <ul id="learned-list" class="entry-list"></ul>
+              <p id="learned-empty" class="muted hidden">
+                Nothing worked out yet. This fills in as Atlas reads your notes in the background.
+              </p>
+              <div class="row align-center" id="learned-pager">
+                <button type="button" id="learned-prev" class="ghost small">Newer</button>
+                <span class="muted" id="learned-count"></span>
+                <button type="button" id="learned-next" class="ghost small">Older</button>
+              </div>
+            </div>
+
+            <div class="settings-group">
+              <h3>All of it at once</h3>
+              <p class="muted">Read it outside the app, or throw it away. Your notes are never touched by either.</p>
+              <div class="row">
+                <button type="button" id="learned-export" class="small">Export what it learned</button>
+                <button type="button" id="learned-forget" class="ghost small danger">Forget everything learned</button>
+              </div>
+            </div>
           </section>
 
           <section class="settings-section hidden" id="settings-tools">

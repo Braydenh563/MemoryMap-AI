@@ -7,7 +7,21 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added
+
+- Settings, "What it learned": everything Atlas worked out on its own, with
+  the note it came from, the model that decided it and how sure it was. Edit
+  a row and no later run overwrites it; delete one and the same thing is
+  never derived again; switch any of the seven background readers off, or
+  pause all of them at once; export the lot as JSON, or forget it all
+  without touching a note. The backend for this shipped on 2026-09-13 and
+  nothing in the app had ever called it.
+
 ### Fixed
+
+- A search in what the notebook learned counted rows it was not showing, so
+  the table's pager offered pages that were not there. The page and the
+  count are narrowed by one function now.
 
 - The app calls its AI by name. Atlas was the name in the chat sheet and in
   the prompts, and everywhere else the interface still said "the AI": 68

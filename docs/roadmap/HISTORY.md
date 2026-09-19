@@ -7,6 +7,50 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Built, I9's Settings section (2026-09-19): "What it learned"
+
+WORLD_CLASS_PLAN I9's frontend, the half that had been open since the
+backend landed on 2026-09-13. Found by scanning all 319 routes the app
+serves against every path `frontend/*.js` fetches: `GET /learned`,
+`GET|PUT /learned/switches`, `PATCH|DELETE /learned/{id}`,
+`POST /learned/{id}/reset`, `GET /learned/export`, `DELETE /learned` and
+`POST /night/run` had no caller anywhere in the app. The plan's own
+sentence for why that matters is "a model that is wrong quietly is worse
+than no model", and every one of those routes exists so a person can see
+the model being wrong and say so. With no screen, `derived_facts` grew
+where nobody could read it.
+
+**What was built.** Settings > "What it learned", next to "What it
+remembers" (one is what you told it, the other is what it worked out; the
+only way a person finds the second is by recognising it beside the first).
+Three groups: the seven switches plus the master "Pause all learning",
+with the paused banner; the table with a kind filter, a search box and a
+pager; and "Export what it learned" / "Forget everything learned".
+
+**Built against what the backend ships, not against the whole spec.**
+There is no `POST /learned/bulk`, so there are no bulk actions. A
+client-side loop over N rows is not the same thing: it is N requests that
+can half fail, and the honest version of that row is a backend route.
+
+**Measured in the browser** against a four thousand note notebook with 120
+derived facts: the section renders with zero page errors; Edit adds the
+"Edited by you" chip and a Reset button and changes the text; Reset puts
+the model's words back and takes both away; the kind filter narrows 120 to
+40; the pager moves to "51 to 100 of 120"; "Pause all learning" turns all
+seven off, disables them and shows the banner, and unpausing restores all
+seven; Delete takes 120 to 119 and re-reads the list.
+
+**One backend bug found by finally calling the route.** `facts.listing`
+narrowed the page by `kind` and `q` and narrowed the *count* by `kind`
+only, so a search returned forty rows and a total of a hundred and twenty
+and the pager offered two empty pages. Both are narrowed by one function
+now, applied twice; `tests/test_derived_facts.py` covers it and was proved
+against the old code.
+
+**Still open in I9:** the kinds I1's later passes add, the bulk routes and
+their buttons, and the "Learned: manage" link from each invention's own
+surface.
+
 ## §102 — chat document uploads, audited: mostly already built, one real bug found and fixed
 
 ROADMAP's live-list item 2 ("uploading a document to chat fails silently

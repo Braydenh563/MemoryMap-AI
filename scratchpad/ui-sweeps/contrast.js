@@ -22,7 +22,7 @@ const SUBTABS={
   notes:['browse','capture','writing-room','ask'],
   library:null,  // filled in from the strip itself: its ids move with the plan
 };
-const SECTIONS=['models','appearance','account','tools','skills','tasks','data','logs','extras','about'];
+const SECTIONS=['models','appearance','account','tools','skills','memory','learned','tasks','data','logs','extras','about'];
 (async()=>{const {browser,page}=await boot();
 const run=async(label)=>{const r=await page.evaluate(()=>{
   const cv=document.createElement('canvas');cv.width=cv.height=1;const cx=cv.getContext('2d',{willReadFrequently:true});

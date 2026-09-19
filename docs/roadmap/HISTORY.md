@@ -29821,3 +29821,79 @@ told to open first.
     button's own handler, which also knows about chat's "to bottom" mode,
     and `gcShade` in graph-canvas.js.
 
+225. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), a core
+    persona.** "I was wondering if atlas or another named persona can be the
+    core persona of the application as the librarian?? idk, the persona cant
+    be too token heavy though, just as a theme yk??" **Decision:** Atlas is
+    the name of the notebook's AI everywhere the app speaks as it (the
+    status dot's label, "Atlas filed this under Work", the chat empty
+    state, the popup agent's greeting, the help chat), as copy and one
+    mark, not as prompt text: the model prompts gain at most one clause
+    ("You are Atlas, this notebook's librarian.") under
+    `agent.PROSE_BUDGET_CHARS`, and no persona prose, backstory or tone
+    instructions anywhere. One constant (`AI_NAME`) in the frontend and one
+    in `ai/` so a rename is one edit each; Settings, Models keeps the model's
+    own name beside it ("Atlas, running qwen2.5:7b"). Owner: chrome after
+    214 and 215; the backend clause and constant, backend2 after its list.
+    **Backend half fixed e024e49 (backend2), merged:** `AI_NAME` in
+    `ai/__init__.py`, one clause in the prompts that speak as the app,
+    tested under the prose budget; the help chat's `GUIDE_NAME` is that
+    constant. Frontend half: chrome.
+    **Decision, 2026-09-14 (the owner asked how to tell the two apart):**
+    one name, two hats, said by the surface and by one clause. The
+    librarian (chat, filing, the agent) is "Atlas" with the clause "You are
+    Atlas, this notebook's librarian."; the help sheet is "Atlas, about the
+    app" in its head and its clause is "You are Atlas, answering about the
+    app itself, never from the notes." Nothing else differs: same mark,
+    same voice, no persona prose in either.
+    **Frontend, 2026-09-14:** `AI_NAME` in settings.js with `GUIDE_NAME`
+    reading it; the help sheet, its popover lines, the palette command and
+    the empty states say Atlas (chrome, 224). Left for the next PR: the
+    copy sweep where the app speaks as the librarian ("Atlas filed this
+    under Work", the chat empty state, Settings, Models "Atlas, running
+    <model>"), one grep for "the AI" in app.js.
+    **2026-09-19, all three checked, one already built, one done.** The chat
+    empty state was already built: it reads "Explore your notebook with
+    Atlas" from `aiNameNow()` (app.js, `chat-empty`), so that line of this
+    entry was stale. `filedByText` is done: the three branches that spoke of
+    "the AI" name Atlas now, and the `llm` branch keeps the model beside the
+    name in the form this entry's own decision asks for, since "which model
+    decided this" is the question that line exists to answer. Rendered from
+    the shipped function: "decided by Atlas, running qwen2.5:7b", "your
+    choice, Atlas stayed out of it", "Atlas wasn't available to file it",
+    and "decided by Atlas" when no model is known.
+    **2026-09-19, both remaining halves done, and a lint now holds them.**
+    Settings, Models: `chat-model-note` reads "Atlas, running qwen2.5:7b"
+    and, when the model has gone, "Atlas was running “mistral:7b”, which is
+    not installed any more. Pick another or download it below."; the chat
+    badge's tooltip reads "Atlas is answering with <model>". Both measured
+    off the live screen, the second by calling the renderer with each status
+    since the picker is gated on Ollama and the sandbox has none. The
+    heading above them is left alone: it names the setting, and the note
+    under it is where the app speaks.
+    The vision and OCR notes keep "Active: <model>" on purpose. They are
+    tools Atlas uses, not Atlas talking, which is the line this decision
+    draws ("everywhere the app speaks as it").
+    The wider sweep: 68 strings across eight JS files and 41 pieces of
+    markup, all of them copy a person reads, now say Atlas. Comments were
+    left alone, which is most of what the 125-hit grep was seeing.
+    `AI_NAME` moved from settings.js to app.js, because settings.js is the
+    *last* script index.html loads and app.js the first: that is why
+    `aiNameNow()` ever needed a `typeof` fallback, and nothing at load could
+    read the constant.
+    Four of the sweep's replacements read wrong and were reworded by hand
+    rather than kept: a boot step label ("check the model status"), the
+    vision picker's "The vision model will read the page.", the other half
+    of a ternary that would have said "AI not running" beside "let Atlas
+    write", and a menu label left as "Name with AI" beside "Let Atlas name
+    this chat".
+    `tests/test_ai_name.py` now fails on any copy that calls it "the AI",
+    reading string literals and markup outside comments, with no allowance
+    list: a hit is reworded. Its scanner needed regex-literal handling,
+    because `whiteboard.js`'s `WB_MAP_INLINE` holds three backticks and the
+    first version opened a template literal on the odd one and lost a
+    hundred and thirty lines, then reported a phrase out of a comment as
+    copy. A second test asserts the scanner still reaches the bottom of the
+    three largest files, which is the guard that makes the first mean
+    anything. Both proved by regression.
+

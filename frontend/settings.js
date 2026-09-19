@@ -3439,10 +3439,9 @@ function helpChatIsNearBottom() {
 //: The guide's name, read from here everywhere the interface says it
 //: (CHAT_PLAN.md decision 15). `help_chat.GUIDE_NAME` is the same word on the
 //: server, where the model is told it.
-//: One name for the notebook's AI, spelt once (INBOX 225); the backend's
-//: `AI_NAME` in ai/__init__.py is the same word. The guide is the same Atlas
-//: wearing its "about the app" hat.
-const AI_NAME = "Atlas";
+//: One name for the notebook's AI, spelt once (INBOX 225) in app.js, which
+//: index.html loads first; the backend's `AI_NAME` in ai/__init__.py is the
+//: same word. The guide is the same Atlas wearing its "about the app" hat.
 const GUIDE_NAME = AI_NAME;
 //: The persona hint's "(Atlas)" follows the name too.
 {

@@ -258,14 +258,18 @@ def test_the_guide_is_named_once_and_the_interface_agrees(ai_client, fake_ollama
     from pathlib import Path
 
     frontend = Path(__file__).resolve().parents[1] / "frontend"
+    app_js = (frontend / "app.js").read_text(encoding="utf-8")
     settings_js = (frontend / "settings.js").read_text(encoding="utf-8")
     index = (frontend / "index.html").read_text(encoding="utf-8")
 
     assert help_chat.GUIDE_NAME == "Atlas"
     #: Spelt once on each side (INBOX 225): the frontend's `AI_NAME` is the
     #: word, and `GUIDE_NAME` reads it, so the guide and the librarian can
-    #: never drift apart by one edit.
-    assert f'const AI_NAME = "{help_chat.GUIDE_NAME}"' in settings_js
+    #: never drift apart by one edit. The constant is in app.js, the first
+    #: script index.html loads, not settings.js, the last: a name declared in
+    #: the last script on the page cannot be read by anything that runs at
+    #: load, which is why `aiNameNow()` needed a fallback to exist at all.
+    assert f'const AI_NAME = "{help_chat.GUIDE_NAME}"' in app_js
     assert "const GUIDE_NAME = AI_NAME" in settings_js
     #: The sheet's own title comes from that constant rather than a literal.
     assert "label: GUIDE_NAME," in settings_js

@@ -702,7 +702,7 @@ const QUICK_START = [
   {
     icon: "ph:pencil-simple",
     label: "New note",
-    hint: "Capture a thought: the AI files it",
+    hint: "Capture a thought: Atlas files it",
     primary: true,
     run: () => {
       switchTab("notes");
@@ -723,7 +723,7 @@ const QUICK_START = [
   {
     icon: "ph:alarm",
     label: "Remind me",
-    hint: "Type it in plain English and the AI schedules it",
+    hint: "Type it in plain English and Atlas schedules it",
     run: () => {
       switchTab("reminders");
       $("reminder-magic").focus();
@@ -1132,7 +1132,7 @@ async function renderContinueLink(row) {
 function featureCatalog() {
   return [
     { group: "Capture & notes", items: [
-      { name: "Capture a thought", desc: "Save anything; the AI files it into a category and suggests tags.", run: () => { switchTab("notes"); showNotesSection("capture"); $("entry-content").focus(); } },
+      { name: "Capture a thought", desc: "Save anything; Atlas files it into a category and suggests tags.", run: () => { switchTab("notes"); showNotesSection("capture"); $("entry-content").focus(); } },
       { name: "Templates", desc: "Start a note from a prefilled shape (journal, recipe, meeting…).", run: () => { switchTab("notes"); showNotesSection("capture"); } },
       { name: "Improve writing", desc: "Proofread, rewrite, or condense a note with AI before saving.", run: () => { switchTab("notes"); showNotesSection("capture"); } },
       // The writing room is a sub-tab of Notes and was in the palette but in
@@ -1232,7 +1232,7 @@ function featureCatalog() {
       { name: "Graph view", desc: "Your notes as a network of links, threads and similarity.", run: () => switchTab("graph") },
       { name: "Edit on the map", desc: "Click any node to edit its content and tags in place.", run: () => switchTab("graph") },
       { name: "Physics controls", desc: "Gravity and Spread sliders reshape the layout.", run: () => switchTab("graph") },
-      { name: "Suggested links", desc: "The AI proposes connections between related notes.", run: () => switchTab("graph") },
+      { name: "Suggested links", desc: "Atlas proposes connections between related notes.", run: () => switchTab("graph") },
       { name: "Timeline", desc: "Everything you have made, in order, as a grid or a branching line.", run: () => switchTab("timeline") },
       { name: "Zoom the timeline", desc: "By day, week, month or year, with a jump back to today.", run: () => switchTab("timeline") },
       { name: "Timeline bands", desc: "Group the timeline by category, tag or kind of thing.", run: () => switchTab("timeline") },
@@ -1242,7 +1242,7 @@ function featureCatalog() {
     ]},
     { group: "Plan & focus", items: [
       { name: "Reminders", desc: "Due dates with priority, repeats, snooze and notifications.", run: () => switchTab("reminders") },
-      { name: "Magic add", desc: "Type “call mum tomorrow evening” and the AI schedules it.", run: () => { switchTab("reminders"); $("reminder-magic").focus(); } },
+      { name: "Magic add", desc: "Type “call mum tomorrow evening” and Atlas schedules it.", run: () => { switchTab("reminders"); $("reminder-magic").focus(); } },
       { name: "Focus timer", desc: "Pomodoro-style timer with presets or your own minutes.", run: () => switchTab("dashboard") },
       { name: "Weekly digest", desc: "An AI recap of everything you saved this week.", run: () => switchTab("dashboard") },
       { name: "Tensions", desc: "Find where your notes contradict each other, a decision reversed, a date that moved.", run: () => openTensions() },
@@ -1321,7 +1321,7 @@ function renderFeatures(query) {
   // The AI's own tools, straight from the backend registry.
   if (featureAiTools && featureAiTools.length) {
     groups.push({
-      group: "What the AI can do for you",
+      group: "What Atlas can do for you",
       items: featureAiTools.map((tool) => ({
         name: tool.name.replace(/_/g, " "),
         desc: tool.description + (tool.destructive ? " (asks you to confirm first)" : ""),
@@ -2643,7 +2643,7 @@ async function renderQuickCaptureWidget(body) {
   textarea.placeholder =
     modelStatus && modelStatus.ollama_running === false
       ? "Type a thought and press Save."
-      : "Type a thought and press Save, the AI files it.";
+      : "Type a thought and press Save, Atlas files it.";
   const row = document.createElement("div");
   row.className = "row";
   const status = document.createElement("span");

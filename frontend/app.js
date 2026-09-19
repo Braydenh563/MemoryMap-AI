@@ -804,7 +804,7 @@ function startApp() {
   // so this only ever fires the run right after a real update landed.
   step("check for a source-checkout update notice", checkForSourceUpdateNotice);
   step("load conversations", loadConversationList);
-  step("check the AI model status", refreshModelStatus);
+  step("check the model status", refreshModelStatus);
   // Reminders poll on their own timer once running (see startReminderWatch);
   // starting that here, not at module level, is the other half of the fix
   // described above revealTab("dashboard")'s module-level call: the same
@@ -2662,7 +2662,7 @@ function entryItem(entry, options = {}) {
   // actually happening instead.
   if (entry.filing_state === "pending") {
     const filing = chip("ph:circle-notch Filing…", "filing");
-    filing.title = "The AI is deciding where this note goes. It's already saved.";
+    filing.title = "Atlas is deciding where this note goes. It's already saved.";
     meta.appendChild(filing);
   } else {
     meta.appendChild(chip(entry.category));
@@ -2693,7 +2693,7 @@ function entryItem(entry, options = {}) {
   const aiDidFile = entry.ai_confidence > 0 && !entry.user_filed;
   // Plain-language explanation on hover, "confidence" is jargon otherwise,
   // and the number alone doesn't say what it's confident *about*.
-  const confidenceHint = "How sure the AI was when it picked this note's category.";
+  const confidenceHint = "How sure Atlas was when it picked this note's category.";
   const confidenceChip = aiDidFile
     ? entry.ai_confidence >= REVIEW_THRESHOLD
       ? chip(`AI ${entry.ai_confidence}%`, "confidence")
@@ -4394,7 +4394,7 @@ async function toggleEntryPrivacy(entry) {
         "It gets encrypted with a key derived from your password, so it stays " +
         "unreadable in the database, in backups, and to anyone without that " +
         "password.\n\n" +
-        "It also stops appearing in search and stops being given to the AI.\n\n" +
+        "It also stops appearing in search and stops being given to Atlas.\n\n" +
         "There is no recovery: if you forget your password this note is gone."
     ));
     if (!ok) return;
@@ -4764,8 +4764,8 @@ function entryOverflowMenu(entry) {
       {
         label: entry.is_private ? "ph:lock-open Make readable" : "ph:lock Make private",
         title: entry.is_private
-          ? "Decrypt this note so search and the AI can use it again"
-          : "Encrypt this note at rest, and keep it out of search and the AI",
+          ? "Decrypt this note so search and Atlas can use it again"
+          : "Encrypt this note at rest, and keep it out of search and Atlas",
         run: () => toggleEntryPrivacy(entry),
       },
       {
@@ -4889,7 +4889,7 @@ function entryOverflowMenu(entry) {
       },
       {
         label: "ph:plus Add context",
-        title: "Append detail: the AI may refile it",
+        title: "Append detail: Atlas may refile it",
         run: () => {
           inlineAction = inlineActionIs(entry.id, "context") ? null : { id: entry.id, kind: "context" };
           renderEntries();
@@ -5159,7 +5159,7 @@ function renderInlineAction(entry) {
   const textarea = document.createElement("textarea");
   textarea.rows = 2;
   textarea.placeholder = isContext
-    ? "Add detail: the AI re-reads the whole note and may refile it…"
+    ? "Add detail: Atlas re-reads the whole note and may refile it…"
     : "Continue this train of thought…";
   wrap.appendChild(textarea);
 
@@ -7857,7 +7857,7 @@ function selectionMenuItems() {
         openExtractPreview(text);
       }
     ),
-    makeMenuItem("ph:chat-circle Ask the AI about this", "Start a chat about the selection", () => {
+    makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about the selection", () => {
       switchTab("chat");
       const input = $("chat-input");
       input.value = `Tell me about this: "${text}"`;
@@ -8615,7 +8615,7 @@ function fillCategoryOptions(select, selected) {
   if (selected === null) {
     const auto = document.createElement("option");
     auto.value = "";
-    auto.textContent = "Let the AI decide";
+    auto.textContent = "Let Atlas decide";
     select.appendChild(auto);
   }
   for (const name of names) {
@@ -10757,7 +10757,7 @@ async function watchFiling(entry) {
     }
     if (status.filing_state === "pending") continue;
     if (status.filing_state === "failed") {
-      toast(`Saved, but the AI couldn't file it: it's in “${status.category}”.`, true);
+      toast(`Saved, but Atlas couldn't file it: it's in “${status.category}”.`, true);
     } else {
       toastAction(
         `Filed under “${status.category}” (${status.ai_confidence}% sure).`,
@@ -11187,7 +11187,7 @@ async function saveEntry() {
       ? "Saving…"
       : modelStatus && !modelStatus.embedding_ready
         ? "Filing… (the search AI is still warming up, this first one can take longer)"
-        : "Filing… (the AI is reading and categorising your note)";
+        : "Filing… (Atlas is reading and categorising your note)";
   try {
     //: **The pictures go up before the note does.** They were staged as
     //: `staged:<key>` urls while the note had no id (see `captureStagedImages`);
@@ -13855,7 +13855,7 @@ function renderChatEmptyState() {
   //: One line about the other assistant (INBOX 224). The empty chat is where
   //: somebody asks the app a question it cannot answer from notes, "how do I
   //: turn this off", and Atlas is the one that can.
-  empty.appendChild(atlasSuggestion("What can the AI change in my notebook?"));
+  empty.appendChild(atlasSuggestion("What can Atlas change in my notebook?"));
   //: **The starters belong in the empty state, not in a strip above the
   //: composer.** Measured at 1440px: the welcome was a 326px column of centred
   //: text in a 1062px pane with four suggestion chips jammed against the
@@ -14110,8 +14110,8 @@ function buildWebResultRow(result) {
           run: () => window.open(result.url, "_blank", "noopener,noreferrer"),
         },
         {
-          label: "ph:chat-circle Ask the AI about this",
-          title: "Let the AI fetch this page and answer about it",
+          label: "ph:chat-circle Ask Atlas about this",
+          title: "Let Atlas fetch this page and answer about it",
           run: () => askAboutPage(result.url, result.title),
         },
         {
@@ -14571,7 +14571,7 @@ function renderModelHealthNote(spec) {
     note.textContent =
       "A small window: a back-and-forth chat will start losing earlier messages within a few exchanges. Notes and documents are unaffected; only the conversation itself is short-lived.";
   } else if (roughTurns <= 40) {
-    note.textContent = `What this means for you: a long chat will start dropping its earliest messages after roughly ${roughTurns} exchanges. The AI can still recall anything from further back by re-reading the note or asking again, it just won't be sitting in view.`;
+    note.textContent = `What this means for you: a long chat will start dropping its earliest messages after roughly ${roughTurns} exchanges. Atlas can still recall anything from further back by re-reading the note or asking again, it just won't be sitting in view.`;
   } else {
     note.textContent =
       "A large window: a normal conversation is very unlikely to ever run out of room.";
@@ -15213,12 +15213,12 @@ const PROGRESS_MUSINGS = [
   "Your notes are plain markdown on disk. You can read them without this app.",
   "Searching uses meaning and keywords together, then merges the two rankings.",
   "A note you never tagged is still findable, the links between notes count too.",
-  "Private notes are held back from the AI, even when it asks for them.",
+  "Private notes are held back from Atlas, even when it asks for them.",
   "Ask mode reads. Agent mode can change things, and says so before it does.",
   "Long answers are slower on a small model, not stuck.",
-  "Every tool call the AI makes is listed under the answer, with what it touched.",
+  "Every tool call Atlas makes is listed under the answer, with what it touched.",
   "Type [[ in any note to link to another one.",
-  "Select text anywhere you can edit and ask the AI about just that passage.",
+  "Select text anywhere you can edit and ask Atlas about just that passage.",
 ];
 
 //: How long to wait before showing one. A turn that finishes in a second
@@ -16683,7 +16683,7 @@ function renderToolConfirm(holder, event) {
   const card = document.createElement("div");
   card.className = "tool-confirm";
   const text = document.createElement("p");
-  setLabel(text, `ph:warning The AI wants to: ${event.label || event.name}`);
+  setLabel(text, `ph:warning Atlas wants to: ${event.label || event.name}`);
   
   const contentArea = document.createElement("div");
   
@@ -16761,7 +16761,7 @@ function renderMemoryProposal(holder, proposal) {
   const note = document.createElement("p");
   note.className = "muted";
   note.textContent =
-    "Saved preferences are added to the AI's instructions in every later " +
+    "Saved preferences are added to Atlas's instructions in every later " +
     "conversation. Nothing is in force until you say yes.";
 
   const row = document.createElement("div");
@@ -16795,7 +16795,7 @@ function renderMemoryProposal(holder, proposal) {
   };
 
   row.appendChild(
-    smallButton("Remember it", "Add this to the AI's standing instructions", () => answer(true), false)
+    smallButton("Remember it", "Add this to Atlas's standing instructions", () => answer(true), false)
   );
   row.appendChild(smallButton("No thanks", "Don't save this preference", () => answer(false)));
 
@@ -21690,7 +21690,7 @@ async function loadConversationList() {
       })
     );
     items.push(
-      makeMenuItem("ph:magic-wand Name with AI", "Let the AI name this chat", async () => {
+      makeMenuItem("ph:magic-wand Name with Atlas", "Let Atlas name this chat", async () => {
         const named = await apiJson(`/conversations/${conversation.id}/retitle`, {
           method: "POST",
         }).catch((e) => {
@@ -22060,11 +22060,20 @@ async function loadChatSuggestions() {
 // Personas section in Settings (Wave C, editing + reset in Wave D).
 // Mirrors the backend's built-ins: editing one saves an override with the
 // same name (the saved list wins), and Reset deletes the override.
-//: The app's AI is named in settings.js (`AI_NAME`), which index.html loads
-//: after this file, so anything here that runs at load must not read the
-//: constant itself: `renderPlanToggle()` does, and the first version of this
-//: threw at boot and the app never drew. A function call resolves at call
-//: time, and the fallback is the same word.
+//: The name, and the function that reads it. The function is kept even now
+//: that the constant is declared above it, because `GUIDE_NAME` is still
+//: settings.js's and the two are read the same way; the `typeof` guard is
+//: what stopped the first version of this throwing at boot, when the
+//: constant lived in the last script on the page and `renderPlanToggle()`
+//: read it at load.
+//: One name for the notebook's AI, spelt once (INBOX 225). It lives here
+//: rather than in settings.js because index.html loads app.js first and
+//: settings.js last: a module-level string anywhere else in the app can read
+//: this one at load time, and could not read a constant declared in the last
+//: script on the page. The backend's `AI_NAME` in ai/__init__.py is the same
+//: word.
+const AI_NAME = "Atlas";
+
 function aiNameNow() {
   return typeof AI_NAME === "string" ? AI_NAME : "Atlas";
 }
@@ -28766,7 +28775,7 @@ async function renderMemorySettings() {
   const data = await apiJson("/memory").catch(() => null);
   if (!data) {
     list.replaceChildren();
-    budget.textContent = "Couldn't load what the AI has remembered.";
+    budget.textContent = "Couldn't load what Atlas has remembered.";
     return;
   }
 
@@ -28805,7 +28814,7 @@ async function renderMemorySettings() {
       if (pref.proposed) {
         const tag = document.createElement("span");
         tag.className = "memory-proposed-tag";
-        setLabel(tag, "ph:brain Suggested by the AI");
+        setLabel(tag, "ph:brain Suggested by Atlas");
 
         const answer = async (accept) => {
           await apiJson(`/memory/${pref.id}/answer`, {
@@ -29866,7 +29875,7 @@ async function savePrefs() {
 }
 
 async function deleteProfile() {
-  if (!(await confirmDialog("Delete your profile text? The AI will stop personalising answers."))) return;
+  if (!(await confirmDialog("Delete your profile text? Atlas will stop personalising answers."))) return;
   prefsCache = await apiJson("/preferences", {
     method: "PUT",
     body: JSON.stringify({ user_profile: "", profile_enabled: false }),
@@ -33029,7 +33038,7 @@ function aiStatusState() {
       return {
         level: "idle",
         title: "Checking…",
-        detail: "Asking the app what the AI is doing. This takes a moment.",
+        detail: "Asking the app what Atlas is doing. This takes a moment.",
       };
     }
     return {
@@ -34259,10 +34268,15 @@ function fillModelSelect(select, names, extraFirst, savedValue) {
 function renderChatModelPicker(status) {
   const names = status.installed_models.map((m) => m.name);
   fillModelSelect($("chat-model-select"), names, null, status.chat_model);
+  //: The name beside the model, which is INBOX 225's decision for this
+  //: screen: the app speaks as Atlas everywhere else, and "Active: qwen2.5:7b"
+  //: was the one place it went back to naming the machinery. Both halves are
+  //: here on purpose, "which model" is the question this line exists to
+  //: answer and the name alone would not answer it.
   $("chat-model-note").textContent =
     status.chat_model_installed === false
-      ? `Active model “${status.chat_model}” is not installed any more, pick another or download it below.`
-      : `Active: ${status.chat_model}`;
+      ? `${aiNameNow()} was running “${status.chat_model}”, which is not installed any more. Pick another or download it below.`
+      : `${aiNameNow()}, running ${status.chat_model}`;
 }
 
 // Nielsen #6, recognition over recall: which model answers was previously
@@ -34281,7 +34295,7 @@ function renderChatActiveModelBadge() {
   // The badge itself ellipsis-truncates a long id (a full HuggingFace path
   // easily runs past the header), the full name is still one hover away.
   badge.title = name
-    ? `The model currently answering in this chat: ${name}: click for what it is and what it can do`
+    ? `${aiNameNow()} is answering with ${name}: click for what it is and what it can do`
     : "";
 }
 
@@ -34840,7 +34854,7 @@ async function applyChatModel() {
       body: JSON.stringify({ name: select.value }),
     });
     delete select.dataset.userChosen; // applied: polling may reflect it now
-    note.textContent = `Active: ${select.value}: switched instantly, no re-index needed.`;
+    note.textContent = `${aiNameNow()}, running ${select.value}: switched instantly, no re-index needed.`;
     refreshModelStatus();
   } catch (error) {
     note.textContent = error.message;
@@ -34951,7 +34965,7 @@ async function runImprove() {
     return;
   }
   result.textContent = "";
-  status.textContent = "The AI is editing…";
+  status.textContent = "Atlas is editing…";
   status.classList.remove("error");
   $("improve-apply").disabled = true;
   try {
@@ -34978,7 +34992,7 @@ function applyImprove() {
     improveTarget.dispatchEvent(new Event("input")); // refresh char count
   }
   closeImprove();
-  toast("Applied the AI's suggestion.");
+  toast("Applied Atlas's suggestion.");
 }
 
 // --- Tensions: where the notebook disagrees with itself ---------------------
@@ -35216,7 +35230,7 @@ async function loadLinkSuggestions() {
   // own deduction). Labelled for what it actually touches instead.
   const backfill = smallButton(
     "ph:lightbulb Explain your existing links",
-    "For links you've already made elsewhere: work out why each one exists, first from how alike the notes are, then by asking the AI to name the actual connection. Doesn't touch the suggestions below, which aren't links yet.",
+    "For links you've already made elsewhere: work out why each one exists, first from how alike the notes are, then by asking Atlas to name the actual connection. Doesn't touch the suggestions below, which aren't links yet.",
     async () => {
       backfill.disabled = true;
       setLabel(backfill, "ph:lightbulb Working…");
@@ -35237,7 +35251,7 @@ async function loadLinkSuggestions() {
         toast(`Links: ${parts.join(", ")}.`);
         loadLinkSuggestions();
       } else if (result.ai_unavailable) {
-        toast("Marked what I could, the AI isn't running, so none could be put into words yet.", true);
+        toast("Marked what I could, Atlas isn't running, so none could be put into words yet.", true);
       } else if (result.checked) {
         toast("Nothing left to explain, every link already has a reason.");
       } else {
@@ -35257,7 +35271,7 @@ async function loadLinkSuggestions() {
   const rowReasons = [];
   const suggestReasons = smallButton(
     "ph:sparkle Suggest reasons",
-    "Ask the AI to guess why each note pair below might be connected, and fill in any empty Why box with its answer, still yours to edit or clear before linking.",
+    "Ask Atlas to guess why each note pair below might be connected, and fill in any empty Why box with its answer, still yours to edit or clear before linking.",
     async () => {
       const targets = rowReasons.filter((r) => !r.input.value.trim());
       if (!targets.length) {
@@ -35292,7 +35306,7 @@ async function loadLinkSuggestions() {
       if (filled) {
         toast(`Filled in ${filled} reason${filled === 1 ? "" : "s"}.`);
       } else if (result.ai_unavailable) {
-        toast("The AI isn't running, so no reasons could be guessed.", true);
+        toast("Atlas isn't running, so no reasons could be guessed.", true);
       } else {
         toast("Couldn't guess a reason for any of these.");
       }
@@ -35397,7 +35411,7 @@ async function loadLinkSuggestions() {
     reason.maxLength = 80;
     reason.placeholder = s.reason && s.reason !== "similar in meaning"
       ? s.reason
-      : "Why? (optional: the AI will work it out)";
+      : "Why? (optional: Atlas will work it out)";
     reason.setAttribute("aria-label", "Reason for this link");
     // Marks the box as the user's the moment they touch it, so the
     // auto-fill above can never overwrite what someone is typing.
@@ -37033,8 +37047,8 @@ $("local-only-ai").addEventListener("change", async (e) => {
   // central promise stops being enforced at exactly that click.
   toast(
     on
-      ? "The AI is locked to this machine."
-      : "Off: MemoryMap will now let you point the AI at a server on the internet."
+      ? "Atlas is locked to this machine."
+      : "Off: MemoryMap will now let you point Atlas at a server on the internet."
   );
   refreshModelStatus();
 });
@@ -37616,7 +37630,7 @@ const ATLAS_PROMPTS = {
   "command-palette-help": "What can the popup agent do that Chat cannot?",
   "help-chat-help": "What can you help me with?",
   "graph-show-help": "What do entity and board nodes add to the graph?",
-  "autonomous-ai-help": "What can the AI change in my notebook on its own?",
+  "autonomous-ai-help": "What can Atlas change in my notebook on its own?",
   "websearch-help": "How do I turn off web search?",
   "battery-mode-help": "What does Performance mode do?",
   "memory-help": "What does the app remember about me?",
@@ -38309,10 +38323,10 @@ $("dashboard-greeting-regenerate")?.addEventListener("click", async () => {
   const btn = $("dashboard-greeting-regenerate");
   const status = $("dashboard-greeting-status");
   btn.disabled = true;
-  if (status) status.textContent = "Asking the AI…";
+  if (status) status.textContent = "Asking Atlas…";
   const ok = await refreshAiGreeting(true).catch(() => false);
   btn.disabled = false;
-  if (status) status.textContent = ok ? "New greeting set." : "Couldn't reach the AI, kept the current one.";
+  if (status) status.textContent = ok ? "New greeting set." : "Couldn't reach Atlas, kept the current one.";
   setTimeout(() => { if (status) status.textContent = ""; }, 3000);
 });
 for (const id of RESPONSE_MODE_SELECTS) {
@@ -38816,7 +38830,7 @@ $("web-search-toggle").addEventListener("click", async () => {
   $("pref-web-search").checked = next; // keep the Settings checkbox in sync
   if (next) {
     toggleWebPanel(true); // turning it on reveals the search panel
-    toast("Web search on: the AI can search, and you can browse here.");
+    toast("Web search on: Atlas can search, and you can browse here.");
   } else {
     toggleWebPanel(false);
     toast("Web search off.");
@@ -39105,7 +39119,7 @@ function renderDuplicateGroups(groups) {
     aiBox.checked = aiReady;
     aiBox.disabled = !aiReady;
     useAi.append(aiBox, document.createTextNode(
-      aiReady ? " let the AI write the merged note" : " AI not running: notes will be joined"
+      aiReady ? " let Atlas write the merged note" : " Atlas is not running: notes will be joined"
     ));
     card.dataset.aiBoxId = aiBox.id;
     row.append(merge, useAi);
@@ -39151,7 +39165,7 @@ async function mergeDuplicateGroup(ids, card) {
       body: JSON.stringify({ ids, use_ai: useAi }),
     });
     card.remove();
-    toast(`Merged ${result.merged_count} notes${result.used_ai ? " with the AI" : ""}.`);
+    toast(`Merged ${result.merged_count} notes${result.used_ai ? " with Atlas" : ""}.`);
     await loadEntries();
   } catch (error) {
     status.classList.add("error");
@@ -40090,7 +40104,7 @@ const ONBOARDING_SLIDES = [
   {
     icon: "ph:note-pencil",
     title: "Capture your thoughts",
-    text: "Jot anything into the Notes tab and hit Save, the AI files it into a category and suggests tags. No folders to fuss over.",
+    text: "Jot anything into the Notes tab and hit Save, Atlas files it into a category and suggests tags. No folders to fuss over.",
   },
   {
     icon: "ph:chat-circle",
@@ -40147,7 +40161,7 @@ async function loadOnboardingDiagnostics(forSlide) {
   const lines = [];
   lines.push(
     models && models.ollama_running
-      ? "Ollama is running, so the AI will file your notes and answer questions."
+      ? "Ollama is running, so Atlas will file your notes and answer questions."
       : "Ollama isn't running right now, MemoryMap still works without it. " +
           "Notes are still searched by keyword, and everything catches up the moment it's on."
   );
@@ -40395,7 +40409,7 @@ const DEFAULT_SHORTCUTS = {
   //: registry rather than bound loose for the reason `askAgent` records above:
   //: a chord in a listener of its own is invisible to
   //: `test_frontend_shortcuts.py`'s collision check and to the shortcuts help.
-  inlineAi: { keys: "Ctrl+J", label: "Ask the AI to write at the cursor" },
+  inlineAi: { keys: "Ctrl+J", label: "Ask Atlas to write at the cursor" },
   navigateBack: { keys: "Alt+ArrowLeft", label: "Go back to the previous page or view" },
   navigateForward: { keys: "Alt+ArrowRight", label: "Go forward again" },
 };

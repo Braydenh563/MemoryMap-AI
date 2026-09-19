@@ -1367,7 +1367,7 @@ const LIBRARY_CREATE_BY_KIND = {
 //: dialog is the recipe: a title, a line, a column of rows with a name and
 //: one line under it, Cancel at the foot.
 const LIBRARY_CREATE_HINTS = {
-  note: ["ph:note-pencil", "A quick thought. The AI files it and links it for you."],
+  note: ["ph:note-pencil", "A quick thought. Atlas files it and links it for you."],
   document: ["ph:file-text", "A long page: headings, an outline, templates, export."],
   map: ["ph:tree-structure", "A mind map: a tree of topics you move and connect."],
   chat: ["ph:chats", "A conversation grounded in your notes."],
@@ -1680,7 +1680,7 @@ async function renderSkillsDashboard() {
   const workersHint = document.createElement("p");
   workersHint.className = "muted text-sm";
   workersHint.textContent =
-    "Lets the AI work through your notebook on its own, on a schedule you set in Settings. Everything it changes is listed there afterwards and can be undone one item at a time.";
+    "Lets Atlas work through your notebook on its own, on a schedule you set in Settings. Everything it changes is listed there afterwards and can be undone one item at a time.";
   const workerToggle = (id, key, label, on) => {
     const wrap = document.createElement("label");
     // The app's own pill toggle, not the `.switch`/`.slider` markup that used
@@ -4639,7 +4639,7 @@ onDomReady(() => {
     message.textContent =
       ocrReader() === "tesseract"
         ? "Tesseract will read the page, no model needed, and it marks where each block sits."
-        : "The AI vision model will read the page.";
+        : "The vision model will read the page.";
     message.classList.remove("hidden");
   });
   //: **The reading has to be able to leave this window.** A transcription you

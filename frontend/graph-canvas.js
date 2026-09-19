@@ -1763,7 +1763,7 @@ function gcShowNodeMenu(node, clientX, clientY, s = gcTab) {
 //: are". One sentence, written once here, given in all three places.
 const GC_ENTITY_CATEGORY = "Entity";
 const GC_ENTITY_HELP =
-  "An entity is a person, place or thing the AI found named across your notes, " +
+  "An entity is a person, place or thing Atlas found named across your notes, " +
   "joined to every note that mentions it";
 
 function gcTooltip(node, s = gcTab) {

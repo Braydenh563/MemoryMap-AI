@@ -577,7 +577,7 @@ function editorCommands(context) {
         id: "ai-inline",
         primary: true,
         group: "AI",
-        label: "\u{2728} Ask the AI to write here",
+        label: "\u{2728} Ask Atlas to write here",
         hint: "at the cursor \u{2014} Ctrl+J",
         keywords: ["ai", "write", "inline", "here", "cursor", "ask", "generate", "continue"],
         run: (textarea) => inlineAiOpen(textarea),
@@ -1181,7 +1181,7 @@ const SELECTION_BAR_ACTIONS = [
   //: "feels capable" to work in that whole section, and this bar is already
   //: the thing on screen the moment a selection exists, a second control
   //: somewhere else would be a second thing to find.
-  { ask: true, label: "ph:chat-teardrop-text", title: "Ask the AI about this selection" },
+  { ask: true, label: "ph:chat-teardrop-text", title: "Ask Atlas about this selection" },
   //: **The second half of that pair: change it here, rather than talk about
   //: it there.** Asking sends the selection to the chat and leaves the text
   //: alone; this rewrites the selection in place. They belong next to each
@@ -1699,7 +1699,7 @@ function inlineAiElement() {
   bar.id = "inline-ai";
   bar.className = "inline-ai hidden";
   bar.setAttribute("role", "dialog");
-  bar.setAttribute("aria-label", "Ask the AI to write here");
+  bar.setAttribute("aria-label", "Ask Atlas to write here");
 
   const row = document.createElement("div");
   row.className = "inline-ai-row";
@@ -1715,7 +1715,7 @@ function inlineAiElement() {
   input.className = "inline-ai-input";
   input.type = "text";
   input.autocomplete = "off";
-  input.setAttribute("aria-label", "What should the AI do here?");
+  input.setAttribute("aria-label", "What should Atlas do here?");
   row.appendChild(input);
 
   const run = document.createElement("button");

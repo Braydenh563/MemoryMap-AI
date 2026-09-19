@@ -1001,7 +1001,7 @@ function renderTraceReadout(result) {
   const storyOpener = document.createElement("summary");
   storyOpener.className = "graph-trace-note story-mode-btn";
   setLabel(storyOpener, "ph:magic-wand Generate from path");
-  storyOpener.title = "Build something out of this path, using the AI locally";
+  storyOpener.title = "Build something out of this path, using Atlas locally";
   const caret = document.createElement("i");
   caret.className = "ph ph-caret-down doc-toolbar-menu-caret";
   caret.setAttribute("aria-hidden", "true");
@@ -1281,7 +1281,7 @@ function askLinkDetails(from, to) {
     const reasonBox = document.createElement("input");
     reasonBox.type = "text";
     reasonBox.maxLength = 200;
-    reasonBox.placeholder = "Left blank, the AI will try to work it out";
+    reasonBox.placeholder = "Left blank, Atlas will try to work it out";
     reasonLabel.append(reasonText, reasonBox);
     card.appendChild(reasonLabel);
 
@@ -3173,7 +3173,7 @@ function renderGraphPopupHeader(entry, node) {
   confidence.classList.toggle("hidden", !hasConfidence);
   if (hasConfidence) {
     confidence.textContent = `${entry.ai_confidence}%`;
-    confidence.title = `The AI was ${entry.ai_confidence}% confident filing this note`;
+    confidence.title = `Atlas was ${entry.ai_confidence}% confident filing this note`;
   }
 
   const category = $("graph-popup-category");

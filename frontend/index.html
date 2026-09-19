@@ -250,7 +250,7 @@
           <div class="notif-tools">
             <label class="notif-tools-label" for="notif-activity-mode">AI activity</label>
             <select id="notif-activity-mode" class="ghost small notif-activity-mode"
-              title="Where the AI's own activity is announced">
+              title="Where Atlas's own activity is announced">
               <option value="toasts">Pop-ups + panel</option>
               <option value="centre">Panel only</option>
             </select>
@@ -1024,7 +1024,7 @@
                  ones beside it. -->
             <button id="sketch-btn" class="ghost" type="button" title="Draw a quick sketch and save it as a note" aria-label="Open the sketch pad"><i class="ph ph-palette ph-lead" aria-hidden="true"></i> Sketch</button>
             <button id="mic-note" class="ghost" type="button" title="Dictate a note (local Whisper)" aria-label="Dictate a note"><i class="ph ph-microphone ph-lead" aria-hidden="true"></i> Dictate</button>
-            <button id="improve-btn" data-needs-model="Proofreading needs the local AI" class="ghost" type="button" title="Let the AI proofread or rewrite this before you save" aria-label="Improve writing with AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Improve</button>
+            <button id="improve-btn" data-needs-model="Proofreading needs the local AI" class="ghost" type="button" title="Let Atlas proofread or rewrite this before you save" aria-label="Improve writing with AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Improve</button>
           </div>
           <!-- Files waiting to go onto this note when it saves. Reported
                directly: "when I uplaod pdfs to a note, they are in pure md
@@ -1096,7 +1096,7 @@
              it's right. The draft lives in the browser until you save it. -->
         <section class="card" id="writing-room">
           <div class="row space-between">
-            <h2>Write with the AI</h2>
+            <h2>Write with Atlas</h2>
             <!-- Same pattern as #graph-help-toggle: a circular icon button
                  whose native title is a real, zero-JS hover tooltip, plus a
                  click-to-open panel for reading the whole thing end to end.
@@ -1104,13 +1104,13 @@
                  every visit, before anyone had asked what this tab does. -->
             <button type="button" id="draft-help" class="icon-only ghost small graph-help-toggle"
               aria-expanded="false" aria-controls="draft-intro"
-              title="Type whatever's in your head, half sentences are fine. The AI turns it into a note. Edit the draft, add more thoughts, and it folds them in without undoing your changes. Your own words stay in the box: nothing here overwrites what you typed, and ↩ Undo steps back through every AI pass. This is the one part of the app that needs the local AI running, with it off, the Draft button is disabled and everything else on this tab still works."
+              title="Type whatever's in your head, half sentences are fine. Atlas turns it into a note. Edit the draft, add more thoughts, and it folds them in without undoing your changes. Your own words stay in the box: nothing here overwrites what you typed, and ↩ Undo steps back through every AI pass. This is the one part of the app that needs the local AI running, with it off, the Draft button is disabled and everything else on this tab still works."
               aria-label="What is this?">
               <i class="ph ph-question" aria-hidden="true"></i>
             </button>
           </div>
           <p class="muted graph-help-panel hidden" id="draft-intro" role="dialog" aria-label="What is this?">
-            Type whatever's in your head, half sentences are fine. The AI turns
+            Type whatever's in your head, half sentences are fine. Atlas turns
             it into a note. Edit the draft, add more thoughts, and it folds them
             in without undoing your changes. Your own words stay in the box:
             nothing here overwrites what you typed, and ↩ Undo steps back
@@ -1150,7 +1150,7 @@
                   placeholder="Optional: “make it shorter”, “add a summary”…"
                   aria-label="An instruction for this revision">
                 <button id="draft-cancel" class="ghost hidden" type="button"
-                  title="Stop the AI: nothing you've written is changed"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
+                  title="Stop Atlas: nothing you've written is changed"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
                 <button id="draft-undo" class="ghost" type="button" disabled
                   title="Nothing to undo yet"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Undo</button>
                 <button id="draft-compose" data-needs-model="Drafting needs the local AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Draft it</button>
@@ -1519,7 +1519,7 @@
           <div id="empty-message" class="empty-state hidden">
             <span class="empty-icon" aria-hidden="true"><i class="ph ph-note-pencil" aria-hidden="true"></i></span>
             <p class="empty-title">Your notebook is empty</p>
-            <p class="muted">Type a thought and the AI files it for you.</p>
+            <p class="muted">Type a thought and Atlas files it for you.</p>
             <button class="ghost small" type="button" data-empty-action="capture"><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i> Capture a note</button>
           </div>
           <div id="no-match-message" class="empty-state hidden">
@@ -1924,7 +1924,7 @@
                  and the layout tests that reference it still resolve, what it
                  does is what changed, not where it sits. -->
             <button id="attach-image" class="ghost icon-only" type="button"
-              title="Attach a file: an image for the AI to look at, or a document to read"
+              title="Attach a file: an image for Atlas to look at, or a document to read"
               aria-label="Attach a file"><i class="ph ph-paperclip" aria-hidden="true"></i></button>
             <!-- Images: every format the gallery stores, `image/*` rather
                  than a list, so "any image format" really is any. Documents:
@@ -1973,15 +1973,15 @@
                    having to work out what the absence of a tick means. The
                    checkbox itself stays, hidden, because it is the thing the
                    rest of the app reads and stores. -->
-              <div class="chat-tool-group" role="group" aria-label="What the AI may use">
+              <div class="chat-tool-group" role="group" aria-label="What Atlas may use">
                 
                 <label class="muted tools-toggle checkbox-label agent-toggle hidden"
-                  title="Agent mode: the AI can use tools, search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first.">
+                  title="Agent mode: Atlas can use tools, search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first.">
                   <input type="checkbox" id="tools-toggle">
                   <span class="agent-toggle-label"><i class="ph ph-robot ph-lead" aria-hidden="true"></i> Agent mode</span>
                 </label>
                 <button id="web-search-toggle" class="ghost small" aria-pressed="false"
-                  title="Search the web here, and let the AI search when you ask it to"><i class="ph ph-globe ph-lead" aria-hidden="true"></i> Web</button>
+                  title="Search the web here, and let Atlas search when you ask it to"><i class="ph ph-globe ph-lead" aria-hidden="true"></i> Web</button>
                 <!-- Plan first (§35K). The `make_plan` tool has existed since
                      §35K and the only way to reach it was to hope the model
                      chose it: a capability with no control is a capability
@@ -2079,7 +2079,7 @@
                        told the model to do. -->
                   <button id="persona-peek" class="ghost small" type="button"
                     aria-expanded="false"
-                    title="Show the instructions this persona gives the AI"><i class="ph ph-eye ph-lead" aria-hidden="true"></i> What this persona tells the AI</button>
+                    title="Show the instructions this persona gives Atlas"><i class="ph ph-eye ph-lead" aria-hidden="true"></i> What this persona tells Atlas</button>
                   <!-- id is persona-peek-panel, NOT persona-prompt: the Settings
                        screen has a <textarea id="persona-prompt"> for writing a new
                        persona, and two elements sharing an id is not a duplicate
@@ -2094,7 +2094,7 @@
                        the still-open Length/Persona popup above it. Scrolls inside
                        its own max-height instead (see the CSS rule). -->
                   <div id="persona-peek-panel" class="persona-prompt hidden">
-                    <strong>What this persona tells the AI</strong>
+                    <strong>What this persona tells Atlas</strong>
                     <p id="persona-prompt-text"></p>
                   </div>
                   <!-- Used to live as a repeated icon buried in every single
@@ -2207,7 +2207,7 @@
             <p class="muted" id="web-reader-source"></p>
             <div class="row web-reader-actions">
               <button id="web-reader-ask" class="ghost small"
-                title="Ask the AI about this page"><i class="ph ph-chat-circle ph-lead" aria-hidden="true"></i> Ask about this</button>
+                title="Ask Atlas about this page"><i class="ph ph-chat-circle ph-lead" aria-hidden="true"></i> Ask about this</button>
               <button id="web-reader-save" class="ghost small"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> Save as note</button>
               <!-- The third thing you can do with a page you have just read,
                    and the one the panel never offered: keep the link. The app
@@ -2745,7 +2745,7 @@
             <div class="help-body hidden" id="graph-show-help" role="dialog"
               aria-label="What these add to the map">
               <p>
-                An entity is a person, place or thing the AI found named across
+                An entity is a person, place or thing Atlas found named across
                 your notes, drawn as its own node joined to every note that
                 mentions it.
               </p>
@@ -2883,7 +2883,7 @@
             <div class="dock-menu-section-head">
               <span class="muted dock-menu-label" id="graph-links-label">Links</span>
               <button id="link-suggest-btn" class="ghost small" type="button"
-                title="Let the AI suggest links between notes that mean similar things"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Suggest links</button>
+                title="Let Atlas suggest links between notes that mean similar things"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Suggest links</button>
             </div>
           </div>
         </div>
@@ -3000,7 +3000,7 @@
           <input id="graph-new-note-title" type="text" maxlength="200"
             placeholder="Optional title" aria-label="Optional title">
           <textarea id="graph-new-content" rows="3"
-            placeholder="Type the thought: the AI will file it…" aria-label="Note content"></textarea>
+            placeholder="Type the thought: Atlas will file it…" aria-label="Note content"></textarea>
           <input id="graph-new-tags" type="text" placeholder="Tags, comma separated"
             aria-label="Tags">
           <div class="row">
@@ -3287,7 +3287,7 @@
                  measured, 139px of chrome above the first line at 1440. One
                  button here, one strip that appears below only while on. -->
             <button id="doc-ai" data-needs-model="AI editing needs the local AI" class="ghost small" type="button"
-              title="Ask the AI to rewrite this document, or the text you've selected"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> AI edit</button>
+              title="Ask Atlas to rewrite this document, or the text you've selected"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> AI edit</button>
             <!-- Export and delete, folded away. Same `<details>` disclosure
                  the Library's image tiles use, for the same reason: the
                  browser gives the open/close, the keyboard handling and the
@@ -3714,7 +3714,7 @@
              40px buttons, and labels a size larger than the field under them.
              `role="radiogroup"` because the `aria-label` had nothing to label. -->
         <div id="doc-ai-verb" class="segmented-control" role="radiogroup"
-          aria-label="What should the AI do">
+          aria-label="What should Atlas do">
           <label><input type="radio" name="doc-ai-verb" value="edit" checked><i class="ph ph-pencil-simple ph-lead" aria-hidden="true"></i> Edit</label>
           <label><input type="radio" name="doc-ai-verb" value="write"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Write</label>
           <label><input type="radio" name="doc-ai-verb" value="remove"><i class="ph ph-eraser ph-lead" aria-hidden="true"></i> Remove</label>
@@ -3736,10 +3736,10 @@
         <div class="row doc-ai-ask">
           <input id="doc-ai-instruction" type="text" maxlength="500"
             placeholder="e.g. “tighten this”, “make it more formal”"
-            aria-label="What should the AI do?">
+            aria-label="What should Atlas do?">
           <button id="doc-ai-run" data-needs-model="AI editing needs the local AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Suggest an edit</button>
           <button id="doc-ai-cancel-run" class="ghost hidden" type="button"
-            title="Stop the AI: the document is untouched"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
+            title="Stop Atlas: the document is untouched"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
         </div>
         <span id="doc-ai-status" class="status" role="status"></span>
         <!-- **The result area exists once there is a result**, and not before
@@ -3760,8 +3760,8 @@
             <p class="muted doc-ai-diff-head" id="doc-ai-diff-head"></p>
             <div id="doc-ai-diff" class="doc-ai-diff"></div>
           </div>
-          <label for="doc-ai-result" class="muted">The AI's version, yours to edit before you accept it</label>
-          <textarea id="doc-ai-result" rows="10" aria-label="The AI's suggested text"></textarea>
+          <label for="doc-ai-result" class="muted">Atlas's version, yours to edit before you accept it</label>
+          <textarea id="doc-ai-result" rows="10" aria-label="Atlas's suggested text"></textarea>
           <div class="row doc-ai-result-actions">
             <button id="doc-ai-cancel" class="ghost">Cancel</button>
             <button id="doc-ai-accept">Replace with this</button>
@@ -5906,7 +5906,7 @@
       <button id="ai-status" class="ai-status" type="button"
         aria-expanded="false" aria-describedby="ai-status-popup">
         <span class="ai-status-dot" aria-hidden="true"></span>
-        <span class="visually-hidden" id="ai-status-label">Checking what the AI is doing</span>
+        <span class="visually-hidden" id="ai-status-label">Checking what Atlas is doing</span>
       </button>
       <span id="ai-status-popup" class="ai-status-popup" role="tooltip">
         <strong id="ai-status-title"></strong>
@@ -6482,7 +6482,7 @@
             aria-describedby="settings-search-count">
           <p id="settings-search-count" class="muted settings-search-count hidden"
             role="status"></p>
-          <p class="nav-group-label" id="nav-group-ai">The AI</p>
+          <p class="nav-group-label" id="nav-group-ai">Atlas</p>
           <div role="group" aria-labelledby="nav-group-ai">
             <button data-section="models" class="active">Models</button>
             <button data-section="personas">Personas</button>
@@ -6592,7 +6592,7 @@
               <label class="setting-check" id="local-only-wrap">
                 <input type="checkbox" id="local-only-ai" checked>
                 <span>
-                  Keep the AI on this machine
+                  Keep Atlas on this machine
                   <small class="muted">
                     Recommended, and on by default. Refuses any model backend
                     that isn't on this computer or your own network, so your
@@ -6888,7 +6888,7 @@
           <!-- Personas: who the AI is when it answers -->
           <section class="settings-section hidden" id="settings-personas">
             <p class="muted">
-              A persona changes the AI's voice: answers always stay grounded
+              A persona changes Atlas's voice: answers always stay grounded
               in your notes. Pick the active one in the Chat tab.
             </p>
             <ul id="persona-list" class="entry-list"></ul>
@@ -7049,17 +7049,17 @@
                 <i class="ph ph-question" aria-hidden="true"></i>
               </button>
             </div>
-            <p class="muted">Standing instructions the AI follows in every conversation, from either side.</p>
+            <p class="muted">Standing instructions Atlas follows in every conversation, from either side.</p>
             <div class="help-body hidden" id="memory-help" role="dialog" aria-label="About what it remembers">
               <p>
-                The AI can keep standing instructions, say
+                Atlas can keep standing instructions, say
                 <em>"always answer in British English"</em> and it will keep
                 doing that in every conversation from then on. This is the
                 whole list, and you can switch any of them off or delete
                 them.
               </p>
               <p>
-                When the AI spots one of these in conversation it
+                When Atlas spots one of these in conversation it
                 <strong>suggests</strong> it rather than saving it: the
                 suggestion appears in the chat with a yes/no, and again at
                 the top of this list until you answer. Nothing reaches the
@@ -7077,7 +7077,7 @@
             <p class="status hidden" id="memory-status" role="status"></p>
             <div id="memory-list" class="memory-list"></div>
             <p class="muted hidden" id="memory-empty">
-              Nothing saved yet. Tell the AI a preference in chat and ask it to
+              Nothing saved yet. Tell Atlas a preference in chat and ask it to
               remember, and it will appear here.
             </p>
           </section>
@@ -7085,7 +7085,7 @@
           <section class="settings-section hidden" id="settings-tools">
             <p class="muted">
               When <strong>Agent mode</strong> is on in the Chat tab, these are
-              the actions the AI may take. Turn any of them off and it won't be
+              the actions Atlas may take. Turn any of them off and it won't be
               offered that tool at all. Destructive actions always ask you to
               confirm first.
             </p>
@@ -7102,7 +7102,7 @@
               <p class="muted">Sending only the tools a message needs leaves more room for your notes.</p>
               <div class="help-body hidden" id="tool-focus-help" role="dialog" aria-label="Why this matters">
                 <p>
-                  Every tool the AI is offered is described to it again on every
+                  Every tool Atlas is offered is described to it again on every
                   round of every message, all of them together are about three
                   quarters of what a small model reads before it even sees your
                   question. Sending only the ones a message plausibly needs leaves
@@ -7915,7 +7915,7 @@
               </div>
               <p class="muted text-sm">Pinned chats are never deleted, however old they are.</p>
               <h3>AI answer style</h3>
-              <select id="pref-style" aria-label="Writing style the AI uses" title="Writing style the AI uses">
+              <select id="pref-style" aria-label="Writing style Atlas uses" title="Writing style Atlas uses">
                 <option value="friendly">Friendly (default)</option>
                 <option value="concise">Concise</option>
                 <option value="detailed">Detailed</option>
@@ -7999,7 +7999,7 @@
               <h3>About you (optional)</h3>
               <label class="check-row">
                 <input type="checkbox" id="pref-profile-enabled">
-                <span>Let the AI use this profile for more personal answers</span>
+                <span>Let Atlas use this profile for more personal answers</span>
               </label>
               <textarea id="pref-profile" rows="3"
                 placeholder="e.g. I'm Brayden, in Brisbane. I run track and collect dad jokes."></textarea>
@@ -8042,7 +8042,7 @@
               </p>
             </div>
 
-            <h3>Let the AI search the web</h3>
+            <h3>Let Atlas search the web</h3>
             <label class="check-row">
               <input type="checkbox" id="pref-web-search">
               <span>Allow web search when I ask for it</span>
@@ -8248,7 +8248,7 @@
                    off. -->
               <label class="check-row">
                 <input type="checkbox" id="pref-ai-first-filing">
-                <span>Ask the AI where each note belongs (more accurate, slower to save)</span>
+                <span>Ask Atlas where each note belongs (more accurate, slower to save)</span>
               </label>
               <!-- On by default. With this off, Save blocks until the model
                    has decided a category, which is what the setting above
@@ -8839,7 +8839,7 @@
               </details>
               <details>
                 <summary><i class="ph ph-lightning ph-lead" aria-hidden="true"></i> Skills</summary>
-                <p>Skills are one-click requests above the chat box (e.g. “Summarise my week”). Add your own in <button type="button" class="linklike" data-goto-section="skills">Settings → Skills</button>; a skill can use the AI’s tools so it actually does the work, not just describes it.</p>
+                <p>Skills are one-click requests above the chat box (e.g. “Summarise my week”). Add your own in <button type="button" class="linklike" data-goto-section="skills">Settings → Skills</button>; a skill can use Atlas’s tools so it actually does the work, not just describes it.</p>
                 <p class="help-topic-links muted">Related: <button type="button" class="linklike" data-goto-tab="chat">Chat tab</button></p>
               </details>
               <details>
@@ -8887,7 +8887,7 @@
               </details>
               <details>
                 <summary><i class="ph ph-keyboard ph-lead" aria-hidden="true"></i> Keyboard shortcuts</summary>
-                <p>Press <kbd>?</kbd> any time for the full list, or <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> to open the command palette and jump anywhere or search your notes. Press <kbd>g</kbd> then a letter to jump straight to a tab (<button type="button" class="linklike" data-goto-section="shortcuts">Settings → Shortcuts</button> lists which letter goes where), MemoryMap has no “/” chat commands to learn; everything happens through the tools the AI already has in Agent mode and Skills.</p>
+                <p>Press <kbd>?</kbd> any time for the full list, or <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> to open the command palette and jump anywhere or search your notes. Press <kbd>g</kbd> then a letter to jump straight to a tab (<button type="button" class="linklike" data-goto-section="shortcuts">Settings → Shortcuts</button> lists which letter goes where), MemoryMap has no “/” chat commands to learn; everything happens through the tools Atlas already has in Agent mode and Skills.</p>
               </details>
             </div>
 

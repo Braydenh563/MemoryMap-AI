@@ -13,6 +13,9 @@ persona is the half of the prompt nothing trims, `PROSE_BUDGET_CHARS`).
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 from memorymap.ai import AI_NAME, agent, help_chat, librarian
 
 CLAUSE = f"You are {AI_NAME},"
@@ -66,3 +69,180 @@ def test_the_name_did_not_cost_the_prompt_budget():
     prose = f"{librarian.DEFAULT_PERSONA} {agent.AGENT_GROUNDING} {agent.TOOLS_GUIDE}"
     assert len(prose) <= agent.PROSE_BUDGET_CHARS, len(prose)
     assert len(librarian.DEFAULT_PERSONA) <= 60, librarian.DEFAULT_PERSONA
+
+
+# --- the same name, on the screen -------------------------------------------
+#
+# The frontend half of INBOX 225. The decision was that the app names Atlas
+# "everywhere the app speaks as it", and for a long time it mostly did not:
+# 68 strings across eight files and 41 pieces of markup still said "the AI",
+# which is the machinery, not the librarian. They were swept; this is what
+# keeps them swept, because the next feature to ship a tooltip will otherwise
+# write "the AI" again and nothing will notice.
+#
+# The rule has one shape and no exemption list: **copy the user reads does not
+# call it "the AI"**. Where a line genuinely means the model or the runtime
+# that powers it, it says so ("the local AI", "the model", "Ollama"), which
+# reads better anyway. A hit here is fixed by rewording, never by adding the
+# line to an allowance, which is how a lint stops meaning anything.
+
+FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
+#: Vendored code is not this app's copy.
+COPY_FILES = sorted(p for p in FRONTEND.glob("*.js")) + [FRONTEND / "index.html"]
+THE_AI = re.compile(r"\b[Tt]he AI\b")
+
+
+def _js_string_bodies(source: str) -> list[tuple[int, str]]:
+    """Every string and template literal in a JS file, with its line number.
+
+    Hand-scanned for the reason `test_frontend_symbols._strip` is: a regex
+    cannot tell the `//` that opens a comment from the one inside
+    `"https://..."`, and a lint that reads a URL as a comment goes quiet
+    about the file it was written to watch.
+
+    Regex literals are tracked because one of them proved they have to be.
+    `whiteboard.js`'s `WB_MAP_INLINE` holds three backticks, so a scanner
+    that reads them as code opens a template literal on the odd one and
+    swallows the next hundred and thirty lines, comments and all, reporting
+    a phrase from a comment as copy. A `/` opens a regex only where a value
+    cannot already have appeared, which is the rule every JS tokeniser uses
+    for the `a / b` against `/ab/` question.
+
+    Quoted strings also end at the newline, since JS forbids a literal
+    newline in one: it bounds any remaining mis-read to its own line.
+    Template literals may legitimately span lines and are left unbounded.
+    """
+    #: After one of these a `/` cannot be division: there is no value to its
+    #: left to divide, so it opens a regex literal.
+    before_regex = set("(,=:[!&|?{};+-*%~^<>") | {""}
+    keywords = {"return", "typeof", "case", "in", "of", "new", "delete", "void", "do", "else", "yield", "await"}
+    bodies: list[tuple[int, str]] = []
+    i, n, line = 0, len(source), 1
+    previous, word = "", ""
+    while i < n:
+        ch = source[i]
+        if ch == "\n":
+            line += 1
+            i += 1
+        elif ch == "/" and source[i + 1 : i + 2] == "/":
+            while i < n and source[i] != "\n":
+                i += 1
+        elif ch == "/" and source[i + 1 : i + 2] == "*":
+            end = source.find("*/", i + 2)
+            end = n if end == -1 else end + 2
+            line += source.count("\n", i, end)
+            i = end
+        elif ch == "/" and (previous in before_regex or word in keywords):
+            #: A regex literal: its body is not copy, so it is skipped whole.
+            #: What matters is that its slashes, quotes and backticks are not
+            #: read as code.
+            i += 1
+            in_class = False
+            while i < n and source[i] != "\n":
+                if source[i] == "\\":
+                    i += 2
+                    continue
+                if source[i] == "[":
+                    in_class = True
+                elif source[i] == "]":
+                    in_class = False
+                elif source[i] == "/" and not in_class:
+                    break
+                i += 1
+            i += 1
+        elif ch in "\"'`":
+            start, at = i + 1, line
+            i += 1
+            while i < n:
+                if source[i] == "\\":
+                    i += 2
+                    continue
+                if source[i] == ch:
+                    break
+                if source[i] == "\n":
+                    if ch != "`":
+                        break
+                    line += 1
+                i += 1
+            bodies.append((at, source[start:i]))
+            i += 1
+        else:
+            i += 1
+        #: The last character that was not whitespace, and the word it ends,
+        #: which is what tells a regex from a division.
+        tail = source[i - 1 : i]
+        if tail and not tail.isspace():
+            previous = tail
+            word = word + tail if tail.isalpha() else ""
+    return bodies
+
+
+def _html_outside_comments(source: str) -> list[tuple[int, str]]:
+    """Markup with its `<!-- -->` blocks removed, as (line, text) pieces."""
+    pieces: list[tuple[int, str]] = []
+    at, line = 0, 1
+    for match in re.finditer(r"<!--.*?-->", source, re.S):
+        pieces.append((line, source[at : match.start()]))
+        line += source.count("\n", at, match.end())
+        at = match.end()
+    pieces.append((line, source[at:]))
+    return pieces
+
+
+def test_the_interface_never_calls_it_the_ai():
+    hits = []
+    for path in COPY_FILES:
+        source = path.read_text(encoding="utf-8")
+        pieces = (
+            _html_outside_comments(source)
+            if path.suffix == ".html"
+            else _js_string_bodies(source)
+        )
+        for line, text in pieces:
+            for match in THE_AI.finditer(text):
+                offset = text.count("\n", 0, match.start())
+                hits.append(f"{path.name}:{line + offset}: {match.group(0)}")
+    assert not hits, (
+        "copy that calls the app's AI \"the AI\" rather than by name; reword it "
+        "(say the name, or name the model or runtime if that is what is meant):\n"
+        + "\n".join(hits[:40])
+    )
+
+
+def test_the_frontend_spells_the_name_once():
+    """In app.js, which index.html loads first.
+
+    It lived in settings.js, the *last* script on the page, which is why
+    `aiNameNow()` carries a `typeof` fallback and why no module-level string
+    anywhere else could read it. Moving it forward is what let the swept copy
+    be checked against the backend's own constant below.
+    """
+    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    settings = (FRONTEND / "settings.js").read_text(encoding="utf-8")
+    assert f'const AI_NAME = "{AI_NAME}"' in app
+    assert "const AI_NAME" not in settings
+    assert "const GUIDE_NAME = AI_NAME;" in settings
+
+
+def test_the_copy_scanner_still_sees_the_whole_file():
+    """The guard that makes the lint above mean something.
+
+    Its first version lost a hundred and thirty lines of `whiteboard.js` to a
+    regex holding three backticks and reported a phrase out of a comment as
+    copy. A scanner that quietly stops reading is worse than no scanner, so
+    this asserts it reaches the far end of the two largest files and picks up
+    strings that are known to be there.
+    """
+    for name, needle in (
+        ("app.js", "Ask Atlas about this"),
+        ("whiteboard.js", "wb-expanded-nodes"),
+        ("documents.js", "Applied Atlas's edit."),
+    ):
+        source = (FRONTEND / name).read_text(encoding="utf-8")
+        bodies = _js_string_bodies(source)
+        assert any(needle in body for _, body in bodies), f"{name}: lost {needle!r}"
+        #: And it got to the bottom: the last literal it found is near the end
+        #: of the file, not stranded a third of the way down.
+        last = max(line for line, _ in bodies)
+        total = source.count("\n") + 1
+        assert last > total * 0.9, f"{name}: stopped at line {last} of {total}"

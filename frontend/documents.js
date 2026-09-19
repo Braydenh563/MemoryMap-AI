@@ -7765,10 +7765,10 @@ function acceptDocAiEdit() {
 
   toast(
     verb === "write"
-      ? "Inserted the AI's text."
+      ? "Inserted Atlas's text."
       : verb === "remove"
         ? "Removed."
-        : "Applied the AI's edit."
+        : "Applied Atlas's edit."
   );
 }
 
@@ -12447,7 +12447,7 @@ function docSuggestAnswers(finding, opts = {}) {
     const askAi = document.createElement("button");
     askAi.type = "button";
     askAi.className = "doc-suggest-item doc-suggest-ai";
-    setLabel(askAi, "ph:magic-wand Ask the AI for wordings\u2026");
+    setLabel(askAi, "ph:magic-wand Ask Atlas for wordings\u2026");
     askAi.title = "Have the local model suggest two or three other ways to put this";
     askAi.addEventListener("click", async () => {
       if (!currentDoc || !currentDoc.id) return toast("Save the document first.", true);
@@ -12463,7 +12463,7 @@ function docSuggestAnswers(finding, opts = {}) {
       if (!current()) return;
       const options = (body && body.options) || [];
       if (!options.length) {
-        setLabel(askAi, "ph:magic-wand Ask the AI for wordings\u2026");
+        setLabel(askAi, "ph:magic-wand Ask Atlas for wordings\u2026");
         askAi.disabled = false;
         return toast(
           (body && body.message) || "No other wordings came back for that one.",

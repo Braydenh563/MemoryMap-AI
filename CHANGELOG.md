@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The app calls its AI by name. Atlas was the name in the chat sheet and in
+  the prompts, and everywhere else the interface still said "the AI": 68
+  strings across eight files and 41 pieces of markup, including the Models
+  screen, which read "Active: qwen2.5:7b" and now reads "Atlas, running
+  qwen2.5:7b". Copy that means the model or the runtime rather than the
+  librarian still says so. `AI_NAME` moved to app.js, the first script the
+  page loads, so a string anywhere can read it; a new lint fails the build on
+  copy that calls it "the AI" again.
+
 - Four helpers in `documents.js` that no feature called are gone, and the
   tests that covered them now cover what the app runs instead. The table pair
   demonstrated byte-exact cell writes through a writer nothing reached (a cell

@@ -136,54 +136,6 @@ with its owner named in the entry.
     widget itself: turn the art widget off on the dashboard, or say so and
     it gets a frame-rate cap rather than 60.
 
-225. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), a core
-    persona.** "I was wondering if atlas or another named persona can be the
-    core persona of the application as the librarian?? idk, the persona cant
-    be too token heavy though, just as a theme yk??" **Decision:** Atlas is
-    the name of the notebook's AI everywhere the app speaks as it (the
-    status dot's label, "Atlas filed this under Work", the chat empty
-    state, the popup agent's greeting, the help chat), as copy and one
-    mark, not as prompt text: the model prompts gain at most one clause
-    ("You are Atlas, this notebook's librarian.") under
-    `agent.PROSE_BUDGET_CHARS`, and no persona prose, backstory or tone
-    instructions anywhere. One constant (`AI_NAME`) in the frontend and one
-    in `ai/` so a rename is one edit each; Settings, Models keeps the model's
-    own name beside it ("Atlas, running qwen2.5:7b"). Owner: chrome after
-    214 and 215; the backend clause and constant, backend2 after its list.
-    **Backend half fixed e024e49 (backend2), merged:** `AI_NAME` in
-    `ai/__init__.py`, one clause in the prompts that speak as the app,
-    tested under the prose budget; the help chat's `GUIDE_NAME` is that
-    constant. Frontend half: chrome.
-    **Decision, 2026-09-14 (the owner asked how to tell the two apart):**
-    one name, two hats, said by the surface and by one clause. The
-    librarian (chat, filing, the agent) is "Atlas" with the clause "You are
-    Atlas, this notebook's librarian."; the help sheet is "Atlas, about the
-    app" in its head and its clause is "You are Atlas, answering about the
-    app itself, never from the notes." Nothing else differs: same mark,
-    same voice, no persona prose in either.
-    **Frontend, 2026-09-14:** `AI_NAME` in settings.js with `GUIDE_NAME`
-    reading it; the help sheet, its popover lines, the palette command and
-    the empty states say Atlas (chrome, 224). Left for the next PR: the
-    copy sweep where the app speaks as the librarian ("Atlas filed this
-    under Work", the chat empty state, Settings, Models "Atlas, running
-    <model>"), one grep for "the AI" in app.js.
-    **2026-09-19, all three checked, one already built, one done.** The chat
-    empty state was already built: it reads "Explore your notebook with
-    Atlas" from `aiNameNow()` (app.js, `chat-empty`), so that line of this
-    entry was stale. `filedByText` is done: the three branches that spoke of
-    "the AI" name Atlas now, and the `llm` branch keeps the model beside the
-    name in the form this entry's own decision asks for, since "which model
-    decided this" is the question that line exists to answer. Rendered from
-    the shipped function: "decided by Atlas, running qwen2.5:7b", "your
-    choice, Atlas stayed out of it", "Atlas wasn't available to file it",
-    and "decided by Atlas" when no model is known.
-    **Still open: Settings, Models.** Its heading is "Chat model (answers
-    your questions: switches instantly)"; putting "Atlas, running <model>"
-    there changes how that screen reads rather than swapping a string, and
-    it wants the live screen and a look at the copy around it. Also still
-    open: the wider grep for "the AI", 125 hits across five files, mostly
-    comments, so it needs reading rather than replacing.
-
 220. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the docs
     and how to proceed.** "make sure all the other docs like architecture.md
     are up to date, and extend the roadmap and backlog. make it clear to me

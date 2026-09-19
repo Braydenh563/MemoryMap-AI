@@ -161,10 +161,60 @@ let wbErasing = false;
 // anchor-hint redraw with a second, slightly-stale one.
 let wbLinkDragActive = false;
 // Which attached-note cards are expanded past their clamp, keyed by node id
-// (the whiteboard attachment, not the note itself), same "remember per card
-// for the session" shape as `expandedNotes` on the Notes list. A plain `let`
-// module-level Set, not persisted: reopening the board later re-clamps.
-const wbExpandedNodes = new Set();
+// (the whiteboard attachment, not the note itself), same "remember per card"
+// shape as `expandedNotes` on the Notes list.
+//
+//: **Kept across sessions**, asked for directly: "the state of note objects
+//: in the whiteboard and mindmap for if they are expanded or not should be
+//: persistant" (INBOX 238). It was a session-only Set, so every reload
+//: re-clamped a board someone had spent a minute opening the right cards on.
+//:
+//: In `localStorage`, which is where every other thing this board remembers
+//: about how it is being *looked at* already lives: the grid and snap
+//: settings, the alignment guide colours, the background colour and image,
+//: the navigator's open state, the map's perspective. Which cards are open
+//: is that kind of fact, not part of the board's content, and keeping it
+//: here needs no migration and no round trip on a click.
+//:
+//: One key rather than one per board: a node id is unique across boards, so
+//: nothing is gained by splitting it, and a single list is what makes the
+//: cap below able to bound the whole thing.
+const WB_EXPANDED_KEY = "wb-expanded-nodes";
+//: Enough for any real board, and a ceiling so this cannot grow forever as
+//: boards and their cards are deleted. Deleting a board does not come back
+//: here to tidy up, and it should not have to: the oldest entries fall off
+//: instead, and the only cost of dropping one is a card that opens clamped.
+const WB_EXPANDED_MAX = 500;
+
+const wbExpandedNodes = new Set(
+  (() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(WB_EXPANDED_KEY) || "[]");
+      return Array.isArray(saved) ? saved.filter((id) => Number.isFinite(id)) : [];
+    } catch {
+      //: A key someone edited by hand, or a storage a browser has switched
+      //: off. Neither is worth failing the whole board's script over, and
+      //: "every card opens clamped" is the same as the old behaviour.
+      return [];
+    }
+  })()
+);
+
+function wbSaveExpandedNodes() {
+  try {
+    //: Newest last, so the slice keeps the cards most recently opened. A
+    //: `Set` iterates in insertion order, which is what makes that true
+    //: without tracking a timestamp per id.
+    const ids = [...wbExpandedNodes].slice(-WB_EXPANDED_MAX);
+    if (ids.length !== wbExpandedNodes.size) {
+      wbExpandedNodes.clear();
+      for (const id of ids) wbExpandedNodes.add(id);
+    }
+    localStorage.setItem(WB_EXPANDED_KEY, JSON.stringify(ids));
+  } catch {
+    //: Storage full or blocked. The board still works; it just forgets.
+  }
+}
 
 //: Show the "Show more" only on the cards that are actually hiding
 //: something. Every read happens before every write, deliberately: a loop
@@ -13334,6 +13384,7 @@ function renderWhiteboard() {
       //: unnecessary (a note that fits the box it was collapsed into), so
       //: the answer is recomputed rather than assumed to still hold.
       wbSyncCardClamps();
+      wbSaveExpandedNodes();
     });
   });
 

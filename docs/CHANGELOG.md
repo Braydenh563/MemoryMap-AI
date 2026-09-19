@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A keyboard user is told what the dashboard's activity heatmap is. The grid
+  scrolls horizontally, and Chromium gives every scroll container a tab stop
+  so it can be scrolled with the arrow keys, so Tab landed on a bare `div`
+  that a screen reader announced as nothing. It now carries a role and a name
+  ("Activity over the last year, N notes"). Found by walking the tab order,
+  which is now a sweep (`scratchpad/ui-sweeps/keyboard.js`, in the gate's
+  `--sweeps` set): it presses Tab across all seven tabs and fails on a stop
+  that is invisible, unnamed, or reordered by a positive `tabindex`.
+
 - The whiteboard works again. A change that came in from outside the project
   ran a regular expression over `whiteboard.js` to move the board's undo
   history onto the app's stack and deleted ten live functions along with the

@@ -2710,6 +2710,20 @@ async function renderHeatmapWidget(body) {
 
   const grid = document.createElement("div");
   grid.className = "heatmap";
+  //: `overflow-x: auto` makes this a scroll container, and Chromium gives
+  //: every scroll container a tab stop so a keyboard user can scroll it with
+  //: the arrow keys. Measured with a Tab walk: focus lands here, and it was
+  //: the one element on the dashboard a screen reader would announce as
+  //: nothing at all. A scrollable region that takes focus needs a role and a
+  //: name, so it announces as what it is rather than as a bare group.
+  //:
+  //: `role="img"`, not `group`: the 365 day cells carry `title` text each,
+  //: and a group would have a screen reader walk all of them one at a time
+  //: to reach the same story the summary line under the grid already tells
+  //: in one sentence. This is a graphic drawn out of divs, so it announces
+  //: as one, and the tab stop Chromium gives it still scrolls with arrows.
+  grid.setAttribute("role", "img");
+  grid.setAttribute("aria-label", `Activity over the last year, ${data.total} notes`);
   body.appendChild(grid);
 
   //: **Full size, full year, scrolled rather than shrunk.** The first

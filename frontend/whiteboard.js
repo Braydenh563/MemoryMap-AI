@@ -165,6 +165,44 @@ let wbLinkDragActive = false;
 // for the session" shape as `expandedNotes` on the Notes list. A plain `let`
 // module-level Set, not persisted: reopening the board later re-clamps.
 const wbExpandedNodes = new Set();
+
+//: Show the "Show more" only on the cards that are actually hiding
+//: something. Every read happens before every write, deliberately: a loop
+//: that measured one card and then changed it would force the browser to
+//: lay the whole board out again for the next measurement, which on a two
+//: hundred card board is two hundred reflows instead of one.
+//:
+//: An expanded card always keeps its control, whatever it measures: with
+//: the clip off, its content fits by definition, so asking the same
+//: question of it would hide the only way back to "Show less".
+function wbSyncCardClamps() {
+  const wanted = [];
+  for (const card of document.querySelectorAll(".node-card")) {
+    const content = card.querySelector(".wb-card-content");
+    const toggle = card.querySelector(".wb-card-more");
+    if (!content || !toggle) continue;
+    wanted.push([
+      toggle,
+      !content.classList.contains("wb-card-content-clamped") ||
+        content.scrollHeight > content.clientHeight + 1,
+    ]);
+  }
+  for (const [toggle, needed] of wanted) toggle.hidden = !needed;
+}
+
+//: One sync per frame however many renders asked for it. `renderWhiteboard`
+//: runs on every state change and a drag can fire several in a frame;
+//: measuring once at the end of the frame is both cheaper and more correct,
+//: since it reads the layout every one of those renders has settled into.
+let wbClampSyncFrame = null;
+function wbScheduleCardClampSync() {
+  if (wbClampSyncFrame !== null) return;
+  wbClampSyncFrame = requestAnimationFrame(() => {
+    wbClampSyncFrame = null;
+    wbSyncCardClamps();
+  });
+}
+
 // {action: "delete"|"create", kind: "sketch"|"node", payload, id}. Bounded
 // so an hour of erasing doesn't grow this forever; only the newest matters.
 let wbUndoStack = [];
@@ -13253,13 +13291,29 @@ function renderWhiteboard() {
       return;
     }
     renderMarkdown(contentEl, text);
-    const isLong = text.length > LONG_NOTE_CHARS || text.split("\n").length > LONG_NOTE_LINES;
-    if (!isLong) return;
+    //: **Whether a note needs a "Show more" is a question about the box, not
+    //: about the note.** This used to ask `text.length > LONG_NOTE_CHARS ||
+    //: lines > LONG_NOTE_LINES`, the Notes list's own rule, and returned
+    //: early for anything under it. But the Notes list shows a note in a
+    //: column as tall as the page, while a board card is exactly as tall as
+    //: the person dragged it to, so the two questions have different
+    //: answers: measured, a 324-character note (well under the 500-character
+    //: threshold) in a 320x120 card laid out 215px of text, 112px of it
+    //: below the card's own bottom edge, with no clamp and no way to ask for
+    //: the rest. That is INBOX 238's "the text goes out of the panel
+    //: border".
+    //:
+    //: So the toggle is built for every note that has text, and
+    //: `wbSyncCardClamps` below hides it again on the cards where everything
+    //: already fits. Hidden rather than absent because the answer changes
+    //: whenever the card is resized, and a button that has to be created on
+    //: a resize is a button that will be missing after one.
     const expanded = () => wbExpandedNodes.has(d.id);
     contentEl.classList.toggle("wb-card-content-clamped", !expanded());
     const toggle = card.append("button")
       .attr("type", "button")
       .attr("class", "entry-more wb-card-more")
+      .attr("hidden", "")
       .text(expanded() ? "Show less" : "Show more");
     toggle.on("click", (event) => {
       event.stopPropagation();
@@ -13276,6 +13330,10 @@ function renderWhiteboard() {
       //: Applied to this card directly as well as in the merge below,
       //: because nothing redraws the board on a toggle.
       wbCardExpandHeight(this.closest(".wb-node") || card.node(), d);
+      //: Collapsing brings the clip back, which can make the toggle itself
+      //: unnecessary (a note that fits the box it was collapsed into), so
+      //: the answer is recomputed rather than assumed to still hold.
+      wbSyncCardClamps();
     });
   });
 
@@ -13299,9 +13357,22 @@ function renderWhiteboard() {
     //: at (see `wbCardExpandHeight`), so a redraw does not clip it again.
     .style("height", (d) => (d.height && !wbExpandedNodes.has(d.id) ? `${d.height}px` : ""))
     .style("min-height", (d) => (d.height && wbExpandedNodes.has(d.id) ? `${d.height}px` : ""))
-    .style("z-index", d => d.z);
+    .style("z-index", d => d.z)
+    //: The eight-line cap is for the card that has never been resized and so
+    //: has no height of its own to clip against. A card with a stored height
+    //: does, and applying both would clamp a 700px card to eight lines and
+    //: leave the rest of it empty under a "Show more" hiding nothing.
+    .each(function (d) {
+      this.querySelector(".wb-card-content")
+        ?.classList.toggle("wb-card-content-capped", !d.height);
+    });
 
   nodeSelection.exit().remove();
+
+  //: After the heights above are on the elements, not before: the question
+  //: each card is being asked is whether its text fits the box this render
+  //: just gave it.
+  wbScheduleCardClampSync();
 
   renderWbObjects(canvas);
 

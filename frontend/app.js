@@ -3981,13 +3981,23 @@ function wireEscapedActionMenu(wrap) {
   //: alive holding its own `menu`, `opener` and `place`, and through them the
   //: whole detached card.
   //:
-  //: Measured before the change (`scratchpad` leak probe, 1440x900, eight
-  //: rounds of the seven tabs on a four thousand note notebook, with a forced
-  //: GC before each sample): heap +5.1 MB, **listeners +6,419** (802 a round,
-  //: against 551 removed of 15,464 added), and 40,997 nodes alive against
-  //: 13,237 in the document, so about 27,760 detached nodes surviving
-  //: collection. 360 of the 370 observers never disconnected came from this
-  //: one function too.
+  //: Measured per round (`scratchpad` leak probe, 1440x900, eight rounds of
+  //: the seven tabs on a four thousand note notebook, three forced GCs before
+  //: each sample), because the question is whether it plateaus. Round one is
+  //: one-time: it renders tabs that had never been drawn. A leak keeps
+  //: climbing after that, and this did, dead straight:
+  //:
+  //:              round  1     2     3     4     5     6     7     8
+  //:   listeners  3999  4719  5439  6159  6879  7599  8319  9039   (+720 each)
+  //:   nodes      26767 28793 30820 32843 34868 36895 38920 40943  (+2025 each)
+  //:
+  //: with the document itself flat at 13,237 nodes throughout, so every one
+  //: of those 2,025 nodes a round was detached and retained. 360 of the 370
+  //: observers created and never disconnected came from this function too.
+  //:
+  //: After: 3,866 listeners and 26,768 nodes on every round from the first,
+  //: flat. Heap growth over rounds two to eight went from +1.4 MB to +0.7 MB,
+  //: and the `resize` registrations in a run from 657 to 104.
   //:
   //: The listener below is registered once and finds its work in the DOM, so
   //: it holds nothing: a menu that is gone is a menu the query does not

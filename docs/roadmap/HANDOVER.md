@@ -359,6 +359,37 @@ this file's standing orders and Now line, INBOX, then `OPEN.md` and the
 plan for the surface in hand. Brief 33 in SESSION_BRIEFS is the next
 session's brief.
 
+**Now (2026-09-19 night, Opus alone, the owner asleep): PR #149 is open,
+CI running, and the whiteboard works again.** The owner's week of outside
+changes came in as one commit, `b387b17`. It ran a regex codemod over
+`whiteboard.js` (committed beside it as `fix_wb.js`, with a hardcoded
+`c:\Projects\...` path) and deleted **ten live functions** along with the
+two it meant to replace: `WB_KIND_INFO` (26 call sites), `wbItemTransform`
+(14, and it is what positions every card), `wbBeginTextEdit` (9),
+`wbStableDragContainer` (6), `wbAngleFromCenterDeg` (3) and five more. The
+board threw on its first render and drew nothing. Reverted whole; its three
+sound ideas re-applied properly.
+
+Built tonight, each measured, each its own commit:
+the Windows console-window flag on every spawn plus a lint
+(`tests/test_subprocess_no_window.py`); the Tesseract registry and
+LOCALAPPDATA probe; **`tests/test_frontend_symbols.py`**, which catches a
+call to a function that does not exist and found three live ones nobody had
+seen (`loadAllNotes`, `loadChatHistory`, `openEntryEditor`); INBOX 238 in
+all three parts; INBOX 232's code fences and link chips; INBOX 226
+reproduced and named at last (the dashboard art widget at 59 fps, ignoring
+Reduce motion and Performance mode, now 0 fps under both); the note list's
+load on four thousand notes from 1.8 s to 0.9 s; the Docker probe cached;
+the settings search cached; Settings, Extras' sideways scroll; a group's
+selection box around rotated cards; and alignment guides for a group drag.
+
+Open in INBOX after tonight: 213, 220, 225 (frontend copy half), 228, 246,
+253, plus 256 to 259 filed tonight (four test-only helpers, eighty inert
+class names, right-drag to pan as a recommendation, and one unreproduced
+NaN the error sweep can now name if it returns). OPEN.md's row 232 was
+stale and is corrected in place: tables, callouts, task lists and images
+all already render in the Live view, measured, so nobody rebuilds them.
+
 **Now (2026-09-14 midday, Fable orchestrating): PR #144 waits on the
 owner's go-ahead to merge; CI on the head is the last gate.** Every agent
 landed: docs, chrome, boot, backend2, mapux, chrome2 (`284f440`: 230, 231,

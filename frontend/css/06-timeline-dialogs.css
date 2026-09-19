@@ -2603,6 +2603,21 @@
   color: var(--muted);
 }
 
+/* The "some of these notes are collapsed" line (INBOX 238). `--warn` rather
+   than `--error`, because nothing has gone wrong: the export will work, it
+   will just carry what the board is showing, which is the whole point of the
+   sentence. It sits under the format and scope note in the same column so it
+   reads as a second line of the same explanation rather than as an alert
+   bolted onto the dialog.
+
+   Written with `.wb-export-card` in front of it, and immediately after the
+   rule it has to beat, because the element carries both classes: a bare
+   `.wb-export-warning` is one class against that rule's two, so the muted
+   grey won and the line was measured rendering at rgb(76, 85, 99). */
+.wb-export-card .wb-export-warning {
+  color: var(--warn);
+}
+
 .wb-snap-label {
   display: inline-flex;
   align-items: center;

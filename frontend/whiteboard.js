@@ -7848,8 +7848,8 @@ function wbSvgText(lines, x, y, { fontSize = 13, fill = "#1f2430", lineHeight } 
   return `<text x="${x}" y="${y}" font-family="sans-serif" font-size="${fontSize}" fill="${fill}">${tspans}</text>`;
 }
 
-function wbSvgWrappedText(text, x, y, maxWidth) {
-  return wbSvgText(wbSvgWrapLines(text, maxWidth), x, y);
+function wbSvgWrappedText(text, x, y, maxWidth, maxLines) {
+  return wbSvgText(wbSvgWrapLines(text, maxWidth, maxLines), x, y);
 }
 
 // The board's full extent, every card and sketch, with padding, computed
@@ -8001,12 +8001,23 @@ function wbBuildExportSvg(scope) {
     const el = document.querySelector(`.node-card[data-id="${node.id}"]`);
     const w = el ? el.offsetWidth : 250;
     const h = el ? el.offsetHeight : 150;
-    const label = entry ? notePreviewText(entry.content || "").slice(0, 160) : `Note ${node.entry_id}`;
+    const label = entry ? notePreviewText(entry.content || "") : `Note ${node.entry_id}`;
     parts.push(`<g transform="translate(${node.x}, ${node.y})">`);
     parts.push(
       `<rect width="${w}" height="${h}" rx="10" fill="#ffffffcc" stroke="#8888aa" stroke-width="1.5" />`
     );
-    parts.push(wbSvgWrappedText(label || "Empty note", 14, 24, w - 28));
+    //: **As many lines as the card itself is showing**, from the card's own
+    //: measured height. This used to take the first 160 characters and then
+    //: wrap them into at most six lines, which was two fixed answers to a
+    //: question the box already answers: a card someone had dragged to 700px
+    //: and expanded to show the whole note still exported six lines of it.
+    //: `h` is `el.offsetHeight`, the live card, so an expanded card exports
+    //: what it shows and a collapsed one exports what it shows.
+    //: 24 is the text's own baseline offset, 16 the line height `wbSvgText`
+    //: uses at font size 13, and 12 leaves the last line clear of the rounded
+    //: bottom edge.
+    const cardLines = Math.max(1, Math.floor((h - 24 - 12) / 16));
+    parts.push(wbSvgWrappedText(label || "Empty note", 14, 24, w - 28, cardLines));
     parts.push("</g>");
   }
 
@@ -8545,17 +8556,23 @@ const WB_EXPORT_FORMATS = [
     run: (scope) => wbExportPdf(scope),
   },
   {
-    value: "markdown", label: "Markdown", scopes: ["whole"], map: true,
+    //: `drawsCards: false`: these three read the notes themselves rather
+    //: than drawing the cards, so nothing is clipped out of them and the
+    //: export dialog's collapsed-notes warning would be a warning about
+    //: nothing. Named for what the dialog asks rather than inferred from
+    //: `map`, which happens to select the same three today and means
+    //: something else.
+    value: "markdown", label: "Markdown", scopes: ["whole"], map: true, drawsCards: false,
     note: "The map as an indented outline.",
     run: () => wbExportMapText("markdown"),
   },
   {
-    value: "opml", label: "OPML", scopes: ["whole"], map: true,
+    value: "opml", label: "OPML", scopes: ["whole"], map: true, drawsCards: false,
     note: "The interchange format every mind mapper reads.",
     run: () => wbExportMapText("opml"),
   },
   {
-    value: "freemind", label: "FreeMind", scopes: ["whole"], map: true,
+    value: "freemind", label: "FreeMind", scopes: ["whole"], map: true, drawsCards: false,
     note: "For FreeMind and Freeplane.",
     run: () => wbExportMapText("freemind"),
   },
@@ -8595,6 +8612,28 @@ function wbSyncExportSeg(seg, chosen, allowed) {
   }
 }
 
+//: How many note cards in this scope are hiding text behind their clamp.
+//:
+//: Asked for directly: "when exporting a whiteboard and/or mindmap, the user
+//: should be warned if any of their notes arent expanded and that not all
+//: their contents will be shown" (INBOX 238). Counted from the live cards
+//: rather than from the notes, because the question is whether *this card*
+//: is clipping, which depends on the box it was dragged to and not on how
+//: long the note is.
+function wbClippedCardCount(scope) {
+  const onlyKeys = scope === "selection" ? wbSelectedKeys() : null;
+  let clipped = 0;
+  for (const node of wbState.nodes) {
+    if (onlyKeys && !onlyKeys.has(wbMultiKey("node", node.id))) continue;
+    const content = document.querySelector(
+      `.node-card[data-id="${node.id}"] .wb-card-content`
+    );
+    if (!content || !content.classList.contains("wb-card-content-clamped")) continue;
+    if (content.scrollHeight > content.clientHeight + 1) clipped += 1;
+  }
+  return clipped;
+}
+
 function wbExportBoard() {
   const hasSelection = wbMultiSelection.size > 0 || Boolean(wbSelectedItem);
   const isMap = wbIsMap();
@@ -8625,6 +8664,9 @@ function wbExportBoard() {
   scopeLabel.textContent = "How much";
   const note = document.createElement("p");
   note.className = "confirm-text wb-export-note";
+  const warning = document.createElement("p");
+  warning.className = "confirm-text wb-export-note status wb-export-warning";
+  warning.hidden = true;
 
   const scopeSeg = wbExportSegment("How much to export", WB_EXPORT_SCOPES, scope, (value) => {
     scope = value;
@@ -8647,6 +8689,16 @@ function wbExportBoard() {
     // Two sentences, the format's and the scope's, so the line reads the same
     // way round whichever of the two was changed last.
     note.textContent = [format.note, chosenScope ? `${chosenScope.title}.` : ""].filter(Boolean).join(" ");
+    //: Only for the formats that draw the cards. A mind map's outline and its
+    //: text exports read the notes themselves, so nothing is clipped out of
+    //: those and saying otherwise would be a warning about nothing.
+    const clipped = format.drawsCards === false ? 0 : wbClippedCardCount(scope);
+    warning.hidden = clipped === 0;
+    warning.textContent = clipped
+      ? `${clipped} note${clipped === 1 ? " is" : "s are"} collapsed, so only the ` +
+        `text you can see on ${clipped === 1 ? "it" : "them"} will be in the picture. ` +
+        `Open ${clipped === 1 ? "it" : "them"} with "Show more" first to export the whole note.`
+      : "";
   }
 
   let settled = false;
@@ -8685,7 +8737,7 @@ function wbExportBoard() {
   const exportBtn = smallButton("Export", "Export", go, false);
   exportBtn.id = "wb-export-go";
   row.append(smallButton("Cancel", "Cancel", close), exportBtn);
-  card.append(head, formatLabel, formatSeg, scopeLabel, scopeSeg, note, row);
+  card.append(head, formatLabel, formatSeg, scopeLabel, scopeSeg, note, warning, row);
   overlay.appendChild(card);
   wireBackdropClose(overlay, close);
   document.addEventListener("keydown", onKey, true);

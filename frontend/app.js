@@ -28352,13 +28352,6 @@ function scrollingPage() {
   return document.querySelector(".tab-page:not(.hidden)");
 }
 
-// Honour "prefers reduced motion", a long smooth scroll is exactly the kind
-// of movement that setting exists to stop.
-function scrollPageToTop() {
-  const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  scrollingPage()?.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
-}
-
 // --- back-to-top button -----------------------------------------------------------
 // Shown on every tab except the graph, where the page itself doesn't scroll
 // and the button would just sit on top of the map.

@@ -387,13 +387,6 @@ function gcHexToRgb(colour) {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-function gcShade(colour, towards, t) {
-  const rgb = gcHexToRgb(colour);
-  if (!rgb) return colour;
-  const mix = rgb.map((c) => Math.round(c + (towards - c) * t));
-  return `rgb(${mix[0]}, ${mix[1]}, ${mix[2]})`;
-}
-
 function gcNodeSprite(colour, radiusPx, hub) {
   const r = Math.max(2, Math.round(radiusPx));
   const key = `${colour}|${r}|${hub ? 1 : 0}|${gcTokens.card}`;

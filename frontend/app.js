@@ -3972,10 +3972,49 @@ function wireEscapedActionMenu(wrap) {
     }
   });
   observer.observe(menu, { attributes: true, attributeFilter: ["class"] });
+  menu._escapedObserver = observer;
+  //: **The re-place on resize is one listener for the whole app, not one per
+  //: menu.** This used to be `window.addEventListener("resize", ...)` here,
+  //: inside a function that runs once per `kebabMenu()`, which is once per
+  //: card. The Library draws sixty cards and rebuilds them on every render,
+  //: and `window` is never collected, so every one of those closures stayed
+  //: alive holding its own `menu`, `opener` and `place`, and through them the
+  //: whole detached card.
+  //:
+  //: Measured before the change (`scratchpad` leak probe, 1440x900, eight
+  //: rounds of the seven tabs on a four thousand note notebook, with a forced
+  //: GC before each sample): heap +5.1 MB, **listeners +6,419** (802 a round,
+  //: against 551 removed of 15,464 added), and 40,997 nodes alive against
+  //: 13,237 in the document, so about 27,760 detached nodes surviving
+  //: collection. 360 of the 370 observers never disconnected came from this
+  //: one function too.
+  //:
+  //: The listener below is registered once and finds its work in the DOM, so
+  //: it holds nothing: a menu that is gone is a menu the query does not
+  //: return. `_placeEscaped` is on the element, so the closure lives exactly
+  //: as long as the element does.
+  menu._placeEscaped = place;
+  wireEscapedMenuResize();
+}
+
+//: One `resize` listener for every escaped menu there will ever be. See
+//: `wireEscapedActionMenu` for the measurement that made this necessary.
+//:
+//: It asks the document rather than holding a list: `closeActionMenus` can
+//: remove a menu, a render can replace the card under it, and either would
+//: leave a stale entry in a registry. `:not(.hidden)` because a closed menu
+//: has nothing to place, and only an escaped one is positioned by this file
+//: at all.
+let escapedMenuResizeWired = false;
+function wireEscapedMenuResize() {
+  if (escapedMenuResizeWired) return;
+  escapedMenuResizeWired = true;
   window.addEventListener(
     "resize",
     () => {
-      if (!menu.classList.contains("hidden")) place();
+      for (const menu of document.querySelectorAll(".action-menu-escaped:not(.hidden)")) {
+        menu._placeEscaped?.();
+      }
     },
     { passive: true }
   );

@@ -29993,3 +29993,37 @@ told to open first.
     which is strong evidence rather than proof. `errors.js` fails on any
     console error, so a recurrence cannot be quiet.
 
+257. **Found by scan, 2026-09-19 (the session, not the owner).** Eighty
+    class names are written by `frontend/*.js` (`classList.add`,
+    `className =`, `.attr("class", ...)`) that no stylesheet declares and no
+    selector reads back, so they are inert: `doc-prose-fix-all`,
+    `doc-suggest-ai-option`, `entry-attachment-caption-btn`,
+    `graph-label-layer` and the rest. Most are probably harmless markers,
+    but some read like buttons that were meant to be styled.
+    Recommendation: not a lint, an eighty-entry allowlist is the "widen the
+    rule" mistake CLAUDE.md warns about. One pass by eye over the list,
+    deleting the markers and styling the two or three that should have been.
+    The scan is ten lines against `_strip` from
+    `tests/test_frontend_symbols.py`.
+    **Looked, 2026-09-19: nothing to fix, and the scan over-reports.** Re-run
+    it reports 107 rather than 80, and the extra rows are what give the game
+    away: `callout-${meta`, `is-${role}`, `heat-${level}` and a dozen more
+    are template literals the scan cut at the `$`, and each of those classes
+    is both written and styled. Of the names that are real, every one
+    sampled is fine for one of three reasons. Most ride a styled base class
+    and are markers on top of it: `doc-prose-fix-all` is
+    `"ghost small doc-prose-fix-all"`, `entry-attachment-caption-btn` is
+    `"ghost small icon-only …"`, `ask-history-delete` is `"icon-btn …"`,
+    `doc-suggest-ai-option` is `"doc-suggest-item …"`, `confirm-extra` is
+    `"checkbox-label …"`. Some are read back through a selector the scan
+    cannot see: `dash-move-up` and `dash-move-down` are found by
+    `` document.querySelector(`[data-widget="${name}"] .dash-move-${…}`) ``,
+    which is what moves focus after a widget is reordered. And some are
+    structural markers on an SVG group with nothing to style,
+    `graph-label-layer` and `graph-trace-layer` among them.
+    So: no deletions, no new styles, and no lint. What this is worth keeping
+    is the shape of the mistake: a scan that cannot see a template literal
+    reports the app's own idioms as dead code, which is the same failure
+    `tests/test_frontend_symbols.py` and `tests/test_ai_name.py` each had to
+    fix in their own scanners this session.
+

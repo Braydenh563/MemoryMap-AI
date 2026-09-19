@@ -164,19 +164,6 @@ with its owner named in the entry.
     cleaned etc, all the agent branches are merged into this one etc, merge
     this pr for me." Owner: orchestrator; the merge is the last act.
 
-257. **Found by scan, 2026-09-19 (the session, not the owner).** Eighty
-    class names are written by `frontend/*.js` (`classList.add`,
-    `className =`, `.attr("class", ...)`) that no stylesheet declares and no
-    selector reads back, so they are inert: `doc-prose-fix-all`,
-    `doc-suggest-ai-option`, `entry-attachment-caption-btn`,
-    `graph-label-layer` and the rest. Most are probably harmless markers,
-    but some read like buttons that were meant to be styled.
-    Recommendation: not a lint, an eighty-entry allowlist is the "widen the
-    rule" mistake CLAUDE.md warns about. One pass by eye over the list,
-    deleting the markers and styling the two or three that should have been.
-    The scan is ten lines against `_strip` from
-    `tests/test_frontend_symbols.py`.
-
 258. **Recommendation, not a change, 2026-09-19 (the session).** The
     reverted outside commit added right-drag to pan the board, filtered so
     a right-click still reaches a node's context menu

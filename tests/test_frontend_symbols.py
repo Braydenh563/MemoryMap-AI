@@ -205,6 +205,17 @@ def _strip(source: str) -> str:
             depth += 1
         elif char == "}":
             depth -= 1
+        elif source[i : i + 3] == "...":
+            # Spread and rest, blanked so the name after it is bare. Without
+            # this, `...docCmKeymap(CM)` reads as a property access and a
+            # function called only that way looks unused to the scan below,
+            # which is how three of this app's largest keymaps first appeared
+            # to be dead code.
+            out.append("   ")
+            i += 3
+            last_char = " "
+            last_word = ""
+            continue
         out.append(char)
         if not char.isspace():
             last_char = char

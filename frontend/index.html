@@ -7128,6 +7128,15 @@
               <p class="muted">Each of these reads your notes in the background. Off means it computes nothing and shows nothing.</p>
               <p class="status hidden" id="learned-paused-banner" role="status"></p>
               <div id="learned-switches"></div>
+              <!-- `POST /night/run` had no caller either: the pass ran on its
+                   own schedule and there was no way to say "do it now". It is
+                   here rather than in Background tasks because the switch it
+                   obeys is the first row above it, and "why did nothing
+                   happen" is answered by the two being in one place. -->
+              <div class="row align-center stack-top-gap">
+                <button type="button" id="learned-run-now" class="small">Read my notes now</button>
+                <span class="muted" id="learned-run-note"></span>
+              </div>
             </div>
 
             <div class="settings-group">

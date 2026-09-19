@@ -4313,6 +4313,46 @@ async function learnedExport() {
   }
 }
 
+//: **One pass, now.** `POST /night/run` is the manual half of I1 and had no
+//: caller: the pass ran on its own schedule and a person who wanted to know
+//: what their notebook would make of a note they had just written had to
+//: wait for it. The reply is the pass's own report, and it is worth showing
+//: in full: `{paused}` when the switch above is off (which is the honest
+//: answer, not an error), and otherwise how many notes were read, how many
+//: things came out and why it stopped, because "it did nothing" and "it read
+//: four thousand notes and found nothing new" are different answers and this
+//: is the one screen that can tell them apart.
+async function learnedRunNow() {
+  const button = $("learned-run-now");
+  const note = $("learned-run-note");
+  if (!button) return;
+  button.disabled = true;
+  if (note) note.textContent = "Reading\u2026";
+  try {
+    const result = await apiJson("/night/run", {
+      method: "POST",
+      body: JSON.stringify({ budget: 20000 }),
+    });
+    if (result.paused) {
+      if (note) note.textContent = "Night shift is off. Turn it on above and press this again.";
+    } else {
+      const derived = Number(result.derived) || 0;
+      const scanned = Number(result.scanned) || 0;
+      const stopped = result.stopped_reason === "budget" ? ", stopped at this run's budget" : "";
+      if (note) {
+        note.textContent = derived
+          ? `Read ${scanned} note${scanned === 1 ? "" : "s"}, worked out ${derived} new thing${derived === 1 ? "" : "s"}${stopped}.`
+          : `Read ${scanned} note${scanned === 1 ? "" : "s"}, nothing new${stopped}.`;
+      }
+      if (derived) renderLearnedList();
+    }
+  } catch (error) {
+    if (note) note.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
 //: Built once, with the modal, not per open: these are static controls and
 //: rebinding them on every visit is how a settings panel ends up with six
 //: copies of one listener.
@@ -4345,6 +4385,7 @@ function wireLearnedSection() {
     learnedOffset += LEARNED_PAGE;
     renderLearnedList();
   });
+  $("learned-run-now")?.addEventListener("click", learnedRunNow);
   $("learned-export")?.addEventListener("click", learnedExport);
   $("learned-forget")?.addEventListener("click", learnedForget);
 }

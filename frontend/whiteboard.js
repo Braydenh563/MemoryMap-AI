@@ -474,13 +474,18 @@ const WB_ALIGN_SNAP_PX = 6; // board units: matches WB_GRID_SPACING's own order 
 //: once, on the first move, and reused until the pointer is released.
 let wbGuideBoxCache = null;
 
-function wbGuideBoxes(excludeKind, excludeId) {
-  const key = `${excludeKind}:${excludeId}`;
+//: `excludeKeys` is a set of `wbMultiKey` strings, because what has to be
+//: left out of the targets is *everything being dragged*, which is one item
+//: for a plain drag and the whole selection for a group one. It used to be a
+//: single kind and id, so a group drag would have snapped its own members to
+//: each other, which is why group drags had no guides at all.
+function wbGuideBoxes(excludeKeys) {
+  const key = excludeKeys ? [...excludeKeys].sort().join(",") : "";
   if (wbGuideBoxCache && wbGuideBoxCache.key === key) return wbGuideBoxCache.boxes;
   const boxes = [];
   for (const [kind, listName] of [["node", "nodes"], ["object", "objects"]]) {
     for (const item of wbState[listName] || []) {
-      if (kind === excludeKind && item.id === excludeId) continue;
+      if (excludeKeys && excludeKeys.has(wbMultiKey(kind, item.id))) continue;
       const box = wbItemBBox(kind, item);
       if (box) boxes.push(box);
     }
@@ -497,10 +502,70 @@ function wbClearGuideBoxCache() {
 window.addEventListener("pointerup", wbClearGuideBoxCache, true);
 window.addEventListener("pointercancel", wbClearGuideBoxCache, true);
 
-function wbAlignmentGuides(excludeKind, excludeId, x, y, w, h) {
+//: **The box the whole selection occupies, for a group drag.**
+//:
+//: A single drag asks the guides about the item under the pointer. A group
+//: drag has no single item to ask about, which is why it used to ask about
+//: nothing: the guide block was written `if (!bypassSnap && !d._bulkOrigin)`,
+//: so selecting several things and moving them turned the alignment guides
+//: off, exactly when lining things up is what you are doing.
+//:
+//: What a group should align is its own outer box, which is what every
+//: drawing app does with a multi-selection. `_bulkOrigin` holds every *other*
+//: member at the position the drag started from (the dragged item is
+//: deliberately not in it, since its own handler moves it), so the group's
+//: starting box is those plus the dragged item's own origin, and its box
+//: this frame is that shifted by how far the dragged item has come.
+//:
+//: Returns null when there is nothing to measure, so the caller falls back
+//: to the plain single-item path rather than guessing.
+function wbBulkGroupBox(d, kind) {
+  if (!d._bulkOrigin || !d._bulkOrigin.size) return null;
+  if (d._dragOriginX === undefined || d._dragOriginY === undefined) return null;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const add = (box) => {
+    if (!box) return;
+    minX = Math.min(minX, box.minX);
+    minY = Math.min(minY, box.minY);
+    maxX = Math.max(maxX, box.maxX);
+    maxY = Math.max(maxY, box.maxY);
+  };
+  add({
+    minX: d._dragOriginX,
+    minY: d._dragOriginY,
+    maxX: d._dragOriginX + (d.width || WB_CARD_DEFAULT_SIZE.w),
+    maxY: d._dragOriginY + (d.height || WB_CARD_DEFAULT_SIZE.h),
+  });
+  for (const entry of d._bulkOrigin.values()) {
+    if (entry.kind === "sketch") {
+      add(wbPathBBox(entry.d));
+    } else if (entry.x !== undefined) {
+      add({
+        minX: entry.x,
+        minY: entry.y,
+        maxX: entry.x + (entry.item.width || WB_CARD_DEFAULT_SIZE.w),
+        maxY: entry.y + (entry.item.height || WB_CARD_DEFAULT_SIZE.h),
+      });
+    }
+  }
+  if (!Number.isFinite(minX)) return null;
+  const dx = d.x - d._dragOriginX;
+  const dy = d.y - d._dragOriginY;
+  return { x: minX + dx, y: minY + dy, w: maxX - minX, h: maxY - minY };
+}
+
+//: Which keys the guides must ignore: everything moving this frame. The
+//: dragged item alone for a plain drag, the whole selection for a group one,
+//: since `_bulkOrigin` was built from it.
+function wbDragExcludeKeys(d, kind) {
+  if (!d._bulkOrigin || !d._bulkOrigin.size) return new Set([wbMultiKey(kind, d.id)]);
+  return new Set([wbMultiKey(kind, d.id), ...d._bulkOrigin.keys()]);
+}
+
+function wbAlignmentGuides(excludeKeys, x, y, w, h) {
   const dragged = { left: x, centerX: x + w / 2, right: x + w, top: y, centerY: y + h / 2, bottom: y + h };
   let bestX = null, bestY = null;
-  const others = wbGuideBoxes(excludeKind, excludeId);
+  const others = wbGuideBoxes(excludeKeys);
   {
     for (const box of others) {
       const other = {
@@ -13769,8 +13834,18 @@ function renderWbObjects(canvas) {
     // PowerPoint have... dotted alignment rule guides"). Same Alt bypass as
     // grid-snap just above: holding it means "no snap assistance at all
     // for this drag", one concept, not two separate modifier keys to learn.
-    if (!bypassSnap && !d._bulkOrigin) {
-      const { dx, dy, guideLines } = wbAlignmentGuides("object", d.id, d.x, d.y, d.width, d.height);
+    if (!bypassSnap) {
+      //: The group's own box when several things are moving, the item's when
+      //: one is. Either way the delta lands on `d`, and `wbApplyBulkMove`
+      //: below carries the rest of the selection by the same amount.
+      const group = wbBulkGroupBox(d, "object");
+      const { dx, dy, guideLines } = wbAlignmentGuides(
+        wbDragExcludeKeys(d, "object"),
+        group ? group.x : d.x,
+        group ? group.y : d.y,
+        group ? group.w : d.width,
+        group ? group.h : d.height
+      );
       d.x += dx;
       d.y += dy;
       wbShowAlignmentGuides(guideLines);
@@ -14346,9 +14421,16 @@ function dragging(event, d) {
     // Smart alignment guides: asked for directly ("draw.io and Microsoft
     // PowerPoint have... dotted alignment rule guides"). Same Alt bypass as
     // grid-snap just above: one modifier, "no snap assistance", not two.
-    if (!bypassSnap && !d._bulkOrigin) {
+    if (!bypassSnap) {
       const w = d.width || WB_CARD_DEFAULT_SIZE.w, h = d.height || WB_CARD_DEFAULT_SIZE.h;
-      const { dx, dy, guideLines } = wbAlignmentGuides("node", d.id, d.x, d.y, w, h);
+      const group = wbBulkGroupBox(d, "node");
+      const { dx, dy, guideLines } = wbAlignmentGuides(
+        wbDragExcludeKeys(d, "node"),
+        group ? group.x : d.x,
+        group ? group.y : d.y,
+        group ? group.w : w,
+        group ? group.h : h
+      );
       d.x += dx;
       d.y += dy;
       wbShowAlignmentGuides(guideLines);

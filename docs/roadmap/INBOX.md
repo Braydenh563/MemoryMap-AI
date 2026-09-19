@@ -211,6 +211,22 @@ with its owner named in the entry.
     The scan is ten lines against `_strip` from
     `tests/test_frontend_symbols.py`.
 
+258. **Recommendation, not a change, 2026-09-19 (the session).** The
+    reverted outside commit added right-drag to pan the board, filtered so
+    a right-click still reaches a node's context menu
+    (`wbZoomFilter`: `event.button === 2` on a target that is not
+    `.node-card, .sketch-group, .wb-object`). It is a good gesture and
+    every canvas app has it, but nobody asked for it and a new gesture on
+    the surface that carries the app's only context menu is a decision, not
+    a patch. Not built here on purpose (standing order 8: a new need is an
+    entry, not an ad-hoc build).
+    Recommendation: take it, guarded as above, plus `contextmenu` suppressed
+    on the canvas only while such a drag actually moved (so a right *click*
+    on empty canvas keeps whatever it does today), and measured against
+    `scratchpad/ui-sweeps/wbpan.js`. The other two ideas from that commit,
+    a rotated group outline and alignment guides for a group drag, are built
+    (861e740, 5273bae).
+
 ## Placed (last 20, newest first)
 
 - 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.

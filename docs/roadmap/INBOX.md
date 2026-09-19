@@ -240,6 +240,51 @@ with its owner named in the entry.
     both fixed to read those two on 2026-09-19), and extend the help text to
     say "and pause the moving artwork". One line each.
 
+261. **Found by scan, 2026-09-19 (the session, not the owner).** Ten routes
+    the app serves that `frontend/*.js` never names, from
+    `scratchpad/probe_dead_routes.py` (new; run it with `PYTHONPATH=src`).
+    Four more were in this list and are now wired: `GET /learned` and its
+    whole lifecycle, `POST /night/run`, `GET /search/stats` and
+    `POST /drafts/title`. What is left, triaged:
+    - `GET|POST /entries/daily/{day}`, `POST /resurface/compute` and
+      `GET /openapi.json`: not the frontend's to call. The daily-note pair
+      is the agent's "add to today's note" tool and says so in app.js; the
+      compute half of resurfacing is the scheduler's, and its module
+      docstring is explicit that the read is the fast one; `/openapi.json`
+      is FastAPI's own. **Nothing to do.**
+    - `POST /insights/digest` and `GET /whiteboard/images`: superseded and
+      recorded as such (`/insights/digest/stream` is what the dashboard
+      calls; BACKLOG says `/media` replaced the board image listing).
+      **Recommendation:** leave them, or delete them in a sweep of their
+      own; either is defensible and neither is urgent.
+    - `GET /insights/on-this-day`: superseded by choice. The widget filters
+      `allEntries` in the browser, which is one fewer request and is
+      correct once the notebook has finished paging in.
+      **Recommendation:** leave it, and say so in the route's docstring, so
+      the next scan does not re-open this.
+    - `GET /tags`: the tag autocomplete is built from `allEntries` instead
+      (`refreshTagSuggestions`), so it is incomplete until every page of a
+      four thousand note notebook has arrived, and it carries no counts.
+      The route returns tag to count, ordered, in one request.
+      **Recommendation:** use it; it is a smaller function than the one it
+      replaces.
+    - `GET /settings/events`: B1's event feed. Its own docstring names the
+      consumer, "what a Dashboard or Timeline activity strip should read
+      instead of scanning the notes table for recency", and no such strip
+      reads it. **Recommendation:** a brief in WORLD_CLASS_PLAN B1, not an
+      improvisation here: it is a surface, not a wire-up.
+    - `GET /resurface/near/{entry_id}`: "the faded notes closest to the one
+      being read", built and tested, with nowhere in the app that reads a
+      note asking for it. **Recommendation:** one row under an opened note,
+      on the existing card recipe, filtered to the current space. Worth
+      doing; it is the only one of these that is a missing feature rather
+      than a missing wire.
+    `POST /auth/rotate-vault-key` was on this list until the probe learned
+    to read `` `/auth/${mode === "setup" ? "setup" : "unlock"}` ``; it is
+    still uncalled, and re-keying the vault has no UI. Filed here rather
+    than fixed: it is the one route in the app that rewrites every private
+    note, and a button for it wants its own session.
+
 ## Placed (last 20, newest first)
 
 - 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.

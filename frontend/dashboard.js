@@ -2039,7 +2039,38 @@ async function startArt(holder) {
   }));
   const categories = (stats.categories || []).slice(0, 8);
   const total = Math.max(1, stats.total_entries || 0);
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  //: **Every switch that means "stop moving things", not only the OS hint.**
+  //:
+  //: This read the media query and nothing else, so the two generative
+  //: pictures in the app disagreed about the same question: the background
+  //: art (`startBgArt`, settings.js) resolves motion from the app's own
+  //: Reduce motion switch and from Performance mode as well, and this one
+  //: ignored both. Turn on Reduce motion and the background froze while this
+  //: widget kept running; turn on Performance mode, which DESIGN.md rule 12
+  //: says stops every animation but the progress indicators, and this was
+  //: the thing that kept going. The background art's own comment notes it
+  //: used to be "the one thing that kept running" under Performance mode;
+  //: this was the second one, and nobody had looked.
+  //:
+  //: Measured on the dashboard: this canvas runs at 59 fps in a 306x220 box,
+  //: and it is what the owner's "theres a flickering just above the bottom
+  //: bar" is looking at (INBOX 226: the pixels change in one column of the
+  //: band above the status bar, with no DOM mutation at all, and the
+  //: *background* art is off; the earlier investigation measured that one).
+  //:
+  //: `reducedMotionWanted` (app.js) is the OS hint or the app's own switch;
+  //: `perfModeOn` (settings.js) is the machine judgement. Both reached
+  //: through `typeof`, since dashboard.js loads before settings.js and a
+  //: render that somehow beat it should fall back to moving rather than
+  //: throw.
+  //:
+  //: Not `bg-motion`: that control is the background's own, is hidden when
+  //: the background art is off, and would be a surprising place to find the
+  //: switch for a widget.
+  const reduceMotion =
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+    (typeof reducedMotionWanted === "function" && reducedMotionWanted()) ||
+    (typeof perfModeOn === "function" && perfModeOn());
   // data-mode is always resolved to light or dark, including under "System",
   // so this no longer has to re-derive it from two sources.
   const dark = resolvedTheme() === "dark";

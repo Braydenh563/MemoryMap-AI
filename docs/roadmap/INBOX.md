@@ -115,6 +115,26 @@ with its owner named in the entry.
     one-time span pass, not a loop. Left open for the owner: which theme,
     which background style, and whether the desktop window or a browser
     tab; a screenshot with the flicker in it names the element.
+    **Reproduced and named, 2026-09-19** (`scratchpad` flicker probes, a
+    seeded four thousand note notebook at 1440x900). The earlier run looked
+    at the *background* art (`startBgArt`); the thing moving is the
+    dashboard's own **art widget** (`startArt`, dashboard.js).
+    The 130px band above the status bar was split into a 12x4 grid and
+    sampled twelve times: three adjacent columns changed on **11 of 11**
+    comparisons and every other cell on none, with **zero DOM mutations** in
+    the band and the background art off. `elementsFromPoint` at the busiest
+    cell: `canvas.p5Canvas` inside `div.art-holder` inside a
+    `section.card.dash-widget`. It runs at **59 fps** in a 306x220 box.
+    It is a widget animating, not a repaint fault, so the flicker is
+    explained. What was wrong is that it ignored every switch that says
+    "stop moving things" except the OS media query: measured before, Reduce
+    motion on gave 59 fps and Performance mode on gave 59 fps, while the
+    background art stops for both and DESIGN.md rule 12 says Performance
+    mode stops every animation but the progress indicators. Fixed; measured
+    after, both read 0 fps, and 59 again when switched back off. If the
+    owner still sees it with both of those off, the remaining answer is the
+    widget itself: turn the art widget off on the dashboard, or say so and
+    it gets a frame-rate cap rather than 60.
 
 225. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), a core
     persona.** "I was wondering if atlas or another named persona can be the

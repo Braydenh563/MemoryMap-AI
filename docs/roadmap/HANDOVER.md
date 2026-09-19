@@ -383,12 +383,37 @@ load on four thousand notes from 1.8 s to 0.9 s; the Docker probe cached;
 the settings search cached; Settings, Extras' sideways scroll; a group's
 selection box around rotated cards; and alignment guides for a group drag.
 
-Open in INBOX after tonight: 213, 220, 225 (frontend copy half), 228, 246,
-253, plus 256 to 259 filed tonight (four test-only helpers, eighty inert
-class names, right-drag to pan as a recommendation, and one unreproduced
-NaN the error sweep can now name if it returns). OPEN.md's row 232 was
-stale and is corrected in place: tables, callouts, task lists and images
-all already render in the Live view, measured, so nobody rebuilds them.
+**Later the same night, still alone.** A scan of all 319 routes against
+every path the frontend fetches (`scratchpad/probe_dead_routes.py`, new)
+found a whole plan item built and unreachable: WORLD_CLASS_PLAN **I9's
+backend had shipped on 2026-09-13 with no screen at all**, so
+`derived_facts` grew where nobody could read it. Built its Settings
+section, "What it learned", against what the backend actually ships (no
+bulk actions: there is no `POST /learned/bulk`), and wired three more dead
+routes while there: `POST /night/run` as "Read my notes now", `GET
+/search/stats` as the search-index row in About, and `POST /drafts/title`
+as "Suggest a title" in the Writing Room. `GET /tags` now feeds the tag
+autocomplete, which was built from the loaded pages and sorted
+alphabetically. One backend bug fell out of finally calling a route:
+`facts.listing` counted rows its own search had excluded.
+
+INBOX 225 is closed, both halves: Settings, Models reads "Atlas, running
+qwen2.5:7b", and 68 strings plus 41 pieces of markup that said "the AI"
+now say Atlas, held by a lint with no allowance list
+(`tests/test_ai_name.py`). 256 closed (four test-only helpers deleted,
+their coverage moved onto the functions the app calls first). 259 closed:
+the minimap NaN reproduced, the stack named `graphMinimapFrame`, and the
+guard there had been half written.
+
+Three sweeps are new and in the gate's `--sweeps` set: `keyboard.js`
+(where Tab actually lands), `requests.js` (a request that fails where
+nobody is told), and `leaks.js` from earlier. The app passes all three.
+
+Open in INBOX: 213, 220, 228, 246, 253, 257, 258, 260, and 261 (the ten
+routes still unreachable, each triaged, three of them genuinely nothing to
+do). OPEN.md's row 232 was stale and is corrected in place: tables,
+callouts, task lists and images all already render in the Live view,
+measured, so nobody rebuilds them.
 
 **Now (2026-09-14 midday, Fable orchestrating): PR #144 waits on the
 owner's go-ahead to merge; CI on the head is the last gate.** Every agent

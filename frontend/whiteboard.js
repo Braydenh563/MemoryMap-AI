@@ -12326,6 +12326,46 @@ function wbEntryBox(entry) {
   return { minX: item.x, minY: item.y, maxX: item.x + w, maxY: item.y + h };
 }
 
+//: **The box an item actually occupies, rotation included.**
+//:
+//: `wbEntryBox` above returns the item's *layout* box: the `x`, `y`, `width`
+//: and `height` stored on the row, which is what a resize has to write back
+//: and so is the only thing the group-scale maths may use. A rotated card
+//: does not occupy that box. Measured with one card at 0 degrees and one at
+//: 45: the group outline drawn from layout boxes missed the rotated card by
+//: 61px above, 61px below and 21px to the right, so a selection you could
+//: see was drawn inside a card you had selected.
+//:
+//: The corners of the layout box turned about its own centre, which is what
+//: `translate() rotate()` does to the element (`transform-origin` resolves
+//: to 50% 50% in the untouched box), and then the axis-aligned box around
+//: those four points.
+//:
+//: Deliberately a second function rather than a change to `wbEntryBox`: the
+//: two boxes answer different questions, and the group resize needs the
+//: layout one. Giving it this one instead would write a rotated card's
+//: bounding box back as its `width` and `height`, which grows the card every
+//: time the group is scaled.
+function wbEntryOutlineBox(entry) {
+  const box = wbEntryBox(entry);
+  if (!box) return null;
+  const rotation = entry.kind === "sketch" ? 0 : entry.item.rotation || 0;
+  if (!rotation) return box;
+  const centre = wbBoxCenter(box);
+  const corners = [
+    { x: box.minX, y: box.minY },
+    { x: box.maxX, y: box.minY },
+    { x: box.minX, y: box.maxY },
+    { x: box.maxX, y: box.maxY },
+  ].map((corner) => wbRotatePoint(corner, centre, rotation));
+  return {
+    minX: Math.min(...corners.map((c) => c.x)),
+    minY: Math.min(...corners.map((c) => c.y)),
+    maxX: Math.max(...corners.map((c) => c.x)),
+    maxY: Math.max(...corners.map((c) => c.y)),
+  };
+}
+
 //: What every frame of a group drag is computed from, taken once at the
 //: start: reading it back off the items each frame compounds the rounding
 //: into a shape that drifts while the pointer is still.
@@ -12361,11 +12401,15 @@ function wbRenderMultiSelectionHandles() {
   if (entries.length < 2) return;
   const boxes = entries.map((entry) => ({ entry, box: wbEntryBox(entry) })).filter((row) => row.box);
   if (boxes.length < 2) return;
+  //: The outline is drawn around what the items occupy (rotation included);
+  //: `row.box` stays the layout box, because that is what the resize below
+  //: writes back. See `wbEntryOutlineBox` for why the two cannot be one.
+  const outlines = boxes.map((row) => wbEntryOutlineBox(row.entry) || row.box);
   const bbox = {
-    minX: Math.min(...boxes.map((row) => row.box.minX)),
-    minY: Math.min(...boxes.map((row) => row.box.minY)),
-    maxX: Math.max(...boxes.map((row) => row.box.maxX)),
-    maxY: Math.max(...boxes.map((row) => row.box.maxY)),
+    minX: Math.min(...outlines.map((box) => box.minX)),
+    minY: Math.min(...outlines.map((box) => box.minY)),
+    maxX: Math.max(...outlines.map((box) => box.maxX)),
+    maxY: Math.max(...outlines.map((box) => box.maxY)),
   };
   //: Each shape's own box and anchors as well as the group's, because that is
   //: what the same sweep already gives a card or a text box: they carry their

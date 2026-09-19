@@ -2017,6 +2017,10 @@ async function renderArtWidget(body) {
   return startArt(holder);
 }
 
+//: What the dashboard's constellation draws at. See `p.setup` below for why
+//: thirty rather than the sixty p5 defaults to.
+const ART_FRAME_RATE = 30;
+
 async function startArt(holder) {
   // Which run this is. `startArt` awaits /insights/stats before it mounts
   // anything, and `stopArt()` above that await can only remove an instance
@@ -2128,12 +2132,30 @@ async function startArt(holder) {
       p.colorMode(p.HSL, 360, 100, 100, 1);
       p.randomSeed(artSeed(categories) + artNonce * 997);
       particles = buildArtParticles(p, categories, total, width, height);
+      //: **Thirty frames a second, for a drift that takes twenty seconds to
+      //: go round.** The motion here is `cos(t + phase) * amp` with `amp`
+      //: between 2 and 9 pixels: at sixty frames a second a star moves about
+      //: a fiftieth of a pixel between frames, which nobody can see and
+      //: everybody's battery pays for. Profiled over fourteen seconds of
+      //: ordinary use, p5 was 248 ms of self time, the largest single thing
+      //: on screen, and this is the sketch doing it.
+      //:
+      //: Halving it is only safe because `scene` is driven by the clock
+      //: below rather than by `frameCount`: a frame counter would have made
+      //: the drift itself run at half speed, which is a behaviour change
+      //: dressed as an optimisation.
+      p.frameRate(ART_FRAME_RATE);
       if (reduceMotion) {
         scene(0); // one still frame: no animation for reduced-motion users
         p.noLoop();
       }
     };
-    p.draw = () => scene(p.frameCount * 0.005);
+    //: Wall clock, not `frameCount`, so the drift runs at the speed it was
+    //: chosen at whatever the frame rate happens to be, including whatever a
+    //: browser throttles a background tab to. The two are the same number:
+    //: `frameCount * 0.005` at sixty frames a second advanced `t` by 0.3 a
+    //: second, and `millis() * 0.0003` advances it by 0.3 a second full stop.
+    p.draw = () => scene(p.millis() * 0.0003);
     // Was missing entirely: width was measured once at setup and never
     // re-synced, so this canvas was the one p5 sketch in the app with no
     // resize handling at all (the sibling in the whiteboard has its own).

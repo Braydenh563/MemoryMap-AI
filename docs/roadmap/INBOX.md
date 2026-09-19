@@ -294,6 +294,22 @@ with its owner named in the entry.
     rather than the attribute. Whoever sees it next has the answer in the
     sweep output.
 
+260. **Question, not a bug, 2026-09-19 (the session).** "Battery-efficient
+    mode" (Settings, Preferences) pauses autonomous background tasks and
+    skips the graph's similarity work, and its copy says exactly that and
+    nothing more, so the backend matches its promise. But it reaches nothing
+    in the browser: with it on, the dashboard's constellation canvas still
+    animates (now at 30 fps, it was 60), and so does the background art if
+    that is on. Someone who turns on a setting with "battery" in the name
+    and watches a canvas keep drawing will reasonably call that broken.
+    Checked before writing this, and deliberately not changed: widening a
+    setting past what its own help text promises is a design decision.
+    Recommendation: make it a third input to the motion resolution the two
+    generative pictures already share, beside Reduce motion and Performance
+    mode (see `startArt` in dashboard.js and `startBgArt` in settings.js,
+    both fixed to read those two on 2026-09-19), and extend the help text to
+    say "and pause the moving artwork". One line each.
+
 ## Placed (last 20, newest first)
 
 - 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.

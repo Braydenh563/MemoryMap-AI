@@ -29941,3 +29941,55 @@ told to open first.
     three largest files, which is the guard that makes the first mean
     anything. Both proved by regression.
 
+259. **Found by sweep, 2026-09-19, not reproduced since (the session).**
+    `scratchpad/ui-sweeps/errors.js` against a seeded four thousand note
+    notebook reported **116 console errors at 1440px and 112 at 1024**, all
+    of one shape and all tagged `[timeline]`:
+    `<rect> attribute x: Expected length, "NaN"`, with y, width and height
+    the same. That is 28 rects, four attributes each. **Zero at 820px and
+    zero at 390px**, and zero layout findings at any width.
+    Four attempts to reproduce it, all clean: the same sweep at the same
+    width on the same notebook (0 errors), the timeline opened on its own
+    with `setAttribute` wrapped to catch a NaN write (0), the same with
+    every timeline scale clicked (0), and the sweep's own tab order up to
+    the graph and on to the timeline, to test whether the graph's late
+    async draw was landing in the timeline's 700ms window and being
+    mislabelled (0 in both windows, so that hypothesis is wrong).
+    The one difference the failing run had: it ran minutes after 2,000
+    notes were seeded, so the background embedding, `note_scores` and
+    `search_index` work was probably still running.
+    Only three functions in `frontend/` write those four attributes:
+    `drawTimelineWindow` (app.js, and it writes two of them, not four),
+    `mapPreview` and `mapPreviewSketch`. `mapPreview`'s own geometry is
+    guarded (`aspect` falls back to 1, `MAP_PREVIEW_BASE` is a literal,
+    `px`/`py` coerce with `Number(x) || 0`), so a NaN through it needs an
+    input this reading did not find.
+    **No fix, deliberately**: CLAUDE.md says reproduce before theorising,
+    and a guard written against a cause nobody has seen hides the next one.
+    What is done instead is that `errors.js` now wraps `setAttribute`
+    before the app's scripts run and prints the **stack** of the first
+    eight NaN writes, so the next run that catches one names the function
+    rather than the attribute. Whoever sees it next has the answer in the
+    sweep output.
+    **Fixed 2026-09-19, and the stacks are what found it.** It reproduced
+    again the same day, and the stack named `graphMinimapFrame` (graph.js),
+    not `mapPreview`: the `[timeline]` tag was a mislabel, the graph's
+    minimap goes on drawing after the sweep has moved to the next tab. A
+    second probe captured every input that function reads at the moment of
+    the write: `graphDims` 800x540, all 4,005 node positions finite, and
+    `d3.zoomTransform` itself holding NaN in `k`, `x` and `y`. `invert` on a
+    NaN transform is NaN, which is why all four attributes go together.
+    The guard there was written for exactly this and was half done: it
+    checked `graphDims.w`, and neither `graphDims.h` nor the transform. It
+    checks everything it reads now, and the three places this app builds a
+    zoom transform refuse to build one from a number that is not one. Worth
+    knowing for the next occurrence of this shape: `Math.max(0.25,
+    Math.min(2.5, NaN))` is NaN, so the scale clamps that looked like
+    guards never were.
+    What is still not known is which code path put NaN into the transform.
+    Injecting the captured transform by hand does not take the failing path,
+    so there is no deterministic reproduction; eight sweeps since the fix
+    are clean against a failure that was showing in about one run in three,
+    which is strong evidence rather than proof. `errors.js` fails on any
+    console error, so a recurrence cannot be quiet.
+

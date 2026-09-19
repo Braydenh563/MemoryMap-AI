@@ -9506,6 +9506,54 @@ function bodyWithoutTitleLine(content) {
 // inserts: a note's opening words); documents fall back to an exact,
 // case-insensitive title. Private notes are never a target: they cannot be
 // linked, and resolving to one would leak that it exists.
+//: **The lowercased forms a wiki lookup compares against, computed once per
+//: note rather than once per note per link.**
+//:
+//: `resolveWikiTarget` runs for every `[[link]]` that renders, and it used to
+//: lowercase every note's whole body, twice (once plain, once with the
+//: heading marker stripped by a regex), on every one of those calls. At four
+//: thousand notes averaging 594 bytes that is up to 4.8 MB of string work per
+//: link, and a note list draws sixty cards at a time. Profiled over fourteen
+//: seconds of ordinary use, `opening` and `openingTitle` and their caller
+//: came to 267 ms of self time, more than the dashboard's p5 sketch.
+//:
+//: Two things fix it and neither can go stale. The forms are cached **on the
+//: entry, keyed by the content string they were derived from**, so an edit
+//: invalidates them by construction: no generation counter to forget to bump,
+//: no cache to clear when `allEntries` is replaced. And only the first
+//: `WIKI_PREFIX_MAX` characters are lowercased, because every comparison here
+//: is `startsWith` against a needle that is a title. A needle longer than that
+//: falls back to the full string, so the bound is an optimisation and never a
+//: behaviour.
+const WIKI_PREFIX_MAX = 300;
+
+function wikiForms(entry, needleLength) {
+  const content = entry.content || "";
+  if (needleLength > WIKI_PREFIX_MAX) {
+    const full = content.toLowerCase();
+    return { opening: full, title: full.replace(/^#{1,6}[ \t]*/, "") };
+  }
+  if (entry._wikiSrc !== content) {
+    const head = content.slice(0, WIKI_PREFIX_MAX).toLowerCase();
+    entry._wikiSrc = content;
+    entry._wikiOpening = head;
+    entry._wikiTitle = head.replace(/^#{1,6}[ \t]*/, "");
+  }
+  return { opening: entry._wikiOpening, title: entry._wikiTitle };
+}
+
+//: The same trick for the imported-vault path: a file stem is derived from
+//: `source_path` with a split, a pop and a regex, which was also being redone
+//: per link per note.
+function wikiStem(entry) {
+  const path = entry.source_path || "";
+  if (entry._wikiStemSrc !== path) {
+    entry._wikiStemSrc = path;
+    entry._wikiStem = path.split("/").pop().replace(/\.(md|markdown)$/i, "").toLowerCase();
+  }
+  return entry._wikiStem;
+}
+
 function resolveWikiTarget(name) {
   const needle = String(name || "").trim().toLowerCase();
   if (!needle) return null;
@@ -9516,11 +9564,9 @@ function resolveWikiTarget(name) {
   //: should not lose to a note that merely opens with the word "index". Same
   //: rule as `find_by_wiki_name` in entry/manager.py, which is what makes the
   //: link the backend stores and the link this pane draws point at one note.
-  const vaultNote = entries.find((e) => {
-    if (e.is_private || !e.source_path) return false;
-    const stem = e.source_path.split("/").pop().replace(/\.(md|markdown)$/i, "");
-    return stem.toLowerCase() === needle;
-  });
+  const vaultNote = entries.find(
+    (e) => !e.is_private && e.source_path && wikiStem(e) === needle
+  );
   if (vaultNote) return { kind: "note", entry: vaultNote };
   //: **A board is a link target, and it is not a note.** MINDMAP_PLAN.md §5
   //: item 12 asks for a map chip in note bodies, and the `@`/`[[` picker in
@@ -9556,12 +9602,22 @@ function resolveWikiTarget(name) {
   //: The second comparison strips a leading heading marker from the *content*
   //: rather than adding one to the needle, because the marker is one to six
   //: hashes and any amount of space, and the content is where that is known.
-  const opening = (e) => (e.content || "").toLowerCase();
-  const openingTitle = (e) => opening(e).replace(/^#{1,6}[ \t]*/, "");
-  const notes = entries.filter((e) => !e.is_private && !e.is_board);
-  const note =
-    notes.find((e) => opening(e).startsWith(needle)) ||
-    notes.find((e) => openingTitle(e).startsWith(needle));
+  //: One pass, not a `filter` into a four thousand entry array followed by
+  //: two `find`s over it. The plain-opening match still wins over the
+  //: marker-stripped one, which is what the two passes were for: it is
+  //: remembered rather than searched for twice.
+  let note = null;
+  let titleMatch = null;
+  for (const entry of entries) {
+    if (entry.is_private || entry.is_board) continue;
+    const forms = wikiForms(entry, needle.length);
+    if (forms.opening.startsWith(needle)) {
+      note = entry;
+      break;
+    }
+    if (!titleMatch && forms.title.startsWith(needle)) titleMatch = entry;
+  }
+  note = note || titleMatch;
   if (note) return { kind: "note", entry: note };
   const documents = typeof editorDocumentCache !== "undefined" ? editorDocumentCache : null;
   const docList = documents || [];

@@ -7,6 +7,62 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed
+
+- The whiteboard works again. A change that came in from outside the project
+  ran a regular expression over `whiteboard.js` to move the board's undo
+  history onto the app's stack and deleted ten live functions along with the
+  two it meant to replace, among them `wbItemTransform`, which is what
+  positions every card on the board. The board threw on its first render and
+  drew nothing. That commit is reverted; the three parts of it that were right
+  are re-applied below.
+
+- No console window blinks over the packaged Windows app. It is a GUI process,
+  so every console tool it runs in the background (`docker`, `pip`,
+  `tesseract`, `winget`) was given a real console window by Windows, shown and
+  torn down. Every spawn now asks for `CREATE_NO_WINDOW`, and a lint fails the
+  build when a new one forgets.
+
+- Tesseract installed on Windows is found even when PATH does not mention it.
+  The installers do not reliably add themselves, and the per-user mode never
+  does, so the app told people who had just installed Tesseract to install
+  Tesseract. It now reads the installer's registry key first, then the standard
+  Program Files and LOCALAPPDATA locations, and points `pytesseract` at what it
+  finds.
+
+- A note's text stays inside its card on a board. A card could not shrink its
+  text below the box the person dragged it to, so the paragraphs were laid out
+  past the border and painted over the board; and whether a note got a "Show
+  more" was decided by its character count rather than by whether it fitted.
+
+- A card left open on a board is still open when the board is opened again.
+
+- An exported board carries what its cards are showing. Every card's label was
+  cut to 160 characters and six lines whatever the card's size, so an expanded
+  note exported as six lines. The export dialog now also says when collapsed
+  notes are keeping text out of the picture.
+
+- A fenced code block in the Live view no longer has an empty row above and
+  below it. The fence lines keep the block's tint and take the height of
+  padding, and the language is drawn in the block's corner.
+
+- Three calls to functions that no file defines: the semantic search toggle
+  (`loadAllNotes`), every Conversations row in the command palette
+  (`loadChatHistory`), and opening a note from a mind map node
+  (`openEntryEditor`).
+
+### Changed
+
+- The note list repaints four times while a big notebook loads instead of once
+  per page: measured on four thousand notes, `loadEntries()` goes from about
+  1.8 s to 0.9 s and hands back three quarters of a second of main thread.
+
+- The settings search reads each section's text once and remembers it, instead
+  of rebuilding and lowercasing 63 KB on every keystroke.
+
+- The Docker daemon is probed at most once every fifteen seconds, rather than
+  on every status poll with an eight second timeout.
+
 ## [0.3.1] - 2026-09-14
 
 - The status bar's help button says "Guide", not the assistant's name. It sat

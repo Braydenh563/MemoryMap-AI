@@ -42,6 +42,35 @@ with its owner named in the entry.
     should be warned if any of their notes arent expanded and that not all
     their contents will be shown, the export shouldnt include things like
     the show less/more text as well." Owner: notes agent (whiteboard.js).
+    **Fixed 2026-09-19** (5a9c909, 128a731, 7e8d902), all three parts,
+    measured at 1440x900 with zero page errors throughout:
+    - *Text outside the border.* `.wb-card` is a column flex container and a
+      placed note carries its dragged height as an inline style, but a flex
+      item's `min-height: auto` resolves to its content, so the text won
+      against the box: a 324-character note in a 320x120 card laid out 215px,
+      112px of it below the card's edge; 408 characters in 320x160 spilled
+      254px. `min-height: 0` and `overflow: hidden` on `.wb-card-content`
+      (not on the card: the eight resize handles sit outside its edge on
+      purpose). The "Show more" was also gated on the Notes list's rule
+      (500 characters or 10 lines), which is a question about the note when
+      the question is about the box; it is now measured from the layout, and
+      the old `-webkit-line-clamp: 8` (which counted paragraphs, not lines,
+      on rendered markdown) is a `max-height` applied only to a card with no
+      stored height. After: 60px and 100px of text, both 43px clear, a note
+      that fits gets no button, expand and collapse round-trip 140 to 411 to
+      140px, and growing the card to 700px retires the button.
+    - *Persistence.* `wbExpandedNodes` is saved to `localStorage`, where the
+      grid, snap, guide colours, background and navigator state already live.
+      One key, 500 entries, oldest dropped first. Measured across a reload
+      and re-login: 411px and "Show less" both survive.
+    - *Export.* The "Show more" text was never in the picture (cards are
+      rebuilt as SVG from the note), but the export always showed *less* than
+      the screen: 160 characters wrapped into at most six lines whatever the
+      card's size. The line budget now comes from the card's measured height
+      (collapsed in a 160px card, 7 lines; expanded to 746px, 22; both were 6
+      before), and the dialog carries a `--warn` line naming how many notes
+      are collapsed. Markdown, OPML and FreeMind carry `drawsCards: false`
+      and never show it.
 
 232. **Mid-work drop, 2026-09-14, verbatim (the owner), the live view.**
     "the md rendering on the live view, like in the documents page, needs to
@@ -49,6 +78,16 @@ with its owner named in the entry.
     as well." Screenshot: a fenced block renders as a dark slab with the
     fence lines as empty numbered rows above and below, link chips wrap
     oddly. Owner: notes agent (documents.js).
+    **Codeblocks fixed 2026-09-19** (706e2af). Measured on a four-line Python
+    block: five rows of 26px, two of them empty, so 52 of 130 pixels said
+    nothing. INBOX 198 hid the backticks and the language word, correctly,
+    but left the emptied lines at full line height. They now keep the block's
+    tint and take half a line, the block's corners are rounded so five tinted
+    rows read as one slab, and the language is drawn in the corner from a
+    `data-lang` attribute rather than on a row of its own. Both stand down
+    when the caret is inside the block, since the raw fence comes back there.
+    After: 92px, zero empty full-height rows, 8px fence rows, the label in
+    `--muted`. **Still open: the link chips**, which this did not touch.
 
 228. **Mid-work drop, 2026-09-14, verbatim (the owner), the close.** "after
     you have finished all these, done the final bug sweep, make sure

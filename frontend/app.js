@@ -14936,6 +14936,26 @@ function renderCompressionState() {
 // read as a rendering fault rather than as progress. So when motion is off,
 // this becomes a word instead of a gesture. Silence is not an acceptable
 // substitute for either.
+//: **Battery-efficient mode, as the two generative pictures see it**
+//: (INBOX 260). The setting pauses the background AI tasks and the graph's
+//: similarity work, and for a long time reached nothing in the browser: a
+//: person who turned on a setting with "battery" in its name and watched
+//: the dashboard's constellation keep drawing would reasonably call that
+//: broken, whatever the help text said. So it is a third input to the motion
+//: resolution `startArt` (dashboard.js) and `startBgArt` (settings.js)
+//: already share with Reduce motion and Performance mode, and the help text
+//: says so now.
+//:
+//: Here rather than beside the other two because app.js is the first script
+//: the page loads and `prefsCache` is its own; the `typeof` guard is the
+//: same one every cross-file reading in this app carries, since a picture
+//: can start before the preferences have landed.
+function batteryModeOn() {
+  return Boolean(
+    typeof prefsCache !== "undefined" && prefsCache && prefsCache.battery_efficient_mode
+  );
+}
+
 function reducedMotionWanted() {
   return (
     window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
@@ -37491,6 +37511,14 @@ $("pref-auto-capture").addEventListener("change", (e) =>
 $("pref-battery-mode").addEventListener("change", (e) => {
   setPreference("battery_efficient_mode", e.target.checked);
   $("power-saver-indicator")?.classList.toggle("hidden", !e.target.checked);
+  //: `prefsCache` is what `batteryModeOn` reads, and `setPreference` writes
+  //: the server before the cache, so the two pictures are restarted from
+  //: here with the new value already in hand. Without this the setting took
+  //: effect on the next load, which for a setting about power is the wrong
+  //: half of "immediately".
+  if (prefsCache) prefsCache.battery_efficient_mode = e.target.checked;
+  if (typeof startBgArt === "function") startBgArt();
+  if (typeof renderDashboard === "function") renderDashboard();
 });
 $("pref-autonomous-interval").addEventListener("change", (e) =>
   setPreference("autonomous_tasks_interval_hours", Number(e.target.value) || 6)

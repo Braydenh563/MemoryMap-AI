@@ -18,6 +18,14 @@ below). Versioning is `0.x` while the app stabilises.
   night pass on demand and says what it found. The backend for all of this
   shipped on 2026-09-13 and nothing in the app had ever called it.
 
+- Battery-efficient mode stops the moving pictures. It paused the background
+  AI tasks and the graph's similarity work and reached nothing else, so the
+  dashboard's constellation and the animated background kept drawing, which
+  is the two most expensive things on screen and the ones a person watching
+  for a change would notice. Both stop now, the setting takes effect the
+  moment you turn it on rather than on the next load, and its help text says
+  what it does.
+
 - A new check in the merge gate catches a request that fails where nobody is
   told. `errors.js` watches the console, which sees a thrown exception; it
   does not see a 404 or a 500 read into a `.catch(() => null)`, which is how

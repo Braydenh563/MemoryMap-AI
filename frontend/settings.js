@@ -2696,9 +2696,17 @@ function startBgArt() {
   // (`scratchpad/ui-sweeps/bgart.js`), which makes it the single most
   // expensive thing Performance mode could switch off, and it was the one
   // thing that kept running.
+  //: **Battery-efficient mode stops it too, and "moving" does not override
+  //: that** (INBOX 260), for the same reason Performance mode is not
+  //: overridden two lines up: both are statements about what this machine
+  //: should be spending, not preferences about motion, and this art is the
+  //: most expensive thing on the page to draw (+17ms to +28ms a frame,
+  //: `scratchpad/ui-sweeps/bgart.js`). A person asking for less battery use
+  //: is asking for exactly that saving.
   const reduceMotion =
     bgMotion === "still" ||
     perfModeOn() ||
+    (typeof batteryModeOn === "function" && batteryModeOn()) ||
     (bgMotion !== "moving" && reducedMotionWanted());
   // Whatever colour the app is wearing, accent picker or curated palette.
   const accentHex = currentAccentHex();

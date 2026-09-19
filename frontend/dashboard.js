@@ -2071,10 +2071,14 @@ async function startArt(holder) {
   //: Not `bg-motion`: that control is the background's own, is hidden when
   //: the background art is off, and would be a surprising place to find the
   //: switch for a widget.
+  //: Three inputs, not two: Battery-efficient mode joins them (INBOX 260).
+  //: A setting with "battery" in its name that leaves a canvas drawing is a
+  //: setting people read as broken, whatever its help text says.
   const reduceMotion =
     window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
     (typeof reducedMotionWanted === "function" && reducedMotionWanted()) ||
-    (typeof perfModeOn === "function" && perfModeOn());
+    (typeof perfModeOn === "function" && perfModeOn()) ||
+    (typeof batteryModeOn === "function" && batteryModeOn());
   // data-mode is always resolved to light or dark, including under "System",
   // so this no longer has to re-derive it from two sources.
   const dark = resolvedTheme() === "dark";

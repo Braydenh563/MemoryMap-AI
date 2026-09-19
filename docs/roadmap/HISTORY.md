@@ -30027,3 +30027,34 @@ told to open first.
     `tests/test_frontend_symbols.py` and `tests/test_ai_name.py` each had to
     fix in their own scanners this session.
 
+260. **Question, not a bug, 2026-09-19 (the session).** "Battery-efficient
+    mode" (Settings, Preferences) pauses autonomous background tasks and
+    skips the graph's similarity work, and its copy says exactly that and
+    nothing more, so the backend matches its promise. But it reaches nothing
+    in the browser: with it on, the dashboard's constellation canvas still
+    animates (now at 30 fps, it was 60), and so does the background art if
+    that is on. Someone who turns on a setting with "battery" in the name
+    and watches a canvas keep drawing will reasonably call that broken.
+    Checked before writing this, and deliberately not changed: widening a
+    setting past what its own help text promises is a design decision.
+    Recommendation: make it a third input to the motion resolution the two
+    generative pictures already share, beside Reduce motion and Performance
+    mode (see `startArt` in dashboard.js and `startBgArt` in settings.js,
+    both fixed to read those two on 2026-09-19), and extend the help text to
+    say "and pause the moving artwork". One line each.
+    **Taken, 2026-09-19.** `batteryModeOn()` in app.js (the first script the
+    page loads, and `prefsCache` is its own) is now a third input to both
+    `startArt` and `startBgArt`, and "moving" does not override it, for the
+    same reason it does not override Performance mode: both are statements
+    about what the machine should be spending rather than preferences about
+    motion. The toggle also restarts the two pictures itself, since
+    `setPreference` writes the server and a setting about power that takes
+    effect on the next load is the wrong half of "immediately". Both help
+    texts name the two pictures.
+    Measured off the art canvas's own pixels, not the first p5 canvas on the
+    page, which is a hidden lock-screen emblem that never moves and cost one
+    wrong reading: off MOVING, on STILL, off again MOVING
+    (`scratchpad/ui-sweeps/batterymotion.js`). The preference is stored
+    server-side and survives a run, so that sweep sets it off before it
+    starts; not doing so cost a second wrong reading.
+

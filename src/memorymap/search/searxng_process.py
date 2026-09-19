@@ -19,6 +19,7 @@ import subprocess
 import time
 from pathlib import Path
 
+from memorymap.core.subproc import NO_WINDOW
 from memorymap.search import searxng_manager, websearch
 from memorymap.search.searxng_install import _install_state, is_checkout
 from memorymap.search.searxng_manager import (
@@ -166,6 +167,7 @@ def _start_source(data_dir: Path) -> dict:
             stdout=handle,
             stderr=subprocess.STDOUT,
             start_new_session=True,
+            creationflags=NO_WINDOW,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise SearxngError(f"Couldn't start SearXNG: {exc}") from exc

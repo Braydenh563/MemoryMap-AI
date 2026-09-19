@@ -16,6 +16,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from memorymap.core.subproc import NO_WINDOW
 from memorymap.search import searxng_manager, websearch
 from memorymap.search.searxng_manager import (
     START_TIMEOUT,
@@ -67,6 +68,7 @@ def docker_available() -> bool:
             text=True,
             timeout=DAEMON_PROBE_TIMEOUT,
             check=False,
+            creationflags=NO_WINDOW,
         )
     except (OSError, subprocess.SubprocessError):
         return False

@@ -37,6 +37,7 @@ import sys
 from pathlib import Path
 
 from memorymap.core import jobs
+from memorymap.core.subproc import NO_WINDOW
 
 logger = logging.getLogger("memorymap.ocr")
 
@@ -455,7 +456,11 @@ def attempt_binary_install(timeout: int = BINARY_INSTALL_TIMEOUT) -> tuple[bool,
     for attempt in attempts:
         try:
             result = subprocess.run(  # noqa: S603  # fixed args from the table above, no shell
-                attempt, capture_output=True, text=True, timeout=timeout
+                attempt,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                creationflags=NO_WINDOW,
             )
         except FileNotFoundError:
             continue  # `sudo` itself isn't installed: fall through to the bare command

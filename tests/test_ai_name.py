@@ -89,7 +89,10 @@ def test_the_name_did_not_cost_the_prompt_budget():
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
 #: Vendored code is not this app's copy.
 COPY_FILES = sorted(p for p in FRONTEND.glob("*.js")) + [FRONTEND / "index.html"]
-THE_AI = re.compile(r"\b[Tt]he AI\b")
+#: `\s+`, not a space: two of the three hits this lint found on its first run
+#: were a line wrap, "reaches the\n    AI's instructions", which a literal
+#: space would have walked straight past in exactly the copy a person reads.
+THE_AI = re.compile(r"\b[Tt]he\s+AI\b")
 
 
 def _js_string_bodies(source: str) -> list[tuple[int, str]]:

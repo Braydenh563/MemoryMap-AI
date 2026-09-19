@@ -4298,8 +4298,14 @@ async function wbMapJoinByLink(source, target) {
 function wbMapOpenReference(d) {
   const refId = d.data?.ref_id;
   if (!refId) return;
-  if (d.kind === "note" && typeof openEntryEditor === "function") {
-    openEntryEditor(refId);
+  //: `flashEntry` is the app's one door to a note: it switches to Notes,
+  //: puts the "browse" sub-tab up, clears the filters that would hide the
+  //: target, and scrolls to the card. This named `openEntryEditor`, which no
+  //: file defines, and the `typeof` guard meant the failure was silent: a
+  //: double-click on a note node fell through to the "open it from the
+  //: Library" toast, which is the message for the kinds that have no door.
+  if (d.kind === "note" && typeof flashEntry === "function") {
+    flashEntry(refId);
     return;
   }
   if (d.kind === "document" && typeof openDocument === "function") {

@@ -17436,6 +17436,66 @@ async function composeDraft() {
   }
 }
 
+//: **Name the draft.** `POST /drafts/title` shipped with the writing room
+//: and had no caller anywhere: the model could name a finished draft and
+//: nothing ever asked it to. A note's title in this app is its leading
+//: `# Heading` (see `withTitle`), which is the one part of a long draft
+//: nobody writes, and the capture box has a title field while this panel
+//: never did.
+//:
+//: Undoable like every other pass here, for the reason `pushDraftUndo`
+//: carries at length: handing your writing to the model is never a one-way
+//: door. An existing heading is replaced rather than stacked, because
+//: pressing this twice must not leave two of them.
+async function suggestDraftTitle() {
+  const box = $("draft-text");
+  const status = $("draft-status");
+  const button = $("draft-title");
+  const draft = box.value.trim();
+  if (!draft) {
+    status.classList.add("error");
+    status.textContent = "Write a draft first, then it has something to name.";
+    return;
+  }
+  button.disabled = true;
+  status.classList.remove("error");
+  status.textContent = "Thinking of a title…";
+  try {
+    const body = await apiJson("/drafts/title", {
+      method: "POST",
+      body: JSON.stringify({ draft }),
+    });
+    const title = (body.title || "").trim();
+    //: The route answers `""` rather than an error when the model is not
+    //: running or its answer was not a title (too long, too many words: see
+    //: `drafter.suggest_title`). That is a real answer and it gets a real
+    //: sentence, not a thrown error.
+    if (!title) {
+      status.classList.add("error");
+      status.textContent = "Couldn't think of a title for this one. The AI may not be running.";
+      return;
+    }
+    pushDraftUndo();
+    box.value = draftWithHeading(box.value, title);
+    updateDraftCount();
+    saveDraftLocally();
+    status.textContent = `Titled "${title}". Undo puts it back.`;
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+//: The draft with `title` as its leading `# Heading`: replacing the one it
+//: already has, or put in front of it with the blank line markdown needs
+//: between a heading and its first paragraph.
+function draftWithHeading(draft, title) {
+  const rest = draft.replace(/^\s*#\s+[^\n]*\n*/, "");
+  return `# ${title}\n\n${rest.replace(/^\n+/, "")}`;
+}
+
 async function saveDraftAsNote() {
   const content = $("draft-text").value.trim();
   const status = $("draft-status");
@@ -37542,6 +37602,7 @@ $("draft-compose").addEventListener("click", composeDraft);
 $("draft-undo").addEventListener("click", undoDraft);
 $("draft-cancel").addEventListener("click", cancelDraft);
 $("draft-save").addEventListener("click", saveDraftAsNote);
+$("draft-title").addEventListener("click", suggestDraftTitle);
 $("draft-extract").addEventListener("click", () => openExtractPreview($("draft-text").value));
 $("extract-close").addEventListener("click", closeExtractPreview);
 $("extract-cancel").addEventListener("click", closeExtractPreview);

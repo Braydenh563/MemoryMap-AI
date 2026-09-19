@@ -1178,6 +1178,13 @@
                   placeholder="Optional, comma separated (e.g. joke, work)">
               </div>
               <div class="row draft-controls draft-actions-row">
+                <!-- `POST /drafts/title` shipped with the writing room and
+                     had no caller: the model could name a finished draft and
+                     nothing ever asked it to. A note's title in this app is
+                     its leading `# Heading`, which is the one part of a long
+                     draft nobody writes. -->
+                <button id="draft-title" data-needs-model="Naming a draft needs the local AI" class="ghost" type="button"
+                  title="Let Atlas name this draft, as its heading"><i class="ph ph-text-h ph-lead" aria-hidden="true"></i> Suggest a title</button>
                 <button id="draft-extract" data-needs-model="Extracting notes needs the local AI" class="ghost" type="button"
                   title="Split this into one or more notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
                 <button id="draft-discard" class="ghost" type="button">Discard</button>

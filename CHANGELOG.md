@@ -18,6 +18,14 @@ below). Versioning is `0.x` while the app stabilises.
   night pass on demand and says what it found. The backend for all of this
   shipped on 2026-09-13 and nothing in the app had ever called it.
 
+- "Suggest a title" in the Writing Room. A note's title in this app is its
+  leading `# Heading`, which is the one part of a long draft nobody writes,
+  and the capture box has a title field while the Writing Room never did.
+  `POST /drafts/title` shipped with that panel and had no caller: the model
+  could name a finished draft and nothing ever asked it to. Undoable like
+  every other pass there, and pressing it twice replaces the heading rather
+  than stacking a second one.
+
 - Settings, About now shows what the search can actually see: how many notes,
   documents and files are in the index, and whether the meaning-based half is
   loaded. `GET /search/stats` says in its own docstring that the Settings page

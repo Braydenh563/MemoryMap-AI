@@ -114,44 +114,50 @@ for (const [shape, table] of Object.entries(SHAPES)) {
   }
   if (!parsed) continue;
 
-  // 3. Writing a cell back as it already reads changes nothing at all.
+  // 3. Every cell's span is the cell's own bytes and nobody else's, which is
+  //    what the caret rides on: `docTableGo` selects `span.from + lead` to
+  //    `span.to - tail` after every Tab, so a span off by one puts the next
+  //    keystroke in the neighbouring column.
+  //
+  //    This replaces three sections that went through a `docTableSetCellEdits`
+  //    writer. Nothing in the app ever called it: a cell is edited by typing
+  //    into the source line, the way every other character in the document is,
+  //    and the only programmatic write the editor makes is the ghost-cell fill
+  //    in section 7. Testing a writer no feature used meant the byte-exactness
+  //    promise was demonstrated against a path a person could not reach.
   for (let row = 0; row < parsed.rows.length; row += 1) {
-    if (row === parsed.delim) continue;
     for (let col = 0; col < parsed.rows[row].cells.length; col += 1) {
-      const same = docTableSetCellEdits(parsed, row, col, docTableCellText(parsed, row, col));
-      check(`${shape}/set-same-${row}-${col}`, same.length === 0, JSON.stringify(same));
+      const span = docTableCellSpan(parsed, row, col);
+      check(`${shape}/cell-span-${row}-${col}`,
+        span && text.slice(span.from, span.to) === parsed.rows[row].cells[col],
+        span ? JSON.stringify(text.slice(span.from, span.to)) : "no span");
+    }
+    //: Adjacent spans are separated by exactly the one pipe between them, so
+    //: no cell can swallow its neighbour's padding.
+    for (let col = 1; col < parsed.rows[row].cells.length; col += 1) {
+      const prev = docTableCellSpan(parsed, row, col - 1);
+      const here = docTableCellSpan(parsed, row, col);
+      check(`${shape}/cell-gap-${row}-${col}`,
+        prev && here && text.slice(prev.to, here.from) === "|",
+        prev && here ? JSON.stringify(text.slice(prev.to, here.from)) : "no span");
     }
   }
 
-  // 4. Edit a cell and edit it back: the document is the original, byte for
-  //    byte, including the padding around every other cell.
+  // 4. The caret lands inside the cell it was sent to, for every cell: the
+  //    lead/tail trim `docTableGo` applies must stay within the span.
   for (let row = 0; row < parsed.rows.length; row += 1) {
-    if (row === parsed.delim) continue;
     for (let col = 0; col < parsed.rows[row].cells.length; col += 1) {
-      const was = docTableCellText(parsed, row, col);
-      const edited = docTableApplyEdits(text, docTableSetCellEdits(parsed, row, col, "edited value"));
-      const reparsed = docTableParse(edited, at);
-      check(`${shape}/edit-reparse-${row}-${col}`, !!reparsed, "the edited table no longer parses");
-      if (!reparsed) continue;
-      check(
-        `${shape}/edit-reads-back-${row}-${col}`,
-        docTableCellText(reparsed, row, col) === "edited value",
-        docTableCellText(reparsed, row, col)
-      );
-      const back = docTableApplyEdits(edited, docTableSetCellEdits(reparsed, row, col, was));
-      check(`${shape}/edit-round-trip-${row}-${col}`, back === text, JSON.stringify(back));
+      const span = docTableCellSpan(parsed, row, col);
+      const raw = parsed.rows[row].cells[col];
+      const lead = (/^[ \t]*/.exec(raw) || [""])[0].length;
+      const tail = (/[ \t]*$/.exec(raw) || [""])[0].length;
+      const from = span.from + lead;
+      const to = Math.max(from, span.to - tail);
+      check(`${shape}/caret-inside-${row}-${col}`, from >= span.from && to <= span.to,
+        JSON.stringify([span.from, from, to, span.to]));
+      check(`${shape}/caret-selects-the-value-${row}-${col}`,
+        text.slice(from, to) === raw.trim(), JSON.stringify(text.slice(from, to)));
     }
-  }
-
-  // 5. A pipe typed into a cell stays inside its cell, and reads back as the
-  //    pipe that was typed.
-  {
-    const withPipe = docTableApplyEdits(text, docTableSetCellEdits(parsed, 0, 0, "a | b"));
-    const reparsed = docTableParse(withPipe, at);
-    check(`${shape}/pipe-columns`, reparsed && reparsed.columns === parsed.columns,
-      reparsed ? String(reparsed.columns) : "no table");
-    check(`${shape}/pipe-reads-back`, reparsed && docTableCellText(reparsed, 0, 0) === "a | b",
-      reparsed ? docTableCellText(reparsed, 0, 0) : "no table");
   }
 
   // 6. Add a row, remove it again: the original.
@@ -187,11 +193,25 @@ for (const [shape, table] of Object.entries(SHAPES)) {
         String(reparsed.rows[row].cells.length)
       );
       if (!ghost) continue;
-      //: The ghost cell is writable, and writing it appends it for real.
-      const written = docTableApplyEdits(added, docTableSetCellEdits(reparsed, row, parsed.columns, "late"));
+      //: The ghost cell is made real by `docTableFillRowEdits`, which is what
+      //: `docTableGo` calls when Tab sends the caret into a cell the text does
+      //: not have yet. Afterwards the row holds it for real, blank, and the
+      //: table is still the same width.
+      const written = docTableApplyEdits(added, docTableFillRowEdits(reparsed, row, parsed.columns));
       const again = docTableParse(written, at);
-      check(`${shape}/ghost-cell-writable-${row}`, !!again && docTableCellText(again, row, parsed.columns) === "late",
-        again ? docTableCellText(again, row, parsed.columns) : "no table");
+      check(`${shape}/ghost-cell-filled-${row}`,
+        !!again && again.rows[row].cells.length === parsed.columns + 1,
+        again ? String(again.rows[row].cells.length) : "no table");
+      check(`${shape}/ghost-cell-filled-blank-${row}`,
+        !!again && again.rows[row].cells[parsed.columns].trim() === "",
+        again ? JSON.stringify(again.rows[row].cells[parsed.columns]) : "no table");
+      check(`${shape}/ghost-cell-filled-width-${row}`, !!again && again.columns === parsed.columns + 1,
+        again ? String(again.columns) : "no table");
+      //: And filling a cell the row already has is not an edit, so Tab into an
+      //: ordinary cell cannot rewrite the row on the way.
+      check(`${shape}/ghost-cell-fill-is-idempotent-${row}`,
+        !!again && docTableFillRowEdits(again, row, parsed.columns).length === 0,
+        "filling an existing cell produced an edit");
     }
     const back = docTableApplyEdits(added, docTableRemoveColumnEdits(reparsed, afterCol + 1));
     check(`${shape}/col-round-trip-${afterCol}`, back === text, JSON.stringify(back));
@@ -207,8 +227,8 @@ for (const [shape, table] of Object.entries(SHAPES)) {
     check(`${shape}/col-before-added-${col}`, reparsed && reparsed.columns === parsed.columns + 1,
       reparsed ? String(reparsed.columns) : "no table");
     if (!reparsed) continue;
-    check(`${shape}/col-before-named-${col}`, docTableCellText(reparsed, 0, col) === "Column",
-      docTableCellText(reparsed, 0, col));
+    check(`${shape}/col-before-named-${col}`, reparsed.rows[0].cells[col].trim() === "Column",
+      JSON.stringify(reparsed.rows[0].cells[col]));
     const back = docTableApplyEdits(added, docTableRemoveColumnEdits(reparsed, col));
     //: The one documented exception, and it is markdown's rather than the
     //: editor's: a row with no outer pipes cannot hold a blank *first* cell,

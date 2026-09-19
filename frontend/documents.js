@@ -2845,60 +2845,6 @@ function docTableCellSpan(table, row, col) {
   return { from, to: from + line.cells[col].length };
 }
 
-function docTableCellText(table, row, col) {
-  const line = table.rows[row];
-  if (!line || col < 0 || col >= line.cells.length) return "";
-  //: `\|` is a pipe the author escaped; it reads as one.
-  return line.cells[col].trim().replace(/\\\|/g, "|");
-}
-
-//: A cell's value on the way back in. A raw pipe would end the cell and a
-//: newline would end the row, so both are neutralised rather than allowed to
-//: rewrite the table's shape from inside one of its cells.
-function docTableCellEscape(value) {
-  return String(value == null ? "" : value)
-    .replace(/\r?\n/g, " ")
-    .replace(/\\\|/g, "|")
-    .replace(/\|/g, "\\|");
-}
-
-//: The padding the cell already had is the padding it keeps: this is the
-//: whole byte-exactness promise in one function. A cell that was blank is
-//: given one space each side, which is what a person types into `| |`.
-function docTableSetCellEdits(table, row, col, value) {
-  const line = table.rows[row];
-  if (!line) return [];
-  //: **A cell the row does not have yet.** GFM lets a body row carry fewer
-  //: cells than the header and pads the rest as empty, so the last column of
-  //: a ragged table is a cell you can see in the rendered table and cannot
-  //: find in the text. Writing to it appends it rather than doing nothing,
-  //: which is the silent-refusal shape this codebase keeps recording.
-  if (col >= line.cells.length) {
-    if (col >= table.columns) return [];
-    const last = docTableCellSpan(table, row, line.cells.length - 1);
-    const at = line.trail ? last.to : line.to;
-    let insert = "";
-    for (let i = line.cells.length; i < col; i += 1) insert += `|${docTableColumnPad(table, i, "")}`;
-    const body = docTableCellEscape(value);
-    insert += `| ${body} `;
-    //: A blank cell with nothing after it is not a cell: GFM drops a row's
-    //: optional trailing pipe and anything after the last one, so the row
-    //: would come back one cell short of its header.
-    if (!line.trail && !body.trim()) insert += "|";
-    return [{ from: at, to: at, insert }];
-  }
-  const span = docTableCellSpan(table, row, col);
-  if (!span) return [];
-  const raw = line.cells[col];
-  const parts = /^([ \t]*)([\s\S]*?)([ \t]*)$/.exec(raw);
-  const blank = !raw.trim();
-  const pre = blank ? (raw.length ? " " : "") : parts[1];
-  const post = blank ? (raw.length ? " " : "") : parts[3];
-  const insert = pre + docTableCellEscape(value) + post;
-  if (insert === raw) return [];
-  return [{ from: span.from, to: span.to, insert }];
-}
-
 //: The width a *new* cell in this column is written at. A table whose column
 //: is already one width everywhere is a table somebody has been keeping
 //: aligned by hand, and a new row that breaks the alignment is a new row they
@@ -2970,8 +2916,8 @@ function docTableAddColumnEdits(table, anchorCol, before = false) {
     else body = docTableColumnPad(table, sample, "");
     //: A body row that cannot hold a blank final cell is left alone: GFM pads
     //: a short row out to the header's width, so the column is there in the
-    //: rendered table, and writing into it (`docTableSetCellEdits`) appends
-    //: it for real. Inserting whitespace GFM is going to drop would put bytes
+    //: rendered table, and `docTableFillRowEdits` appends it for real when
+    //: Tab sends the caret into it. Inserting whitespace GFM is going to drop would put bytes
     //: in the file that nothing in the editor could ever reach again.
     //: Inserting *before* a cell needs no such care: the new cell has a real
     //: one after it, so nothing can drop it, and the pipe goes on its right.
@@ -3037,7 +2983,9 @@ function docTableFillRowEdits(table, row, upto) {
   let insert = "";
   for (let col = line.cells.length; col <= upto; col += 1) insert += `|${docTableColumnPad(table, col, "")}`;
   //: A blank cell at the end of a row with no trailing pipe is not a cell:
-  //: see `docTableSetCellEdits`.
+  //: GFM drops a row's optional trailing pipe and everything after the last
+  //: one, so the row would come back one cell short of its header. The pipe
+  //: is what makes the cell exist in the text rather than only in the render.
   if (!line.trail) insert += "|";
   return [{ from: at, to: at, insert }];
 }
@@ -3649,21 +3597,6 @@ function docFrontmatterStrip(text) {
   return String(text).slice(fm.textFrom).replace(/^\n+/, "");
 }
 
-//: Every property as `{key, kind, value, items}`, which is what the panel and
-//: the Library's filter both read. Kept beside the parse rather than derived
-//: at each call site, so the two cannot come to disagree about what a value
-//: is.
-function docFrontmatterFields(text) {
-  const fm = docFrontmatterParse(text);
-  if (!fm) return [];
-  return fm.entries.map((entry) => ({
-    key: entry.key,
-    kind: entry.kind,
-    value: entry.kind === "list" ? "" : entry.value.text,
-    items: entry.items.map((item) => item.text),
-  }));
-}
-
 // DOC-FRONTMATTER-END
 
 // -----------------------------------------------------------------------------
@@ -4062,11 +3995,6 @@ function docColumnsBlocks(text) {
 //: fences, because the caret being on the `:::` line is being in the block.
 function docColumnsAt(text, offset) {
   return docColumnsBlocks(text).find((block) => offset >= block.from && offset <= block.to) || null;
-}
-
-//: The text a `/` command inserts: two columns, the caret meant for the first.
-function docColumnsTemplate() {
-  return "\n:::columns\n\n:::column\n\n:::\n";
 }
 
 //: An image's `|`-separated options, by shape rather than by position.
@@ -6782,7 +6710,7 @@ function applyMarkdown(kind, boxId = "doc-content") {
   }
   if (action.custom === "table") {
     //: Blank cells with their outer pipes, so every one of them is a cell GFM
-    //: can see (`docTableSetCellEdits` carries the reason a blank last cell
+    //: can see (`docTableFillRowEdits` carries the reason a blank last cell
     //: without a trailing pipe is not a cell at all).
     const table = "\n| Column | Column | Column |\n| --- | --- | --- |\n|  |  |  |\n|  |  |  |\n";
     box.value = value.slice(0, start) + table + value.slice(end);

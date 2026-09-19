@@ -212,28 +212,6 @@ with its owner named in the entry.
     cleaned etc, all the agent branches are merged into this one etc, merge
     this pr for me." Owner: orchestrator; the merge is the last act.
 
-256. **Found by scan, 2026-09-19 (the session, not the owner).** Four
-    top-level helpers in `documents.js` are called by nothing in
-    `frontend/` and only by tests: `docTableCellText` and
-    `docTableSetCellEdits` (the live table writes through
-    `docTableApplyEdits`/`docTableCellSpan` instead), `docFrontmatterFields`
-    (the properties panel and the Library filter iterate `fm.entries`
-    directly, which is the duplication that function's own comment says it
-    exists to prevent), and `docColumnsTemplate` (`MD_ACTIONS.columns`
-    carries a different template, and that is the one the `/` menu inserts).
-    So four tests are passing against code the app never runs, and two of
-    them assert a shape the app does not produce.
-    Recommendation: point each test at the function the app actually calls,
-    then delete the helper, in that order, so the coverage moves rather than
-    disappears. `docFrontmatterFields` is the one worth keeping and *using*
-    instead, since its comment is right about the drift. Found with the
-    scan in `tests/test_frontend_symbols.py`, extended to report definitions
-    with no callers.
-    Two more were dead with no test at all and are deleted (2b94271's
-    follow-up): `scrollPageToTop` in app.js, superseded by the back-to-top
-    button's own handler, which also knows about chat's "to bottom" mode,
-    and `gcShade` in graph-canvas.js.
-
 257. **Found by scan, 2026-09-19 (the session, not the owner).** Eighty
     class names are written by `frontend/*.js` (`classList.add`,
     `className =`, `.attr("class", ...)`) that no stylesheet declares and no

@@ -9,6 +9,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Four helpers in `documents.js` that no feature called are gone, and the
+  tests that covered them now cover what the app runs instead. The table pair
+  demonstrated byte-exact cell writes through a writer nothing reached (a cell
+  is edited by typing into the source line); the columns test asserted a
+  template the "/" menu does not insert; the frontmatter one asserted a
+  flattened shape the properties panel never sees. About 120 lines of
+  documents.js and three test sections, replaced by checks on cell spans,
+  the caret the Tab key computes, the ghost-cell fill the editor really calls,
+  and the columns string read straight out of `MD_ACTIONS`.
+
 - A keyboard user is told what the dashboard's activity heatmap is. The grid
   scrolls horizontally, and Chromium gives every scroll container a tab stop
   so it can be scrolled with the arrow keys, so Tab landed on a bare `div`

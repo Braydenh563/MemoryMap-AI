@@ -29777,3 +29777,47 @@ told to open first.
     The other surfaces this item's first sentence asks for ("a full ux sweep"
     of the whole app) are the orchestrator's own, surface by surface, and are
     not claimed here.
+## INBOX resolved, 2026-09-19
+
+256. **Found by scan, 2026-09-19 (the session, not the owner).** Four
+    top-level helpers in `documents.js` are called by nothing in
+    `frontend/` and only by tests: `docTableCellText` and
+    `docTableSetCellEdits` (the live table writes through
+    `docTableApplyEdits`/`docTableCellSpan` instead), `docFrontmatterFields`
+    (the properties panel and the Library filter iterate `fm.entries`
+    directly, which is the duplication that function's own comment says it
+    exists to prevent), and `docColumnsTemplate` (`MD_ACTIONS.columns`
+    carries a different template, and that is the one the `/` menu inserts).
+    So four tests are passing against code the app never runs, and two of
+    them assert a shape the app does not produce.
+    Recommendation: point each test at the function the app actually calls,
+    then delete the helper, in that order, so the coverage moves rather than
+    disappears. `docFrontmatterFields` is the one worth keeping and *using*
+    instead, since its comment is right about the drift. Found with the
+    scan in `tests/test_frontend_symbols.py`, extended to report definitions
+    with no callers.
+    **Fixed**, coverage moved first and the helpers deleted after. The table
+    pair took three whole test sections with them, all of which demonstrated
+    byte-exact cell writes through a writer no feature reached: a cell is
+    edited by typing into the source line. In their place the same shapes now
+    prove what the editor does rely on, that every cell span is exactly its
+    own bytes with one pipe between neighbours, and that the caret
+    `docTableGo` computes lands inside the cell it was sent to; the ghost-cell
+    check now calls `docTableFillRowEdits`, which is the one programmatic
+    write the editor makes, and gained an idempotence check so Tab into an
+    ordinary cell cannot rewrite its row. Columns asserts against the string
+    `MD_ACTIONS.columns` really inserts, read out of documents.js by the test
+    rather than restated in it; proved it fails by breaking that string
+    (three findings). Frontmatter asserts the `fm.entries` shape the panel is
+    handed.
+    Against the recommendation on one point, deliberately: `docFrontmatterFields`
+    is deleted rather than adopted. A helper that keeps two callers from
+    drifting apart is worth its indirection; this one had none, because the
+    Library has no property filter and the panel reads `fm.entries` directly,
+    so adopting it would have added a layer to serve a single call site on the
+    strength of a second one its comment had invented.
+    Two more were dead with no test at all and are deleted (2b94271's
+    follow-up): `scrollPageToTop` in app.js, superseded by the back-to-top
+    button's own handler, which also knows about chat's "to bottom" mode,
+    and `gcShade` in graph-canvas.js.
+

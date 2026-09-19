@@ -10681,13 +10681,18 @@ function filedByText(saved) {
     case "semantic-match":
       return `Filed under “${saved.category}” (${saved.ai_confidence}% sure): matched by meaning, no AI call needed`;
     case "llm":
-      return `Filed under “${saved.category}” (${saved.ai_confidence}% sure): decided by ${
-        (modelStatus && modelStatus.chat_model) || "the chat model"
+      //: **"Atlas, running qwen2.5:7b"**, the form the owner's own decision
+      //: names (INBOX 225): the librarian's name is what the app calls
+      //: itself, and the model's name stays beside it, because "which model
+      //: decided this" is the question this line exists to answer and a
+      //: persona name alone would stop answering it.
+      return `Filed under “${saved.category}” (${saved.ai_confidence}% sure): decided by ${aiNameNow()}${
+        modelStatus && modelStatus.chat_model ? `, running ${modelStatus.chat_model}` : ""
       }`;
     case "user":
-      return `Filed under “${saved.category}”: your choice, the AI stayed out of it`;
+      return `Filed under “${saved.category}”: your choice, ${aiNameNow()} stayed out of it`;
     default:
-      return `Saved as “${saved.category}”: the AI wasn't available to file it`;
+      return `Saved as “${saved.category}”: ${aiNameNow()} wasn't available to file it`;
   }
 }
 

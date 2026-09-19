@@ -167,6 +167,22 @@ with its owner named in the entry.
     copy sweep where the app speaks as the librarian ("Atlas filed this
     under Work", the chat empty state, Settings, Models "Atlas, running
     <model>"), one grep for "the AI" in app.js.
+    **2026-09-19, all three checked, one already built, one done.** The chat
+    empty state was already built: it reads "Explore your notebook with
+    Atlas" from `aiNameNow()` (app.js, `chat-empty`), so that line of this
+    entry was stale. `filedByText` is done: the three branches that spoke of
+    "the AI" name Atlas now, and the `llm` branch keeps the model beside the
+    name in the form this entry's own decision asks for, since "which model
+    decided this" is the question that line exists to answer. Rendered from
+    the shipped function: "decided by Atlas, running qwen2.5:7b", "your
+    choice, Atlas stayed out of it", "Atlas wasn't available to file it",
+    and "decided by Atlas" when no model is known.
+    **Still open: Settings, Models.** Its heading is "Chat model (answers
+    your questions: switches instantly)"; putting "Atlas, running <model>"
+    there changes how that screen reads rather than swapping a string, and
+    it wants the live screen and a look at the copy around it. Also still
+    open: the wider grep for "the AI", 125 hits across five files, mostly
+    comments, so it needs reading rather than replacing.
 
 220. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the docs
     and how to proceed.** "make sure all the other docs like architecture.md

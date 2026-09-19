@@ -13258,6 +13258,29 @@ function docCmTheme(CM) {
       ".cm-md-strong": { fontWeight: "700" },
       ".cm-md-em": { fontStyle: "italic" },
       ".cm-md-strike": { textDecoration: "line-through", opacity: "0.65" },
+      //: **The three tinted inlines wrap as whole chips, not as a chip cut in
+      //: half.** Reported (INBOX 232): "link chips wrap oddly". `box-
+      //: decoration-break` defaults to `slice`, which lays the background,
+      //: the rounded corners and the horizontal padding out once across the
+      //: whole run and then cuts it at the line break: the fragment that ends
+      //: a line has a flat right edge and no padding after its last letter,
+      //: and the fragment that starts the next one is flush against the
+      //: column's left margin with no padding and no rounding. Measured at
+      //: 390px on a document of wiki links: three of nine chips broke that
+      //: way, the second fragment starting at x=10, the column's own edge.
+      //:
+      //: `clone` gives every fragment the whole decoration, so a wrapped chip
+      //: reads as two chips rather than as one broken one. The `-webkit-`
+      //: spelling is the one Chromium still implements, so both are set and
+      //: the standard name is second, to win where it is supported.
+      //:
+      //: All three, not just the wiki link: inline code and a highlight are
+      //: the same shape (a tint with a radius and side padding) and break the
+      //: same way, which is why a fix for one of them is a fix for the class.
+      ".cm-md-code, .cm-md-highlight, .cm-md-wiki": {
+        WebkitBoxDecorationBreak: "clone",
+        boxDecorationBreak: "clone",
+      },
       ".cm-md-code": {
         fontFamily: "var(--mono, ui-monospace, monospace)",
         backgroundColor: "var(--field-inset)",

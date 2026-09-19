@@ -5646,9 +5646,57 @@ function docLivePlugin(CM) {
             return false;
           }
           if (name === "FencedCode") {
+            //: **The two fence lines are the block's padding, not two rows of
+            //: it.** Reported with a screenshot: "the md rendering on the live
+            //: view ... especially for codeblocks", a fenced block drawn as a
+            //: dark slab with an empty numbered row above and below the code.
+            //:
+            //: Measured on a four-line Python block: five rows of 26px each,
+            //: two of them empty, so 52 of 130 pixels of the block said
+            //: nothing. That is INBOX 198's doing and INBOX 198 was right: the
+            //: backticks and the language word are syntax, and syntax is what
+            //: this view hides. What it did not do was give the now-empty
+            //: lines a height to match what was left on them, which is
+            //: nothing.
+            //:
+            //: So they keep the tint, since they are part of the block, and
+            //: shrink to the padding a code block would have had anyway. The
+            //: language goes on the opening line as an attribute the theme
+            //: draws in the corner: outside the text flow, so it takes no row,
+            //: and it is the one thing the hidden `” ```python ”` was still
+            //: telling you.
+            const first = doc.lineAt(node.from);
+            const last = doc.lineAt(node.to);
+            const info = node.node.getChild("CodeInfo");
+            const language = info ? doc.sliceString(info.from, info.to).trim() : "";
+            //: With the caret inside the block the real `” ```python ”` is back
+            //: on screen (the `CodeMark`/`CodeInfo` branch above stops hiding
+            //: it), so both of the things below have to stand down with it: a
+            //: half-height row would clip the text that just came back, and
+            //: the corner label would be saying the language a second time
+            //: right next to where it is now written out.
+            const revealed = rangeRevealed(node.from, node.to);
             for (let at = node.from; at <= node.to; ) {
               const line = doc.lineAt(at);
-              ranges.push(Decoration.line({ class: "cm-md-fence" }).range(line.from));
+              const edge =
+                line.from === first.from
+                  ? "cm-md-fence-open"
+                  : line.from === last.from
+                  ? "cm-md-fence-close"
+                  : "";
+              //: The rounded corners are the block's shape and stay whatever
+              //: the caret is doing; only the height and the label are tied to
+              //: whether the row has text on it.
+              const quiet = edge && !revealed ? " cm-md-fence-quiet" : "";
+              ranges.push(
+                Decoration.line({
+                  class: `cm-md-fence${edge ? ` ${edge}` : ""}${quiet}`,
+                  attributes:
+                    edge === "cm-md-fence-open" && language && !revealed
+                      ? { "data-lang": language }
+                      : undefined,
+                }).range(line.from)
+              );
               if (line.to >= node.to) break;
               at = line.to + 1;
             }
@@ -13279,6 +13327,45 @@ function docCmTheme(CM) {
       ".cm-md-fence": {
         fontFamily: "var(--mono, ui-monospace, monospace)",
         backgroundColor: "var(--field-inset)",
+      },
+      //: The opening and closing fence rows. Their text is hidden (INBOX
+      //: 198), so a full line-height row of it is 26px of nothing at each end
+      //: of every code block; these give them the height of padding instead,
+      //: and round the block's own corners so five tinted rows read as one
+      //: slab. `position: relative` is the anchor for the language label
+      //: below.
+      ".cm-md-fence-open, .cm-md-fence-close": {
+        position: "relative",
+      },
+      //: Only while the row has nothing on it. With the caret inside the
+      //: block its `” ``` ”` is back, and half a line of height would clip it.
+      ".cm-md-fence-quiet": {
+        height: "0.5em",
+      },
+      ".cm-md-fence-open": {
+        borderTopLeftRadius: "var(--radius-sm, 6px)",
+        borderTopRightRadius: "var(--radius-sm, 6px)",
+      },
+      ".cm-md-fence-close": {
+        borderBottomLeftRadius: "var(--radius-sm, 6px)",
+        borderBottomRightRadius: "var(--radius-sm, 6px)",
+      },
+      //: The block's language, in the corner rather than on a line of its
+      //: own: it is a label for the block, the same relationship
+      //: `.cm-md-callout-label` has to a callout, and the whole point of this
+      //: change is that the block stops spending rows on things that are not
+      //: code. `user-select: none` and `pointer-events: none` so a drag
+      //: across the block selects the code and not the word "python".
+      ".cm-md-fence-open[data-lang]::after": {
+        content: "attr(data-lang)",
+        position: "absolute",
+        right: "0.6em",
+        top: "0",
+        fontSize: "0.7em",
+        lineHeight: "1.6",
+        color: "var(--muted)",
+        userSelect: "none",
+        pointerEvents: "none",
       },
       //: A rule whose own `---` is hidden is an empty line, and an empty line
       //: with a bottom border is a hairline sitting on the baseline of nothing.

@@ -47,8 +47,135 @@ logger = logging.getLogger("memorymap.ocr")
 #: feature doesn't pull in) before Tesseract could see anything at all.
 OCR_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"})
 
+#: Where the Windows installers put `tesseract.exe` when they do not put
+#: it on PATH. Each entry is (environment variable, the rest of the path).
+#: The UB-Mannheim build, which is the one INSTALL.md points at, offers an
+#: "install for me only" mode that needs no administrator and lands under
+#: LOCALAPPDATA; that is the mode most people end up in, and the one whose
+#: installer never touches the machine PATH.
+_WINDOWS_TESSERACT_DIRS = (
+    ("ProgramFiles", ("Tesseract-OCR",)),
+    ("ProgramFiles(x86)", ("Tesseract-OCR",)),
+    ("LOCALAPPDATA", ("Programs", "Tesseract-OCR")),
+    ("LOCALAPPDATA", ("Tesseract-OCR",)),
+    ("ProgramW6432", ("Tesseract-OCR",)),
+)
+
+#: The registry keys the same installers write, whatever directory was
+#: chosen. Checked before the fixed directories above, since this one is
+#: right even for a custom install path.
+_WINDOWS_TESSERACT_KEYS = (
+    ("HKEY_LOCAL_MACHINE", r"SOFTWARE\Tesseract-OCR"),
+    ("HKEY_CURRENT_USER", r"SOFTWARE\Tesseract-OCR"),
+)
+
+
+def _registry_tesseract_dir() -> Path | None:
+    """The install directory Tesseract's own installer recorded, if any.
+
+    Tried before the fixed Program Files guesses because it is the only
+    source that survives someone choosing a different folder. Everything
+    here is best effort: `winreg` does not exist off Windows, the key does
+    not exist unless Tesseract was installed by its installer, and a value
+    that is there but points nowhere is treated as absent.
+    """
+    try:
+        import winreg  # noqa: PLC0415  # Windows-only, imported where it is used
+    except ImportError:
+        return None
+    for root_name, subkey in _WINDOWS_TESSERACT_KEYS:
+        root = getattr(winreg, root_name, None)
+        if root is None:
+            continue
+        try:
+            with winreg.OpenKey(root, subkey) as key:
+                for value_name in ("Path", "InstallDir", ""):
+                    try:
+                        value, _kind = winreg.QueryValueEx(key, value_name)
+                    except OSError:
+                        continue
+                    if value and Path(value).is_dir():
+                        return Path(value)
+        except OSError:
+            continue
+    return None
+
+
+@functools.lru_cache(maxsize=1)
+def _probe_windows_tesseract() -> Path | None:
+    """Find `tesseract.exe` where the installer leaves it when PATH misses it.
+
+    Reported directly: "Tesseract installed but not recognised". The
+    Windows installers do not reliably add their own directory to PATH, and
+    the per-user mode never does, so `shutil.which` says "not installed"
+    about a binary sitting in a standard place. Answering "install it
+    again" to someone who already has it is the worst version of this.
+
+    Cached: an install that happens while the app is running is picked up
+    by `attempt_binary_install`, which clears this, and every other caller
+    is a status poll that would otherwise stat the same four directories
+    forever.
+    """
+    candidates = []
+    from_registry = _registry_tesseract_dir()
+    if from_registry is not None:
+        candidates.append(from_registry)
+    for env_var, parts in _WINDOWS_TESSERACT_DIRS:
+        root = os.environ.get(env_var, "")
+        if root:
+            candidates.append(Path(root).joinpath(*parts))
+    for directory in candidates:
+        binary = directory / "tesseract.exe"
+        if binary.is_file():
+            return binary
+    return None
+
+
+def _adopt_tesseract(binary: Path) -> None:
+    """Make one found-off-PATH binary usable by everything that looks later.
+
+    Two places have to agree, and neither is reached by simply returning
+    True from `tesseract_available`:
+
+    * `pytesseract` runs `tesseract` by bare name through its own
+      `subprocess`, so it needs `tesseract_cmd` pointed at the real file or
+      the very next call fails with the error this function exists to
+      prevent.
+    * `shutil.which`, which `tesseract_available` itself asks first and
+      `attempt_binary_install` asks again after an install, plus anything
+      else on this process's PATH.
+
+    Both are idempotent: the PATH entry is added once, and re-pointing
+    `tesseract_cmd` at the same file costs nothing.
+    """
+    directory = str(binary.parent)
+    path = os.environ.get("PATH", "")
+    if directory not in path.split(os.pathsep):
+        os.environ["PATH"] = f"{path}{os.pathsep}{directory}" if path else directory
+        logger.info("found tesseract at %s, which PATH did not mention", binary)
+    try:
+        import pytesseract  # noqa: PLC0415  # optional extra, imported where it is used
+    except ImportError:
+        return  # the binary is there, the Python wrapper is the other half
+    pytesseract.pytesseract.tesseract_cmd = str(binary)
+
+
 def tesseract_available() -> bool:
-    return shutil.which("tesseract") is not None
+    """Whether the `tesseract` binary is reachable from this process.
+
+    PATH first, since that is the answer on every platform where the
+    package manager installed it. Windows gets a second look in the places
+    its installers actually use, and adopts what it finds so that
+    `pytesseract` and every later `shutil.which` see it too.
+    """
+    if shutil.which("tesseract") is not None:
+        return True
+    if sys.platform == "win32":
+        binary = _probe_windows_tesseract()
+        if binary is not None:
+            _adopt_tesseract(binary)
+            return True
+    return False
 
 
 def _one_thread_for_tesseract() -> None:
@@ -467,6 +594,11 @@ def attempt_binary_install(timeout: int = BINARY_INSTALL_TIMEOUT) -> tuple[bool,
         except subprocess.TimeoutExpired:
             last_error = f"{attempt[0]} timed out after {timeout}s"
             continue
+        # The install just changed the filesystem the probe cached an answer
+        # about, and on Windows the installer it ran is exactly the one that
+        # may not touch PATH, so the confirmation below has to be allowed to
+        # look again rather than repeat a stale "not there".
+        _probe_windows_tesseract.cache_clear()
         if result.returncode == 0 and tesseract_available():
             return True, "Tesseract installed."
         tail = (result.stderr or result.stdout or "").strip().splitlines()

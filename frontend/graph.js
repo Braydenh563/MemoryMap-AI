@@ -460,6 +460,8 @@ function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial) {
     spanY * scale <= height - 20
       ? height / 2 - scale * (minY + maxY) / 2
       : 10 - scale * minY;
+  //: Same rule as `fitGraphToView`: see the note beside its own check.
+  if (!graphMinimapFinite(tx, ty, scale)) return;
   svg
     .transition()
     .duration(400)
@@ -3051,6 +3053,18 @@ function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height) {
   const scale = Math.max(0.25, Math.min(2.5, rawScale));
   const tx = width / 2 - scale * (minX + maxX) / 2;
   const ty = height / 2 - scale * (minY + maxY) / 2;
+  //: **A transform is never built out of a number that is not one.** This is
+  //: the app's own producer of the zoom transform, and d3 stores what it is
+  //: handed: one NaN here becomes a NaN `k`, `x` and `y` on the node, and
+  //: every later reader of it (the minimap's viewport rectangle, the zoom
+  //: strip, a saved view) reads NaN out again, for as long as the person
+  //: stays on the tab. `Math.max(0.25, Math.min(2.5, NaN))` is NaN, so the
+  //: clamps above are not the guard they look like: `Math.min` and
+  //: `Math.max` propagate NaN rather than clamping it away, which is how an
+  //: undefined width or a node with no position reaches this line looking
+  //: clamped. Skipping the fit leaves the camera where it is, which is what
+  //: a fit that cannot be computed should do.
+  if (!graphMinimapFinite(tx, ty, scale)) return;
   svg
     .transition()
     .duration(500)
@@ -4275,6 +4289,15 @@ function graphMinimapPaint() {
   graphMinimapFrame();
 }
 
+//: Every number that reaches an SVG attribute goes through here first. Named
+//: rather than inlined because it is checked in three places in this file and
+//: the shape of the bug it prevents (one NaN, four broken attributes, a
+//: console full of parse errors and a rectangle that vanishes) is the same
+//: every time.
+function graphMinimapFinite(...values) {
+  return values.every((value) => Number.isFinite(value));
+}
+
 //: **The viewport rectangle alone, for a pan.**
 //:
 //: Which part of the map is on screen is the only thing a pan or a zoom
@@ -4297,7 +4320,24 @@ function graphMinimapFrame() {
     return;
   }
   const transform = graphSvg ? d3.zoomTransform(graphSvg.node()) : null;
-  if (!transform || !graphDims.w) return;
+  //: **The guard checks what it reads, all of it.** It used to check
+  //: `graphDims.w` and stop there, which left `graphDims.h` and the whole
+  //: transform unchecked. Measured, intermittently, on a four thousand note
+  //: notebook: 112 console errors in one sweep, `<rect> attribute x: Expected
+  //: length, "NaN"` and the same for y, width and height, twenty-eight times
+  //: over. Captured at the moment of the write, `graphDims` was 800x540 and
+  //: every node position was finite; `d3.zoomTransform` itself held NaN in
+  //: `k`, `x` and `y`, and `invert` on a NaN transform is NaN, which lands in
+  //: four attributes at once. d3 stores whatever transform it is handed and
+  //: has no opinion about NaN, so a reader has to have one.
+  //:
+  //: `fitGraphToView` below refuses to *build* such a transform now, which is
+  //: the producer this app controls. This is the reader's half, and it is
+  //: worth keeping separately: the browser's own zoom gestures write the
+  //: transform too, and a rectangle left where it was beats four attributes
+  //: the SVG cannot parse.
+  if (!transform || !graphMinimapFinite(transform.k, transform.x, transform.y)) return;
+  if (!graphMinimapFinite(graphDims.w, graphDims.h) || !graphDims.w) return;
   const [x0, y0] = transform.invert([0, 0]);
   const [x1, y1] = transform.invert([graphDims.w, graphDims.h]);
   const [fx0, fy0] = toMini(x0, y0);
@@ -4314,6 +4354,11 @@ function graphMinimapFrame() {
   const clampedY1 = Math.min(GRAPH_MINIMAP_H, Math.max(fy0, fy1));
   const frameW = Math.max(0, clampedX1 - clampedX0);
   const frameH = Math.max(0, clampedY1 - clampedY0);
+  //: Last line of defence, and cheap: `toMini` is a closure over a previous
+  //: paint's extent, so the four numbers above can go non-finite for a reason
+  //: neither guard above can see. Leaving the rectangle where it was is
+  //: always better than writing "NaN" into an attribute.
+  if (!graphMinimapFinite(clampedX0, clampedY0, frameW, frameH)) return;
   frame.setAttribute("x", clampedX0.toFixed(1));
   frame.setAttribute("y", clampedY0.toFixed(1));
   frame.setAttribute("width", frameW.toFixed(1));
@@ -4391,6 +4436,10 @@ function initGraphMinimap() {
   // tracking it. A single click still animates, because a jump that teleports
   // loses you your bearings.
   const centreOn = (cx, cy, scale, animate) => {
+    //: The minimap's own way of writing the transform, and it reads
+    //: `graphDims` and a projected point, so it is guarded for the reason
+    //: `fitGraphToView` is.
+    if (!graphMinimapFinite(graphDims.w, graphDims.h, cx, cy, scale)) return;
     const target = d3.zoomIdentity
       .translate(graphDims.w / 2, graphDims.h / 2)
       .scale(scale)

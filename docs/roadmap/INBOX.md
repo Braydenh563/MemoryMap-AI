@@ -247,6 +247,37 @@ with its owner named in the entry.
     a rotated group outline and alignment guides for a group drag, are built
     (861e740, 5273bae).
 
+259. **Found by sweep, 2026-09-19, not reproduced since (the session).**
+    `scratchpad/ui-sweeps/errors.js` against a seeded four thousand note
+    notebook reported **116 console errors at 1440px and 112 at 1024**, all
+    of one shape and all tagged `[timeline]`:
+    `<rect> attribute x: Expected length, "NaN"`, with y, width and height
+    the same. That is 28 rects, four attributes each. **Zero at 820px and
+    zero at 390px**, and zero layout findings at any width.
+    Four attempts to reproduce it, all clean: the same sweep at the same
+    width on the same notebook (0 errors), the timeline opened on its own
+    with `setAttribute` wrapped to catch a NaN write (0), the same with
+    every timeline scale clicked (0), and the sweep's own tab order up to
+    the graph and on to the timeline, to test whether the graph's late
+    async draw was landing in the timeline's 700ms window and being
+    mislabelled (0 in both windows, so that hypothesis is wrong).
+    The one difference the failing run had: it ran minutes after 2,000
+    notes were seeded, so the background embedding, `note_scores` and
+    `search_index` work was probably still running.
+    Only three functions in `frontend/` write those four attributes:
+    `drawTimelineWindow` (app.js, and it writes two of them, not four),
+    `mapPreview` and `mapPreviewSketch`. `mapPreview`'s own geometry is
+    guarded (`aspect` falls back to 1, `MAP_PREVIEW_BASE` is a literal,
+    `px`/`py` coerce with `Number(x) || 0`), so a NaN through it needs an
+    input this reading did not find.
+    **No fix, deliberately**: CLAUDE.md says reproduce before theorising,
+    and a guard written against a cause nobody has seen hides the next one.
+    What is done instead is that `errors.js` now wraps `setAttribute`
+    before the app's scripts run and prints the **stack** of the first
+    eight NaN writes, so the next run that catches one names the function
+    rather than the attribute. Whoever sees it next has the answer in the
+    sweep output.
+
 ## Placed (last 20, newest first)
 
 - 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.

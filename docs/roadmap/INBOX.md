@@ -179,6 +179,29 @@ with its owner named in the entry.
     `scratchpad/ui-sweeps/wbpan.js`. The other two ideas from that commit,
     a rotated group outline and alignment guides for a group drag, are built
     (861e740, 5273bae).
+    **Tried 2026-09-19 and taken back out, with what was learned.** The pan
+    itself is four lines in `wbZoomFilter` (`event.button === 2` when
+    `event.target` is not inside `.node-card, .sketch-group, .wb-object,
+    .wb-map-edge-hit, [contenteditable]`, and the mousemove half gated on a
+    flag the mousedown set) and measured clean: a right-drag moved the board
+    150px, a right-click with no drag left the transform untouched.
+    The half that matters could not be measured. Three things were found
+    and are worth having written down:
+    - The `contextmenu` that ends a right-drag over this board is dispatched
+      at the `<section>` *around* it, not at anything inside it, so a
+      listener scoped to `#whiteboard-container` never sees it and
+      `event.target.closest("#library-view-whiteboard")` is null on it.
+    - It is dispatched **before** `pointerup`, not after, so clearing the
+      "this drag moved" flag on the release is safe and clearing it on a
+      `setTimeout(0)` from the release is not.
+    - With all of that accounted for, two runs of identical code disagreed
+      about whether the menu was dispatched at all. Non-deterministic here,
+      and the difference between "the gesture is polished" and "the gesture
+      leaves a menu open on your board" is exactly that dispatch.
+    So: not shipped. `scratchpad/ui-sweeps/wbrightpan.js` is the acceptance
+    test, written first and failing, with the three facts above in its
+    header. Whoever builds it makes that file pass on a board with a card on
+    it, which is also the case this run could not cover.
 
 260. **Question, not a bug, 2026-09-19 (the session).** "Battery-efficient
     mode" (Settings, Preferences) pauses autonomous background tasks and

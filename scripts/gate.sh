@@ -51,6 +51,12 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   tests/test_docs_layout.py tests/test_asset_cache_busting.py tests/test_no_em_dashes.py
   tests/test_no_innerhtml_interpolation.py tests/test_markdown_link_schemes.py
   tests/test_frontend_load_order.py tests/test_ui_recipes.py tests/test_perf_mode.py
+  # The copy lint, here for the same reason `test_docs_site.py` is below: it
+  # reads every string in `frontend/*.js` and every piece of markup outside a
+  # comment, so the changed-test heuristic (a test naming a changed source
+  # file) never selects it, and the first new string written after it landed
+  # broke it. Caught by a full local run rather than by any gate that day.
+  tests/test_ai_name.py tests/test_frontend_symbols.py
   tests/test_plan_hygiene.py tests/test_readme_freshness.py tests/test_vendor_licences.py
   # Mirror drift (docs/CHANGELOG.md and friends) belongs here rather than in
   # --changed: the file that goes stale is a `.md` at the repo root, and the

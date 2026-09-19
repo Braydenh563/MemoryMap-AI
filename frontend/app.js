@@ -17495,7 +17495,7 @@ async function suggestDraftTitle() {
     //: sentence, not a thrown error.
     if (!title) {
       status.classList.add("error");
-      status.textContent = "Couldn't think of a title for this one. The AI may not be running.";
+      status.textContent = `Couldn't think of a title for this one. ${aiNameNow()} may not be running.`;
       return;
     }
     pushDraftUndo();

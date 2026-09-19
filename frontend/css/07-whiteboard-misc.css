@@ -7981,15 +7981,14 @@ button.connection-row {
    Before any of it, a bare `input[type="number"]` came in at 51px and made
    the line kind's bar 430x61 around a row of 28px controls. */
 .wb-context button,
+.wb-context input[type="number"],
+.wb-context input[type="color"],
+.wb-context select,
 .wb-context .select-shell,
-.wb-context .seg {
+.wb-context .seg,
+.wb-context .seg > button {
   height: var(--target-min);
   min-height: var(--target-min);
-}
-
-.wb-context .seg > button {
-  height: 100%;
-  min-height: 100%;
 }
 
 .wb-context input[type="number"] {

@@ -457,13 +457,6 @@ def _close_launch_splash() -> None:
     except OSError as exc:
         logger.debug("couldn't close the launch splash: %s", exc)
 
-    try:
-        import pyi_splash
-        if pyi_splash.is_alive():
-            pyi_splash.close()
-    except ImportError:
-        pass
-
 
 def _finish_splash_start_step(path: str) -> None:
     """Tick the launcher's last step before its window goes, so the splash

@@ -2458,22 +2458,3 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   margin-bottom: var(--space-2);
   opacity: 0.75;
 }
-
-
-
-/* =======================================================================
-   FORM VALIDATION
-   ======================================================================= */
-input.is-invalid, textarea.is-invalid {
-  border-color: var(--status-red);
-  box-shadow: 0 0 0 1px var(--status-red);
-}
-
-/* =======================================================================
-   DISABLED STATES
-   ======================================================================= */
-button:disabled, input:disabled, select:disabled, textarea:disabled, .disabled {
-  opacity: 0.6;
-  cursor: not-allowed !important;
-  pointer-events: none;
-}

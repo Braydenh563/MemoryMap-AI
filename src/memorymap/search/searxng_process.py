@@ -152,8 +152,6 @@ def _start_source(data_dir: Path) -> dict:
     except OSError as exc:
         raise SearxngError(f"Couldn't open {output.name} to record output: {exc}") from exc
     try:
-        import sys
-        _no_window = 0x08000000 if sys.platform == "win32" else 0
         process = subprocess.Popen(  # noqa: S603  # fixed args, no shell
             [str(searxng_manager._venv_python(data_dir)), "-m", "searx.webapp"],
             # Only the git path has a checkout to run from; a tarball install
@@ -168,7 +166,6 @@ def _start_source(data_dir: Path) -> dict:
             stdout=handle,
             stderr=subprocess.STDOUT,
             start_new_session=True,
-            creationflags=_no_window,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise SearxngError(f"Couldn't start SearXNG: {exc}") from exc

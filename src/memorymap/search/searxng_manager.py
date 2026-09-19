@@ -190,14 +190,12 @@ def _run_streaming(
     """
     output: list[str] = []
     try:
-        _no_window = 0x08000000 if sys.platform == "win32" else 0
         process = subprocess.Popen(  # noqa: S603  # fixed args, no shell
             args,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
-            creationflags=_no_window,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise SearxngError(f"Couldn't run {args[0]}: {exc}") from exc
@@ -256,7 +254,6 @@ def _run(
 ) -> subprocess.CompletedProcess:
     """Run a setup command. Fixed argument lists only, never a shell."""
     try:
-        _no_window = 0x08000000 if sys.platform == "win32" else 0
         return subprocess.run(  # noqa: S603  # fixed args, no shell
             args,
             capture_output=True,
@@ -264,7 +261,6 @@ def _run(
             timeout=timeout,
             check=False,
             env=env,
-            creationflags=_no_window,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise SearxngError(f"Couldn't run {args[0]}: {exc}") from exc

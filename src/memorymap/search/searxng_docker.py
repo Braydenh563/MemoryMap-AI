@@ -61,15 +61,12 @@ def docker_available() -> bool:
     if not searxng_manager.docker_installed():
         return False
     try:
-        import sys
-        _no_window = 0x08000000 if sys.platform == "win32" else 0
         result = subprocess.run(  # noqa: S603  # fixed args, no shell
             ["docker", "info", "--format", "{{.ServerVersion}}"],
             capture_output=True,
             text=True,
             timeout=DAEMON_PROBE_TIMEOUT,
             check=False,
-            creationflags=_no_window,
         )
     except (OSError, subprocess.SubprocessError):
         return False

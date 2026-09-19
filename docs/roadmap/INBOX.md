@@ -231,12 +231,15 @@ with its owner named in the entry.
       correct once the notebook has finished paging in.
       **Recommendation:** leave it, and say so in the route's docstring, so
       the next scan does not re-open this.
-    - `GET /tags`: the tag autocomplete is built from `allEntries` instead
-      (`refreshTagSuggestions`), so it is incomplete until every page of a
-      four thousand note notebook has arrived, and it carries no counts.
-      The route returns tag to count, ordered, in one request.
-      **Recommendation:** use it; it is a smaller function than the one it
-      replaces.
+    - `GET /tags`: **done.** The autocomplete was built from `allEntries`
+      (`refreshTagSuggestions`), so it was incomplete until every page of a
+      four thousand note notebook had arrived, and alphabetical, so a tag
+      used once outranked one used four hundred times. Measured on a
+      notebook tagged to show the difference, old against new:
+      `archive, budget, house, winter-roof-repair` (archive is used five
+      times) became `house, winter-roof-repair, budget, archive` (400, 400,
+      20, 5). One request, cached, in place of a flatten over every loaded
+      note twice per load.
     - `GET /settings/events`: B1's event feed. Its own docstring names the
       consumer, "what a Dashboard or Timeline activity strip should read
       instead of scanning the notes table for recency", and no such strip

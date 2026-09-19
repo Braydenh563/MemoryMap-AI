@@ -1032,16 +1032,39 @@ async function applyTemplate() {
   box.focus();
 }
 
-function refreshTagSuggestions() {
-  // Autocomplete for the tags box, from tags already in use.
-  const tags = [...new Set(allEntries.flatMap((e) => e.tags))].sort();
+//: Autocomplete for the tags box, from `GET /tags`.
+//:
+//: **Out of `allEntries` and onto the route that answers this question.**
+//: The list used to be built by flattening every loaded note's tags, which
+//: is wrong twice on a notebook of any size. `GET /entries` is paged, so
+//: until the last of twenty-one pages has landed the autocomplete is missing
+//: the tags that live only in the notes that have not arrived, and it is
+//: sorted alphabetically, so a tag used once outranks one used four hundred
+//: times. The route answers tag to count, most used first, in one request,
+//: and it had no caller in the app at all (found by
+//: `scratchpad/probe_dead_routes.py`, INBOX 261).
+//:
+//: A `<datalist>` has no order of its own that the browser is obliged to
+//: honour, but every engine that ships one offers the options in document
+//: order, so most-used-first is what a person sees before they have typed
+//: anything. Alphabetical was a choice nobody made; this one is the answer
+//: to "which tag did I use for this".
+//:
+//: The failure path keeps whatever is already there rather than emptying
+//: the list: a request that did not answer is not the same fact as a
+//: notebook with no tags, and the old list is still the best guess.
+async function refreshTagSuggestions() {
   const datalist = $("tag-suggestions");
-  datalist.replaceChildren();
-  for (const tag of tags) {
-    const option = document.createElement("option");
-    option.value = tag;
-    datalist.appendChild(option);
-  }
+  if (!datalist) return;
+  const counts = await apiJson("/tags", { silent: true, cacheMs: 30000 }).catch(() => null);
+  if (!counts) return;
+  datalist.replaceChildren(
+    ...Object.keys(counts).map((tag) => {
+      const option = document.createElement("option");
+      option.value = tag;
+      return option;
+    })
+  );
 }
 
 // --- rendering ---------------------------------------------------------------

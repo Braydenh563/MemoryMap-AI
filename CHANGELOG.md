@@ -18,6 +18,13 @@ below). Versioning is `0.x` while the app stabilises.
   night pass on demand and says what it found. The backend for all of this
   shipped on 2026-09-13 and nothing in the app had ever called it.
 
+- The tag autocomplete offers the tags you actually use first, and offers
+  all of them. It was built from the notes loaded so far, which on a large
+  notebook means it is missing whatever has not paged in yet, and sorted
+  alphabetically, so a tag used once came before one used four hundred
+  times. It now reads `GET /tags`, which answers tag and count, most used
+  first, in one request; that route had no caller in the app at all.
+
 - "Suggest a title" in the Writing Room. A note's title in this app is its
   leading `# Heading`, which is the one part of a long draft nobody writes,
   and the capture box has a title field while the Writing Room never did.

@@ -423,6 +423,39 @@ measures clean and the half that stops a context menu opening at the end of
 a drag could not be measured here, so the code came out and the acceptance
 test stayed (`scratchpad/ui-sweeps/wbrightpan.js`, written first, failing).
 
+**Morning, 2026-09-20: INBOX 262 and 263 are closed, all eleven parts.** Two
+mid-work drops arrived together and both are done.
+
+From 262: the documents menu folds its five downloads into one submenu and
+clamps sideways (`5a61cb5`); the gutter collision was my own
+`cm-md-fence-quiet`, now off while the numbers are on, with the plugin
+rebuilding on the compartment reconfigure that was the missing half
+(`b0c8931`); the Live view **rendered lists as plain text and now renders
+them**, hanging indent, visible nesting, a bullet for the dash, and a task
+checkbox that no longer makes its line 34px in a 26px document (`557decf`);
+the group selection box travels with a drag and is rebuilt where the items
+land (`7f1d730`); and its handles were never missing, they were **under the
+card layer**, six of nine unpressable, measured with `elementFromPoint` and
+fixed by moving the chrome to the overlay (`fdd40ca`).
+
+From 263: the "What it learned" switches are built from DESIGN's own
+`.setting-check` recipe (`a01d6e5`); **`bail_if_cancelled` was a line
+endings bug**, `.gitattributes` checking every `.bat` out LF-only while
+cmd.exe seeks a label by byte offset, so every cancel in the installer was
+silently ignored (`1ddd907`); ctrl+s in Preferences had never been
+implemented although the copy promised it, and the section now says twice
+that it is the only one that does not autosave (`6e39399`); the board and
+map previews went from 68 collisions to 0, with blocks trimmed to the paper
+and label widths measured rather than estimated (`e4c6039`); the packaged
+splash was **1,203ms of imports before `main()` could run**, now 30ms
+(`00efef3`); and seventeen typed glyphs standing in for icons became
+Phosphor, with a lint and a sweep (`52d0dc5`).
+
+Three new guards in the gate: `tests/test_no_glyph_icons.py`, the
+`previewclash` sweep, and the CRLF lint in `test_launcher_scripts.py`.
+`test_windowed_streams.py` now reads its contract as a syntax tree, since
+the line-based version failed on a docstring without anything having moved.
+
 Open in INBOX, five: 213 and 228 (the owner's, the merge is the last act),
 253 (the one-click repair, a launcher task), 258 and 261. OPEN.md's row 232 was stale and is corrected in place: tables,
 callouts, task lists and images all already render in the Live view,

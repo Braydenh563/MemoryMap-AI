@@ -248,6 +248,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The board's top bar answers a finger on a tablet. Between 600 and 820, the
+  band whose own rule is that the pointer there is a finger, all thirteen of
+  its controls were still 36px tall; and wherever the five menu buttons drop
+  their words they were 25.8px wide, narrower than any other control in the
+  app. The bar is two rows of 44px controls on a tablet now, and at 820 and
+  above it is the single 46px row it was, with nothing under the app's own
+  floor.
+
+
 - The ⋯ on a Library card and on a document row is visible on a touch screen.
   Both were meant to be: each had a rule saying so where there is no pointer
   to hover with, and each was written one class short of the rule it had to

@@ -1752,9 +1752,23 @@ header#top-bar,
     min-width: var(--target-min);
   }
 
-  /* The board's own bar takes the band's floor, like every other control a
-     finger lands on. It costs one step of height (two rows of 44 rather than
-     two of 36) and buys eleven targets that can be hit. */
+}
+
+/* --- the board's bar takes the floor of the whole touch band, not just 600 --
+   It was written in the 600 band with Phase 11 item 7, and the band above it
+   is the one whose own rule reads "below 820 the pointer is a finger"
+   (07-whiteboard-misc.css redeclares `--target-min` at 2.75rem there). The
+   bar was exempt from it by accident, exactly the way `#tab-bar` was:
+   measured on an open board at 768x1180, `--target-min` resolved to 2.75rem
+   and all thirteen of the bar's controls still came back **36px tall**,
+   because the bar declares its own control height and that wins over a token
+   nothing in the bar reads. The icon-only ones had taken the width (44) and
+   not the height, which is how it stayed invisible.
+
+   It costs one step of height for thirteen targets that can be hit, the same
+   trade item 7 made at 390 (88px to 104px there). */
+@media (max-width: 819.98px) {
+
   #wb-topbar :is(button, summary, select) {
     min-height: var(--target-min);
   }

@@ -267,6 +267,39 @@ confirm in the product before building the phase where it matters.
 
 The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
 
+### Found while measuring the board bar at 820 (2026-09-20, not the owner)
+
+**The board's top bar runs past its own right edge below 600, by 75px at 320
+and 5px at 390.** Measured on an open board with
+`scratchpad/ui-sweeps/wbtopbar820.js`: `#wb-topbar`'s scrollWidth against its
+clientWidth, so at 320 the last controls in the row cannot be reached at all.
+This is INBOX 183's fault again ("the controls breach the topbar and overflow
+off the edge on the right"), at the narrow end the 2026-09-09 fix did not
+reach: the bar wraps between its two halves below 48rem and each half is
+`nowrap`, so eleven controls that need more than one row inside a half have
+nowhere to go.
+
+**Not fixed here, deliberately, and this is the plan's to take.** The only fix
+that does not redesign the bar is letting the halves wrap, which was tried and
+measured: the bar goes from 104px and two rows to **152px and three at 390**
+and **200px and four at 320**, over a canvas that is 604px tall to begin with.
+UI_MODERNISATION_PLAN Phase 11 item 7 raised this bar to the touch floor on its
+height and recorded in its own decision block that a phone-shaped board bar,
+one with fewer controls rather than the same eleven wrapped harder, belongs
+here rather than there. So this is that work's first measured requirement: on a
+phone the bar needs to carry fewer things, not to be taller. Above 600 the bar
+does not overflow at any width measured (320, 390, 430, 600, 768, 820, 1440).
+
+**Also measured, and fixed where it was cheap** (2026-09-20, in
+UI_MODERNISATION_PLAN Phase 11 item 6's commit): from 600 to 819 the band's own
+rule is "below 820 the pointer is a finger", and all thirteen of the bar's
+controls were still 36px tall there because the bar declares its own control
+height and nothing in it read the token; and with their labels gone below 56rem
+the five menu toggles rendered **25.8px wide**, under the app's global 28px
+floor at every width from 896 down. Both fixed; the bar is 104px and two rows
+from 600 to 819 with every control at 44, and 46px and one row at 820 with
+nothing under 28.
+
 12. **Whiteboard: export-selection popover opens a full-height list in the
     wrong place; arrow drawn shows both caps as Arrow in properties;
     missing align-centre and distribute-gaps; the arrange panel's buttons

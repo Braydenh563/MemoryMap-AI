@@ -5461,6 +5461,10 @@ function docLivePlugin(CM) {
     //: Both line ends, because a range can span a soft-wrapped link.
     const rangeRevealed = (from, to) =>
       touched(doc.lineAt(from).from, doc.lineAt(to).to);
+    //: Whether the line numbers are showing, read once per build rather than
+    //: per fenced block: the fence rows collapse only when they are off, see
+    //: the note beside `cm-md-fence-quiet` below.
+    const gutterOn = docFenceGutterOn();
     const tree = syntaxTree(state);
     //: The document as one string, for the table model, and at most once per
     //: build: the model works in document offsets so it needs the whole text,
@@ -5671,7 +5675,18 @@ function docLivePlugin(CM) {
               //: The rounded corners are the block's shape and stay whatever
               //: the caret is doing; only the height and the label are tied to
               //: whether the row has text on it.
-              const quiet = edge && !revealed ? " cm-md-fence-quiet" : "";
+              //:
+              //: **And to whether the line numbers are on** (INBOX 262). A
+              //: gutter draws one element per line at that line's own height
+              //: while the number inside keeps the editor's line-height, so a
+              //: row collapsed to half a line leaves its digit standing 26px
+              //: tall in an 8px box. Measured with the gutter on: "6 paints
+              //: 18px into 7" and "8 paints 18px into 9", the pair in the
+              //: report's screenshot. One row, one number, in line with the
+              //: text it counts is the contract the gutter makes, so where
+              //: the two disagree the gutter wins and the fence keeps its
+              //: row.
+              const quiet = edge && !revealed && !gutterOn ? " cm-md-fence-quiet" : "";
               ranges.push(
                 Decoration.line({
                   class: `cm-md-fence${edge ? ` ${edge}` : ""}${quiet}`,
@@ -6006,6 +6021,7 @@ function docLivePlugin(CM) {
     class {
       constructor(view) {
         this.decorations = build(view);
+        this.gutterOn = docFenceGutterOn();
       }
       update(update) {
         //: Selection as well as document and viewport: the whole idea of this
@@ -6014,8 +6030,20 @@ function docLivePlugin(CM) {
         //: down entirely while the editor is not focused (`focused` in
         //: `build`): without this the reveal would wait for the first caret
         //: move after a click rather than happening on the click.
+        //:
+        //: And the line numbers, because one decoration reads them
+        //: (`cm-md-fence-quiet`, whose note in the theme says why). Toggling
+        //: them reaches the engine as a compartment reconfigure, which is an
+        //: update with none of the four flags above set, so without this the
+        //: fence rows kept whichever shape they were built with and the
+        //: collision came back the moment the numbers went on. Compared as a
+        //: value rather than sniffed out of `update.transactions`: the
+        //: preference is what the decoration actually depends on, and a
+        //: reconfigure that does not change it should not cost a rebuild.
+        const gutterOn = docFenceGutterOn();
         if (update.docChanged || update.viewportChanged || update.selectionSet
-            || update.focusChanged) {
+            || update.focusChanged || gutterOn !== this.gutterOn) {
+          this.gutterOn = gutterOn;
           this.decorations = build(update.view);
         }
       }
@@ -13346,6 +13374,27 @@ function docCmTheme(CM) {
       },
       //: Only while the row has nothing on it. With the caret inside the
       //: block its `” ``` ”` is back, and half a line of height would clip it.
+      //:
+      //: **And only while the line numbers are off** (INBOX 262: "the page
+      //: numbers and collapse arrows in the documents clash with other page
+      //: numnbers"). A gutter draws one element per line at that line's own
+      //: height, but the number inside it keeps the editor's line-height, so
+      //: a row collapsed to half a line leaves its digit standing 26px tall
+      //: in an 8px box. Measured on a fenced block with the gutter on: "6
+      //: paints 18px into 7" and "8 paints 18px into 9", which is the pair in
+      //: the report's screenshot exactly.
+      //:
+      //: Numbers win, because they are the contract: one row, one number, in
+      //: line with the text it counts. The tidy block is what prose gets, and
+      //: prose is where the gutter is off by default (`docGutterWanted`),
+      //: which is also where a fenced block wearing two blank rows was worth
+      //: fixing in the first place.
+      //:
+      //: The decision is made where the class is set, not here: a CodeMirror
+      //: theme's rules are injected into a stylesheet this page cannot read
+      //: back, and a `:has(.cm-gutters)` guard written here could not be
+      //: verified in the browser, only hoped for. `docGutterWanted` already
+      //: knows the answer at decoration time.
       ".cm-md-fence-quiet": {
         height: "0.5em",
       },
@@ -14038,6 +14087,13 @@ function docCmSyncLanguage() {
 //: The line-number preference, applied to the engine. `applyDocGutter` still
 //: owns the *decision* (and the two note editors' own columns); this is only
 //: how it reaches the view.
+//: The one reading of the line-number preference that both the gutter itself
+//: and the decorations that have to dodge it go through, so the two cannot
+//: disagree about whether there are numbers on screen.
+function docFenceGutterOn() {
+  return docGutterWanted(!docFileType().previewable);
+}
+
 function docCmSyncGutter() {
   const CM = window.CM6;
   if (!docCmView || !CM || !docCmParts.gutter) return;
@@ -14052,7 +14108,7 @@ function docCmSyncGutter() {
 //: is a strip of chevrons with nothing to anchor them. One choice, one lane,
 //: `applyDocGutter` still owns the decision.
 function docCmGutter(CM) {
-  if (!docGutterWanted(!docFileType().previewable)) return [];
+  if (!docFenceGutterOn()) return [];
   //: **Only the gutter is in the gutter.** Folding itself moved into the base
   //: extensions when callouts became foldable (Phase 3 item 2): every fold
   //: this editor offers lived in here, so a markdown document, which opens

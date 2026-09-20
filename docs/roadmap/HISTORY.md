@@ -30314,4 +30314,40 @@ told to open first.
     Deferred to `_run_server`: 1,203ms to 30ms. (6) `52d0dc5`: seventeen
     typed glyphs standing in for icons, with a lint and a sweep; a scan for
     marketing copy found 0.
+## INBOX resolved, 2026-09-20
+
+253. **Mid-work drop, 2026-09-14, verbatim (the owner).** "the app needs
+    to work even if it cant update or isnt available to the internet, and it
+    needs to be automatically recoverable and revivable for the user with
+    one click". Placed in WORLD_CLASS_PLAN H6 (professional use) as its
+    first row: offline is already the design (no route needs the network;
+    the updater only checks when asked), so the work is (a) a launcher
+    that, when the app fails to start, repairs itself without a prompt
+    (`--doctor` and `--reinstall` exist but are flags, not a button), and
+    (b) a "Repair MemoryMap" shortcut installed beside the app that runs
+    them. Depends on 251's facts.
+    **Fixed.** (a) start.sh and start.bat now catch a venv with no working
+    interpreter and a venv that no longer imports the app (a broadened
+    `import memorymap.api.app` check, replacing a bare `import memorymap`
+    that stayed "healthy" no matter which real dependency was gone), and
+    repair each once, automatically, with no prompt, before falling
+    through to the same clear failure a second failure already gave;
+    `MM_AUTO_REPAIRED` stops it ever looping. Also fixed in the same pass:
+    every self-relaunch in start.sh, including the pre-existing self-update
+    one, was silently dropping every flag it was started with (`--no-
+    browser` included) because it re-read the flag loop's own already-
+    emptied `"$@"`. (b) A "Repair MemoryMap AI" Start Menu shortcut sits
+    beside the ordinary one in `packaging/windows/installer.iss`, running
+    the packaged build's own new `--reinstall` (`_repair_install` in
+    `__main__.py`): there is no venv on a frozen build, so it clears the
+    desktop window's cached profile instead (the one thing that build can
+    get stuck in) and opens the app normally; notes and preferences are
+    untouched. Only the Inno Setup installer exists on this branch (no
+    `.wxs`/MSI here yet); not verified on a real Windows machine, no
+    Windows runner in this sandbox.
+    `tests/test_launcher_scripts.py::TestSelfRepair` reproduces a
+    deliberately broken venv (a copy of a real `.venv` with python-dotenv
+    moved aside) failing on the pre-fix scripts, then repairing itself and
+    serving a real request on the fix; `tests/test_release_smoke_step.py`
+    gates the installer shortcut and `--reinstall`'s wiring.
 

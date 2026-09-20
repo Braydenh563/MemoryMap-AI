@@ -452,14 +452,4 @@ with its owner named in the entry.
   paragraphs to popovers, security review: all placed (HANDOVER "flagged
   list") and most built.
 
-253. **Mid-work drop, 2026-09-14, verbatim (the owner).** "the app needs
-    to work even if it cant update or isnt available to the internet, and it
-    needs to be automatically recoverable and revivable for the user with
-    one click". Placed in WORLD_CLASS_PLAN H6 (professional use) as its
-    first row: offline is already the design (no route needs the network;
-    the updater only checks when asked), so the work is (a) a launcher
-    that, when the app fails to start, repairs itself without a prompt
-    (`--doctor` and `--reinstall` exist but are flags, not a button), and
-    (b) a "Repair MemoryMap" shortcut installed beside the app that runs
-    them. Depends on 251's facts.
 

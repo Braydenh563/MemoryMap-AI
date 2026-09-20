@@ -13,7 +13,11 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import socket
 import subprocess
+import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import pytest
@@ -438,6 +442,334 @@ class TestTheDoctorRunsHere:
         assert result.returncode == 0
         assert "MemoryMap AI" in result.stdout
         assert "Your notes:" in result.stdout
+
+
+class TestSelfRepairStructure:
+    """INBOX 253's "no prompt" requirement, read as text first: the fast,
+    deterministic half of the gate, run on every `--changed` pass. The slow
+    half (a real broken venv actually coming back) is `TestSelfRepair`
+    below, which this class does not replace - a comment that says the
+    right words is not a script that does the right thing.
+    """
+
+    def test_both_scripts_repair_once_and_stop(self):
+        for text in (_read(START_SH), _read(START_BAT)):
+            assert "MM_AUTO_REPAIRED" in text
+            # The loop guard: an already-repaired run that is still broken
+            # fails with a real message instead of repairing forever.
+            assert text.count("MM_AUTO_REPAIRED") >= 4, text.count(
+                "MM_AUTO_REPAIRED"
+            )
+
+    def test_both_scripts_check_the_real_import_chain(self):
+        """`import memorymap` alone (src/memorymap/__init__.py) never fails
+        just because a real dependency like python-dotenv is gone - it is a
+        five-line package with no imports of its own. `memorymap.api.app`
+        is what `python -m memorymap` actually loads first, so it is the
+        only check that can see a missing dependency at all."""
+        for text in (_read(START_SH), _read(START_BAT)):
+            assert "import memorymap.api.app" in text
+            # The old, shallow check may still be named in a comment
+            # explaining why it was not enough; it must not still be a
+            # command anywhere.
+            assert '-c "import fastapi, sqlalchemy, memorymap"' not in text
+
+    def test_start_sh_reexecs_with_the_arguments_it_was_given(self):
+        """Every `shift` in the flag-parsing loop above consumes "$@" one
+        argument at a time, down to nothing - by the time any `exec "$0"
+        "$@"` below it ran, `--no-browser` (and everything else that is not
+        an exported environment variable) had already been silently
+        dropped. Reproduced directly: a self-repair triggered under
+        `--no-browser` popped a browser tab open anyway. MM_ORIG_ARGS is
+        captured once, before that loop, and is what every re-exec below
+        must use instead."""
+        text = _read(START_SH)
+        captured_at = text.index('MM_ORIG_ARGS=("$@")')
+        loop_at = text.index("while [ $# -gt 0 ]; do")
+        assert captured_at < loop_at
+        # Code lines only - line 32's own comment quotes the broken form
+        # (`exec "$0" "$@"`) as the bug this capture fixes, on purpose.
+        reexecs = [
+            ln.strip()
+            for ln in text.splitlines()
+            if re.match(r'^\s*exec "\$0"', ln) and not ln.strip().startswith("#")
+        ]
+        assert reexecs, "start.sh has no self-relaunch left to check"
+        for line in reexecs:
+            assert line == 'exec "$0" "${MM_ORIG_ARGS[@]}"', line
+
+    def test_start_bat_relaunches_carry_mm_args(self):
+        """start.bat's own MM_ARGS (captured from %* before :parse_args,
+        see TestBatchFileRules) is the same fix already in place there;
+        the two self-repair relaunches just have to keep using it."""
+        text = _read(START_BAT)
+        assert text.count('call "!MM_SELF!" !MM_ARGS!') >= 3
+
+
+class TestSelfRepair:
+    """INBOX 253, the owner verbatim: "the app needs to work even if it
+    cant update or isnt available to the internet, and it needs to be
+    automatically recoverable and revivable for the user with one click."
+
+    Run against a copy of this sandbox's own real .venv, but with `pip`
+    itself replaced by a two-line stub (`_fake_pip`) before start.sh ever
+    runs: `tests/conftest.py`'s `_no_test_runs_pip` fixture refuses any
+    subprocess whose argv mentions "pip", on purpose (its own docstring:
+    one test once carried a real `pip install sentence-transformers` for
+    twenty minutes), and that guard has to hold for what a *shell script*
+    spawns just as much as for what Python spawns directly - the fixture
+    cannot see inside start.sh's own child processes to enforce it there,
+    so this class enforces it by construction instead: there is no real
+    pip left in the scratch copy to reach. The stub still exercises the
+    thing this gate is actually about - start.sh's own detection, its
+    single automatic retry, and the flags it carries across the retry -
+    against a real subprocess, a real broken import, and a real server
+    that either comes back up or does not.
+
+    Skipped where no real .venv exists to copy from - a sandbox with
+    nothing built has nothing to prove this against.
+
+    Confirmed against the pre-fix start.sh before this class existed: the
+    same broken venv below produced a bare `ModuleNotFoundError: No module
+    named 'dotenv'` traceback and exit 1, no repair, because the existing
+    NEED_INSTALL marker check only asks "did requirements.txt's hash
+    change", and the existing relink check only asks "does `import
+    memorymap` work" - neither one imports the dependency that was
+    actually deleted.
+    """
+
+    def _main_venv(self) -> Path | None:
+        try:
+            common = subprocess.run(
+                ["git", "-C", str(ROOT), "rev-parse", "--git-common-dir"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+        except OSError:
+            return None
+        if common.returncode != 0 or not common.stdout.strip():
+            return None
+        git_dir = (ROOT / common.stdout.strip()).resolve()
+        venv = git_dir.parent / ".venv"
+        return venv if (venv / "bin" / "python").exists() else None
+
+    @staticmethod
+    def _free_port() -> int:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            return s.getsockname()[1]
+
+    @staticmethod
+    def _site_packages(venv: Path) -> Path:
+        (site_packages,) = (venv / "lib").glob("python3.*/site-packages")
+        return site_packages
+
+    def _fake_pip(self, site_packages: Path) -> None:
+        """Replaces the real `pip` package with a stub that never touches
+        the network: every `install` call prints one line and exits 0,
+        after restoring whatever this test stashed with `_break_dependency`
+        below (the `install -r requirements.txt` step 2 runs for real,
+        exactly as production start.sh does - only pip's own idea of
+        "install" is faked). `python -m pip ...`, which is the only way
+        start.sh ever invokes it, resolves `pip` off `sys.path` the same
+        way any other import does, so replacing the package is enough;
+        nothing calls the `pip` console-script directly.
+        """
+        real_pip = site_packages / "pip"
+        for dist_info in site_packages.glob("pip-*.dist-info"):
+            shutil.rmtree(dist_info)
+        if real_pip.exists():
+            shutil.rmtree(real_pip)
+        real_pip.mkdir()
+        (real_pip / "__init__.py").write_text(
+            '"""Stub pip - tests/conftest.py refuses the real one."""\n',
+            encoding="utf-8",
+        )
+        (real_pip / "__main__.py").write_text(
+            '''import os
+import shutil
+import sys
+from pathlib import Path
+
+
+def main() -> None:
+    if "install" in sys.argv[1:]:
+        stash = os.environ.get("MM_TEST_RESTORE_FROM")
+        target = os.environ.get("MM_TEST_RESTORE_TO")
+        if stash and target and Path(stash).is_dir():
+            for entry in Path(stash).iterdir():
+                dest = Path(target) / entry.name
+                if not dest.exists():
+                    if entry.is_dir():
+                        shutil.copytree(entry, dest)
+                    else:
+                        shutil.copy2(entry, dest)
+        print("Requirement already satisfied: fake-pip stub for launcher tests")
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
+''',
+            encoding="utf-8",
+        )
+
+    def _healthy_scratch(self, tmp_path: Path, main_venv: Path) -> Path:
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        shutil.copy2(ROOT / "start.sh", repo / "start.sh")
+        (repo / "start.sh").chmod(0o755)
+        for name in ("src", "frontend", "migrations"):
+            shutil.copytree(ROOT / name, repo / name)
+        for name in ("alembic.ini", "pyproject.toml", "requirements.txt", ".env.example"):
+            shutil.copy2(ROOT / name, repo / name)
+        shutil.copytree(main_venv, repo / ".venv", symlinks=True)
+        venv_py = repo / ".venv" / "bin" / "python"
+        site_packages = self._site_packages(repo / ".venv")
+        self._fake_pip(site_packages)
+        # What a real `pip install -e .` would leave behind: the scratch
+        # source tree on sys.path, done here with a plain .pth file rather
+        # than pip (this sandbox runs the real app the same way, with
+        # PYTHONPATH=src rather than an editable install - CLAUDE.md
+        # section 7 - so nothing about production behaviour is skipped by
+        # doing it directly instead of through the now-fake installer).
+        (site_packages / "mm_test_editable.pth").write_text(
+            str(repo / "src") + "\n", encoding="utf-8"
+        )
+        req_hash = subprocess.run(
+            ["cksum", "requirements.txt"], cwd=repo, capture_output=True, text=True, check=True
+        ).stdout.split()[0]
+        (repo / ".venv" / ".mm_installed").write_text(req_hash, encoding="utf-8")
+        healthy = subprocess.run(
+            [str(venv_py), "-c", "import memorymap.api.app"], capture_output=True
+        )
+        assert healthy.returncode == 0, "the scratch venv is not healthy before this test even breaks it"
+        return repo
+
+    def _break_dependency(self, repo: Path, tmp_path: Path) -> None:
+        """The smallest real dependency in requirements.txt, moved aside
+        (not deleted outright) so the fake pip above can put it straight
+        back the moment start.sh's own step 2 asks it to "install". Moved,
+        not `memorymap` itself: deleting `memorymap` is exactly what the
+        pre-existing relink check already catches (`import memorymap`
+        alone succeeds no matter which real dependency is gone - it is a
+        five-line package with no imports of its own) - this is the gap
+        that check has, which this self-repair closes.
+        """
+        site_packages = self._site_packages(repo / ".venv")
+        stash = tmp_path / "dependency_stash"
+        stash.mkdir()
+        moved = 0
+        for pattern in ("dotenv", "python_dotenv*"):
+            for entry in site_packages.glob(pattern):
+                moved += 1
+                shutil.move(str(entry), str(stash / entry.name))
+        assert moved >= 2, "python-dotenv was not where this test expected it"
+        venv_py = repo / ".venv" / "bin" / "python"
+        broken = subprocess.run(
+            [str(venv_py), "-c", "import memorymap.api.app"], capture_output=True
+        )
+        assert broken.returncode != 0, "moving dotenv aside did not actually break the import"
+        return stash
+
+    def _run(self, repo: Path, stash: Path, port: int, **extra_env: str) -> subprocess.Popen:
+        env = dict(
+            os.environ,
+            MEMORYMAP_DATA_DIR=str(repo / "data"),
+            MEMORYMAP_PORT=str(port),
+            MM_TEST_RESTORE_FROM=str(stash),
+            MM_TEST_RESTORE_TO=str(self._site_packages(repo / ".venv")),
+            **extra_env,
+        )
+        return subprocess.Popen(
+            ["./start.sh", "--no-browser", "--no-update"],
+            cwd=repo,
+            env=env,
+            # DEVNULL, not a pipe with nothing written to it: a script that
+            # ever actually tried to prompt would block reading from a pipe
+            # forever (a timeout, indistinguishable from any other hang);
+            # against /dev/null a stray read gets EOF immediately, which is
+            # what "no prompt" has to mean for an automated check to say it.
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+
+    def test_a_deleted_dependency_is_repaired_with_no_prompt(self, tmp_path):
+        main_venv = self._main_venv()
+        if main_venv is None:
+            pytest.skip("no real .venv in this sandbox to copy from")
+        repo = self._healthy_scratch(tmp_path, main_venv)
+        stash = self._break_dependency(repo, tmp_path)
+
+        port = self._free_port()
+        proc = self._run(repo, stash, port)
+        up = False
+        try:
+            deadline = time.monotonic() + 60
+            while time.monotonic() < deadline:
+                if proc.poll() is not None:
+                    break
+                try:
+                    with urllib.request.urlopen(
+                        f"http://127.0.0.1:{port}/", timeout=2
+                    ) as resp:
+                        up = resp.status == 200
+                        break
+                except (OSError, urllib.error.URLError):
+                    time.sleep(1)
+        finally:
+            proc.terminate()
+            try:
+                out = proc.communicate(timeout=15)[0]
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                out = proc.communicate(timeout=15)[0]
+
+        assert up, "the app never came back up after the automatic repair:\n" + out
+        # Repaired once, not in a loop, and said so in one line.
+        assert out.count("looks broken - reinstalling") == 1, out
+        # The flag this run was started with survived the repair's own
+        # relaunch (see TestSelfRepairStructure.
+        # test_start_sh_reexecs_with_the_arguments_it_was_given).
+        assert "No browser will be opened (--no-browser)" in out, out
+
+    def test_a_repair_that_does_not_fix_it_fails_once_with_no_loop(self, tmp_path):
+        """MM_AUTO_REPAIRED pre-set is the same state the script leaves
+        itself in after its own first repair attempt - this is what a
+        SECOND, still-broken run does, without a real second `exec` in the
+        way of watching it happen. No restore stash on purpose: the point
+        is that this run's own repair attempt (if it wrongly tried one)
+        would find nothing to fix."""
+        main_venv = self._main_venv()
+        if main_venv is None:
+            pytest.skip("no real .venv in this sandbox to copy from")
+        repo = self._healthy_scratch(tmp_path, main_venv)
+        self._break_dependency(repo, tmp_path)
+
+        result = subprocess.run(
+            ["./start.sh", "--no-browser", "--no-update"],
+            cwd=repo,
+            env=dict(
+                os.environ,
+                MEMORYMAP_DATA_DIR=str(repo / "data"),
+                MEMORYMAP_PORT=str(self._free_port()),
+                MM_AUTO_REPAIRED="1",
+            ),
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode == 1, result.stdout
+        out = result.stdout
+        assert "did not fix it" in out, out
+        assert "Log:" in out, out
+        assert "Checks: ./start.sh --doctor" in out, out
+        # Not a second attempt: the loop guard has to stop it here, once.
+        assert "looks broken - reinstalling" not in out, out
 
 
 class TestTheWindowsSplash:

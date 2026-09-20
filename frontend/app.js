@@ -2996,6 +2996,11 @@ function entryItem(entry, options = {}) {
     untagged.title = "Add tags to this note";
     meta.appendChild(untagged);
   }
+  //: **What points at this note, on the card** (INBOX 246's third gap).
+  //: Only when the counts for this page have landed; `ensureReferenceCounts`
+  //: patches the chip in afterwards for cards rendered before they had.
+  const refs = referenceCountChip(entry, options);
+  if (refs) meta.appendChild(refs);
 
   // "AI 0%: check this" is a warning about the AI's filing, and it only makes
   // sense when the AI actually did some. On a note you filed yourself, or one
@@ -4386,7 +4391,7 @@ async function openConnections(kind, id, subject) {
           ["ph:arrow-up-right This note links to", data.outgoing, noteRow],
           ["ph:arrow-down-left Notes that link here", data.incoming, noteRow],
           ["ph:file-text In these documents", data.documents, docRow],
-          ["ph:squares-four On these boards", data.boards, boardRow],
+          ["ph:squares-four On these boards and maps", data.boards, boardRow],
           ["ph:image Files it uses", data.files, fileRow],
         ]
       : [
@@ -4418,7 +4423,10 @@ async function openConnections(kind, id, subject) {
     );
   }
   function boardRow(board) {
-    return row(`ph:squares-four ${board.title}`, `Open “${board.title}”`, () =>
+    // `kind` is "board" or "map" from the one reader the Referenced-by row
+    // uses (INBOX 246): a map is a different surface and gets its own icon.
+    const icon = board.kind === "map" ? "ph:tree-structure" : "ph:squares-four";
+    return row(`${icon} ${board.title}`, `Open “${board.title}”`, () =>
       openWhiteboardBoard(board.id ?? null)
     );
   }
@@ -10759,7 +10767,12 @@ function renderEntries() {
       list,
       paginateNotesForDisplay(sortEntries(visible)),
       (entry) => entryItem(entry, { actions: true }),
-      { afterChunk: () => applyEntryListTabOrder(list) }
+      {
+        afterChunk: () => {
+          applyEntryListTabOrder(list);
+          ensureReferenceCounts(list, _entriesLoadGeneration);
+        },
+      }
     );
     return;
   }
@@ -10809,6 +10822,7 @@ function renderEntries() {
     {
       afterChunk: () => {
         applyEntryListTabOrder(list);
+        ensureReferenceCounts(list, _entriesLoadGeneration);
         // After the list is in the DOM: drop the clamp from any note that
         // turned out to fit. No-op while the sub-tab is hidden;
         // showNotesSection re-runs it.
@@ -11120,6 +11134,7 @@ async function loadEntries() {
 
 async function _loadEntries() {
   const generation = ++_entriesLoadGeneration;
+  referenceCountsCache.clear();
   showEntrySkeletons();
 
   const isSemantic = $("semantic-search-toggle")?.checked;
@@ -11216,6 +11231,96 @@ async function _loadEntries() {
 //: chips stayed plain text until something else redrew the list. Guarded on
 //: the load generation, because a newer `loadEntries` may have taken over
 //: while this was in flight and its list is the one on screen.
+//: **"In 2 documents · on 1 board · linked by 3 notes", on the card.**
+//: INBOX 246's third gap: a card showed nothing until Connections was opened,
+//: so a note on two boards and in three documents looked exactly like a
+//: note nothing had ever touched. One muted chip on the card, opening
+//: Connections, from one batched call per page (`/entries/reference-counts
+//: ?ids=`): fifty cards asking `/references` each would be fifty scans per
+//: render. Cleared with every reload (`_loadEntries`), which is also what
+//: both attach panels call after a write, so a fresh attachment shows on
+//: the next paint without a second cache to keep honest.
+const referenceCountsCache = new Map();
+const _referenceCountsInFlight = new Set();
+const REFERENCE_COUNTS_BATCH = 60; // `REFERENCE_COUNT_IDS_MAX` in routes_entries.py
+const REFERENCE_COUNT_PHRASES = [
+  ["document", "in", "document", "documents"],
+  ["board", "on", "board", "boards"],
+  ["map", "on", "map", "maps"],
+  ["note", "linked by", "note", "notes"],
+];
+
+function referenceCountText(counts) {
+  const parts = [];
+  for (const [kind, verb, one, many] of REFERENCE_COUNT_PHRASES) {
+    const n = counts[kind] || 0;
+    if (n) parts.push(`${verb} ${n} ${n === 1 ? one : many}`);
+  }
+  if (!parts.length) return "";
+  // Read out loud as one line, sentence case on the first word only.
+  const line = parts.join(" · ");
+  return line[0].toUpperCase() + line.slice(1);
+}
+
+function referenceCountChip(entry, options = {}) {
+  if (!options.actions || entry.is_board || entry.is_draft) return null;
+  const counts = referenceCountsCache.get(entry.id);
+  if (!counts || !counts.total) return null;
+  const refChip = chip(`ph:graph ${referenceCountText(counts)}`, "refs", (event) => {
+    event.stopPropagation();
+    openConnections(
+      "entries",
+      entry.id,
+      entry.title || notePreviewText(entry.content).split("\n")[0].slice(0, 80)
+    );
+  });
+  refChip.title = "Everything this note is joined to. Open Connections";
+  return refChip;
+}
+
+//: Called from the list's `afterChunk`, so it sees exactly the cards that
+//: are in the DOM and asks for the ones the cache has not met. Cards are
+//: patched in place rather than re-rendered: a re-render mid-chunking would
+//: restart the incremental renderer that called this.
+function ensureReferenceCounts(list, generation) {
+  const wanted = [];
+  for (const li of list.querySelectorAll("li[data-id]")) {
+    const id = Number(li.dataset.id);
+    if (!id || referenceCountsCache.has(id) || _referenceCountsInFlight.has(id)) continue;
+    wanted.push(id);
+    if (wanted.length >= REFERENCE_COUNTS_BATCH) break;
+  }
+  if (!wanted.length) return;
+  for (const id of wanted) _referenceCountsInFlight.add(id);
+  apiJson(`/entries/reference-counts?ids=${wanted.join(",")}`, { silent: true })
+    .then((answer) => {
+      if (generation !== _entriesLoadGeneration) return;
+      const counts = (answer && answer.counts) || {};
+      for (const id of wanted) {
+        // A note the server did not answer for (deleted under us) is
+        // recorded as empty, not left unknown, or it would be asked for
+        // again on every chunk.
+        referenceCountsCache.set(id, counts[String(id)] || { total: 0 });
+      }
+      for (const id of wanted) {
+        const li = list.querySelector(`li[data-id="${id}"]`);
+        const meta = li && li.querySelector(":scope > .entry-meta");
+        if (!meta || meta.querySelector(".chip.refs")) continue;
+        const entry = allEntries.find((e) => e.id === id);
+        const refChip = entry && referenceCountChip(entry, { actions: true });
+        if (refChip) meta.insertBefore(refChip, meta.querySelector(".entry-meta-end"));
+      }
+      // The page may hold more than one batch; the next call finds the rest.
+      if (list.querySelectorAll("li[data-id]").length > wanted.length) {
+        ensureReferenceCounts(list, generation);
+      }
+    })
+    .catch(() => {})
+    .finally(() => {
+      for (const id of wanted) _referenceCountsInFlight.delete(id);
+    });
+}
+
 function ensureMapChipsFor(page, generation) {
   if (mapBoardIndexCache) return; // one index per session, as it always was
   if (!page.some((entry) => String(entry.content || "").includes("[["))) return;

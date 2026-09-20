@@ -14,7 +14,7 @@ then the plan tails by surface, then the horizon.
 | # | What is left | Where |
 | --- | --- | --- |
 | ~~238~~ | **Done 2026-09-19** (5a9c909, 128a731, 7e8d902). All three parts, with measurements in INBOX 238: the card clips its own text (`min-height: 0` plus `overflow: hidden` on `.wb-card-content`, and the "Show more" decided by the box rather than by a character count); the expanded set is in `localStorage`; and the export's line budget comes from the card's measured height (7 lines collapsed, 22 expanded, both were 6) with a `--warn` line in the dialog naming how many notes are collapsed. | done |
-| 246 | Attach a board or map to a note from the note's connect menu (a `WhiteboardObject` of kind note with `data.ref_id`), the Connections dialog reading both the legacy `WhiteboardNode` table and current note objects, boards and maps told apart, and a "referenced by" chip row on the note card from one batched counts endpoint. | this file's Notes section; routes_entries.py `entry_connections` |
+| ~~246~~ | **Done 2026-09-20.** Maps' own reference nodes counted (`_board_reference_rows`, both tables, one reader), `GET /entries/reference-counts` and the chip row on the card measured in Chromium (`refchips.js`), Connections telling maps from boards and listing every reference the chip counts. Record in HISTORY's INBOX 246. | done |
 | ~~232~~ | **Mostly already built; measure before building any of it.** Checked on the branch head 2026-09-19 (`scratchpad` sweep, one document holding all of them): tables render as 6 `.cm-md-td` cells with **0 pipes on screen**, callouts as 2 `.cm-md-callout` lines with a label and **0 `[!note]` markers**, task lists as 2 real `<input type="checkbox">` with **0 `- [ ]` brackets**, and an image as a drawn `.cm-md-image` with **0 `![...]` syntax**; strikethrough, highlight, footnotes and maths all carry their marks too. The two things that were genuinely wrong are fixed: the code fence's empty rows (706e2af) and the chips that broke in half when they wrapped (2b94271). This row was stale, and rebuilding from it would have been the fourth time this project rebuilt something that existed. | done, except anything the owner names next |
 | 253 | One-click recovery: a launcher that repairs a start that fails (venv, dependencies, migrations) without a prompt, and a Repair shortcut beside the app; gated by a deliberately broken venv coming back. | WORLD_CLASS_PLAN H6 |
 | 225 | The frontend copy sweep: every place the app still speaks as "the AI", "the assistant" or "the guide" where it means Atlas. | INBOX 225's second half |
@@ -449,26 +449,7 @@ being written by running agents stay beside this one.
 - **INBOX 38's bulk-move action is still to build.** The chip and label are
   the visibility fix that lets a person tell which space a survivor is in;
   moving a batch of them is the item's own D2 owner line. [batch-a.md]
-- **Boards and maps on a note, and what a note is referenced by (INBOX 246,
-  still open).** The owner: "I also want to be able to attach whiteboards and
-  mindmaps to notes. and I want it to show in notes if they are attached to or
-  referenced in/by a document, note, whiteboard, or mindmap." What exists,
-  checked: `GET /entries/{id}/connections` (routes_entries.py, around 1935)
-  returns outgoing, incoming, documents, boards and files, and the note card's
-  kebab has a Connections item (app.js, around 4698; `openConnections` around
-  3969). Three gaps. (1) That route's boards group reads the legacy
-  `WhiteboardNode` table only, while a current board embeds a note as a
-  `WhiteboardObject` of kind "note" carrying `data.ref_id` (routes_graph.py
-  around 370 shows the read) and a mind map is a board of type "map"
-  (routes_whiteboard.py around 2148): both go in, labelled board or map.
-  (2) There is no way from a note to put it on a board: a connect-menu item
-  "Put on a board or map" beside "Add to a document" (app.js around 4760), with
-  an inline picker of boards that POSTs `/whiteboard/objects` with kind note,
-  `data.ref_id` and a free position. (3) A card shows nothing until Connections
-  is opened: one muted chip row on it ("In 2 documents · on 1 board · linked by
-  3 notes") from a batched counts endpoint called once per render (`ids=`),
-  opening Connections on click. Tests first for the endpoint and the counts, a
-  Playwright measurement that the chip renders. [notes.md]
+- **Boards and maps on a note, and what a note is referenced by (INBOX 246):** done 2026-09-20, see the A table above and HISTORY's INBOX 246 entry. [notes.md]
 
 ## App wide: shell, phone and the shared recipes
 

@@ -30088,6 +30088,21 @@ told to open first.
     Found and fixed on the way: `plain_label` stripped markdown links and not
     wiki ones, so every note chip in the app whose first line linked to
     another note showed its brackets.
+    **The three gaps closed 2026-09-20** (OPEN.md's 246 row). A mind map
+    holds a note as its own reference node (`WhiteboardObject` kind "note",
+    `data.ref_id`), not a `WhiteboardNode`, so a note on a map through the
+    map's own node was invisible to the row, the dialog and the counts:
+    `_board_reference_rows` now reads both tables (kind first, then id, the
+    way routes_graph learnt to), once, for all three. The card carries one
+    muted chip, "In 1 document · on 1 board · on 1 map · linked by 1 note",
+    from `GET /entries/reference-counts?ids=` (one call per rendered chunk,
+    at most 60 ids, cache cleared per reload), opening Connections; measured
+    in Chromium (`scratchpad/ui-sweeps/refchips.js`): 24px like the chips
+    beside it, a button, and the dialog it opens lists the board with the
+    squares icon and the map with the tree. The dialog now lists what the
+    chip counts: a document that wiki-links the note without it being
+    attached, and a note that mentions it, were counted and not shown.
+    Twenty-two tests in `tests/test_entry_references.py`.
 
 220. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the docs
     and how to proceed.** "make sure all the other docs like architecture.md

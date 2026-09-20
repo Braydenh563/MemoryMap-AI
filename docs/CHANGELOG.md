@@ -31,6 +31,13 @@ below). Versioning is `0.x` while the app stabilises.
   stranded on screen after the panel it belongs to has closed.
 ### Added
 
+- A note card says what points at it: "In 1 document · on 1 board · on 1
+  map · linked by 1 note", one quiet chip that opens Connections, counted
+  for a whole page in one call (`GET /entries/reference-counts`). A mind
+  map's own note node now counts as the note being on that map, in the
+  chip, the Referenced-by row and the Connections dialog alike, and the
+  dialog tells a map from a board and lists every document and note the
+  chip counts.
 - The Guide answers with no model running. Its whole knowledge of this app is
   hand-written help text, which is also the only source of facts a model is
   given when one does answer, so with the model off it hands that text over

@@ -1540,6 +1540,16 @@ progress {
   border: 1px dashed var(--border);
 }
 
+/* What points at this note (INBOX 246): documents, boards, maps, notes,
+   counted. Quiet like the untagged chip, since it is information rather
+   than a warning, but solid rather than dashed: a fact, not a gap. A
+   button, since it opens Connections. */
+.chip.refs {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
 /* A note that is saved but not yet filed. Quiet on purpose: this is a
    progress state on a note that is already safely on disk, not a warning,
    and it replaces the category chip for the second or two it lasts. */

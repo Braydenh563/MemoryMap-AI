@@ -9,6 +9,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- The Guide answers with no model running. Its whole knowledge of this app is
+  hand-written help text, which is also the only source of facts a model is
+  given when one does answer, so with the model off it hands that text over
+  word for word, with the same quick-access chips, and says that is what it
+  is doing. It used to say it was unavailable while holding the exact
+  paragraph the question was about.
+
 - A Windows MSI ships alongside the existing .exe installer
   (`MemoryMap-AI-*-windows-x86_64.msi`, built from the same PyInstaller
   output with WiX). It installs per machine rather than per user, supports

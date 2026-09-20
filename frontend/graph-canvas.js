@@ -2017,6 +2017,11 @@ async function renderGraphCanvas(s = gcTab) {
   const empty = document.getElementById("graph-empty");
   empty.style.display = data.nodes.length > 0 ? "none" : "grid";
   empty.classList.toggle("hidden", data.nodes.length > 0);
+  //: The minimap goes with the map, here as in `renderGraphSvg`: an overview
+  //: of nothing is a grey rectangle in a corner. Reported against this
+  //: renderer, which is the default, so the SVG one's copy of this line alone
+  //: changed nothing on screen (measured).
+  graphMinimapShown(data.nodes.length > 0);
 
   const colour = d3.scaleOrdinal(data.categories, d3.schemeTableau10.concat(d3.schemeSet3));
   const clusterColour = d3.scaleOrdinal(d3.schemeTableau10.concat(d3.schemeSet3));

@@ -1580,6 +1580,12 @@ async function renderGraphSvg() {
   const empty = $("graph-empty");
   empty.style.display = data.nodes.length > 0 ? "none" : "grid";
   empty.classList.toggle("hidden", data.nodes.length > 0);
+  //: The minimap goes with it. Measured: on an empty graph the render path
+  //: returns before `graphMinimapPaint` is ever reached, so the guard inside
+  //: the paint could not fire and the empty box stayed on screen under the
+  //: top bar. This line is the one place that already knows, authoritatively,
+  //: whether there is a map at all.
+  graphMinimapShown(data.nodes.length > 0);
 
   // Colour legend: one dot per category, same scale as the nodes.
   const color = d3.scaleOrdinal(
@@ -4152,11 +4158,41 @@ function graphMinimapEdgePairs() {
 // rather than cached: the force layout keeps moving until it cools, so a
 // cached extent would be wrong for the first few seconds, which is exactly
 // when someone is watching it settle.
+//: **An overview of nothing is not an overview.** Reported with a screenshot
+//: of the empty graph: *"the empty minimap goes behind the top bar and sits
+//: right in the corner with no gap. the mini map probably shouldnt even
+//: appear when the graph is empty."* Both halves are the same fact. The paint
+//: below has always bailed out when there was nothing to plot, which left the
+//: box itself on screen holding an empty rectangle, and measured
+//: (`scratchpad/ui-sweeps/graphminimap.js`) the empty state lays the card out
+//: differently enough that the box lands at y=73 against a dock ending at
+//: y=132, so it is drawn under the top bar as well. A box with no dots has
+//: nothing to say either way, so it goes.
+//:
+//: `hidden` rather than a new class, because that is what the corner setting
+//: already toggles, and `applyMinimapPosition` re-adds it on the next paint:
+//: the two cannot fight, since neither ever removes `hidden` for a graph that
+//: has no nodes.
+function graphMinimapShown(shown) {
+  const box = document.getElementById("graph-minimap");
+  //: Never over the person's own choice: "off" is a setting, and a graph
+  //: filling up is not a reason to overrule it.
+  if (!box || localStorage.getItem(GRAPH_MINIMAP_CORNER_KEY) === "off") return;
+  box.classList.toggle("hidden", !shown);
+}
+
 function graphMinimapPaint() {
   const svg = document.getElementById("graph-minimap-svg");
-  if (!svg || !graphNodesRef?.length) return;
+  if (!svg || !graphNodesRef?.length) {
+    graphMinimapShown(false);
+    return;
+  }
   const nodes = graphNodesRef.filter((n) => Number.isFinite(n.x) && Number.isFinite(n.y));
-  if (!nodes.length) return;
+  if (!nodes.length) {
+    graphMinimapShown(false);
+    return;
+  }
+  graphMinimapShown(true);
 
   const xs = nodes.map((n) => n.x);
   const ys = nodes.map((n) => n.y);
@@ -4516,9 +4552,16 @@ function initGraphMinimap() {
     if (!box) return;
     const chosen = GRAPH_MINIMAP_CORNERS.includes(choice) ? choice : "tl";
     for (const c of GRAPH_MINIMAP_CORNERS) box.classList.remove(`graph-minimap-${c}`);
-    box.classList.toggle("hidden", chosen === "off");
-    if (chosen !== "off") {
+    //: Choosing a corner is not, on its own, a claim that there is anything
+    //: to show. This used to `toggle("hidden", chosen === "off")`, which
+    //: un-hid the box unconditionally, and since it runs after the first
+    //: render it put the empty box back on screen every time. `graphMinimapPaint`
+    //: below has the last word: it hides the box again when there are no dots.
+    if (chosen === "off") {
+      box.classList.add("hidden");
+    } else {
       box.classList.add(`graph-minimap-${chosen}`);
+      box.classList.remove("hidden");
       graphMinimapPaint();
     }
     const picker = document.getElementById("graph-minimap-corner");

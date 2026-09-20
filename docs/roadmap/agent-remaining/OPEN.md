@@ -327,14 +327,21 @@ being written by running agents stay beside this one.
   second time, which the link endpoint handle's own comment had already warned
   about, so a shape at 2x moved 30px for a 60px drag and its east grip widened
   it by 30px. 17/17 now.
-- **The context bar at phone width, and the plan's half-answered question.**
-  WHITEBOARD_PLAN section 7 asks whether it should pin to the top of the
-  canvas at 390. Floating is measured at 390x844 in a 364x604 canvas: 269x54
-  for an image, 348x112 for a line, 348x160 for a shape or text box, 348x208
-  for an arrow, always inside the canvas and clear of the selection. Pinning is
-  not measured because nothing pins. Next step: a `data-wb-anchor="top"`
-  branch in `wbUpdateSelectionBar` against those five numbers.
-  [whiteboard-phases.md]
+- ~~**The context bar at phone width, and the plan's half-answered
+  question.**~~ Answered 2026-09-20: **it pins**, and the answer is in
+  WHITEBOARD_PLAN section 7 with the table that decided it. Both placements
+  were built and measured at 390x844 with five kinds high and low on the
+  board, ten selections each way (`scratchpad/ui-sweeps/wbcontextphone.js`,
+  5/5 at 390x844 and 1440x900). What the earlier reading had not measured was
+  the bar against the rest of the chrome: floating never covered the item
+  (0 of 10) but sat on the tool rail twice (7759px2 and 1122px2) and left the
+  canvas once, and a band over the tools is worse than a band over the item.
+  Pinned: one top for all ten, all inside, nothing on the rail; its cost is
+  two of ten selections under the band (an image entirely, 8640px2, and a
+  line, 3519px2). Desktop still floats, 0.7% to 2.6% of the canvas, nothing
+  covered. Found with it: the bar's `top` had never been clamped to the canvas
+  the way its `left` was, so a selection low on the board put it 843px to
+  1183px down an 844px window.
 - **`#wb-topbar` is 13 controls at 1440** against the dock grammar's ceiling of
   seven. Out of scope for Phases 1 to 4 (the plan's section 3 says the top bar
   is the dock grammar unchanged); it is the same counting question INBOX 47

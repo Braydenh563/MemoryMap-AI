@@ -496,11 +496,19 @@ async function clickCanvas(page) {
   // Above the item where there is room and below it where there is not (the
   // placement's own rule, so a bar never covers the rotate handle or the top
   // bar), and never across it either way.
+  //
+  // **Except at phone width, where the bar is pinned to the top of the canvas
+  // and the item may be under it** (WHITEBOARD_PLAN section 7, decided
+  // 2026-09-20 on the numbers in `wbcontextphone.js`: floating there put the
+  // bar on the tool rail twice in ten and off the canvas once, and a band over
+  // the tools is worse than a band over the item). The clearance rule still
+  // holds at every width that is not a phone.
+  const pinned = VIEWPORT.width < 600;
   const clear = placed.item
     && (placed.bar.bottom <= placed.item.top + 1 || placed.bar.top >= placed.item.bottom - 1);
   ok(
-    "the bar is inside the canvas and clear of the item",
-    inside && Boolean(clear),
+    pinned ? "the bar is pinned to the top of the canvas" : "the bar is inside the canvas and clear of the item",
+    inside && (pinned || Boolean(clear)),
     `bar ${Math.round(placed.bar.top)} to ${Math.round(placed.bar.bottom)} (${Math.round(placed.bar.width)}x${Math.round(placed.bar.height)}), item ${placed.item ? `${Math.round(placed.item.top)} to ${Math.round(placed.item.bottom)}` : "n/a"}, canvas ${Math.round(placed.host.width)}x${Math.round(placed.host.height)}`,
   );
   // The "..." menu is the board menus' own recipe, so it escapes the canvas's

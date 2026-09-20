@@ -199,13 +199,34 @@ are the one menu recipe; dialogs the modal recipe; keys in KEYMAP.
 ## 7. Not verified until built
 
 Touch: the rail's long-press flyout on a tablet; pen pressure for the
-marker; whether the context bar should pin to the top of the canvas on a
-phone instead of floating. **Floating is measured** (2026-09-12, Phase 2):
-at 390x844 the bar wraps to 348px wide and 54px (an image) to 208px (an
-arrow, four rows) in a 364x604 canvas, sits clear of the selected item at
-every kind, and never leaves the canvas. That is the case *for* floating and
-against pinning; what is not measured is a real finger on a real tablet,
-which is what the rest of this section is waiting for too.
+marker. What is not measured anywhere in this section is a real finger on a
+real tablet.
+
+**The context bar at phone width is decided, 2026-09-20: it pins.** Both
+placements were built and measured at 390x844 with five kinds high and low
+on the board, ten selections each way
+(`scratchpad/ui-sweeps/wbcontextphone.js`, 5/5 at 390x844 and at 1440x900).
+
+| | floating | pinned |
+| --- | --- | --- |
+| covers the item it edits | 0 of 10 | 2 of 10 (an image entirely, 8640px2; a line, 3519px2) |
+| sits on the tool rail | 2 of 10 (7759px2, 1122px2) | 0 of 10 |
+| leaves the canvas | 1 of 10 | 0 of 10 |
+| distinct tops | 10, spanning 452px | 1 |
+
+The earlier reading (Phase 2, 2026-09-12) measured the bar clear of the
+selection and inside the canvas and called that the case for floating; what
+it had not measured was the bar against the rest of the chrome. At this width
+the bar is a band, 348px of a 364px canvas for four of the five kinds and
+269px for an image, 6.6% to 25.3% of the board. A band over the item can be
+panned out from under; a band over the rail takes the drawing tools away.
+Pinning's cost is the two selections under it, which is recorded in the sweep
+rather than hidden. Desktop keeps the floating bar, measured at 1440x900 in
+the same run: 0.7% to 2.6% of the canvas, nothing covered.
+
+Found and fixed with it: the bar's `top` was never clamped to the canvas the
+way its `left` was, so a selection low on the board put it from 843px to
+1183px down an 844px window. It is clamped on both axes now.
 
 ## 8. Research: tldraw, Excalidraw, Miro, FigJam, and what it changes here
 

@@ -6673,7 +6673,7 @@ function wbUpdateSelectionBar() {
   // the item covered it, reported: "I can't rotate objects because that
   // panel appears."
   const gapAbove = 44, gapBelow = 10;
-  const left = Math.max(8, Math.min(hostRect.width - w - 8, cx - w / 2));
+  let left = Math.max(8, Math.min(hostRect.width - w - 8, cx - w / 2));
   // Above the item; below it when the top bar would cover the bar. The floor
   // is the bar's own clearance and not the ring's: a floor raised by the room
   // the ring takes *below* the node is what sent the strip down there.
@@ -6681,6 +6681,52 @@ function wbUpdateSelectionBar() {
   const floor = topBar ? topBar.bottom - hostRect.top + gapBelow : 56;
   let y = top - h - gapAbove;
   if (y < floor) y = bottom + gapBelow;
+  //: **At phone width the board bar is pinned to the top of the canvas**
+  //: (WHITEBOARD_PLAN section 7's open question, answered 2026-09-20 by
+  //: building both and measuring them: `scratchpad/ui-sweeps/wbcontextphone.js`,
+  //: five kinds high and low on the board, ten selections each way).
+  //:
+  //: What decided it was not the bar and the item, it was the bar and the
+  //: rail. Floating at 390x844 in a 364x604 canvas, the bar never covered the
+  //: item it edits (0px2 on all ten) but landed on the tool rail twice
+  //: (7759px2 and 1122px2) and off the canvas once, because at this width it
+  //: is a band and not a bar: 348px of a 364px canvas for a line, a shape, a
+  //: text box and an arrow, 269px for an image, 6.6% to 25.3% of the whole
+  //: board. A band that floats puts the controls in a different place every
+  //: time (ten distinct tops spanning 452px) and, low on the board, puts them
+  //: over the tools. A bar over the item can be panned out from under; a bar
+  //: over the rail takes the drawing tools away.
+  //:
+  //: Pinned: one top for all ten, all ten inside the canvas, nothing on the
+  //: rail or the top bar. Its cost, recorded rather than hidden, is that a
+  //: selection in the top band is under it: two of the ten, an image entirely
+  //: (8640px2) and a line (3519px2).
+  //:
+  //: Desktop keeps the floating bar and is untouched, measured by the same
+  //: sweep at 1440x900: 0.7% to 2.6% of the canvas, nothing covered, which is
+  //: what a contextual bar is for. 600px is the app's own phone band
+  //: (`10-responsive.css`), not a number chosen here, and the map's node strip
+  //: is left alone: it has its own measured narrow behaviour, two centred
+  //: rows.
+  const pinned = active === bar && window.innerWidth < 600;
+  if (pinned) {
+    bar.dataset.wbAnchor = "top";
+    left = rect.left - hostRect.left + 8;
+    y = floor;
+  } else {
+    //: **And the bar stays on the canvas.** `left` has been clamped to the
+    //: host since this bar was built; `y` never was, so a selection low on
+    //: the board (or below the fold, which select-all and a shift-click can
+    //: both produce) put its bar outside the canvas entirely: measured at
+    //: 390x844, five of ten selections placed the bar from 843px to 1183px
+    //: down an 844px window. The item is off screen in that case and nothing
+    //: can point at it, so the bar goes to the nearest edge it can be read
+    //: at rather than to a coordinate no one can see.
+    const canvasTop = rect.top - hostRect.top;
+    const canvasBottom = rect.bottom - hostRect.top;
+    y = Math.min(y, canvasBottom - h - gapBelow);
+    y = Math.max(y, Math.max(floor, canvasTop + gapBelow));
+  }
   active.style.left = `${Math.round(left)}px`;
   active.style.top = `${Math.round(y)}px`;
 }

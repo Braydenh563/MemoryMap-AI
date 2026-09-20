@@ -7,6 +7,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- On a phone, the whiteboard's context bar sits at the top of the canvas
+  instead of following the selection around it. At that width it is a band
+  rather than a bar, 348px of a 364px canvas, and floating put it on top of the
+  drawing tools for a selection low on the board. It also stays on the canvas
+  now whichever width you are at: a selection near the bottom could place it
+  past the bottom edge, where nothing could reach it.
+
 - A shape on the whiteboard follows the pointer at any zoom. Dragging one at 2x
   moved it half as far as the cursor, and its resize grip widened it half as
   far, because two drag handlers converted a delta that was already in board

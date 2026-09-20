@@ -186,6 +186,14 @@ function renderLibraryView() {
 
 async function loadLibrary() {
   const body = await apiJson("/library").catch(() => null);
+  //: Same distinction the Timeline draws: nothing came back is not the same
+  //: fact as there is nothing to show, and only one of them is about the
+  //: person's own library. See `surfaceFailed` in app.js.
+  if (!body) {
+    surfaceFailed(document.getElementById("library-empty"), "library", loadLibrary);
+    return;
+  }
+  surfaceRecovered(document.getElementById("library-empty"));
   libraryItems = (body && body.items) || [];
   libraryCounts = (body && body.counts) || {};
   libraryOverview = (body && body.overview) || {};

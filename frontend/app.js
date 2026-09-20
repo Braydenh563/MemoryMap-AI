@@ -11111,6 +11111,14 @@ function scheduleEntriesProgress() {
 }
 
 async function loadEntries() {
+  //: Wrapped, because every path below this either paints the notebook or
+  //: throws, and a throw used to leave the skeletons and then the empty state
+  //: on screen: "Your notebook is empty" is a claim about the person's own
+  //: notes that a failed GET is no basis for. See `surfaceFailed`.
+  return loadSurface($("empty-message"), "notes", _loadEntries);
+}
+
+async function _loadEntries() {
   const generation = ++_entriesLoadGeneration;
   showEntrySkeletons();
 
@@ -24890,7 +24898,15 @@ async function loadReminders() {
   //: paging was added to prevent. Reading to the end keeps the grouping below
   //: unchanged and loses nothing; a real pager is the better answer at
   //: thousands and is written up in `archive/agent-remaining/list-paging.md`.
-  const all = await apiPagedList("/reminders", 200).catch(() => []);
+  //: A sentinel, not `[]`: "you have no reminders" and "the reminders could
+  //: not be read" are different facts and only one of them is about the
+  //: person. See `surfaceFailed`.
+  const all = await apiPagedList("/reminders", 200).catch(() => null);
+  if (!all) {
+    surfaceFailed($("reminders-empty"), "reminders", loadReminders);
+    return;
+  }
+  surfaceRecovered($("reminders-empty"));
   const groupsBox = $("reminder-groups");
   groupsBox.replaceChildren();
 
@@ -27033,6 +27049,107 @@ async function goToTabHistory(next) {
   paintTabHistory();
 }
 
+//: **A surface whose data did not arrive says so, instead of saying it is
+//: empty.** Measured across seven tabs with every `/api` call failing
+//: (`scratchpad/ui-sweeps/vibefail.js`): four of them drew their empty state,
+//: so a notebook of four hundred notes read "Your notebook is empty", and the
+//: other three drew nothing at all. Both are the app claiming a fact about
+//: the person's own data that it has no basis for, which is the exact shape
+//: the owner described as breaking trust in an application.
+//:
+//: The same `.empty-state` component, told the truth, rather than a second
+//: component: it is already the thing in the middle of an empty surface, it
+//: already has an icon, a title, a sentence and room for one action, and
+//: DESIGN.md's Voice section says errors say what to do next. So this swaps
+//: its contents and puts them back, which also means a surface only needs the
+//: element it already has.
+//:
+//: `role="alert"` while it is failed and not otherwise: a screen reader should
+//: hear this when it appears, and should not hear the ordinary empty state
+//: announced every time a filter clears.
+const _surfaceFailedContents = new WeakMap();
+
+function surfaceFailed(el, what, retry) {
+  if (!el) return;
+  //: Saved once. A second failure while already failed must not capture the
+  //: failure message as "the original contents", which would make the real
+  //: empty state unrecoverable for the rest of the session.
+  if (!_surfaceFailedContents.has(el)) {
+    _surfaceFailedContents.set(el, { nodes: [...el.childNodes], display: el.style.display });
+  }
+  el.classList.add("is-failed");
+  el.classList.remove("hidden");
+  //: **And any inline `display` it is carrying.** The graph's empty state is
+  //: hidden with `style.display = "none"` rather than the class, deliberately
+  //: ("inline display beats every stylesheet rule", graph.js), so removing
+  //: `hidden` left the failure message in the document at 0 by 0 pixels:
+  //: present to every assertion and invisible to every reader. Measured, and
+  //: exactly the kind of fix that reports itself as working.
+  el.style.display = "";
+  el.replaceChildren();
+  const icon = document.createElement("i");
+  icon.className = "ph ph-warning-circle empty-icon";
+  icon.setAttribute("aria-hidden", "true");
+  const title = document.createElement("p");
+  title.className = "empty-title";
+  title.textContent = `Could not load your ${what}`;
+  const body = document.createElement("p");
+  //: Says what is and is not true, because the first thing a person fears
+  //: here is that the notes are gone.
+  body.textContent =
+    "Nothing has been lost: the app could not read its own data just now.";
+  el.append(icon, title, body);
+  if (typeof retry === "function") {
+    const again = document.createElement("button");
+    again.type = "button";
+    again.className = "ghost small";
+    setLabel(again, "ph:arrow-clockwise Try again");
+    again.addEventListener("click", () => {
+      surfaceRecovered(el);
+      retry();
+    });
+    el.appendChild(again);
+  }
+  el.setAttribute("role", "alert");
+}
+
+//: The other half, and the reason the contents are saved rather than rebuilt:
+//: an empty state's markup is written in index.html, per surface, with its own
+//: wording and its own action, and none of that is knowable from here.
+function surfaceRecovered(el) {
+  if (!el || !_surfaceFailedContents.has(el)) return;
+  const saved = _surfaceFailedContents.get(el);
+  el.replaceChildren(...saved.nodes);
+  //: Put back exactly what was there, empty string included: the surface's own
+  //: renderer sets this on every pass and must not find a value this helper
+  //: invented.
+  el.style.display = saved.display;
+  _surfaceFailedContents.delete(el);
+  el.classList.remove("is-failed");
+  el.removeAttribute("role");
+}
+
+//: What a loader wraps its own body in. Kept to one helper so a surface added
+//: later gets the behaviour by naming its empty element, and so no loader has
+//: to decide for itself what a failure looks like (which is how the four
+//: surfaces that *do* have an empty state came to disagree with the three
+//: that do not).
+//:
+//: It swallows the error deliberately: the failure is now on screen, with the
+//: way out beside it, and a rethrow here is an unhandled rejection in the
+//: console and nothing more.
+async function loadSurface(el, what, run) {
+  try {
+    const result = await run();
+    surfaceRecovered(el);
+    return result;
+  } catch (error) {
+    surfaceFailed(el, what, () => loadSurface(el, what, run));
+    recordBrowserLog("WARN", [`[${what}] could not load: ${error?.message || error}`]);
+    return null;
+  }
+}
+
 // Empty states carry one action (DESIGN.md → Voice): "Capture a note" from
 // the Timeline and Graph empties, "Add a reminder" from the Reminders one.
 // One delegated listener rather than one per button, so a fourth empty
@@ -27809,6 +27926,14 @@ async function renderTimeline() {
   //: Which of these entries are maps, awaited alongside the timeline rather
   //: than before it, because neither needs the other's answer.
   const [body] = await Promise.all([apiJson(url).catch(() => null), loadMapBoardIndex()]);
+  //: A null here is a request that failed, not a notebook with nothing in it,
+  //: and the two used to look identical on screen: "Nothing to plot yet" over
+  //: a notebook full of dated notes. See `surfaceFailed`.
+  if (!body) {
+    surfaceFailed($("timeline-empty"), "timeline", renderTimeline);
+    return;
+  }
+  surfaceRecovered($("timeline-empty"));
   timelineDensity = body?.density || {};
   timelineNextCursor = body?.next_cursor || null;
   timelineRows = body ? body.rows.map(timelineRow) : [];

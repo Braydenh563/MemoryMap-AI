@@ -80,6 +80,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A surface whose data did not arrive now says so, with a way to try again,
+  instead of drawing its empty state. Measured with every request failing:
+  the notes list, the map, the timeline and the library each claimed the
+  notebook was empty, and the dashboard's tiles printed "0 this week" and
+  "0 day streak" from figures they had not read.
+
+- The graph minimap is hidden when there is nothing to map, rather than
+  sitting empty in the corner under the top bar.
+
 - The Ask tab keeps its inline citation markers. A live-render paint armed
   before the stream ended fired after the markers were placed and repainted
   the answer from raw markdown, so the numbers appeared and vanished within a

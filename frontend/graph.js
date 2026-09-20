@@ -1557,8 +1557,19 @@ async function renderGraphSvg() {
     ? `/graph/local/${graphFocusModeId}?depth=2&similarity=${wantSimilarity}`
     : `/graph?${wantSimilarity ? "similarity=true&" : ""}${wantEntities ? "include_entities=true&" : ""}${wantDocuments ? "include_documents=true&" : ""}${wantMaps ? "include_maps=true" : ""}`;
     
+  //: A failed read is not an empty graph. Reported class of bug: the map
+  //: drew "Nothing to map yet" over a notebook full of linked notes because
+  //: the only thing distinguishing the two was a null this returned silently.
+  //: See `surfaceFailed` in app.js.
   const data = await apiJson(endpoint).catch(() => null);
-  if (!data) return;
+  if (!data) {
+    surfaceFailed(document.getElementById("graph-empty"), "map", renderGraph);
+    //: And the overview goes with the map it summarises, exactly as it does
+    //: when there is nothing to map.
+    graphMinimapShown(false);
+    return;
+  }
+  surfaceRecovered(document.getElementById("graph-empty"));
 
   if (graphSimulation) graphSimulation.stop();
   const svg = d3.select("#graph-svg");

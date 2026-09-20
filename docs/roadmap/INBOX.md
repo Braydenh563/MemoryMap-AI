@@ -313,7 +313,18 @@ with its owner named in the entry.
     what already exists before building: the Ask tab has a no-model path and
     the passage scorer produces exactly the spans such an answer would be
     made of. (2) A vibecoded sweep of the UI against DESIGN.md and the
-    vendored skills, which the owner has now asked for twice. Open.
+    vendored skills, which the owner has now asked for twice.
+    (2) done, `4884ead` and `29d0ccb`, in two passes. The first
+    (`scratchpad/ui-sweeps/vibecheck.js`) measured six tells a screenshot
+    cannot show across eight tabs: dead controls, leaked values, duplicate
+    ids, controls disabled with no reason, controls with no accessible name,
+    machine values on screen. 0 findings in all six, 104 buttons checked. The
+    second (`vibefail.js`) failed every request and found the real thing: four
+    surfaces drew their empty state, so a full notebook read "Your notebook is
+    empty", and the dashboard printed "0 this week" from figures it had never
+    read. Fixed with one recipe (`surfaceFailed`, in DESIGN.md's index, with a
+    lint in `test_ui_recipes.py`); 6 findings to 0. (1), the AI-free answer,
+    still open.
 
 ## Placed (last 20, newest first)
 

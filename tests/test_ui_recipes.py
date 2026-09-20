@@ -1209,3 +1209,50 @@ def test_one_writing_finding_is_drawn_by_one_builder() -> None:
             f"{piece} is built in more than one place: a finding is drawn by "
             "docFindingLine alone (DESIGN.md, the recipe index)"
         )
+
+
+#: **A surface says when its data did not arrive, and says it in one way.**
+#:
+#: Measured with every request failing (`scratchpad/ui-sweeps/vibefail.js`):
+#: four surfaces drew their empty state, so a full notebook read "Your notebook
+#: is empty", and the dashboard's tiles printed "0 this week" from arrays that
+#: were empty because nothing had been read. Both are the app stating a fact
+#: about the person's own notes on no evidence, which is the shape the owner
+#: described as making an application untrustworthy.
+#:
+#: The floor rather than an exact list: a surface added later should be wired
+#: too, and this fails the moment one is unwired, which is the direction that
+#: matters. The names are here so a rename has to come past this test.
+FAILING_SURFACES = {
+    "frontend/app.js": ("notes", "timeline", "reminders"),
+    "frontend/graph.js": ("map",),
+    "frontend/graph-canvas.js": ("map",),
+    "frontend/library.js": ("library",),
+    "frontend/documents.js": ("documents",),
+}
+
+
+def test_every_wired_surface_still_reports_its_own_failures() -> None:
+    for name, whats in FAILING_SURFACES.items():
+        js = (ROOT / name).read_text(encoding="utf-8")
+        for what in whats:
+            assert f'"{what}"' in js and "surfaceFailed(" in js, (
+                f"{name} no longer reports a failed read for {what!r}: a surface "
+                "that cannot read its data must say so rather than draw its empty "
+                "state (DESIGN.md, the recipe index)"
+            )
+        #: Paired, always. A surface that can enter the failed state and never
+        #: leave it is worse than one that never enters it: the message stays
+        #: over a working surface until the tab is rebuilt.
+        assert "surfaceRecovered(" in js or "loadSurface(" in js, (
+            f"{name} calls surfaceFailed with nothing that clears it again "
+            "(DESIGN.md, the recipe index)"
+        )
+
+
+def test_the_failed_state_is_built_in_exactly_one_place() -> None:
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    assert app.count('classList.add("is-failed")') == 1, (
+        "the failed state is drawn by surfaceFailed alone; a second builder is "
+        "how the empty states came to disagree in the first place"
+    )

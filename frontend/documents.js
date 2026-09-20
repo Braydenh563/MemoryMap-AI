@@ -706,7 +706,16 @@ async function loadDocuments(selectId = null) {
   //: `[[wiki link]]` resolves against `docs` by title (see
   //: `docLinkTargetFor`), so a document missing from it is a link that
   //: silently fails to resolve, not just a row missing from a list.
-  docs = await apiPagedList("/documents", DOCUMENTS_PAGE_SIZE).catch(() => []);
+  //: A sentinel rather than `[]`, because an empty list and a failed request
+  //: were the same value here and the sidebar said "No documents yet" for
+  //: both. See `surfaceFailed` in app.js.
+  const loaded = await apiPagedList("/documents", DOCUMENTS_PAGE_SIZE).catch(() => null);
+  if (!loaded) {
+    surfaceFailed(document.getElementById("doc-empty"), "documents", () => loadDocuments(selectId));
+    return;
+  }
+  surfaceRecovered(document.getElementById("doc-empty"));
+  docs = loaded;
   renderDocList();
   if (selectId) return openDocument(selectId);
   if (!currentDoc && docs.length) return openDocument(docs[0].id);

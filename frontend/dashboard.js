@@ -562,9 +562,18 @@ async function renderDashStats() {
   if (!box) return;
   const [stats, reminders] = await Promise.all([
     fetchDashStats().catch(() => null),
-    // To the end, same reason as the widget above.
-    dashReminders().catch(() => []),
+    // To the end, same reason as the widget above. A sentinel rather than an
+    // empty list, for the reason below.
+    dashReminders().catch(() => null),
   ]);
+  //: **A tile that could not read its number says so, instead of saying 0.**
+  //: Measured with every request failing: the notes tile already fell back to
+  //: an em-dash, and the other three printed a confident "0 this week",
+  //: "0 day streak", "0 reminders" computed from empty arrays. A zero is a
+  //: claim about the person's week; a dash is a claim about the app, and only
+  //: one of them is true here. Same distinction `surfaceFailed` draws for a
+  //: whole surface, at the scale a tile can manage.
+  const unknown = "\u2013";
 
   const now = new Date();
   const perDay = (stats && stats.per_day) || [];
@@ -573,19 +582,24 @@ async function renderDashStats() {
   const thisWeek = perDay.slice(-7).reduce((sum, n) => sum + n, 0);
   const open = (reminders || []).filter((r) => !r.done);
   const due = open.filter((r) => new Date(r.due_at) <= now).length;
+  const why = "This figure could not be read just now. It is not zero.";
 
   const tiles = [
     // Both of these are counts of notes, so they belong on the list that
     // shows them: not on whichever Notes sub-tab happened to be open last.
-    { icon: "ph:note-pencil", value: stats ? stats.total_entries : "–", label: "notes",
+    { icon: "ph:note-pencil", value: stats ? stats.total_entries : unknown, label: "notes",
+      title: stats ? "" : why,
       go: () => { switchTab("notes"); showNotesSection("browse"); } },
-    { icon: "ph:calendar", value: thisWeek, label: "this week",
+    { icon: "ph:calendar", value: stats ? thisWeek : unknown, label: "this week",
+      title: stats ? "" : why,
       go: () => { switchTab("notes"); showNotesSection("browse"); } },
-    { icon: "ph:flame", value: streak, label: streak === 1 ? "day streak" : "day streak", go: () => switchTab("dashboard") },
+    { icon: "ph:flame", value: stats ? streak : unknown, label: "day streak",
+      title: stats ? "" : why, go: () => switchTab("dashboard") },
     {
       icon: due ? "ph:alarm" : "ph:check-circle",
-      value: due || open.length,
+      value: reminders ? due || open.length : unknown,
       label: due ? "due now" : "reminders",
+      title: reminders ? "" : why,
       go: () => switchTab("reminders"),
       alert: Boolean(due),
     },
@@ -596,6 +610,9 @@ async function renderDashStats() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "stat-tile" + (tile.alert ? " stat-alert" : "");
+    //: Why a dash rather than a number, for anyone who hovers or reads it
+    //: with a screen reader: the tile itself has room for neither.
+    if (tile.title) button.title = tile.title;
     const icon = document.createElement("span");
     icon.className = "stat-icon";
     setLabel(icon, tile.icon);

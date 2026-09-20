@@ -490,6 +490,20 @@ with its owner named in the entry.
     centre offset 0 at both. The bar had been reaching the band's 44px touch
     floor only through that phantom margin, so it now takes it deliberately
     below 820 (44.0px measured at 390).
+    **The Ask sub-tab's duplicate sources: fixed, taking the decision named
+    in the brief.** Measured before: five `.chat-source-card`s under the
+    answer with note ids 6, 3, 5, 4, 2 and five rows in Matching records with
+    the same five ids in the same order, five duplicates out of five. After:
+    zero duplicate note cards, and one line reading "Sources: 5 notes, on the
+    right" which scrolls the column into view when pressed (measured: the
+    column's top moved from 299 to 208). A source the column does not hold,
+    a file or a web page, keeps its card **and its number**, since the
+    numbers on those cards are the numbers printed in the answer.
+    `showCitedPassage` was finding its target by `.chat-source-card`, so the
+    citation marks would have become decoration on this tab: it now lights
+    the records row for the note and shows the passage there. The Chat tab
+    keeps its panel whole (5 cards, 1 panel, measured after), because it has
+    no column beside it.
 
 273. **Found by the Documents agent, 2026-09-20 (the session, not the
     owner), two things it measured and did not own.** (1) `errors.js` at

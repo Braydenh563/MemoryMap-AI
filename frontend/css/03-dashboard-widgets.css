@@ -1897,6 +1897,33 @@ header#top-bar select,
   margin-top: var(--space-4);
 }
 
+/* **One line where the source cards were** (INBOX 274). The Ask layout already
+   shows every cited note in the Matching records column beside the answer, so
+   what belongs under the answer is the fact and the way to it, not a second
+   copy of the column. It is a ghost button at the app's small size, the same
+   shape as the follow-up chips it sits above, and it takes the whole row so
+   it reads as a line rather than as an action among others. */
+.ask-sources-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  justify-content: flex-start;
+  color: var(--muted);
+}
+
+/* The row a citation mark points at, in the records column. The same
+   `--accent-soft` wash and weight step `.chat-source-card.is-cited` takes, so
+   "this is the one the answer meant" reads the same in both places rather
+   than being learnt twice. */
+#raw-results li.is-cited {
+  background: var(--accent-soft);
+}
+
+#raw-results li.is-cited .chat-source-passage {
+  margin: var(--space-2) 0 0;
+}
+
 .answer-grounding-label {
   font-size: var(--text-xs);
 }

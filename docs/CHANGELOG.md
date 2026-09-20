@@ -165,6 +165,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Ask sub-tab shows each cited note once. Under the answer sat numbered
+  source cards for the same five notes, with the same ids in the same order,
+  that Matching records was already showing beside them; under the answer
+  there is now one line, "Sources: 5 notes, on the right", which brings the
+  column into view when pressed. A source the column does not hold, a file or
+  a web page, keeps its card and its number. A citation mark now lights the
+  records row for its note and shows the passage there, which is where that
+  note is drawn on this tab. The Chat tab is unchanged: it has no column
+  beside it, so its cards are the only place its sources can be.
 - Find anything centres its text in its bar. The field carried the
   stacked-form `margin-bottom` every input in this app has, and the rule that
   turns off the field's border, ground and padding inside the band had not

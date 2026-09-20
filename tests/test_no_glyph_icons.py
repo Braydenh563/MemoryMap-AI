@@ -61,6 +61,11 @@ INSTEAD = {
     "\U0001f4c4": "ph:file",
     "\U0001f4cc": "ph:push-pin",
     "\u2248": "ph:approximate-equals",
+    #: U+29C9, two joined squares, which is what a copy button said in two
+    #: places (the chat's table bar and every rendered code block) while five
+    #: other Copy buttons in the same app were drawn with `ph:copy`. Added
+    #: 2026-09-20, with both call sites fixed in the same commit.
+    "\u29c9": "ph:copy",
 }
 
 #: The one deliberate exception, and it carries its reason in the code beside

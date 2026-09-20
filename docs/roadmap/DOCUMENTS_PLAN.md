@@ -897,6 +897,45 @@ template gallery is two clicks from the same place, the Timeline's day view is
 the surface that knows about days, and a third door onto one page is what this
 decision exists to refuse.
 
+## 15. The code block's own bar, and where it belongs: measured 2026-09-20
+
+INBOX 232's brief for the live view asked for three things, of which two were
+built and checked (the fence's emptied marker rows, 706e2af, and the check of
+tables, blockquotes and task lists, 2026-09-19). The third, "a header row with
+the language and a copy button", was measured here before any of it was
+written, and **it already exists in the Read pane**: `renderMarkdown` in app.js
+has drawn a `.code-block` with a `.code-bar` carrying the language, Copy and
+Save since INBOX 172. Measured on the branch head at 1440x900, a document
+holding a `python` fence and an unlabelled one: 2 bars, `python Copy Save` and
+`code Copy Save`, 4 buttons, the language taken from the fence and "code" where
+there is none. Writing it again would have been the fourth rebuild this
+project's CLAUDE.md warns about.
+
+**The decision the measurement forces: the bar stays in Read, and the live view
+keeps the corner label with no button.** Three reasons, in order of weight:
+
+1. A control inside a `contenteditable` is a caret trap and a selection
+   hazard. The live view already pays for one (`DocTableMenuWidget` carries
+   `ignoreEvent`), and each one is a thing the arrow keys can walk into,
+   `Ctrl+A` can carry and a paste can take with it.
+2. The row it would hang from is **8px tall on purpose**, against a 36px line
+   (measured). The whole of the 2026-09-19 fix was to stop the fence spending
+   full rows on things that are not code; a header row put back is that fix
+   undone.
+3. The live view is editable text. The code is already under a caret that can
+   select it, and Read is one tap away on every band including the phone.
+
+**What the measurement did find, and what was fixed here**: the bar's Copy
+button read `⧉ Copy`, a typed U+29C9 standing where an icon belongs, in an app
+that ships `ph:copy` and draws five other Copy buttons with it. Two call sites,
+the chat's table bar and every rendered code block, both now through `setLabel`
+with `ph:copy`; Save beside it takes `ph:download-simple`, the icon the app
+already puts on "save this to your computer", because an icon beside one label
+and nothing beside the other reads as two kinds of control in one bar. The
+glyph is in `tests/test_no_glyph_icons.py`'s banned list so it cannot come
+back, and `scratchpad/ui-sweeps/doccodecopy.js` holds the whole measurement,
+11 of 11.
+
 ## Built, the sidebar redesign (INBOX 115), 2026-09-12
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-12", DOCUMENTS_PLAN.md) on

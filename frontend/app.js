@@ -26569,7 +26569,13 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "ghost small code-copy";
-    b.textContent = text;
+    //: `setLabel`, not `textContent`: the Copy button here said "⧉ Copy", a
+    //: typed glyph standing where an icon belongs while the app ships
+    //: `ph:copy` and uses it in five other places
+    //: (`tests/test_no_glyph_icons.py` names the fault and now names this
+    //: glyph). A label with no `ph:` marker comes through unchanged, so the
+    //: bar's other buttons are untouched.
+    setLabel(b, text);
     b.title = title;
     if (onClick) b.addEventListener("click", onClick);
     return b;
@@ -26889,7 +26895,7 @@ function buildTableBlock(scroller, headers, bodyRows, rawTable) {
   fit.hidden = true;
   full.hidden = true;
   actions.append(
-    button("⧉ Copy", "Copy the cells, tab-separated, for a spreadsheet", (event) => copyToClipboard(tsv, event.currentTarget)),
+    button("ph:copy Copy", "Copy the cells, tab-separated, for a spreadsheet", (event) => copyToClipboard(tsv, event.currentTarget)),
     menu,
     //: Last in the bar, which puts it at the panel's top-right corner, where
     //: every other X in this app is. Hidden in a bubble: there is nothing to
@@ -27253,7 +27259,9 @@ function renderMarkdown(container, text, depth = 0) {
       const copy = document.createElement("button");
       copy.type = "button";
       copy.className = "ghost small code-copy";
-      copy.textContent = "⧉ Copy";
+      //: The app's own copy icon, not a typed `⧉`: see the note on the table
+      //: bar's `button` helper above, and `tests/test_no_glyph_icons.py`.
+      setLabel(copy, "ph:copy Copy");
       copy.title = "Copy this code block";
       copy.addEventListener("click", (event) =>
         copyToClipboard(text, event.currentTarget)
@@ -27265,7 +27273,11 @@ function renderMarkdown(container, text, depth = 0) {
       const save = document.createElement("button");
       save.type = "button";
       save.className = "ghost small code-copy";
-      save.textContent = "Save";
+      //: With its own icon, because the pair sit in one bar: an icon beside
+      //: "Copy" and nothing beside "Save" reads as two different kinds of
+      //: control. `ph:download-simple` is what the app already puts on a
+      //: "Save this to your computer" (the image reader's, app.js ~6328).
+      setLabel(save, "ph:download-simple Save");
       save.title = "Save this code block to the exports folder";
       save.addEventListener("click", () =>
         saveFile(`code-${Date.now()}.${language || "txt"}`, new Blob([text], { type: "text/plain" }))

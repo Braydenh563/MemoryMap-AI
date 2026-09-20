@@ -293,6 +293,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Copy button on a code block and on a table is drawn with the app's own
+  icon. Both said "⧉ Copy", a character typed where an icon belongs, while
+  five other Copy buttons in the app used the real one. Save beside them takes
+  its icon too, so the pair in one bar read as the same kind of control.
 - The board's top bar answers a finger on a tablet. Between 600 and 820, the
   band whose own rule is that the pointer there is a finger, all thirteen of
   its controls were still 36px tall; and wherever the five menu buttons drop

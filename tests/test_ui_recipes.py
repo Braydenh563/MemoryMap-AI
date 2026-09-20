@@ -1753,3 +1753,52 @@ def test_a_folded_group_of_settings_is_the_shared_disclosure_recipe() -> None:
         "the graph options panel's three tuned-once sections (Physics, Groups, "
         "Minimap) are folds; see GRAPH_PLAN.md, 'Decision made, 2026-09-20'"
     )
+
+
+#: **A grip that scales with `--wb-inv-zoom` carries its own anchor**
+#: (INBOX 278). `.wb-sketch-rotate-handle` and `.wb-rotate-handle-stem` are
+#: scaled by `1 / k` in 07-whiteboard-misc.css so a grip stays one size to the
+#: hand, and that rule deliberately leaves `transform-box` at its `view-box`
+#: default, which means the origin has to come from the code that knows the
+#: board coordinates. The group selection's grip was added without one and the
+#: scale resolved about the view box's origin instead: measured at board
+#: (680, 1344) at 0.5x and (170, 336) at 2x for a box whose top centre is
+#: (340, 672), which is the owner's "off to the top left or right, or below the
+#: top border".
+#:
+#: The count, rather than the proximity: the group's origin is set in
+#: `layoutGroupChrome`, which sits above the element it anchors, so "within N
+#: lines of the class" would fail on the code that is correct. One
+#: `transform-origin` per grip drawn is the invariant, and a fifth grip added
+#: without one breaks this.
+GRIP_CLASSES = ("wb-rotate-handle-stem", "wb-sketch-rotate-handle")
+
+
+def test_every_inverse_scaled_grip_sets_its_own_anchor():
+    js = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
+    drawn = sum(js.count(f'"{name}"') for name in GRIP_CLASSES)
+    anchored = js.count('.style("transform-origin"')
+    assert drawn == 4, (
+        f"whiteboard.js draws {drawn} inverse-scaled rotate grips, not the 4 "
+        "this lint was measured against (one stem and one knob for a single "
+        "shape, one of each for a group selection); count the new one and give "
+        "it an anchor before raising this"
+    )
+    assert anchored >= drawn, (
+        f"{drawn} rotate grips are drawn and {anchored} anchors are set: a grip "
+        "scaled by `--wb-inv-zoom` with no `transform-origin` is scaled about "
+        "the SVG view box's origin and leaves the box it belongs to "
+        "(INBOX 278, WHITEBOARD_PLAN)"
+    )
+
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    rule = css.split(".wb-sketch-rotate-handle,\n.wb-rotate-handle-stem {")[1].split("}")[0]
+    assert "scale(var(--wb-inv-zoom))" in rule, (
+        "the grip rule this lint guards is gone or renamed; the lint and the "
+        "rule move together"
+    )
+    assert "transform-box" not in rule, (
+        "this rule keeps `transform-box` at its `view-box` default on purpose, "
+        "because the origin is a pair of board coordinates the drawing code "
+        "sets; a `fill-box` here would make those origins mean something else"
+    )

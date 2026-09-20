@@ -393,8 +393,31 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     to every member's rotated bounds, and a member's own handles are hidden
     while it is part of a group selection; measured with a probe placing the
     knob at (box.x + box.w / 2, box.y - stem) at 0.5x, 1x and 2x, in
-    `scratchpad/ui-sweeps/wbgroupguides.js`. Queued for the whiteboard
-    agent at the next slot.
+    `scratchpad/ui-sweeps/wbgroupguides.js`. **Fixed, 2026-09-20**, and the
+    cause was one line narrower than the recipe guessed: the group's grip was
+    already drawn from the group box's own top centre in board units (measured
+    (340, 672) against a wanted (340, 672) at every zoom), but it never set a
+    `transform-origin`. `.wb-sketch-rotate-handle` and
+    `.wb-rotate-handle-stem` carry `scale(var(--wb-inv-zoom))` so a grip stays
+    one size to the hand, and that rule keeps `transform-box` at its
+    `view-box` default *because the drawing code sets the origin in board
+    coordinates*, which `wbDrawSketchHandles` does for a single shape and the
+    group path did not. The scale therefore resolved about the SVG view box's
+    origin and multiplied the grip's own coordinates by `1 / k`: on screen the
+    knob sat 170px right of the box's centre and below its top edge at 0.5x,
+    340px left of it at 2x, and exactly right at 1x, which is the report's
+    "top left or right, or below the top border" and why it looks intermittent.
+    The anchor is set in `layoutGroupChrome`, so it follows a resize drag
+    (measured mid-drag: box top 638, knob 612, the box's own top centre).
+    The recipe's second half was also real and is done: a three-item group drew
+    **four** rotate knobs, two stems and sixteen member resize handles, and now
+    draws one knob, one stem and none; a member keeps its outline, so the
+    earlier report this has to keep answering ("the shapes and lines arent
+    selected visually and individually") still is. A card or a line selected on
+    its own keeps all eight handles and its grip, measured.
+    `scratchpad/ui-sweeps/wbgroupguides.js` carries the checks (0.5x, 1x, 2x,
+    plus mid-resize), and `tests/test_ui_recipes.py` holds the ratchet: every
+    grip scaled by `--wb-inv-zoom` sets its own anchor.
 
 ## Placed from INBOX, 2026-09-09 (the owner's evening batch)
 

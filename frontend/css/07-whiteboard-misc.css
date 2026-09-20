@@ -11772,10 +11772,35 @@ header#top-bar {
    coordinates only the code that draws them knows. `wbRenderSketchHandles`
    sets `transform-origin` on both from the bbox it already has; this rule is
    the other half, and `transform-box` stays at its `view-box` default so that
-   origin is read in the same user units the bbox is in. */
+   origin is read in the same user units the bbox is in.
+
+   **A grip drawn by this rule with no origin set is a bug, not a default.**
+   The scale then resolves about the SVG view box's origin and multiplies the
+   grip's own coordinates by `1 / k`: the group selection's rotate grip did
+   exactly that until INBOX 278, measured at board (680, 1344) at 0.5x and
+   (170, 336) at 2x for a box whose top centre is (340, 672), which is the
+   owner's "off to the top left or right, or below the top border". Anything
+   added to this selector list sets its origin where it is drawn. */
 .wb-sketch-rotate-handle,
 .wb-rotate-handle-stem {
   transform: scale(var(--wb-inv-zoom));
+}
+
+/* --- A member of a group selection shows that it is selected, not how to
+   resize itself (INBOX 278) -------------------------------------------------
+   A card and a text box carry eight resize handles and a rotate grip as
+   children, which `.wb-selected` reveals. In a group that is one set per
+   member on top of the group's own: measured on a three-item group, eight
+   rotate knobs and sixteen resize handles at once, which is why the stem the
+   eye lands on rises from a member's centre rather than the group box's. The
+   outline the class also draws stays, because "the shapes and lines arent
+   selected visually and individually" was its own report and is still true
+   without the grips. */
+.node-card.wb-in-group .wb-resize-handle,
+.node-card.wb-in-group .wb-rotate-handle,
+.wb-object.wb-in-group .wb-resize-handle,
+.wb-object.wb-in-group .wb-rotate-handle {
+  display: none;
 }
 
 /* --- The attach picker's picture rows ------------------------------------

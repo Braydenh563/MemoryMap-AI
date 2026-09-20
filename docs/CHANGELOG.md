@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The rotate grip of a group selection on the whiteboard sits at the top centre
+  of the group, at any zoom. It was scaled about the canvas's origin rather than
+  its own anchor, so it sat right at 100% and drifted further off the box the
+  further you zoomed either way: 170px right of centre and below the top edge at
+  50%, 340px left of it at 200%. A group also drew every member's own handles on
+  top of its own, four rotate knobs and sixteen resize handles for three items;
+  members now show their outline and the group carries the grips, and anything
+  selected on its own still has all of them.
+
 - The CSS that styled the whiteboard's old export popover is gone. The popover
   became a dialog several phases ago; its class stayed in seventeen grouped
   selectors across three stylesheets, four of them rules with nothing else in

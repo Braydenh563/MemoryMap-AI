@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- A section can be moved by dragging its heading in the outline, and the
+  heading, its text and everything nested under it travel together. Alt with
+  an arrow does the same from the keyboard, on the row that has focus.
+
 - A document's outline folds and filters. A heading with sections under it
   carries a caret that hides them, remembered per document, and past ten
   headings a filter box appears above the list and says how many of them are

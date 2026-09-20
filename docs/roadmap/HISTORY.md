@@ -25072,6 +25072,72 @@ hides nothing, because the reader sees its `.select-shell`.
     mode still flips, the suppression class is gone again a frame later, and
     the art canvas is rebuilt. **Not verified:** the desktop webview, which is
     the window the report came from; the numbers above are headless Chromium.
+## Moved from the plans, 2026-09-20
+
+### DOCUMENTS_PLAN.md Phase 4 item 3, the outline that navigates and reorders
+
+**Breadcrumbs and the sticky, current-section outline were already built**
+(the sidebar redesign, 2026-09-12: `renderDocCrumbs`, `markDocOutline`). What
+this pass added is the rest of the item, plus the two things
+`archive/agent-remaining/doc-sidebar.md` recorded as open beside it.
+
+**The scroll-spy follows the caret.** It read the top of the view alone, so
+typing in a section below the one at the top of the box marked the heading
+above it until the view scrolled. Measured before the change on a
+twelve-section document in a 512px editor: caret in Section 3 at scrollTop 0,
+outline marked Section 1. The decision the next step left open, which wins
+when the two disagree: the caret does, while it is visible, because a caret
+you can see is where you are writing; scroll it out of the box and the
+viewport takes over again, which also covers the Read pane, where there is no
+caret to see. The textarea fallback has no line-to-pixel map, so it keeps the
+viewport answer. `scratchpad/ui-sweeps/docspy.js`, 6/6.
+
+**Folding, per document, keyed by the heading rather than by its line.** A
+line number changes the moment anything is written above it, so a fold keyed
+that way unfolds itself or folds some other section in its place. The state is
+in `localStorage` because a fold is a per-viewer fact about how a panel is
+drawn; one written into the file would travel to everyone who opens the
+document and would show up in its diff. The control is a fixed 16px gutter at
+the row's left, a button where the heading has children and an empty slot
+where it does not: the row itself is already a button (a button inside a
+button is neither valid nor reachable), and a caret that appeared only on some
+rows would move those rows' text against their own level, which is the exact
+fault `.outline-link`'s own indent rules spend three paragraphs protecting.
+
+**The filter box**, from ten headings up. Filtering ignores folds outright: a
+search that hides its own matches inside a fold reports nothing and is right
+about nothing. The count reads "2 of 19" while it is running, because a bare
+"2" over a narrowed list reads as a document with two headings in it. Not
+persisted, for the same reason the Library's property filter is not. The spy
+marks the nearest row that is actually drawn, so a caret inside a folded
+section marks the fold rather than a row nobody can see.
+`scratchpad/ui-sweeps/outlinefold.js`, 14/14: gutter one width (16px) across
+19 rows, 7 foldable, h3 indent 30px against h2's 17px unchanged, filter box
+226x36.
+
+**Drag to reorder, and Alt with an arrow.** Dragging a row moves the section,
+the heading and everything under it down to the next heading at the same level
+or shallower. The lines are re-scanned at the moment of the drop
+(`docScanHeadings`, pulled out of `renderDocOutline` for this) and never taken
+from the outline's own rows: the outline is rebuilt on a pause in typing, so a
+row dragged a keystroke after an edit carries line numbers from the document as
+it was, and moving that run would cut the wrong paragraphs out of the middle of
+the text. The write goes through the surface's `text` setter, which diffs
+prefix and suffix, so a move is one undo step. A section dropped inside itself
+is refused rather than clamped: there is no place the reader could have meant.
+Rows are not draggable while a filter is running, because the rows on screen
+are then a search result and "between" two of them is not a position in the
+document. Alt with an arrow is the keyboard half, and the focus ring is
+restored by name across the second redraw the write schedules (measured before
+that: `document.activeElement` came back as `<body>`).
+`scratchpad/ui-sweeps/outlinedrag.js`, 12/12, including every body paragraph
+still present exactly once and no run of three blank lines left at a seam.
+
+**Not verified.** Chromium only, at 1440x900. The drag is driven by dispatched
+`DragEvent`s with a shared `DataTransfer` rather than by a real pointer drag,
+which is what this Chromium will do reliably; no touch drag was tested at all,
+and the fallback textarea path was not driven for any of it.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

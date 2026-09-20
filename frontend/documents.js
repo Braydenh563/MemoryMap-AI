@@ -1808,14 +1808,15 @@ function docOutlineVisibility(headings, needle, folds) {
   return rows;
 }
 
-function renderDocOutline() {
-  const list = $("doc-outline");
-  const wrap = $("doc-outline-wrap");
-  if (!list || !wrap) return;
-  const text = docText();
+//: **The headings in a piece of markdown**, pulled out of `renderDocOutline`
+//: so the reorder (Phase 4 item 3) can ask the *current* text where a section
+//: starts and ends. The outline's own list is rebuilt on a pause in typing, so
+//: acting on its line numbers a keystroke later would move the wrong run of
+//: lines; scanning again costs one pass and cannot be stale.
+function docScanHeadings(text) {
   const headings = [];
   let inFence = false;
-  const lines = text.split("\n");
+  const lines = String(text == null ? "" : text).split("\n");
   lines.forEach((line, index) => {
     // A "# " inside a code fence is code, not a heading.
     if (line.trim().startsWith("```")) inFence = !inFence;
@@ -1850,6 +1851,124 @@ function renderDocOutline() {
       line: index - 1,
     });
   });
+  return headings;
+}
+
+//: **A section is its heading and everything under it**, down to the next
+//: heading at the same level or shallower: the run of lines a reader means
+//: when they drag "Results" somewhere else. `lineCount` rather than the text
+//: again, because every caller has already split it.
+function docSectionRange(headings, index, lineCount) {
+  const heading = headings[index];
+  let end = lineCount;
+  for (let next = index + 1; next < headings.length; next += 1) {
+    if (headings[next].level <= heading.level) {
+      end = headings[next].line;
+      break;
+    }
+  }
+  return { from: heading.line, to: end };
+}
+
+//: **Reordering the document from its outline** (DOCUMENTS_PLAN Phase 4 item
+//: 3, PLAN D6). Dragging a row moves the *section*, the heading and everything
+//: under it down to the next heading at the same level or shallower, which is
+//: what a reader means by "move Results above Method".
+//:
+//: **The lines are re-scanned at the moment of the drop, never taken from the
+//: outline's own rows.** The outline is rebuilt on a pause in typing, so a row
+//: dragged a keystroke after an edit carries line numbers from the document as
+//: it was, and moving that run would cut the wrong paragraphs out of the
+//: middle of the text. `docScanHeadings` costs one pass over a string this
+//: file already holds.
+//:
+//: The write goes through the surface's own `text` setter, which diffs prefix
+//: and suffix and dispatches the smallest change that gets there, so a move is
+//: one undo step rather than a whole-document replacement.
+function docOutlineMoveSection(fromIndex, toIndex, after) {
+  const box = docSurface();
+  if (!box) return false;
+  const text = box.text;
+  const lines = text.split("\n");
+  const headings = docScanHeadings(text);
+  if (!headings[fromIndex] || !headings[toIndex]) return false;
+  const src = docSectionRange(headings, fromIndex, lines.length);
+  const dst = after
+    ? docSectionRange(headings, toIndex, lines.length).to
+    : headings[toIndex].line;
+  //: **A section cannot be dropped inside itself**, which is what dragging a
+  //: parent onto one of its own children asks for: the block would be cut out
+  //: and put back into a hole that no longer exists. Refused rather than
+  //: clamped, because there is no sensible place a reader could have meant.
+  if (dst > src.from && dst < src.to) return false;
+  if (dst === src.from) return false;
+  const block = lines.slice(src.from, src.to);
+  //: The last section of a document usually has no blank line after it, so
+  //: moving it up would weld its last paragraph to the next heading. One
+  //: blank line, and only when it is actually missing: everything else about
+  //: the block's spacing is the writer's and is carried across untouched.
+  if (block.length && block[block.length - 1].trim()) block.push("");
+  const rest = [...lines.slice(0, src.from), ...lines.slice(src.to)];
+  const at = dst > src.from ? dst - (src.to - src.from) : dst;
+  rest.splice(at, 0, ...block);
+  box.text = rest.join("\n");
+  //: The outline is what was just dragged, so it is redrawn now rather than
+  //: on the next pause: a list that still shows the old order for half a
+  //: second reads as a drop that did not take.
+  renderDocOutline();
+  announce(`\u201c${headings[fromIndex].text}\u201d moved.`);
+  return true;
+}
+
+//: Which side of a row the pointer is on. The midpoint, which is the rule
+//: every list with a drop line uses, and the only one that lets a reader
+//: place a section at the very end of a document.
+function docOutlineDropAfter(row, clientY) {
+  const box = row.getBoundingClientRect();
+  return clientY > box.top + box.height / 2;
+}
+
+function docOutlineClearDrop() {
+  for (const row of document.querySelectorAll("#doc-outline .is-drop-before, #doc-outline .is-drop-after")) {
+    row.classList.remove("is-drop-before", "is-drop-after");
+  }
+}
+
+//: **The keyboard half, which a drag can never be.** Alt with an arrow moves
+//: the focused row's section past its neighbour, which is the same move the
+//: drag makes and the only one this panel can offer somebody who is not using
+//: a pointer. Alt because a bare arrow moves between rows and Ctrl+arrow is
+//: the browser's own word jump; the same chord Notion and Obsidian use for
+//: moving a block.
+//:
+//: Past its *neighbour in the outline*, not its sibling at the same level: the
+//: rows are what the reader can see, and a rule that skipped rows would move
+//: a section past things it looked like it was next to.
+function docOutlineNudge(index, direction) {
+  const headings = docScanHeadings(docText());
+  const to = index + direction;
+  if (!headings[index] || !headings[to]) return false;
+  //: Downwards the section has to land *after* the row below it, upwards
+  //: *before* the row above: "after" and "before" are the same two words the
+  //: drop uses, so both routes end in one move function.
+  //: **Asked for before the move, not after.** The write dispatches a
+  //: transaction, which schedules the facts pass, which redraws this outline
+  //: again a beat later: focusing a row here would put the ring on an element
+  //: that is replaced milliseconds afterwards, and the measurement of that is
+  //: `document.activeElement` coming back as `<body>`. So the row is named and
+  //: every render restores it until the reader moves on (`docOutlineFocusKey`
+  //: at the end of `renderDocOutline`).
+  docOutlineFocusKey = docOutlineFoldKey(headings[index]);
+  return docOutlineMoveSection(index, to, direction > 0);
+}
+
+function renderDocOutline() {
+  const list = $("doc-outline");
+  const wrap = $("doc-outline-wrap");
+  if (!list || !wrap) return;
+  const text = docText();
+  const lines = text.split("\n");
+  const headings = docScanHeadings(text);
 
   //: **The tasks in each section, counted.** DOCUMENTS_PLAN Phase 3 item 2
   //: asks for "task lists with progress in the outline", and the outline is
@@ -1992,6 +2111,56 @@ function renderDocOutline() {
       button.appendChild(chip);
     }
     button.addEventListener("click", () => jumpToDocLine(heading.line));
+    //: **Drag to reorder.** On the `li` rather than on the button, because the
+    //: gutter's caret is inside the row too and a reader who grabs the caret
+    //: means the row. `draggable` only while nothing is being filtered: the
+    //: rows on screen are then a search result rather than the document's
+    //: order, and dropping one "between" two rows that are not next to each
+    //: other in the document is a position nobody could have meant.
+    if (!needle) {
+      li.draggable = true;
+      li.addEventListener("dragstart", (event) => {
+        docOutlineDragIndex = index;
+        li.classList.add("is-dragging");
+        event.dataTransfer.effectAllowed = "move";
+        //: Something has to be set or Firefox refuses to start the drag, and
+        //: the heading's own text is the honest thing to carry: dropped into
+        //: any other editor it reads as what was dragged.
+        event.dataTransfer.setData("text/plain", heading.text);
+      });
+      li.addEventListener("dragend", () => {
+        docOutlineDragIndex = -1;
+        li.classList.remove("is-dragging");
+        docOutlineClearDrop();
+      });
+      li.addEventListener("dragover", (event) => {
+        if (docOutlineDragIndex === -1 || docOutlineDragIndex === index) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        const after = docOutlineDropAfter(li, event.clientY);
+        docOutlineClearDrop();
+        li.classList.add(after ? "is-drop-after" : "is-drop-before");
+      });
+      li.addEventListener("dragleave", () => li.classList.remove("is-drop-before", "is-drop-after"));
+      li.addEventListener("drop", (event) => {
+        if (docOutlineDragIndex === -1 || docOutlineDragIndex === index) return;
+        event.preventDefault();
+        const from = docOutlineDragIndex;
+        const after = docOutlineDropAfter(li, event.clientY);
+        docOutlineDragIndex = -1;
+        docOutlineClearDrop();
+        if (!docOutlineMoveSection(from, index, after)) {
+          toast("That section cannot go inside itself.", true);
+        }
+      });
+    }
+    button.addEventListener("keydown", (event) => {
+      if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+      event.preventDefault();
+      if (!docOutlineNudge(index, event.key === "ArrowDown" ? 1 : -1)) {
+        announce("That section cannot move any further.");
+      }
+    });
     li.appendChild(button);
     list.appendChild(li);
     //: `row` as well as `button`, because the scroll-spy has to know whether
@@ -2007,6 +2176,20 @@ function renderDocOutline() {
   //: that never knew.
   docOutlineMarked = -1;
   markDocOutline();
+  //: **The focus ring, restored after a move rewrote the rows.** Kept across
+  //: renders rather than applied once, because a move schedules a second
+  //: render of its own (see `docOutlineNudge`), and given up the moment focus
+  //: is somewhere this panel does not own: a reader who has gone back to
+  //: typing must not have the ring yanked into the sidebar by a redraw.
+  if (docOutlineFocusKey) {
+    const active = document.activeElement;
+    const ours = !active || active === document.body || list.contains(active);
+    const wanted = ours
+      ? headings.findIndex((heading) => docOutlineFoldKey(heading) === docOutlineFocusKey)
+      : -1;
+    if (!ours || wanted === -1) docOutlineFocusKey = "";
+    else docOutlineRows[wanted]?.button.focus();
+  }
   //: The breadcrumb reads this list rather than the document, so it is set
   //: here and the trail is redrawn on the same beat the outline is.
   docOutlineHeadingList = headings;
@@ -2028,6 +2211,15 @@ function renderDocOutline() {
 //: answer this avoids.
 let docOutlineRows = [];
 let docOutlineMarked = -1;
+//: The row a move asked to keep the focus ring on, as a fold key (level and
+//: text), because that is the one name for a heading that survives the
+//: document being rewritten around it.
+let docOutlineFocusKey = "";
+
+//: Which row is in the air. One number rather than a `dataTransfer` payload,
+//: because the payload a browser hands back on `drop` is a string and the one
+//: thing this needs is an index into the list the drag started from.
+let docOutlineDragIndex = -1;
 let docOutlineSpyFrame = 0;
 
 //: The first line of the document that is on screen, zero-based.

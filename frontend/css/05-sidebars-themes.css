@@ -2330,6 +2330,24 @@ button.outline-twist:focus-visible {
   min-width: 0;
 }
 
+/* **Dragging a section to a new place** (DOCUMENTS_PLAN Phase 4 item 3). A
+   line where it would land, drawn with an inset shadow rather than a border
+   so the row's own box never changes size as the pointer crosses it: a 2px
+   border appearing on hover would push every row below it down by 2px, which
+   makes the list move under the drag. `--accent`, because this is a preview
+   of a thing about to happen, which is what the accent is for. */
+.outline-row.is-dragging {
+  opacity: 0.5;
+}
+
+.outline-row.is-drop-before {
+  box-shadow: inset 0 2px 0 0 var(--accent);
+}
+
+.outline-row.is-drop-after {
+  box-shadow: inset 0 -2px 0 0 var(--accent);
+}
+
 /* The filter box above the list. The sidebar's own inset field, at the
    control height every other input in this app uses, and `margin-bottom`
    rather than a gap because `.doc-outline-wrap` is a flex column whose other

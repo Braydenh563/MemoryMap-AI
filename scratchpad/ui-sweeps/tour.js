@@ -290,6 +290,66 @@ async function walkTour(page, label) {
       `${label} the page around it is dimmed (${lum(dimBefore)} -> ${lum(dimAfter)})`
     );
 
+    // --- the card's own text, composited ------------------------------------
+    // contrast.js walks the app's surfaces; the tour's card is hidden while it
+    // runs, so its three pieces of text are measured here. Composited over the
+    // first opaque background behind them, and reported the way contrast.js
+    // reports a translucent chain: `.card` carries a backdrop-filter, so the
+    // eye gets more than a strict composite says.
+    await page.evaluate(() => openTour("basics"));
+    await page.waitForTimeout(700);
+    const ink = await page.evaluate(() => {
+      const parse = (value) => {
+        const m = value.match(/rgba?\(([^)]+)\)/);
+        if (!m) return null;
+        const [r, g, b, a] = m[1].split(",").map(Number);
+        return { r, g, b, a: a === undefined ? 1 : a };
+      };
+      const over = (fg, bg) => ({
+        r: fg.r * fg.a + bg.r * (1 - fg.a),
+        g: fg.g * fg.a + bg.g * (1 - fg.a),
+        b: fg.b * fg.a + bg.b * (1 - fg.a),
+        a: 1,
+      });
+      const lum = (c) => {
+        const f = (v) => {
+          const s = v / 255;
+          return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+        };
+        return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+      };
+      const backdrop = (el) => {
+        let node = el;
+        let acc = { r: 255, g: 255, b: 255, a: 1 };
+        const stack = [];
+        while (node && node !== document.documentElement) {
+          const c = parse(getComputedStyle(node).backgroundColor);
+          if (c && c.a > 0) stack.unshift(c);
+          node = node.parentElement;
+        }
+        const page = parse(getComputedStyle(document.body).backgroundColor);
+        if (page && page.a > 0) acc = over(page, acc);
+        for (const c of stack) acc = over(c, acc);
+        return acc;
+      };
+      const out = {};
+      for (const id of ["tour-title", "tour-text", "tour-count", "tour-section"]) {
+        const el = document.getElementById(id);
+        const fg = parse(getComputedStyle(el).color);
+        const bg = backdrop(el);
+        const a = lum(over(fg, bg)) + 0.05;
+        const b = lum(bg) + 0.05;
+        out[id] = Math.round((Math.max(a, b) / Math.min(a, b)) * 100) / 100;
+      }
+      return out;
+    });
+    await page.evaluate(() => tourClose(false));
+    console.log(`${label} card text contrast (composited): ${JSON.stringify(ink)}`);
+    check(
+      Object.values(ink).every((ratio) => ratio >= 4.5),
+      `${label} every piece of the card's text is at least 4.5:1 composited`
+    );
+
     check(errors.length === 0, `${label} no page errors (${errors.join("; ")})`);
     await browser.close();
   }

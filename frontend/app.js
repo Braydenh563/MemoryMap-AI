@@ -26501,6 +26501,21 @@ function renderMarkdown(container, text, depth = 0) {
       // Map #→h3 … ######→h6 (the app reserves h1/h2 for its own chrome).
       const level = Math.min(6, heading[1].length + 2);
       const el = document.createElement(`h${level}`);
+      //: **And the source level as a class, because the tag has lost it.**
+      //: Demoting by two is right for the document outline and wrong for
+      //: everything else: three source levels (`####`, `#####`, `######`) all
+      //: land on `h6`, and nothing in the stylesheet catches `h5` or `h6` at
+      //: all, so they fall through to the browser's own defaults, which are
+      //: *smaller than body text*. Measured in the rendered pane against a
+      //: 16px paragraph: `# Heading one` 12px, `## Heading two` 16px, `###`
+      //: 13.3px, `####` and `#####` both 10.7px. The document's largest
+      //: heading was its smallest text, and two levels were identical.
+      //:
+      //: The live view of the same document is 28.8 / 24 / 20 / 17.6, so the
+      //: two views of one file disagreed about what a heading is. `md-h1`..
+      //: `md-h6` carry the level the person actually typed, and the
+      //: stylesheet keys the scale off that.
+      el.classList.add(`md-h${heading[1].length}`);
       // An id makes the heading a real jump target, for the outline and for
       // any [](#anchor) link written into the text.
       el.id = mdHeadingId(heading[2], headingIds);

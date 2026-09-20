@@ -125,7 +125,12 @@ const READ = (el) => {
     const pick = (sel) => { const el = host.querySelector(sel); return el ? window.__read(el) : null; };
     return {
       found: host !== document,
-      h1: pick('h1'), h2: pick('h2'), h3: pick('h3'), h4: pick('h4'),
+      // **By level, not by tag.** `renderMarkdown` demotes `#` to `h3` so the
+      // app keeps h1/h2 for its own chrome, so comparing `h1` with `h1` says
+      // the rendered view has no top heading when what it has is a top
+      // heading wearing a different tag. `md-h{n}` carries the level the
+      // person typed, which is the thing the two views have to agree about.
+      h1: pick('.md-h1'), h2: pick('.md-h2'), h3: pick('.md-h3'), h4: pick('.md-h4'),
       quote: pick('blockquote'), code: pick('pre'), rule: pick('hr'),
       table: pick('table'), strong: pick('strong'),
       body: pick('p'),

@@ -782,10 +782,26 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
      opens nothing, and a tap at 1024 opens nothing. Found by `phone.js`
      on the way: "Show more" under a clamped note was 80x22 at 390; it
      takes the row's floor now.
-3. **Chat.** The composer above the keyboard with the attachments and
-   mode in one row; sources as a sheet; the sidebar as a sheet from the
-   left edge; the popup agent unavailable on the phone (the chat is the
-   agent).
+3. **Chat: built** (2026-09-20). Measured at 390 before: the composer
+   held the note picker, the image button, the box, the microphone and
+   Send, so the box sat on one 44px line and the buttons on another (100px
+   of composer for one line of text); the mode segment was parked off the
+   right edge of the controls strip (x 309 to 457) at 30px tall; a reply's
+   sources unfolded inside the bubble in a 340px transcript; the popup
+   agent floated over the window. After: the attachments move into the
+   strip beside the mode (`dockChatAttachments`), the box takes the row
+   with the two buttons that act on the message (182px wide, one row, the
+   placeholder shortened so autogrow does not size it to two lines of
+   "Ask your notebook anything"), the mode segment is first in the strip
+   at x=39 and 44px tall, the sources open as the sheet recipe with the
+   same body moved in and back (`chatSourcesPanel`), and the shortcut, the
+   status dot and the More sheet's row all go to the Chat tab with the box
+   focused when a model lets it (`toggleAgentPalette`). The sidebar half
+   is item 2's. Measured by `scratchpad/ui-sweeps/phonechat.js`; at 1024
+   the composer wraps as before and the popup opens. Untested: a real
+   soft keyboard, which Chromium here does not raise; the composer is not
+   pinned above it, since the transcript is the scroller and the composer
+   never leaves the screen (page scrollHeight 844 in 844).
 4. **Graph.** Pan and pinch, tap to select, long-press for the node
    menu (no right click), lasso by long-press then drag, the docks as one
    bottom sheet with the colour rule, groups and views; the node panel as

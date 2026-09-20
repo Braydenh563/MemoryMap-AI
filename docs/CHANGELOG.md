@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Chat on a phone: the message box takes one row with the microphone and
+  Send, the attachments sit beside the mode switch under it, the mode
+  switch is the first thing in that strip rather than off its right edge,
+  a reply's sources open as a sheet, and the popup agent goes to the Chat
+  tab instead of floating over a 390px window.
 - On a phone the sidebar no longer keeps a 52px rail down the left of every
   page. It opens from a button at the start of the page's own head bar and
   the notes, conversations and documents lists take the full width.

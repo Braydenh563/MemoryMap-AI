@@ -1571,3 +1571,45 @@ header#top-bar,
   display: flex;
 }
 
+/* --- Phase 11 item 3: the chat composer on a phone ---------------------------
+   04-chat-dock-appearance.css's 820 band wraps the composer, with a reason
+   from when the row held four icon buttons and Send: squeezed beside them the
+   autogrow box went 26px wide and 295px tall. The row holds the box, the
+   microphone and Send now, and measured at 390 the wrap put the box on one
+   44px line and the two buttons on another, 100px of composer for one line
+   of text. One row: the box gives, the two buttons are fixed. The mode
+   segment comes first in the scrolling controls strip, because it is the
+   control that decides what the next message does and it was the one
+   parked off the right edge (x 309 to 457 in a 390 window). */
+@media (max-width: 599.98px) {
+
+  .chat-composer {
+    flex-wrap: nowrap;
+    align-items: flex-end;
+  }
+
+  .chat-composer #chat-input {
+    flex: 1 1 0;
+    order: 0;
+  }
+
+  .chat-dock-controls > .chat-tool-group-mode {
+    order: -1;
+  }
+
+  /* The attachments follow the mode (`dockChatAttachments`, app.js). */
+  .chat-dock-controls > .chat-tool-group-attach {
+    order: -1;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  /* The mode segment's shell was 30px around 44px buttons; the strip's one
+     height is the touch floor. */
+  .chat-dock-controls .seg {
+    min-height: var(--target-min);
+    align-items: stretch;
+  }
+}
+

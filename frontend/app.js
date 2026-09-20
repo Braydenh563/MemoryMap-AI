@@ -18017,6 +18017,23 @@ function chatSourcesPanel(input) {
   });
   body.appendChild(grid);
   details.appendChild(body);
+  //: **On a phone the sources are a sheet** (UI_MODERNISATION_PLAN Phase 11
+  //: item 3). Opened in place, the grid of cards unfolds inside a bubble in
+  //: a 340px-tall transcript and pushes the answer it belongs to off the
+  //: screen. The same body, moved into the sheet recipe for as long as it
+  //: is open and put back on close, so a source card built once is the one
+  //: that opens, on either surface.
+  summary.addEventListener("click", (event) => {
+    if (!window.matchMedia(PHONE_TABS).matches || typeof openSheet !== "function") return;
+    event.preventDefault();
+    openSheet({
+      label: "Sources",
+      name: "sources",
+      returnFocus: summary,
+      build: (card) => card.appendChild(body),
+      onClose: () => details.appendChild(body),
+    });
+  });
   return details;
 }
 
@@ -38088,6 +38105,70 @@ function initNotePage() {
 
 initNotePage();
 
+// --- the chat composer on a phone: attachments and mode in one row -----------
+// UI_MODERNISATION_PLAN Phase 11 item 3, "the composer above the keyboard
+// with the attachments and mode in one row". Measured at 390: the composer
+// row held the note picker, the image button, the box, the microphone and
+// Send, and with the row forced onto one line the box got 78px and grew to
+// 152px tall (autogrow wrapping its own placeholder), the trap the 820 band
+// in 04-chat-dock-appearance.css records. Two of the five are attachments,
+// which is what the strip under the box is for: below 600 they move there,
+// beside the mode segment, and the box keeps the row with the two buttons
+// that act on the message. Same elements, same handlers; back above 600.
+function dockChatAttachments(toStrip) {
+  const strip = document.querySelector(".chat-dock-controls");
+  const composer = document.querySelector(".chat-composer");
+  const mode = strip?.querySelector(":scope > .chat-tool-group-mode");
+  if (!strip || !composer || !mode) return;
+  const movers = [composer.querySelector(":scope > .note-picker"), composer.querySelector(":scope > #attach-image")]
+    .filter(Boolean);
+  const parked = [...strip.querySelectorAll(":scope > [data-composer-home]")];
+  //: The placeholder gives too: "Ask your notebook anything..." wraps to two
+  //: lines in the 182px the box has beside its two buttons, and autogrow
+  //: sizes the box to its placeholder (measured: 59px tall, empty). Five
+  //: words become two on the phone and come back with the width.
+  const box = composer.querySelector(":scope > #chat-input");
+  if (box) {
+    if (toStrip && !box.dataset.placeholderHome) {
+      box.dataset.placeholderHome = box.placeholder;
+      box.placeholder = "Ask anything…";
+    } else if (!toStrip && box.dataset.placeholderHome) {
+      box.placeholder = box.dataset.placeholderHome;
+      delete box.dataset.placeholderHome;
+    }
+    if (typeof autoGrow === "function") autoGrow(box);
+  }
+  if (toStrip) {
+    if (!movers.length) return;
+    let group = strip.querySelector(":scope > .chat-tool-group-attach");
+    if (!group) {
+      group = document.createElement("span");
+      group.className = "chat-tool-group chat-tool-group-attach";
+      mode.after(group);
+    }
+    for (const el of movers) {
+      el.dataset.composerHome = "1";
+      group.appendChild(el);
+    }
+  } else {
+    const group = strip.querySelector(":scope > .chat-tool-group-attach");
+    const home = composer.querySelector(":scope > #chat-input");
+    for (const el of group ? [...group.children] : parked) {
+      delete el.dataset.composerHome;
+      home ? home.before(el) : composer.prepend(el);
+    }
+    group?.remove();
+  }
+}
+
+function initPhoneChatRow() {
+  const query = window.matchMedia(PHONE_TABS);
+  dockChatAttachments(query.matches);
+  query.addEventListener("change", (event) => dockChatAttachments(event.matches));
+}
+
+initPhoneChatRow();
+
 // --- a sheet, the phone's own dialog ------------------------------------------
 // DESIGN.md's recipe index, "A sheet". UI_MODERNISATION_PLAN.md Phase 11.
 //
@@ -44694,6 +44775,18 @@ const cmdPaletteResults = $("command-palette-results");
 // palette on Ctrl+K, and then with the sketch pad on Ctrl+Shift+K, twice
 // without anything noticing.
 function toggleAgentPalette() {
+  //: **On a phone the chat is the agent** (UI_MODERNISATION_PLAN Phase 11
+  //: item 3): a second conversation surface floating over a 390px window
+  //: is the Chat tab with less room, so the shortcut, the status dot and
+  //: the More sheet's row all go to Chat there, with the box ready.
+  if (window.matchMedia(PHONE_TABS).matches) {
+    cmdPaletteOverlay.classList.add("hidden");
+    switchTab("chat");
+    // After the tab's own focus handling has settled (it takes the panel
+    // first); measured, a same-turn focus was gone by the next frame.
+    setTimeout(() => $("chat-input")?.focus(), 80);
+    return;
+  }
   if (cmdPaletteOverlay.classList.contains("hidden")) {
     cmdPaletteOverlay.classList.remove("hidden");
     //: Both on open rather than once at boot: which starters are recent and

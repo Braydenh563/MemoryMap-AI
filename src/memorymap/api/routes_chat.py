@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import budget as run_budget
+from memorymap.ai import budget as run_budget, extractive
 from memorymap.ai import (
     agent,
     captioning,
@@ -1470,7 +1470,25 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             yield {"type": "related", "items": related}
         return
     elif not ollama_running:
-        yield {"type": "answer", "delta": librarian.OFFLINE_MESSAGE}
+        #: **The notes answer for themselves.** Asked for directly: "I want to
+        #: maximise the ability and function of all the application features
+        #: without ai, the ai features should just be the bonus."
+        #:
+        #: Retrieval has already run by the time this is reached, so the notes
+        #: are ranked and in hand, and this branch used to throw them away and
+        #: say the AI was not available. `extractive.answer` picks the passage
+        #: of each note that is about the question and quotes it, which is not
+        #: a written answer and says so.
+        #:
+        #: The grounding rows go out too, in the same shape a model's answer
+        #: produces, so the citation markers, the "grounded in" chips and the
+        #: passage highlight are drawn by the code that already exists. An
+        #: extractive answer cannot be wrong about where a claim came from,
+        #: because the claim is the passage.
+        offline = extractive.answer(req.question, prepared["notes"])
+        yield {"type": "answer", "delta": offline["text"]}
+        if offline["grounding"]:
+            yield {"type": "grounding", "sentences": offline["grounding"]}
         return
     else:
         messages = librarian.build_messages(

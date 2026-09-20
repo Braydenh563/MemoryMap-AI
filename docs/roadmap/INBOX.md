@@ -404,6 +404,43 @@ with its owner named in the entry.
     refused outright rather than warned about, so a Mac build is only worth
     shipping alongside an Apple Developer account for notarisation.
 
+272. **Mid-work drop, 2026-09-20, verbatim (the owner).** "also make sure
+    all features and alternatives are easily knoticable by and offered for the
+    user. like if the embedding model fails or has an error, it suggests to
+    download nomic-embed-text. if duck duck go is rate limiting it
+    automatically tries searxng and if it isnt installed it suggests it. and
+    same for many other instances. I guess the only other really big gap is
+    that there is no guided tour and introduction, with positioned popup cards
+    with back, next, skip, card tutorial tour numbers 1/?, dimmed background,
+    guide on making a note and showing various controlsa and features etc.
+    maybe a way for the user to replay it and to even only rerun certain
+    sections of the tour for specific main features?? the tour cant be too
+    long because I dont want users skipping it or finding it too hard and
+    giving up on trying the application.  maximised ui and ux."
+    Two things. (1) **Every failure names its way out.** A named class of bug
+    rather than a list: when something cannot work, the app says what would
+    make it work and offers it, and where an alternative exists it is tried
+    first. The owner's two examples are the embedding model (suggest
+    `nomic-embed-text`) and web search (fall back from DuckDuckGo to SearXNG,
+    and suggest installing it when it is absent). Survey every such point
+    before writing any of them: there will be more than the two named.
+    (2) **A guided tour.** Positioned cards with back, next, skip, a 1 of N
+    counter and a dimmed backdrop; short by design, because a tour long
+    enough to skip teaches nothing; replayable whole or by section, so a
+    feature can be re-learned without sitting through the rest. There is an
+    `#onboarding-overlay` already (the sweeps disable it), so check what it
+    does before building beside it. Open.
+
+271. **Mid-work drop, 2026-09-20, verbatim (the owner).** "can you focus on
+    refinement now?? refine everything, make sure all utility works and there
+    are no bugs. make things faster, optimise, reduce complexity. enhance
+    capability. what about the no ai available sentence string concatenation
+    search results for the help agent and ask response??" The named half is
+    built: the Guide answers from its own help text with no model (`9f715c4`),
+    and the Ask tab quotes the passage of each retrieved note that is about
+    the question (`ai/extractive.py`). The standing half, refinement, is the
+    session's own order of work from here.
+
 ## Placed (last 20, newest first)
 
 - 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.

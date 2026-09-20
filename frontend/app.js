@@ -40888,7 +40888,7 @@ function setGraphOptionsOpen(open) {
   //: are the sheet below, so the saved "open" pref still rides here (a
   //: window widened again opens what it had open) and only the floating
   //: half is refused.
-  const phone = typeof PHONE_TABS === "string" && window.matchMedia(PHONE_TABS).matches;
+  const phone = window.matchMedia(PHONE_TABS).matches;
   panel.classList.toggle("hidden", !open || phone);
   toggle.setAttribute("aria-expanded", String(open && !phone));
   toggle.classList.toggle("is-on", open && !phone);

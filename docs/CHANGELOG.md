@@ -133,6 +133,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Guide streams its answer on a locked notebook. The streaming fetch sent
+  no session token, so it was refused and the panel fell back quietly to the
+  one-shot route: the reply arrived in one piece, and "streaming is broken"
+  was the honest report. A lint now fails on any hand-rolled fetch to a locked
+  route that forgets the header.
+- "What does Performance mode do?" has an answer. The setting existed and the
+  help text did not, so the Guide was told to say it was not sure.
+- A document's AI edit reported the model as running when it was not: the
+  route compared the note against a constant the offline message stopped
+  being.
 - A failure now names its way out. DuckDuckGo rate-limiting goes looking for
   a SearXNG on this machine and uses it if there is one, and says where the
   one-press install is if there is not. An embedding model that is selected

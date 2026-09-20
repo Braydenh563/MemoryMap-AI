@@ -12,9 +12,27 @@ from inside the app, because both are a probe that did not answer.
 
 from __future__ import annotations
 
+import re
+from urllib.parse import urlparse
+
 import pytest
 
 from memorymap.ai import offline
+
+
+def _hosts(text: str) -> set[str]:
+    """The hostnames of the URLs a message carries.
+
+    Checked as parsed hostnames rather than as substrings: CodeQL reads a
+    `"ollama.com" in text` as an incomplete URL check, and it has a point
+    even in a test, since `notollama.com.evil` would pass it too.
+    """
+    hosts: set[str] = set()
+    for token in re.findall(r"(?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s)\]]*)?", text):
+        parsed = urlparse(token if "://" in token else f"https://{token}")
+        hosts.add(parsed.hostname or "")
+    return hosts
+
 
 
 @pytest.fixture(autouse=True)
@@ -27,7 +45,7 @@ def _fresh_lookup():
 def test_with_no_ollama_installed_it_says_where_to_get_it(monkeypatch):
     monkeypatch.setattr(offline.shutil, "which", lambda _name: None)
     hint = offline.ollama_hint("http://localhost:11434")
-    assert "ollama.com" in hint
+    assert "ollama.com" in _hosts(hint)
     #: And that the notebook is not broken meanwhile, which is the fact
     #: somebody meeting this for the first time most needs.
     assert "keeps working without it" in hint
@@ -46,7 +64,7 @@ def test_with_ollama_installed_it_says_start_it_and_where_the_address_lives(monk
         "a running Ollama on a different port is the other half of this case, "
         "and the way out of that one is the address setting"
     )
-    assert "ollama.com" not in hint
+    assert "ollama.com" not in _hosts(hint)
 
 
 def test_the_lookup_happens_once(monkeypatch):
@@ -86,4 +104,4 @@ def test_the_two_surfaces_that_use_it_both_do(monkeypatch):
 
     monkeypatch.setattr(offline.shutil, "which", lambda _name: None)
     for produce in (drafter.offline_message, extractor.offline_message):
-        assert "ollama.com" in produce()
+        assert "ollama.com" in _hosts(produce())

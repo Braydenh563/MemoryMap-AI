@@ -251,3 +251,114 @@ def test_the_settings_copy_no_longer_calls_searxng_optional():
     block = html.split("Your SearXNG instance", 1)[1][:1600]
     assert "optional, self-hosted" not in block
     assert "recommended" in block.lower()
+
+
+#: **A rate limit is a reason to look for the other engine, not to stop.**
+#:
+#: Asked for directly: "if duck duck go is rate limiting it automatically
+#: tries searxng and if it isnt installed it suggests it." The fallback that
+#: already existed ran the other way, SearXNG then DuckDuckGo, and only when
+#: an instance was already configured: a person with no `searxng_url` who hit
+#: a challenge page got the error and nothing else, while `discover_searxng`
+#: sat one call away.
+def test_a_rate_limited_duckduckgo_looks_for_a_searxng_and_uses_it(monkeypatch):
+    from memorymap.search import websearch
+
+    websearch.clear_cache()
+    monkeypatch.setattr(
+        websearch,
+        "_search_duckduckgo",
+        lambda *_a, **_k: (_ for _ in ()).throw(
+            websearch.WebSearchError("DuckDuckGo is rate-limiting this app")
+        ),
+    )
+    monkeypatch.setattr(websearch, "discover_searxng", lambda: "http://127.0.0.1:8888")
+    seen = {}
+
+    def _fake_searxng(query, limit, base_url):
+        seen["base_url"] = base_url
+        return [{"title": "t", "url": "https://e.test/", "snippet": "s", "domain": "e.test", "engine": "searxng"}]
+
+    monkeypatch.setattr(websearch, "_search_searxng", _fake_searxng)
+    results = websearch.search_web("anything", limit=3, provider="auto")
+    assert results and results[0]["engine"] == "searxng"
+    assert seen["base_url"] == "http://127.0.0.1:8888"
+
+
+def test_it_only_goes_looking_for_a_challenge_not_for_a_dead_network(monkeypatch):
+    """A timeout means the network is down, and probing four local ports on a
+    machine with no network is four more timeouts before the same message."""
+    from memorymap.search import websearch
+
+    websearch.clear_cache()
+    monkeypatch.setattr(
+        websearch,
+        "_search_duckduckgo",
+        lambda *_a, **_k: (_ for _ in ()).throw(
+            websearch.WebSearchError("DuckDuckGo request failed: timed out")
+        ),
+    )
+    looked = []
+    monkeypatch.setattr(websearch, "discover_searxng", lambda: looked.append(1) or None)
+    with pytest.raises(websearch.WebSearchError, match="timed out"):
+        websearch.search_web("anything", limit=3, provider="auto")
+    assert not looked, "a dead network is not a reason to probe for another engine"
+
+
+def test_with_no_searxng_anywhere_the_message_says_what_to_do(monkeypatch):
+    from memorymap.search import websearch
+
+    websearch.clear_cache()
+    monkeypatch.setattr(
+        websearch,
+        "_search_duckduckgo",
+        lambda *_a, **_k: (_ for _ in ()).throw(
+            websearch.WebSearchError("DuckDuckGo is rate-limiting this app")
+        ),
+    )
+    monkeypatch.setattr(websearch, "discover_searxng", lambda: None)
+    with pytest.raises(websearch.WebSearchError) as caught:
+        websearch.search_web("anything", limit=3, provider="auto")
+    assert "rate-limiting" in str(caught.value)
+
+
+def test_the_rate_limit_message_names_the_way_out(monkeypatch):
+    """Every failure names its way out. The message a person actually sees has
+    to say what would make this work, and this app has a one-press SearXNG
+    install (`/websearch/searxng/install`), so it points at that rather than
+    leaving them to find it."""
+    from memorymap.search import websearch
+
+    class _Challenge:
+        status_code = 200
+        text = "unusual traffic detected, are you a robot"
+
+        def raise_for_status(self):
+            return None
+
+    class _Session:
+        """A `requests.Session` only as far as this function uses one.
+
+        `post` as well as `get`, and a `close`: the DuckDuckGo path posts the
+        query and the caller closes the session in a `finally`, and a stub
+        missing either turns a message assertion into an AttributeError three
+        frames away from what is being tested.
+        """
+
+        def get(self, *_args, **_kwargs):
+            return _Challenge()
+
+        def post(self, *_args, **_kwargs):
+            return _Challenge()
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(websearch, "_private_session", _Session)
+    with pytest.raises(websearch.WebSearchError) as caught:
+        websearch._search_duckduckgo("anything", 3)
+    message = str(caught.value)
+    assert "rate-limiting" in message
+    assert "Settings" in message and "install" in message, (
+        "the message has to name where the way out is, not only that one exists"
+    )

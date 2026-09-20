@@ -433,10 +433,45 @@ def search_web(
                 )
                 results = []
         if not results:
-            results = _search_duckduckgo(query, limit)
+            try:
+                results = _search_duckduckgo(query, limit)
+            except WebSearchError as exc:
+                #: **Rate-limited is a reason to look for the alternative, not
+                #: a reason to stop.** Asked for directly: "if duck duck go is
+                #: rate limiting it automatically tries searxng and if it isnt
+                #: installed it suggests it."
+                #:
+                #: Only in `auto`, and only when no instance is configured: a
+                #: configured one was already tried above, and the two named
+                #: providers mean *that one*, which is the whole reason they
+                #: stopped falling back (see the docstring).
+                #:
+                #: Only for a challenge, not for every failure: a timeout or a
+                #: DNS error means the network is down, and probing four local
+                #: ports on a machine with no network is four more timeouts
+                #: before the same message.
+                found = discover_searxng() if _is_challenge(exc) else None
+                if not found:
+                    raise
+                logger.info(
+                    "DuckDuckGo is rate-limiting; found a SearXNG at %s and used it",
+                    found,
+                )
+                results = _search_searxng(query, limit, found)
 
     _cache_put(cache_key, results)
     return results
+
+
+#: Which failures are worth looking for another engine over. Matched on the
+#: message this module itself wrote, not on the page body, which is long gone
+#: by the time the error reaches the caller.
+_CHALLENGE_SIGNS = ("rate-limiting", "unexpected page")
+
+
+def _is_challenge(error: Exception) -> bool:
+    text = str(error).lower()
+    return any(sign in text for sign in _CHALLENGE_SIGNS)
 
 
 # --- SearXNG ------------------------------------------------------------------
@@ -594,8 +629,10 @@ def _search_duckduckgo(query: str, limit: int) -> list[dict]:
             )
             raise WebSearchError(
                 "DuckDuckGo is rate-limiting this app rather than returning "
-                "results. Waiting a few minutes usually clears it; running your "
-                "own SearXNG instance avoids it entirely (Settings → Web search)."
+                "results, and no SearXNG instance was found on this machine. "
+                "Waiting a few minutes usually clears it; running your own "
+                "SearXNG avoids it entirely, and Settings, Web search has a "
+                "one-press install for it."
             )
         if len(body) < 2000:
             # A real results page is tens of kilobytes even when it finds

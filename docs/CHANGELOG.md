@@ -126,6 +126,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A failure now names its way out. DuckDuckGo rate-limiting goes looking for
+  a SearXNG on this machine and uses it if there is one, and says where the
+  one-press install is if there is not. An embedding model that is selected
+  but never downloaded says so, with the button and the command to get it,
+  rather than a raw 404.
+
 - A surface whose data did not arrive now says so, with a way to try again,
   instead of drawing its empty state. Measured with every request failing:
   the notes list, the map, the timeline and the library each claimed the

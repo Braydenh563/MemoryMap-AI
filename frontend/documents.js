@@ -10181,7 +10181,13 @@ try {
   //: as a plain markdown box with a preview button. Obsidian's own default is
   //: Live Preview for the same reason. A stored choice still wins, so nobody
   //: who picked Source is moved off it.
-  setDocView(localStorage.getItem(DOC_VIEW_KEY) || "live");
+  //: **A phone opens a document to read it** (UI_MODERNISATION_PLAN Phase
+  //: 11 item 6). Nothing stored means the width decides: Rendered below 600,
+  //: Live Preview above, and a stored choice still wins at every width.
+  setDocView(
+    localStorage.getItem(DOC_VIEW_KEY)
+      || (window.matchMedia("(max-width: 599.98px)").matches ? "rendered" : "live")
+  );
 } catch {
   setDocView("source");
 }

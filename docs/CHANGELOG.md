@@ -9,6 +9,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- A phone opens a document to read it: the Rendered view is the default
+  below 600 when no view has been chosen, and Edit is a press away.
 - Chat on a phone: the message box takes one row with the microphone and
   Send, the attachments sit beside the mode switch under it, the mode
   switch is the first thing in that strip rather than off its right edge,

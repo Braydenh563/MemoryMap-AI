@@ -828,8 +828,19 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
      image from the camera roll) needs the POST form and a service
      worker. Still open in this item: the reader full-screen with a bottom
      bar.
-6. **Documents.** Read view by default, Edit as a full-screen sheet with
-   the selection toolbar only (no strip), the outline as a sheet.
+6. **Documents: built** (2026-09-20), most of it already there and
+   measured before anything was added. Measured at 390 with a fresh
+   document (`scratchpad/ui-sweeps/phonedocs.js`): a phone now opens a
+   document in the Rendered view when nothing is stored (Live Preview
+   above 600, a stored choice wins at every width); Edit is the page
+   itself with the live editor, the formatting strip hidden and the
+   selection bar (`#doc-phone-bar`, seven 44px buttons) at the foot above
+   the keyboard edge; the outline is the Outline tab of the sidebar sheet,
+   opened from the head's opener (item 2's), with all seven headings.
+   **Decision:** Edit is the page, not a sheet over it; on a phone the
+   document is already the whole screen and a sheet over a page that is
+   itself the editor would be two editors. At 1024 the default is Live
+   Preview as before.
 7. **Whiteboard and maps.** View and light edit only on a phone (pan,
    zoom, select, move, edit text); creation tools in a sheet; the mind
    map's + handles are touch-sized.

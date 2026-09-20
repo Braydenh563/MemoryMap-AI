@@ -25,7 +25,7 @@ then the plan tails by surface, then the horizon.
 
 | Plan | Still open |
 | --- | --- |
-| DOCUMENTS_PLAN | Phase 3 item 4's Library filter by frontmatter property; Phase 4 items 3 to 5 (outline drag-to-reorder with breadcrumbs, the editor command palette and shortcut sheet from one table, daily notes and the templates gallery); Phase 5 items 2 to 4 (version history UI with diff and restore, AI edit with a per-hunk diff preview and findings rendered as findings, focus and typewriter modes with reading typography and a print stylesheet); Phase 6 and Phase 8 tails in this file's Documents section. |
+| DOCUMENTS_PLAN | Phase 4 item 5's daily notes, the one row of Phase 4 still open (the templates gallery was built, and verified 2026-09-20 by `scratchpad/ui-sweeps/doctemplates.js`: six templates, each with a description); the Phase 2, 6 and 8 tails and the engine's three deliberate omissions, in this file's Documents section. Everything else this row used to list was built or already existed: the Library's property filter, outline reorder with folding and a filter box, the command palette and shortcut sheet from one table, version history with its diff and its AI filter, the per-hunk AI diff, reading typography and the print stylesheet (all 2026-09-20 or earlier, each with its probe named in HISTORY.md). |
 | UI_MODERNISATION_PLAN | Phase 8's three docks still over the seven-control ceiling; Phase 11 items 1 to 9, the phone done properly. |
 | GRAPH_PLAN | Phase 5 (positions saved on views, the `?since=` cursor); Phase 6's node panel redesign; the local pane's Show switches; 6b the minimap. |
 | WHITEBOARD_PLAN | Decision 7's other half; the phone context bar comparison; sketch handles at zoom; the arrange panel items. |
@@ -60,9 +60,26 @@ being written by running agents stay beside this one.
 
 ## Documents
 
-- **DOCUMENTS_PLAN Phase 4, the connected document: not started.** Next step:
-  take the plan's items in order and record file, id and next step per item at
-  the first stopping point. [documents-phase4.md]
+- **DOCUMENTS_PLAN Phase 4 item 5's daily notes, and only that.** Items 1 to 4
+  are built (backlinks and block references 2026-09-12; the outline's reorder,
+  folding and filter box, and the command palette and shortcut sheet from one
+  table, 2026-09-20, both recorded in HISTORY.md with their probes). The
+  templates half of item 5 exists and was measured on 2026-09-20
+  (`scratchpad/ui-sweeps/doctemplates.js`: the gallery opens at 480x526 with
+  six templates, each carrying a description). Daily notes were left alone
+  deliberately: `grep -n "daily" frontend/*.js src/memorymap/api/*.py` finds
+  `dailyNoteTitle` in app.js and twenty-two hits in routes_entries.py, so the
+  next step is to read what the Timeline already built (TIMELINE_PLAN Phase 4,
+  "a daily note is a convention, not a table") and decide what a *document*
+  daily note would add to it, rather than building a second one.
+  [documents-phase4.md]
+- **The templates gallery offers a description, not a preview of the page.**
+  Measured 2026-09-20: each row reads "Assignment plan / Brief, criteria,
+  sections, sources, timeline." The plan's words are "offered with a preview",
+  and a sentence about the template is a fair reading of that; a thumbnail of
+  the body is not built and may not be worth it. Left as a row here rather
+  than built, so the next session does not build it twice.
+  [documents-phase4.md]
 - **The document surface's aliases have no lint.** A call site that hands the
   surface to something expecting a DOM element reads as correct and fails at
   runtime (`autoGrow` wrote `style.height` on it and every "/" command in the

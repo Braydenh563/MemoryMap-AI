@@ -2259,3 +2259,371 @@ would need re-deriving from `rapidocr-onnxruntime`'s own output shape
 before it could serve the Library's page-region workspace
 (`frontend/library.js`) the same way; that mapping work is the bulk of
 the M-sized estimate, not the extras-registry entry itself.
+## Odysseus read deeply, 2026-09-21
+
+Asked for directly: read `https://github.com/odysseus-dev/odysseus.git` deep
+rather than wide, file by file rather than by subsystem name, and record what
+is new. §33 (first read) and §60 (re-read, tripled in size) already exist:
+read both first, and nothing below repeats what they already settled
+(the provider-layer lessons, the tools-and-skills token measurement, the
+`atomic_write_json` fix, MCP, passive memory capture, what was looked at and
+declined). This is a third pass on the same, still-growing repository, not a
+fourth product.
+
+**Method and its limit.** `git clone --depth 1
+https://github.com/odysseus-dev/odysseus.git` succeeded through the sandbox
+proxy on the first try; the repo is real, public, and current, so the "gone
+or private" branch of this task's instructions did not apply. The clone is
+one commit deep (`3b6c169`, a merge into `dev`, 2026-09-14, author "Boody"),
+so nothing below claims to know its commit history, its issue tracker, or its
+CI status; "how alive" is read from that one commit's date, its own
+`ROADMAP.md`, and the size of its own test suite, not from a log walk this
+clone cannot do. Nothing here was run; every line below is a source read, not
+an observed behaviour, and says so again where it matters.
+
+### 1. What it is, its size, its licence, how alive
+
+A self-hosted AI workspace: chat and agents, deep research, a "Cookbook"
+hardware-aware model recommender, side-by-side model comparison, documents,
+email, notes/tasks/calendar with CalDAV sync, a gallery/image editor, a
+credential vault, contacts, and a scripted device-pairing flow for a mobile
+companion. Line counts by extension, this checkout, everything outside
+`.git`: **247,751 Python, 166,420 JavaScript, 41,402 CSS, 4,917 HTML**
+(`find . -name '*.py' | xargs wc -l`, and so on per extension), 459,915 lines
+total against MemoryMap's low tens of thousands. `routes/` alone is 60-some
+flat and domain-grouped route files; `src/` is 95-odd modules with five
+purpose-built subdirectories (`agent_tools/`, `tools/`, `model_capability_readers/`,
+`search/`, a thin `src/search/` re-export shim); `static/js/` is 100+ files
+including a full raster image editor (`static/js/editor/`: layers, masks,
+inpainting, filters) that has nothing to do with notes. The test suite is
+**839 test files, 109,308 lines** (`find tests -name '*.py' | xargs wc -l`),
+organised by an explicit area/sub taxonomy declared in `pyproject.toml`'s
+pytest markers, which is a more deliberate test-organisation scheme than
+anything this repository has needed to build yet.
+
+**Licence:** `LICENSE` is the GNU AGPL, and its own text says "version 3 of
+the License, or (at your option) any later version", i.e. AGPL-3.0-or-later,
+confirming §33's read. MemoryMap is AGPL-3.0 (see §33's licence section for
+what that permits and still requires: keep notices, attribute the source,
+never send anything of MemoryMap's the other way to an MIT project). Nothing
+in this pass changes that analysis.
+
+**How alive:** the one commit this clone can see is nine days old at the
+time of this read, and its own `ROADMAP.md` opens with the maintainer's own
+words: *"Odysseus is on a voyage, but not home yet... I don't know what I'm
+doing, help"*, followed by a "High Priority" list that includes "SQUASH BUGS",
+fresh-install smoke tests across three OSes, and, tellingly, **"Agent
+prompt/context bloat... tool schemas, skills, memory, documents, and
+instructions can eat the context before the user request really starts"** as
+still-open work. That is the exact problem §33's token measurement found
+MemoryMap already ahead on (`tools.within_budget`, `focus_for`, a skill
+allowlist). Their own roadmap agreeing with §33's outside read is worth
+recording as corroboration, not just repetition: the size gap is real,
+current, and not a symptom of decline. `docker-compose.yml` ships three
+services by default (`odysseus`, `chromadb`, `searxng`) plus an optional
+fourth (`ntfy`, push notifications); `requirements.txt` pins `mcp<2` and
+`psycopg2-binary`, both signs of an actively maintained, moving dependency
+surface, not an abandoned one.
+
+### 2. Surface by surface, against this app
+
+Each line: what odysseus does, what MemoryMap does (file or plan), a
+verdict. Surfaces §33/§60 already covered in depth (provider dialects, the
+tool/skill token budget, passive capture, MCP) are one line here for
+completeness, not re-argued.
+
+- **Notes and capture.** Odysseus's `manage_notes` tool
+  (`src/tools/notes.py:do_manage_notes`) is CRUD on a flat `Note` model plus
+  checklists, reached only through the agent tool, with action aliases
+  (`create`/`new`/`save`/`remind` all map to `add`) so a model's near-miss verb
+  still lands. MemoryMap's notes are the whole app (`entry/manager.py`,
+  `api/routes_entries.py`), first-class, with tags, links, categories,
+  staleness, private notes, and their own UI, not a tool bolted onto a chat
+  workspace. Verdict: not comparable in scope. Odysseus's alias table is a
+  small, real idea worth a two-minute check against MemoryMap's own tool
+  argument parsing for the same "closest verb, not exact string" tolerance,
+  but not worth a dedicated backlog line on its own.
+- **Documents.** Odysseus's `document_processor.py` and `routes/document/`
+  give a writing-first editor with AI edits/suggestions across
+  Markdown/HTML/CSV, plus PDF/office-doc ingestion
+  (`office_doc.py`, `pdf_form_doc.py`). MemoryMap's Documents surface is
+  `DOCUMENTS_PLAN.md` and `api/routes_documents.py`; the Kortex read (§66)
+  already flagged the concrete gap (no slash commands, no block nesting) and
+  filed it as BACKLOG §64. Checked here whether odysseus's own document
+  editor has slash commands to crib the shape from: its `static/js/editor/`
+  is the **image** editor (canvas, layers, masks), not the document editor,
+  and no slash-command dispatcher turned up in `document.js` or
+  `documentLibrary.js`. Verdict: no new shape to take here; §64 stands as
+  written, sourced from Kortex, not odysseus.
+- **Search: lexical, semantic, hybrid.** Odysseus's hybrid search
+  (`src/rag_vector.py:VectorRAG.search`) blends a fixed
+  `VECTOR_WEIGHT = 0.7` / `KEYWORD_WEIGHT = 0.3`, where the keyword half is a
+  plain set-overlap ratio (`len(query_words & doc_words) / len(query_words)`,
+  no IDF, no stemming). MemoryMap's `search/engine.py` fuses three real
+  signals with measured weights (`WEIGHTS = {"bm25": 0.5, "cosine": 0.35,
+  "graph": 0.15}`), where the lexical half is SQLite FTS5's own IDF-weighted
+  `bm25()` over a Porter-stemmed index
+  (`search/index.py:BM25_WEIGHTS`), not a raw word-overlap count. Verdict:
+  MemoryMap's hybrid search is more principled than odysseus's on this read,
+  worth recording plainly since it cuts the other way from most of this
+  section (see part 4). One thing odysseus does that is worth a passing
+  mention: `embedding_lanes.py` keeps FastEmbed-fallback vectors in a
+  separate ChromaDB collection from a user-configured embedding model's
+  vectors, because Chroma fixes a collection's dimension on first insert.
+  MemoryMap hit the same failure mode from the other direction (switching
+  embedding models leaves old, narrower vectors in the same table) and
+  already fixed it, differently and after the fact
+  (`search/search_manager.py:280-324`: group by vector width, skip the
+  mismatched rows, log a reindex hint) rather than partitioning up front.
+  Both are real fixes to the same bug class; neither needs to change.
+- **Agent and tools.** Already the deepest-covered surface in §33 (dialect
+  detection, capability reads, SSRF hardening, the tools/skills token
+  measurement). New this pass, genuinely not in §33/§60: **automatic
+  conversation-history compaction.** `src/context_compactor.py:maybe_compact`
+  triggers at `COMPACT_THRESHOLD = 0.85` of the model's context window,
+  self-summarises older turns via the same LLM into a structured block (a
+  "Cursor-style" prompt asking for turn count and compaction count), and
+  special-cases small-context models (`SMALL_CONTEXT_LIMIT = 8192`) for more
+  aggressive trimming. MemoryMap tracks and reports how full the window got
+  (`usage_source`, `ollama_client.py`/`openai_client.py`) but, checked
+  directly across `ai/agent.py` and `api/routes_chat.py`, has no compaction
+  step: a long chat on a small local window is reported as full, not kept
+  usable. BACKLOG.md §11 already names summarisation as "the usual answer...
+  but it costs a model call, so it should be the last resort rather than the
+  first" without a shape to build; this is that shape, with a working
+  reference and a measured trigger point. See part 3 below.
+- **Skills.** Already the deepest-covered surface after agent/tools (§33
+  item 4: frontmatter, `when_to_use`, progressive disclosure, all already
+  triaged). Nothing new turned up this pass beyond what §33 already recorded.
+- **The graph.** Odysseus has none: no `graph` route, no force-directed view,
+  no equivalent of `GRAPH_PLAN.md`. MemoryMap's graph (§9/§10C per §30's
+  reading) is a real thing odysseus's much larger codebase does not have at
+  all, not a smaller version of one.
+- **Boards / whiteboard.** Same finding: no whiteboard or freeform canvas
+  surface anywhere in `routes/`, `services/`, or `static/js/` (its only
+  canvas work is the raster image editor, a different feature entirely).
+  `WHITEBOARD_PLAN.md` has no odysseus counterpart to compare against.
+- **Timeline.** No dedicated timeline surface; the closest odysseus gets is
+  ordinary chat/task history lists. `TIMELINE_PLAN.md` and the branch/line
+  timeline §30 already credits as "temporal recall" have no odysseus
+  equivalent either.
+- **Reminders.** Odysseus's `task_scheduler.py` (2,675 lines) runs scheduled
+  agent tasks generally, of which reminders are one shape, plus
+  `reminder_personas.py` for tone. MemoryMap has a dedicated reminder parser
+  and route (`ai/reminder_parser.py`, `api/routes_reminders.py`),
+  purpose-built rather than a slice of a general task scheduler. Verdict:
+  comparable coverage for the actual feature (parse a phrase into a
+  reminder); odysseus's version is entangled with its much larger scheduled-
+  task system, which is the wrong shape to import for a notebook that
+  deliberately has no general task/project system (BACKLOG.md §17 already
+  says so).
+- **Files and OCR.** Odysseus reads scanned PDF pages by handing each page
+  image to a vision-language model (`document_processor.py:136`,
+  `analyze_image_with_vl`) rather than running OCR proper; it has no
+  tesseract dependency anywhere in `requirements*.txt`. MemoryMap already
+  built dedicated, deterministic OCR (`core/ocr.py`: pytesseract, with
+  `attempt_binary_install` for the system `tesseract` binary itself, since
+  no PyPI wheel ships it). Verdict: MemoryMap's approach is cheaper, offline
+  by default, and does not depend on a vision-capable model being
+  configured; odysseus's VL-read approach could in principle handle a
+  diagram or handwriting an OCR engine garbles, but costs a full model call
+  per page and is non-deterministic. Worth one line in BACKLOG as an
+  idea-only fallback (VL read when tesseract is absent or returns near-empty
+  text), not a replacement for what `core/ocr.py` already does.
+- **Sync.** Odysseus syncs tasks/reminders to an external calendar over
+  CalDAV, two-way (`src/caldav_sync.py`, 722 lines; `caldav_writeback.py`,
+  311 lines). MemoryMap has no calendar sync of any kind; BACKLOG.md §17's
+  "A second device" entry is about a second instance of MemoryMap itself,
+  not about talking to an existing external calendar server. A one-way or
+  two-way CalDAV bridge for reminders is a real, scoped, self-hostable
+  (Nextcloud, Radicale) feature MemoryMap does not have and has not
+  evaluated; recorded here as a gap, not scoped, since it is a new surface
+  (external protocol client, its own auth/config) rather than an
+  improvement to something that exists.
+- **Packaging.** Odysseus's primary path is Docker Compose, three services
+  by default (`odysseus`, `chromadb`, `searxng`) plus an optional fourth
+  (`ntfy`); native installs exist but are the secondary path per its own
+  README ("Quick Start" is `docker compose up -d --build`). MemoryMap is one
+  process, SQLite, no required sidecar service, `start-desktop.sh`/`.bat`
+  (`src/memorymap/__main__.py`) plus the installer scripts CLAUDE.md §5
+  already documents at length (cache-busting, the `_BOOT_TOKEN` splice).
+  Verdict: MemoryMap's packaging is simpler by design and stays simpler
+  here too; nothing to take.
+- **Anything else it has that MemoryMap does not**, beyond what §33/§60
+  already named (email, calendar, hwfit/Cookbook, sub-sessions, a shell
+  tool, teacher escalation, multi-user/TOTP, face recognition, STT/TTS,
+  YouTube, ChatGPT/Copilot/Codex bridges, all already looked at and declined
+  for stated reasons): **Compare** (`routes/compare/compare_routes.py`),
+  a blind A/B model-preference test, two configured models answer the same
+  prompt under neutral "left"/"right" labels, the user votes, and only then
+  are the model names revealed (`vote_comparison`, `blind_mapping` stored
+  per comparison so a reload cannot leak it early); and **Deep Research**
+  (`src/deep_research.py`, 929 lines), a genuinely well-built iterative
+  Think, then Search, then Extract, then Synthesise loop, credited in its
+  own docstring as "IterResearch-style... Inspired by Alibaba's
+  IterResearch approach", where the LLM itself drives what to search next,
+  what is missing, and when to stop, distinct from MemoryMap's own web
+  search which §33 already correctly characterises as "a reader, not a
+  search engine": a single search-and-summarise pass, not a multi-round,
+  self-directed research loop that produces a synthesised report. Both are
+  new findings this pass; both are judged in part 3.
+
+### 3. The strongest things worth taking
+
+Five, each re-implemented from the idea, never copied wholesale, per §33's
+own stated habit and this project's provenance preference even though AGPL
+now permits a literal copy with notices kept.
+
+1. **Automatic chat-history compaction at a measured threshold.**
+   Idea: `src/context_compactor.py`, trigger at 85% of the model's *reported*
+   context window, self-summarise older turns via the same LLM into a dense,
+   structured block, trim harder below an 8k-token window. Lands in
+   `ai/agent.py`/`ai/librarian.py`, next to the existing `usage_source`/
+   window-fullness reporting, with a BACKLOG §11 row now added pointing here.
+   Size: **M** (a summarisation call, a place to store/inject the summary,
+   careful handling of tool-call-only turns that carry no text content, which
+   odysseus's own `_content_as_text` helper has to special-case). Risk: an
+   extra LLM call mid-conversation on a local model is real latency, and a
+   summary that drops something the user needed is a worse failure than
+   "the window is full", so it needs to be conservative and, ideally, opt-out
+   visible in the message metadata the same way `usage_source: estimated`
+   already is. Recommendation: **take the idea**, build it measured (does
+   compaction actually let a long conversation keep going usefully on a 3B
+   model, per this project's own "measure before claiming" standing order),
+   not assumed correct because odysseus shipped it.
+2. **An opt-in, ordered endpoint fallback for foreground chat/agent
+   requests.** Idea: `src/foreground_model_routing.py`, a per-user, explicitly
+   enabled (`FOREGROUND_FALLBACK_ENABLED_KEY`, default off) ordered list of
+   up to `MAX_FOREGROUND_FALLBACKS = 10` alternate endpoints, tried only on a
+   specific allow-list of retryable statuses
+   (`FOREGROUND_AVAILABILITY_STATUSES = {408, 425, 429, 500, 502, 503, 504,
+   507, 508, 529}`), never a blanket catch-all. Checked directly: nothing in
+   `ai/ollama_client.py`, `ai/openai_client.py`, or `ai/provider.py` does
+   this today, only a single configured endpoint per role. Lands in the
+   provider layer §6 already built (dialect detection, `context_from_
+   catalog_entry`), as a thin policy layer above it. Size: **M**. Risk: must
+   stay strictly opt-in and user-configured, never silently routing a local
+   request to an endpoint the user did not explicitly add, to keep the "your
+   notebook, on your machine" promise intact when a second endpoint happens
+   to be a cloud one the user chose to add themselves. Recommendation:
+   **take the idea** as a BACKLOG §18 row (added).
+3. **Deep Research's iterative loop, as a shape to study, not to build
+   yet.** Idea: `src/deep_research.py`, an LLM-driven Think, Search, Extract,
+   Synthesise loop that decides its own stopping point and produces a
+   written report, distinct from a single search-and-summarise pass. Lands,
+   if ever pursued, as a new mode of the existing web-search reader (§13 of
+   BACKLOG.md), not a rewrite of it. Size: **L** (a genuinely new
+   multi-round autonomous loop, its own prompt budget, its own stopping
+   criteria, its own UI for a report the user did not ask a single question
+   for). Risk: real: this is exactly the kind of unsupervised, many-round
+   tool-calling chain MemoryMap has deliberately kept narrow (no shell tool,
+   confirmed destructive actions, a scoped tool registry per §33's "not
+   taken" list), and a small local model let loose on ten rounds of
+   self-directed searching is a cost and a runaway-output risk odysseus's
+   own hardware, with larger models available, absorbs more easily than a
+   laptop running a 3B model would. Recommendation: **take an idea only**,
+   and only as a deliberate, separately-scoped feature decision, not folded
+   into the existing agent loop; not filed as a BACKLOG row yet because it
+   needs that decision first, not an implementation shape.
+4. **Compare: a blind A/B model-preference test.** Idea:
+   `routes/compare/compare_routes.py`, two configured models answer one
+   prompt under neutral labels, vote, then reveal. Lands in Settings →
+   Models, next to the existing model list/pull/switch UI
+   (`ai/model_manager.py`). Size: **S**, genuinely small and
+   self-contained: no new subsystem, just a route that fans one prompt to
+   two already-configured endpoints and a small UI for the blind reveal.
+   Risk: low; the only real design question is whether MemoryMap's answer
+   quality (accuracy against notes, tool-use correctness) is a fairer
+   comparison than "which reply reads better", since a blind vote on prose
+   quality alone does not test the thing a notebook AI is actually judged
+   on. Recommendation: **take an idea only**, worth a BACKLOG line if
+   someone asks "which of my two installed models should I use as chat
+   model", which nothing currently answers except trial and error.
+5. **The keyword half of a hybrid search should be a real ranking function,
+   not overlap counting, confirmed by contrast rather than by assumption.**
+   Not a thing to take from odysseus, the opposite: reading
+   `rag_vector.py:search`'s `keyword_score = overlap / len(query_words)`
+   next to MemoryMap's own `bm25()`-based `search/index.py` is what makes
+   the comparison in part 2 concrete rather than asserted. Recorded as a
+   "strongest thing" in the sense that it strengthens confidence in an
+   existing design choice: nothing to change, a reason not to.
+
+### 4. What it does worse than us
+
+Honestly, and briefly, so nothing here gets chased:
+
+- **Its own hybrid search is a weaker ranking function than MemoryMap's**
+  (part 2/3 above): a fixed 0.7/0.3 blend with a non-IDF keyword score,
+  against a three-signal, measured-weight fusion over real BM25.
+- **It admits, in its own `ROADMAP.md`, the exact prompt-bloat problem §33's
+  measurement already found MemoryMap ahead on**, and its own internal
+  refactor audit (`specs/architecture-runtime-inventory.md`, already read in
+  §60) calls its largest files "HIGH risk" and its own CSS file "a swamp".
+  Bigger has not become better-organised between §60's read and this one.
+- **A loopback bearer-token internal-auth-bypass surface** (§60 already
+  found this: `core/middleware.py`'s `INTERNAL_TOOL_TOKEN`) that has to be
+  kept secret and in sync with every admin route, where MemoryMap's tools
+  call the same in-process objects the routes call, nothing to leak.
+- **A documented, silent dependency-conflict failure mode**: its own
+  `website/setup.md` (lines 410-416) warns that installing `chromadb-client`
+  (the lightweight HTTP client it needs for Docker) alongside the full
+  `chromadb` package makes the app "start but ChromaDB silently falls back
+  to HTTP-only mode and fails", with no loud error, only a documented
+  uninstall/reinstall recipe. A dependency pair that shares an import
+  namespace and degrades silently rather than erroring loudly is worse than
+  either package alone; see part 5.
+
+### 5. Warnings: bug classes, not features to copy
+
+Three, each with the odysseus evidence for it, each worth checking against
+this codebase once rather than filing as an odysseus problem only:
+
+- **A secret handed to a subprocess as a positional argv element leaks
+  through `ps` and `/proc/<pid>/cmdline` for the life of that process.**
+  Odysseus's own `routes/vault_routes.py` used to call `_run_bw(["unlock",
+  req.master_password, "--raw"])`, leaking the Bitwarden master password
+  (which decrypts the whole vault) to any local user; the fix
+  (`--passwordenv BW_PASSWORD` plus feeding the password on stdin) is now
+  pinned by a dedicated regression test,
+  `tests/test_vault_password_not_in_argv.py`, that greps the source for the
+  old vulnerable call shape as well as testing the new one. Checked directly
+  against MemoryMap: every `subprocess.run`/`subprocess.Popen` call
+  (`search/searxng_docker.py`, `search/searxng_manager.py`,
+  `search/searxng_process.py`, `api/routes_update.py`, `core/ocr.py`,
+  `core/extras.py`) passes a fixed argument table with no secret in it, so
+  this specific bug is not present today, but MemoryMap has no equivalent
+  pinning test, and this class of bug is exactly the kind that a future
+  subprocess call (a new installer step, a new external-tool integration)
+  could reintroduce without anyone noticing, since it degrades quietly
+  rather than failing a test. Worth a short comment at each subprocess call
+  site, not a new feature.
+- **Two independent listings of "what counts as content" will drift.**
+  Odysseus's own `src/index_walk.py` exists because of a real, already-fixed
+  bug (#5559): its vector indexer and its keyword indexer for
+  personal-document folder-watching each had their own hidden/junk-directory
+  skip list, and they drifted apart, leaving the keyword path sweeping
+  `.obsidian/`, `.git/`, and `node_modules/` after the vector path had
+  already been fixed to skip them. Checked directly against MemoryMap: there
+  is no equivalent today (notes and documents are indexed from database rows,
+  not from two independent filesystem walks, `grep` for `os.walk`/`rglob`
+  outside `api/routes_files.py` turns up nothing), so this is not a live bug
+  here. It is a lesson for whichever plan first adds folder-watching or a
+  second independent content-discovery path (`DOCUMENTS_PLAN.md`, if it ever
+  grows one): centralise the inclusion/exclusion rule in one function from
+  the first commit, not after two paths have already grown their own copies.
+- **A dependency and its own "lite" variant sharing an import namespace can
+  fail silently instead of erroring.** `chromadb-client` and `chromadb`
+  (part 4) is the concrete case; the general shape, a package installed
+  alongside a same-named or same-namespace sibling degrading into a reduced
+  mode rather than refusing to start, is worth a moment's check the next
+  time an optional/lite variant of an existing dependency is considered for
+  `requirements-optional.txt`; nothing in MemoryMap's current dependency
+  list (CLAUDE.md §7's pinned install line) has this shape today.
+
+Not verified: anything about odysseus's actual runtime behaviour (whether
+Deep Research's stopping heuristic works well in practice, whether Compare's
+blind reveal ever leaks through a race, whether context_compactor's
+summaries are actually good on a small model). This pass is a source read,
+same caveat CLAUDE.md §4 states for this project's own provider tests: when
+something here is acted on, measure it against a running instance rather
+than trusting the read.

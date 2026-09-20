@@ -39753,9 +39753,19 @@ document.addEventListener("keydown", (e) => {
   }
   // "/" focuses search: but only when you're not already typing somewhere
   // and no overlay is open, so it never steals a literal slash (Wave J).
-  const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(
-    document.activeElement && document.activeElement.tagName
-  );
+  //: **`isContentEditable` too**, which the chorded branch above already
+  //: checks and this one did not. The list of three tag names was exactly
+  //: right while every editing surface in this app was a textarea; it is not
+  //: any more. The documents editor stops its own single characters at its
+  //: host (`docGuardGlobalShortcuts` in documents.js, which explains why it is
+  //: done there rather than here), so the gap showed on the next
+  //: contenteditable instead: the Library's OCR region text, where a literal
+  //: "/" moved focus to the global search and swallowed the rest of the
+  //: correction (measured by `scratchpad/ui-sweeps/typingguard.js`). Fixing
+  //: the shared guard means the one after that is born working.
+  const el = document.activeElement;
+  const typing =
+    ["INPUT", "TEXTAREA", "SELECT"].includes(el && el.tagName) || Boolean(el && el.isContentEditable);
   const overlayOpen =
     settingsModalOpen() ||
     !$("palette-overlay").classList.contains("hidden") ||

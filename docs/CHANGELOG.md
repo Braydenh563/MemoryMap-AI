@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Typing into a box that is not a text field no longer triggers the app's
+  single-key shortcuts. A "/" typed while correcting a page reading in the
+  Library moved focus to the search box and swallowed the rest of the word.
+
 - A passage selected in a document and sent to the chat is re-checked against
   the document you are looking at. It was checked against the empty textarea
   the editor leaves behind, so every document selection was described to the

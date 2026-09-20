@@ -69,13 +69,6 @@ being written by running agents stay beside this one.
 - **DOCUMENTS_PLAN Phase 4, the connected document: not started.** Next step:
   take the plan's items in order and record file, id and next step per item at
   the first stopping point. [documents-phase4.md]
-- **The "is the user typing?" guard does not know `contenteditable`.**
-  `frontend/app.js` around line 33916 tests
-  `["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)`.
-  The documents editor guards its own host (`docGuardGlobalShortcuts`); the
-  shared guard is still wrong and the next contenteditable will meet it. Next
-  step: `|| document.activeElement?.isContentEditable`, which the chorded
-  branch twenty lines above already checks. [documents-engine.md]
 - **The document surface's aliases have no lint.** A call site that hands the
   surface to something expecting a DOM element reads as correct and fails at
   runtime (`autoGrow` wrote `style.height` on it and every "/" command in the

@@ -26,8 +26,13 @@ below). Versioning is `0.x` while the app stabilises.
   into bullets. Tone and length are pickers, not something to phrase.
 
 - What to do with a finished draft is one row: copy it, insert it into a note
-  you already have, or save it as a note. Every draft the session produced is
-  a chip you can go back to, beside the undo that was already there.
+  you already have, or save it as a note. Inserting leaves you at the desk
+  with your draft, and offers the trip to the note rather than taking it.
+  Every draft the session produced is a chip you can go back to, beside the
+  undo that was already there.
+
+- A note you already have can be carried on: it comes into the draft, and
+  saving writes back to that note rather than filing a second copy of it.
 
 - With no model connected the writing desk says so in a line you can act on,
   with the button that connects one, rather than only in a tooltip on a

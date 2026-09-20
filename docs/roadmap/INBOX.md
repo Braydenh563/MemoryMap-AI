@@ -197,44 +197,6 @@ with its owner named in the entry.
     than fixed: it is the one route in the app that rewrites every private
     note, and a button for it wants its own session.
 
-264. **Mid-work drop, 2026-09-20, verbatim (the owner).** "can you also make
-    more sub-menus in the documents meatball button dropdown or smth because
-    it is still almost off the bottom of the screen."
-    A screenshot of the open menu, fourteen rows deep, its last row level
-    with the status bar.
-    **Fixed** (`4e93458`): two more groups, "Editor and layout" and "While
-    you write", taken from the groupings the markup's own comments already
-    argued for. 562px and 14 rows to 346px and 8, measured at four window
-    sizes; it had been running 32px past the bottom at 1024x720 and now
-    clears it by 184px. A live bug fell out of it: a row inside *any* of
-    these flyouts had stopped closing the menu since the downloads were
-    folded, because `buildMenuGroupButton` reparents the panel to `<body>`
-    and the click never bubbles through the group the listener was on.
-
-265. **Mid-work drop, 2026-09-20, verbatim (the owner).** "also can you fix
-    the highlighter in the quick sketch?? it doesnt act as it should and
-    looks messy"
-    **Fixed** (`6abc459`). Third report on this tool; the first two fixes
-    treated the alpha and this one is the compositing. Each segment was its
-    own `stroke()` at 0.35, so consecutive segments overlapped at every joint
-    and each pixel was covered about three times: measured 0.801 coverage
-    where the tool asks for 0.35, 0.725 to 0.824 along the band, and a
-    self-crossing going 0.286 to 0.824. The stroke is now drawn whole on its
-    own layer at full opacity and composited once. After: 0.353 everywhere,
-    spread 0, junction 0.353.
-    **Superseded in two ways on the same day**, by WHITEBOARD_PLAN decision
-    7's other half (the pad and the whiteboard now read one
-    `HIGHLIGHTER_STYLE` table, which carries the plan's 0.4 rather than the
-    pad's own 0.35, so the numbers above are now 0.4 everywhere, spread 0,
-    junction 0.4), and by a fix to the layer this entry introduced: it scaled
-    the points by `canvas.width / rect.width`, but `sketchPointer` already
-    returns canvas pixels, so every highlighter stroke landed away from the
-    pointer by that ratio, measured at 15px left and 9px up in the middle of
-    the pad's 820px canvas inside an 850px box. The sweep this entry left
-    behind reads its alpha from the table now instead of a literal, and takes
-    its "same arm" sample inside the band rather than on its antialiased
-    edge.
-
 266. **Mid-work drop, 2026-09-20, verbatim (the owner).** "What usability and
     information architecture things are missing and can be added?? It's often
     the small things that act up, are broken, unreliable, or missing with the

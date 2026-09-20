@@ -1058,19 +1058,21 @@ function applyDashDensity(value) {
   //: how one of them ends up in the wrong state after a render that rebuilt
   //: it: the attribute survives, a class on a replaced node does not.
   if (page) page.dataset.density = density;
-  for (const button of document.querySelectorAll("#dash-density [data-density]")) {
-    button.setAttribute("aria-pressed", String(button.dataset.density === density));
-  }
+  //: **A dropdown, not a segmented control.** Reported with a screenshot:
+  //: the three segments sat taller than the two ghost buttons beside them
+  //: and none of them looked chosen, so the row read as three buttons that
+  //: did nothing. A `.seg` is right for two to four choices that are all
+  //: worth showing; here the two that are not current are noise in a
+  //: toolbar, and a select says which one is on by saying its name.
+  const picker = document.getElementById("dash-density");
+  if (picker && picker.value !== density) picker.value = density;
 }
 
 function wireDashDensity() {
   const seg = document.getElementById("dash-density");
   if (!seg || seg._wired) return;
   seg._wired = true;
-  seg.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-density]");
-    if (button) applyDashDensity(button.dataset.density);
-  });
+  seg.addEventListener("change", () => applyDashDensity(seg.value));
   applyDashDensity(dashDensity());
 }
 

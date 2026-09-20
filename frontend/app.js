@@ -45855,7 +45855,12 @@ function finderRenderFilters() {
     for (const row of wanted) {
       const chip = document.createElement("button");
       chip.type = "button";
-      chip.className = "chip finder-chip";
+      //: `.library-chip`, the app's own interactive filter chip
+      //: (UI_MODERNISATION_PLAN Phase 2), not `.chip`, which is a *display*
+      //: chip: accent-soft, 0.75rem, weight 600, meant for a status label.
+      //: Reported with a screenshot: eight of them in a row read as eight
+      //: badges rather than eight controls, at a size nothing else here uses.
+      chip.className = "library-chip finder-chip";
       chip.dataset.kind = row.key;
       chip.addEventListener("click", () => {
         finderKind = finderKind === row.key ? "" : row.key;
@@ -45867,12 +45872,19 @@ function finderRenderFilters() {
   [...bar.children].forEach((chip, index) => {
     const row = wanted[index];
     if (!row) return;
-    chip.textContent = row.count == null ? row.label : `${row.label} ${row.count}`;
+    //: **A count only once there is something to count.** The chips used to
+    //: read "Notes 0, Documents 0, Boards 0" before a single character had
+    //: been typed, which is eight confident zeroes about a notebook nobody
+    //: had searched: they are the index's counts for the *query*, and with
+    //: no query they mean nothing. Reported with a screenshot.
+    const showCount = row.count != null && finderQuery.trim();
+    chip.textContent = showCount ? `${row.label} ${row.count}` : row.label;
     //: `aria-pressed`, not a class alone: this is a filter that is on or off
-    //: and a screen reader has to hear which. The class is painted from the
-    //: same fact rather than being the fact.
+    //: and a screen reader has to hear which. `.active` is the class the
+    //: chip recipe paints from, and it is painted from the same fact rather
+    //: than being the fact.
     chip.setAttribute("aria-pressed", String(finderKind === row.key));
-    chip.classList.toggle("is-on", finderKind === row.key);
+    chip.classList.toggle("active", finderKind === row.key);
   });
 }
 
@@ -45881,7 +45893,7 @@ function finderRender() {
   const summary = document.getElementById("finder-summary");
   if (!results) return;
   finderRenderFilters();
-  const rows = finderSorted();
+  let rows = finderSorted();
   results.replaceChildren();
   finderActive = -1;
   if (!rows.length) {
@@ -45907,7 +45919,43 @@ function finderRender() {
     summary.textContent = `${rows.length} result${rows.length === 1 ? "" : "s"}`;
   }
   const icons = Object.fromEntries(FINDER_KINDS.map((k) => [k.key, k.icon]));
+  const names = Object.fromEntries(FINDER_KINDS.map((k) => [k.key, k]));
+  //: **Grouped by kind, once there is more than one kind on screen.**
+  //: Reported: "the results could have better Information Architecture". A
+  //: flat list of thirty rows mixing notes, documents and actions asks the
+  //: reader to sort them by eye, which is the work the app should have done.
+  //: A heading per kind, in the order the filter chips run, so the two agree
+  //: about what order the world is in.
+  //:
+  //: Only when it helps: one kind, or a sort other than best match, and a
+  //: heading would be a label on a list that needs none. A date sort in
+  //: particular is a *cross-kind* question ("what changed lately"), and
+  //: grouping it by kind would break exactly the order that was asked for.
+  const sortMode = document.getElementById("finder-sort")?.value || "best";
+  const kinds = [...new Set(rows.map((hit) => hit.kind))];
+  const grouped = sortMode === "best" && kinds.length > 1;
+  if (grouped) {
+    //: By kind in the chips' own order, and within a kind by the score the
+    //: sort already put them in. A stable sort is what keeps that second
+    //: half true without sorting twice.
+    const rank = Object.fromEntries(FINDER_KINDS.map((k, i) => [k.key, i]));
+    rows = [...rows].sort((a, b) => (rank[a.kind] ?? 99) - (rank[b.kind] ?? 99));
+  }
+  let lastKind = null;
   rows.forEach((hit, index) => {
+    if (grouped && hit.kind !== lastKind) {
+      lastKind = hit.kind;
+      const head = document.createElement("p");
+      head.className = "finder-group muted";
+      const many = rows.filter((row) => row.kind === hit.kind).length;
+      const kind = names[hit.kind];
+      head.textContent = kind ? (many === 1 ? kind.one : kind.many) : hit.kind;
+      //: Not a `role="option"` inside the listbox: a heading is not
+      //: selectable, and a screen reader walking the options would otherwise
+      //: read the word "notes" as a result.
+      head.setAttribute("aria-hidden", "true");
+      results.appendChild(head);
+    }
     const open = hit.run || FINDER_OPEN[hit.kind];
     const row = document.createElement(open ? "button" : "div");
     if (open) row.type = "button";
@@ -45937,10 +45985,16 @@ function finderRender() {
       snippet.textContent = hit.snippet.slice(0, 160);
       row.appendChild(snippet);
     }
-    for (const reason of hit.explain || []) {
+    //: One line of facts, not a row of chips: this is what the row *is*,
+    //: which is DESIGN.md's `.library-file-meta` recipe ("short statements,
+    //: dot separators, `--text-xs`, `--muted`, one rank"). Chips here read as
+    //: things you could press, and two of them under every row turned the
+    //: list into a field of badges. Reported with a screenshot.
+    const reasons = (hit.explain || []).filter(Boolean);
+    if (reasons.length) {
       const why = document.createElement("span");
-      why.className = "chip finder-why";
-      why.textContent = reason;
+      why.className = "finder-why muted";
+      why.textContent = reasons.join(" \u00b7 ");
       row.appendChild(why);
     }
     if (open) {

@@ -11874,7 +11874,7 @@ header#top-bar {
    is fixed. */
 .finder-card {
   width: 100%;
-  max-width: 44rem;
+  max-width: 52rem;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -11905,49 +11905,113 @@ header#top-bar {
   color: var(--muted);
 }
 
-.finder-input {
+/* **No second box inside the first.** The bar is already a bordered band;
+   the app's global `input[type="search"]` rule draws a border, a ground and a
+   radius of its own, so the field arrived as a rounded box floating inside a
+   bordered row, which is a framing this app does nowhere else. Reported with
+   a screenshot. Every one of those is turned off explicitly rather than by
+   hoping specificity wins, and the focus ring goes with them, because the
+   band cannot show one: the caret and the placeholder are what say this field
+   has focus, and it takes focus the moment the dialog opens. */
+.finder-bar .finder-input,
+.finder-bar .finder-input:focus,
+.finder-bar .finder-input:focus-visible,
+.finder-bar .finder-input:focus-within {
   flex: 1;
   min-width: 0;
-  border: none;
+  /* `0 none`, not `none`: the shorthand alone leaves the width at `medium`,
+     and the field was still measured at a 3px solid top border with it. A
+     width of zero is the one form of this that cannot be read back as a
+     line, whatever the style resolves to. */
+  border: 0 none;
+  border-radius: 0;
   background: none;
+  box-shadow: none;
+  padding: 0;
+  height: auto;
   color: var(--ink);
   font-size: var(--text-lg);
   font-family: inherit;
   outline: none;
 }
 
+/* The browser's own clear affordance, which sits at a size and colour this
+   app does not use and appears only in some engines. Escape clears the field
+   and the dialog has its own close. */
+.finder-input::-webkit-search-cancel-button {
+  display: none;
+}
+
 .finder-input::placeholder {
   color: var(--muted);
 }
 
-.finder-filters {
+/* Filters and sort are one row: they are one question, "which of these, in
+   what order". Reported with a screenshot: split across two rows, the second
+   held nothing but a right-aligned Sort control with a band of empty card
+   beside it. The filters take the row's growth and the sort is pushed out to
+   the edge, which is what every other toolbar here does with its odd
+   control. */
+.finder-controls {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+  align-items: center;
+  gap: var(--space-3);
   padding: var(--space-3) var(--card-pad-x);
 }
 
-/* A kind is a filter you take off, so it is a chip, not a segment: the recipe
-   index draws that line and this is on the chip side of it. `is-on` paints
-   from the same attribute `aria-pressed` carries, never colour alone. */
-.finder-chip.is-on {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--ink);
+.finder-filters {
+  flex: 1;
+  min-width: 0;
 }
 
-.finder-sortrow {
-  padding: 0 var(--card-pad-x) var(--space-3);
+/* The chips are `.library-chip`s (the app's own interactive filter chip), so
+   they arrive at `--control-h` with the right ground and the right `.active`
+   treatment. Only the size changes here: a row of eight has to fit beside
+   the sort control without wrapping onto a line of its own, which is what
+   the report was about, so they lose a step of horizontal padding rather
+   than a step of height. A row that still does not fit scrolls sideways,
+   the same answer `.library-filters` itself gives on a phone. */
+.finder-filters .library-chip {
+  padding-inline: var(--space-3);
+  flex: none;
+}
+
+/* One row, at every width. The constraint here is the *card*, not the window:
+   at 1440 the dialog is 704px wide and eight chips plus the sort control
+   wrapped onto a second row anyway, which is what the report was about. So
+   the row scrolls sideways rather than wrapping, the same answer
+   `.library-filters` gives itself on a phone, and the card is a little wider
+   so the common case does not need to scroll at all. */
+.finder-filters {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.finder-filters::-webkit-scrollbar {
+  display: none;
 }
 
 .finder-sort {
+  display: flex;
+  align-items: center;
   gap: var(--space-2);
+  flex: none;
+}
+
+.finder-summary {
+  margin: 0;
+  padding: 0 var(--card-pad-x) var(--space-2);
+  min-height: 1.2em;
 }
 
 .finder-results {
   /* `min-height: 0`, or this flex child refuses to shrink below its content
-     and the card's ceiling does nothing. */
-  min-height: 0;
+     and the card's ceiling does nothing. `flex: 1` so the list, not the card,
+     is what grows: a dialog that changes height with every keystroke moves
+     the row under the pointer between one frame and the next. */
+  flex: 1;
+  min-height: 12rem;
   overflow: hidden auto;
   padding: 0 var(--card-pad-x) var(--space-4);
   display: flex;
@@ -12019,8 +12083,24 @@ button.finder-row:hover,
   overflow: hidden;
 }
 
+/* Why this is a result, as one line of facts under it: `--text-xs`, muted,
+   dot separators, one rank. DESIGN.md's `.library-file-meta` recipe, not a
+   row of chips, which read as things you could press. */
 .finder-why {
   font-size: var(--text-xs);
+}
+
+/* The prompt before anything is typed. It is a hint, not a hero: the same
+   `.empty-state` component as everywhere else, but it sits inside a list that
+   is already the size it is going to be, so it does not need the component's
+   full 2rem block. */
+.finder-results .empty-state {
+  padding: var(--space-6) var(--space-4);
+}
+
+.finder-results .empty-state p {
+  max-width: 34rem;
+  margin-inline: auto;
 }
 
 @media (max-width: 600px) {
@@ -12169,10 +12249,14 @@ button.finder-row:hover,
   padding-block: var(--space-3);
 }
 
-/* The switch itself sits in the toolbar with Widgets and Edit layout, so it
-   takes their scale rather than a size of its own. */
-.dash-density button {
-  font-size: var(--text-sm);
+/* The picker sits in the toolbar with Widgets and Edit layout, so it lines up
+   on their baseline and takes their scale rather than a height of its own.
+   Reported with a screenshot: as a `.seg` it sat taller than both of them and
+   showed no chosen state at all. */
+.dash-density {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 @media (max-width: 600px) {
@@ -12182,4 +12266,25 @@ button.finder-row:hover,
   .dash-density {
     display: none;
   }
+}
+
+/* A kind's heading inside the results list. An eyebrow, not a title: it names
+   a band of rows rather than introducing a section, so it takes the smallest
+   step and the muted ink, and it is sticky so the band you are scrolling
+   through keeps saying what it is. */
+.finder-group {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-1) 0;
+  background: var(--modal-bg);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.finder-group:first-child {
+  margin-top: 0;
 }

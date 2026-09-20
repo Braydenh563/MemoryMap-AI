@@ -559,13 +559,19 @@
       <div class="finder-bar">
         <span class="finder-icon"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></span>
         <input type="search" id="finder-input" class="finder-input"
-          placeholder="Search your notes, documents, files, boards and the app"
+          placeholder="Search everything you keep"
           aria-label="Search everything" autocomplete="off" spellcheck="false">
       </div>
-      <div class="finder-filters" id="finder-filters" role="group" aria-label="Filter by kind"></div>
-      <div class="row space-between finder-sortrow">
-        <span id="finder-summary" class="muted text-sm" role="status"></span>
-        <label class="row align-center finder-sort">
+      <!-- Filters and sort on one row, not two. They are one question, "which
+           of these, in what order", and splitting them left a row holding
+           nothing but a right-aligned Sort control with a band of empty card
+           beside it (reported, with a screenshot). The sort sits at the end
+           after an auto margin, the way every other toolbar in this app puts
+           its odd control out at the edge. -->
+      <div class="finder-controls">
+        <div class="finder-filters library-filters" id="finder-filters"
+          role="group" aria-label="Filter by kind"></div>
+        <label class="finder-sort" for="finder-sort">
           <span class="muted text-sm">Sort</span>
           <select id="finder-sort" class="ghost small" aria-label="Sort results">
             <option value="best">Best match</option>
@@ -574,6 +580,10 @@
           </select>
         </label>
       </div>
+      <!-- The count sits above the list it counts, not in the control row:
+           it is a fact about the results, and it is the line a reader's eye
+           lands on before the first row. -->
+      <p id="finder-summary" class="finder-summary muted text-sm" role="status"></p>
       <div id="finder-results" class="finder-results" role="listbox"
         aria-label="Results"></div>
     </div>
@@ -854,15 +864,14 @@
              any of them: a layout choice that removes a feature is a feature
              somebody cannot find again, so Compact folds and Focused hides,
              and Full is still one press away. -->
-        <div class="seg dash-density" id="dash-density" role="group"
-          aria-label="How much to show">
-          <button type="button" data-density="full" aria-pressed="true"
-            title="Everything, at full size">Full</button>
-          <button type="button" data-density="compact" aria-pressed="false"
-            title="The same things, folded smaller">Compact</button>
-          <button type="button" data-density="focused" aria-pressed="false"
-            title="Search and your widgets, nothing else">Focused</button>
-        </div>
+        <label class="dash-density" for="dash-density">
+          <span class="muted text-sm">View</span>
+          <select id="dash-density" class="ghost small" aria-label="How much to show">
+            <option value="full">Full</option>
+            <option value="compact">Compact</option>
+            <option value="focused">Focused</option>
+          </select>
+        </label>
         <button id="dash-widgets-open" class="ghost small"><i class="ph ph-squares-four ph-lead" aria-hidden="true"></i> Widgets</button>
         <button id="dash-edit" class="ghost small">Edit layout</button>
       </div>

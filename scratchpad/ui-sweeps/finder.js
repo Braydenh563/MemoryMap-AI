@@ -115,15 +115,28 @@ const { boot } = require('./lib.js');
   const density = {};
   for (const want of ['full', 'compact', 'focused']) {
     density[want] = await page.evaluate(async (value) => {
+      //: A select now, not a segmented control: the three segments sat taller
+      //: than the buttons beside them and none read as chosen.
       const seg = document.getElementById('dash-density');
-      seg?.querySelector(`[data-density="${value}"]`)?.click();
+      if (seg) {
+        seg.value = value;
+        seg.dispatchEvent(new Event('change', { bubbles: true }));
+      }
       await new Promise((r) => setTimeout(r, 500));
       const grid = document.getElementById('dash-grid');
       const page_ = document.getElementById('tab-dashboard');
       const find = document.getElementById('dash-find');
       return {
         attr: page_?.dataset.density,
-        pressed: [...(seg?.querySelectorAll('[aria-pressed="true"]') || [])].map((b) => b.dataset.density),
+        pressed: seg ? [seg.value] : [],
+        //: The control has to line up with the two buttons beside it: as a
+        //: `.seg` it stood taller than both, which is what the report saw.
+        alignedWithToolbar: (() => {
+          const box = document.querySelector('.dash-density');
+          const other = document.getElementById('dash-widgets-open');
+          if (!box || !other) return null;
+          return Math.abs(box.getBoundingClientRect().height - other.getBoundingClientRect().height) <= 6;
+        })(),
         //: The number that matters: how far down the page the first widget
         //: starts, which is what "a lot is happening on it" was about.
         chromeHeight: grid ? Math.round(grid.getBoundingClientRect().top - page_.getBoundingClientRect().top) : null,
@@ -133,13 +146,86 @@ const { boot } = require('./lib.js');
   }
   console.log('density:', JSON.stringify(density, null, 1));
 
+  //: **The layout complaints, as numbers.** Reported with a screenshot:
+  //: "the ui for the popup search bar is messy, not modernised, unclean, not
+  //: aligned, not using propper sizing... elements are pushed onto a new
+  //: line, there is no scrollbar, and the results could have better
+  //: Information Architecture".
+  //: The overlay from the filter check above is still open, and it covers
+  //: the dashboard field: without this the click below waits thirty seconds
+  //: for an element behind a modal and the whole probe reports a timeout.
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(400);
+  await page.evaluate(() => switchTab('dashboard'));
+  await page.waitForTimeout(800);
+  await page.click('#dash-find');
+  await page.waitForTimeout(500);
+  const layout = await page.evaluate(() => {
+    const box = (el) => {
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { top: Math.round(r.top), left: Math.round(r.left), w: Math.round(r.width), h: Math.round(r.height) };
+    };
+    const chips = [...document.querySelectorAll('#finder-filters .library-chip')];
+    const tops = new Set(chips.map((c) => Math.round(c.getBoundingClientRect().top)));
+    const input = document.getElementById('finder-input');
+    const cs = input ? getComputedStyle(input) : null;
+    return {
+      //: One row means one distinct top. Two means the row wrapped.
+      chipRows: tops.size,
+      chipCount: chips.length,
+      //: A zero on a chip before anything has been searched is a confident
+      //: claim about a notebook nobody has queried.
+      zeroesBeforeSearching: chips.filter((c) => /\s0$/.test(c.textContent.trim())).length,
+      chipClass: chips[0]?.className || '',
+      //: The field must not be a second box inside the bordered bar.
+      inputBorder: cs ? cs.borderTopWidth : null,
+      inputBackground: cs ? cs.backgroundColor : null,
+      //: The sort control beside the filters, not on a line of its own.
+      sameRowAsSort: (() => {
+        const sort = document.querySelector('.finder-sort');
+        if (!sort || !chips.length) return null;
+        return Math.abs(sort.getBoundingClientRect().top - chips[0].getBoundingClientRect().top) < 24;
+      })(),
+      results: box(document.getElementById('finder-results')),
+      card: box(document.querySelector('.finder-card')),
+    };
+  });
+  console.log('layout:', JSON.stringify(layout));
+
+  //: And with enough results to need one, a scrollbar.
+  await page.fill('#finder-input', 'note');
+  await page.waitForTimeout(1800);
+  const scrolling = await page.evaluate(() => {
+    const list = document.getElementById('finder-results');
+    return {
+      rows: list.querySelectorAll('.finder-row').length,
+      groups: list.querySelectorAll('.finder-group').length,
+      scrollable: list.scrollHeight > list.clientHeight,
+      overflowY: getComputedStyle(list).overflowY,
+      //: The card must not grow with the list: a dialog that changes height
+      //: on every keystroke moves the row under the pointer between frames.
+      cardHeight: Math.round(document.querySelector('.finder-card').getBoundingClientRect().height),
+    };
+  });
+  console.log('scrolling:', JSON.stringify(scrolling));
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+
   const findings = [];
+  if (layout.chipRows > 1) findings.push(`the filter chips wrap onto ${layout.chipRows} rows`);
+  if (layout.zeroesBeforeSearching) findings.push(`${layout.zeroesBeforeSearching} chip(s) show a count before anything was searched`);
+  if (!/library-chip/.test(layout.chipClass)) findings.push(`the filter chips do not use the app's own chip recipe: ${layout.chipClass}`);
+  if (layout.inputBorder && layout.inputBorder !== '0px') findings.push(`the search field draws its own border (${layout.inputBorder}) inside the bordered bar`);
+  if (layout.sameRowAsSort === false) findings.push('the sort control sits on a row of its own below the filters');
+  if (scrolling.overflowY !== 'auto' && scrolling.overflowY !== 'scroll') findings.push(`the results list does not scroll (overflow-y: ${scrolling.overflowY})`);
   for (const [name, read] of Object.entries(density)) {
     if (read.attr !== name) findings.push(`density ${name} did not take (attribute is ${read.attr})`);
     if (read.pressed.length !== 1 || read.pressed[0] !== name) {
       findings.push(`density ${name}: ${read.pressed.length} segment(s) read as pressed, ${JSON.stringify(read.pressed)}`);
     }
     if (!read.findVisible) findings.push(`the search field is hidden in ${name}, and it is the one thing every density keeps`);
+    if (read.alignedWithToolbar === false) findings.push(`the view picker does not line up with the toolbar buttons beside it in ${name}`);
   }
   //: A tenth off, not a pixel off. A "compact" that saves 50px of 610 is a
   //: setting nobody would notice they had changed, which is how a density

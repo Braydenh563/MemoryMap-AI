@@ -170,11 +170,27 @@ document.getElementById("doc-dock-menu")?.addEventListener("click", (event) => {
 document.addEventListener("click", (event) => {
   const menu = document.getElementById("doc-dock-menu");
   if (!menu?.open) return;
-  //: The Download submenu is reparented to `<body>` while it is open (see
-  //: `buildMenuGroupButton`), so a click inside it is not inside `menu` and
-  //: this would read it as a click away and shut the whole thing before the
-  //: export row's own handler had run.
-  if (menu.contains(event.target) || event.target.closest?.(".action-menu.submenu")) return;
+  //: The group flyouts are reparented to `<body>` while open (see
+  //: `buildMenuGroupButton`), so a click inside one is not inside `menu` and
+  //: the plain "clicked away" reading below would shut the whole thing before
+  //: the row's own handler had run.
+  const submenu = event.target.closest?.(".action-menu.submenu");
+  if (submenu) {
+    //: **And it is where a flyout row's close has to live**, for the same
+    //: reason: nothing on the group or on `#doc-dock-menu` sees this click.
+    //: The rules are the list's own, restated for rows that have moved into a
+    //: flyout. A switch keeps the menu open, because a switch has a state you
+    //: have to be able to see move and a menu that shuts on the click hides
+    //: the only feedback it gives. A nested group opener is not a row. A row
+    //: from one of *this* menu's flyouts closes it; one from some other
+    //: menu's flyout is none of our business.
+    if (!submenu.dataset.docDockSubmenu) return;
+    if (event.target.closest(".doc-dock-menu-check")) return;
+    if (!event.target.closest(".menu-item") || event.target.closest(".has-submenu")) return;
+    menu.open = false;
+    return;
+  }
+  if (menu.contains(event.target)) return;
   menu.open = false;
 });
 
@@ -194,15 +210,16 @@ document.addEventListener("click", (event) => {
 //: or click to open, a flyout beside the row, an accordion at phone width,
 //: clamped to the window on both axes.
 //:
-//: Built once, at load, rather than per open: these five rows are static
-//: markup and the group is not rebuilt by anything.
-function foldDocumentExportsIntoSubmenu() {
+//: Built once, at load, rather than per open: these rows are static markup
+//: and the groups are not rebuilt by anything.
+function foldDocMenuGroup(label, ids) {
   const list = document.querySelector("#doc-dock-menu .doc-dock-menu-list");
-  if (!list || list.querySelector(".menu-group")) return;
-  const rows = ["doc-export-md", "doc-export-html", "doc-export-zip", "doc-export-docx", "doc-export-pdf"]
-    .map((id) => document.getElementById(id))
-    .filter(Boolean);
+  if (!list) return;
+  const rows = ids.map((id) => document.getElementById(id)).filter(Boolean);
   if (rows.length < 2 || typeof buildMenuGroupButton !== "function") return;
+  //: Already folded: this is called once at load, but a second call would
+  //: otherwise wrap a group inside a group.
+  if (rows[0].closest(".menu-group")) return;
   //: **A marker, because the group takes the rows with it.**
   //: `buildMenuGroupButton` appends each element into the flyout, so by the
   //: time it returns, `rows[0]` is no longer a child of this list and
@@ -211,22 +228,49 @@ function foldDocumentExportsIntoSubmenu() {
   //: rest of the file's initialisation with it (`storageInfo`,
   //: `DOC_VIEWS_UNRENDERED` and `docCmView` all failed to initialise, and
   //: the editor would not open). A comment node holds the place instead.
-  const marker = document.createComment("download group");
+  const marker = document.createComment("menu group");
   list.insertBefore(marker, rows[0]);
-  const group = buildMenuGroupButton("ph:download-simple Download or print", rows);
+  const group = buildMenuGroupButton(label, rows);
   list.insertBefore(group, marker);
   marker.remove();
-  //: A row inside the flyout still ends the whole interaction, the way it did
-  //: when it was a row in the list. Its own handler has already run by the
-  //: time this fires, because both are click listeners and this one is
-  //: attached to an ancestor.
-  group.addEventListener("click", (event) => {
-    if (!event.target.closest(".menu-item") || event.target.closest(".has-submenu")) return;
-    const menu = document.getElementById("doc-dock-menu");
-    if (menu) menu.open = false;
-  });
+  //: **Marked, so the document-level handler below can recognise its own
+  //: flyouts.** A listener on `group` is never called once the flyout is
+  //: open, and that is not a subtlety worth rediscovering: `buildMenuGroupButton`
+  //: reparents the panel to `<body>` so it can escape a clipping ancestor, so
+  //: a click inside it does not bubble through the group at all. The first
+  //: version of this bound the close to `group` and looked right; measured,
+  //: clicking "Dim all but this paragraph" inside its flyout left the menu
+  //: open, and so did every download row.
+  const panel = group.querySelector(".action-menu.submenu");
+  if (panel) panel.dataset.docDockSubmenu = "1";
 }
-foldDocumentExportsIntoSubmenu();
+
+//: **Three groups, because fourteen rows do not fit on a laptop.** Reported
+//: twice: first that the menu "goes off the page", and after the downloads
+//: were folded, that it "is still almost off the bottom of the screen".
+//: Measured with the second report: the list is 562px of a 900px window at
+//: 1440 wide, and at 1024x720 it runs 32px past the bottom edge.
+//:
+//: The groups are the ones the markup already argued for in its own comments,
+//: not a fresh carve-up by row count. "What should be in front of you while
+//: you write" is what the dim/typewriter/serif trio was built as, and the two
+//: writing switches were put beside them for the same reason; they are one
+//: group. What is left of the view rows is what the *editor* shows rather
+//: than what the document is, so they are the other.
+//:
+//: `Connections`, `History`, `Extract notes` and `Delete document` stay in
+//: the list: each is a verb on this document, none is a preference, and
+//: hiding a one-off action behind a flyout costs a click every time to save a
+//: row once.
+foldDocMenuGroup("ph:download-simple Download or print", [
+  "doc-export-md", "doc-export-html", "doc-export-zip", "doc-export-docx", "doc-export-pdf",
+]);
+foldDocMenuGroup("ph:layout Editor and layout", [
+  "doc-format-toggle", "doc-width-menu", "doc-toolbar-mode",
+]);
+foldDocMenuGroup("ph:pencil-simple While you write", [
+  "doc-dim-others", "doc-typewriter", "doc-serif", "doc-autocorrect-row", "doc-complete-row",
+]);
 
 // --- which of the four views is showing ----------------------------------------
 //

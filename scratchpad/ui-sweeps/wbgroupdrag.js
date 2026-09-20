@@ -86,6 +86,48 @@ const { boot } = require('./lib.js');
   const boxShift = during.boxLeft - before.boxLeft;
   console.log(JSON.stringify({ before, during, during2, after, cardShift, boxShift,
     followsDrag: Math.abs(cardShift - boxShift) <= 2 }, null, 1));
+
+  // Every handle has to be *reachable*, not merely drawn: the elements were
+  // always there, in the base SVG, which paints under the card layer.
+  const hit = await page.evaluate(() => {
+    const g = document.querySelector('.wb-multi-handle-group');
+    const probe = (el, name) => {
+      const r = el.getBoundingClientRect();
+      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return { name, reachable: top === el || el.contains(top) };
+    };
+    const rows = [...g.querySelectorAll('.wb-sketch-resize-handle')].map((h) => probe(h, h.getAttribute('data-handle')));
+    rows.push(probe(g.querySelector('.wb-sketch-rotate-handle'), 'rotate'));
+    return { unreachable: rows.filter((r) => !r.reachable).map((r) => r.name), of: rows.length };
+  });
+  console.log('reachable', JSON.stringify(hit));
+
+  // And the gestures themselves: an edge drag must resize, the dot must turn.
+  const box = () => page.evaluate(() => {
+    const b = document.querySelector('.wb-multi-handle-group .wb-sketch-selection-box').getBoundingClientRect();
+    return { w: Math.round(b.width), h: Math.round(b.height) };
+  });
+  const grab = (sel) => page.evaluate((s) => {
+    const el = document.querySelector(s);
+    const r = el.getBoundingClientRect();
+    return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+  }, sel);
+  const wBefore = await box();
+  const e = await grab('.wb-multi-handle-group .wb-sketch-resize-handle[data-handle="e"]');
+  await page.mouse.move(e.x, e.y); await page.mouse.down();
+  await page.mouse.move(e.x + 120, e.y, { steps: 12 }); await page.waitForTimeout(150);
+  const wDuring = await box();
+  await page.mouse.up(); await page.waitForTimeout(1200);
+  console.log('edge drag', JSON.stringify({ wBefore, wDuring, widened: wDuring.w - wBefore.w }));
+
+  const rot = await grab('.wb-multi-handle-group .wb-sketch-rotate-handle');
+  const rotBefore = await page.evaluate(() => window.__ids.map((id) => Math.round(wbState.nodes.find((n) => n.id === id)?.rotation || 0)));
+  await page.mouse.move(rot.x, rot.y); await page.mouse.down();
+  await page.mouse.move(rot.x + 140, rot.y + 140, { steps: 14 }); await page.waitForTimeout(150);
+  await page.mouse.up(); await page.waitForTimeout(1500);
+  const rotAfter = await page.evaluate(() => window.__ids.map((id) => Math.round(wbState.nodes.find((n) => n.id === id)?.rotation || 0)));
+  console.log('rotate', JSON.stringify({ rotBefore, rotAfter, turned: rotAfter.some((a, i) => a !== rotBefore[i]) }));
+
   console.log('errors:', errors.length, errors.slice(0, 3));
   await browser.close();
 })();

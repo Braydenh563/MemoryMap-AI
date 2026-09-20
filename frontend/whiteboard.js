@@ -7018,7 +7018,14 @@ function wbCaptureBulkMoveOrigin(excludeKey, keys = wbMultiSelection) {
 //: of its own (`wbDrawSketchHandles`), and those were left behind by exactly
 //: the same amount.
 function wbTranslateSelectionChrome(dx, dy) {
-  for (const group of document.querySelectorAll("#wb-zoom-group > .wb-sketch-handle-group")) {
+  //: Both layers, for the reason `wbClearSketchHandles` sweeps both: a
+  //: shape's own handles are in the base SVG and the group's box is in the
+  //: overlay, and a translate that missed either would leave half the chrome
+  //: behind.
+  const groups = document.querySelectorAll(
+    "#wb-zoom-group > .wb-sketch-handle-group, #wb-overlay-zoom-group > .wb-sketch-handle-group"
+  );
+  for (const group of groups) {
     if (dx || dy) group.setAttribute("transform", `translate(${dx} ${dy})`);
     else group.removeAttribute("transform");
   }
@@ -12517,7 +12524,21 @@ function wbRenderMultiSelectionHandles() {
   for (const row of boxes) {
     if (row.entry.kind === "sketch") wbDrawSketchHandles(row.entry.item);
   }
-  const group = d3.select("#wb-zoom-group")
+  //: **The overlay layer, not the base one** (INBOX 262: "not being able to
+  //: drag the edges of a group selection"). The base SVG paints *under*
+  //: `#wb-html-layer`, which is where a card and its own eight handles live,
+  //: so a group handle that landed on a member's corner was both invisible
+  //: and unclickable: measured with `elementFromPoint` at each handle's own
+  //: centre, 6 of the 8 returned a card's `.wb-resize-handle` instead. The
+  //: link endpoint handles moved up here for exactly this reason and their
+  //: comment records it; a group box is the same case, since its corners are
+  //: the union of the members' corners and so sit on a member by definition.
+  //:
+  //: The members keep their own handles, visible and usable away from the
+  //: group's eight: that was asked for directly ("when I drag select shapes,
+  //: the individual anchor/rotate boxes dont appear"), so the fix is which
+  //: layer wins the press, not which handles are drawn.
+  const group = d3.select("#wb-overlay-zoom-group")
     .append("g")
     .attr("class", "wb-sketch-handle-group wb-multi-handle-group");
   const boxRect = group.append("rect").attr("class", "wb-sketch-selection-box");

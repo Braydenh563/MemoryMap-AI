@@ -237,6 +237,13 @@
   stroke: var(--accent);
   stroke-width: 1px;
   stroke-opacity: 0.7;
+  /* The stem is the line drawn between the box and the dot, and it is
+     decoration: the dot is the control. Without this it also swallows the
+     press meant for the "n" edge handle, which sits at the middle of the top
+     edge, exactly where the stem meets the box. Measured on a group
+     selection: `elementFromPoint` at the n handle's own centre returned the
+     stem, so that edge could not be dragged at all (INBOX 262). */
+  pointer-events: none;
 }
 
 .wb-sketch-rotate-handle {
@@ -261,6 +268,27 @@
 
 .wb-link-endpoint-handle:hover {
   fill: var(--accent);
+}
+
+/* **A group selection's own eight handles and its rotate dot, which live in
+   the overlay layer for the same reason the endpoints above do.** Reported:
+   "the group selection box missing a rotate node, not being able to drag the
+   edges of a group selection". The handles were drawn all along, in the base
+   SVG, which paints under the card layer: measured with `elementFromPoint` at
+   each handle's own centre, 6 of the 8 returned a card's own
+   `.wb-resize-handle` instead, because a group box's corners are the union of
+   its members' corners and so sit on a member by definition.
+
+   Moving them up a layer is only half of it: that root is
+   `pointer-events: none` so it can never block a card, so each control opts
+   back in, exactly as `.wb-link-endpoint-handle` does.
+
+   The outline itself deliberately does not: it covers everything in the
+   selection, and a rectangle that swallowed every press inside it would make
+   the group undraggable. */
+#wb-overlay-layer .wb-sketch-resize-handle,
+#wb-overlay-layer .wb-sketch-rotate-handle {
+  pointer-events: auto;
 }
 
 /* The rectangle marquee-select drag draws while it's active: reported

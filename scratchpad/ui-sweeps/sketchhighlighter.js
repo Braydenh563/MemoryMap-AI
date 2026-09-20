@@ -165,7 +165,42 @@ const { boot } = require('./lib.js');
     return +best.toFixed(3);
   });
 
+  //: **And the eraser**, for the same reason the pen is here: the brush the
+  //: pen and the shapes use was pulled into one `sketchApplyBrush` when the
+  //: highlighter moved to its own painter, and the eraser is the one branch
+  //: of it that composites differently (`destination-out`). A pen stroke, the
+  //: eraser over the same line, and the ink counted both times.
+  const eraser = await page.evaluate(() => {
+    const c = document.getElementById('sketch-canvas');
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    //: Dark pixels, not opaque ones: this sweep paints the canvas white
+    //: before each case, so every pixel is opaque and the alpha channel says
+    //: nothing. The ink is black on white.
+    let n = 0;
+    for (let i = 0; i < d.length; i += 4) if (d[i] < 200) n += 1;
+    sketchTool = 'pen';
+    sketchPen.eraser = true;
+    return n;
+  });
+  await page.mouse.move(setup.left + 60, py2);
+  await page.mouse.down();
+  for (let i = 1; i <= 20; i++) await page.mouse.move(setup.left + 60 + i * 12, py2, { steps: 2 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const erased = await page.evaluate(() => {
+    const c = document.getElementById('sketch-canvas');
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    //: The eraser composites `destination-out`, so an erased pixel is
+    //: transparent rather than white: both "not dark" and "not there" count
+    //: as gone.
+    let n = 0;
+    for (let i = 0; i < d.length; i += 4) if (d[i] < 200 && d[i + 3] > 5) n += 1;
+    sketchPen.eraser = false;
+    return n;
+  });
+
   console.log(`straight stroke: ${band.samples} inked samples, coverage min ${band.min} max ${band.max} mean ${band.mean}, spread ${band.spread} (the table asks for ${setup.alpha})`);
+  console.log(`eraser:          ${eraser} inked pixels before, ${erased} after a pass over the same line`);
   console.log(`pen:             darkest pixel ${penInk} (an opaque pen on white should be 1)`);
   console.log(`self-crossing:   junction ${cross.crossing} at [${cross.at[0]},${cross.at[1]}] against ${cross.plain} at x=${cross.at[2]} on the same arm`);
 
@@ -177,6 +212,7 @@ const { boot } = require('./lib.js');
   if (cross.plain === null || cross.crossing < 0.05) findings.push('the self-crossing stroke was not found on the canvas, so nothing was measured');
   else if (cross.crossing - cross.plain > 0.03) findings.push(`crossing its own line darkens the stroke, ${cross.plain} to ${cross.crossing}`);
   if (penInk < 0.98) findings.push(`the plain pen is no longer opaque: darkest pixel ${penInk}`);
+  if (erased > eraser * 0.2) findings.push(`the eraser left ${erased} of ${eraser} inked pixels behind`);
   if (errors.length) findings.push(`${errors.length} page error(s): ${errors.slice(0, 2)}`);
   for (const line of findings) console.log(`    ${line}`);
   console.log(findings.length ? `FAIL: ${findings.length} findings` : 'PASS: 0 findings');

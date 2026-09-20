@@ -1893,6 +1893,50 @@ function docVisibleTopLine() {
   return Math.round((box.scrollTop / range) * Math.max(0, lines - 1));
 }
 
+//: **The caret's line, but only while the caret is on screen.**
+//:
+//: Reported (OPEN.md, doc-sidebar.md): typing in a section below the one at
+//: the top of the view marked the wrong heading until the view scrolled.
+//: Measured on a twelve-section document in a 512px box before this existed:
+//: the caret in Section 3 with the view still at `scrollTop` 0, the outline
+//: marked Section 1.
+//:
+//: **Which wins when the two disagree**, the question the next step left open:
+//: the caret does, while it is visible. A caret you can see is where you are
+//: writing, and every editor this is measured against (Obsidian, Typora)
+//: follows it. Scroll far enough that the caret leaves the box and it is no
+//: longer where you are looking, so the top of the view takes over again: that
+//: is reading, not writing, and the same rule covers the Read pane, where
+//: there is no caret to see at all.
+//:
+//: Null rather than a line number when there is nothing to say, so the caller
+//: reads as the rule: "the caret's line if it is visible, otherwise the top of
+//: the view".
+function docCaretVisibleLine() {
+  const box = docSurface();
+  if (!box || box.kind !== "codemirror") {
+    //: The textarea fallback has no line-to-pixel map (see `docVisibleTopLine`
+    //: for the same gap), so there is no honest way to ask whether its caret
+    //: is on screen. The viewport answer is the one it has always had.
+    return null;
+  }
+  const view = box.view;
+  const frame = view.scrollDOM.getBoundingClientRect();
+  //: A hidden pane measures 0x0, and "top >= top and bottom <= bottom" would
+  //: then be true of a coordinate that is nowhere.
+  if (frame.height < 1) return null;
+  let coords = null;
+  try {
+    coords = view.coordsAtPos(view.state.selection.main.head);
+  } catch {
+    //: A position mid-teardown, which CodeMirror answers for with null anyway.
+    return null;
+  }
+  if (!coords) return null;
+  if (coords.top < frame.top || coords.bottom > frame.bottom) return null;
+  return view.state.doc.lineAt(view.state.selection.main.head).number - 1;
+}
+
 //: The marked row, kept inside whichever box in the sidebar actually scrolls.
 //: Bounded by `#doc-sidebar` on purpose: `scrollIntoView` walks every
 //: scrolling ancestor, and the page is one of them, so the tidy one-liner
@@ -1913,7 +1957,10 @@ function keepOutlineRowInView(el) {
 
 function markDocOutline() {
   if (!docOutlineRows.length) return;
-  const top = docVisibleTopLine();
+  //: The caret's section while the caret is on screen, the top of the view
+  //: otherwise: see `docCaretVisibleLine` for why that is the order.
+  const caret = docCaretVisibleLine();
+  const top = caret === null ? docVisibleTopLine() : caret;
   //: The last heading at or above the top of the view: the section whose text
   //: you are reading, not the next one down.
   let index = 0;
@@ -13716,7 +13763,15 @@ function docCmUpdate(update) {
     if (typeof editorHandleInput === "function") editorHandleInput(docSurface());
     if (!$("doc-suggest-menu")?.classList.contains("hidden")) closeDocSuggest();
   }
-  if (update.selectionSet) renderDocCaret();
+  if (update.selectionSet) {
+    renderDocCaret();
+    //: The outline follows the caret too, on the same beat the breadcrumb
+    //: does: an arrow key raises no scroll and no `input`, so without this the
+    //: two rows that both answer "where am I" would disagree until the view
+    //: moved. Scheduled, not marked, because a held-down arrow key fires far
+    //: faster than a class swap needs to be painted.
+    scheduleDocOutlineSpy();
+  }
 }
 
 //: **The prose findings, as decorations** (DOCUMENTS_PLAN Phase 2 decision 5).

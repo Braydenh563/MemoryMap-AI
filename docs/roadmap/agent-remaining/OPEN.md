@@ -111,13 +111,6 @@ being written by running agents stay beside this one.
   and no filter box (Obsidian's outline has one, and past two screens of
   headings it is how you use it at all). Belongs in DOCUMENTS_PLAN.
   [doc-sidebar.md]
-- **The scroll-spy follows the viewport, not the caret.**
-  `frontend/documents.js`, `docVisibleTopLine`: typing in a section below the
-  one at the top of the view marks the wrong heading until the view scrolls.
-  Next step: listen to selection changes as well (`docSurface().onChange`
-  fires on edits, not arrow keys) and decide which wins when they disagree.
-  Measured cost of the current shape: one hit test per animation frame while
-  scrolling. [doc-sidebar.md]
 - **The rest of the app's viewport popups have not been measured with the
   background art on.** `kebabMenu` (`wireEscapedActionMenu`) and the toolbar
   dropdowns (`clampToolbarMenu`) are covered; the chat dock's popovers, the

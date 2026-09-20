@@ -450,6 +450,21 @@ with its owner named in the entry.
     the question (`ai/extractive.py`). The standing half, refinement, is the
     session's own order of work from here.
 
+284. **Found while building Phase 11 item 7 (the session, not the owner):
+    `scratchpad/ui-sweeps/lib.js` silently drops `hasTouch` and `isMobile`.**
+    `boot(opts)` passes only `opts.viewport` to `newContext`, so a sweep that
+    asks for a touch context gets a desktop one at a phone's width, and every
+    rule behind `(pointer: coarse)` or `(hover: none)` is measured on the
+    wrong side. `phoneswipe.js` asks for both today and does not get them (its
+    swipes still work, because `initRowSwipe` reads `event.pointerType` rather
+    than a media query, so the finding is about what the next sweep will
+    measure rather than a wrong number already published). Two sweeps built
+    their own context to get around it (`graphtouch.js`, and this week
+    `graphphone.js` and `wbphone.js`). **Recommendation:** pass `hasTouch`,
+    `isMobile` and `deviceScaleFactor` through in `lib.js`, then re-run
+    `phoneswipe.js` and the phone sweeps and record any number that moves.
+    Open.
+
 ## Placed (last 20, newest first)
 
 - 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.

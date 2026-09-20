@@ -1697,3 +1697,69 @@ header#top-bar,
     display: none;
   }
 }
+
+/* --- Phase 11 item 7: the whiteboard and the mind map on a phone -----------
+
+   Measured at 390x844 on a fresh board before any of this: the tool rail is a
+   364x56 band under a 364x604 canvas, and inside it 835px of tools scroll
+   through a 358px window, so 16 of its 31 buttons are on screen and the
+   Shapes section shows one of its seven. The top bar above is 88px of two
+   rows holding eleven controls, every one of them 36px tall against this
+   band's 44px floor.
+
+   The rail becomes one button (`#wb-tools-opener`, whose label is the tool
+   in hand) opening the sheet that `wbOpenToolsSheet` fills with the rail's
+   own `#wb-tool-group`. Nothing is removed and nothing is rebuilt: the group
+   goes into the sheet and comes back, which is why a tool added to the rail
+   needs no second edit here. */
+.wb-tools-opener {
+  display: none;
+}
+
+@media (max-width: 599.98px) {
+
+  #wb-tools-panel > #wb-tool-group {
+    display: none;
+  }
+
+  .wb-tools-opener {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: var(--target-min);
+    min-width: var(--target-min);
+  }
+
+  /* The sheet gives the sections room to be a palette rather than a strip:
+     they stack, and each section's row wraps instead of running off the
+     side. The 42-control inventory this rail started as is exactly what a
+     sheet is for. */
+  .wb-tools-palette #wb-tool-group {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+    overflow: visible;
+  }
+
+  .wb-tools-palette .wb-tool-section-row {
+    flex-wrap: wrap;
+  }
+
+  .wb-tools-palette :is(button, summary, .wb-shape-toggle) {
+    min-height: var(--target-min);
+    min-width: var(--target-min);
+  }
+
+  /* The board's own bar takes the band's floor, like every other control a
+     finger lands on. It costs one step of height (two rows of 44 rather than
+     two of 36) and buys eleven targets that can be hit. */
+  #wb-topbar :is(button, summary, select) {
+    min-height: var(--target-min);
+  }
+
+  #wb-topbar .icon-button {
+    min-width: var(--target-min);
+  }
+}

@@ -874,9 +874,49 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
    document is already the whole screen and a sheet over a page that is
    itself the editor would be two editors. At 1024 the default is Live
    Preview as before.
-7. **Whiteboard and maps.** View and light edit only on a phone (pan,
-   zoom, select, move, edit text); creation tools in a sheet; the mind
-   map's + handles are touch-sized.
+7. **Whiteboard and maps: built** (2026-09-20), and one third of it was
+   already there. Measured at 390x844 on a fresh board first
+   (`scratchpad/ui-sweeps/wbphone.js`, this item's gate). Before: a pinch
+   with the default Select tool scaled the board by exactly **1.000**,
+   because `wbZoomFilter` gave touch to the camera only while the Pan tool
+   was held, so a phone could not move or zoom a board without first going
+   to find that tool; the tool rail was a 364x56 band under a 364x604
+   canvas holding **835px of tools scrolled through a 358px window**, so 16
+   of its 31 buttons were on screen and the Shapes section showed one of
+   its seven; and the board's own top bar was 88px of two rows with all
+   **eleven** of its controls at 36px against this band's 44px floor. The
+   mind map's + handles were **already 44x44** and already shown on a
+   selected node, so that third of the item is a measurement rather than a
+   change.
+
+   After: two fingers are always the camera and one finger still belongs to
+   the tool (the same split Figma, Excalidraw and Procreate use, and no tool
+   here is drawn with two), measured at 1.000 to 3.500 for the same pinch
+   with Select in hand. The rail below 600 is one button saying which tool
+   is in hand, and it opens the sheet recipe holding `#wb-tool-group`
+   itself, moved in and put back on close, so a tool added to the rail is in
+   the sheet with no second edit: 390x527, 12 visible tools, none under
+   44px, and picking one closes the sheet and selects it. The top bar takes
+   the band's floor, 88px to 104px, which is one step of height for eleven
+   targets that can be hit. Whiteboard.js's three hand-rolled 500ms holds
+   are `wireLongPress` now, so they inherit the swallowed lift that item 4
+   added and whiteboard.js joins the long-press lint's file list; the fourth
+   right-click, bound through d3 on a selection that is rebound every
+   render, keeps its own hold, and the lint's docstring says why.
+   **Decision: the board's top bar is not reduced to a kebab** the way the
+   app header was (item 1). It is a menu bar, which the dock grammar already
+   names as this surface's exception (Insert, Edit, Arrange, View, Board),
+   and three of its eleven controls are those menus. Raising it to the touch
+   floor is what this item needs; a phone-shaped board bar is
+   WHITEBOARD_PLAN's, not this item's, and is named there.
+
+   The whiteboard sweep at 390 had to learn the sheet: its ink-swatch check
+   scrolled the rail sideways to find the swatch, and the swatch is in the
+   sheet at that width now. It opens the sheet and closes it, and reads the
+   swatch as red rather than as exactly `rgb(255, 0, 0)`, because inside the
+   sheet the pixel is painted through the card's own glass (measured: 249,
+   1, 3). 24/24 at 390 and 24/24 at 1440 after it; `wbcontextphone.js` 5/5,
+   so the context bar work that landed this week is untouched.
 8. **Settings, dashboard, timeline, reminders: built or decided**
    (2026-09-20). Measured at 390 first: the dashboard's 24 widgets are
    already one column. Settings already has its phone shape, decided and

@@ -5393,6 +5393,20 @@
         </div>
       </div>
       </div>
+      <!-- **The whole rail behind one button below 600** (Phase 11 item 7,
+           "creation tools in a sheet"). Measured at 390x844 before it: the
+           rail is a 364x56 band under a 364x604 canvas holding 835px of tools
+           scrolled through a 358px window, so 16 of its 31 buttons were on
+           screen and the Shapes section showed one of its seven. The sheet is
+           `openSheet`, and what it holds is `#wb-tool-group` itself, moved in
+           and put back on close: the delegated `[data-tool]` listener, every
+           section label and every key is the one that was already there.
+           Hidden above 600, where the rail is the rail. -->
+      <button type="button" id="wb-tools-opener" class="ghost small wb-tools-opener"
+        title="Tools" aria-haspopup="dialog" aria-expanded="false">
+        <i class="ph ph-toolbox ph-lead" aria-hidden="true"></i>
+        <span id="wb-tools-opener-label">Tools</span>
+      </button>
     </div>
 
     <!-- Zoom only. Search, overview, full screen and help moved up into the

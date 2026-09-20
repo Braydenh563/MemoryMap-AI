@@ -9,6 +9,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The whiteboard and the mind map answer a finger. Two fingers pan and zoom the
+  board whatever tool is in hand, which is what every drawing app reserves them
+  for: until now a pinch did nothing at all unless you first went and found the
+  Pan tool. The tool rail below 600 is one button saying which tool is in hand,
+  opening a sheet with every tool in it at a size a thumb can hit, in place of a
+  56px band that scrolled 835px of tools through a 358px window and showed 16 of
+  its 31 buttons. The board's own bar takes the same 44px floor as the rest of
+  the app on a touch screen. The mind map's + handles were already touch-sized
+  and are unchanged.
+
 - The graph answers a finger on a phone. A hold on a node opens the node menu
   (the same menu a right-click opens, now the app's own pointer-menu recipe, so
   its rows are 44px, Escape closes it and it cannot be drawn off the edge of the

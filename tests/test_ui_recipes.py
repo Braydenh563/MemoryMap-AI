@@ -1748,13 +1748,20 @@ def test_the_row_swipe_presses_the_rows_own_actions():
 
 def test_every_right_click_menu_has_a_long_press_twin():
     """Phase 11 item 9: a finger has no second button, so every contextmenu
-    listener in app.js, documents.js and graph-canvas.js is matched by a
-    `wireLongPress` call opening the same thing. Counted per file, since the
-    two are always written side by side. graph-canvas.js joined the count
-    with Phase 11 item 4 (the hold that opens the node menu, and arms the
-    lasso on the empty map). whiteboard.js is the whiteboard plan's file and
-    joins it when that plan's phone item lands."""
-    for name in ("app.js", "documents.js", "graph-canvas.js"):
+    listener in app.js, documents.js, graph-canvas.js and whiteboard.js is
+    matched by a `wireLongPress` call opening the same thing. Counted per
+    file, since the two are always written side by side. graph-canvas.js
+    joined the count with Phase 11 item 4 (the hold that opens the node menu,
+    and arms the lasso on the empty map) and whiteboard.js with item 7.
+
+    whiteboard.js has a fifth right-click, bound through d3 as
+    `.on("contextmenu.wbctx")` on a selection that is rebound on every
+    render, and it keeps its own hold for that reason: d3's namespaced `.on`
+    replaces a listener per rebind, while `addEventListener` would stack one
+    per render. It is not counted here because the pattern above does not
+    match it, which is the honest state of it rather than an oversight.
+    """
+    for name in ("app.js", "documents.js", "graph-canvas.js", "whiteboard.js"):
         text = (ROOT / "frontend" / name).read_text(encoding="utf-8")
         right_clicks = len(re.findall(r'addEventListener\(\s*"contextmenu"', text))
         calls = len(re.findall(r"\bwireLongPress\(", text))

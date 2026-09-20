@@ -75,9 +75,22 @@ function wbZoomFilter(event) {
   // mousemove reports the held set, and the drag half of the gesture needs to
   // pass the filter too.
   if (event.button === 1 || (event.buttons & 4) === 4) return true;
-  // Touch: only in Pan. A finger drag while a brush is selected is a stroke,
-  // and stealing it for a pan would make the board undrawable on a tablet.
-  if (event.type.startsWith("touch")) return window.currentTool === "pan";
+  //: **Two fingers always navigate; one finger belongs to the tool.**
+  //: (UI_MODERNISATION_PLAN Phase 11 item 7, "view and light edit only on a
+  //: phone: pan, zoom, select, move".) One finger stays as it was, for the
+  //: reason below: a drag while a brush is selected is a stroke, and stealing
+  //: it for a pan would make the board undrawable on a tablet. But that left
+  //: a phone with no way to move or zoom the board at all unless it first
+  //: went and found the Pan tool: measured at 390x844 on a fresh board, a
+  //: pinch from 80px to 280px between the fingers with the default Select
+  //: tool scaled it by exactly 1.000. Two fingers is what every drawing app
+  //: people already know reserves for the camera (Figma, Excalidraw,
+  //: Procreate), and it cannot collide with a tool, because no tool here is
+  //: drawn with two.
+  if (event.type.startsWith("touch")) {
+    if (event.touches && event.touches.length > 1) return true;
+    return window.currentTool === "pan";
+  }
   // Left button: Pan tool, or space held down.
   if (event.button === 0 || event.buttons === 1 || event.buttons === 0) {
     return window.currentTool === "pan" || wbSpaceHeld;
@@ -119,6 +132,10 @@ let wbDeleteObjectRef = null;
 // outside it, placing a text box switches back to Select once typed , 
 // can still call it, the same shape the delete-refs above already use.
 let wbSelectToolRef = null;
+//: The phone tools opener's label, refreshed from wherever a tool is chosen
+//: (`selectWbTool` is inside `initWhiteboard`'s closure, and so is the
+//: opener). Null until a board has been opened once.
+let wbToolsOpenerSyncRef = null;
 // Same shape again, for the marquee/lasso selection drag. Reported directly:
 // "there's a permanent selection box on my mindmap", a dashed accent
 // rectangle sitting on the canvas at rest, ~330x375, with nothing selected.
@@ -4967,6 +4984,13 @@ function wbRenderMapEdgePluses(index, hidden, layout) {
         event.stopPropagation();
         wbOpenMapLinkRadial(child.id, event.clientX, event.clientY);
       });
+      //: And the hold, for the same reason: a finger has no second button, so
+      //: the button that sits on the line's middle has to answer the line's
+      //: own gesture there too. `wireLongPress` (app.js) is the app's one
+      //: hold, and it swallows the click the lift makes, which this button's
+      //: own click (insert a topic here) would otherwise run the moment the
+      //: ring opened.
+      wireLongPress(button, (event, point) => wbOpenMapLinkRadial(child.id, point.x, point.y));
       next.push(button);
     }
   }
@@ -6487,29 +6511,16 @@ function wbCloseMapLinkRadial() {
 //: (`wbRenderMapEdges`'s own comment says why), so there is exactly one
 //: binding per element per lifetime and nothing to clean up.
 function wbWireMapEdgeGestures(hit, childId) {
-  let holdTimer = null;
-  const cancelHold = () => {
-    if (holdTimer) clearTimeout(holdTimer);
-    holdTimer = null;
-  };
   hit.addEventListener("contextmenu", (event) => {
     event.preventDefault();
     event.stopPropagation();
     wbOpenMapLinkRadial(childId, event.clientX, event.clientY);
   });
-  // Touch has no right-click, so a hold stands in, with the same 500ms and
-  // the same cancel-on-move shape the node's own menu gesture uses.
-  hit.addEventListener("pointerdown", (event) => {
-    if (event.pointerType !== "touch") return;
-    cancelHold();
-    holdTimer = setTimeout(() => {
-      holdTimer = null;
-      wbOpenMapLinkRadial(childId, event.clientX, event.clientY);
-    }, 500);
-  });
-  for (const name of ["pointerup", "pointercancel", "pointermove"]) {
-    hit.addEventListener(name, cancelHold);
-  }
+  //: Touch has no right-click, so a hold stands in: `wireLongPress` (app.js),
+  //: which is the same 500ms and the same cancel-on-move this used to write
+  //: for itself, plus the one thing the hand-rolled version could not do,
+  //: swallowing the click the lift synthesises.
+  wireLongPress(hit, (event, point) => wbOpenMapLinkRadial(childId, point.x, point.y));
 }
 
 function wbOpenMapLinkRadial(childId, clientX, clientY) {
@@ -10101,6 +10112,7 @@ async function initWhiteboard() {
     }
     if (shapeMenu && shapeToggle) wbCloseDockedMenu(shapeMenu, shapeToggle);
     wbRefreshArrowStyleControlRef?.();
+    wbToolsOpenerSyncRef?.();
     updateWbCursor();
     // The properties panel now also carries the style a drawing tool will
     // use, so a tool switch has to reopen/close it, see its own comment.
@@ -10114,6 +10126,85 @@ async function initWhiteboard() {
       const btn = e.target.closest("button[data-tool]");
       if (btn) selectWbTool(btn.dataset.tool);
     });
+  }
+
+  // --- the tools as a sheet on a phone ---------------------------------------
+  // UI_MODERNISATION_PLAN Phase 11 item 7, "creation tools in a sheet".
+  // Measured at 390x844 first: the rail is a 364x56 band under a 364x604
+  // canvas, and the band holds 835px of tools scrolled through a 358px
+  // window, so 16 of its 31 buttons were on screen at once and the Shapes
+  // section showed one of its seven. A row you scroll sideways to find a tool
+  // in is not a palette, and it is 56px of a 844px screen either way.
+  //
+  // What opens is `openSheet`, and what is in it is `#wb-tool-group` itself,
+  // moved in and put back on close. That is the whole design: the delegated
+  // `[data-tool]` listener above, every section label, every key and the
+  // shape menu are the ones that were already there, so a tool added to the
+  // rail is in the sheet without anybody remembering to add it twice.
+  let wbToolsSheetClose = null;
+  const toolsOpener = document.getElementById("wb-tools-opener");
+
+  function wbSyncToolsOpener() {
+    const label = document.getElementById("wb-tools-opener-label");
+    if (!label || !toolGroup) return;
+    //: The opener says which tool is in hand, because on a phone it is the
+    //: only place the rail's own "active" mark can be read.
+    const active = toolGroup.querySelector("button[data-tool].active");
+    const name = active?.getAttribute("aria-label") || active?.title?.split(" (")[0];
+    label.textContent = name ? name.replace(/ tool$/i, "") : "Tools";
+  }
+
+  function wbOpenToolsSheet() {
+    if (wbToolsSheetClose || !toolGroup || typeof openSheet !== "function") return;
+    const home = { parent: toolGroup.parentNode, next: toolGroup.nextSibling };
+    toolsOpener?.setAttribute("aria-expanded", "true");
+    wbToolsSheetClose = openSheet({
+      label: "Tools",
+      name: "wb-tools",
+      returnFocus: toolsOpener,
+      build: (card, close) => {
+        const body = document.createElement("div");
+        body.className = "wb-tools-palette";
+        body.appendChild(toolGroup);
+        card.appendChild(body);
+        //: Picking a tool is the end of the errand, so the sheet gets out of
+        //: the way and the board is there to draw on. The `close` the recipe
+        //: hands `build`, not the variable the call assigns afterwards, and
+        //: bound on the card so it cannot outlive the sheet.
+        //:
+        //: **Captured**, because the shape menu's rows stop their own click
+        //: from bubbling (they have to: a docked menu is reparented to
+        //: `<body>` while it is open, so it cannot rely on reaching
+        //: `#wb-tool-group`'s delegated listener). Measured: picking
+        //: Rectangle set the tool and left the sheet open over the board it
+        //: had just been chosen for.
+        card.addEventListener(
+          "click",
+          (event) => {
+            if (event.target.closest("button[data-tool]")) close();
+          },
+          true
+        );
+      },
+      onClose: () => {
+        home.parent.insertBefore(toolGroup, home.next);
+        wbToolsSheetClose = null;
+        toolsOpener?.setAttribute("aria-expanded", "false");
+        wbSyncToolsOpener();
+      },
+    });
+  }
+
+  if (toolsOpener) {
+    toolsOpener.addEventListener("click", () => {
+      if (wbToolsSheetClose) wbToolsSheetClose();
+      else wbOpenToolsSheet();
+    });
+    //: A window dragged past the band with the sheet open would leave the
+    //: rail's own tools inside a dialog the desktop layout has no opener for.
+    WB_PHONE.addEventListener("change", () => wbToolsSheetClose?.());
+    wbSyncToolsOpener();
+    wbToolsOpenerSyncRef = wbSyncToolsOpener;
   }
 
   // Docked as a sidebar, the toolbar panel scrolls (`overflow-y: auto`, so a
@@ -10195,15 +10286,8 @@ async function initWhiteboard() {
   function wbWireToggleGestures(toggle, menu, getLastTool) {
     if (!toggle || !menu) return;
     const picker = toggle.parentElement; // #wb-shape-picker / #wb-select-picker
-    let holdTimer = null;
-    let suppressClick = false; // a long-press's own release still fires a click
-
     toggle.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (suppressClick) {
-        suppressClick = false;
-        return;
-      }
       if (e.target.closest(".wb-shape-caret")) {
         if (menu.classList.contains("hidden")) wbOpenDockedMenu(menu, toggle);
         else wbCloseDockedMenu(menu, toggle);
@@ -10220,23 +10304,13 @@ async function initWhiteboard() {
       e.stopPropagation();
       wbOpenDockedMenu(menu, toggle);
     });
-    toggle.addEventListener("pointerdown", (e) => {
-      if (e.pointerType !== "touch") return;
-      holdTimer = setTimeout(() => {
-        holdTimer = null;
-        suppressClick = true;
-        wbOpenDockedMenu(menu, toggle);
-      }, 500);
-    });
-    const cancelHold = () => {
-      if (holdTimer) {
-        clearTimeout(holdTimer);
-        holdTimer = null;
-      }
-    };
-    toggle.addEventListener("pointerup", cancelHold);
-    toggle.addEventListener("pointercancel", cancelHold);
-    toggle.addEventListener("pointerleave", cancelHold);
+    //: The hold, through the app's own `wireLongPress` (app.js) rather than
+    //: a fourth copy of a 500ms timer with its own cancel set. It also
+    //: removes the `suppressClick` latch this carried: the recipe swallows
+    //: the click the lift synthesises, which is the thing that latch was
+    //: written to survive, and a latch that is only cleared by the *next*
+    //: click is a click lost whenever no click follows.
+    wireLongPress(toggle, () => wbOpenDockedMenu(menu, toggle));
 
     // Handled directly rather than relying on the click bubbling up to
     // #wb-tool-group's own delegated listener: once open+side-docked, the

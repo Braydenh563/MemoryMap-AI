@@ -4,17 +4,40 @@
 //   BASE=http://127.0.0.1:8781 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node wbrightpan.js
 //
 // **The gesture is not built. This is its acceptance test, written first.**
-// It was built once on 2026-09-19 and taken back out: the pan itself is four
-// lines in `wbZoomFilter` and measured clean at 150px, but the half that
-// matters, not opening a context menu at the end of a drag, could not be
-// measured reliably here. Two runs of identical code disagreed about whether
-// Chromium dispatches `contextmenu` after a right-drag at all, and the menu
-// that does arrive is dispatched at the `<section>` around the board rather
-// than at anything inside it, so it cannot be scoped by its target either.
-// Shipping a new gesture on the surface that carries the app's only context
-// menu, with that half unverified, is the shape of change this project has
-// spent a session undoing. Whoever builds it: make this file pass, on a
-// board that has at least one card.
+//
+// It has been built and taken back out twice now, 2026-09-19 and 2026-09-20,
+// and the second attempt found why. The pan half is four lines in
+// `wbZoomFilter` and measures clean at 150px both times. The other half, not
+// leaving a context menu open where somebody just finished panning, is not
+// implementable as this file's second assertion is written, and that is a
+// fact about the browser rather than about the code:
+//
+//     pointerdown@wb-svg-layer
+//     mousedown@wb-svg-layer
+//     contextmenu@wb-svg-layer      <- here, on the press
+//     pointerup@wb-svg-layer
+//     mouseup@wb-svg-layer
+//     auxclick@wb-svg-layer
+//
+// **`contextmenu` is dispatched on the press, before the drag has moved a
+// pixel**, so at the moment the decision has to be made nothing can know
+// whether this gesture is going to become a drag or stay a click. "Suppress
+// the menu only when the drag moved" cannot be written. (The 2026-09-19 note
+// recorded the opposite, that the menu arrives at the end and at the
+// `<section>` around the board; measured again on 2026-09-20 it arrives
+// first, at `#wb-svg-layer`. Two runs that session disagreed about whether it
+// arrived at all; six runs across two attempts this session agreed every
+// time, so the earlier non-determinism is not reproducing and should not be
+// planned around.)
+//
+// That leaves one shape that works, and it is a decision rather than a patch:
+// suppress the native menu on the canvas outright and open the app's own
+// pointer menu (`openMenuAtPoint`) in its place, so a right-click gives board
+// actions and a right-drag gives a pan. What goes in that menu is a design
+// question nobody has answered, which is why INBOX 258 is still an entry.
+//
+// Whoever builds it: make this file pass, on a board that has at least one
+// card, and expect to change assertion 2 with the owner's agreement.
 //
 // Three things have to hold at once, and the second and third are why this
 // was an INBOX entry rather than a patch. A right-drag on empty canvas pans,
@@ -39,6 +62,15 @@ const { boot } = require('./lib.js');
     wbShowCanvasView();
     await fetchWhiteboardState();
     await new Promise((r) => setTimeout(r, 400));
+    // Check 3 needs a card to press, and a board that has none would report
+    // it as "skipped", which is the case this test exists to cover.
+    if (!document.querySelector('#whiteboard-container .node-card')) {
+      const e = await apiJson('/entries', { method: 'POST', body: JSON.stringify({ content: 'right-pan probe card', category: 'General' }) });
+      const n = await apiJson('/whiteboard/nodes', { method: 'POST', body: JSON.stringify({ entry_id: e.id, board_id: window.currentBoardId ?? null, x: 90, y: 90, z: 1 }) });
+      wbState.nodes.push(n);
+      renderWhiteboardNow();
+      await new Promise((r) => setTimeout(r, 500));
+    }
     const container = document.getElementById('whiteboard-container');
     window.__menus = 0;
     //: Counted on the window in the *bubble* phase, which is where a menu
@@ -82,12 +114,24 @@ const { boot } = require('./lib.js');
   console.log(`258 right click  transform.x unchanged ${clicked.x === dragged.x}, menus opened ${clicked.menus}`);
 
   // 3. Right-press on a card is not a pan.
+  //
+  // The card's position is read *now*, not at setup: checks 1 and 2 pan the
+  // board, and the card travels with it. Read once at the top, the recorded
+  // coordinates pointed at empty canvas by the time this ran, and the check
+  // reported "a right-drag on a card panned the board 120px" about a press
+  // that never touched a card.
+  const cardNow = await page.evaluate(() => {
+    const el = document.querySelector('#whiteboard-container .node-card');
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
   let onCard = null;
-  if (box.card) {
+  if (cardNow) {
     await page.evaluate(() => { window.__menus = 0; });
-    await page.mouse.move(box.card.x, box.card.y);
+    await page.mouse.move(cardNow.x, cardNow.y);
     await page.mouse.down({ button: 'right' });
-    await page.mouse.move(box.card.x + 120, box.card.y + 40, { steps: 16 });
+    await page.mouse.move(cardNow.x + 120, cardNow.y + 40, { steps: 16 });
     await page.mouse.up({ button: 'right' });
     await page.waitForTimeout(300);
     onCard = await page.evaluate(() => d3.zoomTransform(document.getElementById('whiteboard-container')).x);

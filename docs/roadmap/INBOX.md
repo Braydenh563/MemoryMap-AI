@@ -85,6 +85,35 @@ with its owner named in the entry.
     test, written first and failing, with the three facts above in its
     header. Whoever builds it makes that file pass on a board with a card on
     it, which is also the case this run could not cover.
+    **Built and taken back out a second time, 2026-09-20, and this run found
+    why. Two of the three facts above are wrong.** Measured with every event
+    logged in the capture phase across a full right-drag:
+
+        pointerdown@wb-svg-layer
+        mousedown@wb-svg-layer
+        contextmenu@wb-svg-layer      <- on the press
+        pointerup@wb-svg-layer
+        mouseup@wb-svg-layer
+        auxclick@wb-svg-layer
+
+    `contextmenu` arrives **on the press, before the drag has moved a pixel**,
+    and at `#wb-svg-layer`, not at the `<section>`. So at the only moment the
+    decision can be made, nothing can know whether the gesture will become a
+    drag: "suppress the menu only when the drag moved" is not implementable,
+    which is why both attempts left a menu open. The non-determinism recorded
+    above did not reproduce: six runs across two attempts agreed every time,
+    so it should not be planned around.
+    The pan half measured clean again (0 to 150px, three runs identical), and
+    a probe bug was fixed while there: the card's position was read at setup,
+    before checks 1 and 2 pan the board, so check 3 pressed empty canvas and
+    reported a 120px pan "on a card" that never touched one.
+    **Recommendation, for the owner, because it is a decision and not a
+    patch.** One shape works: suppress the native menu on the canvas outright
+    and open the app's own pointer menu (`openMenuAtPoint`, which exists) in
+    its place. A right-click then gives board actions instead of Chrome's
+    menu, and a right-drag gives a clean pan. What goes in that menu is the
+    open question, and assertion 2 of the acceptance test ("a right-click
+    still opens whatever it opened before") changes with it.
 
 261. **Found by scan, 2026-09-19 (the session, not the owner).** Ten routes
     the app serves that `frontend/*.js` never names, from

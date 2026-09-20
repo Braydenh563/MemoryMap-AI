@@ -149,11 +149,6 @@ being written by running agents stay beside this one.
   but not measured at all. Next step: time it on the plan's 20k-word document
   with 200 findings on screen; past a millisecond, cache the rects per repaint
   (the findings effect is the invalidation point). [prose-intelligence.md]
-- **The writing panel's answers are not reachable by keyboard from the row.**
-  Enter opens the row, focus stays on the control, the candidates are a Tab
-  away with nothing saying so. Next step: move focus to the first candidate
-  when a row opens by keyboard only (a pointer press must not steal it) and
-  return it to the row on collapse. [prose-intelligence.md]
 - **The three finding kinds are named in two places**, `DOC_FINDING_GROUPS`
   (the panel's group titles) and `docFindingKind` (the dot and the underline).
   They agree today; a fourth kind has to be added to both.

@@ -7,6 +7,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The writing panel's answers are reachable from the keyboard. Pressing Enter
+  on a row now puts focus on the first suggestion, Escape hands it back to the
+  row, and a press with the pointer still leaves the caret in the document
+  where the word was just shown.
+
 - The outline marks the section you are writing in, not the one at the top of
   the window. Typing in a section lower down the page left the heading above it
   marked until the view happened to scroll. Scroll far enough that the caret

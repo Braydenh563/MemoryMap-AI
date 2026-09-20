@@ -11060,24 +11060,68 @@ const DOC_PROSE_ROWS = 60;
 //: middle of the editor so the sentence is readable while its row is open. One
 //: surface at a time, which is DESIGN.md's popover rule: a panel that has to
 //: open a popover to be useful was breaking it structurally.
-function docProseRowAnswers(row, control, finding) {
+//: **Closing a row, once.** Three things close one (the second press on the
+//: row, Escape inside the answers, and pressing an answer), and each of them
+//: used to write the same four lines. They also have to agree about focus: a
+//: row opened from the keyboard has the focus ring somewhere inside the block
+//: that is about to be emptied, and an element removed while it has focus
+//: hands it to `<body>`, which is the end of keyboard navigation for that
+//: panel. So the row takes it back, but only when the row is where it came
+//: from: a pointer press left focus in the editor on purpose (that is what
+//: "show me this in the document" means) and stealing it here would move the
+//: caret out of the sentence the reader was just shown.
+function docProseRowCollapse(row, control, answers) {
+  control.setAttribute("aria-expanded", "false");
+  row.removeAttribute("aria-current");
+  answers.classList.add("hidden");
+  answers.replaceChildren();
+  if (row.dataset.keyOpened === "1") control.focus();
+  delete row.dataset.keyOpened;
+}
+
+function docProseRowAnswers(row, control, finding, opts = {}) {
   const panel = $("doc-prose-panel");
   const answers = row.querySelector(".doc-prose-answers");
   if (!panel || !answers) return;
+  //: **Keyboard or pointer, decided by `event.detail`.** A click raised by
+  //: Enter or Space on a button reports `detail === 0`; a real press reports
+  //: the click count. It is the only signal that separates the two here, and
+  //: the whole behaviour below hangs off it, so the caller passes it in rather
+  //: than this function reaching for a global event.
+  const byKeyboard = opts.keyboard === true;
   const wasOpen = control.getAttribute("aria-expanded") === "true";
   //: One open row, like one open popover. Two sets of answers in one list is
   //: two places the next press could mean something.
   for (const other of panel.querySelectorAll('.doc-prose-jump[aria-expanded="true"]')) {
-    other.setAttribute("aria-expanded", "false");
+    //: **Not this row.** The selector matches the row being pressed too when
+    //: it is already open, and collapsing it here rather than in the `wasOpen`
+    //: branch below meant the branch ran against a row that was already closed
+    //: and had already given its focus away: measured as the editor keeping
+    //: the ring after Enter closed a row from the keyboard.
+    if (other === control) continue;
     const li = other.closest(".doc-prose-row");
-    li?.removeAttribute("aria-current");
-    li?.querySelector(".doc-prose-answers")?.classList.add("hidden");
+    const box = li?.querySelector(".doc-prose-answers");
+    //: Another row's answers, so its focus is not this row's business: the
+    //: flag goes first, and the collapse leaves focus where it found it.
+    if (li) delete li.dataset.keyOpened;
+    if (li && box) docProseRowCollapse(li, other, box);
+    else other.setAttribute("aria-expanded", "false");
   }
   //: Pressing the row always takes you to the word, open or closing: that is
   //: what the row is for, and it is the half of this the owner asked for
   //: ("it should auto scroll to the issue and temporarily highlight it").
   docProseJump(finding);
-  if (wasOpen) return;
+  //: **The press that closes decides where focus goes**, not the press that
+  //: opened: closing with Enter from the row means the reader is on the row
+  //: and wants to stay there, whichever way it was opened. Set before either
+  //: branch because the `close` handed to the answers below reads it too, and
+  //: that is what a candidate pressed with Enter calls.
+  if (byKeyboard) row.dataset.keyOpened = "1";
+  else delete row.dataset.keyOpened;
+  if (wasOpen) {
+    docProseRowCollapse(row, control, answers);
+    return;
+  }
   control.setAttribute("aria-expanded", "true");
   //: The open row is where you are in the document, so it says so with
   //: `aria-current` and is painted from that attribute (DESIGN.md's recipe for
@@ -11087,12 +11131,7 @@ function docProseRowAnswers(row, control, finding) {
   answers.replaceChildren(
     docSuggestAnswers(finding, {
       inline: true,
-      close: () => {
-        control.setAttribute("aria-expanded", "false");
-        row.removeAttribute("aria-current");
-        answers.classList.add("hidden");
-        answers.replaceChildren();
-      },
+      close: () => docProseRowCollapse(row, control, answers),
       current: () => control.getAttribute("aria-expanded") === "true",
     })
   );
@@ -11103,6 +11142,17 @@ function docProseRowAnswers(row, control, finding) {
   const frame = panel.getBoundingClientRect();
   if (box.bottom > frame.bottom) panel.scrollTop += box.bottom - frame.bottom + 8;
   else if (box.top < frame.top) panel.scrollTop -= frame.top - box.top + 8;
+  //: **Focus follows the keyboard into the answers, and only the keyboard.**
+  //: Reported (OPEN.md, prose-intelligence.md): "Enter opens the row, focus
+  //: stays on the control, the candidates are a Tab away with nothing saying
+  //: so." Measured before this: after Enter, `document.activeElement` was the
+  //: editor's own `cm-content` (`docProseJump` focuses the surface to show the
+  //: word), so the candidates were not one Tab away, they were behind the
+  //: whole editor's tab order. The first candidate is the one the panel says
+  //: is the best answer, so it is the one that takes the ring.
+  if (!byKeyboard) return;
+  const first = answers.querySelector("button:not([disabled])");
+  if (first) first.focus();
 }
 
 function docProseGroupList(findings) {
@@ -11121,7 +11171,10 @@ function docProseGroupList(findings) {
     //: own head (`docFindingLine`).
     jump.appendChild(docFindingLine(finding, "row"));
     jump.title = "Show me this in the document, and what can be done about it";
-    jump.addEventListener("click", () => docProseRowAnswers(li, jump, finding));
+    //: `event.detail === 0` is a press that came from Enter or Space rather
+    //: than from a pointer: see `docProseRowAnswers` for what hangs off it.
+    jump.addEventListener("click", (event) =>
+      docProseRowAnswers(li, jump, finding, { keyboard: event.detail === 0 }));
     head.appendChild(jump);
     if (finding.replacement !== null) {
       const fix = document.createElement("button");
@@ -11136,6 +11189,21 @@ function docProseGroupList(findings) {
     li.appendChild(head);
     const answers = document.createElement("div");
     answers.className = "doc-prose-answers hidden";
+    //: **Escape leaves the answers the way it leaves every other surface in
+    //: this app**, and it is wired here, once per row, rather than inside the
+    //: open: the block is reused across opens, so a listener added there would
+    //: multiply by one per press (the shape `tests/test_frontend_handlers.py`
+    //: exists to catch). Stopped from bubbling because the app's own Escape
+    //: chain would otherwise close the whole panel from underneath a reader
+    //: who only meant to close one row.
+    answers.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      if (jump.getAttribute("aria-expanded") !== "true") return;
+      event.stopPropagation();
+      event.preventDefault();
+      li.dataset.keyOpened = "1";
+      docProseRowCollapse(li, jump, answers);
+    });
     li.appendChild(answers);
     list.appendChild(li);
   }

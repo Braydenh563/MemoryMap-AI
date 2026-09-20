@@ -491,8 +491,8 @@ function renderNameNudge(greetingEl) {
   });
   const dismiss = document.createElement("button");
   dismiss.type = "button";
-  dismiss.className = "ghost small";
-  dismiss.textContent = "✕";
+  dismiss.className = "ghost small icon-only";
+  setLabel(dismiss, "ph:x");
   dismiss.title = "Don't ask again";
   dismiss.setAttribute("aria-label", "Dismiss the name suggestion");
   dismiss.addEventListener("click", () => {

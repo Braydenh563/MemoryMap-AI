@@ -57,6 +57,9 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   # file) never selects it, and the first new string written after it landed
   # broke it. Caught by a full local run rather than by any gate that day.
   tests/test_ai_name.py tests/test_frontend_symbols.py
+  # Same reason again: it reads every string in `frontend/*.js`, so no changed
+  # source file selects it.
+  tests/test_no_glyph_icons.py
   tests/test_plan_hygiene.py tests/test_readme_freshness.py tests/test_vendor_licences.py
   # Mirror drift (docs/CHANGELOG.md and friends) belongs here rather than in
   # --changed: the file that goes stale is a `.md` at the repo root, and the

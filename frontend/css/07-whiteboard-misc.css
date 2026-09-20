@@ -2506,6 +2506,21 @@ body.scroll-top-visible .skills-split > main {
   margin-inline-end: 0.35em;
 }
 
+/* The mirror of `.ph-lead`, for an icon that closes a label rather than opens
+   one: a chip's own "remove" cross, drawn by the trailing `ph:` marker in the
+   label grammar (`setLabel`). Same gap on the other side, and a touch quieter
+   than the words, because it is an action on the thing the words name rather
+   than part of the name. */
+.ph-trail {
+  margin-inline-start: 0.35em;
+  opacity: 0.7;
+}
+
+.chip-interactive:hover .ph-trail,
+.chip-interactive:focus-visible .ph-trail {
+  opacity: 1;
+}
+
 .ph {
   /* Optical size: Phosphor's glyphs sit slightly small against text at 1em. */
   font-size: 1.15em;

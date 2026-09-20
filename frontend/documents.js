@@ -1111,7 +1111,7 @@ function renderDocNotes() {
       showNotesSection("browse"); // focusing inside a hidden section does nothing
       flashEntry(note.id);
     });
-    const remove = smallButton("✕", "Detach this note from the document", async () => {
+    const remove = smallButton("ph:x", "Detach this note from the document", async () => {
       currentDoc = await apiJson(
         `/documents/${currentDoc.id}/notes/${note.id}`,
         { method: "DELETE" }
@@ -1157,7 +1157,7 @@ async function renderDocBookmarks() {
     setLabel(open, `ph:link ${bookmark.title || bookmark.url}`);
     open.title = bookmark.url;
     open.addEventListener("click", () => window.open(bookmark.url, "_blank", "noopener,noreferrer"));
-    const remove = smallButton("✕", "Remove this reference", async () => {
+    const remove = smallButton("ph:x", "Remove this reference", async () => {
       await apiJson(`/documents/${currentDoc.id}/bookmarks/${bookmark.id}`, { method: "DELETE" });
       renderDocBookmarks();
     });
@@ -1243,7 +1243,7 @@ async function attachBookmarkToDocument() {
     close();
     renderDocBookmarks();
   });
-  const cancel = smallButton("✕", "Don't attach a link", close);
+  const cancel = smallButton("ph:x", "Don't attach a link", close);
   cancel.classList.add("doc-outline-row-action");
   row.append(select, cancel);
   wrap.insertBefore(row, $("doc-attach-bookmark"));

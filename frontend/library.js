@@ -537,7 +537,7 @@ function libraryActions(item) {
         }).catch((e) => toast(e.message, true));
         reload();
       }),
-      makeMenuItem("⬇ Download .md", "Save a copy as a markdown file", () => {
+      makeMenuItem("ph:download-simple Download .md", "Save a copy as a markdown file", () => {
         window.open(`/documents/${item.id}/export.md`, "_blank");
       }),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not deleted", async () => {
@@ -615,7 +615,7 @@ function libraryActions(item) {
       // BACKLOG.md §95 item D.14: "Full export exists. There is no way to
       // hand one note to someone." Same route shape and menu placement as
       // the Document kind's own "Download .md" a few lines up.
-      makeMenuItem("⬇ Download .md", "Save a copy of this note as a markdown file", () => {
+      makeMenuItem("ph:download-simple Download .md", "Save a copy of this note as a markdown file", () => {
         window.open(`/entries/${item.id}/export.md`, "_blank");
       }),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not the bin", async () => {
@@ -693,7 +693,7 @@ function libraryActions(item) {
       // navigation can't carry: the same gap `mediaSrc` already exists to
       // close for `<img src>`, just missed here. Every notebook with a
       // password set (the normal case) 401'd on Download until this.
-      makeMenuItem("⬇ Download", "Save this file", () => {
+      makeMenuItem("ph:download-simple Download", "Save this file", () => {
         window.open(mediaSrc(`/files/${item.id}`), "_blank");
       }),
       // Live-reported: an uploaded file "can't be deleted", true for its
@@ -2122,7 +2122,7 @@ async function renderLibraryDocuments() {
           }).catch((e) => toast(e.message, true));
           renderLibraryDocuments();
         }),
-        makeMenuItem("⬇ Download .md", "Save a copy as a markdown file", () => {
+        makeMenuItem("ph:download-simple Download .md", "Save a copy as a markdown file", () => {
           window.open(`/documents/${doc.id}/export.md`, "_blank");
         }),
         makeMenuItem("ph:trash Delete", "Delete this document", async () => {

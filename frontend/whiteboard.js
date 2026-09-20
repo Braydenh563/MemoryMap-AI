@@ -14180,7 +14180,12 @@ function renderWbObjects(canvas) {
               .attr("type", "button")
               .attr("class", "ghost small icon-button")
               .attr("title", "Remove this")
-              .text("✕")
+              .attr("aria-label", "Remove this")
+              //: `setLabel`, not `.text("\u2715")`: a typed cross renders in
+              //: the page font at the text's own weight beside Phosphor icons
+              //: everywhere else in this bar. d3 has no icon idiom, so the
+              //: element is handed to the app's own one.
+              .each(function () { setLabel(this, "ph:x"); })
               .on("click", (event) => { event.stopPropagation(); deleteObject(d); });
           }
         });

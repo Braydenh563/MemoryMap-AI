@@ -1092,15 +1092,51 @@ async function refreshTagSuggestions() {
 // model are sentences, and `ph:link` in the middle of one is just noise the
 // reader has to decode.
 const PH_LABEL = /^ph:([a-z0-9-]{1,40})\s*/;
+//: **And one at the end**, for a label that carries its own action mark: a
+//: chip with a "remove" cross on the right is the shape the whole app uses
+//: for "this is attached, take it off", and before this the only way to draw
+//: it was to put the character U+2715 in the string. That reads as the app's
+//: icon set from a distance and is nothing of the kind up close: measured,
+//: the glyph came out system-ui 13.6px at weight 500 beside a Phosphor icon
+//: at 15.6px and weight 400, in the same chip (INBOX 263: "I want to strip
+//: all signs of being vibecoded by an ai from the ui"). One rule in the
+//: label grammar is cheaper than a hand-built chip per call site, which is
+//: standing order 11's whole point.
+const PH_LABEL_TRAILING = /\s*ph:([a-z0-9-]{1,40})$/;
 
 // Fills `el` with a label, turning a leading `ph:` marker into a real icon
 // element. Returns the element, so it composes.
 function setLabel(el, label) {
-  const text = String(label ?? "");
+  let text = String(label ?? "");
+  //: Taken off before the leading marker is read, so `ph:file-text Name ph:x`
+  //: is an icon, a name and an icon rather than a name ending in "ph:x".
+  //:
+  //: **Only when something comes before it.** The two patterns both match a
+  //: label that is nothing but one marker, and the trailing one reading
+  //: `"ph:x"` first turned every icon-only button in the app into a trailing
+  //: mark with no label to trail: measured the moment this was added, a
+  //: `smallButton("ph:x")` came back carrying `ph-trail`, which is 0.35em of
+  //: margin on one side and 0.7 opacity on a control that is not a
+  //: decoration.
+  const tail = PH_LABEL_TRAILING.exec(text);
+  if (tail && tail.index > 0) text = text.slice(0, tail.index);
+  else if (tail) tail.length = 0;
   const match = PH_LABEL.exec(text);
+  //: The trailing icon is appended after whatever the rest of this builds, so
+  //: it is the last child in every shape a label can take: text only, icon
+  //: and text, or icon only.
+  const withTail = (built) => {
+    if (tail && tail.length) {
+      const mark = document.createElement("i");
+      mark.className = `ph ph-${tail[1]} ph-trail`;
+      mark.setAttribute("aria-hidden", "true");
+      built.append(mark);
+    }
+    return built;
+  };
   if (!match) {
     el.textContent = text;
-    return el;
+    return withTail(el);
   }
   const icon = document.createElement("i");
   icon.className = `ph ph-${match[1]}`;
@@ -1125,7 +1161,7 @@ function setLabel(el, label) {
     textSpan.textContent = rest;
     el.append(textSpan);
   }
-  return el;
+  return withTail(el);
 }
 
 //: **Is the Settings dialog open?** Defined here, in app.js, and not in
@@ -5115,7 +5151,7 @@ function entryOverflowMenu(entry) {
       ...(entry.title
         ? [
             {
-              label: "✕ Remove title",
+              label: "ph:x Remove title",
               title: "Take the title back out, the note's text is unchanged",
               run: () => removeEntryTitle(entry),
             },
@@ -11269,7 +11305,7 @@ function renderCaptureDocuments(documents) {
   const box = $("entry-document-chips");
   box.replaceChildren();
   for (const id of captureDocuments) {
-    const chipEl = chip(`ph:file-text ${captureDocumentTitles.get(String(id)) || id} ✕`, "tag", () => {
+    const chipEl = chip(`ph:file-text ${captureDocumentTitles.get(String(id)) || id} ph:x`, "tag", () => {
       captureDocuments.delete(id);
       renderCaptureDocuments();
     });
@@ -14022,7 +14058,7 @@ function flashCopied(button) {
   // saving/restoring textContent silently wiped the icon back to blank once
   // the checkmark's timeout fired instead of putting it back.
   const original = button.innerHTML;
-  button.textContent = "✓";
+  setLabel(button, "ph:check");
   setTimeout(() => (button.innerHTML = original), 1200);
 }
 
@@ -18327,7 +18363,7 @@ function renderImageAttachments() {
     const remove = document.createElement("button");
     remove.className = "attachment-remove";
     remove.type = "button";
-    remove.textContent = "✕";
+    setLabel(remove, "ph:x");
     remove.title = "Remove this image";
     remove.setAttribute("aria-label", remove.title);
     remove.addEventListener("click", async () => {
@@ -18653,7 +18689,7 @@ function renderBoardAttachments() {
     const remove = document.createElement("button");
     remove.className = "attachment-remove";
     remove.type = "button";
-    remove.textContent = "✕";
+    setLabel(remove, "ph:x");
     remove.title = `Don't send “${board.name}” with this message`;
     remove.setAttribute("aria-label", remove.title);
     remove.addEventListener("click", () => {
@@ -18706,7 +18742,7 @@ function renderDocumentAttachments() {
     const remove = document.createElement("button");
     remove.className = "attachment-remove";
     remove.type = "button";
-    remove.textContent = "✕";
+    setLabel(remove, "ph:x");
     remove.title = `Don't send “${document_.name}” with this message`;
     remove.setAttribute("aria-label", remove.title);
     remove.addEventListener("click", () => {
@@ -18770,7 +18806,7 @@ function renderSelectionAttachment() {
   const remove = document.createElement("button");
   remove.className = "attachment-remove";
   remove.type = "button";
-  remove.textContent = "✕";
+  setLabel(remove, "ph:x");
   remove.title = "Don't send this selection with your message";
   remove.setAttribute("aria-label", remove.title);
   remove.addEventListener("click", () => {
@@ -18965,7 +19001,7 @@ function renderAttachments() {
     const remove = document.createElement("button");
     remove.className = "attachment-remove";
     remove.type = "button";
-    remove.textContent = "✕";
+    setLabel(remove, "ph:x");
     remove.title = `Remove "${noteLabel(entry, 24)}"`;
     remove.setAttribute("aria-label", remove.title);
     remove.addEventListener("click", () => {
@@ -25065,7 +25101,7 @@ function reminderItem(reminder, label) {
     })
   );
   actions.appendChild(
-    smallButton("×", "Delete this reminder", async () => {
+    smallButton("ph:x", "Delete this reminder", async () => {
       await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
       loadReminders();
       // Deleting a reminder is as undo-able as binning a note. There's no
@@ -30615,7 +30651,7 @@ async function renderBackups() {
       })
     );
     actions.appendChild(
-      smallButton("×", "Delete this backup", async () => {
+      smallButton("ph:x", "Delete this backup", async () => {
         if (!(await confirmDialog("Delete this backup file?"))) return;
         await apiJson(`/backups/${item.name}`, { method: "DELETE" }).catch(() => {});
         renderBackups();
@@ -34036,7 +34072,11 @@ function renderSearchEngineHealth(status) {
   let state = "not ready";
   let cls = "busy";
   if (status.embedding_ready) {
-    state = "✓ ready";
+    //: No tick in front of the word. The line already carries `status ok`,
+    //: which is the green, and a typed check beside it was the app saying the
+    //: same thing twice in two different alphabets: one of the plainer signs
+    //: of a UI assembled from whatever was to hand (INBOX 263).
+    state = "ready";
     cls = "ok";
   } else if (status.embedding_warming) {
     state = "… warming up";
@@ -34481,7 +34521,7 @@ async function renderExtras() {
       // extras would be tidier and less honest. The reason travels with the
       // button as its tooltip and is spelled out in full underneath, because a
       // disabled control whose reason is not visible is just a broken one.
-      const blocked = smallButton("⬇ Install", extra.unavailable, () => {});
+      const blocked = smallButton("ph:download-simple Install", extra.unavailable, () => {});
       blocked.disabled = true;
       actions.appendChild(blocked);
       // Same treatment as Installed, and for the same reason: it is the row's
@@ -34489,7 +34529,7 @@ async function renderExtras() {
       title.appendChild(chip("ph:hourglass Not ready yet", "extras-soon"));
     } else {
       actions.appendChild(
-        smallButton("⬇ Install", `Install ${extra.label}`, async () => {
+        smallButton("ph:download-simple Install", `Install ${extra.label}`, async () => {
           const ok = await confirmDialog(
             `Install ${extra.label}?\n\n${extra.size}. It is downloaded from ` +
               "PyPI to this machine, and MemoryMap needs a restart afterwards " +
@@ -34622,7 +34662,7 @@ async function renderEmbedModels() {
     } else if (model.installed) {
       const done = document.createElement("span");
       done.className = "extras-installed";
-      done.textContent = `✓ ${model.on_disk} on disk`;
+      setLabel(done, `ph:check ${model.on_disk} on disk`);
       title.appendChild(done);
       // The same argument the packages' Reinstall makes: "the directory is
       // there" is not "the model is sound". A download interrupted halfway
@@ -34659,7 +34699,7 @@ async function renderEmbedModels() {
         })
       );
     } else {
-      const get = smallButton("⬇ Download", `Fetch ${model.label}`, async () => {
+      const get = smallButton("ph:download-simple Download", `Fetch ${model.label}`, async () => {
         if (!(await confirmDialog(
           `Download ${model.label}?\n\n${model.size}, fetched from HuggingFace ` +
             "to this machine. It is the one thing on this screen that needs " +
@@ -35415,7 +35455,7 @@ function renderSuggested(status) {
 
       const pull = (status.pulls || {})[model.name];
       if (installedNames.has(model.name)) {
-        li.appendChild(chip("installed ✓", "confidence"));
+        li.appendChild(chip("ph:check installed", "confidence"));
       } else if (pull && pull.status === "running") {
         const progress = document.createElement("progress");
         progress.max = Math.max(pull.total, 1);
@@ -39893,7 +39933,7 @@ function renderSavedSearches() {
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "saved-search-remove";
-    remove.textContent = "✕";
+    setLabel(remove, "ph:x");
     remove.title = `Forget "${item.name}"`;
     remove.setAttribute("aria-label", remove.title);
     remove.addEventListener("click", async () => {
@@ -41832,7 +41872,7 @@ function renderEntryAttachmentChips(boxId = "entry-content", hostId = "entry-att
     const remove = document.createElement("button");
     remove.className = "attachment-remove";
     remove.type = "button";
-    remove.textContent = "✕";
+    setLabel(remove, "ph:x");
     remove.title = `Remove "${name || url}" from this note`;
     remove.setAttribute("aria-label", remove.title);
     remove.addEventListener("click", async () => {

@@ -397,55 +397,6 @@ with its owner named in the entry.
     390, pressing Next on every step and asserting a visible card and a
     cut-out inside the viewport each time. To the tour's own agent.
 
-279. **Mid-work drop, 2026-09-20, verbatim (the owner), four screenshots.**
-    "also fix and refine the full compact and focused views on the dashboard
-    as the hero section loses a lot and they can just be improved so much
-    more. the timeline table view shrinks horizontally when opening a note
-    row. I want you to better redesign the content in the text extracted
-    from this file dropdown in the files subtabab. and I als want you to
-    better design the bottom text for captions and ocr in the image cards in
-    the library images subtab". Seen: (1) the Timeline table at 1930px with
-    eight columns to the right edge, and the same table at 1600px with the
-    row detail open under it (the detail pane's width is the table's, so
-    the table takes the pane's narrower width); (2) the Files sub-tab's
-    "Text extracted from this file" disclosure: a title line, "14 pages read
-    · 808 words", a full-width "Show the whole reading" bar and an "Open
-    reading" button, three stacked controls for one thing; (3) an image
-    card's foot: "Used in 1 place", a "Text" disclosure, a bullet "Text in
-    this image", the first line of the text, "Show more", and a muted
-    "Described by qwen3-vl:4b · read by GLM-OCR-GGUF:Q8_0" line, six rows
-    of chrome under one thumbnail. Owner: dashboard.js and its density
-    rules (07-whiteboard-misc.css, `DASH_DENSITIES`), the timeline table
-    (app.js `timeline-table`), library.js (the file reading block and the
-    image card foot). Recommendation: (1) the table keeps `width: 100%` of
-    the card and the detail opens as a row beneath it inside the same
-    scroller, never as a sibling that reflows the table; (2) one line
-    ("14 pages · 808 words") with the first three lines of the reading
-    shown inline and one "Open reading" primary; the disclosure goes;
-    (3) the caption as the card's one line of text, the OCR text behind one
-    "Text" chip, the two model names in the card's `title`, not on its face;
-    (4) the density switch keeps the hero's identity at every level (the
-    greeting and the one number) and shrinks its art and secondary rows,
-    measured per level. Queued for an Opus design agent at the next slot.
-
-278. **Mid-work drop, 2026-09-20, verbatim (the owner), two screenshots.**
-    "the rotate line and circle dont sit at the top center of a group
-    selection in the whiteboard and instead sit off to the top left or
-    right, or below the top border". Seen: a group of two boxes and a bar
-    inside a circle, the rotate stem and knob at about a third of the box's
-    width from the left and the knob inside the box's top edge; a group of a
-    note card, an image card and a line, the stem rising from the top edge
-    at x of one member's own centre rather than the group box's, and a
-    second stem from a member card below. Owner: WHITEBOARD_PLAN (the group
-    selection box, `wbBulkGroupBox` and the group's rotate handle in
-    whiteboard.js). Recommendation: the group's rotate stem is drawn from
-    the group box's own top-centre in board units after the box is fitted
-    to every member's rotated bounds, and a member's own handles are hidden
-    while it is part of a group selection; measured with a probe placing the
-    knob at (box.x + box.w / 2, box.y - stem) at 0.5x, 1x and 2x, in
-    `scratchpad/ui-sweeps/wbgroupguides.js`. Queued for the whiteboard
-    agent at the next slot.
-
 277. **Found while fixing 274 (the session, not the owner): a role can say one
     model and run another, everywhere, silently.** 274's "it doesnt use the
     utility model and instead uses the chat model" was not a bug in the Guide:

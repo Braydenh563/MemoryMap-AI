@@ -808,6 +808,26 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
    a sheet.
 5. **Library and Files.** Two-up cards, the reader full-screen with a
    bottom bar; upload from the share sheet.
+   - **Two-up cards: decided the other way, not remade.** The 600 band in
+     07-whiteboard-misc.css makes the card grids one full-width column
+     with the measurement that decided it (at 390 the masonry gave two
+     164px columns, a card too narrow for its own title, and a reading
+     order that went down, up, down). Measured 2026-09-20: 24 Library
+     cards in one column at 390. Stands.
+   - **The share sheet: built** (2026-09-20). The installed app is a Web
+     Share Target (`manifest.webmanifest`, the GET form: no service worker,
+     and the query survives the lock screen). A page, a link or a
+     selection shared to MemoryMap opens it at `/` with `share_title`,
+     `share_text` and `share_url`; once the entries have loaded
+     (`takeSharedIntake`, a boot step) the three become one capture (the
+     title as a heading, the text, the link on its own line), Capture
+     opens with the caret in the box, and the query is cleared so a
+     reload shares nothing twice. `tests/test_share_target.py` holds the
+     two halves to the same three names; measured by
+     `scratchpad/ui-sweeps/phoneshare.js` at 390. Not built: a file (an
+     image from the camera roll) needs the POST form and a service
+     worker. Still open in this item: the reader full-screen with a bottom
+     bar.
 6. **Documents.** Read view by default, Edit as a full-screen sheet with
    the selection toolbar only (no strip), the outline as a sheet.
 7. **Whiteboard and maps.** View and light edit only on a phone (pan,

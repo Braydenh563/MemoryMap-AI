@@ -46,6 +46,9 @@ below). Versioning is `0.x` while the app stabilises.
   stranded on screen after the panel it belongs to has closed.
 ### Added
 
+- Share to MemoryMap from a phone's share sheet: with the app installed, a
+  page, a link or a selection shared to it opens Capture with the title,
+  the text and the link as one note ready to save.
 - On a phone a note opens as a page: tap the row and the note fills the
   screen with a back chevron, unclamped, and its actions in a bar at the
   foot where a thumb is.

@@ -2073,7 +2073,7 @@ const DOC_COMMANDS = [
     run: () => docRunControl("doc-serif", "The serif face") },
   { id: "goal", icon: "ph:target", label: "Set a word goal", keys: "",
     run: () => docRunControl("doc-word-goal", "The word goal") },
-  { id: "ai", icon: "ph:magic-wand", label: "Ask the AI to edit this document", keys: "",
+  { id: "ai", icon: "ph:magic-wand", label: "Ask Atlas to edit this document", keys: "",
     run: () => docRunControl("doc-ai", "AI editing") },
   { id: "extract", icon: "ph:scissors", label: "Extract notes from this document", keys: "",
     run: () => docRunControl("doc-extract", "Extracting notes") },

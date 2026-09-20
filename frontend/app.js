@@ -7127,7 +7127,13 @@ async function saveSelectionAsNote(text, { draft = false, source = null } = {}) 
 // Uses `pickEntryDialog` below rather than the chat dock's `#note-picker-panel`
 //, that one is a multi-select bound to the chat composer, not a general
 // chooser, and reusing it would mean it had two owners.
-async function appendSelectionToNote(text) {
+//: `jump` is for the one caller that is not a selection: the writing desk's
+//: "Insert into a note". `flashEntry` is the app's answer to "where did it
+//: go", and it is the right answer for the selection popup, which has nothing
+//: left behind it. From the desk it walks off a half-written draft and its
+//: thoughts to show a note that is already saved, so that caller takes the
+//: same trip as an offer instead (`toastAction`), and stays where it is.
+async function appendSelectionToNote(text, { jump = true } = {}) {
   const entry = await pickEntryDialog("Add the selected text to which note?");
   if (!entry) return;
   const before = entry.content;
@@ -7138,9 +7144,13 @@ async function appendSelectionToNote(text) {
       body: JSON.stringify({ content: after }),
     });
     pushEntryPutUndo(entry.id, "Added text to a note", { content: before }, { content: after });
-    toast("Added to the note.");
     await loadEntries();
-    flashEntry(entry.id);
+    if (jump) {
+      toast("Added to the note.");
+      flashEntry(entry.id);
+    } else {
+      toastAction("Added to the note.", "Open it", () => flashEntry(entry.id));
+    }
   } catch (error) {
     toast(error.message || "Couldn't add that to the note.", true);
   }
@@ -17588,6 +17598,13 @@ async function saveDraftAsNote() {
     $("draft-text").value = "";
     $("draft-tags").value = "";
     $("draft-thinking").classList.add("hidden");
+    // The desk is clear, so its earlier versions and the notes this one was
+    // written from go too: a row of "v1 v2 v3" over an empty box offers a way
+    // back to drafts of a note that has already been filed.
+    draftSources = [];
+    draftVersions = [];
+    renderDraftSources();
+    renderDraftVersions();
     updateDraftCount();
     saveDraftLocally();
     status.textContent = "Saved as a note.";
@@ -37669,7 +37686,10 @@ $("draft-insert").addEventListener("click", () => {
     setDraftStatus("There's no draft to insert yet.", true);
     return;
   }
-  appendSelectionToNote(text);
+  // The toast says it landed and offers the trip to it; the status line is
+  // not written here because this returns before the picker has been
+  // answered, and a line saying it was added is a lie until it was.
+  appendSelectionToNote(text, { jump: false });
 });
 $("draft-add-source").addEventListener("click", async () => {
   if (draftSources.length >= DRAFT_MAX_SOURCES) {

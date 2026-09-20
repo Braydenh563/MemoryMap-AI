@@ -11886,22 +11886,40 @@ header#top-bar {
   border-bottom: 1px solid var(--border-light);
 }
 
+/* **The bar is the field, on the Ask composer's own recipe.** Reported: "the
+   search icon isnt aligned with the text bar and it is hard to see the text
+   bar, maybe make it like the one in the ask page??" Both halves are the same
+   fact. The bar was a plain band with a borderless input in it, so nothing on
+   screen said "type here", and the glyph was aligned against a band rather
+   than against a field. `.ask-composer` solved this once already: the row is
+   one surface, carrying the border, the ground, the inset well and the focus
+   ring, and the input inside it is the interior rather than a second box. */
 .finder-bar {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--card-pad-x);
-  border-bottom: 1px solid var(--border-light);
+  gap: var(--space-2);
+  margin: var(--space-4) var(--card-pad-x);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, var(--ink) 25%);
+  border-radius: var(--radius-lg);
+  background: var(--input-bg);
+  box-shadow: inset 0 1px 2px var(--field-inset);
 }
 
-/* The glyph is centred on its own box rather than on its inline baseline, the
-   same correction the palette's icon carries and for the same reason: `.ph`'s
-   global `vertical-align` is calibrated for an icon beside text at the same
-   size, which this is not. */
+.finder-bar:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+/* The glyph is centred on its own box rather than on its inline baseline: the
+   same correction `.ask-composer-icon` carries, because `.ph`'s global
+   `vertical-align` is calibrated for an icon beside text at the same size. It
+   takes the field's own size for the same reason, so the two sit on one
+   centre line instead of the icon floating above the caret. */
 .finder-icon {
   display: flex;
   align-items: center;
-  font-size: var(--text-h3);
+  flex: 0 0 auto;
+  font-size: var(--text-lg);
   color: var(--muted);
 }
 
@@ -11982,10 +12000,22 @@ header#top-bar {
    the row scrolls sideways rather than wrapping, the same answer
    `.library-filters` gives itself on a phone, and the card is a little wider
    so the common case does not need to scroll at all. */
+/* **Room for the ring.** Reported: "the seach badges get cut off at the top
+   and bottom and all bounce when hovered over". `overflow-x: auto` makes the
+   *other* axis clip too, so the active chip's 1px edge and every focus ring
+   were sliced off top and bottom, and a chip gaining or losing that edge
+   under the pointer changed the row's scroll height, which is the bounce. The
+   padding gives the rings somewhere to be, and the negative margin gives it
+   back so the row still starts on the card's own inset. */
 .finder-filters {
   flex-wrap: nowrap;
   overflow-x: auto;
   scrollbar-width: none;
+  padding-block: var(--space-1);
+  margin-block: calc(var(--space-1) * -1);
+  /* A settled height, so nothing the pointer does can resize the row. */
+  align-items: center;
+  min-height: var(--control-h);
 }
 
 .finder-filters::-webkit-scrollbar {

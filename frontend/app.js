@@ -45772,6 +45772,7 @@ async function finderSearch() {
     `/search?q=${encodeURIComponent(query)}${kindParam}&limit=30`,
     { silent: true }
   ).catch(() => null);
+  clearTimeout(slow);
   if (run !== finderRun) return; // a newer keystroke owns the screen now
   if (!body) {
     finderHits = [];

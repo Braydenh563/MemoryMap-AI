@@ -1687,11 +1687,26 @@ summary > .ph-lead,
   padding-left: var(--space-3);
   color: var(--accent);
 }
-.doc-dock-menu-list .doc-dock-menu-check {
+/* **And inside a flyout, which is where half of them now live.** The rows
+   were scoped to `.doc-dock-menu-list`, and grouping the documents kebab into
+   sub-menus moved several of them into a panel that `buildMenuGroupButton`
+   reparents to <body>: no longer inside that list, so the rule stopped
+   applying and the switches sat against their labels instead of at the right
+   edge. Reported with a screenshot of "While you write".
+
+   `[data-doc-dock-submenu]` is the marker those panels already carry (see
+   `foldDocMenuGroup` in documents.js), so this follows the rows wherever the
+   menu builder puts them rather than naming a place in the DOM. */
+.doc-dock-menu-list .doc-dock-menu-check,
+[data-doc-dock-submenu] .doc-dock-menu-check {
   justify-content: space-between;
   min-height: var(--control-h-lg);
+  /* The flyout sizes itself to its widest row, and a row that does not fill
+     it is a row whose switch stops short of the edge the others reach. */
+  width: 100%;
 }
-.doc-dock-menu-list .doc-dock-menu-check > input {
+.doc-dock-menu-list .doc-dock-menu-check > input,
+[data-doc-dock-submenu] .doc-dock-menu-check > input {
   margin-left: auto;
 }
 .doc-dock-menu-list #doc-file-type {

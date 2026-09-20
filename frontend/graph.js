@@ -4741,8 +4741,18 @@ function renderGraphViews() {
     select.appendChild(option);
   }
   select.disabled = !views.length;
+  //: **A disabled control says why it is disabled.** Found by the vibecoded
+  //: sweep (`scratchpad/ui-sweeps/vibecheck.js`), which counts exactly this:
+  //: a greyed control with no title and no described-by leaves the reader
+  //: with no way to find out what would turn it back on, which reads as the
+  //: app being broken rather than as nothing having been saved yet.
+  const why = "Save a view first: the Save this view row in this menu";
+  select.title = views.length ? "Jump to a saved view" : why;
   const remove = document.getElementById("graph-view-delete");
-  if (remove) remove.disabled = !views.length;
+  if (remove) {
+    remove.disabled = !views.length;
+    remove.title = views.length ? "Delete the view chosen above" : why;
+  }
 }
 
 function initGraphViews() {

@@ -363,10 +363,17 @@ being written by running agents stay beside this one.
   `wb-board-menu-wrap` toggle listener), unrelated to the `details.dock-menu`
   family INBOX 31's fix targeted. Worth a Chromium check in its own right if
   it is still reported. [batch-a.md]
-- **INBOX 12's remainder, owner WHITEBOARD_PLAN**: the export-selection
-  popover's placement, the missing align-centre and distribute-gaps on the
-  arrange panel, and that panel's buttons' icon and text overlap. Unstarted.
-  [inbox.md]
+- ~~**INBOX 12's remainder, owner WHITEBOARD_PLAN**~~ Closed 2026-09-20, by
+  Phases 2 and 3 rather than by repairs, and measured before closing
+  (`scratchpad/ui-sweeps/wbinbox12.js`, 6/6 at 1440x900 and 390x844): the
+  export popover is not built any more (the export is a dialog, opening at
+  480x393 inside 1440x900 and 342x417 inside 390x844), align centres and even
+  gaps are both on the context bar with all twelve arrange controls and the
+  two z-order ones, and the panel that drew icons through labels went with the
+  properties drawer, measured at 0px2 of icon-over-text across 24 buttons on
+  the bar and in the top bar's Arrange menu. `wbarrange.js` is stale: it asks
+  for `#wb-prop-multi-row`, which Phase 2 removed, and prints
+  `{"missing": true}` rather than failing. [inbox.md]
 - **A colour swatch is 1rem and never grows for a finger.** `.sketch-color` is
   a fixed size at every width, so on a phone the seven ink dots are 16px
   targets in a bar whose buttons step up to 44. `touch.js` does not look at

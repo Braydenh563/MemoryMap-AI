@@ -277,9 +277,20 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
     its search for head markers, so a shaft with zero start caps still
     measured a false zero-distance hit on its own start point and reported
     "both". Slicing the shaft's own match off the string before scanning
-    fixed it; verified live (`startcap: "none"`, was `"arrow"`). The
-    export-popover placement, align-centre/distribute-gaps and the arrange
-    panel's icon/text overlap are **still open**, not touched this session.
+    fixed it; verified live (`startcap: "none"`, was `"arrow"`).
+    **The rest is closed, 2026-09-20, by Phases 2 and 3 rather than by
+    repairs**, and measured rather than assumed
+    (`scratchpad/ui-sweeps/wbinbox12.js`, 6/6 at 1440x900 and at 390x844).
+    The popover the report is about is not built any more: the export is a
+    dialog (decision 4), `.wb-export-menu` builds nothing, and the dialog
+    opens inside the window at both widths (480x393 at 480,254 in 1440x900;
+    342x417 at 24,214 in 390x844). Align centres and even gaps are both on
+    the context bar, which carries all twelve arrange controls for a
+    selection of two plus the two z-order ones. And the panel whose buttons
+    drew their icons through their labels is gone with the properties drawer:
+    every arrange control is icon-only with its name in the tooltip, measured
+    at 0px2 of icon-over-text across 24 buttons on the bar and in the top
+    bar's Arrange menu together.
 25. **Whiteboard: the edge anchor outline on note objects differs from
     every other object kind.** Decision: one anchor recipe for all kinds
     (the shape one; the note one goes). Owner: WHITEBOARD_PLAN Phase 1.

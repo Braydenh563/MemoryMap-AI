@@ -160,18 +160,38 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 
-      - name: Build the installer
+      - name: Build the .exe installer (Inno Setup)
         shell: pwsh
         env:
           MEMORYMAP_VERSION: ${{ needs.resolve-version.outputs.version }}
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\installer.iss
 
-      - name: Upload installer to the release
+      # The MSI ships alongside the .exe, not instead of it (the owner's
+      # explicit call): the .exe stays the simplest no-terminal path, the
+      # MSI is for `msiexec /quiet`, Group Policy deployment and Windows
+      # Installer's own repair/rollback. Unsigned for now, same as the
+      # .exe — see installer.wxs's own header for why that is fine to ship.
+      - name: Install WiX
+        run: dotnet tool install --global wix
+
+      - name: Build the .msi installer (WiX)
+        shell: pwsh
+        env:
+          MEMORYMAP_VERSION: ${{ needs.resolve-version.outputs.version }}
+        run: |
+          wix build packaging\windows\installer.wxs -arch x64 `
+            -d Version=$env:MEMORYMAP_VERSION `
+            -d DistDir="dist\MemoryMap AI" `
+            -o "dist\installer\MemoryMap-AI-$env:MEMORYMAP_VERSION-windows-x86_64.msi"
+
+      - name: Upload installers to the release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.resolve-version.outputs.tag }}
-          files: dist/installer/MemoryMap-AI-Setup-*.exe
+          files: |
+            dist/installer/MemoryMap-AI-Setup-*.exe
+            dist/installer/MemoryMap-AI-*-windows-x86_64.msi
 
   build-linux-package:
     name: Build Linux package

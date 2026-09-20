@@ -4086,41 +4086,31 @@ async function renderLearnedSwitches() {
   const paused = Boolean(switches[LEARNED_MASTER]);
   host.replaceChildren();
 
-  //: The master first and set apart, because it is the answer to "stop all of
-  //: this now" and a person looking for that is not going to read seven rows
-  //: to find it.
-  const masterRow = document.createElement("label");
-  masterRow.className = "checkbox-label row align-center";
-  const masterBox = document.createElement("input");
-  masterBox.type = "checkbox";
-  masterBox.id = "learned-pause-all";
-  masterBox.checked = paused;
-  const masterText = document.createElement("span");
-  masterText.append(document.createTextNode("Pause all learning"));
-  const masterHint = document.createElement("small");
-  masterHint.className = "muted";
-  masterHint.textContent = "Nothing below runs while this is on. What has already been worked out is kept.";
-  masterText.appendChild(masterHint);
-  masterRow.append(masterBox, masterText);
-  masterBox.addEventListener("change", async () => {
-    await learnedSetSwitch(LEARNED_MASTER, masterBox.checked);
-  });
-  host.appendChild(masterRow);
-
-  for (const [name, value] of Object.entries(switches)) {
-    if (name === LEARNED_MASTER) continue;
-    const [title, hint] = LEARNED_SWITCH_COPY[name] || [name.replace(/_/g, " "), ""];
+  //: **`.setting-check`, the app's own on/off recipe** (DESIGN.md's index:
+  //: "An on/off setting: `label.setting-check` with the switch first").
+  //: These were built as `.checkbox-label row align-center`, which is the
+  //: recipe for a checkbox *beside a word*, and it has no opinion about a
+  //: hint: the `<small>` stayed inline, so every row read "Night shiftReads
+  //: notes you have added or changed". Reported as "messy and not consistent
+  //: with the design.md rules and the rest of the application", which is
+  //: exactly what standing order 11 says happens when a new surface builds
+  //: its own shape instead of taking one from the index.
+  //:
+  //: `.setting-check` is a three-column grid whose label column is a flex
+  //: column, so the hint lands under its own title with the switch centred
+  //: beside both, and the row fills with `--accent-soft` when it is on.
+  const learnedRow = (title, hint) => {
     const row = document.createElement("label");
-    row.className = "checkbox-label row align-center";
+    row.className = "setting-check";
     const box = document.createElement("input");
     box.type = "checkbox";
-    box.checked = Boolean(value);
-    //: Disabled rather than hidden while paused: the master says these are
-    //: off, and a row that disappeared would leave no way to see what the
-    //: master is holding down.
-    box.disabled = paused;
     const text = document.createElement("span");
-    text.append(document.createTextNode(title));
+    //: The space is not decoration. `<small>` is a flex item in this column
+    //: so it draws on its own line either way, but the accessible name is
+    //: `textContent`, which without it reads "Night shiftReads notes you have
+    //: added or changed" to a screen reader. The markup rows in index.html
+    //: get the same space for free from their own indentation.
+    text.append(document.createTextNode(hint ? `${title} ` : title));
     if (hint) {
       const small = document.createElement("small");
       small.className = "muted";
@@ -4128,10 +4118,53 @@ async function renderLearnedSwitches() {
       text.appendChild(small);
     }
     row.append(box, text);
+    return { row, box };
+  };
+
+  //: The master first and set apart, because it is the answer to "stop all of
+  //: this now" and a person looking for that is not going to read seven rows
+  //: to find it.
+  const master = learnedRow(
+    "Pause all learning",
+    "Nothing below runs while this is on. What has already been worked out is kept.",
+  );
+  master.row.classList.add("learned-master");
+  master.box.id = "learned-pause-all";
+  master.box.checked = paused;
+  master.box.addEventListener("change", async () => {
+    await learnedSetSwitch(LEARNED_MASTER, master.box.checked);
+  });
+  host.appendChild(master.row);
+
+  //: **The seven live in their own box, and that is a layout decision with a
+  //: rule behind it.** 08-consistency.css makes consecutive `.setting-check`
+  //: rows one stack: hairline between, square where they meet, rounded only
+  //: at the two outer ends. That is right for the seven, which are one set of
+  //: choices. It is wrong across the master, which is set apart by a gap, and
+  //: a row separated by a gap with a square top edge and a stack hairline on
+  //: it looks like a mistake rather than a boundary. Putting the seven in a
+  //: container means the adjacent-sibling rules simply stop at the master, so
+  //: it keeps all four of its corners and the seven get their own stack.
+  const stack = document.createElement("div");
+  stack.className = "learned-switch-stack";
+  host.appendChild(stack);
+
+  for (const [name, value] of Object.entries(switches)) {
+    if (name === LEARNED_MASTER) continue;
+    const [title, hint] = LEARNED_SWITCH_COPY[name] || [name.replace(/_/g, " "), ""];
+    const { row, box } = learnedRow(title, hint);
+    box.checked = Boolean(value);
+    //: Disabled rather than hidden while paused: the master says these are
+    //: off, and a row that disappeared would leave no way to see what the
+    //: master is holding down. `.disabled-row` is the app's own class for
+    //: exactly this ("a row whose parent control is switched off"), so the
+    //: seven dim together rather than each switch greying on its own.
+    box.disabled = paused;
+    row.classList.toggle("disabled-row", paused);
     box.addEventListener("change", async () => {
       await learnedSetSwitch(name, box.checked);
     });
-    host.appendChild(row);
+    stack.appendChild(row);
   }
 
   if (banner) {

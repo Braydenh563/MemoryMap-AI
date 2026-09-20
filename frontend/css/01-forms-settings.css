@@ -5159,16 +5159,18 @@ select {
   margin-top: var(--space-2);
 }
 
-/* Each switch is a `.checkbox-label`, the app's own recipe, so the only
-   thing this adds is the gap that keeps seven of them from reading as one
-   block. */
-#learned-switches .checkbox-label + .checkbox-label {
-  margin-top: var(--space-2);
-}
+/* Each switch is a `.setting-check`, the app's own on/off recipe (DESIGN.md's
+   index), which already owns the row's padding, radius, hover and
+   fill-when-on. Settings' own `.setting-check + .setting-check` rule supplies
+   the gap between them, so all this group adds is the master's separation. */
 
-/* The master is not one of the seven and must not look like one. */
-#learned-switches .checkbox-label:first-child {
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--border);
+/* The master is not one of the seven and must not look like one: it is the
+   answer to "stop all of this now", and a person looking for that should not
+   have to read seven rows to find it. A gap is the whole separation, because
+   the seven below it are a stack (08-consistency.css: hairline between,
+   rounded at the two outer ends) and the master is a row on its own, which
+   that contract already draws correctly once it is not adjacent to them.
+   `.learned-switch-stack` in the markup is what makes it not adjacent. */
+#learned-switches .learned-master {
   margin-bottom: var(--space-3);
 }

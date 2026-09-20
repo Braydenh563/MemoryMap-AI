@@ -2283,6 +2283,75 @@ body.resizing-sidebar {
   color: var(--ink);
 }
 
+/* **The fold gutter** (DOCUMENTS_PLAN Phase 4 item 3). One column, the same
+   width on every row whether or not that row has anything to fold, because
+   the thing this outline's indent rules spend three paragraphs protecting is
+   that a row's left edge is decided by its depth and by nothing else. A
+   caret that appeared only on some rows would move every one of those rows'
+   text by 16px against its own level. */
+.outline-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.outline-twist {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: var(--text-base);
+  line-height: 1;
+  /* A span in the same slot on a row with nothing under it: no pointer, no
+     ink, exactly the same box. */
+  cursor: default;
+}
+
+button.outline-twist {
+  cursor: pointer;
+}
+
+button.outline-twist:hover,
+button.outline-twist:focus-visible {
+  color: var(--ink);
+}
+
+/* The row itself is what grows; the gutter never does. */
+.outline-row > .outline-link {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The filter box above the list. The sidebar's own inset field, at the
+   control height every other input in this app uses, and `margin-bottom`
+   rather than a gap because `.doc-outline-wrap` is a flex column whose other
+   children set their own spacing. */
+.doc-outline-filter {
+  width: 100%;
+  /* `--control-h-lg`, not `--control-h`: the second is scoped (the library
+     head rows and the chat dock each set their own) and is not declared
+     anywhere up this sidebar's chain, so it resolved to nothing and the box
+     measured 42px against every other input's 36. The `-lg` token is the
+     global one and is the 2.25rem the app's controls are built on. */
+  height: var(--control-h-lg);
+  margin-bottom: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--field-inset);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-md);
+  padding: 0 var(--space-3);
+}
+
 /* **The heading you are in.** Keyed off the attribute rather than off the
    class beside it, so a mark that is only painted and never announced is a
    mark that does not appear at all: `documents.js` sets both together and

@@ -7,6 +7,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- A document's outline folds and filters. A heading with sections under it
+  carries a caret that hides them, remembered per document, and past ten
+  headings a filter box appears above the list and says how many of them are
+  showing.
+
 - The Library's Documents list filters by a property a document declares about
   itself. A document that opens with `status: draft` or `tags: [one, two]` can
   now be found by that, from one control beside the search box that offers only

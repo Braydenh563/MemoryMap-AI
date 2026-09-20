@@ -3092,6 +3092,17 @@
                  first heading on the panel: "the empty state is a bare
                  heading with nothing under it". -->
             <p class="muted doc-outline-empty hidden" id="doc-outline-empty"></p>
+            <!-- **The filter box** (DOCUMENTS_PLAN Phase 4 item 3, and
+                 OPEN.md: "past two screens of headings it is how you use it at
+                 all"). Hidden until there are enough headings to hunt through,
+                 which documents.js decides: a filter over six rows is a
+                 control asking to be ignored. Not persisted, for the same
+                 reason the Library's property filter is not: a narrowing that
+                 survives a reload is an outline with most of the document
+                 missing and nothing saying why. -->
+            <input id="doc-outline-filter" type="search" class="doc-outline-filter hidden"
+              placeholder="Filter headings…" aria-label="Filter the outline"
+              autocomplete="off" spellcheck="false">
             <ul id="doc-outline" class="doc-outline"></ul>
           </div>
 

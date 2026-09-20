@@ -1708,6 +1708,106 @@ function docCaretLine() {
   }
 }
 
+//: **Folding, and the filter box** (DOCUMENTS_PLAN Phase 4 item 3, and
+//: OPEN.md's "The outline is headings only, and it does not fold").
+//:
+//: **Folds are kept per document, by heading rather than by line.** A line
+//: number is the obvious key and the wrong one: it changes every time a
+//: paragraph is added above, so a folded section would unfold itself, or
+//: worse, some other section would be folded in its place, the moment anybody
+//: wrote anything. The heading's own level and text survive an edit anywhere
+//: else in the document, which is what a remembered fold has to survive to be
+//: worth remembering. Two headings with the same words at the same level fold
+//: together, which is a fair reading of "the same section" and the only
+//: ambiguity this key has.
+//:
+//: In `localStorage` because it is a per-viewer convenience about how a panel
+//: is drawn, not something about the document: a fold written into the file
+//: would travel to everyone who opens it and would show up in its diff.
+const DOC_OUTLINE_FOLD_KEY = "doc-outline-folds";
+
+//: Ten. Below it the whole outline is on screen and a filter box is a control
+//: that costs a row and saves nothing; past it the list is longer than the
+//: panel and hunting starts. OPEN.md puts the line at "two screens of
+//: headings", which in this sidebar's own measurement (`#doc-outline-wrap` at
+//: 85px with the list scrolling inside it) arrives well before twenty.
+const DOC_OUTLINE_FILTER_FROM = 10;
+
+function docOutlineFoldStore() {
+  //: Keyed by document, so folding one document's sections says nothing about
+  //: another's. A document with no id yet (never saved) gets no store rather
+  //: than a shared one.
+  const id = typeof currentDoc !== "undefined" && currentDoc ? currentDoc.id : null;
+  return id ? `${DOC_OUTLINE_FOLD_KEY}:${id}` : "";
+}
+
+function docOutlineFolds() {
+  const store = docOutlineFoldStore();
+  if (!store) return new Set();
+  try {
+    const raw = JSON.parse(localStorage.getItem(store) || "[]");
+    return new Set(Array.isArray(raw) ? raw.filter((k) => typeof k === "string") : []);
+  } catch {
+    //: Private mode, or a value written by an older shape. An outline that
+    //: draws unfolded is right; one that throws on open is not.
+    return new Set();
+  }
+}
+
+function docOutlineSetFolds(folds) {
+  const store = docOutlineFoldStore();
+  if (!store) return;
+  try {
+    localStorage.setItem(store, JSON.stringify([...folds]));
+  } catch {
+    //: Nothing to do and nothing worth saying: the fold still applies to the
+    //: outline on screen, it just will not survive a reload.
+  }
+}
+
+function docOutlineFoldKey(heading) {
+  return `${heading.level}:${heading.text}`;
+}
+
+function docOutlineFilterText() {
+  return ($("doc-outline-filter")?.value || "").trim().toLowerCase();
+}
+
+//: Which rows are drawn, as one pass over the headings, because folding and
+//: filtering are two answers to the same question and a row cannot be given
+//: to both. **Filtering wins outright**: a search that hides its own matches
+//: inside a folded section is a search that reports nothing and is right about
+//: nothing, so while there is a needle the folds are ignored entirely.
+//:
+//: Returns, per heading: whether it is drawn, and whether it can fold (which
+//: is a fact about the document, not about the filter, so it is the same
+//: either way and the caret does not appear and disappear as you type).
+function docOutlineVisibility(headings, needle, folds) {
+  const rows = headings.map((heading, index) => {
+    const next = headings[index + 1];
+    return { shown: true, foldable: Boolean(next && next.level > heading.level) };
+  });
+  if (needle) {
+    headings.forEach((heading, index) => {
+      rows[index].shown = heading.text.toLowerCase().includes(needle);
+    });
+    return rows;
+  }
+  //: A fold hides the run of deeper headings under it, and a fold inside a
+  //: folded section needs no second pass: the outer one already covers every
+  //: row the inner one would.
+  let hideUnder = -1;
+  headings.forEach((heading, index) => {
+    if (hideUnder >= 0 && heading.level > hideUnder) {
+      rows[index].shown = false;
+      return;
+    }
+    hideUnder = -1;
+    if (rows[index].foldable && folds.has(docOutlineFoldKey(heading))) hideUnder = heading.level;
+  });
+  return rows;
+}
+
 function renderDocOutline() {
   const list = $("doc-outline");
   const wrap = $("doc-outline-wrap");
@@ -1800,8 +1900,29 @@ function renderDocOutline() {
   //: The count belongs beside the word, the way every other counted list in
   //: this sidebar reads, so the heading answers "how deep is this document"
   //: without the eye having to run down the list.
+  const folds = docOutlineFolds();
+  const needle = docOutlineFilterText();
+  const visible = docOutlineVisibility(headings, needle, folds);
+  const shownCount = visible.filter((row) => row.shown).length;
   const count = $("doc-outline-count");
-  if (count) count.textContent = headings.length ? String(headings.length) : "";
+  //: "3 of 18" while filtering, because a bare "3" over a list somebody has
+  //: just narrowed reads as a document with three headings in it.
+  if (count) {
+    count.textContent = !headings.length
+      ? ""
+      : needle
+        ? `${shownCount} of ${headings.length}`
+        : String(headings.length);
+  }
+  //: The box appears with the headings that make it worth having, and takes
+  //: its own text with it when it goes: a filter left set on a control nobody
+  //: can see is an outline that is mysteriously short.
+  const filterBox = $("doc-outline-filter");
+  if (filterBox) {
+    const wanted = headings.length >= DOC_OUTLINE_FILTER_FROM;
+    if (!wanted && filterBox.value) filterBox.value = "";
+    filterBox.classList.toggle("hidden", !wanted);
+  }
   list.replaceChildren();
   const empty = $("doc-outline-empty");
   if (empty) {
@@ -1811,9 +1932,48 @@ function renderDocOutline() {
       : "Headings you write appear here, and each one jumps to its place in the document.";
   }
   docOutlineRows = [];
-  for (const heading of headings) {
+  headings.forEach((heading, index) => {
     const li = document.createElement("li");
-    li.className = `outline-h${heading.level}`;
+    li.className = `outline-h${heading.level} outline-row`;
+    li.classList.toggle("hidden", !visible[index].shown);
+    //: **The fold control is a gutter at the row's left edge, the same width
+    //: on every row**, drawn as a button where the heading has children under
+    //: it and as an empty slot where it does not. It cannot go inside the row
+    //: itself, which is already a `<button>` that jumps to the heading, and a
+    //: button inside a button is neither valid nor reachable. It cannot step
+    //: with the indent either: `.outline-link`'s own padding is what carries
+    //: depth (05-sidebars-themes.css spends a paragraph on why the left edges
+    //: have to line up), and a caret that moved with it would put the deepest
+    //: rows' controls in four different columns.
+    const twist = document.createElement(visible[index].foldable ? "button" : "span");
+    twist.className = "outline-twist";
+    if (visible[index].foldable) {
+      const folded = folds.has(docOutlineFoldKey(heading));
+      twist.type = "button";
+      twist.setAttribute("aria-expanded", folded ? "false" : "true");
+      twist.title = folded
+        ? `Show what is under \u201c${heading.text}\u201d`
+        : `Hide what is under \u201c${heading.text}\u201d`;
+      twist.setAttribute("aria-label", twist.title);
+      const glyph = document.createElement("i");
+      glyph.className = folded ? "ph ph-caret-right" : "ph ph-caret-down";
+      glyph.setAttribute("aria-hidden", "true");
+      twist.appendChild(glyph);
+      twist.addEventListener("click", () => {
+        const key = docOutlineFoldKey(heading);
+        const next = docOutlineFolds();
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        docOutlineSetFolds(next);
+        //: Redrawn rather than toggled in place: the rows a fold hides are
+        //: decided by one pass over the whole list (`docOutlineVisibility`),
+        //: and a second way of deciding it here would be a second answer.
+        renderDocOutline();
+      });
+    } else {
+      twist.setAttribute("aria-hidden", "true");
+    }
+    li.appendChild(twist);
     const button = document.createElement("button");
     button.type = "button";
     button.className = "outline-link";
@@ -1834,8 +1994,12 @@ function renderDocOutline() {
     button.addEventListener("click", () => jumpToDocLine(heading.line));
     li.appendChild(button);
     list.appendChild(li);
-    docOutlineRows.push({ line: heading.line, button });
-  }
+    //: `row` as well as `button`, because the scroll-spy has to know whether
+    //: the heading it wants to mark is on screen at all: a fold or a filter
+    //: can hide the row the caret is in, and marking a hidden row is a mark
+    //: nobody sees followed by a scroll to nothing.
+    docOutlineRows.push({ line: heading.line, button, row: li });
+  });
   //: The rows are new elements, so whatever was marked a moment ago is gone
   //: with them. Marked again here rather than waiting for the next scroll:
   //: the outline is rebuilt on a pause in typing, and a table of contents
@@ -1892,6 +2056,26 @@ function docVisibleTopLine() {
   const lines = box.text.split("\n").length;
   return Math.round((box.scrollTop / range) * Math.max(0, lines - 1));
 }
+
+//: The filter box's own wiring, once. `input` rather than a debounce: the
+//: work behind it is a pass over the headings this file already holds, not a
+//: request, and a debounce on a list that redraws in under a millisecond is
+//: latency bought for nothing.
+//:
+//: Escape clears it rather than closing anything, which is what Escape means
+//: in every other search box in this app, and it is the only way back to the
+//: whole outline that does not involve selecting the text first.
+onDomReady(() => {
+  const box = $("doc-outline-filter");
+  if (!box) return;
+  box.addEventListener("input", () => renderDocOutline());
+  box.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || !box.value) return;
+    event.stopPropagation();
+    box.value = "";
+    renderDocOutline();
+  });
+});
 
 //: **The caret's line, but only while the caret is on screen.**
 //:
@@ -1968,10 +2152,24 @@ function markDocOutline() {
     if (docOutlineRows[i].line > top) break;
     index = i;
   }
+  //: **Up to the nearest row that is actually drawn.** A folded section's
+  //: headings are still in this list (the spy is about the document, not
+  //: about the panel), so the heading the caret is in may be hidden under a
+  //: fold: the mark then belongs on the fold's own row, which is the one the
+  //: reader can see and the one that says "you are somewhere in here". While
+  //: a filter is running there may be no such row at all, and then nothing is
+  //: marked, which is honest: the rows on screen are a search result, not a
+  //: place in the document.
+  while (index > 0 && docOutlineRows[index].row?.classList.contains("hidden")) index -= 1;
+  if (docOutlineRows[index].row?.classList.contains("hidden")) index = -1;
   if (index === docOutlineMarked) return;
   for (const row of docOutlineRows) {
     row.button.classList.remove("is-current");
     row.button.removeAttribute("aria-current");
+  }
+  if (index === -1) {
+    docOutlineMarked = -1;
+    return;
   }
   const button = docOutlineRows[index].button;
   button.classList.add("is-current");

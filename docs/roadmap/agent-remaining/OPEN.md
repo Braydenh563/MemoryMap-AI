@@ -95,11 +95,6 @@ being written by running agents stay beside this one.
   density-aware rule (compact keeps 24, comfortable and spacious take 28) or a
   touch layout for the sidebar, which is UI Phase 9's territory.
   [doc-sidebar.md]
-- **The outline is headings only, and it does not fold.** No folding (a
-  120-heading document wants collapsible h2s with the state kept per document)
-  and no filter box (Obsidian's outline has one, and past two screens of
-  headings it is how you use it at all). Belongs in DOCUMENTS_PLAN.
-  [doc-sidebar.md]
 - **The rest of the app's viewport popups have not been measured with the
   background art on.** `kebabMenu` (`wireEscapedActionMenu`) and the toolbar
   dropdowns (`clampToolbarMenu`) are covered; the chat dock's popovers, the

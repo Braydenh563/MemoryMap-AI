@@ -7095,11 +7095,12 @@ function filterLibraryImagesGallery() {
     //: picture properly.
     //:
     //: `syncProvenance` writes the tooltip itself (see its own comment), so a
-    //: caption or a reading written after the card was built moves it; this
-    //: only takes the line off the card's flow, which is the Images layout's
-    //: choice and not the Files rows', where it is still a byline under a row
-    //: with room for one.
-    provenance.classList.add("hidden");
+    //: caption or a reading written after the card was built moves it. The
+    //: paragraph is simply never appended on this layout, which is why there
+    //: is no line to hide here: hiding it would not hold anyway, since
+    //: `syncProvenance` takes the class back off whenever there is something
+    //: to say. A Files row still appends it, where a byline has a row with
+    //: room for one.
 
     //: **What the bottom of the card is: the prose, then one line of facts.**
     //: Reported a third time, 2026-09-13: "redesign the bottom text area of the

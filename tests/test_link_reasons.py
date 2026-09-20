@@ -243,13 +243,24 @@ def test_audit_link_reasons_tool_is_registered_and_callable(session, fake_ollama
 
 def test_the_audit_link_reasons_skill_names_only_that_tool(session):
     """The skill this feature ships with must be specifically about link
-    REASONS, not general link management, it should offer only the one
-    tool, not `link_notes`/`unlink_notes`."""
+    REASONS, not general link management: it offers the one tool that does
+    that job and nothing that writes a link.
+
+    `count_notes` joined it on 2026-09-20 and is the exception that keeps the
+    rule readable: it is the tool the skill *verifies* with (a skill may only
+    verify with a tool it declares), it reads a number and cannot write
+    anything, and it is what makes "this changed none of your notes" a checked
+    claim rather than a promise. The assertion is the intent rather than a
+    list, so the next tool added has to argue for itself.
+    """
     from memorymap.ai import skills
 
     skill = skills.find(deps.get_config(), "Audit link reasons", known_tools=set(tools.TOOLS))
     assert skill is not None
-    assert skill["tools"] == ["audit_link_reasons"]
+    assert "audit_link_reasons" in skill["tools"]
+    assert set(skill["tools"]) <= {"audit_link_reasons", "count_notes"}
+    assert not set(skill["tools"]) & tools.WRITE_TOOLS - {"audit_link_reasons"}
+    assert skill["verify"]["tool"] == "count_notes"
 
 
 # --- creating a link must not block on the model (manager._deduce_reason) -------

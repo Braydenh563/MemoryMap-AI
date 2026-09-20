@@ -55,13 +55,19 @@ def test_every_shape_of_no_tags_counts(session):
 
 
 def test_the_filter_still_names_null(session):
+    """The clause moved out of `_list_notes` into `_scope_filters` on
+    2026-09-20, when `count_notes` grew the same filter: the two have to agree
+    about what "untagged" means, because a skill's postcondition counts what
+    its steps listed, so the shared function is where this check follows it."""
     from memorymap.ai import tools as tool_module
 
-    source = inspect.getsource(tool_module._list_notes)
+    source = inspect.getsource(tool_module._scope_filters)
     assert "Entry.tags.is_(None)" in source, (
         "a backup restored from an older schema can carry a NULL here, and it "
         "is untagged by every definition a user has"
     )
+    assert "_scope_filters(" in inspect.getsource(tool_module._list_notes)
+    assert "_scope_filters(" in inspect.getsource(tool_module._count_notes)
 
 
 def test_the_filter_composes_with_the_others(session):

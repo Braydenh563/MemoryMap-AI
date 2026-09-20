@@ -29667,7 +29667,39 @@ function paintTimelineTable(rows) {
   for (const cell of document.querySelectorAll(".timeline-col-select")) {
     cell.classList.toggle("hidden", !selectMode);
   }
+  syncTimelineDetailSpans();
   applyTimelineRowTabOrder();
+}
+
+//: **How many columns the table is actually drawing.** The tick column is
+//: `.hidden` unless the selection mode is on (`timelineTableRow` below), so the
+//: count is not `TIMELINE_COLUMNS.length + 1`: it is that, less the column that
+//: is not there.
+function timelineTableColumnCount() {
+  return TIMELINE_COLUMNS.length + (selectMode ? 1 : 0);
+}
+
+//: **And the open detail row spans exactly that many, never one more.**
+//:
+//: Reported as "the timeline table view shrinks horizontally when opening a
+//: note row" (INBOX 279). The detail was already a row of the table rather than
+//: a sibling pane, so nothing was reflowing the card: what shrank was the one
+//: column that has no width of its own. `table-layout: fixed` gives every
+//: auto-width column an equal share of what the sized columns leave, and a
+//: `colSpan` one past the last real column invents a tenth, auto-width column
+//: for the share to be split with. Measured at three widths with the second row
+//: opened, the Title column went 1032 to 516 at 1930, 702 to 351 at 1600 and
+//: 542 to 271 at 1440: exactly half, every time, with the other half drawn as
+//: empty space past the last header.
+//:
+//: Called from the paint (which is also where the tick column is shown and
+//: hidden) as well as from the opener, so turning the selection mode on under
+//: an open row re-spans it rather than leaving it a column short.
+function syncTimelineDetailSpans() {
+  const span = timelineTableColumnCount();
+  for (const cell of document.querySelectorAll(".timeline-detail-row > td")) {
+    if (cell.colSpan !== span) cell.colSpan = span;
+  }
 }
 
 function timelineTableRow(row) {
@@ -29782,7 +29814,7 @@ function openTimelineTableDetail(tr, row) {
   const holder = document.createElement("tr");
   holder.className = "timeline-detail-row";
   const cell = document.createElement("td");
-  cell.colSpan = TIMELINE_COLUMNS.length + 1;
+  cell.colSpan = timelineTableColumnCount();
   const detail = document.createElement("div");
   detail.className = "timeline-row-detail";
   cell.appendChild(detail);

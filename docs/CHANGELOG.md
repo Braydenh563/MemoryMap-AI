@@ -9,6 +9,28 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The dashboard's Compact and Focused views keep the hero. Compact used to
+  delete the one line that says anything about this notebook ("You have 218
+  notes, 3 reminders due") and cut the greeting to below body size while keeping
+  the clock at twice the greeting's height, and Focused, the level that shows
+  least, carried the second largest banner of the three: measured at 1440, the
+  three heroes stood 157.2, 76.3 and 133.2px tall. The rule now is one rule: the
+  greeting and the one number stay at every level, and what shrinks is the art
+  and the secondary rows. The greeting steps down the type scale rather than
+  falling off it, the emblem shrinks from 46px to 30px before it goes, the clock
+  loses its date and then itself, and Compact's three band labels move onto
+  their rows' own line. The heroes are 157.2, 99.6 and 47.2px, and the chrome
+  above the first widget is 593.6, 427.9 and 196px (it was 593.6, 456.6 and
+  282px).
+
+- The Timeline's table keeps its width when a note row is opened. The Title
+  column, the one column with no width of its own, was halving: 1032 to 516 at
+  1930, 702 to 351 at 1600, 542 to 271 at 1440, with the other half drawn as
+  empty space past the last header. The open row's cell spanned one column more
+  than the table draws, because the tick column is only there while the
+  selection mode is on, and a fixed table layout answers an extra column by
+  splitting the free space with it.
+
 - The whiteboard and the mind map answer a finger. Two fingers pan and zoom the
   board whatever tool is in hand, which is what every drawing app reserves them
   for: until now a pinch did nothing at all unless you first went and found the

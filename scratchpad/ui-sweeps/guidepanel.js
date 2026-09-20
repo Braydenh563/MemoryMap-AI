@@ -114,7 +114,10 @@ const MEASURE = () => {
 (async () => {
   for (const [w, h] of [[1440, 900], [390, 844]]) {
     const { browser, page } = await boot({ viewport: { width: w, height: h } });
-    await page.evaluate(() => openHelpChat());
+    // Through the status bar's own button at least once: a panel measured
+    // only through `openHelpChat()` is a panel whose door was never tried.
+    if (w >= 601) await page.click('#status-guide');
+    else await page.evaluate(() => openHelpChat());
     await page.waitForTimeout(600);
     const m = await page.evaluate(MEASURE);
     console.log(`\n===== ${w}x${h} =====`);
@@ -208,6 +211,24 @@ const MEASURE = () => {
       console.log('  density ' + mode.padEnd(8), JSON.stringify(d));
     }
     await page.evaluate(() => { document.documentElement.removeAttribute('data-density'); });
+
+    // The hairline is meant to sit above the foot of the panel whatever the
+    // foot is: the chips while they are there, the composer once a
+    // conversation has stood them down, and never both.
+    const rule = async (label) => {
+      const r = await page.evaluate(() => {
+        const st = document.getElementById('help-chat-starters');
+        const composer = document.querySelector('[data-sheet="guide"] .atlas-composer');
+        const edge = (el) => (el ? getComputedStyle(el).borderTopWidth : null);
+        return { startersShown: st ? !st.classList.contains('hidden') : null,
+          startersEdge: edge(st), composerEdge: edge(composer) };
+      });
+      console.log('  ' + label.padEnd(12), JSON.stringify(r));
+    };
+    await rule('hairline');
+    await page.evaluate(() => helpChatNewChat());
+    await page.waitForTimeout(200);
+    await rule('after new');
 
     // A '?' popover left open when the panel closes: `openSheet` takes Escape
     // in the capture phase, so the popover's own handler never sees it.

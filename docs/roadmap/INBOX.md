@@ -249,6 +249,20 @@ with its owner named in the entry.
     fills, (7) an architecture review with SQLite and idle compute named
     specifically.
 
+267. **Mid-work drop, 2026-09-20, verbatim (the owner), a screenshot of four
+    lines.** "Alignment bars don't appear for group selections
+    Double tap anchor resize nodes to auto size adjust
+    In-text referencing and grounding in the ask subtab doesn't stick, the
+    wrong numbers will be used and in the wrong spot, and the numbers wont
+    match the grounding.
+    Grounding and in-text referencing not working now?? Needs fix."
+    Four things, taken worst first: (1) grounding and in-text references in
+    Ask, which the owner wrote twice and which is the one that makes answers
+    untrustworthy, (2) alignment bars missing on a group selection, which a
+    previous session recorded as built (`5273bae`), so measure before
+    believing either, (3) double-tapping a resize anchor to fit the content.
+    Open.
+
 ## Placed (last 20, newest first)
 
 - 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.

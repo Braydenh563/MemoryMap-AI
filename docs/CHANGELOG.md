@@ -248,6 +248,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The ⋯ on a Library card and on a document row is visible on a touch screen.
+  Both were meant to be: each had a rule saying so where there is no pointer
+  to hover with, and each was written one class short of the rule it had to
+  beat, so neither ever applied and a 44x44 button sat at opacity 0 on every
+  card and every row at phone width.
+
+
 - The Library reader shows the page and what it says. Below 1100px the page
   rail was hidden but its column was not, so the grid kept an empty 593px of
   itself at 1024, squeezed the page into the 320px column beside it and

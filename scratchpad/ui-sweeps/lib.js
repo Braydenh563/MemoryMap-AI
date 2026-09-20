@@ -15,10 +15,17 @@ async function boot(opts={}) {
   // "#onboarding-overlay intercepts pointer events" (it cost two sweep runs).
   // Marking it done before the app boots is the only ordering that cannot
   // lose; the hide below stays as the belt to this braces.
+  // `tourDone` for the same reason, and it is the same race one step along:
+  // an install that has already seen the welcome is offered the guided tour
+  // once, in a toast with a "Take the tour" button (maybeShowOnboarding in
+  // app.js). A sweep that let that offer appear would measure a toast nobody
+  // asked about, and a click landing on it. A sweep that wants the tour opens
+  // it itself (scratchpad/ui-sweeps/tour.js does).
   await ctx.addInitScript((t) => {
     try {
       localStorage.setItem('theme', t);
       localStorage.setItem('onboardingDone', '1');
+      localStorage.setItem('tourDone', '1');
     } catch (e) {}
   }, process.env.THEME || 'light');
   const page = await ctx.newPage();

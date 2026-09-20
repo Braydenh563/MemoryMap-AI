@@ -136,6 +136,12 @@ const TOUR_SECTIONS = [
         text: "Semantic search finds notes that mean the same thing without sharing a word with what you typed.",
       },
       {
+        target: "#status-command",
+        side: "top",
+        title: "Jump anywhere",
+        text: "Ctrl and K, or a press here, opens the command palette to search and to run anything by name.",
+      },
+      {
         target: "#tab-btn-chat",
         side: "bottom",
         title: "Ask your notebook",

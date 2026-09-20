@@ -125,9 +125,13 @@ Three ways in. None needs a terminal.
 and run it. The app opens in its own window.
 [What the SmartScreen prompt means](docs/INSTALL.md#windows-installer).
 
-**Linux.** Download `MemoryMap-AI-*-linux-x86_64.zip` from the same page,
-unzip it and run `MemoryMap AI`. Needs GTK and WebKit (`python3-gi` and
-`gir1.2-webkit2-4.1`, or your distribution's equivalent).
+**Linux.** Download `MemoryMap-AI-*-linux-x86_64.tar.gz` from the same page,
+`tar -xzf` it and run `MemoryMap AI`. Needs GTK and WebKit (`python3-gi` and
+`gir1.2-webkit2-4.1`, or your distribution's equivalent). A `.zip` of the
+same build is there too, but prefer the tarball: a zip does not reliably
+carry the executable bit, and some archive managers unpack the launcher
+without it, which leaves you with a file that will not start and no
+explanation.
 
 **macOS, or from source on any platform.** Clone the repository and run
 `./start-desktop.sh` (on Windows, double-click `start-desktop.bat`), or

@@ -238,15 +238,30 @@ jobs:
           kill $pid || true
           exit 1
 
-      - name: Zip the build
+      - name: Pack the build
         env:
           VERSION: ${{ needs.resolve-version.outputs.version }}
+        # **A tarball, and it is the one to download.** A zip does not
+        # reliably carry the executable bit on Linux: `unzip(1)` restores it
+        # from Info-ZIP's extra field, and Python's `zipfile` and several
+        # desktop archive managers do not. Measured on a 755 file: `unzip`
+        # gives 755, `zipfile.extractall` gives 644, and `tar` gives 755
+        # either way. A 644 launcher is a download that cannot be started,
+        # with nothing on screen to say why, which is exactly the class of
+        # small broken thing that costs a project its credibility.
+        #
+        # The zip stays beside it for anyone whose habit it already is, and
+        # because a zip is the shape Windows users recognise if they land
+        # here by mistake.
         run: |
           cd dist
-          zip -r "../MemoryMap-AI-${VERSION}-linux-x86_64.zip" "MemoryMap AI"
+          tar -czf "../MemoryMap-AI-${VERSION}-linux-x86_64.tar.gz" "MemoryMap AI"
+          zip -qr "../MemoryMap-AI-${VERSION}-linux-x86_64.zip" "MemoryMap AI"
 
       - name: Upload package to the release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.resolve-version.outputs.tag }}
-          files: MemoryMap-AI-*-linux-x86_64.zip
+          files: |
+            MemoryMap-AI-*-linux-x86_64.tar.gz
+            MemoryMap-AI-*-linux-x86_64.zip

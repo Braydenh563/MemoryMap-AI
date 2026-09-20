@@ -103,6 +103,11 @@ below). Versioning is `0.x` while the app stabilises.
   and a caption that would land on another block or another caption is moved
   or left out. It also finds room for more titles than before, not fewer.
 
+- Headings in the rendered document view are the size they should be. A
+  document's biggest heading was drawn smaller than its body text, and two
+  levels of heading were identical, because the tags the renderer uses had
+  no styling at all. Both views of a document now use the same scale.
+
 - Lists render in the documents live view, which drew them as plain text:
   bullets and numbers now hang in the margin with their text aligned under
   itself, nesting is visible, and a dash is drawn as a bullet unless the

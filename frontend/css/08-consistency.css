@@ -1968,6 +1968,20 @@ summary > .ph-lead,
   font-size: var(--text-sm);
   font-weight: 400;
 }
+
+/* **On a phone the head keeps its one line** (INBOX 270). With the '?' beside
+   the kebab and the X, the title has 205px of a 356px head at 390, and
+   "About the app, never your notes" wraps onto a second line there and takes
+   the head from 48px to 63px, which is a two-row head on the one screen with
+   the least room for one. The line is the head's second rank, so it is what
+   goes: the mark, the name, the '?' and the way out all stay, the '?' popover
+   still says what Atlas is, and the empty state under it still says in full
+   that it cannot read your notes or your documents. */
+@media (max-width: 600px) {
+  .atlas-head-line {
+    display: none;
+  }
+}
 /* The head is title, '?', kebab, close (INBOX 270). The title takes the free
    space so the three controls pack against the end on the head's own gap:
    before this the kebab pushed itself right with an `auto` margin and added a

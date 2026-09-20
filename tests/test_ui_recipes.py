@@ -1589,6 +1589,65 @@ def test_a_tour_step_waits_for_the_tab_it_switched_to() -> None:
     assert "#tab-bar" in active, "tourActiveTab reads the pressed tab button"
 
 
+def test_the_cut_out_is_never_drawn_where_it_cannot_be_seen() -> None:
+    """INBOX 280, the owner at about 2000x1140: "this happens when I press next
+    on the welcome tour", with the whole page dimmed except a strip about 100px
+    wide at the right edge, no card and nothing highlighted.
+
+    The dim is the cut-out's own `box-shadow`, so a cut-out placed outside the
+    window darkens everything and highlights nothing. It got there through the
+    invalid-value trap CLAUDE.md names: with a target off the right edge,
+    `left` clamps to the target and `right` clamps to the window, so
+    `right - left` is **negative**, `width: -994px` is dropped as invalid, and
+    the element silently keeps the width it had on the previous step. Measured
+    at 2000x1140 with the target moved to x 3000: the cut-out was placed at
+    2994 carrying the previous step's 708px width.
+
+    Two rules come out of it, and both are here because neither is visible in
+    the output of the other: the box is checked before it is written, and a
+    step whose control is not really on screen is dropped rather than drawn.
+    """
+    js = TOUR_JS.read_text(encoding="utf-8")
+    spot = _function_body(js, "tourSpotlight")
+    assert "if (width < 1 || height < 1)" in spot, (
+        "tourSpotlight must check the clamped box before writing it: a "
+        "negative width is invalid CSS, is dropped, and leaves the previous "
+        "step's size on an element that has moved"
+    )
+    assert "tourClearSpotlight()" in spot and "return false" in spot, (
+        "a box that cannot be drawn draws no cut-out at all, rather than one "
+        "in the wrong place"
+    )
+    assert "return true" in spot, "and the caller has to be told which happened"
+
+    position = _function_body(js, "tourPosition")
+    assert "tourSpotlight(" in position and "if (!lit)" in position, (
+        "tourPosition must place the card differently when there is no "
+        "cut-out: beside nothing is not a position"
+    )
+
+    show = _function_body(js, "tourShow")
+    assert "tourOnScreen(el)" in show, (
+        "a step whose control is not on screen after the wait is dropped, so "
+        "the counter renumbers and the tour moves to one that can be pointed "
+        "at (DESIGN.md, the recipe index)"
+    )
+    reflow = _function_body(js, "tourReflow")
+    assert "tourOnScreen(" in reflow, (
+        "and a control that leaves the window under the tour costs its step "
+        "too, or the card hangs on beside a rectangle that has gone"
+    )
+
+    on_screen = _function_body(js, "tourOnScreen")
+    assert "clientWidth" in on_screen and "clientHeight" in on_screen, (
+        "on screen is measured against the window, not against the document"
+    )
+    assert "TOUR_ON_SCREEN_MIN" in on_screen, (
+        "a few pixels inside the edge is not something to point at; the "
+        "threshold is named so it can be argued with"
+    )
+
+
 def test_a_tour_step_with_nothing_to_point_at_is_dropped() -> None:
     """A control hidden by a responsive rule, or gone from the markup, must
     cost its step rather than leave a card anchored to a zero-sized box in the

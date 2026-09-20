@@ -227,6 +227,17 @@ below). Versioning is `0.x` while the app stabilises.
   and 11px below. The glyph beside it was dead centre the whole time, which
   is what made the text look dropped. Zeroed, and the bar takes the band's
   44px floor below 820, which it used to reach only by accident.
+- The guided tour never draws its cut-out off the page. A step whose control
+  was off the right edge clamped to a negative width, which is invalid CSS and
+  is dropped, so the cut-out kept the previous step's size and sat outside the
+  window: the dim is that element's own box-shadow, so the page went dark with
+  a bright band where the shadow's edge fell and nothing highlighted. Measured
+  at 2000x1140 with the target at x 3000: the cut-out placed at 2994 carrying
+  708px of stale width. A step whose control is not really on screen is now
+  dropped, the counter renumbers, and a cut-out that cannot be drawn is not
+  drawn at all, with the card centred instead. The tour sweep drives the
+  welcome flow's own hand-off at 2000x1140, 1440 and 390 and asserts a visible
+  card and an on-screen cut-out on every step.
 - The split document view lines its panes up from rects, not `offsetTop`.
   The first fix mapped source lines to rendered blocks correctly and then read
   each block's position with `offsetTop`, which is measured from the nearest

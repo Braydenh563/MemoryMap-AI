@@ -181,6 +181,14 @@ const TOUR_SECTIONS = [
 // so showing and hiding it is one class change rather than four.
 const TOUR_LAYERS = ["tour-block", "tour-spot", "tour-card"];
 
+//: The four panels, in the one order everything that touches them uses.
+const TOUR_PANEL_IDS = [
+  "tour-block-top",
+  "tour-block-right",
+  "tour-block-bottom",
+  "tour-block-left",
+];
+
 // The run in progress, or null. `steps` is a flattened copy rather than a
 // reference into the table above, because a step whose element turns out to be
 // hidden is spliced out of it, and the table has to stay whole for the next
@@ -215,6 +223,28 @@ function tourVisible(el) {
 //: not the thing the person is looking at), applied to geometry.
 function tourAnchorFor(el) {
   return el ? el.closest(".select-shell") || el : el;
+}
+
+//: **Laid out is not the same as on screen**, and the difference is what
+//: INBOX 280 is. `tourVisible` answers "this element has a box and is not
+//: painted out", which a control scrolled away, pushed past an edge or parked
+//: off the page all satisfy. The cut-out is then asked to sit on a rectangle
+//: that is not in the window, and everything downstream of it goes wrong at
+//: once (see `tourSpotlight`).
+//:
+//: A few pixels of overlap is not enough to point at, so this asks for a
+//: usable amount of the control to be inside the window rather than for the
+//: rectangles to merely touch.
+const TOUR_ON_SCREEN_MIN = 8;
+
+function tourOnScreen(el) {
+  if (!el) return false;
+  const vw = document.documentElement.clientWidth;
+  const vh = document.documentElement.clientHeight;
+  const box = el.getBoundingClientRect();
+  const across = Math.min(box.right, vw) - Math.max(box.left, 0);
+  const down = Math.min(box.bottom, vh) - Math.max(box.top, 0);
+  return across >= TOUR_ON_SCREEN_MIN && down >= TOUR_ON_SCREEN_MIN;
 }
 
 //: **Set, measure, correct by the difference, never trust the first number.**
@@ -375,6 +405,38 @@ function tourBlockPanels(left, top, right, bottom) {
 //: control inside it is drawn by the page at full strength. The shadow paints
 //: but never takes a press (`pointer-events: none`); the four panels above,
 //: laid out from this same rectangle, are what take them.
+//: The tour with no cut-out: the card, centred, over a page that is not
+//: dimmed and not covered. Used when there is nothing on screen to point at,
+//: which is the one case where a dim is worse than none: a dim needs a hole,
+//: and a hole that is not in the window darkens everything and highlights
+//: nothing (INBOX 280: "the whole page dimmed except a ~100px vertical strip
+//: at the right edge, no card, nothing highlighted").
+function tourClearSpotlight() {
+  document.getElementById("tour-spot").classList.add("hidden");
+  for (const id of TOUR_PANEL_IDS) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.style.width = "0px";
+    el.style.height = "0px";
+  }
+}
+
+//: Lay the cut-out on the control, and answer whether it could be done.
+//:
+//: **The clamped box can be empty, and an empty one used to be written out
+//: anyway.** With a target off the right edge, `left` clamps to the target
+//: and `right` clamps to the window, so `right - left` goes *negative*:
+//: `width: -994px` is invalid, the declaration is dropped, and the element
+//: silently keeps the width it had on the previous step. The cut-out then
+//: sits off the page at the wrong size, its own `box-shadow` (which is the
+//: dim) lands somewhere nobody asked for, and the page is dark everywhere
+//: except whatever band the shadow's edge happens to fall on. Measured, at
+//: 2000x1140 with the target moved to x 3000: the spot was placed at 2994
+//: still carrying the previous step's 708px width. That is CLAUDE.md's
+//: invalid-value trap, and it is INBOX 280's screenshot.
+//:
+//: So the box is checked before it is written, and an empty one draws no
+//: cut-out at all rather than a broken one.
 function tourSpotlight(target) {
   const spot = document.getElementById("tour-spot");
   const vw = document.documentElement.clientWidth;
@@ -383,10 +445,18 @@ function tourSpotlight(target) {
   const top = Math.max(0, target.top - TOUR_PAD);
   const right = Math.min(vw, target.right + TOUR_PAD);
   const bottom = Math.min(vh, target.bottom + TOUR_PAD);
-  spot.style.width = `${Math.round(right - left)}px`;
-  spot.style.height = `${Math.round(bottom - top)}px`;
+  const width = right - left;
+  const height = bottom - top;
+  if (width < 1 || height < 1) {
+    tourClearSpotlight();
+    return false;
+  }
+  spot.classList.remove("hidden");
+  spot.style.width = `${Math.round(width)}px`;
+  spot.style.height = `${Math.round(height)}px`;
   tourPlaceFixed(spot, left, top);
   tourBlockPanels(left, top, right, bottom);
+  return true;
 }
 
 //: A target below the fold is reached by moving the nearest scrolling
@@ -422,11 +492,26 @@ function tourPosition() {
   if (!tourRun || !tourRun.el) return;
   const card = document.getElementById("tour-card");
   const target = tourRun.el.getBoundingClientRect();
-  tourSpotlight(target);
+  const lit = tourSpotlight(target);
   // The card's own size is measured on screen, with this step's text already
   // in it: the height changes by a whole line between steps, and a placement
   // computed from the previous step's height is a card that overlaps.
   const size = card.getBoundingClientRect();
+  if (!lit) {
+    //: Nothing to point at, so the card stops pointing: centred, with the
+    //: page neither dimmed nor covered. A step reaches this only when its
+    //: control went off screen after it was placed (a resize, a scroll under
+    //: it); a step that starts that way is dropped in `tourShow` instead.
+    const vw = document.documentElement.clientWidth;
+    const vh = document.documentElement.clientHeight;
+    card.dataset.side = "centre";
+    tourPlaceFixed(
+      card,
+      tourClamp((vw - size.width) / 2, TOUR_EDGE, Math.max(TOUR_EDGE, vw - TOUR_EDGE - size.width)),
+      tourClamp((vh - size.height) / 2, TOUR_EDGE, Math.max(TOUR_EDGE, vh - TOUR_EDGE - size.height))
+    );
+    return;
+  }
   const place = tourChoose(target, tourRun.step.side, size);
   card.dataset.side = place.name;
   tourPlaceFixed(card, place.left, place.top);
@@ -531,7 +616,12 @@ async function tourShow() {
     if (tourRun !== run) return;
     const el = await tourWaitForTarget(step);
     if (tourRun !== run) return;
-    if (!tourVisible(el)) {
+    //: Brought into view first, then judged: a control below the fold of a
+    //: scrolling panel is a step worth showing once the panel has been
+    //: scrolled to it, and only a control that is still not in the window
+    //: after that has nothing to point at.
+    if (tourVisible(el)) tourBringIntoView(el);
+    if (!tourVisible(el) || !tourOnScreen(el)) {
       // A step with nothing to point at is dropped from this run, rather than
       // shown empty or left pointing at the corner of the window.
       run.steps.splice(run.index, 1);
@@ -545,7 +635,6 @@ async function tourShow() {
     run.el = el;
     run.step = step;
     tourRender();
-    tourBringIntoView(el);
     tourPosition();
     // Focus lands inside the card, on the control that moves the tour on, so
     // Enter and Space do the obvious thing the moment a card appears. The card
@@ -691,9 +780,11 @@ document.addEventListener(
 //: does not bubble.
 function tourReflow() {
   if (!tourRun || !tourRun.el) return;
-  if (!tourVisible(tourRun.el)) {
+  if (!tourVisible(tourRun.el) || !tourOnScreen(tourRun.el)) {
     // The control went away under the tour (a window narrowed past the width
-    // that shows it). The step goes with it rather than the card hanging on.
+    // that shows it, a panel scrolled it out of the window). The step goes
+    // with it rather than the card hanging on beside a rectangle that is not
+    // there any more.
     tourShow();
     return;
   }

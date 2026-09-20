@@ -35637,11 +35637,57 @@ function renderEmbeddingPicker(status) {
   // of the choice is disabled and says why, rather than the whole section
   // disappearing, which is what used to happen.
   const offline = !status.ollama_running;
-  $("embedding-model-select").disabled = offline;
-  $("embedding-apply").disabled = offline;
+  //: **And it says whether it is the one in use.** Asked after reading the
+  //: code: "does the ai embedding model actually get used??" It does, in
+  //: seven places, but only when the backend above is set to Ollama, and the
+  //: built-in backend is the default. So somebody who picked a model here
+  //: expecting it to be doing the work had a fully enabled, fully ignored
+  //: control, which is the same class of thing as a disabled control that
+  //: does not say why: a setting whose state is invisible.
+  //:
+  //: Disabled rather than hidden, because hiding it would make the choice
+  //: unfindable from the radio that mentions it, and the tooltip carries the
+  //: reason so the state is legible without a second paragraph on screen.
+  syncEmbeddingPickerState(offline);
   document.querySelector('input[name="emb-backend"][value="ollama"]').disabled = offline;
   $("embedding-ollama-note").classList.toggle("hidden", offline);
   $("embedding-offline-note").classList.toggle("hidden", !offline);
+}
+
+//: **A control says whether it is the one in use.** Asked after reading the
+//: code: *"does the ai embedding model actually get used??"* It does, in
+//: seven places, but only when the backend radio above is set to Ollama, and
+//: the built-in backend is the default. So somebody who picked a model here
+//: expecting it to be doing the work had a fully enabled, fully ignored
+//: control, which is the same class of thing as a disabled control that does
+//: not say why: a setting whose state is invisible.
+//:
+//: Disabled rather than hidden, because hiding it would make the choice
+//: unfindable from the radio that names it, and the reason rides on the
+//: tooltip so the state is legible without another paragraph on screen.
+//:
+//: `offline` is passed by the status poll, which knows; the radio's own
+//: handler omits it and it is read back off the control the poll last set,
+//: so a change of radio cannot claim Ollama is reachable when it is not.
+function syncEmbeddingPickerState(offline) {
+  const ollamaRadio = document.querySelector('input[name="emb-backend"][value="ollama"]');
+  const down = offline === undefined ? Boolean(ollamaRadio?.disabled) : offline;
+  const usingOllama =
+    document.querySelector('input[name="emb-backend"]:checked')?.value === "ollama";
+  const picker = $("embedding-model-select");
+  if (!picker) return;
+  picker.disabled = down || !usingOllama;
+  picker.title = down
+    ? "Ollama is not running, so there are no embedding models to choose from"
+    : usingOllama
+      ? "The model used for semantic search"
+      : "Only used when the backend above is set to Ollama. The built-in one is in use";
+  const apply = $("embedding-apply");
+  if (!apply) return;
+  apply.disabled = down || !usingOllama;
+  apply.title = usingOllama
+    ? "Re-read every note with this model"
+    : "Choose the Ollama backend above to use a model from here";
 }
 
 // The button lives in index.html (see `#reindex-box`) rather than being built
@@ -40686,6 +40732,12 @@ for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
     // "Apply & re-index", and without this the next status poll put the old
     // backend back the instant focus left the radio.
     radio.dataset.userChosen = "1";
+    //: The picker's enabled state follows the radio immediately rather than
+    //: waiting for the next status poll: choosing Ollama and finding the
+    //: model list still greyed for a second reads as the choice not having
+    //: taken. It says which backend is *selected*, which is the question the
+    //: control is about; whether it is applied is what Apply is for.
+    syncEmbeddingPickerState();
   });
 }
 $("status-back").addEventListener("click", () => stepTabHistory(-1));
@@ -45762,7 +45814,17 @@ async function finderSearch() {
     finderRenderEmpty();
     return;
   }
-  summary.textContent = "Searching…";
+  //: **No "Searching" flash.** Reported: "the 'searching...' text keeps
+  //: suddenly appearing and disappearing and it feels jarring and not
+  //: smooth". A local index answers in tens of milliseconds, so on every
+  //: keystroke the word appeared and was replaced before it could be read: a
+  //: label that existed only to blink. It is written only if the search is
+  //: still going after a beat, which on this machine is almost never, and
+  //: the previous count stays on screen until the new one replaces it, so
+  //: the line never empties between two answers.
+  const slow = setTimeout(() => {
+    if (run === finderRun) summary.textContent = "Searching…";
+  }, 400);
   //: `kind` is passed to the route, not filtered here, so a filtered search
   //: gets a *full page* of that kind rather than whatever survived a page of
   //: everything. Actions are filtered here because the route has never heard
@@ -45983,7 +46045,20 @@ function finderRender() {
     if (hit.snippet && hit.snippet !== hit.title) {
       const snippet = document.createElement("span");
       snippet.className = "finder-row-snippet muted";
-      snippet.textContent = hit.snippet.slice(0, 160);
+      //: **Rendered, not printed.** Reported: "in the universal search,
+      //: inline md isnt rendered or handled". `textContent` on a note's own
+      //: text prints its asterisks and the literal text of any image it
+      //: holds, which is the same report the chat's source cards had and is
+      //: fixed here the same way. `compact`, because this is a two-line
+      //: preview inside a row rather than a note body, and wiki links are
+      //: unwrapped first since `renderInlineMarkdown` is inline-only and does
+      //: not know `[[…]]`: without that a linked note prints its brackets.
+      renderInlineMarkdown(
+        snippet,
+        hit.snippet.slice(0, 200).replace(/\[\[([^[\]]{1,120})\]\]/g, "$1"),
+        null,
+        true
+      );
       row.appendChild(snippet);
     }
     //: One line of facts, not a row of chips: this is what the row *is*,

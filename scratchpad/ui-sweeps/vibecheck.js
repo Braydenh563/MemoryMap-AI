@@ -38,7 +38,7 @@ const AUDIT = () => {
     const cls = (el.className || '').toString().split(/\s+/).filter(Boolean).slice(0, 2).join('.');
     return `${el.tagName.toLowerCase()}${id}${cls ? '.' + cls : ''}`;
   };
-  const out = { dead: [], leaked: [], dupIds: [], mutelyDisabled: [], unnamed: [], machine: [] };
+  const out = { dead: [], leaked: [], dupIds: [], mutelyDisabled: [], unnamed: [], untooltipped: [], machine: [] };
 
   // 1. Dead-control *candidates*. Whether a listener actually exists is not
   // knowable from page script (`getEventListeners` is devtools-only, and this
@@ -82,6 +82,21 @@ const AUDIT = () => {
     if (!visible(el)) continue;
     if (el.title || el.getAttribute('aria-describedby') || el.closest('[title]')) continue;
     out.mutelyDisabled.push(where(el) + ' :: ' + (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40));
+  }
+
+  // 5b. **Learnability**: an icon-only control with no tooltip. It may have a
+  // perfect `aria-label`, which answers a screen reader and nobody else: a
+  // person looking at a row of glyphs with a mouse has no way to find out
+  // what any of them do short of pressing one. Asked for directly: "increase
+  // learnability all around".
+  for (const el of document.querySelectorAll('button, [role="button"]')) {
+    if (!visible(el)) continue;
+    if ((el.textContent || '').trim()) continue;       // it has a word on it
+    if (el.title || el.closest('[title]')) continue;   // it explains itself
+    if (el.getAttribute('aria-hidden') === 'true') continue;
+    const named = el.getAttribute('aria-label') || el.getAttribute('aria-labelledby');
+    if (!named) continue;  // already counted as unnamed, above
+    out.untooltipped.push(where(el) + ' :: ' + (el.getAttribute('aria-label') || '').slice(0, 40));
   }
 
   // 5. Controls with no accessible name at all.

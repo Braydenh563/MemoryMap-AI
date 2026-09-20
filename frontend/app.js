@@ -17166,6 +17166,8 @@ function saveDraftLocally() {
         length: $("draft-length").value,
         sources: draftSources,
         versions: draftVersions,
+        noteId: draftNoteId,
+        noteLabel: draftNoteLabel,
       })
     );
   } catch {
@@ -17193,8 +17195,11 @@ function restoreDraftLocally() {
     }
     draftSources = Array.isArray(saved.sources) ? saved.sources.slice(0, DRAFT_MAX_SOURCES) : [];
     draftVersions = Array.isArray(saved.versions) ? saved.versions.slice(-MAX_DRAFT_VERSIONS) : [];
+    draftNoteId = Number.isInteger(saved.noteId) ? saved.noteId : null;
+    draftNoteLabel = saved.noteLabel || "";
     renderDraftSources();
     renderDraftVersions();
+    renderDraftTarget();
     updateDraftCount();
   } catch {
     /* unreadable: start clean rather than throwing on load */
@@ -17319,6 +17324,31 @@ function rememberDraftVersion(text) {
   });
   if (draftVersions.length > MAX_DRAFT_VERSIONS) draftVersions.shift();
   renderDraftVersions();
+}
+
+//: **The note this draft came from, when it came from one.** Set by "Carry on
+//: from a note" and by nothing else. While it is set, Save writes back to
+//: that note instead of filing a second copy of it, which is the whole
+//: difference between carrying a note on and rewriting it somewhere else.
+let draftNoteId = null;
+let draftNoteLabel = "";
+
+function renderDraftTarget() {
+  const chip = $("draft-target");
+  const save = $("draft-save");
+  chip.classList.toggle("hidden", draftNoteId === null);
+  chip.textContent = draftNoteId === null ? "" : `Carrying on: ${draftNoteLabel}`;
+  chip.title = draftNoteId === null ? "" : `Saving writes back to "${draftNoteLabel}"`;
+  setLabel(save, draftNoteId === null ? "ph:floppy-disk Save as note" : "ph:floppy-disk Save to that note");
+  save.title = draftNoteId === null
+    ? ""
+    : `Write this back to "${draftNoteLabel}" rather than filing a second copy`;
+}
+
+function clearDraftTarget() {
+  draftNoteId = null;
+  draftNoteLabel = "";
+  renderDraftTarget();
 }
 
 //: One place that writes the status line, because "error" is a class that
@@ -17584,15 +17614,40 @@ async function saveDraftAsNote() {
     .map((t) => t.trim())
     .filter(Boolean);
   try {
-    // Marked as a draft on the way in, same as the text-selection popup's
-    // "Save as draft note", asked for directly, so a note drafted here is
-    // just as findable in the Drafts filter (sidebar, Library) as one
-    // captured that way, not silently indistinguishable from a note typed
-    // straight into Notes.
-    const entry = await apiJson("/entries", {
-      method: "POST",
-      body: JSON.stringify({ content, tags, is_draft: true }),
-    });
+    let entry;
+    if (draftNoteId !== null) {
+      // Carried on from a note, so it goes back to that note. A second copy
+      // of a note you asked to continue is not a save, it is a fork, and the
+      // two would drift from the moment it was made. The same undo entry the
+      // rest of the app records for an edited note, so this is as reversible
+      // as any other change to it.
+      const before = allEntries.find((e) => e.id === draftNoteId)?.content ?? "";
+      // The tags field only ever *adds* here: sending an empty list would
+      // strip the tags the note already carries, and an empty box on this
+      // desk means "I did not type any", never "take that note's tags off".
+      entry = await apiJson(`/entries/${draftNoteId}`, {
+        method: "PUT",
+        body: JSON.stringify(tags.length ? { content, tags } : { content }),
+      });
+      pushEntryPutUndo(
+        draftNoteId,
+        "Carried a note on from the writing desk",
+        { content: before },
+        { content }
+      );
+    } else {
+      // Marked as a draft on the way in, same as the text-selection popup's
+      // "Save as draft note", asked for directly, so a note drafted here is
+      // just as findable in the Drafts filter (sidebar, Library) as one
+      // captured that way, not silently indistinguishable from a note typed
+      // straight into Notes.
+      entry = await apiJson("/entries", {
+        method: "POST",
+        body: JSON.stringify({ content, tags, is_draft: true }),
+      });
+    }
+    const wroteBack = draftNoteId !== null;
+    clearDraftTarget();
     foldedThoughts = "";
     $("draft-thoughts").value = "";
     $("draft-text").value = "";
@@ -17607,8 +17662,8 @@ async function saveDraftAsNote() {
     renderDraftVersions();
     updateDraftCount();
     saveDraftLocally();
-    status.textContent = "Saved as a note.";
-    toast("Draft saved as a note.");
+    status.textContent = wroteBack ? "Saved back to the note." : "Saved as a note.";
+    toast(wroteBack ? "The note has been updated." : "Draft saved as a note.");
     await loadEntries();
     flashEntry(entry.id); // show them where it landed
   } catch (error) {
@@ -37706,6 +37761,24 @@ $("draft-add-source").addEventListener("click", async () => {
   renderDraftSources();
   saveDraftLocally();
 });
+$("draft-continue-note").addEventListener("click", async () => {
+  const entry = await pickEntryDialog("Which note should Atlas carry on?");
+  if (!entry) return;
+  if ($("draft-text").value.trim()) pushDraftUndo();
+  $("draft-text").value = entry.content || "";
+  draftNoteId = entry.id;
+  draftNoteLabel = (entry.title || notePreviewText(entry.content) || "a note").slice(0, 40);
+  $("draft-kind").value = "continue";
+  markDraftQuickstart("continue");
+  renderDraftTarget();
+  // The note as it stands is version one, so the way back to what it said
+  // before Atlas touched it is the same chip row as every other pass.
+  rememberDraftVersion($("draft-text").value);
+  updateDraftCount();
+  saveDraftLocally();
+  setDraftStatus("That note is in the draft. Add a thought, then draft to carry it on.");
+  $("draft-thoughts").focus();
+});
 for (const id of ["draft-kind", "draft-tone", "draft-length"]) {
   $(id).addEventListener("change", () => {
     if (id === "draft-kind") markDraftQuickstart($("draft-kind").value);
@@ -37745,6 +37818,7 @@ $("draft-discard").addEventListener("click", async () => {
   draftVersions = [];
   renderDraftSources();
   renderDraftVersions();
+  clearDraftTarget();
   setDraftStatus("");
   updateDraftCount();
   saveDraftLocally();

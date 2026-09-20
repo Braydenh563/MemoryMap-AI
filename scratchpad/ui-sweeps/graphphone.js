@@ -277,6 +277,50 @@ async function touch(cdp, type, points) {
     check(sheet.show, "the display toggles are not in the sheet");
     check(sheet.rect[2] >= WIDTH - 2, `the sheet is ${sheet.rect[2]} wide in ${WIDTH}`);
     check(!sheet.small.length, 'controls under 44px in the sheet: ' + sheet.small.join(', '));
+    // The panel's own content was 795px inside a 286px cap when it floated;
+    // in the sheet the sheet is the scroller, so what does not fit has to be
+    // reachable rather than cut off.
+    const scroller = await page.evaluate(() => {
+      const card = document.querySelector('.sheet-overlay[data-sheet="graph"] .sheet-card');
+      const style = getComputedStyle(card);
+      return { sh: card.scrollHeight, ch: card.clientHeight, overflow: style.overflowY };
+    });
+    console.log('sheet scroll    ', JSON.stringify(scroller));
+    check(
+      scroller.sh <= scroller.ch + 1 || ['auto', 'scroll'].includes(scroller.overflow),
+      `${scroller.sh}px of controls inside ${scroller.ch}px with overflow-y ${scroller.overflow}`
+    );
+    // A select inside the sheet opens a list of its own, and a list nothing
+    // can press is a control that is not there. Asked of the pixel: what is
+    // on top at the middle of the open list.
+    //
+    // **Measured after a frame, not in the same tick as the press.** The
+    // menu fades in, so a read taken synchronously after `click()` finds it
+    // laid out, positioned and at `opacity: 0`, which reads exactly like a
+    // menu painted behind the sheet and is not one.
+    await page.evaluate(() => {
+      document.querySelector('.sheet-overlay[data-sheet="graph"] #graph-colour')
+        ?.closest('.select-shell')?.querySelector('.select-opener')?.click();
+    });
+    await page.waitForTimeout(400);
+    const list = await page.evaluate(() => {
+      const menu = document.querySelector('.select-menu:not(.hidden)');
+      if (!menu) return null;
+      const r = menu.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(20, r.height / 2));
+      const cs = getComputedStyle(menu);
+      return {
+        rect: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)],
+        onTop: Boolean(hit && menu.contains(hit)),
+        hit: hit ? (hit.id || hit.className || hit.tagName).toString().slice(0, 30) : null,
+        opacity: cs.opacity,
+      };
+    });
+    console.log('colour list     ', JSON.stringify(list));
+    check(Boolean(list), 'the colour rule has no open list inside the sheet');
+    if (list) check(list.onTop, 'the colour list opens behind the sheet: ' + list.hit);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
     const back = await page.evaluate(() => ({

@@ -1112,7 +1112,7 @@
               <h2 id="writing-room-heading">Write with Atlas</h2>
             </div>
             <div class="dock-actions">
-              <button id="draft-compose" data-needs-model="Drafting needs the local AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Draft</button>
+              <button id="draft-compose" data-needs-model="Drafting needs a model connected"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Draft</button>
               <button id="draft-cancel" class="ghost hidden" type="button"
                 title="Stop Atlas: nothing you've written is changed"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
               <button id="draft-undo" class="ghost small" type="button" disabled
@@ -1229,7 +1229,13 @@
                 <label for="draft-text" class="muted">The draft</label>
                 <span id="draft-count" class="muted"></span>
               </div>
-              <textarea id="draft-text" rows="14"
+              <!-- `rows="7"`, the same as the thoughts box opposite, and
+                   measured: at 390 the two boxes are stacked and their rows
+                   attribute is what decides their height, so `rows="14"` drew
+                   one box at 189.2px and the other at 330.3px on a phone. On
+                   a desktop neither number is what decides, the flex stretch
+                   inside a stretched column is. -->
+              <textarea id="draft-text" rows="7"
                 placeholder="Your draft will appear here as Atlas writes it. You can edit it directly."></textarea>
               <!-- Open while a pass runs and closed once it lands: the
                    thinking is worth watching and not worth keeping. -->
@@ -1251,7 +1257,7 @@
                 <input id="draft-instruction" type="text" maxlength="300"
                   placeholder="Refine: “make it shorter”, “add a summary”…"
                   aria-label="An instruction for the next pass">
-                <button id="draft-refine" data-needs-model="Refining needs the local AI"
+                <button id="draft-refine" data-needs-model="Refining needs a model connected"
                   class="ghost" type="button"
                   title="Run this instruction over the draft"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Refine</button>
               </div>

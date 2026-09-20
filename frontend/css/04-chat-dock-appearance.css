@@ -2958,6 +2958,12 @@ span > .chip {
   flex-wrap: wrap;
   gap: var(--space-2);
   margin-bottom: var(--space-3);
+  /* `.library-chip` takes its height from `--control-h`, and this row sits
+     outside the columns that declare one: measured, the chips drew at 22.4px
+     against the Library's own 36px, from the root fallback. The `max()` keeps
+     both bands honest at once, 36px where the Library's are and the touch
+     floor below 820, without writing either number twice. */
+  --control-h: max(2.25rem, var(--target-min));
 }
 
 /* The three selects and the adder are one family on one line, so they take
@@ -3016,6 +3022,21 @@ span > .chip {
   flex: 0 0 auto;
 }
 
+/* **Bounded on purpose, and measured.** The thinking was an unstyled `<pre>`
+   (it had no rule anywhere in the app), so the moment it opened it grew the
+   column from 539px to 1576px: a 1031px panel thrown under the draft it is
+   about, while that draft is still being written. Capped and scrolled, the
+   disclosure costs the same 8rem wherever it opens, and app.js keeps the
+   newest line in view while the model is writing it. */
+.thinking-text {
+  max-height: 8rem;
+  overflow: auto;
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
 .draft-versions {
   display: flex;
   flex-wrap: wrap;
@@ -3034,6 +3055,18 @@ span > .chip {
 #writing-room.draft-writing #draft-text,
 #writing-room.draft-writing .note-surface {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+/* **A desk has a working height of its own.** With both boxes on `rows="7"`
+   and everything below them stretching, the row collapsed to what its
+   contents asked for: measured at 1440, the draft box came out at 176px, its
+   own `min-height` floor, on a 534px card. The height belongs to the desk,
+   not to a rows attribute, and the boxes take the slack the way
+   `.draft-columns`' own `align-items: stretch` already intends. */
+@media (min-width: 901px) {
+  .draft-columns {
+    min-height: 30rem;
+  }
 }
 
 /* One column on narrow screens, side-by-side textareas become unusable

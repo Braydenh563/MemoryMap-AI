@@ -17449,6 +17449,10 @@ async function composeDraft() {
           thinking.classList.remove("hidden");
           thinking.open = true;
           thinkingText.textContent = thought;
+          // The panel is capped at 8rem, so the newest line is the one worth
+          // showing: a bounded box that always shows its first line is a box
+          // that stops saying anything after three seconds.
+          thinkingText.scrollTop = thinkingText.scrollHeight;
         } else if (event.type === "delta") {
           if (!started) {
             started = true;

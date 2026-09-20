@@ -8,9 +8,10 @@ const r = await page.evaluate(()=>{
   const panel = document.getElementById('graph-options');
   const sections = [...panel.querySelectorAll(':scope > .dock-menu-section')].map(s=>{
     const rect = s.getBoundingClientRect();
-    const label = s.querySelector(':scope > .dock-menu-label');
+    const label = s.querySelector(':scope > .dock-menu-label, :scope > .dock-menu-section-head > .dock-menu-label, :scope > summary > .dock-menu-label');
     return {
       name: label ? label.textContent.trim() : '(unnamed)',
+      fold: s.tagName === 'DETAILS' ? (s.open ? 'open' : 'closed') : null,
       h: Math.round(rect.height),
       labelH: label ? Math.round(label.getBoundingClientRect().height) : null,
       rows: [...s.querySelectorAll(':scope > .graph-option-row')].map(row=>Math.round(row.getBoundingClientRect().height)),

@@ -232,6 +232,36 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
   panel with its own scrollbar).
 - Phase 6 already holds the node panel work; these are its remaining rows.
 
+## Decision made, 2026-09-20: three of the six options sections are folds
+
+The recommendation on record (archive/agent-remaining/graph.md, "Open, found
+and not fixed") was that Groups and Minimap become one collapsed `details`
+each. Taken, and measured: it is no longer enough. The panel had grown from
+the 587px that recommendation was written against to 655px of list in a 488px
+box at 1440x900, because the Show section went from six switches to nine
+(143px to 211px). Groups and Minimap folded give 517 in 488, still scrolling.
+
+Decided, since which section gives way next is a design call and rule 3 says
+to record one: **Physics folds too.** The rule the three share is that they
+are set once and then left, while Show and Time are used with the map in
+front of you. Physics is the clearest of the three on that test: its two
+sliders are already disabled outright under the tree layouts, which is the
+app saying they do not always apply. Its "Unpin all" rides the fold's own
+`<summary>`, where it already rode the section head, and the button calls
+`preventDefault` so releasing the pins does not also open or close the fold.
+
+Each fold remembers whether it is open, for the reason the panel itself does.
+Closed is the default. `details.settings-fold` is the app's existing
+disclosure and is now a row in DESIGN.md's recipe index, with
+`tests/test_ui_recipes.py` holding the four rules that dress it to one set of
+families and the count of disclosures that name no family at all.
+
+Measured after, `scratchpad/ui-sweeps/graphoptfold.js`: 451px of list in a
+451px box at 1440x900 and again at 1024, nothing scrolling, 37px clear of the
+cap; opening all three gives 669 in 488, which scrolls inside the panel as it
+should. At 390 the panel still scrolls (795 in 286, against 1071 with the
+three open), which is the phone's own cap rather than this panel's size.
+
 ## Decision made, 2026-09-13: a Show switch that is off means absent
 
 INBOX 185 forced a decision the three switches in the Show section had never

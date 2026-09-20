@@ -2693,8 +2693,8 @@
                section there rather than leaving controls that silently do
                nothing; `#graph-physics` is the element it dims, which is why
                the id is on the section and not on a wrapper inside it. -->
-          <div class="dock-menu-section graph-physics" id="graph-physics"
-            role="group" aria-labelledby="graph-physics-label">
+          <details class="dock-menu-section settings-fold graph-options-fold graph-physics"
+            id="graph-physics">
             <!-- Unpin all rides the section's own header row now (graph.md
                  section 2: "the 'Pinned notes' row's label -- the button
                  could be the row"). It had its own row with a "Pinned notes"
@@ -2705,13 +2705,21 @@
                  (releasing what you pinned hands the layout back to Gravity
                  and Spread), just beside the section name instead of under
                  it. -->
-            <div class="dock-menu-section-head">
+            <!-- The section head is the fold's summary now, and "Unpin all"
+                 rides it the way it rode the head: a button inside a
+                 `<summary>` is phrasing content and therefore valid, and
+                 `graph-unpin-all`'s own handler calls preventDefault so
+                 pressing it releases the pins without also opening or
+                 closing the fold it sits on. The alternative was a row of
+                 its own inside the fold, which is the row this header
+                 replaced in the first place. -->
+            <summary>
               <span class="muted dock-menu-label" id="graph-physics-label">Physics</span>
               <button id="graph-unpin-all" class="ghost small" type="button"
                 title="Release every note you have pinned in place, so the layout can move freely again">
                 <i class="ph ph-arrows-out-cardinal ph-lead" aria-hidden="true"></i> Unpin all
               </button>
-            </div>
+            </summary>
             <div class="graph-option-row">
               <label for="graph-gravity">Gravity</label>
               <input id="graph-gravity" type="range" min="0" max="100" value="50"
@@ -2722,7 +2730,7 @@
               <input id="graph-spread" type="range" min="0" max="100" value="50"
                 title="How far apart linked notes sit">
             </div>
-          </div>
+          </details>
           <div class="dock-menu-section" id="graph-toggle-group"
             role="group" aria-labelledby="graph-show-label">
             <div class="dock-menu-section-head">
@@ -2833,8 +2841,15 @@
                thesis" stays one colour whatever the rest of the map is coloured
                by. Resolved through /entries?q= on each render, never stored as
                ids, so a note written tomorrow joins its group by itself. -->
-          <div class="dock-menu-section" id="graph-groups-section" role="group" aria-labelledby="graph-groups-label">
-            <span class="muted dock-menu-label" id="graph-groups-label">Groups</span>
+          <!-- Folded, on the app's own `details.settings-fold` recipe (DESIGN.md,
+               the recipe index). The panel had grown back past its own cap at
+               1440x900 (655px of list in a 488px box) and this section plus
+               Minimap below are the two that are set once and then left: a
+               group is made and then lives in the legend, a corner is chosen
+               and then stays chosen. Folded they cost a heading each instead
+               of a heading plus a search box plus an empty-state sentence. -->
+          <details class="dock-menu-section settings-fold graph-options-fold" id="graph-groups-section">
+            <summary><span class="muted dock-menu-label" id="graph-groups-label">Groups</span></summary>
             <!-- Not a `.graph-option-row`: that recipe is "one setting, one
                  row, what it is on the left and the control that changes it on
                  the right", and this row makes a group rather than changing
@@ -2849,10 +2864,10 @@
                 title="Paint every note matching these words one colour"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add</button>
             </div>
             <div id="graph-groups" class="graph-groups" role="list"></div>
-          </div>
-          <div class="dock-menu-section"
-            role="group" aria-labelledby="graph-minimap-label">
-            <span class="muted dock-menu-label" id="graph-minimap-label">Minimap</span>
+          </details>
+          <details class="dock-menu-section settings-fold graph-options-fold"
+            id="graph-minimap-section">
+            <summary><span class="muted dock-menu-label" id="graph-minimap-label">Minimap</span></summary>
             <div class="graph-option-row">
               <label for="graph-minimap-corner">Position</label>
               <select id="graph-minimap-corner" class="ghost small" aria-label="Minimap position"
@@ -2872,7 +2887,7 @@
                 <option value="lg">Large</option>
               </select>
             </div>
-          </div>
+          </details>
           <!-- One row, one button (graph.md section 2's other named
                candidate): the section held its own name plus a second row
                naming the one thing in it ("Similar notes") again before the

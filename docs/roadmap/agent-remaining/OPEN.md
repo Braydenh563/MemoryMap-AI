@@ -185,13 +185,15 @@ being written by running agents stay beside this one.
 
 ## Graph
 
-- **The options panel scrolls again at 1440x900: 587px of list in a 484px
-  cap.** Batch C closed this at 418 against 418 and the sections added since
-  reopened it. Measured per section with `graph2.js` plus a probe: Physics
-  106, Show 143, Time 83, Groups 121, Minimap 95, Links 39. Not fixed because
-  which section gives way is a design call; the recommendation on record is
-  that Groups and Minimap each become one collapsed `details`, the way the
-  Time section's read-out already hides until it is wanted. [graph.md]
+- ~~**The options panel scrolls again at 1440x900.**~~ **Fixed, 2026-09-20.**
+  It had grown to 655px of list in a 488px box (Show had gone from 143 to 211
+  as three switches were added). Physics, Groups and Minimap are each a
+  `details.settings-fold` now, closed by default and remembered; GRAPH_PLAN's
+  "Decision made, 2026-09-20" carries why Physics joined the two on record.
+  Measured with `scratchpad/ui-sweeps/graphoptfold.js`: 451 in 451 at 1440 and
+  at 1024, nothing scrolling; 669 in 488 with all three open, scrolling inside
+  the panel. At 390 the panel still scrolls (795 in 286, from 1071), which is
+  the phone's own 286px cap, not the panel's size. [graph.md]
 - **`/graph/local` has no Show switches**, so focus mode and the local pane
   still walk boards as notes. GRAPH_PLAN's "Decision made, 2026-09-13" says
   why that was left. [graph.md]

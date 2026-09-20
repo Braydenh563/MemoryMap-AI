@@ -65,9 +65,13 @@ const TABS = ['dashboard', 'notes', 'chat', 'graph', 'library', 'timeline', 'rem
       const round = (n) => Math.round(n * 10) / 10;
       const page_ = document.querySelector('.tab-page:not(.hidden)');
       if (!page_) return { none: true };
+      // On screen as well as visible: a sidebar sheet parked at
+      // translateX(-100%) passes checkVisibility and has a box, and a box
+      // entirely left of the window is not a column beside anything.
       const visible = (el) =>
         el.checkVisibility
-        && el.checkVisibility({ visibilityProperty: true, opacityProperty: true, contentVisibilityAuto: true });
+        && el.checkVisibility({ visibilityProperty: true, opacityProperty: true, contentVisibilityAuto: true })
+        && el.getBoundingClientRect().right > 0;
       // Every control the tab shows, minus the app's furniture (the bar, the
       // status bar and the header belong to the shell) and minus the four
       // kinds of element that are deliberately unreachable, each with a visible

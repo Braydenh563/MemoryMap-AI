@@ -255,7 +255,7 @@ MemoryMap-AI/
 ├── tests/                   # pytest; every AI call faked (tests/fakes.py)
 ├── tests-e2e/               # the Playwright smoke suite CI runs
 ├── scratchpad/              # measurement scripts: ui-sweeps/, the fake
-│                            #   OpenAI server, the INBOX tools
+│                            #   OpenAI server, the INBOX tools, llama-dev.sh
 ├── scripts/                 # gate.sh, the merge gate in one command
 ├── docs/                    # you are here; roadmap/ holds the plans
 ├── packaging/               # the Windows installer and the Linux zip
@@ -984,6 +984,18 @@ style, optional AI profile, …) live in `data/preferences.json`, managed by
   effect. Drive the app in a browser before believing a frontend change works;
   §10 says how.
 - **Lint locally:** `ruff check .` (and, optionally, `ruff format` to tidy).
+- **Evals against a real model, by hand only.** Every provider test in the
+  suite runs against a fake transport, so nothing in `tests/` can say how a
+  real small model answers a re-prompt. `scratchpad/llama-dev.sh` closes that
+  gap for a developer who asks for it: `check` says what is present and
+  downloads nothing, `fetch` downloads one small instruct GGUF outside the
+  repository, `build` compiles `llama-server` from a llama.cpp checkout you
+  name, and `serve` starts it and prints the two exports the evals read,
+  `MEMORYMAP_EVALS_URL` and `MEMORYMAP_EVALS_MODEL`. With those set,
+  `pytest -m evals tests/` runs the eval tests against that model; without
+  them the eval modules skip themselves at collection, so the ordinary suite
+  and CI never depend on a model, a binary or a network. Nothing in `tests/`
+  imports the script and no mode of `scripts/gate.sh` calls it.
 - **CI** (`.github/workflows/ci.yml`): lint with ruff, then run the full test
   suite on Python 3.11 / 3.12 / 3.13 and the Playwright smoke suite in
   `tests-e2e/`. No GPU, no Ollama, no models required.

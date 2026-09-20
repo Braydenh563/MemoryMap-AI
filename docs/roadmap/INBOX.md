@@ -270,7 +270,17 @@ with its owner named in the entry.
     takes the dragged item's own box, since a sketch is a path with no
     x/y/width/height, and the sketch handler snaps and draws like the other
     two. Probe: `scratchpad/ui-sweeps/wbgroupguides.js`, in the gate's sweep
-    set. (3) still open.
+    set. (3) fixed: the gesture was already wired (a `dblclick` on
+    `.wb-resize-handle` calling `wbFitToText`) and measured as doing nothing.
+    Two causes, both real. The handles carried no title, so the gesture was
+    invisible and indistinguishable from missing, which is why it was
+    reported as missing. And `wbFitToText` measured the *card's* own
+    `scrollHeight`, which cannot answer the question: `.wb-card-content`
+    clips on purpose (INBOX 238), so the card's scroll height is the height
+    of a box that is already clipping. It measures the content, unclipped,
+    plus the card's chrome now. Measured: a 100px card holding fourteen
+    wrapped lines went 100px to 100px before and 100px to 748px after, with
+    nothing clipped. Probe: `scratchpad/ui-sweeps/wbfitanchor.js`.
     (1) fixed, `0f5d46d`, and measured: `liveMarkdownRenderer` armed a paint
     up to 66ms before the stream ended, which fired after the markers were
     placed and repainted the box from raw markdown, removing all three. The

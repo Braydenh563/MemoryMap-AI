@@ -13649,6 +13649,9 @@ function renderWhiteboard() {
     nodeEnter.append("div")
       .attr("class", "wb-resize-handle")
       .attr("data-handle", handle)
+      //: The same title the object handles carry, for the same reason: the
+      //: double-click-to-fit gesture had nothing on screen saying it existed.
+      .attr("title", "Drag to resize: double click to fit the text")
       .call(nodeResizeDrag(handle));
   }
   nodeEnter.append("div")
@@ -13749,10 +13752,70 @@ async function wbFitToText(el) {
     toast("Sized to its text.");
     return;
   }
+  //: **The card's own `scrollHeight` is not the answer for a note card.**
+  //: Reported as the gesture not working at all: *"Double tap anchor resize
+  //: nodes to auto size adjust"*. Measured, the gesture fires and the toast
+  //: says "Sized to its text", and a 100px card holding fourteen wrapped
+  //: lines came out 103px and still clipping.
+  //:
+  //: The reason is one rule further in. `.wb-card-content` carries
+  //: `min-height: 0; overflow: hidden` on purpose (INBOX 238: without them a
+  //: note's paragraphs were painted over the board), and a capped card also
+  //: carries a `max-height`. Both mean the text is already clipped *inside*
+  //: the card, so the card's own scroll height with `height: auto` is the
+  //: height of a box that is clipping, not the height the text needs.
+  //:
+  //: So the measurement opens the content up too, reads, and puts every
+  //: property back exactly as it found it. Restored with
+  //: `removeProperty`/assignment of the saved value rather than by setting
+  //: something "sensible": these elements are re-rendered from CSS, and
+  //: leaving an inline `overflow` behind would silently disable the clipping
+  //: that rule exists to do.
+  //: **The text's height, plus the card's chrome.** Not the card's own
+  //: `scrollHeight`, which is what this used to read and which cannot answer
+  //: the question: `.wb-card-content` carries `min-height: 0` and
+  //: `overflow: hidden` on purpose (INBOX 238, without them a note's
+  //: paragraphs were painted over the board), so the text is already clipped
+  //: *inside* the card and the card's scroll height is the height of a box
+  //: that is clipping, not the height the text needs. Measured: a 100px card
+  //: holding fourteen wrapped lines fitted to 100px, three times running,
+  //: while the toast said it had been sized to its text.
+  //:
+  //: So the content is opened up and measured on its own, and the difference
+  //: between the card and the content (padding, a thumbnail, a Show more
+  //: row) is added back. Every property is restored to exactly what it was,
+  //: by removal when it was not set inline: these elements are re-rendered
+  //: from CSS, and an inline `overflow` left behind would silently disable
+  //: the clipping that rule exists to do.
+  const content = el.querySelector(".wb-card-content");
   const previous = el.style.height;
-  el.style.height = "auto";
-  const fitted = Math.ceil(el.scrollHeight);
-  el.style.height = previous;
+  let fitted = 0;
+  if (content) {
+    const saved = {
+      overflow: content.style.overflow,
+      maxHeight: content.style.maxHeight,
+      height: content.style.height,
+    };
+    //: The chrome is measured *before* anything is opened up, while the card
+    //: is still in its real layout: afterwards both boxes are growing and
+    //: the difference between them is no longer the padding.
+    const chrome = Math.max(0, el.offsetHeight - content.offsetHeight);
+    content.style.overflow = "visible";
+    content.style.maxHeight = "none";
+    content.style.height = "auto";
+    el.style.height = "auto";
+    fitted = Math.ceil(content.scrollHeight) + chrome;
+    el.style.height = previous;
+    for (const [name, value] of Object.entries(saved)) {
+      const prop = name === "maxHeight" ? "max-height" : name;
+      if (value) content.style.setProperty(prop, value);
+      else content.style.removeProperty(prop);
+    }
+  } else {
+    el.style.height = "auto";
+    fitted = Math.ceil(el.scrollHeight);
+    el.style.height = previous;
+  }
   if (!fitted) return;
   //: The same floor the resize drag uses, so a fit cannot produce a box that
   //: a drag would refuse to make.
@@ -14302,6 +14365,12 @@ function renderWbObjects(canvas) {
       el.append("div")
         .attr("class", "wb-resize-handle")
         .attr("data-handle", handle)
+        //: **The gesture says it exists.** The rotate grip beside these has
+        //: carried a title explaining its own modifier since it was built;
+        //: these had none, so double-tapping to fit was real and invisible,
+        //: which is indistinguishable from missing and was duly reported as
+        //: missing.
+        .attr("title", "Drag to resize: double click to fit the text")
         .call(resizeDrag(handle));
     }
     el.append("div")

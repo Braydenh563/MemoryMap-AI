@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The CSS that styled the whiteboard's old export popover is gone. The popover
+  became a dialog several phases ago; its class stayed in seventeen grouped
+  selectors across three stylesheets, four of them rules with nothing else in
+  them.
+
 - The quick sketch pad's ink dots are a finger's size on a phone. They were
   16px targets in a bar whose every other control steps up to 44, and the
   dialog is the one place the touch sweep never looked. The dot is 32px below

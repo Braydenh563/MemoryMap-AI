@@ -412,12 +412,23 @@ being written by running agents stay beside this one.
   is the dock grammar unchanged); it is the same counting question INBOX 47
   raises for Notes and Library. Owner: UI_MODERNISATION_PLAN Phase 8.
   [whiteboard-phases.md]
-- **The old export popover's CSS still names it in grouped selectors.**
-  `.wb-export-menu` builds nothing any more, but the name is in
-  `08-consistency.css` lines 81, 132, 166, 183, 194, 302, 321, 334, 340, 1157
-  and once in the `[data-glass="off"]` list in `03-dashboard-widgets.css`. A
-  one-line-per-site sweep with no behaviour behind it, left because those
-  files were being edited by another agent. [whiteboard-phases.md]
+- ~~**The old export popover's CSS still names it in grouped selectors.**~~
+  Swept 2026-09-20: fifteen mentions of `.wb-export-menu` in
+  `08-consistency.css` are none, the `[data-glass="off"]` entry in
+  `03-dashboard-widgets.css` is gone, and two more the ledger had not counted
+  went with them (the zero-margin list and the max-height cap in
+  `07-whiteboard-misc.css`). Four were whole rules with nothing else in them,
+  including the bare-button rule that styled its rows. One thing had grown on
+  the dead name and is re-anchored rather than deleted:
+  `tests/test_region_read.py` found the popover shell by splitting the
+  stylesheet on `".wb-export-menu,"`, so it was reading the region popover's
+  own group through a class that stopped existing. It splits on
+  `".wb-board-menu,"` now. `test_ui_recipes.py`, `test_style_scale.py`,
+  `test_css_braces.py`, `test_ui_signatures.py` and `test_region_read.py`
+  green (93 tests), the board menus measured unchanged afterwards
+  (`wbmenus.js`: one shell recipe across all five, rows 36px) and the export
+  dialog still opens inside the window (`wbinbox12.js` 6/6).
+  [whiteboard-phases.md]
 - **The View menu is 714px of content on a map.** Under about a 730px-tall
   window it still scrolls, which is correct and may still read as the report.
   If it comes back the fix is the menu's own length (four groups, sixteen

@@ -62,7 +62,8 @@
    The measured spread of row paddings was 0.15/0.5rem (the note kebab, where
    `.entry-actions button` at 0,1,1 quietly outranked `.menu-item` at 0,1,0),
    0.4/0.5rem (nav-history), 0.5/0.8rem (`.menu-item`'s own declaration) and
-   0.5/0.6rem (`.wb-export-menu button`). One padding, `--space-2
+   0.5/0.6rem (the whiteboard's old export popover, since replaced by the
+   export dialog and removed from this file). One padding, `--space-2
    --space-5`, lands every menu in the app on a 34px row: nav-history's
    height, which is the one nothing has ever been reported against.
 
@@ -78,7 +79,6 @@
   .doc-dock-menu-list,
   .nav-history-menu,
   .library-image-menu-list,
-  .wb-export-menu,
   .wb-board-menu
 ) :is(
   .menu-item,
@@ -126,32 +126,6 @@
   cursor: pointer;
 }
 
-/* The export menu's rows are bare `<button>`s with no row class of their own
-   (06-timeline-dialogs.css drew them directly). 0,1,1 here, and this file is
-   later than that one, so it wins on order rather than on weight. */
-.wb-export-menu > button,
-.wb-export-menu > div > button {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: var(--space-2);
-  width: 100%;
-  height: auto;
-  min-height: var(--control-h-lg);
-  margin: 0;
-  padding: var(--space-2) var(--space-5);
-  border: none;
-  border-radius: var(--radius-md);
-  background: none;
-  box-shadow: none;
-  color: var(--ink);
-  font-size: var(--text-md);
-  font-weight: 500;
-  line-height: 1.6;
-  text-align: left;
-  cursor: pointer;
-}
-
 /* Hover is a ghost tint; accent-soft is reserved for *selected*.
    Before this they were the same colour, which is why an open select listbox
    could not show you which option you were already on once the pointer
@@ -163,7 +137,6 @@
   .doc-dock-menu-list,
   .nav-history-menu,
   .library-image-menu-list,
-  .wb-export-menu,
   .wb-board-menu
 ) :is(
   .menu-item,
@@ -180,7 +153,6 @@
   .doc-dock-menu-list,
   .nav-history-menu,
   .library-image-menu-list,
-  .wb-export-menu,
   .wb-board-menu
 ) :is(
   .menu-item,
@@ -190,11 +162,7 @@
   .action-menu-item,
   .wb-menu-item,
   .select-option
-):focus-visible,
-.wb-export-menu > button:hover,
-.wb-export-menu > button:focus-visible,
-.wb-export-menu > div > button:hover,
-.wb-export-menu > div > button:focus-visible {
+):focus-visible {
   background: var(--ghost-btn-bg);
   color: var(--ink);
 }
@@ -291,15 +259,17 @@
   width: 100%;
 }
 
-/* The whiteboard's own two menus were the last floating surfaces outside the
+/* The whiteboard's own menus were the last floating surfaces outside the
    one popover shell: glass fill, `--glass-border`, `--radius`, an inset
    highlight and a full blur pass each. 07-whiteboard-misc.css's shell rule
-   lists eleven surfaces and these two were not among them. Same job, so the
+   lists eleven surfaces and these were not among them. Same job, so the
    same shell - opaque, because a menu that floats over a board full of
    sticky notes has the same legibility problem the note editor gave the
-   toolbar menus (CLAUDE.md's ghost-text story). */
-.wb-board-menu,
-.wb-export-menu {
+   toolbar menus (CLAUDE.md's ghost-text story). The board menu is what is
+   left of the pair: the export popover became a dialog (WHITEBOARD_PLAN
+   decision 4) and its class stopped being built long before this sweep took
+   its name out of ten grouped selectors here. */
+.wb-board-menu {
   background: var(--modal-bg-opaque);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -317,8 +287,7 @@
   background: var(--divider);
 }
 
-.wb-board-menu .wb-menu-section + .wb-menu-section,
-.wb-export-menu > div + div {
+.wb-board-menu .wb-menu-section + .wb-menu-section {
   border-top: 1px solid var(--divider);
   padding-top: var(--space-2);
 }
@@ -331,13 +300,11 @@
 .select-menu,
 .doc-dock-menu-list,
 .nav-history-menu,
-.wb-export-menu,
 .wb-board-menu {
   padding: var(--space-2);
 }
 
-.wb-board-menu,
-.wb-export-menu {
+.wb-board-menu {
   gap: var(--space-2);
 }
 
@@ -1164,7 +1131,6 @@ summary > .ph-lead,
   .doc-dock-menu-list,
   .nav-history-menu,
   .library-image-menu-list,
-  .wb-export-menu,
   .wb-board-menu
 ) kbd {
   padding: 0;

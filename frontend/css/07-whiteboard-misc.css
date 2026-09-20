@@ -8383,7 +8383,6 @@ button.connection-row {
 .wb-board-menu,
 .wb-search-bar,
 .whiteboard-sidebar,
-.wb-export-menu,
 .wb-navigator,
 .wb-context,
 .whiteboard-floating-panel {
@@ -8638,7 +8637,6 @@ header#top-bar > #tab-bar {
 .action-menu,
 .doc-dock-menu-list,
 .wb-board-menu,
-.wb-export-menu,
 .ocr-region-popover,
 .help-popover {
   max-height: calc(100vh - var(--space-9) * 2);

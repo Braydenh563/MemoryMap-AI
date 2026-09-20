@@ -227,7 +227,12 @@ def test_the_boxes_layer_lets_the_drag_through_and_the_boxes_do_not():
 def test_the_offer_uses_the_apps_floating_panel_shell():
     """DESIGN.md's popover shell, the rule at the end of this stylesheet, not
     a fifth recipe for "a small box that floats"."""
-    shell = CSS.split(".wb-export-menu,")[-1].split("{")[0]
+    #: Anchored on `.wb-board-menu,`, a selector that is still built: this
+    #: read `.wb-export-menu,` until that class was swept out of every
+    #: stylesheet (the export is a dialog, WHITEBOARD_PLAN decision 4), and an
+    #: anchor on a dead name passes by accident right up to the day it stops
+    #: finding anything at all.
+    shell = CSS.split(".wb-board-menu,")[-1].split("{")[0]
     assert ".ocr-region-popover" in shell
     glass_off = Path("frontend/css/03-dashboard-widgets.css").read_text(encoding="utf-8")
     assert ':root[data-glass="off"] .ocr-region-popover' in glass_off, (

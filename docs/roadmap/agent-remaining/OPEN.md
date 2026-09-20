@@ -157,36 +157,121 @@ being written by running agents stay beside this one.
 
 ## Graph
 
-- **The options panel scrolls again at 1440x900: 587px of list in a 484px
-  cap.** Batch C closed this at 418 against 418 and the sections added since
-  reopened it. Measured per section with `graph2.js` plus a probe: Physics
-  106, Show 143, Time 83, Groups 121, Minimap 95, Links 39. Not fixed because
-  which section gives way is a design call; the recommendation on record is
-  that Groups and Minimap each become one collapsed `details`, the way the
-  Time section's read-out already hides until it is wanted. [graph.md]
-- **`/graph/local` has no Show switches**, so focus mode and the local pane
-  still walk boards as notes. GRAPH_PLAN's "Decision made, 2026-09-13" says
-  why that was left. [graph.md]
-- **GRAPH_PLAN Phase 5** (the backend fields, positions on views, the
-  `?since=` cursor) is recorded as untouched. Phase 4 landed on 2026-09-13, so
-  read the plan's own state before starting. [graph.md]
-- **The node popup redesign the owner names** ("I dont think you have
-  redesigned the popup agent yet") is GRAPH_PLAN Phase 6 and the three rows
-  under "Placed from INBOX, 2026-09-09", which hold the node panel. The agent
-  popup is a different surface. [graph.md]
-- **`graph.js`'s step 5 still fails**: "clear trace (a route was drawn:
-  false): NO CHANGE", seen while re-measuring the drag-fps gate, which now
-  passes at 58.9 fps. For the graph agent. [ui-phase-11.md]
-- **`scratchpad/ui-sweeps/selectfocus.js` fails twice on a notebook with
-  content**, and it is not new work: `graph/graph-view-picker`, "its opener
-  cannot take focus" and "focusSelect landed on SELECT.ghost, not on its
-  opener". Measured both ways: the branch passes on an empty data dir and
-  fails on a used one, and the base checkout fails identically on that same
-  data dir. Something about the view picker on a populated notebook leaves its
-  opener unfocusable. [library-blockers.md]
-- **The graph node panel is reachable while the graph is in fullscreen**, and
-  INBOX 66 says the lightbox it can open is not. Same phase, not in that
-  agent's brief. [visual-c.md]
+- ~~**The options panel scrolls again at 1440x900.**~~ **Fixed, 2026-09-20.**
+  It had grown to 655px of list in a 488px box (Show had gone from 143 to 211
+  as three switches were added). Physics, Groups and Minimap are each a
+  `details.settings-fold` now, closed by default and remembered; GRAPH_PLAN's
+  "Decision made, 2026-09-20" carries why Physics joined the two on record.
+  Measured with `scratchpad/ui-sweeps/graphoptfold.js`: 451 in 451 at 1440 and
+  at 1024, nothing scrolling; 669 in 488 with all three open, scrolling inside
+  the panel. At 390 the panel still scrolls (795 in 286, from 1071), which is
+  the phone's own 286px cap, not the panel's size. [graph.md]
+- ~~**`/graph/local` has no Show switches.**~~ **Left, on the decision already
+  on record, 2026-09-20.** Read again against the code: `graph_local`
+  (`src/memorymap/api/routes_graph.py`) takes `depth` and `similarity` and
+  nothing else, so the report is accurate. GRAPH_PLAN's "Decision made,
+  2026-09-13" decided it deliberately, and the reason holds: "off means the
+  thing is not on the map" is a statement about the picture of the notebook,
+  and the local pane is a neighbourhood of one note. A board two hops from
+  the note you are reading is part of that neighbourhood whatever the map's
+  own switch says, and hiding it would leave a hole in a path rather than a
+  smaller picture. Reopen this only if the owner asks for it; the switches
+  would then be four query parameters plus the `?include_*` plumbing the
+  top-level `/graph` already has. [graph.md]
+- ~~**GRAPH_PLAN Phase 5**~~ **triaged, 2026-09-20.** The backend fields,
+  the cached `/graph/structure` and the payload gate were built on 2026-09-09
+  (HISTORY, "Built, Phase 5 (backend)"); the two rows left open were re-read
+  against the code rather than started, and GRAPH_PLAN's Phase 5 row now
+  carries the finding. Positions on `/graph/views`: nothing to build as
+  written, because views are per-device localStorage by a decision in
+  `graph.js` itself and the positions that are notebook content (the pins)
+  are already on the Entry. `?since=`: still no caller, since every `/graph`
+  fetch is a `renderGraph()` behind a control or a tab activation, and a
+  parameter nothing calls is the second shape CLAUDE.md section 6 names. The
+  one real gap, on the plan's row now: a saved view does not restore where
+  the unpinned notes sat, so a force view reopens as a fresh solution of the
+  same forces. [graph.md]
+- ~~**The node popup redesign the owner names.**~~ **Measured and found
+  built, 2026-09-20.** GRAPH_PLAN Phase 6 and the three evening rows are all
+  three built; the measurements are in HISTORY under "Moved from the plans,
+  2026-09-20". At 1440 and 1024 the panel is 448x357 with nine actions in one
+  row, three groups, one filled (Open, read off the computed background), and
+  scrollHeight 355 against clientHeight 355, so it does not scroll; at 390 it
+  is a 362x468 sheet with the actions on three lines and neither the panel
+  nor the page scrolling. With an 88-character title the header stays 48px
+  tall, the title is one ellipsised line and the close button sits 14px in
+  from the panel's top right corner at both widths, which is the row the
+  owner reported. The action band is centred, the panel's full width, on the
+  chip fill with one hairline above. Nothing was changed. The agent popup,
+  which is what the owner's sentence names, is a different surface.
+  Found, not fixed: the plan's target says the Bin should be ghost and it
+  renders tonal like its eight neighbours, because a six-class rule paints
+  every `.icon-only:not(.ghost)` button tonal on purpose. Left as it renders:
+  one ghost button among eight tonal ones reads as disabled, and the gap of
+  its own is what sets it apart. [graph.md]
+- ~~**`graph.js`'s step 5 still fails**: "clear trace (a route was drawn:
+  false): NO CHANGE".~~ **Fixed in the sweep, 2026-09-20.** The cause is the
+  edge the trace step picks. It took the first edge on the canvas whose ends
+  are not category groups, and the canvas draws edges `/graph/path` cannot
+  route along: a similarity edge is not a connection anyone made, and an
+  entity or document edge does not even have an integer id, so that route
+  answers 422 and `runTrace` reports "the server didn't answer". Any of those
+  leaves no route on screen, and the *next* step then reported "clear trace:
+  NO CHANGE" as though the renderer had failed. The step now picks a `link`
+  or a `thread`, says which pair it chose, and when no route comes back it
+  fails there, in the app's own words, instead of one line later; clearing is
+  only asked about once there is something to clear. Measured on an 80-note,
+  150-link fixture: `5. trace between two notes (17 to 7, a link): redrew
+  PASS`, `5. clear trace: redrew PASS`, `findings: 0`. And measured the other
+  way, on the thirteen-note seed notebook, where the one link the seed makes
+  runs from a note to a board and the Boards switch is off, so no note-to-note
+  edge is on the map: one finding, "no link or thread edge on the map to
+  trace along: this notebook has no connection between two notes, so Trace
+  cannot be measured at all", which is the fact the old NO CHANGE was hiding.
+  [ui-phase-11.md]
+- **`graph.js` can be interrupted by a confirm dialog and die**, seen once in
+  three runs on the same fixture: after "legend filter off", `page.click
+  ("#graph-zoom-in")` timed out for 30 s against a `.modal-overlay
+  .confirm-overlay` that intercepts pointer events, and the sweep exited on
+  an unhandled TimeoutError with the eight steps after it unrun. Not chased:
+  it did not recur on either of the other two runs and nothing in this batch
+  touches it. Next step: have the sweep name the dialog's own text when one
+  is up, which is the one piece of evidence that run did not capture.
+- ~~**`scratchpad/ui-sweeps/selectfocus.js` fails twice on a notebook with
+  content.**~~ **Fixed in the sweep, 2026-09-20.** Reproduced first, on a
+  seeded notebook on this branch, exactly as reported. The app is right and
+  the sweep was wrong: `renderGraphViews` (graph.js) sets
+  `select.disabled = !views.length`, `enhanceSelect` mirrors that onto the
+  opener (`opener.disabled = select.disabled`), and the sweep asserted that
+  every visible enhanced select has a focusable opener. That is untrue of a
+  control the app has deliberately switched off. It passed on an empty data
+  dir because `renderGraphViews` only runs from the render path, which does
+  not run when there is nothing to draw, so the picker was never switched off
+  there and the assertion never met one. A disabled select is skipped now,
+  counted and printed as skipped, and what is asserted about it instead is
+  that its opener says disabled too, which is the real invariant. Two other
+  things came out of it: `document.body.focus()` does nothing (body has no
+  tabindex), so every "landed on" was measured against whatever the previous
+  row left focused, which is where the misleading "landed on SELECT.ghost"
+  came from; and the graph's options popover is now opened as well as its
+  `<details>` menus, because two selects live in it and whether it was open
+  was a remembered preference, so coverage was 13 selects on one run and 15
+  on the next. Measured: populated notebook 15 checked, 1 skipped, all pass;
+  empty notebook 16 checked, 0 skipped, all pass. [library-blockers.md]
+- ~~**INBOX 66: the lightbox the node panel opens is unreachable while the
+  graph is fullscreen.**~~ **Already fixed, and now measured, 2026-09-20.**
+  `.lightbox` carries `z-index: 1020` against the full-screen card's 1000
+  (02-chat-graph.css, with INBOX 66 named in its comment). Measured with
+  `scratchpad/ui-sweeps/graphfslightbox.js`, which is new: with the map in
+  full screen the lightbox builds at 1440x900, computes `z-index: 1020`
+  against the card's 1000, `document.elementFromPoint` at the centre of the
+  screen lands inside it (`DIV.lightbox-column`) rather than on the card, and
+  the close button has a box. The entry's own diagnosis was wrong in a way
+  worth keeping written down: it blamed the Fullscreen API, and this app's
+  full screen is a class with `position: fixed`, so nothing was ever in a top
+  layer and the whole of it was stacking order.
+  Found while measuring it, not fixed, and now INBOX 274: one Escape closes
+  the lightbox *and* leaves full screen. [visual-c.md]
 
 ## Chat and popup agent
 

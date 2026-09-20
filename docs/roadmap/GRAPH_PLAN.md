@@ -132,11 +132,36 @@ panel scrolls inside, never the page; measured at 1440 and 1024 and on
 390 as a sheet. Gate: `scratchpad/ui-sweeps/graph4b.js` plus a node-panel
 probe that counts buttons per row and the panel's own scrollHeight.
 
-### Phase 5 — backend (½ session)
-`/graph` returns `degree`, `cluster`, `age_days`, `space_id`, `map_ids`
-per node; positions on `/graph/views`; `/graph/structure` cached per
-notebook version; a `?since=` cursor; `tests/test_graph_api.py` covers
-each field and the payload size for a 5k-note fixture (< 600 KB gzipped).
+### Phase 5 — backend (built but for two rows, see below)
+Built 2026-09-09 (HISTORY.md, "Built, Phase 5 (backend)"): the per-node
+fields, `/graph/structure` cached per notebook version, and the payload
+gate. Two rows of the original phase were not built, and were re-read
+against the code on 2026-09-20 rather than started:
+
+- **Positions on `/graph/views`.** Views are localStorage on purpose
+  (`graph.js`, "saved views": per-device workspace state of the same kind
+  as `graph-layout`, not notebook content that belongs in a backup), and
+  the positions that *are* notebook content, the pins, are already on the
+  Entry as `graph_pin_x`/`graph_pin_y` and already restored by both
+  renderers. The reason recorded for leaving this was "the local pane and
+  multi-device views are the reason to move them, and neither exists yet";
+  the local pane exists now and does not read saved views, and there is no
+  second device to sync to in a local-first notebook. Nothing to build
+  here as written.
+- **What is genuinely missing** is smaller and belongs on this row rather
+  than on a server endpoint: a saved view restores the layout, the colour
+  rule, the filters, the groups and the zoom transform, but not where the
+  unpinned notes sat, so a force-layout view reopens as a fresh solution
+  of the same forces rather than the picture that was saved. The fix that
+  stays inside the decision above is `graphCaptureView` storing each
+  visible node's x and y alongside the transform it already stores, and
+  `graphApplyView` seeding the simulation with them. Not started: it is a
+  frontend change with a real design question in it (whether a restored
+  arrangement then holds or settles), and nothing has been asked for it.
+- **A `?since=` cursor.** Still nothing polls `/graph`: every call is
+  `renderGraph()` behind a control, a tab activation or a save. A query
+  parameter with no caller is the "feature that never ran once" shape
+  CLAUDE.md section 6 puts second on its list. Left until something polls.
 
 ## 6. Consistency rules (learnability)
 
@@ -217,20 +242,38 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
 
 ## Placed from INBOX, 2026-09-09 (the owner's evening batch)
 
-- "sometimes the x close button in the graph popup panels gets pushed out
-  of place by the note title, and the note title gets cut off with no
-  ellipse" (screenshot: a two-line title pushing the X down and right). The
-  title needs `min-width: 0` and an ellipsis, and the X `flex: none`, which
-  is the same pair the chat header needed.
-- "I want these buttons at the bottom of the graph node popup panels to be
-  centered or to feel properly integrated into the panel" (screenshot: nine
-  icon buttons in three groups with two dividers, sitting on the panel's
-  own background with a hairline above them).
-- "the graph suggested links panel is poorly designed and not consistent
-  with the rest of the app ui style" (screenshot: five rows, each a quoted
-  pair, a free-text Why box, a percentage, a Link button and an X, in a
-  panel with its own scrollbar).
-- Phase 6 already holds the node panel work; these are its remaining rows.
+Built. Moved to HISTORY.md ("Moved from the plans, 2026-09-20", GRAPH_PLAN.md)
+on 2026-09-20, with the measurement of each: a plan holds open work only.
+
+## Decision made, 2026-09-20: three of the six options sections are folds
+
+The recommendation on record (archive/agent-remaining/graph.md, "Open, found
+and not fixed") was that Groups and Minimap become one collapsed `details`
+each. Taken, and measured: it is no longer enough. The panel had grown from
+the 587px that recommendation was written against to 655px of list in a 488px
+box at 1440x900, because the Show section went from six switches to nine
+(143px to 211px). Groups and Minimap folded give 517 in 488, still scrolling.
+
+Decided, since which section gives way next is a design call and rule 3 says
+to record one: **Physics folds too.** The rule the three share is that they
+are set once and then left, while Show and Time are used with the map in
+front of you. Physics is the clearest of the three on that test: its two
+sliders are already disabled outright under the tree layouts, which is the
+app saying they do not always apply. Its "Unpin all" rides the fold's own
+`<summary>`, where it already rode the section head, and the button calls
+`preventDefault` so releasing the pins does not also open or close the fold.
+
+Each fold remembers whether it is open, for the reason the panel itself does.
+Closed is the default. `details.settings-fold` is the app's existing
+disclosure and is now a row in DESIGN.md's recipe index, with
+`tests/test_ui_recipes.py` holding the four rules that dress it to one set of
+families and the count of disclosures that name no family at all.
+
+Measured after, `scratchpad/ui-sweeps/graphoptfold.js`: 451px of list in a
+451px box at 1440x900 and again at 1024, nothing scrolling, 37px clear of the
+cap; opening all three gives 669 in 488, which scrolls inside the panel as it
+should. At 390 the panel still scrolls (795 in 286, against 1071 with the
+three open), which is the phone's own cap rather than this panel's size.
 
 ## Decision made, 2026-09-13: a Show switch that is off means absent
 

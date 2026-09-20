@@ -36973,6 +36973,14 @@ const MIRRORED_UI_EXTRAS = [
   "graph-colour",
   "graph-options-open",
   "graph-trace-open",
+  // The options panel's three folds, keyed `graph-fold-<the section's id>` by
+  // `initGraphOptionFolds` far below. Written out rather than spread from a
+  // constant beside that function: this array is read at module level and the
+  // constant would be declared hundreds of lines later, which is the
+  // temporal-dead-zone blank app the comment above already describes.
+  "graph-fold-graph-physics",
+  "graph-fold-graph-groups-section",
+  "graph-fold-graph-minimap-section",
   "chat-composer-height",
   "wb-bg-color",
   "wb-panel-pos-board",
@@ -40160,7 +40168,12 @@ $("graph-export-png")?.addEventListener("click", exportGraphPng);
 // re-fetches from /graph, which is what actually clears fx/fy, the same
 // path #graph-refresh already uses, so a freshly unpinned layout settles
 // through the ordinary simulation rather than a special-cased one.
-$("graph-unpin-all")?.addEventListener("click", async () => {
+$("graph-unpin-all")?.addEventListener("click", async (event) => {
+  // The button rides the Physics fold's own `<summary>` (index.html), so a
+  // press on it is also a press on the disclosure. `preventDefault` cancels
+  // the summary's activation behaviour and nothing else: a `type="button"`
+  // has no default action of its own to lose.
+  event.preventDefault();
   try {
     const result = await apiJson("/graph/unpin-all", { method: "POST" });
     graphHighlightIds = null;
@@ -40182,6 +40195,32 @@ $("graph-maps")?.addEventListener("change", renderGraph);
 // physics sliders on screen is a property of how you use the map rather than
 // of one visit: and because a panel that reopens closed every time is one
 // people stop opening.
+// Each fold in the options panel remembers whether it is open, for the reason
+// the panel itself does: which of these you want on screen is a property of
+// how you use the map, not of one visit. Closed is the default, which is what
+// gets the list back under the panel's own cap (GRAPH_PLAN, "Decision made,
+// 2026-09-20"); a fold you opened stays open until you close it.
+function initGraphOptionFolds() {
+  for (const fold of document.querySelectorAll("#graph-options details.graph-options-fold")) {
+    if (fold._foldWired || !fold.id) continue;
+    fold._foldWired = true;
+    const key = `graph-fold-${fold.id}`;
+    try {
+      fold.open = localStorage.getItem(key) === "1";
+    } catch (error) {
+      fold.open = false;
+    }
+    fold.addEventListener("toggle", () => {
+      try {
+        localStorage.setItem(key, fold.open ? "1" : "0");
+      } catch (error) {
+        /* A browser with storage refused still folds, it just forgets. */
+      }
+    });
+  }
+}
+initGraphOptionFolds();
+
 function setGraphOptionsOpen(open) {
   const panel = $("graph-options");
   const toggle = $("graph-options-toggle");

@@ -440,6 +440,13 @@ below). Versioning is `0.x` while the app stabilises.
   the editor leaves behind, so every document selection was described to the
   model as "the user has since edited it, so this passage may no longer be
   there" while the passage was on screen.
+- The graph's display options fit their panel again. Physics, Groups and
+  Minimap are the three sections you set once and leave, so each is now a
+  fold on the app's own `details.settings-fold` recipe, closed by default and
+  remembered once you open it. Measured at 1440x900: 655px of list in a 488px
+  box, scrolling, before; 451px in 451px, not scrolling, after. At 1024 the
+  same 451 in 451. At 390 the panel still scrolls, as it did, but with 795px
+  of list where the same panel held 1071.
 
 ## [0.3.1] - 2026-09-14
 

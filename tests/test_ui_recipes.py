@@ -1524,3 +1524,82 @@ def test_every_right_click_menu_has_a_long_press_twin():
         holds = calls - (1 if name == "app.js" else 0)  # app.js holds the definition
         assert right_clicks == holds, f"{name}: {right_clicks} right-click menus, {holds} long-press twins"
 
+# A `<details>` in index.html that heads no named family: prose disclosures in
+# the Help guide, the chat's thinking boxes and the like, which take their
+# summary from their own surroundings. Frozen, like the hand-built menus
+# above: a folded group of settings is `details.settings-fold`, and a new
+# unnamed one is a second disclosure shape nobody styled.
+BARE_DISCLOSURES = 14
+
+# The families 08-consistency.css dresses as "a heading with a chevron" rather
+# than as a control in a row. Every one of its four disclosure rules has to
+# name the same set: a family on the flat rule but not the chevron rule is a
+# fold with no disclosure mark, and one on the chevron rule but not the hover
+# rule loses its pointer feedback.
+FOLD_RULES = (
+    "> summary:not(.icon-only):not(.icon-button) {",
+    "> summary::-webkit-details-marker",
+    "> summary:not(.icon-only):not(.icon-button)::before",
+    "> summary:not(.icon-only):not(.icon-button):hover",
+)
+
+
+def _fold_families(css: str, marker: str) -> set[str]:
+    """The container classes named on the rule `marker` belongs to.
+
+    The selector list runs from the end of whatever came before (a rule's
+    closing brace) to this rule's opening one, with its own comments taken
+    out: a comment above these rules quotes selectors while explaining them.
+    """
+    hit = css.index(marker)
+    brace = css.index("{", hit)
+    start = max(css.rfind("}", 0, hit), css.rfind("*/", 0, hit)) + 1
+    block = re.sub(r"/\*.*?\*/", "", css[start:brace], flags=re.S)
+    return set(re.findall(r"\.([a-z-]+)(?=(?:\[open\])? (?:details )?> summary)", block))
+
+
+def test_a_folded_group_of_settings_is_the_shared_disclosure_recipe() -> None:
+    """One fold, dressed in one place (DESIGN.md, the recipe index).
+
+    The graph's display options panel grew back past its own cap (655px of
+    list in a 488px box at 1440x900) and three of its six sections are set
+    once and then left. Folding them is the recipe the Settings screen
+    already has, `details.settings-fold`, and the point of this lint is that
+    the next surface that needs a fold reaches for the same three words
+    instead of writing a fourth summary of its own.
+    """
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    families = [_fold_families(css, marker) for marker in FOLD_RULES]
+    for marker, named in zip(FOLD_RULES[1:], families[1:]):
+        assert named == families[0], (
+            f"the disclosure rule at `{marker}` names {sorted(named)} while the "
+            f"flat-summary rule names {sorted(families[0])}; a fold family on one "
+            "rule and not another is a fold with no chevron or no hover "
+            "(DESIGN.md, the recipe index)"
+        )
+    assert "settings-fold" in families[0]
+
+    raw = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    markup = re.sub(r"<!--.*?-->", "", raw, flags=re.S)
+    bare = 0
+    graph_folds = 0
+    for attrs in re.findall(r"<details([^>]*)>", markup):
+        found = re.search(r'class="([^"]*)"', attrs)
+        classes = set(found.group(1).split()) if found else set()
+        if "graph-options-fold" in classes:
+            graph_folds += 1
+            assert "settings-fold" in classes, (
+                "a fold in the graph's options panel is the shared "
+                "`details.settings-fold` recipe, not a shape of its own"
+            )
+        if not classes - {"hidden"}:
+            bare += 1
+    assert bare <= BARE_DISCLOSURES, (
+        f"{bare} `<details>` elements in index.html name no family; a folded "
+        "group of settings is `details.settings-fold` (DESIGN.md, the recipe "
+        "index), and this count may only fall"
+    )
+    assert graph_folds == 3, (
+        "the graph options panel's three tuned-once sections (Physics, Groups, "
+        "Minimap) are folds; see GRAPH_PLAN.md, 'Decision made, 2026-09-20'"
+    )

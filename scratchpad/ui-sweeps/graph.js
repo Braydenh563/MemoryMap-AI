@@ -532,31 +532,80 @@ const ok = (pass) => (pass ? "PASS" : "FAIL");
     4000
   );
   await control("exit focus", () => page.click("#graph-focus-clear"), 5000);
-  await control(
-    "trace between two notes",
-    () =>
-      page.evaluate(async () => {
-        // The two ends of a real edge, not the first two nodes in the list:
-        // those are very often unconnected, and "no route between these two"
-        // then reads as "the trace did not draw" for the rest of the run.
-        const edge = (gcEdges || []).find(
-          (e) => e.source && e.target && !e.source.isGroup && !e.target.isGroup
-        );
-        if (!edge) return null;
-        setTraceEnd("from", edge.source.id);
-        setTraceEnd("to", edge.target.id);
-        return runTrace();
-      }),
-    4000
-  );
-  //: Only meaningful if a route was actually found — two notes picked from the
-  //: top of the list may not be connected at all, in which case there is no
-  //: path on screen and clearing it correctly changes nothing. Reported either
-  //: way rather than failed, because "no route between these two" is a fact
-  //: about the fixture and not about the renderer.
-  const hadTrace = await page.evaluate(() => Boolean(window.__graphDebug.trace));
-  await control(`clear trace (a route was drawn: ${hadTrace})`, () =>
-    page.evaluate(() => clearTrace()), 2500);
+  //: **The two ends of an edge the server can actually route along.** Picking
+  //: "a real edge" is not enough: `/graph/path` walks the notebook's own
+  //: structure, so a similarity edge, an entity edge, a document edge or a
+  //: board edge is drawn on this canvas and is not a route there (the entity
+  //: and document ones are not even integers, and that route answers 422, so
+  //: `runTrace` reports "the server didn't answer"). Any of those gets no
+  //: route, the trace never draws, and the *next* step then reported "clear
+  //: trace: NO CHANGE" as though the renderer were at fault, which is the
+  //: failure this sweep carried. A `link` or a `thread` is a connection the
+  //: person made, and the path index holds every one of them, so a pair
+  //: taken from one either traces or has found a real bug.
+  const tracePair = await page.evaluate(() => {
+    const numeric = (v) => Number.isInteger(Number(v));
+    const edge = (gcEdges || []).find(
+      (e) =>
+        (e.kind === "link" || e.kind === "thread") &&
+        e.source &&
+        e.target &&
+        !e.source.isGroup &&
+        !e.target.isGroup &&
+        numeric(e.source.id) &&
+        numeric(e.target.id) &&
+        e.source.id !== e.target.id
+    );
+    return edge ? { from: edge.source.id, to: edge.target.id, kind: edge.kind } : null;
+  });
+  if (tracePair) {
+    await control(
+      `trace between two notes (${tracePair.from} to ${tracePair.to}, a ${tracePair.kind})`,
+      () =>
+        page.evaluate(async (pair) => {
+          setTraceEnd("from", pair.from);
+          setTraceEnd("to", pair.to);
+          return runTrace();
+        }, tracePair),
+      4000
+    );
+  } else {
+    //: One finding, not three. Driving Trace with nothing to trace between
+    //: only produces a second "NO CHANGE" and a third "no route", each about
+    //: the same missing pair, and a report that says one thing three times is
+    //: how a sweep's real findings get skimmed past.
+    console.log(`5. trace between two notes: no link or thread edge on the map  ${ok(false)}`);
+    findings.push(
+      "no link or thread edge on the map to trace along: this notebook has no " +
+        "connection between two notes, so Trace cannot be measured at all"
+    );
+  }
+  //: Clearing a route that was never drawn correctly changes nothing, so this
+  //: step is only a question about the renderer once there *is* a route. It
+  //: used to run either way and push "NO CHANGE" as a finding, which said the
+  //: renderer had failed when what had failed was the step above it. The pair
+  //: now comes from a link or a thread, so "no route" is a real failure and is
+  //: reported as that failure, in the app's own words, rather than as a silent
+  //: NO CHANGE one line later.
+  const trace = tracePair
+    ? await page.evaluate(() => ({
+        drawn: Boolean(window.__graphDebug.trace),
+        said: (document.getElementById("graph-trace-result")?.textContent || "").trim().slice(0, 140),
+      }))
+    : { drawn: false, said: "", skipped: true };
+  if (trace.skipped) {
+    console.log("5. clear trace: not run, there was nothing to trace between");
+  } else if (!trace.drawn) {
+    console.log(`5. trace drew no route between two connected notes  ${ok(false)}`);
+    console.log(`   the app said: ${trace.said || "(nothing)"}`);
+    findings.push(
+      `trace found no route between ${tracePair.from} and ${tracePair.to}, ` +
+        `which a ${tracePair.kind} edge joins: ${trace.said || "(no message)"}`
+    );
+    console.log("5. clear trace: not run, there was no route to clear");
+  } else {
+    await control("clear trace", () => page.evaluate(() => clearTrace()), 2500);
+  }
 
   // The minimap, saved views and the PNG export are not "did the drawing
   // change" questions, so they are checked for their own result instead.

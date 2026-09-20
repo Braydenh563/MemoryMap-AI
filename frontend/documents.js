@@ -1870,6 +1870,172 @@ function docSectionRange(headings, index, lineCount) {
   return { from: heading.line, to: end };
 }
 
+// =============================================================================
+// The editor's own commands: one table, two doors (DOCUMENTS_PLAN Phase 4 item 4)
+// =============================================================================
+//
+// The plan calls this "the single biggest fix for features that do not show
+// themselves", and it asks for two things: a palette listing every editor
+// action with its shortcut, and a `?` shortcut sheet "generated from the same
+// table so the two cannot disagree". This is that table.
+//
+// **The decision the plan left open, taken here because it had to be.** The
+// plan names `Ctrl+K`, written before this app had a command palette of its
+// own on exactly that chord (`openPalette`, app.js). Two palettes on one key
+// is the collision the agent palette's own comment already records being
+// caught twice. So the editor's commands *join* the palette the app has, in a
+// group of their own, offered only while a document is actually open and on
+// screen; the chord stays where every other surface's commands already live.
+// A reader who presses Ctrl+K in a document now finds the document's own
+// actions at the top of the list they already know, rather than a second list
+// they have to learn.
+//
+// **A row whose action already has a button runs the button.** Not a copy of
+// its handler: a copy is a second definition of what "Export as HTML" means,
+// and the two drift the first time one is edited. The table carries the
+// control's id and the run is a click, which is also why every one of these
+// is reachable at all: a command that pointed at a function the dock no
+// longer calls would look right here and do nothing.
+//
+// Bracketed by `DOC-COMMANDS-BEGIN`/`END` so `tests/test_doc_commands.py` can
+// read the table's shape without a browser.
+
+// DOC-COMMANDS-BEGIN
+
+//: Pressing a control that is in a closed `<details>` menu still works (the
+//: browser dispatches to a hidden element quite happily), but a control that
+//: is not in the document at all is a command that silently does nothing, so
+//: it says so instead.
+function docRunControl(id, what) {
+  const el = $(id);
+  if (!el) {
+    toast(`${what} is not available here.`, true);
+    return;
+  }
+  el.click();
+}
+
+//: The table. `keys` is the chord the editor already listens for, or "" where
+//: the action has no chord: the shortcut sheet draws the rows that have one
+//: and the palette draws all of them, which is the division the plan asks for
+//: ("every editor action with its shortcut").
+const DOC_COMMANDS = [
+  { id: "save", icon: "ph:floppy-disk", label: "Save this document", keys: "Ctrl+S",
+    run: () => saveDocument() },
+  { id: "find", icon: "ph:magnifying-glass", label: "Find and replace in this document", keys: "Ctrl+F",
+    run: () => toggleDocFindBar(true) },
+  { id: "bold", icon: "ph:text-b", label: "Bold", keys: "Ctrl+B",
+    run: () => wrapDocSelection("**", "bold text") },
+  { id: "italic", icon: "ph:text-italic", label: "Italic", keys: "Ctrl+I",
+    run: () => wrapDocSelection("*", "italic text") },
+  { id: "strike", icon: "ph:text-strikethrough", label: "Strike through", keys: "Ctrl+Shift+S",
+    run: () => wrapDocSelection("~~", "struck through") },
+  { id: "code", icon: "ph:code", label: "Inline code", keys: "Ctrl+E",
+    run: () => wrapDocSelection("`") },
+  { id: "h1", icon: "ph:text-h-one", label: "Heading 1", keys: "Ctrl+1",
+    run: () => applyMarkdown("h1") },
+  { id: "h2", icon: "ph:text-h-two", label: "Heading 2", keys: "Ctrl+2",
+    run: () => applyMarkdown("h2") },
+  { id: "h3", icon: "ph:text-h-three", label: "Heading 3", keys: "Ctrl+3",
+    run: () => applyMarkdown("h3") },
+  { id: "comment", icon: "ph:chat-teardrop-text", label: "Comment on the selection", keys: "Ctrl+/",
+    run: () => toggleDocComment(docSurface()) },
+  { id: "indent", icon: "ph:text-indent", label: "Indent the line or list item", keys: "Tab", run: null },
+  { id: "outdent", icon: "ph:text-outdent", label: "Outdent the line or list item", keys: "Shift+Tab", run: null },
+  { id: "move-section", icon: "ph:arrows-down-up", label: "Move the section, from the outline", keys: "Alt+↑ / Alt+↓", run: null },
+  { id: "ul", icon: "ph:list-bullets", label: "Bulleted list", keys: "", run: () => applyMarkdown("ul") },
+  { id: "ol", icon: "ph:list-numbers", label: "Numbered list", keys: "", run: () => applyMarkdown("ol") },
+  { id: "task", icon: "ph:check-square", label: "Task list", keys: "", run: () => applyMarkdown("task") },
+  { id: "quote", icon: "ph:quotes", label: "Quote", keys: "", run: () => applyMarkdown("quote") },
+  { id: "link", icon: "ph:link", label: "Link", keys: "", run: () => applyMarkdown("link") },
+  { id: "view-edit", icon: "ph:pencil-simple", label: "Edit this document", keys: "",
+    run: () => setDocView(lastEditView) },
+  { id: "view-read", icon: "ph:book-open", label: "Read this document", keys: "",
+    run: () => setDocView("rendered") },
+  { id: "formatting", icon: "ph:text-aa", label: "Show or hide the formatting tools", keys: "",
+    run: () => docRunControl("doc-format-toggle", "The formatting strip") },
+  { id: "focus", icon: "ph:moon", label: "Focus mode", keys: "",
+    run: () => docRunControl("doc-focus-toggle", "Focus mode") },
+  { id: "typewriter", icon: "ph:arrows-in-line-horizontal", label: "Typewriter scrolling", keys: "",
+    run: () => docRunControl("doc-typewriter", "Typewriter scrolling") },
+  { id: "dim-others", icon: "ph:circle-half-tilt", label: "Dim every paragraph but this one", keys: "",
+    run: () => docRunControl("doc-dim-others", "Dimming") },
+  { id: "serif", icon: "ph:text-aa", label: "Serif reading face", keys: "",
+    run: () => docRunControl("doc-serif", "The serif face") },
+  { id: "goal", icon: "ph:target", label: "Set a word goal", keys: "",
+    run: () => docRunControl("doc-word-goal", "The word goal") },
+  { id: "ai", icon: "ph:magic-wand", label: "Ask the AI to edit this document", keys: "",
+    run: () => docRunControl("doc-ai", "AI editing") },
+  { id: "extract", icon: "ph:scissors", label: "Extract notes from this document", keys: "",
+    run: () => docRunControl("doc-extract", "Extracting notes") },
+  { id: "history", icon: "ph:clock-counter-clockwise", label: "Every version this document has had", keys: "",
+    run: () => docRunControl("doc-history", "Version history") },
+  { id: "connections", icon: "ph:graph", label: "What this document is joined to", keys: "",
+    run: () => docRunControl("doc-connections", "Connections") },
+  { id: "export-md", icon: "ph:download-simple", label: "Download as .md", keys: "",
+    run: () => docRunControl("doc-export-md", "The markdown export") },
+  { id: "export-html", icon: "ph:file-html", label: "Download as one .html file", keys: "",
+    run: () => docRunControl("doc-export-html", "The HTML export") },
+  { id: "export-docx", icon: "ph:file-doc", label: "Download as Word (.docx)", keys: "",
+    run: () => docRunControl("doc-export-docx", "The Word export") },
+  { id: "export-pdf", icon: "ph:file-pdf", label: "Print or save as PDF", keys: "",
+    run: () => docRunControl("doc-export-pdf", "The PDF export") },
+];
+
+// DOC-COMMANDS-END
+
+//: **Only while a document is open and on screen.** The palette is reachable
+//: from every tab, and "Bold" run from the Notes tab would wrap a selection in
+//: a document nobody is looking at. `activeTab` is where the app keeps which
+//: tab is showing (app.js's `switchTab` writes it), so this asks the same
+//: question the tab bar answers.
+//:
+//: A row with no `run` is a keyboard-only move (Tab, Alt with an arrow): it
+//: belongs in the shortcut sheet, which is a list of what the keys do, and not
+//: in a palette, which is a list of things a press can perform.
+function docPaletteCommands() {
+  let tab = "";
+  try {
+    tab = localStorage.getItem("activeTab") || "";
+  } catch {
+    //: Private mode. One group missing from the palette is the right failure.
+    return [];
+  }
+  if (tab !== "documents" || !currentDoc) return [];
+  return DOC_COMMANDS.filter((command) => command.run).map((command) => ({
+    group: "This document",
+    label: `${command.icon} ${command.label}`,
+    keys: command.keys,
+    run: command.run,
+  }));
+}
+
+//: The `?` sheet's editor section, from the same table, so the two cannot
+//: disagree. Called by `openShortcuts` (app.js) rather than wired here,
+//: because this file is in the Library's lazy bundle and the dialog can be
+//: opened before it has ever loaded: the section then simply says so.
+function renderDocShortcutSheet(list) {
+  if (!list) return;
+  list.replaceChildren();
+  for (const command of DOC_COMMANDS) {
+    if (!command.keys) continue;
+    const li = document.createElement("li");
+    const keys = document.createElement("span");
+    keys.className = "shortcut-keys";
+    //: One `<kbd>` per key, the shape the hand-written rows above it use, so
+    //: a generated row and a written one are the same thing on screen.
+    for (const part of command.keys.split(/\s*\+\s*/)) {
+      const kbd = document.createElement("kbd");
+      kbd.textContent = part;
+      keys.appendChild(kbd);
+    }
+    const label = document.createElement("span");
+    label.textContent = command.label;
+    li.append(keys, label);
+    list.appendChild(li);
+  }
+}
+
 //: **Reordering the document from its outline** (DOCUMENTS_PLAN Phase 4 item
 //: 3, PLAN D6). Dragging a row moves the *section*, the heading and everything
 //: under it down to the next heading at the same level or shallower, which is

@@ -7,6 +7,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The command palette carries the documents editor's own actions while a
+  document is open, each with the keys that run it, and the keyboard shortcuts
+  dialog gained a section listing the editor's chords. Both are built from one
+  table, so they cannot disagree about what a key does.
+
 - A section can be moved by dragging its heading in the outline, and the
   heading, its text and everything nested under it travel together. Alt with
   an arrow does the same from the keyboard, on the row that has focus.

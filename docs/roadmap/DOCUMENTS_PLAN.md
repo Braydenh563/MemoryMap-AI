@@ -276,10 +276,10 @@ the same thing.
 3. **Outline drag-to-reorder** (PLAN D6), breadcrumbs, sticky outline: built,
    2026-09-20. The record is in HISTORY.md ("Moved from the plans,
    2026-09-20", DOCUMENTS_PLAN.md Phase 4 item 3).
-4. **Command palette** (`Ctrl+K`) listing every editor action with its
-   shortcut — the single biggest fix for "features that do not show
-   themselves" — and a `?` shortcut sheet generated from the same table so
-   the two cannot disagree.
+4. **Command palette and shortcut sheet from one table**: built, 2026-09-20.
+   The record, including the `Ctrl+K` decision the plan left open, is in
+   HISTORY.md ("Moved from the plans, 2026-09-20", DOCUMENTS_PLAN.md Phase 4
+   item 4).
 5. **Daily notes** and **templates gallery** (New ▾ → Meeting / Spec /
    Decision / Weekly review / Daily), templates stored as documents tagged
    `template` (exists) and offered with a preview.

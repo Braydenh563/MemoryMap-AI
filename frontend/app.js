@@ -30091,7 +30091,18 @@ document.addEventListener(
 );
 
 function paletteCommands() {
+  //: **The documents editor's own commands, at the top, while one is open**
+  //: (DOCUMENTS_PLAN Phase 4 item 4). The plan named `Ctrl+K` for an editor
+  //: palette of its own, which is the chord this one already has: two
+  //: palettes on one key is the collision the agent palette's comment records
+  //: being caught twice. So the editor contributes a group here instead, and
+  //: `docPaletteCommands` (documents.js) returns nothing at all unless the
+  //: Documents tab is showing with a document in it. Guarded by `typeof`
+  //: because that file is in the Library's lazy bundle and the palette opens
+  //: from every tab, including before it has ever been fetched.
+  const editor = typeof docPaletteCommands === "function" ? docPaletteCommands() : [];
   return [
+    ...editor,
     { label: "ph:clipboard Go to Dashboard", run: () => switchTab("dashboard") },
     { label: "ph:magnifying-glass-plus Zoom in", run: () => nudgeZoom(1) },
     { label: "ph:magnifying-glass-minus Zoom out", run: () => nudgeZoom(-1) },
@@ -30378,9 +30389,15 @@ function paletteText(value) {
 
 function paletteMatches(query) {
   const lowered = query.trim().toLowerCase();
-  const commands = paletteCommands().filter((c) =>
-    paletteText(c.label).includes(lowered)
-  );
+  //: **The app's own commands get a group name too, now that something can
+  //: sit above them.** They had none because they were always first and a
+  //: header over the top of a list says nothing; with the editor's group
+  //: ahead of them, an unlabelled run reads as more of "This document", which
+  //: is the one thing it is not. `group` is only set where the row has not
+  //: already claimed one, so the editor's stays its own.
+  const commands = paletteCommands()
+    .filter((c) => paletteText(c.label).includes(lowered))
+    .map((c) => (c.group ? c : { ...c, group: "Everywhere" }));
   if (!lowered) return commands;
 
   //: **A question typed into the palette is a question** (INBOX 224). The
@@ -30510,6 +30527,16 @@ function renderPalette(query) {
     }
     const li = document.createElement("li");
     setLabel(li, match.label);
+    //: **The chord, beside the command that runs it.** A palette that only
+    //: performs an action teaches nobody the key for it, and the plan's whole
+    //: reason for this list is features that do not show themselves. Only the
+    //: rows that carry one, which today is the editor's group.
+    if (match.keys) {
+      const keys = document.createElement("kbd");
+      keys.className = "palette-keys";
+      keys.textContent = match.keys;
+      li.appendChild(keys);
+    }
     if (index === paletteIndex) li.classList.add("active");
     li.addEventListener("click", () => {
       closePalette();
@@ -40728,6 +40755,19 @@ function openShortcuts() {
   capturingShortcut = null;
   setShortcutStatus("");
   renderShortcutList();
+  //: **The editor's rows come from the editor's own table**
+  //: (DOCUMENTS_PLAN Phase 4 item 4: "a `?` shortcut sheet generated from the
+  //: same table so the two cannot disagree"). documents.js is lazily loaded,
+  //: so the section says where its contents are rather than sitting empty
+  //: when this dialog is opened before that bundle has ever been fetched.
+  const editorList = $("shortcut-list-documents");
+  const editorNote = $("shortcut-list-documents-note");
+  if (editorList && typeof renderDocShortcutSheet === "function") {
+    renderDocShortcutSheet(editorList);
+    editorNote?.classList.add("hidden");
+  } else if (editorNote) {
+    editorNote.classList.remove("hidden");
+  }
   $("shortcuts-overlay").classList.remove("hidden");
   $("shortcuts-close").focus();
 }

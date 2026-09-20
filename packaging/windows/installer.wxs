@@ -110,9 +110,10 @@
             Icon="AppIcon.ico" />
         <!-- The Repair shortcut, the MSI's copy of installer.iss's (INBOX 253:
              "automatically recoverable and revivable for the user with one
-             click"). Same exe, --reinstall on top of --desktop, so a repair
-             that works ends in the window the ordinary shortcut promised.
-             On a frozen build --reinstall clears the desktop window's own
+             click"). Same exe, the reinstall flag on top of the desktop
+             flag, so a repair that works ends in the window the ordinary
+             shortcut promised. On a frozen build the reinstall flag clears
+             the desktop window's own
              cached profile (`_repair_install`, __main__.py) and never
              touches notes or preferences. Beside the ordinary shortcut in
              the same component, so the two install and uninstall together

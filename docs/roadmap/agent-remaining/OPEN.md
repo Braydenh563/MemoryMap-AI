@@ -219,10 +219,24 @@ being written by running agents stay beside this one.
   one real gap, on the plan's row now: a saved view does not restore where
   the unpinned notes sat, so a force view reopens as a fresh solution of the
   same forces. [graph.md]
-- **The node popup redesign the owner names** ("I dont think you have
-  redesigned the popup agent yet") is GRAPH_PLAN Phase 6 and the three rows
-  under "Placed from INBOX, 2026-09-09", which hold the node panel. The agent
-  popup is a different surface. [graph.md]
+- ~~**The node popup redesign the owner names.**~~ **Measured and found
+  built, 2026-09-20.** GRAPH_PLAN Phase 6 and the three evening rows are all
+  three built; the measurements are in HISTORY under "Moved from the plans,
+  2026-09-20". At 1440 and 1024 the panel is 448x357 with nine actions in one
+  row, three groups, one filled (Open, read off the computed background), and
+  scrollHeight 355 against clientHeight 355, so it does not scroll; at 390 it
+  is a 362x468 sheet with the actions on three lines and neither the panel
+  nor the page scrolling. With an 88-character title the header stays 48px
+  tall, the title is one ellipsised line and the close button sits 14px in
+  from the panel's top right corner at both widths, which is the row the
+  owner reported. The action band is centred, the panel's full width, on the
+  chip fill with one hairline above. Nothing was changed. The agent popup,
+  which is what the owner's sentence names, is a different surface.
+  Found, not fixed: the plan's target says the Bin should be ghost and it
+  renders tonal like its eight neighbours, because a six-class rule paints
+  every `.icon-only:not(.ghost)` button tonal on purpose. Left as it renders:
+  one ghost button among eight tonal ones reads as disabled, and the gap of
+  its own is what sets it apart. [graph.md]
 - **`graph.js`'s step 5 still fails**: "clear trace (a route was drawn:
   false): NO CHANGE", seen while re-measuring the drag-fps gate, which now
   passes at 58.9 fps. For the graph agent. [ui-phase-11.md]

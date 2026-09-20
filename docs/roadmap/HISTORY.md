@@ -25058,6 +25058,64 @@ them. It is written up in `archive/agent-remaining/documents-phase4.md`.
     mode still flips, the suppression class is gone again a frame later, and
     the art canvas is rebuilt. **Not verified:** the desktop webview, which is
     the window the report came from; the numbers above are headless Chromium.
+## Moved from the plans, 2026-09-20
+
+Blocks the plans carried as open work and no longer do (CLAUDE.md standing
+order 10). Origin file named on each.
+
+### From GRAPH_PLAN.md
+
+### Built, the node panel's three evening rows, 2026-09-09 to 2026-09-14
+
+The owner's evening batch of 2026-09-09, read against the running app on
+2026-09-20 and found built, each one measured rather than taken on the word
+of the comment that claims it.
+
+- **"sometimes the x close button in the graph popup panels gets pushed out
+  of place by the note title, and the note title gets cut off with no
+  ellipse".** Built: `.graph-popup-ident > strong` is one ellipsised line
+  (`white-space: nowrap`, `min-width: 0`), the close button is `flex: none`
+  with `align-self: flex-start`, and `.card.graph-popup > .row.graph-popup-head`
+  restates `nowrap` at a weight that beats `.card > .row.space-between`.
+  Measured with a 88-character title (`scratchpad/ui-sweeps/graphnodehead.js`):
+  header 48px tall, title one line and ellipsised, the close button 14px in
+  from the panel's right edge and 14px down from its top, at both 1440 and
+  390. The reported failure was a 92px header with the button 56px down and
+  276px in from the right.
+- **"I want these buttons at the bottom of the graph node popup panels to be
+  centered or to feel properly integrated into the panel".** Built:
+  `.graph-popup-actions` is a footer band, `justify-content: center`, pulled
+  out to the panel's padding edges, on the chip fill, with the panel's own
+  bottom corners and one hairline above. Measured: the band starts 1px inside
+  the panel's left edge and ends 1px inside its right (the panel's border),
+  sits on the bottom edge, `justify-content: center`, `border-top: 1px`.
+- **"the graph suggested links panel is poorly designed and not consistent
+  with the rest of the app ui style".** Built over INBOX 110 and 111 and the
+  2026-09-14 pass: every measure on the app's own scale (`--space-*`,
+  `--text-*`) where four hand-typed rem values had been, one control height
+  down the row (the reason field, the score chip and both buttons all at
+  1.75rem where they had been 42, 23.2 and 28), the head split into a title
+  group and an actions group, the rows scrolling under a heading that stays,
+  and the panel given the same inset as every other surface in the graph's
+  floating column.
+
+### Built, Phase 6's own target, re-measured 2026-09-20
+
+`scratchpad/ui-sweeps/graphnode.js` at 1440, 1024 and 390, against the
+target in GRAPH_PLAN Phase 6: 448x357 at 1440 and at 1024, nine actions in
+one row, three hairline-separated groups, one filled button (Open, read off
+the computed background rather than the class list), the editor at 112px on
+a 108.8px floor, Save hidden at rest and shown on an edit and hidden again
+when the edit is undone, no control under 36px, nothing clipped, panel
+scrollHeight 355 against clientHeight 355 (it does not scroll), the page
+does not scroll, 0 console errors. At 390 it is the sheet: 362x468, the
+actions on three lines, and neither the panel nor the page scrolls (the
+2026-09-09 measurement had it at 362x442 with the panel scrolling inside,
+so it has since gained the room).
+
+Not verified: a real touch device, and the Trace, Link and Grow flows past
+the click that starts them.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

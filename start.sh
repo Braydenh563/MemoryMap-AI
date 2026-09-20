@@ -27,6 +27,19 @@ set -e
 set -o pipefail
 cd "$(dirname "$0")"
 
+# Captured before the flag-parsing loop below consumes "$@" one `shift` at a
+# time (down to nothing, by design - that loop has nowhere else to put the
+# argument it just read). Every `exec "$0" "$@"` further down this script
+# (the self-update relaunch, and both self-repair relaunches) used to read
+# that same now-empty "$@", so a run started as `./start.sh --no-browser`
+# silently dropped `--no-browser` the moment it re-executed - reproduced
+# here as a genuine bug, not theorised: a self-repair triggered under
+# `--no-browser` popped a browser tab open anyway. `MM_PORT` and
+# `MM_DESKTOP` happened to survive because those two are exported
+# environment variables, not positional arguments; every other flag was
+# silently reset to its default on every re-exec until now.
+MM_ORIG_ARGS=("$@")
+
 # Whether stdout is a real terminal, answered ONCE, here, before anything
 # redirects it. Everything downstream that used to ask `[ -t 1 ]` asks this
 # variable instead, because the launcher log further down replaces stdout
@@ -644,13 +657,19 @@ mm_doctor() {
   # 2. The venv, asked the only question that matters: can it import the
   # things the server cannot start without. A .venv folder that exists and a
   # .venv that works are not the same thing after a move, a rename or a
-  # half-finished pip.
+  # half-finished pip. `memorymap.api.app` (not a bare `import memorymap`,
+  # which is a five-line package with no imports of its own) is the actual
+  # module `python -m memorymap` loads first, so this walks the app's real
+  # import chain - fastapi, sqlalchemy and every other transitive
+  # dependency along with it - the same check step 2b below uses to decide
+  # whether to repair automatically, so the two never disagree about what
+  # "broken" means.
   if [ ! -x ".venv/bin/python" ]; then
     mm_row warn ".venv" "not built yet" "Normal before the first run. ./start.sh builds it."
-  elif .venv/bin/python -c "import fastapi, sqlalchemy, memorymap" >/dev/null 2>&1; then
-    mm_row ok ".venv" "fastapi, sqlalchemy and memorymap all import"
+  elif .venv/bin/python -c "import memorymap.api.app" >/dev/null 2>&1; then
+    mm_row ok ".venv" "the app imports cleanly"
   else
-    mm_row x ".venv" "cannot import fastapi, sqlalchemy or memorymap" "Run ./start.sh --reinstall to rebuild it."
+    mm_row x ".venv" "the app fails to import" "./start.sh repairs this on its own now; run it, or ./start.sh --reinstall to rebuild from scratch."
   fi
 
   # 3. Free disk on the drive the notes are on, not the drive the code is on:
@@ -958,7 +977,7 @@ if [ -z "${MM_CHILD:-}" ] && [ "$MM_NO_UPDATE" = "0" ] && [ "$MM_UPDATE_PLAN" !=
   rm -f "$GIT_LOG" 2>/dev/null || true
   mm_bail_if_cancelled
   export MM_CHILD=1
-  exec "$0" "$@"
+  exec "$0" "${MM_ORIG_ARGS[@]}"
 fi
 if [ "$MM_NO_UPDATE" = "1" ]; then
   mm_status "$MM_STEP_UPDATE" "Update" "Skipped, --no-update" "done"
@@ -1019,8 +1038,25 @@ else
   mm_status "$MM_STEP_PYTHON" "Python" "Using the existing environment" "done"
 fi
 
+# A venv this broken (no working interpreter at all: the build above ran
+# but produced nothing usable, or .venv existed but its own python binary
+# is gone or unexecutable) gets the same medicine --reinstall already
+# gives by hand: burn it down and build a fresh one. MM_AUTO_REPAIRED is
+# the loop guard, read by every self-repair check in this script (see the
+# dependency check below too) - one automatic retry, ever, per launch. A
+# fix that does not fix anything must say so and stop, never spin quietly:
+# INBOX 253, "automatically recoverable ... with one click", not "silently
+# stuck".
 if [ ! -x "$VENV_PY" ]; then
-  mm_fail "The virtual environment looks incomplete." "Run ./start.sh --reinstall to rebuild it."
+  if [ -n "${MM_AUTO_REPAIRED:-}" ]; then
+    mm_status "$MM_STEP_PYTHON" "Python" "Still broken after a rebuild" "failed"
+    mm_fail "The virtual environment is broken and rebuilding it did not fix it." \
+            "Run ./start.sh --doctor to see what is wrong, or read the log below."
+  fi
+  echo " ${YELLOW}[!]${RESET} The environment looks broken - rebuilding it automatically..."
+  rm -rf ".venv"
+  export MM_AUTO_REPAIRED=1
+  exec "$0" "${MM_ORIG_ARGS[@]}"
 fi
 mm_bail_if_cancelled
 
@@ -1106,6 +1142,46 @@ else
   mm_status "$MM_STEP_DEPS" "Dependencies" "Already up to date" "done"
 fi
 mm_bail_if_cancelled
+
+# --- 2b. Prove it, don't just infer it - repair once if it's wrong ----
+# NEED_INSTALL's own marker (.venv/.mm_installed) only records "pip
+# finished last time the hash changed"; it says nothing about *right now*.
+# A package removed by hand (an antivirus quarantine, a disk-cleanup tool,
+# a person "tidying up" .venv) leaves NEED_INSTALL at 0 above, and this is
+# the only place left that notices before the traceback does, at step 4,
+# with no repair and no explanation.
+#
+# `import memorymap` alone is not enough - it is a five-line package with
+# no submodule imports of its own (src/memorymap/__init__.py), so it stays
+# importable no matter which real dependency is gone. What --doctor's own
+# .venv row checks (`import fastapi, sqlalchemy, memorymap`, mm_doctor
+# below) has the same gap: none of those three touches the app's own
+# import chain either. `memorymap.api.app` is the actual entry point
+# `python -m memorymap` loads (__main__.py's own `from memorymap.api.app
+# import create_app`), so importing it here walks the real chain - down
+# through ai/embeddings.py, ai/model_manager.py, core/config.py - and
+# catches a missing python-dotenv, requests, cryptography or any other
+# transitive dependency that the shallow check would have missed and let
+# through to a bare traceback instead. Costs under a second even on the
+# healthy path (measured: ~0.7s broken, ~1.7s importing everything clean),
+# well inside the budget of a step this script already pays for once
+# every launch.
+if ! "$VENV_PY" -c "import memorymap.api.app" >/dev/null 2>&1; then
+  if [ -n "${MM_AUTO_REPAIRED:-}" ]; then
+    mm_status "$MM_STEP_DEPS" "Dependencies" "Still broken after a repair" "failed"
+    mm_fail "The virtual environment is broken and reinstalling the dependencies did not fix it." \
+            "Run ./start.sh --reinstall to rebuild it from scratch, or read the log below."
+  fi
+  echo " ${YELLOW}[!]${RESET} The environment looks broken - reinstalling the dependencies automatically..."
+  # Only the marker, not the whole .venv: whatever is still good in there
+  # (the interpreter, the untouched packages) stays, and step 2 above already
+  # knows how to bring the rest back - pip's own "Requirement already
+  # satisfied" skips everything that is not actually missing, so this is
+  # fast even though it looks like the same full install.
+  rm -f ".venv/.mm_installed"
+  export MM_AUTO_REPAIRED=1
+  exec "$0" "${MM_ORIG_ARGS[@]}"
+fi
 
 # pywebview is optional and only the app window needs it, so it installs
 # on demand rather than for everyone. A failure is not fatal - the app

@@ -122,7 +122,9 @@ Three ways in. None needs a terminal.
 
 **Windows.** Download `MemoryMap-AI-Setup-*.exe` from the
 [latest release](https://github.com/Braydenh563/MemoryMap-AI/releases/latest)
-and run it. The app opens in its own window.
+and run it. The app opens in its own window. An MSI
+(`MemoryMap-AI-*-windows-x86_64.msi`) is also on that page, for a silent or
+scripted install with `msiexec /quiet`.
 [What the SmartScreen prompt means](docs/INSTALL.md#windows-installer).
 
 **Linux.** Download `MemoryMap-AI-*-linux-x86_64.zip` from the same page,

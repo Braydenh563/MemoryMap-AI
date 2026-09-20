@@ -7,6 +7,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added
+
+- A Windows MSI ships alongside the existing .exe installer
+  (`MemoryMap-AI-*-windows-x86_64.msi`, built from the same PyInstaller
+  output with WiX). It installs per machine rather than per user, supports
+  `msiexec /quiet` for a silent or Group Policy deployment, and gets a
+  proper Add/Remove Programs entry with Windows Installer's own repair and
+  rollback. Unsigned for now, same as the .exe.
+
 ## [0.3.1] - 2026-09-14
 
 - The status bar's help button says "Guide", not the assistant's name. It sat

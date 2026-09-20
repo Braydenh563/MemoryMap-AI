@@ -46,7 +46,13 @@ async function newBoard(page, name, type) {
   const pan = await page.evaluate(() => {
     wbSelectToolRef("pan");
     const c = document.getElementById("whiteboard-container");
-    const layers = ["wb-html-layer", "wb-zoom-group", "wb-overlay-zoom-group"]
+    // The three elements the zoom transform is written to. They are the
+    // layers, not the groups inside them: `wbApplyZoomTransform` moved onto
+    // `#wb-svg-layer`/`#wb-overlay-layer` (see its own note about the swap),
+    // and this sweep kept reading the old group ids, so it reported an empty
+    // transform as "the pan does not move the layers" for a pan that was
+    // working.
+    const layers = ["wb-html-layer", "wb-svg-layer", "wb-overlay-layer"]
       .map((id) => document.getElementById(id));
     const r = c.getBoundingClientRect();
     const x = Math.round(r.left + r.width / 2);
@@ -76,7 +82,7 @@ async function newBoard(page, name, type) {
   // them writes the grid, which is the optimisation this must not undo.
   const burst = await page.evaluate(() => {
     const c = document.getElementById("whiteboard-container");
-    const layer = document.getElementById("wb-zoom-group");
+    const layer = document.getElementById("wb-svg-layer");
     const r = c.getBoundingClientRect();
     const x = Math.round(r.left + r.width / 2);
     const y = Math.round(r.top + r.height / 2);

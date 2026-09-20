@@ -312,13 +312,21 @@ being written by running agents stay beside this one.
   re-render between. The export needs nothing: it paints the container's own
   background colour into the SVG, so the blend and its backdrop travel
   together.
-- **A sketch's handles scale with the zoom; a card's do not.** 10x10 on every
-  kind at zoom 1; a sketch's are SVG rects of 10 board units inside
-  `#wb-zoom-group`, so 20px at 2x and 5px at 0.5x. Next step: either draw them
-  at `10 / transform.k` and re-render on zoom (`wbRenderSketchHandles` is not
-  called from the zoom frame today, and the pan path is deliberately kept free
-  of work) or move them into screen coordinates (the drag maths assume board
-  units). Measure the zoom frame before choosing. [whiteboard-phases.md]
+- ~~**A sketch's handles scale with the zoom; a card's do not.**~~ Closed
+  2026-09-20, and the size half was **already built and this entry was
+  stale**: `--wb-inv-zoom` (published once per zoom frame by
+  `wbSyncGridToTransform`) and the grip rules in 07-whiteboard-misc.css hold
+  every sketch and link grip at a constant size, measured 10px at 0.5x, 1x and
+  2x, the rotate grip 12px and its stem 28px. The zoom frame was measured
+  rather than guessed (`panlag.js`, 5/5): one transform write per event and
+  the grid custom properties once per frame, so the CSS route adds nothing to
+  it and no re-render was needed. Three real failures in
+  `scratchpad/ui-sweeps/wbhandlezoom.js` were found behind it and fixed: a
+  link's bend grip was 24px at 2x (the one grip missing from that CSS block),
+  and the sketch move and sketch resize drags divided `event.dx` by the zoom a
+  second time, which the link endpoint handle's own comment had already warned
+  about, so a shape at 2x moved 30px for a 60px drag and its east grip widened
+  it by 30px. 17/17 now.
 - **The context bar at phone width, and the plan's half-answered question.**
   WHITEBOARD_PLAN section 7 asks whether it should pin to the top of the
   canvas at 390. Floating is measured at 390x844 in a 364x604 canvas: 269x54

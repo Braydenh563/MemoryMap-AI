@@ -7,6 +7,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- A shape on the whiteboard follows the pointer at any zoom. Dragging one at 2x
+  moved it half as far as the cursor, and its resize grip widened it half as
+  far, because two drag handlers converted a delta that was already in board
+  coordinates. A link's bend grip is also the same size on screen at every
+  zoom now: it was 24px across at 2x against 12px at 1x, the one grip missing
+  from the rule that holds every other one still.
+
 - The quick sketch pad and the whiteboard have one highlighter. They held two
   copies of it at different values, so the same tool covered the paper on one
   surface and tinted it on the other; both read one table now (0.4 opacity, a

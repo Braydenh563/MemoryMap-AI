@@ -11685,9 +11685,14 @@ header#top-bar {
 /* The SVG half. `transform-box: fill-box` is what makes `center` mean the
    element's own middle rather than the SVG view box's origin, which is where
    an SVG transform-origin otherwise resolves and would fling the handle across
-   the board. */
+   the board.
+
+   A link's bend grip belongs here too and was the one that did not: measured
+   at 24px across at 2x against the 12px it is at 1x, which is the shape of
+   miss this whole block exists to stop. */
 .wb-sketch-resize-handle,
-.wb-link-endpoint-handle {
+.wb-link-endpoint-handle,
+.wb-link-bend-handle {
   transform-box: fill-box;
   transform-origin: center;
   transform: scale(var(--wb-inv-zoom));

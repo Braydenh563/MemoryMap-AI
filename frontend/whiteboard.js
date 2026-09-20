@@ -12555,9 +12555,16 @@ function wbDrawSketchHandles(sketch) {
             sketch._resizeUndoBefore = WB_KIND_INFO.sketch.payload(sketch);
           })
           .on("drag", (event) => {
-            const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-            rawDX += event.dx / transform.k;
-            rawDY += event.dy / transform.k;
+            // No `/ transform.k`, for the reason the link endpoint handle
+            // above already records: this rect's drag container is its parent
+            // `<g>` inside the zoomed `#wb-zoom-group`, and d3.pointer
+            // resolves SVG coordinates through `getScreenCTM()`, which has
+            // already folded in every ancestor transform. `event.dx` arrives
+            // in board units. Dividing again halved the gesture at 2x
+            // (measured: a 60px drag on the east grip widened the shape by
+            // 30px on screen, where the card's own grip moved the full 60).
+            rawDX += event.dx;
+            rawDY += event.dy;
             const t = wbSketchResizeTransform(bbox, handle, rawDX, rawDY, event.sourceEvent.shiftKey);
             const newD = wbTransformPathD(parsed.d, t);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", newD);
@@ -12803,9 +12810,13 @@ function renderWhiteboard() {
           ? wbCaptureBulkMoveOrigin(wbMultiKey("sketch", d.id))
           : null;
       }
-      const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-      d._dragRawDX += event.dx / transform.k;
-      d._dragRawDY += event.dy / transform.k;
+      // Board units already, no `/ transform.k`: this drag's container is the
+      // sketch group's parent inside the zoomed `#wb-zoom-group` (see the link
+      // endpoint handle's own note). A shape dragged at 2x followed the
+      // pointer at half speed until this was measured: 30px of travel for a
+      // 60px drag, against the card beside it, which moved the full 60.
+      d._dragRawDX += event.dx;
+      d._dragRawDY += event.dy;
       const bypassSnap = event.sourceEvent?.altKey;
       const dx = wbSnap(d._dragRawDX, bypassSnap), dy = wbSnap(d._dragRawDY, bypassSnap);
       const newD = wbTransformPathD(d._dragOriginalD, { dx, dy });

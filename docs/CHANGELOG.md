@@ -165,6 +165,17 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The split document view keeps its two panes on the same place. The sync
+  was a scroll fraction, which is exact at both ends and wrong in between
+  wherever a block takes a different amount of room in the two halves: a
+  picture is one line of source and four hundred pixels of preview, and every
+  such block shifts everything below it in one pane only. Measured on a
+  five-section document with a table, a code fence and a list in each, the
+  preview sat 282, 292, 266, 404 and 550px away from the heading the source
+  was showing, growing downwards. `renderMarkdown` now stamps every block
+  with the source line it came from and the sync interpolates between the
+  nearest pair of anchors: 0, 75, 0, 0, 0px, and the 75 is the editor landing
+  21px short of where it was asked to scroll.
 - The guide panel says it is the guide, and its thinking box can now be
   drawn. The head reads "Atlas guide" over one muted line, "How this app
   works, from its own help text", and the sheet's accessible name is that

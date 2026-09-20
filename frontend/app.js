@@ -26625,12 +26625,48 @@ function renderMarkdown(container, text, depth = 0) {
   let list = null; // the <ul>/<ol> currently being filled, or null
   const headingIds = new Set(); // so two "Notes" headings get distinct anchors
 
+  //: **Which source line each rendered block came from**, written on the
+  //: block as `data-src-line`. The split document view needs it to line its
+  //: two panes up: a scroll fraction is exact at both ends and wrong
+  //: everywhere a picture, a table or a code fence takes a different amount
+  //: of room in the two halves, which is the owner's report of 2026-09-20
+  //: ("the scrolling is off in the split document view because of the md
+  //: rendering"). See `docScrollAnchors` in documents.js.
+  //:
+  //: Stamped here rather than worked out afterwards, because this loop is the
+  //: only thing that knows which lines produced which element. Any other
+  //: answer is a second parser standing beside this one, and two parsers
+  //: disagree the first time either is changed.
+  //:
+  //: The bookkeeping is deliberately outside the branches: a block is
+  //: appended at eight different points in this loop, several of them after
+  //: `i` has already moved past the lines they consumed, so the line is
+  //: remembered at the top of the iteration and everything the iteration
+  //: appended is stamped at the top of the next one. A list is the exception,
+  //: since `closeList` appends it in a later iteration than the one that
+  //: started it, so it carries its own start line.
+  let blockLine = 0;
+  let listLine = 0;
+  let stamped = 0;
+  const stampNewBlocks = () => {
+    while (stamped < container.childElementCount) {
+      container.children[stamped].dataset.srcLine = String(blockLine);
+      stamped += 1;
+    }
+  };
+
   const closeList = () => {
-    if (list) container.appendChild(list);
+    if (list) {
+      list.dataset.srcLine = String(listLine);
+      container.appendChild(list);
+      stamped = container.childElementCount;
+    }
     list = null;
   };
 
   while (i < lines.length) {
+    stampNewBlocks();
+    blockLine = i;
     const line = lines[i];
 
     // Fenced code block. Gets a header strip with the language (when the
@@ -26832,6 +26868,7 @@ function renderMarkdown(container, text, depth = 0) {
       if (!list || (list.tagName === "OL") !== wantOrdered) {
         closeList();
         list = document.createElement(wantOrdered ? "ol" : "ul");
+        listLine = i;
         // Start where the author started. Without this a list written as
         // "3. 4. 5." renders as 1, 2, 3, and, more importantly, a list that
         // resumes after a paragraph restarts from 1.
@@ -26919,6 +26956,9 @@ function renderMarkdown(container, text, depth = 0) {
     });
     container.appendChild(p);
   }
+  //: The last iteration's blocks, which no next iteration is coming to stamp,
+  //: and then the list the document may have ended in the middle of.
+  stampNewBlocks();
   closeList();
 }
 

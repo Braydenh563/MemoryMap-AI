@@ -1300,6 +1300,52 @@ def test_the_failed_state_is_built_in_exactly_one_place() -> None:
         "the failed state is drawn by surfaceFailed alone; a second builder is "
         "how the empty states came to disagree in the first place"
     )
+# --- two panes showing one document (DESIGN.md, "Two views of one document") --
+
+
+def test_the_rendered_blocks_carry_the_line_they_came_from() -> None:
+    """The split view's scroll map is a contract across two files: app.js's
+    `renderMarkdown` writes `data-src-line` on every block it draws, and
+    documents.js's `docScrollAnchors` reads it. Neither half is any use alone,
+    and the failure when one goes is silent: the map finds no anchors, falls
+    back to the scroll fraction, and the panes are a screenful apart again
+    with nothing in the console to say why.
+
+    Measured before the stamps existed: on a document of five sections with a
+    table, a code fence and a list in each, the preview was 282, 292, 266, 404
+    and 550px out at the five headings, growing downwards because every block
+    that takes a different amount of room in the two panes shifts everything
+    below it. With them: 0, 75, 0, 0, 0, and the 75 is the editor landing 21px
+    short of where the probe asked it to scroll, not the map.
+    """
+    app_js = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    documents_js = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    assert "dataset.srcLine = String(" in app_js, (
+        "renderMarkdown must stamp each block with the source line it came "
+        "from, or the split view has nothing to line its panes up by"
+    )
+    assert "dataset.srcLine" in documents_js, (
+        "documents.js must read the stamps; a stamp nothing reads is dead "
+        "markup on every surface that renders markdown"
+    )
+    anchors = _function_body(documents_js, "docScrollAnchors")
+    assert "docPreviewLineShift" in anchors, (
+        "the stamps count lines in the string the preview rendered, which has "
+        "the title prepended and the frontmatter taken off: the shift has to "
+        "be undone or every titled document lines up two lines out"
+    )
+    assert "lineBlockAt(" in _function_body(documents_js, "docSourceLineTop"), (
+        "CodeMirror only renders the lines near the viewport, so coordsAtPos "
+        "answers null for exactly the off-screen anchors this table is built "
+        "from; lineBlockAt reads the height map, which covers the document"
+    )
+    sync = _function_body(documents_js, "syncDocScroll")
+    assert "docScrollAnchors(" in sync and "docMapThroughAnchors(" in sync, (
+        "the sync must go through the anchor map, with the scroll fraction "
+        "kept only for the case where there are no anchors to read"
+    )
+
+
 # --- the guided tour (DESIGN.md, "A guided tour of the interface") ------------
 
 TOUR_JS = ROOT / "frontend" / "tour.js"

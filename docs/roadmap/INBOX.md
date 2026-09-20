@@ -465,6 +465,19 @@ with its owner named in the entry.
     on its own 250ms beat, and the answer growing in four steps over 1920ms.
     The report was real when it was made and was the missing `X-Auth-Token`
     on the streaming fetch, already fixed on this branch.
+    **The split view's scroll: fixed.** The owner named the cause ("because of
+    the md rendering") and it was right: the sync was a scroll fraction, which
+    is exact at both ends and wrong in between wherever a block takes a
+    different amount of room in the two panes. Measured on a five-section
+    document with a picture, a table, a code fence and a list in each, the
+    preview sat 282, 292, 266, 404 and 550px from the heading the source pane
+    was showing, growing downwards because the error is cumulative. The map is
+    now line to block: `renderMarkdown` stamps each block with the source line
+    it came from, `docScrollAnchors` pairs the stamps with each pane's own
+    offsets and the sync interpolates between the nearest two. After: 0, 75,
+    0, 0, 0px, and the 75 is the probe's own scroll landing 21px short in
+    CodeMirror, not the map. Recipe and lint added in the same commit
+    (DESIGN.md, "Two panes showing one document").
 
 273. **Found by the Documents agent, 2026-09-20 (the session, not the
     owner), two things it measured and did not own.** (1) `errors.js` at

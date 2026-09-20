@@ -30057,4 +30057,35 @@ told to open first.
     (`scratchpad/ui-sweeps/batterymotion.js`). The preference is stored
     server-side and survives a run, so that sweep sets it off before it
     starts; not doing so cost a second wrong reading.
+## INBOX resolved, 2026-09-20
+
+246. **Mid-work drop, 2026-09-14, verbatim (the owner).** "I also want to
+    be able to attach whiteboards and mindmaps to notes. and I want it to
+    show in notes if they are attached to or referenced in/by a document,
+    note, whiteboard, or mindmap." Recommendation: the note edit form's
+    attach menu gains Board and Mind map (the same reference the board
+    already stores when it embeds a note, written from the note's side),
+    and the note card gets a "Referenced by" row listing documents, notes,
+    boards and maps that carry it, from one backlinks endpoint.
+    **Both halves built 2026-09-20**, as recommended.
+    "Referenced by" is `GET /entries/{id}/references`: the boards and maps
+    that carry the note (a `WhiteboardNode` join, exact, and it says which
+    of the two it is), and the documents and notes that name it (the same
+    LIKE-then-verify scan `routes_documents._backlinks` runs, saying whether
+    it found a `[[wiki link]]` or a bare mention, links sorted first). Twelve
+    tests in `tests/test_entry_references.py`.
+    "Add to a board or map" is the note menu's neighbour to "Add to a
+    document", and attaching writes exactly the `WhiteboardNode` row the
+    board would have written itself, so the note becomes a card you can see
+    and drag and the "Referenced by" row reads it back without knowing which
+    side wrote it. No "new board" option, unlike the document picker: a board
+    needs a type and a name, which is a dialog, and the Library already has
+    one; a half version here would be a third place that creates boards.
+    Driven end to end in the browser
+    (`scratchpad/ui-sweeps/attachboard.js`, `entryrefs.js`): the picker
+    lists both kinds with their type, Attach puts the note on, the toast
+    offers a way in, and the note's own row then shows the board.
+    Found and fixed on the way: `plain_label` stripped markdown links and not
+    wiki ones, so every note chip in the app whose first line linked to
+    another note showed its brackets.
 

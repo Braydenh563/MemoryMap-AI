@@ -4873,6 +4873,19 @@ function entryOverflowMenu(entry) {
         },
       },
       {
+        //: INBOX 246's first sentence. Next to "Add to a document" because
+        //: it is the same act on the other kind of surface, and the note
+        //: stays exactly where it is either way.
+        label: "ph:squares-four Add to a board or map",
+        title: "Put this note on a whiteboard or a mind map",
+        run: () => {
+          inlineAction = inlineActionIs(entry.id, "board")
+            ? null
+            : { id: entry.id, kind: "board" };
+          renderEntries();
+        },
+      },
+      {
         label: "ph:file-text Expand into a document",
         title: "Start a document from this note, the note stays where it is",
         run: () => expandNoteIntoDocument(entry),
@@ -5150,6 +5163,11 @@ function renderInlineAction(entry) {
 
   if (inlineAction.kind === "document") {
     renderAttachToDocument(entry, wrap);
+    return wrap;
+  }
+
+  if (inlineAction.kind === "board") {
+    renderAttachToBoard(entry, wrap);
     return wrap;
   }
 
@@ -11046,6 +11064,114 @@ function renderCaptureDocumentAdder() {
   );
   const adder = labelledMenu("ph:file-plus Add to document", items, "Add this note to a document", "ghost");
   slot.replaceChildren(adder);
+}
+
+//: **Put this note on a whiteboard or a mind map** (INBOX 246, the owner:
+//: "I also want to be able to attach whiteboards and mindmaps to notes").
+//:
+//: "Attach" here means the thing a person means by it: the note goes on the
+//: board, as a card, where they can see it. That is a `WhiteboardNode` row,
+//: which is the reference the board already stores when it carries a note,
+//: written from the note's side. No new relation, no second way for a note
+//: and a board to be connected, and the "Referenced by" row above reads it
+//: back without knowing which side wrote it.
+//:
+//: Deliberately the shape of `renderAttachToDocument` below, which does the
+//: same job for documents: the same inline panel, the same select, the same
+//: Attach/Cancel pair, the same toast with a way in. Two adders that behave
+//: differently would be two things to learn for one idea.
+//:
+//: **No "new board" option**, unlike the document picker. A document made
+//: from a note is a document with that note in it and nothing else to
+//: decide; a board made from a note needs a type (board or map) and a name,
+//: which is a dialog, and the Library's own "New board" already asks both.
+//: Offering a half version here would be a third place that creates boards.
+async function renderAttachToBoard(entry, wrap) {
+  const status = document.createElement("p");
+  status.className = "muted";
+  status.textContent = "Loading boards\u2026";
+  wrap.appendChild(status);
+
+  const boards = await apiJson("/whiteboard/boards", { silent: true }).catch(() => null);
+  if (!boards) {
+    status.textContent = "Couldn't load your boards.";
+    return;
+  }
+  //: The unnamed scratch board (`id: null`) is left out: it is where things
+  //: land when nobody chose a board, not somewhere to file a note on
+  //: purpose, and it has no name to offer in a list.
+  const named = boards.filter((board) => board.id != null);
+  if (!named.length) {
+    status.textContent = "No boards or maps yet. Make one in the Library first.";
+    const only = document.createElement("div");
+    only.className = "row";
+    only.appendChild(
+      smallButton("Cancel", "", () => {
+        inlineAction = null;
+        renderEntries();
+      })
+    );
+    wrap.appendChild(only);
+    return;
+  }
+  status.textContent = "Put this note on:";
+
+  const picker = document.createElement("select");
+  for (const board of named) {
+    const option = document.createElement("option");
+    option.value = String(board.id);
+    //: The kind in the label, because the owner asked for whiteboards and
+    //: mind maps by name and a list of bare titles does not say which is
+    //: which. The word, not an icon: this is an `<option>`, and an option's
+    //: text is all it has.
+    option.textContent = `${board.title || "Untitled"} (${board.type === "map" ? "map" : "board"})`;
+    //: The name on its own, for the toast. The `(board)` half belongs in a
+    //: list where two kinds sit together and reads as part of the name
+    //: anywhere else: "Put on \u201cHouse jobs (board)\u201d" is not a sentence
+    //: somebody wrote.
+    option.dataset.title = board.title || "Untitled";
+    picker.appendChild(option);
+  }
+
+  const row = document.createElement("div");
+  row.className = "row";
+  row.appendChild(
+    smallButton(
+      "Attach",
+      "Put this note on the chosen board",
+      async () => {
+        const id = Number(picker.value);
+        const title = picker.selectedOptions[0]?.dataset.title || "that board";
+        try {
+          await apiJson("/whiteboard/nodes", {
+            method: "POST",
+            //: Placed rather than dropped at the origin: every board already
+            //: has something at 0,0 sooner or later, and a card that lands
+            //: exactly under another one reads as "nothing happened". This is
+            //: the same offset the board's own "add a card" starts from, and
+            //: the card is draggable the moment it is there.
+            body: JSON.stringify({ entry_id: entry.id, board_id: id, x: 80, y: 80, z: 1 }),
+          });
+          inlineAction = null;
+          await loadEntries();
+          toastAction(`Put on \u201c${title}\u201d.`, "Open", () => {
+            if (typeof openWhiteboardBoard === "function") openWhiteboardBoard(id);
+          });
+        } catch (error) {
+          toast(error.message, true);
+        }
+      },
+      false
+    )
+  );
+  row.appendChild(
+    smallButton("Cancel", "", () => {
+      inlineAction = null;
+      renderEntries();
+    })
+  );
+  wrap.append(picker, row);
+  focusSelect(picker);
 }
 
 // The other direction, asked for straight after the capture-time picker:

@@ -9,6 +9,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A note can be put on a whiteboard or a mind map from its own menu. "Add to
+  a board or map" sits beside "Add to a document" and does the same thing on
+  the other kind of surface: the note becomes a card on the board, where you
+  can see it and drag it, and the note's "Referenced by" row then says so.
+
 - "Referenced by" on a note. Its menu now answers what points at it:
   the whiteboards and mind maps that carry it, the documents and notes that
   link to it, and the ones that only mention it by name, with which of the

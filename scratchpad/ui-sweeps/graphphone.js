@@ -108,7 +108,10 @@ async function touch(cdp, type, points) {
   // A point on the canvas that really has a node under it, and one that
   // really has none: `elementFromPoint` decides whether the dock or the
   // options panel is over the map there (graphtouch.js's own trap).
-  const points = await page.evaluate(() => {
+  //: Asked again before each gesture rather than once: the force layout is
+  //: live, so a point that had a node under it when the probe started can be
+  //: empty canvas a lasso later, and a tap there proves nothing.
+  const findPoints = () => page.evaluate(() => {
     const canvas = document.getElementById('graph-canvas');
     const b = canvas.getBoundingClientRect();
     let onNode = null;
@@ -126,6 +129,7 @@ async function touch(cdp, type, points) {
     }
     return { onNode, empty };
   });
+  const points = await findPoints();
   console.log('points          ', JSON.stringify(points));
   check(Boolean(points.onNode), 'no node on the map is reachable by a finger');
   check(Boolean(points.empty), 'no empty spot on the map is reachable by a finger');
@@ -188,13 +192,19 @@ async function touch(cdp, type, points) {
     const [ex, ey] = points.empty;
     await hold(ex, ey);
     const armed = await page.evaluate(() => Boolean(gcTab.lasso));
-    for (let i = 1; i <= 14; i++) {
-      const t = i / 14;
-      // A box around the middle of the map, so whatever is there is caught.
-      const x = ex + Math.cos(t * Math.PI * 2) * 110;
-      const y = ey + Math.sin(t * Math.PI * 2) * 110;
-      await touch(cdp, 'touchMove', [{ x, y }]);
-      await page.waitForTimeout(20);
+    // A box drawn around the node this probe already found, not a circle
+    // around wherever the empty spot happened to be: at 430x932 the first
+    // uncovered empty point is far from any note and the loop caught
+    // nothing, which says something about the probe's geometry and nothing
+    // about the lasso.
+    const [nx, ny] = points.onNode || [ex, ey];
+    const r = 70;
+    const corners = [[nx - r, ny - r], [nx + r, ny - r], [nx + r, ny + r], [nx - r, ny + r], [nx - r, ny - r]];
+    for (const [tx, ty] of corners) {
+      for (let i = 1; i <= 4; i++) {
+        await touch(cdp, 'touchMove', [{ x: tx, y: ty }]);
+        await page.waitForTimeout(16);
+      }
     }
     await touch(cdp, 'touchEnd', []);
     await page.waitForTimeout(500);
@@ -231,12 +241,22 @@ async function touch(cdp, type, points) {
   }
 
   // --- 3. a tap on a node opens the node panel, and it is a sheet -----------
-  if (points.onNode) {
-    await touch(cdp, 'touchStart', [{ x: points.onNode[0], y: points.onNode[1] }]);
-    await page.waitForTimeout(80);
+  //: Up to three tries, each one asking where a node is again first. The
+  //: force layout is live: between the frame that answers "there is a node
+  //: at 235,308" and the frame the finger lands on, the node has moved, and
+  //: at 430x932 (a bigger world, longer travel) a single try missed about
+  //: half the time. A miss is a tap on empty canvas, which correctly opens
+  //: nothing; what is being measured is what a tap *on a node* does.
+  let panel = null;
+  let tapped = null;
+  for (let attempt = 0; attempt < 3 && !panel; attempt++) {
+    tapped = (await findPoints()).onNode;
+    if (!tapped) break;
+    await touch(cdp, 'touchStart', [{ x: tapped[0], y: tapped[1] }]);
+    await page.waitForTimeout(60);
     await touch(cdp, 'touchEnd', []);
     await page.waitForTimeout(1200);
-    const panel = await page.evaluate(() => {
+    panel = await page.evaluate(() => {
       const el = document.getElementById('graph-popup');
       if (!el || el.classList.contains('hidden')) return null;
       const r = el.getBoundingClientRect();
@@ -245,14 +265,14 @@ async function touch(cdp, type, points) {
         sheet: el.classList.contains('graph-popup-sheet'),
       };
     });
-    console.log('tap node        ', JSON.stringify(panel));
-    check(Boolean(panel), 'a tap on a node opened nothing');
-    if (panel) {
-      check(panel.sheet, 'the node panel is not the sheet at 390');
-      check(panel.rect[2] >= WIDTH - 32, `the node panel is ${panel.rect[2]} wide in ${WIDTH}`);
-      await page.evaluate(() => document.getElementById('graph-popup-close')?.click());
-      await page.waitForTimeout(400);
-    }
+  }
+  console.log('tap node        ', JSON.stringify({ at: tapped, panel }));
+  check(Boolean(panel), 'three taps on a node opened nothing');
+  if (panel) {
+    check(panel.sheet, 'the node panel is not the sheet at ' + WIDTH);
+    check(panel.rect[2] >= WIDTH - 32, `the node panel is ${panel.rect[2]} wide in ${WIDTH}`);
+    await page.evaluate(() => document.getElementById('graph-popup-close')?.click());
+    await page.waitForTimeout(400);
   }
 
   // --- 4. the controls are one sheet ----------------------------------------

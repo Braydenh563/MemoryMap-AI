@@ -931,6 +931,33 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
    added and whiteboard.js joins the long-press lint's file list; the fourth
    right-click, bound through d3 on a selection that is rebound every
    render, keeps its own hold, and the lint's docstring says why.
+   **The bar at 820, and the band between: measured and fixed** (2026-09-20,
+   `scratchpad/ui-sweeps/wbtopbar820.js`, on an open board). Two things this
+   item left behind. First, from 600 to 819 the band's own rule reads "below
+   820 the pointer is a finger" (`--target-min` is 2.75rem on `:root` there),
+   and all thirteen of the bar's controls were still **36px tall** at 768,
+   because the rule this item wrote lived in the 600 band and the bar declares
+   its own control height, which nothing in it read; the icon-only ones had
+   taken the width and not the height, which is how it stayed invisible. It is
+   in the 819.98 band now: at 768 the bar is 104px and two rows with every
+   control at 44. Second, below 56rem the five menu toggles drop their words
+   and rendered **25.8px wide**, the narrowest controls in the app and under
+   the *global* 28px floor, so at 820 five of thirteen failed a floor that has
+   nothing to do with touch. They take the floor from 600 up now (at 820, 28;
+   at 768, 44).
+
+   **At 820 itself the band's 44px floor is deliberately not introduced**, and
+   that is band 2's existing decision rather than a new one: 10-responsive.css
+   records why `--target-min` was redeclared on `#tab-bar` alone there and not
+   on `:root` ("raising every dock control in the band to 44px is a real change
+   with its own measurements to take"). Measured at 820x1180 after: the bar is
+   784x46, one row, thirteen controls all 36px tall, nothing under 28, no
+   sideways scroll; at 1440 it is unchanged at 1392x46. Found and not fixed,
+   placed in WHITEBOARD_PLAN with its numbers: below 600 the bar runs 75px past
+   its own right edge at 320 and 5px at 390, and the only fix that does not
+   redesign it costs a row (152px at 390, 200px at 320), which is the
+   phone-shaped board bar this item already assigned to that plan.
+
    **Decision: the board's top bar is not reduced to a kebab** the way the
    app header was (item 1). It is a menu bar, which the dock grammar already
    names as this surface's exception (Insert, Edit, Arrange, View, Board),
@@ -1050,9 +1077,27 @@ different problem than the list says.
     make; and **the composer above a simulated keyboard cannot be measured
     here**, because the sandbox has no soft keyboard and Playwright does not
     fake one, so `visualViewport` never shrinks. Two taps to anything is in
-    `phonetabs.js` and `phonemore.js` already. Still open: errors.js and
-    contrast.js at 390 (this session runs them at the end), and the screenshot
-    set for the owner.
+    `phonetabs.js` and `phonemore.js` already.
+
+    **errors.js and contrast.js at 390: done** (2026-09-20). errors.js already
+    took a width and is clean at 1024, 820 and 390 (0 errors, 0 layout
+    findings each). contrast.js took **no viewport at all** and had therefore
+    only ever run at `boot`'s default 1440x900, which is the whole reason this
+    line was open. It takes WIDTH/HEIGHT now, a touch context below 600, and
+    two things it had to learn to reach a phone: Settings opens through
+    `openSettingsModal` rather than `#settings-btn` (hidden below 600, where
+    Settings is a row in the header's `...` menu) and its sections are reached
+    the same way (the section strip is hidden below 600), so every one of the
+    twelve had been "ok" at phone width by never being looked at. It also
+    reports **how many text elements it measured**, because "ok" and "nothing
+    rendered" printed the same line before, and that count caught one on its
+    first run: `whiteboard` was in its tab list with no `#tab-whiteboard` to
+    open, so `revealTab` hid every page and the sweep measured an empty window
+    at every width it has ever run at. A board is opened from Boards & maps now
+    and measures 88 text elements at 390. Result: 33 surfaces per run, 0
+    low-contrast, at 390, 820 and 1440 in light and dark.
+
+    Still open: the screenshot set for the owner.
 
 ## Placed from INBOX, 2026-09-09
 

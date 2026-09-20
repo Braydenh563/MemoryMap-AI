@@ -4708,3 +4708,101 @@ input.doc-title-input::placeholder {
     min-width: 0;
   }
 }
+
+/* --- the guided tour (DESIGN.md, "A guided tour step") -------------------------
+   Three elements, three jobs, and keeping them apart is what makes the dim a
+   real cut-out rather than a sheet with a bright rectangle drawn on it:
+
+   * `.tour-block` paints nothing and exists to swallow presses, so a control
+     cannot be pressed out from under the card that is describing it.
+   * `.tour-spot` is the hole. It has no background of its own; the dim is its
+     `box-shadow` spread past the far corner of any window, so everything
+     outside this box is darkened by it and everything inside is the page,
+     untouched. That is the difference between "the control is highlighted"
+     and "the control is the one bright thing on screen".
+   * `.tour-card` is the step, a `.card` like every other surface in the app,
+     positioned in window coordinates from tour.js.
+
+   Deliberately no transition on `left`/`top`/`width`/`height`: tour.js sets a
+   position, measures it and corrects by the difference (DESIGN.md's rule for a
+   popup in window coordinates), and a transition makes that second measurement
+   read an interpolated position, so the correction would chase its own tail. */
+.tour-block {
+  position: fixed;
+  inset: 0;
+  z-index: 1040;
+  background: transparent;
+}
+
+.tour-spot {
+  position: fixed;
+  z-index: 1041;
+  background: transparent;
+  border-radius: var(--radius-md);
+  /* The first shadow is the dim, the second is the ring that says which
+     control this step is about. 100vmax is "past the far corner of the window
+     whatever its shape", and it is a length rather than a token because it is
+     not a spacing decision: it is the one number that guarantees the dim
+     reaches every edge. */
+  box-shadow:
+    0 0 0 100vmax var(--scrim),
+    inset 0 0 0 2px var(--accent);
+  /* The cut-out never takes a press: `.tour-block` above is what stops the
+     page being used mid-step, and a spot that swallowed presses would put a
+     dead rectangle over the control it is pointing at. */
+  pointer-events: none;
+}
+
+.tour-card {
+  position: fixed;
+  z-index: 1042;
+  margin: 0;
+  width: min(21rem, calc(100vw - var(--space-9)));
+  max-height: calc(100dvh - var(--space-9));
+  overflow: auto;
+}
+
+.tour-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.tour-count {
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.tour-title {
+  font-size: var(--text-h3);
+  margin: var(--space-3) 0 0;
+}
+
+.tour-text {
+  margin: var(--space-2) 0 0;
+}
+
+.tour-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.tour-actions-end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Settings, help and guide: the whole tour first, then one button per section.
+   Wrapping, because the section names are words and the settings column is
+   narrow at phone widths. */
+.tour-replay-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}

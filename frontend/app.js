@@ -1682,10 +1682,110 @@ const MAP_PREVIEW_CORNER_UNITS = 0.8;
 //: invisible is a preview of the big ones only.
 const MAP_PREVIEW_MIN_BLOCK = 0.5;
 
-//: A character's width as a fraction of the type size, for deciding whether a
-//: label fits inside its own shape. Rough on purpose: the alternative is
-//: measuring text in the DOM, which means laying out every thumbnail twice.
+//: A character's width as a fraction of the type size. Still here as the
+//: fallback for a browser that cannot measure (see `mapPreviewTextWidth`),
+//: and as the unit the padding around a label is expressed in.
+//:
+//: **It is no longer what decides whether a label fits**, and the reason is a
+//: measurement. An estimate that is 0.55 when the font draws wider puts the
+//: text past the room it was budgeted, and the budget is what every later
+//: decision is made from: measured on a seeded board, "body text" was
+//: budgeted into a margin and painted 20.0 units wide starting at x=100.1 in
+//: a 100-unit-wide viewBox, so the label began past the edge of the paper.
+//: Reported as "the boards and maps previews are kinda a mess".
 const MAP_PREVIEW_CHAR_WIDTH = 0.55;
+
+//: **What a label really paints, at font-size 1, cached by string.**
+//:
+//: One hidden SVG for the whole page, carrying `.board-minimap` so the
+//: stylesheet's own family and weight apply: measuring in a different font
+//: than the one drawn is worse than not measuring, because it is wrong with
+//: confidence. `getComputedTextLength` is the SVG text metric and needs the
+//: element in a rendered tree, which a freshly built preview is not, hence a
+//: measuring element rather than the label itself.
+//:
+//: Measured once per distinct string at size 100 and divided back out, so a
+//: board's six titles cost six measurements however many previews of it are
+//: on screen, and a title that appears in the dashboard widget and in the
+//: Library is measured once for both. The cost this comment's predecessor
+//: worried about ("laying out every thumbnail twice") is what the cache
+//: removes: nothing is laid out twice, and nothing is laid out per preview.
+const MAP_PREVIEW_TEXT_WIDTHS = new Map();
+const MAP_PREVIEW_MEASURE_SIZE = 100;
+let mapPreviewMeasureText = null;
+
+function mapPreviewTextWidth(text, fontSize) {
+  const body = String(text || "");
+  if (!body) return 0;
+  let perUnit = MAP_PREVIEW_TEXT_WIDTHS.get(body);
+  if (perUnit === undefined) {
+    perUnit = null;
+    try {
+      if (!mapPreviewMeasureText) {
+        const NS = "http://www.w3.org/2000/svg";
+        const svg = document.createElementNS(NS, "svg");
+        //: `board-minimap` for the font, `map-preview-measure` for the
+        //: off-screen placement: the CSP refuses an inline `style=`, so both
+        //: are classes (10-responsive.css holds the second).
+        svg.setAttribute("class", "board-minimap map-preview-measure");
+        svg.setAttribute("aria-hidden", "true");
+        const node = document.createElementNS(NS, "text");
+        node.setAttribute("font-size", String(MAP_PREVIEW_MEASURE_SIZE));
+        svg.appendChild(node);
+        document.body.appendChild(svg);
+        mapPreviewMeasureText = node;
+      }
+      mapPreviewMeasureText.textContent = body;
+      const measured = mapPreviewMeasureText.getComputedTextLength();
+      if (measured > 0) perUnit = measured / MAP_PREVIEW_MEASURE_SIZE;
+    } catch {
+      //: A browser with no SVG text metrics, or a document that will not take
+      //: the element: the estimate below is what this always used.
+      perUnit = null;
+    }
+    MAP_PREVIEW_TEXT_WIDTHS.set(body, perUnit);
+  }
+  return perUnit === null
+    ? body.length * MAP_PREVIEW_CHAR_WIDTH * fontSize
+    : perUnit * fontSize;
+}
+
+//: Cut a label to the widest it may paint, measuring rather than counting
+//: characters: "Illinois" and "WWWWWWWW" are eight characters and very
+//: different widths, and the second is what runs off the paper. Returns null
+//: when even one character and the ellipsis will not fit, which is the "draw
+//: nothing" case the caller already had.
+function mapPreviewFitText(text, fontSize, room) {
+  const body = String(text || "");
+  if (!body) return null;
+  if (mapPreviewTextWidth(body, fontSize) <= room) return body;
+  for (let cut = body.length - 1; cut >= 1; cut--) {
+    const shown = `${body.slice(0, cut).trimEnd()}\u2026`;
+    if (mapPreviewTextWidth(shown, fontSize) <= room) return shown;
+  }
+  return null;
+}
+
+//: Do two boxes share more than a hair? A shared edge is not a collision, and
+//: floating point makes an exactly shared edge rare, so the threshold is a
+//: fraction of a unit rather than zero.
+//: Is a painted box wholly on the thumbnail's paper? The slack is one
+//: hundredth of a unit, which is below what `round2` can express, so a box
+//: that lands exactly on the border is inside rather than half a rounding
+//: error outside it.
+function mapPreviewOnPaper(box, vw, vh) {
+  return (
+    box.x >= -0.01 && box.y >= -0.01
+    && box.x + box.w <= vw + 0.01 && box.y + box.h <= vh + 0.01
+  );
+}
+
+function mapPreviewOverlaps(a, b, slack = 0.35) {
+  return (
+    Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > slack
+    && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > slack
+  );
+}
 
 //: **Which ink a label takes when it sits on a coloured node.** Measured
 //: with `scratchpad/ui-sweeps/preview.js` the day inside labels landed: a
@@ -2004,10 +2104,47 @@ function mapPreview(board, { size = "card" } = {}) {
     };
   };
 
+  //: **Every block's painted box, collected as they are drawn**, so the label
+  //: pass below can ask whether a caption has landed on something that is not
+  //: its own (INBOX 263: the previews "are kinda a mess"). A label beside a
+  //: block used to be placed from that block alone, with no idea that the
+  //: margin it hung into was already full: measured on a six-card board,
+  //: "Retry budget" was drawn 10 units into a neighbouring card and 15.9
+  //: units across "Ingest pipeline".
+  const drawn = [];
+
+  //: **Nothing is drawn past the paper's edge.** `px`/`py` place an item's
+  //: *top-left corner* inside the drawable span, and the span is computed
+  //: from the default block's width, while `sizeOf` returns the item's own,
+  //: which can be many times larger. The server's `w` compounds it: it is a
+  //: fraction of the span between the items' corners (`_preview_items`), and
+  //: an item wider than the distance between the outermost two corners has a
+  //: `w` above 1 quite legitimately. Measured on a six-card board: cards
+  //: 39.06 units wide drawn at x=76.28 in a 100-unit-wide viewBox, so a third
+  //: of every card in the right-hand column was outside the thumbnail, which
+  //: is most of what "the boards and maps previews are kinda a mess" is
+  //: looking at.
+  //:
+  //: The left edge is kept and the far edge trimmed, rather than the block
+  //: being moved: where a thing starts is its position, which is information;
+  //: where a clipped block ends is not. A thumbnail is a crop of a board, and
+  //: a large item running to the edge should be drawn running to the edge.
+  //: The floor is the same one `sizeOf` uses (a fraction of the default
+  //: block), not a bare number: `MAP_PREVIEW_MIN_BLOCK` is a multiplier, and
+  //: reading it as viewBox units would make the smallest allowed block half a
+  //: unit, which is a dot.
+  const onPaper = (at, extent, floor, from, to) =>
+    Math.max(floor, Math.min(extent, to - Math.max(from, at)));
+
   for (const item of items) {
     const nx = px(item.x);
     const ny = py(item.y);
-    const size = sizeOf(item);
+    const raw = sizeOf(item);
+    const size = {
+      w: onPaper(nx, raw.w, blockW * MAP_PREVIEW_MIN_BLOCK, pad, vw - pad),
+      h: onPaper(ny, raw.h, blockH * MAP_PREVIEW_MIN_BLOCK, pad, vh - pad),
+    };
+    if (item.kind !== "sketch") drawn.push({ item, x: nx, y: ny, w: size.w, h: size.h });
     if (item.kind === "sketch") {
       // The shape it was drawn with, at the size and place it was drawn, in
       // its own ink: see `mapPreviewSketch`. The stroke data itself is still
@@ -2082,106 +2219,221 @@ function mapPreview(board, { size = "card" } = {}) {
       }
       continue;
     }
-    if (!labels || !item.label) continue;
-    //: **What the item says**, which is why this stopped being a list of bare
-    //: points. Reported as "the whiteboard preview is poor", and the
-    //: screenshot was three boards named "Cloud computing" showing three
-    //: identical arrangements of blank grey rectangles, a picture that could
-    //: not tell them apart, which is what a preview is for.
-    const text = document.createElementNS(NS, "text");
-    text.setAttribute("class", "board-minimap-label");
-    //: **Which side of the block the label sits on.** Drawn always to the
-    //: right in the first version, and looking at the result showed the
-    //: problem immediately: an item at the far right of a board is at nx ≈ 91
-    //: in a 100-wide viewBox, so its label ran off the edge and came out
-    //: sliced mid-word ("Cloud computi"). Past halfway it hangs off the left
-    //: instead, which is the same amount of room from the other direction.
-    //: **Inside the shape when the shape can hold it**, beside it when it
-    //: cannot. Reported as the text "sitting off its shapes", and measured
-    //: before this: six of six labels on a map card were drawn outside every
-    //: block, because a block was a fixed 9x6 units whatever it stood for and
-    //: nothing could ever contain a word. Now that a topic is drawn at its own
-    //: size, a 200x56 node has room for its own name, which is where a person
-    //: reading a map expects to find it.
-    //:
-    //: The test is the text's own width against the block's: `font` units per
-    //: character is the same approximation the ellipsis below uses, and a
-    //: character is about half the type size in this family.
-    const fontUnits = geo.font * unit;
-    const perChar = fontUnits * MAP_PREVIEW_CHAR_WIDTH;
-    //: How many characters the block itself can hold, with a character's
-    //: width of padding at each end. A node is usually wider than it is long
-    //: in words, so this is normally the whole label; when it is not, the
-    //: label is cut to fit *inside* rather than being pushed outside, because
-    //: a name on its own node reads as that node's name and the same name
-    //: floating between two edges reads as a third thing on the board.
-    const roomFor = Math.floor((size.w - perChar * 2) / perChar);
-    const tall = size.h >= fontUnits * 1.6;
-    //: **Inside only when nearly all of it fits.** The floor alone put a
-    //: twelve-character note title into a block with room for five and drew
-    //: "Retr…", which is less use than no label: measured on a seeded board,
-    //: three cards titled "Retry budget", "Ingest pipeline" and "Open
-    //: questions" came out as "Retr…", "Inge…" and "Open…", three cards that
-    //: cannot be told apart by the one thing on them that was supposed to tell
-    //: them apart. Beside the block there is a whole margin and a budget of 16,
-    //: so the title arrives whole; inside is kept for the case it was built
-    //: for, a map's topic, whose node is wide and whose label is short.
-    const fits = tall
-      && roomFor >= Math.max(MAP_PREVIEW_MIN_INSIDE_CHARS, item.label.length - 2);
-    const gap = 1.5 * unit;
-    //: **The margin a label beside a block actually has**, measured on both
-    //: sides rather than guessed from which half of the board the block sits
-    //: in. `nx > vw / 2` is the block's left edge, so a wide item just left of
-    //: centre was labelled to its right at `nx + size.w + gap`, which on a
-    //: 200-unit-wide topic is past the paper: the text drew over the board's
-    //: own border and was sliced at the thumbnail's edge, reported as the
-    //: preview's "note titles run over the edge" (INBOX 174). Both numbers are
-    //: the room in the viewBox's units from the block's edge to the paper's,
-    //: and the label goes to whichever side has more of it.
-    const roomRight = Math.max(0, vw - (nx + size.w + gap));
-    const roomLeft = Math.max(0, nx - gap);
-    const rightHalf = roomLeft > roomRight;
-    //: Characters that side can hold, with one character's width spare so the
-    //: last glyph is not flush against the border. The budget was a flat 16
-    //: on the assumption that "beside the block there is a whole margin",
-    //: which is true of a small node in the middle and false of every block
-    //: near an edge.
-    const outsideChars = Math.floor(Math.max(roomLeft, roomRight) / perChar) - 1;
-    //: Nothing at all rather than an ellipsis on its own: see
-    //: MAP_PREVIEW_MIN_OUTSIDE_CHARS. The block, its size and its colour still
-    //: say what is there; a one-letter caption beside it does not.
-    if (!fits && outsideChars < MAP_PREVIEW_MIN_OUTSIDE_CHARS) continue;
-    const budget = fits ? Math.min(roomFor, 16) : Math.min(outsideChars, 16);
-    const shown = item.label.length > budget
-      ? `${item.label.slice(0, Math.max(1, budget - 1)).trimEnd()}…`
-      : item.label;
-    if (fits) {
-      text.setAttribute("x", String(round2(nx + size.w / 2)));
-      text.setAttribute("y", String(round2(ny + size.h / 2 + fontUnits * 0.36)));
-      text.setAttribute("text-anchor", "middle");
-      text.classList.add("board-minimap-label-inside");
-      //: A class, not a `fill` attribute, and this is the trap the blocks
-      //: above already carry a note about: `.board-minimap-label` declares
-      //: `fill` in the stylesheet, and a CSS declaration beats a presentation
-      //: attribute however specific the attribute looks. Setting the
-      //: attribute changed nothing at all, measured: 3.82:1 before and after.
-      const onColour = item.color ? mapPreviewOnColour(item.color) : null;
-      if (onColour) text.classList.add(`board-minimap-label-${onColour}`);
-    } else {
-      text.setAttribute("x", String(round2(rightHalf ? nx - gap : nx + size.w + gap)));
-      text.setAttribute("y", String(round2(ny + size.h * 0.73)));
+  }
+
+  //: **The labels, placed after every block is drawn and against all of
+  //: them.** Reported as "the boards and maps previews are kinda a mess", and
+  //: measured on a six-card board before this: "Retry budget" drawn 10 units
+  //: into a neighbouring card and 15.9 across "Ingest pipeline", and a
+  //: caption starting at x=100.1 in a 100-unit-wide viewBox.
+  //:
+  //: Three things were wrong and each needed the pass to know more than one
+  //: item at a time. The width was estimated from a characters-times-0.55
+  //: constant, and a budget that under-reports puts the text past the room it
+  //: was granted; the margin a label hangs into was treated as empty when it
+  //: often holds the next card; and nothing looked at the other labels at
+  //: all. So: measure the text, test the box against the blocks and against
+  //: the labels already kept, and drop a caption that has nowhere to go.
+  //:
+  //: **Dropping is the right answer when there is no room**, not shrinking or
+  //: overlapping. A preview is a picture you read at a glance, and two
+  //: captions across each other are less use than one caption and a block
+  //: with no words on it: the block, its size, its place and its colour still
+  //: say what is there.
+  //:
+  //: Biggest first, so when two want the same margin the one on the larger
+  //: thing keeps it, which is also the one a reader's eye goes to.
+  if (labels) {
+    const kept = [];
+    const ordered = drawn
+      .filter((row) => row.item.label && row.item.kind !== "image")
+      .sort((a, b) => b.w * b.h - a.w * a.h);
+    for (const row of ordered) {
+      const { item } = row;
+      const fontUnits = geo.font * unit;
+      const perChar = fontUnits * MAP_PREVIEW_CHAR_WIDTH;
+      const gap = 1.5 * unit;
+      //: The label's painted height. `getBBox` would give it exactly, and
+      //: cannot be asked here (the preview is not in the document yet), but a
+      //: cap height plus descender is a fixed fraction of the type size in
+      //: any family, which is enough to test a box with.
+      const lineH = fontUnits * 1.15;
+
+      //: **Inside the shape when the shape can hold it**, beside it when it
+      //: cannot. Reported as the text "sitting off its shapes": before a
+      //: topic was drawn at its own size, a block was a fixed 9x6 units
+      //: whatever it stood for and nothing could ever contain a word. A
+      //: 200x56 node has room for its own name, which is where a person
+      //: reading a map expects to find it.
+      //:
+      //: Nearly all of it, or none: the earlier version cut to fit and drew
+      //: "Retr…", "Inge…" and "Open…" on three cards, which is three cards
+      //: that cannot be told apart by the one thing meant to tell them apart.
+      const insideRoom = row.w - perChar * 2;
+      const tall = row.h >= fontUnits * 1.6;
+      const full = mapPreviewTextWidth(item.label, fontUnits);
+      const insideChars = Math.floor(insideRoom / perChar);
+      const fits = tall && full <= insideRoom
+        && insideChars >= MAP_PREVIEW_MIN_INSIDE_CHARS;
+
+      let shown = null;
+      let box = null;
+      let anchor = "start";
+      let x = 0;
+      let y = 0;
+      if (fits) {
+        shown = item.label;
+        x = row.x + row.w / 2;
+        y = row.y + row.h / 2 + fontUnits * 0.36;
+        anchor = "middle";
+        box = { x: x - full / 2, y: y - fontUnits * 0.8, w: full, h: lineH };
+      } else {
+        //: Both margins measured from the block's own edges to the paper's,
+        //: and the wider one tried first. `nx > vw / 2` was the old test and
+        //: it reads the block's *left* edge, so a wide item just left of
+        //: centre was labelled to its right at `nx + size.w + gap`, which on
+        //: a 200-unit-wide topic is past the paper (INBOX 174).
+        const roomRight = Math.max(0, vw - (row.x + row.w + gap));
+        const roomLeft = Math.max(0, row.x - gap);
+        const roomBelow = Math.max(0, vh - (row.y + row.h + gap));
+        const roomAbove = Math.max(0, row.y - gap);
+        //: **Four places, not two: beside, and under or over.** Under a
+        //: thumbnail's block is where a caption goes in every file browser
+        //: ever written, and it was not tried at all, so a board whose cards
+        //: sit in a row lost every title but the outermost: the margin left
+        //: and right is the next card, and there was nowhere else to look.
+        //: Measured on a six-card board: 2 of 6 titles drawn before these two
+        //: positions existed.
+        //:
+        //: The wider margin first, then the taller one, so the caption lands
+        //: where there is most room and a board only falls back to stacking
+        //: text under a block when its sides are genuinely full.
+        const places = [
+          { side: "left", room: roomLeft },
+          { side: "right", room: roomRight },
+          { side: "below", room: roomBelow },
+          { side: "above", room: roomAbove },
+        ].sort((a, b) => b.room - a.room);
+        //: Each vertical position is tried three ways: centred under its
+        //: block, then flushed to the block's left edge, then to its right.
+        //: A centred caption is the one to want, and on a crowded board it is
+        //: often the only one of the three that meets the neighbour: sliding
+        //: it to an edge it already shares with its own block keeps it
+        //: attached to the right thing while stepping out of the way.
+        const alignments = ["centre", "start", "end"];
+        const tries = [];
+        for (const place of places) {
+          if (place.side === "below" || place.side === "above") {
+            for (const align of alignments) tries.push({ ...place, align });
+          } else {
+            tries.push({ ...place, align: "centre" });
+          }
+        }
+        for (const place of tries) {
+          const side = place.side;
+          const vertical = side === "below" || side === "above";
+          //: A caption under a block is bounded by the *paper's* width, not
+          //: by the margin below it, which is what has to hold its height.
+          if (vertical && place.room < lineH + gap) continue;
+          const room = vertical
+            ? Math.min(row.x + row.w, vw - row.x) * 2 - perChar
+            : place.room - perChar;
+          if (room < perChar * MAP_PREVIEW_MIN_OUTSIDE_CHARS) continue;
+          const cut = mapPreviewFitText(item.label, fontUnits, room);
+          if (!cut) continue;
+          const width = mapPreviewTextWidth(cut, fontUnits);
+          const centre = row.x + row.w / 2;
+          const baseline = side === "below"
+            ? row.y + row.h + gap + fontUnits * 0.8
+            : side === "above"
+              ? row.y - gap
+              : row.y + row.h * 0.73;
+          //: Where a vertical caption's own box starts, given the alignment
+          //: this attempt is trying.
+          const under = place.align === "start"
+            ? row.x
+            : place.align === "end"
+              ? row.x + row.w - width
+              : centre - width / 2;
+          const left = side === "left"
+            ? row.x - gap - width
+            : side === "right"
+              ? row.x + row.w + gap
+              : under;
+          const candidate = { x: left, y: baseline - fontUnits * 0.8, w: width, h: lineH };
+          //: **Off the paper is a reason to try the next position, not a
+          //: reason to give up on the label.** This test used to sit after
+          //: the loop, which made the first candidate that missed the other
+          //: blocks the last one considered: measured on the seeded board,
+          //: "Retry budget" cleared every block centred under its own card,
+          //: began at x=-1.21, and was then dropped without the two aligned
+          //: positions beside it ever being tried, one of which fits. Two
+          //: reasons to reject a place belong in the same list.
+          if (!mapPreviewOnPaper(candidate, vw, vh)) continue;
+          //: Its own block is not a clash: a caption beside a card may touch
+          //: the card it names, and often has to on a crowded board.
+          const clash = drawn.some((other) => other !== row && mapPreviewOverlaps(candidate, other))
+            || kept.some((other) => mapPreviewOverlaps(candidate, other));
+          if (clash) continue;
+          shown = cut;
+          //: The text anchor has to match the box that was just tested, or
+          //: the collision test is about a rectangle the browser never draws.
+          anchor = side === "left"
+            ? "end"
+            : side === "right"
+              ? "start"
+              : place.align === "start" ? "start" : place.align === "end" ? "end" : "middle";
+          x = side === "left"
+            ? row.x - gap
+            : side === "right"
+              ? row.x + row.w + gap
+              : place.align === "start" ? row.x : place.align === "end" ? row.x + row.w : centre;
+          y = baseline;
+          box = candidate;
+          break;
+        }
+      }
+      if (!shown || !box) continue;
+      //: **A label inside its own block is still checked against the labels
+      //: already kept.** Blocks legitimately overlap on a board (a card
+      //: dropped on another, a topic over a branch), so two captions drawn in
+      //: the middle of two overlapping blocks land on top of each other
+      //: however correct each one is on its own: measured on a board with
+      //: stacked cards, six pairs of identical titles across each other. It
+      //: is not checked against the *blocks*, because sitting on a block is
+      //: what an inside label is for.
+      if (fits && kept.some((other) => mapPreviewOverlaps(box, other))) continue;
+      //: The paper's own edges for the inside case, which has only the one
+      //: position to offer and so tests them here rather than in a loop. A
+      //: caption sliced by the thumbnail's edge reads as a rendering fault,
+      //: which is what it is.
+      if (!mapPreviewOnPaper(box, vw, vh)) continue;
+
+      const text = document.createElementNS(NS, "text");
+      text.setAttribute("class", "board-minimap-label");
+      text.setAttribute("x", String(round2(x)));
+      text.setAttribute("y", String(round2(y)));
+      if (anchor !== "start") text.setAttribute("text-anchor", anchor);
+      // The type size, in the box's units divided back out, for the same
+      // reason the blocks are: a fixed CSS `font-size` here is in viewBox
+      // units, so the labels on a square board came out half the size of the
+      // labels on a wide one. The stylesheet keeps the colour and the family.
+      text.setAttribute("font-size", String(round2(fontUnits)));
+      if (fits) {
+        text.classList.add("board-minimap-label-inside");
+        //: A class, not a `fill` attribute, and this is the trap the blocks
+        //: above already carry a note about: `.board-minimap-label` declares
+        //: `fill` in the stylesheet, and a CSS declaration beats a
+        //: presentation attribute however specific the attribute looks.
+        //: Setting the attribute changed nothing at all, measured: 3.82:1
+        //: before and after.
+        const onColour = item.color ? mapPreviewOnColour(item.color) : null;
+        if (onColour) text.classList.add(`board-minimap-label-${onColour}`);
+      }
+      text.textContent = shown;
+      svg.appendChild(text);
+      kept.push(box);
     }
-    // The type size, in the box's units divided back out, for the same reason
-    // the blocks are: a fixed CSS `font-size` here is in viewBox units, so the
-    // labels on a square board came out half the size of the labels on a wide
-    // one. The stylesheet keeps the colour and the family; only the size,
-    // which depends on the board's shape, is set here.
-    text.setAttribute("font-size", String(round2(fontUnits)));
-    if (!fits && rightHalf) text.setAttribute("text-anchor", "end");
-    // An ellipsis rather than a bare slice: "Connections prob" reads as
-    // broken, "Connections pro…" reads as shortened.
-    text.textContent = shown;
-    svg.appendChild(text);
   }
   return svg;
 }

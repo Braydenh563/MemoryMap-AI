@@ -169,7 +169,10 @@ if [ "$FULL" = 1 ]; then step full-suite "$PY" -m pytest -q -p no:warnings tests
 if [ "$SWEEPS" = 1 ]; then
   export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}"
   export BASE="${BASE:-http://127.0.0.1:8781}"
-  for s in errors docks contrast touch leaks keyboard requests; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
+  # previewclash: the board and map thumbnails, whose faults (a caption over a
+  # block, over another caption, or past the paper) are pure geometry and so
+  # are a number, but a number no lint can reach without a browser.
+  for s in errors docks contrast touch leaks keyboard requests previewclash; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
 else
   skipped+=("sweeps (--sweeps, needs BASE)")
 fi

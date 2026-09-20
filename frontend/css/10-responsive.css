@@ -544,6 +544,20 @@ header#top-bar,
    this is the ink for *that node's colour*, which does not change with the
    theme, and `--ink` inverting under dark would take white text onto a pale
    branch. */
+/* The one hidden element `mapPreviewTextWidth` measures a preview label in.
+   Off screen rather than `display: none`, because a box with no layout has no
+   text metrics either and `getComputedTextLength` would return 0. A class,
+   not an inline `style=`, which the app's CSP refuses. */
+.map-preview-measure {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 .board-minimap-label-inside {
   opacity: 0.95;
 }

@@ -572,22 +572,59 @@ const WB_BRUSH_TOOLS = new Set(["draw", "line", "rect", "circle", "highlighter",
 //: decision 7: "marker with `mix-blend-mode: multiply` at 40% opacity, width
 //: 12 to 24, Shift for straight"), which is what FigJam and Apple Freeform
 //: both do and what makes two crossing strokes read as two passes of one pen
-//: rather than as a third, lighter colour. 0.4, not 0.35: the plan's figure,
-//: and multiply darkens where plain alpha did not, so the old number would
-//: have made it fainter than it was.
-const WB_HIGHLIGHTER_ALPHA = 0.4; // matches the sketch pad's own SKETCH_HIGHLIGHTER_ALPHA
-//: A nib, not a scaled pen. The width slider runs 1 to 24 and this was four
-//: times it, so a highlighter could be 4px (a pen) or 96px (a wall). Clamped
-//: to the plan's 12 to 24, which is the range a real highlighter has.
-const WB_HIGHLIGHTER_MIN = 12;
-const WB_HIGHLIGHTER_MAX = 24;
+//: rather than as a third, lighter colour.
+//:
+//: **The numbers are not here any more.** Decision 7's other half, decided
+//: 2026-09-20: the quick-sketch pad and this board are two renderers of one
+//: highlighter, and what they share is `HIGHLIGHTER_STYLE` in `app.js` (the
+//: alpha, the multiplier, the 12 to 24 clamp, the cap and join, and the blend
+//: per backdrop). This file only asks it. The board and the pad were 0.4 with
+//: multiply against 0.35 with no blend before that.
+const WB_HIGHLIGHTER_ALPHA = HIGHLIGHTER_STYLE.alpha;
+const WB_HIGHLIGHTER_MIN = HIGHLIGHTER_STYLE.minWidth;
+const WB_HIGHLIGHTER_MAX = HIGHLIGHTER_STYLE.maxWidth;
 //: Takes the pen width rather than reading it: `WB_STROKE_WIDTH` is a `let`
 //: inside `initWhiteboard`, not a module constant, so a module-level function
 //: that read it threw `WB_STROKE_WIDTH is not defined` on the first stroke
 //: (found by the sweep, which drew nothing at all and said so).
 function wbHighlighterWidth(penWidth) {
-  return Math.min(WB_HIGHLIGHTER_MAX, Math.max(WB_HIGHLIGHTER_MIN, (penWidth || 3) * 4));
+  return highlighterWidth(penWidth);
 }
+
+//: **The blend follows the backdrop.** Multiply is worth 20 luminance units a
+//: pass on a light board and 3 on a dark one (measured with pngpixel.py on
+//: two crossing strokes: 252.9 / 229.6 / 211.5 light, 26.4 / 23.6 / 22.0
+//: dark), so on a dark board it is a blend that costs the ink its colour and
+//: buys almost nothing. `screen` is the same signal in the direction a dark
+//: surface can move. Inline rather than a class because the export clones
+//: these nodes into a standalone SVG where a stylesheet does not follow them,
+//: which is also why it has to be re-applied when the mode changes: see
+//: `wbRefreshHighlighterBlend`.
+function wbHighlighterBlend() {
+  return highlighterBlend(document.documentElement.dataset.mode === "dark");
+}
+
+//: Every highlighter stroke on the board, re-blended for the mode that is on
+//: now. `renderWhiteboard` already sets the blend on every render, so this
+//: exists for the one case a render does not follow: the theme changing under
+//: a board that is already open. The observer below is the hook (a mode
+//: change is an attribute write on `<html>`, and `applyResolvedMode` in
+//: settings.js is reached from the toggle, the presets and the OS media
+//: query alike, so watching the attribute cannot miss a route the way
+//: listening to one of the three could).
+function wbRefreshHighlighterBlend() {
+  const blend = wbHighlighterBlend();
+  for (const path of document.querySelectorAll(".sketch-path")) {
+    if (path.style.mixBlendMode) path.style.mixBlendMode = blend;
+  }
+  const drawing = document.querySelector("#wb-zoom-group > path.wb-live-highlighter");
+  if (drawing) drawing.style.mixBlendMode = blend;
+}
+
+new MutationObserver(wbRefreshHighlighterBlend).observe(document.documentElement, {
+  attributes: true,
+  attributeFilter: ["data-mode"],
+});
 
 //: The four closed shape tools fill applies to, a pen/highlighter/line/
 //: arrow stroke has no enclosed area a fill would read as filling. Module
@@ -11052,16 +11089,18 @@ async function initWhiteboard() {
     );
     if (window.currentTool === "highlighter") {
       currentDrawPath.setAttribute("stroke-opacity", String(WB_HIGHLIGHTER_ALPHA));
-      currentDrawPath.setAttribute("stroke-linecap", "square");
+      currentDrawPath.setAttribute("stroke-linecap", HIGHLIGHTER_STYLE.lineCap);
       // An inline style, not a class: the export clones these elements into a
       // standalone SVG where a stylesheet does not follow them, and
       // `el.style.x = ...` is the form this app's CSP allows (an inline
-      // `style=` attribute in the markup is refused).
-      currentDrawPath.style.mixBlendMode = "multiply";
+      // `style=` attribute in the markup is refused). The class beside it is
+      // only a handle for `wbRefreshHighlighterBlend`.
+      currentDrawPath.classList.add("wb-live-highlighter");
+      currentDrawPath.style.mixBlendMode = wbHighlighterBlend();
     } else {
       currentDrawPath.setAttribute("stroke-linecap", "round");
     }
-    currentDrawPath.setAttribute("stroke-linejoin", "round");
+    currentDrawPath.setAttribute("stroke-linejoin", HIGHLIGHTER_STYLE.lineJoin);
     const dashArray = wbDashArray(window.currentDashStyle, WB_STROKE_WIDTH);
     if (dashArray) currentDrawPath.setAttribute("stroke-dasharray", dashArray);
     currentDrawPath.setAttribute("d", `M ${x} ${y}`);
@@ -12977,7 +13016,15 @@ function renderWhiteboard() {
       // the width and opacity above are set explicitly rather than only when
       // present. Inline rather than a class because the export clones these
       // nodes into a standalone SVG.
-      .style("mix-blend-mode", isHighlighterStroke ? "multiply" : null)
+      .style("mix-blend-mode", isHighlighterStroke ? wbHighlighterBlend() : null)
+      // The flat end a marker leaves, set here rather than only on the live
+      // path: the enter selection above appends every sketch with a round cap
+      // and nothing updated it, so a highlighter stroke was square while it
+      // was being drawn and round from the first render after mouseup
+      // (measured: `getComputedStyle(...).strokeLinecap` read round on both
+      // saved strokes while the pad read square).
+      .attr("stroke-linecap", isHighlighterStroke ? HIGHLIGHTER_STYLE.lineCap : "round")
+      .attr("stroke-linejoin", isHighlighterStroke ? HIGHLIGHTER_STYLE.lineJoin : "round")
       .attr("d", pathData)
       .attr("stroke", stroke)
       .attr("stroke-width", strokeWidth)

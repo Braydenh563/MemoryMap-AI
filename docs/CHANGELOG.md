@@ -7,6 +7,21 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The quick sketch pad and the whiteboard have one highlighter. They held two
+  copies of it at different values, so the same tool covered the paper on one
+  surface and tinted it on the other; both read one table now (0.4 opacity, a
+  4x nib clamped to 12 to 24, a flat end and a round join). On the pad, picking
+  an ink colour no longer quietly puts the pen back: "highlighter, then yellow"
+  drew an opaque yellow line. Measured over a 255.0 paper: one pass 223.7, two
+  223.7 before and 199.2 now.
+
+- A highlighter stroke on a dark board lightens where it crosses itself instead
+  of muddying. Multiply is worth 3 luminance units a pass on a dark board and 20
+  on a light one, so a dark board screens and a light one multiplies; the blend
+  follows a theme change on a board that is already open, and an export carries
+  the blend its own background asks for. Measured dark: paper 26.4, one pass
+  85.9, two passes 128.4, against 26.4 / 23.6 / 22.0 before.
+
 ## [0.3.1] - 2026-09-14
 
 - The status bar's help button says "Guide", not the assistant's name. It sat

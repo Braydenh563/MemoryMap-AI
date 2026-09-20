@@ -30534,36 +30534,81 @@ function scrollPaletteToActive() {
 
 // --- Wave F: whiteboard-lite --------------------------------------------------------
 
-// Reported directly as "completely wrong": at 0.05 the highlighter needed
-// roughly twenty overlapping passes before a stroke showed at all, visually
-// indistinguishable from the tool doing nothing. 0.35 reads as an actual
-// highlighter (translucent, tints rather than covers) in one pass.
-const SKETCH_HIGHLIGHTER_ALPHA = 0.35;
+// **One highlighter, two renderers** (WHITEBOARD_PLAN decision 7, the half
+// decided 2026-09-20). This pad paints into a `<canvas>` and the whiteboard
+// paints SVG paths; two rendering models is a reason for two *painters*, not
+// for two answers to "what is a highlighter". Every number here used to be
+// two numbers: the board was 0.4 with a multiply blend and a 12 to 24 clamp,
+// the pad 0.35 with no blend and no clamp, so one tool covered the paper on
+// one surface and tinted it on the other (measured: one pass read 176.0 on a
+// 255.0 paper here, which is the ink's own luminance, against 229.6 on a
+// 252.9 board).
+//
+// It lives in app.js rather than whiteboard.js because whiteboard.js is
+// lazily loaded (the module map near the foot of this file): whiteboard.js
+// can read app.js, never the other way round.
+const HIGHLIGHTER_STYLE = {
+  // The plan's figure. Reported at 0.05 before Phase 3, where a stroke needed
+  // roughly twenty overlapping passes to show at all and read as the tool
+  // doing nothing.
+  alpha: 0.4,
+  // A nib, not a scaled pen: both width sliders reach 24 and four times that
+  // is a wall, so the product is clamped to the range a real marker has.
+  widthMultiplier: 4,
+  minWidth: 12,
+  maxWidth: 24,
+  // A flat end is what a marker leaves; a round join is what keeps a
+  // scribbled corner from reading as chipped.
+  lineCap: "square",
+  lineJoin: "round",
+  // Multiply is worth 20 luminance units a pass over a light backdrop and 3
+  // over a dark one (measured, WHITEBOARD_PLAN decision 7), so over a dark
+  // one the highlighter screens instead: the same "two passes of one pen"
+  // signal, in the direction that surface can actually move.
+  blendOnLight: "multiply",
+  blendOnDark: "screen",
+};
 
-// **The remaining two differences from the whiteboard's highlighter, now
-// gone.** Reported: "fix the highlighter in the quick sketch feature to be
-// the same as the whiteboard". The alpha and the width multiplier already
-// matched (see both constants); what did not was how the stroke was painted.
-//
-// · `globalCompositeOperation: "multiply"` was the substantive one. Multiply
-//   darkens toward black against whatever is behind it, so the same yellow
-//   that tints a white page turns to mud on a dark one, and this app has a
-//   dark theme. The whiteboard draws an SVG path with plain `stroke-opacity`
-//   and no blend mode at all, which behaves the same on any background.
-// · `lineJoin: "bevel"` against the whiteboard's `round`, which is what made
-//   a scribbled corner look chipped here and smooth there.
-//
-// `lineCap: "square"` stays: the whiteboard sets exactly that, and a flat
-// end is what a marker leaves.
-const SKETCH_HIGHLIGHTER_LINE_JOIN = "round";
-const SKETCH_HIGHLIGHTER_COMPOSITE = "source-over";
-// Was 6x: the whiteboard's own highlighter (WB_STROKE_WIDTH * 4 in
-// whiteboard.js) is the reference the two are meant to match, and reported
-// directly as needing to. Both start from a different base width (sketchPen
-// default 4px vs. the whiteboard's 3px), so matching the multiplier rather
-// than the pixel result is what keeps them proportionally alike as either
-// slider moves.
-const SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER = 4;
+// The one width both renderers ask for. Takes the pen width rather than
+// reading one: the board's `WB_STROKE_WIDTH` is a `let` inside
+// `initWhiteboard`, and a module-level function that read it threw on the
+// first stroke.
+function highlighterWidth(penWidth) {
+  return Math.min(
+    HIGHLIGHTER_STYLE.maxWidth,
+    Math.max(HIGHLIGHTER_STYLE.minWidth, (penWidth || 3) * HIGHLIGHTER_STYLE.widthMultiplier),
+  );
+}
+
+// `backdropIsDark` is about what the stroke composites *against*, which is
+// not the same question as which theme is on. The pad's strokes land in their
+// own transparent canvas stacked over a separate paper canvas, so the
+// backdrop a canvas blend sees is the other strokes and never the paper: the
+// pad passes false in both themes. The board's paths blend against the board
+// itself, so it passes the resolved mode.
+function highlighterBlend(backdropIsDark) {
+  return backdropIsDark ? HIGHLIGHTER_STYLE.blendOnDark : HIGHLIGHTER_STYLE.blendOnLight;
+}
+
+// The pad's one place for "what is the brush right now", so the drag path and
+// the single-click dot cannot drift apart: the five lines that make a
+// highlighter a highlighter were written out twice before this.
+function sketchApplyBrush(context) {
+  const isHighlighter = sketchTool === "highlighter";
+  const erasing = sketchPen.eraser && sketchTool === "pen";
+  context.lineCap = isHighlighter ? HIGHLIGHTER_STYLE.lineCap : "round";
+  context.lineJoin = isHighlighter ? HIGHLIGHTER_STYLE.lineJoin : "round";
+  context.globalCompositeOperation = erasing
+    ? "destination-out"
+    : isHighlighter
+      ? highlighterBlend(false)
+      : "source-over";
+  context.globalAlpha = isHighlighter ? HIGHLIGHTER_STYLE.alpha : 1.0;
+  context.strokeStyle = sketchPen.color;
+  context.lineWidth = isHighlighter
+    ? highlighterWidth(sketchPen.size)
+    : (erasing ? sketchPen.size * 4 : sketchPen.size);
+}
 
 let sketchPen = { color: "#3b82f6", size: 4, eraser: false };
 let sketchDrawing = false;
@@ -30683,6 +30728,7 @@ function sketchPointer(event) {
 }
 
 let sketchMoved = false;
+let sketchStrokePoints = [];
 
 function sketchStart(event) {
   sketchDrawing = true;
@@ -30706,6 +30752,10 @@ function sketchStart(event) {
   }
 
   sketchSaveSnapshot();
+  // The highlighter keeps its own polyline (see sketchMove): the points are
+  // this stroke's, so they are cleared at the start of every stroke rather
+  // than when the tool changes.
+  sketchStrokePoints = [];
   const context = sketchContext();
   if (sketchTool === "pen" || sketchTool === "highlighter") {
     context.beginPath();
@@ -30721,25 +30771,28 @@ function sketchMove(event) {
   if (x === sketchStartX && y === sketchStartY) return;
   sketchMoved = true;
   
-  if (sketchTool !== "pen" && sketchTool !== "highlighter") {
+  // Everything except the plain pen redraws from the snapshot this stroke
+  // started from. The highlighter joined that list when it started blending:
+  // a canvas blend composites against what is already on the canvas, so a
+  // stroke painted segment by segment multiplies with itself at every join
+  // and beads, while the board paints one SVG path and does not. One
+  // composite per frame for the whole polyline is what makes the two
+  // surfaces agree.
+  if (sketchTool !== "pen") {
     const last = sketchHistory[sketchHistory.length - 1];
     if (last) context.putImageData(last, 0, 0);
     else context.clearRect(0, 0, context.canvas.width, context.canvas.height);
   }
 
-  context.lineCap = sketchTool === "highlighter" ? "square" : "round";
-  context.lineJoin = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_LINE_JOIN : "round";
-  context.globalCompositeOperation =
-    sketchPen.eraser && sketchTool === "pen"
-      ? "destination-out"
-      : sketchTool === "highlighter"
-        ? SKETCH_HIGHLIGHTER_COMPOSITE
-        : "source-over";
-  context.globalAlpha = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_ALPHA : 1.0;
-  context.strokeStyle = sketchPen.color;
-  context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
+  sketchApplyBrush(context);
 
-  if (sketchTool === "pen" || sketchTool === "highlighter") {
+  if (sketchTool === "highlighter") {
+    sketchStrokePoints.push({ x, y });
+    context.beginPath();
+    context.moveTo(sketchStartX, sketchStartY);
+    for (const point of sketchStrokePoints) context.lineTo(point.x, point.y);
+    context.stroke();
+  } else if (sketchTool === "pen") {
     context.lineTo(x, y);
     context.stroke();
     // Reported: "the highlighter has no opacity to it, it's basically a
@@ -30748,11 +30801,10 @@ function sketchMove(event) {
     // each time, not just the newest segment, so a stroke a hundred points
     // long gets its first segment re-composited a hundred times over. At
     // full opacity (the plain pen) that's invisible: opaque drawn twice is
-    // still opaque: but at the highlighter's 0.35 alpha, ~10 overlapping
-    // passes already reads as ~99% opaque (1-(1-0.35)^10), which is exactly
-    // "no opacity to it". Starting a fresh single-segment path from the
-    // current point makes every stroke() call draw that one segment
-    // exactly once, at exactly the alpha asked for.
+    // still opaque. Starting a fresh single-segment path from the current
+    // point makes every stroke() call draw that one segment exactly once.
+    // (The highlighter, which is where that report came from, no longer
+    // takes this path at all: it redraws from the snapshot above.)
     context.beginPath();
     context.moveTo(x, y);
   } else if (sketchTool === "line") {
@@ -30801,19 +30853,9 @@ function sketchMove(event) {
 function sketchEnd(event) {
   if (sketchDrawing && !sketchMoved && event && (event.type === "pointerup" || event.type === "click")) {
     const context = sketchContext();
-    context.lineCap = sketchTool === "highlighter" ? "square" : "round";
-    context.lineJoin = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_LINE_JOIN : "round";
-    context.globalCompositeOperation =
-      sketchPen.eraser && sketchTool === "pen"
-        ? "destination-out"
-        : sketchTool === "highlighter"
-          ? SKETCH_HIGHLIGHTER_COMPOSITE
-          : "source-over";
-    context.globalAlpha = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_ALPHA : 1.0;
-    context.strokeStyle = sketchPen.color;
-    
+    sketchApplyBrush(context);
+
     if (sketchTool === "pen" || sketchTool === "highlighter") {
-      context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
       context.beginPath();
       context.moveTo(sketchStartX, sketchStartY);
       context.lineTo(sketchStartX, sketchStartY + 0.1);
@@ -41166,10 +41208,20 @@ for (const button of document.querySelectorAll(".sketch-color")) {
     // one call kept the old `sketch-eraser` id: so the optional-chain
     // swallowed it and the eraser stayed lit while the pen drew, which reads
     // as the colour swatches not working.
+    //
+    // **It does not mean you want the pen**, which is what this did until it
+    // was measured: "highlighter, then yellow" left `sketchTool` at "pen" and
+    // drew an opaque yellow line (one pass at 176.0 luminance on a 255.0
+    // paper, which is the ink's own value, so no translucency at all). The
+    // highlighter, the shapes and the text tool all take the ink too, so only
+    // the eraser is switched away from here.
+    const wasErasing = sketchPen.eraser;
     sketchPen.eraser = false;
-    sketchTool = "pen";
-    $("sketch-tool-eraser")?.classList.remove("active");
-    $("sketch-tool-pen")?.classList.add("active");
+    if (wasErasing) {
+      sketchTool = "pen";
+      $("sketch-tool-eraser")?.classList.remove("active");
+      $("sketch-tool-pen")?.classList.add("active");
+    }
     document
       .querySelectorAll(".sketch-color")
       .forEach((b) => b.classList.toggle("active", b === button));

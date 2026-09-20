@@ -102,6 +102,34 @@ kind. Every tool has a key and every key is in the tooltip and the help.
 7. **Highlighter** = marker with `mix-blend-mode: multiply` at 40%
    opacity, width 12 to 24, Shift for straight; the quick-sketch pad uses
    the same tool code, not a copy.
+   Two halves of this were left open when Phase 3 was built and are decided
+   here, 2026-09-20, with the measurements that decided them:
+   - **One table, two renderers. The pad stays a canvas.** The board draws
+     SVG paths and the pad draws into a `<canvas>`; they are two rendering
+     models and turning the pad into an SVG surface would be a rewrite of a
+     working thing to make one tool's numbers agree. What is shared is the
+     *definition*, not the code: `HIGHLIGHTER_STYLE` in `app.js` (alpha,
+     width multiplier, the 12 to 24 clamp, cap, join, and the blend per
+     backdrop) with `highlighterWidth()` and `highlighterBlend()` beside it,
+     read by the pad's `sketchMove`/`sketchEnd` and by whiteboard.js's
+     live-draw, mouseup and render paths. It lives in `app.js` because
+     `whiteboard.js` is lazily loaded (`app.js`'s module map) and can read
+     `app.js`, never the other way round. A tenth field of a highlighter
+     added to one renderer and not the other is the bug this ends; the
+     numbers before it were 0.4 with multiply on the board against 0.35
+     with no blend and no clamp on the pad.
+   - **The blend follows the backdrop, not the theme name.** Multiply is
+     worth 20 luminance units a pass on a light board and 3 on a dark one
+     (measured 252.9 / 229.6 / 211.5 light, 26.4 / 23.6 / 22.0 dark), so
+     multiply on a dark board is a blend that does nothing while turning
+     the ink to mud. The rule is `multiply` over a light backdrop and
+     `screen` over a dark one, chosen by the resolved mode and re-applied
+     when the mode changes, because the blend is an inline style (the
+     export clones these nodes into a standalone SVG, where a stylesheet
+     does not follow them). The pad passes "light" always and that is not a
+     fudge: its strokes go into their own transparent canvas stacked over
+     the paper canvas, so the backdrop a canvas blend sees is the other
+     strokes and never the paper.
 8. **Keys** (also in tooltips and help): V select, H pan, L lasso, P pen,
    M marker, E eraser, N sticky, T text, I image, C connector, A arrow,
    R rectangle, O ellipse, Delete, Ctrl+D duplicate, Ctrl+G group,
@@ -146,12 +174,11 @@ and dark and at 390x844).
 Moved to HISTORY.md ("Moved from the plans, 2026-09-12", WHITEBOARD_PLAN
 Phase 3): a plan holds open work only. Its gate lives on in
 `scratchpad/ui-sweeps/whiteboard3.js` (12 checks, green at 1440x900 light
-and dark and at 390x844). Two parts of decision 7 are **open**, with their
-measurements: the quick-sketch pad still has its own copy of the
-highlighter rather than sharing this code, and multiply is worth 20
-luminance units a pass on a light board and 3 on a dark one, which is the
-objection the pad's own comment in `app.js` already records. Both are in
-[`archive/agent-remaining/whiteboard-phases.md`](archive/agent-remaining/whiteboard-phases.md).
+and dark and at 390x844). The two parts of decision 7 that were open are
+decided and built, 2026-09-20 (the decision's own two sub-points above):
+one `HIGHLIGHTER_STYLE` table read by both renderers, and a blend chosen by
+the backdrop. Their gate is `scratchpad/ui-sweeps/sketchhighlighter.js`,
+9 checks, green at 1440x900 in both modes.
 
 ### Phase 4: mind map regressions and Tidy: BUILT, 2026-09-12
 Moved to HISTORY.md ("Moved from the plans, 2026-09-12", WHITEBOARD_PLAN

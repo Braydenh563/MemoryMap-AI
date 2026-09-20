@@ -286,24 +286,32 @@ being written by running agents stay beside this one.
 
 ## Whiteboard and mind map
 
-- **Decision 7's other half: the quick-sketch pad still has its own copy of
-  the tool code.** The pad is a `<canvas>` in `frontend/app.js`
-  (`SKETCH_HIGHLIGHTER_ALPHA` 27284, `SKETCH_HIGHLIGHTER_COMPOSITE` and
-  `SKETCH_HIGHLIGHTER_LINE_JOIN` 27301,
-  `SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER` 27309); the whiteboard is SVG paths in
-  `frontend/whiteboard.js`. They are two rendering models apart, and the two
-  are at different values (the whiteboard is 0.4 and multiplies, the pad is
-  0.35 and does not). Next step: decide whether the pad becomes an SVG surface
-  or stays a canvas with one shared table of what the highlighter is. A design
-  call, so it wants a line in the plan first. [whiteboard-phases.md]
-- **Multiply is worth 3 luminance units on a dark board and 20 on a light
-  one.** Measured with `scratchpad/pngpixel.py` on two crossing strokes: light
-  252.9 bare, 229.6 one stroke, 211.5 both; dark 26.4, 23.6, 22.0. Decision 7
-  says multiply and is not remade. Recommendation for whoever takes it:
-  `screen` in dark and `multiply` in light. One wrinkle to design around: the
-  blend is an inline style because the export clones these nodes into a
-  standalone SVG, so a theme-switched value has to be re-applied on a theme
-  change. [whiteboard-phases.md]
+- ~~**Decision 7's other half: the quick-sketch pad still has its own copy of
+  the tool code.**~~ Done 2026-09-20. Decided in WHITEBOARD_PLAN decision 7
+  first (one table, two renderers; the pad stays a canvas), then built:
+  `HIGHLIGHTER_STYLE` plus `highlighterWidth()` and `highlighterBlend()` in
+  `app.js` (it is loaded first; `whiteboard.js` is lazy), read by the pad's
+  `sketchApplyBrush` and by whiteboard.js's live-draw, mouseup and render
+  paths. Measured light, same ink, two crossing strokes: the pad was paper
+  255.0, one pass 176.0, two passes 176.0 (the ink's own luminance, so no
+  translucency at all) and is now 255.0 / 223.7 / 199.2, against the board's
+  252.9 / 222.5 / 198.3. Two bugs the measurement found and fixed: picking a
+  colour swatch reset the tool to the pen, so the pad's highlighter could not
+  be reached at all after choosing an ink, and the board's saved strokes lost
+  their square cap on every render (round on both, square now).
+  `scratchpad/ui-sweeps/sketchhighlighter.js`, 9/9 light and dark.
+- ~~**Multiply is worth 3 luminance units on a dark board and 20 on a light
+  one.**~~ Done 2026-09-20, as recommended: `multiply` over a light backdrop,
+  `screen` over a dark one, written into decision 7 as a rule about the
+  backdrop rather than about the theme's name. Measured dark after: paper
+  26.4, one pass 85.9, two passes 128.4, so the second pass is worth 42.5
+  luminance units where multiply bought 1.6. The re-application is a
+  `MutationObserver` on `<html>`'s `data-mode` in whiteboard.js
+  (`wbRefreshHighlighterBlend`), which catches the toggle, the presets and the
+  OS media query alike; measured flipping both ways on an open board with no
+  re-render between. The export needs nothing: it paints the container's own
+  background colour into the SVG, so the blend and its backdrop travel
+  together.
 - **A sketch's handles scale with the zoom; a card's do not.** 10x10 on every
   kind at zoom 1; a sketch's are SVG rects of 10 board units inside
   `#wb-zoom-group`, so 20px at 2x and 5px at 0.5x. Next step: either draw them

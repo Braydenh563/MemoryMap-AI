@@ -9,6 +9,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A Windows MSI ships alongside the existing .exe installer
+  (`MemoryMap-AI-*-windows-x86_64.msi`, built from the same PyInstaller
+  output with WiX). It installs per machine rather than per user, supports
+  `msiexec /quiet` for a silent or Group Policy deployment, and gets a
+  proper Add/Remove Programs entry with Windows Installer's own repair and
+  rollback. Unsigned for now, same as the .exe.
+
 - Find anything: one search over your notes, documents, boards, files, links
   and reminders at once, by your words and by what they mean, alongside the
   app's own actions. Every result says why it matched. It opens from a field

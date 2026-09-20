@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WiX source for the Windows MSI, alongside installer.iss's .exe (the owner's
+  explicit call: both ship, the MSI unsigned for now — see that file's own
+  header for the SmartScreen reasoning, which applies here unchanged). Built
+  in CI (.github/workflows/release.yml) from the same PyInstaller COLLECT
+  output installer.iss packages, ..\..\dist\MemoryMap AI\ — build that first,
+  this script does not build the app itself.
+
+  Why an MSI when the .exe already exists: `msiexec /quiet` silent install,
+  Group Policy deployment, a proper Add/Remove Programs entry, and built-in
+  repair/rollback that Windows Installer provides for free once a package is
+  component-based. None of that requires a certificate; an unsigned MSI shows
+  the same SmartScreen prompt an unsigned .exe does, and gets the same
+  "click More info, Run anyway" treatment.
+
+  Per-machine (Scope="perMachine"), unlike installer.iss's per-user install:
+  a deliberate difference, not an oversight. The MSI's whole reason to exist
+  is silent/GPO deployment, which is administered per machine; installer.iss
+  stays per-user so someone without admin rights can still install the .exe
+  with no UAC prompt. What *is* kept identical between the two, per the
+  brief: the app name shown everywhere, the publisher, the version string,
+  the installed folder's own name ("MemoryMap AI", though it sits under a
+  different root — Program Files here vs. the per-user Programs folder
+  there, following from the scope difference above), and the Start Menu
+  shortcut's name and launch arguments (the desktop launch flag, same as
+  installer.iss's [Icons] section — the installed app always opens in its
+  own window).
+
+  Requires WiX v5 (or v4; `dotnet tool install` as a global tool gets the
+  current one) for the <Files Include="…\**" /> directory-harvesting
+  syntax below, which replaces the old heat.exe pre-harvest step: WiX walks
+  the PyInstaller output at build time and generates one <Component> per
+  file itself, so this source file does not need regenerating every time
+  PyInstaller's own output changes shape (a new DLL, a moved data file).
+
+  Local build/test (from a Windows machine, WiX installed, PyInstaller
+  output already built at ..\..\dist\MemoryMap AI\):
+    wix build packaging\windows\installer.wxs -arch x64 ^
+      -d Version=0.1.0 -d DistDir=dist\MemoryMap AI ^
+      -o dist\installer\MemoryMap-AI-0.1.0-windows-x86_64.msi
+
+  Not built or run here — there is no Windows machine in this sandbox. This
+  file was checked for well-formed XML and for every path it references
+  matching what packaging/windows/memorymap.spec's COLLECT step actually
+  produces; the actual `wix build` has not been run against it.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+      Name="MemoryMap AI"
+      Manufacturer="MemoryMap AI"
+      Version="$(var.Version)"
+      UpgradeCode="CBD8BB0B-98C1-4982-B7E4-29BF9FA9D111"
+      Language="1033"
+      Compressed="yes"
+      Scope="perMachine">
+
+    <SummaryInformation Description="MemoryMap AI installer" Manufacturer="MemoryMap AI" />
+
+    <!-- Replaces any older install rather than sitting beside it — the same
+         upgrade behaviour Inno gives installer.iss's .exe via its fixed
+         AppId. Version here must be strictly numeric major.minor.build
+         (Windows Installer's own rule, unlike Inno's free-form AppVersion
+         string); MEMORYMAP_VERSION as set by the release workflow already
+         satisfies that (e.g. "0.1.0"). -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Same icon installer.iss uses for its installer .exe and its
+         Add/Remove Programs entry (SetupIconFile / UninstallDisplayIcon) —
+         ARPPRODUCTICON is the MSI equivalent of the latter. -->
+    <Icon Id="AppIcon.ico" SourceFile="..\..\frontend\icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/Braydenh563/MemoryMap-AI/issues" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/Braydenh563/MemoryMap-AI" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="MemoryMap AI" />
+    </StandardDirectory>
+
+    <!-- Everything PyInstaller's COLLECT step produced, recursively — the
+         same set installer.iss's [Files] section packages ("..\..\dist\
+         MemoryMap AI\*", ignoreversion recursesubdirs createallsubdirs).
+         DistDir is passed on the command line (see the header comment)
+         rather than hard-coded, so CI and a local build can point at the
+         same relative dist\ layout PyInstaller always produces. -->
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Files Include="$(var.DistDir)\**" />
+    </ComponentGroup>
+
+    <!-- A single Start Menu shortcut, directly under the Start Menu root —
+         matching installer.iss's DisableProgramGroupPage=yes, which puts
+         its own shortcut at {autoprograms}\{#MyAppName} rather than inside
+         a "MemoryMap AI" subfolder. The desktop launch flag is identical to
+         installer.iss's [Icons] comment — the installed app always opens
+         in its own window, never bare-server mode. The HKLM keypath (not a
+         file) is the standard WiX shape for a component that only ever
+         installs a shortcut and registry marker; perMachine components use
+         HKLM rather than the HKCU pattern a perUser package would use. -->
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="ApplicationShortcut" Guid="*">
+        <Shortcut
+            Id="ApplicationStartMenuShortcut"
+            Name="MemoryMap AI"
+            Description="MemoryMap AI"
+            Target="[INSTALLFOLDER]MemoryMap AI.exe"
+            Arguments="--desktop"
+            WorkingDirectory="INSTALLFOLDER"
+            Icon="AppIcon.ico" />
+        <RemoveFolder Id="CleanProgramMenuFolder" Directory="ProgramMenuFolder" On="uninstall" />
+        <RegistryValue
+            Root="HKLM"
+            Key="Software\MemoryMap AI"
+            Name="Installed"
+            Type="integer"
+            Value="1"
+            KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <!-- Deliberately absent: any [UninstallDelete]-equivalent for the app's
+         own data. Same reasoning as installer.iss's own comment on that
+         section — notes, attachments and preferences live under
+         %APPDATA%\MemoryMap AI (config._default_data_dir, only used when
+         sys.frozen), which this package never installs into and Windows
+         Installer therefore never touches on uninstall. A clean uninstall
+         here means the *program* comes off; someone's notebook is not a
+         build artifact. -->
+
+    <Feature Id="MainApplication" Title="MemoryMap AI" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentRef Id="ApplicationShortcut" />
+    </Feature>
+
+  </Package>
+</Wix>

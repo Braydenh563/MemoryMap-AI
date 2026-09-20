@@ -1803,3 +1803,459 @@ would land if picked up.
 
 Both source files are deleted with this commit; nothing in them was left
 unrecorded.
+
+## Six repositories read for MemoryMap, 2026-09-20
+
+Asked for directly: whether anything in six named repositories can be used
+or taken for MemoryMap, plus a separate question about vendoring
+`pytesseract`. Each was shallow-cloned (`git clone --depth 1`) into the
+sandbox and read: README, licence file, top-level layout, and the parts
+that looked relevant. Per this file's own rule, nothing below is proposed
+without checking it against the running code first, named by file.
+
+**Licences, checked against the constraint at the top of this file
+(MemoryMap is AGPL-3.0; MIT, BSD and Apache code may come in with its
+notices kept; AGPL and GPL code may come in; anything GPL-incompatible or
+proprietary may not, and nothing of ours goes out to an MIT project):**
+
+| Repository | Licence | May its code come into MemoryMap? |
+| --- | --- | --- |
+| Harper (Automattic) | Apache-2.0 | Yes |
+| blobatar (Alain00) | MIT | Yes |
+| KnowNote (MrSibe) | GPL-3.0 | Yes (GPLv3 combines into an AGPL-3.0 work under AGPL section 13) |
+| Deta Surf (deta) | Apache-2.0 (one third-party patch under MPL-2.0) | Yes |
+| better-clawd (x1xhlol) | Claimed MIT in `package.json`, no `LICENSE` file in the repo | Moot, see below |
+| Clawd-Code (GPT-AGI) | MIT | Moot, see below |
+
+### Harper (Automattic)
+
+**What it is.** A grammar and style checker written in Rust, compiled to
+WebAssembly (`harper-wasm`, shipped as the `harper.js` npm package) and
+also available as a language server (`harper-ls`) and editor plugins
+(VS Code, Obsidian, Neovim, Zed, and more). Its whole pitch, in the
+README's own words, is the opposite of Grammarly and LanguageTool: it runs
+entirely on-device, in milliseconds, with no server round trip and none of
+LanguageTool's multi-gigabyte n-gram dataset.
+
+**Licence.** Apache-2.0, confirmed in the repository's root `LICENSE`
+file. Comes in clean, notice kept.
+
+**What exists in MemoryMap today, checked before proposing anything
+(grepped "writing check", "proofread," and spelling/grammar in
+`src/memorymap/ai` and `frontend/documents.js`, per the brief).** Three
+separate things answer to "writing help," and the document editor's own
+comment block (`frontend/documents.js`, the "editor's own instruments"
+section starting around line 10005) states the design on purpose: "No
+model, no network, no service, which is not a limitation here, it is the
+requirement... Rules that would need judgement (its/it's, their/there in
+context) are deliberately absent, a checker that is wrong a third of the
+time teaches people to ignore it." What is built is local arithmetic:
+a hand-checked spelling table plus a Damerau-Levenshtein suggester
+(`docSpellingVariant`, `DOC_AUTOCORRECT`, around line 10342), a
+spacing/repetition/sentence-length pass, and a UK/US spelling-variant
+setting. Real grammatical judgement is handed off on purpose to the local
+model instead: three fixed presets and a custom instruction in
+`src/memorymap/ai/librarian.py`'s `IMPROVE_MODES`/`improve_writing`
+("proofread," "rewrite," "concise"), one model round trip per click, which
+`help_chat.py`'s `writing-checks` topic describes honestly as "Ask the AI
+for wordings... two or three alternatives to pick from." So there is
+already a real answer to "does MemoryMap have a grammar checker": yes for
+mechanical rules, and yes for judgement calls, but only by spending a
+model call for the latter, which is why the document editor's own
+comments call rules needing judgement "deliberately absent" from the fast
+path.
+
+**(a) ideas and UX patterns.** Nothing new: the underline-and-click,
+Suggestions-panel, "nothing changes until you choose it" pattern
+`frontend/documents.js` already has (the `writing-checks` help topic
+describes it) is the same shape Harper's own editor integrations use.
+Convergent design, not a gap.
+
+**(b) code or assets that could be vendored as they are.** This is the
+one worth taking. `harper.js` ships a prebuilt WASM binary two ways, a
+full binary and a `slimBinary` variant built for size-conscious embedding
+(used by the Obsidian plugin specifically for that reason), plus a
+`WorkerLinter` that runs the WASM module off the main thread so linting
+never blocks typing. Because it is a self-contained WASM module with a
+small JS loader and no server, it fits MemoryMap's "works with the plug
+pulled" rule exactly: it never leaves the machine, unlike the model call
+`improve_writing` makes today. **Not verified:** this shallow, source-only
+clone has no Rust/`wasm-pack` toolchain run against it, so there is no
+built `.wasm` file to measure; I cannot give MemoryMap's own byte count
+for the slim binary from this session. Harper's own README claims are
+about speed and RAM, not download size, and I did not fetch a live build
+to check. Before vendoring, a real build-and-measure pass (`wasm-pack
+build --target web` against `harper-wasm`, or pulling the prebuilt
+`harper.js` package from npm and inspecting its `dist/` output) is the
+first step, not a decision from the README's word alone.
+
+**(c) nothing else.** `harper-ls`, the editor plugins, and the Chrome
+extension are not shaped for this app (they integrate with other editors'
+own protocols); only the WASM core and its JS wrapper are relevant.
+
+**Where it would land.** `frontend/documents.js`'s writing-checks pipeline
+(the finding list feeding the Suggestions panel, `DOC_AUTOCORRECT`, and
+the `rule` field the findings menu switches on around line 10872) and the
+`writing-checks` help topic in `src/memorymap/ai/help_chat.py`, which
+would go from accurately describing "spelling, spacing and sentence
+length" to accurately describing real grammar, still with no network call
+and no change to the existing "ask the AI for wordings" escape hatch for
+things even a grammar checker cannot judge (tone, meaning). Referenced in
+DOCUMENTS_PLAN.md's phases, none of which currently name a grammar engine.
+
+**Size: M.** Not a drop-in: it needs the build-and-measure step above,
+wiring a WASM loader into a no-build-step vanilla-JS app (a different
+shape from harper.js's own bundler-targeted `dist/` output, which needs
+inspecting for a plain `<script type="module">` import path or an
+`?no-inline` URL pattern that works unbundled), a settings toggle (a new
+local check source, on by default only after it is measured not to slow
+typing), and updates to the Suggestions panel and the `writing-checks`
+help copy so they describe what changed honestly.
+
+**Recommendation: take, after a measurement pass.** This is the strongest
+candidate of the six: it fills a gap the app's own code comments say is
+deliberately open, without breaking the offline requirement that gap
+exists to protect. Do the size and speed measurement first; if the WASM
+module is large enough to meaningfully grow the app's own boot cost (the
+project already tracks a boot-JS budget, WORLD_CLASS_PLAN section H7),
+ship it as a lazy-loaded, opt-in extra the way `core/extras.py` already
+frames OCR and document-import, not baked into the base bundle.
+
+### blobatar (Alain00)
+
+**What it is.** A small, dependency-free TypeScript library that
+generates a deterministic geometric SVG "blobatar" from any string (a
+name, an email, a handle): the same input always renders the same shape.
+Ships a plain core package plus thin framework adapters (React, Vue,
+Svelte, Solid, Preact, React Native).
+
+**Licence.** MIT, confirmed in `LICENSE`. Comes in clean with notice.
+
+**What exists in MemoryMap today.** Grepped "avatar" across
+`frontend/*.js` and `src/memorymap`: the app has no per-person avatars at
+all. What it has is two fixed icon glyphs, a user-icon box for the
+person's own chat bubble and a p5.js-rendered app emblem for the
+assistant's, both in `frontend/app.js` (`msg-avatar`,
+`renderEmblem`). This is a single-user, no-account app, so there was never
+a need for "whose avatar is this" in the chat, but named people are a real
+thing the app already extracts: `src/memorymap/ai/entities.py` pulls
+"real people, projects, things" a note mentions into named entities, and
+the graph (`GRAPH_PLAN.md`) draws every entity as a node.
+
+**(a) ideas and UX patterns.** The core idea, that a name deterministically
+maps to a small, distinct, reproducible visual mark with no upload and no
+network, is genuinely useful for telling entity nodes apart at a glance:
+today the graph mostly distinguishes nodes by colour-by-type and label
+text, and a graph with many "person" entities (a project's team, a
+family) currently renders them visually identical apart from the label.
+
+**(b) code or assets that could be vendored as they are.** The core
+algorithm (`packages/blobatar/src/blob.ts`, `render.ts`) is small,
+dependency-free, framework-agnostic TypeScript that emits an SVG string or
+data URI from a string input, exactly the shape that fits "no build step,
+`frontend/*.js` served as-is": it would need converting from TypeScript to
+plain JS (mechanical, no framework runtime involved) rather than pulling
+in the npm package and a bundler.
+
+**(c) nothing else.** The React/Vue/Svelte/Solid/Preact adapters are dead
+weight for a vanilla-JS app; only the core module is relevant.
+
+**Where it would land.** The graph's node rendering (`GRAPH_PLAN.md`'s
+node panel phase) for "person" entities specifically, keyed off the
+entity's own name string so the same person always gets the same mark
+across sessions with zero storage; possibly the Library's item cards for
+files with no thumbnail, as a friendlier fallback than a generic file
+icon.
+
+**Size: S.** A single small file to port, one call site in the graph's
+node-drawing code, no backend change, no new stored field (the mark is
+derived from the name every render). A genuine one-session addition, not
+a plan phase.
+
+**Recommendation: take an idea, port the core only.** Worth doing as a
+small graph polish item once GRAPH_PLAN.md's node panel work is otherwise
+current; not worth a plan entry of its own, a BACKLOG line is enough.
+
+### KnowNote (MrSibe)
+
+**What it is.** An Electron desktop app describing itself as "a
+local-first, open-source alternative to Google NotebookLM": upload
+documents (PDF/Word/PPT/web), build a RAG-backed knowledge base with
+`sqlite-vec`, chat over it with a choice of LLM providers (OpenAI,
+DeepSeek, Ollama), with one-click mind-map generation already listed as
+done in its own roadmap and quiz/PPT generation marked in progress.
+
+**Licence.** GPL-3.0, confirmed in `LICENSE`. Combines into MemoryMap's
+AGPL-3.0 codebase under AGPL-3.0 section 13's explicit GPLv3-compatibility
+clause; the project's own licence note (top of this file) already
+anticipates this case ("AGPL and GPL code may come in").
+
+**Honestly, this one is thin.** The README says so itself: "This is my
+first open-source project... it's still early." The `src/` tree is about
+27,000 lines of TypeScript, but a large share is Electron/IPC/provider
+boilerplate rather than novel algorithmic work; there is no test
+directory at all at the top level. It is conceptually close to
+MemoryMap, upload documents, ask questions with citations, all local,
+but it is earlier in its life than MemoryMap already is on the same
+problem (MemoryMap already has hybrid search, a document reader, a
+librarian pass, and a graph; KnowNote's own roadmap lists RAG-over-docs
+and mind maps as what it has just gotten to).
+
+**(a) ideas and UX patterns.** The one feature MemoryMap does not have
+and KnowNote's roadmap does: "quiz generation from documents" (marked
+in-development, not built, in KnowNote's own README) and "one-click PPT
+generation from notes" (also in development). Both are plausible,
+lightweight prompts over material MemoryMap's own librarian and drafter
+modules (`src/memorymap/ai/librarian.py`, `drafter.py`) already have
+access to; neither is implemented in KnowNote itself yet, so there is
+nothing built to look at, only the idea.
+
+**(b) code or assets that could be vendored as they are.** None. Electron
+IPC handlers, a React/Zustand renderer, and Drizzle-ORM migrations do not
+map onto MemoryMap's FastAPI-and-vanilla-JS shape at all; porting would
+mean rewriting, not vendoring.
+
+**(c) nothing else worth separating out;** the RAG pipeline, provider
+abstraction, and vector store are all things MemoryMap already has its
+own, more mature versions of (`search/`, `ai/provider.py`,
+`ai/embeddings.py`).
+
+**Where it would land.** A "quiz me on this note/tag" or "turn these notes
+into slides" action would be a Chat/agent skill
+(`src/memorymap/ai/skills.py`, `skill_runner.py`) rather than a new
+surface, callable the same way any other skill is today.
+
+**Size: S** for a single quiz-generation skill as a proof of concept
+(a prompt plus the existing document-reading tools); **L** if "PPT
+generation" is read literally as a slide-deck exporter rather than a
+skill that drafts an outline, since MemoryMap has no presentation-export
+path today and would need one built from nothing.
+
+**Recommendation: take an idea only** (a "quiz me" skill), and only as a
+BACKLOG line, not a plan of its own; the source code itself has nothing
+to vendor.
+
+### Deta Surf (deta)
+
+**What it is.** An AI notebook, "brings all your files and the web
+directly into your stream of thought": a multi-media local library
+(SFFS, its own flat-file storage format), tabs and split view, "Smart
+Notes" written with AI over `@`-mentioned context (tabs, PDFs, other
+notes) with inline citations that deep-link back to the exact page,
+timestamp, or web section a claim came from, plus "Surflets," small
+interactive applets (charts, demos, games) generated from a prompt.
+Built in Svelte, TypeScript, and Rust, shipped as an Electron-adjacent
+desktop app (Electron is listed in its own acknowledgements).
+
+**Licence.** Apache-2.0 by default (confirmed in `LICENSE` and the
+README's own licence section), with one named exception: a patched
+`@ghostery/adblocker-electron` package under MPL-2.0, which MemoryMap
+would never touch since it has no browser/adblock surface. Comes in
+clean.
+
+**Honestly, this one is not thin, it is the closest of the six to what
+MemoryMap already is,** and the overlap cuts both ways: Surf's "Smart
+Notes with citations back to the exact source" is functionally what
+MemoryMap's own Ask-answer object already does (per-sentence citations,
+confirmed in `tests/test_ask_answer_object.py`, cited in
+WORLD_CLASS_PLAN section H2's own description of what exists). The
+genuinely new piece is Surflets.
+
+**(a) ideas and UX patterns.** Surflets, a prompt-generated small
+interactive applet (a chart, a physics demo, a simple game) that lives
+inside a note, is a real idea with no equivalent in MemoryMap today: the
+closest surface is the whiteboard (`WHITEBOARD_PLAN.md`), which is a
+drawing/arrangement canvas, not a code-generation surface. `@`-mention
+context-building ("typing `@` launches a menu to search everything in
+Surf") is close to, but more general than, what MemoryMap's chat already
+does when attaching a note or file as context, worth checking whether the
+chat's own attach flow reaches every surface (notes, files, graph nodes,
+whiteboard items) as uniformly as Surf's single `@` menu does.
+
+**(b) code or assets that could be vendored as they are.** None credibly:
+Surf is a large Svelte+Rust application with its own storage engine
+(SFFS) and Electron shell; nothing in it is a small, extractable module
+the way Harper's WASM core or blobatar's SVG generator are. Any of this
+would be a from-scratch build informed by the idea, not a port.
+
+**(c) nothing else** beyond the two ideas above; the tabs/split-view
+browser chrome, the local-model provider list, and the web-search tool
+are all things MemoryMap already has in its own shape.
+
+**Where it would land.** Surflets maps to a new capability on the
+whiteboard or as a chat-generated artifact (closest existing hook:
+`src/memorymap/ai/skills.py`'s tool-calling agent, which already runs
+code-adjacent tools); this is speculative and not scoped, a research
+line, not a plan item, until someone decides whether "the agent writes a
+small runnable applet into a note" is a feature MemoryMap actually wants,
+given its own "no code execution sandbox" posture would need deciding
+first (a real security question, not a UI one).
+
+**Size: L** for Surflets if pursued (a sandboxed code-generation-and-run
+surface is a new subsystem, not a UI tweak); **S** for auditing whether
+the existing `@`-attach flow already covers every surface Surf's single
+menu does (a half-day check, not a build).
+
+**Recommendation: take an idea only**, and the smaller one first (the
+`@`-attach audit); Surflets is worth a single research note in
+WHITEBOARD_PLAN.md's research section, not a commitment, since it opens a
+code-sandboxing question the project has not decided.
+
+### better-clawd (x1xhlol) and Clawd-Code (GPT-AGI)
+
+**What they are, together, because the read is the same for both.**
+Both are unofficial reimplementations of Claude Code itself: better-clawd
+is "Claude Code, but better" (a fork/rebrand adding OpenAI/OpenRouter
+provider support and stripping telemetry, still a TypeScript CLI coding
+agent); Clawd-Code is "A Complete Python Reimplementation Based on Real
+Claude Code Source," a from-scratch Python port of the same tool
+(a `Task.ts`-equivalent agent loop, tool-calling, a `SKILL.md`
+slash-command runtime, a REPL). Neither is a notebook, a document tool,
+or anything in MemoryMap's actual domain; both are coding-CLI agents.
+
+**Licence, and a fact worth stating plainly rather than adjudicating.**
+better-clawd's `package.json` claims `"license": "MIT"`, but the cloned
+repository ships **no `LICENSE` file at all**; nothing in it can be
+treated as clearly licensed for reuse on that claim alone. Clawd-Code does
+ship a real MIT `LICENSE` file. Separately, and worth naming since this
+session is itself Claude reading about tools that reimplement Claude
+Code: Clawd-Code's own README describes itself as ported "From TypeScript
+Source" of "Real Claude Code," which is a claim about the origin of its
+code that this document is not positioned to verify or adjudicate; it is
+recorded here as a fact about what the README says, not a legal opinion.
+
+**(a) ideas and UX patterns.** Clawd-Code's `SKILL.md`-based slash-command
+skill runtime (markdown frontmatter declaring a description, an
+`allowed-tools` list, and named arguments) was checked against
+`src/memorymap/ai/skills.py` specifically, since it is the one plausibly
+relevant idea. MemoryMap's own skill system is already ahead of it on the
+exact axis that matters: `skills.py`'s own docstring records that skills
+used to be "just presaved mini prompts" and were rebuilt in a session to
+add explicit tool allowlists, ordered steps with per-step contracts
+(`STEP_EXPECTS`), and declared input placeholders, precisely the "tool
+limits" and "named arguments" Clawd-Code's `SKILL.md` format offers.
+Nothing here is a gap.
+
+**(c) nothing.** Both are out of MemoryMap's domain (a coding agent, not
+a notebook), and the one idea worth checking (the skill format) turns out
+already built, more thoroughly, in this codebase.
+
+**Size: none.** Not scoped, because nothing survives the check.
+
+**Recommendation: leave, both.** Wrong domain, one has a licence
+ambiguity worth not building on regardless, and the one transferable idea
+is already implemented and further along here than in either source.
+
+### The `pytesseract` vendoring question, measured
+
+**Asked:** "can we vendor pytesseract in the application or smth to make
+it easier?" Checked against the running code (`ocr` across
+`src/memorymap` and `frontend`, the `ocr-workspace` help topic,
+`packaging/windows/memorymap.spec`, `packaging/linux/memorymap.spec`,
+`packaging/windows/installer.iss`, `requirements.txt`, `docs/INSTALL.md`)
+before proposing anything, per this file's rule and the owner's "check the
+running app first" standing order.
+
+**What exists today, and it is more than the question assumed.**
+`pytesseract` is not currently installed by default; `requirements.txt`
+lists it as a commented-out optional extra (`pip install pytesseract
+Pillow`), and `src/memorymap/core/extras.py`'s `Extra(id="ocr", ...)`
+entry is the in-app installer for exactly that half, one click from
+Settings, a background job, honest about needing a restart. The **system
+`tesseract` binary itself** is the real gap `pytesseract` alone can never
+close (no PyPI wheel ships it), and `src/memorymap/core/ocr.py` already
+has an automated, non-interactive installer for it too:
+`attempt_binary_install` tries winget (Windows, the UB-Mannheim package),
+`brew` (macOS), then `apt-get`/`dnf`/`pacman` in order (Linux), all with
+fully non-interactive flags, wired into the same Settings button as the
+pip half via `core/extras.py`'s `_run_install`. So "make it easier" in
+the sense of "one click instead of a terminal and a README" is already
+built, checked and correct as far as it goes; what it does not do is work
+with **no internet connection and no package manager at all**, which is
+the literal reading of "vendor it in the application."
+
+**Neither packaging spec bundles the binary today.** Grepped "tesseract"
+across `packaging/windows/memorymap.spec`, `packaging/windows/
+installer.iss`, and `packaging/linux/memorymap.spec`: zero matches in all
+three. The Windows PyInstaller spec explicitly excludes only `torch` and
+`sentence_transformers` (with a comment naming the reason, download size);
+it says nothing about `tesseract` because nothing tries to include it.
+
+**Bundling the Tesseract binary and its `tessdata`, sizes.** **Not
+verified this session**: the sandbox's proxy returned HTTP 403 for both a
+direct fetch of the UB-Mannheim releases page and the GitHub releases API
+(`api.github.com/repos/UB-Mannheim/tesseract/releases/latest`), and
+`add_repo` only offers a git clone, not release-asset metadata, for an
+unattached repository; I did not download the actual installer to weigh
+it, which the brief said not to do regardless. From general knowledge,
+unmeasured this session: the UB-Mannheim Windows installer (the same one
+`attempt_binary_install`'s winget path already pulls) bundles the
+`tesseract` binary plus English and OSD `tessdata` at roughly 55 to 65 MB
+total; each additional language's trained data ranges from a few MB
+("fast" models) to 10 to 15 MB ("best" models). On Linux, `tesseract-ocr`
+plus `tesseract-ocr-eng` from apt is smaller, typically well under 10 MB
+compressed. Treat these as ballpark, not measured, figures.
+
+**What bundling would actually take.** Windows: add the tesseract binary
+and English `tessdata` as `datas` in `packaging/windows/memorymap.spec`
+(the same pattern already used for `frontend/` and `migrations/`), point
+`pytesseract.pytesseract.tesseract_cmd` at the bundled path when
+`sys.frozen` is true (today `core/ocr.py`'s `tesseract_available()` only
+checks `shutil.which("tesseract")`, i.e. PATH, so a bundled binary not on
+PATH would need this explicit wiring added), and grow the installer by
+the size above with no change needed to `installer.iss` itself beyond
+what PyInstaller already collects. Linux: `packaging/linux/memorymap.spec`
+would need the distro package added as a dependency of whatever package
+format it builds (checked that the file exists but was not read line by
+line this session, not verified further), which is a smaller lift than
+Windows since most Linux OCR users already have a system package manager
+the existing `attempt_binary_install` can already reach without any
+bundling at all.
+
+**The alternative: a pure-Python OCR that pip installs with no system
+binary.** `rapidocr-onnxruntime` (built on PP-OCR's models, run through
+ONNX Runtime) is the standard answer to exactly this problem: pip
+installs it and its `onnxruntime` dependency with no separate binary,
+no PATH wiring, no platform-specific installer step at all, closing the
+one gap `attempt_binary_install` cannot (a machine with no package
+manager the app can drive, or one where none of winget/brew/apt/dnf/
+pacman is present). **Not verified this session** for its exact current
+package size or licence text (the package was not downloaded, honouring
+the brief's OCR sizing method and the general "do not add binaries to the
+repo to measure them" instruction); from general knowledge, unmeasured:
+`rapidocr-onnxruntime` plus `onnxruntime` together are commonly cited in
+the tens of megabytes (roughly 30 to 50 MB installed), and RapidOCR's own
+project and its bundled PP-OCR-derived models are Apache-2.0, which comes
+into an AGPL-3.0 project clean. This would replace
+`core/ocr.py`'s Tesseract-specific `extract_text`/`extract_regions` pair
+with a second, pip-only path (or a second `Extra` entry in
+`core/extras.py` beside the existing `"ocr"` one), not a wrapper around
+Tesseract, since its output shape (text plus boxes plus confidence) maps
+onto the same `extract_regions` return contract `core/ocr.py` already
+defines.
+
+**Recommendation, sized.** Do not bundle the Tesseract binary in the
+installer: **S** to build, but the wrong fix for the actual gap.
+Everything the binary-bundling path buys (one click, works offline) is
+already true of the existing `attempt_binary_install` on every platform
+that has a package manager, which is effectively all of them; the ~55 to
+65 MB (Windows figure, unmeasured this session) would grow every
+installer download for every user, including the majority who already
+get OCR in one click today, to fix a case (a machine with genuinely no
+package manager reachable) that is rare and, when it happens, the app
+already degrades honestly ("uploads still work, they just get no
+searchable text," per `core/ocr.py`'s own docstring) rather than
+failing. **Add `rapidocr-onnxruntime` as a second, pip-only `Extra` in
+`core/extras.py`, size M**: it is a real fix for the actual gap (no
+system binary needed at all, so it works identically on a machine with no
+package manager and no internet access to fetch one, once the pip
+package itself is present), fits the existing extras pattern exactly, and
+does not touch the installer or its download size for people who never
+turn it on. Build it as an *alternative* OCR engine a person can pick in
+Settings, next to Tesseract, not a replacement: Tesseract's box-level
+region output (`extract_regions`, `REGION_MIN_CONFIDENCE`,
+`REGION_HEADING_RATIO`) is a genuinely different, tuned pipeline that
+would need re-deriving from `rapidocr-onnxruntime`'s own output shape
+before it could serve the Library's page-region workspace
+(`frontend/library.js`) the same way; that mapping work is the bulk of
+the M-sized estimate, not the extras-registry entry itself.

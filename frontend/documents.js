@@ -169,8 +169,64 @@ document.getElementById("doc-dock-menu")?.addEventListener("click", (event) => {
 });
 document.addEventListener("click", (event) => {
   const menu = document.getElementById("doc-dock-menu");
-  if (menu?.open && !menu.contains(event.target)) menu.open = false;
+  if (!menu?.open) return;
+  //: The Download submenu is reparented to `<body>` while it is open (see
+  //: `buildMenuGroupButton`), so a click inside it is not inside `menu` and
+  //: this would read it as a click away and shut the whole thing before the
+  //: export row's own handler had run.
+  if (menu.contains(event.target) || event.target.closest?.(".action-menu.submenu")) return;
+  menu.open = false;
 });
+
+//: **Five download rows into one** (INBOX 262, the owner: "I want to combine
+//: the "download as" options in it into a sub menu in that dropdown ... like
+//: the ones in the meatball dropdowns in the your notes page").
+//:
+//: Measured before: the menu is 706px tall in a 900px window at 1440px wide,
+//: 45 focusable rows, and on a taller, narrower window it runs to the bottom
+//: edge with a scrollbar of its own, which is what the report's screenshot
+//: shows. Four of those rows are the same verb.
+//:
+//: **The buttons are moved, not rebuilt.** They carry ids that this file
+//: binds handlers to and that `test_frontend_ids` and
+//: `test_frontend_handlers` both watch, so `buildMenuGroupButton` takes them
+//: as elements. Everything else is the notes kebab's own group recipe: hover
+//: or click to open, a flyout beside the row, an accordion at phone width,
+//: clamped to the window on both axes.
+//:
+//: Built once, at load, rather than per open: these five rows are static
+//: markup and the group is not rebuilt by anything.
+function foldDocumentExportsIntoSubmenu() {
+  const list = document.querySelector("#doc-dock-menu .doc-dock-menu-list");
+  if (!list || list.querySelector(".menu-group")) return;
+  const rows = ["doc-export-md", "doc-export-html", "doc-export-zip", "doc-export-docx", "doc-export-pdf"]
+    .map((id) => document.getElementById(id))
+    .filter(Boolean);
+  if (rows.length < 2 || typeof buildMenuGroupButton !== "function") return;
+  //: **A marker, because the group takes the rows with it.**
+  //: `buildMenuGroupButton` appends each element into the flyout, so by the
+  //: time it returns, `rows[0]` is no longer a child of this list and
+  //: `insertBefore(group, rows[0])` throws `NotFoundError`. That throw is
+  //: not local: this runs at the top level of documents.js, so it took the
+  //: rest of the file's initialisation with it (`storageInfo`,
+  //: `DOC_VIEWS_UNRENDERED` and `docCmView` all failed to initialise, and
+  //: the editor would not open). A comment node holds the place instead.
+  const marker = document.createComment("download group");
+  list.insertBefore(marker, rows[0]);
+  const group = buildMenuGroupButton("ph:download-simple Download or print", rows);
+  list.insertBefore(group, marker);
+  marker.remove();
+  //: A row inside the flyout still ends the whole interaction, the way it did
+  //: when it was a row in the list. Its own handler has already run by the
+  //: time this fires, because both are click listeners and this one is
+  //: attached to an ancestor.
+  group.addEventListener("click", (event) => {
+    if (!event.target.closest(".menu-item") || event.target.closest(".has-submenu")) return;
+    const menu = document.getElementById("doc-dock-menu");
+    if (menu) menu.open = false;
+  });
+}
+foldDocumentExportsIntoSubmenu();
 
 // --- which of the four views is showing ----------------------------------------
 //

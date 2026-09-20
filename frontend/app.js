@@ -4581,7 +4581,17 @@ function buildMenuGroupButton(label, subItems) {
   const submenu = document.createElement("div");
   submenu.className = "action-menu submenu hidden";
   submenu.setAttribute("role", "menu");
-  for (const item of subItems) submenu.appendChild(buildMenuItemButton(item));
+  //: **An entry may be a button that already exists**, not only a descriptor
+  //: to build one from. The document editor's ⋯ is static markup whose rows
+  //: carry ids that `documents.js` binds handlers to (`doc-export-md` and
+  //: four more), so folding them into a group has to *move* those buttons
+  //: rather than rebuild them: a rebuilt row is a row with no handler and an
+  //: id that two lints watch. Everything else about the group is identical,
+  //: which is the point of reusing this recipe rather than writing a second
+  //: flyout for one menu.
+  for (const item of subItems) {
+    submenu.appendChild(item instanceof HTMLElement ? item : buildMenuItemButton(item));
+  }
 
   // **Reparented to `<body>` while open, like `escapeMenuIfClipped` does for
   // the top-level kebab.** Reported: a submenu opened from a kebab near the
@@ -26699,6 +26709,8 @@ function placeDockMenuInWindow(details, list) {
   details.classList.remove("doc-dock-menu-up");
   list.style.maxHeight = "none";
   list.style.overflowY = "";
+  list.style.transform = "";
+  list.style.maxWidth = "";
   const anchor = opener.getBoundingClientRect();
   const box = list.getBoundingClientRect();
   //: Not laid out (a `<details>` in a hidden pane, the all-zero rect
@@ -26727,6 +26739,28 @@ function placeDockMenuInWindow(details, list) {
     list.style.maxHeight = `${room}px`;
     list.style.overflowY = "auto";
   }
+
+  //: **And sideways, which this never checked** (INBOX 262). The stylesheet
+  //: anchors these to the opener's *right* edge and grows them leftwards,
+  //: which is right beside a button at the end of a row and wrong when the
+  //: window is narrower than the menu plus whatever is to the opener's left.
+  //: Measured at 390x844 on the document editor's ⋯: a 286px menu in a 390px
+  //: window sat at left -53, so the first 53px of every label was off the
+  //: screen with no way to scroll to it.
+  //:
+  //: A `transform`, not a `left`: these are anchored with `right: 0` against
+  //: their own `<details>`, so switching to a left offset would mean
+  //: recomputing the anchoring this rule deliberately leaves to the
+  //: stylesheet. A translate moves the painted box and changes no layout.
+  //: The width cap comes first, because a menu wider than the window cannot
+  //: be shifted into it.
+  const wide = window.innerWidth - margin * 2;
+  if (box.width > wide) list.style.maxWidth = `${wide}px`;
+  const shifted = list.getBoundingClientRect();
+  const dx = shifted.left < margin
+    ? margin - shifted.left
+    : Math.min(0, window.innerWidth - margin - shifted.right);
+  if (dx) list.style.transform = `translateX(${Math.round(dx)}px)`;
 }
 
 document.addEventListener(

@@ -74,6 +74,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The document editor's ⋯ menu is shorter and stays on screen. Its five
+  "Download as" rows and "Print or save as PDF" are one "Download or print"
+  row now, opening the same side flyout the notes list's ⋯ menu already uses
+  (an accordion at phone width, where there is nowhere for a flyout to go).
+  The menu was 706px tall in a 900px window; it is 562px. Separately, these
+  menus were only ever clamped vertically: at 390px wide the document ⋯ sat
+  53px off the left edge of the screen, with no way to scroll to the start of
+  its labels. They are clamped on both axes now.
+
 - A search in what the notebook learned counted rows it was not showing, so
   the table's pager offered pages that were not there. The page and the
   count are narrowed by one function now.

@@ -30115,3 +30115,108 @@ told to open first.
     left deliberately undone with the reason for each. HANDOVER points at
     it. The plan table's I9 row says the Settings section is built.
 
+238. **Mid-work drop, 2026-09-14, verbatim (the owner), board and map
+    notes.** "when I expand the size of notes in the whiteboard and mindmap,
+    the text goes out of the panel border, the state of note objects in the
+    whiteboard and mindmap for if they are expanded or not should be
+    persistant, and when exporting a whiteboard and/or mindmap, the user
+    should be warned if any of their notes arent expanded and that not all
+    their contents will be shown, the export shouldnt include things like
+    the show less/more text as well." Owner: notes agent (whiteboard.js).
+    **Fixed 2026-09-19** (5a9c909, 128a731, 7e8d902), all three parts,
+    measured at 1440x900 with zero page errors throughout:
+    - *Text outside the border.* `.wb-card` is a column flex container and a
+      placed note carries its dragged height as an inline style, but a flex
+      item's `min-height: auto` resolves to its content, so the text won
+      against the box: a 324-character note in a 320x120 card laid out 215px,
+      112px of it below the card's edge; 408 characters in 320x160 spilled
+      254px. `min-height: 0` and `overflow: hidden` on `.wb-card-content`
+      (not on the card: the eight resize handles sit outside its edge on
+      purpose). The "Show more" was also gated on the Notes list's rule
+      (500 characters or 10 lines), which is a question about the note when
+      the question is about the box; it is now measured from the layout, and
+      the old `-webkit-line-clamp: 8` (which counted paragraphs, not lines,
+      on rendered markdown) is a `max-height` applied only to a card with no
+      stored height. After: 60px and 100px of text, both 43px clear, a note
+      that fits gets no button, expand and collapse round-trip 140 to 411 to
+      140px, and growing the card to 700px retires the button.
+    - *Persistence.* `wbExpandedNodes` is saved to `localStorage`, where the
+      grid, snap, guide colours, background and navigator state already live.
+      One key, 500 entries, oldest dropped first. Measured across a reload
+      and re-login: 411px and "Show less" both survive.
+    - *Export.* The "Show more" text was never in the picture (cards are
+      rebuilt as SVG from the note), but the export always showed *less* than
+      the screen: 160 characters wrapped into at most six lines whatever the
+      card's size. The line budget now comes from the card's measured height
+      (collapsed in a 160px card, 7 lines; expanded to 746px, 22; both were 6
+      before), and the dialog carries a `--warn` line naming how many notes
+      are collapsed. Markdown, OPML and FreeMind carry `drawsCards: false`
+      and never show it.
+232. **Mid-work drop, 2026-09-14, verbatim (the owner), the live view.**
+    "the md rendering on the live view, like in the documents page, needs to
+    be improved, especially for codeblocks and potentially for other things
+    as well." Screenshot: a fenced block renders as a dark slab with the
+    fence lines as empty numbered rows above and below, link chips wrap
+    oddly. Owner: notes agent (documents.js).
+    **Codeblocks fixed 2026-09-19** (706e2af). Measured on a four-line Python
+    block: five rows of 26px, two of them empty, so 52 of 130 pixels said
+    nothing. INBOX 198 hid the backticks and the language word, correctly,
+    but left the emptied lines at full line height. They now keep the block's
+    tint and take half a line, the block's corners are rounded so five tinted
+    rows read as one slab, and the language is drawn in the corner from a
+    `data-lang` attribute rather than on a row of its own. Both stand down
+    when the caret is inside the block, since the raw fence comes back there.
+    After: 92px, zero empty full-height rows, 8px fence rows, the label in
+    `--muted`.
+    **The link chips, measured 2026-09-20: fixed, and by the same session
+    that fixed the fences.** A `[[wiki link]]` long enough to wrap now draws
+    as two line boxes that each keep the chip's padding and its 4px radius
+    (`box-decoration-break: clone` on `.cm-md-code, .cm-md-highlight,
+    .cm-md-wiki`), rather than one rounded half and one square one flush to
+    the margin, which is what "wrap oddly" was. Measured on a chip forced to
+    break: two rects, 159px and 314px, both 19px tall, `padding: 0px 4px`
+    and `border-radius: 4px` on each, zero page errors
+    (`scratchpad/ui-sweeps/livelinkchips.js`). Both halves of this entry are
+    done.
+226. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), a flicker.**
+    "theres a flickering just above the bottom bar??" / "i was on the
+    dashboard". Reproduce first: sample the band above `#status-bar` on the
+    dashboard at 100 ms for four seconds and count pixel changes; log DOM
+    mutations in the same band. Suspects, in order: a widget re-rendering
+    on a timer (the Rediscover widget re-asks when its list empties; the
+    reminders and stats fetches were just shared by the boot agent), the
+    scroll-top button toggling on a scroll-height change, the status bar's
+    new Guide slot being redrawn by the header's model poll. Owner:
+    orchestrator, now.
+    **Not reproduced on the merged head, 2026-09-14** (`scratchpad/
+    flicker2.js`, `flicker3.js`, 1440x900, dashboard, 60 frames at 60 to
+    100 ms): with the art off, the only pixels changing in the 120px band
+    above the status bar are none (the status bar's own AI spinner is the
+    one moving thing on screen); with the art on and Movement: Still, zero
+    frame changes and zero `startBgArt`/`stopBgArt` calls or canvas swaps
+    in four seconds; with the art moving, every strip changes, which is the
+    art. The ten inline-style writes seen on `.dash-widget` sections are the
+    one-time span pass, not a loop. Left open for the owner: which theme,
+    which background style, and whether the desktop window or a browser
+    tab; a screenshot with the flicker in it names the element.
+    **Reproduced and named, 2026-09-19** (`scratchpad` flicker probes, a
+    seeded four thousand note notebook at 1440x900). The earlier run looked
+    at the *background* art (`startBgArt`); the thing moving is the
+    dashboard's own **art widget** (`startArt`, dashboard.js).
+    The 130px band above the status bar was split into a 12x4 grid and
+    sampled twelve times: three adjacent columns changed on **11 of 11**
+    comparisons and every other cell on none, with **zero DOM mutations** in
+    the band and the background art off. `elementsFromPoint` at the busiest
+    cell: `canvas.p5Canvas` inside `div.art-holder` inside a
+    `section.card.dash-widget`. It runs at **59 fps** in a 306x220 box.
+    It is a widget animating, not a repaint fault, so the flicker is
+    explained. What was wrong is that it ignored every switch that says
+    "stop moving things" except the OS media query: measured before, Reduce
+    motion on gave 59 fps and Performance mode on gave 59 fps, while the
+    background art stops for both and DESIGN.md rule 12 says Performance
+    mode stops every animation but the progress indicators. Fixed; measured
+    after, both read 0 fps, and 59 again when switched back off. If the
+    owner still sees it with both of those off, the remaining answer is the
+    widget itself: turn the art widget off on the dashboard, or say so and
+    it gets a frame-rate cap rather than 60.
+

@@ -1375,3 +1375,43 @@ header#top-bar,
   }
 }
 
+/* --- Phase 11 items 2 and 3: no rail on a phone, an opener in the head ------
+   See `mountPhoneSidebarOpeners` (app.js) for the measurement. Below 600 the
+   sidebar sheet parks fully off screen, the page beside it takes back the
+   52px the rail reserved, the sheet's own toggle shows only while the sheet
+   is open (it is the closer then, pinned to the sheet's edge), and the
+   `.dock-nav` opener in each dock's head appears. Above 600 the block is
+   inert and the tablet keeps its hinge. */
+.dock-nav {
+  display: none;
+}
+
+@media (max-width: 599.98px) {
+
+  .dock-nav {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .dock-nav > button {
+    min-height: var(--target-min);
+    min-width: var(--target-min);
+  }
+
+  #sidebar:not(.sidebar-sheet-open),
+  #chat-sidebar:not(.sidebar-sheet-open),
+  #doc-sidebar:not(.sidebar-sheet-open) {
+    transform: translateX(-100%);
+  }
+
+  #sidebar:not(.sidebar-sheet-open) > .sidebar-collapse-toggle,
+  #chat-sidebar:not(.sidebar-sheet-open) > .sidebar-collapse-toggle,
+  #doc-sidebar:not(.sidebar-sheet-open) > .sidebar-collapse-toggle {
+    display: none;
+  }
+
+  .sidebar-panel ~ * {
+    padding-left: 0;
+  }
+}
+

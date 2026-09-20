@@ -37808,6 +37808,53 @@ function initPhoneHeaderMore() {
 
 initPhoneHeaderMore();
 
+// --- the phone's sidebar opener: a button in the head, not a rail ------------
+// UI_MODERNISATION_PLAN Phase 11 item 2 ("the list as full-width rows") and
+// item 3 ("the sidebar as a sheet from the left edge"). Below 820 each
+// sidebar is already an edge sheet, opened by its own collapse toggle riding
+// a 52px rail that stays on screen, and every page beside a sidebar pads
+// itself by that rail. Measured at 390 on Notes: the list started at x=82
+// in a 390 window (13px page gutter, the 52px rail, 16px card padding), so
+// rows ran 262px wide for one 44px button that sat at the top of the strip
+// and nothing else the whole way down. On a tablet the rail is 6% of the
+// width and reads as a hinge; on a phone it is 13% of it and reads as a
+// margin nobody asked for.
+//
+// So below 600 the rail goes and the opener moves to where a phone keeps
+// it: the leading edge of the head bar, before the title (the HIG's
+// navigation-bar order, and where Slack, Notion and Mail put theirs). One
+// function mounts one `.dock-nav` opener per sidebar in that sidebar's own
+// dock, and pressing it presses the sidebar's existing toggle, so the sheet
+// logic (`applySidebarSheetMode`, the dismissal, `aria-expanded`) stays in
+// one place. The rail and the toggle come back above 600 by CSS alone.
+const PHONE_SIDEBAR_OPENERS = [
+  { aside: "sidebar", dock: '[data-dock-name="notes"]', label: "Categories and tags" },
+  { aside: "chat-sidebar", dock: '[data-dock-name="chat"]', label: "Conversations" },
+  { aside: "doc-sidebar", dock: ".doc-dock", label: "Documents list" },
+];
+
+function mountPhoneSidebarOpeners() {
+  for (const { aside: asideId, dock: dockSel, label } of PHONE_SIDEBAR_OPENERS) {
+    const aside = document.getElementById(asideId);
+    const dock = document.querySelector(dockSel);
+    if (!aside || !dock || dock.querySelector(":scope > .dock-nav")) continue;
+    const nav = document.createElement("span");
+    nav.className = "dock-nav";
+    const opener = smallButton("ph:sidebar-simple", label, () => {
+      const toggle = aside.querySelector(".sidebar-collapse-toggle");
+      if (toggle) toggle.click();
+      opener.setAttribute("aria-expanded", String(aside.classList.contains("sidebar-sheet-open")));
+    });
+    opener.classList.add("icon-only", "phone-sidebar-opener");
+    opener.setAttribute("aria-expanded", "false");
+    opener.setAttribute("aria-controls", asideId);
+    nav.appendChild(opener);
+    dock.prepend(nav);
+  }
+}
+
+mountPhoneSidebarOpeners();
+
 // --- a sheet, the phone's own dialog ------------------------------------------
 // DESIGN.md's recipe index, "A sheet". UI_MODERNISATION_PLAN.md Phase 11.
 //

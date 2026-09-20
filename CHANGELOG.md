@@ -9,6 +9,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- On a phone the sidebar no longer keeps a 52px rail down the left of every
+  page. It opens from a button at the start of the page's own head bar and
+  the notes, conversations and documents lists take the full width.
 - The top bar on a phone is three controls: the space switcher, notifications
   and one menu holding theme, Settings, Lock and Quit. It was six, and at 320
   the last one hung off the edge so every page scrolled sideways. Every

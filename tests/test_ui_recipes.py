@@ -1468,3 +1468,23 @@ def test_the_phone_top_bar_menu_is_the_kebab_recipe_and_hides_nothing():
         assert ident in band, f"{ident} is not swapped for the menu on a phone"
     assert "#header-more" in band
 
+
+def test_every_sidebar_gets_the_phone_opener_from_the_one_function():
+    """Phase 11 items 2 and 3: below 600 the sidebar rail goes and each
+    sidebar is opened from a `.dock-nav` button in its own head, mounted by
+    `mountPhoneSidebarOpeners` for every id in `SIDEBAR_IDS`. A fourth
+    sidebar added without a row here would keep a rail on the phone that
+    the other three no longer have."""
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    ids = re.search(r"const SIDEBAR_IDS = \[([^\]]*)\]", app)
+    assert ids, "SIDEBAR_IDS is not where this lint expects it"
+    sidebars = set(re.findall(r'"([^"]+)"', ids.group(1)))
+    rows = re.search(r"const PHONE_SIDEBAR_OPENERS = \[(.*?)\n\];", app, re.S)
+    assert rows, "PHONE_SIDEBAR_OPENERS is missing"
+    covered = set(re.findall(r'aside: "([^"]+)"', rows.group(1)))
+    assert covered == sidebars, f"sidebars without a phone opener: {sorted(sidebars - covered)}"
+    css = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    band = css[css.index("Phase 11 items 2 and 3: no rail on a phone") :]
+    for ident in sidebars:
+        assert f"#{ident}:not(.sidebar-sheet-open)" in band, f"#{ident} keeps its rail on a phone"
+

@@ -716,6 +716,21 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
    the list as full-width rows with swipe actions (pin, bin) matched to
    the row's menu (the HIG rule); filters in a sheet; the note view as a
    page with a back button, its actions in a bottom bar.
+   - **The rail is gone below 600: built** (2026-09-20, with item 3's
+     sidebar half). Measured first (`scratchpad/ui-sweeps/phonesidebar.js`):
+     at 390 the Notes list started at x=82 (13px gutter, the 52px sidebar
+     rail, 16px card padding) for one 44px toggle at the top of the strip
+     and nothing else down it, so rows ran 262px in 390. Now every sidebar
+     (`SIDEBAR_IDS`) parks fully off screen below 600, the page beside it
+     pads 0, and it opens from a `.dock-nav` button at the leading edge of
+     its own dock's head (`mountPhoneSidebarOpeners`), pressing the
+     sidebar's own toggle so the sheet logic stays in one place. After, on
+     Notes, Chat and Documents at 390: closed sidebar right edge 0, page
+     padding 0, opener 44x44 first in the dock, the sheet opens at x=0 with
+     its closer showing and Escape closes it; at 768 the tablet keeps its
+     52px rail and the opener is hidden. Still open in this item: the
+     capture sheet from a floating +, swipe actions, filters in a sheet
+     (the notes dock is four rows and 198px tall at 390), the note page.
 3. **Chat.** The composer above the keyboard with the attachments and
    mode in one row; sources as a sheet; the sidebar as a sheet from the
    left edge; the popup agent unavailable on the phone (the chat is the

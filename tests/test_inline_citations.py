@@ -16,6 +16,7 @@ produced none, and the chips renumbered to match.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -172,3 +173,46 @@ def test_both_halves_of_a_split_node_are_rescanned(app_js):
 def test_the_chips_are_numbered_to_match_the_markers(app_js):
     body = app_js.split("function renderAnswerGrounding(")[1].split("\n}")[0]
     assert "${n}." in body, "the chip row is the key to the markers, so it has to count"
+
+
+#: **Every live renderer is stopped before its box is written to again.**
+#:
+#: Reported twice by the owner: *"In-text referencing and grounding in the ask
+#: subtab doesn't stick"* and *"Grounding and in-text referencing not working
+#: now?? Needs fix."* Measured end to end
+#: (`scratchpad/ui-sweeps/askgrounding.js`, against
+#: `scratchpad/fake_answer_server.py`): `addInlineCitations` placed all three
+#: markers correctly, and a `setTimeout` armed by `liveMarkdownRenderer` up to
+#: `LIVE_RENDER_INTERVAL_MS` before the stream ended then fired and repainted
+#: `#ai-answer` from the raw markdown, removing every one of them.
+#:
+#: The renderer has carried a `stop()` for exactly this since INBOX 40, when
+#: the same race was fixed for skill runs; the Ask tab was the one caller that
+#: never called it. Nothing in the suite could see that, because the prose is
+#: identical either way: only the little numbers go.
+#:
+#: So the rule is the shape, not the bug: a live renderer whose `stop` is never
+#: called is a marker race waiting to happen, in whichever surface adds one
+#: next.
+def test_every_live_markdown_renderer_is_stopped_somewhere() -> None:
+    source = SOURCE.read_text(encoding="utf-8")
+    #: `const x = liveMarkdownRenderer(...)` and `render: liveMarkdownRenderer(...)`
+    #: are the two shapes in use; the second is a step field, stopped as
+    #: `step.render?.stop?.()`, so the name to look for is the key either way.
+    holders = re.findall(
+        r"(?:const|let|var)\s+(\w+)\s*=\s*liveMarkdownRenderer\(|(\w+)\s*:\s*liveMarkdownRenderer\(",
+        source,
+    )
+    names = [a or b for a, b in holders]
+    assert names, "liveMarkdownRenderer is no longer used under a name this can check"
+    unstopped = [
+        name
+        for name in names
+        #: `name.stop()`, `name?.stop?.()` and `step.render?.stop?.()` all end
+        #: in the same two tokens, which is what makes one pattern enough.
+        if not re.search(rf"\b{re.escape(name)}\??\.\s*stop\??\.?\(\)", source)
+    ]
+    assert not unstopped, (
+        "a liveMarkdownRenderer is never stopped, so a paint armed before the "
+        f"stream ended can repaint over the citation markers: {unstopped}"
+    )

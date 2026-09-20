@@ -20,31 +20,42 @@ Speaks the OpenAI `/v1` dialect, streaming and not, like
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 MODEL = "fake-answerer"
+DUMP = os.environ.get("FAKE_DUMP") or ""
 
 
 def _sentences_from_prompt(prompt: str) -> list[str]:
     """One sentence per note the app put in the prompt.
 
-    The context blocks are the long lines; a note's own first sentence is
-    what a model would paraphrase, and echoing it verbatim is the strongest
-    possible grounding signal, which is what a probe wants: if the numbers
-    are wrong here they are wrong everywhere.
+    The app's context block is a numbered list under "My notes:", one note per
+    line, shaped `3. [General] (similarity: 0.56) the note's text`. Parsing
+    that shape rather than "any long line" matters: the first version took the
+    system preamble and the category prefixes with it, and the answer came
+    back opening "You are Atlas, this notebook's librarian. General] ...". A
+    probe reading that answer would blame the product for a fixture that had
+    never quoted a note cleanly in the first place.
+
+    A note's own first sentence is what a model would paraphrase, and echoing
+    it verbatim is the strongest possible grounding signal, which is what a
+    probe wants: if the numbers are wrong here they are wrong everywhere.
     """
-    blocks = [
-        line.strip()
-        for line in re.split(r"\n{2,}|\n(?=\s*[-*\d])", prompt)
-        if len(line.strip().split()) >= 8
-    ]
-    out = []
-    for block in blocks:
-        text = re.sub(r"^[\s\-*\d.)\[\]]+", "", block).strip()
+    out: list[str] = []
+    for line in prompt.splitlines():
+        row = re.match(r"^\s*\d+\.\s+(.*)$", line.strip())
+        if not row:
+            continue
+        text = row.group(1)
+        text = re.sub(r"^\[[^\]]*\]\s*", "", text)          # [General]
+        text = re.sub(r"^\((?:[^)]*)\)\s*", "", text).strip()  # (similarity: 0.56)
+        if len(text.split()) < 6:
+            continue
         first = re.split(r"(?<=[.!?])\s", text)[0]
-        if len(first.split()) >= 6 and first not in out:
+        if first not in out:
             out.append(first if first.endswith((".", "!", "?")) else first + ".")
         if len(out) >= 4:
             break
@@ -65,6 +76,9 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length") or 0)
         body = json.loads(self.rfile.read(length) or b"{}")
         prompt = "\n".join(str(m.get("content") or "") for m in body.get("messages", []))
+        if DUMP:
+            with open(DUMP, "a", encoding="utf-8") as fh:
+                fh.write("=== prompt ===\n" + prompt + "\n")
         answer = " ".join(_sentences_from_prompt(prompt))
         if body.get("stream"):
             self._sse(answer)

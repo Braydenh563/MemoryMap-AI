@@ -13188,6 +13188,20 @@ async function askQuestion(preset) {
       },
     });
 
+    //: **The live renderer's armed paint is cancelled before anything else**
+    //: (`liveMarkdownRenderer`'s own `stop`, and the same call the Chat tab's
+    //: `finalise` has made since INBOX 40). Reported as *"grounding and
+    //: in-text referencing not working now"* and, more precisely, *"doesn't
+    //: stick"*: measured, the markers were placed, all three of them, and a
+    //: `setTimeout` armed up to `LIVE_RENDER_INTERVAL_MS` before the stream
+    //: ended then fired and repainted this box from the raw markdown, which
+    //: removes every one of them. The prose is identical either way, so
+    //: nothing about it looks like a race; only the little numbers go.
+    //:
+    //: The Ask tab was the one caller of this renderer that never stopped it.
+    //: The fix is the call, not a delay: a timer cancelled cannot fire late,
+    //: whereas a longer wait only makes the race rarer.
+    renderLive.stop();
     // Final render (catches anything after the last animation frame).
     if (!hinted) renderMarkdown(answerBox, answerRaw);
     //: **And the citations go back in.** Reported: *"in the ask tab, no inline
@@ -13250,6 +13264,9 @@ async function askQuestion(preset) {
   } catch (error) {
     if (error.name === "AbortError") {
       stopped = true;
+      //: Same reason as the success path above: Stop is an exit too, and an
+      //: armed paint outlives the turn it belongs to.
+      renderLive.stop();
       renderMarkdown(answerBox, answerRaw); // keep what streamed so far
       status.textContent = "Stopped.";
       show("retry-btn", "copy-btn", "speak-btn");

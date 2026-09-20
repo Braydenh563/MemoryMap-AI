@@ -1665,6 +1665,43 @@ def _reset_password() -> int:
     return 0
 
 
+def _repair_install() -> None:
+    """What the "Repair MemoryMap AI" shortcut (packaging/windows/
+    installer.iss, beside the ordinary Start Menu one) runs, and what
+    `--reinstall` means on a packaged build: INBOX 253, "automatically
+    recoverable and revivable for the user with one click."
+
+    A packaged build has no venv to rebuild - it is a single frozen
+    PyInstaller folder, not a checkout with its own Python environment
+    (see this module's own docstring, and CLAUDE.md section 7's install
+    line, which is source-checkout-only) - so `--reinstall` here does not
+    mean what it means in start.sh/start.bat. What a frozen desktop build
+    *can* get stuck in is its own cached window profile: `_run_desktop`
+    below passes `private_mode=False` and a fixed `storage_path` on
+    purpose, so settings and theme survive between ordinary launches, and
+    that is also the one thing CLAUDE.md's own trap note records as having
+    cost a full session's worth of "my bugs are still there" reports before
+    the cache-busting fix (`RevalidatedStatic`, `_BOOT_TOKEN`) landed.
+    Clearing it is the same safety net that fix already relies on working,
+    just reachable without a terminal.
+
+    Never touches notes, attachments or preferences - those live in the
+    database and in `<data dir>/preferences.json`, both untouched by a bad
+    browser cache - and never asks for confirmation, unlike
+    `_reset_password`: nothing this clears is unrecoverable, it just gets
+    rebuilt fresh on the very next line this function returns to.
+    """
+    import shutil
+
+    data_dir = Path(os.getenv("MEMORYMAP_DATA_DIR", "data")).resolve()
+    storage = data_dir / "webview"
+    if storage.exists():
+        shutil.rmtree(storage, ignore_errors=True)
+        print(f"Repaired: cleared the cached window profile at {storage}.")
+    else:
+        print("Repaired: nothing cached to clear.")
+
+
 def main() -> None:
     _ensure_std_streams()
     parser = argparse.ArgumentParser(prog="memorymap", description="MemoryMap AI")
@@ -1685,6 +1722,13 @@ def main() -> None:
         help="forgot your password: clear it so you can set a new one "
         "(private notes encrypted with it are lost)",
     )
+    parser.add_argument(
+        "--reinstall",
+        action="store_true",
+        help="one-click repair: clear the cached window profile, then start "
+        "normally (what the installer's \"Repair MemoryMap AI\" shortcut runs; "
+        "notes and preferences are never touched)",
+    )
     # Internal: set by _maybe_relaunch_hidden's own pythonw.exe relaunch to
     # mark "this already is the console-less process," so it doesn't try to
     # relaunch itself again. Not something a person should ever type, hence
@@ -1695,6 +1739,8 @@ def main() -> None:
         raise SystemExit(_export_markdown(args.export))
     if args.reset_password:
         raise SystemExit(_reset_password())
+    if args.reinstall:
+        _repair_install()
     if args.desktop:
         _run_desktop(hidden_relaunch=args.hidden_relaunch)
     else:

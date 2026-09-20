@@ -2846,9 +2846,13 @@ function entryItem(entry, options = {}) {
   const li = document.createElement("li");
   li.dataset.id = entry.id;
   if (entry.id === linkSource) li.classList.add("link-source");
-  // Read by the phone's swipe underlay, which says "Unfavourite" on a row
-  // that already is one (10-responsive.css).
+  // The phone's swipe underlays read their words from the row (`initRowSwipe`,
+  // 10-responsive.css): what a swipe right and a swipe left will do to it.
   if (entry.pinned) li.classList.add("is-favourite-row");
+  if (!entry.is_board && !entry.is_draft && options.actions) {
+    li.dataset.swipeRight = entry.pinned ? "Unfavourite" : "Favourite";
+    li.dataset.swipeLeft = "Bin";
+  }
   // An opened-out row renders as the full card, see `expandedRows`. The
   // class does nothing in card view, where every note is already this shape.
   if (expandedRows.has(entry.id)) li.classList.add("row-expanded");
@@ -25362,6 +25366,7 @@ let editingReminderId = null;
 function reminderItem(reminder, label) {
   const li = document.createElement("li");
   li.dataset.id = reminder.id; // flashReminder's own hook, same shape as #entry-list's data-id
+  li.dataset.swipeRight = reminder.done ? "Reopen" : "Done"; // the phone's swipe (initRowSwipe)
   if (label === "Overdue") li.classList.add("overdue");
   // Colour-code by priority (styled in CSS: a coloured left border).
   if (reminder.priority && reminder.priority !== "normal") {
@@ -29044,7 +29049,13 @@ $("timeline-scrubber").addEventListener("pointermove", (event) => {
 //: cannot disagree about what a search matched, because they read the same
 //: `timelineVisibleRows()`.
 function timelineViewMode() {
-  return localStorage.getItem("timeline-view") === "table" ? "table" : "feed";
+  const stored = localStorage.getItem("timeline-view");
+  if (stored === "table" || stored === "feed") return stored;
+  //: **A phone opens the timeline as the table** (UI_MODERNISATION_PLAN
+  //: Phase 11 item 8): the feed's two-column ribbon is a desktop's shape,
+  //: and the table is one row per event at any width. A choice made on
+  //: either surface still wins.
+  return window.matchMedia("(max-width: 599.98px)").matches ? "table" : "feed";
 }
 
 // The columns, in the order decision 6 sets them out, with how each one sorts.
@@ -38001,8 +38012,12 @@ mountPhoneSidebarOpeners();
 const ROW_SWIPE_ARM = 88;
 const ROW_SWIPE_MAX = 124;
 
-function initRowSwipe() {
-  const list = document.getElementById("entry-list");
+//: `list` is the element the rows live under (delegated, so re-rendered rows
+//: need no wiring); `actions.right` and `actions.left` each take the row and
+//: press its own control. A direction the row has no label for
+//: (`data-swipe-right` / `data-swipe-left`, which are also the underlay's
+//: words) never arms: a reminder swipes right to Done and left to nothing.
+function initRowSwipe(list, actions) {
   if (!list) return;
   let row = null;
   let startX = 0;
@@ -38042,7 +38057,9 @@ function initRowSwipe() {
       }
       row.classList.add("is-swiping");
     }
-    dx = Math.max(-ROW_SWIPE_MAX, Math.min(ROW_SWIPE_MAX, mx));
+    const canRight = Boolean(row.dataset.swipeRight);
+    const canLeft = Boolean(row.dataset.swipeLeft);
+    dx = Math.max(canLeft ? -ROW_SWIPE_MAX : 0, Math.min(canRight ? ROW_SWIPE_MAX : 0, mx));
     row.style.setProperty("--swipe-x", `${dx}px`);
     row.classList.toggle("swipe-right", dx > 0);
     row.classList.toggle("swipe-left", dx < 0);
@@ -38056,21 +38073,30 @@ function initRowSwipe() {
     row = null;
     settle(li);
     if (Math.abs(travelled) < ROW_SWIPE_ARM) return;
-    if (travelled > 0) {
-      li.querySelector(".favourite-btn")?.click();
-      return;
-    }
-    // The menu builds its rows on open, so the bin is reached as the one
-    // function the menu's own row calls, not by pressing a row that does
-    // not exist yet.
-    const entry = allEntries.find((e) => String(e.id) === li.dataset.id);
-    if (entry) binNoteWithUndo(entry);
+    if (travelled > 0) actions.right?.(li);
+    else actions.left?.(li);
   };
   list.addEventListener("pointerup", end);
   list.addEventListener("pointercancel", end);
 }
 
-initRowSwipe();
+initRowSwipe(document.getElementById("entry-list"), {
+  right: (li) => li.querySelector(".favourite-btn")?.click(),
+  // The menu builds its rows on open, so the bin is reached as the one
+  // function the menu's own row calls, not by pressing a row that does
+  // not exist yet.
+  left: (li) => {
+    const entry = allEntries.find((e) => String(e.id) === li.dataset.id);
+    if (entry) binNoteWithUndo(entry);
+  },
+});
+
+//: Reminders (Phase 11 item 8, "reminders as rows with swipe done"): right
+//: presses the row's own Done checkbox, which toggles and saves as a tap on
+//: it would; there is no left.
+initRowSwipe(document.getElementById("reminder-groups"), {
+  right: (li) => li.querySelector('input[type="checkbox"]')?.click(),
+});
 
 // --- the note page: a note opened on a phone is a page, not a longer card ----
 // UI_MODERNISATION_PLAN Phase 11 item 2: "the note view as a page with a

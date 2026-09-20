@@ -9,6 +9,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- A phone opens the timeline as the table when no view has been chosen,
+  and a reminder row swiped right is done.
 - A phone opens a document to read it: the Rendered view is the default
   below 600 when no view has been chosen, and Edit is a press away.
 - Chat on a phone: the message box takes one row with the microphone and

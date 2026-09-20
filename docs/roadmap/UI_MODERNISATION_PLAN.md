@@ -844,9 +844,21 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
 7. **Whiteboard and maps.** View and light edit only on a phone (pan,
    zoom, select, move, edit text); creation tools in a sheet; the mind
    map's + handles are touch-sized.
-8. **Settings, dashboard, timeline, reminders.** Settings as a page list
-   (sections as rows) with a back button; dashboard widgets one column;
-   timeline as the table view; reminders as rows with swipe done.
+8. **Settings, dashboard, timeline, reminders: built or decided**
+   (2026-09-20). Measured at 390 first: the dashboard's 24 widgets are
+   already one column. Settings already has its phone shape, decided and
+   measured before this (07-whiteboard-misc.css: the section strip hidden,
+   a jump select beside the search in one row, every section in one
+   scroll; "2337px of scroll inside 308px at 390" is the number that
+   chose it), so the page list with a back button is not remade. Built
+   here: a phone opens the timeline as the table when no view is stored
+   (`timelineViewMode`; a choice wins at every width; the table is 330px
+   in 390 with no sideways scroll, and its column sorts take the 44px
+   floor), and a reminder row swiped right is done, through its own Done
+   checkbox, with nothing to the left (`initRowSwipe`, now one function
+   for any list of rows, the underlay's words read from the row's own
+   `data-swipe-right` and `data-swipe-left`). Measured by
+   `scratchpad/ui-sweeps/phonereminders.js`.
 9. **Touch.** The 44px half is built (2026-09-13, the block is in HISTORY.md,
    "Moved from the plans, 2026-09-13"): `scratchpad/ui-sweeps/phone.js` walks
    every tab whole rather than dock by dock and reports 0 findings at 390x844

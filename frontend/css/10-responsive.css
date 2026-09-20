@@ -1380,6 +1380,12 @@ header#top-bar,
   .entry-more {
     min-height: var(--target-min);
   }
+
+  /* The timeline table's column sorts (30.8px) meet a finger now that the
+     table is the phone's default view. */
+  .timeline-sort {
+    min-height: var(--target-min);
+  }
 }
 
 /* --- Phase 11 items 2 and 3: no rail on a phone, an opener in the head ------
@@ -1501,7 +1507,7 @@ header#top-bar,
   }
 
   .entry-list li::before {
-    content: "Favourite";
+    content: attr(data-swipe-right);
     left: 0;
     justify-content: flex-start;
     padding-left: var(--space-4);
@@ -1510,16 +1516,12 @@ header#top-bar,
   }
 
   .entry-list li::after {
-    content: "Bin";
+    content: attr(data-swipe-left);
     right: 0;
     justify-content: flex-end;
     padding-right: var(--space-4);
     background: var(--error-soft);
     color: var(--error);
-  }
-
-  .entry-list li.is-favourite-row::before {
-    content: "Unfavourite";
   }
 
   .entry-list li.swipe-right::before {

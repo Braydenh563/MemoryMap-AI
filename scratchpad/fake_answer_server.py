@@ -46,10 +46,16 @@ def _sentences_from_prompt(prompt: str) -> list[str]:
     """
     out: list[str] = []
     for line in prompt.splitlines():
-        row = re.match(r"^\s*\d+\.\s+(.*)$", line.strip())
-        if not row:
+        #: Split rather than matched. CodeQL flagged the regex this replaces
+        #: (`^\s*\d+\.\s+(.*)$`, high severity: polynomial backtracking on
+        #: uncontrolled data) because the prompt is attacker-shaped input as
+        #: far as it is concerned and the two whitespace classes around the
+        #: number can be made to backtrack. `partition` cannot backtrack at
+        #: all, and says the same thing in fewer characters.
+        head, dot, rest = line.strip().partition(".")
+        if not dot or not head.isdigit():
             continue
-        text = row.group(1)
+        text = rest.strip()
         text = re.sub(r"^\[[^\]]*\]\s*", "", text)          # [General]
         text = re.sub(r"^\((?:[^)]*)\)\s*", "", text).strip()  # (similarity: 0.56)
         if len(text.split()) < 6:

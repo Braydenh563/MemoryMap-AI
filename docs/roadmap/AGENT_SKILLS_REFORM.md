@@ -141,9 +141,9 @@ has. One decision, recorded on 2026-09-20 so it is not remade:
    custom option needs a `conftest` hook that every run of the suite then
    carries, and it cannot say *which* model answered. `MEMORYMAP_EVALS_URL`
    and `MEMORYMAP_EVALS_MODEL`, read at import time by the eval module, need
-   no plugin, name the model in the failure message, and make "the suite
-   collected no evals" the default rather than a flag somebody has to
-   remember not to pass.
+   no plugin, name the model in the failure message, and make "every eval
+   skipped" the default rather than a flag somebody has to remember not to
+   pass.
 
 ## Acceptance
 

@@ -993,9 +993,11 @@ style, optional AI profile, …) live in `data/preferences.json`, managed by
   name, and `serve` starts it and prints the two exports the evals read,
   `MEMORYMAP_EVALS_URL` and `MEMORYMAP_EVALS_MODEL`. With those set,
   `pytest -m evals tests/` runs the eval tests against that model; without
-  them the eval modules skip themselves at collection, so the ordinary suite
-  and CI never depend on a model, a binary or a network. Nothing in `tests/`
-  imports the script and no mode of `scripts/gate.sh` calls it.
+  them every eval is skipped, so the ordinary suite and CI never depend on a
+  model, a binary or a network. Nothing in `tests/` imports the script and no
+  mode of `scripts/gate.sh` calls it, which
+  `tests/test_skills_evals.py::test_the_evals_seam_is_the_only_thing_that_reaches_the_runner`
+  asserts rather than trusting.
 - **CI** (`.github/workflows/ci.yml`): lint with ruff, then run the full test
   suite on Python 3.11 / 3.12 / 3.13 and the Playwright smoke suite in
   `tests-e2e/`. No GPU, no Ollama, no models required.

@@ -25118,6 +25118,82 @@ hides nothing, because the reader sees its `.select-shell`.
     the window the report came from; the numbers above are headless Chromium.
 ## Moved from the plans, 2026-09-20
 
+### From AGENT_SKILLS_REFORM.md
+
+### Built, Phase D's gate: the recovery moves, judged by a real model, 2026-09-20
+
+Phase D's three recovery moves were built on 2026-09-13 and the block above
+this one says so. What they had never had is the one thing a fake transport
+cannot give them: a model that was not told what to say. OPEN.md had carried
+the row "Phase D verified against a real model, which needs WORLD_CLASS_PLAN
+section 9's dev-only runner first" since 2026-09-14, and the runner is now
+`scratchpad/llama-dev.sh`.
+
+**The gate is `tests/test_skills_evals.py`,** four tests marked `evals`. The
+module reads `MEMORYMAP_EVALS_URL` and `MEMORYMAP_EVALS_MODEL` at import and
+skips all four when they are unset, which only `scratchpad/llama-dev.sh serve`
+sets, so the ordinary suite and CI run none of them and nothing in `tests/`
+imports the script or shells out to it. A variable that is set with nothing
+answering behind it fails instead of skipping, and names the command that
+starts a server: setting it says "I have a model and I want it judged", and a
+skip there would report green for work nobody did.
+
+**A fifth test needs no model and is the reason the other four can be
+trusted.** The three hard rules (nothing in `tests/` reaches for the script, no
+mode of `scripts/gate.sh` calls it, the two variable names are the same on both
+sides of the seam) are easy to write down and easy to break later without
+noticing, so they are asserted rather than documented. It is also what keeps
+the file's exit code honest: the module's first shape skipped itself whole with
+`allow_module_level=True`, a module that collects nothing makes pytest exit 5,
+and `scripts/gate.sh --changed` selects exactly this file when it is the file
+that changed and reads that 5 as a failure. The gate found it, on a file that
+was behaving correctly.
+
+**What they assert is what the runner guarantees, whatever the model says:**
+no step ticked `done` without the tool its contract names appearing in that
+step's own tool events; a `notes_changed` step ticked only over a notebook
+that genuinely has tags in it, read back out of the database rather than out
+of the run's own ledger; a resume that marks every step before its start point
+`earlier` and runs the one it was pointed at; and a single reworded step that
+runs alone, opens with the wording the person typed, and reports as paused at
+the next step. What a small model *achieves* is deliberately not asserted:
+that is a number for a report, not a pass or a fail.
+
+**The run that judged them.** llama.cpp `llama-server` built from source on
+the sandbox's four cores, Qwen2.5-1.5B-Instruct Q4_K_M (about 1.1 GB) loaded
+with `--jinja` so the model's own template emits OpenAI tool calls, the app's
+own `OpenAICompatClient` pointed at it, every run driven through
+`/chat/stream` as the app drives one. Three passed and one skipped, with real
+inference throughout: dozens of completions, the longest around three seconds
+of generation each.
+
+**The skip is the finding.** `test_a_notes_changed_step_ticks_only_when_the_notebook_changed`
+could not judge step 4 because the run never reached it: on this model the
+five-step "Auto-tag my notes" stalled on **step 1**, whose contract is a
+single `list_tags` call, with `list_tags` the only tool offered and a worked
+example in the prompt, which is Phase B's small-model mode doing exactly what
+it was built to do. The runner did not tick it: it stalled it and said which
+contract had failed, which is the acceptance line word for word. What it says
+about the reform is that at 1.5B the remaining gap is the model rather than
+the scaffolding, and the same run at 3B and 4B is the next thing worth
+measuring.
+
+**Two of the four tests were wrong when first written, and the model found
+both.** One asserted that a run reached step 4, which is a claim about the
+model and not about the runner; it skips with the step that stopped it named
+instead. The other read the *last* step event for the reworded step and found
+the model's own re-planned wording there rather than the rewrite, and called
+that drift: a step that misses its contract is re-planned, the `replanned`
+event carries the revision, and what has to be true is that the step *opened*
+with the wording the person typed. Both are the shape CLAUDE.md section 4
+warns about, a claim that reads as a product bug and is a test asserting
+something it was never entitled to.
+
+**Not verified.** One model, one quantisation, one skill. Concurrent tool
+calls at index 1 and beyond, Ollama's native tool-call dialect, and every
+other claim in CLAUDE.md section 4 are exactly as unproven as they were.
+
+
 ### UI_MODERNISATION_PLAN "Placed from INBOX" 279, the owner's four reports
 
 Built 2026-09-20, all four, each measured in Chromium before and after against

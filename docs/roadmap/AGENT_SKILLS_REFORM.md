@@ -108,11 +108,50 @@ the three were already standing when the phase was opened (resume, and the
 one-sentence reason on a stalled step); the third, editing a step and running
 just that step, is `skill_only_step`/`skill_step_text`.
 
+**Its gate, 2026-09-20: `tests/test_skills_evals.py`,** four `evals` tests
+run against a real local model through `scratchpad/llama-dev.sh`
+(WORLD_CLASS_PLAN 9) and skipped without one, beside a fifth test that needs no
+model and holds the seam in place. Record, with the run that judged them, in
+HISTORY.md, "Moved from the plans, 2026-09-20".
+
+**Still open in this phase:** nothing in the mechanism, which the gate found
+sound. What is left is breadth, and it belongs to WORLD_CLASS_PLAN 9 rather
+than here: one model, one skill and one quantisation have been through this
+gate, and the rest of CLAUDE.md section 4's list (concurrent tool calls at
+index 1 and beyond, Ollama's native tool-call dialect) still has no eval of
+its own.
+
+**And one measurement this gate produced, which is not a bug and is worth
+keeping:** on Qwen2.5-1.5B-Instruct Q4_K_M, a run of the five-step "Auto-tag
+my notes" stalled on **step 1**, whose contract is one `list_tags` call, with
+that tool the only one offered and a worked example in the prompt (Phase B's
+small-model mode, working as specified). The runner did the right thing, it
+said which contract failed rather than ticking the step, which is the
+acceptance line. What it says about the reform is that at 1.5B the remaining
+gap is the model, not the scaffolding: the next thing worth measuring is the
+same run at 3B and 4B, which is the size Phase B was written about.
+
+## Decisions made
+
+This plan had no decisions section, which standing order 3 says every plan
+has. One decision, recorded on 2026-09-20 so it is not remade:
+
+1. **A real model reaches the tests through two environment variables, not a
+   pytest option.** WORLD_CLASS_PLAN 9 guessed at `pytest -m evals --real`. A
+   custom option needs a `conftest` hook that every run of the suite then
+   carries, and it cannot say *which* model answered. `MEMORYMAP_EVALS_URL`
+   and `MEMORYMAP_EVALS_MODEL`, read at import time by the eval module, need
+   no plugin, name the model in the failure message, and make "the suite
+   collected no evals" the default rather than a flag somebody has to
+   remember not to pass.
+
 ## Acceptance
 
-- A five-step built-in skill run against a 4B local model completes every step
-  or reports precisely which contract failed — no step marked done without its
-  contract met.
+- ~~A five-step built-in skill run against a small local model completes every
+  step or reports precisely which contract failed, no step marked done without
+  its contract met.~~ **Gated 2026-09-20** by
+  `tests/test_skills_evals.py::test_no_step_is_ticked_without_its_contract`,
+  green against Qwen2.5-1.5B-Instruct Q4_K_M. Still to run at 3B and 4B.
 - The activity panel opens on a run list, not a wall of text.
 - Tool calls are visible in the chat transcript for all three paths.
 

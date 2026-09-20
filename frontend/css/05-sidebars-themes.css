@@ -151,7 +151,12 @@
 }
 
 /* PDF export prints the rendered preview and nothing else, the browser's own
-   "Save as PDF" then produces the file, which beats bundling a PDF engine. */
+   "Save as PDF" then produces the file, which beats bundling a PDF engine.
+   `body.printing-doc` is now also set by a `beforeprint` listener
+   (documents.js), so a plain Ctrl+P from the editor prints the same page the
+   export button does rather than the whole application. What the printed page
+   *looks* like, its margins, its ink and where it may break, is the
+   `@media print` block in 09-editor.css, which loads after this file. */
 @media print {
 
   body.printing-doc>*:not(#tab-documents),

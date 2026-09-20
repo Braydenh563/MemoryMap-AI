@@ -296,8 +296,9 @@ the same thing.
 3. **AI edit with a diff preview** and accept/reject per hunk (PLAN D11);
    "Check with AI" renders its findings *as findings* (Phase 0's menu),
    not as a paragraph of advice.
-4. **Focus and typewriter modes** (PLAN D9), reading typography for Read
-   view (measure, leading, a serif option), a print stylesheet.
+4. **Focus and typewriter modes, reading typography, a print stylesheet**:
+   built. The record is in HISTORY.md ("Moved from the plans, 2026-09-20",
+   DOCUMENTS_PLAN.md Phase 5 item 4).
 
 ### Phase 6 — responsive by device (partly built; UI Phase 9 did the bands)
 

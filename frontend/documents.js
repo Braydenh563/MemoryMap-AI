@@ -7915,6 +7915,61 @@ async function exportDocumentHtml() {
   return finished;
 }
 
+//: **A plain Ctrl+P prints the document, not the application**
+//: (DOCUMENTS_PLAN Phase 5 item 4, the print stylesheet).
+//:
+//: The Export menu's "Print or save as PDF" already did the right thing: it
+//: shows the preview, sets `printing-doc` and calls `window.print()`. Nothing
+//: covered the other door, which is the one most people use. Measured on the
+//: branch head with `emulateMedia({ media: "print" })`, a plain print from the
+//: editor put the tab bar (693x44), the sidebar (260x767), the dock (1082x78)
+//: and the status bar (1082x38) on the page around the text.
+//:
+//: So the class is set for *any* print of an open document, and the same
+//: stylesheet governs both routes. Two things it deliberately does not do:
+//: it does not set `docPrintComments`, because a plain print was not asked for
+//: footnotes, and it does not touch a print started from anywhere else in the
+//: app, which is somebody printing a different surface.
+//:
+//: `withDocPreviewShown` cannot be used here: it takes a callback and restores
+//: on the way out, and `beforeprint` has to leave the pane shown until
+//: `afterprint`. The same two calls are made by hand, which is why the restore
+//: is remembered rather than derived.
+let docPrintRestore = null;
+
+function docPrintIsOurs() {
+  if (!currentDoc) return false;
+  try {
+    return localStorage.getItem("activeTab") === "documents";
+  } catch {
+    //: Private mode: the tab the reader is on is still knowable from the DOM,
+    //: and printing the chrome is worse than printing the document.
+    return !$("tab-documents")?.classList.contains("hidden");
+  }
+}
+
+window.addEventListener("beforeprint", () => {
+  //: Already set means the Export menu started this print and has its own
+  //: cleanup, including the footnotes it asked for. Left alone entirely.
+  if (document.body.classList.contains("printing-doc")) return;
+  if (!docPrintIsOurs()) return;
+  const wasView = docView;
+  if (docView !== "rendered") {
+    setDocView("rendered");
+    docPrintRestore = () => setDocView(wasView);
+  }
+  renderDocPreview();
+  document.body.classList.add("printing-doc");
+});
+
+window.addEventListener("afterprint", () => {
+  if (!docPrintRestore && !document.body.classList.contains("printing-doc")) return;
+  document.body.classList.remove("printing-doc");
+  const restore = docPrintRestore;
+  docPrintRestore = null;
+  restore?.();
+});
+
 // PDF via the browser's own print dialog: it renders the preview exactly as
 // shown and every platform already has "Save as PDF" there. Bundling a PDF
 // engine would add a heavy dependency to produce a worse-looking result.

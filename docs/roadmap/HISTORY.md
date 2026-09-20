@@ -25074,6 +25074,80 @@ hides nothing, because the reader sees its `.select-shell`.
     the window the report came from; the numbers above are headless Chromium.
 ## Moved from the plans, 2026-09-20
 
+### DOCUMENTS_PLAN.md Phase 4 item 4, the editor's commands as one table
+
+The plan asked for a palette listing every editor action with its shortcut and
+a `?` sheet "generated from the same table so the two cannot disagree".
+
+**The decision the plan left open, taken because it had to be.** The plan
+names `Ctrl+K`, written before this app had a command palette of its own on
+exactly that chord: two palettes on one key is the collision the agent
+palette's own comment records being caught twice. So the editor contributes a
+"This document" group to the palette that exists, offered only while the
+Documents tab is showing with a document open, and the app's own commands
+gained a group name ("Everywhere") now that something can sit above them. A
+reader pressing Ctrl+K in a document finds the document's own actions at the
+top of a list they already know.
+
+**A row whose action already has a button runs the button**
+(`docRunControl`), not a copy of its handler: a copy is a second definition of
+what "Export as HTML" means and the two drift the first time one is edited.
+`tests/test_doc_commands.py` is the lint that division needs, and it fails on
+a command pressing a control that is not in `index.html`, on two commands
+claiming one chord, on a row with no label or icon, on a chord the editor
+binds that the table does not list, and on either door stopping reading the
+table.
+
+Measured by `scratchpad/ui-sweeps/doccommands.js`, 10/10: no editor group
+before a document is open, 31 commands after, 10 of them drawing a chord
+beside the words, the sheet's 13 rows byte-identical to the table's, and
+"Heading 2" run from the palette writing `## some words` into the document.
+
+### DOCUMENTS_PLAN.md Phase 5 item 4, reading typography and the print sheet
+
+Focus, typewriter and the serif option were built on 2026-09-13. What was left
+was the measure and the print stylesheet, and both turned out to be the same
+mistake in two places: a reading column written in pixels.
+
+**The serif face's measure.** Measured at 1440 with
+`scratchpad/ui-sweeps/docreadprint.js`: the reading column is capped at 46rem
+(736px), which is 76 characters of the app's own sans and inside the 45 to 90
+every typographic reference gives. The serif face is narrower, so the same
+736px held **93** characters on a line while nothing about the column had
+changed. The default column is left exactly where it is (a width the owner has
+commented on twice, "idk why the document rendered views are so thin??") and
+the serif takes a cap of its own in `ch`, beside the leading it already
+adjusts for the same reason: 82 characters at 606px after, and the width
+toggle still releases it.
+
+Also found and fixed on the way: `#doc-preview { max-width: 72ch }`, the
+"stricter measure for rendered prose", had never once applied. The rule above
+it is `#doc-preview:not(.doc-split-pane)` at (1,1,0) and a bare id is (1,0,0),
+so the looser 78ch cap won in exactly the case the tighter one was written
+for.
+
+**The print stylesheet.** The PDF export already printed the preview and
+nothing else, through `body.printing-doc`. A plain Ctrl+P did not: measured
+with `emulateMedia({ media: "print" })`, it put the tab bar (693x44), the
+sidebar (260x767), the dock (1082x78) and the status bar (1082x38) on the page
+around a 736px column. A `beforeprint` listener now sets the same class for
+any print of an open document, renders the preview and switches to Read view,
+and `afterprint` puts back what it changed; the `@media print` block in
+`09-editor.css` is what the page then looks like: black on white, a 2cm page
+margin, the measure kept, leading at 1.6, headings kept with the text they
+name, code blocks, quotations, tables and images not split across a break, an
+external link's URL printed after it, and the last of the chrome
+(`#doc-statusbar`, `#doc-crumbs`, the find bar, the writing panel, the phone
+bar) hidden, which the export's own older list predates. Deliberately not
+done: `docPrintComments` stays false, because a plain print did not ask for
+footnotes.
+
+Measured, 24/24, including the app coming back afterwards.
+
+**Not verified.** Chromium only. `emulateMedia` is not a printer: pagination,
+the real page size and what a driver does with `@page` were not tested, and no
+page was actually printed.
+
 ### DOCUMENTS_PLAN.md Phase 4 item 3, the outline that navigates and reorders
 
 **Breadcrumbs and the sticky, current-section outline were already built**

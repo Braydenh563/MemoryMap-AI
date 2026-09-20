@@ -7,6 +7,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Printing a document prints the document. A plain Ctrl+P from the editor put
+  the tab bar, the sidebar, the dock and the status bar on the page around the
+  text; it now puts black ink on white paper with a reading column, and keeps
+  a heading with the text it names, a code block and a quotation whole across
+  a page break.
+
+- The serif reading face gets a column of its own width. It is narrower than
+  the app's own face, so the same column held 93 characters on a line where
+  the default holds 76, which is past what is comfortable to read.
+
 - The command palette carries the documents editor's own actions while a
   document is open, each with the keys that run it, and the keyboard shortcuts
   dialog gained a section listing the editor's chords. Both are built from one

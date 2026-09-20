@@ -5537,9 +5537,21 @@ body:has(#library-media-selectbar:not(.hidden))
   margin-left: 0;
 }
 
+/* **The stricter measure for rendered prose, and this rule had to be written
+   twice to apply at all.** The rendered halves hold real prose with no syntax
+   in it, so they take the tighter measure the note cards use, 72ch rather
+   than the source pane's 78ch.
+
+   Written as `#doc-preview` alone it never once applied: the rule above is
+   `#doc-preview:not(.doc-split-pane)` at (1,1,0) and a bare id is (1,0,0), so
+   the *looser* cap won every time the preview was not a split pane, which is
+   exactly Read view. Measured before this: a paragraph in Read view was 686px
+   wide, which is 78ch of this face to the pixel, and with the serif option on
+   that is 93 characters on a line, past every typographic reference's 45 to
+   90. Restating the selector with the same `:not()` is what makes the
+   intended cap the one that runs. */
+#doc-preview:not(.doc-split-pane),
 #doc-preview {
-  /* The rendered halves hold real prose with no syntax in it, so they take
-     the stricter measure the note cards already use. */
   max-width: 72ch;
 }
 

@@ -1672,20 +1672,40 @@ body.resizing-sidebar {
   border-radius: var(--radius-md);
 }
 
+/* **The bar recipe's own hover, not an accent one.** consistency.md item 3
+   listed this strip as the last surface off `.dock > * > button.ghost`
+   (08-consistency.css), and measuring it said which half: the resting state
+   was already exactly right (27 controls, one height at 36px, one radius at
+   8.4px, transparent fill, 1px transparent border, no shadow, identical to
+   the notes dock's own). What was off was the *state*. A hovered control here
+   painted `rgba(79, 109, 245, 0.14)` with a solid `rgb(70, 100, 240)` rim,
+   where every bar in the app paints `--ghost-btn-bg`, `rgba(31, 36, 48,
+   0.12)`, and keeps the rim transparent so the geometry does not move.
+
+   That difference matters more here than in a six-control dock: a hand
+   crossing a 27-control strip lights an accent-bordered box under every
+   button it passes, and the accent is this app's "on" colour. It is the one
+   thing the strip will need when the toolbar's own state is driven from the
+   syntax tree (DOCUMENTS_PLAN, the engine phase's third open item: which
+   buttons are on for the caret), and spending it on hover now would leave
+   that state nothing to say itself with. */
 .doc-toolbar button:hover,
+.doc-toolbar button:focus-visible,
 .doc-toolbar button.icon-only:hover,
 .doc-toolbar button.icon-button:hover,
-.doc-toolbar summary:hover {
-  background: var(--accent-soft);
-  border-color: var(--accent);
+.doc-toolbar summary:hover,
+.doc-toolbar summary:focus-visible {
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
 }
 
 /* An open menu keeps the hover fill: the opener is the thing the popup below
    belongs to, and a popup with no visible source is a popup you have to
-   remember the origin of. */
+   remember the origin of. Same fill as the hover, which is what
+   `.dock > * > details[open] > summary` does for the same reason. */
 .doc-toolbar .doc-toolbar-menu[open] > summary {
-  background: var(--accent-soft);
-  border-color: var(--accent);
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
 }
 
 .doc-toolbar button:focus-visible,

@@ -7,6 +7,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The formatting strip above a document, and the matching one in the note
+  editor, light up under the pointer the way every other bar in the app does.
+  A hovered button wore an accent tint and a solid accent rim, so a hand
+  crossing twenty-seven controls lit each one in the colour this app uses to
+  mean "on".
+
 - The writing panel's answers are reachable from the keyboard. Pressing Enter
   on a row now puts focus on the first suggestion, Escape hands it back to the
   row, and a press with the pointer still leaves the caret in the document

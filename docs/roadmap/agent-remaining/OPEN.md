@@ -93,11 +93,6 @@ being written by running agents stay beside this one.
   answer), nothing says `Mod+click` opens a link chip beyond the tooltip, and
   which buttons are "on" for the caret is not driven from the syntax tree,
   which the tree now makes cheap. [documents-engine.md]
-- **The documents editor toolbar (`.doc-toolbar`) is the one surface in the
-  consistency sweep's item 3 still off the recipe.** It has the bar surface;
-  only its controls are open. Next step: apply the `.dock > * > button.ghost`
-  half scoped to `.doc-toolbar` and re-measure fills, radii and heights the
-  way `scratchpad/ui-sweeps/heads2.js` does. [consistency.md]
 - **Outline rows are 24 to 25.2px, under the app's own 28px floor.**
   `frontend/css/05-sidebars-themes.css`, `.outline-link`
   (`padding: 0.15rem 0.25rem` plus a 0.85rem line) against DESIGN.md's

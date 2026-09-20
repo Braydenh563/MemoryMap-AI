@@ -416,6 +416,20 @@ with its owner named in the entry.
     refused outright rather than warned about, so a Mac build is only worth
     shipping alongside an Apple Developer account for notarisation.
 
+278. **Mid-work drop, 2026-09-20, verbatim (the owner), on branch head
+    dce2449, after 274's split-view fix landed.** "the documents split view
+    scrolling is broken and misaligned". Triage: this is a second report of
+    274's third item against a head that already carries the fix, so the
+    measurement that closed it (0, 75, 0, 0, 0px on a synthetic five-section
+    document) is not evidence about the document the owner has open. Taken
+    back by the same agent, to be reproduced the way it is used rather than
+    the way it was probed: a real document (frontmatter, an H1 title, long
+    wrapped paragraphs, images, a table, a code fence, nested lists, a
+    callout, 200+ lines), both directions, three or more positions including
+    the bottom, while typing mid-document, across a Live to Split switch,
+    after a save, with the sidebar resized, at 1440 and 1024. If nothing
+    drifts, the next suspect is a stale asset rather than the mapping.
+
 277. **Found while fixing 274 (the session, not the owner): a role can say one
     model and run another, everywhere, silently.** 274's "it doesnt use the
     utility model and instead uses the chat model" was not a bug in the Guide:

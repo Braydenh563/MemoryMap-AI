@@ -740,9 +740,26 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
      input gives, a dock with an opener and no find zone (Chat) wraps its
      actions under the title. Dock heights at 390, before and after: notes
      250 to 166 (three rows), chat 166 to 114 (two), timeline 198 to 146,
-     graph 143, library 146 and reminders 94 unchanged. Still open in this
-     item: the capture sheet from a floating +, swipe actions, the note
-     page.
+     graph 143, library 146 and reminders 94 unchanged.
+   - **The floating +: built** (2026-09-20). The Notes dock never had a
+     primary (Capture is a sub-tab), so it has one now: "New note", filled,
+     at the right before the utilities, which the grammar asked for and the
+     desktop dock measures at seven controls with one filled (`docks.js`).
+     Below 600 `FAB_IDS` floats it as the + above the tab bar, where it
+     opens Capture with the caret in the box and hides while Capture is
+     showing. **Decision:** the Capture sub-tab is the sheet. On a phone
+     the sub-tab is already a full-height page holding nothing but the
+     box; a sheet over it would be a second capture surface, so the + opens
+     the sub-tab. Found on the way and fixed at the source: the first
+     showing of Capture wraps the box for its gutter and then upgrades it
+     to the live editor, and both moves dropped the focus a person had just
+     asked for (measured: focus in at 7598ms, gone at 7737, nothing active
+     at 1200ms after the press); each now carries it over. Measured after
+     (`phonecapture.js`): the + is 44px at bottom right above the tab bar,
+     one press lands the caret in the live editor, the + is gone while
+     Capture shows, and at 1024 the button is back in the dock, filled.
+     Still open in this item: swipe actions on rows, the note page with a
+     back button and a bottom bar.
 3. **Chat.** The composer above the keyboard with the attachments and
    mode in one row; sources as a sheet; the sidebar as a sheet from the
    left edge; the popup agent unavailable on the phone (the chat is the

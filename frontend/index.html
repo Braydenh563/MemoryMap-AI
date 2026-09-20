@@ -1576,6 +1576,16 @@
             </div>
             <div class="dock-actions">
               <button id="select-btn" class="ghost small" title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Select</button>
+              <!-- The dock's one primary, which this dock never had: Capture is
+                   a sub-tab, so "new note" was a tab press away and looked
+                   like navigation rather than the thing the Notes tab is for.
+                   Filled, at the right, before the utilities, the grammar's
+                   own order; on a phone `FAB_IDS` floats it as the + above
+                   the tab bar (UI Phase 11 item 2), where it opens Capture
+                   with the box focused, and it hides while Capture is the
+                   section showing. -->
+              <button id="notes-new-note" class="small" type="button"
+                title="Start a new note (opens Capture)"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New note</button>
               <button id="notes-refresh" class="ghost small icon-only" type="button"
                 title="Reload notes" aria-label="Reload notes"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
               <button id="search-help" class="icon-only ghost small graph-help-toggle" type="button"

@@ -41,6 +41,10 @@ below). Versioning is `0.x` while the app stabilises.
   stranded on screen after the panel it belongs to has closed.
 ### Added
 
+- A "New note" button in the Notes bar, and on a phone a floating + above
+  the tab bar: one press opens Capture with the caret in the box. The first
+  showing of Capture used to drop the focus while it built the box's gutter
+  and live editor; it carries it over now.
 - A note card says what points at it: "In 1 document · on 1 board · on 1
   map · linked by 1 note", one quiet chip that opens Connections, counted
   for a whole page in one call (`GET /entries/reference-counts`). A mind

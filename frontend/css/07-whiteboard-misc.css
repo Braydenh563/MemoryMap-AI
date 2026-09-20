@@ -11679,6 +11679,12 @@ header#top-bar {
    because which sub-tab is showing is already written in the DOM and a second
    mechanism would be a second thing to keep in step. */
 @media (max-width: 599.98px) {
+  /* The Notes + opens Capture, so while Capture is the section showing it
+     would float over the box it opens and offer what is already there. */
+  .tab-page:has(#capture:not(.hidden)) > #notes-new-note.dock-fab {
+    display: none;
+  }
+
   .tab-page:has(#library-view-whiteboard:not(.hidden)) > .dock-fab {
     display: none;
   }

@@ -38186,7 +38186,7 @@ buildSettingsJumpList();
 // floating action from appearing over a tab it has nothing to do with; parking
 // it on the body would have needed a second mechanism to answer that.
 const PHONE_FAB = "(max-width: 599.98px)";
-const FAB_IDS = ["graph-add-node", "library-new-doc", "timeline-jump-today"];
+const FAB_IDS = ["graph-add-node", "library-new-doc", "timeline-jump-today", "notes-new-note"];
 
 function floatPrimaryActions(floating) {
   for (const id of FAB_IDS) {
@@ -40042,6 +40042,24 @@ document.addEventListener("keydown", (event) => {
 // its four siblings); the notebook's own front page did not. `loadEntries`
 // is the same reload every autosave and filter change already calls.
 $("notes-refresh")?.addEventListener("click", () => loadEntries());
+//: The Notes dock's primary (and the phone's floating +): Capture, with the
+//: box ready to type in. `showNotesSection`'s own `focus` lands on the
+//: sub-tab button, which is right for a keyboard moving between sections
+//: and wrong here, where the press meant "I want to write".
+$("notes-new-note").addEventListener("click", () => {
+  showNotesSection("capture");
+  // The box is a live editor (documents.js `mountNoteSurface`) that mounts
+  // over the textarea the first time Capture shows, and the mount takes the
+  // focus a plain `focus()` had just set: measured in Chromium, the textarea
+  // was the active element 50ms after the press and nothing was at 750.
+  // Focusing the surface the mount resolves to lands on the editor whether
+  // this is its first showing or its fiftieth.
+  const box = $("entry-content");
+  box?.focus();
+  const mounted =
+    typeof mountNoteSurface === "function" ? mountNoteSurface(box) : Promise.resolve(null);
+  mounted.then((surface) => surface?.focus()).catch(() => {});
+});
 $("select-btn").addEventListener("click", () =>
   selectMode ? exitSelectMode() : enterSelectMode()
 );

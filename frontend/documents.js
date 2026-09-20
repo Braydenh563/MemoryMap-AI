@@ -2461,8 +2461,18 @@ function mountGutterFor(textarea) {
   gutter.className = "doc-gutter hidden";
   gutter.dataset.for = textarea.id;
   gutter.setAttribute("aria-hidden", "true");
+  //: Moving a focused element in the DOM blurs it, and this runs the first
+  //: time the capture section shows, which is exactly when the phone's + has
+  //: just put the caret in the box (measured: focus in at 7598ms, this wrap
+  //: at 7753, focus out to nothing at 7737). The caret goes back where it was.
+  //: In a microtask, not inline: this also runs at this file's own top level
+  //: (`mountGutterFor($("entry-content"))` below), and a focus event fired
+  //: mid-evaluation reached `mountNoteSurface` before `docCmBroken` had been
+  //: declared (a TDZ ReferenceError on boot when the box starts focused).
+  const hadFocus = document.activeElement === textarea;
   textarea.parentElement.insertBefore(wrap, textarea);
   wrap.append(gutter, textarea);
+  if (hadFocus) queueMicrotask(() => textarea.focus());
   // The note edit form builds its <li> detached and inserts it afterwards,
   // so at this point `applyDocGutter` (which walks the *document*) cannot
   // see this gutter and `getComputedStyle` returns empty strings. Decide the
@@ -9331,6 +9341,10 @@ async function mountNoteSurface(host, options = {}) {
     return textareaSurface(host);
   }
   if (!CM || noteSurfaceViews.has(host)) return noteSurfaceFor(host) || textareaSurface(host);
+  //: Read before the wrapper below moves the textarea: moving a focused
+  //: element in the DOM blurs it, so by the time the view exists the answer
+  //: is always "no".
+  const hadFocus = document.activeElement === host;
   //: **A box its own layout was stretching has to go on being stretched, and
   //: the wrapper is what the layout can see now** (INBOX 240, the owner: "when
   //: I clicked on the 'your thoughts' text box in the write with ai notes
@@ -9421,6 +9435,14 @@ async function mountNoteSurface(host, options = {}) {
   docGuardGlobalShortcuts(view.contentDOM);
   noteSurfaceViews.set(host, view);
   noteSurfaceOwnValue(host, view);
+  //: A box that had the focus keeps it through its own upgrade. The editor
+  //: mounts over the textarea the first time the section shows, and the
+  //: textarea then loses focus to nothing (measured in Chromium: focus in
+  //: on the textarea at 537ms after the phone's + was pressed, focus out
+  //: with no related target at 679ms, the body active at 1200ms). The
+  //: caret a person just asked for is the one thing the upgrade must not
+  //: drop, so it goes where the words now go.
+  if (hadFocus) view.focus();
   //: The "/" menu's table is keyed by surface id, and these boxes are in it
   //: already or are added here: one line rather than a wiring change, which
   //: is the shape editor.js's own comment asks for.

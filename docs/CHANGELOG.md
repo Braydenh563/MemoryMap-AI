@@ -165,6 +165,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Find anything centres its text in its bar. The field carried the
+  stacked-form `margin-bottom` every input in this app has, and the rule that
+  turns off the field's border, ground and padding inside the band had not
+  turned that off: `align-items: center` centres a flex item with its
+  margins, so the field sat 4.8px above the middle with 1px of room above it
+  and 11px below. The glyph beside it was dead centre the whole time, which
+  is what made the text look dropped. Zeroed, and the bar takes the band's
+  44px floor below 820, which it used to reach only by accident.
 - The split document view keeps its two panes on the same place. The sync
   was a scroll fraction, which is exact at both ends and wrong in between
   wherever a block takes a different amount of room in the two halves: a

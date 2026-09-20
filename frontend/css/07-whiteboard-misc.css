@@ -11937,6 +11937,21 @@ header#top-bar {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
 }
 
+/* The band's own floor, kept at the component because that is where this
+   file's touch section says a component fix belongs. The bar used to stand
+   46px tall by accident, on the stacked-form `margin-bottom` the field
+   carried and this rule had not turned off; that margin was also what pushed
+   the text off centre (INBOX 274). Zeroing it centred the text and left the
+   bar at 36.9px measured at 390, under the 44px this band gives anything a
+   finger lands on. The floor goes on the bar rather than on the field, so
+   `align-items: center` puts the field and its glyph on the bar's own middle,
+   which is the property being fixed rather than a second thing to keep. */
+@media (max-width: 819.98px) {
+  .finder-bar {
+    min-height: var(--target-min);
+  }
+}
+
 /* The glyph is centred on its own box rather than on its inline baseline: the
    same correction `.ask-composer-icon` carries, because `.ph`'s global
    `vertical-align` is calibrated for an icon beside text at the same size. It
@@ -11973,6 +11988,19 @@ header#top-bar {
   background: none;
   box-shadow: none;
   padding: 0;
+  /* **And the margin, not just the border and the padding** (DESIGN.md, "And
+     zero the margins, not just the heights"). Reported: "text in the find
+     anything popup window isnt centred vertically in the text box". It was
+     the stacked-form `margin-bottom` every field in this app carries, which
+     the rest of this rule had not turned off: `align-items: center` centres a
+     flex item *with its margins*, so the field plus 9.6px of margin was
+     centred and the field alone sat 4.8px above the middle. Measured before:
+     1px of room above the field and 11px below it in a 33px band, with the
+     glyph beside it dead centre, which is what makes the text look dropped.
+     After: 5px and 5px, and the field's centre on the bar's to within half a
+     pixel. Zero rather than a number, because the band's own padding is what
+     sets the height here. */
+  margin: 0;
   height: auto;
   color: var(--ink);
   font-size: var(--text-lg);

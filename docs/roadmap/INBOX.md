@@ -478,6 +478,18 @@ with its owner named in the entry.
     0, 0, 0px, and the 75 is the probe's own scroll landing 21px short in
     CodeMirror, not the map. Recipe and lint added in the same commit
     (DESIGN.md, "Two panes showing one document").
+    **The finder's input: fixed.** Measured before: the field's box sat 1px
+    below the bar's top padding and 11px above the bottom, its centre 4.8px
+    above the bar's, with the glyph beside it at exactly 0. The cause was the
+    stacked-form `margin-bottom` every input in this app carries, which the
+    rule that turns off the field's border, ground, radius and padding inside
+    the band had not turned off: `align-items: center` centres a flex item
+    together with its margins. This is the failure DESIGN.md already names,
+    "And zero the margins, not just the heights", so the fix is that rule
+    rather than a number. After: 5px and 5px at 390, 1px and 1px at 1440,
+    centre offset 0 at both. The bar had been reaching the band's 44px touch
+    floor only through that phantom margin, so it now takes it deliberately
+    below 820 (44.0px measured at 390).
 
 273. **Found by the Documents agent, 2026-09-20 (the session, not the
     owner), two things it measured and did not own.** (1) `errors.js` at

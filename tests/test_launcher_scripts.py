@@ -1193,6 +1193,11 @@ def test_the_windows_launchers_use_crlf():
     """
     offenders = []
     for path in sorted(ROOT.glob("**/*.bat")) + sorted(ROOT.glob("**/*.cmd")):
+        #: An agent worktree under `.claude/` is another checkout, made
+        #: without the attributes pass, so its batch files are LF and are not
+        #: this tree's: the orchestrator's gate walked twenty of them once.
+        if ".claude" in path.parts or ".venv" in path.parts:
+            continue
         if any(part in {".git", ".venv", "node_modules"} for part in path.parts):
             continue
         raw = path.read_bytes()

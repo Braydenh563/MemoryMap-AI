@@ -255,3 +255,28 @@ def test_reinstall_is_wired_into_main_and_never_touches_notes():
     reinstall_at = main_src.index("args.reinstall")
     desktop_at = main_src.index("args.desktop")
     assert reinstall_at < desktop_at
+
+
+def test_the_msi_carries_the_same_repair_shortcut_as_the_exe_installer():
+    """The two installers promise the same Start Menu. The .exe installer's
+    Repair shortcut is gated above; this is the MSI's, matched by shape the
+    same way: exactly one shortcut running --reinstall, on the same exe
+    with --desktop, in the same component as the ordinary shortcut so the
+    two come and go together."""
+    import xml.etree.ElementTree as ET
+
+    root = ET.fromstring(WXS.read_text(encoding="utf-8"))
+    ns = {"w": root.tag[1:].split("}")[0]} if root.tag.startswith("{") else {}
+    prefix = "w:" if ns else ""
+    shortcuts = root.findall(f".//{prefix}Shortcut", ns)
+    repair = [s for s in shortcuts if "--reinstall" in (s.get("Arguments") or "")]
+    assert len(repair) == 1, [s.get("Id") for s in shortcuts]
+    (shortcut,) = repair
+    assert shortcut.get("Arguments") == "--desktop --reinstall"
+    ordinary = [s for s in shortcuts if "--reinstall" not in (s.get("Arguments") or "")]
+    assert len(ordinary) == 1, [s.get("Id") for s in shortcuts]
+    assert shortcut.get("Target") == ordinary[0].get("Target")
+    components = root.findall(f".//{prefix}Component", ns)
+    homes = [c for c in components if shortcut in list(c)]
+    assert homes and ordinary[0] in list(homes[0]), "the Repair shortcut is not beside the ordinary one"
+

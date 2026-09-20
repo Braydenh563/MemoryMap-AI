@@ -54,7 +54,8 @@ below). Versioning is `0.x` while the app stabilises.
   output with WiX). It installs per machine rather than per user, supports
   `msiexec /quiet` for a silent or Group Policy deployment, and gets a
   proper Add/Remove Programs entry with Windows Installer's own repair and
-  rollback. Unsigned for now, same as the .exe.
+  rollback. Unsigned for now, same as the .exe. The MSI's Start Menu group carries the same Repair shortcut
+  as the .exe installer's.
 
 - Find anything: one search over your notes, documents, boards, files, links
   and reminders at once, by your words and by what they mean, alongside the

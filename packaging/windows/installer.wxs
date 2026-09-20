@@ -108,6 +108,25 @@
             Arguments="--desktop"
             WorkingDirectory="INSTALLFOLDER"
             Icon="AppIcon.ico" />
+        <!-- The Repair shortcut, the MSI's copy of installer.iss's (INBOX 253:
+             "automatically recoverable and revivable for the user with one
+             click"). Same exe, --reinstall on top of --desktop, so a repair
+             that works ends in the window the ordinary shortcut promised.
+             On a frozen build --reinstall clears the desktop window's own
+             cached profile (`_repair_install`, __main__.py) and never
+             touches notes or preferences. Beside the ordinary shortcut in
+             the same component, so the two install and uninstall together
+             and a person looks for it where the one that stopped opening
+             is. Not on the Desktop, on purpose: a repair is not something
+             to click by habit. -->
+        <Shortcut
+            Id="RepairStartMenuShortcut"
+            Name="Repair MemoryMap AI"
+            Description="Repair MemoryMap AI: clears the app's cached window profile, never your notes"
+            Target="[INSTALLFOLDER]MemoryMap AI.exe"
+            Arguments="--desktop --reinstall"
+            WorkingDirectory="INSTALLFOLDER"
+            Icon="AppIcon.ico" />
         <RemoveFolder Id="CleanProgramMenuFolder" Directory="ProgramMenuFolder" On="uninstall" />
         <RegistryValue
             Root="HKLM"

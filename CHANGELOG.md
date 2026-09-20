@@ -9,6 +9,25 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The Files sub-tab's "Text extracted from this file" block is the numbers, the
+  reading and one way in. Opening it used to draw four ranks and two controls,
+  the first sentence, "14 pages read · 808 words", a full-width "Show the whole
+  reading" bar and an "Open reading" button, and the one thing not in that list
+  was the reading. It is now "14 pages · 808 words" with Open reading at the end
+  of the same line and the reading itself under it, capped at three lines and
+  scrolling. Measured at 1440 on a fourteen-page reading: two ranks instead of
+  four, one control instead of two, the block 110.4px rather than 120.8px, and
+  the row 251.9px open rather than 262.3px with the text still one click away.
+
+- A picture card's reading is one chip, and the chip opens the picture. Asking
+  to see the text used to expand the card from 240.7px to 416.3px and draw six
+  rows under the thumbnail, a label, the text, a Show more, Tesseract's own box
+  and the two model names, and the gallery gives every card in a row the tallest
+  one's height. The "Text" chip opens the lightbox at the reading instead, where
+  the picture, the caption, the whole text and both bylines already sit together,
+  so the card does not move. The model names are on the card's tooltip. Typing a
+  reading by hand is still the card menu's "Type the text in this picture".
+
 - The dashboard's Compact and Focused views keep the hero. Compact used to
   delete the one line that says anything about this notebook ("You have 218
   notes, 3 reminders due") and cut the greeting to below body size while keeping

@@ -7500,6 +7500,25 @@ button.connection-row {
   flex: 1 1 100%;
 }
 
+/* The chip that replaced that fold (INBOX 279): it opens the picture rather
+   than the card, so it never has to hold a paragraph. It takes the step down
+   the type scale and the quiet padding the fold's summary took before it, for
+   the same reason, a 180px card cannot carry a control at the prose's own
+   rank; `min-height` rather than `height` so the 44px touch floor below 820
+   (10-responsive.css) still raises it.
+
+   On the chip's own class rather than on `.library-image-meta > ...`: a rule
+   led by a facts line's handle may not carry a `font-size`, because the rank
+   of a facts line comes from `.library-file-meta` alone
+   (`tests/test_ui_recipes.py`), and this is the control's size, not the
+   line's. */
+.library-image-text-chip {
+  height: auto;
+  min-height: var(--target-min);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+}
+
 .library-file-meta-sep {
   opacity: 0.5;
 }
@@ -7526,12 +7545,27 @@ button.connection-row {
   min-width: 0;
 }
 
-.library-file-reading > .library-file-open-reading {
-  align-self: flex-start;
+/* **The numbers and the one way in share a line** (INBOX 279). The block used
+   to stack four ranks inside the fold, two of them controls asking the same
+   question the fold had just been asked; it is now the facts line and the
+   reading, with the action at the end of the facts line where the Files rows
+   already put theirs. `space-between` rather than a margin, and wrapping, so a
+   narrow row puts the button under the numbers instead of clipping it. */
+.library-file-reading-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  min-width: 0;
 }
 
-.library-file-reading-full {
-  width: 100%;
+/* The button's own `margin-top` is for the stacked layout it used to be in;
+   on the facts line it would drop it four pixels below the numbers it sits
+   beside. */
+.library-file-reading-head > .library-file-open-reading {
+  margin-top: 0;
+  flex: 0 0 auto;
 }
 
 .library-file-summary {
@@ -10539,22 +10573,19 @@ input[type="file"] {
 /* The Files row's reading, opened in place (see buildFileReadingSummary).
    A pre so page breaks and tables survive, wrapped so a long line never
    widens the card, capped so a 40-page scan is a scrolling box rather than
-   a column that pushes every other card off the page. */
-.library-file-reading-more {
-  cursor: pointer;
-  color: var(--accent);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  list-style: none;
-}
+   a column that pushes every other card off the page.
 
-.library-file-reading-more::-webkit-details-marker {
-  display: none;
-}
-
+   **Three lines, not eighteen rem** (INBOX 279). The box used to sit behind a
+   second disclosure inside the first, so its height was somebody's problem
+   only after two clicks; it is what the fold opens onto now, and at 18rem one
+   opened row was 288px of reading in a list of rows. The recommendation on
+   record is "the first three lines of the reading shown inline and one Open
+   reading primary": the cap is those three lines at this size and line height,
+   the box still scrolls for anyone who wants the rest in place, and reading it
+   properly is what the button beside the numbers is for. */
 .library-file-reading-text {
   margin: var(--space-2) 0 0;
-  max-height: 18rem;
+  max-height: 4rem;
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;

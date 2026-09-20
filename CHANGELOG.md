@@ -80,6 +80,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Ask tab keeps its inline citation markers. A live-render paint armed
+  before the stream ended fired after the markers were placed and repainted
+  the answer from raw markdown, so the numbers appeared and vanished within a
+  frame.
+
 - The resurfacing ranking no longer fails when it is asked for the notes near
   a particular one. It read the embedding column by the wrong name, in a loop
   nothing had ever entered.

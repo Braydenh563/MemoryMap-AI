@@ -261,7 +261,17 @@ with its owner named in the entry.
     untrustworthy, (2) alignment bars missing on a group selection, which a
     previous session recorded as built (`5273bae`), so measure before
     believing either, (3) double-tapping a resize anchor to fit the content.
-    Open.
+    (1) fixed, `0f5d46d`, and measured: `liveMarkdownRenderer` armed a paint
+    up to 66ms before the stream ended, which fired after the markers were
+    placed and repainted the box from raw markdown, removing all three. The
+    Ask tab was the one caller that never called the renderer's own `stop()`,
+    which has existed for this since INBOX 40. Probe:
+    `scratchpad/ui-sweeps/askgrounding.js` against
+    `scratchpad/fake_answer_server.py`, 0 markers before, 3 after, numbered
+    1/2/3 against chips 1/2/3 and Sources rows 1/2/3. The reported "wrong
+    numbers" could not be reproduced on a clean notebook: 1/3/5 came from a
+    scratch data dir holding duplicate notes from earlier probe runs, so the
+    sources list genuinely had five rows. (2) and (3) open.
 
 ## Placed (last 20, newest first)
 

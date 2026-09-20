@@ -30974,6 +30974,31 @@ told to open first.
     both panes' widths, since a pane that changes width rewraps every
     paragraph in it without necessarily changing either scroll height.
 
+284. **Found while building Phase 11 item 7 (the session, not the owner):
+    `scratchpad/ui-sweeps/lib.js` silently drops `hasTouch` and `isMobile`.**
+    `boot(opts)` passes only `opts.viewport` to `newContext`, so a sweep that
+    asks for a touch context gets a desktop one at a phone's width, and every
+    rule behind `(pointer: coarse)` or `(hover: none)` is measured on the
+    wrong side. `phoneswipe.js` asks for both today and does not get them (its
+    swipes still work, because `initRowSwipe` reads `event.pointerType` rather
+    than a media query, so the finding is about what the next sweep will
+    measure rather than a wrong number already published). Two sweeps built
+    their own context to get around it (`graphtouch.js`, and this week
+    `graphphone.js` and `wbphone.js`). **Recommendation:** pass `hasTouch`,
+    `isMobile` and `deviceScaleFactor` through in `lib.js`, then re-run
+    `phoneswipe.js` and the phone sweeps and record any number that moves.
+    **Fixed** (2026-09-20). `boot` now passes a named list of context options
+    through (`CTX_OPTS`: `hasTouch`, `isMobile`, `deviceScaleFactor`, plus
+    `locale`, `timezoneId`, `colorScheme`, `reducedMotion`, `forcedColors`
+    and `userAgent`, so the next option a sweep wants is added once here
+    rather than worked around a fourth time). Every sweep that asks for touch
+    re-run against a real touch context at 390: phonehead, phonesidebar,
+    phonecapture, phoneswipe, phonenotepage, phonechat, phoneshare, phonedocs
+    and phonereminders, all 0 findings before and after, so no published
+    number moves; the finding was about what the next sweep would measure,
+    exactly as recorded. phone.js, touch.js, graphphone.js and wbphone.js
+    build their own contexts and were never affected: 0 findings each, still.
+
 ## INBOX resolved, 2026-09-20
 
 253. **Mid-work drop, 2026-09-14, verbatim (the owner).** "the app needs

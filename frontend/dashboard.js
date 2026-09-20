@@ -1533,8 +1533,22 @@ function gettingStartedCard() {
     {
       icon: "ph:compass",
       label: "Take the tour",
+      //: The tour, not the welcome card. These are two different things and
+      //: this tile used to run the wrong one: `openOnboarding` is the five
+      //: slides that say what MemoryMap is, while the tour (tour.js) points
+      //: at the real controls and says where they are. A tile that says
+      //: "take the tour" and opens a slideshow teaches that the tour is a
+      //: slideshow, and there was then no door to the tour on the dashboard
+      //: at all. The welcome card keeps its own doors, both correctly
+      //: worded: Settings, help and guide's "Replay welcome tour" and the
+      //: features browser's "Welcome tour" row.
       note: "Two minutes through what's here.",
-      run: () => openOnboarding(),
+      //: Guarded because tour.js is a separate file: a page served without
+      //: it must still show a dashboard rather than throw on the press.
+      run: () => {
+        if (typeof openTour === "function") openTour("basics");
+        else openOnboarding();
+      },
     },
   ];
   for (const action of actions) {

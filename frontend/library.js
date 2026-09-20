@@ -4165,6 +4165,13 @@ function openOcrWorkspace(image, images, page = 0) {
   rail.dataset.pagesFor = "";
   rail.replaceChildren();
   rail.classList.add("hidden");
+  //: Below 600 the reader is the screen, not a dialog over it: the sheet
+  //: recipe's `page` variant, stamped by `ocrPhonePage` in app.js, which is
+  //: the only file allowed to write a variant class (DESIGN.md's "A sheet"
+  //: row, `tests/test_ui_recipes.py`). Called before the overlay is shown so
+  //: the first frame is already the right shape: a dialog that arrives as a
+  //: card and becomes the page a frame later is a flash of the wrong thing.
+  ocrPhonePage(window.matchMedia(PHONE_TABS).matches);
   overlay.classList.remove("hidden");
   if (ocrIsPdf(image)) {
     ocrWorkspaceImages = [];

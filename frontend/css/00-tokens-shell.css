@@ -2079,8 +2079,16 @@ header#top-bar.tabs-wrapped #tab-bar {
   opacity: 1;
 }
 
+/* `.menu-wrap.library-card-menu`, matching the rule above rather than the
+   short name, and that is the whole reason this comment exists: written as
+   `.library-card-menu` alone this override is one class against the compound
+   selector two rules up, so it lost every time and the ⋯ stayed at opacity 0
+   on every touch screen. Measured with `scratchpad/ui-sweeps/hoveronly.js`
+   at 390 with `hover: none` emulated: a 44x44 button at opacity 0 on a
+   Library card, still 0 after a real tap. A `hover: none` override has to be
+   written at the specificity of whatever set the value it is overriding. */
 @media (hover: none) {
-  .library-card-menu {
+  .menu-wrap.library-card-menu {
     opacity: 1;
   }
 }

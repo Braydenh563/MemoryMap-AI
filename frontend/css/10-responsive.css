@@ -1752,14 +1752,101 @@ header#top-bar,
     min-width: var(--target-min);
   }
 
-  /* The board's own bar takes the band's floor, like every other control a
-     finger lands on. It costs one step of height (two rows of 44 rather than
-     two of 36) and buys eleven targets that can be hit. */
+}
+
+/* --- the board's bar takes the floor of the whole touch band, not just 600 --
+   It was written in the 600 band with Phase 11 item 7, and the band above it
+   is the one whose own rule reads "below 820 the pointer is a finger"
+   (07-whiteboard-misc.css redeclares `--target-min` at 2.75rem there). The
+   bar was exempt from it by accident, exactly the way `#tab-bar` was:
+   measured on an open board at 768x1180, `--target-min` resolved to 2.75rem
+   and all thirteen of the bar's controls still came back **36px tall**,
+   because the bar declares its own control height and that wins over a token
+   nothing in the bar reads. The icon-only ones had taken the width (44) and
+   not the height, which is how it stayed invisible.
+
+   It costs one step of height for thirteen targets that can be hit, the same
+   trade item 7 made at 390 (88px to 104px there). */
+@media (max-width: 819.98px) {
+
   #wb-topbar :is(button, summary, select) {
     min-height: var(--target-min);
   }
 
   #wb-topbar .icon-button {
     min-width: var(--target-min);
+  }
+}
+
+/* --- Phase 11 item 5: the Library reader as the page ------------------------
+   The reader (the OCR workspace) is a three-pane dialog sized to the window.
+   Measured at 390x844: a 342x776 card inset 24px with a 14px rounded top, its
+   toolbar scrolling 409px of tools sideways, the Regions checkbox label 36px
+   tall, a zoom segment button 35px wide and the two rail tabs 13x25.
+
+   `library.js`'s `ocrPhonePage` puts the sheet recipe's `page` classes on the
+   card below 600, so the geometry (the whole screen, no cap, no rounded top,
+   the padding that keeps the last row above the bar) is the same one the note
+   page gets rather than a second full-screen surface. What is the reader's own
+   is here: the panes stack into one column, and every control it owns takes
+   the band's touch floor. */
+@media (max-width: 599.98px) {
+
+  /* One column: the page, then what it says. The rail is already gone at
+     1100 (07-whiteboard-misc.css), where the empty column it left behind is
+     also dealt with. `auto` rows rather than a stretched grid, because the
+     card is the scroller here: a picture and a transcription are both as
+     long as they are. */
+  .sheet-card-page .ocr-panes {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: auto;
+    overflow-y: auto;
+    gap: var(--space-4);
+  }
+
+  /* The picture is allowed to be short; the reading needs somewhere to go.
+     Without this the transcription's own scroller sits inside a row sized to
+     its content and the card scrolls twice. */
+  .sheet-card-page .ocr-regions {
+    min-height: 0;
+    overflow: visible;
+  }
+
+  /* Every control in the head and the toolbar a finger lands on. The toolbar
+     still scrolls sideways, which is the same answer the app gives every
+     overflowing strip, but each stop on it can now be hit. */
+  .sheet-card-page :is(.ocr-head, .ocr-toolbar) :is(button, summary, select, .checkbox-label) {
+    min-height: var(--target-min);
+  }
+
+  .sheet-card-page :is(.ocr-head, .ocr-toolbar) .icon-only {
+    min-width: var(--target-min);
+  }
+
+  /* The segments declare their own compact height, so they are named rather
+     than swept up by the rule above: a `.seg-compact` button is the thing a
+     finger aims at, not the group around it. */
+  .sheet-card-page .ocr-toolbar .seg-compact > button {
+    min-height: var(--target-min);
+    min-width: var(--target-min);
+  }
+
+  /* Find, over the reading: a 343x20 box at this width, the one control in
+     the reader that is neither in the head nor in the toolbar. */
+  .sheet-card-page .ocr-find-input {
+    min-height: var(--target-min);
+  }
+
+  /* The rail's own tabs, which are 13x25 at this width: they only appear when
+     the rail does, and the rail is hidden here, but the switch above it is
+     not, and a tab you cannot hit is a list you cannot change. */
+  .sheet-card-page .ocr-rail-tab {
+    min-height: var(--target-min);
+  }
+
+  /* The reading's actions are in the thumb bar now (`ocrPhonePage`), so the
+     empty row they left must not keep its gap. */
+  .sheet-card-page .ocr-regions-foot:empty {
+    display: none;
   }
 }

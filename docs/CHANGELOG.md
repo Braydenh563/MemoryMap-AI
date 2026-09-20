@@ -49,6 +49,12 @@ below). Versioning is `0.x` while the app stabilises.
   than the table draws, because the tick column is only there while the
   selection mode is on, and a fixed table layout answers an extra column by
   splitting the free space with it.
+- The Library reader is the page on a phone. It opened as a 342x776 dialog
+  inset from every edge of a 390px screen, with an X in its head and its
+  Copy, Ask and Save as note under a transcription you had to scroll to; it
+  is the whole screen now, with a back chevron and those actions in a bar at
+  the bottom where a thumb is, the same shape a note opened on a phone
+  already had. Every control in it takes the 44px touch floor.
 
 - The whiteboard and the mind map answer a finger. Two fingers pan and zoom the
   board whatever tool is in hand, which is what every drawing app reserves them
@@ -281,6 +287,36 @@ below). Versioning is `0.x` while the app stabilises.
   wants this, and the Settings page had never asked.
 
 ### Fixed
+
+- The board's top bar answers a finger on a tablet. Between 600 and 820, the
+  band whose own rule is that the pointer there is a finger, all thirteen of
+  its controls were still 36px tall; and wherever the five menu buttons drop
+  their words they were 25.8px wide, narrower than any other control in the
+  app. The bar is two rows of 44px controls on a tablet now, and at 820 and
+  above it is the single 46px row it was, with nothing under the app's own
+  floor.
+
+
+- The ⋯ on a Library card and on a document row is visible on a touch screen.
+  Both were meant to be: each had a rule saying so where there is no pointer
+  to hover with, and each was written one class short of the rule it had to
+  beat, so neither ever applied and a 44x44 button sat at opacity 0 on every
+  card and every row at phone width.
+
+
+- The Library reader shows the page and what it says. Below 1100px the page
+  rail was hidden but its column was not, so the grid kept an empty 593px of
+  itself at 1024, squeezed the page into the 320px column beside it and
+  pushed the transcription onto a row of its own underneath; at 390 the
+  transcription had no width at all. The two panes take the two columns now.
+
+- "Take the tour" takes you on the tour. The dashboard's tile and Settings,
+  about's "Take tour again" both opened the welcome card instead, which is a
+  different thing: five slides about what MemoryMap is, rather than the
+  guided tour's cards anchored on the real controls. Both open the tour now,
+  and the welcome card keeps the two doors whose words name it, Settings,
+  help and guide's "Replay welcome tour" and the features browser's
+  "Welcome tour" row.
 
 - The Ask sub-tab shows each cited note once. Under the answer sat numbered
   source cards for the same five notes, with the same ids in the same order,

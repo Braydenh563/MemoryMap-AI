@@ -6704,13 +6704,25 @@ button.connection-row {
 }
 
 /* Under 1100px the rail is the first thing to go, which page you are on is
-   answerable from the title, where a line sits on the page is not. */
+   answerable from the title, where a line sits on the page is not.
+
+   **The column goes, not just the rail.** Hiding `.ocr-rail` alone left
+   `.ocr-rail-column` in the grid as an empty item, and a grid of three items
+   in two columns puts the third in an implicit *row*: measured at 1024, the
+   empty column took 593px, the page was squeezed into the 320px column
+   beside it, and the reading pane dropped to a second row under both. At 390
+   the arithmetic was worse: the 1fr column collapsed to 0, so the reading had
+   no width at all. Two panes, two columns. */
 @media (max-width: 1100px) {
   .ocr-panes {
     grid-template-columns: minmax(0, 1fr) minmax(15rem, 20rem);
   }
 
-  .ocr-rail {
+  /* `> .ocr-rail-column`, not the bare class: the column's own
+     `display: flex` is declared further down this same stylesheet, so at
+     equal specificity it would win over a rule in a band above it and the
+     column would stay in the grid at every width. */
+  .ocr-panes > .ocr-rail-column {
     display: none;
   }
 }
@@ -7913,7 +7925,19 @@ button.connection-row {
 
 /* Narrow boards: the top bar's right half wraps under its left half, the
    dock takes the full width, and the zoom cluster lifts above it (its
-   `bottom` comes from the 40rem rule in 06-timeline-dialogs.css). */
+   `bottom` comes from the 40rem rule in 06-timeline-dialogs.css).
+
+   **The halves themselves stay `nowrap`, and below 600 that costs something
+   measured** (2026-09-20, `scratchpad/ui-sweeps/wbtopbar820.js` on an open
+   board): the bar's scrollWidth runs 5px past its client width at 390 and
+   **75px at 320**, so at 320 the last controls in the row cannot be reached.
+   Letting the halves wrap does fix it and costs a row: 104px and two rows
+   becomes 152px and three at 390, and 200px and four at 320, over a canvas
+   that is 604px tall to begin with. That trade is the phone-shaped board bar
+   Phase 11 item 7 deliberately left to WHITEBOARD_PLAN (fewer controls on a
+   phone, not the same eleven wrapped harder), so the number is written down
+   here and in that plan rather than paid for with a quarter of the screen.
+   Above 600 the bar does not overflow at any width measured. */
 @media (max-width: 48rem) {
   .wb-topbar {
     flex-wrap: wrap;
@@ -8248,6 +8272,32 @@ button.connection-row {
 
   .wb-topbar .wb-menu-toggle {
     padding-inline: var(--space-2);
+  }
+}
+
+/* Losing the word must not take the target with it. Measured on an open board
+   at 820x1180: with their labels gone the five menu toggles rendered **25.8px
+   wide**, the narrowest controls anywhere in the app, under the app's global
+   28px floor and a long way under the 44 the band below 820 asks for. An icon
+   and a caret in `--space-2` of padding is simply narrower than a hit target,
+   so the floor is declared rather than left to the padding to produce. Same
+   for the Add-note button, whose own label goes at 76rem and which measured
+   43.6px wide at 768, four tenths of a pixel short of the floor.
+
+   **Down to 600 and no further, which is a decision rather than an oversight.**
+   Below 600 the bar is eleven controls in 348px and a 44px width floor on the
+   five menus costs it a whole row: measured at 390, 104px and two rows became
+   152px and three, and at 320, 200px and four, over a canvas that is 604px
+   tall to begin with. Phase 11 item 7 raised this bar to the touch floor on
+   its height for exactly that trade (88px to 104px) and recorded that a
+   phone-shaped board bar, one that does not simply wrap harder, is
+   WHITEBOARD_PLAN's work and not that item's. So on a phone these five stay
+   25.8px wide and 44px tall, written down here and in that plan, rather than
+   bought with a quarter of the screen. */
+@media (min-width: 600px) and (max-width: 56rem) {
+  .wb-topbar .wb-menu-toggle,
+  .wb-topbar #wb-add-note {
+    min-width: var(--target-min);
   }
 }
 

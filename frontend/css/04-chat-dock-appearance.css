@@ -3396,8 +3396,14 @@ span > .chip {
   opacity: 1;
 }
 
+/* `.menu-wrap.doc-list-menu`: the rule it overrides is a compound selector,
+   so the short name loses the cascade and this band did nothing at all.
+   Measured with `scratchpad/ui-sweeps/hoveronly.js` at 390 with `hover: none`
+   emulated: a 44x44 ⋯ at opacity 0 on every document row, still 0 after a
+   real tap. Same fault and same fix as `.menu-wrap.library-card-menu`
+   (00-tokens-shell.css). */
 @media (hover: none) {
-  .doc-list-menu {
+  .menu-wrap.doc-list-menu {
     opacity: 1;
   }
 }

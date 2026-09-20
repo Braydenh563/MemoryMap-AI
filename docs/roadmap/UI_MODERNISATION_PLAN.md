@@ -839,8 +839,8 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
    of a menu opened while a touch gesture is in flight, so `openMenuAtPoint`
    asks for it again a frame later. `phone.js` and `touch.js` are 0 findings
    at 390 after all of it.
-5. **Library and Files.** Two-up cards, the reader full-screen with a
-   bottom bar; upload from the share sheet.
+5. **Library and Files: built** (2026-09-20). Two-up cards, the reader
+   full-screen with a bottom bar; upload from the share sheet.
    - **Two-up cards: decided the other way, not remade.** The 600 band in
      07-whiteboard-misc.css makes the card grids one full-width column
      with the measurement that decided it (at 390 the masonry gave two
@@ -859,8 +859,36 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
      two halves to the same three names; measured by
      `scratchpad/ui-sweeps/phoneshare.js` at 390. Not built: a file (an
      image from the camera roll) needs the POST form and a service
-     worker. Still open in this item: the reader full-screen with a bottom
-     bar.
+     worker.
+   - **The reader full screen with a bottom bar: built** (2026-09-20), and
+     item 5 is complete. Measured at 390x844 first
+     (`scratchpad/ui-sweeps/libreader.js`, this item's gate): the reader (the
+     OCR workspace) was a 342x776 card inset 24px from each edge with a 14px
+     rounded top, its way out an X; the Regions checkbox label was 36px tall,
+     a zoom segment button 35px wide, the two rail tabs 13x25 and the find
+     box 343x20. **And a bug older than the phone band**: the three panes are
+     a grid of two columns below 1100 with three children in it, so the
+     reading pane fell into an implicit second row. At 390 the 1fr column
+     collapsed and the transcription was **0px wide**; at 1024 the hidden
+     rail's own column still took **593px** of empty space while the page was
+     squeezed into the 320px column beside it and the reading dropped to a row
+     underneath. Hiding `.ocr-rail` was never enough: the column goes too, and
+     the selector needed `.ocr-panes > .ocr-rail-column` because the column's
+     own `display: flex` is declared below that band in the same stylesheet.
+     After, at 1024: page 593x656 and reading 320x656, side by side; at 1440
+     the three columns are 144 / 747 / 416, unchanged.
+     On a phone the reader is the sheet recipe's `page` variant, the same two
+     classes `openSheet` puts on the note page, stamped by `ocrPhonePage` in
+     app.js because `tests/test_ui_recipes.py` holds that only the recipe's own
+     file may write a variant class (it caught the first attempt, from
+     library.js). The reading's five actions move into a `.thumb-bar` and move
+     back above 600, the way the note page moves a row's actions: same buttons,
+     same ids, same handlers. Measured after at 390: the card is 0,0 to
+     390x844 with a 0px radius, one column of panes, the rail column 0, no
+     control under 44px, the bar holding 5 buttons with its bottom at 844, the
+     way out labelled Back with the chevron, Escape closes it, and crossing to
+     1024 with it open puts the five actions back in the reading's own foot
+     and the X back in the head.
 6. **Documents: built** (2026-09-20), most of it already there and
    measured before anything was added. Measured at 390 with a fresh
    document (`scratchpad/ui-sweeps/phonedocs.js`): a phone now opens a
@@ -903,6 +931,33 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
    added and whiteboard.js joins the long-press lint's file list; the fourth
    right-click, bound through d3 on a selection that is rebound every
    render, keeps its own hold, and the lint's docstring says why.
+   **The bar at 820, and the band between: measured and fixed** (2026-09-20,
+   `scratchpad/ui-sweeps/wbtopbar820.js`, on an open board). Two things this
+   item left behind. First, from 600 to 819 the band's own rule reads "below
+   820 the pointer is a finger" (`--target-min` is 2.75rem on `:root` there),
+   and all thirteen of the bar's controls were still **36px tall** at 768,
+   because the rule this item wrote lived in the 600 band and the bar declares
+   its own control height, which nothing in it read; the icon-only ones had
+   taken the width and not the height, which is how it stayed invisible. It is
+   in the 819.98 band now: at 768 the bar is 104px and two rows with every
+   control at 44. Second, below 56rem the five menu toggles drop their words
+   and rendered **25.8px wide**, the narrowest controls in the app and under
+   the *global* 28px floor, so at 820 five of thirteen failed a floor that has
+   nothing to do with touch. They take the floor from 600 up now (at 820, 28;
+   at 768, 44).
+
+   **At 820 itself the band's 44px floor is deliberately not introduced**, and
+   that is band 2's existing decision rather than a new one: 10-responsive.css
+   records why `--target-min` was redeclared on `#tab-bar` alone there and not
+   on `:root` ("raising every dock control in the band to 44px is a real change
+   with its own measurements to take"). Measured at 820x1180 after: the bar is
+   784x46, one row, thirteen controls all 36px tall, nothing under 28, no
+   sideways scroll; at 1440 it is unchanged at 1392x46. Found and not fixed,
+   placed in WHITEBOARD_PLAN with its numbers: below 600 the bar runs 75px past
+   its own right edge at 320 and 5px at 390, and the only fix that does not
+   redesign it costs a row (152px at 390, 200px at 320), which is the
+   phone-shaped board bar this item already assigned to that plan.
+
    **Decision: the board's top bar is not reduced to a kebab** the way the
    app header was (item 1). It is a menu bar, which the dock grammar already
    names as this surface's exception (Insert, Edit, Arrange, View, Board),
@@ -932,11 +987,35 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
    for any list of rows, the underlay's words read from the row's own
    `data-swipe-right` and `data-swipe-left`). Measured by
    `scratchpad/ui-sweeps/phonereminders.js`.
-9. **Touch.** The 44px half is built (2026-09-13, the block is in HISTORY.md,
-   "Moved from the plans, 2026-09-13"): `scratchpad/ui-sweeps/phone.js` walks
-   every tab whole rather than dock by dock and reports 0 findings at 390x844
-   and 430x932. Still open: no hover-only affordance (every hover state has a
-   tap equivalent), and long-press replacing right-click app-wide.
+9. **Touch: built** (2026-09-20). The 44px half is built (2026-09-13, the
+   block is in HISTORY.md, "Moved from the plans, 2026-09-13"):
+   `scratchpad/ui-sweeps/phone.js` walks every tab whole rather than dock by
+   dock and reports 0 findings at 390x844 and 430x932. Long-press replacing
+   right-click is items 4 and 7's `wireLongPress`, app-wide and lint-held.
+
+   **No hover-only affordance: swept properly and two found**
+   (`scratchpad/ui-sweeps/hoveronly.js`, this half's gate). It reads the app's
+   own stylesheets for every rule whose selector carries `:hover` and whose
+   body sets `opacity`, `visibility` or `display` (45 of the 243 `:hover`
+   rules), strikes the `:hover` out to get the element at rest, walks eleven
+   stops across every tab with `hover: none`, `any-hover: none` and
+   `pointer: coarse` emulated through CDP, and then **taps** each candidate
+   for real, because a reveal on hover is only a fault when nothing a finger
+   can do produces it. Three candidates; the AI dot's popup is fine (hidden
+   at rest, revealed by a tap, `toggleAiStatusPopup`).
+
+   The other two were the same bug, and it is worth writing down because it
+   is invisible in review: **a `hover: none` override written at a lower
+   specificity than the rule it overrides does nothing at all.** Both the
+   Library card's ⋯ and the document row's ⋯ already had
+   `@media (hover: none) { .library-card-menu { opacity: 1 } }`, written as
+   the short name, against a base rule of `.menu-wrap.library-card-menu
+   { opacity: 0 }` (compound, and deliberately so, for a positioning bug its
+   own comment records). Measured: a 44x44 button at opacity 0 on every
+   Library card and every document row at 390, still 0 after a real tap. Both
+   overrides now match their base rule's specificity. After: 0 hover-only
+   affordances at 320, 390 and 430, the AI popup the one candidate and it
+   taps open.
 10. **The status bar at 320: taken, the first way.** Measured 2026-09-12,
     after the header was made to fit: at 320 x 844 the page still scrolled
     sideways, 355 in 320, and the bar was the cause (its six surviving items
@@ -998,9 +1077,27 @@ different problem than the list says.
     make; and **the composer above a simulated keyboard cannot be measured
     here**, because the sandbox has no soft keyboard and Playwright does not
     fake one, so `visualViewport` never shrinks. Two taps to anything is in
-    `phonetabs.js` and `phonemore.js` already. Still open: errors.js and
-    contrast.js at 390 (this session runs them at the end), and the screenshot
-    set for the owner.
+    `phonetabs.js` and `phonemore.js` already.
+
+    **errors.js and contrast.js at 390: done** (2026-09-20). errors.js already
+    took a width and is clean at 1024, 820 and 390 (0 errors, 0 layout
+    findings each). contrast.js took **no viewport at all** and had therefore
+    only ever run at `boot`'s default 1440x900, which is the whole reason this
+    line was open. It takes WIDTH/HEIGHT now, a touch context below 600, and
+    two things it had to learn to reach a phone: Settings opens through
+    `openSettingsModal` rather than `#settings-btn` (hidden below 600, where
+    Settings is a row in the header's `...` menu) and its sections are reached
+    the same way (the section strip is hidden below 600), so every one of the
+    twelve had been "ok" at phone width by never being looked at. It also
+    reports **how many text elements it measured**, because "ok" and "nothing
+    rendered" printed the same line before, and that count caught one on its
+    first run: `whiteboard` was in its tab list with no `#tab-whiteboard` to
+    open, so `revealTab` hid every page and the sweep measured an empty window
+    at every width it has ever run at. A board is opened from Boards & maps now
+    and measures 88 text elements at 390. Result: 33 surfaces per run, 0
+    low-contrast, at 390, 820 and 1440 in light and dark.
+
+    Still open: the screenshot set for the owner.
 
 ## Placed from INBOX, 2026-09-09
 

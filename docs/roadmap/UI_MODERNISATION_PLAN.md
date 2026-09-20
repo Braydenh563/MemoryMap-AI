@@ -802,10 +802,43 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
    soft keyboard, which Chromium here does not raise; the composer is not
    pinned above it, since the transcript is the scroller and the composer
    never leaves the screen (page scrollHeight 844 in 844).
-4. **Graph.** Pan and pinch, tap to select, long-press for the node
-   menu (no right click), lasso by long-press then drag, the docks as one
-   bottom sheet with the colour rule, groups and views; the node panel as
-   a sheet.
+4. **Graph: built** (2026-09-20). Measured at 390x844 first, with real
+   touch through CDP (`scratchpad/ui-sweeps/graphphone.js`, which is this
+   item's gate; pan and pinch were already proved by `graphtouch.js` and are
+   left to it). Before: a hold on a node did nothing at all, the map's node
+   menu being a right-click the phone has no way to send; the lasso needed
+   Shift and was therefore unreachable, so a selection could not be started
+   by a finger at any point; and the map's controls answered in three places
+   over a 362x653 map, the gear's floating panel at 350x288 (42% of the map
+   covered, 795px of content scrolling inside 286px), the View menu at
+   280x257 and the ⋯ menu at 256x311. The node panel was already the
+   `.graph-popup-sheet`, 362x468, and stays as it is.
+
+   After: one hold on the canvas, `wireLongPress`, which decides by what is
+   under it. On a node it opens the node menu, which is now `openMenuAtPoint`
+   rather than the hand-built menu it was, so it brings the clamp, the arrow
+   keys, Escape and the 44px row the touch band gives every menu (measured: 5
+   rows, shortest 44px, inside the window, Escape closes it). On the empty map
+   it arms the lasso: hold, then drag, and the sweep's 220px loop caught 2
+   notes with the selection dock showing "2 selected". The gear opens one
+   sheet at 390x557, full width, holding the View menu's rows, the panel's own
+   sections and the ⋯ menu's saved views, with every control at 44px and each
+   one moved back where it came from on close; at 1024 the gear opens the
+   floating panel exactly as before and the two menus are menus again.
+   **Decision: a tap on a node keeps opening the node panel** rather than only
+   selecting it. The panel is the note, it is already a sheet, and a tap that
+   only selected would leave the phone with no way to open a note from the map
+   at all; selection is the hold's own "Add to selection" row, which is where
+   the desktop's Shift-click also lives.
+
+   Three bugs found on the way, each fixed at its cause: a hold ended in the
+   click the lift synthesises, so holding a node opened its menu *and* its
+   panel (`wireLongPress` now swallows that lift's `mousedown`, `mouseup` and
+   `click`, app-wide); the `mousedown` was what moved the focus, so Escape
+   reached the map instead of the menu; and Chromium takes the focus back out
+   of a menu opened while a touch gesture is in flight, so `openMenuAtPoint`
+   asks for it again a frame later. `phone.js` and `touch.js` are 0 findings
+   at 390 after all of it.
 5. **Library and Files.** Two-up cards, the reader full-screen with a
    bottom bar; upload from the share sheet.
    - **Two-up cards: decided the other way, not remade.** The 600 band in

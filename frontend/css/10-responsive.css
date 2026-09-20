@@ -1628,3 +1628,72 @@ header#top-bar,
   }
 }
 
+
+/* --- Phase 11 item 4: the graph's controls are one sheet on a phone --------
+
+   Measured at 390x844 before this: the gear's floating panel opened at
+   (20,224) 350x288 over a map of 362x653, 42% of the map covered, with 795px
+   of content scrolling inside 286px of panel; the View menu's list drew
+   280x257 and the ⋯ menu's 256x311, both of them over the same map. Three
+   surfaces, each answering a question about the thing it hides.
+
+   `openGraphControlsSheet` (app.js) moves all three into one sheet and puts
+   them back on close, so what is inside here is the app's own markup rather
+   than a phone copy of it: the panel arrives as `.graph-options` with its
+   class, and each menu's rows arrive inside a holder wearing the menu list's
+   classes, so every rule written for those two containers still reaches them.
+
+   What this band has to undo is only the part of each that is about floating:
+   a menu list is absolutely positioned under its opener and carries a card's
+   own edge, ground and shadow, and inside a sheet that is a card drawn on a
+   card. The panel's cap goes the same way, because the sheet is the scroller
+   now. */
+.graph-controls-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.graph-controls-body .dock-menu-list,
+.graph-controls-body .graph-options {
+  position: static;
+  visibility: visible;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  max-height: none;
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+/* A row in the sheet is a row a thumb lands on. The menus' own rows and the
+   panel's buttons are 36px at every other width, which is the desktop's
+   floor; `--target-min` is this band's. Tick boxes and radios keep their own
+   size, for the reason the dock's height rule gives: a stretched tick box is
+   an oval, and its label is the target.
+
+   `:is(...)` rather than a list of descendant selectors, and that is
+   arithmetic rather than taste: 08-consistency.css gives every menu row
+   `min-height: var(--control-h-lg)` at (0,2,0), so a plain
+   `.graph-controls-body button` at (0,1,1) loses and the rows measured 36px
+   inside the sheet. `:is()` takes the weight of its heaviest argument, which
+   puts this at (0,2,0) too, and this file is the last one in, which is the
+   tie-break the whole band relies on. */
+@media (max-width: 599.98px) {
+
+  .graph-controls-body :is(button, summary, .select-opener, .doc-dock-menu-item) {
+    min-height: var(--target-min);
+  }
+
+  /* One way in, and it is the gear. The two `<details>` keep their markup
+     (what is in them moves into the sheet and comes back), so they are
+     hidden rather than emptied: an opener whose menu is somewhere else
+     opens nothing. */
+  #graph-view-menu,
+  #graph-more-menu {
+    display: none;
+  }
+}

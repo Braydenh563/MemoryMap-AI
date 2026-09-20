@@ -26931,7 +26931,24 @@ function openMenuAtPoint(items, ariaLabel, x, y) {
   //: app has had reported to it more than once.
   opener.setAttribute("tabindex", "-1");
   pointerMenuHost.appendChild(wrap);
-  openActionMenu(wrap.querySelector(".action-menu"), opener);
+  const menu = wrap.querySelector(".action-menu");
+  openActionMenu(menu, opener);
+  //: **The focus is asked for again on the next frame**, and only when it did
+  //: not stay. Measured on the graph at 390 with a real hold (CDP touch,
+  //: `scratchpad/ui-sweeps/graphphone.js`): `openActionMenu` focuses the
+  //: first row, and while a touch gesture is still in flight Chromium takes
+  //: it straight back out again (a `focusin` on the row followed immediately
+  //: by a `focusout` to nothing, with the menu still open and visible). The
+  //: cost is not cosmetic: Escape is bound on the menu, so a menu opened by a
+  //: hold could not be closed by the keyboard, and the same press with the
+  //: finger lifted first focuses perfectly. A frame later the same call
+  //: sticks. Nothing happens when the focus is already inside, so a menu
+  //: opened by a right-click is untouched.
+  requestAnimationFrame(() => {
+    if (!menu || menu.classList.contains("hidden")) return;
+    if (menu.contains(document.activeElement)) return;
+    menu.querySelector("button")?.focus({ preventScroll: true });
+  });
 }
 
 //: What a right-click on a link offers, by what the link is. An address can be
@@ -27033,6 +27050,36 @@ function wireLongPress(target, handler, { selector = null } = {}) {
       };
       const timer = setTimeout(() => {
         cancel();
+        //: **The lift-off is swallowed.** A hold ends like every other touch,
+        //: with a click, and the element under it is the element the hold was
+        //: about: measured on the graph at 390, holding a node opened its menu
+        //: and lifting the finger opened that node's panel underneath it, so
+        //: the gesture did two things and the second one took the focus the
+        //: menu had just been given (the menu was still open, and Escape
+        //: closed the panel instead of it). Captured, so it never reaches the
+        //: surface, and `once` so only that one click is taken; the timer is
+        //: the belt for a press that ends in a `pointercancel` and therefore
+        //: sends no click at all, which would otherwise leave the swallow
+        //: waiting for the *next* tap, on a menu row.
+        //: All three of the mouse events a tap synthesises, not the click
+        //: alone: Chromium sends `mousedown`, `mouseup` and `click` when the
+        //: finger lifts, and it is the first of them that moves the focus.
+        //: Measured on the graph: with only the click taken, the menu opened
+        //: with its first row focused and the lift then put the focus on
+        //: `#graph-box`, so Escape reached the map instead of the menu and
+        //: the menu stayed open. `preventDefault` on the `mousedown` is what
+        //: leaves the focus where the hold put it.
+        const swallowed = ["mousedown", "mouseup", "click"];
+        const done = () => {
+          for (const type of swallowed) document.removeEventListener(type, swallow, true);
+        };
+        const swallow = (lift) => {
+          lift.preventDefault();
+          lift.stopPropagation();
+          if (lift.type === "click") done();
+        };
+        for (const type of swallowed) document.addEventListener(type, swallow, true);
+        setTimeout(done, 1200);
         handler(event, { x: clientX, y: clientY, el: hit });
       }, LONG_PRESS_MS);
       for (const name of LONG_PRESS_CANCELS) {
@@ -40834,17 +40881,127 @@ function setGraphOptionsOpen(open) {
   const panel = $("graph-options");
   const toggle = $("graph-options-toggle");
   if (!panel || !toggle) return;
-  panel.classList.toggle("hidden", !open);
-  toggle.setAttribute("aria-expanded", String(open));
-  toggle.classList.toggle("is-on", open);
+  //: **Below 600 the panel never floats** (UI_MODERNISATION_PLAN Phase 11
+  //: item 4). Measured at 390x844 on the running app: open, it is 350x288
+  //: over a map that is 362x653, which is 42% of the map covered by a panel
+  //: whose own content is 795px scrolling inside 286px. The same controls
+  //: are the sheet below, so the saved "open" pref still rides here (a
+  //: window widened again opens what it had open) and only the floating
+  //: half is refused.
+  const phone = typeof PHONE_TABS === "string" && window.matchMedia(PHONE_TABS).matches;
+  panel.classList.toggle("hidden", !open || phone);
+  toggle.setAttribute("aria-expanded", String(open && !phone));
+  toggle.classList.toggle("is-on", open && !phone);
   localStorage.setItem("graph-options-open", open ? "1" : "0");
 }
+
+// --- the graph's controls on a phone: one sheet -------------------------------
+// UI_MODERNISATION_PLAN Phase 11 item 4, "the docks as one bottom sheet with
+// the colour rule, groups and views". At 390 the Graph tab answers a question
+// about the map in one of three places: the gear's floating panel (physics,
+// what to show, time, groups, the minimap, suggest links), the View menu
+// (layout, the colour rule, Trace, the legend) and the ⋯ menu (saved views,
+// export). Each opens *over* the 362x653 map it is about, and the first of
+// them covers 42% of it.
+//
+// One sheet instead, from the gear, holding all three in that order: what the
+// map is, then what it shows, then what is saved. The same elements, moved in
+// while it is open and put back on close, so every handler, every id and every
+// saved preference is the one that was already there; nothing about this
+// surface is built twice. Above 600 nothing changes: the gear opens its panel
+// and the two menus are menus.
+//
+// The two `<details>` are hidden by the stylesheet below 600 rather than
+// emptied, because what is in them moves and comes back: an opener whose menu
+// is somewhere else is an opener that opens nothing.
+let graphSheetClose = null;
+
+//: `#graph-options` moves as itself, keeping its class, so the rules written
+//: for `.graph-options .dock-menu-section` still reach its sections inside
+//: the sheet; the two menus' children move into a holder wearing the menu
+//: list's own classes, for the same reason. What is deliberately left behind
+//: is the folded arrange zone: below 1100 `foldDockArrange` parks the View
+//: menu *inside* the ⋯ menu's list, so taking that list's children whole
+//: would bring an emptied View menu into the sheet under the rows that came
+//: out of it.
+function graphControlsSheetParts() {
+  const viewList = document.querySelector("#graph-view-menu .dock-menu-list");
+  const moreList = document.querySelector("#graph-more-menu .dock-menu-list");
+  const options = $("graph-options");
+  const groups = [];
+  if (viewList) groups.push({ holder: "menu", nodes: [...viewList.children] });
+  if (options) groups.push({ holder: "options", nodes: [options] });
+  if (moreList) {
+    groups.push({
+      holder: "menu",
+      nodes: [...moreList.children].filter(
+        (el) => !el.classList.contains("dock-arrange") && !el.classList.contains("dock-arrange-label")
+      ),
+    });
+  }
+  return groups.filter((group) => group.nodes.length);
+}
+
+function openGraphControlsSheet(opener) {
+  if (graphSheetClose) return;
+  const groups = graphControlsSheetParts();
+  if (!groups.length) return;
+  // Where each node came from, taken before anything moves: a node's parent
+  // and the sibling it sat in front of are what put it back exactly.
+  const home = [];
+  for (const group of groups) {
+    for (const node of group.nodes) home.push({ node, parent: node.parentNode, next: node.nextSibling });
+  }
+  const panel = $("graph-options");
+  const wasHidden = panel ? panel.classList.contains("hidden") : true;
+  opener?.setAttribute("aria-expanded", "true");
+  graphSheetClose = openSheet({
+    label: "Map controls",
+    name: "graph",
+    returnFocus: opener,
+    build: (card) => {
+      const body = document.createElement("div");
+      body.className = "graph-controls-body";
+      for (const group of groups) {
+        if (group.holder === "options") {
+          for (const node of group.nodes) {
+            node.classList.remove("hidden");
+            body.appendChild(node);
+          }
+          continue;
+        }
+        const holder = document.createElement("div");
+        holder.className = "doc-dock-menu-list dock-menu-list";
+        for (const node of group.nodes) holder.appendChild(node);
+        body.appendChild(holder);
+      }
+      card.appendChild(body);
+    },
+    onClose: () => {
+      for (const spot of home) spot.parent.insertBefore(spot.node, spot.next);
+      if (panel && wasHidden) panel.classList.add("hidden");
+      graphSheetClose = null;
+      opener?.setAttribute("aria-expanded", "false");
+    },
+  });
+}
+
 $("graph-options-toggle").addEventListener("click", (event) => {
   // The click must not reach the document listener below, which would read
   // the panel it has just opened as a click outside it and close it again.
   event.stopPropagation();
+  if (window.matchMedia(PHONE_TABS).matches) {
+    if (graphSheetClose) graphSheetClose();
+    else openGraphControlsSheet(event.currentTarget);
+    return;
+  }
   setGraphOptionsOpen($("graph-options").classList.contains("hidden"));
 });
+//: A window dragged across the boundary with the sheet open would leave the
+//: map's controls in a dialog the desktop layout has no opener for, and the
+//: fold below 1100 moves one of the pieces the sheet borrowed. Closing puts
+//: every one of them back where the width that is arriving expects it.
+window.matchMedia(PHONE_TABS).addEventListener("change", () => graphSheetClose?.());
 // A popover closes the three ways every popover in this app closes: its own
 // button, a click outside it, and Escape. It gained the last two when it
 // stopped being a strip in the column and became the gear's menu (INBOX 21):

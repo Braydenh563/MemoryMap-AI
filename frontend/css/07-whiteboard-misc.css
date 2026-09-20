@@ -3519,8 +3519,15 @@ dialog::backdrop {
 
    So the visual stays thin and the target grows: a transparent box the
    height of the strip, with the track drawn at its old thickness inside it.
-   The control looks unchanged and is twice as easy to hit. */
-.whiteboard-floating-panel input[type="range"] {
+   The control looks unchanged and is twice as easy to hit.
+
+   Shared with the graph's controls sheet (Phase 11 item 4), which is the
+   same problem on a phone: Gravity, Spread and the time filter measured 16px
+   tall at 390, and the sheet they now open in is a surface a thumb drives.
+   One recipe, named twice, rather than a second set of slider rules that
+   would drift from this one. */
+.whiteboard-floating-panel input[type="range"],
+.graph-controls-body input[type="range"] {
   /* The track's visual thickness and the thumb's diameter, named once so
      the thumb's centring offset below can be derived from them. */
   --wb-range-track: 0.35rem;
@@ -3531,19 +3538,22 @@ dialog::backdrop {
   appearance: none;
 }
 
-.whiteboard-floating-panel input[type="range"]::-webkit-slider-runnable-track {
+.whiteboard-floating-panel input[type="range"]::-webkit-slider-runnable-track,
+.graph-controls-body input[type="range"]::-webkit-slider-runnable-track {
   height: var(--wb-range-track);
   border-radius: var(--radius-pill);
   background: var(--border);
 }
 
-.whiteboard-floating-panel input[type="range"]::-moz-range-track {
+.whiteboard-floating-panel input[type="range"]::-moz-range-track,
+.graph-controls-body input[type="range"]::-moz-range-track {
   height: var(--wb-range-track);
   border-radius: var(--radius-pill);
   background: var(--border);
 }
 
-.whiteboard-floating-panel input[type="range"]::-webkit-slider-thumb {
+.whiteboard-floating-panel input[type="range"]::-webkit-slider-thumb,
+.graph-controls-body input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: var(--wb-range-thumb);
@@ -3560,7 +3570,8 @@ dialog::backdrop {
   cursor: grab;
 }
 
-.whiteboard-floating-panel input[type="range"]::-moz-range-thumb {
+.whiteboard-floating-panel input[type="range"]::-moz-range-thumb,
+.graph-controls-body input[type="range"]::-moz-range-thumb {
   width: var(--wb-range-thumb);
   height: var(--wb-range-thumb);
   border: 0;

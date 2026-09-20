@@ -9,6 +9,18 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The graph answers a finger on a phone. A hold on a node opens the node menu
+  (the same menu a right-click opens, now the app's own pointer-menu recipe, so
+  its rows are 44px, Escape closes it and it cannot be drawn off the edge of the
+  window); a hold on the empty map arms the lasso, which until now needed a
+  Shift key a phone does not have, so a selection could not be started at all.
+  The map's three floating control surfaces (the gear's panel, which covered 42%
+  of a 362x653 map, the View menu and the ⋯ menu) open as one sheet below 600
+  instead, holding the same controls and putting each one back on close. A hold
+  anywhere in the app no longer also does whatever a tap there would do: the
+  click the lift synthesises is swallowed, which is why holding a node used to
+  open its menu and its panel at once.
+
 - The rotate grip of a group selection on the whiteboard sits at the top centre
   of the group, at any zoom. It was scaled about the canvas's origin rather than
   its own anchor, so it sat right at 100% and drifted further off the box the

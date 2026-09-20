@@ -30220,3 +30220,83 @@ told to open first.
     widget itself: turn the art widget off on the dashboard, or say so and
     it gets a frame-rate cap rather than 60.
 
+262. **Mid-work drop, 2026-09-20, verbatim (the owner), five things.** "the
+    documents editor meatball dropdown goes off the page, and I want to
+    combine the "download as" options in it into a sub menu in that dropdown
+    that you click or hover over and another side dropdown menu appears next
+    to it, like the ones in the meatball dropdowns in the your notes page.
+    also the page numbers and collapse arrows in the documents clash with
+    other page numnbers and the rendering on the live view of the documents
+    needs a lot of improvement. also in the whiteboard and mindmaps there are
+    a lot of utility things missing or not quite right in implementation,
+    like the group selection box missing a rotate node, not being able to
+    drag the edges of a group selection, if I drag the selected group, the
+    group selection box doesnt move with the selected objects when actively
+    draging them around."
+    Two screenshots. The first: the documents meatball open, its list running
+    off the bottom of the window with its own scrollbar, five "Download as"
+    and "Print" rows in the middle of it. The second: the gutter, where line
+    numbers 6 and 7 are drawn on top of each other beside a folded code
+    block, and 8 and 9 likewise.
+    Five separate things, taken in this order: (1) the menu's placement and
+    the Download submenu, (2) the gutter collision, (3) the Live view
+    rendering, (4) the group box during a drag, (5) the group box's rotate
+    and resize handles.
+    **Fixed, all five.** (1) `5a61cb5`: the downloads fold into a
+    `buildMenuGroupButton` submenu and `placeDockMenuInWindow` clamps
+    sideways. (2) `b0c8931`: the fence rows keep full height while the
+    numbers are on, and the plugin rebuilds on the compartment reconfigure
+    that was the missing half; measured on/off/on, overlaps [] every time.
+    (3) `557decf`: lists rendered at all, with a hanging indent (marker 471,
+    wrap 496) and a bullet for the dash, checked for caret jumps (0
+    backwards); the task checkbox stops making its line 34px in a 26px
+    document. (4) `7f1d730`: the chrome travels with the drag (box +90/+180
+    against cards +90/+180) and is rebuilt where the items land. (5)
+    `fdd40ca`: the handles were always drawn and 6 of 8 were under the card
+    layer; moved to the overlay, opted back into hit testing, 0 of 9
+    unreachable, a 120px edge pull widens by 120px, the dot turns both cards
+    to 114 degrees.
+263. **Mid-work drop, 2026-09-20, verbatim (the owner), six more.** "oh and
+    another bug I was trying to get gemini to fix is that the splash wasnt
+    appearing on the packaged windows launcher. also this was in the terminal
+    setup script: {" [1/4] Using the app's virtual environment.
+    The system cannot find the batch label specified - bail_if_cancelled
+     [2/4] Dependencies already up to date - skipping install."}, the boards
+    and maps previews are kinda a mess. I want to strip all signs of being
+    vibecoded by an ai from the ui, use your vendored and available ui ux
+    skills. the what it learned tab ui needs some ui and ux refinement
+    because it is messy and not consistent with the design.md rules and the
+    rest of the application. no visual confirmation popup shows when I use
+    ctrl s to save my preferences settings, and there is no visual
+    indications that the preferences settings are the only settings that dont
+    save automatically."
+    Three screenshots. The launcher's own splash window, which *is* drawing
+    (five steps, a progress bar, Details/Copy diagnostics/Cancel), so the
+    report is about the packaged build, not this one. The Library's board and
+    map preview cards: a board thumbnail whose labels overlap its blocks and
+    a map thumbnail whose labels overlap each other and run outside the
+    frame. And Settings, "What it learned", where every switch's name runs
+    straight into its hint with no space ("Night shiftReads notes you have
+    added or changed") and the rows are full-width pills unlike any other
+    switch in the app.
+    Taken in this order: (1) the switch rows, which are this session's own
+    and plainly wrong, (2) the `bail_if_cancelled` label, which is a real
+    batch bug with the error quoted, (3) the Preferences save feedback, (4)
+    the board and map previews, (5) the packaged splash, (6) the wider UI
+    pass, which is a brief rather than a fix.
+    **Fixed, all six.** (1) `a01d6e5`: rebuilt on `.setting-check`, DESIGN's
+    own on/off recipe, measured against a row that predates the screen. (2)
+    `1ddd907`: `.gitattributes` checked every `.bat` out LF-only (start.bat
+    1,278 lone LFs, 0 CRLF), and cmd.exe seeks a label by byte offset;
+    `*.bat text eol=crlf` plus a lint. (3) `6e39399`: ctrl+s had never been
+    implemented although the copy promised it; a toast, and the section now
+    says twice that it is the only one that does not autosave. (4)
+    `e4c6039`: 68 collisions to 0, blocks trimmed to the paper, label widths
+    measured rather than estimated, and more titles drawn than before. (5)
+    `00efef3`: the packaged build never had start.bat's splash and could not
+    have (the installer runs the exe); its splash is the pywebview window,
+    which `main()` could not open until 1,203ms of imports had finished.
+    Deferred to `_run_server`: 1,203ms to 30ms. (6) `52d0dc5`: seventeen
+    typed glyphs standing in for icons, with a lint and a sweep; a scan for
+    marketing copy found 0.
+

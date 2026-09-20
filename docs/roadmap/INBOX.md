@@ -141,29 +141,6 @@ with its owner named in the entry.
     than fixed: it is the one route in the app that rewrites every private
     note, and a button for it wants its own session.
 
-262. **Mid-work drop, 2026-09-20, verbatim (the owner), five things.** "the
-    documents editor meatball dropdown goes off the page, and I want to
-    combine the "download as" options in it into a sub menu in that dropdown
-    that you click or hover over and another side dropdown menu appears next
-    to it, like the ones in the meatball dropdowns in the your notes page.
-    also the page numbers and collapse arrows in the documents clash with
-    other page numnbers and the rendering on the live view of the documents
-    needs a lot of improvement. also in the whiteboard and mindmaps there are
-    a lot of utility things missing or not quite right in implementation,
-    like the group selection box missing a rotate node, not being able to
-    drag the edges of a group selection, if I drag the selected group, the
-    group selection box doesnt move with the selected objects when actively
-    draging them around."
-    Two screenshots. The first: the documents meatball open, its list running
-    off the bottom of the window with its own scrollbar, five "Download as"
-    and "Print" rows in the middle of it. The second: the gutter, where line
-    numbers 6 and 7 are drawn on top of each other beside a folded code
-    block, and 8 and 9 likewise.
-    Five separate things, taken in this order: (1) the menu's placement and
-    the Download submenu, (2) the gutter collision, (3) the Live view
-    rendering, (4) the group box during a drag, (5) the group box's rotate
-    and resize handles.
-
 ## Placed (last 20, newest first)
 
 - 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.

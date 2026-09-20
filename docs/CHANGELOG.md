@@ -74,6 +74,52 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Windows launchers are checked out with CRLF again. cmd.exe seeks a
+  batch label by byte offset and its scanner expects CRLF, so in an LF-only
+  file every `call :label` landed mid-line: reported from a real install as
+  "The system cannot find the batch label specified - bail_if_cancelled"
+  between steps 1 and 2 of setup, which meant answering "no" to the
+  installer did nothing at all. A `.gitattributes` rule and a lint.
+
+- The desktop window opens about a second and a quarter sooner. Starting the
+  app used to import the whole server, FastAPI and SQLAlchemy included,
+  before it had read its own command line: 1,203ms of the 1,210ms it took to
+  load the entry module. That now happens on the server thread, behind the
+  window instead of in front of it, which is also why the packaged build
+  looked like it had no splash.
+
+- Board and map previews no longer draw over themselves. Blocks are kept
+  inside the thumbnail, a caption's width is measured rather than estimated,
+  and a caption that would land on another block or another caption is moved
+  or left out. It also finds room for more titles than before, not fewer.
+
+- Lists render in the documents live view, which drew them as plain text:
+  bullets and numbers now hang in the margin with their text aligned under
+  itself, nesting is visible, and a dash is drawn as a bullet unless the
+  caret is on its line. A task's checkbox no longer makes its own line
+  taller than every other line in the document.
+
+- A group selection on a whiteboard can be resized and rotated. All eight
+  handles and the rotate dot were drawn but sat under the card layer, so six
+  of the nine could not be pressed. The outline also travels with the group
+  while it is dragged, instead of staying where the items started.
+
+- Line numbers in a document stop colliding around a fenced code block.
+
+- Ctrl+S saves your preferences, which the screen has promised for a long
+  time without anything doing it, and says so with a toast. Preferences is
+  the only settings section that does not save on its own, and now says that
+  too: once at the top, and again on the button as soon as you change
+  something.
+
+- "What it learned" uses the same switch rows as the rest of Settings. Every
+  row's name ran straight into its hint ("Night shiftReads notes you have
+  added or changed") because the rows were built from a different recipe.
+
+- Close, download and tick marks are drawn with the app's own icon set
+  instead of typed characters, so they match the icons beside them in face,
+  size and weight.
+
 - The document editor's ⋯ menu is shorter and stays on screen. Its five
   "Download as" rows and "Print or save as PDF" are one "Download or print"
   row now, opening the same side flyout the notes list's ⋯ menu already uses

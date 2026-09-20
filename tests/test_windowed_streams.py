@@ -4,7 +4,7 @@ and the app died before binding a port ("Unable to configure formatter
 'default'", INBOX 251). `_ensure_std_streams` gives both a real stream first,
 and both entry points call it before anything else can write."""
 
-import re
+import ast
 import sys
 from pathlib import Path
 
@@ -57,7 +57,35 @@ def test_uvicorns_formatter_can_be_built_without_a_console(no_console, monkeypat
 
 
 def test_both_entry_points_call_it_first():
-    main_body = SOURCE[SOURCE.index("def main() -> None:") :]
-    assert main_body.split("\n")[1].strip() == "_ensure_std_streams()"
-    server = re.search(r"def _run_server\(\) -> None:\n(.*?)\n\n", SOURCE, re.S).group(1)
-    assert server.strip().splitlines()[0].strip() == "_ensure_std_streams()"
+    """Read as a syntax tree rather than as lines of text.
+
+    The contract is "no statement runs before this one", and the line-based
+    version could only check "no *line* comes before it", which is not the
+    same claim: it failed the day `_run_server` grew a docstring explaining
+    why its imports are deferred, although nothing had moved. Walking the
+    function's own body is the stricter reading as well as the more robust
+    one, since a docstring is not a statement and a blank line is not the end
+    of a function.
+    """
+    tree = ast.parse(SOURCE)
+    functions = {
+        node.name: node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+    }
+    for name in ("main", "_run_server"):
+        body = functions[name].body
+        #: Skip the docstring, which is an expression rather than anything
+        #: that can write to a stream.
+        if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+            body = body[1:]
+        first = body[0]
+        called = (
+            isinstance(first, ast.Expr)
+            and isinstance(first.value, ast.Call)
+            and getattr(first.value.func, "id", None) == "_ensure_std_streams"
+        )
+        assert called, (
+            f"{name}() must call _ensure_std_streams() before anything else, "
+            f"not {ast.dump(first)[:80]}"
+        )

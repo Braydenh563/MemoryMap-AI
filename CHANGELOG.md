@@ -41,6 +41,8 @@ below). Versioning is `0.x` while the app stabilises.
   stranded on screen after the panel it belongs to has closed.
 ### Added
 
+- On a phone a note row swipes: right to favourite, left to move it to the
+  bin, the same two actions the row already shows, with the same undo.
 - A "New note" button in the Notes bar, and on a phone a floating + above
   the tab bar: one press opens Capture with the caret in the box. The first
   showing of Capture used to drop the focus while it built the box's gutter

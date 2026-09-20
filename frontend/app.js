@@ -2737,6 +2737,8 @@ const MEDIA_PAGE_SIZE = 200;
 //: states draw `ph:star` and the difference is `is-favourite`, plus
 //: `aria-pressed`, which is what makes the state readable without the colour.
 function favouriteButton(entry) {
+  //: `.favourite-btn` names the control for the phone's swipe (`initRowSwipe`),
+  //: which presses it rather than carrying a second copy of the toggle.
   const button = smallButton(
     "ph:star",
     entry.pinned ? "Remove from Favourites" : "Add to Favourites (also floats it to the top)",
@@ -2759,6 +2761,7 @@ function favouriteButton(entry) {
       await loadEntries();
     }
   );
+  button.classList.add("favourite-btn");
   button.classList.toggle("is-favourite", Boolean(entry.pinned));
   button.setAttribute("aria-pressed", String(Boolean(entry.pinned)));
   return button;
@@ -2768,10 +2771,37 @@ function favouriteButton(entry) {
 // "2 hours ago" style, with the exact date kept for the hover tooltip
 // (Wave J). Anything older than a week just shows the date.
 
+// The row menu's "Move to bin", as one function, because the phone's swipe
+// (`initRowSwipe`) is the same action from a different gesture and must not
+// carry a second copy of it. Instant + one-click Undo, soft delete
+// underneath (Wave J). Also on the global undo stack (status bar / Ctrl+Z),
+// so it survives past the toast's own timeout.
+async function binNoteWithUndo(entry) {
+  await api(`/entries/${entry.id}`, { method: "DELETE" });
+  await loadEntries();
+  const restoreIt = async () => {
+    await api(`/entries/${entry.id}/restore`, { method: "POST" });
+    await loadEntries();
+  };
+  const binIt = async () => {
+    await api(`/entries/${entry.id}`, { method: "DELETE" });
+    await loadEntries();
+  };
+  const action = pushUndo("Moved a note to the bin", restoreIt, binIt);
+  toastAction("Moved to the recycle bin.", "Undo", async () => {
+    settleUndoFromToast(action);
+    await restoreIt();
+    toast("Note restored.");
+  });
+}
+
 function entryItem(entry, options = {}) {
   const li = document.createElement("li");
   li.dataset.id = entry.id;
   if (entry.id === linkSource) li.classList.add("link-source");
+  // Read by the phone's swipe underlay, which says "Unfavourite" on a row
+  // that already is one (10-responsive.css).
+  if (entry.pinned) li.classList.add("is-favourite-row");
   // An opened-out row renders as the full card, see `expandedRows`. The
   // class does nothing in card view, where every note is already this shape.
   if (expandedRows.has(entry.id)) li.classList.add("row-expanded");
@@ -5293,27 +5323,7 @@ function entryOverflowMenu(entry) {
     const danger = {
       label: "ph:trash Move to bin",
       danger: true,
-      // Instant + one-click Undo, soft delete underneath (Wave J). Also on the
-      // global undo stack (status bar / Ctrl+Z), so it survives past the
-      // toast's own timeout.
-      run: async () => {
-        await api(`/entries/${entry.id}`, { method: "DELETE" });
-        await loadEntries();
-        const restoreIt = async () => {
-          await api(`/entries/${entry.id}/restore`, { method: "POST" });
-          await loadEntries();
-        };
-        const binIt = async () => {
-          await api(`/entries/${entry.id}`, { method: "DELETE" });
-          await loadEntries();
-        };
-        const action = pushUndo("Moved a note to the bin", restoreIt, binIt);
-        toastAction("Moved to the recycle bin.", "Undo", async () => {
-          settleUndoFromToast(action);
-          await restoreIt();
-          toast("Note restored.");
-        });
-      },
+      run: () => binNoteWithUndo(entry),
     };
 
     for (const item of topLevel) menu.appendChild(buildMenuItemButton(item));
@@ -37903,6 +37913,99 @@ function mountPhoneSidebarOpeners() {
 }
 
 mountPhoneSidebarOpeners();
+
+// --- swipe a row: star to the right, bin to the left --------------------------
+// UI_MODERNISATION_PLAN Phase 11 item 2: "the list as full-width rows with
+// swipe actions (pin, bin) matched to the row's menu (the HIG rule)". The
+// rule is the whole design: a swipe is a shortcut to something the row
+// already offers where a person can see it, never the only way to it, and
+// never a third copy of the action. So the swipe presses the row's own
+// controls: the star button (`.favourite-btn`, visible on the row) and the
+// row menu's "Move to bin" (`binNoteWithUndo`, the one function that menu
+// row calls, undo toast and all). Nothing here knows what favouriting or
+// binning does.
+//
+// One delegated set of listeners on the list, so re-rendered rows need no
+// wiring. Touch only, and only in the phone band: a mouse has the controls
+// under it already. The row's children slide on `--swipe-x` and the row's
+// own `::before`/`::after` are the two coloured underlays that appear in
+// the gap (10-responsive.css); past `ROW_SWIPE_ARM` the underlay saturates
+// to say a lift-off will act. `touch-action: pan-y` on the row is what
+// makes the horizontal drag ours and the vertical one the page's: the
+// first 8px decide which, and a vertical start hands the pointer back.
+const ROW_SWIPE_ARM = 88;
+const ROW_SWIPE_MAX = 124;
+
+function initRowSwipe() {
+  const list = document.getElementById("entry-list");
+  if (!list) return;
+  let row = null;
+  let startX = 0;
+  let startY = 0;
+  let dx = 0;
+  let decided = false;
+
+  const settle = (li) => {
+    li.classList.add("is-settling");
+    li.style.setProperty("--swipe-x", "0px");
+    li.classList.remove("swipe-left", "swipe-right", "swipe-armed", "is-swiping");
+    setTimeout(() => li.classList.remove("is-settling"), 240);
+  };
+
+  list.addEventListener("pointerdown", (event) => {
+    if (event.pointerType !== "touch" || !window.matchMedia(PHONE_TABS).matches) return;
+    const li = event.target.closest("li[data-id]");
+    if (!li || li.querySelector("textarea")) return; // the edit form is not a row
+    if (event.target.closest("button, a, input, select, [contenteditable]")) return;
+    row = li;
+    startX = event.clientX;
+    startY = event.clientY;
+    dx = 0;
+    decided = false;
+  });
+
+  list.addEventListener("pointermove", (event) => {
+    if (!row) return;
+    const mx = event.clientX - startX;
+    const my = event.clientY - startY;
+    if (!decided) {
+      if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+      decided = true;
+      if (Math.abs(my) > Math.abs(mx)) {
+        row = null; // a scroll, the page's
+        return;
+      }
+      row.classList.add("is-swiping");
+    }
+    dx = Math.max(-ROW_SWIPE_MAX, Math.min(ROW_SWIPE_MAX, mx));
+    row.style.setProperty("--swipe-x", `${dx}px`);
+    row.classList.toggle("swipe-right", dx > 0);
+    row.classList.toggle("swipe-left", dx < 0);
+    row.classList.toggle("swipe-armed", Math.abs(dx) >= ROW_SWIPE_ARM);
+  });
+
+  const end = () => {
+    if (!row) return;
+    const li = row;
+    const travelled = dx;
+    row = null;
+    settle(li);
+    if (Math.abs(travelled) < ROW_SWIPE_ARM) return;
+    if (travelled > 0) {
+      li.querySelector(".favourite-btn")?.click();
+      return;
+    }
+    // The menu builds its rows on open, so the bin is reached as the one
+    // function the menu's own row calls, not by pressing a row that does
+    // not exist yet.
+    const entry = allEntries.find((e) => String(e.id) === li.dataset.id);
+    if (entry) binNoteWithUndo(entry);
+  };
+  list.addEventListener("pointerup", end);
+  list.addEventListener("pointercancel", end);
+}
+
+initRowSwipe();
 
 // --- a sheet, the phone's own dialog ------------------------------------------
 // DESIGN.md's recipe index, "A sheet". UI_MODERNISATION_PLAN.md Phase 11.

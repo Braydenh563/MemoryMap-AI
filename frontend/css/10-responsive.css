@@ -1451,3 +1451,84 @@ header#top-bar,
   }
 }
 
+/* --- Phase 11 item 2: a row swiped, star right and bin left ------------------
+   `initRowSwipe` (app.js) writes `--swipe-x` on the row and the classes
+   below; this draws it. The row's children slide as one; the underlays are
+   the row's own pseudo-elements, sized to the gap the slide opens, so nothing
+   is added to the DOM per row and a row that is never swiped costs nothing.
+   The colours are the two soft tokens the app already uses for "this is a
+   favourite" and "this is destructive"; past the arm point they saturate.
+   Touch only in effect (the script never starts a swipe for a mouse), but
+   the rules are harmless on a desktop: with no `--swipe-x` set nothing
+   moves and both underlays are zero wide. */
+@media (max-width: 599.98px) {
+
+  .entry-list li {
+    --swipe-x: 0px;
+    position: relative;
+    overflow: hidden;
+    touch-action: pan-y;
+  }
+
+  .entry-list li > * {
+    transform: translateX(var(--swipe-x));
+  }
+
+  .entry-list li.is-settling > * {
+    transition: transform var(--motion-base) ease;
+  }
+
+  .entry-list li::before,
+  .entry-list li::after {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  .entry-list li::before {
+    content: "Favourite";
+    left: 0;
+    justify-content: flex-start;
+    padding-left: var(--space-4);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .entry-list li::after {
+    content: "Bin";
+    right: 0;
+    justify-content: flex-end;
+    padding-right: var(--space-4);
+    background: var(--error-soft);
+    color: var(--error);
+  }
+
+  .entry-list li.is-favourite-row::before {
+    content: "Unfavourite";
+  }
+
+  .entry-list li.swipe-right::before {
+    width: var(--swipe-x);
+  }
+
+  .entry-list li.swipe-left::after {
+    width: calc(-1 * var(--swipe-x));
+  }
+
+  .entry-list li.swipe-armed.swipe-right::before {
+    background: color-mix(in srgb, var(--accent) 32%, transparent);
+  }
+
+  .entry-list li.swipe-armed.swipe-left::after {
+    background: color-mix(in srgb, var(--error) 32%, transparent);
+  }
+}
+

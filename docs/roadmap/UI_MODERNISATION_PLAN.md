@@ -758,8 +758,16 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
      (`phonecapture.js`): the + is 44px at bottom right above the tab bar,
      one press lands the caret in the live editor, the + is gone while
      Capture shows, and at 1024 the button is back in the dock, filled.
-     Still open in this item: swipe actions on rows, the note page with a
-     back button and a bottom bar.
+   - **Swipe actions: built** (2026-09-20). Right favourites, left bins,
+     each the row's own control (`.favourite-btn`; `binNoteWithUndo`, the
+     function the row menu's "Move to bin" calls, undo toast and all), never
+     a second copy. Measured with real touch events through CDP
+     (`scratchpad/ui-sweeps/phoneswipe.js`): a 40px swipe reveals 40px of
+     underlay, does not arm and settles to 0; 110px right arms and the note
+     is a favourite; a 6x80 vertical drag never moves the row; 110px left
+     arms and the note is in the bin with the undo toast up. No page
+     errors; `phone.js` 0 findings. Still open in this item: the note page
+     with a back button and a bottom bar.
 3. **Chat.** The composer above the keyboard with the attachments and
    mode in one row; sources as a sheet; the sidebar as a sheet from the
    left edge; the popup agent unavailable on the phone (the chat is the

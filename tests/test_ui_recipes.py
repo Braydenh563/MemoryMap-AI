@@ -1488,3 +1488,20 @@ def test_every_sidebar_gets_the_phone_opener_from_the_one_function():
     for ident in sidebars:
         assert f"#{ident}:not(.sidebar-sheet-open)" in band, f"#{ident} keeps its rail on a phone"
 
+
+def test_the_row_swipe_presses_the_rows_own_actions():
+    """Phase 11 item 2, the HIG rule: a swipe action matches the row's menu.
+    The swipe may only reach the star button the row shows and the one bin
+    function the row menu's own item calls; a swipe that grew an action of
+    its own would be the third copy of a verb, and the first one nobody can
+    see."""
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    start = app.index("function initRowSwipe()")
+    body = app[start : app.index("initRowSwipe();", start)]
+    assert '".favourite-btn"' in body
+    assert "binNoteWithUndo(" in body
+    assert "fetch(" not in body and "api(" not in body, "the swipe calls the row's actions, never the API"
+    menu = app[app.index('label: "ph:trash Move to bin"') :][:200]
+    assert "binNoteWithUndo(" in menu, "the menu row and the swipe must call the same function"
+    assert "favourite-btn" in app[app.index("function favouriteButton(") :][:800]
+

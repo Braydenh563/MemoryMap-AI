@@ -114,11 +114,14 @@ const READ = (el) => {
   }, READ_SRC);
 
   // The same document, rendered.
-  await page.evaluate(() => { if (typeof setDocView === 'function') setDocView('preview'); });
+  // "rendered", not "preview": DOC_VIEWS is source/live/split/rendered/plain,
+  // and an unknown mode falls back to "source", which is why the first run of
+  // this probe compared the live view with an empty pane.
+  await page.evaluate(() => { if (typeof setDocView === 'function') setDocView('rendered'); });
   await page.waitForTimeout(2500);
   const preview = await page.evaluate((readSrc) => {
     window.__read = new Function(`return (${readSrc})`)();
-    const host = document.querySelector('#doc-preview, .doc-preview, #doc-rendered') || document;
+    const host = document.getElementById('doc-preview') || document;
     const pick = (sel) => { const el = host.querySelector(sel); return el ? window.__read(el) : null; };
     return {
       found: host !== document,

@@ -99,6 +99,14 @@ def _source() -> str:
         + "\n"
         + SETTINGS.read_text(encoding="utf-8")
     )
+    #: Line comments first, then blocks. The other way round, a `/*` written
+    #: inside a `//` line is read as a block comment opening and everything to
+    #: the next `*/` is deleted with it: a comment naming `frontend/` with a
+    #: star and `.js` did exactly that in `test_feature_catalog.py`, losing
+    #: 950 lines of app.js and 13 declarations, and reporting the absence as a
+    #: finding. Nothing here depended on the swallowed region yet, which is
+    #: luck rather than design.
+    combined = re.sub(r"^\s*//.*$", "", combined, flags=re.M)
     return re.sub(r"/\*.*?\*/", "", combined, flags=re.S)
 
 

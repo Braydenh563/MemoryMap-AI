@@ -344,10 +344,10 @@ which is its own slow cost when the next session reads it. The same three sympto
 console are the signature: one real error, then `X is not defined` and
 `Cannot access Y before initialization` from everything declared after it.
 
-## How to proceed after PR 144 (the owner asked, 2026-09-14)
+## How to proceed after PR 149 (the owner asked, 2026-09-14)
 
-The full answer is `docs/ROADMAP.md`, "How to proceed after PR 144",
-rewritten today to 147 lines: the plan table with where each plan stands,
+The full answer is `docs/ROADMAP.md`, "How to proceed after PR 149",
+written for PR 144 and brought forward on 2026-09-20: the plan table with where each plan stands,
 the ordered queue (speed budget H7, the professional-use block BACKLOG
 115, `agent-remaining/OPEN.md` surface by surface with each plan's open
 phase, UI Phase 11, then WORLD_CLASS_PLAN 18's horizon H1 to H8), and the
@@ -358,6 +358,108 @@ open lives in HANDOVER or HISTORY. A session starts by reading CLAUDE.md,
 this file's standing orders and Now line, INBOX, then `OPEN.md` and the
 plan for the surface in hand. Brief 33 in SESSION_BRIEFS is the next
 session's brief.
+
+**Now (2026-09-19 night, Opus alone, the owner asleep): PR #149 is open,
+CI running, and the whiteboard works again.** The owner's week of outside
+changes came in as one commit, `b387b17`. It ran a regex codemod over
+`whiteboard.js` (committed beside it as `fix_wb.js`, with a hardcoded
+`c:\Projects\...` path) and deleted **ten live functions** along with the
+two it meant to replace: `WB_KIND_INFO` (26 call sites), `wbItemTransform`
+(14, and it is what positions every card), `wbBeginTextEdit` (9),
+`wbStableDragContainer` (6), `wbAngleFromCenterDeg` (3) and five more. The
+board threw on its first render and drew nothing. Reverted whole; its three
+sound ideas re-applied properly.
+
+Built tonight, each measured, each its own commit:
+the Windows console-window flag on every spawn plus a lint
+(`tests/test_subprocess_no_window.py`); the Tesseract registry and
+LOCALAPPDATA probe; **`tests/test_frontend_symbols.py`**, which catches a
+call to a function that does not exist and found three live ones nobody had
+seen (`loadAllNotes`, `loadChatHistory`, `openEntryEditor`); INBOX 238 in
+all three parts; INBOX 232's code fences and link chips; INBOX 226
+reproduced and named at last (the dashboard art widget at 59 fps, ignoring
+Reduce motion and Performance mode, now 0 fps under both); the note list's
+load on four thousand notes from 1.8 s to 0.9 s; the Docker probe cached;
+the settings search cached; Settings, Extras' sideways scroll; a group's
+selection box around rotated cards; and alignment guides for a group drag.
+
+**Later the same night, still alone.** A scan of all 319 routes against
+every path the frontend fetches (`scratchpad/probe_dead_routes.py`, new)
+found a whole plan item built and unreachable: WORLD_CLASS_PLAN **I9's
+backend had shipped on 2026-09-13 with no screen at all**, so
+`derived_facts` grew where nobody could read it. Built its Settings
+section, "What it learned", against what the backend actually ships (no
+bulk actions: there is no `POST /learned/bulk`), and wired three more dead
+routes while there: `POST /night/run` as "Read my notes now", `GET
+/search/stats` as the search-index row in About, and `POST /drafts/title`
+as "Suggest a title" in the Writing Room. `GET /tags` now feeds the tag
+autocomplete, which was built from the loaded pages and sorted
+alphabetically. One backend bug fell out of finally calling a route:
+`facts.listing` counted rows its own search had excluded.
+
+INBOX 225 is closed, both halves: Settings, Models reads "Atlas, running
+qwen2.5:7b", and 68 strings plus 41 pieces of markup that said "the AI"
+now say Atlas, held by a lint with no allowance list
+(`tests/test_ai_name.py`). 256 closed (four test-only helpers deleted,
+their coverage moved onto the functions the app calls first). 259 closed:
+the minimap NaN reproduced, the stack named `graphMinimapFrame`, and the
+guard there had been half written.
+
+Three sweeps are new and in the gate's `--sweeps` set: `keyboard.js`
+(where Tab actually lands), `requests.js` (a request that fails where
+nobody is told), and `leaks.js` from earlier. The app passes all three.
+
+**Into the small hours, 2026-09-20.** INBOX 246 built, both halves: a note
+says what points at it (boards, maps, documents, notes, with "on it",
+"links to it" or "mentions it" beside each) and can be put on a board or a
+map from its own menu, which writes the same `WhiteboardNode` row the board
+would have written itself. 260 taken (Battery-efficient mode stops the two
+moving pictures, and says so). 257 closed without a change, because the
+scan behind it was reading template literals as dead code. 232's other half
+measured and closed. 220's last two pieces written, so `docs/ROADMAP.md`'s
+"How to proceed" is now about this PR.
+258 was built and taken back out, which is the entry worth reading: the pan
+measures clean and the half that stops a context menu opening at the end of
+a drag could not be measured here, so the code came out and the acceptance
+test stayed (`scratchpad/ui-sweeps/wbrightpan.js`, written first, failing).
+
+**Morning, 2026-09-20: INBOX 262 and 263 are closed, all eleven parts.** Two
+mid-work drops arrived together and both are done.
+
+From 262: the documents menu folds its five downloads into one submenu and
+clamps sideways (`5a61cb5`); the gutter collision was my own
+`cm-md-fence-quiet`, now off while the numbers are on, with the plugin
+rebuilding on the compartment reconfigure that was the missing half
+(`b0c8931`); the Live view **rendered lists as plain text and now renders
+them**, hanging indent, visible nesting, a bullet for the dash, and a task
+checkbox that no longer makes its line 34px in a 26px document (`557decf`);
+the group selection box travels with a drag and is rebuilt where the items
+land (`7f1d730`); and its handles were never missing, they were **under the
+card layer**, six of nine unpressable, measured with `elementFromPoint` and
+fixed by moving the chrome to the overlay (`fdd40ca`).
+
+From 263: the "What it learned" switches are built from DESIGN's own
+`.setting-check` recipe (`a01d6e5`); **`bail_if_cancelled` was a line
+endings bug**, `.gitattributes` checking every `.bat` out LF-only while
+cmd.exe seeks a label by byte offset, so every cancel in the installer was
+silently ignored (`1ddd907`); ctrl+s in Preferences had never been
+implemented although the copy promised it, and the section now says twice
+that it is the only one that does not autosave (`6e39399`); the board and
+map previews went from 68 collisions to 0, with blocks trimmed to the paper
+and label widths measured rather than estimated (`e4c6039`); the packaged
+splash was **1,203ms of imports before `main()` could run**, now 30ms
+(`00efef3`); and seventeen typed glyphs standing in for icons became
+Phosphor, with a lint and a sweep (`52d0dc5`).
+
+Three new guards in the gate: `tests/test_no_glyph_icons.py`, the
+`previewclash` sweep, and the CRLF lint in `test_launcher_scripts.py`.
+`test_windowed_streams.py` now reads its contract as a syntax tree, since
+the line-based version failed on a docstring without anything having moved.
+
+Open in INBOX, five: 213 and 228 (the owner's, the merge is the last act),
+253 (the one-click repair, a launcher task), 258 and 261. OPEN.md's row 232 was stale and is corrected in place: tables,
+callouts, task lists and images all already render in the Live view,
+measured, so nobody rebuilds them.
 
 **Now (2026-09-14 midday, Fable orchestrating): PR #144 waits on the
 owner's go-ahead to merge; CI on the head is the last gate.** Every agent
@@ -374,7 +476,7 @@ next tag carries it. **After the merge:** tag `v0.3.0`, which builds the
 installers; the owner's brother needs that installer. **Next PR:**
 `docs/roadmap/agent-remaining/OPEN.md`, "What is left after PR 144", is
 the whole list in build order (the owner's reports, the plan tails, the
-horizon); `docs/ROADMAP.md`, "How to proceed after PR 144", is the method. Traps this session: a search-and-replace that
+horizon); `docs/ROADMAP.md`, "How to proceed after PR 149", is the method. Traps this session: a search-and-replace that
 rewrites a function's own body (`fetchDashStats` recursed), an early
 return above the branch meant to handle the case (`startBgArt`),
 `DOMContentLoaded` in a file that loads on demand (nine wirings never

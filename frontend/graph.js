@@ -460,6 +460,8 @@ function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial) {
     spanY * scale <= height - 20
       ? height / 2 - scale * (minY + maxY) / 2
       : 10 - scale * minY;
+  //: Same rule as `fitGraphToView`: see the note beside its own check.
+  if (!graphMinimapFinite(tx, ty, scale)) return;
   svg
     .transition()
     .duration(400)
@@ -1001,7 +1003,7 @@ function renderTraceReadout(result) {
   const storyOpener = document.createElement("summary");
   storyOpener.className = "graph-trace-note story-mode-btn";
   setLabel(storyOpener, "ph:magic-wand Generate from path");
-  storyOpener.title = "Build something out of this path, using the AI locally";
+  storyOpener.title = "Build something out of this path, using Atlas locally";
   const caret = document.createElement("i");
   caret.className = "ph ph-caret-down doc-toolbar-menu-caret";
   caret.setAttribute("aria-hidden", "true");
@@ -1281,7 +1283,7 @@ function askLinkDetails(from, to) {
     const reasonBox = document.createElement("input");
     reasonBox.type = "text";
     reasonBox.maxLength = 200;
-    reasonBox.placeholder = "Left blank, the AI will try to work it out";
+    reasonBox.placeholder = "Left blank, Atlas will try to work it out";
     reasonLabel.append(reasonText, reasonBox);
     card.appendChild(reasonLabel);
 
@@ -1555,8 +1557,19 @@ async function renderGraphSvg() {
     ? `/graph/local/${graphFocusModeId}?depth=2&similarity=${wantSimilarity}`
     : `/graph?${wantSimilarity ? "similarity=true&" : ""}${wantEntities ? "include_entities=true&" : ""}${wantDocuments ? "include_documents=true&" : ""}${wantMaps ? "include_maps=true" : ""}`;
     
+  //: A failed read is not an empty graph. Reported class of bug: the map
+  //: drew "Nothing to map yet" over a notebook full of linked notes because
+  //: the only thing distinguishing the two was a null this returned silently.
+  //: See `surfaceFailed` in app.js.
   const data = await apiJson(endpoint).catch(() => null);
-  if (!data) return;
+  if (!data) {
+    surfaceFailed(document.getElementById("graph-empty"), "map", renderGraph);
+    //: And the overview goes with the map it summarises, exactly as it does
+    //: when there is nothing to map.
+    graphMinimapShown(false);
+    return;
+  }
+  surfaceRecovered(document.getElementById("graph-empty"));
 
   if (graphSimulation) graphSimulation.stop();
   const svg = d3.select("#graph-svg");
@@ -1578,6 +1591,12 @@ async function renderGraphSvg() {
   const empty = $("graph-empty");
   empty.style.display = data.nodes.length > 0 ? "none" : "grid";
   empty.classList.toggle("hidden", data.nodes.length > 0);
+  //: The minimap goes with it. Measured: on an empty graph the render path
+  //: returns before `graphMinimapPaint` is ever reached, so the guard inside
+  //: the paint could not fire and the empty box stayed on screen under the
+  //: top bar. This line is the one place that already knows, authoritatively,
+  //: whether there is a map at all.
+  graphMinimapShown(data.nodes.length > 0);
 
   // Colour legend: one dot per category, same scale as the nodes.
   const color = d3.scaleOrdinal(
@@ -3051,6 +3070,18 @@ function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height) {
   const scale = Math.max(0.25, Math.min(2.5, rawScale));
   const tx = width / 2 - scale * (minX + maxX) / 2;
   const ty = height / 2 - scale * (minY + maxY) / 2;
+  //: **A transform is never built out of a number that is not one.** This is
+  //: the app's own producer of the zoom transform, and d3 stores what it is
+  //: handed: one NaN here becomes a NaN `k`, `x` and `y` on the node, and
+  //: every later reader of it (the minimap's viewport rectangle, the zoom
+  //: strip, a saved view) reads NaN out again, for as long as the person
+  //: stays on the tab. `Math.max(0.25, Math.min(2.5, NaN))` is NaN, so the
+  //: clamps above are not the guard they look like: `Math.min` and
+  //: `Math.max` propagate NaN rather than clamping it away, which is how an
+  //: undefined width or a node with no position reaches this line looking
+  //: clamped. Skipping the fit leaves the camera where it is, which is what
+  //: a fit that cannot be computed should do.
+  if (!graphMinimapFinite(tx, ty, scale)) return;
   svg
     .transition()
     .duration(500)
@@ -3173,7 +3204,7 @@ function renderGraphPopupHeader(entry, node) {
   confidence.classList.toggle("hidden", !hasConfidence);
   if (hasConfidence) {
     confidence.textContent = `${entry.ai_confidence}%`;
-    confidence.title = `The AI was ${entry.ai_confidence}% confident filing this note`;
+    confidence.title = `Atlas was ${entry.ai_confidence}% confident filing this note`;
   }
 
   const category = $("graph-popup-category");
@@ -3683,7 +3714,7 @@ function renderGraphPopupActions(entry) {
   open.classList.add("graph-popup-tool-primary");
   read.appendChild(open);
   read.appendChild(
-    smallButton("≈", "Highlight notes that mean something similar", async () => {
+    smallButton("ph:approximate-equals", "Highlight notes that mean something similar", async () => {
       const related = await apiJson(`/entries/${entry.id}/related`).catch(() => []);
       if (!related.length) {
         toast("No similar notes found.");
@@ -4138,11 +4169,41 @@ function graphMinimapEdgePairs() {
 // rather than cached: the force layout keeps moving until it cools, so a
 // cached extent would be wrong for the first few seconds, which is exactly
 // when someone is watching it settle.
+//: **An overview of nothing is not an overview.** Reported with a screenshot
+//: of the empty graph: *"the empty minimap goes behind the top bar and sits
+//: right in the corner with no gap. the mini map probably shouldnt even
+//: appear when the graph is empty."* Both halves are the same fact. The paint
+//: below has always bailed out when there was nothing to plot, which left the
+//: box itself on screen holding an empty rectangle, and measured
+//: (`scratchpad/ui-sweeps/graphminimap.js`) the empty state lays the card out
+//: differently enough that the box lands at y=73 against a dock ending at
+//: y=132, so it is drawn under the top bar as well. A box with no dots has
+//: nothing to say either way, so it goes.
+//:
+//: `hidden` rather than a new class, because that is what the corner setting
+//: already toggles, and `applyMinimapPosition` re-adds it on the next paint:
+//: the two cannot fight, since neither ever removes `hidden` for a graph that
+//: has no nodes.
+function graphMinimapShown(shown) {
+  const box = document.getElementById("graph-minimap");
+  //: Never over the person's own choice: "off" is a setting, and a graph
+  //: filling up is not a reason to overrule it.
+  if (!box || localStorage.getItem(GRAPH_MINIMAP_CORNER_KEY) === "off") return;
+  box.classList.toggle("hidden", !shown);
+}
+
 function graphMinimapPaint() {
   const svg = document.getElementById("graph-minimap-svg");
-  if (!svg || !graphNodesRef?.length) return;
+  if (!svg || !graphNodesRef?.length) {
+    graphMinimapShown(false);
+    return;
+  }
   const nodes = graphNodesRef.filter((n) => Number.isFinite(n.x) && Number.isFinite(n.y));
-  if (!nodes.length) return;
+  if (!nodes.length) {
+    graphMinimapShown(false);
+    return;
+  }
+  graphMinimapShown(true);
 
   const xs = nodes.map((n) => n.x);
   const ys = nodes.map((n) => n.y);
@@ -4275,6 +4336,15 @@ function graphMinimapPaint() {
   graphMinimapFrame();
 }
 
+//: Every number that reaches an SVG attribute goes through here first. Named
+//: rather than inlined because it is checked in three places in this file and
+//: the shape of the bug it prevents (one NaN, four broken attributes, a
+//: console full of parse errors and a rectangle that vanishes) is the same
+//: every time.
+function graphMinimapFinite(...values) {
+  return values.every((value) => Number.isFinite(value));
+}
+
 //: **The viewport rectangle alone, for a pan.**
 //:
 //: Which part of the map is on screen is the only thing a pan or a zoom
@@ -4297,7 +4367,24 @@ function graphMinimapFrame() {
     return;
   }
   const transform = graphSvg ? d3.zoomTransform(graphSvg.node()) : null;
-  if (!transform || !graphDims.w) return;
+  //: **The guard checks what it reads, all of it.** It used to check
+  //: `graphDims.w` and stop there, which left `graphDims.h` and the whole
+  //: transform unchecked. Measured, intermittently, on a four thousand note
+  //: notebook: 112 console errors in one sweep, `<rect> attribute x: Expected
+  //: length, "NaN"` and the same for y, width and height, twenty-eight times
+  //: over. Captured at the moment of the write, `graphDims` was 800x540 and
+  //: every node position was finite; `d3.zoomTransform` itself held NaN in
+  //: `k`, `x` and `y`, and `invert` on a NaN transform is NaN, which lands in
+  //: four attributes at once. d3 stores whatever transform it is handed and
+  //: has no opinion about NaN, so a reader has to have one.
+  //:
+  //: `fitGraphToView` below refuses to *build* such a transform now, which is
+  //: the producer this app controls. This is the reader's half, and it is
+  //: worth keeping separately: the browser's own zoom gestures write the
+  //: transform too, and a rectangle left where it was beats four attributes
+  //: the SVG cannot parse.
+  if (!transform || !graphMinimapFinite(transform.k, transform.x, transform.y)) return;
+  if (!graphMinimapFinite(graphDims.w, graphDims.h) || !graphDims.w) return;
   const [x0, y0] = transform.invert([0, 0]);
   const [x1, y1] = transform.invert([graphDims.w, graphDims.h]);
   const [fx0, fy0] = toMini(x0, y0);
@@ -4314,6 +4401,11 @@ function graphMinimapFrame() {
   const clampedY1 = Math.min(GRAPH_MINIMAP_H, Math.max(fy0, fy1));
   const frameW = Math.max(0, clampedX1 - clampedX0);
   const frameH = Math.max(0, clampedY1 - clampedY0);
+  //: Last line of defence, and cheap: `toMini` is a closure over a previous
+  //: paint's extent, so the four numbers above can go non-finite for a reason
+  //: neither guard above can see. Leaving the rectangle where it was is
+  //: always better than writing "NaN" into an attribute.
+  if (!graphMinimapFinite(clampedX0, clampedY0, frameW, frameH)) return;
   frame.setAttribute("x", clampedX0.toFixed(1));
   frame.setAttribute("y", clampedY0.toFixed(1));
   frame.setAttribute("width", frameW.toFixed(1));
@@ -4391,6 +4483,10 @@ function initGraphMinimap() {
   // tracking it. A single click still animates, because a jump that teleports
   // loses you your bearings.
   const centreOn = (cx, cy, scale, animate) => {
+    //: The minimap's own way of writing the transform, and it reads
+    //: `graphDims` and a projected point, so it is guarded for the reason
+    //: `fitGraphToView` is.
+    if (!graphMinimapFinite(graphDims.w, graphDims.h, cx, cy, scale)) return;
     const target = d3.zoomIdentity
       .translate(graphDims.w / 2, graphDims.h / 2)
       .scale(scale)
@@ -4467,9 +4563,16 @@ function initGraphMinimap() {
     if (!box) return;
     const chosen = GRAPH_MINIMAP_CORNERS.includes(choice) ? choice : "tl";
     for (const c of GRAPH_MINIMAP_CORNERS) box.classList.remove(`graph-minimap-${c}`);
-    box.classList.toggle("hidden", chosen === "off");
-    if (chosen !== "off") {
+    //: Choosing a corner is not, on its own, a claim that there is anything
+    //: to show. This used to `toggle("hidden", chosen === "off")`, which
+    //: un-hid the box unconditionally, and since it runs after the first
+    //: render it put the empty box back on screen every time. `graphMinimapPaint`
+    //: below has the last word: it hides the box again when there are no dots.
+    if (chosen === "off") {
+      box.classList.add("hidden");
+    } else {
       box.classList.add(`graph-minimap-${chosen}`);
+      box.classList.remove("hidden");
       graphMinimapPaint();
     }
     const picker = document.getElementById("graph-minimap-corner");
@@ -4638,8 +4741,18 @@ function renderGraphViews() {
     select.appendChild(option);
   }
   select.disabled = !views.length;
+  //: **A disabled control says why it is disabled.** Found by the vibecoded
+  //: sweep (`scratchpad/ui-sweeps/vibecheck.js`), which counts exactly this:
+  //: a greyed control with no title and no described-by leaves the reader
+  //: with no way to find out what would turn it back on, which reads as the
+  //: app being broken rather than as nothing having been saved yet.
+  const why = "Save a view first: the Save this view row in this menu";
+  select.title = views.length ? "Jump to a saved view" : why;
   const remove = document.getElementById("graph-view-delete");
-  if (remove) remove.disabled = !views.length;
+  if (remove) {
+    remove.disabled = !views.length;
+    remove.title = views.length ? "Delete the view chosen above" : why;
+  }
 }
 
 function initGraphViews() {

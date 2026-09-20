@@ -387,13 +387,6 @@ function gcHexToRgb(colour) {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-function gcShade(colour, towards, t) {
-  const rgb = gcHexToRgb(colour);
-  if (!rgb) return colour;
-  const mix = rgb.map((c) => Math.round(c + (towards - c) * t));
-  return `rgb(${mix[0]}, ${mix[1]}, ${mix[2]})`;
-}
-
 function gcNodeSprite(colour, radiusPx, hub) {
   const r = Math.max(2, Math.round(radiusPx));
   const key = `${colour}|${r}|${hub ? 1 : 0}|${gcTokens.card}`;
@@ -1770,7 +1763,7 @@ function gcShowNodeMenu(node, clientX, clientY, s = gcTab) {
 //: are". One sentence, written once here, given in all three places.
 const GC_ENTITY_CATEGORY = "Entity";
 const GC_ENTITY_HELP =
-  "An entity is a person, place or thing the AI found named across your notes, " +
+  "An entity is a person, place or thing Atlas found named across your notes, " +
   "joined to every note that mentions it";
 
 function gcTooltip(node, s = gcTab) {
@@ -2009,8 +2002,19 @@ async function renderGraphCanvas(s = gcTab) {
     : `/graph?${wantSimilarity ? "similarity=true&" : ""}${wantEntities ? "include_entities=true&" : ""}${
         wantDocuments ? "include_documents=true&" : ""
       }${wantMaps ? "include_maps=true" : ""}`;
+  //: A failed read is not an empty graph. Reported class of bug: the map
+  //: drew "Nothing to map yet" over a notebook full of linked notes because
+  //: the only thing distinguishing the two was a null this returned silently.
+  //: See `surfaceFailed` in app.js.
   const data = await apiJson(endpoint).catch(() => null);
-  if (!data) return;
+  if (!data) {
+    surfaceFailed(document.getElementById("graph-empty"), "map", renderGraph);
+    //: And the overview goes with the map it summarises, exactly as it does
+    //: when there is nothing to map.
+    graphMinimapShown(false);
+    return;
+  }
+  surfaceRecovered(document.getElementById("graph-empty"));
   // A slow answer that has been overtaken by a newer render must not paint
   // over it. The SVG path had the same race and answered it by clearing the
   // SVG; a canvas has nothing to clear, so the sequence number is the guard.
@@ -2024,6 +2028,11 @@ async function renderGraphCanvas(s = gcTab) {
   const empty = document.getElementById("graph-empty");
   empty.style.display = data.nodes.length > 0 ? "none" : "grid";
   empty.classList.toggle("hidden", data.nodes.length > 0);
+  //: The minimap goes with the map, here as in `renderGraphSvg`: an overview
+  //: of nothing is a grey rectangle in a corner. Reported against this
+  //: renderer, which is the default, so the SVG one's copy of this line alone
+  //: changed nothing on screen (measured).
+  graphMinimapShown(data.nodes.length > 0);
 
   const colour = d3.scaleOrdinal(data.categories, d3.schemeTableau10.concat(d3.schemeSet3));
   const clusterColour = d3.scaleOrdinal(d3.schemeTableau10.concat(d3.schemeSet3));

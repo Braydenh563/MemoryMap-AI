@@ -14,8 +14,10 @@ from __future__ import annotations
 import logging
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
+from memorymap.core.subproc import NO_WINDOW
 from memorymap.search import searxng_manager, websearch
 from memorymap.search.searxng_manager import (
     START_TIMEOUT,
@@ -41,6 +43,16 @@ IMAGE = "searxng/searxng:latest"
 # a cold Docker Desktop rather than calling a slow start "not running".
 DAEMON_PROBE_TIMEOUT = 8
 
+#: How long `docker_available()` trusts its last answer. Short, because the
+#: thing it describes is someone opening or quitting Docker Desktop and the
+#: badge that reports it should not lie for long; long enough that a status
+#: poll every two seconds does not mean a process spawn every two seconds.
+DAEMON_PROBE_TTL = 15.0
+
+#: The remembered answer. `None` means "nothing known", which is also what
+#: `forget_docker_daemon_state()` puts back.
+_daemon_probe: dict[str, object] = {"answer": None, "at": 0.0}
+
 
 def docker_installed() -> bool:
     """Is the docker command on PATH? Says nothing about the daemon."""
@@ -57,9 +69,23 @@ def docker_available() -> bool:
     the from-source backend that would have worked was never considered.
 
     `docker info` is the cheapest question that means "is the daemon up".
+
+    Cheap is relative, though: it is a process spawn, and against a *stopped*
+    Docker Desktop it is a process spawn that takes until
+    `DAEMON_PROBE_TIMEOUT`. `status()` asks this on every call and the web
+    search strip re-asks `status()` every two seconds while an install
+    settles, so the honest description of the old behaviour is "spawn
+    `docker info` twice a second and block a threadpool worker for up to
+    eight seconds each time, to re-learn something that changes when
+    somebody opens an application". Hence the short memory below.
     """
     if not searxng_manager.docker_installed():
         return False
+    fresh = _daemon_probe["answer"] is not None and (
+        time.monotonic() - _daemon_probe["at"] < DAEMON_PROBE_TTL
+    )
+    if fresh:
+        return _daemon_probe["answer"]
     try:
         result = subprocess.run(  # noqa: S603  # fixed args, no shell
             ["docker", "info", "--format", "{{.ServerVersion}}"],
@@ -67,10 +93,29 @@ def docker_available() -> bool:
             text=True,
             timeout=DAEMON_PROBE_TIMEOUT,
             check=False,
+            creationflags=NO_WINDOW,
         )
     except (OSError, subprocess.SubprocessError):
+        # Not remembered. This arm is "docker could not be run at all", which
+        # is the answer most likely to be wrong in a moment (a daemon that is
+        # starting up), and it is the cheap one to repeat: it failed without
+        # waiting for the timeout.
         return False
-    return result.returncode == 0
+    answer = result.returncode == 0
+    _daemon_probe["answer"] = answer
+    _daemon_probe["at"] = time.monotonic()
+    return answer
+
+
+def forget_docker_daemon_state() -> None:
+    """Drop the remembered answer, for the moments that change it.
+
+    Called wherever the app itself acts on Docker (an install, a start, a
+    stop): those are exactly the points where waiting up to
+    `DAEMON_PROBE_TTL` to notice would show a stale badge right after a
+    button press, which is the one place the staleness would be visible.
+    """
+    _daemon_probe["answer"] = None
 
 
 def _docker_state() -> str:

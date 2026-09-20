@@ -165,6 +165,9 @@ SHEET_RECIPE = {
     "sheet-row",
     "sheet-corner",
     "sheet-card-corner",
+    # The note page (UI Phase 11 item 2): full height, a back chevron.
+    "sheet-page",
+    "sheet-card-page",
 }
 
 
@@ -218,6 +221,47 @@ def test_the_sheet_recipe_keeps_its_dialog_semantics_and_its_bottom_inset() -> N
                 card = body
     assert "env(safe-area-inset-bottom" in card, (
         "the sheet's own rule no longer pads its foot with the bottom safe-area inset"
+    )
+
+
+def test_the_corner_sheet_variant_floats_rather_than_leaning_on_an_edge() -> None:
+    """The half a corner panel gets wrong (INBOX 270).
+
+    `sheet-corner` is the one variant that is deliberately not an edge sheet:
+    above the phone break it hovers in the corner over the app. It inherits
+    `.sheet-card`'s bottom-sheet geometry, though, and inheriting it silently
+    is how it came to sit 10px from the right of the window and 0px from the
+    bottom with two square corners against an edge it was not touching. So the
+    floating block has to keep saying all three things: one radius for all four
+    corners, the same inset on both edges, and a foot padded like a card rather
+    than like a row under a home indicator.
+    """
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    bodies = [
+        body
+        for selector, body in _rules(css)
+        if selector.strip() == ".sheet-card.sheet-card-corner"
+    ]
+    assert bodies, "the corner sheet variant has no rule of its own"
+    whole = "\n".join(bodies)
+    radius = re.findall(r"border-radius:\s*([^;]+);", whole)
+    assert radius, "the corner panel no longer states a radius of its own"
+    for value in radius:
+        assert len(value.split()) == 1, (
+            "the corner panel is back to a two-corner radius, which is an edge "
+            f"sheet's shape and not a floating panel's: {value.strip()}"
+        )
+    inline = re.search(r"margin-inline-end:\s*([^;]+);", whole)
+    block = re.search(r"margin-block-end:\s*([^;]+);", whole)
+    assert inline and block, "the corner panel is leaning on the window's edge again"
+    assert inline.group(1).strip() == block.group(1).strip(), (
+        "a floating panel has one inset, not one per edge: "
+        f"{inline.group(1).strip()} against {block.group(1).strip()}"
+    )
+    assert "padding-bottom" in whole, (
+        "the corner panel kept `.sheet-card`'s safe-area foot, which is an edge "
+        "sheet's inset and leaves this one's composer closer to the bottom of "
+        "the card than its head is to the top"
     )
 
 
@@ -1209,3 +1253,353 @@ def test_one_writing_finding_is_drawn_by_one_builder() -> None:
             f"{piece} is built in more than one place: a finding is drawn by "
             "docFindingLine alone (DESIGN.md, the recipe index)"
         )
+
+
+#: **A surface says when its data did not arrive, and says it in one way.**
+#:
+#: Measured with every request failing (`scratchpad/ui-sweeps/vibefail.js`):
+#: four surfaces drew their empty state, so a full notebook read "Your notebook
+#: is empty", and the dashboard's tiles printed "0 this week" from arrays that
+#: were empty because nothing had been read. Both are the app stating a fact
+#: about the person's own notes on no evidence, which is the shape the owner
+#: described as making an application untrustworthy.
+#:
+#: The floor rather than an exact list: a surface added later should be wired
+#: too, and this fails the moment one is unwired, which is the direction that
+#: matters. The names are here so a rename has to come past this test.
+FAILING_SURFACES = {
+    "frontend/app.js": ("notes", "timeline", "reminders"),
+    "frontend/graph.js": ("map",),
+    "frontend/graph-canvas.js": ("map",),
+    "frontend/library.js": ("library",),
+    "frontend/documents.js": ("documents",),
+}
+
+
+def test_every_wired_surface_still_reports_its_own_failures() -> None:
+    for name, whats in FAILING_SURFACES.items():
+        js = (ROOT / name).read_text(encoding="utf-8")
+        for what in whats:
+            assert f'"{what}"' in js and "surfaceFailed(" in js, (
+                f"{name} no longer reports a failed read for {what!r}: a surface "
+                "that cannot read its data must say so rather than draw its empty "
+                "state (DESIGN.md, the recipe index)"
+            )
+        #: Paired, always. A surface that can enter the failed state and never
+        #: leave it is worse than one that never enters it: the message stays
+        #: over a working surface until the tab is rebuilt.
+        assert "surfaceRecovered(" in js or "loadSurface(" in js, (
+            f"{name} calls surfaceFailed with nothing that clears it again "
+            "(DESIGN.md, the recipe index)"
+        )
+
+
+def test_the_failed_state_is_built_in_exactly_one_place() -> None:
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    assert app.count('classList.add("is-failed")') == 1, (
+        "the failed state is drawn by surfaceFailed alone; a second builder is "
+        "how the empty states came to disagree in the first place"
+    )
+# --- the guided tour (DESIGN.md, "A guided tour of the interface") ------------
+
+TOUR_JS = ROOT / "frontend" / "tour.js"
+TOUR_TABLE = re.compile(r"const TOUR_SECTIONS = \[(.*?)\n\];", re.S)
+TOUR_STEP = re.compile(r"\{\s*target: \"([^\"]+)\",\s*side: \"([a-z]+)\",(.*?)\n      \}", re.S)
+
+
+def _tour_steps() -> list[tuple[str, str, str]]:
+    js = TOUR_JS.read_text(encoding="utf-8")
+    table = TOUR_TABLE.search(js)
+    assert table, "TOUR_SECTIONS not found in tour.js; has the tour's table moved?"
+    steps = TOUR_STEP.findall(table.group(1))
+    assert steps, "TOUR_SECTIONS declares no steps, or its step shape has changed"
+    return steps
+
+
+def test_every_tour_step_points_at_an_element_that_exists() -> None:
+    """A step that names a selector nothing matches is a card pointing at
+    nothing, and the app cannot tell you so: `querySelector` answers null and
+    the step is silently dropped at runtime.
+
+    The runtime drop is deliberate and is what keeps the tour honest on a
+    narrow window (DESIGN.md's row: a hidden element loses its step and the
+    counter renumbers). This lint is the other half: dropped because the
+    control is hidden *right now* is correct, dropped because somebody renamed
+    an id six months ago is a step nobody will ever see again, and only a read
+    of the markup can tell the two apart.
+    """
+    markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    ids = set(re.findall(r'\sid="([^"]+)"', markup))
+    missing = [
+        target
+        for target, _side, _rest in _tour_steps()
+        if target.startswith("#") and target[1:] not in ids
+    ]
+    assert not missing, (
+        "tour steps name elements that are not in index.html: "
+        f"{sorted(missing)}. A step is a real element plus a sentence "
+        "(DESIGN.md, the recipe index)"
+    )
+
+
+def test_every_tour_step_says_where_it_sits_and_what_it_says() -> None:
+    """A step is a selector, a side and one sentence, and the side has to be
+    one of the four the placer knows how to flip and clamp. A fifth spelling
+    would fall through `tourCandidates` to the preferred side alone, which is
+    how a card ends up over the thing it is describing."""
+    for target, side, rest in _tour_steps():
+        assert side in {"top", "bottom", "left", "right"}, (
+            f"{target} asks for side {side!r}; the placer knows top, bottom, "
+            "left and right"
+        )
+        assert "title:" in rest and "text:" in rest, (
+            f"{target} has no title or no text: a step is an element plus a "
+            "sentence (DESIGN.md, the recipe index)"
+        )
+
+
+def test_the_tour_card_is_placed_by_the_measure_and_correct_rule() -> None:
+    """DESIGN.md: a popup placed in the window's own coordinates sets its
+    position, measures it, and corrects by the difference.
+
+    The same rule `docPlaceFixed` and `clampToolbarMenu` are held to above, and
+    for the same measured reason: a `position: fixed` element takes its frame
+    from the nearest ancestor carrying a `filter`, and `.card` carries one
+    whenever the background art is on, which is how a word menu asked for
+    `left: 952` and drew at 1245.
+    """
+    js = TOUR_JS.read_text(encoding="utf-8")
+    body = _function_body(js, "tourPlaceFixed")
+    wrote = body.index(".style.left")
+    assert "getBoundingClientRect()" in body[wrote:], (
+        "tourPlaceFixed sets a position and never checks it landed there: "
+        "measure the rect after writing and correct by the difference "
+        "(DESIGN.md, the recipe index)"
+    )
+    for name in ("tourPosition", "tourSpotlight"):
+        assert "tourPlaceFixed(" in _function_body(js, name), (
+            f"{name} must place through tourPlaceFixed, or the correction is "
+            "one function away from the code that needs it"
+        )
+
+
+def test_the_tours_dim_never_covers_the_control_it_describes() -> None:
+    """The point of the whole surface: the described control is the one bright
+    thing on screen.
+
+    A sheet over the page with a highlight drawn on the control is the shape
+    this must not become, because the control is then behind a dim layer and
+    the tour is the centred slide carousel with extra steps. The cut-out is
+    `.tour-spot`: no background of its own, the dim spread out of it by its own
+    `box-shadow`, and no pointer events, so nothing of the tour's is ever drawn
+    on top of the thing being pointed at.
+    """
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+    rule = re.search(r"\n\.tour-spot \{(.*?)\n\}", css, re.S)
+    assert rule, ".tour-spot has no rule; has the tour's cut-out moved?"
+    body = rule.group(1)
+    assert "background: transparent" in body, (
+        ".tour-spot must paint no background: the bright area is the page "
+        "itself showing through the hole in the dim"
+    )
+    assert "pointer-events: none" in body, (
+        ".tour-spot must not take pointer events: #tour-block is what stops "
+        "the page being used mid-step"
+    )
+    assert "100vmax" in body and "var(--scrim)" in body, (
+        "the dim is .tour-spot's own box-shadow, spread past the far corner "
+        "of the window, in the app's scrim colour"
+    )
+
+
+def test_a_tour_step_with_nothing_to_point_at_is_dropped() -> None:
+    """A control hidden by a responsive rule, or gone from the markup, must
+    cost its step rather than leave a card anchored to a zero-sized box in the
+    corner of the window. Dropping it is also what keeps "3 of 7" true: the
+    counter is drawn from the run's own length, which shrinks with it."""
+    js = TOUR_JS.read_text(encoding="utf-8")
+    show = _function_body(js, "tourShow")
+    assert "tourVisible(" in show and "splice(" in show, (
+        "tourShow must check the element is visible and drop the step when it "
+        "is not (DESIGN.md, the recipe index)"
+    )
+    render = _function_body(js, "tourRender")
+    assert "run.steps.length" in render, (
+        "the counter must be drawn from the run's own length, or it promises "
+        "steps the tour has already dropped"
+    )
+
+
+def test_a_new_tour_section_needs_no_new_code() -> None:
+    """One table, or the replay strip and the tour disagree about what exists.
+
+    DESIGN.md's row says a new subject is a section in TOUR_SECTIONS and never
+    a second tour. That only holds while everything that offers the tour reads
+    that table: the Settings buttons, and the run itself.
+    """
+    js = TOUR_JS.read_text(encoding="utf-8")
+    for name in ("renderTourReplay", "tourStepsFor"):
+        assert "TOUR_SECTIONS" in _function_body(js, name), (
+            f"{name} must build itself from TOUR_SECTIONS, so a section added "
+            "to that table arrives with no markup and no handler to write"
+        )
+
+
+# --- the phone top bar (UI_MODERNISATION_PLAN Phase 11 item 1) ---------------
+#
+# Below 600 the four everyday-and-session squares (theme, settings, lock,
+# quit) become the rows of one `kebabMenu`, so the bar is three controls and
+# fits 320 (it was six, and scrolled the page sideways by one button). The
+# suite cannot measure that; `scratchpad/ui-sweeps/phonehead.js` does. What
+# it can check is that the arrangement is the recipe's: the menu is built by
+# `kebabMenu`, the swap is one stylesheet band, and nothing the desktop has
+# is dropped rather than moved.
+
+def test_the_phone_top_bar_menu_is_the_kebab_recipe_and_hides_nothing():
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    start = app.index("function initPhoneHeaderMore()")
+    body = app[start : app.index("initPhoneHeaderMore();", start)]
+    assert "kebabMenu(" in body, "the phone header menu must be the kebabMenu recipe"
+    for verb in ("toggleTheme()", "openSettingsModal()", "lockNow()", "quitApp()"):
+        assert verb in body, f"the phone header menu lost {verb}, which the desktop bar has"
+
+    css = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    band = css[css.index("Phase 11 item 1: the phone top bar") :]
+    band = band[: band.index("}\n}") + 3]
+    assert "@media (max-width: 599.98px)" in band
+    for ident in ("#theme-btn", "#settings-btn", "#lock-btn", "#quit-btn"):
+        assert ident in band, f"{ident} is not swapped for the menu on a phone"
+    assert "#header-more" in band
+
+
+def test_every_sidebar_gets_the_phone_opener_from_the_one_function():
+    """Phase 11 items 2 and 3: below 600 the sidebar rail goes and each
+    sidebar is opened from a `.dock-nav` button in its own head, mounted by
+    `mountPhoneSidebarOpeners` for every id in `SIDEBAR_IDS`. A fourth
+    sidebar added without a row here would keep a rail on the phone that
+    the other three no longer have."""
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    ids = re.search(r"const SIDEBAR_IDS = \[([^\]]*)\]", app)
+    assert ids, "SIDEBAR_IDS is not where this lint expects it"
+    sidebars = set(re.findall(r'"([^"]+)"', ids.group(1)))
+    rows = re.search(r"const PHONE_SIDEBAR_OPENERS = \[(.*?)\n\];", app, re.S)
+    assert rows, "PHONE_SIDEBAR_OPENERS is missing"
+    covered = set(re.findall(r'aside: "([^"]+)"', rows.group(1)))
+    assert covered == sidebars, f"sidebars without a phone opener: {sorted(sidebars - covered)}"
+    css = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    band = css[css.index("Phase 11 items 2 and 3: no rail on a phone") :]
+    for ident in sidebars:
+        assert f"#{ident}:not(.sidebar-sheet-open)" in band, f"#{ident} keeps its rail on a phone"
+
+
+def test_the_row_swipe_presses_the_rows_own_actions():
+    """Phase 11 item 2, the HIG rule: a swipe action matches the row's menu.
+    The swipe may only reach the star button the row shows and the one bin
+    function the row menu's own item calls; a swipe that grew an action of
+    its own would be the third copy of a verb, and the first one nobody can
+    see."""
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    start = app.index("function initRowSwipe(list, actions)")
+    body = app[start : app.index("// --- the note page", start)]
+    assert '".favourite-btn"' in body
+    assert "binNoteWithUndo(" in body
+    assert 'input[type="checkbox"]' in body, "the reminder swipe presses the row's own Done"
+    assert "fetch(" not in body and "api(" not in body, "the swipe calls the row's actions, never the API"
+    menu = app[app.index('label: "ph:trash Move to bin"') :][:200]
+    assert "binNoteWithUndo(" in menu, "the menu row and the swipe must call the same function"
+    assert "favourite-btn" in app[app.index("function favouriteButton(") :][:800]
+
+
+def test_every_right_click_menu_has_a_long_press_twin():
+    """Phase 11 item 9: a finger has no second button, so every contextmenu
+    listener in app.js and documents.js is matched by a `wireLongPress`
+    call opening the same thing. Counted per file, since the two are always
+    written side by side. whiteboard.js and graph-canvas.js have their own
+    contextmenu handlers and are the whiteboard and graph plans' files; they
+    join this count when those plans' phone items land."""
+    for name in ("app.js", "documents.js"):
+        text = (ROOT / "frontend" / name).read_text(encoding="utf-8")
+        right_clicks = len(re.findall(r'addEventListener\(\s*"contextmenu"', text))
+        calls = len(re.findall(r"\bwireLongPress\(", text))
+        holds = calls - (1 if name == "app.js" else 0)  # app.js holds the definition
+        assert right_clicks == holds, f"{name}: {right_clicks} right-click menus, {holds} long-press twins"
+
+# A `<details>` in index.html that heads no named family: prose disclosures in
+# the Help guide, the chat's thinking boxes and the like, which take their
+# summary from their own surroundings. Frozen, like the hand-built menus
+# above: a folded group of settings is `details.settings-fold`, and a new
+# unnamed one is a second disclosure shape nobody styled.
+BARE_DISCLOSURES = 14
+
+# The families 08-consistency.css dresses as "a heading with a chevron" rather
+# than as a control in a row. Every one of its four disclosure rules has to
+# name the same set: a family on the flat rule but not the chevron rule is a
+# fold with no disclosure mark, and one on the chevron rule but not the hover
+# rule loses its pointer feedback.
+FOLD_RULES = (
+    "> summary:not(.icon-only):not(.icon-button) {",
+    "> summary::-webkit-details-marker",
+    "> summary:not(.icon-only):not(.icon-button)::before",
+    "> summary:not(.icon-only):not(.icon-button):hover",
+)
+
+
+def _fold_families(css: str, marker: str) -> set[str]:
+    """The container classes named on the rule `marker` belongs to.
+
+    The selector list runs from the end of whatever came before (a rule's
+    closing brace) to this rule's opening one, with its own comments taken
+    out: a comment above these rules quotes selectors while explaining them.
+    """
+    hit = css.index(marker)
+    brace = css.index("{", hit)
+    start = max(css.rfind("}", 0, hit), css.rfind("*/", 0, hit)) + 1
+    block = re.sub(r"/\*.*?\*/", "", css[start:brace], flags=re.S)
+    return set(re.findall(r"\.([a-z-]+)(?=(?:\[open\])? (?:details )?> summary)", block))
+
+
+def test_a_folded_group_of_settings_is_the_shared_disclosure_recipe() -> None:
+    """One fold, dressed in one place (DESIGN.md, the recipe index).
+
+    The graph's display options panel grew back past its own cap (655px of
+    list in a 488px box at 1440x900) and three of its six sections are set
+    once and then left. Folding them is the recipe the Settings screen
+    already has, `details.settings-fold`, and the point of this lint is that
+    the next surface that needs a fold reaches for the same three words
+    instead of writing a fourth summary of its own.
+    """
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    families = [_fold_families(css, marker) for marker in FOLD_RULES]
+    for marker, named in zip(FOLD_RULES[1:], families[1:]):
+        assert named == families[0], (
+            f"the disclosure rule at `{marker}` names {sorted(named)} while the "
+            f"flat-summary rule names {sorted(families[0])}; a fold family on one "
+            "rule and not another is a fold with no chevron or no hover "
+            "(DESIGN.md, the recipe index)"
+        )
+    assert "settings-fold" in families[0]
+
+    raw = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    markup = re.sub(r"<!--.*?-->", "", raw, flags=re.S)
+    bare = 0
+    graph_folds = 0
+    for attrs in re.findall(r"<details([^>]*)>", markup):
+        found = re.search(r'class="([^"]*)"', attrs)
+        classes = set(found.group(1).split()) if found else set()
+        if "graph-options-fold" in classes:
+            graph_folds += 1
+            assert "settings-fold" in classes, (
+                "a fold in the graph's options panel is the shared "
+                "`details.settings-fold` recipe, not a shape of its own"
+            )
+        if not classes - {"hidden"}:
+            bare += 1
+    assert bare <= BARE_DISCLOSURES, (
+        f"{bare} `<details>` elements in index.html name no family; a folded "
+        "group of settings is `details.settings-fold` (DESIGN.md, the recipe "
+        "index), and this count may only fall"
+    )
+    assert graph_folds == 3, (
+        "the graph options panel's three tuned-once sections (Physics, Groups, "
+        "Minimap) are folds; see GRAPH_PLAN.md, 'Decision made, 2026-09-20'"
+    )

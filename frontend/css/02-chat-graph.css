@@ -1780,6 +1780,25 @@ button.ghost.danger {
   background: var(--accent-soft);
 }
 
+/* **The chord, at the far end of the row it belongs to**
+   (DOCUMENTS_PLAN Phase 4 item 4). A row is a flex line so the key can be
+   pushed right with `margin-left: auto` rather than by padding that would
+   have to know how long the label is; `flex: none` so a two-part chord never
+   squeezes the words it labels. The `<kbd>` itself takes the app's own key
+   paint from `01-forms-settings.css`, which is what makes it read as the same
+   object as the one in the shortcut sheet. */
+#palette-list li:has(> kbd.palette-keys) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+#palette-list kbd.palette-keys {
+  flex: none;
+  margin-left: auto;
+  font-size: var(--text-xs);
+}
+
 /* Group headers inserted between Commands / Notes / Documents result sections.
    Non-interactive, so cursor:default and no hover background. */
 #palette-list li.palette-group-header {
@@ -2762,6 +2781,16 @@ kbd {
 
 .empty-state.hidden {
   display: none;
+}
+
+/* The same empty state, saying the data did not arrive rather than that there
+   is none of it (app.js, `surfaceFailed`). One token's difference, because it
+   is the same component in a different mood, not a second component: the warn
+   colour on the icon and the title, which is what tells the eye this is a
+   report about the app rather than about the notebook. */
+.empty-state.is-failed .empty-icon,
+.empty-state.is-failed .empty-title {
+  color: var(--warn);
 }
 
 .empty-icon {

@@ -207,3 +207,20 @@ def fake_model_that_loops(app_state, fake_embeddings):
     fake.stats = {**fake.stats, "prompt_tokens": 600, "output_tokens": 400}
     deps.override_ai(ollama=fake)
     return fake
+
+
+@pytest.fixture(autouse=True)
+def _forget_the_docker_probe():
+    """`docker_available()` remembers its last answer for fifteen seconds, and
+    a whole test session runs well inside fifteen seconds.
+
+    Without this, one test that fakes a stopped daemon leaves "no" behind for
+    every test after it that asks the real function, and which tests those are
+    depends on the order they ran in. Cleared on both sides so a test is
+    neither poisoned by its predecessor nor the thing that poisons its
+    successor."""
+    from memorymap.search import searxng_docker
+
+    searxng_docker.forget_docker_daemon_state()
+    yield
+    searxng_docker.forget_docker_daemon_state()

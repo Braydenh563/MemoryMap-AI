@@ -22,7 +22,32 @@ const SUBTABS={notes:['browse','capture','writing-room','ask'],library:['docs','
   const browser=await chromium.launch();
   for(const width of (process.env.WIDTHS||'1440,1024,820,390').split(',').map(Number)){
     const ctx=await browser.newContext({viewport:{width,height:width<600?844:900},deviceScaleFactor:1,hasTouch:width<820,isMobile:width<600});
-    await ctx.addInitScript(()=>{try{localStorage.setItem('theme','light');}catch(e){}});
+    // **And who wrote the NaN.** A `<rect> attribute x: Expected length,
+    // "NaN"` is a browser parse error: it names the attribute and nothing
+    // else, so a run that catches one says a value went bad somewhere in
+    // 60,000 lines of frontend. This wraps `setAttribute` before any of the
+    // app's scripts run and keeps the stack of the first few offenders, so
+    // the next run that sees one names the function instead. Bounded at
+    // eight, and it only records values that actually contain "NaN", so a
+    // clean run costs one string test per attribute write.
+    // Written after a run against a seeded four thousand note notebook
+    // reported 116 of these at 1440px and 112 at 1024 and no later run
+    // reproduced them (INBOX 259).
+    await ctx.addInitScript(()=>{try{localStorage.setItem('theme','light');}catch(e){}
+      window.__nanWrites=[];
+      const setAttr=Element.prototype.setAttribute;
+      Element.prototype.setAttribute=function(name,value){
+        if(String(value).includes('NaN')&&window.__nanWrites.length<8){
+          window.__nanWrites.push({
+            el:this.tagName+'.'+((this.getAttribute&&this.getAttribute('class'))||''),
+            name:name, value:String(value),
+            stack:(new Error().stack||'').split('\n').slice(1,10)
+              .map(s=>s.trim().replace(/https?:\/\/[^/]+/,'')).join(' <- '),
+          });
+        }
+        return setAttr.call(this,name,value);
+      };
+    });
     const page=await ctx.newPage(); const errs=[]; let where='boot';
     page.on('pageerror',e=>errs.push(`[${where}] ${e.message}`));
     page.on('response',r=>{if(r.status()>=500)errs.push(`[${where}] HTTP ${r.status()} ${r.request().method()} ${r.url().replace(BASE,'')}`);});
@@ -42,7 +67,12 @@ const SUBTABS={notes:['browse','capture','writing-room','ask'],library:['docs','
     where='settings'; await page.click('#settings-btn').catch(()=>{}); await page.waitForTimeout(500);
     for(const s of SECTIONS){where='settings/'+s; const ok=await page.click(`#settings-modal [data-section="${s}"]`,{timeout:1500}).then(()=>true).catch(()=>false); if(!ok)continue; await page.waitForTimeout(300);
       const r=await page.evaluate(()=>{const m=document.querySelector('#settings-modal .settings-section:not(.hidden), #settings-modal .settings-body');return m?(m.scrollWidth>m.clientWidth+2?`section scrolls sideways ${m.scrollWidth}>${m.clientWidth}`:''):'';}); if(r)findings.push(`[${where}] ${r}`);}
-    console.log(`== ${width}px: ${errs.length} errors, ${findings.length} layout findings`); errs.forEach(e=>console.log('  '+e)); findings.forEach(f=>console.log('  '+f));
+    const nanWrites=await page.evaluate(()=>window.__nanWrites||[]);
+    console.log(`== ${width}px: ${errs.length} errors, ${findings.length} layout findings`);
+    for(const hit of nanWrites){
+      console.log(`  NaN written: ${hit.el} ${hit.name}="${hit.value}"`);
+      console.log(`    ${hit.stack}`);
+    } errs.forEach(e=>console.log('  '+e)); findings.forEach(f=>console.log('  '+f));
     await ctx.close();
   }
   await browser.close();

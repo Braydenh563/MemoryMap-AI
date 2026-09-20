@@ -43,7 +43,18 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 OutputDir=..\..\dist\installer
-OutputBaseFilename=MemoryMap-AI-Setup-{#MyAppVersion}
+; **Version, platform and architecture, like the Linux package already has.**
+; Asked for directly. `MemoryMap-AI-Setup-0.3.1.exe` says nothing about what
+; it installs onto, so two files downloaded a month apart from different
+; machines are indistinguishable in a Downloads folder, and a 64-bit build
+; and a future 32-bit or ARM one would overwrite each other. The Linux side
+; has read `MemoryMap-AI-<version>-linux-x86_64.zip` all along; this is the
+; same name in the same order.
+;
+; x86_64 rather than Inno's own "x64": it is what the Linux artefact says and
+; what `uname -m` prints, and one spelling across both downloads is worth
+; more than matching a single installer's internal vocabulary.
+OutputBaseFilename=MemoryMap-AI-Setup-{#MyAppVersion}-windows-x86_64
 ; Not signed yet (deliberate — see README's Windows install note). Revisit
 ; once there's a certificate; nothing else about this script would need to
 ; change, Inno Setup signs in a separate post-build step, not here.
@@ -65,6 +76,16 @@ Source: "..\..\dist\MemoryMap AI\*"; DestDir: "{app}"; Flags: ignoreversion recu
 ; terminal, not something a Start Menu shortcut should offer as a choice.
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; IconFilename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; IconFilename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+; INBOX 253, one-click recovery: beside the ordinary shortcut, not instead
+; of it, in the same Start Menu group so it is findable the moment the
+; ordinary one stops opening. Runs the packaged build's own --reinstall
+; (main()/_repair_install in __main__.py) — there is no venv here to
+; rebuild, so it clears the one thing this frozen build's own persistent
+; window profile (storage_path under <data dir>\webview, CLAUDE.md's own
+; trap note) can get stuck in, then opens the app normally; notes and
+; preferences are never touched. Not on the Desktop (Tasks: desktopicon)
+; on purpose — a repair shortcut is not something to click by habit.
+Name: "{autoprograms}\{#MyAppName}\Repair {#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop --reinstall"; IconFilename: "{app}\{#MyAppExeName}"
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; Description: "Launch {#MyAppName} now"; Flags: nowait postinstall skipifsilent

@@ -7,6 +7,50 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Built, I9's Settings section (2026-09-19): "What it learned"
+
+WORLD_CLASS_PLAN I9's frontend, the half that had been open since the
+backend landed on 2026-09-13. Found by scanning all 319 routes the app
+serves against every path `frontend/*.js` fetches: `GET /learned`,
+`GET|PUT /learned/switches`, `PATCH|DELETE /learned/{id}`,
+`POST /learned/{id}/reset`, `GET /learned/export`, `DELETE /learned` and
+`POST /night/run` had no caller anywhere in the app. The plan's own
+sentence for why that matters is "a model that is wrong quietly is worse
+than no model", and every one of those routes exists so a person can see
+the model being wrong and say so. With no screen, `derived_facts` grew
+where nobody could read it.
+
+**What was built.** Settings > "What it learned", next to "What it
+remembers" (one is what you told it, the other is what it worked out; the
+only way a person finds the second is by recognising it beside the first).
+Three groups: the seven switches plus the master "Pause all learning",
+with the paused banner; the table with a kind filter, a search box and a
+pager; and "Export what it learned" / "Forget everything learned".
+
+**Built against what the backend ships, not against the whole spec.**
+There is no `POST /learned/bulk`, so there are no bulk actions. A
+client-side loop over N rows is not the same thing: it is N requests that
+can half fail, and the honest version of that row is a backend route.
+
+**Measured in the browser** against a four thousand note notebook with 120
+derived facts: the section renders with zero page errors; Edit adds the
+"Edited by you" chip and a Reset button and changes the text; Reset puts
+the model's words back and takes both away; the kind filter narrows 120 to
+40; the pager moves to "51 to 100 of 120"; "Pause all learning" turns all
+seven off, disables them and shows the banner, and unpausing restores all
+seven; Delete takes 120 to 119 and re-reads the list.
+
+**One backend bug found by finally calling the route.** `facts.listing`
+narrowed the page by `kind` and `q` and narrowed the *count* by `kind`
+only, so a search returned forty rows and a total of a hundred and twenty
+and the pager offered two empty pages. Both are narrowed by one function
+now, applied twice; `tests/test_derived_facts.py` covers it and was proved
+against the old code.
+
+**Still open in I9:** the kinds I1's later passes add, the bulk routes and
+their buttons, and the "Learned: manage" link from each invention's own
+surface.
+
 ## §102 — chat document uploads, audited: mostly already built, one real bug found and fixed
 
 ROADMAP's live-list item 2 ("uploading a document to chat fails silently
@@ -23559,6 +23603,20 @@ the behaviour that shipped before this.
 "searchable from the Library's filter" is not built: `library.js` was another
 agent's file. The properties are parsed and editable, and nothing filters on
 them. It is written up in `archive/agent-remaining/documents-phase4.md`.
+**Built 2026-09-20**: the Library's Documents sub-tab has one select beside
+its search box, `#library-docs-property`, whose options are the `key: value
+(count)` pairs the documents on screen actually carry. The narrowing is
+client-side (the list is read to the end already) and the properties ride on
+the row, parsed by `core/docmeta.py`, because `_summary()` sends a preview
+rather than a document's content and a browser-side scan would have found
+nothing at all. Measured by `scratchpad/ui-sweeps/libprops.js`, 7/7: the
+control is hidden until something has a property, the opener reads at 144x36,
+five documents narrow to two on "status: draft", and the empty state names
+both the search and the property when the two cannot both be true. Two things
+found on the way: the shared `enhanceSelect` opener walks `select.options` and
+never reads an `<optgroup>` label, so the grouping the first shape used was
+invisible and the key moved into each option's own words; and hiding a select
+hides nothing, because the reader sees its `.select-shell`.
 ## INBOX resolved, 2026-09-13
 
 162. **Mid-work drop, 2026-09-13, verbatim (the owner), the app as an
@@ -25058,6 +25116,201 @@ them. It is written up in `archive/agent-remaining/documents-phase4.md`.
     mode still flips, the suppression class is gone again a frame later, and
     the art canvas is rebuilt. **Not verified:** the desktop webview, which is
     the window the report came from; the numbers above are headless Chromium.
+## Moved from the plans, 2026-09-20
+
+### DOCUMENTS_PLAN.md Phase 4 item 4, the editor's commands as one table
+
+The plan asked for a palette listing every editor action with its shortcut and
+a `?` sheet "generated from the same table so the two cannot disagree".
+
+**The decision the plan left open, taken because it had to be.** The plan
+names `Ctrl+K`, written before this app had a command palette of its own on
+exactly that chord: two palettes on one key is the collision the agent
+palette's own comment records being caught twice. So the editor contributes a
+"This document" group to the palette that exists, offered only while the
+Documents tab is showing with a document open, and the app's own commands
+gained a group name ("Everywhere") now that something can sit above them. A
+reader pressing Ctrl+K in a document finds the document's own actions at the
+top of a list they already know.
+
+**A row whose action already has a button runs the button**
+(`docRunControl`), not a copy of its handler: a copy is a second definition of
+what "Export as HTML" means and the two drift the first time one is edited.
+`tests/test_doc_commands.py` is the lint that division needs, and it fails on
+a command pressing a control that is not in `index.html`, on two commands
+claiming one chord, on a row with no label or icon, on a chord the editor
+binds that the table does not list, and on either door stopping reading the
+table.
+
+Measured by `scratchpad/ui-sweeps/doccommands.js`, 10/10: no editor group
+before a document is open, 31 commands after, 10 of them drawing a chord
+beside the words, the sheet's 13 rows byte-identical to the table's, and
+"Heading 2" run from the palette writing `## some words` into the document.
+
+### DOCUMENTS_PLAN.md Phase 5 item 4, reading typography and the print sheet
+
+Focus, typewriter and the serif option were built on 2026-09-13. What was left
+was the measure and the print stylesheet, and both turned out to be the same
+mistake in two places: a reading column written in pixels.
+
+**The serif face's measure.** Measured at 1440 with
+`scratchpad/ui-sweeps/docreadprint.js`: the reading column is capped at 46rem
+(736px), which is 76 characters of the app's own sans and inside the 45 to 90
+every typographic reference gives. The serif face is narrower, so the same
+736px held **93** characters on a line while nothing about the column had
+changed. The default column is left exactly where it is (a width the owner has
+commented on twice, "idk why the document rendered views are so thin??") and
+the serif takes a cap of its own in `ch`, beside the leading it already
+adjusts for the same reason: 82 characters at 606px after, and the width
+toggle still releases it.
+
+Also found and fixed on the way: `#doc-preview { max-width: 72ch }`, the
+"stricter measure for rendered prose", had never once applied. The rule above
+it is `#doc-preview:not(.doc-split-pane)` at (1,1,0) and a bare id is (1,0,0),
+so the looser 78ch cap won in exactly the case the tighter one was written
+for.
+
+**The print stylesheet.** The PDF export already printed the preview and
+nothing else, through `body.printing-doc`. A plain Ctrl+P did not: measured
+with `emulateMedia({ media: "print" })`, it put the tab bar (693x44), the
+sidebar (260x767), the dock (1082x78) and the status bar (1082x38) on the page
+around a 736px column. A `beforeprint` listener now sets the same class for
+any print of an open document, renders the preview and switches to Read view,
+and `afterprint` puts back what it changed; the `@media print` block in
+`09-editor.css` is what the page then looks like: black on white, a 2cm page
+margin, the measure kept, leading at 1.6, headings kept with the text they
+name, code blocks, quotations, tables and images not split across a break, an
+external link's URL printed after it, and the last of the chrome
+(`#doc-statusbar`, `#doc-crumbs`, the find bar, the writing panel, the phone
+bar) hidden, which the export's own older list predates. Deliberately not
+done: `docPrintComments` stays false, because a plain print did not ask for
+footnotes.
+
+Measured, 24/24, including the app coming back afterwards.
+
+**Not verified.** Chromium only. `emulateMedia` is not a printer: pagination,
+the real page size and what a driver does with `@page` were not tested, and no
+page was actually printed.
+
+### DOCUMENTS_PLAN.md Phase 4 item 3, the outline that navigates and reorders
+
+**Breadcrumbs and the sticky, current-section outline were already built**
+(the sidebar redesign, 2026-09-12: `renderDocCrumbs`, `markDocOutline`). What
+this pass added is the rest of the item, plus the two things
+`archive/agent-remaining/doc-sidebar.md` recorded as open beside it.
+
+**The scroll-spy follows the caret.** It read the top of the view alone, so
+typing in a section below the one at the top of the box marked the heading
+above it until the view scrolled. Measured before the change on a
+twelve-section document in a 512px editor: caret in Section 3 at scrollTop 0,
+outline marked Section 1. The decision the next step left open, which wins
+when the two disagree: the caret does, while it is visible, because a caret
+you can see is where you are writing; scroll it out of the box and the
+viewport takes over again, which also covers the Read pane, where there is no
+caret to see. The textarea fallback has no line-to-pixel map, so it keeps the
+viewport answer. `scratchpad/ui-sweeps/docspy.js`, 6/6.
+
+**Folding, per document, keyed by the heading rather than by its line.** A
+line number changes the moment anything is written above it, so a fold keyed
+that way unfolds itself or folds some other section in its place. The state is
+in `localStorage` because a fold is a per-viewer fact about how a panel is
+drawn; one written into the file would travel to everyone who opens the
+document and would show up in its diff. The control is a fixed 16px gutter at
+the row's left, a button where the heading has children and an empty slot
+where it does not: the row itself is already a button (a button inside a
+button is neither valid nor reachable), and a caret that appeared only on some
+rows would move those rows' text against their own level, which is the exact
+fault `.outline-link`'s own indent rules spend three paragraphs protecting.
+
+**The filter box**, from ten headings up. Filtering ignores folds outright: a
+search that hides its own matches inside a fold reports nothing and is right
+about nothing. The count reads "2 of 19" while it is running, because a bare
+"2" over a narrowed list reads as a document with two headings in it. Not
+persisted, for the same reason the Library's property filter is not. The spy
+marks the nearest row that is actually drawn, so a caret inside a folded
+section marks the fold rather than a row nobody can see.
+`scratchpad/ui-sweeps/outlinefold.js`, 14/14: gutter one width (16px) across
+19 rows, 7 foldable, h3 indent 30px against h2's 17px unchanged, filter box
+226x36.
+
+**Drag to reorder, and Alt with an arrow.** Dragging a row moves the section,
+the heading and everything under it down to the next heading at the same level
+or shallower. The lines are re-scanned at the moment of the drop
+(`docScanHeadings`, pulled out of `renderDocOutline` for this) and never taken
+from the outline's own rows: the outline is rebuilt on a pause in typing, so a
+row dragged a keystroke after an edit carries line numbers from the document as
+it was, and moving that run would cut the wrong paragraphs out of the middle of
+the text. The write goes through the surface's `text` setter, which diffs
+prefix and suffix, so a move is one undo step. A section dropped inside itself
+is refused rather than clamped: there is no place the reader could have meant.
+Rows are not draggable while a filter is running, because the rows on screen
+are then a search result and "between" two of them is not a position in the
+document. Alt with an arrow is the keyboard half, and the focus ring is
+restored by name across the second redraw the write schedules (measured before
+that: `document.activeElement` came back as `<body>`).
+`scratchpad/ui-sweeps/outlinedrag.js`, 12/12, including every body paragraph
+still present exactly once and no run of three blank lines left at a seam.
+
+**Not verified.** Chromium only, at 1440x900. The drag is driven by dispatched
+`DragEvent`s with a shared `DataTransfer` rather than by a real pointer drag,
+which is what this Chromium will do reliably; no touch drag was tested at all,
+and the fallback textarea path was not driven for any of it.
+Blocks the plans carried as open work and no longer do (CLAUDE.md standing
+order 10). Origin file named on each.
+
+### From GRAPH_PLAN.md
+
+### Built, the node panel's three evening rows, 2026-09-09 to 2026-09-14
+
+The owner's evening batch of 2026-09-09, read against the running app on
+2026-09-20 and found built, each one measured rather than taken on the word
+of the comment that claims it.
+
+- **"sometimes the x close button in the graph popup panels gets pushed out
+  of place by the note title, and the note title gets cut off with no
+  ellipse".** Built: `.graph-popup-ident > strong` is one ellipsised line
+  (`white-space: nowrap`, `min-width: 0`), the close button is `flex: none`
+  with `align-self: flex-start`, and `.card.graph-popup > .row.graph-popup-head`
+  restates `nowrap` at a weight that beats `.card > .row.space-between`.
+  Measured with a 88-character title (`scratchpad/ui-sweeps/graphnodehead.js`):
+  header 48px tall, title one line and ellipsised, the close button 14px in
+  from the panel's right edge and 14px down from its top, at both 1440 and
+  390. The reported failure was a 92px header with the button 56px down and
+  276px in from the right.
+- **"I want these buttons at the bottom of the graph node popup panels to be
+  centered or to feel properly integrated into the panel".** Built:
+  `.graph-popup-actions` is a footer band, `justify-content: center`, pulled
+  out to the panel's padding edges, on the chip fill, with the panel's own
+  bottom corners and one hairline above. Measured: the band starts 1px inside
+  the panel's left edge and ends 1px inside its right (the panel's border),
+  sits on the bottom edge, `justify-content: center`, `border-top: 1px`.
+- **"the graph suggested links panel is poorly designed and not consistent
+  with the rest of the app ui style".** Built over INBOX 110 and 111 and the
+  2026-09-14 pass: every measure on the app's own scale (`--space-*`,
+  `--text-*`) where four hand-typed rem values had been, one control height
+  down the row (the reason field, the score chip and both buttons all at
+  1.75rem where they had been 42, 23.2 and 28), the head split into a title
+  group and an actions group, the rows scrolling under a heading that stays,
+  and the panel given the same inset as every other surface in the graph's
+  floating column.
+
+### Built, Phase 6's own target, re-measured 2026-09-20
+
+`scratchpad/ui-sweeps/graphnode.js` at 1440, 1024 and 390, against the
+target in GRAPH_PLAN Phase 6: 448x357 at 1440 and at 1024, nine actions in
+one row, three hairline-separated groups, one filled button (Open, read off
+the computed background rather than the class list), the editor at 112px on
+a 108.8px floor, Save hidden at rest and shown on an edit and hidden again
+when the edit is undone, no control under 36px, nothing clipped, panel
+scrollHeight 355 against clientHeight 355 (it does not scroll), the page
+does not scroll, 0 console errors. At 390 it is the sheet: 362x468, the
+actions on three lines, and neither the panel nor the page scrolls (the
+2026-09-09 measurement had it at 362x442 with the panel scrolling inside,
+so it has since gained the room).
+
+Not verified: a real touch device, and the Trace, Link and Grow flows past
+the click that starts them.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing
@@ -29777,3 +30030,533 @@ told to open first.
     The other surfaces this item's first sentence asks for ("a full ux sweep"
     of the whole app) are the orchestrator's own, surface by surface, and are
     not claimed here.
+## INBOX resolved, 2026-09-19
+
+256. **Found by scan, 2026-09-19 (the session, not the owner).** Four
+    top-level helpers in `documents.js` are called by nothing in
+    `frontend/` and only by tests: `docTableCellText` and
+    `docTableSetCellEdits` (the live table writes through
+    `docTableApplyEdits`/`docTableCellSpan` instead), `docFrontmatterFields`
+    (the properties panel and the Library filter iterate `fm.entries`
+    directly, which is the duplication that function's own comment says it
+    exists to prevent), and `docColumnsTemplate` (`MD_ACTIONS.columns`
+    carries a different template, and that is the one the `/` menu inserts).
+    So four tests are passing against code the app never runs, and two of
+    them assert a shape the app does not produce.
+    Recommendation: point each test at the function the app actually calls,
+    then delete the helper, in that order, so the coverage moves rather than
+    disappears. `docFrontmatterFields` is the one worth keeping and *using*
+    instead, since its comment is right about the drift. Found with the
+    scan in `tests/test_frontend_symbols.py`, extended to report definitions
+    with no callers.
+    **Fixed**, coverage moved first and the helpers deleted after. The table
+    pair took three whole test sections with them, all of which demonstrated
+    byte-exact cell writes through a writer no feature reached: a cell is
+    edited by typing into the source line. In their place the same shapes now
+    prove what the editor does rely on, that every cell span is exactly its
+    own bytes with one pipe between neighbours, and that the caret
+    `docTableGo` computes lands inside the cell it was sent to; the ghost-cell
+    check now calls `docTableFillRowEdits`, which is the one programmatic
+    write the editor makes, and gained an idempotence check so Tab into an
+    ordinary cell cannot rewrite its row. Columns asserts against the string
+    `MD_ACTIONS.columns` really inserts, read out of documents.js by the test
+    rather than restated in it; proved it fails by breaking that string
+    (three findings). Frontmatter asserts the `fm.entries` shape the panel is
+    handed.
+    Against the recommendation on one point, deliberately: `docFrontmatterFields`
+    is deleted rather than adopted. A helper that keeps two callers from
+    drifting apart is worth its indirection; this one had none, because the
+    Library has no property filter and the panel reads `fm.entries` directly,
+    so adopting it would have added a layer to serve a single call site on the
+    strength of a second one its comment had invented.
+    Two more were dead with no test at all and are deleted (2b94271's
+    follow-up): `scrollPageToTop` in app.js, superseded by the back-to-top
+    button's own handler, which also knows about chat's "to bottom" mode,
+    and `gcShade` in graph-canvas.js.
+
+225. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), a core
+    persona.** "I was wondering if atlas or another named persona can be the
+    core persona of the application as the librarian?? idk, the persona cant
+    be too token heavy though, just as a theme yk??" **Decision:** Atlas is
+    the name of the notebook's AI everywhere the app speaks as it (the
+    status dot's label, "Atlas filed this under Work", the chat empty
+    state, the popup agent's greeting, the help chat), as copy and one
+    mark, not as prompt text: the model prompts gain at most one clause
+    ("You are Atlas, this notebook's librarian.") under
+    `agent.PROSE_BUDGET_CHARS`, and no persona prose, backstory or tone
+    instructions anywhere. One constant (`AI_NAME`) in the frontend and one
+    in `ai/` so a rename is one edit each; Settings, Models keeps the model's
+    own name beside it ("Atlas, running qwen2.5:7b"). Owner: chrome after
+    214 and 215; the backend clause and constant, backend2 after its list.
+    **Backend half fixed e024e49 (backend2), merged:** `AI_NAME` in
+    `ai/__init__.py`, one clause in the prompts that speak as the app,
+    tested under the prose budget; the help chat's `GUIDE_NAME` is that
+    constant. Frontend half: chrome.
+    **Decision, 2026-09-14 (the owner asked how to tell the two apart):**
+    one name, two hats, said by the surface and by one clause. The
+    librarian (chat, filing, the agent) is "Atlas" with the clause "You are
+    Atlas, this notebook's librarian."; the help sheet is "Atlas, about the
+    app" in its head and its clause is "You are Atlas, answering about the
+    app itself, never from the notes." Nothing else differs: same mark,
+    same voice, no persona prose in either.
+    **Frontend, 2026-09-14:** `AI_NAME` in settings.js with `GUIDE_NAME`
+    reading it; the help sheet, its popover lines, the palette command and
+    the empty states say Atlas (chrome, 224). Left for the next PR: the
+    copy sweep where the app speaks as the librarian ("Atlas filed this
+    under Work", the chat empty state, Settings, Models "Atlas, running
+    <model>"), one grep for "the AI" in app.js.
+    **2026-09-19, all three checked, one already built, one done.** The chat
+    empty state was already built: it reads "Explore your notebook with
+    Atlas" from `aiNameNow()` (app.js, `chat-empty`), so that line of this
+    entry was stale. `filedByText` is done: the three branches that spoke of
+    "the AI" name Atlas now, and the `llm` branch keeps the model beside the
+    name in the form this entry's own decision asks for, since "which model
+    decided this" is the question that line exists to answer. Rendered from
+    the shipped function: "decided by Atlas, running qwen2.5:7b", "your
+    choice, Atlas stayed out of it", "Atlas wasn't available to file it",
+    and "decided by Atlas" when no model is known.
+    **2026-09-19, both remaining halves done, and a lint now holds them.**
+    Settings, Models: `chat-model-note` reads "Atlas, running qwen2.5:7b"
+    and, when the model has gone, "Atlas was running “mistral:7b”, which is
+    not installed any more. Pick another or download it below."; the chat
+    badge's tooltip reads "Atlas is answering with <model>". Both measured
+    off the live screen, the second by calling the renderer with each status
+    since the picker is gated on Ollama and the sandbox has none. The
+    heading above them is left alone: it names the setting, and the note
+    under it is where the app speaks.
+    The vision and OCR notes keep "Active: <model>" on purpose. They are
+    tools Atlas uses, not Atlas talking, which is the line this decision
+    draws ("everywhere the app speaks as it").
+    The wider sweep: 68 strings across eight JS files and 41 pieces of
+    markup, all of them copy a person reads, now say Atlas. Comments were
+    left alone, which is most of what the 125-hit grep was seeing.
+    `AI_NAME` moved from settings.js to app.js, because settings.js is the
+    *last* script index.html loads and app.js the first: that is why
+    `aiNameNow()` ever needed a `typeof` fallback, and nothing at load could
+    read the constant.
+    Four of the sweep's replacements read wrong and were reworded by hand
+    rather than kept: a boot step label ("check the model status"), the
+    vision picker's "The vision model will read the page.", the other half
+    of a ternary that would have said "AI not running" beside "let Atlas
+    write", and a menu label left as "Name with AI" beside "Let Atlas name
+    this chat".
+    `tests/test_ai_name.py` now fails on any copy that calls it "the AI",
+    reading string literals and markup outside comments, with no allowance
+    list: a hit is reworded. Its scanner needed regex-literal handling,
+    because `whiteboard.js`'s `WB_MAP_INLINE` holds three backticks and the
+    first version opened a template literal on the odd one and lost a
+    hundred and thirty lines, then reported a phrase out of a comment as
+    copy. A second test asserts the scanner still reaches the bottom of the
+    three largest files, which is the guard that makes the first mean
+    anything. Both proved by regression.
+
+259. **Found by sweep, 2026-09-19, not reproduced since (the session).**
+    `scratchpad/ui-sweeps/errors.js` against a seeded four thousand note
+    notebook reported **116 console errors at 1440px and 112 at 1024**, all
+    of one shape and all tagged `[timeline]`:
+    `<rect> attribute x: Expected length, "NaN"`, with y, width and height
+    the same. That is 28 rects, four attributes each. **Zero at 820px and
+    zero at 390px**, and zero layout findings at any width.
+    Four attempts to reproduce it, all clean: the same sweep at the same
+    width on the same notebook (0 errors), the timeline opened on its own
+    with `setAttribute` wrapped to catch a NaN write (0), the same with
+    every timeline scale clicked (0), and the sweep's own tab order up to
+    the graph and on to the timeline, to test whether the graph's late
+    async draw was landing in the timeline's 700ms window and being
+    mislabelled (0 in both windows, so that hypothesis is wrong).
+    The one difference the failing run had: it ran minutes after 2,000
+    notes were seeded, so the background embedding, `note_scores` and
+    `search_index` work was probably still running.
+    Only three functions in `frontend/` write those four attributes:
+    `drawTimelineWindow` (app.js, and it writes two of them, not four),
+    `mapPreview` and `mapPreviewSketch`. `mapPreview`'s own geometry is
+    guarded (`aspect` falls back to 1, `MAP_PREVIEW_BASE` is a literal,
+    `px`/`py` coerce with `Number(x) || 0`), so a NaN through it needs an
+    input this reading did not find.
+    **No fix, deliberately**: CLAUDE.md says reproduce before theorising,
+    and a guard written against a cause nobody has seen hides the next one.
+    What is done instead is that `errors.js` now wraps `setAttribute`
+    before the app's scripts run and prints the **stack** of the first
+    eight NaN writes, so the next run that catches one names the function
+    rather than the attribute. Whoever sees it next has the answer in the
+    sweep output.
+    **Fixed 2026-09-19, and the stacks are what found it.** It reproduced
+    again the same day, and the stack named `graphMinimapFrame` (graph.js),
+    not `mapPreview`: the `[timeline]` tag was a mislabel, the graph's
+    minimap goes on drawing after the sweep has moved to the next tab. A
+    second probe captured every input that function reads at the moment of
+    the write: `graphDims` 800x540, all 4,005 node positions finite, and
+    `d3.zoomTransform` itself holding NaN in `k`, `x` and `y`. `invert` on a
+    NaN transform is NaN, which is why all four attributes go together.
+    The guard there was written for exactly this and was half done: it
+    checked `graphDims.w`, and neither `graphDims.h` nor the transform. It
+    checks everything it reads now, and the three places this app builds a
+    zoom transform refuse to build one from a number that is not one. Worth
+    knowing for the next occurrence of this shape: `Math.max(0.25,
+    Math.min(2.5, NaN))` is NaN, so the scale clamps that looked like
+    guards never were.
+    What is still not known is which code path put NaN into the transform.
+    Injecting the captured transform by hand does not take the failing path,
+    so there is no deterministic reproduction; eight sweeps since the fix
+    are clean against a failure that was showing in about one run in three,
+    which is strong evidence rather than proof. `errors.js` fails on any
+    console error, so a recurrence cannot be quiet.
+
+257. **Found by scan, 2026-09-19 (the session, not the owner).** Eighty
+    class names are written by `frontend/*.js` (`classList.add`,
+    `className =`, `.attr("class", ...)`) that no stylesheet declares and no
+    selector reads back, so they are inert: `doc-prose-fix-all`,
+    `doc-suggest-ai-option`, `entry-attachment-caption-btn`,
+    `graph-label-layer` and the rest. Most are probably harmless markers,
+    but some read like buttons that were meant to be styled.
+    Recommendation: not a lint, an eighty-entry allowlist is the "widen the
+    rule" mistake CLAUDE.md warns about. One pass by eye over the list,
+    deleting the markers and styling the two or three that should have been.
+    The scan is ten lines against `_strip` from
+    `tests/test_frontend_symbols.py`.
+    **Looked, 2026-09-19: nothing to fix, and the scan over-reports.** Re-run
+    it reports 107 rather than 80, and the extra rows are what give the game
+    away: `callout-${meta`, `is-${role}`, `heat-${level}` and a dozen more
+    are template literals the scan cut at the `$`, and each of those classes
+    is both written and styled. Of the names that are real, every one
+    sampled is fine for one of three reasons. Most ride a styled base class
+    and are markers on top of it: `doc-prose-fix-all` is
+    `"ghost small doc-prose-fix-all"`, `entry-attachment-caption-btn` is
+    `"ghost small icon-only …"`, `ask-history-delete` is `"icon-btn …"`,
+    `doc-suggest-ai-option` is `"doc-suggest-item …"`, `confirm-extra` is
+    `"checkbox-label …"`. Some are read back through a selector the scan
+    cannot see: `dash-move-up` and `dash-move-down` are found by
+    `` document.querySelector(`[data-widget="${name}"] .dash-move-${…}`) ``,
+    which is what moves focus after a widget is reordered. And some are
+    structural markers on an SVG group with nothing to style,
+    `graph-label-layer` and `graph-trace-layer` among them.
+    So: no deletions, no new styles, and no lint. What this is worth keeping
+    is the shape of the mistake: a scan that cannot see a template literal
+    reports the app's own idioms as dead code, which is the same failure
+    `tests/test_frontend_symbols.py` and `tests/test_ai_name.py` each had to
+    fix in their own scanners this session.
+
+260. **Question, not a bug, 2026-09-19 (the session).** "Battery-efficient
+    mode" (Settings, Preferences) pauses autonomous background tasks and
+    skips the graph's similarity work, and its copy says exactly that and
+    nothing more, so the backend matches its promise. But it reaches nothing
+    in the browser: with it on, the dashboard's constellation canvas still
+    animates (now at 30 fps, it was 60), and so does the background art if
+    that is on. Someone who turns on a setting with "battery" in the name
+    and watches a canvas keep drawing will reasonably call that broken.
+    Checked before writing this, and deliberately not changed: widening a
+    setting past what its own help text promises is a design decision.
+    Recommendation: make it a third input to the motion resolution the two
+    generative pictures already share, beside Reduce motion and Performance
+    mode (see `startArt` in dashboard.js and `startBgArt` in settings.js,
+    both fixed to read those two on 2026-09-19), and extend the help text to
+    say "and pause the moving artwork". One line each.
+    **Taken, 2026-09-19.** `batteryModeOn()` in app.js (the first script the
+    page loads, and `prefsCache` is its own) is now a third input to both
+    `startArt` and `startBgArt`, and "moving" does not override it, for the
+    same reason it does not override Performance mode: both are statements
+    about what the machine should be spending rather than preferences about
+    motion. The toggle also restarts the two pictures itself, since
+    `setPreference` writes the server and a setting about power that takes
+    effect on the next load is the wrong half of "immediately". Both help
+    texts name the two pictures.
+    Measured off the art canvas's own pixels, not the first p5 canvas on the
+    page, which is a hidden lock-screen emblem that never moves and cost one
+    wrong reading: off MOVING, on STILL, off again MOVING
+    (`scratchpad/ui-sweeps/batterymotion.js`). The preference is stored
+    server-side and survives a run, so that sweep sets it off before it
+    starts; not doing so cost a second wrong reading.
+## INBOX resolved, 2026-09-20
+
+246. **Mid-work drop, 2026-09-14, verbatim (the owner).** "I also want to
+    be able to attach whiteboards and mindmaps to notes. and I want it to
+    show in notes if they are attached to or referenced in/by a document,
+    note, whiteboard, or mindmap." Recommendation: the note edit form's
+    attach menu gains Board and Mind map (the same reference the board
+    already stores when it embeds a note, written from the note's side),
+    and the note card gets a "Referenced by" row listing documents, notes,
+    boards and maps that carry it, from one backlinks endpoint.
+    **Both halves built 2026-09-20**, as recommended.
+    "Referenced by" is `GET /entries/{id}/references`: the boards and maps
+    that carry the note (a `WhiteboardNode` join, exact, and it says which
+    of the two it is), and the documents and notes that name it (the same
+    LIKE-then-verify scan `routes_documents._backlinks` runs, saying whether
+    it found a `[[wiki link]]` or a bare mention, links sorted first). Twelve
+    tests in `tests/test_entry_references.py`.
+    "Add to a board or map" is the note menu's neighbour to "Add to a
+    document", and attaching writes exactly the `WhiteboardNode` row the
+    board would have written itself, so the note becomes a card you can see
+    and drag and the "Referenced by" row reads it back without knowing which
+    side wrote it. No "new board" option, unlike the document picker: a board
+    needs a type and a name, which is a dialog, and the Library already has
+    one; a half version here would be a third place that creates boards.
+    Driven end to end in the browser
+    (`scratchpad/ui-sweeps/attachboard.js`, `entryrefs.js`): the picker
+    lists both kinds with their type, Attach puts the note on, the toast
+    offers a way in, and the note's own row then shows the board.
+    Found and fixed on the way: `plain_label` stripped markdown links and not
+    wiki ones, so every note chip in the app whose first line linked to
+    another note showed its brackets.
+    **The three gaps closed 2026-09-20** (OPEN.md's 246 row). A mind map
+    holds a note as its own reference node (`WhiteboardObject` kind "note",
+    `data.ref_id`), not a `WhiteboardNode`, so a note on a map through the
+    map's own node was invisible to the row, the dialog and the counts:
+    `_board_reference_rows` now reads both tables (kind first, then id, the
+    way routes_graph learnt to), once, for all three. The card carries one
+    muted chip, "In 1 document · on 1 board · on 1 map · linked by 1 note",
+    from `GET /entries/reference-counts?ids=` (one call per rendered chunk,
+    at most 60 ids, cache cleared per reload), opening Connections; measured
+    in Chromium (`scratchpad/ui-sweeps/refchips.js`): 24px like the chips
+    beside it, a button, and the dialog it opens lists the board with the
+    squares icon and the map with the tree. The dialog now lists what the
+    chip counts: a document that wiki-links the note without it being
+    attached, and a note that mentions it, were counted and not shown.
+    Twenty-two tests in `tests/test_entry_references.py`.
+
+220. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the docs
+    and how to proceed.** "make sure all the other docs like architecture.md
+    are up to date, and extend the roadmap and backlog. make it clear to me
+    how to proceed with development for after this pr... help me get my
+    head around everything." Also: "clean out unneeded documents or files.
+    refine the repo." And: "clean up the agent remaining-files as well if
+    they are outdated or not needed anymore... same with the plans... are
+    there any other plans or parts of plans that havent been done yet?? is
+    all the ui modernised and consistent??" ARCHITECTURE.md checked against
+    the code; `agent-remaining/` reduced to the files with open work (the
+    rest to HISTORY); finished plans marked superseded in ROADMAP's table;
+    ROADMAP and BACKLOG extended; a "How to proceed after PR 144" section
+    in HANDOVER naming every open plan section. Owner: orchestrator, last.
+    **Progress, 2026-09-14:** `agent-remaining/` consolidated (38 files to
+    `archive/agent-remaining/`, 134 open bullets in `OPEN.md`, 70
+    references repointed, merged `878f78d`); ARCHITECTURE's directory map
+    rewritten against the tree (`4bae0a0`); BACKLOG 115 and
+    WORLD_CLASS_PLAN 18 written. Left: the ROADMAP rewrite and the
+    HANDOVER "how to proceed" block, after the four agents merge.
+    **2026-09-20: the last two are done.** ROADMAP's "How to proceed" is
+    now written for PR 149: what that PR closed, the one thing it taught
+    (a whole plan item built and unreachable, found by a route scan nothing
+    in the suite could see), and a queue that names the three things it
+    left deliberately undone with the reason for each. HANDOVER points at
+    it. The plan table's I9 row says the Settings section is built.
+
+238. **Mid-work drop, 2026-09-14, verbatim (the owner), board and map
+    notes.** "when I expand the size of notes in the whiteboard and mindmap,
+    the text goes out of the panel border, the state of note objects in the
+    whiteboard and mindmap for if they are expanded or not should be
+    persistant, and when exporting a whiteboard and/or mindmap, the user
+    should be warned if any of their notes arent expanded and that not all
+    their contents will be shown, the export shouldnt include things like
+    the show less/more text as well." Owner: notes agent (whiteboard.js).
+    **Fixed 2026-09-19** (5a9c909, 128a731, 7e8d902), all three parts,
+    measured at 1440x900 with zero page errors throughout:
+    - *Text outside the border.* `.wb-card` is a column flex container and a
+      placed note carries its dragged height as an inline style, but a flex
+      item's `min-height: auto` resolves to its content, so the text won
+      against the box: a 324-character note in a 320x120 card laid out 215px,
+      112px of it below the card's edge; 408 characters in 320x160 spilled
+      254px. `min-height: 0` and `overflow: hidden` on `.wb-card-content`
+      (not on the card: the eight resize handles sit outside its edge on
+      purpose). The "Show more" was also gated on the Notes list's rule
+      (500 characters or 10 lines), which is a question about the note when
+      the question is about the box; it is now measured from the layout, and
+      the old `-webkit-line-clamp: 8` (which counted paragraphs, not lines,
+      on rendered markdown) is a `max-height` applied only to a card with no
+      stored height. After: 60px and 100px of text, both 43px clear, a note
+      that fits gets no button, expand and collapse round-trip 140 to 411 to
+      140px, and growing the card to 700px retires the button.
+    - *Persistence.* `wbExpandedNodes` is saved to `localStorage`, where the
+      grid, snap, guide colours, background and navigator state already live.
+      One key, 500 entries, oldest dropped first. Measured across a reload
+      and re-login: 411px and "Show less" both survive.
+    - *Export.* The "Show more" text was never in the picture (cards are
+      rebuilt as SVG from the note), but the export always showed *less* than
+      the screen: 160 characters wrapped into at most six lines whatever the
+      card's size. The line budget now comes from the card's measured height
+      (collapsed in a 160px card, 7 lines; expanded to 746px, 22; both were 6
+      before), and the dialog carries a `--warn` line naming how many notes
+      are collapsed. Markdown, OPML and FreeMind carry `drawsCards: false`
+      and never show it.
+232. **Mid-work drop, 2026-09-14, verbatim (the owner), the live view.**
+    "the md rendering on the live view, like in the documents page, needs to
+    be improved, especially for codeblocks and potentially for other things
+    as well." Screenshot: a fenced block renders as a dark slab with the
+    fence lines as empty numbered rows above and below, link chips wrap
+    oddly. Owner: notes agent (documents.js).
+    **Codeblocks fixed 2026-09-19** (706e2af). Measured on a four-line Python
+    block: five rows of 26px, two of them empty, so 52 of 130 pixels said
+    nothing. INBOX 198 hid the backticks and the language word, correctly,
+    but left the emptied lines at full line height. They now keep the block's
+    tint and take half a line, the block's corners are rounded so five tinted
+    rows read as one slab, and the language is drawn in the corner from a
+    `data-lang` attribute rather than on a row of its own. Both stand down
+    when the caret is inside the block, since the raw fence comes back there.
+    After: 92px, zero empty full-height rows, 8px fence rows, the label in
+    `--muted`.
+    **The link chips, measured 2026-09-20: fixed, and by the same session
+    that fixed the fences.** A `[[wiki link]]` long enough to wrap now draws
+    as two line boxes that each keep the chip's padding and its 4px radius
+    (`box-decoration-break: clone` on `.cm-md-code, .cm-md-highlight,
+    .cm-md-wiki`), rather than one rounded half and one square one flush to
+    the margin, which is what "wrap oddly" was. Measured on a chip forced to
+    break: two rects, 159px and 314px, both 19px tall, `padding: 0px 4px`
+    and `border-radius: 4px` on each, zero page errors
+    (`scratchpad/ui-sweeps/livelinkchips.js`). Both halves of this entry are
+    done.
+226. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), a flicker.**
+    "theres a flickering just above the bottom bar??" / "i was on the
+    dashboard". Reproduce first: sample the band above `#status-bar` on the
+    dashboard at 100 ms for four seconds and count pixel changes; log DOM
+    mutations in the same band. Suspects, in order: a widget re-rendering
+    on a timer (the Rediscover widget re-asks when its list empties; the
+    reminders and stats fetches were just shared by the boot agent), the
+    scroll-top button toggling on a scroll-height change, the status bar's
+    new Guide slot being redrawn by the header's model poll. Owner:
+    orchestrator, now.
+    **Not reproduced on the merged head, 2026-09-14** (`scratchpad/
+    flicker2.js`, `flicker3.js`, 1440x900, dashboard, 60 frames at 60 to
+    100 ms): with the art off, the only pixels changing in the 120px band
+    above the status bar are none (the status bar's own AI spinner is the
+    one moving thing on screen); with the art on and Movement: Still, zero
+    frame changes and zero `startBgArt`/`stopBgArt` calls or canvas swaps
+    in four seconds; with the art moving, every strip changes, which is the
+    art. The ten inline-style writes seen on `.dash-widget` sections are the
+    one-time span pass, not a loop. Left open for the owner: which theme,
+    which background style, and whether the desktop window or a browser
+    tab; a screenshot with the flicker in it names the element.
+    **Reproduced and named, 2026-09-19** (`scratchpad` flicker probes, a
+    seeded four thousand note notebook at 1440x900). The earlier run looked
+    at the *background* art (`startBgArt`); the thing moving is the
+    dashboard's own **art widget** (`startArt`, dashboard.js).
+    The 130px band above the status bar was split into a 12x4 grid and
+    sampled twelve times: three adjacent columns changed on **11 of 11**
+    comparisons and every other cell on none, with **zero DOM mutations** in
+    the band and the background art off. `elementsFromPoint` at the busiest
+    cell: `canvas.p5Canvas` inside `div.art-holder` inside a
+    `section.card.dash-widget`. It runs at **59 fps** in a 306x220 box.
+    It is a widget animating, not a repaint fault, so the flicker is
+    explained. What was wrong is that it ignored every switch that says
+    "stop moving things" except the OS media query: measured before, Reduce
+    motion on gave 59 fps and Performance mode on gave 59 fps, while the
+    background art stops for both and DESIGN.md rule 12 says Performance
+    mode stops every animation but the progress indicators. Fixed; measured
+    after, both read 0 fps, and 59 again when switched back off. If the
+    owner still sees it with both of those off, the remaining answer is the
+    widget itself: turn the art widget off on the dashboard, or say so and
+    it gets a frame-rate cap rather than 60.
+
+262. **Mid-work drop, 2026-09-20, verbatim (the owner), five things.** "the
+    documents editor meatball dropdown goes off the page, and I want to
+    combine the "download as" options in it into a sub menu in that dropdown
+    that you click or hover over and another side dropdown menu appears next
+    to it, like the ones in the meatball dropdowns in the your notes page.
+    also the page numbers and collapse arrows in the documents clash with
+    other page numnbers and the rendering on the live view of the documents
+    needs a lot of improvement. also in the whiteboard and mindmaps there are
+    a lot of utility things missing or not quite right in implementation,
+    like the group selection box missing a rotate node, not being able to
+    drag the edges of a group selection, if I drag the selected group, the
+    group selection box doesnt move with the selected objects when actively
+    draging them around."
+    Two screenshots. The first: the documents meatball open, its list running
+    off the bottom of the window with its own scrollbar, five "Download as"
+    and "Print" rows in the middle of it. The second: the gutter, where line
+    numbers 6 and 7 are drawn on top of each other beside a folded code
+    block, and 8 and 9 likewise.
+    Five separate things, taken in this order: (1) the menu's placement and
+    the Download submenu, (2) the gutter collision, (3) the Live view
+    rendering, (4) the group box during a drag, (5) the group box's rotate
+    and resize handles.
+    **Fixed, all five.** (1) `5a61cb5`: the downloads fold into a
+    `buildMenuGroupButton` submenu and `placeDockMenuInWindow` clamps
+    sideways. (2) `b0c8931`: the fence rows keep full height while the
+    numbers are on, and the plugin rebuilds on the compartment reconfigure
+    that was the missing half; measured on/off/on, overlaps [] every time.
+    (3) `557decf`: lists rendered at all, with a hanging indent (marker 471,
+    wrap 496) and a bullet for the dash, checked for caret jumps (0
+    backwards); the task checkbox stops making its line 34px in a 26px
+    document. (4) `7f1d730`: the chrome travels with the drag (box +90/+180
+    against cards +90/+180) and is rebuilt where the items land. (5)
+    `fdd40ca`: the handles were always drawn and 6 of 8 were under the card
+    layer; moved to the overlay, opted back into hit testing, 0 of 9
+    unreachable, a 120px edge pull widens by 120px, the dot turns both cards
+    to 114 degrees.
+263. **Mid-work drop, 2026-09-20, verbatim (the owner), six more.** "oh and
+    another bug I was trying to get gemini to fix is that the splash wasnt
+    appearing on the packaged windows launcher. also this was in the terminal
+    setup script: {" [1/4] Using the app's virtual environment.
+    The system cannot find the batch label specified - bail_if_cancelled
+     [2/4] Dependencies already up to date - skipping install."}, the boards
+    and maps previews are kinda a mess. I want to strip all signs of being
+    vibecoded by an ai from the ui, use your vendored and available ui ux
+    skills. the what it learned tab ui needs some ui and ux refinement
+    because it is messy and not consistent with the design.md rules and the
+    rest of the application. no visual confirmation popup shows when I use
+    ctrl s to save my preferences settings, and there is no visual
+    indications that the preferences settings are the only settings that dont
+    save automatically."
+    Three screenshots. The launcher's own splash window, which *is* drawing
+    (five steps, a progress bar, Details/Copy diagnostics/Cancel), so the
+    report is about the packaged build, not this one. The Library's board and
+    map preview cards: a board thumbnail whose labels overlap its blocks and
+    a map thumbnail whose labels overlap each other and run outside the
+    frame. And Settings, "What it learned", where every switch's name runs
+    straight into its hint with no space ("Night shiftReads notes you have
+    added or changed") and the rows are full-width pills unlike any other
+    switch in the app.
+    Taken in this order: (1) the switch rows, which are this session's own
+    and plainly wrong, (2) the `bail_if_cancelled` label, which is a real
+    batch bug with the error quoted, (3) the Preferences save feedback, (4)
+    the board and map previews, (5) the packaged splash, (6) the wider UI
+    pass, which is a brief rather than a fix.
+    **Fixed, all six.** (1) `a01d6e5`: rebuilt on `.setting-check`, DESIGN's
+    own on/off recipe, measured against a row that predates the screen. (2)
+    `1ddd907`: `.gitattributes` checked every `.bat` out LF-only (start.bat
+    1,278 lone LFs, 0 CRLF), and cmd.exe seeks a label by byte offset;
+    `*.bat text eol=crlf` plus a lint. (3) `6e39399`: ctrl+s had never been
+    implemented although the copy promised it; a toast, and the section now
+    says twice that it is the only one that does not autosave. (4)
+    `e4c6039`: 68 collisions to 0, blocks trimmed to the paper, label widths
+    measured rather than estimated, and more titles drawn than before. (5)
+    `00efef3`: the packaged build never had start.bat's splash and could not
+    have (the installer runs the exe); its splash is the pywebview window,
+    which `main()` could not open until 1,203ms of imports had finished.
+    Deferred to `_run_server`: 1,203ms to 30ms. (6) `52d0dc5`: seventeen
+    typed glyphs standing in for icons, with a lint and a sweep; a scan for
+    marketing copy found 0.
+## INBOX resolved, 2026-09-20
+
+253. **Mid-work drop, 2026-09-14, verbatim (the owner).** "the app needs
+    to work even if it cant update or isnt available to the internet, and it
+    needs to be automatically recoverable and revivable for the user with
+    one click". Placed in WORLD_CLASS_PLAN H6 (professional use) as its
+    first row: offline is already the design (no route needs the network;
+    the updater only checks when asked), so the work is (a) a launcher
+    that, when the app fails to start, repairs itself without a prompt
+    (`--doctor` and `--reinstall` exist but are flags, not a button), and
+    (b) a "Repair MemoryMap" shortcut installed beside the app that runs
+    them. Depends on 251's facts.
+    **Fixed.** (a) start.sh and start.bat now catch a venv with no working
+    interpreter and a venv that no longer imports the app (a broadened
+    `import memorymap.api.app` check, replacing a bare `import memorymap`
+    that stayed "healthy" no matter which real dependency was gone), and
+    repair each once, automatically, with no prompt, before falling
+    through to the same clear failure a second failure already gave;
+    `MM_AUTO_REPAIRED` stops it ever looping. Also fixed in the same pass:
+    every self-relaunch in start.sh, including the pre-existing self-update
+    one, was silently dropping every flag it was started with (`--no-
+    browser` included) because it re-read the flag loop's own already-
+    emptied `"$@"`. (b) A "Repair MemoryMap AI" Start Menu shortcut sits
+    beside the ordinary one in `packaging/windows/installer.iss`, running
+    the packaged build's own new `--reinstall` (`_repair_install` in
+    `__main__.py`): there is no venv on a frozen build, so it clears the
+    desktop window's cached profile instead (the one thing that build can
+    get stuck in) and opens the app normally; notes and preferences are
+    untouched. Only the Inno Setup installer exists on this branch (no
+    `.wxs`/MSI here yet); not verified on a real Windows machine, no
+    Windows runner in this sandbox.
+    `tests/test_launcher_scripts.py::TestSelfRepair` reproduces a
+    deliberately broken venv (a copy of a real `.venv` with python-dotenv
+    moved aside) failing on the pre-fix scripts, then repairing itself and
+    serving a real request on the fix; `tests/test_release_smoke_step.py`
+    gates the installer shortcut and `--reinstall`'s wiring.
+

@@ -26,6 +26,14 @@ The simplest way in on Windows, no terminal or Python install required:
 3. It installs a Start Menu shortcut (and, optionally, a desktop one) and
    offers to launch the app when it finishes.
 
+**Deploying to several machines, or via Group Policy?** The same release
+also has `MemoryMap-AI-*-windows-x86_64.msi`, an MSI with the same name,
+publisher and version as the exe above. It installs per machine rather than
+per user, supports `msiexec /quiet` for a silent or scripted install, and
+gets a proper repair and uninstall through Windows Installer. It is
+unsigned too, for the same reason, so `msiexec` shows the equivalent
+publisher warning unless deployed through a policy that already trusts it.
+
 Your notes live in `%APPDATA%\MemoryMap AI`, untouched by an update or
 reinstall, and left alone if you uninstall the app itself. Voice dictation,
 search-by-meaning, and the desktop window are all still installed the same

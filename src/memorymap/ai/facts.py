@@ -461,23 +461,32 @@ def listing(
     limit: int = 100,
     offset: int = 0,
 ) -> tuple[list[DerivedFact], int]:
-    """One page of the table, newest first, plus the total behind it."""
-    query = _visible(select(DerivedFact))
-    if kind:
-        query = query.where(DerivedFact.kind == kind)
-    if q:
-        from memorymap.core.database import LIKE_ESCAPE, like_escape
+    """One page of the table, newest first, plus the total behind it.
 
-        query = query.where(
-            DerivedFact.text.like(f"%{like_escape(q)}%", escape=LIKE_ESCAPE)
-        )
-    counted = _visible(select(func.count()).select_from(DerivedFact))
-    if kind:
-        counted = counted.where(DerivedFact.kind == kind)
-    total = session.scalar(counted)
+    The page and the count are narrowed by the same function, applied twice,
+    rather than by two lists of `where` clauses that have to be kept in step.
+    They were not: the count applied `kind` and skipped `q`, so a search
+    returned forty rows and a total of a hundred and twenty, and the table's
+    pager offered two more pages with nothing in them. Nothing caught it
+    because nothing called this route until the Settings section was built.
+    """
+
+    def narrowed(statement):  # noqa: ANN001, ANN202  # any select() over DerivedFact
+        if kind:
+            statement = statement.where(DerivedFact.kind == kind)
+        if q:
+            from memorymap.core.database import LIKE_ESCAPE, like_escape
+
+            statement = statement.where(
+                DerivedFact.text.like(f"%{like_escape(q)}%", escape=LIKE_ESCAPE)
+            )
+        return statement
+
+    total = session.scalar(narrowed(_visible(select(func.count()).select_from(DerivedFact))))
     rows = list(
         session.scalars(
-            query.order_by(DerivedFact.computed_at.desc(), DerivedFact.id.desc())
+            narrowed(_visible(select(DerivedFact)))
+            .order_by(DerivedFact.computed_at.desc(), DerivedFact.id.desc())
             .limit(limit)
             .offset(offset)
         ).all()

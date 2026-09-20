@@ -44,16 +44,35 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 
-#: Defaults, from Brief 13: 20k tokens and 90 seconds per run.
+#: Defaults, from Brief 13, corrected against a real run.
 #:
-#: Both are "a run that has gone wrong", not "a big job". Twenty thousand
-#: tokens is roughly six full rounds against an 8k window, which is more than
-#: any single step of a shipped skill has ever needed; ninety seconds is
-#: longer than a ten-step run takes when each step works first time. A budget
-#: set where a working run would hit it is a budget that teaches people to
-#: turn it off.
+#: Both were "a run that has gone wrong", not "a big job", and both were set
+#: from an assumption this module's own "Not verified" note flagged: that
+#: ninety seconds is longer than a ten-step run takes. Measured on the
+#: configuration this app is *for*, a local 4B model on the owner's machine:
+#: a nine-step skill spent 1,372 seconds getting through three steps, and the
+#: run was cut off by the time budget with six steps never attempted. The
+#: owner's report: "Cut off after 3 skill steps with barely any tool calls."
+#:
+#: A budget set where a working run hits it is a budget that teaches people to
+#: turn it off, which is this module's own stated test, and 90 seconds failed
+#: it by a factor of fifteen. Two corrections, both from what a run actually
+#: is rather than from a guess about speed:
+#:
+#: 1. **The token allowance is per step, not per run.** A skill is a queue of
+#:    independent jobs; charging nine of them against one step's worth of
+#:    tokens means every skill longer than about six rounds is stopped by
+#:    arithmetic rather than by anything going wrong. It is multiplied by the
+#:    number of steps in the run, so the allowance tracks the work asked for.
+#: 2. **There is no wall-clock default.** A local model is slow, and slow is
+#:    not wrong. Time measures the hardware, not the run: the same nine steps
+#:    that take 40 seconds against a hosted model take forty minutes against a
+#:    4B model on a laptop, and only one of those is a grind. What actually
+#:    bounds a grind is rounds and retries, which `agent.py` and the runner's
+#:    own attempt caps already hold. Anyone who wants a wall clock can set one
+#:    in Settings, under Tools, Run budget, and it is then honoured exactly.
 DEFAULT_TOKENS = 20_000
-DEFAULT_SECONDS = 90
+DEFAULT_SECONDS = 0
 
 #: What a round is charged when the provider reports no token counts at all.
 #: Not zero: a transport that reports nothing would otherwise make the token
@@ -72,6 +91,10 @@ class RunBudget:
 
     tokens: int = DEFAULT_TOKENS
     seconds: float = DEFAULT_SECONDS
+    #: How many steps this budget is paying for. `tokens` is the allowance for
+    #: one of them, so the run's own allowance is the product: see the note on
+    #: the defaults above. One for an ordinary turn, which has no steps.
+    steps: int = 1
     spent_tokens: int = 0
     rounds: int = 0
     started_at: float = field(default_factory=time.monotonic)
@@ -91,6 +114,16 @@ class RunBudget:
     def elapsed(self) -> float:
         return time.monotonic() - self.started_at
 
+    def allowance(self) -> int:
+        """What this whole run may spend, which is one step's worth per step.
+
+        Zero stays zero: "no limit" is a real answer and must not be turned
+        into a limit by multiplying it.
+        """
+        if not self.tokens:
+            return 0
+        return self.tokens * max(1, self.steps)
+
     def exceeded(self) -> str:
         """`""` while there is room, else the sentence saying what ran out.
 
@@ -101,9 +134,10 @@ class RunBudget:
         """
         if self.stopped:
             return self.stopped
-        if self.tokens and self.spent_tokens >= self.tokens:
+        allowed = self.allowance()
+        if allowed and self.spent_tokens >= allowed:
             self.stopped = (
-                f"this run reached its budget of {self.tokens:,} tokens after "
+                f"this run reached its budget of {allowed:,} tokens after "
                 f"{self.rounds} rounds. Resume picks up from here, or raise the "
                 "budget in Settings, under Tools, Run budget."
             )
@@ -165,14 +199,18 @@ def spending(budget: RunBudget | None):
             _current.set(None)
 
 
-def from_settings(config) -> RunBudget:
+def from_settings(config, steps: int = 1) -> RunBudget:
     """The budget one run gets, read from the user's settings.
+
+    `steps` is how many steps the run about to start has: the token allowance
+    is per step (see the defaults above), so a nine-step skill is not held to
+    a single step's worth of rounds.
 
     Zero in either field means "no limit on this one", which is a real answer
     for somebody running a ten-step audit over four thousand notes on hardware
-    they are happy to give an hour to. Never raises: a settings file holding
-    the word "lots" falls back to the default rather than failing the run that
-    was about to start.
+    they are happy to give an hour to, and is now the shipped default for the
+    wall clock. Never raises: a settings file holding the word "lots" falls
+    back to the default rather than failing the run that was about to start.
     """
     def _number(key: str, fallback):
         try:
@@ -184,4 +222,5 @@ def from_settings(config) -> RunBudget:
     return RunBudget(
         tokens=int(_number("run_budget_tokens", DEFAULT_TOKENS)),
         seconds=float(_number("run_budget_seconds", float(DEFAULT_SECONDS))),
+        steps=max(1, int(steps)),
     )

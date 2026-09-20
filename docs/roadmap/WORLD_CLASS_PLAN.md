@@ -360,8 +360,11 @@ toggle-row recipe; the section list is a tablist with arrow keys.
 
 ### D14 Help, onboarding and the command palette (S, Sonnet)
 
-Exists: help accordion, onboarding overlay, `Ctrl+K`. Wrong: the accordion
-is cards in cards; the palette lacks half the actions. Target: help as a
+Exists: help accordion, the welcome overlay, the guided tour (`frontend/tour.js`,
+DESIGN.md's "A guided tour of the interface": anchored cards over a cut-out
+dim, four sections, replayable whole or one section from Settings, help and
+guide), `Ctrl+K`. Wrong: the accordion is cards in cards; the palette lacks
+half the actions. Target: help as a
 searchable list on the panel surface with flat rows; the palette generated
 from the same `ACTIONS` table the menus use, so nothing can be missing.
 Gate: every `data-action` in the DOM appears in the palette.
@@ -1309,13 +1312,13 @@ plumbing and a table).
 
 ### I9 What the notebook learned: one place to see, edit, delete and switch it all off
 
-**Built (the backend), 2026-09-13 evening: HISTORY.md, "Built, I9's whole
-backend and the first pass of I1".** `derived_facts`, `ai/facts.py`, the
-lifecycle, the switches, every endpoint below, and the night pass as a
-fourth task in `ai/autonomous.py`. What is still open here is the Settings
-section itself (frontend) and the kinds I1's later passes add (tensions,
-duplicates, entities, dates). The text below is kept because it is the
-spec for both.
+**Built. Backend 2026-09-13 (HISTORY.md, "Built, I9's whole backend and the
+first pass of I1"); the Settings section 2026-09-19 (HISTORY.md, "Built,
+I9's Settings section").** What is still open here is the kinds I1's later
+passes add (tensions, duplicates, entities, dates), the bulk actions (there
+is no `POST /learned/bulk`; the route has to exist before the button does),
+and the "Learned: manage" link from each invention's own surface. The text
+below is kept because it is the spec for those.
 
 Added by direct instruction: "give the user the ability to see what the
 notebook has learned and to be able to edit, delete and manage it so in
@@ -1814,3 +1817,149 @@ and usage ledger, then H1, H2, H3, H6, H4, H8, H5. One horizon item per PR, its 
 the end, its numbers in the CHANGELOG. Nothing above is started until
 `OPEN.md` is empty for the surface it touches: a revolution on top of an
 unfixed report is how the "fixed again" rounds happened.
+
+## 19. The architecture and framework review (2026-09-20, INBOX 266)
+
+The owner, twice: *"We need to do a full architecture analysis and make sure
+that we are actually using the right architecture and backend functions ... I
+need you to fully analyse the architecture and framework decisions and make
+sure that they are all the best they can be"*, with *"Lightweight as
+possible"* beside it.
+
+**This is a first pass over the load-bearing decisions, every claim
+measured.** It is not the whole stack: it is the choices that cost the most
+if they are wrong. Where a decision is sound the entry says so and why, since
+a review that only lists faults is a review nobody can act on.
+
+### 19.1 The one number that matters: 776 MB resident, idle
+
+Measured on a running instance with nobody touching it, from
+`/proc/<pid>/smaps_rollup`:
+
+| | |
+| --- | --- |
+| RSS | 776 MB |
+| PSS | 478 MB |
+| Anonymous (not file-backed: allocations, model weights) | 429 MB |
+
+And what the process has mapped, counted from `/proc/<pid>/maps`: **436
+shared objects from scipy, 117 from sklearn, 29 from torch.** That is the
+`sentence-transformers` stack, loaded by the `embedding-warmup` thread on
+every launch.
+
+**Why this is the finding and not a curiosity.** The packaging already treats
+semantic search as optional: `packaging/windows/memorymap.spec` excludes
+torch and sentence-transformers from the installer with a comment saying
+Settings, Packages fetches them on demand, *"a few hundred MB for a feature
+this build already has a working path to install on demand"*. So the shipped
+build's position is that this is optional, and the running app's position is
+that it loads at startup regardless. Those disagree.
+
+Three directions, cheapest first, none yet taken:
+
+1. **Load on first use, not at launch.** The warm-up exists to avoid a pause
+   on the first semantic query; a notebook that never runs one pays 429 MB
+   for a pause it will never have. Whether the warm-up should be a
+   preference, or triggered by the first search, is the decision.
+2. **ONNX Runtime instead of torch** for inference. Same model, a fraction of
+   the resident cost, no scipy or sklearn in the import graph. This is the
+   change with the best ratio and the most work.
+3. **Confirm scipy and sklearn are reachable at all at query time.** Vectors
+   are stored as raw float32 and compared with numpy (`ai/embeddings.py`), so
+   the scientific stack may be a load-time import only. If so it is 553
+   shared objects mapped for nothing.
+
+### 19.2 The frontend is 5.9 MB decoded, and that is mostly fine
+
+Measured with the Navigation and Resource Timing APIs on a cold load:
+
+| | |
+| --- | --- |
+| Resources | 50 |
+| Decoded total | 5,914 KB (js 1,283, other 4,410, font 144, css 76) |
+| `index.html` decoded | 661 KB |
+| DOMContentLoaded | 182 ms |
+| JS heap after boot | 18 MB |
+| DOM nodes | 7,844 |
+| CSS rules | 5,844 |
+
+**The honest reading: weight is not costing what it would cost a web app.**
+This is served over loopback to a local process, so 5.9 MB is not a download
+and DOMContentLoaded at 182 ms says so. The costs that are real are parse
+time on a slow machine, the 18 MB heap, and the installer's size. A bundler
+and code splitting would be a large change to a codebase that deliberately
+has no build step (`CLAUDE.md`: "No build step: `frontend/*.js` and
+`frontend/css/*.css` are served as-is"), and the measurement does not justify
+paying for it yet.
+
+Two things are worth doing anyway, both small:
+
+- **Phosphor ships 1,530 glyphs; the app names 504.** A subset font is a
+  build step for one file and turns 144 KB into roughly 50 KB. It is also
+  the single largest asset on first load.
+- **All eleven stylesheets are linked eagerly**, 1.8 MB on disk for every
+  surface including the ones not open. The files are already split by
+  surface, so this is a `media`/`disabled` attribute question rather than a
+  restructure.
+
+`p5.min.js` is 1 MB and is **already lazy** (`app.js` injects the tag when
+the dashboard art runs), which is the right answer and is recorded here so
+nobody "discovers" it again.
+
+### 19.3 SQLite is the right store, and the reasons are not the obvious ones
+
+The owner named this as the example. It holds, but the usual justification
+("it's simple") is not the strong one:
+
+- **One file is the backup story.** The app's export, restore and "your notes
+  are yours" promises are all one file copy. A server-based store (Postgres)
+  would need a dump step, a running daemon, a port, and a version match
+  between the data and the binary that opens it. For an app whose entire
+  pitch is offline and local, that is not a trade, it is a different product.
+- **A document store (files on disk, one per note) is the real alternative**,
+  and it is what Obsidian does. It loses transactions across a link edit, and
+  this app's data model is a graph: a note, its links, its embeddings, its
+  derived facts and its board positions change together. SQLite gives that
+  atomically; a folder of markdown does not.
+- **The scale is right.** SQLite is comfortable to hundreds of thousands of
+  rows, and the measured notebook this project tests against is 4,005 notes.
+  The ceiling is not close.
+
+**What is worth checking and has not been**: whether the schema's indexes
+match the queries the app actually runs, especially the note list's sort
+paths and the search fallback. That is a measurement (`EXPLAIN QUERY PLAN`
+over the real query set), not an opinion, and it is the sort of thing that
+turns a 0.9 s list load into a 0.2 s one.
+
+### 19.4 Idle compute: the assumption did not hold
+
+Asked as *"are things running when they arent necessary and taking up extra
+compute??"*. Measured both halves:
+
+- **Backend**: 4 threads with the app idle, **0 `threading.Timer`s**. The one
+  scheduler (`ai/autonomous.py`) blocks on `Event.wait(interval)`, and its
+  own comment records that it used to wake 21,600 times per cycle and was
+  fixed.
+- **Frontend**, per tab over 30 s with nobody touching it: **2 to 6 requests
+  a minute**, main thread **0.6% to 2.6%** busy. The dashboard is the
+  highest, which is its animated widget.
+
+Two small things, neither urgent: four independent one-second timers repaint
+four different clocks (`tickClocks`, `paintStatusClockDetail`,
+`paintDashClock`, `paintChatTimer`) where one tick could drive all four, and
+the scheduler thread exists even when the feature is switched off.
+
+**On "containers spun up as needed, like serverless"**: that shape solves a
+problem this app does not have. Serverless exists to stop *idle server* cost
+across many tenants; here there is one user, one process, on their own
+machine, and process startup is the thing a person waits for. The right
+version of that instinct is 19.1: load the expensive thing when it is first
+needed rather than at launch.
+
+### 19.5 What the review has not covered yet
+
+Named so the next session does not mistake this for complete: the FastAPI and
+SQLAlchemy layer's own shape (are the ORM's lazy loads causing N+1s on the
+list paths?), the event bus, the job queue's back-pressure, the frozen
+build's startup profile on Windows, and the `EXPLAIN QUERY PLAN` pass in
+19.3. Each is a measurement with a command, in the manner of §10.

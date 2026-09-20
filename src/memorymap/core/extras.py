@@ -42,6 +42,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from memorymap.core import ocr
+from memorymap.core.subproc import NO_WINDOW
 
 #: Reported: a failed install showed "pip exited with code 1. The log above
 #: says why." in the Background tasks "Recently finished" history card, with
@@ -259,6 +260,23 @@ EXTRAS: tuple[Extra, ...] = (
         size="~20 MB",
     ),
     Extra(
+        id="docx",
+        label="Export to Word (python-docx)",
+        enables="The Word (.docx) item in a document's Export menu: headings, "
+        "lists, quotes and tables written as a real Word file rather than as "
+        "markdown with a different extension.",
+        packages=("python-docx",),
+        module="docx",
+        size="~5 MB",
+        # No caveat, and deliberately no `unavailable`: unlike the two entries
+        # that install a library nothing calls, the writer behind this one is
+        # built (`core/docexport.to_docx`) and the button that reaches it is on
+        # the document's Export menu already. What was missing was only the row
+        # here, so `GET /documents/{id}/export.docx`'s 501 could name a package
+        # and nothing else: the one thing a no-terminal app must never do is
+        # tell somebody what they lack without saying where the button is.
+    ),
+    Extra(
         id="ocr",
         label="Search inside images (Tesseract OCR)",
         enables="Text found in an uploaded image (a whiteboard photo, a "
@@ -429,6 +447,7 @@ def _run_uninstall(extra: Extra) -> None:
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
+            creationflags=NO_WINDOW,
         )
         _state.process = process
         for line in process.stdout or []:
@@ -544,6 +563,7 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
+            creationflags=NO_WINDOW,
         )
         _state.process = process
         for line in process.stdout or []:

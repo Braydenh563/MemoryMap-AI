@@ -105,7 +105,7 @@
 //: `showSettingsSection` un-hides by iterating it, so a section left out is
 //: rendered, in the DOM, and never shown. Found by driving it: the Extras
 //: panel had five rows in it and a nav button that appeared to do nothing.
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "memory", "websearch", "appearance", "templates", "shortcuts", "preferences", "account", "extras", "tasks", "data", "logs", "help", "about"];
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "memory", "learned", "websearch", "appearance", "templates", "shortcuts", "preferences", "account", "extras", "tasks", "data", "logs", "help", "about"];
 
 // Which settings section is on screen. The Background tasks list polls while
 // it is open, and needs to know that it is.
@@ -149,6 +149,7 @@ function showSettingsSection(name) {
   if (name === "templates") renderTemplateSettings();
   if (name === "tools") renderToolSettings();
   if (name === "memory") renderMemorySettings().catch(() => {});
+  if (name === "learned") renderLearned().catch(() => {});
   if (name === "tasks") renderAutonomousReview().catch(() => {});
   if (name === "tasks") {
     apiJson("/preferences")
@@ -407,6 +408,26 @@ async function renderHealthBlock() {
   // start; the block did not draw them (BACKLOG §116.1 item 2). Seconds with
   // one decimal, because a caption takes 3.2s and a re-index 40s, and "3210
   // ms" is a number nobody reads at a glance.
+  //: What the search engine has to work with. Its own route says the Settings
+  //: page wants this and the Settings page had never asked; it answers the
+  //: question behind every "search did not find my note", which is whether
+  //: the note is in the index at all and whether the vectors are warm. Kinds
+  //: with nothing in them are left out: six zeroes say less than the two
+  //: numbers that are not.
+  const search = $("health-search");
+  if (search) {
+    const stats = await apiJson("/search/stats", { silent: true }).catch(() => null);
+    if (!stats) search.textContent = ", ";
+    else {
+      const kinds = Object.entries(stats.index || {})
+        .filter(([, n]) => n > 0)
+        .map(([kind, n]) => `${n} ${kind}${n === 1 ? "" : "s"}`);
+      const vectors = stats.vectors
+        ? `${stats.vectors} vectors${stats.vectors_warm ? "" : " (not loaded yet)"}`
+        : "no vectors yet, keyword search only";
+      search.textContent = `${kinds.length ? kinds.join(" \u00b7 ") : "nothing indexed yet"} \u00b7 ${vectors}`;
+    }
+  }
   if (latency) {
     const secs = (ms) => `${(ms / 1000).toFixed(ms >= 10000 ? 0 : 1)}s`;
     const rows = Object.entries(health.latency_ms_by_kind || {})
@@ -418,7 +439,7 @@ async function renderHealthBlock() {
 
 // --- finding a setting (§36B) ------------------------------------------------------
 //
-// Fourteen sections, grouped three ways. The grouping helps, and it is only
+// Eighteen sections, grouped four ways. The grouping helps, and it is only
 // ever right for some people, "where do I turn off web search?" is a guess
 // between The AI and System until you have learned the layout, and "where is
 // the corner rounding?" is a guess even after you have.
@@ -431,8 +452,63 @@ async function renderHealthBlock() {
 // Text is read live rather than indexed once: several sections are filled in
 // by JS after their first paint (the model list, the tool catalog, the saved
 // looks), and an index built at startup would be searching empty panels.
+//
+// "Live" does not have to mean "recomputed per keystroke", though, and it
+// used to. `section.textContent` walks a whole subtree and builds one
+// string, `.toLowerCase()` then copies it, and both ran for every one of
+// them on every character typed.
+//
+// Measured on a fresh notebook at 1440x900 (scratchpad sweep, 2026-09-19):
+// 17 sections, 63,093 characters rebuilt and lowercased per pass, 0.265 ms
+// uncached against 0.005 ms cached, so 53x. A quarter of a millisecond is
+// not a stall on this machine and it is not claimed to be one. It is worth
+// removing anyway because of which way it moves: the sections that hold the
+// most text are the ones filled in from the notebook (the model list, the
+// tool catalog, the skills, the saved looks), so the cost grows with how
+// much someone has, on exactly the machines least able to absorb it. The
+// cache also means the input needs no debounce, which is the other way this
+// gets "fixed" and the one that trades a real 200 ms delay on every
+// keystroke for a saving of a quarter of one.
+//
+// So the string is cached per section and thrown away the moment anything
+// under the modal actually changes, which is the event the "read it live"
+// comment above was really about. A `WeakMap` keyed by the section element
+// so a section that is ever replaced wholesale takes its entry with it.
+//
+// Only `childList` and `characterData` are observed, deliberately not
+// `attributes`: `filterSettings` and `showSettingsSection` both toggle
+// classes on elements inside this very subtree, and observing those would
+// make every filter pass invalidate the cache it had just filled.
+let settingsTextCache = new WeakMap();
+let settingsTextCacheStale = false;
+let settingsTextObserver = null;
+
 function settingsSectionText(section) {
-  return (section.textContent || "").toLowerCase();
+  if (!settingsTextObserver) {
+    const modal = $("settings-modal");
+    if (modal) {
+      settingsTextObserver = new MutationObserver(() => {
+        // One flag rather than a per-section diff: working out which
+        // sections a mutation touched costs more than re-reading the one
+        // section the next search actually asks about.
+        settingsTextCacheStale = true;
+      });
+      settingsTextObserver.observe(modal, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+    }
+  }
+  if (settingsTextCacheStale) {
+    settingsTextCache = new WeakMap();
+    settingsTextCacheStale = false;
+  }
+  const cached = settingsTextCache.get(section);
+  if (cached !== undefined) return cached;
+  const text = (section.textContent || "").toLowerCase();
+  settingsTextCache.set(section, text);
+  return text;
 }
 
 function filterSettings(term) {
@@ -2620,9 +2696,17 @@ function startBgArt() {
   // (`scratchpad/ui-sweeps/bgart.js`), which makes it the single most
   // expensive thing Performance mode could switch off, and it was the one
   // thing that kept running.
+  //: **Battery-efficient mode stops it too, and "moving" does not override
+  //: that** (INBOX 260), for the same reason Performance mode is not
+  //: overridden two lines up: both are statements about what this machine
+  //: should be spending, not preferences about motion, and this art is the
+  //: most expensive thing on the page to draw (+17ms to +28ms a frame,
+  //: `scratchpad/ui-sweeps/bgart.js`). A person asking for less battery use
+  //: is asking for exactly that saving.
   const reduceMotion =
     bgMotion === "still" ||
     perfModeOn() ||
+    (typeof batteryModeOn === "function" && batteryModeOn()) ||
     (bgMotion !== "moving" && reducedMotionWanted());
   // Whatever colour the app is wearing, accent picker or curated palette.
   const accentHex = currentAccentHex();
@@ -3384,10 +3468,9 @@ function helpChatIsNearBottom() {
 //: The guide's name, read from here everywhere the interface says it
 //: (CHAT_PLAN.md decision 15). `help_chat.GUIDE_NAME` is the same word on the
 //: server, where the model is told it.
-//: One name for the notebook's AI, spelt once (INBOX 225); the backend's
-//: `AI_NAME` in ai/__init__.py is the same word. The guide is the same Atlas
-//: wearing its "about the app" hat.
-const AI_NAME = "Atlas";
+//: One name for the notebook's AI, spelt once (INBOX 225) in app.js, which
+//: index.html loads first; the backend's `AI_NAME` in ai/__init__.py is the
+//: same word. The guide is the same Atlas wearing its "about the app" hat.
 const GUIDE_NAME = AI_NAME;
 //: The persona hint's "(Atlas)" follows the name too.
 {
@@ -3630,9 +3713,20 @@ async function submitHelpChatQuestion(question) {
 async function helpChatStreamTurn({ pending, signal, body }) {
   let response;
   try {
+    //: Hand-rolled like `/chat/stream` (app.js), because `api()` does not
+    //: hand back a streaming body, and with the same two headers `api()`
+    //: adds to everything else. Without `X-Auth-Token` a locked app answered
+    //: 401, this threw "no stream", and the fallback below answered in one
+    //: piece: the owner's "streaming is also broken" was exactly that, on
+    //: every locked notebook, while the streamed route tested green.
+    //: `tests/test_raw_fetch_headers.py` now fails on a raw fetch without it.
     response = await fetch("/help/ask/stream", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Auth-Token": authToken(),
+        "X-Workspace-ID": activeSpaceId(),
+      },
       signal,
       body: JSON.stringify(body),
     });
@@ -3863,6 +3957,19 @@ function openHelpChat() {
   helpChatHome = { parent: group.parentNode, next: group.nextSibling };
   const menu = $("help-chat-menu");
   const menuHome = menu ? { parent: menu.parentNode, next: menu.nextSibling } : null;
+  //: **The '?' belongs beside the line it lengthens, not beside the field**
+  //: (INBOX 270). DESIGN.md's help recipe is one line in place and the rest
+  //: behind a '?': the line in place here is the head's "About the app, never
+  //: your notes", and the '?' was three rows below it in the composer, where
+  //: the only thing it sat beside was a text field it does not describe. In
+  //: the head it is what the popup agent's own '?' is, next to the title,
+  //: and the composer goes back to the two controls every other composer in
+  //: this app has. Moved rather than duplicated, for the reason the whole
+  //: chat is moved rather than duplicated: one copy, one set of ids.
+  const helpToggle = group.querySelector('[data-help-for="help-chat-help"]');
+  const helpToggleHome = helpToggle
+    ? { parent: helpToggle.parentNode, next: helpToggle.nextSibling }
+    : null;
   const close = openSheet({
     label: GUIDE_NAME,
     name: "guide",
@@ -3894,6 +4001,10 @@ function openHelpChat() {
         words.append(name, line);
         title.replaceChildren(...(mark ? [mark] : []), words);
       }
+      //: Title, '?', kebab, close: the surface, what it is, what else you can
+      //: do with it, the way out. Inserted in that order, each before the X,
+      //: which is the one control the recipe puts there itself.
+      if (helpToggle && head) head.insertBefore(helpToggle, head.querySelector(".sheet-close"));
       if (menu && head) head.insertBefore(menu, head.querySelector(".sheet-close"));
     },
     onClose: () => {
@@ -3901,6 +4012,14 @@ function openHelpChat() {
       //: it is opened. `insertBefore` with a null `next` appends, which is
       //: the correct behaviour when it was the last child.
       group.classList.remove("atlas-docked");
+      //: **A popover outlives the panel it explains** unless this says so.
+      //: `openSheet` takes Escape in the capture phase and stops it, so the
+      //: '?' popover's own Escape handler never runs: measured before this
+      //: line, opening the '?' and pressing Escape closed the panel and left
+      //: the popover sitting on `document.body` over the app, with its home
+      //: inside a `hidden` host it could never be seen to belong to again.
+      if (typeof closeHelpPopovers === "function") closeHelpPopovers();
+      if (helpToggle && helpToggleHome) helpToggleHome.parent.insertBefore(helpToggle, helpToggleHome.next);
       if (menu && menuHome) menuHome.parent.insertBefore(menu, menuHome.next);
       if (helpChatHome) helpChatHome.parent.insertBefore(group, helpChatHome.next);
       helpChatHome = null;
@@ -3930,3 +4049,448 @@ $("atlas-open")?.addEventListener("click", () => openHelpChat());
 //: The Settings row's chips are built once, with the modal: the sheet's are
 //: built each time it opens, since the sheet is thrown away on close.
 renderAtlasStarters();
+
+// =============================================================================
+// What it learned (WORLD_CLASS_PLAN I9)
+// =============================================================================
+//
+// **The backend has been complete since 2026-09-13 and nothing called it.**
+// Found by scanning all 319 routes against every path the frontend fetches:
+// `GET /learned`, `GET|PUT /learned/switches`, `PATCH|DELETE /learned/{id}`,
+// `POST /learned/{id}/reset`, `GET /learned/export` and `DELETE /learned` had
+// no caller anywhere. The plan's own words for why that matters: "a model
+// that is wrong quietly is worse than no model", and every one of those
+// routes exists so a person can see the model being wrong and say so. With
+// no screen, `derived_facts` grew where nobody could read it.
+//
+// Built against what the backend ships rather than against the whole spec:
+// there is no `POST /learned/bulk`, so there are no bulk actions here. An
+// invented client-side loop over N rows is not the same thing (it is N
+// requests that can half fail), and the honest version of that row is a
+// backend route, not a for-loop.
+
+//: One page. 50 rather than the route's 100 default: this is a settings
+//: panel inside a modal, and a hundred rows is a scroll nobody finishes.
+const LEARNED_PAGE = 50;
+
+//: What each switch is, in the words a person would use. The keys are
+//: `ai/facts.py`'s `SWITCHES`, and a key that appears there and not here
+//: still renders, under its own name, rather than vanishing: a switch the
+//: person cannot see is a switch they cannot turn off, which is the one
+//: thing this section exists to prevent.
+const LEARNED_SWITCH_COPY = {
+  night_shift: ["Night shift", "Reads notes you have added or changed and works out what they claim."],
+  margin_reader: ["Margin reader", "Adds notes in the margin of a note as you read it."],
+  open_questions: ["Open questions", "Collects the questions your notes leave unanswered."],
+  resurfacing: ["Resurfacing", "Brings notes you have not looked at in a while back to the dashboard."],
+  evidence_checks: ["Evidence checks", "Looks for what in your notes supports or contradicts a claim."],
+  corrections: ["Learning from corrections", "Remembers when you refile a note or dismiss a suggestion, and stops repeating it."],
+  model_bench: ["Model bench", "Compares your installed models on your own notes."],
+};
+
+//: The master, which is not one of the seven: `facts.switches()` reports it
+//: alongside them and, when it is on, reports every other one as off.
+const LEARNED_MASTER = "paused";
+
+//: What a derived kind is called. `ai/facts.py`'s `KINDS` is ("claim",
+//: "question") today and the plan adds more (tensions, duplicates, entities,
+//: dates); an unknown kind shows its own name rather than being dropped.
+const LEARNED_KIND_COPY = {
+  claim: "Claim",
+  question: "Open question",
+};
+
+let learnedOffset = 0;
+let learnedTotal = 0;
+//: The filter typing debounce, so a search box does not fire a request per
+//: keystroke against a table that can hold thousands of rows.
+let learnedSearchTimer = null;
+
+function learnedKindLabel(kind) {
+  return LEARNED_KIND_COPY[kind] || String(kind || "").replace(/_/g, " ") || "Fact";
+}
+
+async function renderLearnedSwitches() {
+  const host = $("learned-switches");
+  const banner = $("learned-paused-banner");
+  if (!host) return;
+  const switches = await apiJson("/learned/switches").catch(() => null);
+  if (!switches) {
+    host.replaceChildren();
+    return;
+  }
+  const paused = Boolean(switches[LEARNED_MASTER]);
+  host.replaceChildren();
+
+  //: **`.setting-check`, the app's own on/off recipe** (DESIGN.md's index:
+  //: "An on/off setting: `label.setting-check` with the switch first").
+  //: These were built as `.checkbox-label row align-center`, which is the
+  //: recipe for a checkbox *beside a word*, and it has no opinion about a
+  //: hint: the `<small>` stayed inline, so every row read "Night shiftReads
+  //: notes you have added or changed". Reported as "messy and not consistent
+  //: with the design.md rules and the rest of the application", which is
+  //: exactly what standing order 11 says happens when a new surface builds
+  //: its own shape instead of taking one from the index.
+  //:
+  //: `.setting-check` is a three-column grid whose label column is a flex
+  //: column, so the hint lands under its own title with the switch centred
+  //: beside both, and the row fills with `--accent-soft` when it is on.
+  const learnedRow = (title, hint) => {
+    const row = document.createElement("label");
+    row.className = "setting-check";
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    const text = document.createElement("span");
+    //: The space is not decoration. `<small>` is a flex item in this column
+    //: so it draws on its own line either way, but the accessible name is
+    //: `textContent`, which without it reads "Night shiftReads notes you have
+    //: added or changed" to a screen reader. The markup rows in index.html
+    //: get the same space for free from their own indentation.
+    text.append(document.createTextNode(hint ? `${title} ` : title));
+    if (hint) {
+      const small = document.createElement("small");
+      small.className = "muted";
+      small.textContent = hint;
+      text.appendChild(small);
+    }
+    row.append(box, text);
+    return { row, box };
+  };
+
+  //: The master first and set apart, because it is the answer to "stop all of
+  //: this now" and a person looking for that is not going to read seven rows
+  //: to find it.
+  const master = learnedRow(
+    "Pause all learning",
+    "Nothing below runs while this is on. What has already been worked out is kept.",
+  );
+  master.row.classList.add("learned-master");
+  master.box.id = "learned-pause-all";
+  master.box.checked = paused;
+  master.box.addEventListener("change", async () => {
+    await learnedSetSwitch(LEARNED_MASTER, master.box.checked);
+  });
+  host.appendChild(master.row);
+
+  //: **The seven live in their own box, and that is a layout decision with a
+  //: rule behind it.** 08-consistency.css makes consecutive `.setting-check`
+  //: rows one stack: hairline between, square where they meet, rounded only
+  //: at the two outer ends. That is right for the seven, which are one set of
+  //: choices. It is wrong across the master, which is set apart by a gap, and
+  //: a row separated by a gap with a square top edge and a stack hairline on
+  //: it looks like a mistake rather than a boundary. Putting the seven in a
+  //: container means the adjacent-sibling rules simply stop at the master, so
+  //: it keeps all four of its corners and the seven get their own stack.
+  const stack = document.createElement("div");
+  stack.className = "learned-switch-stack";
+  host.appendChild(stack);
+
+  for (const [name, value] of Object.entries(switches)) {
+    if (name === LEARNED_MASTER) continue;
+    const [title, hint] = LEARNED_SWITCH_COPY[name] || [name.replace(/_/g, " "), ""];
+    const { row, box } = learnedRow(title, hint);
+    box.checked = Boolean(value);
+    //: Disabled rather than hidden while paused: the master says these are
+    //: off, and a row that disappeared would leave no way to see what the
+    //: master is holding down. `.disabled-row` is the app's own class for
+    //: exactly this ("a row whose parent control is switched off"), so the
+    //: seven dim together rather than each switch greying on its own.
+    box.disabled = paused;
+    row.classList.toggle("disabled-row", paused);
+    box.addEventListener("change", async () => {
+      await learnedSetSwitch(name, box.checked);
+    });
+    stack.appendChild(row);
+  }
+
+  if (banner) {
+    banner.classList.toggle("hidden", !paused);
+    banner.textContent = paused
+      ? `Paused. ${learnedTotal} thing${learnedTotal === 1 ? "" : "s"} already worked out are kept and stay editable below.`
+      : "";
+  }
+}
+
+async function learnedSetSwitch(name, value) {
+  try {
+    await apiJson("/learned/switches", {
+      method: "PUT",
+      body: JSON.stringify({ [name]: value }),
+    });
+  } catch (error) {
+    toast(error.message, true);
+  }
+  //: Re-read rather than trust the click: the master turns the other seven
+  //: off in the *reply*, not in the request, so the only correct picture of
+  //: the switches after any write is the one the server just sent back.
+  await renderLearnedSwitches();
+}
+
+function learnedRow(fact) {
+  const li = document.createElement("li");
+  li.className = "entry-item learned-row";
+  li.dataset.factId = String(fact.id);
+
+  const head = document.createElement("div");
+  head.className = "row align-center learned-row-head";
+  const kind = document.createElement("span");
+  kind.className = "chip";
+  kind.textContent = learnedKindLabel(fact.kind);
+  head.appendChild(kind);
+  if (fact.edited_by_user) {
+    const edited = document.createElement("span");
+    edited.className = "chip";
+    edited.textContent = "Edited by you";
+    edited.title = "No later run overwrites this";
+    head.appendChild(edited);
+  }
+  li.appendChild(head);
+
+  const text = document.createElement("p");
+  text.className = "learned-text";
+  text.textContent = fact.text;
+  li.appendChild(text);
+
+  //: Where it came from, which is the whole difference between a claim you
+  //: can check and a sentence an app asserted at you.
+  const meta = document.createElement("p");
+  meta.className = "muted learned-meta";
+  const parts = [];
+  if (fact.model) parts.push(fact.model);
+  if (typeof fact.confidence === "number") parts.push(`${Math.round(fact.confidence * 100)}% sure`);
+  if (fact.computed_at && typeof relativeTime === "function") parts.push(relativeTime(fact.computed_at));
+  meta.textContent = parts.join(" · ");
+  li.appendChild(meta);
+
+  const actions = document.createElement("div");
+  actions.className = "row entry-actions";
+  if (fact.entry_id) {
+    actions.appendChild(
+      smallButton("ph:arrow-square-out Open the note", "Open the note this came from", () => {
+        closeSettingsModal();
+        flashEntry(fact.entry_id);
+      })
+    );
+  }
+  actions.appendChild(
+    smallButton("ph:pencil-simple Edit", "Correct what this says", () => learnedEdit(fact))
+  );
+  if (fact.edited_by_user) {
+    actions.appendChild(
+      smallButton("ph:arrow-counter-clockwise Reset", "Put the model's own words back", () =>
+        learnedReset(fact)
+      )
+    );
+  }
+  actions.appendChild(
+    smallButton("ph:trash Delete", "Delete this, and never work it out again", () => learnedDelete(fact))
+  );
+  li.appendChild(actions);
+  return li;
+}
+
+async function renderLearnedList() {
+  const list = $("learned-list");
+  const empty = $("learned-empty");
+  const count = $("learned-count");
+  if (!list) return;
+  const kind = $("learned-kind")?.value || "";
+  const q = $("learned-search")?.value.trim() || "";
+  const query = new URLSearchParams({ limit: String(LEARNED_PAGE), offset: String(learnedOffset) });
+  if (kind) query.set("kind", kind);
+  if (q) query.set("q", q);
+  const data = await apiJson(`/learned?${query}`).catch(() => null);
+  if (!data) {
+    list.replaceChildren();
+    if (count) count.textContent = "Couldn't load what it learned.";
+    return;
+  }
+  learnedTotal = Number(data.total) || 0;
+  list.replaceChildren(...data.items.map(learnedRow));
+  if (empty) empty.classList.toggle("hidden", data.items.length > 0 || Boolean(q) || Boolean(kind));
+  if (count) {
+    if (!learnedTotal) count.textContent = q || kind ? "Nothing matches." : "";
+    else {
+      const from = learnedOffset + 1;
+      const to = learnedOffset + data.items.length;
+      count.textContent = `${from} to ${to} of ${learnedTotal}`;
+    }
+  }
+  const prev = $("learned-prev");
+  const next = $("learned-next");
+  if (prev) prev.disabled = learnedOffset <= 0;
+  if (next) next.disabled = learnedOffset + LEARNED_PAGE >= learnedTotal;
+  //: The pager disappears rather than sitting there greyed out when one page
+  //: is the whole table, which is every notebook until it is not.
+  $("learned-pager")?.classList.toggle("hidden", learnedTotal <= LEARNED_PAGE);
+}
+
+async function learnedEdit(fact) {
+  //: `promptDialog`, the app's one text dialog, rather than an inline
+  //: textarea grown in the row: standing order 11, new UI comes from the
+  //: recipe index. Its field is one line, which suits a derived claim (20 to
+  //: 300 characters by `facts.MIN_SENTENCE_CHARS`/`MAX_SENTENCE_CHARS`).
+  const next = await promptDialog("What should this say?", fact.text, { confirmLabel: "Save" });
+  //: Empty is Cancel here, the way it is at every other `promptDialog` call
+  //: site in the app: the dialog resolves with `""` for Cancel, for Escape
+  //: and for a backdrop click alike, so a caller that treated empty as a
+  //: value would answer a cancelled dialog with an error toast. Clearing the
+  //: box and pressing Save therefore also does nothing, which is right:
+  //: deleting a fact is the button next to this one.
+  if (!next.trim() || next.trim() === fact.text.trim()) return;
+  try {
+    await apiJson(`/learned/${fact.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ text: next.trim() }),
+    });
+    toast("Saved. No later run will overwrite it.");
+    renderLearnedList();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+async function learnedReset(fact) {
+  try {
+    await apiJson(`/learned/${fact.id}/reset`, { method: "POST" });
+    toast("Put the model's own words back.");
+    renderLearnedList();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+async function learnedDelete(fact) {
+  const ok = await confirmDialog(
+    "Delete this and never work it out again?\n\nYour note is not touched. The deletion is remembered, so the next run will not derive the same thing.",
+    { confirmLabel: "Delete" }
+  );
+  if (!ok) return;
+  try {
+    await api(`/learned/${fact.id}`, { method: "DELETE" });
+    //: The page can be left holding nothing if the last row of the last page
+    //: went, which reads as a bug ("it deleted everything"). Step back one
+    //: page first, exactly as the note list does.
+    if (learnedOffset > 0 && learnedTotal - 1 <= learnedOffset) {
+      learnedOffset = Math.max(0, learnedOffset - LEARNED_PAGE);
+    }
+    renderLearnedList();
+    renderLearnedSwitches();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+async function learnedForget() {
+  const ok = await confirmDialog(
+    "Forget everything the notebook has worked out?\n\nEvery derived claim, question and learned preference goes. Your notes, their history and everything you told it to remember are untouched. This cannot be undone.",
+    { confirmLabel: "Forget it all" }
+  );
+  if (!ok) return;
+  try {
+    await api("/learned", {
+      method: "DELETE",
+      body: JSON.stringify({ confirm: true }),
+    });
+    learnedOffset = 0;
+    toast("Forgotten. Your notes are exactly as they were.");
+    renderLearned();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+async function learnedExport() {
+  try {
+    const data = await apiJson("/learned/export");
+    const day = new Date().toISOString().slice(0, 10);
+    await downloadJson(`memorymap-learned-${day}.json`, data);
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+//: **One pass, now.** `POST /night/run` is the manual half of I1 and had no
+//: caller: the pass ran on its own schedule and a person who wanted to know
+//: what their notebook would make of a note they had just written had to
+//: wait for it. The reply is the pass's own report, and it is worth showing
+//: in full: `{paused}` when the switch above is off (which is the honest
+//: answer, not an error), and otherwise how many notes were read, how many
+//: things came out and why it stopped, because "it did nothing" and "it read
+//: four thousand notes and found nothing new" are different answers and this
+//: is the one screen that can tell them apart.
+async function learnedRunNow() {
+  const button = $("learned-run-now");
+  const note = $("learned-run-note");
+  if (!button) return;
+  button.disabled = true;
+  if (note) note.textContent = "Reading\u2026";
+  try {
+    const result = await apiJson("/night/run", {
+      method: "POST",
+      body: JSON.stringify({ budget: 20000 }),
+    });
+    if (result.paused) {
+      if (note) note.textContent = "Night shift is off. Turn it on above and press this again.";
+    } else {
+      const derived = Number(result.derived) || 0;
+      const scanned = Number(result.scanned) || 0;
+      const stopped = result.stopped_reason === "budget" ? ", stopped at this run's budget" : "";
+      if (note) {
+        note.textContent = derived
+          ? `Read ${scanned} note${scanned === 1 ? "" : "s"}, worked out ${derived} new thing${derived === 1 ? "" : "s"}${stopped}.`
+          : `Read ${scanned} note${scanned === 1 ? "" : "s"}, nothing new${stopped}.`;
+      }
+      if (derived) renderLearnedList();
+    }
+  } catch (error) {
+    if (note) note.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+//: Built once, with the modal, not per open: these are static controls and
+//: rebinding them on every visit is how a settings panel ends up with six
+//: copies of one listener.
+function wireLearnedSection() {
+  const kind = $("learned-kind");
+  if (kind && kind.options.length <= 1) {
+    for (const [value, label] of Object.entries(LEARNED_KIND_COPY)) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      kind.appendChild(option);
+    }
+  }
+  kind?.addEventListener("change", () => {
+    learnedOffset = 0;
+    renderLearnedList();
+  });
+  $("learned-search")?.addEventListener("input", () => {
+    clearTimeout(learnedSearchTimer);
+    learnedSearchTimer = setTimeout(() => {
+      learnedOffset = 0;
+      renderLearnedList();
+    }, 250);
+  });
+  $("learned-prev")?.addEventListener("click", () => {
+    learnedOffset = Math.max(0, learnedOffset - LEARNED_PAGE);
+    renderLearnedList();
+  });
+  $("learned-next")?.addEventListener("click", () => {
+    learnedOffset += LEARNED_PAGE;
+    renderLearnedList();
+  });
+  $("learned-run-now")?.addEventListener("click", learnedRunNow);
+  $("learned-export")?.addEventListener("click", learnedExport);
+  $("learned-forget")?.addEventListener("click", learnedForget);
+}
+
+async function renderLearned() {
+  //: The list first, so the switches' "N things kept" line has a number.
+  await renderLearnedList();
+  await renderLearnedSwitches();
+}
+
+wireLearnedSection();

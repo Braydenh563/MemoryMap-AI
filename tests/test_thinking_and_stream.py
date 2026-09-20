@@ -95,4 +95,19 @@ def test_chat_stream_offline_still_sends_results(client):
     assert meta["answered_by"] is None
     assert len(meta["raw_results"]) == 1
     answer = "".join(e["delta"] for e in events if e["type"] == "answer")
-    assert "Ollama" in answer  # the friendly offline message
+    #: **The notes answer for themselves now.** This used to assert on the
+    #: word "Ollama", from a sentence saying the AI was unavailable, which was
+    #: all the turn produced while holding the ranked notes that answered the
+    #: question. `extractive.answer` quotes the passage of each one that is
+    #: about the question, and says in its lead that it is quoting rather than
+    #: writing.
+    assert "No model is running" in answer
+    assert "cheese" in answer, "the note's own words have to be in the answer"
+    #: And grounded, exactly, by construction: an extractive answer cannot be
+    #: wrong about where a claim came from, because the claim is the passage.
+    grounding = [e for e in events if e["type"] == "grounding"]
+    assert grounding and grounding[0]["sentences"], (
+        "an offline answer made of the notes' own passages must carry the "
+        "same grounding rows a model's answer does, or the citation markers "
+        "and the Sources panel have nothing to number"
+    )

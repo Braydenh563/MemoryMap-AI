@@ -169,8 +169,108 @@ document.getElementById("doc-dock-menu")?.addEventListener("click", (event) => {
 });
 document.addEventListener("click", (event) => {
   const menu = document.getElementById("doc-dock-menu");
-  if (menu?.open && !menu.contains(event.target)) menu.open = false;
+  if (!menu?.open) return;
+  //: The group flyouts are reparented to `<body>` while open (see
+  //: `buildMenuGroupButton`), so a click inside one is not inside `menu` and
+  //: the plain "clicked away" reading below would shut the whole thing before
+  //: the row's own handler had run.
+  const submenu = event.target.closest?.(".action-menu.submenu");
+  if (submenu) {
+    //: **And it is where a flyout row's close has to live**, for the same
+    //: reason: nothing on the group or on `#doc-dock-menu` sees this click.
+    //: The rules are the list's own, restated for rows that have moved into a
+    //: flyout. A switch keeps the menu open, because a switch has a state you
+    //: have to be able to see move and a menu that shuts on the click hides
+    //: the only feedback it gives. A nested group opener is not a row. A row
+    //: from one of *this* menu's flyouts closes it; one from some other
+    //: menu's flyout is none of our business.
+    if (!submenu.dataset.docDockSubmenu) return;
+    if (event.target.closest(".doc-dock-menu-check")) return;
+    if (!event.target.closest(".menu-item") || event.target.closest(".has-submenu")) return;
+    menu.open = false;
+    return;
+  }
+  if (menu.contains(event.target)) return;
+  menu.open = false;
 });
+
+//: **Five download rows into one** (INBOX 262, the owner: "I want to combine
+//: the "download as" options in it into a sub menu in that dropdown ... like
+//: the ones in the meatball dropdowns in the your notes page").
+//:
+//: Measured before: the menu is 706px tall in a 900px window at 1440px wide,
+//: 45 focusable rows, and on a taller, narrower window it runs to the bottom
+//: edge with a scrollbar of its own, which is what the report's screenshot
+//: shows. Four of those rows are the same verb.
+//:
+//: **The buttons are moved, not rebuilt.** They carry ids that this file
+//: binds handlers to and that `test_frontend_ids` and
+//: `test_frontend_handlers` both watch, so `buildMenuGroupButton` takes them
+//: as elements. Everything else is the notes kebab's own group recipe: hover
+//: or click to open, a flyout beside the row, an accordion at phone width,
+//: clamped to the window on both axes.
+//:
+//: Built once, at load, rather than per open: these rows are static markup
+//: and the groups are not rebuilt by anything.
+function foldDocMenuGroup(label, ids) {
+  const list = document.querySelector("#doc-dock-menu .doc-dock-menu-list");
+  if (!list) return;
+  const rows = ids.map((id) => document.getElementById(id)).filter(Boolean);
+  if (rows.length < 2 || typeof buildMenuGroupButton !== "function") return;
+  //: Already folded: this is called once at load, but a second call would
+  //: otherwise wrap a group inside a group.
+  if (rows[0].closest(".menu-group")) return;
+  //: **A marker, because the group takes the rows with it.**
+  //: `buildMenuGroupButton` appends each element into the flyout, so by the
+  //: time it returns, `rows[0]` is no longer a child of this list and
+  //: `insertBefore(group, rows[0])` throws `NotFoundError`. That throw is
+  //: not local: this runs at the top level of documents.js, so it took the
+  //: rest of the file's initialisation with it (`storageInfo`,
+  //: `DOC_VIEWS_UNRENDERED` and `docCmView` all failed to initialise, and
+  //: the editor would not open). A comment node holds the place instead.
+  const marker = document.createComment("menu group");
+  list.insertBefore(marker, rows[0]);
+  const group = buildMenuGroupButton(label, rows);
+  list.insertBefore(group, marker);
+  marker.remove();
+  //: **Marked, so the document-level handler below can recognise its own
+  //: flyouts.** A listener on `group` is never called once the flyout is
+  //: open, and that is not a subtlety worth rediscovering: `buildMenuGroupButton`
+  //: reparents the panel to `<body>` so it can escape a clipping ancestor, so
+  //: a click inside it does not bubble through the group at all. The first
+  //: version of this bound the close to `group` and looked right; measured,
+  //: clicking "Dim all but this paragraph" inside its flyout left the menu
+  //: open, and so did every download row.
+  const panel = group.querySelector(".action-menu.submenu");
+  if (panel) panel.dataset.docDockSubmenu = "1";
+}
+
+//: **Three groups, because fourteen rows do not fit on a laptop.** Reported
+//: twice: first that the menu "goes off the page", and after the downloads
+//: were folded, that it "is still almost off the bottom of the screen".
+//: Measured with the second report: the list is 562px of a 900px window at
+//: 1440 wide, and at 1024x720 it runs 32px past the bottom edge.
+//:
+//: The groups are the ones the markup already argued for in its own comments,
+//: not a fresh carve-up by row count. "What should be in front of you while
+//: you write" is what the dim/typewriter/serif trio was built as, and the two
+//: writing switches were put beside them for the same reason; they are one
+//: group. What is left of the view rows is what the *editor* shows rather
+//: than what the document is, so they are the other.
+//:
+//: `Connections`, `History`, `Extract notes` and `Delete document` stay in
+//: the list: each is a verb on this document, none is a preference, and
+//: hiding a one-off action behind a flyout costs a click every time to save a
+//: row once.
+foldDocMenuGroup("ph:download-simple Download or print", [
+  "doc-export-md", "doc-export-html", "doc-export-zip", "doc-export-docx", "doc-export-pdf",
+]);
+foldDocMenuGroup("ph:layout Editor and layout", [
+  "doc-format-toggle", "doc-width-menu", "doc-toolbar-mode",
+]);
+foldDocMenuGroup("ph:pencil-simple While you write", [
+  "doc-dim-others", "doc-typewriter", "doc-serif", "doc-autocorrect-row", "doc-complete-row",
+]);
 
 // --- which of the four views is showing ----------------------------------------
 //
@@ -606,7 +706,16 @@ async function loadDocuments(selectId = null) {
   //: `[[wiki link]]` resolves against `docs` by title (see
   //: `docLinkTargetFor`), so a document missing from it is a link that
   //: silently fails to resolve, not just a row missing from a list.
-  docs = await apiPagedList("/documents", DOCUMENTS_PAGE_SIZE).catch(() => []);
+  //: A sentinel rather than `[]`, because an empty list and a failed request
+  //: were the same value here and the sidebar said "No documents yet" for
+  //: both. See `surfaceFailed` in app.js.
+  const loaded = await apiPagedList("/documents", DOCUMENTS_PAGE_SIZE).catch(() => null);
+  if (!loaded) {
+    surfaceFailed(document.getElementById("doc-empty"), "documents", () => loadDocuments(selectId));
+    return;
+  }
+  surfaceRecovered(document.getElementById("doc-empty"));
+  docs = loaded;
   renderDocList();
   if (selectId) return openDocument(selectId);
   if (!currentDoc && docs.length) return openDocument(docs[0].id);
@@ -1055,7 +1164,7 @@ function renderDocNotes() {
       showNotesSection("browse"); // focusing inside a hidden section does nothing
       flashEntry(note.id);
     });
-    const remove = smallButton("✕", "Detach this note from the document", async () => {
+    const remove = smallButton("ph:x", "Detach this note from the document", async () => {
       currentDoc = await apiJson(
         `/documents/${currentDoc.id}/notes/${note.id}`,
         { method: "DELETE" }
@@ -1101,7 +1210,7 @@ async function renderDocBookmarks() {
     setLabel(open, `ph:link ${bookmark.title || bookmark.url}`);
     open.title = bookmark.url;
     open.addEventListener("click", () => window.open(bookmark.url, "_blank", "noopener,noreferrer"));
-    const remove = smallButton("✕", "Remove this reference", async () => {
+    const remove = smallButton("ph:x", "Remove this reference", async () => {
       await apiJson(`/documents/${currentDoc.id}/bookmarks/${bookmark.id}`, { method: "DELETE" });
       renderDocBookmarks();
     });
@@ -1187,7 +1296,7 @@ async function attachBookmarkToDocument() {
     close();
     renderDocBookmarks();
   });
-  const cancel = smallButton("✕", "Don't attach a link", close);
+  const cancel = smallButton("ph:x", "Don't attach a link", close);
   cancel.classList.add("doc-outline-row-action");
   row.append(select, cancel);
   wrap.insertBefore(row, $("doc-attach-bookmark"));
@@ -1708,14 +1817,115 @@ function docCaretLine() {
   }
 }
 
-function renderDocOutline() {
-  const list = $("doc-outline");
-  const wrap = $("doc-outline-wrap");
-  if (!list || !wrap) return;
-  const text = docText();
+//: **Folding, and the filter box** (DOCUMENTS_PLAN Phase 4 item 3, and
+//: OPEN.md's "The outline is headings only, and it does not fold").
+//:
+//: **Folds are kept per document, by heading rather than by line.** A line
+//: number is the obvious key and the wrong one: it changes every time a
+//: paragraph is added above, so a folded section would unfold itself, or
+//: worse, some other section would be folded in its place, the moment anybody
+//: wrote anything. The heading's own level and text survive an edit anywhere
+//: else in the document, which is what a remembered fold has to survive to be
+//: worth remembering. Two headings with the same words at the same level fold
+//: together, which is a fair reading of "the same section" and the only
+//: ambiguity this key has.
+//:
+//: In `localStorage` because it is a per-viewer convenience about how a panel
+//: is drawn, not something about the document: a fold written into the file
+//: would travel to everyone who opens it and would show up in its diff.
+const DOC_OUTLINE_FOLD_KEY = "doc-outline-folds";
+
+//: Ten. Below it the whole outline is on screen and a filter box is a control
+//: that costs a row and saves nothing; past it the list is longer than the
+//: panel and hunting starts. OPEN.md puts the line at "two screens of
+//: headings", which in this sidebar's own measurement (`#doc-outline-wrap` at
+//: 85px with the list scrolling inside it) arrives well before twenty.
+const DOC_OUTLINE_FILTER_FROM = 10;
+
+function docOutlineFoldStore() {
+  //: Keyed by document, so folding one document's sections says nothing about
+  //: another's. A document with no id yet (never saved) gets no store rather
+  //: than a shared one.
+  const id = typeof currentDoc !== "undefined" && currentDoc ? currentDoc.id : null;
+  return id ? `${DOC_OUTLINE_FOLD_KEY}:${id}` : "";
+}
+
+function docOutlineFolds() {
+  const store = docOutlineFoldStore();
+  if (!store) return new Set();
+  try {
+    const raw = JSON.parse(localStorage.getItem(store) || "[]");
+    return new Set(Array.isArray(raw) ? raw.filter((k) => typeof k === "string") : []);
+  } catch {
+    //: Private mode, or a value written by an older shape. An outline that
+    //: draws unfolded is right; one that throws on open is not.
+    return new Set();
+  }
+}
+
+function docOutlineSetFolds(folds) {
+  const store = docOutlineFoldStore();
+  if (!store) return;
+  try {
+    localStorage.setItem(store, JSON.stringify([...folds]));
+  } catch {
+    //: Nothing to do and nothing worth saying: the fold still applies to the
+    //: outline on screen, it just will not survive a reload.
+  }
+}
+
+function docOutlineFoldKey(heading) {
+  return `${heading.level}:${heading.text}`;
+}
+
+function docOutlineFilterText() {
+  return ($("doc-outline-filter")?.value || "").trim().toLowerCase();
+}
+
+//: Which rows are drawn, as one pass over the headings, because folding and
+//: filtering are two answers to the same question and a row cannot be given
+//: to both. **Filtering wins outright**: a search that hides its own matches
+//: inside a folded section is a search that reports nothing and is right about
+//: nothing, so while there is a needle the folds are ignored entirely.
+//:
+//: Returns, per heading: whether it is drawn, and whether it can fold (which
+//: is a fact about the document, not about the filter, so it is the same
+//: either way and the caret does not appear and disappear as you type).
+function docOutlineVisibility(headings, needle, folds) {
+  const rows = headings.map((heading, index) => {
+    const next = headings[index + 1];
+    return { shown: true, foldable: Boolean(next && next.level > heading.level) };
+  });
+  if (needle) {
+    headings.forEach((heading, index) => {
+      rows[index].shown = heading.text.toLowerCase().includes(needle);
+    });
+    return rows;
+  }
+  //: A fold hides the run of deeper headings under it, and a fold inside a
+  //: folded section needs no second pass: the outer one already covers every
+  //: row the inner one would.
+  let hideUnder = -1;
+  headings.forEach((heading, index) => {
+    if (hideUnder >= 0 && heading.level > hideUnder) {
+      rows[index].shown = false;
+      return;
+    }
+    hideUnder = -1;
+    if (rows[index].foldable && folds.has(docOutlineFoldKey(heading))) hideUnder = heading.level;
+  });
+  return rows;
+}
+
+//: **The headings in a piece of markdown**, pulled out of `renderDocOutline`
+//: so the reorder (Phase 4 item 3) can ask the *current* text where a section
+//: starts and ends. The outline's own list is rebuilt on a pause in typing, so
+//: acting on its line numbers a keystroke later would move the wrong run of
+//: lines; scanning again costs one pass and cannot be stale.
+function docScanHeadings(text) {
   const headings = [];
   let inFence = false;
-  const lines = text.split("\n");
+  const lines = String(text == null ? "" : text).split("\n");
   lines.forEach((line, index) => {
     // A "# " inside a code fence is code, not a heading.
     if (line.trim().startsWith("```")) inFence = !inFence;
@@ -1750,6 +1960,290 @@ function renderDocOutline() {
       line: index - 1,
     });
   });
+  return headings;
+}
+
+//: **A section is its heading and everything under it**, down to the next
+//: heading at the same level or shallower: the run of lines a reader means
+//: when they drag "Results" somewhere else. `lineCount` rather than the text
+//: again, because every caller has already split it.
+function docSectionRange(headings, index, lineCount) {
+  const heading = headings[index];
+  let end = lineCount;
+  for (let next = index + 1; next < headings.length; next += 1) {
+    if (headings[next].level <= heading.level) {
+      end = headings[next].line;
+      break;
+    }
+  }
+  return { from: heading.line, to: end };
+}
+
+// =============================================================================
+// The editor's own commands: one table, two doors (DOCUMENTS_PLAN Phase 4 item 4)
+// =============================================================================
+//
+// The plan calls this "the single biggest fix for features that do not show
+// themselves", and it asks for two things: a palette listing every editor
+// action with its shortcut, and a `?` shortcut sheet "generated from the same
+// table so the two cannot disagree". This is that table.
+//
+// **The decision the plan left open, taken here because it had to be.** The
+// plan names `Ctrl+K`, written before this app had a command palette of its
+// own on exactly that chord (`openPalette`, app.js). Two palettes on one key
+// is the collision the agent palette's own comment already records being
+// caught twice. So the editor's commands *join* the palette the app has, in a
+// group of their own, offered only while a document is actually open and on
+// screen; the chord stays where every other surface's commands already live.
+// A reader who presses Ctrl+K in a document now finds the document's own
+// actions at the top of the list they already know, rather than a second list
+// they have to learn.
+//
+// **A row whose action already has a button runs the button.** Not a copy of
+// its handler: a copy is a second definition of what "Export as HTML" means,
+// and the two drift the first time one is edited. The table carries the
+// control's id and the run is a click, which is also why every one of these
+// is reachable at all: a command that pointed at a function the dock no
+// longer calls would look right here and do nothing.
+//
+// Bracketed by `DOC-COMMANDS-BEGIN`/`END` so `tests/test_doc_commands.py` can
+// read the table's shape without a browser.
+
+// DOC-COMMANDS-BEGIN
+
+//: Pressing a control that is in a closed `<details>` menu still works (the
+//: browser dispatches to a hidden element quite happily), but a control that
+//: is not in the document at all is a command that silently does nothing, so
+//: it says so instead.
+function docRunControl(id, what) {
+  const el = $(id);
+  if (!el) {
+    toast(`${what} is not available here.`, true);
+    return;
+  }
+  el.click();
+}
+
+//: The table. `keys` is the chord the editor already listens for, or "" where
+//: the action has no chord: the shortcut sheet draws the rows that have one
+//: and the palette draws all of them, which is the division the plan asks for
+//: ("every editor action with its shortcut").
+const DOC_COMMANDS = [
+  { id: "save", icon: "ph:floppy-disk", label: "Save this document", keys: "Ctrl+S",
+    run: () => saveDocument() },
+  { id: "find", icon: "ph:magnifying-glass", label: "Find and replace in this document", keys: "Ctrl+F",
+    run: () => toggleDocFindBar(true) },
+  { id: "bold", icon: "ph:text-b", label: "Bold", keys: "Ctrl+B",
+    run: () => wrapDocSelection("**", "bold text") },
+  { id: "italic", icon: "ph:text-italic", label: "Italic", keys: "Ctrl+I",
+    run: () => wrapDocSelection("*", "italic text") },
+  { id: "strike", icon: "ph:text-strikethrough", label: "Strike through", keys: "Ctrl+Shift+S",
+    run: () => wrapDocSelection("~~", "struck through") },
+  { id: "code", icon: "ph:code", label: "Inline code", keys: "Ctrl+E",
+    run: () => wrapDocSelection("`") },
+  { id: "h1", icon: "ph:text-h-one", label: "Heading 1", keys: "Ctrl+1",
+    run: () => applyMarkdown("h1") },
+  { id: "h2", icon: "ph:text-h-two", label: "Heading 2", keys: "Ctrl+2",
+    run: () => applyMarkdown("h2") },
+  { id: "h3", icon: "ph:text-h-three", label: "Heading 3", keys: "Ctrl+3",
+    run: () => applyMarkdown("h3") },
+  { id: "comment", icon: "ph:chat-teardrop-text", label: "Comment on the selection", keys: "Ctrl+/",
+    run: () => toggleDocComment(docSurface()) },
+  { id: "indent", icon: "ph:text-indent", label: "Indent the line or list item", keys: "Tab", run: null },
+  { id: "outdent", icon: "ph:text-outdent", label: "Outdent the line or list item", keys: "Shift+Tab", run: null },
+  { id: "move-section", icon: "ph:arrows-down-up", label: "Move the section, from the outline", keys: "Alt+↑ / Alt+↓", run: null },
+  { id: "ul", icon: "ph:list-bullets", label: "Bulleted list", keys: "", run: () => applyMarkdown("ul") },
+  { id: "ol", icon: "ph:list-numbers", label: "Numbered list", keys: "", run: () => applyMarkdown("ol") },
+  { id: "task", icon: "ph:check-square", label: "Task list", keys: "", run: () => applyMarkdown("task") },
+  { id: "quote", icon: "ph:quotes", label: "Quote", keys: "", run: () => applyMarkdown("quote") },
+  { id: "link", icon: "ph:link", label: "Link", keys: "", run: () => applyMarkdown("link") },
+  { id: "view-edit", icon: "ph:pencil-simple", label: "Edit this document", keys: "",
+    run: () => setDocView(lastEditView) },
+  { id: "view-read", icon: "ph:book-open", label: "Read this document", keys: "",
+    run: () => setDocView("rendered") },
+  { id: "formatting", icon: "ph:text-aa", label: "Show or hide the formatting tools", keys: "",
+    run: () => docRunControl("doc-format-toggle", "The formatting strip") },
+  { id: "focus", icon: "ph:moon", label: "Focus mode", keys: "",
+    run: () => docRunControl("doc-focus-toggle", "Focus mode") },
+  { id: "typewriter", icon: "ph:arrows-in-line-horizontal", label: "Typewriter scrolling", keys: "",
+    run: () => docRunControl("doc-typewriter", "Typewriter scrolling") },
+  { id: "dim-others", icon: "ph:circle-half-tilt", label: "Dim every paragraph but this one", keys: "",
+    run: () => docRunControl("doc-dim-others", "Dimming") },
+  { id: "serif", icon: "ph:text-aa", label: "Serif reading face", keys: "",
+    run: () => docRunControl("doc-serif", "The serif face") },
+  { id: "goal", icon: "ph:target", label: "Set a word goal", keys: "",
+    run: () => docRunControl("doc-word-goal", "The word goal") },
+  { id: "ai", icon: "ph:magic-wand", label: "Ask Atlas to edit this document", keys: "",
+    run: () => docRunControl("doc-ai", "AI editing") },
+  { id: "extract", icon: "ph:scissors", label: "Extract notes from this document", keys: "",
+    run: () => docRunControl("doc-extract", "Extracting notes") },
+  { id: "history", icon: "ph:clock-counter-clockwise", label: "Every version this document has had", keys: "",
+    run: () => docRunControl("doc-history", "Version history") },
+  { id: "connections", icon: "ph:graph", label: "What this document is joined to", keys: "",
+    run: () => docRunControl("doc-connections", "Connections") },
+  { id: "export-md", icon: "ph:download-simple", label: "Download as .md", keys: "",
+    run: () => docRunControl("doc-export-md", "The markdown export") },
+  { id: "export-html", icon: "ph:file-html", label: "Download as one .html file", keys: "",
+    run: () => docRunControl("doc-export-html", "The HTML export") },
+  { id: "export-docx", icon: "ph:file-doc", label: "Download as Word (.docx)", keys: "",
+    run: () => docRunControl("doc-export-docx", "The Word export") },
+  { id: "export-pdf", icon: "ph:file-pdf", label: "Print or save as PDF", keys: "",
+    run: () => docRunControl("doc-export-pdf", "The PDF export") },
+];
+
+// DOC-COMMANDS-END
+
+//: **Only while a document is open and on screen.** The palette is reachable
+//: from every tab, and "Bold" run from the Notes tab would wrap a selection in
+//: a document nobody is looking at. `activeTab` is where the app keeps which
+//: tab is showing (app.js's `switchTab` writes it), so this asks the same
+//: question the tab bar answers.
+//:
+//: A row with no `run` is a keyboard-only move (Tab, Alt with an arrow): it
+//: belongs in the shortcut sheet, which is a list of what the keys do, and not
+//: in a palette, which is a list of things a press can perform.
+function docPaletteCommands() {
+  let tab = "";
+  try {
+    tab = localStorage.getItem("activeTab") || "";
+  } catch {
+    //: Private mode. One group missing from the palette is the right failure.
+    return [];
+  }
+  if (tab !== "documents" || !currentDoc) return [];
+  return DOC_COMMANDS.filter((command) => command.run).map((command) => ({
+    group: "This document",
+    label: `${command.icon} ${command.label}`,
+    keys: command.keys,
+    run: command.run,
+  }));
+}
+
+//: The `?` sheet's editor section, from the same table, so the two cannot
+//: disagree. Called by `openShortcuts` (app.js) rather than wired here,
+//: because this file is in the Library's lazy bundle and the dialog can be
+//: opened before it has ever loaded: the section then simply says so.
+function renderDocShortcutSheet(list) {
+  if (!list) return;
+  list.replaceChildren();
+  for (const command of DOC_COMMANDS) {
+    if (!command.keys) continue;
+    const li = document.createElement("li");
+    const keys = document.createElement("span");
+    keys.className = "shortcut-keys";
+    //: One `<kbd>` per key, the shape the hand-written rows above it use, so
+    //: a generated row and a written one are the same thing on screen.
+    for (const part of command.keys.split(/\s*\+\s*/)) {
+      const kbd = document.createElement("kbd");
+      kbd.textContent = part;
+      keys.appendChild(kbd);
+    }
+    const label = document.createElement("span");
+    label.textContent = command.label;
+    li.append(keys, label);
+    list.appendChild(li);
+  }
+}
+
+//: **Reordering the document from its outline** (DOCUMENTS_PLAN Phase 4 item
+//: 3, PLAN D6). Dragging a row moves the *section*, the heading and everything
+//: under it down to the next heading at the same level or shallower, which is
+//: what a reader means by "move Results above Method".
+//:
+//: **The lines are re-scanned at the moment of the drop, never taken from the
+//: outline's own rows.** The outline is rebuilt on a pause in typing, so a row
+//: dragged a keystroke after an edit carries line numbers from the document as
+//: it was, and moving that run would cut the wrong paragraphs out of the
+//: middle of the text. `docScanHeadings` costs one pass over a string this
+//: file already holds.
+//:
+//: The write goes through the surface's own `text` setter, which diffs prefix
+//: and suffix and dispatches the smallest change that gets there, so a move is
+//: one undo step rather than a whole-document replacement.
+function docOutlineMoveSection(fromIndex, toIndex, after) {
+  const box = docSurface();
+  if (!box) return false;
+  const text = box.text;
+  const lines = text.split("\n");
+  const headings = docScanHeadings(text);
+  if (!headings[fromIndex] || !headings[toIndex]) return false;
+  const src = docSectionRange(headings, fromIndex, lines.length);
+  const dst = after
+    ? docSectionRange(headings, toIndex, lines.length).to
+    : headings[toIndex].line;
+  //: **A section cannot be dropped inside itself**, which is what dragging a
+  //: parent onto one of its own children asks for: the block would be cut out
+  //: and put back into a hole that no longer exists. Refused rather than
+  //: clamped, because there is no sensible place a reader could have meant.
+  if (dst > src.from && dst < src.to) return false;
+  if (dst === src.from) return false;
+  const block = lines.slice(src.from, src.to);
+  //: The last section of a document usually has no blank line after it, so
+  //: moving it up would weld its last paragraph to the next heading. One
+  //: blank line, and only when it is actually missing: everything else about
+  //: the block's spacing is the writer's and is carried across untouched.
+  if (block.length && block[block.length - 1].trim()) block.push("");
+  const rest = [...lines.slice(0, src.from), ...lines.slice(src.to)];
+  const at = dst > src.from ? dst - (src.to - src.from) : dst;
+  rest.splice(at, 0, ...block);
+  box.text = rest.join("\n");
+  //: The outline is what was just dragged, so it is redrawn now rather than
+  //: on the next pause: a list that still shows the old order for half a
+  //: second reads as a drop that did not take.
+  renderDocOutline();
+  announce(`\u201c${headings[fromIndex].text}\u201d moved.`);
+  return true;
+}
+
+//: Which side of a row the pointer is on. The midpoint, which is the rule
+//: every list with a drop line uses, and the only one that lets a reader
+//: place a section at the very end of a document.
+function docOutlineDropAfter(row, clientY) {
+  const box = row.getBoundingClientRect();
+  return clientY > box.top + box.height / 2;
+}
+
+function docOutlineClearDrop() {
+  for (const row of document.querySelectorAll("#doc-outline .is-drop-before, #doc-outline .is-drop-after")) {
+    row.classList.remove("is-drop-before", "is-drop-after");
+  }
+}
+
+//: **The keyboard half, which a drag can never be.** Alt with an arrow moves
+//: the focused row's section past its neighbour, which is the same move the
+//: drag makes and the only one this panel can offer somebody who is not using
+//: a pointer. Alt because a bare arrow moves between rows and Ctrl+arrow is
+//: the browser's own word jump; the same chord Notion and Obsidian use for
+//: moving a block.
+//:
+//: Past its *neighbour in the outline*, not its sibling at the same level: the
+//: rows are what the reader can see, and a rule that skipped rows would move
+//: a section past things it looked like it was next to.
+function docOutlineNudge(index, direction) {
+  const headings = docScanHeadings(docText());
+  const to = index + direction;
+  if (!headings[index] || !headings[to]) return false;
+  //: Downwards the section has to land *after* the row below it, upwards
+  //: *before* the row above: "after" and "before" are the same two words the
+  //: drop uses, so both routes end in one move function.
+  //: **Asked for before the move, not after.** The write dispatches a
+  //: transaction, which schedules the facts pass, which redraws this outline
+  //: again a beat later: focusing a row here would put the ring on an element
+  //: that is replaced milliseconds afterwards, and the measurement of that is
+  //: `document.activeElement` coming back as `<body>`. So the row is named and
+  //: every render restores it until the reader moves on (`docOutlineFocusKey`
+  //: at the end of `renderDocOutline`).
+  docOutlineFocusKey = docOutlineFoldKey(headings[index]);
+  return docOutlineMoveSection(index, to, direction > 0);
+}
+
+function renderDocOutline() {
+  const list = $("doc-outline");
+  const wrap = $("doc-outline-wrap");
+  if (!list || !wrap) return;
+  const text = docText();
+  const lines = text.split("\n");
+  const headings = docScanHeadings(text);
 
   //: **The tasks in each section, counted.** DOCUMENTS_PLAN Phase 3 item 2
   //: asks for "task lists with progress in the outline", and the outline is
@@ -1800,8 +2294,29 @@ function renderDocOutline() {
   //: The count belongs beside the word, the way every other counted list in
   //: this sidebar reads, so the heading answers "how deep is this document"
   //: without the eye having to run down the list.
+  const folds = docOutlineFolds();
+  const needle = docOutlineFilterText();
+  const visible = docOutlineVisibility(headings, needle, folds);
+  const shownCount = visible.filter((row) => row.shown).length;
   const count = $("doc-outline-count");
-  if (count) count.textContent = headings.length ? String(headings.length) : "";
+  //: "3 of 18" while filtering, because a bare "3" over a list somebody has
+  //: just narrowed reads as a document with three headings in it.
+  if (count) {
+    count.textContent = !headings.length
+      ? ""
+      : needle
+        ? `${shownCount} of ${headings.length}`
+        : String(headings.length);
+  }
+  //: The box appears with the headings that make it worth having, and takes
+  //: its own text with it when it goes: a filter left set on a control nobody
+  //: can see is an outline that is mysteriously short.
+  const filterBox = $("doc-outline-filter");
+  if (filterBox) {
+    const wanted = headings.length >= DOC_OUTLINE_FILTER_FROM;
+    if (!wanted && filterBox.value) filterBox.value = "";
+    filterBox.classList.toggle("hidden", !wanted);
+  }
   list.replaceChildren();
   const empty = $("doc-outline-empty");
   if (empty) {
@@ -1811,9 +2326,48 @@ function renderDocOutline() {
       : "Headings you write appear here, and each one jumps to its place in the document.";
   }
   docOutlineRows = [];
-  for (const heading of headings) {
+  headings.forEach((heading, index) => {
     const li = document.createElement("li");
-    li.className = `outline-h${heading.level}`;
+    li.className = `outline-h${heading.level} outline-row`;
+    li.classList.toggle("hidden", !visible[index].shown);
+    //: **The fold control is a gutter at the row's left edge, the same width
+    //: on every row**, drawn as a button where the heading has children under
+    //: it and as an empty slot where it does not. It cannot go inside the row
+    //: itself, which is already a `<button>` that jumps to the heading, and a
+    //: button inside a button is neither valid nor reachable. It cannot step
+    //: with the indent either: `.outline-link`'s own padding is what carries
+    //: depth (05-sidebars-themes.css spends a paragraph on why the left edges
+    //: have to line up), and a caret that moved with it would put the deepest
+    //: rows' controls in four different columns.
+    const twist = document.createElement(visible[index].foldable ? "button" : "span");
+    twist.className = "outline-twist";
+    if (visible[index].foldable) {
+      const folded = folds.has(docOutlineFoldKey(heading));
+      twist.type = "button";
+      twist.setAttribute("aria-expanded", folded ? "false" : "true");
+      twist.title = folded
+        ? `Show what is under \u201c${heading.text}\u201d`
+        : `Hide what is under \u201c${heading.text}\u201d`;
+      twist.setAttribute("aria-label", twist.title);
+      const glyph = document.createElement("i");
+      glyph.className = folded ? "ph ph-caret-right" : "ph ph-caret-down";
+      glyph.setAttribute("aria-hidden", "true");
+      twist.appendChild(glyph);
+      twist.addEventListener("click", () => {
+        const key = docOutlineFoldKey(heading);
+        const next = docOutlineFolds();
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        docOutlineSetFolds(next);
+        //: Redrawn rather than toggled in place: the rows a fold hides are
+        //: decided by one pass over the whole list (`docOutlineVisibility`),
+        //: and a second way of deciding it here would be a second answer.
+        renderDocOutline();
+      });
+    } else {
+      twist.setAttribute("aria-hidden", "true");
+    }
+    li.appendChild(twist);
     const button = document.createElement("button");
     button.type = "button";
     button.className = "outline-link";
@@ -1832,10 +2386,64 @@ function renderDocOutline() {
       button.appendChild(chip);
     }
     button.addEventListener("click", () => jumpToDocLine(heading.line));
+    //: **Drag to reorder.** On the `li` rather than on the button, because the
+    //: gutter's caret is inside the row too and a reader who grabs the caret
+    //: means the row. `draggable` only while nothing is being filtered: the
+    //: rows on screen are then a search result rather than the document's
+    //: order, and dropping one "between" two rows that are not next to each
+    //: other in the document is a position nobody could have meant.
+    if (!needle) {
+      li.draggable = true;
+      li.addEventListener("dragstart", (event) => {
+        docOutlineDragIndex = index;
+        li.classList.add("is-dragging");
+        event.dataTransfer.effectAllowed = "move";
+        //: Something has to be set or Firefox refuses to start the drag, and
+        //: the heading's own text is the honest thing to carry: dropped into
+        //: any other editor it reads as what was dragged.
+        event.dataTransfer.setData("text/plain", heading.text);
+      });
+      li.addEventListener("dragend", () => {
+        docOutlineDragIndex = -1;
+        li.classList.remove("is-dragging");
+        docOutlineClearDrop();
+      });
+      li.addEventListener("dragover", (event) => {
+        if (docOutlineDragIndex === -1 || docOutlineDragIndex === index) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        const after = docOutlineDropAfter(li, event.clientY);
+        docOutlineClearDrop();
+        li.classList.add(after ? "is-drop-after" : "is-drop-before");
+      });
+      li.addEventListener("dragleave", () => li.classList.remove("is-drop-before", "is-drop-after"));
+      li.addEventListener("drop", (event) => {
+        if (docOutlineDragIndex === -1 || docOutlineDragIndex === index) return;
+        event.preventDefault();
+        const from = docOutlineDragIndex;
+        const after = docOutlineDropAfter(li, event.clientY);
+        docOutlineDragIndex = -1;
+        docOutlineClearDrop();
+        if (!docOutlineMoveSection(from, index, after)) {
+          toast("That section cannot go inside itself.", true);
+        }
+      });
+    }
+    button.addEventListener("keydown", (event) => {
+      if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+      event.preventDefault();
+      if (!docOutlineNudge(index, event.key === "ArrowDown" ? 1 : -1)) {
+        announce("That section cannot move any further.");
+      }
+    });
     li.appendChild(button);
     list.appendChild(li);
-    docOutlineRows.push({ line: heading.line, button });
-  }
+    //: `row` as well as `button`, because the scroll-spy has to know whether
+    //: the heading it wants to mark is on screen at all: a fold or a filter
+    //: can hide the row the caret is in, and marking a hidden row is a mark
+    //: nobody sees followed by a scroll to nothing.
+    docOutlineRows.push({ line: heading.line, button, row: li });
+  });
   //: The rows are new elements, so whatever was marked a moment ago is gone
   //: with them. Marked again here rather than waiting for the next scroll:
   //: the outline is rebuilt on a pause in typing, and a table of contents
@@ -1843,6 +2451,20 @@ function renderDocOutline() {
   //: that never knew.
   docOutlineMarked = -1;
   markDocOutline();
+  //: **The focus ring, restored after a move rewrote the rows.** Kept across
+  //: renders rather than applied once, because a move schedules a second
+  //: render of its own (see `docOutlineNudge`), and given up the moment focus
+  //: is somewhere this panel does not own: a reader who has gone back to
+  //: typing must not have the ring yanked into the sidebar by a redraw.
+  if (docOutlineFocusKey) {
+    const active = document.activeElement;
+    const ours = !active || active === document.body || list.contains(active);
+    const wanted = ours
+      ? headings.findIndex((heading) => docOutlineFoldKey(heading) === docOutlineFocusKey)
+      : -1;
+    if (!ours || wanted === -1) docOutlineFocusKey = "";
+    else docOutlineRows[wanted]?.button.focus();
+  }
   //: The breadcrumb reads this list rather than the document, so it is set
   //: here and the trail is redrawn on the same beat the outline is.
   docOutlineHeadingList = headings;
@@ -1864,6 +2486,15 @@ function renderDocOutline() {
 //: answer this avoids.
 let docOutlineRows = [];
 let docOutlineMarked = -1;
+//: The row a move asked to keep the focus ring on, as a fold key (level and
+//: text), because that is the one name for a heading that survives the
+//: document being rewritten around it.
+let docOutlineFocusKey = "";
+
+//: Which row is in the air. One number rather than a `dataTransfer` payload,
+//: because the payload a browser hands back on `drop` is a string and the one
+//: thing this needs is an index into the list the drag started from.
+let docOutlineDragIndex = -1;
 let docOutlineSpyFrame = 0;
 
 //: The first line of the document that is on screen, zero-based.
@@ -1893,6 +2524,70 @@ function docVisibleTopLine() {
   return Math.round((box.scrollTop / range) * Math.max(0, lines - 1));
 }
 
+//: The filter box's own wiring, once. `input` rather than a debounce: the
+//: work behind it is a pass over the headings this file already holds, not a
+//: request, and a debounce on a list that redraws in under a millisecond is
+//: latency bought for nothing.
+//:
+//: Escape clears it rather than closing anything, which is what Escape means
+//: in every other search box in this app, and it is the only way back to the
+//: whole outline that does not involve selecting the text first.
+onDomReady(() => {
+  const box = $("doc-outline-filter");
+  if (!box) return;
+  box.addEventListener("input", () => renderDocOutline());
+  box.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || !box.value) return;
+    event.stopPropagation();
+    box.value = "";
+    renderDocOutline();
+  });
+});
+
+//: **The caret's line, but only while the caret is on screen.**
+//:
+//: Reported (OPEN.md, doc-sidebar.md): typing in a section below the one at
+//: the top of the view marked the wrong heading until the view scrolled.
+//: Measured on a twelve-section document in a 512px box before this existed:
+//: the caret in Section 3 with the view still at `scrollTop` 0, the outline
+//: marked Section 1.
+//:
+//: **Which wins when the two disagree**, the question the next step left open:
+//: the caret does, while it is visible. A caret you can see is where you are
+//: writing, and every editor this is measured against (Obsidian, Typora)
+//: follows it. Scroll far enough that the caret leaves the box and it is no
+//: longer where you are looking, so the top of the view takes over again: that
+//: is reading, not writing, and the same rule covers the Read pane, where
+//: there is no caret to see at all.
+//:
+//: Null rather than a line number when there is nothing to say, so the caller
+//: reads as the rule: "the caret's line if it is visible, otherwise the top of
+//: the view".
+function docCaretVisibleLine() {
+  const box = docSurface();
+  if (!box || box.kind !== "codemirror") {
+    //: The textarea fallback has no line-to-pixel map (see `docVisibleTopLine`
+    //: for the same gap), so there is no honest way to ask whether its caret
+    //: is on screen. The viewport answer is the one it has always had.
+    return null;
+  }
+  const view = box.view;
+  const frame = view.scrollDOM.getBoundingClientRect();
+  //: A hidden pane measures 0x0, and "top >= top and bottom <= bottom" would
+  //: then be true of a coordinate that is nowhere.
+  if (frame.height < 1) return null;
+  let coords = null;
+  try {
+    coords = view.coordsAtPos(view.state.selection.main.head);
+  } catch {
+    //: A position mid-teardown, which CodeMirror answers for with null anyway.
+    return null;
+  }
+  if (!coords) return null;
+  if (coords.top < frame.top || coords.bottom > frame.bottom) return null;
+  return view.state.doc.lineAt(view.state.selection.main.head).number - 1;
+}
+
 //: The marked row, kept inside whichever box in the sidebar actually scrolls.
 //: Bounded by `#doc-sidebar` on purpose: `scrollIntoView` walks every
 //: scrolling ancestor, and the page is one of them, so the tidy one-liner
@@ -1913,7 +2608,10 @@ function keepOutlineRowInView(el) {
 
 function markDocOutline() {
   if (!docOutlineRows.length) return;
-  const top = docVisibleTopLine();
+  //: The caret's section while the caret is on screen, the top of the view
+  //: otherwise: see `docCaretVisibleLine` for why that is the order.
+  const caret = docCaretVisibleLine();
+  const top = caret === null ? docVisibleTopLine() : caret;
   //: The last heading at or above the top of the view: the section whose text
   //: you are reading, not the next one down.
   let index = 0;
@@ -1921,10 +2619,24 @@ function markDocOutline() {
     if (docOutlineRows[i].line > top) break;
     index = i;
   }
+  //: **Up to the nearest row that is actually drawn.** A folded section's
+  //: headings are still in this list (the spy is about the document, not
+  //: about the panel), so the heading the caret is in may be hidden under a
+  //: fold: the mark then belongs on the fold's own row, which is the one the
+  //: reader can see and the one that says "you are somewhere in here". While
+  //: a filter is running there may be no such row at all, and then nothing is
+  //: marked, which is honest: the rows on screen are a search result, not a
+  //: place in the document.
+  while (index > 0 && docOutlineRows[index].row?.classList.contains("hidden")) index -= 1;
+  if (docOutlineRows[index].row?.classList.contains("hidden")) index = -1;
   if (index === docOutlineMarked) return;
   for (const row of docOutlineRows) {
     row.button.classList.remove("is-current");
     row.button.removeAttribute("aria-current");
+  }
+  if (index === -1) {
+    docOutlineMarked = -1;
+    return;
   }
   const button = docOutlineRows[index].button;
   button.classList.add("is-current");
@@ -2352,8 +3064,18 @@ function mountGutterFor(textarea) {
   gutter.className = "doc-gutter hidden";
   gutter.dataset.for = textarea.id;
   gutter.setAttribute("aria-hidden", "true");
+  //: Moving a focused element in the DOM blurs it, and this runs the first
+  //: time the capture section shows, which is exactly when the phone's + has
+  //: just put the caret in the box (measured: focus in at 7598ms, this wrap
+  //: at 7753, focus out to nothing at 7737). The caret goes back where it was.
+  //: In a microtask, not inline: this also runs at this file's own top level
+  //: (`mountGutterFor($("entry-content"))` below), and a focus event fired
+  //: mid-evaluation reached `mountNoteSurface` before `docCmBroken` had been
+  //: declared (a TDZ ReferenceError on boot when the box starts focused).
+  const hadFocus = document.activeElement === textarea;
   textarea.parentElement.insertBefore(wrap, textarea);
   wrap.append(gutter, textarea);
+  if (hadFocus) queueMicrotask(() => textarea.focus());
   // The note edit form builds its <li> detached and inserts it afterwards,
   // so at this point `applyDocGutter` (which walks the *document*) cannot
   // see this gutter and `getComputedStyle` returns empty strings. Decide the
@@ -2845,60 +3567,6 @@ function docTableCellSpan(table, row, col) {
   return { from, to: from + line.cells[col].length };
 }
 
-function docTableCellText(table, row, col) {
-  const line = table.rows[row];
-  if (!line || col < 0 || col >= line.cells.length) return "";
-  //: `\|` is a pipe the author escaped; it reads as one.
-  return line.cells[col].trim().replace(/\\\|/g, "|");
-}
-
-//: A cell's value on the way back in. A raw pipe would end the cell and a
-//: newline would end the row, so both are neutralised rather than allowed to
-//: rewrite the table's shape from inside one of its cells.
-function docTableCellEscape(value) {
-  return String(value == null ? "" : value)
-    .replace(/\r?\n/g, " ")
-    .replace(/\\\|/g, "|")
-    .replace(/\|/g, "\\|");
-}
-
-//: The padding the cell already had is the padding it keeps: this is the
-//: whole byte-exactness promise in one function. A cell that was blank is
-//: given one space each side, which is what a person types into `| |`.
-function docTableSetCellEdits(table, row, col, value) {
-  const line = table.rows[row];
-  if (!line) return [];
-  //: **A cell the row does not have yet.** GFM lets a body row carry fewer
-  //: cells than the header and pads the rest as empty, so the last column of
-  //: a ragged table is a cell you can see in the rendered table and cannot
-  //: find in the text. Writing to it appends it rather than doing nothing,
-  //: which is the silent-refusal shape this codebase keeps recording.
-  if (col >= line.cells.length) {
-    if (col >= table.columns) return [];
-    const last = docTableCellSpan(table, row, line.cells.length - 1);
-    const at = line.trail ? last.to : line.to;
-    let insert = "";
-    for (let i = line.cells.length; i < col; i += 1) insert += `|${docTableColumnPad(table, i, "")}`;
-    const body = docTableCellEscape(value);
-    insert += `| ${body} `;
-    //: A blank cell with nothing after it is not a cell: GFM drops a row's
-    //: optional trailing pipe and anything after the last one, so the row
-    //: would come back one cell short of its header.
-    if (!line.trail && !body.trim()) insert += "|";
-    return [{ from: at, to: at, insert }];
-  }
-  const span = docTableCellSpan(table, row, col);
-  if (!span) return [];
-  const raw = line.cells[col];
-  const parts = /^([ \t]*)([\s\S]*?)([ \t]*)$/.exec(raw);
-  const blank = !raw.trim();
-  const pre = blank ? (raw.length ? " " : "") : parts[1];
-  const post = blank ? (raw.length ? " " : "") : parts[3];
-  const insert = pre + docTableCellEscape(value) + post;
-  if (insert === raw) return [];
-  return [{ from: span.from, to: span.to, insert }];
-}
-
 //: The width a *new* cell in this column is written at. A table whose column
 //: is already one width everywhere is a table somebody has been keeping
 //: aligned by hand, and a new row that breaks the alignment is a new row they
@@ -2970,8 +3638,8 @@ function docTableAddColumnEdits(table, anchorCol, before = false) {
     else body = docTableColumnPad(table, sample, "");
     //: A body row that cannot hold a blank final cell is left alone: GFM pads
     //: a short row out to the header's width, so the column is there in the
-    //: rendered table, and writing into it (`docTableSetCellEdits`) appends
-    //: it for real. Inserting whitespace GFM is going to drop would put bytes
+    //: rendered table, and `docTableFillRowEdits` appends it for real when
+    //: Tab sends the caret into it. Inserting whitespace GFM is going to drop would put bytes
     //: in the file that nothing in the editor could ever reach again.
     //: Inserting *before* a cell needs no such care: the new cell has a real
     //: one after it, so nothing can drop it, and the pipe goes on its right.
@@ -3037,7 +3705,9 @@ function docTableFillRowEdits(table, row, upto) {
   let insert = "";
   for (let col = line.cells.length; col <= upto; col += 1) insert += `|${docTableColumnPad(table, col, "")}`;
   //: A blank cell at the end of a row with no trailing pipe is not a cell:
-  //: see `docTableSetCellEdits`.
+  //: GFM drops a row's optional trailing pipe and everything after the last
+  //: one, so the row would come back one cell short of its header. The pipe
+  //: is what makes the cell exist in the text rather than only in the render.
   if (!line.trail) insert += "|";
   return [{ from: at, to: at, insert }];
 }
@@ -3649,21 +4319,6 @@ function docFrontmatterStrip(text) {
   return String(text).slice(fm.textFrom).replace(/^\n+/, "");
 }
 
-//: Every property as `{key, kind, value, items}`, which is what the panel and
-//: the Library's filter both read. Kept beside the parse rather than derived
-//: at each call site, so the two cannot come to disagree about what a value
-//: is.
-function docFrontmatterFields(text) {
-  const fm = docFrontmatterParse(text);
-  if (!fm) return [];
-  return fm.entries.map((entry) => ({
-    key: entry.key,
-    kind: entry.kind,
-    value: entry.kind === "list" ? "" : entry.value.text,
-    items: entry.items.map((item) => item.text),
-  }));
-}
-
 // DOC-FRONTMATTER-END
 
 // -----------------------------------------------------------------------------
@@ -4062,11 +4717,6 @@ function docColumnsBlocks(text) {
 //: fences, because the caret being on the `:::` line is being in the block.
 function docColumnsAt(text, offset) {
   return docColumnsBlocks(text).find((block) => offset >= block.from && offset <= block.to) || null;
-}
-
-//: The text a `/` command inserts: two columns, the caret meant for the first.
-function docColumnsTemplate() {
-  return "\n:::columns\n\n:::column\n\n:::\n";
 }
 
 //: An image's `|`-separated options, by shape rather than by position.
@@ -5219,6 +5869,37 @@ function docLivePlugin(CM) {
   //: The capture is the whole `[!kind]`, so the marker can be hidden the way
   //: every other marker here is; the group inside it names the kind.
   const CALLOUT = /^>\s*(\[!([A-Za-z]+)\][-+]?)/;
+  //: How deep a list item is indented before the indent stops growing. Past
+  //: four levels the number is more useful as "this is deep" than as a count,
+  //: and an indent that kept growing would push a badly nested line off the
+  //: measure the whole document is set in.
+  const LIST_DEPTH_MAX = 4;
+
+  //: **A bullet's dash, drawn as a bullet while the caret is elsewhere.** The
+  //: last piece of raw markdown left in a rendered list: `-`, `*` and `+` all
+  //: mean the same thing and a reader has no use for knowing which was typed.
+  //:
+  //: Safe to replace here where hiding a `**` is not, and the difference is
+  //: length: this is one character standing in for one character, at the
+  //: start of a line, so nothing after it moves by more than the difference
+  //: between two glyph widths, and the caret cannot be inside it (the line is
+  //: not replaced while it is touched). `ignoreEvent` returns false for the
+  //: reason the callout label's does: a click on the bullet is a click into
+  //: the line behind it.
+  class DocBulletWidget extends WidgetType {
+    eq() {
+      return true;
+    }
+    ignoreEvent() {
+      return false;
+    }
+    toDOM() {
+      const dot = document.createElement("span");
+      dot.className = "cm-md-li-mark cm-md-li-bullet";
+      dot.textContent = "\u2022";
+      return dot;
+    }
+  }
 
   //: **A callout says which kind it is, in words, where its marker was.**
   //: Measured before this: with the caret away from the line, `> [!note] a
@@ -5477,6 +6158,10 @@ function docLivePlugin(CM) {
     //: Both line ends, because a range can span a soft-wrapped link.
     const rangeRevealed = (from, to) =>
       touched(doc.lineAt(from).from, doc.lineAt(to).to);
+    //: Whether the line numbers are showing, read once per build rather than
+    //: per fenced block: the fence rows collapse only when they are off, see
+    //: the note beside `cm-md-fence-quiet` below.
+    const gutterOn = docFenceGutterOn();
     const tree = syntaxTree(state);
     //: The document as one string, for the table model, and at most once per
     //: build: the model works in document offsets so it needs the whole text,
@@ -5600,6 +6285,71 @@ function docLivePlugin(CM) {
             );
             return false;
           }
+          //: **Lists, which the live view drew as plain text.** Measured
+          //: against the same document's own paragraph: a `- First bullet`
+          //: line had the same left edge, the same 0 indent and the same 0
+          //: padding as a paragraph, and a nested `  - Nested bullet` was
+          //: drawn at that same left edge too, so nesting was invisible and a
+          //: wrapped item ran back under its own marker. The single most
+          //: common construct in markdown was the one this view did nothing
+          //: for (INBOX 262: "the rendering on the live view of the documents
+          //: needs a lot of improvement").
+          //:
+          //: **A hanging indent rather than a hidden marker**, and that is
+          //: the decision this file's long note beside `rangeRevealed`
+          //: argues: taking characters out from under the caret moves the
+          //: text the caret is in, which is the reflow bug measured at 28.4px
+          //: backwards on a leftward keystroke. The marker stays where it is
+          //: and the line is indented around it, so nothing under the caret
+          //: moves at any time, and a wrapped line aligns under its own text
+          //: the way a list reads on paper.
+          //:
+          //: The depth is the item's own indentation in the document, in
+          //: units of two spaces (the width a tab is drawn at here), capped:
+          //: past four levels the indent is more useful as a signal that it
+          //: is deep than as an accurate count, and an uncapped one would
+          //: push a badly nested line off the measure.
+          if (name === "ListItem") {
+            const line = doc.lineAt(node.from);
+            const lead = /^[ \t]*/.exec(line.text)[0];
+            const depth = Math.min(
+              LIST_DEPTH_MAX,
+              Math.floor(lead.replace(/\t/g, "  ").length / 2)
+            );
+            //: Every line the item occupies, so a two-line bullet keeps its
+            //: indent on the continuation as well as on the marker row. The
+            //: same walk the blockquote below does, for the same reason.
+            for (let at = node.from; at <= node.to; ) {
+              const row = doc.lineAt(at);
+              ranges.push(
+                Decoration.line({ class: `cm-md-li cm-md-li-${depth}` }).range(row.from)
+              );
+              if (row.to >= node.to) break;
+              at = row.to + 1;
+            }
+            //: The marker itself, dimmed to the muted ink so the eye reads
+            //: the words and not the punctuation, and left in place so it can
+            //: still be selected, deleted and typed over. Ordered and
+            //: unordered take the same class: an editor that draws "1." in
+            //: one colour and "-" in another is saying they are different
+            //: kinds of thing, and they are not.
+            const mark = /^[ \t]*([-*+]|\d+[.)])(?=\s)/.exec(line.text);
+            if (mark) {
+              const from = line.from + mark[0].length - mark[1].length;
+              const to = from + mark[1].length;
+              //: A number carries information ("this is item 3") and stays as
+              //: it was typed; a dash does not, and becomes a bullet while
+              //: the caret is elsewhere. Both keep the muted ink.
+              if (/^[-*+]$/.test(mark[1]) && !touched(line.from, line.to)) {
+                ranges.push(
+                  Decoration.replace({ widget: new DocBulletWidget() }).range(from, to)
+                );
+              } else {
+                ranges.push(Decoration.mark({ class: "cm-md-li-mark" }).range(from, to));
+              }
+            }
+            return undefined;
+          }
           if (name === "Blockquote") {
             const first = doc.lineAt(node.from);
             const callout = CALLOUT.exec(first.text);
@@ -5646,9 +6396,68 @@ function docLivePlugin(CM) {
             return false;
           }
           if (name === "FencedCode") {
+            //: **The two fence lines are the block's padding, not two rows of
+            //: it.** Reported with a screenshot: "the md rendering on the live
+            //: view ... especially for codeblocks", a fenced block drawn as a
+            //: dark slab with an empty numbered row above and below the code.
+            //:
+            //: Measured on a four-line Python block: five rows of 26px each,
+            //: two of them empty, so 52 of 130 pixels of the block said
+            //: nothing. That is INBOX 198's doing and INBOX 198 was right: the
+            //: backticks and the language word are syntax, and syntax is what
+            //: this view hides. What it did not do was give the now-empty
+            //: lines a height to match what was left on them, which is
+            //: nothing.
+            //:
+            //: So they keep the tint, since they are part of the block, and
+            //: shrink to the padding a code block would have had anyway. The
+            //: language goes on the opening line as an attribute the theme
+            //: draws in the corner: outside the text flow, so it takes no row,
+            //: and it is the one thing the hidden `” ```python ”` was still
+            //: telling you.
+            const first = doc.lineAt(node.from);
+            const last = doc.lineAt(node.to);
+            const info = node.node.getChild("CodeInfo");
+            const language = info ? doc.sliceString(info.from, info.to).trim() : "";
+            //: With the caret inside the block the real `” ```python ”` is back
+            //: on screen (the `CodeMark`/`CodeInfo` branch above stops hiding
+            //: it), so both of the things below have to stand down with it: a
+            //: half-height row would clip the text that just came back, and
+            //: the corner label would be saying the language a second time
+            //: right next to where it is now written out.
+            const revealed = rangeRevealed(node.from, node.to);
             for (let at = node.from; at <= node.to; ) {
               const line = doc.lineAt(at);
-              ranges.push(Decoration.line({ class: "cm-md-fence" }).range(line.from));
+              const edge =
+                line.from === first.from
+                  ? "cm-md-fence-open"
+                  : line.from === last.from
+                  ? "cm-md-fence-close"
+                  : "";
+              //: The rounded corners are the block's shape and stay whatever
+              //: the caret is doing; only the height and the label are tied to
+              //: whether the row has text on it.
+              //:
+              //: **And to whether the line numbers are on** (INBOX 262). A
+              //: gutter draws one element per line at that line's own height
+              //: while the number inside keeps the editor's line-height, so a
+              //: row collapsed to half a line leaves its digit standing 26px
+              //: tall in an 8px box. Measured with the gutter on: "6 paints
+              //: 18px into 7" and "8 paints 18px into 9", the pair in the
+              //: report's screenshot. One row, one number, in line with the
+              //: text it counts is the contract the gutter makes, so where
+              //: the two disagree the gutter wins and the fence keeps its
+              //: row.
+              const quiet = edge && !revealed && !gutterOn ? " cm-md-fence-quiet" : "";
+              ranges.push(
+                Decoration.line({
+                  class: `cm-md-fence${edge ? ` ${edge}` : ""}${quiet}`,
+                  attributes:
+                    edge === "cm-md-fence-open" && language && !revealed
+                      ? { "data-lang": language }
+                      : undefined,
+                }).range(line.from)
+              );
               if (line.to >= node.to) break;
               at = line.to + 1;
             }
@@ -5974,6 +6783,7 @@ function docLivePlugin(CM) {
     class {
       constructor(view) {
         this.decorations = build(view);
+        this.gutterOn = docFenceGutterOn();
       }
       update(update) {
         //: Selection as well as document and viewport: the whole idea of this
@@ -5982,8 +6792,20 @@ function docLivePlugin(CM) {
         //: down entirely while the editor is not focused (`focused` in
         //: `build`): without this the reveal would wait for the first caret
         //: move after a click rather than happening on the click.
+        //:
+        //: And the line numbers, because one decoration reads them
+        //: (`cm-md-fence-quiet`, whose note in the theme says why). Toggling
+        //: them reaches the engine as a compartment reconfigure, which is an
+        //: update with none of the four flags above set, so without this the
+        //: fence rows kept whichever shape they were built with and the
+        //: collision came back the moment the numbers went on. Compared as a
+        //: value rather than sniffed out of `update.transactions`: the
+        //: preference is what the decoration actually depends on, and a
+        //: reconfigure that does not change it should not cost a rebuild.
+        const gutterOn = docFenceGutterOn();
         if (update.docChanged || update.viewportChanged || update.selectionSet
-            || update.focusChanged) {
+            || update.focusChanged || gutterOn !== this.gutterOn) {
+          this.gutterOn = gutterOn;
           this.decorations = build(update.view);
         }
       }
@@ -6734,7 +7556,7 @@ function applyMarkdown(kind, boxId = "doc-content") {
   }
   if (action.custom === "table") {
     //: Blank cells with their outer pipes, so every one of them is a cell GFM
-    //: can see (`docTableSetCellEdits` carries the reason a blank last cell
+    //: can see (`docTableFillRowEdits` carries the reason a blank last cell
     //: without a trailing pipe is not a cell at all).
     const table = "\n| Column | Column | Column |\n| --- | --- | --- |\n|  |  |  |\n|  |  |  |\n";
     box.value = value.slice(0, start) + table + value.slice(end);
@@ -7312,6 +8134,61 @@ async function exportDocumentHtml() {
   return finished;
 }
 
+//: **A plain Ctrl+P prints the document, not the application**
+//: (DOCUMENTS_PLAN Phase 5 item 4, the print stylesheet).
+//:
+//: The Export menu's "Print or save as PDF" already did the right thing: it
+//: shows the preview, sets `printing-doc` and calls `window.print()`. Nothing
+//: covered the other door, which is the one most people use. Measured on the
+//: branch head with `emulateMedia({ media: "print" })`, a plain print from the
+//: editor put the tab bar (693x44), the sidebar (260x767), the dock (1082x78)
+//: and the status bar (1082x38) on the page around the text.
+//:
+//: So the class is set for *any* print of an open document, and the same
+//: stylesheet governs both routes. Two things it deliberately does not do:
+//: it does not set `docPrintComments`, because a plain print was not asked for
+//: footnotes, and it does not touch a print started from anywhere else in the
+//: app, which is somebody printing a different surface.
+//:
+//: `withDocPreviewShown` cannot be used here: it takes a callback and restores
+//: on the way out, and `beforeprint` has to leave the pane shown until
+//: `afterprint`. The same two calls are made by hand, which is why the restore
+//: is remembered rather than derived.
+let docPrintRestore = null;
+
+function docPrintIsOurs() {
+  if (!currentDoc) return false;
+  try {
+    return localStorage.getItem("activeTab") === "documents";
+  } catch {
+    //: Private mode: the tab the reader is on is still knowable from the DOM,
+    //: and printing the chrome is worse than printing the document.
+    return !$("tab-documents")?.classList.contains("hidden");
+  }
+}
+
+window.addEventListener("beforeprint", () => {
+  //: Already set means the Export menu started this print and has its own
+  //: cleanup, including the footnotes it asked for. Left alone entirely.
+  if (document.body.classList.contains("printing-doc")) return;
+  if (!docPrintIsOurs()) return;
+  const wasView = docView;
+  if (docView !== "rendered") {
+    setDocView("rendered");
+    docPrintRestore = () => setDocView(wasView);
+  }
+  renderDocPreview();
+  document.body.classList.add("printing-doc");
+});
+
+window.addEventListener("afterprint", () => {
+  if (!docPrintRestore && !document.body.classList.contains("printing-doc")) return;
+  document.body.classList.remove("printing-doc");
+  const restore = docPrintRestore;
+  docPrintRestore = null;
+  restore?.();
+});
+
 // PDF via the browser's own print dialog: it renders the preview exactly as
 // shown and every platform already has "Save as PDF" there. Bundling a PDF
 // engine would add a heavy dependency to produce a worse-looking result.
@@ -7789,10 +8666,10 @@ function acceptDocAiEdit() {
 
   toast(
     verb === "write"
-      ? "Inserted the AI's text."
+      ? "Inserted Atlas's text."
       : verb === "remove"
         ? "Removed."
-        : "Applied the AI's edit."
+        : "Applied Atlas's edit."
   );
 }
 
@@ -9122,6 +9999,10 @@ async function mountNoteSurface(host, options = {}) {
     return textareaSurface(host);
   }
   if (!CM || noteSurfaceViews.has(host)) return noteSurfaceFor(host) || textareaSurface(host);
+  //: Read before the wrapper below moves the textarea: moving a focused
+  //: element in the DOM blurs it, so by the time the view exists the answer
+  //: is always "no".
+  const hadFocus = document.activeElement === host;
   //: **A box its own layout was stretching has to go on being stretched, and
   //: the wrapper is what the layout can see now** (INBOX 240, the owner: "when
   //: I clicked on the 'your thoughts' text box in the write with ai notes
@@ -9212,6 +10093,14 @@ async function mountNoteSurface(host, options = {}) {
   docGuardGlobalShortcuts(view.contentDOM);
   noteSurfaceViews.set(host, view);
   noteSurfaceOwnValue(host, view);
+  //: A box that had the focus keeps it through its own upgrade. The editor
+  //: mounts over the textarea the first time the section shows, and the
+  //: textarea then loses focus to nothing (measured in Chromium: focus in
+  //: on the textarea at 537ms after the phone's + was pressed, focus out
+  //: with no related target at 679ms, the body active at 1200ms). The
+  //: caret a person just asked for is the one thing the upgrade must not
+  //: drop, so it goes where the words now go.
+  if (hadFocus) view.focus();
   //: The "/" menu's table is keyed by surface id, and these boxes are in it
   //: already or are added here: one line rather than a wiring change, which
   //: is the shape editor.js's own comment asks for.
@@ -9292,7 +10181,13 @@ try {
   //: as a plain markdown box with a preview button. Obsidian's own default is
   //: Live Preview for the same reason. A stored choice still wins, so nobody
   //: who picked Source is moved off it.
-  setDocView(localStorage.getItem(DOC_VIEW_KEY) || "live");
+  //: **A phone opens a document to read it** (UI_MODERNISATION_PLAN Phase
+  //: 11 item 6). Nothing stored means the width decides: Rendered below 600,
+  //: Live Preview above, and a stored choice still wins at every width.
+  setDocView(
+    localStorage.getItem(DOC_VIEW_KEY)
+      || (window.matchMedia("(max-width: 599.98px)").matches ? "rendered" : "live")
+  );
 } catch {
   setDocView("source");
 }
@@ -11013,24 +11908,68 @@ const DOC_PROSE_ROWS = 60;
 //: middle of the editor so the sentence is readable while its row is open. One
 //: surface at a time, which is DESIGN.md's popover rule: a panel that has to
 //: open a popover to be useful was breaking it structurally.
-function docProseRowAnswers(row, control, finding) {
+//: **Closing a row, once.** Three things close one (the second press on the
+//: row, Escape inside the answers, and pressing an answer), and each of them
+//: used to write the same four lines. They also have to agree about focus: a
+//: row opened from the keyboard has the focus ring somewhere inside the block
+//: that is about to be emptied, and an element removed while it has focus
+//: hands it to `<body>`, which is the end of keyboard navigation for that
+//: panel. So the row takes it back, but only when the row is where it came
+//: from: a pointer press left focus in the editor on purpose (that is what
+//: "show me this in the document" means) and stealing it here would move the
+//: caret out of the sentence the reader was just shown.
+function docProseRowCollapse(row, control, answers) {
+  control.setAttribute("aria-expanded", "false");
+  row.removeAttribute("aria-current");
+  answers.classList.add("hidden");
+  answers.replaceChildren();
+  if (row.dataset.keyOpened === "1") control.focus();
+  delete row.dataset.keyOpened;
+}
+
+function docProseRowAnswers(row, control, finding, opts = {}) {
   const panel = $("doc-prose-panel");
   const answers = row.querySelector(".doc-prose-answers");
   if (!panel || !answers) return;
+  //: **Keyboard or pointer, decided by `event.detail`.** A click raised by
+  //: Enter or Space on a button reports `detail === 0`; a real press reports
+  //: the click count. It is the only signal that separates the two here, and
+  //: the whole behaviour below hangs off it, so the caller passes it in rather
+  //: than this function reaching for a global event.
+  const byKeyboard = opts.keyboard === true;
   const wasOpen = control.getAttribute("aria-expanded") === "true";
   //: One open row, like one open popover. Two sets of answers in one list is
   //: two places the next press could mean something.
   for (const other of panel.querySelectorAll('.doc-prose-jump[aria-expanded="true"]')) {
-    other.setAttribute("aria-expanded", "false");
+    //: **Not this row.** The selector matches the row being pressed too when
+    //: it is already open, and collapsing it here rather than in the `wasOpen`
+    //: branch below meant the branch ran against a row that was already closed
+    //: and had already given its focus away: measured as the editor keeping
+    //: the ring after Enter closed a row from the keyboard.
+    if (other === control) continue;
     const li = other.closest(".doc-prose-row");
-    li?.removeAttribute("aria-current");
-    li?.querySelector(".doc-prose-answers")?.classList.add("hidden");
+    const box = li?.querySelector(".doc-prose-answers");
+    //: Another row's answers, so its focus is not this row's business: the
+    //: flag goes first, and the collapse leaves focus where it found it.
+    if (li) delete li.dataset.keyOpened;
+    if (li && box) docProseRowCollapse(li, other, box);
+    else other.setAttribute("aria-expanded", "false");
   }
   //: Pressing the row always takes you to the word, open or closing: that is
   //: what the row is for, and it is the half of this the owner asked for
   //: ("it should auto scroll to the issue and temporarily highlight it").
   docProseJump(finding);
-  if (wasOpen) return;
+  //: **The press that closes decides where focus goes**, not the press that
+  //: opened: closing with Enter from the row means the reader is on the row
+  //: and wants to stay there, whichever way it was opened. Set before either
+  //: branch because the `close` handed to the answers below reads it too, and
+  //: that is what a candidate pressed with Enter calls.
+  if (byKeyboard) row.dataset.keyOpened = "1";
+  else delete row.dataset.keyOpened;
+  if (wasOpen) {
+    docProseRowCollapse(row, control, answers);
+    return;
+  }
   control.setAttribute("aria-expanded", "true");
   //: The open row is where you are in the document, so it says so with
   //: `aria-current` and is painted from that attribute (DESIGN.md's recipe for
@@ -11040,12 +11979,7 @@ function docProseRowAnswers(row, control, finding) {
   answers.replaceChildren(
     docSuggestAnswers(finding, {
       inline: true,
-      close: () => {
-        control.setAttribute("aria-expanded", "false");
-        row.removeAttribute("aria-current");
-        answers.classList.add("hidden");
-        answers.replaceChildren();
-      },
+      close: () => docProseRowCollapse(row, control, answers),
       current: () => control.getAttribute("aria-expanded") === "true",
     })
   );
@@ -11056,6 +11990,17 @@ function docProseRowAnswers(row, control, finding) {
   const frame = panel.getBoundingClientRect();
   if (box.bottom > frame.bottom) panel.scrollTop += box.bottom - frame.bottom + 8;
   else if (box.top < frame.top) panel.scrollTop -= frame.top - box.top + 8;
+  //: **Focus follows the keyboard into the answers, and only the keyboard.**
+  //: Reported (OPEN.md, prose-intelligence.md): "Enter opens the row, focus
+  //: stays on the control, the candidates are a Tab away with nothing saying
+  //: so." Measured before this: after Enter, `document.activeElement` was the
+  //: editor's own `cm-content` (`docProseJump` focuses the surface to show the
+  //: word), so the candidates were not one Tab away, they were behind the
+  //: whole editor's tab order. The first candidate is the one the panel says
+  //: is the best answer, so it is the one that takes the ring.
+  if (!byKeyboard) return;
+  const first = answers.querySelector("button:not([disabled])");
+  if (first) first.focus();
 }
 
 function docProseGroupList(findings) {
@@ -11074,7 +12019,10 @@ function docProseGroupList(findings) {
     //: own head (`docFindingLine`).
     jump.appendChild(docFindingLine(finding, "row"));
     jump.title = "Show me this in the document, and what can be done about it";
-    jump.addEventListener("click", () => docProseRowAnswers(li, jump, finding));
+    //: `event.detail === 0` is a press that came from Enter or Space rather
+    //: than from a pointer: see `docProseRowAnswers` for what hangs off it.
+    jump.addEventListener("click", (event) =>
+      docProseRowAnswers(li, jump, finding, { keyboard: event.detail === 0 }));
     head.appendChild(jump);
     if (finding.replacement !== null) {
       const fix = document.createElement("button");
@@ -11089,6 +12037,21 @@ function docProseGroupList(findings) {
     li.appendChild(head);
     const answers = document.createElement("div");
     answers.className = "doc-prose-answers hidden";
+    //: **Escape leaves the answers the way it leaves every other surface in
+    //: this app**, and it is wired here, once per row, rather than inside the
+    //: open: the block is reused across opens, so a listener added there would
+    //: multiply by one per press (the shape `tests/test_frontend_handlers.py`
+    //: exists to catch). Stopped from bubbling because the app's own Escape
+    //: chain would otherwise close the whole panel from underneath a reader
+    //: who only meant to close one row.
+    answers.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      if (jump.getAttribute("aria-expanded") !== "true") return;
+      event.stopPropagation();
+      event.preventDefault();
+      li.dataset.keyOpened = "1";
+      docProseRowCollapse(li, jump, answers);
+    });
     li.appendChild(answers);
     list.appendChild(li);
   }
@@ -11795,7 +12758,6 @@ document.addEventListener("click", (event) => {
   });
 });
 
-document.addEventListener("contextmenu", (event) => {
   //: **The underlined word is a real element, so right-clicking it must work.**
   //: The other half of the same report. `docToolsBoxFor` only ever matched a
   //: `<textarea>`, so in Live view, the one view that *can* draw a squiggle,
@@ -11803,24 +12765,35 @@ document.addEventListener("contextmenu", (event) => {
   //: mark fell straight through to the browser's own menu. The app's menu was
   //: reachable only by left-clicking, which is not what an underline means
   //: anywhere else.
-  const flag = event.target instanceof Element
-    ? event.target.closest(".doc-flag, .cm-finding")
-    : null;
+//: One body for the right-click and the long-press (UI Phase 11 item 9): a
+//: flag opens its suggestion at the point, and a right-click or a hold on
+//: the box itself opens the suggestion at the caret, only when there is
+//: something to say (swallowing the browser's own menu over ordinary text
+//: would take away spell-check, paste and everything else it carries for
+//: the sake of a menu with nothing in it). Returns whether it opened
+//: anything, so the mouse path keeps the browser's menu otherwise.
+function docOpenSuggestAtPoint(target, point) {
+  const flag = target instanceof Element ? target.closest(".doc-flag, .cm-finding") : null;
   if (flag) docFindingMarks(); // resolves the engine's marks back to findings
   if (flag && flag._docFinding) {
-    event.preventDefault();
-    openDocSuggest(flag._docFinding, docMarkAnchor(flag, { x: event.clientX, y: event.clientY }));
-    return;
+    openDocSuggest(flag._docFinding, docMarkAnchor(flag, point));
+    return true;
   }
-  const box = docToolsBoxFor(event.target);
-  if (!box) return;
-  //: Only when there is something to say. Swallowing the browser's own menu
-  //: over ordinary text would take away spell-check, paste and everything else
-  //: it carries for the sake of a menu with nothing in it.
-  if (docOpenSuggestAtCaret(box, { x: event.clientX, y: event.clientY })) {
+  const box = docToolsBoxFor(target);
+  if (!box) return false;
+  return Boolean(docOpenSuggestAtCaret(box, point));
+}
+
+document.addEventListener("contextmenu", (event) => {
+  if (docOpenSuggestAtPoint(event.target, { x: event.clientX, y: event.clientY })) {
     event.preventDefault();
   }
 });
+if (typeof wireLongPress === "function") {
+  wireLongPress(document, (event, point) => docOpenSuggestAtPoint(event.target, point), {
+    selector: ".doc-flag, .cm-finding, .cm-content, textarea",
+  });
+}
 
 //: Anywhere else closes it, the rule every menu in this app follows.
 document.addEventListener("mousedown", (event) => {
@@ -12471,7 +13444,7 @@ function docSuggestAnswers(finding, opts = {}) {
     const askAi = document.createElement("button");
     askAi.type = "button";
     askAi.className = "doc-suggest-item doc-suggest-ai";
-    setLabel(askAi, "ph:magic-wand Ask the AI for wordings\u2026");
+    setLabel(askAi, "ph:magic-wand Ask Atlas for wordings\u2026");
     askAi.title = "Have the local model suggest two or three other ways to put this";
     askAi.addEventListener("click", async () => {
       if (!currentDoc || !currentDoc.id) return toast("Save the document first.", true);
@@ -12487,7 +13460,7 @@ function docSuggestAnswers(finding, opts = {}) {
       if (!current()) return;
       const options = (body && body.options) || [];
       if (!options.length) {
-        setLabel(askAi, "ph:magic-wand Ask the AI for wordings\u2026");
+        setLabel(askAi, "ph:magic-wand Ask Atlas for wordings\u2026");
         askAi.disabled = false;
         return toast(
           (body && body.message) || "No other wordings came back for that one.",
@@ -13210,6 +14183,29 @@ function docCmTheme(CM) {
       ".cm-md-strong": { fontWeight: "700" },
       ".cm-md-em": { fontStyle: "italic" },
       ".cm-md-strike": { textDecoration: "line-through", opacity: "0.65" },
+      //: **The three tinted inlines wrap as whole chips, not as a chip cut in
+      //: half.** Reported (INBOX 232): "link chips wrap oddly". `box-
+      //: decoration-break` defaults to `slice`, which lays the background,
+      //: the rounded corners and the horizontal padding out once across the
+      //: whole run and then cuts it at the line break: the fragment that ends
+      //: a line has a flat right edge and no padding after its last letter,
+      //: and the fragment that starts the next one is flush against the
+      //: column's left margin with no padding and no rounding. Measured at
+      //: 390px on a document of wiki links: three of nine chips broke that
+      //: way, the second fragment starting at x=10, the column's own edge.
+      //:
+      //: `clone` gives every fragment the whole decoration, so a wrapped chip
+      //: reads as two chips rather than as one broken one. The `-webkit-`
+      //: spelling is the one Chromium still implements, so both are set and
+      //: the standard name is second, to win where it is supported.
+      //:
+      //: All three, not just the wiki link: inline code and a highlight are
+      //: the same shape (a tint with a radius and side padding) and break the
+      //: same way, which is why a fix for one of them is a fix for the class.
+      ".cm-md-code, .cm-md-highlight, .cm-md-wiki": {
+        WebkitBoxDecorationBreak: "clone",
+        boxDecorationBreak: "clone",
+      },
       ".cm-md-code": {
         fontFamily: "var(--mono, ui-monospace, monospace)",
         backgroundColor: "var(--field-inset)",
@@ -13266,6 +14262,26 @@ function docCmTheme(CM) {
         fontFamily: "var(--mono, ui-monospace, monospace)",
         fontSize: "0.85em",
       },
+      //: **A list item's hanging indent.** `padding-left` moves the whole
+      //: line in and a matching negative `text-indent` pulls the first line
+      //: back out again, so the marker sits in the margin and the words line
+      //: up under each other however many times the item wraps. One rule per
+      //: depth rather than a CSS variable, because a CodeMirror theme is a
+      //: static stylesheet and there is nowhere to set a per-line variable
+      //: without an inline style, which the app's CSP refuses.
+      //:
+      //: `1.6em` is the width of a marker and its space at this type size,
+      //: measured rather than chosen: a `-` plus a space is 2 characters of a
+      //: 0.8em-per-character face.
+      ".cm-md-li": { paddingLeft: "1.6em", textIndent: "-1.6em" },
+      ".cm-md-li-1": { paddingLeft: "3.2em", textIndent: "-1.6em" },
+      ".cm-md-li-2": { paddingLeft: "4.8em", textIndent: "-1.6em" },
+      ".cm-md-li-3": { paddingLeft: "6.4em", textIndent: "-1.6em" },
+      ".cm-md-li-4": { paddingLeft: "8em", textIndent: "-1.6em" },
+      //: The marker itself: the muted ink, so the eye reads the words rather
+      //: than the punctuation, and left in the document so it can be
+      //: selected, deleted and typed over like any other character.
+      ".cm-md-li-mark": { color: "var(--muted)" },
       ".cm-md-quote": {
         borderLeft: "3px solid var(--border)",
         paddingLeft: "0.75em",
@@ -13279,6 +14295,66 @@ function docCmTheme(CM) {
       ".cm-md-fence": {
         fontFamily: "var(--mono, ui-monospace, monospace)",
         backgroundColor: "var(--field-inset)",
+      },
+      //: The opening and closing fence rows. Their text is hidden (INBOX
+      //: 198), so a full line-height row of it is 26px of nothing at each end
+      //: of every code block; these give them the height of padding instead,
+      //: and round the block's own corners so five tinted rows read as one
+      //: slab. `position: relative` is the anchor for the language label
+      //: below.
+      ".cm-md-fence-open, .cm-md-fence-close": {
+        position: "relative",
+      },
+      //: Only while the row has nothing on it. With the caret inside the
+      //: block its `” ``` ”` is back, and half a line of height would clip it.
+      //:
+      //: **And only while the line numbers are off** (INBOX 262: "the page
+      //: numbers and collapse arrows in the documents clash with other page
+      //: numnbers"). A gutter draws one element per line at that line's own
+      //: height, but the number inside it keeps the editor's line-height, so
+      //: a row collapsed to half a line leaves its digit standing 26px tall
+      //: in an 8px box. Measured on a fenced block with the gutter on: "6
+      //: paints 18px into 7" and "8 paints 18px into 9", which is the pair in
+      //: the report's screenshot exactly.
+      //:
+      //: Numbers win, because they are the contract: one row, one number, in
+      //: line with the text it counts. The tidy block is what prose gets, and
+      //: prose is where the gutter is off by default (`docGutterWanted`),
+      //: which is also where a fenced block wearing two blank rows was worth
+      //: fixing in the first place.
+      //:
+      //: The decision is made where the class is set, not here: a CodeMirror
+      //: theme's rules are injected into a stylesheet this page cannot read
+      //: back, and a `:has(.cm-gutters)` guard written here could not be
+      //: verified in the browser, only hoped for. `docGutterWanted` already
+      //: knows the answer at decoration time.
+      ".cm-md-fence-quiet": {
+        height: "0.5em",
+      },
+      ".cm-md-fence-open": {
+        borderTopLeftRadius: "var(--radius-sm, 6px)",
+        borderTopRightRadius: "var(--radius-sm, 6px)",
+      },
+      ".cm-md-fence-close": {
+        borderBottomLeftRadius: "var(--radius-sm, 6px)",
+        borderBottomRightRadius: "var(--radius-sm, 6px)",
+      },
+      //: The block's language, in the corner rather than on a line of its
+      //: own: it is a label for the block, the same relationship
+      //: `.cm-md-callout-label` has to a callout, and the whole point of this
+      //: change is that the block stops spending rows on things that are not
+      //: code. `user-select: none` and `pointer-events: none` so a drag
+      //: across the block selects the code and not the word "python".
+      ".cm-md-fence-open[data-lang]::after": {
+        content: "attr(data-lang)",
+        position: "absolute",
+        right: "0.6em",
+        top: "0",
+        fontSize: "0.7em",
+        lineHeight: "1.6",
+        color: "var(--muted)",
+        userSelect: "none",
+        pointerEvents: "none",
       },
       //: A rule whose own `---` is hidden is an empty line, and an empty line
       //: with a bottom border is a hairline sitting on the baseline of nothing.
@@ -13716,7 +14792,15 @@ function docCmUpdate(update) {
     if (typeof editorHandleInput === "function") editorHandleInput(docSurface());
     if (!$("doc-suggest-menu")?.classList.contains("hidden")) closeDocSuggest();
   }
-  if (update.selectionSet) renderDocCaret();
+  if (update.selectionSet) {
+    renderDocCaret();
+    //: The outline follows the caret too, on the same beat the breadcrumb
+    //: does: an arrow key raises no scroll and no `input`, so without this the
+    //: two rows that both answer "where am I" would disagree until the view
+    //: moved. Scheduled, not marked, because a held-down arrow key fires far
+    //: faster than a class swap needs to be painted.
+    scheduleDocOutlineSpy();
+  }
 }
 
 //: **The prose findings, as decorations** (DOCUMENTS_PLAN Phase 2 decision 5).
@@ -13944,6 +15028,13 @@ function docCmSyncLanguage() {
 //: The line-number preference, applied to the engine. `applyDocGutter` still
 //: owns the *decision* (and the two note editors' own columns); this is only
 //: how it reaches the view.
+//: The one reading of the line-number preference that both the gutter itself
+//: and the decorations that have to dodge it go through, so the two cannot
+//: disagree about whether there are numbers on screen.
+function docFenceGutterOn() {
+  return docGutterWanted(!docFileType().previewable);
+}
+
 function docCmSyncGutter() {
   const CM = window.CM6;
   if (!docCmView || !CM || !docCmParts.gutter) return;
@@ -13958,7 +15049,7 @@ function docCmSyncGutter() {
 //: is a strip of chevrons with nothing to anchor them. One choice, one lane,
 //: `applyDocGutter` still owns the decision.
 function docCmGutter(CM) {
-  if (!docGutterWanted(!docFileType().previewable)) return [];
+  if (!docFenceGutterOn()) return [];
   //: **Only the gutter is in the gutter.** Folding itself moved into the base
   //: extensions when callouts became foldable (Phase 3 item 2): every fold
   //: this editor offers lived in here, so a markdown document, which opens

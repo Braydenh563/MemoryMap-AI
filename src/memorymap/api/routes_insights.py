@@ -339,6 +339,14 @@ def on_this_day(session: Session = Depends(get_session)) -> list[dict]:
     """Notes captured on today's date in earlier months/years, a gentle
     resurfacing of old thoughts (from the original idea doc).
 
+    **Not called by this app's own frontend, and that is a decision, not an
+    oversight** (INBOX 261, found by `scratchpad/probe_dead_routes.py`, which
+    lists every route no `frontend/*.js` names). The dashboard's widget
+    filters `allEntries` in the browser: one fewer request, and correct once
+    the notebook has finished paging in. This stays for anything that talks
+    to the app over HTTP rather than through the bundled page, and this
+    paragraph is here so the next scan does not re-open the question.
+
     The day-of-month and "at least 28 days old" checks used to load every
     non-deleted entry and filter in a Python loop; SQLite does both in the
     WHERE clause instead now, so only matching rows are ever hydrated into
@@ -510,7 +518,15 @@ def weekly_digest_stream(session: Session = Depends(get_session)) -> StreamingRe
 
 @router.post("/digest")
 def weekly_digest(session: Session = Depends(get_session)) -> dict:
-    """An on-demand AI recap of the last 7 days (reads only)."""
+    """An on-demand AI recap of the last 7 days (reads only).
+
+    **Superseded on the dashboard by `/insights/digest/stream`**, which says
+    the same thing a token at a time instead of after a long silence, and is
+    what the widget calls (INBOX 261). Kept rather than deleted because it is
+    the one shape a caller that cannot read an event stream can use, and
+    because the two share `_digest_notes` below, so it costs a function call
+    to keep and a second code path to reimplement later.
+    """
     cutoff = utcnow() - timedelta(days=7)
     # See _digest_notes' comment above: a private note's `content` is
     # ciphertext at rest and must never reach the model's prompt.

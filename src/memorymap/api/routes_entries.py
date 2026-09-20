@@ -45,8 +45,11 @@ from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_sugg
     EntryRevision,
     MediaUpload,
     WhiteboardNode,
+    WhiteboardObject,
+    like_escape,
     utcnow,
 )
+from memorymap.core.database import LIKE_ESCAPE
 from memorymap.core.deps import get_session
 from memorymap.entry import duplicates, manager
 from memorymap.search import engine as search_engine
@@ -1427,6 +1430,59 @@ def seed_example_entries(session: Session = Depends(get_session)) -> dict:
     return {"created": created}
 
 
+#: How many notes one counts call may cover. A page of the list is at most
+#: `ENTRIES_PAGE_SIZE` on the client (50); anything past that is a caller
+#: asking for a report, not a chip row.
+REFERENCE_COUNT_IDS_MAX = 60
+
+
+@router.get("/reference-counts")
+def entry_reference_counts(
+    ids: str = Query(default="", description="Comma-separated note ids"),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Per note, how many things point at it, by kind, for one page at once.
+
+    INBOX 246's third gap. A card showed nothing until Connections was opened,
+    so a note on two boards and in three documents looked exactly like a note
+    nothing had ever touched. The row on the card needs a number per kind and
+    nothing else, and it needs it for every note on screen in one round trip:
+    fifty cards asking `/references` each would be fifty scans per render.
+
+    One reader. The numbers come from the same `_reference_rows` the
+    Referenced-by row draws, so the chip and the row cannot disagree about
+    what counts as a reference (the LIKE-then-verify rule, the deleted-note
+    rule, the board-versus-map rule all live there once).
+
+    A static path before the `/{entry_id}/...` routes on purpose: FastAPI
+    matches in declaration order, and `{entry_id}` is typed `int`, so
+    "reference-counts" would 422 rather than fall through if it came second.
+    """
+    wanted: list[int] = []
+    for part in ids.split(","):
+        part = part.strip()
+        if part.isdigit():
+            wanted.append(int(part))
+    wanted = wanted[:REFERENCE_COUNT_IDS_MAX]
+    if not wanted:
+        return {"counts": {}}
+    #: One query for the page's rows, then the reader per note. Rows that do
+    #: not exist or are deleted are simply absent from the answer, so a stale
+    #: id on the client is a missing key rather than a 404 that fails the
+    #: whole page's chips.
+    entries = session.scalars(
+        select(Entry).where(Entry.id.in_(wanted), Entry.is_deleted.is_(False))
+    ).all()
+    counts: dict[str, dict[str, int]] = {}
+    for entry in entries:
+        by_kind: dict[str, int] = {}
+        for row in _reference_rows(session, entry):
+            by_kind[row["kind"]] = by_kind.get(row["kind"], 0) + 1
+        by_kind["total"] = sum(by_kind.values())
+        counts[str(entry.id)] = by_kind
+    return {"counts": counts}
+
+
 @router.get("/{entry_id}", response_model=EntryOut)
 def get_entry(
     entry_id: int, deleted: bool = False, session: Session = Depends(get_session)
@@ -1676,6 +1732,175 @@ def _readable(content: str) -> str:
     content can borrow it without a row to hang it on.
     """
     return manager.readable_content(SimpleNamespace(content=content or ""))
+
+
+#: How many candidate sources a references scan will read, and how many rows
+#: it will answer with. The same two caps `routes_documents._backlinks` uses,
+#: and for the same reason: the scan is a LIKE over the notes and documents
+#: tables, which is fine at any notebook size and is not free at every one.
+REFERENCE_SOURCES_MAX = 400
+REFERENCE_ROWS_MAX = 60
+
+
+def _board_reference_rows(session: Session, entry: Entry) -> list[dict]:
+    """The boards and maps a note is on, one row per board, boards and maps
+    told apart.
+
+    Two tables hold "this note is on that board", and a reader that knows
+    one of them is wrong half the time (INBOX 246's first gap). A whiteboard
+    card is a `WhiteboardNode` row. A mind map's note is a `WhiteboardObject`
+    of kind "note" whose `data.ref_id` is the note (`MAP_REFERENCE_KINDS` in
+    routes_whiteboard), and nothing else in `data` says which table the id
+    belongs to: the kind does. So the object read filters on the kind first
+    and only then on the id, the way routes_graph learnt to (a document and
+    a note both numbered 1 exist in any notebook with one of each).
+
+    `json_extract` because SQLite has JSON1 built in and the column is JSON;
+    the verify-after in Python stays because a row written before the
+    schema was tightened can hold anything. Shared by the Referenced-by row,
+    the Connections dialog and the card's counts, so the three cannot
+    disagree about what a board reference is.
+    """
+    from memorymap.entry.manager import plain_label
+
+    seen_boards: set[int] = set()
+    found: list[tuple[int, Entry]] = []
+    for board_id, board in session.execute(
+        select(WhiteboardNode.board_id, Entry)
+        .join(Entry, Entry.id == WhiteboardNode.board_id)
+        .where(
+            WhiteboardNode.entry_id == entry.id,
+            Entry.is_deleted.is_(False),
+        )
+        .limit(REFERENCE_ROWS_MAX)
+    ).all():
+        if board_id is None or board_id in seen_boards:
+            continue
+        seen_boards.add(board_id)
+        found.append((board_id, board))
+    for board_id, board, raw in session.execute(
+        select(WhiteboardObject.board_id, Entry, WhiteboardObject.data)
+        .join(Entry, Entry.id == WhiteboardObject.board_id)
+        .where(
+            WhiteboardObject.kind == "note",
+            func.json_extract(WhiteboardObject.data, "$.ref_id") == entry.id,
+            Entry.is_deleted.is_(False),
+        )
+        .limit(REFERENCE_ROWS_MAX)
+    ).all():
+        if board_id is None or board_id in seen_boards:
+            continue
+        try:
+            ref_id = (json.loads(raw or "{}") or {}).get("ref_id")
+        except (ValueError, AttributeError):
+            continue
+        if ref_id != entry.id:
+            continue
+        seen_boards.add(board_id)
+        found.append((board_id, board))
+
+    rows: list[dict] = []
+    for board_id, board in found:
+        #: `board_settings` says whether this is a whiteboard or a mind map,
+        #: and the owner asked for both by name, so the row says which.
+        #: Through `manager.board_type_of` rather than parsed here: this app
+        #: already reads that column in four places and CodeQL caught the
+        #: fifth arriving with a bare `except: pass`, which is fair. One
+        #: reader, one decision about what a malformed value means.
+        kind = manager.board_type_of(board)
+        rows.append({
+            "kind": kind,
+            "id": board_id,
+            "label": plain_label(board.content, 60) or ("Untitled map" if kind == "map" else "Untitled board"),
+            "how": "on it",
+        })
+    return rows[:REFERENCE_ROWS_MAX]
+
+
+def _reference_rows(session: Session, entry: Entry) -> list[dict]:
+    """Everything that points at this note: documents, notes, boards, maps.
+
+    INBOX 246, the owner's second sentence: "I want it to show in notes if
+    they are attached to or referenced in/by a document, note, whiteboard, or
+    mindmap."
+
+    **Two kinds of pointing, and they are found two different ways.** A board
+    or a map carries a note as a real row (`WhiteboardNode.entry_id`), so that
+    half is a join and is exact. A document or another note carries it as
+    text, either a `[[wiki link]]` or a bare mention of its label, so that
+    half is the same LIKE-then-verify scan `routes_documents._backlinks`
+    runs, and it says which of the two it found because "it links to this"
+    and "it happens to say these words" are different facts about a note.
+
+    A note with no label to be named by (an image-only note, a note that
+    starts with a heading marker and nothing else) still gets its board rows:
+    a card on a board is a reference whether or not the note has a name.
+    """
+    from memorymap.entry.manager import plain_label
+
+    rows: list[dict] = []
+
+    #: **The boards first**, because they are exact and because a note that
+    #: is on a board is on it whatever it says.
+    rows.extend(_board_reference_rows(session, entry))
+
+    label = plain_label(entry.content, 60).strip()
+    if not label:
+        return rows[:REFERENCE_ROWS_MAX]
+
+    like = f"%{like_escape(label)}%"
+    wiki = f"[[{label}]]".casefold()
+    candidates: list[tuple[str, int, str, str]] = []
+    for document in session.scalars(
+        select(Document)
+        .where(
+            Document.archived_at.is_(None),
+            Document.content.ilike(like, escape=LIKE_ESCAPE),
+        )
+        .order_by(Document.updated_at.desc(), Document.id.desc())
+        .limit(REFERENCE_SOURCES_MAX)
+    ):
+        candidates.append(("document", document.id, document.title or "Untitled", document.content or ""))
+    for other in session.scalars(
+        select(Entry)
+        .where(
+            Entry.id != entry.id,
+            Entry.is_deleted.is_(False),
+            #: A private note is encrypted at rest, so its content could not
+            #: match the LIKE anyway; the filter is here so that stays true
+            #: by decision rather than by side effect. The same sentence
+            #: `routes_documents._backlinks` carries, for the same reason.
+            Entry.is_private.is_(False),
+            Entry.content.ilike(like, escape=LIKE_ESCAPE),
+        )
+        .order_by(Entry.id.desc())
+        .limit(REFERENCE_SOURCES_MAX)
+    ):
+        candidates.append(("note", other.id, plain_label(other.content, 60) or "Untitled note", other.content or ""))
+
+    for kind, source_id, source_label, content in candidates:
+        rows.append({
+            "kind": kind,
+            "id": source_id,
+            "label": source_label,
+            #: A link is a decision someone made; a mention is a coincidence
+            #: until they make it. Saying which is what stops this row being
+            #: a list of every note that happens to share a word.
+            "how": "links to it" if wiki in (content or "").casefold() else "mentions it",
+        })
+
+    #: Links before mentions, so the rows someone chose come first, and the
+    #: boards before both because they are exact.
+    rows.sort(key=lambda row: {"on it": 0, "links to it": 1, "mentions it": 2}[row["how"]])
+    return rows[:REFERENCE_ROWS_MAX]
+
+
+@router.get("/{entry_id}/references")
+def entry_references(entry_id: int, session: Session = Depends(get_session)) -> dict:
+    """What points at this note, from anywhere in the notebook."""
+    entry = _existing_entry(session, entry_id)
+    items = _reference_rows(session, entry)
+    return {"items": items, "total": len(items)}
 
 
 @router.get("/{entry_id}/history")
@@ -1981,25 +2206,53 @@ def entry_connections(entry_id: int, session: Session = Depends(get_session)) ->
         )
     ]
 
-    # A board is itself a note (`WhiteboardNode.board_id` points at an
-    # entry), and `board_id IS NULL` is the unnamed scratch board every
-    # notebook starts with: so the title has to be resolved per row rather
-    # than joined, and NULL is a real board, not a missing one.
-    boards: list[dict] = []
-    seen_boards: set[int | None] = set()
-    for node in session.scalars(
-        select(WhiteboardNode).where(WhiteboardNode.entry_id == entry.id)
-    ):
-        if node.board_id in seen_boards:
-            continue
-        seen_boards.add(node.board_id)
-        title = "Whiteboard"
-        if node.board_id is not None:
-            board = session.get(Entry, node.board_id)
-            if board is None:
+    #: **The same reader as the Referenced-by row and the card's chip**, so the
+    #: three agree (INBOX 246). The chip says "in 1 document · linked by 1
+    #: note" from `_reference_rows`, and this dialog is what it opens: a
+    #: document that links to the note by `[[wiki link]]` without the note
+    #: being attached to it, and a note that mentions this one without a
+    #: stored `EntryLink`, both used to be counted on the chip and missing
+    #: here. They are added to the group they belong in, after the rows the
+    #: database holds exactly, skipping any the exact rows already carry.
+    references = _reference_rows(session, entry)
+    known_docs = {doc["id"] for doc in documents}
+    for row in references:
+        if row["kind"] == "document" and row["id"] not in known_docs:
+            known_docs.add(row["id"])
+            documents.append({"id": row["id"], "title": row["label"], "file_type": None, "how": row["how"]})
+    known_notes = {row["id"] for row in incoming}
+    for row in references:
+        if row["kind"] == "note" and row["id"] not in known_notes:
+            known_notes.add(row["id"])
+            other = session.get(Entry, row["id"])
+            if other is None:
                 continue
-            title = manager.extract_title(manager.readable_content(board)) or "Untitled board"
-        boards.append({"id": node.board_id, "title": title, "node_id": node.id})
+            incoming.append({
+                "link_id": None,
+                "id": other.id,
+                "preview": "Private note" if other.is_private else _connection_label(other),
+                "is_private": bool(other.is_private),
+                "reason": "Links to it" if row["how"] == "links to it" else "Mentions it",
+                "reason_confidence": None,
+            })
+
+    #: Boards and maps: `kind` is "board" or "map" so the dialog can say
+    #: which (a map's own note node counts too). The unnamed scratch board
+    #: (`board_id IS NULL`) is not an entry and so has no row there; it is a
+    #: real board, the one every notebook starts with, and it is added here
+    #: on its own.
+    boards: list[dict] = [
+        {"id": row["id"], "title": row["label"], "kind": row["kind"]}
+        for row in references
+        if row["kind"] in ("board", "map")
+    ]
+    on_scratch = session.scalars(
+        select(WhiteboardNode.id)
+        .where(WhiteboardNode.entry_id == entry.id, WhiteboardNode.board_id.is_(None))
+        .limit(1)
+    ).first()
+    if on_scratch is not None:
+        boards.append({"id": None, "title": "Whiteboard", "kind": "board"})
 
     files = _connected_files(session, manager.readable_content(entry))
 

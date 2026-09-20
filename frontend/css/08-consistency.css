@@ -1687,11 +1687,26 @@ summary > .ph-lead,
   padding-left: var(--space-3);
   color: var(--accent);
 }
-.doc-dock-menu-list .doc-dock-menu-check {
+/* **And inside a flyout, which is where half of them now live.** The rows
+   were scoped to `.doc-dock-menu-list`, and grouping the documents kebab into
+   sub-menus moved several of them into a panel that `buildMenuGroupButton`
+   reparents to <body>: no longer inside that list, so the rule stopped
+   applying and the switches sat against their labels instead of at the right
+   edge. Reported with a screenshot of "While you write".
+
+   `[data-doc-dock-submenu]` is the marker those panels already carry (see
+   `foldDocMenuGroup` in documents.js), so this follows the rows wherever the
+   menu builder puts them rather than naming a place in the DOM. */
+.doc-dock-menu-list .doc-dock-menu-check,
+[data-doc-dock-submenu] .doc-dock-menu-check {
   justify-content: space-between;
   min-height: var(--control-h-lg);
+  /* The flyout sizes itself to its widest row, and a row that does not fill
+     it is a row whose switch stops short of the edge the others reach. */
+  width: 100%;
 }
-.doc-dock-menu-list .doc-dock-menu-check > input {
+.doc-dock-menu-list .doc-dock-menu-check > input,
+[data-doc-dock-submenu] .doc-dock-menu-check > input {
   margin-left: auto;
 }
 .doc-dock-menu-list #doc-file-type {
@@ -1763,7 +1778,12 @@ summary > .ph-lead,
    and wrong for a chat: at 1440 it gave Atlas a 1356px line. `sheet-corner`
    moves the card into the corner the popup agent's own panel would occupy and
    gives it a reading width; at phone width it goes back to being the full
-   width of the window, because in a 390px window the corner IS the window. */
+   width of the window, because in a 390px window the corner IS the window.
+
+   The width below is `min(28rem, 100%)`, which is already 100% of a 390px
+   window, so the phone override this rule used to carry was only ever
+   resetting a margin. The margin is in the floating block now and the
+   override is gone with it. */
 .sheet-overlay.sheet-corner {
   align-items: flex-end;
   justify-content: flex-end;
@@ -1774,15 +1794,34 @@ summary > .ph-lead,
   width: min(28rem, 100%);
   max-width: min(28rem, 100%);
   max-height: min(36rem, 80dvh);
-  border-radius: var(--radius) var(--radius) 0 0;
-  margin-inline-end: var(--space-4);
 }
 
-@media (max-width: 600px) {
+/* **A corner panel floats; an edge sheet is welded to its edge** (INBOX 270,
+   the owner: "improve/redesign the ui and layout of the guide popup panel").
+   Measured at 1440x900 before this block: the card sat 10px from the right of
+   the window and 0px from the bottom, with `14px 14px 0 0` for a radius, so
+   two of its corners were square against an edge it was not touching and its
+   two insets disagreed by 10px. That is the bottom-sheet geometry `.sheet-card`
+   gives every sheet, applied to the one variant that is deliberately not an
+   edge sheet: above the phone break this panel hovers in the corner over the
+   app, the way the popup agent's card hovers in the middle of it, and a
+   floating surface has four corners and one inset.
+
+   The foot padding goes back to the card's own `--card-pad-y` here for the
+   same reason: `.sheet-card`'s `env(safe-area-inset-bottom)` foot exists
+   because an edge sheet's last row sits where the home indicator is, and a
+   panel with 16px of window under it has no such row. Measured: 20px of
+   padding above the head against 12.8px under the composer, now 20px both.
+
+   Below 601px none of this applies and the panel is the bottom sheet it has
+   always been there, which is the variant's own decision (INBOX 224: in a
+   390px window the corner is the window). */
+@media (min-width: 601px) {
   .sheet-card.sheet-card-corner {
-    width: 100%;
-    max-width: 100%;
-    margin-inline-end: 0;
+    border-radius: var(--radius);
+    margin-inline-end: var(--space-6);
+    margin-block-end: var(--space-6);
+    padding-bottom: var(--card-pad-y);
   }
 }
 
@@ -1799,6 +1838,11 @@ summary > .ph-lead,
 
 .sheet-card-corner .help-chat-messages {
   flex: 1 1 auto;
+  /* The column's own `gap` is the spacing here; the log's margin is for the
+     Settings Help page, where the group is not a flex column. Left in, it
+     stacked with the gap and put 16px above the composer's hairline against
+     9.6px below it. */
+  margin-bottom: 0;
   /* The recipe's own 16rem cap is for a box inside a settings page; in a sheet
      the card's height is the bound and the transcript takes what is left. */
   max-height: none;
@@ -1853,13 +1897,38 @@ summary > .ph-lead,
   text-align: left;
 }
 
+/* The hairline belongs above whatever the foot of the panel is (INBOX 270).
+   With the starters under the transcript, the foot is the chips plus the
+   composer, and drawing the line under the chips would put the transcript and
+   three things you can send on one side of it. `.hidden` is the class
+   `helpChatAppendRow` and `helpChatNewChat` already toggle, so the line
+   follows them without a third place to keep in step. */
+.atlas-starters:not(.hidden) {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-light);
+}
+
+.atlas-starters:not(.hidden) + .atlas-composer {
+  padding-top: 0;
+  border-top: 0;
+}
+
 /* The composer along the foot, and the one thing it needs that the form did
-   not have: the field takes the room and the three controls beside it keep
-   their own size. */
+   not have: the field takes the room and the controls beside it keep their
+   own size.
+
+   **A hairline, because a transcript that scrolls has to stop somewhere**
+   (INBOX 270). The card is a column of four blocks 8px apart with nothing
+   between them, so when the log scrolls, a half-cut line of an answer ends
+   8px above the field and reads as part of it. The popup agent draws exactly
+   this line under its own bar for the same reason, and it is the one edge
+   this panel needs: what you read, then what you type. */
 .atlas-composer {
   align-items: center;
   gap: var(--space-2);
   flex-wrap: nowrap;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-light);
 }
 
 .atlas-composer > #help-chat-input {
@@ -1884,9 +1953,14 @@ summary > .ph-lead,
 .atlas-composer > button.icon-only {
   width: 2.5rem;
 }
-/* In the sheet the head carries the mark, the name and the line, so the
-   intro block that repeated all three is not shown there; it stays for the
-   Settings Help page, where there is no sheet head. */
+/* In the sheet the head carries the mark, the name and the line, so the intro
+   block that repeated all three is not shown there. It is not shown anywhere
+   else either, and the comment here used to say it stayed for the Settings
+   Help page: that page shows `.atlas-row` and a button, and the chat itself
+   lives in `#atlas-host`, which is `hidden` until `openHelpChat` moves it
+   into the sheet. What the block is still for is the `.atlas-mark` the head
+   clones for its avatar, which is the reason to leave it in the markup
+   rather than delete it as dead (INBOX 270). */
 .atlas-chat.atlas-docked .atlas-intro {
   display: none;
 }
@@ -1909,9 +1983,27 @@ summary > .ph-lead,
   font-size: var(--text-sm);
   font-weight: 400;
 }
-.sheet-head > .atlas-menu {
-  margin-left: auto;
-  margin-right: var(--space-2);
+
+/* **On a phone the head keeps its one line** (INBOX 270). With the '?' beside
+   the kebab and the X, the title has 205px of a 356px head at 390, and
+   "About the app, never your notes" wraps onto a second line there and takes
+   the head from 48px to 63px, which is a two-row head on the one screen with
+   the least room for one. The line is the head's second rank, so it is what
+   goes: the mark, the name, the '?' and the way out all stay, the '?' popover
+   still says what Atlas is, and the empty state under it still says in full
+   that it cannot read your notes or your documents. */
+@media (max-width: 600px) {
+  .atlas-head-line {
+    display: none;
+  }
+}
+/* The head is title, '?', kebab, close (INBOX 270). The title takes the free
+   space so the three controls pack against the end on the head's own gap:
+   before this the kebab pushed itself right with an `auto` margin and added a
+   second gap of its own, which put 16px between it and the X and 8px between
+   every other pair of icons in the app. */
+.sheet-card-corner .sheet-title {
+  flex: 1 1 auto;
 }
 
 /* The line that offers Atlas a question, under a help popover and in an empty
@@ -1930,19 +2022,15 @@ summary > .ph-lead,
   font-size: var(--text-sm);
 }
 
-/* **A chat is a column, not a wall** (INBOX 204: "modernise and redesign /
-   improve the ui and ux for the help ai"). The sheet recipe is deliberately
-   full width at every width, which is right for a list of rows and wrong for a
-   transcript: opened at 1440 the guide's messages ran 1356px wide, around 200
-   characters a line, against the 60 to 80 every other reading surface in this
-   app holds itself to. The cap is on the chat inside the sheet, not on the
-   sheet, so nothing else built from that recipe moves. Measured: 1356px, now
-   704px, centred. */
-[data-sheet="guide"] .help-chat-group {
-  max-width: 44rem;
-  margin-inline: auto;
-  width: 100%;
-}
+/* **A chat is a column, not a wall** (INBOX 204) was a 44rem cap on the chat
+   inside the sheet, put there when the sheet ran the full width of the window
+   and gave the transcript a 1356px line. INBOX 224 made the panel a corner
+   card instead, and the cap has been unreachable ever since: measured at
+   1440x900, the chat is 398px wide inside a 448px card, so a 704px ceiling
+   decided nothing. Removed rather than left standing, because a rule that
+   reads as live and is not is the next reader's wrong explanation for
+   whatever they are looking at (INBOX 270). The reading width is the card's
+   now, and `.sheet-card-corner`'s own block above says so. */
 
 .help-accordion + .help-chat-group {
   margin-top: var(--space-6);

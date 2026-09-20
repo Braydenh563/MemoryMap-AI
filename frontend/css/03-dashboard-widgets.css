@@ -3171,6 +3171,47 @@ p.graph-help-panel {
   margin: 0;
 }
 
+/* A section of this panel that is set once and then left, folded away on the
+   app's `details.settings-fold` recipe (DESIGN.md, the recipe index): the
+   flat summary, the chevron and the hover fill all come from
+   08-consistency.css's disclosure rules, which `.settings-fold` already
+   names. Only the room is restated here, because a fold in a popover list
+   is a row among rows and the Settings screen's `--space-3` block padding
+   plus a `0.5rem` margin would stand a head taller than every
+   `.graph-option-row` beside it.
+
+   The `:not()`s are not decoration: the rule being matched here is
+   `.settings-fold > summary:not(.icon-only):not(.icon-button)`, which is
+   (0,3,1), and a container class plus the element would lose to it. */
+.graph-options .graph-options-fold > summary:not(.icon-only):not(.icon-button) {
+  min-height: max(var(--control-h), var(--target-min));
+  margin: 0;
+  padding: 0;
+}
+
+/* `<details>` is a block box; the section's own `flex-direction: column` and
+   `gap` above only apply to what the browser lays out as flex items, and the
+   disclosure's contents are not those. Restating the column on the open
+   fold keeps its rows on the same rhythm as the rest of the panel. */
+.graph-options details.graph-options-fold {
+  display: block;
+}
+
+.graph-options .graph-options-fold[open] > summary {
+  margin-bottom: var(--space-1);
+}
+
+.graph-options .graph-options-fold > :not(summary) + :not(summary) {
+  margin-top: var(--space-1);
+}
+
+/* The section's one action, where `.dock-menu-section-head` used to put it:
+   hard right, with the fold's name at the left. The summary is already a
+   flex row (08-consistency.css), so one `auto` margin is the whole of it. */
+.graph-options .graph-options-fold > summary > button {
+  margin-left: auto;
+}
+
 /* An id rule outranks the generic .hidden helper, restate it, the same trap
    `#graph-empty.hidden` had to be dug out of. */
 #graph-options.hidden {

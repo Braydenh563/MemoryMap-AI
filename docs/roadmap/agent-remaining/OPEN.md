@@ -13,10 +13,10 @@ then the plan tails by surface, then the horizon.
 
 | # | What is left | Where |
 | --- | --- | --- |
-| 238 | Board and map note cards: text overflows the card when expanded, expand state does not persist, and export should warn when cards are collapsed. The bug underneath: a note card exports truncated at 160 characters whether expanded or not (SVG, PNG and the outline formats). | WHITEBOARD_PLAN, this file's Whiteboard section |
-| 246 | Attach a board or map to a note from the note's connect menu (a `WhiteboardObject` of kind note with `data.ref_id`), the Connections dialog reading both the legacy `WhiteboardNode` table and current note objects, boards and maps told apart, and a "referenced by" chip row on the note card from one batched counts endpoint. | this file's Notes section; routes_entries.py `entry_connections` |
-| 232 | Live view markdown beyond code fences: tables, callouts, task lists and images rendered in place, the fence and marks hidden while the caret is outside. | DOCUMENTS_PLAN Phase 2 tail, documents.js `docLivePlugin` |
-| 253 | One-click recovery: a launcher that repairs a start that fails (venv, dependencies, migrations) without a prompt, and a Repair shortcut beside the app; gated by a deliberately broken venv coming back. | WORLD_CLASS_PLAN H6 |
+| ~~238~~ | **Done 2026-09-19** (5a9c909, 128a731, 7e8d902). All three parts, with measurements in INBOX 238: the card clips its own text (`min-height: 0` plus `overflow: hidden` on `.wb-card-content`, and the "Show more" decided by the box rather than by a character count); the expanded set is in `localStorage`; and the export's line budget comes from the card's measured height (7 lines collapsed, 22 expanded, both were 6) with a `--warn` line in the dialog naming how many notes are collapsed. | done |
+| ~~246~~ | **Done 2026-09-20.** Maps' own reference nodes counted (`_board_reference_rows`, both tables, one reader), `GET /entries/reference-counts` and the chip row on the card measured in Chromium (`refchips.js`), Connections telling maps from boards and listing every reference the chip counts. Record in HISTORY's INBOX 246. | done |
+| ~~232~~ | **Mostly already built; measure before building any of it.** Checked on the branch head 2026-09-19 (`scratchpad` sweep, one document holding all of them): tables render as 6 `.cm-md-td` cells with **0 pipes on screen**, callouts as 2 `.cm-md-callout` lines with a label and **0 `[!note]` markers**, task lists as 2 real `<input type="checkbox">` with **0 `- [ ]` brackets**, and an image as a drawn `.cm-md-image` with **0 `![...]` syntax**; strikethrough, highlight, footnotes and maths all carry their marks too. The two things that were genuinely wrong are fixed: the code fence's empty rows (706e2af) and the chips that broke in half when they wrapped (2b94271). This row was stale, and rebuilding from it would have been the fourth time this project rebuilt something that existed. | done, except anything the owner names next |
+| ~~253~~ | **Done 2026-09-20** (b062d0d, f0d478b, f24d8a5, 1f018d6). `start.sh`/`start.bat` self-repair a failed start once with no prompt; the venv health check imports the app itself; a Repair MemoryMap AI shortcut in the .exe installer and the MSI runs `--desktop --reinstall`. Record in HISTORY's INBOX 253. | done |
 | 225 | The frontend copy sweep: every place the app still speaks as "the AI", "the assistant" or "the guide" where it means Atlas. | INBOX 225's second half |
 | 226 | A flicker above the bottom bar on the dashboard, never reproduced here; needs the owner's theme, art setting and zoom. | INBOX 226 |
 | 213, 220, 228 | Documentation leftovers recorded in their entries. | INBOX |
@@ -25,8 +25,8 @@ then the plan tails by surface, then the horizon.
 
 | Plan | Still open |
 | --- | --- |
-| DOCUMENTS_PLAN | Phase 3 item 4's Library filter by frontmatter property; Phase 4 items 3 to 5 (outline drag-to-reorder with breadcrumbs, the editor command palette and shortcut sheet from one table, daily notes and the templates gallery); Phase 5 items 2 to 4 (version history UI with diff and restore, AI edit with a per-hunk diff preview and findings rendered as findings, focus and typewriter modes with reading typography and a print stylesheet); Phase 6 and Phase 8 tails in this file's Documents section. |
-| UI_MODERNISATION_PLAN | Phase 8's three docks still over the seven-control ceiling; Phase 11 items 1 to 9, the phone done properly. |
+| DOCUMENTS_PLAN | Phase 4 item 5's daily notes, the one row of Phase 4 still open (the templates gallery was built, and verified 2026-09-20 by `scratchpad/ui-sweeps/doctemplates.js`: six templates, each with a description); the Phase 2, 6 and 8 tails and the engine's three deliberate omissions, in this file's Documents section. Everything else this row used to list was built or already existed: the Library's property filter, outline reorder with folding and a filter box, the command palette and shortcut sheet from one table, version history with its diff and its AI filter, the per-hunk AI diff, reading typography and the print stylesheet (all 2026-09-20 or earlier, each with its probe named in HISTORY.md). |
+| UI_MODERNISATION_PLAN | ~~Phase 8's docks over the seven-control ceiling~~: re-measured 2026-09-20 (`docks.js` at 1440): notes 6, graph 6, library 5, chat 4, timeline 4, reminders 4, and only `#wb-topbar` at 13, which the plan names as the menu-bar exception (Insert, Edit, Arrange, View, Board on the dock's zones). Done. Phase 11 items 1 to 9, the phone done properly. |
 | GRAPH_PLAN | Phase 5 (positions saved on views, the `?since=` cursor); Phase 6's node panel redesign; the local pane's Show switches; 6b the minimap. |
 | WHITEBOARD_PLAN | Decision 7's other half; the phone context bar comparison; sketch handles at zoom; the arrange panel items. |
 | MINDMAP_PLAN | The mapux agent's leftover list (this file's Mind map section). |
@@ -60,29 +60,26 @@ being written by running agents stay beside this one.
 
 ## Documents
 
-- **DOCUMENTS_PLAN Phase 3 item 4's second clause, "searchable from the
-  Library's filter".** The frontmatter is parsed and the fields are editable;
-  nothing filters documents on a property. File `frontend/library.js`. Next
-  step, recorded so it is not re-derived: a client-side filter over the
-  documents list, because the list is already loaded whole.
+- **DOCUMENTS_PLAN Phase 4 item 5's daily notes, and only that.** Items 1 to 4
+  are built (backlinks and block references 2026-09-12; the outline's reorder,
+  folding and filter box, and the command palette and shortcut sheet from one
+  table, 2026-09-20, both recorded in HISTORY.md with their probes). The
+  templates half of item 5 exists and was measured on 2026-09-20
+  (`scratchpad/ui-sweeps/doctemplates.js`: the gallery opens at 480x526 with
+  six templates, each carrying a description). Daily notes were left alone
+  deliberately: `grep -n "daily" frontend/*.js src/memorymap/api/*.py` finds
+  `dailyNoteTitle` in app.js and twenty-two hits in routes_entries.py, so the
+  next step is to read what the Timeline already built (TIMELINE_PLAN Phase 4,
+  "a daily note is a convention, not a table") and decide what a *document*
+  daily note would add to it, rather than building a second one.
   [documents-phase4.md]
-- **DOCUMENTS_PLAN Phase 4, the connected document: not started.** Next step:
-  take the plan's items in order and record file, id and next step per item at
-  the first stopping point. [documents-phase4.md]
-- **`revalidateSelection` reads the stale fallback.** `frontend/app.js`, line
-  17697 on the branch head: it resolves the surface with
-  `document.getElementById` and requires an `HTMLTextAreaElement`, so a
-  selection sent to the chat from a document is re-checked against the wrong
-  string and reports `gone` or `unknown` while the passage is on screen. Next
-  step: `docSurfaceById(context.surfaceId)` and `surface.text`, three lines.
-  [documents-engine.md]
-- **The "is the user typing?" guard does not know `contenteditable`.**
-  `frontend/app.js` around line 33916 tests
-  `["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)`.
-  The documents editor guards its own host (`docGuardGlobalShortcuts`); the
-  shared guard is still wrong and the next contenteditable will meet it. Next
-  step: `|| document.activeElement?.isContentEditable`, which the chorded
-  branch twenty lines above already checks. [documents-engine.md]
+- **The templates gallery offers a description, not a preview of the page.**
+  Measured 2026-09-20: each row reads "Assignment plan / Brief, criteria,
+  sections, sources, timeline." The plan's words are "offered with a preview",
+  and a sentence about the template is a fair reading of that; a thumbnail of
+  the body is not built and may not be worth it. Left as a row here rather
+  than built, so the next session does not build it twice.
+  [documents-phase4.md]
 - **The document surface's aliases have no lint.** A call site that hands the
   surface to something expecting a DOM element reads as correct and fails at
   runtime (`autoGrow` wrote `style.height` on it and every "/" command in the
@@ -107,11 +104,6 @@ being written by running agents stay beside this one.
   answer), nothing says `Mod+click` opens a link chip beyond the tooltip, and
   which buttons are "on" for the caret is not driven from the syntax tree,
   which the tree now makes cheap. [documents-engine.md]
-- **The documents editor toolbar (`.doc-toolbar`) is the one surface in the
-  consistency sweep's item 3 still off the recipe.** It has the bar surface;
-  only its controls are open. Next step: apply the `.dock > * > button.ghost`
-  half scoped to `.doc-toolbar` and re-measure fills, radii and heights the
-  way `scratchpad/ui-sweeps/heads2.js` does. [consistency.md]
 - **Outline rows are 24 to 25.2px, under the app's own 28px floor.**
   `frontend/css/05-sidebars-themes.css`, `.outline-link`
   (`padding: 0.15rem 0.25rem` plus a 0.85rem line) against DESIGN.md's
@@ -120,18 +112,6 @@ being written by running agents stay beside this one.
   density-aware rule (compact keeps 24, comfortable and spacious take 28) or a
   touch layout for the sidebar, which is UI Phase 9's territory.
   [doc-sidebar.md]
-- **The outline is headings only, and it does not fold.** No folding (a
-  120-heading document wants collapsible h2s with the state kept per document)
-  and no filter box (Obsidian's outline has one, and past two screens of
-  headings it is how you use it at all). Belongs in DOCUMENTS_PLAN.
-  [doc-sidebar.md]
-- **The scroll-spy follows the viewport, not the caret.**
-  `frontend/documents.js`, `docVisibleTopLine`: typing in a section below the
-  one at the top of the view marks the wrong heading until the view scrolls.
-  Next step: listen to selection changes as well (`docSurface().onChange`
-  fires on edits, not arrow keys) and decide which wins when they disagree.
-  Measured cost of the current shape: one hit test per animation frame while
-  scrolling. [doc-sidebar.md]
 - **The rest of the app's viewport popups have not been measured with the
   background art on.** `kebabMenu` (`wireEscapedActionMenu`) and the toolbar
   dropdowns (`clampToolbarMenu`) are covered; the chat dock's popovers, the
@@ -170,51 +150,128 @@ being written by running agents stay beside this one.
   but not measured at all. Next step: time it on the plan's 20k-word document
   with 200 findings on screen; past a millisecond, cache the rects per repaint
   (the findings effect is the invalidation point). [prose-intelligence.md]
-- **The writing panel's answers are not reachable by keyboard from the row.**
-  Enter opens the row, focus stays on the control, the candidates are a Tab
-  away with nothing saying so. Next step: move focus to the first candidate
-  when a row opens by keyboard only (a pointer press must not steal it) and
-  return it to the row on collapse. [prose-intelligence.md]
 - **The three finding kinds are named in two places**, `DOC_FINDING_GROUPS`
   (the panel's group titles) and `docFindingKind` (the dot and the underline).
   They agree today; a fourth kind has to be added to both.
   [prose-intelligence.md]
-- **python-docx has no row in `core/extras.py`**, so the Word export's 501
-  names the package instead of pointing at a button in Settings, optional
-  extras. One `Extra(...)` entry. [documents-phases.md]
 
 ## Graph
 
-- **The options panel scrolls again at 1440x900: 587px of list in a 484px
-  cap.** Batch C closed this at 418 against 418 and the sections added since
-  reopened it. Measured per section with `graph2.js` plus a probe: Physics
-  106, Show 143, Time 83, Groups 121, Minimap 95, Links 39. Not fixed because
-  which section gives way is a design call; the recommendation on record is
-  that Groups and Minimap each become one collapsed `details`, the way the
-  Time section's read-out already hides until it is wanted. [graph.md]
-- **`/graph/local` has no Show switches**, so focus mode and the local pane
-  still walk boards as notes. GRAPH_PLAN's "Decision made, 2026-09-13" says
-  why that was left. [graph.md]
-- **GRAPH_PLAN Phase 5** (the backend fields, positions on views, the
-  `?since=` cursor) is recorded as untouched. Phase 4 landed on 2026-09-13, so
-  read the plan's own state before starting. [graph.md]
-- **The node popup redesign the owner names** ("I dont think you have
-  redesigned the popup agent yet") is GRAPH_PLAN Phase 6 and the three rows
-  under "Placed from INBOX, 2026-09-09", which hold the node panel. The agent
-  popup is a different surface. [graph.md]
-- **`graph.js`'s step 5 still fails**: "clear trace (a route was drawn:
-  false): NO CHANGE", seen while re-measuring the drag-fps gate, which now
-  passes at 58.9 fps. For the graph agent. [ui-phase-11.md]
-- **`scratchpad/ui-sweeps/selectfocus.js` fails twice on a notebook with
-  content**, and it is not new work: `graph/graph-view-picker`, "its opener
-  cannot take focus" and "focusSelect landed on SELECT.ghost, not on its
-  opener". Measured both ways: the branch passes on an empty data dir and
-  fails on a used one, and the base checkout fails identically on that same
-  data dir. Something about the view picker on a populated notebook leaves its
-  opener unfocusable. [library-blockers.md]
-- **The graph node panel is reachable while the graph is in fullscreen**, and
-  INBOX 66 says the lightbox it can open is not. Same phase, not in that
-  agent's brief. [visual-c.md]
+- ~~**The options panel scrolls again at 1440x900.**~~ **Fixed, 2026-09-20.**
+  It had grown to 655px of list in a 488px box (Show had gone from 143 to 211
+  as three switches were added). Physics, Groups and Minimap are each a
+  `details.settings-fold` now, closed by default and remembered; GRAPH_PLAN's
+  "Decision made, 2026-09-20" carries why Physics joined the two on record.
+  Measured with `scratchpad/ui-sweeps/graphoptfold.js`: 451 in 451 at 1440 and
+  at 1024, nothing scrolling; 669 in 488 with all three open, scrolling inside
+  the panel. At 390 the panel still scrolls (795 in 286, from 1071), which is
+  the phone's own 286px cap, not the panel's size. [graph.md]
+- ~~**`/graph/local` has no Show switches.**~~ **Left, on the decision already
+  on record, 2026-09-20.** Read again against the code: `graph_local`
+  (`src/memorymap/api/routes_graph.py`) takes `depth` and `similarity` and
+  nothing else, so the report is accurate. GRAPH_PLAN's "Decision made,
+  2026-09-13" decided it deliberately, and the reason holds: "off means the
+  thing is not on the map" is a statement about the picture of the notebook,
+  and the local pane is a neighbourhood of one note. A board two hops from
+  the note you are reading is part of that neighbourhood whatever the map's
+  own switch says, and hiding it would leave a hole in a path rather than a
+  smaller picture. Reopen this only if the owner asks for it; the switches
+  would then be four query parameters plus the `?include_*` plumbing the
+  top-level `/graph` already has. [graph.md]
+- ~~**GRAPH_PLAN Phase 5**~~ **triaged, 2026-09-20.** The backend fields,
+  the cached `/graph/structure` and the payload gate were built on 2026-09-09
+  (HISTORY, "Built, Phase 5 (backend)"); the two rows left open were re-read
+  against the code rather than started, and GRAPH_PLAN's Phase 5 row now
+  carries the finding. Positions on `/graph/views`: nothing to build as
+  written, because views are per-device localStorage by a decision in
+  `graph.js` itself and the positions that are notebook content (the pins)
+  are already on the Entry. `?since=`: still no caller, since every `/graph`
+  fetch is a `renderGraph()` behind a control or a tab activation, and a
+  parameter nothing calls is the second shape CLAUDE.md section 6 names. The
+  one real gap, on the plan's row now: a saved view does not restore where
+  the unpinned notes sat, so a force view reopens as a fresh solution of the
+  same forces. [graph.md]
+- ~~**The node popup redesign the owner names.**~~ **Measured and found
+  built, 2026-09-20.** GRAPH_PLAN Phase 6 and the three evening rows are all
+  three built; the measurements are in HISTORY under "Moved from the plans,
+  2026-09-20". At 1440 and 1024 the panel is 448x357 with nine actions in one
+  row, three groups, one filled (Open, read off the computed background), and
+  scrollHeight 355 against clientHeight 355, so it does not scroll; at 390 it
+  is a 362x468 sheet with the actions on three lines and neither the panel
+  nor the page scrolling. With an 88-character title the header stays 48px
+  tall, the title is one ellipsised line and the close button sits 14px in
+  from the panel's top right corner at both widths, which is the row the
+  owner reported. The action band is centred, the panel's full width, on the
+  chip fill with one hairline above. Nothing was changed. The agent popup,
+  which is what the owner's sentence names, is a different surface.
+  Found, not fixed: the plan's target says the Bin should be ghost and it
+  renders tonal like its eight neighbours, because a six-class rule paints
+  every `.icon-only:not(.ghost)` button tonal on purpose. Left as it renders:
+  one ghost button among eight tonal ones reads as disabled, and the gap of
+  its own is what sets it apart. [graph.md]
+- ~~**`graph.js`'s step 5 still fails**: "clear trace (a route was drawn:
+  false): NO CHANGE".~~ **Fixed in the sweep, 2026-09-20.** The cause is the
+  edge the trace step picks. It took the first edge on the canvas whose ends
+  are not category groups, and the canvas draws edges `/graph/path` cannot
+  route along: a similarity edge is not a connection anyone made, and an
+  entity or document edge does not even have an integer id, so that route
+  answers 422 and `runTrace` reports "the server didn't answer". Any of those
+  leaves no route on screen, and the *next* step then reported "clear trace:
+  NO CHANGE" as though the renderer had failed. The step now picks a `link`
+  or a `thread`, says which pair it chose, and when no route comes back it
+  fails there, in the app's own words, instead of one line later; clearing is
+  only asked about once there is something to clear. Measured on an 80-note,
+  150-link fixture: `5. trace between two notes (17 to 7, a link): redrew
+  PASS`, `5. clear trace: redrew PASS`, `findings: 0`. And measured the other
+  way, on the thirteen-note seed notebook, where the one link the seed makes
+  runs from a note to a board and the Boards switch is off, so no note-to-note
+  edge is on the map: one finding, "no link or thread edge on the map to
+  trace along: this notebook has no connection between two notes, so Trace
+  cannot be measured at all", which is the fact the old NO CHANGE was hiding.
+  [ui-phase-11.md]
+- **`graph.js` can be interrupted by a confirm dialog and die**, seen once in
+  three runs on the same fixture: after "legend filter off", `page.click
+  ("#graph-zoom-in")` timed out for 30 s against a `.modal-overlay
+  .confirm-overlay` that intercepts pointer events, and the sweep exited on
+  an unhandled TimeoutError with the eight steps after it unrun. Not chased:
+  it did not recur on either of the other two runs and nothing in this batch
+  touches it. Next step: have the sweep name the dialog's own text when one
+  is up, which is the one piece of evidence that run did not capture.
+- ~~**`scratchpad/ui-sweeps/selectfocus.js` fails twice on a notebook with
+  content.**~~ **Fixed in the sweep, 2026-09-20.** Reproduced first, on a
+  seeded notebook on this branch, exactly as reported. The app is right and
+  the sweep was wrong: `renderGraphViews` (graph.js) sets
+  `select.disabled = !views.length`, `enhanceSelect` mirrors that onto the
+  opener (`opener.disabled = select.disabled`), and the sweep asserted that
+  every visible enhanced select has a focusable opener. That is untrue of a
+  control the app has deliberately switched off. It passed on an empty data
+  dir because `renderGraphViews` only runs from the render path, which does
+  not run when there is nothing to draw, so the picker was never switched off
+  there and the assertion never met one. A disabled select is skipped now,
+  counted and printed as skipped, and what is asserted about it instead is
+  that its opener says disabled too, which is the real invariant. Two other
+  things came out of it: `document.body.focus()` does nothing (body has no
+  tabindex), so every "landed on" was measured against whatever the previous
+  row left focused, which is where the misleading "landed on SELECT.ghost"
+  came from; and the graph's options popover is now opened as well as its
+  `<details>` menus, because two selects live in it and whether it was open
+  was a remembered preference, so coverage was 13 selects on one run and 15
+  on the next. Measured: populated notebook 15 checked, 1 skipped, all pass;
+  empty notebook 16 checked, 0 skipped, all pass. [library-blockers.md]
+- ~~**INBOX 66: the lightbox the node panel opens is unreachable while the
+  graph is fullscreen.**~~ **Already fixed, and now measured, 2026-09-20.**
+  `.lightbox` carries `z-index: 1020` against the full-screen card's 1000
+  (02-chat-graph.css, with INBOX 66 named in its comment). Measured with
+  `scratchpad/ui-sweeps/graphfslightbox.js`, which is new: with the map in
+  full screen the lightbox builds at 1440x900, computes `z-index: 1020`
+  against the card's 1000, `document.elementFromPoint` at the centre of the
+  screen lands inside it (`DIV.lightbox-column`) rather than on the card, and
+  the close button has a box. The entry's own diagnosis was wrong in a way
+  worth keeping written down: it blamed the Fullscreen API, and this app's
+  full screen is a class with `position: fixed`, so nothing was ever in a top
+  layer and the whole of it was stacking order.
+  Found while measuring it, not fixed, and now INBOX 274: one Escape closes
+  the lightbox *and* leaves full screen. [visual-c.md]
 
 ## Chat and popup agent
 
@@ -299,7 +356,15 @@ being written by running agents stay beside this one.
   colour swatch reset the tool to the pen, so the pad's highlighter could not
   be reached at all after choosing an ink, and the board's saved strokes lost
   their square cap on every render (round on both, square now).
-  `scratchpad/ui-sweeps/sketchhighlighter.js`, 9/9 light and dark.
+  `scratchpad/ui-sweeps/sketchparity.js`, 10/10 light and dark. Merged with
+  INBOX 265's own fix to the same tool (the stroke is painted whole on its own
+  layer and composited once, which is a better painter than the polyline this
+  agent wrote, so it is the one that survived) and one bug found in it while
+  merging: the layer scaled points that `sketchPointer` had already put in
+  canvas pixels, so every highlighter stroke landed 15px left and 9px up of
+  the pointer in the middle of the pad. Both sweeps are green on the merge,
+  `sketchhighlighter.js` (INBOX 265's, evenness and self-crossing: 0.4
+  everywhere, spread 0, junction 0.4) and `sketchparity.js` (this one).
 - ~~**Multiply is worth 3 luminance units on a dark board and 20 on a light
   one.**~~ Done 2026-09-20, as recommended: `multiply` over a light backdrop,
   `screen` over a dark one, written into decision 7 as a rule about the
@@ -479,26 +544,7 @@ being written by running agents stay beside this one.
 - **INBOX 38's bulk-move action is still to build.** The chip and label are
   the visibility fix that lets a person tell which space a survivor is in;
   moving a batch of them is the item's own D2 owner line. [batch-a.md]
-- **Boards and maps on a note, and what a note is referenced by (INBOX 246,
-  still open).** The owner: "I also want to be able to attach whiteboards and
-  mindmaps to notes. and I want it to show in notes if they are attached to or
-  referenced in/by a document, note, whiteboard, or mindmap." What exists,
-  checked: `GET /entries/{id}/connections` (routes_entries.py, around 1935)
-  returns outgoing, incoming, documents, boards and files, and the note card's
-  kebab has a Connections item (app.js, around 4698; `openConnections` around
-  3969). Three gaps. (1) That route's boards group reads the legacy
-  `WhiteboardNode` table only, while a current board embeds a note as a
-  `WhiteboardObject` of kind "note" carrying `data.ref_id` (routes_graph.py
-  around 370 shows the read) and a mind map is a board of type "map"
-  (routes_whiteboard.py around 2148): both go in, labelled board or map.
-  (2) There is no way from a note to put it on a board: a connect-menu item
-  "Put on a board or map" beside "Add to a document" (app.js around 4760), with
-  an inline picker of boards that POSTs `/whiteboard/objects` with kind note,
-  `data.ref_id` and a free position. (3) A card shows nothing until Connections
-  is opened: one muted chip row on it ("In 2 documents · on 1 board · linked by
-  3 notes") from a batched counts endpoint called once per render (`ids=`),
-  opening Connections on click. Tests first for the endpoint and the counts, a
-  Playwright measurement that the chip renders. [notes.md]
+- **Boards and maps on a note, and what a note is referenced by (INBOX 246):** done 2026-09-20, see the A table above and HISTORY's INBOX 246 entry. [notes.md]
 
 ## App wide: shell, phone and the shared recipes
 

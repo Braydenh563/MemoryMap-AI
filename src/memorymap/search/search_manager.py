@@ -16,7 +16,6 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, time
 
-import numpy as np
 from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session
 
@@ -26,6 +25,14 @@ from memorymap.ai.embeddings import (
 )
 from memorymap.core.database import EmbeddingRecord, Entry, link_strength
 from memorymap.search import query as query_understanding
+
+# **No `TYPE_CHECKING: import numpy as np` here**, for the reason janitor.py
+# records at length: the one annotation naming `np.ndarray` is a local
+# variable annotation inside `semantic_search`, which already imports numpy
+# for real, so the module-level import was a CodeQL finding buying nothing.
+# The deferral itself stands: `retrieve` and keyword search, which is what
+# most `/chat` turns and every plain note save actually run, never touch
+# numpy at all.
 
 logger = logging.getLogger("memorymap.search")
 
@@ -271,6 +278,8 @@ def semantic_search(
     tuples, not full mapped entities, so that part is now a plain column
     query and only the handful of notes that actually rank get a real
     `Entry` fetched."""
+    import numpy as np
+
     query_vector = embeddings.embed_text(query)
     if query_vector is None:
         return None

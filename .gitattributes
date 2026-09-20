@@ -11,6 +11,29 @@
 # The same reasoning covers the rest of the frontend: a `?v=` cache stamp, a
 # CSS brace count and a byte length in a test all change under CRLF.
 * text=auto eol=lf
+
+# Except the Windows launchers, where LF is not a formatting preference but a
+# bug. cmd.exe does not parse a batch file: it seeks a label by byte offset
+# and re-reads the file at each `call`, and its line scanner expects CRLF. In
+# an LF-only file every `call :label` lands mid-line, and the interpreter
+# prints "The system cannot find the batch label specified - <label>" and
+# carries on with the *next* command as though the call had returned.
+#
+# Reported from a real install: "[1/4] Using the app's virtual environment. /
+# The system cannot find the batch label specified - bail_if_cancelled / [2/4]
+# Dependencies already up to date". `bail_if_cancelled` is what stops the
+# installer after someone answers no, so on that machine every cancel was
+# silently ignored and setup ran on regardless.
+#
+# `eol=crlf` rather than `-text`: the files stay text to git (diffable,
+# mergeable, and the lone-LF lint below reads them as text), and the checkout
+# writes the line endings the interpreter needs on every platform, so a
+# release built on Linux ships a launcher that works.
+# `tests/test_launcher_scripts.py::test_the_windows_launchers_use_crlf` fails
+# if one ever comes back with lone LFs.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
 *.png binary
 *.jpg binary
 *.jpeg binary

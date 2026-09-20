@@ -696,32 +696,169 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
    - **The recede to icons on scroll down and back on scroll up (INBOX 104):
      built** (2026-09-13); the block, with its numbers, is in HISTORY.md
      ("Moved from the plans, 2026-09-13").
-   - **The top bar's own reduction**: the title, the AI dot and one action. It
-     is two rows at some widths and has never been measured at 320 with the
-     wordmark, the space switcher and the two control clusters in it.
+   - **The top bar's own reduction: built** (2026-09-20). Measured first
+     (`scratchpad/ui-sweeps/phonehead.js`): at 320 the bar held six 44px
+     controls (space switcher, notifications, theme, settings, lock, quit)
+     and the last ended at 332, so every phone page scrolled sideways by one
+     button; the bell and the menu opener were 36 against 44. Now three
+     controls below 600: the space switcher, the bell, and one `kebabMenu`
+     (`#header-more`) holding the four verbs, the desktop buttons hidden by
+     one stylesheet band and never removed. After: 320 in 320, 360 in 360,
+     390 in 390, every header control 44, the menu's rows 44 (every
+     `kebabMenu` row in the touch band takes the floor now: the one control
+     type that only exists after a tap had kept the desktop's 36), Escape
+     closes it, and the desktop bar at 1024 is exactly what it was. The
+     wordmark is already gone below 1500 and the logo below 400, so the
+     "title" of this item is the space switcher, which is the truer name for
+     where you are. The AI dot lives in the status bar (§36D) and stays there.
 
 2. **Notes.** Capture as a full-height sheet from the floating + button;
    the list as full-width rows with swipe actions (pin, bin) matched to
    the row's menu (the HIG rule); filters in a sheet; the note view as a
    page with a back button, its actions in a bottom bar.
-3. **Chat.** The composer above the keyboard with the attachments and
-   mode in one row; sources as a sheet; the sidebar as a sheet from the
-   left edge; the popup agent unavailable on the phone (the chat is the
-   agent).
+   - **The rail is gone below 600: built** (2026-09-20, with item 3's
+     sidebar half). Measured first (`scratchpad/ui-sweeps/phonesidebar.js`):
+     at 390 the Notes list started at x=82 (13px gutter, the 52px sidebar
+     rail, 16px card padding) for one 44px toggle at the top of the strip
+     and nothing else down it, so rows ran 262px in 390. Now every sidebar
+     (`SIDEBAR_IDS`) parks fully off screen below 600, the page beside it
+     pads 0, and it opens from a `.dock-nav` button at the leading edge of
+     its own dock's head (`mountPhoneSidebarOpeners`), pressing the
+     sidebar's own toggle so the sheet logic stays in one place. After, on
+     Notes, Chat and Documents at 390: closed sidebar right edge 0, page
+     padding 0, opener 44x44 first in the dock, the sheet opens at x=0 with
+     its closer showing and Escape closes it; at 768 the tablet keeps its
+     52px rail and the opener is hidden.
+   - **Filters in a sheet: already the fold** (measured 2026-09-20). Below
+     1100 `foldDockArrange` moves every dock's arrange zone (sort, view,
+     page size) into its own `...` menu, so at 390 the notes dock shows
+     search, Filter, Select, refresh, help and the menu, and nothing else.
+     What was wrong was the rows: the opener took a row of its own (the
+     identity zone's phone basis is 100%), and the search input could not
+     shrink (`min-width: min-content` below 1100) so Filter wrapped under
+     it. Fixed in the 600 band: the opener shares the title's row, the
+     input gives, a dock with an opener and no find zone (Chat) wraps its
+     actions under the title. Dock heights at 390, before and after: notes
+     250 to 166 (three rows), chat 166 to 114 (two), timeline 198 to 146,
+     graph 143, library 146 and reminders 94 unchanged.
+   - **The floating +: built** (2026-09-20). The Notes dock never had a
+     primary (Capture is a sub-tab), so it has one now: "New note", filled,
+     at the right before the utilities, which the grammar asked for and the
+     desktop dock measures at seven controls with one filled (`docks.js`).
+     Below 600 `FAB_IDS` floats it as the + above the tab bar, where it
+     opens Capture with the caret in the box and hides while Capture is
+     showing. **Decision:** the Capture sub-tab is the sheet. On a phone
+     the sub-tab is already a full-height page holding nothing but the
+     box; a sheet over it would be a second capture surface, so the + opens
+     the sub-tab. Found on the way and fixed at the source: the first
+     showing of Capture wraps the box for its gutter and then upgrades it
+     to the live editor, and both moves dropped the focus a person had just
+     asked for (measured: focus in at 7598ms, gone at 7737, nothing active
+     at 1200ms after the press); each now carries it over. Measured after
+     (`phonecapture.js`): the + is 44px at bottom right above the tab bar,
+     one press lands the caret in the live editor, the + is gone while
+     Capture shows, and at 1024 the button is back in the dock, filled.
+   - **Swipe actions: built** (2026-09-20). Right favourites, left bins,
+     each the row's own control (`.favourite-btn`; `binNoteWithUndo`, the
+     function the row menu's "Move to bin" calls, undo toast and all), never
+     a second copy. Measured with real touch events through CDP
+     (`scratchpad/ui-sweeps/phoneswipe.js`): a 40px swipe reveals 40px of
+     underlay, does not arm and settles to 0; 110px right arms and the note
+     is a favourite; a 6x80 vertical drag never moves the row; 110px left
+     arms and the note is in the bin with the undo toast up. No page
+     errors; `phone.js` 0 findings.
+   - **The note page: built** (2026-09-20), and item 2 is complete. A tap on
+     a row (not on a control, not the lift-off of a swipe) opens the note as
+     the sheet recipe's `page` variant: the whole screen, a back chevron,
+     the list's own card unclamped inside, and that card's own actions
+     moved into a `.thumb-bar` at the foot, so nothing is rendered twice
+     and the page's actions are the row's. Bin or Archive from the page
+     reloads the list and the page closes when its note is gone. Measured
+     (`scratchpad/ui-sweeps/phonenotepage.js`): the page is 0 to 844 with
+     a 0px radius, a note clamped to 198px in the list is 1440px on the
+     page in a scrolling list, the bar holds 4 buttons at 44px with its
+     bottom at 844, the close is labelled Back with the chevron, Escape and
+     the chevron both return focus to the row, a tap on the row's star
+     opens nothing, and a tap at 1024 opens nothing. Found by `phone.js`
+     on the way: "Show more" under a clamped note was 80x22 at 390; it
+     takes the row's floor now.
+3. **Chat: built** (2026-09-20). Measured at 390 before: the composer
+   held the note picker, the image button, the box, the microphone and
+   Send, so the box sat on one 44px line and the buttons on another (100px
+   of composer for one line of text); the mode segment was parked off the
+   right edge of the controls strip (x 309 to 457) at 30px tall; a reply's
+   sources unfolded inside the bubble in a 340px transcript; the popup
+   agent floated over the window. After: the attachments move into the
+   strip beside the mode (`dockChatAttachments`), the box takes the row
+   with the two buttons that act on the message (182px wide, one row, the
+   placeholder shortened so autogrow does not size it to two lines of
+   "Ask your notebook anything"), the mode segment is first in the strip
+   at x=39 and 44px tall, the sources open as the sheet recipe with the
+   same body moved in and back (`chatSourcesPanel`), and the shortcut, the
+   status dot and the More sheet's row all go to the Chat tab with the box
+   focused when a model lets it (`toggleAgentPalette`). The sidebar half
+   is item 2's. Measured by `scratchpad/ui-sweeps/phonechat.js`; at 1024
+   the composer wraps as before and the popup opens. Untested: a real
+   soft keyboard, which Chromium here does not raise; the composer is not
+   pinned above it, since the transcript is the scroller and the composer
+   never leaves the screen (page scrollHeight 844 in 844).
 4. **Graph.** Pan and pinch, tap to select, long-press for the node
    menu (no right click), lasso by long-press then drag, the docks as one
    bottom sheet with the colour rule, groups and views; the node panel as
    a sheet.
 5. **Library and Files.** Two-up cards, the reader full-screen with a
    bottom bar; upload from the share sheet.
-6. **Documents.** Read view by default, Edit as a full-screen sheet with
-   the selection toolbar only (no strip), the outline as a sheet.
+   - **Two-up cards: decided the other way, not remade.** The 600 band in
+     07-whiteboard-misc.css makes the card grids one full-width column
+     with the measurement that decided it (at 390 the masonry gave two
+     164px columns, a card too narrow for its own title, and a reading
+     order that went down, up, down). Measured 2026-09-20: 24 Library
+     cards in one column at 390. Stands.
+   - **The share sheet: built** (2026-09-20). The installed app is a Web
+     Share Target (`manifest.webmanifest`, the GET form: no service worker,
+     and the query survives the lock screen). A page, a link or a
+     selection shared to MemoryMap opens it at `/` with `share_title`,
+     `share_text` and `share_url`; once the entries have loaded
+     (`takeSharedIntake`, a boot step) the three become one capture (the
+     title as a heading, the text, the link on its own line), Capture
+     opens with the caret in the box, and the query is cleared so a
+     reload shares nothing twice. `tests/test_share_target.py` holds the
+     two halves to the same three names; measured by
+     `scratchpad/ui-sweeps/phoneshare.js` at 390. Not built: a file (an
+     image from the camera roll) needs the POST form and a service
+     worker. Still open in this item: the reader full-screen with a bottom
+     bar.
+6. **Documents: built** (2026-09-20), most of it already there and
+   measured before anything was added. Measured at 390 with a fresh
+   document (`scratchpad/ui-sweeps/phonedocs.js`): a phone now opens a
+   document in the Rendered view when nothing is stored (Live Preview
+   above 600, a stored choice wins at every width); Edit is the page
+   itself with the live editor, the formatting strip hidden and the
+   selection bar (`#doc-phone-bar`, seven 44px buttons) at the foot above
+   the keyboard edge; the outline is the Outline tab of the sidebar sheet,
+   opened from the head's opener (item 2's), with all seven headings.
+   **Decision:** Edit is the page, not a sheet over it; on a phone the
+   document is already the whole screen and a sheet over a page that is
+   itself the editor would be two editors. At 1024 the default is Live
+   Preview as before.
 7. **Whiteboard and maps.** View and light edit only on a phone (pan,
    zoom, select, move, edit text); creation tools in a sheet; the mind
    map's + handles are touch-sized.
-8. **Settings, dashboard, timeline, reminders.** Settings as a page list
-   (sections as rows) with a back button; dashboard widgets one column;
-   timeline as the table view; reminders as rows with swipe done.
+8. **Settings, dashboard, timeline, reminders: built or decided**
+   (2026-09-20). Measured at 390 first: the dashboard's 24 widgets are
+   already one column. Settings already has its phone shape, decided and
+   measured before this (07-whiteboard-misc.css: the section strip hidden,
+   a jump select beside the search in one row, every section in one
+   scroll; "2337px of scroll inside 308px at 390" is the number that
+   chose it), so the page list with a back button is not remade. Built
+   here: a phone opens the timeline as the table when no view is stored
+   (`timelineViewMode`; a choice wins at every width; the table is 330px
+   in 390 with no sideways scroll, and its column sorts take the 44px
+   floor), and a reminder row swiped right is done, through its own Done
+   checkbox, with nothing to the left (`initRowSwipe`, now one function
+   for any list of rows, the underlay's words read from the row's own
+   `data-swipe-right` and `data-swipe-left`). Measured by
+   `scratchpad/ui-sweeps/phonereminders.js`.
 9. **Touch.** The 44px half is built (2026-09-13, the block is in HISTORY.md,
    "Moved from the plans, 2026-09-13"): `scratchpad/ui-sweeps/phone.js` walks
    every tab whole rather than dock by dock and reports 0 findings at 390x844

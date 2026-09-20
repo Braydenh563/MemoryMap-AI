@@ -1,227 +1,185 @@
-// WHITEBOARD_PLAN decision 7's other half: the quick-sketch pad and the
-// whiteboard are two renderers (a `<canvas>` in app.js, SVG paths in
-// whiteboard.js) and they are meant to be one highlighter.
+// INBOX 265: "can you fix the highlighter in the quick sketch?? it doesnt act
+// as it should and looks messy".
 //
-//   BASE=http://127.0.0.1:8941 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
-//     NODE_PATH=/opt/node22/lib/node_modules timeout 110 node \
-//     scratchpad/ui-sweeps/sketchhighlighter.js
+// A highlighter is one translucent band. Three things say whether it is:
 //
-// What it measures, in both surfaces, with the same ink at the same size:
-//   · the numbers each renderer uses (alpha, width multiplier, clamp, joins,
-//     blend), read out of the page rather than off the source;
-//   · two crossing strokes, sampled per pixel with pngpixel.py: bare paper,
-//     one pass, two passes. A highlighter that multiplies darkens on the
-//     second pass; one that only alphas barely moves.
-// The two surfaces are compared as numbers, which is the only way to say
-// "the same" about a canvas and an SVG.
+//   1. **Evenness along the stroke.** Painting each segment as its own
+//      `stroke()` at 0.35 alpha means consecutive segments overlap at every
+//      joint and each overlap composites twice, so the band is a chain of
+//      darker lozenges. Sampled down the middle of a straight drag, the
+//      alpha should be one number, not a sawtooth.
+//   2. **A self-crossing must not darken.** A real marker crossed over its
+//      own line is the same colour there. Two passes at 0.35 composite to
+//      0.58, which is what "messy" looks like on a scribble.
+//   3. **The alpha asked for is the alpha painted**, once. The number is read
+//      out of `HIGHLIGHTER_STYLE` rather than written here: WHITEBOARD_PLAN
+//      decision 7 gave the pad and the whiteboard one table and moved the pad
+//      from 0.35 to the plan's 0.4, so a literal here would fail the day that
+//      table is edited, which is exactly when this sweep should still pass.
 //
-// THEME=dark works (lib.js reads it); the pad's paper is its own white canvas
-// in both themes, so only the board's numbers move.
-const { boot, OUT } = require("./lib.js");
-const { execSync } = require("child_process");
-
-const [VW, VH] = (process.env.VIEWPORT || "1440x900").split("x").map(Number);
-const INK = "#eab308"; // the pad's own yellow swatch, set on the board too
-
-let pass = 0;
-let fail = 0;
-function ok(name, good, detail) {
-  if (good) { pass += 1; console.log(`OK   ${name}${detail ? `  ${detail}` : ""}`); }
-  else { fail += 1; console.log(`FAIL ${name}${detail ? `  ${detail}` : ""}`); }
-}
-
-function lum(line) {
-  const m = line.match(/\((\d+), (\d+), (\d+)\)/);
-  return m ? 0.299 * Number(m[1]) + 0.587 * Number(m[2]) + 0.114 * Number(m[3]) : null;
-}
-
-// Three samples out of one 200x200 clip centred on the crossing: the crossing
-// itself, one stroke alone, and paper.
-function sample(shotPath) {
-  const read = execSync(`python3 ${__dirname}/../pngpixel.py ${shotPath} 100 100 40 100 100 40 20 20`)
-    .toString().trim().split("\n").slice(1);
-  const [cross, across, down, bare] = read.map(lum);
-  return { cross, across, down, bare };
-}
-
-async function crossStrokes(page, cx, cy) {
-  await page.mouse.move(cx - 120, cy);
-  await page.mouse.down();
-  for (let i = -110; i <= 120; i += 10) await page.mouse.move(cx + i, cy);
-  await page.mouse.up();
-  await page.waitForTimeout(400);
-  await page.mouse.move(cx, cy - 120);
-  await page.mouse.down();
-  for (let i = -110; i <= 120; i += 10) await page.mouse.move(cx, cy + i);
-  await page.mouse.up();
-  await page.waitForTimeout(700);
-}
-
-async function newBoard(page, name) {
-  await page.click('[data-tab="library"]');
-  await page.waitForTimeout(500);
-  await page.click('[data-target="library-view-whiteboard"]');
-  await page.waitForTimeout(700);
-  await page.click("#wb-boards-new");
-  await page.waitForTimeout(700);
-  await page.fill(".confirm-overlay input[type=text]", name);
-  await page.click(".confirm-overlay .confirm-actions button:last-child");
-  await page.waitForTimeout(2500);
-  await page.keyboard.press("Escape");
-}
+// Its companion is `sketchparity.js`, which asks the other half of decision 7:
+// that the pad and the board agree, and that the blend follows the backdrop.
+//
+// Drives the real canvas through real pointer events and reads the pixels
+// back with getImageData.
+const { boot } = require('./lib.js');
 
 (async () => {
-  const { browser, page } = await boot({ viewport: { width: VW, height: VH } });
+  const { page, browser } = await boot({});
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e).slice(0, 140)));
+  await page.waitForTimeout(3500);
 
-  // --- the quick-sketch pad -------------------------------------------------
-  await page.click('[data-tab="notes"]');
+  const box = await page.evaluate(() => {
+    if (typeof openSketch === 'function') openSketch();
+    return null;
+  });
+  await page.waitForTimeout(1200);
+  const canvas = await page.$('#sketch-canvas');
+  if (!canvas) { console.log('ERR no sketch canvas'); process.exit(1); }
+
+  const setup = await page.evaluate(() => {
+    // A known, opaque background so an alpha reads as a colour mix rather
+    // than as transparency over nothing, and the highlighter's own colour
+    // set to something unambiguous.
+    const c = document.getElementById('sketch-canvas');
+    const ctx = c.getContext('2d');
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, c.width, c.height);
+    if (typeof sketchPen === 'object') { sketchPen.color = '#000000'; sketchPen.size = 4; sketchPen.eraser = false; }
+    if (typeof sketchTool !== 'undefined') sketchTool = 'highlighter';
+    if (typeof sketchHistory !== 'undefined') sketchHistory.length = 0;
+    const r = c.getBoundingClientRect();
+    const table = typeof HIGHLIGHTER_STYLE !== 'undefined' ? HIGHLIGHTER_STYLE : null;
+    return { left: Math.round(r.left), top: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height), cw: c.width, ch: c.height, alpha: table ? table.alpha : 0.35 };
+  });
+
+  // 1 and 3: one straight horizontal drag.
+  const y = setup.top + Math.round(setup.h * 0.35);
+  await page.mouse.move(setup.left + 60, y);
+  await page.mouse.down();
+  for (let i = 1; i <= 24; i++) await page.mouse.move(setup.left + 60 + i * 12, y, { steps: 2 });
+  await page.mouse.up();
   await page.waitForTimeout(400);
-  // The pad lives in the Capture section, which is not the Notes tab's
-  // default one (`showNotesSection`): #sketch-btn is in the DOM but inside a
-  // hidden card until this sub-tab is picked.
-  await page.click('#notes-subtabs [data-section="capture"]');
-  await page.waitForTimeout(500);
-  await page.click("#sketch-btn");
-  await page.waitForTimeout(700);
-  await page.click("#sketch-tool-highlighter");
-  await page.click(`.sketch-color[data-color="${INK}"]`);
-  await page.waitForTimeout(200);
 
-  const padNumbers = await page.evaluate(() => {
-    const t = (typeof HIGHLIGHTER_STYLE !== "undefined" && HIGHLIGHTER_STYLE) || null;
+  const band = await page.evaluate((s) => {
+    const c = document.getElementById('sketch-canvas');
+    const ctx = c.getContext('2d');
+    const scale = c.width / c.getBoundingClientRect().width;
+    const py = Math.round((0.35 * c.getBoundingClientRect().height) * scale);
+    const from = Math.round(70 * scale), to = Math.round(330 * scale);
+    const row = ctx.getImageData(from, py, to - from, 1).data;
+    const inked = [];
+    for (let i = 0; i < row.length; i += 4) {
+      // White background, black ink: 255 means untouched, lower means more
+      // ink. Coverage is how far from white the pixel is.
+      inked.push(1 - row[i] / 255);
+    }
+    const hit = inked.filter((v) => v > 0.05);
+    const min = Math.min(...hit), max = Math.max(...hit);
+    const mean = hit.reduce((a, b) => a + b, 0) / (hit.length || 1);
+    return { samples: hit.length, min: +min.toFixed(3), max: +max.toFixed(3), mean: +mean.toFixed(3), spread: +(max - min).toFixed(3) };
+  }, setup);
+
+  // 2: a stroke that crosses itself.
+  await page.evaluate(() => {
+    const c = document.getElementById('sketch-canvas');
+    const ctx = c.getContext('2d');
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height);
+    if (typeof sketchHistory !== 'undefined') sketchHistory.length = 0;
+  });
+  const cx = setup.left + Math.round(setup.w * 0.5);
+  const cy = setup.top + Math.round(setup.h * 0.5);
+  await page.mouse.move(cx - 90, cy);
+  await page.mouse.down();
+  await page.mouse.move(cx + 90, cy, { steps: 12 });      // across
+  await page.mouse.move(cx, cy - 90, { steps: 12 });      // up and back
+  await page.mouse.move(cx, cy + 90, { steps: 12 });      // down through the first line
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+
+  //: **The junction is found in the ink, not computed from the pointer.**
+  //: The canvas is 820x480 inside an 850x498 box here, so a sample placed by
+  //: scaling the viewport coordinates landed 15px off the band and read white
+  //: at both points, which passes the comparison while measuring nothing.
+  //: The densest row is the horizontal arm and the densest column is the
+  //: vertical one, and where they meet is the crossing whatever the mapping.
+  const cross = await page.evaluate(() => {
+    const c = document.getElementById('sketch-canvas');
+    const ctx = c.getContext('2d');
+    const data = ctx.getImageData(0, 0, c.width, c.height).data;
+    const ink = (x, y) => 1 - data[(y * c.width + x) * 4] / 255;
+    const rows = new Array(c.height).fill(0);
+    const cols = new Array(c.width).fill(0);
+    for (let y = 0; y < c.height; y++) {
+      for (let x = 0; x < c.width; x++) {
+        if (ink(x, y) > 0.05) { rows[y]++; cols[x]++; }
+      }
+    }
+    const armY = rows.indexOf(Math.max(...rows));
+    const stemX = cols.indexOf(Math.max(...cols));
+    //: A point on the same arm, far enough along it to be clear of the stem's
+    //: own width and of the turn at either end, **and inside the band rather
+    //: than on its edge**. Taking the first inked column took the arm's own
+    //: end, where the pixel is partly covered and reads about 0.07 light
+    //: whatever the alpha is: that is antialiasing, not a second pass, and it
+    //: made this check report a darkening that was not there the first time
+    //: the stroke's geometry shifted by a few pixels.
+    const inked = [];
+    for (let x = 0; x < c.width; x++) if (ink(x, armY) > 0.05) inked.push(x);
+    const away = inked.find((x, i) => Math.abs(x - stemX) > 40 && i >= 8 && i < inked.length - 8);
     return {
-      shared: !!t,
-      table: t ? JSON.parse(JSON.stringify(t)) : null,
-      alpha: t ? t.alpha : null,
-      composite: typeof highlighterBlend === "function" ? highlighterBlend(false) : null,
-      join: t ? t.lineJoin : null,
-      mult: t ? t.widthMultiplier : null,
-      penSize: typeof sketchPen !== "undefined" ? sketchPen.size : null,
-      tool: typeof sketchTool !== "undefined" ? sketchTool : null,
-      width: typeof highlighterWidth === "function" && typeof sketchPen !== "undefined" ? highlighterWidth(sketchPen.size) : null,
+      crossing: +ink(stemX, armY).toFixed(3),
+      plain: away === undefined ? null : +ink(away, armY).toFixed(3),
+      at: [stemX, armY, away ?? -1],
     };
   });
 
-  const padBox = await page.evaluate(() => document.getElementById("sketch-canvas").getBoundingClientRect().toJSON());
-  const pcx = Math.round(padBox.x + padBox.width / 2);
-  const pcy = Math.round(padBox.y + padBox.height / 2);
-  await crossStrokes(page, pcx, pcy);
-  const padShot = `${OUT}/sketch-highlighter-pad.png`;
-  await page.screenshot({ path: padShot, clip: { x: pcx - 100, y: pcy - 100, width: 200, height: 200 } });
-  const pad = sample(padShot);
-  // What the canvas actually drew with, captured at stroke time rather than
-  // inferred: the pad has no DOM node carrying its stroke.
-  const padUsed = await page.evaluate(() => {
-    const c = document.getElementById("sketch-canvas").getContext("2d");
-    return { alpha: c.globalAlpha, composite: c.globalCompositeOperation, width: c.lineWidth, join: c.lineJoin, cap: c.lineCap };
+  //: **The pen and the eraser, because the highlighter's branches were pulled
+  //: out of the paths they shared.** A fix that makes one tool right and
+  //: another wrong is not a fix, and the per-segment code the highlighter
+  //: left behind is the pen's.
+  const pen = await page.evaluate(async () => {
+    const c = document.getElementById('sketch-canvas');
+    const ctx = c.getContext('2d');
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height);
+    sketchHistory.length = 0;
+    sketchTool = 'pen'; sketchPen.eraser = false;
+    return null;
   });
-  console.log(`pad   numbers ${JSON.stringify(padNumbers)}`);
-  console.log(`pad   context ${JSON.stringify(padUsed)}`);
-  console.log(`pad   luminance: crossing ${pad.cross?.toFixed(1)}, across ${pad.across?.toFixed(1)}, down ${pad.down?.toFixed(1)}, bare ${pad.bare?.toFixed(1)}`);
-  // Closing a pad with strokes on it asks first, which is right and which
-  // silently ate the rest of this sweep the first time (a `.confirm-overlay`
-  // intercepting every later click).
-  await page.click("#sketch-close");
-  await page.waitForTimeout(600);
-  if (await page.$(".confirm-overlay")) {
-    await page.click(".confirm-overlay .confirm-actions button:last-child");
-    await page.waitForTimeout(600);
-  }
-
-  // --- the whiteboard -------------------------------------------------------
-  await newBoard(page, "Highlighter parity");
-  await page.click('#wb-tool-group [data-tool="highlighter"]');
-  await page.waitForTimeout(200);
-  await page.evaluate((ink) => {
-    const sw = document.getElementById("wb-rail-ink");
-    sw.value = ink;
-    sw.dispatchEvent(new Event("change", { bubbles: true }));
-  }, INK);
+  const py2 = setup.top + Math.round(setup.h * 0.7);
+  await page.mouse.move(setup.left + 60, py2);
+  await page.mouse.down();
+  for (let i = 1; i <= 20; i++) await page.mouse.move(setup.left + 60 + i * 12, py2, { steps: 2 });
+  await page.mouse.up();
   await page.waitForTimeout(300);
-  const boardBox = await page.evaluate(() => document.getElementById("whiteboard-container").getBoundingClientRect().toJSON());
-  const bcx = Math.round(boardBox.x + boardBox.width / 2);
-  const bcy = Math.round(boardBox.y + boardBox.height / 2);
-  await crossStrokes(page, bcx, bcy);
-  const boardShot = `${OUT}/sketch-highlighter-board.png`;
-  await page.screenshot({ path: boardShot, clip: { x: bcx - 100, y: bcy - 100, width: 200, height: 200 } });
-  const board = sample(boardShot);
-  const boardNumbers = await page.evaluate(() => {
-    const t = (typeof HIGHLIGHTER_STYLE !== "undefined" && HIGHLIGHTER_STYLE) || null;
-    const paths = [...document.querySelectorAll(".sketch-path")];
-    return {
-      shared: !!t,
-      alpha: t ? t.alpha : null,
-      min: t ? t.minWidth : null,
-      max: t ? t.maxWidth : null,
-      wanted: typeof wbHighlighterBlend === "function" ? wbHighlighterBlend() : null,
-      strokes: paths.length,
-      blend: paths.map((el) => el.style.mixBlendMode),
-      opacity: paths.map((el) => el.getAttribute("stroke-opacity")),
-      width: paths.map((el) => el.getAttribute("stroke-width")),
-      cap: paths.map((el) => getComputedStyle(el).strokeLinecap),
-      join: paths.map((el) => getComputedStyle(el).strokeLinejoin),
-      theme: document.documentElement.getAttribute("data-theme"),
-    };
+  const penInk = await page.evaluate(() => {
+    const c = document.getElementById('sketch-canvas');
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    let best = 0;
+    for (let i = 0; i < d.length; i += 4) best = Math.max(best, 1 - d[i] / 255);
+    return +best.toFixed(3);
   });
-  console.log(`board numbers ${JSON.stringify(boardNumbers)}`);
-  console.log(`board luminance: crossing ${board.cross?.toFixed(1)}, across ${board.across?.toFixed(1)}, down ${board.down?.toFixed(1)}, bare ${board.bare?.toFixed(1)}`);
 
-  // --- the checks -----------------------------------------------------------
-  ok("one shared definition is on the page", padNumbers.shared && boardNumbers.shared,
-    padNumbers.table ? JSON.stringify(padNumbers.table) : "no HIGHLIGHTER_STYLE");
-  ok("both renderers use the same alpha", padNumbers.alpha !== null && padNumbers.alpha === boardNumbers.alpha
-      && Number(boardNumbers.opacity[0]) === padNumbers.alpha && padUsed.alpha === padNumbers.alpha,
-    `table ${padNumbers.alpha}, pad context ${padUsed.alpha}, board stroke-opacity ${boardNumbers.opacity.join(",")}`);
-  ok("the board's blend is the one the mode asks for",
-    boardNumbers.blend.length > 0 && boardNumbers.blend.every((b) => b === boardNumbers.wanted),
-    `mode ${boardNumbers.theme}, blend ${boardNumbers.blend.join(",")}, wanted ${boardNumbers.wanted}`);
-  ok("the pad's stroke tints rather than covers", pad.across !== null && pad.across < pad.bare - 5 && pad.across > 40,
-    `bare ${pad.bare?.toFixed(1)}, one pass ${pad.across?.toFixed(1)}`);
-  // "Darker" is the wrong word for half of this. A multiplying highlighter
-  // darkens the second pass and a screening one lightens it; what both mean
-  // is that a second pass reads as a second pass, so the check is that the
-  // crossing moves further from the paper than one stroke did, in whichever
-  // direction the blend goes.
-  const secondPass = (m) => {
-    if (m.cross === null || m.across === null || m.bare === null) return { good: false, by: null };
-    const one = Math.abs(m.across - m.bare);
-    const two = Math.abs(m.cross - m.bare);
-    return { good: two > one + 1 && Math.abs(m.down - m.bare) > 1, by: two - one };
-  };
-  const padSecond = secondPass(pad);
-  const boardSecond = secondPass(board);
-  ok("a second pass reads as a second pass on the pad", padSecond.good,
-    `paper ${pad.bare?.toFixed(1)}, one pass ${pad.across?.toFixed(1)}, crossing ${pad.cross?.toFixed(1)}, second pass worth ${padSecond.by?.toFixed(1)}`);
-  ok("a second pass reads as a second pass on the board", boardSecond.good,
-    `paper ${board.bare?.toFixed(1)}, one pass ${board.across?.toFixed(1)}, crossing ${board.cross?.toFixed(1)}, second pass worth ${boardSecond.by?.toFixed(1)}`);
-  ok("both stroke widths come from one multiplier",
-    padUsed.width !== null && boardNumbers.width.length > 0
-      && Number(boardNumbers.width[0]) >= boardNumbers.min && Number(boardNumbers.width[0]) <= boardNumbers.max,
-    `pad ${padUsed.width}px, board ${boardNumbers.width.join(",")}px, clamp ${boardNumbers.min}-${boardNumbers.max}`);
-  ok("both ends and joins match", padUsed.cap === "square" && padUsed.join === "round"
-      && boardNumbers.cap.every((c) => c === "square") && boardNumbers.join.every((j) => j === "round"),
-    `pad ${padUsed.cap}/${padUsed.join}, board ${boardNumbers.cap.join(",")}/${boardNumbers.join.join(",")}`);
+  console.log(`straight stroke: ${band.samples} inked samples, coverage min ${band.min} max ${band.max} mean ${band.mean}, spread ${band.spread} (the table asks for ${setup.alpha})`);
+  console.log(`pen:             darkest pixel ${penInk} (an opaque pen on white should be 1)`);
+  console.log(`self-crossing:   junction ${cross.crossing} at [${cross.at[0]},${cross.at[1]}] against ${cross.plain} at x=${cross.at[2]} on the same arm`);
 
-  // The mode changing under an open board. The blend is an inline style (the
-  // export clones these nodes), so it does not follow a stylesheet: this is
-  // the check that something re-applies it, with no re-render in between.
-  const flipped = await page.evaluate(async () => {
-    const before = [...document.querySelectorAll(".sketch-path")].map((el) => el.style.mixBlendMode);
-    const mode = document.documentElement.dataset.mode;
-    applyThemeChoice(mode === "dark" ? "light" : "dark");
-    await new Promise((r) => setTimeout(r, 600));
-    return {
-      before,
-      after: [...document.querySelectorAll(".sketch-path")].map((el) => el.style.mixBlendMode),
-      mode: document.documentElement.dataset.mode,
-      wanted: wbHighlighterBlend(),
-    };
-  });
-  ok("the blend follows a mode change on an open board",
-    flipped.after.length > 0 && flipped.after.every((b) => b === flipped.wanted) && flipped.after[0] !== flipped.before[0],
-    `${flipped.before.join(",")} then ${flipped.after.join(",")} in ${flipped.mode}`);
-
-  console.log(`\n${pass}/${pass + fail} checks pass at ${VW}x${VH} (${process.env.THEME || "light"})`);
+  const findings = [];
+  // The band must be one value: a joint that composites twice shows up as a
+  // spread. 0.03 is well under what a second 0.35 pass would add (~0.23).
+  if (band.spread > 0.03) findings.push(`the band is uneven: coverage runs ${band.min} to ${band.max}, a spread of ${band.spread}`);
+  if (Math.abs(band.mean - setup.alpha) > 0.04) findings.push(`the band is ${band.mean} where the tool asks for ${setup.alpha}`);
+  if (cross.plain === null || cross.crossing < 0.05) findings.push('the self-crossing stroke was not found on the canvas, so nothing was measured');
+  else if (cross.crossing - cross.plain > 0.03) findings.push(`crossing its own line darkens the stroke, ${cross.plain} to ${cross.crossing}`);
+  if (penInk < 0.98) findings.push(`the plain pen is no longer opaque: darkest pixel ${penInk}`);
+  if (errors.length) findings.push(`${errors.length} page error(s): ${errors.slice(0, 2)}`);
+  for (const line of findings) console.log(`    ${line}`);
+  console.log(findings.length ? `FAIL: ${findings.length} findings` : 'PASS: 0 findings');
   await browser.close();
-  process.exit(fail ? 1 : 0);
-})();
+  process.exit(findings.length ? 1 : 0);
+})().catch((e) => { console.log('ERR ' + e.message); process.exit(1); });

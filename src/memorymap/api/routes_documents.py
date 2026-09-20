@@ -20,7 +20,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import drafter, vision_ocr
-from memorymap.core import deps, docexport, docview, filetypes
+from memorymap.core import deps, docexport, docmeta, docview, filetypes
 from memorymap.core.database import (
     LIKE_ESCAPE,
     Bookmark,
@@ -169,6 +169,13 @@ def _summary(document: Document) -> dict:
         # anything at all, and the editor picks its whole mode from this.
         "file_type": filetypes.normalise(document.file_type),
         "archived_at": document.archived_at.isoformat() if document.archived_at else None,
+        # The frontmatter's keys and values, so the Library can filter on a
+        # property without a request per document (DOCUMENTS_PLAN Phase 3 item
+        # 4's second clause). It rides on the summary rather than on `_full`
+        # because the list is the only place that needs it: the editor has the
+        # content and parses its own. See `core/docmeta.py` for why the parse
+        # is here at all rather than in the browser.
+        "properties": docmeta.properties(document.content or ""),
     }
 
 
@@ -1043,7 +1050,9 @@ def export_docx(document_id: int, session: Session = Depends(get_session)) -> Re
         raise HTTPException(
             status_code=501,
             detail="This install has no Word exporter: python-docx is not "
-            "installed. Markdown, the zip bundle and HTML are available now.",
+            "installed. Turn it on in Settings, optional extras, "
+            "\u201cExport to Word\u201d. Markdown, the zip bundle and HTML "
+            "are available now.",
         )
     data = docexport.to_docx(document.title, document.content or "")
     return Response(
@@ -1086,13 +1095,13 @@ def ai_edit(
             verb="write",
             context=body.selection.strip(),
         )
-        offline = thinking == drafter.OFFLINE_MESSAGE
+        offline = drafter.was_offline(thinking)
         return {
             "revised": inserted,
             "replaced_selection": False,
             "verb": "write",
             "thinking": None if offline else thinking,
-            "message": drafter.OFFLINE_MESSAGE if offline else "",
+            "message": drafter.offline_message() if offline else "",
             "ollama_running": not offline,
         }
 
@@ -1113,13 +1122,13 @@ def ai_edit(
             instruction=instruction or "Remove this passage entirely.",
             verb="remove",
         )
-        offline = thinking == drafter.OFFLINE_MESSAGE
+        offline = drafter.was_offline(thinking)
         return {
             "revised": revised,
             "replaced_selection": bool(body.selection.strip()),
             "verb": "remove",
             "thinking": None if offline else thinking,
-            "message": drafter.OFFLINE_MESSAGE if offline else "",
+            "message": drafter.offline_message() if offline else "",
             "ollama_running": not offline,
         }
 
@@ -1132,14 +1141,14 @@ def ai_edit(
         deps.get_ollama(),
         instruction=instruction,
     )
-    offline = thinking == drafter.OFFLINE_MESSAGE
+    offline = drafter.was_offline(thinking)
     return {
         "verb": "edit",
         # The caller replaces either the selection or the whole document.
         "revised": revised,
         "replaced_selection": bool(body.selection.strip()),
         "thinking": None if offline else thinking,
-        "message": drafter.OFFLINE_MESSAGE if offline else "",
+        "message": drafter.offline_message() if offline else "",
         "ollama_running": not offline,
     }
 
@@ -1184,7 +1193,7 @@ def rephrase_passage(
     return {
         "options": options,
         "ollama_running": running,
-        "message": "" if running else drafter.OFFLINE_MESSAGE,
+        "message": "" if running else drafter.offline_message(),
     }
 
 

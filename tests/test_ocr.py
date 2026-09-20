@@ -258,3 +258,95 @@ def test_tesseract_runs_on_one_openmp_thread_unless_told_otherwise(monkeypatch):
     monkeypatch.setenv("OMP_THREAD_LIMIT", "3")
     ocr._one_thread_for_tesseract()
     assert os.environ["OMP_THREAD_LIMIT"] == "3"
+
+
+# --- Tesseract on Windows, where PATH is not the whole answer ---------------
+#
+# Reported directly: "Tesseract installed but not recognised". The Windows
+# installers do not reliably put their own directory on PATH, and the
+# per-user install mode never does, so `shutil.which` says "not installed"
+# about a binary that is sitting right there. These run on every platform
+# because the branch is selected by `ocr.sys.platform`, which the suite
+# already monkeypatches elsewhere in this file for the winget path.
+
+
+def _windows_with_tesseract_at(monkeypatch, tmp_path, *parts, env_var="ProgramFiles"):
+    """A fake Windows where tesseract.exe exists under `env_var` but PATH
+    has never heard of it. Returns the binary's path."""
+    root = tmp_path / env_var.replace("(", "_").replace(")", "")
+    binary = root.joinpath(*parts) / "tesseract.exe"
+    binary.parent.mkdir(parents=True)
+    binary.write_text("")
+    monkeypatch.setattr(ocr.sys, "platform", "win32")
+    monkeypatch.setattr(ocr.shutil, "which", lambda name: None)
+    monkeypatch.setenv(env_var, str(root))
+    monkeypatch.setenv("PATH", "")
+    ocr._probe_windows_tesseract.cache_clear()
+    return binary
+
+
+def test_windows_finds_tesseract_in_program_files_when_path_misses_it(monkeypatch, tmp_path):
+    binary = _windows_with_tesseract_at(monkeypatch, tmp_path, "Tesseract-OCR")
+    try:
+        assert ocr.tesseract_available() is True
+        # Adopted, not merely detected: everything that looks at PATH later
+        # in this process has to find it too.
+        assert str(binary.parent) in os.environ["PATH"].split(os.pathsep)
+    finally:
+        ocr._probe_windows_tesseract.cache_clear()
+
+
+def test_windows_finds_a_per_user_install_under_localappdata(monkeypatch, tmp_path):
+    """The installer's "just for me" mode, which needs no administrator and
+    is therefore the one most people end up in, and the one that never
+    touches the machine PATH."""
+    _windows_with_tesseract_at(
+        monkeypatch, tmp_path, "Programs", "Tesseract-OCR", env_var="LOCALAPPDATA"
+    )
+    try:
+        assert ocr.tesseract_available() is True
+    finally:
+        ocr._probe_windows_tesseract.cache_clear()
+
+
+def test_windows_says_no_when_the_binary_really_is_absent(monkeypatch, tmp_path):
+    monkeypatch.setattr(ocr.sys, "platform", "win32")
+    monkeypatch.setattr(ocr.shutil, "which", lambda name: None)
+    monkeypatch.setenv("ProgramFiles", str(tmp_path / "empty"))
+    monkeypatch.delenv("LOCALAPPDATA", raising=False)
+    monkeypatch.delenv("ProgramFiles(x86)", raising=False)
+    monkeypatch.delenv("ProgramW6432", raising=False)
+    ocr._probe_windows_tesseract.cache_clear()
+    try:
+        assert ocr.tesseract_available() is False
+    finally:
+        ocr._probe_windows_tesseract.cache_clear()
+
+
+def test_the_probe_never_runs_off_windows(monkeypatch, tmp_path):
+    """A Linux box with a directory that happens to be called Tesseract-OCR
+    is not a Tesseract install, and the probe must not claim it is."""
+    root = tmp_path / "pf"
+    (root / "Tesseract-OCR").mkdir(parents=True)
+    (root / "Tesseract-OCR" / "tesseract.exe").write_text("")
+    monkeypatch.setattr(ocr.sys, "platform", "linux")
+    monkeypatch.setattr(ocr.shutil, "which", lambda name: None)
+    monkeypatch.setenv("ProgramFiles", str(root))
+    ocr._probe_windows_tesseract.cache_clear()
+    try:
+        assert ocr.tesseract_available() is False
+    finally:
+        ocr._probe_windows_tesseract.cache_clear()
+
+
+def test_adopting_the_binary_twice_adds_one_path_entry(monkeypatch, tmp_path):
+    """`tesseract_available` is called from every status poll, so a probe
+    that appended to PATH each time would grow it without bound."""
+    binary = _windows_with_tesseract_at(monkeypatch, tmp_path, "Tesseract-OCR")
+    try:
+        for _ in range(5):
+            ocr._adopt_tesseract(binary)
+        entries = [part for part in os.environ["PATH"].split(os.pathsep) if part]
+        assert entries.count(str(binary.parent)) == 1
+    finally:
+        ocr._probe_windows_tesseract.cache_clear()

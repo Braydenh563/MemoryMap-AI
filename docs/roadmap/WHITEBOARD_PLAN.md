@@ -177,7 +177,7 @@ Phase 3): a plan holds open work only. Its gate lives on in
 and dark and at 390x844). The two parts of decision 7 that were open are
 decided and built, 2026-09-20 (the decision's own two sub-points above):
 one `HIGHLIGHTER_STYLE` table read by both renderers, and a blend chosen by
-the backdrop. Their gate is `scratchpad/ui-sweeps/sketchhighlighter.js`,
+the backdrop. Their gate is `scratchpad/ui-sweeps/sketchparity.js`,
 9 checks, green at 1440x900 in both modes.
 
 ### Phase 4: mind map regressions and Tidy: BUILT, 2026-09-12

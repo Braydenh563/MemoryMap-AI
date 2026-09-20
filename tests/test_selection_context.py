@@ -59,7 +59,12 @@ def test_offsets_are_revalidated_at_send_not_trusted_from_attach_time():
     assert "revalidateSelection(attachedSelection)" in send, (
         "sendChat must re-check, not read attachedSelection's stored offsets"
     )
-    guard = app[app.index("function revalidateSelection(context)") :][:1800]
+    #: The whole function, not the first 1,800 characters of it: a comment
+    #: added above its body pushed the fourth outcome out of a fixed window
+    #: and failed CI on a change that touched no logic.
+    start = app.index("function revalidateSelection(context)")
+    end = app.find("\nfunction ", start + 1)
+    guard = app[start : end if end != -1 else None]
     for outcome in ('"exact"', '"moved"', '"gone"', '"unknown"'):
         assert outcome in guard, (
             f"{outcome} is one of the four things that can be true of a stored "

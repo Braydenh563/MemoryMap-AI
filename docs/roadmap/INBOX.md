@@ -46,6 +46,33 @@ with its owner named in the entry.
     And: "once absolutely everything is done and the roadmap documents are
     cleaned etc, all the agent branches are merged into this one etc, merge
     this pr for me." Owner: orchestrator; the merge is the last act.
+    **The last scan, run 2026-09-20.** Four passes, each a number rather
+    than a reading:
+    - **Routes with no caller** (`scratchpad/probe_dead_routes.py`): 320
+      served, 9 unnamed by the frontend, every one triaged in 261. Two were
+      real and are fixed: `/resurface/near/{entry_id}` was unreachable *and*
+      crashed on its first call, and `GET /events` is a built feed with no
+      strip to read it (WORLD_CLASS_PLAN B1, still open).
+    - **Calls with no route** (`scratchpad/probe_missing_routes.py`, new,
+      the mirror and the worse failure): 297 distinct paths called, **0 with
+      no route**, both undecidable paths resolved by hand.
+    - **Frontend declarations nothing references**: 3,222 top-level names,
+      **0** referenced only by their own declaration. No dead weight left in
+      `frontend/*.js`.
+    - **Complexity, backend**, by branch count over 1,827 functions. The top
+      five, for whoever takes this on: `_run_one_step` (skill_runner.py:784,
+      50 branches / 419 lines), `analyse_attachment` (routes_files.py:381,
+      43 / 167), `search` (search/engine.py:645, 41 / 139),
+      `_optimization_pass` (autonomous.py:268, 40 / 250), `_run_skill`
+      (skill_runner.py:1206, 36 / 300). Not refactored here on purpose: this
+      PR is about to merge and restructuring a 419-line agent step is not a
+      thing to do on the way out of one.
+    A fifth pass, silent exception handlers, was run and is not reported as
+    a finding: 251 handlers return a fallback without logging, and in an app
+    whose whole design is "degrade to offline" that is the intended shape,
+    not a smell. The heuristic could not separate the two, so it is written
+    down here rather than left as a number somebody later mistakes for a
+    defect count.
 
 258. **Recommendation, not a change, 2026-09-19 (the session).** The
     reverted outside commit added right-drag to pan the board, filtered so

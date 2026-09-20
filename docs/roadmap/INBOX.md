@@ -349,6 +349,31 @@ with its owner named in the entry.
     maybe that searchbar can be accessible in a univerally accessible popup
     window like the popup agent and guide??? also can you improve/redesign
     the ui and layout of the guide popup panel at all??"
+    **Decisions taken with the owner, 2026-09-20.** (a) The dashboard gets a
+    density switch, the MSN "Feed layout" shape: Full (today), Compact
+    (Start something collapses to icons, the stats become one line) and
+    Focused (search and widgets only, the rest behind More), remembered per
+    device. Nothing is removed, so no feature is lost to a layout choice.
+    (b) The search is not a feature-finder. The owner: "this is a search for
+    any and all content, items, text, files everything. a full application
+    wide semantic search which shows content as well as features and actions
+    etc. absolutely everything and what shows can be filtered, sorted and
+    toggled... similar to the aws search or amazon search bar. a separate
+    dashboard search might be good but also a popup window as well would be
+    good." Both doorways, one engine. (c) macOS: not yet, written up rather
+    than built, because Gatekeeper refuses an unsigned app outright rather
+    than warning about it, and notarising needs an Apple Developer account.
+    **Checked before building, and this is the finding that shapes the work:**
+    `/search` already exists and is exactly what (b) describes.
+    `routes_search.py` over `search/engine.py` searches notes, documents,
+    boards, files, bookmarks and reminders together, hybrid keyword plus
+    semantic, with `tag:`, `kind:`, `in:`, `before:`, `after:`, `has:`, `is:`,
+    quoted phrases and `-exclusions` from `search/query.py`, three scores and
+    an explanation per hit, and per-kind counts so an empty result can say
+    why. **Nothing in the app calls it.** The only reader of anything under
+    `/search` in the whole frontend is `settings.js` asking `/search/stats`
+    for a number. So the work is a front door, not an engine: the popup, the
+    dashboard field, the filters and the sort, over the route already there.
     Measured from the screenshot: above the fold the dashboard stacks five
     "Start something" tiles, four "Jump to" pills, three skill chips, four
     stat tiles and a sparkline, then the widget grid heading, before a single

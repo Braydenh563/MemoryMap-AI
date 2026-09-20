@@ -450,6 +450,23 @@ with its owner named in the entry.
     the question (`ai/extractive.py`). The standing half, refinement, is the
     session's own order of work from here.
 
+285. **Found by a line-by-line review of tonight's merges, 2026-09-21.**
+    `OpenAIClient._accumulate_tool_calls` reads a streamed fragment's index
+    as `fragment.get("index", 0)`. Every fragment a provider sends without
+    that field therefore lands in bucket 0, so with two concurrent calls
+    their `arguments` strings concatenate into one unparseable blob and both
+    calls are lost at `normalise_tool_calls`. OpenAI itself always sends the
+    index, which is why no test sees this and why the accumulator is
+    otherwise correct: buckets are keyed by index, replayed in index order,
+    and a missing id falls back to `call_<index>`. The risk is a local
+    OpenAI-compatible server that is looser than the spec, which is most of
+    them. Not reproduced: it needs a server that omits the field.
+    Recommendation: when `index` is absent, open a new bucket for a fragment
+    that carries a `function.name` and fold a nameless fragment into the
+    last one opened, so an omitted index degrades to arrival order rather
+    than to a collision. Owner: the models/chat agent, with a fake-transport
+    test that sends two indexless calls.
+
 ## Placed (last 20, newest first)
 
 - 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.

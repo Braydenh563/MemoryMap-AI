@@ -2627,3 +2627,49 @@ summaries are actually good on a small model). This pass is a source read,
 same caveat CLAUDE.md §4 states for this project's own provider tests: when
 something here is acted on, measure it against a running instance rather
 than trusting the read.
+
+## The night's merges reviewed line by line, 2026-09-21
+
+Seventeen merges sit between PR 150's base and its head, 151 files and
+21,091 insertions, and three of them came from worktrees cut 176, 231 and
+250 commits back and were resolved by hand. That is the shape CLAUDE.md
+section 6 is written about, so the head was read against its four questions
+before any more work landed on it. The verdict is clean, and the point of
+recording it is that a clean review is a fact the next session should not
+have to buy twice.
+
+**A feature that never ran once.** Eighty-one functions were added to
+`frontend/*.js` and twenty-three defs to `src/`, and every one of them has a
+call site. The three that answer to nothing but a decorator are routes, and
+each is reachable: `/entries/reference-counts` from `ensureReferenceCounts`,
+`/drafts/compose/stream` from `streamDraft`, and `/drafts/compose` from the
+tests that speak this feature's shape, which is what its docstring says it
+is kept for.
+
+**A guard removed while the shape around it was kept.** Every deleted
+`pointerType !== "touch"` line in the diff, and there are six, was deleted
+into `wireLongPress`, which keeps the same guard once instead of six times.
+The SQL `LIKE` escaping that looked dropped in `_list_skills` was
+reformatted around a new `*extra` argument with `like_escape` and
+`LIKE_ESCAPE` both intact.
+
+**A working thing rewritten into a riskier thing.** The writing desk is the
+one real rewrite, and its new streaming path holds up: `streamDraft` carries
+a partial line across chunk boundaries rather than splitting each chunk on
+its own, skips an unparseable frame instead of throwing out of a
+half-written draft, sends `X-Auth-Token`, and sends the lock screen up on a
+401. The empty `title` on every entry in `_sources` is not a loss: an entry
+in this app has no title column, and `drafter` writes a bare `[1]` when the
+title is empty, which is the intended shape.
+
+**What the fake transport cannot see.** `_accumulate_tool_calls` is correct
+for concurrent calls: index-keyed buckets, id, name and arguments folded
+separately, replayed in index order with `call_<index>` as the id of last
+resort. Its one latent flaw is the default in `fragment.get("index", 0)`,
+which is INBOX 285.
+
+Chat history is trimmed today: `agent.build_messages`' `budget` cuts the
+notes and the history to what the window holds. So odysseus's compaction
+idea, which is still the owner's to decide, is a refinement of a guard that
+exists rather than a missing one, and nothing is silently overflowing while
+the decision waits.

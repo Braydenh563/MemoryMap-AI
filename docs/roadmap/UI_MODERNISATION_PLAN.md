@@ -839,8 +839,8 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
    of a menu opened while a touch gesture is in flight, so `openMenuAtPoint`
    asks for it again a frame later. `phone.js` and `touch.js` are 0 findings
    at 390 after all of it.
-5. **Library and Files.** Two-up cards, the reader full-screen with a
-   bottom bar; upload from the share sheet.
+5. **Library and Files: built** (2026-09-20). Two-up cards, the reader
+   full-screen with a bottom bar; upload from the share sheet.
    - **Two-up cards: decided the other way, not remade.** The 600 band in
      07-whiteboard-misc.css makes the card grids one full-width column
      with the measurement that decided it (at 390 the masonry gave two
@@ -859,8 +859,36 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
      two halves to the same three names; measured by
      `scratchpad/ui-sweeps/phoneshare.js` at 390. Not built: a file (an
      image from the camera roll) needs the POST form and a service
-     worker. Still open in this item: the reader full-screen with a bottom
-     bar.
+     worker.
+   - **The reader full screen with a bottom bar: built** (2026-09-20), and
+     item 5 is complete. Measured at 390x844 first
+     (`scratchpad/ui-sweeps/libreader.js`, this item's gate): the reader (the
+     OCR workspace) was a 342x776 card inset 24px from each edge with a 14px
+     rounded top, its way out an X; the Regions checkbox label was 36px tall,
+     a zoom segment button 35px wide, the two rail tabs 13x25 and the find
+     box 343x20. **And a bug older than the phone band**: the three panes are
+     a grid of two columns below 1100 with three children in it, so the
+     reading pane fell into an implicit second row. At 390 the 1fr column
+     collapsed and the transcription was **0px wide**; at 1024 the hidden
+     rail's own column still took **593px** of empty space while the page was
+     squeezed into the 320px column beside it and the reading dropped to a row
+     underneath. Hiding `.ocr-rail` was never enough: the column goes too, and
+     the selector needed `.ocr-panes > .ocr-rail-column` because the column's
+     own `display: flex` is declared below that band in the same stylesheet.
+     After, at 1024: page 593x656 and reading 320x656, side by side; at 1440
+     the three columns are 144 / 747 / 416, unchanged.
+     On a phone the reader is the sheet recipe's `page` variant, the same two
+     classes `openSheet` puts on the note page, stamped by `ocrPhonePage` in
+     app.js because `tests/test_ui_recipes.py` holds that only the recipe's own
+     file may write a variant class (it caught the first attempt, from
+     library.js). The reading's five actions move into a `.thumb-bar` and move
+     back above 600, the way the note page moves a row's actions: same buttons,
+     same ids, same handlers. Measured after at 390: the card is 0,0 to
+     390x844 with a 0px radius, one column of panes, the rail column 0, no
+     control under 44px, the bar holding 5 buttons with its bottom at 844, the
+     way out labelled Back with the chevron, Escape closes it, and crossing to
+     1024 with it open puts the five actions back in the reading's own foot
+     and the X back in the head.
 6. **Documents: built** (2026-09-20), most of it already there and
    measured before anything was added. Measured at 390 with a fresh
    document (`scratchpad/ui-sweeps/phonedocs.js`): a phone now opens a

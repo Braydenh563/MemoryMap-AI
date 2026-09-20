@@ -38881,6 +38881,83 @@ function initNotePage() {
 
 initNotePage();
 
+// --- the Library reader as the page ------------------------------------------
+// UI_MODERNISATION_PLAN Phase 11 item 5, "the reader full-screen with a bottom
+// bar". The reader itself is library.js's (`openOcrWorkspace`); what lives
+// here is the one thing that may not live there, stamping the sheet recipe's
+// `page` variant onto a surface. `tests/test_ui_recipes.py` holds that line,
+// and its reason is the loophole it closes: a variant class painted onto a
+// div by any file inherits none of the scrim, the tier, the head with its way
+// out, Escape or the backdrop press. The reader does inherit all five, because
+// it is already the app's `.modal-overlay` + `.card.modal-card` dialog; this
+// changes its size and where its actions sit, nothing else.
+//
+// Measured at 390x844 before: a 342x776 card inset 24px from each edge with a
+// 14px rounded top, so a page you were reading had a window's worth of scrim
+// around it; the Regions checkbox label 36px tall, a zoom segment button 35px
+// wide, the two rail tabs 13x25 and the find box 343x20. And the panes are a
+// grid of two columns below 1100 with three children in it, so the reading
+// pane fell into an implicit second row at 0px wide: on a phone the
+// transcription had no width at all, and at 1024 the hidden rail's column
+// still took 593px while the page was squeezed into the 320px column beside
+// it. The column half is fixed in 07-whiteboard-misc.css's 1100 band, where
+// it was wrong at every width, not only this one.
+//
+// The actions move rather than being redrawn, the way `openNotePage` moves a
+// row's own actions: same buttons, same ids, same handlers, and the code that
+// shows and hides them (`ocrSyncDeleteButton`, the describe button's own
+// rules) finds them exactly where it did.
+const OCR_PHONE_BAR_ID = "ocr-phone-bar";
+
+function ocrPhonePage(phone) {
+  const overlay = $("ocr-workspace");
+  const card = overlay?.querySelector(".ocr-card");
+  const foot = overlay?.querySelector(".ocr-regions-foot");
+  const close = $("ocr-close");
+  if (!overlay || !card || !foot || !close) return;
+  overlay.classList.toggle("sheet-overlay", phone);
+  card.classList.toggle("sheet-card", phone);
+  card.classList.toggle("sheet-card-page", phone);
+  let bar = document.getElementById(OCR_PHONE_BAR_ID);
+  if (phone) {
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = OCR_PHONE_BAR_ID;
+      bar.className = "thumb-bar ocr-phone-bar";
+      bar.setAttribute("role", "toolbar");
+      bar.setAttribute("aria-label", "What was read");
+      card.appendChild(bar);
+    }
+    while (foot.firstChild) bar.appendChild(foot.firstChild);
+    // The way out of a page is Back, not an X: an X says "this was over what
+    // you were doing", and on a phone the reader is the screen.
+    setLabel(close, "ph:arrow-left");
+    close.setAttribute("aria-label", "Back");
+    close.title = "Back (Escape)";
+  } else {
+    if (bar) {
+      while (bar.firstChild) foot.appendChild(bar.firstChild);
+      bar.remove();
+    }
+    setLabel(close, "ph:x");
+    close.setAttribute("aria-label", "Close");
+    close.title = "Close";
+  }
+}
+
+function initOcrPhonePage() {
+  // Only while it is open: a band crossed with the reader shut has nothing to
+  // move, and stamping a variant on a hidden dialog leaves state behind that
+  // the next open would have to undo.
+  window.matchMedia(PHONE_TABS).addEventListener("change", (event) => {
+    const overlay = document.getElementById("ocr-workspace");
+    if (overlay && !overlay.classList.contains("hidden")) ocrPhonePage(event.matches);
+  });
+}
+
+initOcrPhonePage();
+
+
 // --- the chat composer on a phone: attachments and mode in one row -----------
 // UI_MODERNISATION_PLAN Phase 11 item 3, "the composer above the keyboard
 // with the attachments and mode in one row". Measured at 390: the composer

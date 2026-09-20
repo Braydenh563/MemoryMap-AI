@@ -9,6 +9,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The Library reader is the page on a phone. It opened as a 342x776 dialog
+  inset from every edge of a 390px screen, with an X in its head and its
+  Copy, Ask and Save as note under a transcription you had to scroll to; it
+  is the whole screen now, with a back chevron and those actions in a bar at
+  the bottom where a thumb is, the same shape a note opened on a phone
+  already had. Every control in it takes the 44px touch floor.
+
 - The whiteboard and the mind map answer a finger. Two fingers pan and zoom the
   board whatever tool is in hand, which is what every drawing app reserves them
   for: until now a pinch did nothing at all unless you first went and found the
@@ -240,6 +247,12 @@ below). Versioning is `0.x` while the app stabilises.
   wants this, and the Settings page had never asked.
 
 ### Fixed
+
+- The Library reader shows the page and what it says. Below 1100px the page
+  rail was hidden but its column was not, so the grid kept an empty 593px of
+  itself at 1024, squeezed the page into the 320px column beside it and
+  pushed the transcription onto a row of its own underneath; at 390 the
+  transcription had no width at all. The two panes take the two columns now.
 
 - "Take the tour" takes you on the tour. The dashboard's tile and Settings,
   about's "Take tour again" both opened the welcome card instead, which is a

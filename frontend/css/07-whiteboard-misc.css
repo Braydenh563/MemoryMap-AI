@@ -6704,13 +6704,25 @@ button.connection-row {
 }
 
 /* Under 1100px the rail is the first thing to go, which page you are on is
-   answerable from the title, where a line sits on the page is not. */
+   answerable from the title, where a line sits on the page is not.
+
+   **The column goes, not just the rail.** Hiding `.ocr-rail` alone left
+   `.ocr-rail-column` in the grid as an empty item, and a grid of three items
+   in two columns puts the third in an implicit *row*: measured at 1024, the
+   empty column took 593px, the page was squeezed into the 320px column
+   beside it, and the reading pane dropped to a second row under both. At 390
+   the arithmetic was worse: the 1fr column collapsed to 0, so the reading had
+   no width at all. Two panes, two columns. */
 @media (max-width: 1100px) {
   .ocr-panes {
     grid-template-columns: minmax(0, 1fr) minmax(15rem, 20rem);
   }
 
-  .ocr-rail {
+  /* `> .ocr-rail-column`, not the bare class: the column's own
+     `display: flex` is declared further down this same stylesheet, so at
+     equal specificity it would win over a rule in a band above it and the
+     column would stay in the grid at every width. */
+  .ocr-panes > .ocr-rail-column {
     display: none;
   }
 }

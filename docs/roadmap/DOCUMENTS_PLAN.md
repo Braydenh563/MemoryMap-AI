@@ -444,13 +444,37 @@ stays plain (it is a sentence, not a note, and that half is done by being
 decided); the skill editor's steps box gets the `/` menu only. Gate: touch.js
 and mindmap.js unchanged.
 
-*Open, and not for the documents agent:* both remaining halves live in files
-the documents work does not own. The board's note card is `whiteboard.js`'s
-canvas text field, and the skill box's "/" is one line in `editor.js`'s
-`EDITOR_SURFACES`. The factory they both need is built and in the page
-(`noteSurface(host, options)`, `NOTE_SURFACES` in `documents.js`): adding a
-box is one row in that table, and `tests/test_note_surface.py` is the lint
-that says so.
+**The skill editor's steps box: built, 2026-09-20.** `"skill-steps": "skill"`
+in `editor.js`'s `EDITOR_SURFACES`, and the menu it opens is the box's own
+vocabulary rather than the note commands, for the reason `chatCommands` gives
+and more sharply here: this box's label says "one step per line, in order",
+`skills.normalise` reads those lines as instructions, and a callout or a table
+inserted into one is not a step. `skillCommands` offers the two things the
+form beside it declares and nobody can type correctly from memory, the
+`{{placeholders}}` from "Ask me for" and the exact spelling of the tools this
+skill has ticked, both read off the form so neither can go stale, plus one row
+that explains itself when the form is still empty. The box stays a plain
+textarea with no engine and no Live view, which is in
+`tests/test_note_surface.py`'s `NOT_NOTE_TEXT` with that reason. Measured,
+`scratchpad/ui-sweeps/skillsteps.js`, 12 of 12: typing "/" opens a 304x165
+menu with the groups "Answers you will be asked for" and "Tools this skill may
+use", `tag: Which tag should I file?` yields `{{tag}}` and not the question,
+0 note commands leak in, and running one writes the placeholder at the caret.
+
+*Open, and still not for the documents agent: the board's note card.* It is
+`whiteboard.js`'s canvas text field (`wbEditNodeText`, ~2760), and adding a
+`NOTE_SURFACES` row for it is **not** the whole job, which is worth writing
+down before someone does exactly that. Three behaviours hang off that
+textarea and all three stop firing the moment a view is mounted over it:
+`keydown` (Enter commits, because the card is a single-idea field, and Escape
+abandons), `blur` (clicking away to the next card commits), and the
+`event.stopPropagation()` on that same keydown, which is what stops Tab and
+Enter reaching the board's own branch gestures. The last of those is a guard
+removed while the shape around it is kept, CLAUDE.md section 6 item 3: the
+row would look right, the edit would stop committing, and a Tab meant for the
+text would grow a branch. So the real work item is "move the commit keymap and
+the gesture guard onto the surface, then add the row", and it belongs to
+whoever owns `whiteboard.js`.
 
 ### Phase 7 — export and interchange: **built 2026-09-13**
 

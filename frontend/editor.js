@@ -48,6 +48,12 @@ const EDITOR_SURFACES = {
   //: (every chat product the user compared this to has one). Its commands are
   //: chat's own: attach, web, plan, skills, mode. See `chatCommands`.
   "chat-input": "chat",
+  //: The skill editor's steps box (DOCUMENTS_PLAN Phase 8c). The plan gives
+  //: it the "/" menu and nothing else: it is a list of instructions, not note
+  //: text, so it stays a plain textarea with no Live view and no engine, and
+  //: `tests/test_note_surface.py`'s `NOT_NOTE_TEXT` says so. Its own context,
+  //: because the note commands are all wrong here; see `skillCommands`.
+  "skill-steps": "skill",
 };
 
 //: **What context an editing surface is.**
@@ -286,8 +292,78 @@ function chatCommands() {
   ];
 }
 
+//: **What "/" offers in a skill's steps box** (DOCUMENTS_PLAN Phase 8c: "the
+//: skill editor's steps box gets the `/` menu only"). Not the note commands,
+//: for the reason `chatCommands` gives about the chat box and more sharply
+//: here: this box's own contract, printed on its label, is "one step per
+//: line, in order", so a callout, a table or a two-column fence pasted into
+//: it is not a step and nothing downstream renders it. `skills.normalise`
+//: reads these lines as instructions, not as markdown.
+//:
+//: What a steps box actually wants is the two vocabularies the rest of the
+//: editor beside it already holds, and cannot be typed correctly from memory:
+//: the placeholders the "Ask me for" box declares, whose braces are easy to
+//: get wrong, and the exact spelling of the tools this skill is allowed to
+//: use, which come from the server's catalogue and drift if guessed. Both are
+//: read off the form rather than listed here, the same way chat's commands
+//: press controls that already exist, so neither can go stale.
+function skillCommands() {
+  const insert = (text) => (surface) => {
+    const start = surface.selectionStart;
+    editorSplice(surface, start, surface.selectionEnd, text);
+  };
+  const commands = [];
+  //: `name` or `name: question`, one per line, which is what `textToInputs`
+  //: in app.js parses. Only the name goes in the braces.
+  const inputs = (document.getElementById("skill-inputs")?.value || "")
+    .split("\n")
+    .map((line) => line.split(":")[0].trim())
+    .filter(Boolean);
+  for (const name of inputs) {
+    commands.push({
+      id: `skill-input-${name}`,
+      primary: true,
+      group: "Answers you will be asked for",
+      label: `\u{1F4AC} {{${name}}}`,
+      hint: "the answer goes here",
+      keywords: ["input", "placeholder", "ask", "variable", name],
+      run: insert(`{{${name}}}`),
+    });
+  }
+  //: The checked tools, not the whole catalogue: a step naming a tool this
+  //: skill is not allowed to use is a step that cannot run.
+  const tools = [...document.querySelectorAll("#skill-tool-list input:checked")].map((box) => box.value);
+  for (const tool of tools) {
+    commands.push({
+      id: `skill-tool-${tool}`,
+      primary: true,
+      group: "Tools this skill may use",
+      label: `\u{1F527} ${tool}`,
+      hint: "name it in a step",
+      keywords: ["tool", "use", tool],
+      run: insert(tool),
+    });
+  }
+  //: An empty menu with no explanation reads as a broken menu. This row says
+  //: where the two lists come from, and pressing it does nothing rather than
+  //: writing a word nobody asked for.
+  if (!commands.length) {
+    commands.push({
+      id: "skill-nothing-yet",
+      primary: true,
+      group: "Nothing to offer yet",
+      label: "\u{2139}\u{FE0F} Add an input or tick a tool",
+      hint: "then they appear here",
+      keywords: ["input", "tool", "help", "empty"],
+      run: () => {},
+    });
+  }
+  return commands;
+}
+
 function editorCommands(context) {
   if (context === "chat") return chatCommands();
+  if (context === "skill") return skillCommands();
   const commands = [];
 
   for (const [kind, meta] of Object.entries(CALLOUT_KINDS)) {

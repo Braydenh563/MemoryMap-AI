@@ -173,6 +173,11 @@ below). Versioning is `0.x` while the app stabilises.
   stranded on screen after the panel it belongs to has closed.
 ### Added
 
+- A "/" menu in a skill's steps box. It offers the two things the form beside
+  it already knows and nobody can type from memory: the answers the skill will
+  ask you for, as `{{placeholders}}`, and the exact names of the tools it has
+  been allowed to use. Nothing else, because a step is one instruction on one
+  line, not a block of markdown.
 - A Daily page in the documents template gallery, and the Timeline now
   recognises it. New from a template offers Daily alongside the other six; it
   makes a document titled with the day, the same title the journal note uses,

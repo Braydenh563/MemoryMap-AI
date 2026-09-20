@@ -9,6 +9,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- "Referenced by" on a note. Its menu now answers what points at it:
+  the whiteboards and mind maps that carry it, the documents and notes that
+  link to it, and the ones that only mention it by name, with which of the
+  three said beside each. A link is a decision someone made and a mention is
+  a coincidence until they make it, so the rows someone chose come first and
+  the row says which it is.
+
 - Settings, "What it learned": everything Atlas worked out on its own, with
   the note it came from, the model that decided it and how sure it was. Edit
   a row and no later run overwrites it; delete one and the same thing is
@@ -17,6 +24,11 @@ below). Versioning is `0.x` while the app stabilises.
   without touching a note, and a "Read my notes now" button that runs the
   night pass on demand and says what it found. The backend for all of this
   shipped on 2026-09-13 and nothing in the app had ever called it.
+
+- A note's own label no longer shows its wiki brackets. `[text](url)` was
+  stripped from a chip and `[[a wiki link]]` was not, because the first rule
+  needs the `(url)` to match, so every chip for a note whose first line links
+  to another note read `[[The roof quote]]`, brackets and all.
 
 - Battery-efficient mode stops the moving pictures. It paused the background
   AI tasks and the graph's similarity work and reached nothing else, so the

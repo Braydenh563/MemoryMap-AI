@@ -4141,6 +4141,17 @@ html.modal-open body {
 }
 
 
+/* How a thing points at this note ("on it", "links to it", "mentions it"),
+   beside the thing rather than inside its name: three different strengths of
+   claim, and only the middle one is something somebody chose. Small, because
+   it is an annotation on the chip and not a second label competing with it.
+   The chip carries the name and the styling; this is what follows it. */
+.entry-reference-how {
+  font-size: 0.75rem;
+  margin-left: var(--space-1);
+}
+
+
 /* The note composer's preview pane. Sized like the box it replaces so
    toggling does not make the form jump, and scrollable rather than
    unbounded: a long note should not push the Save button off screen. */

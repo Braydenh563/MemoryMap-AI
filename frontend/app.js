@@ -4879,6 +4879,11 @@ function entryOverflowMenu(entry) {
       },
       { label: "ph:link Link to another", run: () => beginOrCompleteLink(entry) },
       { label: "≈ Similar notes", run: () => toggleRelated(entry) },
+      {
+        label: "ph:arrow-u-up-left Referenced by",
+        title: "Documents, notes, boards and maps that point at this note",
+        run: () => toggleReferences(entry),
+      },
     ];
 
     const addItems = [
@@ -8183,6 +8188,95 @@ async function toggleRelated(entry) {
         label.textContent = "All similar notes are linked.";
       }
     }));
+  }
+  card.appendChild(row);
+}
+
+//: **What points at this note** (INBOX 246, the owner: "I want it to show in
+//: notes if they are attached to or referenced in/by a document, note,
+//: whiteboard, or mindmap").
+//:
+//: Deliberately the same shape as `toggleRelated` above, down to the single
+//: open-id variable: the two answer neighbouring questions ("what is like
+//: this" and "what points at this"), they open in the same place on the same
+//: card from the same menu, and a second way of drawing a row under a note
+//: would be a second thing to keep consistent for no gain.
+//:
+//: One id, not two, for the same reason the menu has one entry each: both
+//: panels open under the card, and two open at once is two answers stacked
+//: where a person asked one question.
+let referencesOpenId = null;
+
+//: What each kind of reference is called on the chip, and the icon that says
+//: it without being read. A table rather than a chain of ternaries, because
+//: the kinds are the four the owner named and a missing one should be
+//: obvious rather than silently falling through to "note".
+const REFERENCE_KIND_LABELS = {
+  document: ["ph:file-text", "document"],
+  note: ["ph:note", "note"],
+  board: ["ph:squares-four", "board"],
+  map: ["ph:tree-structure", "map"],
+};
+
+async function toggleReferences(entry) {
+  referencesOpenId = referencesOpenId === entry.id ? null : entry.id;
+  renderEntries();
+  if (referencesOpenId !== entry.id) return;
+  const answer = await apiJson(`/entries/${entry.id}/references`).catch(() => null);
+  const card = document.querySelector(`#entry-list li[data-id="${entry.id}"]`);
+  if (!card || referencesOpenId !== entry.id) return;
+  const row = document.createElement("div");
+  row.className = "entry-links";
+  const label = document.createElement("span");
+  label.className = "muted";
+  const items = (answer && answer.items) || [];
+  //: Three states, not two: "nothing points at this" and "we could not ask"
+  //: are different facts and a person acting on the first one deserves to
+  //: know it was really the second.
+  label.textContent = !answer
+    ? "Couldn't check what points at this note."
+    : items.length
+      ? "Referenced by:"
+      : "Nothing points at this note yet.";
+  row.appendChild(label);
+  for (const item of items) {
+    const [icon, word] = REFERENCE_KIND_LABELS[item.kind] || ["ph:note", item.kind];
+    const wrap = document.createElement("span");
+    wrap.className = "entry-related-row";
+    const refChip = chip("", "link", () => {
+      //: A board and a map open in the Library, a note in Notes, a document
+      //: in its editor. Each already has one way in; this is not a fifth.
+      //: Each kind already has exactly one way in, and this uses it rather
+      //: than becoming a fifth. `typeof` because the board and document
+      //: files are lazy-loaded with the Library bundle and a note card can
+      //: be on screen before either has landed.
+      if (item.kind === "board" || item.kind === "map") {
+        if (typeof openWhiteboardBoard === "function") openWhiteboardBoard(item.id);
+      } else if (item.kind === "document") {
+        openDocumentFromNote(item.id);
+      } else {
+        flashEntry(item.id);
+      }
+    });
+    setLabel(refChip, `${icon} ${item.label}`);
+    //: Read out loud rather than assembled: "This board on it" is what
+    //: pasting the server's phrase after the kind gives you, and it is not a
+    //: sentence. The phrase beside the chip stays terse because it sits in a
+    //: row of them; the tooltip is where there is room to say it properly.
+    refChip.title = {
+      "on it": `This ${word} has this note on it`,
+      "links to it": `This ${word} links to this note`,
+      "mentions it": `This ${word} mentions this note by name`,
+    }[item.how] || `This ${word} ${item.how}`;
+    wrap.appendChild(refChip);
+    //: The relationship, beside the thing rather than inside its name: "on
+    //: it", "links to it" and "mentions it" are three different strengths of
+    //: claim and the middle one is the only one somebody chose.
+    const how = document.createElement("span");
+    how.className = "muted entry-reference-how";
+    how.textContent = item.how;
+    wrap.appendChild(how);
+    row.appendChild(wrap);
   }
   card.appendChild(row);
 }

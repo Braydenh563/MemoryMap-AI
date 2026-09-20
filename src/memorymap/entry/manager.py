@@ -1949,6 +1949,15 @@ def plain_label(content: str, limit: int = 80) -> str:
     first = re.sub(r"^#{1,6}\s*", "", first)          # heading markers
     first = re.sub(r"^[-*+]\s+|^>\s*", "", first)     # list bullet / quote
     first = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", first)  # images, alt and all
+    #: **Before the markdown link rule, because that one cannot see this.**
+    #: `[text](url)` needs the `(url)` to match, so `[[a wiki link]]` fell
+    #: straight through it and every chip for a note whose first line links
+    #: to another note read `[[The roof quote]]`, brackets and all. Found
+    #: while building the references row (INBOX 246), where four of the five
+    #: source labels were wiki links and every one of them showed its
+    #: brackets. Same rule as the markdown link below: the link keeps its
+    #: text, because the text is what the note says.
+    first = WIKI_LINK.sub(r"\1", first)
     first = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", first)  # links keep their text
     first = re.sub(r"[*_`~]{1,3}", "", first)          # emphasis, code, strike
     first = re.sub(r"\s+", " ", first).strip()

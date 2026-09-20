@@ -45,8 +45,10 @@ from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_sugg
     EntryRevision,
     MediaUpload,
     WhiteboardNode,
+    like_escape,
     utcnow,
 )
+from memorymap.core.database import LIKE_ESCAPE
 from memorymap.core.deps import get_session
 from memorymap.entry import duplicates, manager
 from memorymap.search import engine as search_engine
@@ -1676,6 +1678,128 @@ def _readable(content: str) -> str:
     content can borrow it without a row to hang it on.
     """
     return manager.readable_content(SimpleNamespace(content=content or ""))
+
+
+#: How many candidate sources a references scan will read, and how many rows
+#: it will answer with. The same two caps `routes_documents._backlinks` uses,
+#: and for the same reason: the scan is a LIKE over the notes and documents
+#: tables, which is fine at any notebook size and is not free at every one.
+REFERENCE_SOURCES_MAX = 400
+REFERENCE_ROWS_MAX = 60
+
+
+def _reference_rows(session: Session, entry: Entry) -> list[dict]:
+    """Everything that points at this note: documents, notes, boards, maps.
+
+    INBOX 246, the owner's second sentence: "I want it to show in notes if
+    they are attached to or referenced in/by a document, note, whiteboard, or
+    mindmap."
+
+    **Two kinds of pointing, and they are found two different ways.** A board
+    or a map carries a note as a real row (`WhiteboardNode.entry_id`), so that
+    half is a join and is exact. A document or another note carries it as
+    text, either a `[[wiki link]]` or a bare mention of its label, so that
+    half is the same LIKE-then-verify scan `routes_documents._backlinks`
+    runs, and it says which of the two it found because "it links to this"
+    and "it happens to say these words" are different facts about a note.
+
+    A note with no label to be named by (an image-only note, a note that
+    starts with a heading marker and nothing else) still gets its board rows:
+    a card on a board is a reference whether or not the note has a name.
+    """
+    from memorymap.entry.manager import plain_label
+
+    rows: list[dict] = []
+
+    #: **The boards first**, because they are exact and because a note that
+    #: is on a board is on it whatever it says.
+    boards = session.execute(
+        select(WhiteboardNode.board_id, Entry)
+        .join(Entry, Entry.id == WhiteboardNode.board_id)
+        .where(
+            WhiteboardNode.entry_id == entry.id,
+            Entry.is_deleted.is_(False),
+        )
+        .limit(REFERENCE_ROWS_MAX)
+    ).all()
+    seen_boards: set[int] = set()
+    for board_id, board in boards:
+        if board_id is None or board_id in seen_boards:
+            continue
+        seen_boards.add(board_id)
+        #: `board_settings` says whether this is a whiteboard or a mind map,
+        #: and the owner asked for both by name, so the row says which.
+        kind = "board"
+        try:
+            parsed = json.loads(board.board_settings or "{}")
+            if isinstance(parsed, dict) and parsed.get("type") == "map":
+                kind = "map"
+        except (TypeError, ValueError):
+            pass
+        rows.append({
+            "kind": kind,
+            "id": board_id,
+            "label": plain_label(board.content, 60) or ("Untitled map" if kind == "map" else "Untitled board"),
+            "how": "on it",
+        })
+
+    label = plain_label(entry.content, 60).strip()
+    if not label:
+        return rows[:REFERENCE_ROWS_MAX]
+
+    like = f"%{like_escape(label)}%"
+    wiki = f"[[{label}]]".casefold()
+    candidates: list[tuple[str, int, str, str]] = []
+    for document in session.scalars(
+        select(Document)
+        .where(
+            Document.archived_at.is_(None),
+            Document.content.ilike(like, escape=LIKE_ESCAPE),
+        )
+        .order_by(Document.updated_at.desc(), Document.id.desc())
+        .limit(REFERENCE_SOURCES_MAX)
+    ):
+        candidates.append(("document", document.id, document.title or "Untitled", document.content or ""))
+    for other in session.scalars(
+        select(Entry)
+        .where(
+            Entry.id != entry.id,
+            Entry.is_deleted.is_(False),
+            #: A private note is encrypted at rest, so its content could not
+            #: match the LIKE anyway; the filter is here so that stays true
+            #: by decision rather than by side effect. The same sentence
+            #: `routes_documents._backlinks` carries, for the same reason.
+            Entry.is_private.is_(False),
+            Entry.content.ilike(like, escape=LIKE_ESCAPE),
+        )
+        .order_by(Entry.id.desc())
+        .limit(REFERENCE_SOURCES_MAX)
+    ):
+        candidates.append(("note", other.id, plain_label(other.content, 60) or "Untitled note", other.content or ""))
+
+    for kind, source_id, source_label, content in candidates:
+        rows.append({
+            "kind": kind,
+            "id": source_id,
+            "label": source_label,
+            #: A link is a decision someone made; a mention is a coincidence
+            #: until they make it. Saying which is what stops this row being
+            #: a list of every note that happens to share a word.
+            "how": "links to it" if wiki in (content or "").casefold() else "mentions it",
+        })
+
+    #: Links before mentions, so the rows someone chose come first, and the
+    #: boards before both because they are exact.
+    rows.sort(key=lambda row: {"on it": 0, "links to it": 1, "mentions it": 2}[row["how"]])
+    return rows[:REFERENCE_ROWS_MAX]
+
+
+@router.get("/{entry_id}/references")
+def entry_references(entry_id: int, session: Session = Depends(get_session)) -> dict:
+    """What points at this note, from anywhere in the notebook."""
+    entry = _existing_entry(session, entry_id)
+    items = _reference_rows(session, entry)
+    return {"items": items, "total": len(items)}
 
 
 @router.get("/{entry_id}/history")

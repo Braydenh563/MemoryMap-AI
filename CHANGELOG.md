@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A note can show the notes you have forgotten that are closest to it.
+  "Forgotten notes like this" sits in its menu beside "Similar notes", and
+  answers a different question: not what means the same as this, but what
+  you have not looked at in a long time that bears on it. The ranking was
+  built and had no way in.
+
 - A note can be put on a whiteboard or a mind map from its own menu. "Add to
   a board or map" sits beside "Add to a document" and does the same thing on
   the other kind of surface: the note becomes a card on the board, where you
@@ -73,6 +79,10 @@ below). Versioning is `0.x` while the app stabilises.
   wants this, and the Settings page had never asked.
 
 ### Fixed
+
+- The resurfacing ranking no longer fails when it is asked for the notes near
+  a particular one. It read the embedding column by the wrong name, in a loop
+  nothing had ever entered.
 
 - The Windows launchers are checked out with CRLF again. cmd.exe seeks a
   batch label by byte offset and its scanner expects CRLF, so in an LF-only

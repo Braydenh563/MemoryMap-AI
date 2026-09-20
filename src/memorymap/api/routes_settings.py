@@ -124,6 +124,16 @@ class SkillItem(BaseModel):
     steps: list[str] = Field(default_factory=list, max_length=skills.MAX_STEPS)
     tools: list[str] = Field(default_factory=list, max_length=skills.MAX_TOOLS)
     inputs: list[SkillInput] = Field(default_factory=list, max_length=skills.MAX_INPUTS)
+    #: **The postcondition** (CHAT_PLAN decision 10b). Measured 2026-09-20,
+    #: while building the editor's own control for it: a skill saved through
+    #: Settings arrived here with its block and left without one, because a
+    #: field this model does not declare is dropped before `normalise` ever
+    #: sees it. So "the editor round-trips it" was true of the stored shape
+    #: and not of the wire. Left as a loose dict on purpose: the rules are
+    #: `skills.verify_spec`'s, which is the one place that knows the
+    #: predicates and answers in a sentence the person can act on, and a
+    #: second model here would be a second set of rules to drift from it.
+    verify: dict | None = None
     # Pre-rebuild flag the UI still reads; derived on save from steps/tools.
     useTools: bool = False  # noqa: N815  # the stored key, kept for old skills
 

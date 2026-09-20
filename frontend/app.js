@@ -23702,6 +23702,7 @@ function startEditingSkill(skill) {
   $("skill-steps").value = stepsToText(skill.steps);
   $("skill-inputs").value = inputsToText(skill.inputs);
   renderSkillToolPicker(skill.tools || []);
+  renderSkillVerifyPicker(skill.verify || null);
   $("skill-add").textContent = "Save changes";
   $("skill-cancel").classList.remove("hidden");
   $("skill-status").textContent = `Editing “${skill.name}”…`;
@@ -23714,6 +23715,7 @@ function stopEditingSkill() {
     $(id).value = "";
   }
   renderSkillToolPicker([]);
+  setSkillVerify(null);
   $("skill-add").textContent = "Add skill";
   $("skill-cancel").classList.add("hidden");
   $("skill-status").textContent = "";
@@ -23747,6 +23749,77 @@ function chosenSkillTools() {
   const box = $("skill-tool-list");
   if (!box) return [];
   return [...box.querySelectorAll("input:checked")].map((input) => input.value);
+}
+
+//: **The skill's postcondition, in the editor** (CHAT_PLAN decision 10b).
+//: `skills.normalise` has read and written a `verify` block since the harness
+//: landed and nothing offered one, so only the shipped skills could say what
+//: "it worked" means for them. The tool list comes from the server's own
+//: catalog (`counts: true`) rather than a list written here, for the same
+//: reason the tool picker does: a name typed into the frontend is a name that
+//: drifts.
+async function renderSkillVerifyPicker(block) {
+  const select = $("skill-verify-tool");
+  if (!select) return;
+  const catalog = await apiJson("/chat/tools").catch(() => []);
+  const counting = catalog.filter((tool) => tool.counts);
+  select.replaceChildren();
+  const none = document.createElement("option");
+  none.value = "";
+  none.textContent = "nothing (no check)";
+  select.appendChild(none);
+  for (const tool of counting) {
+    const option = document.createElement("option");
+    option.value = tool.name;
+    option.textContent = tool.name;
+    option.title = tool.description;
+    select.appendChild(option);
+  }
+  setSkillVerify(block);
+}
+
+function setSkillVerify(block) {
+  const spec = block || {};
+  const expect = spec.expect || {};
+  const [predicate, value] = Object.entries(expect)[0] || ["unchanged", true];
+  $("skill-verify-tool").value = spec.tool || "";
+  $("skill-verify-expect").value = predicate;
+  $("skill-verify-value").value = predicate === "unchanged" ? 0 : Number(value) || 0;
+  $("skill-verify-untagged").checked = Boolean((spec.args || {}).untagged);
+  syncSkillVerifyRow();
+}
+
+//: The number is meaningless beside "unchanged", and a disabled control that
+//: still shows a value reads as a setting that is being ignored, so it is
+//: hidden rather than greyed. The same reasoning as the run dialog's own
+//: optional rows.
+function syncSkillVerifyRow() {
+  const predicate = $("skill-verify-expect").value;
+  $("skill-verify-value").classList.toggle("hidden", predicate === "unchanged");
+}
+
+//: The block the editor sends, or null. Built here rather than assembled in
+//: `addSkill` so the shape has one home: the server validates it again
+//: (`skills.verify_spec`) and its complaint is what the status line shows.
+function chosenSkillVerify() {
+  const tool = $("skill-verify-tool").value;
+  if (!tool) return null;
+  const predicate = $("skill-verify-expect").value;
+  const block = {
+    tool,
+    expect: {
+      [predicate]: predicate === "unchanged" ? true : Number($("skill-verify-value").value) || 0,
+    },
+  };
+  if ($("skill-verify-untagged").checked) {
+    block.args = { untagged: true };
+    //: `count_notes` answers a filtered question in `count` and an unfiltered
+    //: one in `total`, and the verifier tries `total` first, so a filtered
+    //: block that did not name its field would read the number it is
+    //: filtering away from.
+    block.field = "count";
+  }
+  return block;
 }
 
 // Run a skill. The server owns what a skill is, so this sends its name and
@@ -24339,6 +24412,7 @@ async function renderSkillSettings() {
   list.replaceChildren();
   for (const skill of allSkills()) list.appendChild(skillRow(skill));
   if (!$("skill-tool-list").children.length) renderSkillToolPicker([]);
+  if (!$("skill-verify-tool").children.length) renderSkillVerifyPicker(null);
 }
 
 async function addSkill() {
@@ -24355,6 +24429,7 @@ async function addSkill() {
   const custom = customSkills().filter(
     (s) => s.name !== name && s.name !== editingSkillName
   );
+  const verify = chosenSkillVerify();
   custom.push({
     name,
     prompt: promptText,
@@ -24362,6 +24437,7 @@ async function addSkill() {
     steps: textToSteps($("skill-steps").value),
     tools: chosenSkillTools(),
     inputs: textToInputs($("skill-inputs").value),
+    ...(verify ? { verify } : {}),
   });
   const wasEditing = editingSkillName;
   try {
@@ -29425,14 +29501,33 @@ function shortDate(iso) {
 //: fortnight everything happened in are visible at a glance and one drag away.
 //: It is the only SVG left in the tab, and it is one path.
 //:
-//: **It hides under 200 notes**, which the plan asked to be measured rather
-//: than assumed (section 7: "it may read as noise and should hide below a
-//: threshold measured then"). Measured on the 48-note seed: 40 buckets over 40
-//: days, every slot one note tall, which is a strip of identical marks saying
-//: nothing that the headers do not say better. The threshold is on the range's
-//: own size, not on what is loaded, so it does not appear halfway down a
-//: notebook that was always big enough.
-const TIMELINE_SCRUBBER_MIN = 200;
+//: **It hides when the shape it would draw says nothing**, which the plan
+//: asked to be measured rather than assumed (section 7: "it may read as noise
+//: and should hide below a threshold measured then"). It hid under 200 notes
+//: until 2026-09-20, and the measurement
+//: (`scratchpad/ui-sweeps/timelinedensity.js`, over a 2,000-note seed sliced
+//: into every size from 25 notes up, in both of the two shapes a notebook
+//: comes in) says a count is the wrong variable: it admits a notebook the
+//: strip cannot draw and hides one it can.
+//:
+//: - **A young notebook**, everything written in the last few weeks. The span
+//:   is the range, so 200 notes over 18 days fill 18 of the 120 slots and the
+//:   other 102 are empty: a comb of 18 teeth, which is the same complaint the
+//:   48-note seed earned, at the size that passed. 86% of the strip is either
+//:   empty or at the peak.
+//: - **An old, sparse notebook**, a few notes a month for years. 150 notes
+//:   fill 103 slots with a peak of 5, and that reads as a profile: 16% at an
+//:   extreme. The count rule hid it.
+//:
+//: So the test is on the drawn shape: enough slots carry something that the
+//: strip is not a comb, and the peak is deep enough that the bars differ at
+//: all (with a peak of 1 to 3 every bar is full, a third or two thirds, which
+//: is a bar code). Measured values: a fifth of the slots, and a peak of four.
+//: Both are read off the density of the **whole range**, not off what is
+//: loaded, so the strip does not appear halfway down a notebook that was
+//: always big enough.
+const TIMELINE_SCRUBBER_MIN_SLOTS = 24;
+const TIMELINE_SCRUBBER_MIN_PEAK = 4;
 const TIMELINE_SCRUBBER_SLOTS = 120;
 const TIMELINE_SCRUBBER_HEIGHT = 1000; // the viewBox's own units
 
@@ -29456,24 +29551,31 @@ function timelineDensitySpan() {
 
 function drawTimelineScrubber() {
   const strip = $("timeline-scrubber");
-  const total = Object.values(timelineDensity).reduce((sum, n) => sum + n, 0);
   const span = timelineDensitySpan();
-  const show = total >= TIMELINE_SCRUBBER_MIN && span !== null;
-  strip.classList.toggle("hidden", !show);
-  if (!show) return;
-
   // One slot per band of time, filled with everything written inside it: the
   // strip is a shape, not a list of days, and 120 slots is about one per 8
   // pixels of a full-height strip.
   const slots = new Array(TIMELINE_SCRUBBER_SLOTS).fill(0);
-  for (const [day, count] of Object.entries(timelineDensity)) {
-    const at = new Date(`${day}T00:00:00`).getTime();
-    if (Number.isNaN(at)) continue;
-    const fraction = (span.newest - at) / span.width;
-    const slot = Math.min(TIMELINE_SCRUBBER_SLOTS - 1, Math.max(0, Math.round(fraction * (TIMELINE_SCRUBBER_SLOTS - 1))));
-    slots[slot] += count;
+  if (span) {
+    for (const [day, count] of Object.entries(timelineDensity)) {
+      const at = new Date(`${day}T00:00:00`).getTime();
+      if (Number.isNaN(at)) continue;
+      const fraction = (span.newest - at) / span.width;
+      const slot = Math.min(TIMELINE_SCRUBBER_SLOTS - 1, Math.max(0, Math.round(fraction * (TIMELINE_SCRUBBER_SLOTS - 1))));
+      slots[slot] += count;
+    }
   }
   const peak = Math.max(...slots, 1);
+  //: The shape decides, not the count: see the constants above. The slotting
+  //: has to run first to ask the question at all, which is cheap (120 numbers
+  //: over the days in range) and is the work this function was going to do
+  //: anyway on every notebook large enough to draw.
+  const show =
+    span !== null &&
+    slots.filter((count) => count > 0).length >= TIMELINE_SCRUBBER_MIN_SLOTS &&
+    peak >= TIMELINE_SCRUBBER_MIN_PEAK;
+  strip.classList.toggle("hidden", !show);
+  if (!show) return;
   const step = TIMELINE_SCRUBBER_HEIGHT / TIMELINE_SCRUBBER_SLOTS;
   // A step chart drawn from the strip's right edge, closed along it, so the
   // shape reads as a profile of the writing rather than as a line drawing.
@@ -29733,7 +29835,10 @@ function timelineTableRow(row) {
   tr.appendChild(category);
 
   const space = document.createElement("td");
-  space.className = "timeline-col-wide";
+  //: Its own class as well as the wide one: the tablet band hides this column
+  //: and the two number columns (`06-timeline-dialogs.css`), and the head cell
+  //: carries the same pair.
+  space.className = "timeline-col-wide timeline-col-space";
   space.textContent = row.space || "";
   tr.appendChild(space);
 
@@ -40812,6 +40917,7 @@ renderStatusBar();
 $("persona-add").addEventListener("click", addPersona);
 $("skill-add").addEventListener("click", addSkill);
 $("skill-cancel").addEventListener("click", stopEditingSkill);
+$("skill-verify-expect").addEventListener("change", syncSkillVerifyRow);
 $("graph-refresh").addEventListener("click", () => {
   graphHighlightIds = null; // a refresh clears any "similar notes" spotlight
   renderGraph();

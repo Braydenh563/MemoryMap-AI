@@ -30898,3 +30898,236 @@ told to open first.
     moved aside) failing on the pre-fix scripts, then repairing itself and
     serving a real request on the fix; `tests/test_release_smoke_step.py`
     gates the installer shortcut and `--reinstall`'s wiring.
+
+## Moved from the plans, 2026-09-20
+
+Blocks the plans carried as open work and no longer do (CLAUDE.md standing
+order 10). Origin file named on each.
+
+### From CHAT_PLAN.md
+
+### Built, Phase 1's open half: which note grounds a sentence, 2026-09-20
+
+The half that was blocked. OPEN.md recorded it as "blocked on Brief 12's eval
+fixtures", and that was right: decision 2 asks for BM25 over passages to pick
+the note as well as the span, at "a threshold calibrated on the eval fixtures
+(Brief 12)", and `ai/grounding.py::_mark` carried a comment saying it would
+not re-decide what counts as supported without the set that says whether it
+got better. So the set was written first.
+
+**The set.** `tests/fixtures/chat/grounding_cases.json`, sixteen cases (Brief
+12 asked for ten). Each is a question, the notes retrieval would have handed
+the answer, an answer written the way a model paraphrases rather than by
+copying a note's sentence, and the notes each of its sentences came from.
+Five sentences across three cases come from nothing and must carry no mark:
+two unanswerable questions, and one where the answer volunteers general
+knowledge (what to use instead of buttermilk) beside a fact from the recipe
+note. `passage_contains` names a substring the highlighted span has to hold,
+so the hover highlight is scored and not just the note id. The answers are
+hand written: no model produced them and none of this is a claim about a real
+model (CLAUDE.md section 4). What it scores is the attribution step, which is
+the part that is ours.
+
+**Measured, before.** 17 of 18 supported sentences cited to exactly the right
+note or notes (94.4%), under the plan's own 95% gate; 0 false marks on the 5
+unsupported sentences; 16 of 16 passage spans correct. The single miss is
+worth writing down because it is the shape the word-overlap rules get wrong:
+the claim "your rent rises to 1,150 in March, and you have until the eighth
+of February to give notice in writing" comes from the landlord's letter, and
+the distinctive-terms rule cited the flat-hunting note beside it as well,
+because "give" and "notice" occur in that note only, in a paragraph about
+what an agent said about notice periods. Two words scattered through a note
+that never says the thing.
+
+**What changed.** `_note_passage_scores` in `ai/grounding.py` scores every
+candidate note's best passage against the sentence with BM25 over **the
+candidate set's** passages pooled, rather than each note's own. That
+distinction is the whole of it: counting document frequency inside one note
+and then comparing the numbers across notes compares scores computed against
+different populations, so the longer note wins for being longer, and a word
+every candidate shares ("sourdough", when both notes are about sourdough)
+would carry the choice. `best_passage` still counts within the note, because
+between two paragraphs of one note that same shared word is exactly what
+tells them apart; the two now share one `_bm25` helper and differ only in the
+population they are handed. The passage score orders the notes that clear the
+word rules, and a second mark has to score at least `PASSAGE_SECOND_RATIO`
+(0.75) of the first.
+
+**Calibrated, not guessed.** The sentence that is genuinely about two notes (a
+dentist and a car service on the same day) scores 4.12 and 3.85, a ratio of
+0.93. The wrong second mark scores 6.02 and 3.32, a ratio of 0.55. 0.75 sits
+between them with about 0.18 either way, and it is a ratio rather than an
+absolute score because the score moves with the candidate set's size and the
+sentence's length. The absolute separation is recorded here for whoever tunes
+it next: on this set a correct mark scores 1.85 and up, a wrong one 1.07 and
+down.
+
+**Measured, after.** 18 of 18 (100%), 0 false marks, 16 of 16 spans.
+`tests/test_grounding.py`'s 18 unit cases and `test_ask_answer_object.py` are
+unchanged and green, so nothing the earlier rules were tuned for moved.
+
+**What the support rule deliberately did not become.** Decision 2's words are
+"a sentence is supported when its best score clears a threshold", which reads
+as replacing the word rules with a passage threshold. It was not done, and
+the reason is a measurement rather than a preference: on this set the word
+rules miss nothing a lexical scorer can reach and produce no false mark, so a
+second support rule had nothing to add, and 16 hand-written cases are not the
+population to re-decide "supported" on. What the passage score decides is
+which note, which is the open half OPEN.md named.
+
+**The one case out of reach, on purpose.** "The venue is reserved and the
+deposit is settled" is the booking note said twice over in different words,
+sharing no content word with it. No lexical scorer reaches that, and it is
+marked `reach: embeddings` in the fixture and asserted as silence rather than
+gated: decision 2's other half is cosine over the passage window, and every
+embedding backend in this sandbox is the four-dimensional fake, so gating on
+it would gate on nothing.
+
+**Files.** `src/memorymap/ai/grounding.py`,
+`tests/fixtures/chat/grounding_cases.json`,
+`tests/test_grounding_fixtures.py` (23 tests).
+
+### Built, Phase 4's harness items: a skill can say what "it worked" means, 2026-09-20
+
+Four of the five things `brief-13-harness.md` left open. The fifth (the
+`evals` marker) is still blocked on WORLD_CLASS_PLAN 9's dev model and is
+left in CHAT_PLAN Phase 4 with the reason.
+
+**`count_notes` takes the filters `list_notes` takes** (item 3). `untagged`
+and `since`, out of one `_scope_filters` helper both call, so a count and a
+list can never disagree about what "untagged" means: a postcondition that
+counted them differently from the tool that found them would pass runs that
+left work undone. The three shapes of "no tags" (`NULL`, `""`, `"[]"`) are
+the helper's, where they were already right, rather than a second copy.
+
+**A `verify` block may carry arguments** (CHAT_PLAN decision 10g). Decision
+10b's shape could only ask a tool its unfiltered question, so the skill that
+writes the most had the weakest check in the set. "Auto-tag my notes" now
+declares `count_notes(untagged) max 0`, the first postcondition on a shipped
+skill that writes. Scalars only, at most four (`MAX_VERIFY_ARGS`), validated
+at save time by `skills._verify_args`; the runner still refuses any tool in
+`WRITE_TOOLS`, so an argument can narrow a reading and can never change the
+notebook. The verification line says the scope it read
+(`count_notes(untagged).count came back 12`), because that and
+`count_notes came back 12` are different claims.
+
+**The two audit skills that had no check now have one** (item 3's other
+half). "Audit link reasons" and "Find where I disagreed with myself" declare
+`count_notes` and verify `unchanged`, the same pair the other three audit
+skills carry. That is a real widening of what those runs may call, which is
+why it had been left: one read-only counting tool on the wire, stated in
+`tests/test_skills.py`'s allowlist test rather than left to be rediscovered.
+
+**The editor offers it** (item 2). A fold under the tools picker in Settings
+→ Skills, on the same recipe: one line of description, the longer answer
+behind the '?'. A tool select (fed from the catalog's new `counts` flag, so
+the list is the server's and not a list typed into the frontend), a predicate
+select, a number that hides beside "unchanged" because a number that is being
+ignored reads as a setting that is broken, and a checkbox for "only the notes
+with no tags". `save_skill` gained the same four as flat arguments
+(`verify_tool`, `verify_expect`, `verify_value`, `verify_untagged`), flat
+because a 3B model writing a skill gets a three-field shape right far more
+often than a shape inside a shape.
+
+**A bug the browser found and no Python test could have.** A skill saved from
+Settings arrived at the server with its block and was stored without one:
+`SkillItem` in `routes_settings.py` did not declare the field, and pydantic
+drops what a model does not name. The save reported success. So "the editor
+round-trips it" was true of the stored shape and false of the wire, and the
+sweep is what said so. `tests/test_skills.py` now pins the round trip both
+ways (kept, and refused with the same sentence `save_skill` gives when the
+skill does not declare the tool it verifies with).
+
+**Measured.** `scratchpad/ui-sweeps/skillverify.js`, 12 of 12 checks: the
+three controls at 36px each, the row inside its section (0px past the edge),
+the tool list exactly `count_notes` and `list_notes`, the number hidden
+beside "unchanged" and shown beside "at most", the block whole in
+`/preferences` after a save, the same values painted back on edit, and the
+skill removed again so the gate's own notebook is unchanged. It is in
+`scripts/gate.sh`'s sweep list. `contrast.js` green on all seventeen
+settings panes, `errors.js` 0 errors at 1440, 1024 and 820.
+
+**The page cap** (item 4) is now CHAT_PLAN decision 10h: it stays at six
+pages of twenty-five, and the answer to a large notebook is a narrower read,
+which is what the filters above are for.
+
+**Files.** `src/memorymap/ai/tools/__init__.py`, `src/memorymap/ai/skills.py`,
+`src/memorymap/ai/skill_runner.py`, `src/memorymap/api/routes_settings.py`,
+`frontend/index.html`, `frontend/app.js`, `scripts/gate.sh`,
+`scratchpad/ui-sweeps/skillverify.js`, and the tests in
+`tests/test_harness_verifier.py`, `tests/test_agent_tools_api.py`,
+`tests/test_ai_reach.py`, `tests/test_skills.py`.
+
+### From TIMELINE_PLAN.md
+
+### Built, section 7's two measurements, and what they changed, 2026-09-20
+
+Both were "not verified until built" since the plan was written, and both
+turned out to be describing a bug rather than a question of taste. Measured
+over `seed-timeline-bulk.py`'s 2,000 notes across three years, in Chromium at
+DPR 1.
+
+**The density strip hid on the wrong variable.** It hid under 200 notes in
+range, a floor found on the 48-note seed.
+`scratchpad/ui-sweeps/timelinedensity.js` runs the app's own slotting over
+that seed sliced to every size from 25 notes up, in the two shapes a notebook
+comes in: newest-first (a young notebook, a narrow span) and spread across the
+years (an old, sparse one). The count admits what it should hide and hides
+what it should show:
+
+| notes | shape | days | slots used of 120 | peak | at an extreme |
+| --- | --- | --- | --- | --- | --- |
+| 48 | newest | 3 | 3 | 27 | 98% |
+| 150 | spread | 140 | 103 | 5 | 16% |
+| 200 | newest | 18 | 18 | 27 | 86% |
+| 200 | spread | 178 | 110 | 8 | 9% |
+| 500 | newest | 83 | 83 | 27 | 32% |
+
+200 notes over 18 days is a comb of 18 teeth in a strip of 120 slots, which is
+the same complaint the 48-note seed earned, at the size that passed. 150 notes
+over 300 days is a profile, and the count rule hid it. So the test is now on
+the shape the strip would draw: at least a fifth of the slots carry something
+(not a comb) and the peak is at least four (with a peak of one to three every
+bar is full, a third or two thirds, which is a bar code rather than a
+profile). `TIMELINE_SCRUBBER_MIN` is replaced by
+`TIMELINE_SCRUBBER_MIN_SLOTS` (24) and `TIMELINE_SCRUBBER_MIN_PEAK` (4), both
+read off the density of the whole range, so the strip still cannot appear
+halfway down a notebook that was always big enough. Asserted live in the
+probe: the seeded notebook draws (3,111 characters of path), a 200-over-18-day
+map hides, a 150-over-300-day map draws.
+
+**The table at 820 had no title column.** `timelinetable.js` measures 1440 and
+390, the wide columns hide below 600, and nobody had looked in between.
+`scratchpad/ui-sweeps/timelinetable820.js` measures five widths, and what it
+found is not a question of taste:
+
+| width | columns | title column | titles cut off | sideways scroll |
+| --- | --- | --- | --- | --- |
+| 1440 | 8 | 496px | 0 of 300 | 0px |
+| 1024 | 8 | 87px | 300 of 300 | 0px |
+| 820 | 7 | **0px** | n/a, it is not drawn | **112px** |
+| 700 | 7 | **0px** | n/a | **222px** |
+| 600 | 2 | 412px | 0 of 300 | 0px |
+
+The table is `table-layout: fixed` and every column but the title has a width
+in rems, so the title takes what is left, and between 600 and about 1000 there
+is nothing left: the row's own identity is the column that disappears, and the
+table overflows anyway. Three columns now give way between 600 and 1024 (the
+space, which is one space in most notebooks and is named in the header
+already, and the two numbers, which are what you sort by rather than read),
+and the tags as well below 820, the app's own band edge, because 528px of
+fixed columns in a 594px box leaves the title 66px, the same failure one
+column along. After: 375px at 1024, 176px at 820 (22 of 300 titles cut off),
+242px at 700, and no horizontal scroll at any of the five widths.
+`timelinetable.js` still passes whole at 1440 and 390, including its eight
+sort round-trips and the bulk action.
+
+Two classes were added to carry the rule (`timeline-col-space`,
+`timeline-col-tags` on the head cell, which had it on the body cell only:
+hiding one without the other is what made the first re-measurement report a
+row and head of different lengths).
+
+**Files.** `frontend/app.js`, `frontend/index.html`,
+`frontend/css/06-timeline-dialogs.css`,
+`scratchpad/ui-sweeps/timelinedensity.js`,
+`scratchpad/ui-sweeps/timelinetable820.js`.

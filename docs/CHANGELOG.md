@@ -626,6 +626,37 @@ below). Versioning is `0.x` while the app stabilises.
 - With no model connected the writing desk says so in a line you can act on,
   with the button that connects one, rather than only in a tooltip on a
   button that cannot be pressed.
+- The Timeline's table keeps its title column on a tablet. Between 600 and
+  1024 pixels wide the fixed columns took everything and the title, the one
+  thing that says which note a row is, was squeezed to nothing and the table
+  scrolled sideways. The space and the two counts now give way at that width,
+  and the tags below 820.
+
+- The Timeline's density strip appears when it has a shape to draw rather than
+  when the notebook passes a note count. It used to hide a real profile (a
+  hundred and fifty notes spread over ten months) and show a row of identical
+  marks (two hundred notes written in a fortnight).
+
+- A skill can say what "it worked" means, and the app checks it. Settings →
+  Skills has a "Check it worked" row: pick a counting tool, what the number
+  should be afterwards, and whether to count only the notes with no tags. The
+  built-in "Auto-tag my notes" now claims what it actually promises, that no
+  note is left untagged, and the two audit skills that could not be checked at
+  all now report that they changed nothing. A skill saved from Settings used to
+  lose its check on the way to the server without saying so.
+
+- Counting your notes can be narrowed the way listing them always could:
+  `count_notes` takes "untagged" and a time window, so a skill can ask the
+  notebook a smaller question instead of paging through all of it.
+
+- A citation names the note a sentence actually came from. Which note is now
+  decided by the best passage in the answer's own candidate set rather than by
+  how many words the note shares with the sentence, so a long note that carries
+  a claim's words spread through paragraphs about other things no longer earns a
+  second mark beside the note that says the thing. Measured on sixteen fixture
+  questions (`tests/fixtures/chat/grounding_cases.json`): 18 of 18 sentences
+  cited to the right note, up from 17 of 18, with no mark at all on a sentence
+  the notes do not support.
 
 ## [0.3.1] - 2026-09-14
 

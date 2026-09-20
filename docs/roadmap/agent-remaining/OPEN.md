@@ -30,8 +30,8 @@ then the plan tails by surface, then the horizon.
 | GRAPH_PLAN | Phase 5 (positions saved on views, the `?since=` cursor); Phase 6's node panel redesign; the local pane's Show switches; 6b the minimap. |
 | WHITEBOARD_PLAN | Decision 7's other half; the phone context bar comparison; sketch handles at zoom; the arrange panel items. |
 | MINDMAP_PLAN | The mapux agent's leftover list (this file's Mind map section). |
-| CHAT_PLAN | Phase 1's other half, which note grounds a sentence (blocked on Brief 12's eval fixtures); Phase 4's harness items. |
-| TIMELINE_PLAN | Section 7's two measurements. |
+| CHAT_PLAN | ~~Phase 1's other half, which note grounds a sentence~~ built 2026-09-20 (the fixtures exist, 18 of 18 attributed, was 17 of 18); Phase 1's fourth gate line, the low-support "I don't know" state, is still open and is written up in the plan; Phase 4's harness items. |
+| TIMELINE_PLAN | ~~Section 7's two measurements~~ taken 2026-09-20, and both found a bug: the density strip hid on a note count (it hid a profile of 150 notes and showed a comb of 200) and the table drew no title column at all between 600 and 1024. Both fixed and re-measured. Section 7's third line, the "auto" scale thresholds, wants a real notebook and is left. |
 | AGENT_SKILLS_REFORM | Phase D verified against a real model, which needs WORLD_CLASS_PLAN section 9's dev-only runner first. |
 
 **C. The horizon (WORLD_CLASS_PLAN, one item per PR, in its own stated order)**
@@ -275,13 +275,16 @@ being written by running agents stay beside this one.
 
 ## Chat and popup agent
 
-- **CHAT_PLAN Phase 1: which note grounds a sentence.** `grounding.best_passage`
-  chooses where inside a note with BM25, and the renderer is built; decision 2
-  also asks which note, at "a threshold calibrated on the eval fixtures (Brief
-  12)", and those fixtures do not exist. Next steps in order: the ten-question
-  fixture set, then the threshold. Changing what counts as supported without
-  them would be a judgement dressed as a measurement.
-  [chat-timeline-skills.md, chat-popup-agent.md]
+- **CHAT_PLAN Phase 1: which note grounds a sentence. Built 2026-09-20.** The
+  fixture set is `tests/fixtures/chat/grounding_cases.json` (sixteen cases,
+  scored by `tests/test_grounding_fixtures.py`); the note is chosen by BM25
+  over the candidate set's pooled passages, and the second-mark ratio is
+  calibrated on the set. 18 of 18 supported sentences attributed, up from 17 of
+  18; 0 false marks on 5 unsupported sentences; 16 of 16 passage spans. The
+  account is in HISTORY.md, "Moved from the plans, 2026-09-20". Still open:
+  Phase 1's fourth gate line (the "I don't know" state when fewer than half an
+  answer's sentences are supported), written up in CHAT_PLAN Phase 1 with its
+  next steps. [chat-timeline-skills.md, chat-popup-agent.md]
 - **Ask's answer object was measured on the offline branch only.** The sweep
   runs against a server with no model, so `sentences` was empty in every
   measurement and the grounding chips and inline marks under an Ask answer
@@ -306,27 +309,22 @@ being written by running agents stay beside this one.
   `tests/test_skill_evals.py`, marker `evals` registered in `pyproject.toml`
   and the module skipped unless the dev model is reachable. Next step:
   WORLD_CLASS_PLAN 9's runner first. [brief-13-harness.md]
-- **Nothing in the app reads a skill's `verify` block except
-  `skills.normalise`.** The saved-skill editor and `save_skill` round-trip it,
-  neither offers a control. Files: `frontend/index.html` (the skill editor),
-  `frontend/app.js` (`renderSkillEditor`),
-  `src/memorymap/ai/tools/__init__.py` (`save_skill`'s schema). Next step: one
-  row in the editor, tool select plus predicate select plus a number, and the
-  same three fields on the schema. [brief-13-harness.md]
-- **Two built-ins still have no `verify` block that they could have.** "Audit
-  link reasons" declares only `audit_link_reasons`, "Find where I disagreed
-  with myself" only `find_contradictions` and `link_notes`, so neither can
-  verify with `count_notes` without widening its allowlist; the write skills
-  want a shape `count_notes` cannot express ("Auto-tag my notes" wants
-  `count_notes(untagged) max 0`). Files: `src/memorymap/ai/skills.py`,
-  `_AUDIT_SKILLS`; `src/memorymap/ai/tools/__init__.py`, `_count_notes`. Next
-  step: give `count_notes` the filters `list_notes` already takes.
-  [brief-13-harness.md]
-- **The page cap and a large notebook.** `MAX_PAGES_PER_STEP` is 6 and
-  `MAX_LIST_LIMIT` is 25, so one step sees at most 150 notes and "Find loose
-  ends" over a thousand notes reports seeing a sixth of them. Raising the cap
-  trades one wrong answer for another. Next step: decide it in CHAT_PLAN
-  rather than in the constant; the right answer is probably a filtered read.
+- **A skill's `verify` block: offered, checkable and scoped. Built
+  2026-09-20.** The editor has a "Check it worked" fold (tool, predicate,
+  number, and "only the notes with no tags"), `save_skill` has the same four
+  as flat arguments, `count_notes` takes `untagged` and `since` out of the
+  same helper `list_notes` uses, a block may carry arguments (CHAT_PLAN
+  decision 10g) and "Auto-tag my notes" declares
+  `count_notes(untagged) max 0`. The two audit skills that had no check now
+  declare `count_notes` and verify `unchanged`. Found on the way: a skill
+  saved from Settings lost its block on the wire, because `SkillItem` did not
+  declare the field. Measured by `scratchpad/ui-sweeps/skillverify.js`, 12 of
+  12, now in the gate's sweep list. The account is in HISTORY.md, "Moved from
+  the plans, 2026-09-20". [brief-13-harness.md]
+- **The page cap and a large notebook: decided 2026-09-20**, CHAT_PLAN
+  decision 10h. Six pages of twenty-five stays; the answer to a large notebook
+  is a narrower read, which the new `count_notes`/`list_notes` filters make
+  expressible. The honest `truncated` report is unchanged.
   [brief-13-harness.md]
 - **The agent panel does not close on Escape.** Every other floating surface
   does. Not added because it is a behaviour change on a non-modal panel that
@@ -490,14 +488,23 @@ being written by running agents stay beside this one.
   instead of posting to `/entries`, which fixes the duplicate it makes today;
   then `Ctrl+D`, then the strip and the yesterday and tomorrow pair.
   [chat-timeline-skills.md]
-- **The strip's threshold is a floor found on a fixture.** It hides under 200
-  notes in range, chosen by measuring the 48-note seed (forty slots, each one
-  note tall, saying nothing the headers do not). TIMELINE_PLAN section 7 asks
-  for it to be tuned on a real notebook. [timeline-phases.md]
-- **The table at 820 has never been looked at.** `timelinetable.js` measures
-  1440 and 390 only; the wide columns hide below 600px, so 820 shows all
-  eight, and nobody has judged whether eight columns at 820 are readable or
-  merely present. [timeline-phases.md]
+- **The strip's threshold: measured and replaced, 2026-09-20.** A note count
+  is the wrong variable (it showed a comb of 200 notes over 18 days and hid a
+  profile of 150 over 300 days); the test is now on the shape the strip would
+  draw, a fifth of its slots carrying something and a peak of at least four.
+  `scratchpad/ui-sweeps/timelinedensity.js`. [timeline-phases.md]
+- **The table at 820: measured, and it was broken, 2026-09-20.** Not "eight
+  columns, readable or merely present": seven columns and no title column at
+  all, 0px wide, with 112px of sideways scroll (222px at 700). Three columns
+  now give way between 600 and 1024 and the tags as well below 820; the title
+  is 375px at 1024, 176px at 820 and 242px at 700.
+  `scratchpad/ui-sweeps/timelinetable820.js`. [timeline-phases.md]
+- **The "auto" scale thresholds are still a first guess** (TIMELINE_PLAN
+  section 7's third line; day under 60 notes in range, week under 400). Left
+  deliberately on 2026-09-20 with the other two: what decides whether a day
+  bucket reads well is how much a person writes in a day, and a seed is a
+  shape rather than a notebook. Next step: the same probe against a restored
+  backup or the owner's own notebook. [timeline-phases.md]
 - **The band label sits over the cards scrolled under it.** Visible in
   `docs/screenshots/timeline.png`: the sticky left column ("Uncategorised 12")
   is translucent, so the cards of the columns scrolled behind it show through
@@ -678,6 +685,14 @@ being written by running agents stay beside this one.
   The next head that wants a control beside its title should take family 8
   rather than inventing a fourth arrangement, which is what the lint is there
   to insist on. [ask-head-ocr.md]
+
+- **Settings → Extras scrolls sideways by 4px at 820** (`errors.js`,
+  2026-09-20: `section scrolls sideways 496>492`, the only finding in the
+  three widths it walks). Pre-existing by inspection, found while sweeping the
+  skills pane next door; nothing in the extras markup was touched this
+  session. Next step: measure which child of `#settings-extras` is 496 wide at
+  that width before changing anything, since a section that overflows by four
+  pixels is usually one row's padding rather than the section.
 
 ## Settings and help
 

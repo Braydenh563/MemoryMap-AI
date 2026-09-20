@@ -226,7 +226,12 @@ def _reading(session: Session, block: dict) -> tuple[int | None, str]:
     if name in tools.WRITE_TOOLS:
         return None, f"{name} changes things, so it cannot check anything"
     try:
-        result = tools.execute_tool(session, name, {})
+        #: The block's own arguments, which are a *scope* and nothing else
+        #: (`skills._verify_args`): "how many untagged notes are there" rather
+        #: than "how many notes are there". They only ever narrow a reading, so
+        #: the paragraph above still holds: a verifier cannot change what it
+        #: checks.
+        result = tools.execute_tool(session, name, dict(block.get("args") or {}))
     except Exception as exc:  # noqa: BLE001  # a broken check must not break the run
         logger.warning("couldn't run the verifier tool %s", name, exc_info=True)
         return None, f"{name} could not be run ({exc})"
@@ -270,7 +275,17 @@ def verify(
         for name, want in block["expect"].items()
         if not PREDICATES[name](got, want, before)
     ]
-    where = f"{block['tool']}{'.' + block['field'] if block.get('field') else ''}"
+    #: The scope goes in the line the user reads, because "count_notes came
+    #: back 12" and "count_notes(untagged) came back 12" are different claims
+    #: and only one of them is what this skill promised.
+    scope = ", ".join(
+        name if value is True else f"{name}={value}"
+        for name, value in (block.get("args") or {}).items()
+    )
+    where = (
+        f"{block['tool']}{f'({scope})' if scope else ''}"
+        f"{'.' + block['field'] if block.get('field') else ''}"
+    )
     if failures:
         wanted = ", ".join(f"{name} {block['expect'][name]}" for name in failures)
         return Verification(

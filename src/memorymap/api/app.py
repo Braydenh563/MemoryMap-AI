@@ -10,6 +10,7 @@ core/security.py, which runs alongside the CSP from the same module.
 
 from __future__ import annotations
 
+import errno
 import logging
 import os
 import sys
@@ -421,8 +422,66 @@ def _register_error_handlers(app: FastAPI) -> None:
             headers=getattr(exc, "headers", None),
         )
 
+    #: **Out of space is the one failure the person can actually fix, so it
+    #: says so.** Measured before this: with the store unable to take another
+    #: page, `POST /entries` raised `sqlite3.OperationalError: database or
+    #: disk is full` straight out of the route, and the handler below turned
+    #: it into `{"detail": "Internal error"}` with a reference number. For a
+    #: notebook whose whole promise is that your writing is safe on your own
+    #: machine, "Internal error" after pressing save is the worst answer
+    #: available: the text is still in the editor, nothing says why it would
+    #: not save, and nothing suggests what to do. Reading kept working
+    #: throughout, which is worth saying on the way past, because it means
+    #: the notebook is intact and this is recoverable.
+    #:
+    #: Two shapes, one cause. SQLite answers `SQLITE_FULL` as an
+    #: `OperationalError` whose message is "database or disk is full"; an
+    #: upload, an export or a log write answers `OSError` with `ENOSPC`. Both
+    #: mean the same thing to the person and get the same sentence.
+    #:
+    #: 507, which is what "Insufficient Storage" is for, rather than the 500
+    #: this used to be: it is the status a client can branch on, and the
+    #: frontend's error toast already shows `detail`.
+    #:
+    #: Deliberately narrow. `OperationalError` also covers a locked database
+    #: and a missing table, and neither is this; matching the message is
+    #: uglier than an error code and is what the driver actually gives us,
+    #: since `sqlite3` exposes no stable constant for it.
+    def _is_out_of_space(exc: BaseException) -> bool:
+        seen = set()
+        while exc is not None and id(exc) not in seen:
+            seen.add(id(exc))
+            if isinstance(exc, OSError) and exc.errno == errno.ENOSPC:
+                return True
+            if "database or disk is full" in str(exc).lower():
+                return True
+            exc = exc.__cause__ or exc.__context__
+        return False
+
+    @app.exception_handler(OSError)
+    async def _os_error_handler(request, exc: OSError) -> JSONResponse:  # noqa: ANN001
+        if not _is_out_of_space(exc):
+            return await _unhandled_exception_handler(request, exc)
+        return _out_of_space_response(exc)
+
+    def _out_of_space_response(exc: BaseException) -> JSONResponse:
+        error_logger.error("out of disk space", exc_info=exc)
+        return JSONResponse(
+            status_code=507,
+            content={
+                "detail": "This computer has run out of disk space, so that could not be saved.",
+                "code": "out_of_space",
+                "hint": (
+                    "Free some space and try again. Nothing already in your "
+                    "notebook has been lost, and you can still read and export it."
+                ),
+            },
+        )
+
     @app.exception_handler(Exception)
     async def _unhandled_exception_handler(_request, exc: Exception) -> JSONResponse:
+        if _is_out_of_space(exc):
+            return _out_of_space_response(exc)
         # A fresh id per failure, logged next to the real traceback and
         # handed back to the user, "it broke" with no ref is unreportable;
         # this ref is the thing a bug report can actually be filed against.

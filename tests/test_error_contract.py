@@ -110,3 +110,67 @@ def test_a_dict_detail_lets_a_route_set_its_own_code_and_hint(app_state, tmp_pat
     assert body["detail"] == "That name is taken"
     assert body["code"] == "name_conflict"
     assert body["hint"] == "Try another"
+
+
+def test_a_full_disk_says_so_instead_of_internal_error(app_state, tmp_path, monkeypatch):
+    """The one failure the person can fix themselves, so it tells them.
+
+    Measured before this existed: with the store unable to take another page,
+    `POST /entries` raised `sqlite3.OperationalError: database or disk is
+    full` out of the route and the catch-all above turned it into
+    `{"detail": "Internal error"}` with a reference number. For a notebook
+    whose whole promise is that your writing is safe on your own machine,
+    that is the worst available answer to pressing save: the text is still in
+    the editor, nothing says why it would not save, and nothing says what to
+    do. Reading kept working, which is the part worth telling them.
+
+    Both shapes, because both mean the same thing to a person: SQLite answers
+    `SQLITE_FULL` as an `OperationalError` reading "database or disk is
+    full", while an upload, an export or a log write answers `OSError` with
+    `ENOSPC`.
+    """
+    import errno
+    import sqlite3
+
+    from sqlalchemy.exc import OperationalError
+
+    def _sqlite_full() -> None:
+        raise OperationalError(
+            "INSERT INTO entries ...",
+            {},
+            sqlite3.OperationalError("database or disk is full"),
+        )
+
+    def _no_space() -> None:
+        raise OSError(errno.ENOSPC, "No space left on device", "/notes/upload.png")
+
+    #: Something that is an OSError but is *not* about space, so the narrow
+    #: matching is checked rather than assumed: a handler that answered 507
+    #: for every OSError would be worse than the 500 it replaced.
+    def _other_os_error() -> None:
+        raise OSError(errno.EACCES, "Permission denied", "/notes/locked")
+
+    app = _app_without_frontend_mount(tmp_path, monkeypatch)
+    app.add_api_route("/__test_sqlite_full__", _sqlite_full, methods=["GET"])
+    app.add_api_route("/__test_no_space__", _no_space, methods=["GET"])
+    app.add_api_route("/__test_other_os_error__", _other_os_error, methods=["GET"])
+    test_client = TestClient(app, raise_server_exceptions=False)
+
+    for path in ("/__test_sqlite_full__", "/__test_no_space__"):
+        response = test_client.get(path)
+        assert response.status_code == 507, f"{path} answered {response.status_code}"
+        body = response.json()
+        assert body["code"] == "out_of_space"
+        assert "disk space" in body["detail"]
+        #: The sentence has to carry the reassurance as well as the fault:
+        #: "it broke" and "it broke and your notes are fine" are different
+        #: messages to someone who has just failed to save something.
+        assert "lost" in body["hint"]
+        #: And no driver text: the person is told what happened, not what
+        #: SQLAlchemy called it.
+        assert "OperationalError" not in response.text
+        assert "INSERT INTO" not in response.text
+
+    other = test_client.get("/__test_other_os_error__")
+    assert other.status_code == 500, "only running out of space is out of space"
+    assert other.json()["code"] == "internal"

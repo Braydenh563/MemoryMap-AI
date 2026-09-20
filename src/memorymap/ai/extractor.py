@@ -44,6 +44,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from memorymap.ai import janitor, librarian
+from memorymap.ai import offline
 from memorymap.ai.embeddings import EmbeddingService, cosine_similarity
 from memorymap.ai.links import _clean_reason, _is_vague_reason
 from memorymap.ai.model_manager import ModelManager
@@ -96,6 +97,16 @@ SPLIT_SYSTEM_PROMPT = (
     '"the note text"}, ...]}'
 )
 
+#: See `drafter.offline_message` and `ai/offline.py`: the way out depends on
+#: whether Ollama is installed at all, which a constant cannot know.
+def offline_message() -> str:
+    return offline.offline_message(
+        "The AI isn't running, so this couldn't be split or linked, it's "
+        "shown as one plain note below."
+    )
+
+
+#: Kept for anything still importing the name.
 OFFLINE_MESSAGE = (
     "The AI isn't running, so this couldn't be split or linked, it's shown "
     "as one plain note below. Start Ollama and try again for a real split."
@@ -300,7 +311,7 @@ def build_extraction(
     message = ""
     if not ollama_running:
         notes = [ExtractedNote(title="", content=text)]
-        message = OFFLINE_MESSAGE
+        message = offline_message()
     else:
         try:
             notes = propose_split(text, model_manager, ollama)

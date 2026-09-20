@@ -197,6 +197,25 @@ with its owner named in the entry.
     than fixed: it is the one route in the app that rewrites every private
     note, and a button for it wants its own session.
 
+264. **Mid-work drop, 2026-09-20, verbatim (the owner).** "can you also make
+    more sub-menus in the documents meatball button dropdown or smth because
+    it is still almost off the bottom of the screen."
+    A screenshot of the open menu, fourteen rows deep, its last row level
+    with the status bar.
+    **Fixed** (`4e93458`): two more groups, "Editor and layout" and "While
+    you write", taken from the groupings the markup's own comments already
+    argued for. 562px and 14 rows to 346px and 8, measured at four window
+    sizes; it had been running 32px past the bottom at 1024x720 and now
+    clears it by 184px. A live bug fell out of it: a row inside *any* of
+    these flyouts had stopped closing the menu since the downloads were
+    folded, because `buildMenuGroupButton` reparents the panel to `<body>`
+    and the click never bubbles through the group the listener was on.
+
+265. **Mid-work drop, 2026-09-20, verbatim (the owner).** "also can you fix
+    the highlighter in the quick sketch?? it doesnt act as it should and
+    looks messy"
+    Open.
+
 ## Placed (last 20, newest first)
 
 - 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.

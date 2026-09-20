@@ -507,6 +507,77 @@
     </div>
   </div>
 
+
+  <!-- **Find anything**: one search over the whole notebook, and over the app
+       itself. INBOX 270, the owner: "this is a search for any and all content,
+       items, text, files everything. a full application wide semantic search
+       which shows content as well as features and actions etc. absolutely
+       everything and what shows can be filtered, sorted and toggled."
+
+       The engine for this already existed and nothing called it. `/search`
+       (routes_search.py over search/engine.py) ranks notes, documents, boards,
+       files, bookmarks and reminders together, keyword and meaning at once,
+       and says per hit why it is a hit. The only thing in the whole frontend
+       that read anything under `/search` was Settings, asking for a count.
+       So this is a front door onto a built engine, not a second search.
+
+       Same dialog recipe as the agent palette two blocks up: a `.lock-overlay`
+       holding a `.card.glass`, a head that names the surface and carries the
+       way out, Escape and a backdrop press. The filters are `.seg.seg-multi`'s
+       sibling shape, chips, because a kind here is a filter you take off
+       rather than one of a fixed set you must choose between. -->
+  <div id="finder-overlay" class="lock-overlay finder-overlay hidden"
+    role="dialog" aria-modal="true" aria-label="Find anything">
+    <div class="card glass finder-card">
+      <div class="row space-between finder-head">
+        <div class="row help-head">
+          <h3>Find anything</h3>
+          <button type="button" class="icon-only ghost small graph-help-toggle"
+            data-help-for="finder-help" aria-controls="finder-help"
+            aria-expanded="false" title="How this searches"
+            aria-label="How this searches">
+            <i class="ph ph-question" aria-hidden="true"></i>
+          </button>
+        </div>
+        <button type="button" id="finder-close" class="ghost small icon-only"
+          aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+      </div>
+      <div class="help-body hidden" id="finder-help" role="dialog" aria-label="How this searches">
+        <p>
+          Every kind of thing you keep here is searched at once, by the words
+          you typed and by what they mean, so a note that says the same thing
+          in different words still comes back. Each result says which of the
+          two found it.
+        </p>
+        <p>
+          Operators work: <code>tag:recipes</code>, <code>kind:document</code>,
+          <code>before:2026-01</code>, <code>has:image</code>, a
+          <code>"quoted phrase"</code>, and <code>-word</code> to leave
+          something out.
+        </p>
+      </div>
+      <div class="finder-bar">
+        <span class="finder-icon"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></span>
+        <input type="search" id="finder-input" class="finder-input"
+          placeholder="Search your notes, documents, files, boards and the app"
+          aria-label="Search everything" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="finder-filters" id="finder-filters" role="group" aria-label="Filter by kind"></div>
+      <div class="row space-between finder-sortrow">
+        <span id="finder-summary" class="muted text-sm" role="status"></span>
+        <label class="row align-center finder-sort">
+          <span class="muted text-sm">Sort</span>
+          <select id="finder-sort" class="ghost small" aria-label="Sort results">
+            <option value="best">Best match</option>
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
+        </label>
+      </div>
+      <div id="finder-results" class="finder-results" role="listbox"
+        aria-label="Results"></div>
+    </div>
+  </div>
   <!-- Agent Activity: a list of runs, not a log (AGENT_SKILLS_REFORM.md,
        Phase C). Reported as "they just spawn in and its a bunch of text dump
        in your face", it was a live tail of every `memorymap.*` log record,
@@ -741,6 +812,24 @@
         <span id="dash-clock-date" class="dash-clock-date"></span>
       </div>
     </section>
+    <!-- **The first thing on the page is a way to find anything** (INBOX 270,
+         the owner: "the user needs to be able to view and access what they
+         want within around 3 clicks and they need to know how to instantly
+         access what they want after loading the app"). It is the same search
+         as Ctrl+P and the status bar's Find, one engine and one result list;
+         this is the doorway for somebody who has never pressed a shortcut.
+
+         A button styled as a field rather than a real input, because typing
+         here has to land in the dialog that shows the results: a second live
+         input on the page would be a second search to keep in step with the
+         first, which is exactly how the Notes filter and the Library filter
+         came to disagree. The first keystroke is carried into the dialog, so
+         it reads as a field to use and behaves as one. -->
+    <button type="button" id="dash-find" class="dash-find" aria-haspopup="dialog">
+      <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+      <span class="dash-find-text">Search your notes, documents, files and the app</span>
+      <span class="dash-find-keys" aria-hidden="true"></span>
+    </button>
     <!-- One-tap shortcuts to the things people do most -->
     <div class="dash-quicklinks" id="dash-quicklinks" role="group"
       aria-label="Quick actions"></div>
@@ -751,6 +840,29 @@
       <span class="muted hidden" id="dash-hint">Drag to rearrange · ＋Add / <i class="ph ph-x ph-lead" aria-hidden="true"></i>Remove widgets · ▭Wide makes a full-width section, your layout is remembered.</span>
       <span id="dash-hint-spacer"></span>
       <div class="dash-toolbar-actions">
+        <!-- **How much of the page is chrome** (INBOX 270, the owner: "is
+             there a way to declutter the dashboard a bit or spread things
+             out a bit?? idk it looks good but a lot is happening on it.
+             maybe something like the feed layout options with msn on
+             microsoft bing??"). Measured from their screenshot: above the
+             widget grid sat five Start something tiles, four Jump to pills,
+             three skill chips, four stat tiles and a sparkline, six bands
+             before a single widget was visible.
+
+             A `.seg` because it is three exclusive choices, which is the
+             recipe for exactly that (docs/DESIGN.md). Nothing is deleted by
+             any of them: a layout choice that removes a feature is a feature
+             somebody cannot find again, so Compact folds and Focused hides,
+             and Full is still one press away. -->
+        <div class="seg dash-density" id="dash-density" role="group"
+          aria-label="How much to show">
+          <button type="button" data-density="full" aria-pressed="true"
+            title="Everything, at full size">Full</button>
+          <button type="button" data-density="compact" aria-pressed="false"
+            title="The same things, folded smaller">Compact</button>
+          <button type="button" data-density="focused" aria-pressed="false"
+            title="Search and your widgets, nothing else">Focused</button>
+        </div>
         <button id="dash-widgets-open" class="ghost small"><i class="ph ph-squares-four ph-lead" aria-hidden="true"></i> Widgets</button>
         <button id="dash-edit" class="ghost small">Edit layout</button>
       </div>
@@ -5986,6 +6098,11 @@
          reason the Guide kept being reported as hard to find. Its own slot
          key so it can be hidden on its own from Settings. -->
     <button id="status-guide" class="status-item" type="button" data-status-slot="guide"></button>
+    <!-- Find anything, beside the pair above and for the same reason (INBOX
+         270). A search nobody can see is a search nobody uses, and this one
+         was worse than invisible: the engine behind it had no doorway at all.
+         Its own slot key so it can be hidden on its own from Settings. -->
+    <button id="status-find" class="status-item" type="button" data-status-slot="find"></button>
     <!-- Off by default, unlike the STATUS_SLOTS group above (app.js): a
          clock is not one of the bar's existing permanent landmarks, so it
          does not appear for everyone the moment this shipped. Asked for

@@ -1021,6 +1021,59 @@ function launchGroup(label, className) {
   return { group, row };
 }
 
+//: **How much of the dashboard is chrome, as the reader's choice.**
+//:
+//: INBOX 270, the owner: *"is there a way to declutter the dashboard a bit or
+//: spread things out a bit?? idk it looks good but a lot is happening on it.
+//: maybe something like the feed layout options with msn on microsoft bing??"*
+//:
+//: Measured from their screenshot at 1440 wide: five Start something tiles,
+//: four Jump to pills, three skill chips, four stat tiles and a sparkline, and
+//: then the "Your dashboard" heading. Six bands of chrome above the first
+//: widget, which is the thing the page is named after.
+//:
+//: Three densities rather than a slider, the shape MSN's Feed layout uses and
+//: the shape a person can hold in their head: Full is what shipped, Compact
+//: folds the same things smaller, Focused shows the search and the widgets and
+//: puts the rest one press away. **Nothing is deleted by any of them**: a
+//: layout choice that removes a feature is a feature somebody cannot find
+//: again, and this app has been told before what that costs.
+//:
+//: Per device, in `localStorage`, beside the layout itself rather than in
+//: preferences: which density suits this screen is a fact about this screen.
+const DASH_DENSITIES = ["full", "compact", "focused"];
+const DASH_DENSITY_KEY = "dash-density";
+
+function dashDensity() {
+  const saved = localStorage.getItem(DASH_DENSITY_KEY);
+  return DASH_DENSITIES.includes(saved) ? saved : "full";
+}
+
+function applyDashDensity(value) {
+  const density = DASH_DENSITIES.includes(value) ? value : "full";
+  localStorage.setItem(DASH_DENSITY_KEY, density);
+  const page = document.getElementById("tab-dashboard");
+  //: A data attribute on the page, and every rule keyed off it in CSS. The
+  //: alternative, adding and removing classes on six elements from here, is
+  //: how one of them ends up in the wrong state after a render that rebuilt
+  //: it: the attribute survives, a class on a replaced node does not.
+  if (page) page.dataset.density = density;
+  for (const button of document.querySelectorAll("#dash-density [data-density]")) {
+    button.setAttribute("aria-pressed", String(button.dataset.density === density));
+  }
+}
+
+function wireDashDensity() {
+  const seg = document.getElementById("dash-density");
+  if (!seg || seg._wired) return;
+  seg._wired = true;
+  seg.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-density]");
+    if (button) applyDashDensity(button.dataset.density);
+  });
+  applyDashDensity(dashDensity());
+}
+
 function renderQuickLinks() {
   const box = $("dash-quicklinks");
   if (!box) return;
@@ -1491,6 +1544,11 @@ async function renderDashboard() {
   renderDashboardGreeting();
   renderDashStats().catch(() => {});
   renderQuickLinks();
+  //: After the quick links, because Compact and Focused are about them; on
+  //: every render rather than once at boot, so a density chosen on another
+  //: device and synced, or one set before this grid existed, is applied to
+  //: what is actually on screen now.
+  wireDashDensity();
   const grid = $("dash-grid");
   grid.replaceChildren();
   $("dash-hint").classList.toggle("hidden", !dashEditMode); // hint only in edit mode

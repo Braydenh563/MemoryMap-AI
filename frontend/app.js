@@ -34370,6 +34370,25 @@ function renderStatusBar() {
   //: things to your notes and the other explains the app. A compass rather
   //: than the header's '?', because a '?' beside a labelled word reads as
   //: help about the word.
+  //: Find anything, one along again. A magnifying glass rather than a word
+  //: alone, because the bar's other two are glyph-plus-word and a lone word
+  //: here would read as a label for the Guide beside it.
+  const find = $("status-find");
+  if (find) {
+    find.replaceChildren();
+    const glyph = document.createElement("i");
+    glyph.className = "ph ph-magnifying-glass";
+    glyph.setAttribute("aria-hidden", "true");
+    const word = document.createElement("span");
+    word.textContent = "Find";
+    find.append(glyph, word);
+    //: Built the same way the agent's hint two controls up is, and for the
+    //: same reason it records: `STATUS_META_KEY` is the whole hint, so
+    //: appending to it names no shortcut at all.
+    const findMeta = STATUS_META_KEY.startsWith("\u2318") ? "\u2318" : "Ctrl";
+    find.title = `Search everything you keep, and the app itself (${findMeta}+P)`;
+  }
+
   const guide = $("status-guide");
   if (guide) {
     guide.replaceChildren();
@@ -39442,6 +39461,28 @@ $("status-guide")?.addEventListener("click", () => {
   if (typeof openHelpChat === "function") openHelpChat();
 });
 
+$("status-find")?.addEventListener("click", () => openFinder());
+
+//: The dashboard's own doorway to the same dialog. `keydown` as well as
+//: `click`, so a person who starts typing at it is not told to press it
+//: first: the letter they typed opens the dialog and is the first letter of
+//: the query, which is what a field would have done.
+const dashFind = $("dash-find");
+if (dashFind) {
+  dashFind.addEventListener("click", () => openFinder());
+  dashFind.addEventListener("keydown", (event) => {
+    if (event.key.length !== 1 || event.ctrlKey || event.metaKey || event.altKey) return;
+    event.preventDefault();
+    openFinder(event.key);
+    //: Opened with the letter already in it, so `openFinder`'s own `select()`
+    //: would highlight it and the next keystroke would replace it.
+    const input = document.getElementById("finder-input");
+    if (input) input.setSelectionRange(input.value.length, input.value.length);
+  });
+  const keysHint = dashFind.querySelector(".dash-find-keys");
+  if (keysHint) keysHint.textContent = STATUS_META_KEY.startsWith("\u2318") ? "\u2318P" : "Ctrl P";
+}
+
 // Paint it before any poll lands, so the bar is furniture from the first frame
 // rather than four boxes that pop into existence a second later.
 renderStatusBar();
@@ -41497,6 +41538,14 @@ const DEFAULT_SHORTCUTS = {
   //: "the keyboard shortcut is listed in the shortcuts sheet": the sheet is
   //: built from this table, so listing it and declaring it are one act).
   askAtlas: { keys: "Ctrl+Shift+H", label: "Ask Atlas about the app" },
+  //: **The universal search.** In the registry, not bound loose, for the
+  //: reason `askAgent` above records at length: a chord in a listener of its
+  //: own is invisible to `test_frontend_shortcuts.py` and to the shortcuts
+  //: sheet, which is how two surfaces came to share one chord twice. Ctrl+P
+  //: rather than Ctrl+K (the navigation palette) or Ctrl+F (find on this
+  //: page): it is the chord every editor uses for "go to anything", and it
+  //: was free.
+  findAnything: { keys: "Ctrl+P", label: "Find anything: notes, files, actions" },
   whiteboard: { keys: "Ctrl+Shift+B", label: "Open the whiteboard" },
   settings: { keys: "Ctrl+,", label: "Open settings" },
   attachNote: { keys: "Ctrl+Shift+P", label: "Clip a note to your next question" },
@@ -41778,6 +41827,11 @@ function runShortcut(id) {
     palette: () => {
       if ($("palette-overlay").classList.contains("hidden")) openPalette();
       else closePalette();
+    },
+    findAnything: () => {
+      const overlay = document.getElementById("finder-overlay");
+      if (overlay && overlay.classList.contains("hidden")) openFinder();
+      else closeFinder();
     },
     search: () => {
       if (localStorage.getItem("activeTab") === "chat") {
@@ -42915,6 +42969,14 @@ const STATUS_SLOTS = [
     key: "guide",
     label: "Guide",
     hint: "Ask the guide how this app works, from any tab",
+  },
+  //: Added with INBOX 270. A slot added later appears by default for
+  //: everyone, which is what storing the hidden set rather than the shown one
+  //: buys (the note above).
+  {
+    key: "find",
+    label: "Find anything",
+    hint: "Search your notes, documents, files and the app itself",
   },
 ];
 
@@ -45591,3 +45653,391 @@ $("notif-mark-all-read")?.addEventListener("click", () => {
   openNotifications();
   toast("All notifications marked as read.");
 });
+
+// --- Find anything ------------------------------------------------------------
+//
+//: **One search over everything you keep, and over the app itself.**
+//:
+//: INBOX 270, the owner: *"this is a search for any and all content, items,
+//: text, files everything. a full application wide semantic search which shows
+//: content as well as features and actions etc. absolutely everything and what
+//: shows can be filtered, sorted and toggled."*
+//:
+//: The engine was already here and nothing called it. `/search`
+//: (routes_search.py over `search/engine.py`) ranks notes, documents, boards,
+//: files, bookmarks and reminders in one list, keyword and meaning together,
+//: with three scores, a plain-English explanation per hit and a count per kind
+//: so an empty result can say whether nothing matched or nothing of that kind
+//: is indexed. Measured against a live server before any of this was written:
+//: a three-note, one-document notebook answers `?q=sourdough` with all four,
+//: correctly ranked. The only reader of anything under `/search` in the whole
+//: frontend was Settings, asking for a number.
+//:
+//: So this file is a front door, not a second search. What it adds on top of
+//: the route is the half the route cannot have: the app's own actions. A
+//: person looking for "dark mode" or "tensions" is searching, and a search
+//: that answers only with documents sends them to the settings tree to hunt.
+//: `paletteCommands()` is the existing list, so a command added there appears
+//: here without anyone remembering this exists.
+
+//: One icon per kind, the same glyph that kind wears everywhere else, plus
+//: "action", which is this surface's own and is not a kind the index knows.
+const FINDER_KINDS = [
+  { key: "note", icon: "ph:note-pencil", one: "note", many: "notes" },
+  { key: "document", icon: "ph:file-text", one: "document", many: "documents" },
+  { key: "board", icon: "ph:squares-four", one: "board", many: "boards" },
+  { key: "file", icon: "ph:paperclip", one: "file", many: "files" },
+  { key: "bookmark", icon: "ph:bookmark-simple", one: "link", many: "links" },
+  { key: "reminder", icon: "ph:alarm", one: "reminder", many: "reminders" },
+  { key: "action", icon: "ph:lightning", one: "action", many: "actions" },
+];
+
+let finderKind = "";       // "" is everything
+let finderQuery = "";
+let finderHits = [];
+let finderCounts = {};
+let finderTimer = null;
+let finderRun = 0;         // so a slow answer cannot paint over a newer one
+let finderActive = -1;     // which row the keyboard is on
+let finderOpener = null;   // what to give focus back to
+
+//: What pressing a result does, per kind. A row whose kind has no opener is
+//: still drawn: knowing the thing exists and where it lives is most of the
+//: answer, and a control that does nothing when pressed is the one thing worse
+//: than no control, so those rows are not buttons.
+//: Through the Library's own `openLibraryItem` wherever a kind is one of its
+//: rows, rather than a second set of "how do I open a board" rules. That
+//: function already knows a board opens its board and not the empty note the
+//: board is stored in, which is exactly the mistake a fresh copy would make.
+const FINDER_OPEN = {
+  note: (hit) => { switchTab("notes"); flashEntry(hit.id); },
+  document: (hit) => { switchTab("documents"); openDocument(hit.id); },
+  board: (hit) => openLibraryItem({ kind: "board", id: hit.id }),
+  file: (hit) => flashLibraryItem("file", hit.id),
+  bookmark: (hit) => flashLibraryItem("link", hit.id),
+  reminder: () => switchTab("reminders"),
+};
+
+function finderOverlay() { return document.getElementById("finder-overlay"); }
+
+//: The app's own actions, matched here rather than sent to the server: they
+//: are not in the index, they change with the tab you are on, and matching a
+//: dozen labels in the browser is cheaper than a round trip.
+function finderActions(query) {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length || typeof paletteCommands !== "function") return [];
+  const out = [];
+  for (const command of paletteCommands()) {
+    const label = String(command.label || "").replace(/^ph:[\w-]+\s*/, "");
+    const hay = label.toLowerCase();
+    if (!words.every((word) => hay.includes(word))) continue;
+    out.push({
+      kind: "action",
+      id: label,
+      title: label,
+      snippet: "",
+      explain: ["an action in the app"],
+      //: Ranked just under a real content hit on purpose: someone typing
+      //: "sourdough" wants their notes, and someone typing "zoom in" gets no
+      //: content hits at all, so the ordering only matters in the case where
+      //: content exists and should win.
+      score: 0.5,
+      written: "",
+      run: command.run,
+    });
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+
+async function finderSearch() {
+  const run = ++finderRun;
+  const query = finderQuery.trim();
+  const results = document.getElementById("finder-results");
+  const summary = document.getElementById("finder-summary");
+  if (!results) return;
+  if (!query) {
+    finderHits = [];
+    finderCounts = {};
+    finderRenderEmpty();
+    return;
+  }
+  summary.textContent = "Searching…";
+  //: `kind` is passed to the route, not filtered here, so a filtered search
+  //: gets a *full page* of that kind rather than whatever survived a page of
+  //: everything. Actions are filtered here because the route has never heard
+  //: of them.
+  const kindParam = finderKind && finderKind !== "action" ? `&kind=${finderKind}` : "";
+  const body = await apiJson(
+    `/search?q=${encodeURIComponent(query)}${kindParam}&limit=30`,
+    { silent: true }
+  ).catch(() => null);
+  if (run !== finderRun) return; // a newer keystroke owns the screen now
+  if (!body) {
+    finderHits = [];
+    finderCounts = {};
+    results.replaceChildren();
+    surfaceFailed(results, "results", finderSearch);
+    return;
+  }
+  surfaceRecovered(results);
+  finderCounts = body.counts || {};
+  const actions = finderKind && finderKind !== "action" ? [] : finderActions(query);
+  const hits = finderKind === "action" ? [] : body.hits || [];
+  finderHits = [...hits, ...actions];
+  finderRender();
+}
+
+//: Sorting is done here rather than asked of the route because two of the
+//: three orders are about the answer set on screen, and one of them ("best
+//: match") is the order the route already returned. Re-querying to reverse a
+//: list would be a round trip to rearrange thirty rows.
+function finderSorted() {
+  const rows = [...finderHits];
+  const sort = document.getElementById("finder-sort")?.value || "best";
+  if (sort === "best") return rows.sort((a, b) => (b.score || 0) - (a.score || 0));
+  const dir = sort === "newest" ? -1 : 1;
+  return rows.sort((a, b) => {
+    //: An action has no date, and an undated row sorted as the empty string
+    //: would bunch every one of them at one end of a date sort. They keep
+    //: their relative order and go last either way.
+    if (!a.written && !b.written) return 0;
+    if (!a.written) return 1;
+    if (!b.written) return -1;
+    return a.written < b.written ? dir : a.written > b.written ? -dir : 0;
+  });
+}
+
+function finderRenderEmpty() {
+  const results = document.getElementById("finder-results");
+  const summary = document.getElementById("finder-summary");
+  if (summary) summary.textContent = "";
+  if (!results) return;
+  results.replaceChildren();
+  const box = document.createElement("div");
+  box.className = "empty-state";
+  const icon = document.createElement("i");
+  icon.className = "ph ph-magnifying-glass empty-icon";
+  icon.setAttribute("aria-hidden", "true");
+  const title = document.createElement("p");
+  title.className = "empty-title";
+  title.textContent = "Search everything you keep";
+  const body = document.createElement("p");
+  body.textContent =
+    "Notes, documents, boards, files, links and reminders at once, by your words and by what they mean. Type to begin.";
+  box.append(icon, title, body);
+  results.appendChild(box);
+  finderRenderFilters();
+}
+
+//: **Built once, updated in place.** Every search refreshes the counts, and a
+//: first version rebuilt the whole row to show them. Measured: the chip you
+//: had just pressed was replaced by a new node a moment later, so it reported
+//: itself unpressed to anything reading it, and a keyboard user lost focus to
+//: <body> on every filter change. The row is furniture; only its numbers and
+//: its pressed state change.
+function finderRenderFilters() {
+  const bar = document.getElementById("finder-filters");
+  if (!bar) return;
+  const wanted = [
+    { key: "", label: "Everything", count: null },
+    ...FINDER_KINDS.map((kind) => ({
+      key: kind.key,
+      label: kind.many.charAt(0).toUpperCase() + kind.many.slice(1),
+      //: A kind with nothing indexed still gets a chip, showing its own zero,
+      //: because "there are no files" is an answer and a missing chip is not.
+      //: Actions are counted by whatever the current query matches, so they
+      //: carry no number at all rather than a misleading one.
+      count: kind.key === "action" ? null : finderCounts[kind.key] ?? 0,
+    })),
+  ];
+  if (!bar.children.length) {
+    for (const row of wanted) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip finder-chip";
+      chip.dataset.kind = row.key;
+      chip.addEventListener("click", () => {
+        finderKind = finderKind === row.key ? "" : row.key;
+        finderSearch();
+      });
+      bar.appendChild(chip);
+    }
+  }
+  [...bar.children].forEach((chip, index) => {
+    const row = wanted[index];
+    if (!row) return;
+    chip.textContent = row.count == null ? row.label : `${row.label} ${row.count}`;
+    //: `aria-pressed`, not a class alone: this is a filter that is on or off
+    //: and a screen reader has to hear which. The class is painted from the
+    //: same fact rather than being the fact.
+    chip.setAttribute("aria-pressed", String(finderKind === row.key));
+    chip.classList.toggle("is-on", finderKind === row.key);
+  });
+}
+
+function finderRender() {
+  const results = document.getElementById("finder-results");
+  const summary = document.getElementById("finder-summary");
+  if (!results) return;
+  finderRenderFilters();
+  const rows = finderSorted();
+  results.replaceChildren();
+  finderActive = -1;
+  if (!rows.length) {
+    const box = document.createElement("div");
+    box.className = "empty-state";
+    const title = document.createElement("p");
+    title.className = "empty-title";
+    title.textContent = "Nothing matched";
+    const body = document.createElement("p");
+    //: Says *why* it is empty, which the counts make possible: nothing
+    //: matched and nothing of that kind exists yet are different answers and
+    //: a bare empty list renders them identically.
+    const indexed = Object.values(finderCounts).reduce((sum, n) => sum + (n || 0), 0);
+    body.textContent = indexed
+      ? "Try fewer words, or take a filter off."
+      : "Nothing is indexed yet. Save a note and it will appear here.";
+    box.append(title, body);
+    results.appendChild(box);
+    if (summary) summary.textContent = "";
+    return;
+  }
+  if (summary) {
+    summary.textContent = `${rows.length} result${rows.length === 1 ? "" : "s"}`;
+  }
+  const icons = Object.fromEntries(FINDER_KINDS.map((k) => [k.key, k.icon]));
+  rows.forEach((hit, index) => {
+    const open = hit.run || FINDER_OPEN[hit.kind];
+    const row = document.createElement(open ? "button" : "div");
+    if (open) row.type = "button";
+    row.className = "finder-row";
+    row.setAttribute("role", "option");
+    row.setAttribute("aria-selected", "false");
+    row.dataset.index = String(index);
+    const head = document.createElement("span");
+    head.className = "finder-row-head";
+    const title = document.createElement("span");
+    title.className = "finder-row-title";
+    //: `setNoteLabel`, not `setLabel`: a hit's title is the thing's own text
+    //: and can begin with anything, a `#` or a `1.` included, so it must not
+    //: go through the markdown renderer joined to an app-written icon token.
+    setNoteLabel(title, icons[hit.kind] || "ph:dot", hit.title || "(untitled)", 70);
+    head.appendChild(title);
+    if (hit.written) {
+      const when = document.createElement("span");
+      when.className = "finder-row-when muted text-xs";
+      when.textContent = hit.written;
+      head.appendChild(when);
+    }
+    row.appendChild(head);
+    if (hit.snippet && hit.snippet !== hit.title) {
+      const snippet = document.createElement("span");
+      snippet.className = "finder-row-snippet muted";
+      snippet.textContent = hit.snippet.slice(0, 160);
+      row.appendChild(snippet);
+    }
+    for (const reason of hit.explain || []) {
+      const why = document.createElement("span");
+      why.className = "chip finder-why";
+      why.textContent = reason;
+      row.appendChild(why);
+    }
+    if (open) {
+      row.addEventListener("click", () => {
+        closeFinder();
+        open(hit);
+      });
+    }
+    results.appendChild(row);
+  });
+}
+
+//: Up and down move a highlight rather than focus, so the input keeps the
+//: caret and you can keep typing: the shape every search field in the world
+//: has, and the reason this is a `listbox` with `aria-activedescendant`
+//: behaviour rather than a list of focusable buttons you tab through.
+function finderMove(step) {
+  const rows = [...document.querySelectorAll("#finder-results .finder-row")];
+  if (!rows.length) return;
+  if (finderActive >= 0 && rows[finderActive]) {
+    rows[finderActive].setAttribute("aria-selected", "false");
+    rows[finderActive].classList.remove("is-active");
+  }
+  finderActive = (finderActive + step + rows.length) % rows.length;
+  const row = rows[finderActive];
+  row.setAttribute("aria-selected", "true");
+  row.classList.add("is-active");
+  //: The list's own `scrollTop`, never `scrollIntoView`, which walks every
+  //: scrolling ancestor including the page (DESIGN.md, the recipe index).
+  const box = row.parentElement;
+  const top = row.offsetTop;
+  const bottom = top + row.offsetHeight;
+  if (top < box.scrollTop) box.scrollTop = top;
+  else if (bottom > box.scrollTop + box.clientHeight) box.scrollTop = bottom - box.clientHeight;
+}
+
+function openFinder(prefill = "") {
+  const overlay = finderOverlay();
+  if (!overlay) return;
+  finderOpener = document.activeElement;
+  overlay.classList.remove("hidden");
+  const input = document.getElementById("finder-input");
+  if (input) {
+    if (prefill) input.value = prefill;
+    finderQuery = input.value;
+    input.focus();
+    input.select();
+  }
+  if (finderQuery.trim()) finderSearch();
+  else finderRenderEmpty();
+}
+
+function closeFinder() {
+  const overlay = finderOverlay();
+  if (!overlay || overlay.classList.contains("hidden")) return;
+  overlay.classList.add("hidden");
+  //: Focus goes back where it came from. A dialog that drops focus on <body>
+  //: sends the next Tab to the top of the page, which is how a keyboard user
+  //: loses their place.
+  if (finderOpener && document.contains(finderOpener)) finderOpener.focus();
+  finderOpener = null;
+}
+
+function wireFinder() {
+  const overlay = finderOverlay();
+  const input = document.getElementById("finder-input");
+  if (!overlay || !input) return;
+  input.addEventListener("input", () => {
+    finderQuery = input.value;
+    clearTimeout(finderTimer);
+    //: Long enough that a typist does not fire a query per letter, short
+    //: enough that the list feels attached to the keyboard. The abort is the
+    //: `finderRun` counter rather than an AbortController because the route
+    //: is cheap and a cancelled fetch mid-index-read is not.
+    finderTimer = setTimeout(finderSearch, 180);
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowDown") { event.preventDefault(); finderMove(1); }
+    else if (event.key === "ArrowUp") { event.preventDefault(); finderMove(-1); }
+    else if (event.key === "Enter") {
+      const rows = [...document.querySelectorAll("#finder-results .finder-row")];
+      const row = rows[finderActive] || rows[0];
+      if (row) { event.preventDefault(); row.click(); }
+    }
+  });
+  document.getElementById("finder-sort")?.addEventListener("change", finderRender);
+  document.getElementById("finder-close")?.addEventListener("click", closeFinder);
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) closeFinder();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !overlay.classList.contains("hidden")) {
+      //: Captured before anything else can treat Escape as its own: this is
+      //: the topmost surface while it is open.
+      event.stopPropagation();
+      closeFinder();
+    }
+  }, true);
+}
+wireFinder();

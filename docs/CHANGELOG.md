@@ -9,6 +9,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- Find anything: one search over your notes, documents, boards, files, links
+  and reminders at once, by your words and by what they mean, alongside the
+  app's own actions. Every result says why it matched. It opens from a field
+  on the dashboard, from Find in the status bar, and on Ctrl+P. The engine
+  behind it already existed and nothing in the app had ever called it.
+
+- The dashboard has a density switch: full, compact or focused. Measured
+  above the widget grid, the three come to 610, 473 and 298 pixels of chrome.
+  Nothing is removed by any of them.
+
 - A note can show the notes you have forgotten that are closest to it.
   "Forgotten notes like this" sits in its menu beside "Similar notes", and
   answers a different question: not what means the same as this, but what

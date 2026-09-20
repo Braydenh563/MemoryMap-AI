@@ -11864,3 +11864,322 @@ header#top-bar {
   stroke-opacity: 0.2;
 }
 
+
+/* --- Find anything -----------------------------------------------------------
+   The universal search dialog (app.js, `openFinder`). INBOX 270. It shares the
+   agent palette's shape deliberately: the same `.lock-overlay` and `.card.glass`
+   recipe, the same `--card-pad-x` inset for every band, the same ceiling so the
+   card never runs past the bottom of the window. What differs is that the list
+   is the surface, so the list is the part that scrolls and everything above it
+   is fixed. */
+.finder-card {
+  width: 100%;
+  max-width: 44rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 12vh - var(--space-6));
+}
+
+.finder-head {
+  padding: var(--space-4) var(--card-pad-x);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.finder-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--card-pad-x);
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* The glyph is centred on its own box rather than on its inline baseline, the
+   same correction the palette's icon carries and for the same reason: `.ph`'s
+   global `vertical-align` is calibrated for an icon beside text at the same
+   size, which this is not. */
+.finder-icon {
+  display: flex;
+  align-items: center;
+  font-size: var(--text-h3);
+  color: var(--muted);
+}
+
+.finder-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  color: var(--ink);
+  font-size: var(--text-lg);
+  font-family: inherit;
+  outline: none;
+}
+
+.finder-input::placeholder {
+  color: var(--muted);
+}
+
+.finder-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--card-pad-x);
+}
+
+/* A kind is a filter you take off, so it is a chip, not a segment: the recipe
+   index draws that line and this is on the chip side of it. `is-on` paints
+   from the same attribute `aria-pressed` carries, never colour alone. */
+.finder-chip.is-on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.finder-sortrow {
+  padding: 0 var(--card-pad-x) var(--space-3);
+}
+
+.finder-sort {
+  gap: var(--space-2);
+}
+
+.finder-results {
+  /* `min-height: 0`, or this flex child refuses to shrink below its content
+     and the card's ceiling does nothing. */
+  min-height: 0;
+  overflow: hidden auto;
+  padding: 0 var(--card-pad-x) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* One row shape whether or not it can be opened: a hit that has nowhere to go
+   still says the thing exists, and the difference between the two is that one
+   is a button and one is not, never that one looks like a control and does
+   nothing. */
+.finder-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.finder-row {
+  cursor: pointer;
+}
+
+/* The row recipe's own hover, `--surface-2` over `--divider`: the ground
+   arrives with the pointer rather than an edge being drawn around every row
+   (DESIGN.md, "A row in a list"). */
+button.finder-row:hover,
+.finder-row.is-active {
+  background: var(--surface-2);
+  border-color: var(--divider);
+}
+
+.finder-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+/* The title is the only part that may shrink, and it ellipsises rather than
+   wrapping: a result list whose rows are three lines tall shows four results
+   where it could show ten. `min-width: 0` on the flex child, or it simply
+   grows past the row. */
+.finder-row-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.finder-row-when {
+  flex: none;
+}
+
+.finder-row-snippet {
+  font-size: var(--text-sm);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.finder-why {
+  font-size: var(--text-xs);
+}
+
+@media (max-width: 600px) {
+  .finder-card {
+    max-height: calc(100vh - var(--space-6));
+  }
+}
+
+/* The dashboard's search doorway (index.html, `#dash-find`). A button wearing
+   a field's clothes: full width, the input's own ground and radius, the glyph
+   and the shortcut hint at the two ends with the prompt between them. It is
+   the first thing on the page, so it takes the page's own rhythm rather than
+   a margin of its own. */
+.dash-find {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--text-base);
+  text-align: left;
+  cursor: text;
+}
+
+.dash-find:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.dash-find-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The chord, as furniture rather than as a claim: it teaches the shortcut to
+   someone who reaches for the field with a mouse, which is the only person
+   who does not know it yet. */
+.dash-find-keys {
+  flex: none;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-2);
+}
+
+@media (max-width: 600px) {
+  /* The hint names a chord a phone has no keyboard for. */
+  .dash-find-keys {
+    display: none;
+  }
+}
+
+/* --- the dashboard's three densities -----------------------------------------
+   INBOX 270. Keyed off `#tab-dashboard[data-density]` (dashboard.js,
+   `applyDashDensity`) rather than classes toggled on six elements, because the
+   attribute survives a render that replaces those elements and a class on a
+   replaced node does not.
+
+   Nothing is display:none'd that cannot be reached another way: Compact folds,
+   Focused hides the bands whose contents are all reachable from the search
+   field above them and from the tabs. */
+
+/* Compact: the same things, smaller. The Start something tiles lose their
+   description line and become a row of labelled icons, and the stats become
+   one line instead of four boxes. Measured on the owner's screenshot, those
+   two bands were 262px of the 590px above the widget grid. */
+#tab-dashboard[data-density="compact"] .quick-action {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+
+#tab-dashboard[data-density="compact"] .quick-action .quick-link-hint {
+  display: none;
+}
+
+#tab-dashboard[data-density="compact"] .dash-stats {
+  gap: var(--space-2);
+}
+
+#tab-dashboard[data-density="compact"] .stat-tile {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+
+#tab-dashboard[data-density="compact"] .dash-hero-emblem {
+  display: none;
+}
+
+/* Measured: with only the tiles and the stats folded, Compact saved 50px of
+   the 610px above the widget grid, which is not a decluttering anybody would
+   notice. The rest of that height is the hero's own banner and the two pill
+   rows under the tiles, so Compact folds those too: the wordmark goes (the
+   app's name is in the window title and the top bar), the greeting drops a
+   step, and the Jump to and Run a skill rows tighten. Everything is still
+   there and still one press away. */
+#tab-dashboard[data-density="compact"] .dash-wordmark,
+#tab-dashboard[data-density="compact"] .dash-submessage {
+  display: none;
+}
+
+#tab-dashboard[data-density="compact"] .dash-greeting {
+  font-size: var(--text-lg);
+}
+
+#tab-dashboard[data-density="compact"] .dash-hero {
+  padding-block: var(--space-3);
+}
+
+#tab-dashboard[data-density="compact"] .quick-pill {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+#tab-dashboard[data-density="compact"] .launch-row {
+  gap: var(--space-2);
+}
+
+#tab-dashboard[data-density="compact"] .dash-quicklinks {
+  gap: var(--space-2);
+}
+
+/* Focused: the search and the widgets. Everything hidden here is one press
+   away, from the search field itself (which finds actions as well as content)
+   or from the tabs, which is the test a hidden thing has to pass. */
+#tab-dashboard[data-density="focused"] .dash-quicklinks,
+#tab-dashboard[data-density="focused"] .dash-stats,
+#tab-dashboard[data-density="focused"] .dash-hero-emblem,
+#tab-dashboard[data-density="focused"] .dash-clock {
+  display: none;
+}
+
+#tab-dashboard[data-density="focused"] .dash-hero {
+  padding-block: var(--space-3);
+}
+
+/* The switch itself sits in the toolbar with Widgets and Edit layout, so it
+   takes their scale rather than a size of its own. */
+.dash-density button {
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 600px) {
+  /* Three words plus two other controls do not fit a phone toolbar. The
+     density is still settable by rotating or on a wider screen, and the
+     phone's own layout is already the compact one. */
+  .dash-density {
+    display: none;
+  }
+}

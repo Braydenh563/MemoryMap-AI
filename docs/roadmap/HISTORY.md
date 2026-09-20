@@ -29936,3 +29936,77 @@ which is what the filters above are for.
 `scratchpad/ui-sweeps/skillverify.js`, and the tests in
 `tests/test_harness_verifier.py`, `tests/test_agent_tools_api.py`,
 `tests/test_ai_reach.py`, `tests/test_skills.py`.
+
+### From TIMELINE_PLAN.md
+
+### Built, section 7's two measurements, and what they changed, 2026-09-20
+
+Both were "not verified until built" since the plan was written, and both
+turned out to be describing a bug rather than a question of taste. Measured
+over `seed-timeline-bulk.py`'s 2,000 notes across three years, in Chromium at
+DPR 1.
+
+**The density strip hid on the wrong variable.** It hid under 200 notes in
+range, a floor found on the 48-note seed.
+`scratchpad/ui-sweeps/timelinedensity.js` runs the app's own slotting over
+that seed sliced to every size from 25 notes up, in the two shapes a notebook
+comes in: newest-first (a young notebook, a narrow span) and spread across the
+years (an old, sparse one). The count admits what it should hide and hides
+what it should show:
+
+| notes | shape | days | slots used of 120 | peak | at an extreme |
+| --- | --- | --- | --- | --- | --- |
+| 48 | newest | 3 | 3 | 27 | 98% |
+| 150 | spread | 140 | 103 | 5 | 16% |
+| 200 | newest | 18 | 18 | 27 | 86% |
+| 200 | spread | 178 | 110 | 8 | 9% |
+| 500 | newest | 83 | 83 | 27 | 32% |
+
+200 notes over 18 days is a comb of 18 teeth in a strip of 120 slots, which is
+the same complaint the 48-note seed earned, at the size that passed. 150 notes
+over 300 days is a profile, and the count rule hid it. So the test is now on
+the shape the strip would draw: at least a fifth of the slots carry something
+(not a comb) and the peak is at least four (with a peak of one to three every
+bar is full, a third or two thirds, which is a bar code rather than a
+profile). `TIMELINE_SCRUBBER_MIN` is replaced by
+`TIMELINE_SCRUBBER_MIN_SLOTS` (24) and `TIMELINE_SCRUBBER_MIN_PEAK` (4), both
+read off the density of the whole range, so the strip still cannot appear
+halfway down a notebook that was always big enough. Asserted live in the
+probe: the seeded notebook draws (3,111 characters of path), a 200-over-18-day
+map hides, a 150-over-300-day map draws.
+
+**The table at 820 had no title column.** `timelinetable.js` measures 1440 and
+390, the wide columns hide below 600, and nobody had looked in between.
+`scratchpad/ui-sweeps/timelinetable820.js` measures five widths, and what it
+found is not a question of taste:
+
+| width | columns | title column | titles cut off | sideways scroll |
+| --- | --- | --- | --- | --- |
+| 1440 | 8 | 496px | 0 of 300 | 0px |
+| 1024 | 8 | 87px | 300 of 300 | 0px |
+| 820 | 7 | **0px** | n/a, it is not drawn | **112px** |
+| 700 | 7 | **0px** | n/a | **222px** |
+| 600 | 2 | 412px | 0 of 300 | 0px |
+
+The table is `table-layout: fixed` and every column but the title has a width
+in rems, so the title takes what is left, and between 600 and about 1000 there
+is nothing left: the row's own identity is the column that disappears, and the
+table overflows anyway. Three columns now give way between 600 and 1024 (the
+space, which is one space in most notebooks and is named in the header
+already, and the two numbers, which are what you sort by rather than read),
+and the tags as well below 820, the app's own band edge, because 528px of
+fixed columns in a 594px box leaves the title 66px, the same failure one
+column along. After: 375px at 1024, 176px at 820 (22 of 300 titles cut off),
+242px at 700, and no horizontal scroll at any of the five widths.
+`timelinetable.js` still passes whole at 1440 and 390, including its eight
+sort round-trips and the bulk action.
+
+Two classes were added to carry the rule (`timeline-col-space`,
+`timeline-col-tags` on the head cell, which had it on the body cell only:
+hiding one without the other is what made the first re-measurement report a
+row and head of different lengths).
+
+**Files.** `frontend/app.js`, `frontend/index.html`,
+`frontend/css/06-timeline-dialogs.css`,
+`scratchpad/ui-sweeps/timelinedensity.js`,
+`scratchpad/ui-sweeps/timelinetable820.js`.

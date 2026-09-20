@@ -31,7 +31,7 @@ then the plan tails by surface, then the horizon.
 | WHITEBOARD_PLAN | Decision 7's other half; the phone context bar comparison; sketch handles at zoom; the arrange panel items. |
 | MINDMAP_PLAN | The mapux agent's leftover list (this file's Mind map section). |
 | CHAT_PLAN | ~~Phase 1's other half, which note grounds a sentence~~ built 2026-09-20 (the fixtures exist, 18 of 18 attributed, was 17 of 18); Phase 1's fourth gate line, the low-support "I don't know" state, is still open and is written up in the plan; Phase 4's harness items. |
-| TIMELINE_PLAN | Section 7's two measurements. |
+| TIMELINE_PLAN | ~~Section 7's two measurements~~ taken 2026-09-20, and both found a bug: the density strip hid on a note count (it hid a profile of 150 notes and showed a comb of 200) and the table drew no title column at all between 600 and 1024. Both fixed and re-measured. Section 7's third line, the "auto" scale thresholds, wants a real notebook and is left. |
 | AGENT_SKILLS_REFORM | Phase D verified against a real model, which needs WORLD_CLASS_PLAN section 9's dev-only runner first. |
 
 **C. The horizon (WORLD_CLASS_PLAN, one item per PR, in its own stated order)**
@@ -359,14 +359,23 @@ being written by running agents stay beside this one.
   instead of posting to `/entries`, which fixes the duplicate it makes today;
   then `Ctrl+D`, then the strip and the yesterday and tomorrow pair.
   [chat-timeline-skills.md]
-- **The strip's threshold is a floor found on a fixture.** It hides under 200
-  notes in range, chosen by measuring the 48-note seed (forty slots, each one
-  note tall, saying nothing the headers do not). TIMELINE_PLAN section 7 asks
-  for it to be tuned on a real notebook. [timeline-phases.md]
-- **The table at 820 has never been looked at.** `timelinetable.js` measures
-  1440 and 390 only; the wide columns hide below 600px, so 820 shows all
-  eight, and nobody has judged whether eight columns at 820 are readable or
-  merely present. [timeline-phases.md]
+- **The strip's threshold: measured and replaced, 2026-09-20.** A note count
+  is the wrong variable (it showed a comb of 200 notes over 18 days and hid a
+  profile of 150 over 300 days); the test is now on the shape the strip would
+  draw, a fifth of its slots carrying something and a peak of at least four.
+  `scratchpad/ui-sweeps/timelinedensity.js`. [timeline-phases.md]
+- **The table at 820: measured, and it was broken, 2026-09-20.** Not "eight
+  columns, readable or merely present": seven columns and no title column at
+  all, 0px wide, with 112px of sideways scroll (222px at 700). Three columns
+  now give way between 600 and 1024 and the tags as well below 820; the title
+  is 375px at 1024, 176px at 820 and 242px at 700.
+  `scratchpad/ui-sweeps/timelinetable820.js`. [timeline-phases.md]
+- **The "auto" scale thresholds are still a first guess** (TIMELINE_PLAN
+  section 7's third line; day under 60 notes in range, week under 400). Left
+  deliberately on 2026-09-20 with the other two: what decides whether a day
+  bucket reads well is how much a person writes in a day, and a seed is a
+  shape rather than a notebook. Next step: the same probe against a restored
+  backup or the owner's own notebook. [timeline-phases.md]
 - **The band label sits over the cards scrolled under it.** Visible in
   `docs/screenshots/timeline.png`: the sticky left column ("Uncategorised 12")
   is translucent, so the cards of the columns scrolled behind it show through

@@ -27696,14 +27696,33 @@ function shortDate(iso) {
 //: fortnight everything happened in are visible at a glance and one drag away.
 //: It is the only SVG left in the tab, and it is one path.
 //:
-//: **It hides under 200 notes**, which the plan asked to be measured rather
-//: than assumed (section 7: "it may read as noise and should hide below a
-//: threshold measured then"). Measured on the 48-note seed: 40 buckets over 40
-//: days, every slot one note tall, which is a strip of identical marks saying
-//: nothing that the headers do not say better. The threshold is on the range's
-//: own size, not on what is loaded, so it does not appear halfway down a
-//: notebook that was always big enough.
-const TIMELINE_SCRUBBER_MIN = 200;
+//: **It hides when the shape it would draw says nothing**, which the plan
+//: asked to be measured rather than assumed (section 7: "it may read as noise
+//: and should hide below a threshold measured then"). It hid under 200 notes
+//: until 2026-09-20, and the measurement
+//: (`scratchpad/ui-sweeps/timelinedensity.js`, over a 2,000-note seed sliced
+//: into every size from 25 notes up, in both of the two shapes a notebook
+//: comes in) says a count is the wrong variable: it admits a notebook the
+//: strip cannot draw and hides one it can.
+//:
+//: - **A young notebook**, everything written in the last few weeks. The span
+//:   is the range, so 200 notes over 18 days fill 18 of the 120 slots and the
+//:   other 102 are empty: a comb of 18 teeth, which is the same complaint the
+//:   48-note seed earned, at the size that passed. 86% of the strip is either
+//:   empty or at the peak.
+//: - **An old, sparse notebook**, a few notes a month for years. 150 notes
+//:   fill 103 slots with a peak of 5, and that reads as a profile: 16% at an
+//:   extreme. The count rule hid it.
+//:
+//: So the test is on the drawn shape: enough slots carry something that the
+//: strip is not a comb, and the peak is deep enough that the bars differ at
+//: all (with a peak of 1 to 3 every bar is full, a third or two thirds, which
+//: is a bar code). Measured values: a fifth of the slots, and a peak of four.
+//: Both are read off the density of the **whole range**, not off what is
+//: loaded, so the strip does not appear halfway down a notebook that was
+//: always big enough.
+const TIMELINE_SCRUBBER_MIN_SLOTS = 24;
+const TIMELINE_SCRUBBER_MIN_PEAK = 4;
 const TIMELINE_SCRUBBER_SLOTS = 120;
 const TIMELINE_SCRUBBER_HEIGHT = 1000; // the viewBox's own units
 
@@ -27727,24 +27746,31 @@ function timelineDensitySpan() {
 
 function drawTimelineScrubber() {
   const strip = $("timeline-scrubber");
-  const total = Object.values(timelineDensity).reduce((sum, n) => sum + n, 0);
   const span = timelineDensitySpan();
-  const show = total >= TIMELINE_SCRUBBER_MIN && span !== null;
-  strip.classList.toggle("hidden", !show);
-  if (!show) return;
-
   // One slot per band of time, filled with everything written inside it: the
   // strip is a shape, not a list of days, and 120 slots is about one per 8
   // pixels of a full-height strip.
   const slots = new Array(TIMELINE_SCRUBBER_SLOTS).fill(0);
-  for (const [day, count] of Object.entries(timelineDensity)) {
-    const at = new Date(`${day}T00:00:00`).getTime();
-    if (Number.isNaN(at)) continue;
-    const fraction = (span.newest - at) / span.width;
-    const slot = Math.min(TIMELINE_SCRUBBER_SLOTS - 1, Math.max(0, Math.round(fraction * (TIMELINE_SCRUBBER_SLOTS - 1))));
-    slots[slot] += count;
+  if (span) {
+    for (const [day, count] of Object.entries(timelineDensity)) {
+      const at = new Date(`${day}T00:00:00`).getTime();
+      if (Number.isNaN(at)) continue;
+      const fraction = (span.newest - at) / span.width;
+      const slot = Math.min(TIMELINE_SCRUBBER_SLOTS - 1, Math.max(0, Math.round(fraction * (TIMELINE_SCRUBBER_SLOTS - 1))));
+      slots[slot] += count;
+    }
   }
   const peak = Math.max(...slots, 1);
+  //: The shape decides, not the count: see the constants above. The slotting
+  //: has to run first to ask the question at all, which is cheap (120 numbers
+  //: over the days in range) and is the work this function was going to do
+  //: anyway on every notebook large enough to draw.
+  const show =
+    span !== null &&
+    slots.filter((count) => count > 0).length >= TIMELINE_SCRUBBER_MIN_SLOTS &&
+    peak >= TIMELINE_SCRUBBER_MIN_PEAK;
+  strip.classList.toggle("hidden", !show);
+  if (!show) return;
   const step = TIMELINE_SCRUBBER_HEIGHT / TIMELINE_SCRUBBER_SLOTS;
   // A step chart drawn from the strip's right edge, closed along it, so the
   // shape reads as a profile of the writing rather than as a line drawing.
@@ -27998,7 +28024,10 @@ function timelineTableRow(row) {
   tr.appendChild(category);
 
   const space = document.createElement("td");
-  space.className = "timeline-col-wide";
+  //: Its own class as well as the wide one: the tablet band hides this column
+  //: and the two number columns (`06-timeline-dialogs.css`), and the head cell
+  //: carries the same pair.
+  space.className = "timeline-col-wide timeline-col-space";
   space.textContent = row.space || "";
   tr.appendChild(space);
 

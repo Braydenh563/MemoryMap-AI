@@ -7,6 +7,17 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The Timeline's table keeps its title column on a tablet. Between 600 and
+  1024 pixels wide the fixed columns took everything and the title, the one
+  thing that says which note a row is, was squeezed to nothing and the table
+  scrolled sideways. The space and the two counts now give way at that width,
+  and the tags below 820.
+
+- The Timeline's density strip appears when it has a shape to draw rather than
+  when the notebook passes a note count. It used to hide a real profile (a
+  hundred and fifty notes spread over ten months) and show a row of identical
+  marks (two hundred notes written in a fortnight).
+
 - A skill can say what "it worked" means, and the app checks it. Settings →
   Skills has a "Check it worked" row: pick a counting tool, what the number
   should be afterwards, and whether to count only the notes with no tags. The

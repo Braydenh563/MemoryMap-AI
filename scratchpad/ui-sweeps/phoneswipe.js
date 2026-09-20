@@ -24,7 +24,10 @@ const { boot } = require('./lib.js');
     return mid;
   };
   const findings = [];
-  const firstId = await page.evaluate(() => document.querySelector('#entry-list li[data-id]').dataset.id);
+  // The first row that is not already a favourite: a favourite floats to the
+  // top, so on a data dir this probe has run against before the first row is
+  // the last run's.
+  const firstId = await page.evaluate(() => document.querySelector('#entry-list li[data-id]:not(.is-favourite-row)').dataset.id);
   const sel = `#entry-list li[data-id="${firstId}"]`;
   // 1. A short swipe: reveals, settles, does nothing.
   const short = await swipe(sel, 40);

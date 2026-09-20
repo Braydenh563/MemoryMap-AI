@@ -1373,6 +1373,13 @@ header#top-bar,
   .help-atlas > .linklike {
     min-height: var(--target-min);
   }
+
+  /* "Show more" under a clamped note is a text button 80x22 at 390
+     (`phone.js`, the first long note the sweep ever met); a row's own
+     control takes the row's floor. */
+  .entry-more {
+    min-height: var(--target-min);
+  }
 }
 
 /* --- Phase 11 items 2 and 3: no rail on a phone, an opener in the head ------
@@ -1530,5 +1537,37 @@ header#top-bar,
   .entry-list li.swipe-armed.swipe-left::after {
     background: color-mix(in srgb, var(--error) 32%, transparent);
   }
+}
+
+/* --- Phase 11 item 2: the note page, the sheet recipe's `page` variant -------
+   A full-height sheet with no cap and no rounded top: it is the screen.
+   The card inside is the list's own card, so the list's rules draw it; the
+   actions row it came with sits in a thumb bar at the foot (09-editor.css's
+   recipe, shown here because the page only exists below 600). */
+.sheet-card-page {
+  max-height: 100dvh;
+  height: 100dvh;
+  border-radius: 0;
+  border: 0;
+  padding-bottom: calc(var(--space-5) + var(--target-min) + var(--space-3) + env(safe-area-inset-bottom, 0px));
+}
+
+.sheet-card-page > .note-page-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.sheet-card-page > .note-page-list > li {
+  border: 0;
+  padding-inline: 0;
+}
+
+.sheet-card-page > .note-page-list .entry-content {
+  max-height: none;
+}
+
+.sheet-card-page > .note-page-bar {
+  display: flex;
 }
 

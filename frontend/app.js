@@ -10714,6 +10714,7 @@ $("notes-view-rows")?.addEventListener("click", () => setNotesViewMode("rows"));
 $("notes-view-cards")?.addEventListener("click", () => setNotesViewMode("cards"));
 
 function renderEntries() {
+  closeNotePageIfGone();
   // A cleared box clears its reasons here rather than at each of the five
   // places that can clear the box: a reason for a query nobody typed is
   // worse than no reason at all.
@@ -38006,6 +38007,86 @@ function initRowSwipe() {
 }
 
 initRowSwipe();
+
+// --- the note page: a note opened on a phone is a page, not a longer card ----
+// UI_MODERNISATION_PLAN Phase 11 item 2: "the note view as a page with a
+// back button, its actions in a bottom bar". On a desktop a row opens out
+// in place; on a phone that meant a card growing inside a list you were
+// scrolling, with its actions wherever its bottom edge landed. A tap on a
+// row (not on one of its controls, and not the end of a swipe) opens the
+// note as a full-height sheet: the sheet recipe's `page` variant, whose
+// close is a back chevron, holding the same card the list renders
+// (`entryItem`, unclamped) with that card's own actions row moved into a
+// `.thumb-bar` at the foot, where a thumb is. Same card, same actions, one
+// place: nothing is rendered twice. Bin or Archive from the page reloads
+// the list, and the page closes itself when its note is no longer in it.
+let notePageOpenId = null;
+let notePageClose = null;
+
+function openNotePage(entry, returnFocus = null) {
+  if (!entry || notePageOpenId === entry.id) return;
+  expandedNotes.add(entry.id);
+  notePageOpenId = entry.id;
+  const title = entry.title || notePreviewText(entry.content).split("\n")[0].slice(0, 80) || "Note";
+  notePageClose = openSheet({
+    label: title,
+    name: "note",
+    variant: "page",
+    returnFocus,
+    onClose: () => {
+      notePageOpenId = null;
+      notePageClose = null;
+    },
+    build: (card) => {
+      const list = document.createElement("ul");
+      list.className = "entry-list note-page-list";
+      const item = entryItem(entry, { actions: true });
+      item.querySelector(".entry-content")?.classList.remove("entry-clamped");
+      item.querySelector(".entry-more")?.remove();
+      list.appendChild(item);
+      card.appendChild(list);
+      const actions = item.querySelector(".entry-actions");
+      if (actions) {
+        const bar = document.createElement("div");
+        bar.className = "thumb-bar note-page-bar";
+        bar.setAttribute("role", "toolbar");
+        bar.setAttribute("aria-label", "Note actions");
+        while (actions.firstChild) bar.appendChild(actions.firstChild);
+        actions.remove();
+        card.appendChild(bar);
+      }
+    },
+  });
+  const close = document.querySelector('.sheet-overlay[data-sheet="note"] .sheet-close');
+  if (close) {
+    setLabel(close, "ph:arrow-left");
+    close.setAttribute("aria-label", "Back");
+    close.title = "Back (Escape)";
+  }
+}
+
+function closeNotePageIfGone() {
+  if (notePageOpenId === null || !notePageClose) return;
+  if (!allEntries.some((e) => e.id === notePageOpenId)) notePageClose();
+}
+
+function initNotePage() {
+  const list = document.getElementById("entry-list");
+  if (!list) return;
+  list.addEventListener("click", (event) => {
+    if (!window.matchMedia(PHONE_TABS).matches) return;
+    const li = event.target.closest("li[data-id]");
+    if (!li || li.querySelector("textarea")) return;
+    if (event.target.closest("button, a, input, select, [contenteditable], .chip-interactive, summary")) return;
+    // The lift-off of a swipe is a click too; a row that moved was not tapped.
+    if (li.classList.contains("is-settling")) return;
+    if (window.getSelection && String(window.getSelection()).length) return;
+    const entry = allEntries.find((e) => String(e.id) === li.dataset.id);
+    if (entry) openNotePage(entry, li);
+  });
+}
+
+initNotePage();
 
 // --- a sheet, the phone's own dialog ------------------------------------------
 // DESIGN.md's recipe index, "A sheet". UI_MODERNISATION_PLAN.md Phase 11.

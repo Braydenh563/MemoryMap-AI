@@ -165,6 +165,9 @@ SHEET_RECIPE = {
     "sheet-row",
     "sheet-corner",
     "sheet-card-corner",
+    # The note page (UI Phase 11 item 2): full height, a back chevron.
+    "sheet-page",
+    "sheet-card-page",
 }
 
 

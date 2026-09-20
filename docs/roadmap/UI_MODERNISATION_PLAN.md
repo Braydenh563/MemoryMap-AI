@@ -766,8 +766,22 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
      underlay, does not arm and settles to 0; 110px right arms and the note
      is a favourite; a 6x80 vertical drag never moves the row; 110px left
      arms and the note is in the bin with the undo toast up. No page
-     errors; `phone.js` 0 findings. Still open in this item: the note page
-     with a back button and a bottom bar.
+     errors; `phone.js` 0 findings.
+   - **The note page: built** (2026-09-20), and item 2 is complete. A tap on
+     a row (not on a control, not the lift-off of a swipe) opens the note as
+     the sheet recipe's `page` variant: the whole screen, a back chevron,
+     the list's own card unclamped inside, and that card's own actions
+     moved into a `.thumb-bar` at the foot, so nothing is rendered twice
+     and the page's actions are the row's. Bin or Archive from the page
+     reloads the list and the page closes when its note is gone. Measured
+     (`scratchpad/ui-sweeps/phonenotepage.js`): the page is 0 to 844 with
+     a 0px radius, a note clamped to 198px in the list is 1440px on the
+     page in a scrolling list, the bar holds 4 buttons at 44px with its
+     bottom at 844, the close is labelled Back with the chevron, Escape and
+     the chevron both return focus to the row, a tap on the row's star
+     opens nothing, and a tap at 1024 opens nothing. Found by `phone.js`
+     on the way: "Show more" under a clamped note was 80x22 at 390; it
+     takes the row's floor now.
 3. **Chat.** The composer above the keyboard with the attachments and
    mode in one row; sources as a sheet; the sidebar as a sheet from the
    left edge; the popup agent unavailable on the phone (the chat is the

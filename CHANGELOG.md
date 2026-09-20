@@ -41,6 +41,9 @@ below). Versioning is `0.x` while the app stabilises.
   stranded on screen after the panel it belongs to has closed.
 ### Added
 
+- On a phone a note opens as a page: tap the row and the note fills the
+  screen with a back chevron, unclamped, and its actions in a bar at the
+  foot where a thumb is.
 - On a phone a note row swipes: right to favourite, left to move it to the
   bin, the same two actions the row already shows, with the same undo.
 - A "New note" button in the Notes bar, and on a phone a floating + above

@@ -360,8 +360,11 @@ toggle-row recipe; the section list is a tablist with arrow keys.
 
 ### D14 Help, onboarding and the command palette (S, Sonnet)
 
-Exists: help accordion, onboarding overlay, `Ctrl+K`. Wrong: the accordion
-is cards in cards; the palette lacks half the actions. Target: help as a
+Exists: help accordion, the welcome overlay, the guided tour (`frontend/tour.js`,
+DESIGN.md's "A guided tour of the interface": anchored cards over a cut-out
+dim, four sections, replayable whole or one section from Settings, help and
+guide), `Ctrl+K`. Wrong: the accordion is cards in cards; the palette lacks
+half the actions. Target: help as a
 searchable list on the panel surface with flat rows; the palette generated
 from the same `ACTIONS` table the menus use, so nothing can be missing.
 Gate: every `data-action` in the DOM appears in the palette.

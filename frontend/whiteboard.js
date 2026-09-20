@@ -6670,7 +6670,7 @@ async function wbMapPinOnDrag(d) {
 function wbApplySelectionHighlight() {
   document
     .querySelectorAll(".sketch-group.wb-selected, .node-card.wb-selected, .wb-object.wb-selected")
-    .forEach((el) => el.classList.remove("wb-selected"));
+    .forEach((el) => el.classList.remove("wb-selected", "wb-in-group"));
   // A sketch's resize handles have nowhere else to live between renders
   // (unlike a card/object, which always has 8 handle children of its own), 
   // recomputed here so they track a fresh selection or a just-finished move.
@@ -6684,10 +6684,19 @@ function wbApplySelectionHighlight() {
   // The map dock's own buttons act on the selected topic, so they follow the
   // selection for the same reason the properties panel above does.
   wbSyncMapToolState();
+  //: A card and a text box keep their eight handles and their rotate grip as
+  //: children, revealed by `.wb-selected`, so a *group* member is marked a
+  //: second way and 07-whiteboard-misc.css hides the grips on that class. The
+  //: outline stays: the member is still visibly one of the selected things
+  //: (INBOX 278, and the earlier report it has to keep answering).
+  const inGroup = wbMultiSelection.size > 1;
   for (const key of wbMultiSelection) {
     const sep = key.indexOf(":");
     const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
-    document.querySelector(WB_SELECTOR_BY_KIND[kind](id))?.classList.add("wb-selected");
+    const el = document.querySelector(WB_SELECTOR_BY_KIND[kind](id));
+    if (!el) continue;
+    el.classList.add("wb-selected");
+    el.classList.toggle("wb-in-group", inGroup);
   }
   if (!wbSelectedItem) return;
   const selector = WB_SELECTOR_BY_KIND[wbSelectedItem.kind](wbSelectedItem.id);
@@ -12618,12 +12627,21 @@ function wbRenderMultiSelectionHandles() {
     maxX: Math.max(...outlines.map((box) => box.maxX)),
     maxY: Math.max(...outlines.map((box) => box.maxY)),
   };
-  //: Each shape's own box and anchors as well as the group's, because that is
-  //: what the same sweep already gives a card or a text box: they carry their
-  //: handles as children and `.wb-selected` reveals them, while a shape has
-  //: nowhere to keep any and had none drawn at all.
+  //: **Each member is outlined, and only the group carries grips** (INBOX
+  //: 278's second half). A shape had nothing drawn round it at all in a
+  //: marquee selection, which was reported ("when I drag select shapes, the
+  //: individual anchor/rotate boxes dont appear... its fine for the notes but
+  //: the shapes and lines arent selected visually and individually"), and the
+  //: answer then was to give every member its own full set of handles. That
+  //: is what the second screenshot in 278 shows: a three-item group drew
+  //: **eight** rotate knobs and sixteen resize handles, one set per member
+  //: plus the group's, so the stem the eye lands on rises from a member's own
+  //: centre or sits below the group's top border, and no one of them reads as
+  //: the group's. Both reports are answered by drawing the member's outline
+  //: and nothing else: what is selected is still visible one by one, and
+  //: there is exactly one thing to grab.
   for (const row of boxes) {
-    if (row.entry.kind === "sketch") wbDrawSketchHandles(row.entry.item);
+    if (row.entry.kind === "sketch") wbDrawSketchHandles(row.entry.item, { outlineOnly: true });
   }
   //: **The overlay layer, not the base one** (INBOX 262: "not being able to
   //: drag the edges of a group selection"). The base SVG paints *under*
@@ -12667,8 +12685,29 @@ function wbRenderMultiSelectionHandles() {
       el.attr("x", hx - 5).attr("y", hy - 5);
     }
     const cx = (box.minX + box.maxX) / 2;
-    if (stem) stem.attr("x1", cx).attr("y1", box.minY).attr("x2", cx).attr("y2", box.minY - 28);
-    if (spinDot) spinDot.attr("cx", cx).attr("cy", box.minY - 28);
+    //: **The anchor, without which the grip leaves the box** (INBOX 278: "the
+    //: rotate line and circle dont sit at the top center of a group
+    //: selection... and instead sit off to the top left or right, or below the
+    //: top border"). `.wb-sketch-rotate-handle` and `.wb-rotate-handle-stem`
+    //: carry `scale(var(--wb-inv-zoom))` so a grip stays one size to the hand,
+    //: and that rule keeps `transform-box` at its `view-box` default *because
+    //: the code that draws them sets the origin in board units* (the rule says
+    //: so in its own comment, and `wbDrawSketchHandles` does it for a single
+    //: shape). This group never set one, so the scale resolved about the SVG
+    //: view box's origin and multiplied the grip's own coordinates by `1 / k`:
+    //: measured on a three-item group, the knob sat at board (680, 1344) at
+    //: 0.5x and (170, 336) at 2x for a box whose top centre is (340, 672), so
+    //: it flew down and right when you zoomed out and up and left when you
+    //: zoomed in, while sitting exactly right at 1x. The foot of the stem is
+    //: the point that must not move, the same anchor the single-shape handles
+    //: use, and it is re-set here rather than once at creation because a
+    //: resize drag calls this again with a new box.
+    const anchor = `${cx}px ${box.minY}px`;
+    if (stem) {
+      stem.attr("x1", cx).attr("y1", box.minY).attr("x2", cx).attr("y2", box.minY - 28)
+        .style("transform-origin", anchor);
+    }
+    if (spinDot) spinDot.attr("cx", cx).attr("cy", box.minY - 28).style("transform-origin", anchor);
   }
 
   //: The box the items now occupy, given the scale this frame is applying.
@@ -12871,7 +12910,11 @@ function wbRenderSketchHandles() {
 //: them; a shape is a path in the SVG layer with nowhere to keep handles, and
 //: this is the only thing that draws them. It ran for the single selection
 //: only, which is exactly the difference the screenshot shows.
-function wbDrawSketchHandles(sketch) {
+//: `outlineOnly` draws the selection box and stops: a member of a group
+//: selection is shown as selected without being given grips of its own, which
+//: belong to the group (INBOX 278). A link's endpoint handles are grips too,
+//: so that branch takes the same exit.
+function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
   // A link sketch has no `.d` of its own: `wbSketchParsedData` returns
   // null for it, and the 8-point bbox resize handles below make no sense
   // for a path recomputed fresh from its endpoints every render anyway.
@@ -12879,7 +12922,7 @@ function wbDrawSketchHandles(sketch) {
   let rawParsed;
   try { rawParsed = JSON.parse(sketch.data); } catch { rawParsed = null; }
   if (rawParsed && (rawParsed.type || "").startsWith("link-")) {
-    wbRenderLinkEndpointHandles(sketch, rawParsed);
+    if (!outlineOnly) wbRenderLinkEndpointHandles(sketch, rawParsed);
     return;
   }
   const parsed = wbSketchParsedData(sketch);
@@ -12901,6 +12944,8 @@ function wbDrawSketchHandles(sketch) {
     .attr("x", bbox.minX - 2).attr("y", bbox.minY - 2)
     .attr("width", (bbox.maxX - bbox.minX) + 4)
     .attr("height", (bbox.maxY - bbox.minY) + 4);
+
+  if (outlineOnly) return;
 
   for (const handle of ["nw", "n", "ne", "e", "se", "s", "sw", "w"]) {
     const hx = handle.includes("w") ? bbox.minX : handle.includes("e") ? bbox.maxX : (bbox.minX + bbox.maxX) / 2;

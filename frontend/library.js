@@ -1901,6 +1901,129 @@ const LIBRARY_DOC_SORTS = {
   longest: (a, b) => (Number(b.words) || 0) - (Number(a.words) || 0),
 };
 
+//: **Filtering documents by a property they declare about themselves**
+//: (DOCUMENTS_PLAN Phase 3 item 4's second clause, "searchable from the
+//: Library's filter").
+//:
+//: The filter is client-side, which is what OPEN.md's recorded next step
+//: asked for and what the shape of this list allows: `apiPagedList` below
+//: reads the documents to the end, so every row is already in memory and
+//: narrowing them costs no round trip and no keystroke latency. What the
+//: browser could *not* do for itself is see the properties: a document's
+//: content is never sent to the list (`_summary()` in routes_documents.py
+//: sends a preview, because a document runs to thousands of words), so the
+//: frontmatter is parsed on the server and rides along on the row as
+//: `properties` (`core/docmeta.py`). That is the same division the plan's
+//: section 11 made for backlinks, and for the same reason: a client-side
+//: scan would have found nothing and reported it as "no properties".
+//:
+//: **One control, not two.** A key picker beside a value picker would be two
+//: controls saying one thing, and would put this dock at the seven-control
+//: ceiling. One select, grouped by key, offers exactly the pairs some
+//: document on screen actually has.
+//:
+//: Kept in memory rather than in `localStorage`, unlike the sort: a sort
+//: that survives a reload shows the same documents in a remembered order,
+//: while a filter that survives one shows a list with most of the notebook
+//: missing and no obvious reason why.
+let libraryDocsProperty = "";
+
+//: The separator inside an option's value. A unit separator, because it is
+//: the one character that cannot appear in a key or a value: both come from
+//: a line of text that a newline has already ended.
+const LIBRARY_DOC_PROP_SEP = "\u001f";
+
+//: The pairs on offer, and how many documents each one has. Rebuilt on every
+//: render from the rows themselves, so a property nobody uses any more leaves
+//: the control on the next pass rather than sitting there matching nothing.
+function libraryDocsPropertyOptions(docs) {
+  const counts = new Map();
+  for (const doc of docs) {
+    const props = doc && doc.properties;
+    if (!props || typeof props !== "object") continue;
+    for (const [key, values] of Object.entries(props)) {
+      for (const value of Array.isArray(values) ? values : []) {
+        const id = `${key}${LIBRARY_DOC_PROP_SEP}${value}`;
+        counts.set(id, (counts.get(id) || 0) + 1);
+      }
+    }
+  }
+  return counts;
+}
+
+function libraryDocsMatchesProperty(doc) {
+  if (!libraryDocsProperty) return true;
+  const [key, value] = libraryDocsProperty.split(LIBRARY_DOC_PROP_SEP);
+  const values = doc && doc.properties && doc.properties[key];
+  return Array.isArray(values) && values.includes(value);
+}
+
+//: The select's own contents.
+//:
+//: **Flat, with the key in each option's own words, rather than `<optgroup>`
+//: per key.** The first shape used groups, which is the browser's own way of
+//: saying "these options are one kind of thing", and measuring it found the
+//: reason it could not stay: every `<select>` in this app is drawn by
+//: `enhanceSelect` (app.js), which builds its menu by walking
+//: `select.options` and never reads a group's label, so the grouping existed
+//: only in a control the reader never sees. Teaching the shared opener about
+//: groups is a change to a recipe fifty-one selects use and belongs in its own
+//: pass; an option that reads `status: draft (2)` says the same thing here and
+//: costs nothing.
+function renderLibraryDocsPropertyFilter(docs) {
+  const select = document.getElementById("library-docs-property");
+  if (!select) return;
+  const counts = libraryDocsPropertyOptions(docs);
+  //: **A filter that is set stays on the control even when nothing on screen
+  //: has it, at a count of zero.** The first shape of this dropped it instead,
+  //: and that was wrong in a way the probe caught: the options are built from
+  //: what the *search* left, so searching while a property was chosen removed
+  //: that property from the offer, which silently cleared the filter and put
+  //: the whole notebook back. A control that turns itself off is worse than an
+  //: option reading "(0)", which at least says what is set and can be cleared
+  //: by hand.
+  if (libraryDocsProperty && !counts.has(libraryDocsProperty)) counts.set(libraryDocsProperty, 0);
+  const any = document.createElement("option");
+  any.value = "";
+  any.textContent = "Any property";
+  const options = [any];
+  for (const [id, count] of [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    const [key, value] = id.split(LIBRARY_DOC_PROP_SEP);
+    const option = document.createElement("option");
+    option.value = id;
+    //: The count is the half that makes this worth opening: "status: draft"
+    //: alone does not say whether it is one document or forty.
+    option.textContent = `${key}: ${value} (${count})`;
+    options.push(option);
+  }
+  select.replaceChildren(...options);
+  select.value = libraryDocsProperty;
+  //: Nothing to filter by is not an empty control: a select with one option
+  //: reading "Any property" is a control that looks broken. Hidden until some
+  //: document on screen has a property, which is also the state most
+  //: notebooks are in on day one.
+  //:
+  //: **The shell, not the select.** `enhanceSelect` moves the real `<select>`
+  //: inside a `.select-shell` and hides it behind an opener button, so hiding
+  //: the select alone hides the one part nobody can see: measured, the opener
+  //: went on reading "Any property" at 144x36 with the select marked hidden.
+  const shell = select.closest(".select-shell") || select;
+  shell.classList.toggle("hidden", counts.size === 0);
+  select.classList.toggle("hidden", counts.size === 0);
+}
+
+onDomReady(() => {
+  const select = document.getElementById("library-docs-property");
+  if (!select) return;
+  select.addEventListener("change", () => {
+    libraryDocsProperty = select.value;
+    //: Back to page one, for the same reason a re-sort goes back: page four
+    //: of a list that has just become shorter is a slice nobody asked for.
+    libraryDocsCurrentPage = 1;
+    renderLibraryDocuments();
+  });
+});
+
 const LIBRARY_DOC_SORT_KEY = "library-docs-sort";
 
 function libraryDocSort() {
@@ -1952,6 +2075,15 @@ async function renderLibraryDocuments() {
     return;
   }
 
+  //: The property filter's options come from what the *search* left, so the
+  //: control offers the properties of the documents on screen rather than of
+  //: a list the reader has already narrowed past. Drawn before the rows are
+  //: filtered by it, because it is what decides whether the current choice is
+  //: still on offer at all.
+  renderLibraryDocsPropertyFilter(docs);
+  const propertyFiltered = Boolean(libraryDocsProperty);
+  if (propertyFiltered) docs = docs.filter(libraryDocsMatchesProperty);
+
   // A reload can drop a document that was ticked (deleted, or filtered out
   // by a new search) - drop it from the selection too, or the bar's count
   // would go on including a row that no longer exists.
@@ -1961,11 +2093,18 @@ async function renderLibraryDocuments() {
   }
 
   list.replaceChildren();
-  const isFilteredEmpty = Boolean(needle) && !docs.length;
+  const isFilteredEmpty = (Boolean(needle) || propertyFiltered) && !docs.length;
   empty?.classList.toggle("hidden", docs.length > 0 || isFilteredEmpty);
   noMatch?.classList.toggle("hidden", !isFilteredEmpty);
   if (noMatch && isFilteredEmpty) {
-    noMatch.textContent = `No documents match \u201C${needle}\u201D.`;
+    //: Which of the two narrowings came up empty, said by name: "no documents
+    //: match" over a list the reader narrowed twice is an answer that does not
+    //: say which half to undo.
+    const [key, value] = libraryDocsProperty.split(LIBRARY_DOC_PROP_SEP);
+    const parts = [];
+    if (needle) parts.push(`match \u201C${needle}\u201D`);
+    if (propertyFiltered) parts.push(`have ${key} set to \u201C${value}\u201D`);
+    noMatch.textContent = `No documents ${parts.join(" and ")}.`;
   }
 
   // Sliced after the selection-cleanup above (which has to see every live

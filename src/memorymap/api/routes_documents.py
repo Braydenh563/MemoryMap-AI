@@ -20,7 +20,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import drafter, vision_ocr
-from memorymap.core import deps, docexport, docview, filetypes
+from memorymap.core import deps, docexport, docmeta, docview, filetypes
 from memorymap.core.database import (
     LIKE_ESCAPE,
     Bookmark,
@@ -169,6 +169,13 @@ def _summary(document: Document) -> dict:
         # anything at all, and the editor picks its whole mode from this.
         "file_type": filetypes.normalise(document.file_type),
         "archived_at": document.archived_at.isoformat() if document.archived_at else None,
+        # The frontmatter's keys and values, so the Library can filter on a
+        # property without a request per document (DOCUMENTS_PLAN Phase 3 item
+        # 4's second clause). It rides on the summary rather than on `_full`
+        # because the list is the only place that needs it: the editor has the
+        # content and parses its own. See `core/docmeta.py` for why the parse
+        # is here at all rather than in the browser.
+        "properties": docmeta.properties(document.content or ""),
     }
 
 

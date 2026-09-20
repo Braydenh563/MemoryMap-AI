@@ -60,12 +60,6 @@ being written by running agents stay beside this one.
 
 ## Documents
 
-- **DOCUMENTS_PLAN Phase 3 item 4's second clause, "searchable from the
-  Library's filter".** The frontmatter is parsed and the fields are editable;
-  nothing filters documents on a property. File `frontend/library.js`. Next
-  step, recorded so it is not re-derived: a client-side filter over the
-  documents list, because the list is already loaded whole.
-  [documents-phase4.md]
 - **DOCUMENTS_PLAN Phase 4, the connected document: not started.** Next step:
   take the plan's items in order and record file, id and next step per item at
   the first stopping point. [documents-phase4.md]

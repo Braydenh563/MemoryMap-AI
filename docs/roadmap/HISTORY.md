@@ -23559,6 +23559,20 @@ the behaviour that shipped before this.
 "searchable from the Library's filter" is not built: `library.js` was another
 agent's file. The properties are parsed and editable, and nothing filters on
 them. It is written up in `archive/agent-remaining/documents-phase4.md`.
+**Built 2026-09-20**: the Library's Documents sub-tab has one select beside
+its search box, `#library-docs-property`, whose options are the `key: value
+(count)` pairs the documents on screen actually carry. The narrowing is
+client-side (the list is read to the end already) and the properties ride on
+the row, parsed by `core/docmeta.py`, because `_summary()` sends a preview
+rather than a document's content and a browser-side scan would have found
+nothing at all. Measured by `scratchpad/ui-sweeps/libprops.js`, 7/7: the
+control is hidden until something has a property, the opener reads at 144x36,
+five documents narrow to two on "status: draft", and the empty state names
+both the search and the property when the two cannot both be true. Two things
+found on the way: the shared `enhanceSelect` opener walks `select.options` and
+never reads an `<optgroup>` label, so the grouping the first shape used was
+invisible and the key moved into each option's own words; and hiding a select
+hides nothing, because the reader sees its `.select-shell`.
 ## INBOX resolved, 2026-09-13
 
 162. **Mid-work drop, 2026-09-13, verbatim (the owner), the app as an

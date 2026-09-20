@@ -7,6 +7,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The Library's Documents list filters by a property a document declares about
+  itself. A document that opens with `status: draft` or `tags: [one, two]` can
+  now be found by that, from one control beside the search box that offers only
+  the properties the documents on screen actually have, with a count each.
+
 - The formatting strip above a document, and the matching one in the note
   editor, light up under the pointer the way every other bar in the app does.
   A hovered button wore an accent tint and a solid accent rim, so a hand

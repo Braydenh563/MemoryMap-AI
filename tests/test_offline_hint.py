@@ -45,7 +45,7 @@ def _fresh_lookup():
 def test_with_no_ollama_installed_it_says_where_to_get_it(monkeypatch):
     monkeypatch.setattr(offline.shutil, "which", lambda _name: None)
     hint = offline.ollama_hint("http://localhost:11434")
-    assert "ollama.com" in _hosts(hint)
+    assert any(host == "ollama.com" for host in _hosts(hint))
     #: And that the notebook is not broken meanwhile, which is the fact
     #: somebody meeting this for the first time most needs.
     assert "keeps working without it" in hint
@@ -64,7 +64,7 @@ def test_with_ollama_installed_it_says_start_it_and_where_the_address_lives(monk
         "a running Ollama on a different port is the other half of this case, "
         "and the way out of that one is the address setting"
     )
-    assert "ollama.com" not in _hosts(hint)
+    assert all(host != "ollama.com" for host in _hosts(hint))
 
 
 def test_the_lookup_happens_once(monkeypatch):
@@ -104,4 +104,4 @@ def test_the_two_surfaces_that_use_it_both_do(monkeypatch):
 
     monkeypatch.setattr(offline.shutil, "which", lambda _name: None)
     for produce in (drafter.offline_message, extractor.offline_message):
-        assert "ollama.com" in _hosts(produce())
+        assert any(host == "ollama.com" for host in _hosts(produce()))

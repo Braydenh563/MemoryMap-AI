@@ -404,6 +404,29 @@ with its owner named in the entry.
     refused outright rather than warned about, so a Mac build is only worth
     shipping alongside an Apple Developer account for notarisation.
 
+274. **Mid-work drop, 2026-09-20, verbatim (the owner).** "There are a lot of
+    codeql and ci errors, The guided tour is completely broken, it doesnt
+    automatically switch pages on different steps, it doesnt let the user
+    click the highglighted items, it has no visible way to exit or quit it
+    like a button or smth so I had to guess by pressing the escape button".
+    "the scrolling is off in the split document view because of the md
+    rendering. also the atlas help panel needs a better title to make it
+    evident that it is the guide, and in that panel, it doesnt use the
+    utility model and instead uses the chat model, also thinking boxes dont
+    render and the streaming is just off and needs fixing when generating a
+    response." "I want to improve the design, capabilities and features in
+    the write with ai subtab in notes because I think it is falling behind."
+    "text in the find anything popup window isnt centred vertically in the
+    text box". "I also feel like having the notes appear as sources below the
+    ai response in the notes tab ask subtab is uncnecessary when they are
+    shown already on the right next to the ai response??" (screenshot: the
+    Ask answer with numbered source cards on the left and the same notes as
+    cards on the right). Triage: CI is one test window and three CodeQL
+    asserts, fixed in this commit; the tour, the guide panel (title, model,
+    thinking, streaming), the split-view scroll, the finder input and the
+    Ask sources go to one Opus agent as bugs; the Write with AI redesign to
+    a second Opus agent with a design brief.
+
 273. **Found by the Documents agent, 2026-09-20 (the session, not the
     owner), two things it measured and did not own.** (1) `errors.js` at
     820: "settings/extras section scrolls sideways 496>492", diagnosed with

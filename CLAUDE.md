@@ -149,8 +149,13 @@ and one streamed tool call are verified against a real socket
 at index 1+, Ollama's native tool-call dialect, and every claim about how a
 real small model responds to a re-prompt are not. When something is
 reported broken, reproduce it before theorising, and say plainly when you
-could not. A dev-only llama.cpp script is planned (WORLD_CLASS_PLAN 9); the
-suite must never depend on it.
+could not. A dev-only llama.cpp script now exists, `scratchpad/llama-dev.sh`
+(WORLD_CLASS_PLAN 9): `serve` starts a small local model and prints
+`MEMORYMAP_EVALS_URL` and `MEMORYMAP_EVALS_MODEL`, and `pytest -m evals` then
+runs the tests that need one. The suite must never depend on it, and does not:
+without those two variables every `evals` test is skipped, and
+`tests/test_skills_evals.py`'s own seam test asserts that nothing in `tests/`
+and no mode of `scripts/gate.sh` reaches for the script.
 
 ## 5. Running and verifying the app
 

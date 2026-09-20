@@ -790,19 +790,29 @@ what could not be verified.
 
 ## 9. On testing with a real model in the sandbox
 
-The owner asked whether to install llama.cpp and a local model in the
-project so sessions can test against a real model. Answer: not in the
-repository (a GGUF is hundreds of MB to GBs and would break the clone,
-CI and the AGPL notices), but yes as a **dev-only script**:
-`scratchpad/llama-dev.sh` builds or downloads a llama.cpp `llama-server`
-release for the sandbox's CPU, fetches one small instruct GGUF
-(Qwen2.5-1.5B-Instruct Q4 or Llama-3.2-1B-Instruct Q4, about 1 GB) into the
-scratch directory, and starts it on a port the app's OpenAI-compatible
-provider can be pointed at. The sandbox's network policy and disk allowance
-decide whether it works; the script must fail loudly and the suite must
-never depend on it. It lifts the last half of CLAUDE.md's standing caveat
-(real inference) for skills evals, and `pytest -m evals --real` would use
-it. Add it as row 0 of §8 for the first session with network access.
+**Built, 2026-09-20: `scratchpad/llama-dev.sh`.** The script this section
+specified exists. `check` (and no argument at all) reports what is present and
+downloads nothing; `fetch` pulls one small instruct GGUF
+(Qwen2.5-1.5B-Instruct Q4_K_M, about 1.1 GB) into `LLAMA_DEV_DIR`, outside the
+repository; `build` compiles `llama-server` from a llama.cpp checkout named by
+`LLAMA_CPP_SRC`; `serve` starts it and prints the seam, and `stop` takes it
+down again. The seam is two environment variables rather than the
+`pytest -m evals --real` this section guessed at: `MEMORYMAP_EVALS_URL` and
+`MEMORYMAP_EVALS_MODEL`, read once while the eval module is being imported, so
+a shell that never ran the script skips every eval and no pytest plugin or
+custom option is needed for the suite to stay honest. Nothing in `tests/`
+imports the script, no mode of `scripts/gate.sh` calls it, and every
+absent-binary and absent-model path prints a sentence naming the way out, the
+way `src/memorymap/ai/offline.py` writes its own. Those three rules are a test
+of their own (`test_the_evals_seam_is_the_only_thing_that_reaches_the_runner`),
+which needs no model and runs in every suite: they are easy to write down and
+easy to break later without noticing.
+
+**What is still open here.** The evals themselves: `tests/test_skills_evals.py`
+holds the AGENT_SKILLS_REFORM acceptance gate and is the only eval module so
+far. Everything else CLAUDE.md section 4 lists as unproven (concurrent tool
+calls at index 1 and beyond, Ollama's native tool-call dialect) is still
+unproven, and each wants its own eval beside that one.
 
 ---
 

@@ -37758,6 +37758,56 @@ function initBottomTabBar() {
 
 initBottomTabBar();
 
+// --- the phone top bar: one menu where the desktop has four squares ----------
+// UI_MODERNISATION_PLAN Phase 11 item 1, "the top bar's own reduction: the
+// title, the AI dot and one action". Measured before (scratchpad/ui-sweeps/
+// phonehead.js): at 320 the bar held the space switcher, notifications and
+// four more squares (theme, settings, lock, quit), 44px each, and the last
+// of them ended at 332 in a 320 window, so every phone page scrolled
+// sideways by the width of the Quit button. Six controls is a desktop
+// bar; a phone bar is where you are, what came in, and one way to the rest.
+//
+// The four are not removed, they move: below 600 the CSS hides the four
+// buttons and shows this one `kebabMenu` (DESIGN.md's recipe, so it opens,
+// clamps and closes like every other menu) holding the same four verbs,
+// calling the same four functions the buttons call. Built once at boot and
+// shown by the stylesheet, which is the same arrangement the phone tab
+// dock uses: no listener, no second copy of the media query in JS.
+function initPhoneHeaderMore() {
+  const home = document.querySelector("#top-bar .header-cluster-end");
+  if (!home || typeof kebabMenu !== "function") return;
+  const menu = kebabMenu(
+    [
+      { label: "ph:circle-half Light or dark", title: "Toggle light or dark theme", run: () => toggleTheme() },
+      { label: "ph:gear Settings", title: "Settings", run: () => openSettingsModal() },
+      { label: "ph:lock Lock", title: "Lock the app", run: () => lockNow() },
+      {
+        label: "ph:power Quit MemoryMap",
+        title: "Quit MemoryMap: stops the app and its server",
+        run: () => quitApp(),
+        danger: true,
+      },
+    ],
+    "More"
+  );
+  menu.id = "header-more";
+  // Lock is only offered once a password exists, which is what shows the
+  // desktop's `#lock-btn`; the row follows that button's own state each time
+  // the menu opens rather than freezing it at boot, when no session exists.
+  const rows = menu.querySelectorAll(".menu-item");
+  const lockRow = rows[2];
+  menu.addEventListener(
+    "click",
+    () => {
+      if (lockRow) lockRow.hidden = $("lock-btn")?.classList.contains("hidden") ?? true;
+    },
+    true
+  );
+  home.appendChild(menu);
+}
+
+initPhoneHeaderMore();
+
 // --- a sheet, the phone's own dialog ------------------------------------------
 // DESIGN.md's recipe index, "A sheet". UI_MODERNISATION_PLAN.md Phase 11.
 //

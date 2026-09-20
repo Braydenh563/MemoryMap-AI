@@ -2057,7 +2057,8 @@
 }
 
 .header-cluster > button,
-.header-cluster > .notif-wrap > button {
+.header-cluster > .notif-wrap > button,
+.header-cluster > .menu-wrap > button {
   border: 0;
   border-radius: var(--radius-inner);
   background: transparent;
@@ -2071,9 +2072,19 @@
 .header-cluster > button:hover,
 .header-cluster > button:focus-visible,
 .header-cluster > .notif-wrap > button:hover,
-.header-cluster > .notif-wrap > button:focus-visible {
+.header-cluster > .notif-wrap > button:focus-visible,
+.header-cluster > .menu-wrap > button:hover,
+.header-cluster > .menu-wrap > button:focus-visible {
   background: var(--surface-2);
   box-shadow: none;
+}
+
+/* The phone's one menu (`initPhoneHeaderMore`, app.js) is in the markup at
+   every width and shown by 10-responsive.css below 600 only, where the four
+   buttons it stands in for are hidden. Kept out of the flow here so the
+   desktop bar is exactly what it was. */
+#header-more {
+  display: none;
 }
 
 #quit-btn:hover {

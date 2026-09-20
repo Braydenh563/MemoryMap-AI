@@ -1440,3 +1440,31 @@ def test_a_new_tour_section_needs_no_new_code() -> None:
             f"{name} must build itself from TOUR_SECTIONS, so a section added "
             "to that table arrives with no markup and no handler to write"
         )
+
+
+# --- the phone top bar (UI_MODERNISATION_PLAN Phase 11 item 1) ---------------
+#
+# Below 600 the four everyday-and-session squares (theme, settings, lock,
+# quit) become the rows of one `kebabMenu`, so the bar is three controls and
+# fits 320 (it was six, and scrolled the page sideways by one button). The
+# suite cannot measure that; `scratchpad/ui-sweeps/phonehead.js` does. What
+# it can check is that the arrangement is the recipe's: the menu is built by
+# `kebabMenu`, the swap is one stylesheet band, and nothing the desktop has
+# is dropped rather than moved.
+
+def test_the_phone_top_bar_menu_is_the_kebab_recipe_and_hides_nothing():
+    app = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    start = app.index("function initPhoneHeaderMore()")
+    body = app[start : app.index("initPhoneHeaderMore();", start)]
+    assert "kebabMenu(" in body, "the phone header menu must be the kebabMenu recipe"
+    for verb in ("toggleTheme()", "openSettingsModal()", "lockNow()", "quitApp()"):
+        assert verb in body, f"the phone header menu lost {verb}, which the desktop bar has"
+
+    css = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    band = css[css.index("Phase 11 item 1: the phone top bar") :]
+    band = band[: band.index("}\n}") + 3]
+    assert "@media (max-width: 599.98px)" in band
+    for ident in ("#theme-btn", "#settings-btn", "#lock-btn", "#quit-btn"):
+        assert ident in band, f"{ident} is not swapped for the menu on a phone"
+    assert "#header-more" in band
+

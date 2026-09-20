@@ -9,6 +9,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The top bar on a phone is three controls: the space switcher, notifications
+  and one menu holding theme, Settings, Lock and Quit. It was six, and at 320
+  the last one hung off the edge so every page scrolled sideways. Every
+  menu row on a phone is now 44px tall like every other control there.
 - numpy, and the embedding/search-matrix code that uses it, loads on first
   use instead of at server start. `ai/embeddings.py`, `ai/janitor.py`,
   `search/engine.py` and `search/search_manager.py` had `import numpy as np`

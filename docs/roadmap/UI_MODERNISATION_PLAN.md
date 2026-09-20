@@ -696,9 +696,21 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
    - **The recede to icons on scroll down and back on scroll up (INBOX 104):
      built** (2026-09-13); the block, with its numbers, is in HISTORY.md
      ("Moved from the plans, 2026-09-13").
-   - **The top bar's own reduction**: the title, the AI dot and one action. It
-     is two rows at some widths and has never been measured at 320 with the
-     wordmark, the space switcher and the two control clusters in it.
+   - **The top bar's own reduction: built** (2026-09-20). Measured first
+     (`scratchpad/ui-sweeps/phonehead.js`): at 320 the bar held six 44px
+     controls (space switcher, notifications, theme, settings, lock, quit)
+     and the last ended at 332, so every phone page scrolled sideways by one
+     button; the bell and the menu opener were 36 against 44. Now three
+     controls below 600: the space switcher, the bell, and one `kebabMenu`
+     (`#header-more`) holding the four verbs, the desktop buttons hidden by
+     one stylesheet band and never removed. After: 320 in 320, 360 in 360,
+     390 in 390, every header control 44, the menu's rows 44 (every
+     `kebabMenu` row in the touch band takes the floor now: the one control
+     type that only exists after a tap had kept the desktop's 36), Escape
+     closes it, and the desktop bar at 1024 is exactly what it was. The
+     wordmark is already gone below 1500 and the logo below 400, so the
+     "title" of this item is the space switcher, which is the truer name for
+     where you are. The AI dot lives in the status bar (§36D) and stays there.
 
 2. **Notes.** Capture as a full-height sheet from the floating + button;
    the list as full-width rows with swipe actions (pin, bin) matched to

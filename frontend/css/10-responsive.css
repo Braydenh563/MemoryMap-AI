@@ -1313,3 +1313,57 @@ header#top-bar,
     flex-wrap: wrap;
   }
 }
+
+/* --- Phase 11 item 1: the phone top bar is three controls, not six ----------
+   Measured at 320 before (scratchpad/ui-sweeps/phonehead.js): the space
+   switcher, notifications, theme, settings, lock and quit, 44px each, the
+   last ending at 332 in a 320 window, so the page scrolled sideways by one
+   button. Below 600 the four everyday-and-session squares become the rows of
+   one menu (`#header-more`, `initPhoneHeaderMore` in app.js), so the bar is
+   where you are (the space), what came in (notifications) and one way to
+   the rest. Nothing is hidden that the desktop has; it is one press further.
+   The end cluster's own margin goes with the divider it drew: one control
+   does not need a group boundary on its left. */
+@media (max-width: 599.98px) {
+
+  #top-bar #theme-btn,
+  #top-bar #settings-btn,
+  #top-bar #lock-btn,
+  #top-bar #quit-btn {
+    display: none;
+  }
+
+  #top-bar #header-more {
+    display: inline-flex;
+  }
+
+  #top-bar .header-cluster-end {
+    margin-left: 0;
+  }
+}
+
+/* The two header controls that live inside a wrapper (`.notif-wrap` for the
+   bell's unread dot, `.menu-wrap` for the menu above) declare `min-height: 0`
+   in 06-timeline-dialogs.css so the desktop levels them with the tabs, and
+   that declaration outranks the touch band's 44px floor, which the cluster's
+   bare buttons take. Measured at 320: the space switcher 44, the bell 36, the
+   menu 36, three heights on one line. The floor, restated at the wrapper's
+   specificity, in the band where a finger is the pointer. */
+@media (max-width: 819.98px) {
+
+  #top-bar .header-cluster > .notif-wrap > button,
+  #top-bar .header-cluster > .menu-wrap > button {
+    min-height: var(--target-min);
+  }
+
+  /* A menu row is a hit target too. Every `kebabMenu` row measured 36px on
+     a phone (phonehead.js, the first menu the touch sweep ever opened),
+     under the floor the band gives every other control. `touch.js` walks
+     what is on screen and a menu is not until it is pressed, which is how
+     the one control type that only exists after a tap kept the desktop's
+     height. */
+  .action-menu .menu-item {
+    min-height: var(--target-min);
+  }
+}
+

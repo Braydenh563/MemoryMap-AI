@@ -26,7 +26,7 @@ then the plan tails by surface, then the horizon.
 | Plan | Still open |
 | --- | --- |
 | DOCUMENTS_PLAN | Phase 3 item 4's Library filter by frontmatter property; Phase 4 items 3 to 5 (outline drag-to-reorder with breadcrumbs, the editor command palette and shortcut sheet from one table, daily notes and the templates gallery); Phase 5 items 2 to 4 (version history UI with diff and restore, AI edit with a per-hunk diff preview and findings rendered as findings, focus and typewriter modes with reading typography and a print stylesheet); Phase 6 and Phase 8 tails in this file's Documents section. |
-| UI_MODERNISATION_PLAN | Phase 8's three docks still over the seven-control ceiling; Phase 11 items 1 to 9, the phone done properly. |
+| UI_MODERNISATION_PLAN | ~~Phase 8's docks over the seven-control ceiling~~: re-measured 2026-09-20 (`docks.js` at 1440): notes 6, graph 6, library 5, chat 4, timeline 4, reminders 4, and only `#wb-topbar` at 13, which the plan names as the menu-bar exception (Insert, Edit, Arrange, View, Board on the dock's zones). Done. Phase 11 items 1 to 9, the phone done properly. |
 | GRAPH_PLAN | Phase 5 (positions saved on views, the `?since=` cursor); Phase 6's node panel redesign; the local pane's Show switches; 6b the minimap. |
 | WHITEBOARD_PLAN | Decision 7's other half; the phone context bar comparison; sketch handles at zoom; the arrange panel items. |
 | MINDMAP_PLAN | The mapux agent's leftover list (this file's Mind map section). |

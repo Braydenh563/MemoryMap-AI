@@ -417,10 +417,37 @@ runs, one row of actions on the result (copy, insert into a note, save as
 note, retry), and a version history with a way back to any earlier draft.
 Every failure names its way out.
 
-**Gate.** `scratchpad/ui-sweeps/writingroom.js`: the dock at seven controls
-or fewer with exactly one filled, a streamed draft arriving in more than one
-piece against the stand-in server, the actions row present, one column and
-44px targets at 390, 0 console errors.
+**Gate.** `scratchpad/ui-sweeps/writingroom.js` (in `scripts/gate.sh`'s
+sweep list): the dock at seven controls or fewer with exactly one filled, a
+streamed draft arriving in more than one piece against the stand-in server,
+the actions row present, one column and 44px targets at 390, 0 console
+errors.
+
+**Built, 2026-09-20** (`feac0e2`, `9d03405`, `7db57d5`, `9a796be`), measured
+on :8967 and :8968 against `scratchpad/fake_openai_server.py`:
+
+| What | Before | After |
+| --- | --- | --- |
+| Dock | none | one on the grammar, 4 controls at one height (36px), 1 filled |
+| Filled buttons in the head | two on one card | one (Draft), with Save as note the result panel's own |
+| A draft arriving | 22.9s, 2 values of the box (one piece) | first text at 118 to 161ms, 3 writes of the box (40, 82, 82 characters) |
+| Thinking | after the reply, in a `<details>` | open while it is written, capped at 8rem (it had no CSS rule at all: it grew the column from 539px to 1576px on open, now 539 to 712) |
+| Quick starts | none | 5 `.library-chip`s at 36px (they drew at 22.4px until `--control-h` was given to the row), 44px at 390 |
+| What to write | one free-text instruction | 5 kinds, 5 tones, 3 lengths, and up to 6 notes as sources, each a removable chip |
+| Result actions | Extract notes, Discard, Save as note | Copy, Insert into a note, Save as note on one line, with Refine on its own composer row and Split into notes and Discard in the kebab |
+| Going back | one undo stack | the same undo, plus a version chip per draft this session, restoring any of them (dedupe and localStorage both measured) |
+| With no model | a title on a disabled button | that, plus an `.ai-offline-note` row naming Settings → Models, and a drafter message that names Ollama and Settings |
+| The two boxes at 390 | 189.2 and 330.3px | 189.2 and 176px (both `rows="7"`) |
+| Controls under 44px at 390 | 11 | 0 |
+| Card height at 1440 | 569px, columns 478/478 | 630px, columns 480/480, boxes 347.2 and 271.3 |
+| Console errors | 0 | 0 at 1440 and 390; errors.js clean at four widths, contrast.js clean light and dark |
+
+**Not verified.** Stop mid-pass (the stand-in server answers in ~150ms, so
+the pass is over before Stop can be pressed; the abort path is the one that
+was already there, plus a restore of the draft that went in). A real model's
+thinking stream, and therefore the 8rem panel with real content. Anything a
+small local model does with the five prompts: they are written and tested
+against a fake transport, not judged by a model's output.
 
 ---
 

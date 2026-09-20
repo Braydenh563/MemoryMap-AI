@@ -7,6 +7,32 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Notes → Write with AI is a writing desk. Its head is a dock on the app's
+  own grammar (identity, one Draft button, Stop, Undo, a '?' and a kebab)
+  where it used to be a heading and a lone round '?' over a card with two
+  filled buttons. Five quick-start chips stand where an empty pair of boxes
+  used to; under the thoughts box, three pickers say what to write, in what
+  voice and at what length, and an adder hands Atlas up to six of your own
+  notes to write from.
+
+- The draft arrives as it is written, with the thinking shown while it runs.
+  It used to appear in one piece once the model had finished: measured
+  against a stand-in model server, 22.9 seconds and one write of the box
+  before, first text in under a fifth of a second and one write per chunk
+  after. A pass that fails or is stopped hands back the draft that went in.
+
+- Five things to ask for rather than one: draft a note, carry on writing,
+  rewrite it in another voice, open bullets out into prose, close prose back
+  into bullets. Tone and length are pickers, not something to phrase.
+
+- What to do with a finished draft is one row: copy it, insert it into a note
+  you already have, or save it as a note. Every draft the session produced is
+  a chip you can go back to, beside the undo that was already there.
+
+- With no model connected the writing desk says so in a line you can act on,
+  with the button that connects one, rather than only in a tooltip on a
+  button that cannot be pressed.
+
 ## [0.3.1] - 2026-09-14
 
 - The status bar's help button says "Guide", not the assistant's name. It sat

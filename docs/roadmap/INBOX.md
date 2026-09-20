@@ -168,3 +168,27 @@ with its owner named in the entry.
     (b) a "Repair MemoryMap" shortcut installed beside the app that runs
     them. Depends on 251's facts.
 
+
+277. **Found while measuring the writing desk, 2026-09-20 (WORLD_CLASS_PLAN
+    D16).** An OpenAI-dialect backend that is not there is still reported as
+    running, so every model-gated control in the app stays enabled and fails
+    only once it has been pressed, which is the exact failure
+    `data-needs-model` exists to prevent. Measured: `POST /models/provider`
+    with `base_url: http://127.0.0.1:8999/v1` (nothing listening),
+    `reload_llm_client` runs, and `GET /models/status` answers
+    `ollama_running: true` twelve seconds later with the new base_url in the
+    same body. Cause: `OpenAIClient._fetch_catalog` swallows every
+    `requests.RequestException` and returns `[]`, `list_models` then returns
+    `[]` rather than raising, and the status route decides `running` on
+    whether `list_models` raised. Recommendation: `_fetch_catalog` raises
+    `OllamaError` when no endpoint answered at all (distinct from one that
+    answered with an empty list), so "unreachable" and "no models installed"
+    stop being the same fact. Owner: the models/chat agent.
+
+278. **Found by errors.js while sweeping the writing desk, 2026-09-20.**
+    `[settings/extras] section scrolls sideways 496>492` at 820px, and only
+    at 820: 1440, 1024 and 390 are clean. Four pixels, so it is one control
+    or one row with a fixed width rather than the layout. Recommendation:
+    find the child whose `scrollWidth` is 496 at that width and let it
+    shrink, the same `min-width: 0` answer the dock heads take. Owner:
+    settings.

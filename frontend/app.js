@@ -24397,6 +24397,22 @@ function syncTabOverflowFade() {
 
 // A tab you cannot fully see is a tab you cannot fully read. Selecting one
 // brings it into view, so the fade is only ever over a tab you are not using.
+//
+//: **`scrollIntoView` here is not the cost it looks like, and this note is so
+//: that nobody spends another hour on it.** A CDP sampling profile over seven
+//: tab switches puts 83.7ms of 88.9ms of `scrollIntoView` in this one call,
+//: which reads as the largest non-idle thing in the app. It is not: it is the
+//: layout the tab switch was going to force anyway, attributed to whichever
+//: call happens to flush it first. Two changes were tried and measured
+//: against a tab switch timed directly, ten rounds over seven tabs:
+//: skipping the call when the strip has nothing hidden, and deferring the
+//: whole thing to `requestAnimationFrame`. Median synchronous cost of a
+//: switch, before 13.8ms and 13.8ms, after 13.2ms and 14.8ms. Both were
+//: taken back out; with the guard gone the profile simply attributes the
+//: same 88ms to `scrollTo` instead.
+//:
+//: If this is worth attacking, the target is the tab switch's own DOM work,
+//: not the call that reveals the layout it caused.
 function revealActiveTab() {
   const active = document.querySelector("#tab-bar button.active");
   if (active && active.scrollIntoView) {

@@ -416,6 +416,24 @@ with its owner named in the entry.
     refused outright rather than warned about, so a Mac build is only worth
     shipping alongside an Apple Developer account for notarisation.
 
+278. **Mid-work drop, 2026-09-20, verbatim (the owner), two screenshots.**
+    "the rotate line and circle dont sit at the top center of a group
+    selection in the whiteboard and instead sit off to the top left or
+    right, or below the top border". Seen: a group of two boxes and a bar
+    inside a circle, the rotate stem and knob at about a third of the box's
+    width from the left and the knob inside the box's top edge; a group of a
+    note card, an image card and a line, the stem rising from the top edge
+    at x of one member's own centre rather than the group box's, and a
+    second stem from a member card below. Owner: WHITEBOARD_PLAN (the group
+    selection box, `wbBulkGroupBox` and the group's rotate handle in
+    whiteboard.js). Recommendation: the group's rotate stem is drawn from
+    the group box's own top-centre in board units after the box is fitted
+    to every member's rotated bounds, and a member's own handles are hidden
+    while it is part of a group selection; measured with a probe placing the
+    knob at (box.x + box.w / 2, box.y - stem) at 0.5x, 1x and 2x, in
+    `scratchpad/ui-sweeps/wbgroupguides.js`. Queued for the whiteboard
+    agent at the next slot.
+
 277. **Found while fixing 274 (the session, not the owner): a role can say one
     model and run another, everywhere, silently.** 274's "it doesnt use the
     utility model and instead uses the chat model" was not a bug in the Guide:

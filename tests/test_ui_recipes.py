@@ -1297,3 +1297,146 @@ def test_the_failed_state_is_built_in_exactly_one_place() -> None:
         "the failed state is drawn by surfaceFailed alone; a second builder is "
         "how the empty states came to disagree in the first place"
     )
+# --- the guided tour (DESIGN.md, "A guided tour of the interface") ------------
+
+TOUR_JS = ROOT / "frontend" / "tour.js"
+TOUR_TABLE = re.compile(r"const TOUR_SECTIONS = \[(.*?)\n\];", re.S)
+TOUR_STEP = re.compile(r"\{\s*target: \"([^\"]+)\",\s*side: \"([a-z]+)\",(.*?)\n      \}", re.S)
+
+
+def _tour_steps() -> list[tuple[str, str, str]]:
+    js = TOUR_JS.read_text(encoding="utf-8")
+    table = TOUR_TABLE.search(js)
+    assert table, "TOUR_SECTIONS not found in tour.js; has the tour's table moved?"
+    steps = TOUR_STEP.findall(table.group(1))
+    assert steps, "TOUR_SECTIONS declares no steps, or its step shape has changed"
+    return steps
+
+
+def test_every_tour_step_points_at_an_element_that_exists() -> None:
+    """A step that names a selector nothing matches is a card pointing at
+    nothing, and the app cannot tell you so: `querySelector` answers null and
+    the step is silently dropped at runtime.
+
+    The runtime drop is deliberate and is what keeps the tour honest on a
+    narrow window (DESIGN.md's row: a hidden element loses its step and the
+    counter renumbers). This lint is the other half: dropped because the
+    control is hidden *right now* is correct, dropped because somebody renamed
+    an id six months ago is a step nobody will ever see again, and only a read
+    of the markup can tell the two apart.
+    """
+    markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    ids = set(re.findall(r'\sid="([^"]+)"', markup))
+    missing = [
+        target
+        for target, _side, _rest in _tour_steps()
+        if target.startswith("#") and target[1:] not in ids
+    ]
+    assert not missing, (
+        "tour steps name elements that are not in index.html: "
+        f"{sorted(missing)}. A step is a real element plus a sentence "
+        "(DESIGN.md, the recipe index)"
+    )
+
+
+def test_every_tour_step_says_where_it_sits_and_what_it_says() -> None:
+    """A step is a selector, a side and one sentence, and the side has to be
+    one of the four the placer knows how to flip and clamp. A fifth spelling
+    would fall through `tourCandidates` to the preferred side alone, which is
+    how a card ends up over the thing it is describing."""
+    for target, side, rest in _tour_steps():
+        assert side in {"top", "bottom", "left", "right"}, (
+            f"{target} asks for side {side!r}; the placer knows top, bottom, "
+            "left and right"
+        )
+        assert "title:" in rest and "text:" in rest, (
+            f"{target} has no title or no text: a step is an element plus a "
+            "sentence (DESIGN.md, the recipe index)"
+        )
+
+
+def test_the_tour_card_is_placed_by_the_measure_and_correct_rule() -> None:
+    """DESIGN.md: a popup placed in the window's own coordinates sets its
+    position, measures it, and corrects by the difference.
+
+    The same rule `docPlaceFixed` and `clampToolbarMenu` are held to above, and
+    for the same measured reason: a `position: fixed` element takes its frame
+    from the nearest ancestor carrying a `filter`, and `.card` carries one
+    whenever the background art is on, which is how a word menu asked for
+    `left: 952` and drew at 1245.
+    """
+    js = TOUR_JS.read_text(encoding="utf-8")
+    body = _function_body(js, "tourPlaceFixed")
+    wrote = body.index(".style.left")
+    assert "getBoundingClientRect()" in body[wrote:], (
+        "tourPlaceFixed sets a position and never checks it landed there: "
+        "measure the rect after writing and correct by the difference "
+        "(DESIGN.md, the recipe index)"
+    )
+    for name in ("tourPosition", "tourSpotlight"):
+        assert "tourPlaceFixed(" in _function_body(js, name), (
+            f"{name} must place through tourPlaceFixed, or the correction is "
+            "one function away from the code that needs it"
+        )
+
+
+def test_the_tours_dim_never_covers_the_control_it_describes() -> None:
+    """The point of the whole surface: the described control is the one bright
+    thing on screen.
+
+    A sheet over the page with a highlight drawn on the control is the shape
+    this must not become, because the control is then behind a dim layer and
+    the tour is the centred slide carousel with extra steps. The cut-out is
+    `.tour-spot`: no background of its own, the dim spread out of it by its own
+    `box-shadow`, and no pointer events, so nothing of the tour's is ever drawn
+    on top of the thing being pointed at.
+    """
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+    rule = re.search(r"\n\.tour-spot \{(.*?)\n\}", css, re.S)
+    assert rule, ".tour-spot has no rule; has the tour's cut-out moved?"
+    body = rule.group(1)
+    assert "background: transparent" in body, (
+        ".tour-spot must paint no background: the bright area is the page "
+        "itself showing through the hole in the dim"
+    )
+    assert "pointer-events: none" in body, (
+        ".tour-spot must not take pointer events: #tour-block is what stops "
+        "the page being used mid-step"
+    )
+    assert "100vmax" in body and "var(--scrim)" in body, (
+        "the dim is .tour-spot's own box-shadow, spread past the far corner "
+        "of the window, in the app's scrim colour"
+    )
+
+
+def test_a_tour_step_with_nothing_to_point_at_is_dropped() -> None:
+    """A control hidden by a responsive rule, or gone from the markup, must
+    cost its step rather than leave a card anchored to a zero-sized box in the
+    corner of the window. Dropping it is also what keeps "3 of 7" true: the
+    counter is drawn from the run's own length, which shrinks with it."""
+    js = TOUR_JS.read_text(encoding="utf-8")
+    show = _function_body(js, "tourShow")
+    assert "tourVisible(" in show and "splice(" in show, (
+        "tourShow must check the element is visible and drop the step when it "
+        "is not (DESIGN.md, the recipe index)"
+    )
+    render = _function_body(js, "tourRender")
+    assert "run.steps.length" in render, (
+        "the counter must be drawn from the run's own length, or it promises "
+        "steps the tour has already dropped"
+    )
+
+
+def test_a_new_tour_section_needs_no_new_code() -> None:
+    """One table, or the replay strip and the tour disagree about what exists.
+
+    DESIGN.md's row says a new subject is a section in TOUR_SECTIONS and never
+    a second tour. That only holds while everything that offers the tour reads
+    that table: the Settings buttons, and the run itself.
+    """
+    js = TOUR_JS.read_text(encoding="utf-8")
+    for name in ("renderTourReplay", "tourStepsFor"):
+        assert "TOUR_SECTIONS" in _function_body(js, name), (
+            f"{name} must build itself from TOUR_SECTIONS, so a section added "
+            "to that table arrives with no markup and no handler to write"
+        )

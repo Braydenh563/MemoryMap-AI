@@ -314,6 +314,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 - The Docker daemon is probed at most once every fifteen seconds, rather than
   on every status poll with an eight second timeout.
+- MemoryMap introduces itself with a guided tour: a small card at a time,
+  anchored to the control it is describing, over a page dimmed everywhere
+  except that control, with back, next, skip, and a "3 of 7" counter. It comes
+  in four short sections (the basics, writing a note, finding things, boards
+  and maps); a first run is offered the basics alone, and Settings, help and
+  guide replays the whole thing or any one section. Escape leaves it, focus
+  goes back where it came from, and it never opens by itself once it has been
+  finished or skipped. The welcome that used to describe seven tabs from the
+  middle of the screen is now two cards, the greeting and the setup check, and
+  hands over to the tour.
 
 ## [0.3.1] - 2026-09-14
 

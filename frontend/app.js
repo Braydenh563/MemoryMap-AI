@@ -36705,6 +36705,11 @@ const MIRRORED_UI_EXTRAS = [
   "motion",
   "custom-css",
   "onboardingDone",
+  // The guided tour's own flag, for the same reason `onboardingDone` is here:
+  // both were reported as "onboarding shows every time" when the desktop
+  // shell lost its profile, and a tour that reintroduces the app to somebody
+  // who has already been through it is the same bug wearing the new feature.
+  "tourDone",
   "activeTab",
   "graph-layout",
   "graph-colour",
@@ -41291,45 +41296,22 @@ const ONBOARDING_SLIDES = [
     title: "Your setup",
     dynamic: true,
   },
-  {
-    icon: "ph:squares-four",
-    title: "Dashboard",
-    text: "The dashboard gives you a quick overview of your notebook, including AI suggestions, recent tasks, and reminders.",
-  },
-  {
-    icon: "ph:note-pencil",
-    title: "Capture your thoughts",
-    text: "Jot anything into the Notes tab and hit Save, Atlas files it into a category and suggests tags. No folders to fuss over.",
-  },
-  {
-    icon: "ph:chat-circle",
-    title: "Ask your notebook",
-    text: "Ask questions in plain English and get answers grounded in your own notes. Switch on Agent mode and it can use its tools, searching your notes, opening a web page, and organising things for you.",
-  },
-  {
-    icon: "ph:books",
-    title: "Library",
-    text: "Manage everything you've created across your notebook in one place.",
-  },
-  // Was "Explore your graph", named just the Graph tab, which is only half
-  // of what the app's own name refers to. Naming both here, once, is cheap;
-  // leaving a first-time user to discover the Timeline's Line view (§10C) on
-  // their own is not (ANALYSIS §30's "product differentiation" note).
-  {
-    icon: "ph:map-trifold",
-    title: "Explore your map",
-    text: "The Graph tab draws how your notes connect; the Timeline's Line view draws the shape of one thread over time. Together, they're the map MemoryMap is named for, search, drag and zoom to rediscover things you'd forgotten you saved.",
-  },
-  {
-    icon: "ph:keyboard",
-    title: "Command Palette",
-    text: "Press Ctrl+K (or Cmd+K on Mac) anywhere to open the command palette and quickly jump around or search.",
-  },
-  {
-    icon: "ph:palette",
-    title: "Make it yours",
-    text: "Settings → Appearance has themes, accent colours, fonts, and more. Press ? any time for keyboard shortcuts. Enjoy!",
-  },
+  // **The seven slides that used to follow this one are the guided tour now**
+  // (frontend/tour.js). They described a tab in prose, "the Graph tab draws
+  // how your notes connect", "press Ctrl+K anywhere", from the middle of a
+  // screen that was covering the tab bar those words were about, which is the
+  // gap the owner named: "there is no guided tour and introduction, with
+  // positioned popup cards". Nothing was dropped: every one of them is a step
+  // in TOUR_SECTIONS anchored to the control it used to describe, which is
+  // both shorter to read and the only version that can point at anything.
+  //
+  // What stays here is what an anchored card cannot do. The welcome says what
+  // MemoryMap is before there is any interface to point at, and the setup
+  // slide is a live check of Ollama and the notebook's folder with its two
+  // one-click offers (pull a model, seed example notes) on it: a card the size
+  // of a sentence, hung off a control, is the wrong place for either. So the
+  // two surfaces are kept apart on purpose, the welcome ends by handing over
+  // to the tour, and Settings, help and guide offers them separately.
 ];
 
 let onboardingIndex = 0;
@@ -41471,7 +41453,11 @@ function renderOnboardingSlide() {
   });
   $("onboarding-back").classList.toggle("hidden", onboardingIndex === 0);
   const last = onboardingIndex === ONBOARDING_SLIDES.length - 1;
-  $("onboarding-next").textContent = last ? "Get started" : "Next";
+  // "Start the tour", not "Get started": the last press of the welcome now
+  // opens the tour's first section rather than dropping somebody on the
+  // Dashboard with nothing said about where anything is. The word has to say
+  // so, or the tour arrives as a surprise on top of a card they just closed.
+  $("onboarding-next").textContent = last ? "Start the tour" : "Next";
 }
 
 function openOnboarding() {
@@ -41485,6 +41471,12 @@ function openOnboarding() {
 function closeOnboarding() {
   $("onboarding-overlay").classList.add("hidden");
   localStorage.setItem("onboardingDone", "1");
+  // Skipping the welcome is also an answer about the tour: whoever closed this
+  // card has been offered the introduction and said no, so nothing may open
+  // the tour at them by itself afterwards. `tourClose` writes the same key
+  // when the tour itself ends, and Settings, help and guide is the way back to
+  // either of them.
+  localStorage.setItem("tourDone", "1");
   overlayReturnFocus?.focus?.();
   overlayReturnFocus = null;
 }
@@ -41492,6 +41484,11 @@ function closeOnboarding() {
 function onboardingNext() {
   if (onboardingIndex >= ONBOARDING_SLIDES.length - 1) {
     closeOnboarding();
+    // The hand-off: the welcome says what this is, the tour says where things
+    // are, and the last press of the one starts the other. Guarded because
+    // tour.js is a separate file loaded after this one, and a page served
+    // without it must still close the welcome cleanly.
+    if (typeof openTour === "function") openTour("basics");
     return;
   }
   onboardingIndex += 1;
@@ -41504,9 +41501,27 @@ function onboardingBack() {
   renderOnboardingSlide();
 }
 
-// Show the tour once, after the app is unlocked and running.
+// Show the welcome once, after the app is unlocked and running.
+//
+//: An install that has already been through the welcome (`onboardingDone` is
+//: set) is not shown it again, and is not shown the tour uninvited either: a
+//: card that takes over the screen of somebody who has been using the app for
+//: months is the "trapped" failure the tour is written to avoid. It is offered
+//: once instead, in a toast with an action, which is the app's existing recipe
+//: for "here is something, and here is the one press that takes it". Declining
+//: it is silent and permanent: the offer writes `tourDone` either way, so this
+//: runs at most once per notebook.
 function maybeShowOnboarding() {
-  if (!localStorage.getItem("onboardingDone")) openOnboarding();
+  if (!localStorage.getItem("onboardingDone")) {
+    openOnboarding();
+    return;
+  }
+  if (localStorage.getItem("tourDone")) return;
+  if (typeof openTour !== "function") return;
+  localStorage.setItem("tourDone", "1");
+  toastAction("There is a guided tour of MemoryMap now.", "Take the tour", () => {
+    openTour("basics");
+  });
 }
 
 $("onboarding-next").addEventListener("click", onboardingNext);

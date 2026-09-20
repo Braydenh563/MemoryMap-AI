@@ -377,7 +377,15 @@ def test_a_skill_with_no_steps_is_still_one_instruction(ai_client, fake_ollama):
 
 
 def test_running_a_skill_narrows_the_tools_on_the_wire(ai_client, fake_ollama, session):
-    """The point of the allowlist, end to end."""
+    """The point of the allowlist, end to end.
+
+    `count_notes` is in this set because the skill verifies with it (a skill
+    may only verify with a tool it declares, the same rule its steps' own
+    contracts follow), and it is a read-only count. That is the whole of the
+    widening, and it is written here rather than left to be rediscovered: the
+    wire grew by one tool so that "no note is left untagged" became a claim
+    the app reads back out of the notebook.
+    """
     captured = {}
     original = fake_ollama.chat_tools
 
@@ -387,7 +395,13 @@ def test_running_a_skill_narrows_the_tools_on_the_wire(ai_client, fake_ollama, s
 
     fake_ollama.chat_tools = spy
     _stream_events(ai_client, "Auto-tag my notes", skill="Auto-tag my notes")
-    assert captured["names"] == {"list_notes", "get_note", "list_tags", "tag_note"}
+    assert captured["names"] == {
+        "list_notes",
+        "get_note",
+        "list_tags",
+        "tag_note",
+        "count_notes",
+    }
 
 
 def test_a_skill_with_a_missing_input_is_refused_rather_than_run_blank(ai_client):
@@ -1132,3 +1146,58 @@ def test_a_step_may_not_ask_for_a_note_before_anything_has_listed_one():
         assert not (set(first["tools"]) & needs_an_id), (
             f"{skill['name']} opens by asking for a note it has not seen: {first['text']}"
         )
+
+
+def test_a_skill_saved_from_settings_keeps_its_check(client, app_state):
+    """Measured in the browser while the editor's own control was built: the
+    block was sent, the save reported success, and the stored skill had no
+    check at all, because `SkillItem` did not declare the field and pydantic
+    drops what a model does not name. The save path and the tool path are
+    supposed to be one set of rules (`_validated_skills`), and this is the
+    seam where they were not."""
+    response = client.put(
+        "/preferences",
+        json={
+            "skills": [
+                {
+                    "name": "Tag the bare ones",
+                    "prompt": "Tag every note that has no tags.",
+                    "tools": ["list_notes", "tag_note", "count_notes"],
+                    "verify": {
+                        "tool": "count_notes",
+                        "args": {"untagged": True},
+                        "field": "count",
+                        "expect": {"max": 0},
+                    },
+                }
+            ]
+        },
+    )
+    assert response.status_code == 200
+    stored = client.get("/preferences").json()["skills"][0]
+    assert stored["verify"] == {
+        "tool": "count_notes",
+        "args": {"untagged": True},
+        "field": "count",
+        "expect": {"max": 0},
+    }
+
+
+def test_a_check_the_skill_cannot_run_is_refused_by_the_settings_path_too(client, app_state):
+    """One validator for both ways in: the message is the same sentence
+    `save_skill` would have given the model."""
+    response = client.put(
+        "/preferences",
+        json={
+            "skills": [
+                {
+                    "name": "Checks with a tool it lacks",
+                    "prompt": "Tag every note that has no tags.",
+                    "tools": ["tag_note"],
+                    "verify": {"tool": "count_notes", "expect": {"unchanged": True}},
+                }
+            ]
+        },
+    )
+    assert response.status_code == 422
+    assert "count_notes" in response.json()["detail"]

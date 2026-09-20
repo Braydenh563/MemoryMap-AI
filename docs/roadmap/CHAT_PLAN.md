@@ -157,6 +157,36 @@ and every run ends with a verification line and an Undo.
     folded it is invisible to the query that looks for it. Keyed on where the
     note ended up, because "notes like this belong in B" is the half that is
     usable when filing something new.
+10g. **A verify block may carry arguments, and they may only narrow it**
+    (2026-09-20, taken while closing `brief-13-harness.md` item 3). Decision
+    10b's shape is `{tool, field, expect}`, which can only ask a tool its
+    unfiltered question: how many notes are there. The postcondition a
+    *writing* skill makes is narrower, and "Auto-tag my notes" is the case
+    that names itself: it claims it leaves no untagged note behind, which is
+    `count_notes(untagged) max 0` and is unsayable without an argument. So the
+    block takes `args`, flat scalars only, at most four
+    (`skills.MAX_VERIFY_ARGS`), and `count_notes` takes the same `untagged`
+    and `since` filters `list_notes` has always had, out of one shared
+    function so the count and the list can never disagree about what
+    "untagged" means. What does not change is what a verifier may *do*: the
+    runner still refuses any tool that writes, and an argument only ever makes
+    a reading narrower. The three read-only audit skills that could not verify
+    without widening their allowlist now declare `count_notes` and are checked
+    with it, which is the widening, stated: one read-only counting tool, on
+    the wire, for a run that would otherwise only promise it changed nothing.
+10h. **The page cap stays at six pages of twenty-five, and the answer to a
+    large notebook is a narrower read** (2026-09-20; `brief-13-harness.md`
+    item 4 asked for this to be decided in the plan rather than in the
+    constant). Raising `MAX_PAGES_PER_STEP` trades one wrong answer for
+    another: a run that spends its whole budget paging is not a better run
+    than one that says it saw the first hundred and fifty. What was missing
+    was any way to ask a *smaller* question, and that is what 10g's filters
+    are: "the untagged ones", "the last thirty days", "this category", each
+    answered by the database rather than by a model holding a notebook in its
+    head (§R5). A step that needs more than one page of the whole notebook is
+    a step whose filter has not been written yet. The honest `truncated`
+    report stays exactly as it is.
+
 12. **A link the AI writes is a card when it is the whole line, and stays
     inline otherwise** (INBOX 172, decided 2026-09-13 in Phase 3). The two
     forms answer two different questions and the plan had been reading them as
@@ -274,11 +304,20 @@ decision 14), so the sweep asserts 14 chips in 6 groups with the tab's own
 group first.
 
 ### Phase 4: skills that finish (one session; Brief 13)
-Decisions 10 and 10a to 10f. Built, 2026-09-12: see HISTORY.md, "Moved from
-the plans", Brief 13. What is left: the `evals` marker and its fixture set
-(the loose-ends fixture with eight planted loose ends, the zero-invalid-calls
-count over the built-in skills), which wants the dev model script
-(WORLD_CLASS_PLAN 9) to be worth more than a restatement of the unit tests.
+Decisions 10 and 10a to 10h. Built, 2026-09-12: see HISTORY.md, "Moved from
+the plans", Brief 13. The harness items that were left with it are closed as
+of 2026-09-20 (the `verify` control in the editor, the two audit skills that
+had no check, `count_notes`'s filters, and the page-cap question, now decision
+10h): see HISTORY.md, "Moved from the plans, 2026-09-20".
+
+**What is left, and why it is still left: the `evals` marker and its fixture
+set** (the loose-ends fixture with eight planted loose ends, the
+zero-invalid-calls count over the built-in skills). It wants the dev model
+script (WORLD_CLASS_PLAN 9) to be worth more than a restatement of the unit
+tests: a fake transport calls whatever its script says, so "80% of the skills
+complete with no invalid tool call" measured against one would be a
+measurement of the script. Nothing was built towards it this time, deliberately:
+a test module that can never run in CI is a feature that never ran once.
 See `docs/roadmap/archive/agent-remaining/brief-13-harness.md`.
 
 ## 6. Consistency rules

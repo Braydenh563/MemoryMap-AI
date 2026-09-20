@@ -7,6 +7,18 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- A skill can say what "it worked" means, and the app checks it. Settings →
+  Skills has a "Check it worked" row: pick a counting tool, what the number
+  should be afterwards, and whether to count only the notes with no tags. The
+  built-in "Auto-tag my notes" now claims what it actually promises, that no
+  note is left untagged, and the two audit skills that could not be checked at
+  all now report that they changed nothing. A skill saved from Settings used to
+  lose its check on the way to the server without saying so.
+
+- Counting your notes can be narrowed the way listing them always could:
+  `count_notes` takes "untagged" and a time window, so a skill can ask the
+  notebook a smaller question instead of paging through all of it.
+
 - A citation names the note a sentence actually came from. Which note is now
   decided by the best passage in the answer's own candidate set rather than by
   how many words the note shares with the sentence, so a long note that carries

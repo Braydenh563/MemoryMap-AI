@@ -163,7 +163,12 @@ if [ "$FULL" = 1 ]; then step full-suite "$PY" -m pytest -q -p no:warnings tests
 if [ "$SWEEPS" = 1 ]; then
   export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}"
   export BASE="${BASE:-http://127.0.0.1:8781}"
-  for s in errors docks contrast touch; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
+  # skillverify is the one that writes (it saves a skill through the editor
+  # and deletes it again), and it is here because the thing it measures is a
+  # control whose value has to survive a round trip through the server: the
+  # Python suite cannot see the editor, and a field dropped on the wire looks
+  # exactly like a field that was never filled in.
+  for s in errors docks contrast touch skillverify; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
 else
   skipped+=("sweeps (--sweeps, needs BASE)")
 fi

@@ -6983,6 +6983,56 @@
               </div>
               <div id="skill-tool-list" class="tool-picker"></div>
             </details>
+            <!-- The postcondition (CHAT_PLAN decision 10b). The block has been
+                 readable and writable through `skills.normalise` since the
+                 harness landed and was offered nowhere, so only the built-in
+                 skills could declare one: a skill you wrote yourself ended
+                 with whatever the model said about it. Same fold recipe as the
+                 tools picker above it, one line of description, the longer
+                 answer behind the '?'. -->
+            <details class="settings-fold">
+              <summary>
+                <div class="row help-head">
+                  <span>Check it worked (optional)</span>
+                  <button type="button" class="icon-only ghost small graph-help-toggle"
+                    data-help-for="skill-verify-help" aria-controls="skill-verify-help" aria-expanded="false"
+                    title="About checking a skill" aria-label="About checking a skill">
+                    <i class="ph ph-question" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </summary>
+              <p class="muted">When the run ends, the app reads one number back out of your notebook and checks it.</p>
+              <div class="help-body hidden" id="skill-verify-help" role="dialog" aria-label="About checking a skill">
+                <p>
+                  A model can report having done something it did not do. This
+                  is the app's own answer: after the last step it runs a
+                  counting tool itself and compares the number, so "I tagged
+                  them" becomes "no note is left untagged". Pick a tool the
+                  skill is allowed to use, then what the count should be.
+                  Unchanged compares against the reading taken before the run
+                  started, which is what a skill that only reads should
+                  promise. A run that stopped early is never reported as
+                  checked.
+                </p>
+              </div>
+              <div class="row">
+                <label class="muted" for="skill-verify-tool">Read</label>
+                <select id="skill-verify-tool" aria-label="Which tool reads the number"></select>
+                <label class="muted" for="skill-verify-expect">and expect</label>
+                <select id="skill-verify-expect" aria-label="What that number should be">
+                  <option value="unchanged">unchanged</option>
+                  <option value="min">at least</option>
+                  <option value="max">at most</option>
+                  <option value="equals">exactly</option>
+                </select>
+                <input id="skill-verify-value" type="number" min="0" max="100000" step="1"
+                  value="0" aria-label="The number to compare against">
+              </div>
+              <label class="check-row" for="skill-verify-untagged">
+                <input id="skill-verify-untagged" type="checkbox">
+                <span>Count only the notes with no tags</span>
+              </label>
+            </details>
             <!-- Measured live during a spacing audit: this row sat flush
                  against the </details> above it (0px gap), unlike the
                  matching "last field → Add X row" transition in both

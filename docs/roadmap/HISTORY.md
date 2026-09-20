@@ -29865,3 +29865,74 @@ it would gate on nothing.
 **Files.** `src/memorymap/ai/grounding.py`,
 `tests/fixtures/chat/grounding_cases.json`,
 `tests/test_grounding_fixtures.py` (23 tests).
+
+### Built, Phase 4's harness items: a skill can say what "it worked" means, 2026-09-20
+
+Four of the five things `brief-13-harness.md` left open. The fifth (the
+`evals` marker) is still blocked on WORLD_CLASS_PLAN 9's dev model and is
+left in CHAT_PLAN Phase 4 with the reason.
+
+**`count_notes` takes the filters `list_notes` takes** (item 3). `untagged`
+and `since`, out of one `_scope_filters` helper both call, so a count and a
+list can never disagree about what "untagged" means: a postcondition that
+counted them differently from the tool that found them would pass runs that
+left work undone. The three shapes of "no tags" (`NULL`, `""`, `"[]"`) are
+the helper's, where they were already right, rather than a second copy.
+
+**A `verify` block may carry arguments** (CHAT_PLAN decision 10g). Decision
+10b's shape could only ask a tool its unfiltered question, so the skill that
+writes the most had the weakest check in the set. "Auto-tag my notes" now
+declares `count_notes(untagged) max 0`, the first postcondition on a shipped
+skill that writes. Scalars only, at most four (`MAX_VERIFY_ARGS`), validated
+at save time by `skills._verify_args`; the runner still refuses any tool in
+`WRITE_TOOLS`, so an argument can narrow a reading and can never change the
+notebook. The verification line says the scope it read
+(`count_notes(untagged).count came back 12`), because that and
+`count_notes came back 12` are different claims.
+
+**The two audit skills that had no check now have one** (item 3's other
+half). "Audit link reasons" and "Find where I disagreed with myself" declare
+`count_notes` and verify `unchanged`, the same pair the other three audit
+skills carry. That is a real widening of what those runs may call, which is
+why it had been left: one read-only counting tool on the wire, stated in
+`tests/test_skills.py`'s allowlist test rather than left to be rediscovered.
+
+**The editor offers it** (item 2). A fold under the tools picker in Settings
+→ Skills, on the same recipe: one line of description, the longer answer
+behind the '?'. A tool select (fed from the catalog's new `counts` flag, so
+the list is the server's and not a list typed into the frontend), a predicate
+select, a number that hides beside "unchanged" because a number that is being
+ignored reads as a setting that is broken, and a checkbox for "only the notes
+with no tags". `save_skill` gained the same four as flat arguments
+(`verify_tool`, `verify_expect`, `verify_value`, `verify_untagged`), flat
+because a 3B model writing a skill gets a three-field shape right far more
+often than a shape inside a shape.
+
+**A bug the browser found and no Python test could have.** A skill saved from
+Settings arrived at the server with its block and was stored without one:
+`SkillItem` in `routes_settings.py` did not declare the field, and pydantic
+drops what a model does not name. The save reported success. So "the editor
+round-trips it" was true of the stored shape and false of the wire, and the
+sweep is what said so. `tests/test_skills.py` now pins the round trip both
+ways (kept, and refused with the same sentence `save_skill` gives when the
+skill does not declare the tool it verifies with).
+
+**Measured.** `scratchpad/ui-sweeps/skillverify.js`, 12 of 12 checks: the
+three controls at 36px each, the row inside its section (0px past the edge),
+the tool list exactly `count_notes` and `list_notes`, the number hidden
+beside "unchanged" and shown beside "at most", the block whole in
+`/preferences` after a save, the same values painted back on edit, and the
+skill removed again so the gate's own notebook is unchanged. It is in
+`scripts/gate.sh`'s sweep list. `contrast.js` green on all seventeen
+settings panes, `errors.js` 0 errors at 1440, 1024 and 820.
+
+**The page cap** (item 4) is now CHAT_PLAN decision 10h: it stays at six
+pages of twenty-five, and the answer to a large notebook is a narrower read,
+which is what the filters above are for.
+
+**Files.** `src/memorymap/ai/tools/__init__.py`, `src/memorymap/ai/skills.py`,
+`src/memorymap/ai/skill_runner.py`, `src/memorymap/api/routes_settings.py`,
+`frontend/index.html`, `frontend/app.js`, `scripts/gate.sh`,
+`scratchpad/ui-sweeps/skillverify.js`, and the tests in
+`tests/test_harness_verifier.py`, `tests/test_agent_tools_api.py`,
+`tests/test_ai_reach.py`, `tests/test_skills.py`.

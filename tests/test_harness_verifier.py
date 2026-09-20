@@ -478,3 +478,128 @@ def test_the_read_only_built_ins_say_they_change_nothing_and_are_checked():
     catalog = {skill["name"]: skill for skill in skills.builtins(set(tools.TOOLS))}
     for name in ("Notebook health check", "Tidy suggestions", "Find loose ends"):
         assert catalog[name]["verify"]["expect"] == {"unchanged": True}, name
+
+
+# --- a postcondition with a scope (brief-13-harness item 3) -----------------
+
+
+def test_a_verify_block_can_narrow_what_it_counts(
+    app_state, fake_ollama, fake_embeddings, session
+):
+    """"Auto-tag my notes" promises no untagged note is left, not that the
+    notebook has some number of notes in it. Without arguments on the block
+    the only question a verifier could ask was the unfiltered one, so the
+    skill that writes the most had the weakest check in the set."""
+    manager.create_entry(session, "tagged already", "Work", ["work"])
+    manager.create_entry(session, "nothing on this one", "Work", [])
+    _save(
+        {
+            **COUNTING_SKILL,
+            "name": "Tag them",
+            "tools": ["count_notes"],
+            "verify": {
+                "tool": "count_notes",
+                "args": {"untagged": True},
+                "field": "count",
+                "expect": {"max": 0},
+            },
+        }
+    )
+    fake_ollama.tool_script = _counting_script()
+    run = skill_runner.run_for_test(fake_ollama, skill="tag_them")
+    assert run.verification.ok is False
+    assert run.verification.got == 1, "the unfiltered count is 2; this one is scoped"
+    assert "count_notes(untagged)" in run.verification.reason
+
+
+def test_a_scoped_postcondition_that_holds_verifies(
+    app_state, fake_ollama, fake_embeddings, session
+):
+    manager.create_entry(session, "tagged already", "Work", ["work"])
+    _save(
+        {
+            **COUNTING_SKILL,
+            "name": "Tag them",
+            "tools": ["count_notes"],
+            "verify": {
+                "tool": "count_notes",
+                "args": {"untagged": True},
+                "field": "count",
+                "expect": {"max": 0},
+            },
+        }
+    )
+    fake_ollama.tool_script = _counting_script()
+    run = skill_runner.run_for_test(fake_ollama, skill="tag_them")
+    assert run.verification.ok, run.verification.reason
+    assert run.verification.got == 0
+
+
+def test_a_verify_argument_only_ever_narrows_a_reading(app_state, session):
+    """The guard that makes arguments safe to allow at all: the block still
+    cannot name a tool that writes, so an argument can change what is counted
+    and never what is in the notebook."""
+    manager.create_entry(session, "a note", "Work", [])
+    got, why = skill_runner._reading(
+        session, {"tool": "delete_note", "args": {"note_id": 1}, "expect": {"min": 0}}
+    )
+    assert got is None
+    assert "cannot check anything" in why
+    assert manager.count_entries(session) == 1
+
+
+def test_the_write_skill_in_the_catalogue_declares_its_own_postcondition():
+    """"Auto-tag my notes" is the one shipped skill whose prompt promises a
+    change rather than a report, and it is now checked the same way the
+    read-only ones are."""
+    catalog = {skill["name"]: skill for skill in skills.builtins(set(tools.TOOLS))}
+    block = catalog["Auto-tag my notes"]["verify"]
+    assert block["tool"] == "count_notes"
+    assert block["args"] == {"untagged": True}
+    assert block["expect"] == {"max": 0}
+    assert "count_notes" in catalog["Auto-tag my notes"]["tools"]
+
+
+def test_the_two_audit_skills_that_had_no_check_now_have_one():
+    """Left out when the other three got theirs, because adding a tool to a
+    run's allowlist is a real change and was not worth guessing at:
+    `count_notes` reads and cannot write, which is what makes it the right one
+    to add."""
+    catalog = {skill["name"]: skill for skill in skills.builtins(set(tools.TOOLS))}
+    for name in ("Audit link reasons", "Find where I disagreed with myself"):
+        assert catalog[name]["verify"]["expect"] == {"unchanged": True}, name
+        assert "count_notes" in catalog[name]["tools"], name
+
+
+def test_a_verify_block_refuses_an_argument_it_cannot_store():
+    for bad in ({"args": {"untagged": {"nested": 1}}}, {"args": [1, 2]}):
+        try:
+            skills.verify_spec(
+                {"verify": {"tool": "count_notes", "expect": {"min": 1}, **bad}},
+                {"count_notes"},
+                ["count_notes"],
+            )
+        except skills.SkillError:
+            continue
+        raise AssertionError(f"{bad} should have been refused")
+
+
+def test_every_tool_the_editor_offers_as_a_check_answers_with_a_number(
+    app_state, fake_embeddings, session
+):
+    """`COUNTING_TOOLS` is what the skill editor puts in its dropdown, and a
+    tool in it that came back with no number would fail every run that picked
+    it, at the end, after all the work. So the list is run rather than
+    reviewed."""
+    manager.create_entry(session, "a note", "Work", [])
+    for name in tools.COUNTING_TOOLS:
+        got, why = skill_runner._reading(session, {"tool": name, "expect": {"min": 0}})
+        assert isinstance(got, int), f"{name}: {why}"
+
+
+def test_the_catalogue_tells_the_editor_which_tools_can_check(app_state):
+    catalog = {tool["name"]: tool for tool in tools.tool_catalog()}
+    assert {name for name, tool in catalog.items() if tool["counts"]} == set(
+        tools.COUNTING_TOOLS
+    )
+    assert catalog["delete_note"]["counts"] is False

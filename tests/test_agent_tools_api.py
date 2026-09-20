@@ -500,3 +500,48 @@ def test_listing_reminders_hands_the_model_a_page_not_the_table(session):
 
     withdone = tools.execute_tool(session, "list_reminders", {"include_done": True})
     assert withdone["total"] == 60, withdone["total"]
+
+
+# --- count_notes takes the filters list_notes takes ------------------------
+
+
+def test_count_notes_counts_the_untagged_ones(ai_client, session):
+    """The filter exists so a skill can state its own postcondition: "no note
+    is left untagged" is one integer, and before this it could only be reached
+    by paging through `list_notes` and counting in the model's head."""
+    _save(ai_client, "tagged one", category="Work", tags=["work"])
+    _save(ai_client, "bare note", category="Work")
+
+    counted = tools.execute_tool(session, "count_notes", {"untagged": True})
+    assert counted["count"] == 1
+    assert "untagged" in counted["label"]
+    assert tools.execute_tool(session, "count_notes", {})["total"] == 2
+
+
+def test_count_notes_and_list_notes_agree_about_untagged(ai_client, session):
+    """The two have to answer the same question the same way: a postcondition
+    that counted "untagged" differently from the tool that found them would
+    pass runs that left work undone."""
+    _save(ai_client, "tagged one", category="Work", tags=["work"])
+    for index in range(3):
+        _save(ai_client, f"bare note {index}", category="Work")
+
+    listed = tools.execute_tool(session, "list_notes", {"untagged": True})
+    counted = tools.execute_tool(session, "count_notes", {"untagged": True})
+    assert counted["count"] == listed["total_matching"] == 3
+
+
+def test_count_notes_narrows_untagged_by_category(ai_client, session):
+    _save(ai_client, "bare work note", category="Work")
+    _save(ai_client, "bare life note", category="Life")
+
+    counted = tools.execute_tool(session, "count_notes", {"untagged": True, "category": "Work"})
+    assert counted["count"] == 1
+    assert counted["category"] == "Work"
+
+
+def test_count_notes_takes_a_since_window(ai_client, session):
+    _save(ai_client, "recent", category="Work")
+    counted = tools.execute_tool(session, "count_notes", {"since": "7"})
+    assert counted["count"] == 1
+    assert "last 7 days" in counted["label"]

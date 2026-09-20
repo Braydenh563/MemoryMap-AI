@@ -252,27 +252,22 @@ being written by running agents stay beside this one.
   `tests/test_skill_evals.py`, marker `evals` registered in `pyproject.toml`
   and the module skipped unless the dev model is reachable. Next step:
   WORLD_CLASS_PLAN 9's runner first. [brief-13-harness.md]
-- **Nothing in the app reads a skill's `verify` block except
-  `skills.normalise`.** The saved-skill editor and `save_skill` round-trip it,
-  neither offers a control. Files: `frontend/index.html` (the skill editor),
-  `frontend/app.js` (`renderSkillEditor`),
-  `src/memorymap/ai/tools/__init__.py` (`save_skill`'s schema). Next step: one
-  row in the editor, tool select plus predicate select plus a number, and the
-  same three fields on the schema. [brief-13-harness.md]
-- **Two built-ins still have no `verify` block that they could have.** "Audit
-  link reasons" declares only `audit_link_reasons`, "Find where I disagreed
-  with myself" only `find_contradictions` and `link_notes`, so neither can
-  verify with `count_notes` without widening its allowlist; the write skills
-  want a shape `count_notes` cannot express ("Auto-tag my notes" wants
-  `count_notes(untagged) max 0`). Files: `src/memorymap/ai/skills.py`,
-  `_AUDIT_SKILLS`; `src/memorymap/ai/tools/__init__.py`, `_count_notes`. Next
-  step: give `count_notes` the filters `list_notes` already takes.
-  [brief-13-harness.md]
-- **The page cap and a large notebook.** `MAX_PAGES_PER_STEP` is 6 and
-  `MAX_LIST_LIMIT` is 25, so one step sees at most 150 notes and "Find loose
-  ends" over a thousand notes reports seeing a sixth of them. Raising the cap
-  trades one wrong answer for another. Next step: decide it in CHAT_PLAN
-  rather than in the constant; the right answer is probably a filtered read.
+- **A skill's `verify` block: offered, checkable and scoped. Built
+  2026-09-20.** The editor has a "Check it worked" fold (tool, predicate,
+  number, and "only the notes with no tags"), `save_skill` has the same four
+  as flat arguments, `count_notes` takes `untagged` and `since` out of the
+  same helper `list_notes` uses, a block may carry arguments (CHAT_PLAN
+  decision 10g) and "Auto-tag my notes" declares
+  `count_notes(untagged) max 0`. The two audit skills that had no check now
+  declare `count_notes` and verify `unchanged`. Found on the way: a skill
+  saved from Settings lost its block on the wire, because `SkillItem` did not
+  declare the field. Measured by `scratchpad/ui-sweeps/skillverify.js`, 12 of
+  12, now in the gate's sweep list. The account is in HISTORY.md, "Moved from
+  the plans, 2026-09-20". [brief-13-harness.md]
+- **The page cap and a large notebook: decided 2026-09-20**, CHAT_PLAN
+  decision 10h. Six pages of twenty-five stays; the answer to a large notebook
+  is a narrower read, which the new `count_notes`/`list_notes` filters make
+  expressible. The honest `truncated` report is unchanged.
   [brief-13-harness.md]
 - **The agent panel does not close on Escape.** Every other floating surface
   does. Not added because it is a behaviour change on a non-modal panel that
@@ -571,6 +566,14 @@ being written by running agents stay beside this one.
   The next head that wants a control beside its title should take family 8
   rather than inventing a fourth arrangement, which is what the lint is there
   to insist on. [ask-head-ocr.md]
+
+- **Settings → Extras scrolls sideways by 4px at 820** (`errors.js`,
+  2026-09-20: `section scrolls sideways 496>492`, the only finding in the
+  three widths it walks). Pre-existing by inspection, found while sweeping the
+  skills pane next door; nothing in the extras markup was touched this
+  session. Next step: measure which child of `#settings-extras` is 496 wide at
+  that width before changing anything, since a section that overflows by four
+  pixels is usually one row's padding rather than the section.
 
 ## Settings and help
 

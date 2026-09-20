@@ -22172,6 +22172,7 @@ function startEditingSkill(skill) {
   $("skill-steps").value = stepsToText(skill.steps);
   $("skill-inputs").value = inputsToText(skill.inputs);
   renderSkillToolPicker(skill.tools || []);
+  renderSkillVerifyPicker(skill.verify || null);
   $("skill-add").textContent = "Save changes";
   $("skill-cancel").classList.remove("hidden");
   $("skill-status").textContent = `Editing “${skill.name}”…`;
@@ -22184,6 +22185,7 @@ function stopEditingSkill() {
     $(id).value = "";
   }
   renderSkillToolPicker([]);
+  setSkillVerify(null);
   $("skill-add").textContent = "Add skill";
   $("skill-cancel").classList.add("hidden");
   $("skill-status").textContent = "";
@@ -22217,6 +22219,77 @@ function chosenSkillTools() {
   const box = $("skill-tool-list");
   if (!box) return [];
   return [...box.querySelectorAll("input:checked")].map((input) => input.value);
+}
+
+//: **The skill's postcondition, in the editor** (CHAT_PLAN decision 10b).
+//: `skills.normalise` has read and written a `verify` block since the harness
+//: landed and nothing offered one, so only the shipped skills could say what
+//: "it worked" means for them. The tool list comes from the server's own
+//: catalog (`counts: true`) rather than a list written here, for the same
+//: reason the tool picker does: a name typed into the frontend is a name that
+//: drifts.
+async function renderSkillVerifyPicker(block) {
+  const select = $("skill-verify-tool");
+  if (!select) return;
+  const catalog = await apiJson("/chat/tools").catch(() => []);
+  const counting = catalog.filter((tool) => tool.counts);
+  select.replaceChildren();
+  const none = document.createElement("option");
+  none.value = "";
+  none.textContent = "nothing (no check)";
+  select.appendChild(none);
+  for (const tool of counting) {
+    const option = document.createElement("option");
+    option.value = tool.name;
+    option.textContent = tool.name;
+    option.title = tool.description;
+    select.appendChild(option);
+  }
+  setSkillVerify(block);
+}
+
+function setSkillVerify(block) {
+  const spec = block || {};
+  const expect = spec.expect || {};
+  const [predicate, value] = Object.entries(expect)[0] || ["unchanged", true];
+  $("skill-verify-tool").value = spec.tool || "";
+  $("skill-verify-expect").value = predicate;
+  $("skill-verify-value").value = predicate === "unchanged" ? 0 : Number(value) || 0;
+  $("skill-verify-untagged").checked = Boolean((spec.args || {}).untagged);
+  syncSkillVerifyRow();
+}
+
+//: The number is meaningless beside "unchanged", and a disabled control that
+//: still shows a value reads as a setting that is being ignored, so it is
+//: hidden rather than greyed. The same reasoning as the run dialog's own
+//: optional rows.
+function syncSkillVerifyRow() {
+  const predicate = $("skill-verify-expect").value;
+  $("skill-verify-value").classList.toggle("hidden", predicate === "unchanged");
+}
+
+//: The block the editor sends, or null. Built here rather than assembled in
+//: `addSkill` so the shape has one home: the server validates it again
+//: (`skills.verify_spec`) and its complaint is what the status line shows.
+function chosenSkillVerify() {
+  const tool = $("skill-verify-tool").value;
+  if (!tool) return null;
+  const predicate = $("skill-verify-expect").value;
+  const block = {
+    tool,
+    expect: {
+      [predicate]: predicate === "unchanged" ? true : Number($("skill-verify-value").value) || 0,
+    },
+  };
+  if ($("skill-verify-untagged").checked) {
+    block.args = { untagged: true };
+    //: `count_notes` answers a filtered question in `count` and an unfiltered
+    //: one in `total`, and the verifier tries `total` first, so a filtered
+    //: block that did not name its field would read the number it is
+    //: filtering away from.
+    block.field = "count";
+  }
+  return block;
 }
 
 // Run a skill. The server owns what a skill is, so this sends its name and
@@ -22809,6 +22882,7 @@ async function renderSkillSettings() {
   list.replaceChildren();
   for (const skill of allSkills()) list.appendChild(skillRow(skill));
   if (!$("skill-tool-list").children.length) renderSkillToolPicker([]);
+  if (!$("skill-verify-tool").children.length) renderSkillVerifyPicker(null);
 }
 
 async function addSkill() {
@@ -22825,6 +22899,7 @@ async function addSkill() {
   const custom = customSkills().filter(
     (s) => s.name !== name && s.name !== editingSkillName
   );
+  const verify = chosenSkillVerify();
   custom.push({
     name,
     prompt: promptText,
@@ -22832,6 +22907,7 @@ async function addSkill() {
     steps: textToSteps($("skill-steps").value),
     tools: chosenSkillTools(),
     inputs: textToInputs($("skill-inputs").value),
+    ...(verify ? { verify } : {}),
   });
   const wasEditing = editingSkillName;
   try {
@@ -38190,6 +38266,7 @@ renderStatusBar();
 $("persona-add").addEventListener("click", addPersona);
 $("skill-add").addEventListener("click", addSkill);
 $("skill-cancel").addEventListener("click", stopEditingSkill);
+$("skill-verify-expect").addEventListener("change", syncSkillVerifyRow);
 $("graph-refresh").addEventListener("click", () => {
   graphHighlightIds = null; // a refresh clears any "similar notes" spotlight
   renderGraph();

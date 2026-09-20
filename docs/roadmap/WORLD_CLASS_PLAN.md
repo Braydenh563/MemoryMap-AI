@@ -375,6 +375,53 @@ utilities as an icon cluster with hairline separators on the bar surface;
 a bottom tab bar on phone (five + more); sidebars as sheets under 900.
 Gate: Phase 9 numbers.
 
+### D16 Write with AI, the writing desk (M, Opus)
+
+The owner, INBOX 274: "I want to improve the design, capabilities and
+features in the write with ai subtab in notes because I think it is falling
+behind." HISTORY's flagged list already named it ("Write with AI tab: behind
+in function and UI. Owner: new dossier D16"); this is that dossier.
+
+**Measured before, 2026-09-20, on :8967 at 1440x900 and 390x844, light**
+(`scratchpad/ui-sweeps/writingroom.js` measures the same numbers after):
+
+| What | Before |
+| --- | --- |
+| Controls on the sub-tab | 10 at 1440, 10 at 390 |
+| Control heights | three at 1440 (36 / 40 / 330.3), four at 390 (40 / 44 / 189.2 / 330.3) |
+| Dock | none. The head is an `h2` and a lone round '?', so the sub-tab has no control bar and nothing on the dock grammar |
+| Primary buttons on the card | two, "Draft it" and "Save as note", both filled, one per column |
+| Quick starts | none (0 `.library-chip`, 0 `.seg`, 0 `data-help-for`; the help is the older `graph-help-toggle` pair) |
+| Empty state | none. Two empty boxes with placeholders, nothing that says what the desk is for |
+| Shape of a request | one POST `/drafts/compose`, answered when the whole draft exists |
+| A draft against the stand-in model server | arrived after **22.9s** in **2 distinct values** of the box (empty, then 82 characters): one piece, no stream, no progress beyond a status line |
+| Thinking | a `<details>` under both columns, written **after** the reply lands, never while it is written |
+| What can be done with a result | Extract notes, Discard, Save as note. No copy, no insert into an existing note, no retry, no version history beyond a single Undo |
+| Capabilities | thoughts in, a note out, plus a free-text instruction. No tone, no length, no "continue this note", no bullets/prose conversion, no sources: the notebook's own notes cannot be handed to the drafter at all |
+| With no model | "Draft it" and "Extract notes" are disabled with a `title` ("Drafting needs the local AI. Connect a model in Settings."); the section draws **no** `.ai-offline-note`, so the one control that fixes it (Settings → Models) is only in a tooltip on a disabled button |
+| Console errors | 0 at both widths |
+
+Against the two surfaces it should be a sibling of: the Chat composer
+streams token by token into a bubble, carries its sources, its mode segment
+and its length select on one strip under the box, and names its own offline
+state in a row with a button to Settings; the documents editor's AI edit
+shows a per-hunk diff before anything is accepted. The writing room has
+none of those three.
+
+**Target.** The sub-tab is a writing desk, not a form: a dock on the
+grammar (identity, one primary "Draft"), quick-start chips from the
+`.library-chip` recipe, one composer on the app's own composer surface
+carrying what to write, in what tone, at what length and from which notes,
+a result that streams as it is written with the thinking shown while it
+runs, one row of actions on the result (copy, insert into a note, save as
+note, retry), and a version history with a way back to any earlier draft.
+Every failure names its way out.
+
+**Gate.** `scratchpad/ui-sweeps/writingroom.js`: the dock at seven controls
+or fewer with exactly one filled, a streamed draft arriving in more than one
+piece against the stand-in server, the actions row present, one column and
+44px targets at 390, 0 console errors.
+
 ---
 
 ## 4. The backend, made revolutionary (and still SQLite, still offline)

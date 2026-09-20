@@ -69,13 +69,6 @@ being written by running agents stay beside this one.
 - **DOCUMENTS_PLAN Phase 4, the connected document: not started.** Next step:
   take the plan's items in order and record file, id and next step per item at
   the first stopping point. [documents-phase4.md]
-- **`revalidateSelection` reads the stale fallback.** `frontend/app.js`, line
-  17697 on the branch head: it resolves the surface with
-  `document.getElementById` and requires an `HTMLTextAreaElement`, so a
-  selection sent to the chat from a document is re-checked against the wrong
-  string and reports `gone` or `unknown` while the passage is on screen. Next
-  step: `docSurfaceById(context.surfaceId)` and `surface.text`, three lines.
-  [documents-engine.md]
 - **The "is the user typing?" guard does not know `contenteditable`.**
   `frontend/app.js` around line 33916 tests
   `["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)`.

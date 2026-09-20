@@ -7,6 +7,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- A passage selected in a document and sent to the chat is re-checked against
+  the document you are looking at. It was checked against the empty textarea
+  the editor leaves behind, so every document selection was described to the
+  model as "the user has since edited it, so this passage may no longer be
+  there" while the passage was on screen.
+
 ## [0.3.1] - 2026-09-14
 
 - The status bar's help button says "Guide", not the assistant's name. It sat

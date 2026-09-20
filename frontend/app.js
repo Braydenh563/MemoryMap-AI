@@ -18065,13 +18065,35 @@ function renderSelectionAttachment() {
 //: which case the text is still sent, the user asked about it, but with no
 //: position claimed at all.
 function revalidateSelection(context) {
-  const surface = document.getElementById(context.surfaceId);
-  if (!(surface instanceof HTMLTextAreaElement)) {
+  //: **Through `docSurfaceById`, never `getElementById` alone.** A document
+  //: whose CodeMirror engine has mounted keeps `#doc-content` in the markup as
+  //: the form's empty value carrier: it is still an `HTMLTextAreaElement` and
+  //: its `.value` is still `""`, so reading it directly passed the type check
+  //: and then told the model every document passage was `gone` while the
+  //: passage was on screen (measured on the branch head by
+  //: `scratchpad/ui-sweeps/docsel.js`: "gone" for an untouched selection).
+  //: `docSurfaceById` resolves `doc-content` to whichever surface is editing,
+  //: and a note box that has mounted the engine the same way.
+  //:
+  //: Guarded by `typeof`, because documents.js is in the Library's lazy bundle
+  //: (`LAZY_MODULES`) and a selection taken from the capture box can be sent
+  //: before that bundle has ever loaded; the textarea is the right answer
+  //: there anyway.
+  const el = document.getElementById(context.surfaceId);
+  const surface =
+    typeof docSurfaceById === "function"
+      ? docSurfaceById(context.surfaceId)
+      //: `{ text }` rather than the element itself, so the one line below that
+      //: reads the words reads the same property in both branches.
+      : el instanceof HTMLTextAreaElement
+        ? { text: el.value }
+        : null;
+  if (!surface || typeof surface.text !== "string") {
     //: The note was closed or the document navigated away from. Nothing to
     //: check against, so nothing is claimed.
     return { ...context, position: "unknown" };
   }
-  const value = surface.value;
+  const value = surface.text;
   if (value.slice(context.start, context.end) === context.text) {
     return { ...context, position: "exact" };
   }

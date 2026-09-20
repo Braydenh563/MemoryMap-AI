@@ -522,3 +522,16 @@ with its owner named in the entry.
     the lightbox sets `role="dialog"` precisely so it is inside its reach),
     rather than every overlay in the app having to remember to stop the
     key. Owner: GRAPH_PLAN, Phase 2's chrome row. Size S.
+
+276. **The sketch pad's toolbar wraps to two rows at 820 on Large text**, and
+    has since before this session: `scratchpad/ui-sweeps/sketchbar.js` reports
+    `rows=2` at 820/large-text (content 712 of an inner 714) and at
+    820/large+spacious (688 of 690), while 820/default and 820/spacious are
+    one row. The Canvas group is the one that drops. Found while giving the
+    ink dots a finger-sized target (the same sweep), not caused by it: the
+    dots only change below 820. Recommendation: the bar is five groups and
+    Large text buys their labels about 10px each, so the cheapest honest fix
+    is the group labels, not the controls: hide `.wb-tool-section-label`
+    below 1024 the way the phone band already hides other labels, and
+    re-measure; it is worth about 60px, which is more than the 2px the wrap
+    is short by. Owner: whoever next opens the pad's bar.

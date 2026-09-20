@@ -439,12 +439,23 @@ being written by running agents stay beside this one.
   the bar and in the top bar's Arrange menu. `wbarrange.js` is stale: it asks
   for `#wb-prop-multi-row`, which Phase 2 removed, and prints
   `{"missing": true}` rather than failing. [inbox.md]
-- **A colour swatch is 1rem and never grows for a finger.** `.sketch-color` is
-  a fixed size at every width, so on a phone the seven ink dots are 16px
-  targets in a bar whose buttons step up to 44. `touch.js` does not look at
-  this dialog, which is why it has never been reported. Next step: a step on
-  the swatch under 820px and a re-measure of the bar at that width, where it
-  already wraps into two rows on Large text. [popup-redesigns.md]
+- ~~**A colour swatch is 1rem and never grows for a finger.**~~ Done
+  2026-09-20. Below 820 the paint steps to 2rem and the target goes the rest
+  of the way with a transparent `::before`, the pattern DESIGN.md's "Hit
+  targets" section already uses for the painted switches. Two steps rather
+  than one because seven dots at 44px is 308px of the 311 the bar has at 390
+  and they would have to touch: measured at 390, the paint is 32x32 and the
+  target 33x41 (the sweep walks out from the centre with `elementFromPoint`
+  and undercounts a 44px box by about three pixels), 37x46 on Large text, and
+  no two dots share a pixel at any setting. The bar at 390 is five rows where
+  it was four, which is the cost of the step and is what the plan asked to be
+  re-measured. Two things found with it: the dots ran 12px past the bar at
+  Large text with Spacious density, because a `.wb-tool-section` is
+  `flex: 1 0 auto` with `min-width: auto` and so refused to be narrower than
+  its widest row (it wraps to two rows of four and three now, 282 in 284),
+  and `sketchbar.js` never looked at 390 or at the swatches at all: it takes
+  both now, with the bar's one-row rule kept above 600 only.
+  [popup-redesigns.md]
 
 ## Timeline
 

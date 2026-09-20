@@ -9,6 +9,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The quick sketch pad's ink dots are a finger's size on a phone. They were
+  16px targets in a bar whose every other control steps up to 44, and the
+  dialog is the one place the touch sweep never looked. The dot is 32px below
+  820 with the press reaching 44 past its edge, and the seven of them wrap to
+  a second row rather than running off the bar at the largest text and
+  spacing settings.
+
 - On a phone, the whiteboard's context bar sits at the top of the canvas
   instead of following the selection around it. At that width it is a band
   rather than a bar, 348px of a 364px canvas, and floating put it on top of the

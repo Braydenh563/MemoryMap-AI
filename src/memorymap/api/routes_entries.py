@@ -1729,13 +1729,11 @@ def _reference_rows(session: Session, entry: Entry) -> list[dict]:
         seen_boards.add(board_id)
         #: `board_settings` says whether this is a whiteboard or a mind map,
         #: and the owner asked for both by name, so the row says which.
-        kind = "board"
-        try:
-            parsed = json.loads(board.board_settings or "{}")
-            if isinstance(parsed, dict) and parsed.get("type") == "map":
-                kind = "map"
-        except (TypeError, ValueError):
-            pass
+        #: Through `manager.board_type_of` rather than parsed here: this app
+        #: already reads that column in four places and CodeQL caught the
+        #: fifth arriving with a bare `except: pass`, which is fair. One
+        #: reader, one decision about what a malformed value means.
+        kind = manager.board_type_of(board)
         rows.append({
             "kind": kind,
             "id": board_id,

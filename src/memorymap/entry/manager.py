@@ -788,8 +788,8 @@ def unarchive_entry(session: Session, entry: Entry) -> None:
     session.commit()
 
 
-def _board_type_of(session: Session, board_id: int) -> str:
-    """"map" or "board" for the note with this id.
+def board_type_of(entry: Entry | None) -> str:
+    """"map" or "board" for a note that is one.
 
     A one-line read of `Entry.board_settings`, duplicated from
     `routes_whiteboard._board_settings` rather than imported: `entry/manager`
@@ -798,8 +798,12 @@ def _board_type_of(session: Session, board_id: int) -> str:
     Tolerant of every shape a JSON text column can hold, for the same reason
     the original is: a bad value must degrade to "an ordinary board", never
     to an exception in the middle of emptying the bin.
+
+    Public, and takes the row rather than an id, because a second caller
+    turned up (`routes_entries._reference_rows`, which already has the
+    `Entry` in hand and was about to write this parse a third time). The
+    id version below is kept for the callers that only have an id.
     """
-    entry = session.get(Entry, board_id)
     if entry is None:
         return "board"
     try:
@@ -809,6 +813,11 @@ def _board_type_of(session: Session, board_id: int) -> str:
     if not isinstance(parsed, dict):
         return "board"
     return "map" if parsed.get("type") == "map" else "board"
+
+
+def _board_type_of(session: Session, board_id: int) -> str:
+    """"map" or "board" for the note with this id."""
+    return board_type_of(session.get(Entry, board_id))
 
 
 #: The one shape a whiteboard image url may take, the same allowlist as

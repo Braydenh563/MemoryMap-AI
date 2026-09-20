@@ -434,6 +434,18 @@ being written by running agents stay beside this one.
   If it comes back the fix is the menu's own length (four groups, sixteen
   rows), not its placement, which is measured and right from 500 to 1000px
   tall. [visual-c.md]
+- **The mind map's own leftover list was re-checked item by item, 2026-09-20**
+  (`agent-remaining/mindmap.md`, "Left to do", rewritten with what a run
+  against this head finds). Four of its six items were already done, two of
+  them by decisions taken after the list was written: the dock's Layout
+  section exists and MINDMAP_PLAN §12.5 decided a map shows no Insert or
+  Arrange menu at all, both sweeps take `VIEWPORT`, `mapstrip.js` runs 39/39
+  on `#wb-context`, `mapperspective.js` measures every Colour by on a map of
+  twenty notes 12/12 (category 5 colours, 4.59:1 to 9.13:1 against the card),
+  and `wbrail.js` reads the rail against the bar recipe 6/6. What is actually
+  left: **curve control points on a tree edge** (a link has its bend already,
+  a branch has a shape and no control point), an image in a node, and the AI
+  half, which no sandbox here can exercise.
 - **The whiteboard's own View menu (`.wb-board-menu`) was never reproduced as
   broken.** It has its own max-height-on-open logic (`whiteboard.js`, the
   `wb-board-menu-wrap` toggle listener), unrelated to the `details.dock-menu`

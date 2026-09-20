@@ -150,67 +150,75 @@ re-framing finding under "not fixed" says why.
 
 ## Left to do
 
-### 1. The rest of §12.1 item 1: the dock's four menus, NOT started
+**Re-checked item by item against the running app, 2026-09-20**, before
+anything here was believed: four of the six were already done and two of those
+by decisions taken after this list was written. What is below is what a run
+against this head would actually find.
 
-Layout and Tidy are still in the top bar rather than the dock, and the
-Style, Insert, Arrange, Present and Export menus named in item 1 are not
-written. The Topic and Branch sections carry six controls between them.
+### 1. The dock's other menus: closed, mostly by a later decision
 
-**Next step**: the dock grammar allows seven visible controls and the rest
-behind ▾ menus. Style is now mostly redundant (the strip and the link ring
-carry colour, weight, size, alignment and line shape), so the honest list is
-Layout ▾, Insert ▾, Arrange ▾ and Export ▾, and Layout is a move of
-`#wb-map-layout` and `#wb-map-tidy` out of `#wb-topbar` rather than new UI.
+Layout **is** in the dock: `#wb-map-layout` and `#wb-map-tidy` sit in a
+`.wb-tool-section` labelled Layout with `data-wb-surface="map"`
+(`index.html`), with the measurement that moved them in the comment above
+them. Insert and Arrange are not coming: MINDMAP_PLAN §12.5 decided that **a
+map does not show the board's Insert and Arrange menus at all** (60 controls
+in a map's top bar before, 40 after), which is a stronger answer than putting
+them behind a caret in the dock. Export is a dialog, not a menu
+(WHITEBOARD_PLAN decision 4), measured opening inside the window at 1440 and
+390 by `wbinbox12.js`. Nothing is left of this item.
 
-### 2. The five sub-items of §12.1 items 2 to 9 that were not built
+### 2. The five sub-items of §12.1 items 2 to 9: one of them is still live
 
-Each with its reason, in the plan at §12.1 under "2 to 9". In the order
-worth doing them:
+Each with its reason in the plan at §12.1 under "2 to 9". **Line thickness**
+arrived by another route (INBOX 177's per-branch `edge_width`), so four
+remain, three of them with a recorded reason for being left rather than an
+omission:
 
-- **An image in a node** (item 2). Needs the board's own upload path
+- **Curve control points** (item 5) is the one with no blocking reason, and
+  the one to take first. A *link* has its bend already (`.wb-link-bend-handle`,
+  the `bend` field, drag to curve and double-click to straighten); a **tree
+  edge** has a shape (`edge_style`: curve, elbow, straight) and no control
+  point, so a branch cannot be bent around anything. Two more `data` fields on
+  the child and a third hit target per line, composing with those three
+  shapes.
+- **An image in a node** (item 2): the board's own upload path
   (`/whiteboard/media`) and a node whose body is a picture rather than a
   label, which is a second node shape rather than a fourth strip button.
-- **Curve control points** (item 5). Two more `data` fields on the child and
-  a third hit target per line, and it now has to compose with the three
-  line shapes item 4 added.
-- **Line thickness** (item 4), **Shift+drag to sever** (item 9) and
-  **comments on a node** (item 3, which is §12.2 item 6): each is one line
-  in the plan, and each has a reason there for being left.
+- **Shift+drag to sever** (item 9) collides with drag-to-transplant on the
+  same pointer, and **comments on a node** (item 3) belong to §12.2 item 6.
+  Both are decisions, not gaps.
 
-### 3. The dark theme and the narrow viewport: done for the strip, the rings and the dock, NOT for the rest of the map
+### 3. The dark theme and the narrow viewport: done
 
-Run at 1440 light, 1440 dark and 390x844: mapstrip 37/37 in all three,
-mapdock 26/26 in all three, mindmap-theme 9/9 dark at 1440. The strip's
-392px-in-a-364px-canvas was real and is fixed (it wraps); the rings are
-clamped. What is still unseen narrow or dark: the mid-line `+`, the
-drop-target outline, the templates card (`#wb-map-templates`, which covered
-the only topic of a new map at 390 in a probe: reproduce before fixing, it
-was an empty map), and everything in `mindmap.js` and `mindmap3.js`, neither
-of which takes a `VIEWPORT` yet.
+`mindmap.js` and `mindmap3.js` both take `VIEWPORT` now (the block this item
+asked for is at the top of each). `mapstrip.js`, which this file recorded as
+broken on `#wb-selection-bar`, asks for `#wb-context` and runs: **39/39** at
+1440x900 on this head.
 
-**Next step**: give `mindmap.js` and `mindmap3.js` the same four-line
-`VIEWPORT` block `mapstrip.js` has, and run both narrow.
+### 4. Perspectives on a map that has notes on it: measured
 
-### 4. Perspectives on a map that actually has notes on it: NOT measured
+`scratchpad/ui-sweeps/mapperspective.js` builds twenty note nodes across four
+categories and switches every Colour by: **12/12**. Category draws 5 colours
+(the four categories at 4.59:1 to 9.13:1 against the card, plus the quiet
+grey), age 2 (4.07:1), notes 2 (4.59:1) and branch 11 (worst 4.32:1), with the
+quiet grey at 2.77:1 throughout and a legend drawn for the three perspectives
+that need one.
 
-Unchanged from the fourth run. Colour-by-category and colour-by-age were
-measured on a map of topics, where both are the quiet grey by construction.
+### 5. INBOX 43's second half: measured, and the panel half is moot
 
-**Next step**: build a map of twenty note nodes across four categories
-(`POST /boards/{id}/nodes` with `kind: "note"`), switch the View menu's
-Colour by, and measure the distinct `--wb-branch` values plus contrast
-against `--card` with `scratchpad/pngpixel.py`.
-
-### 5. INBOX 43's second half: NOT started
-
-The whiteboard's bottom tool rail and properties panel onto the bar and
-panel recipes of `08-consistency.css`. Untouched for two runs.
+`scratchpad/ui-sweeps/wbrail.js` reads the rail and the floating panels
+against the bar recipe: **6/6**. One radius across every floating panel on the
+board (999px), one padding (4px/6.4px), the rail a pill against the tab dock's
+11.2px card, one control height in the rail (36px over 16 controls) and the
+same height the dock uses. The properties panel half of the item went with the
+panel: Phase 2 replaced it with the context bar.
 
 ### 6. The AI half, still unexercised
 
 No real model has answered the map proposal prompt, and no map *tool*
 (`read_mindmap`, `create_mindmap`, `add_map_node`, `link_map_nodes`) has been
-driven from the UI in five runs.
+driven from the UI. Unchanged, and unchangeable here: every provider in this
+sandbox is a fake transport (CLAUDE.md section 4).
 
 ## Found while measuring, and fixed
 

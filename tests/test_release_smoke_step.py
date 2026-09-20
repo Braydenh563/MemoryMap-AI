@@ -7,13 +7,13 @@ package jobs now start the frozen app and wait for its page, before the
 step that packages or uploads it.
 
 The Windows job also builds an MSI (packaging/windows/installer.wxs)
-alongside the existing Inno Setup .exe — the owner's explicit decision:
+alongside the existing Inno Setup .exe, the owner's explicit decision:
 both ship, the MSI unsigned for now, for `msiexec /quiet`, Group Policy
 deployment and Windows Installer's own repair/rollback. The tests below
 guard the same shape the smoke-test tests above guard for the .exe: the
 MSI is built after the frozen app has been proven to actually run, both
 installers are uploaded (never one silently dropped by an edit to the
-upload step), and every release filename — on both platforms — carries
+upload step), and every release filename, on both platforms, carries
 the app name, the version, the platform and the architecture, so nobody
 downloading from the Releases page has to guess which file is which.
 """
@@ -76,7 +76,7 @@ def test_windows_job_uploads_both_the_exe_and_the_msi():
 def test_windows_msi_filename_carries_name_version_platform_and_arch():
     # The brief's own naming convention (<name>-<version>-<platform>-<arch>),
     # matched to what the Linux job already produces
-    # (MemoryMap-AI-${VERSION}-linux-x86_64.zip) — so the exact same shape
+    # (MemoryMap-AI-${VERSION}-linux-x86_64.zip), so the exact same shape
     # of filename identifies a MemoryMap AI release on either platform.
     job = _job("build-windows-installer")
     msi_step = job[job.index("Build the .msi installer") : job.index("Upload installers to the release")]
@@ -103,7 +103,7 @@ def test_wix_install_step_runs_before_the_msi_is_built():
 
 def test_installer_wxs_exists_and_is_well_formed_xml():
     assert WXS.exists(), "packaging/windows/installer.wxs is missing"
-    # Raises ParseError (failing the test) on malformed XML — this is the
+    # Raises ParseError (failing the test) on malformed XML: this is the
     # only check of the WiX source this suite can do without a Windows
     # runner and the wix CLI; it does not validate against the WiX schema
     # or attempt an actual `wix build`.

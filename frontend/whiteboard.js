@@ -519,9 +519,15 @@ window.addEventListener("pointercancel", wbClearGuideBoxCache, true);
 //:
 //: Returns null when there is nothing to measure, so the caller falls back
 //: to the plain single-item path rather than guessing.
-function wbBulkGroupBox(d, kind) {
+//: `self` is for a dragged item that has no x/y/width/height of its own: a
+//: sketch is a path, and its box has to be measured from that path rather
+//: than read off the datum. Pass `{minX, minY, maxX, maxY, dx, dy}` (the
+//: item's box *before* this drag, and how far it has come) and the rest of
+//: the maths is identical, which is the point of threading it through here
+//: instead of writing the union a second time.
+function wbBulkGroupBox(d, kind, self = null) {
   if (!d._bulkOrigin || !d._bulkOrigin.size) return null;
-  if (d._dragOriginX === undefined || d._dragOriginY === undefined) return null;
+  if (!self && (d._dragOriginX === undefined || d._dragOriginY === undefined)) return null;
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   const add = (box) => {
     if (!box) return;
@@ -530,12 +536,14 @@ function wbBulkGroupBox(d, kind) {
     maxX = Math.max(maxX, box.maxX);
     maxY = Math.max(maxY, box.maxY);
   };
-  add({
-    minX: d._dragOriginX,
-    minY: d._dragOriginY,
-    maxX: d._dragOriginX + (d.width || WB_CARD_DEFAULT_SIZE.w),
-    maxY: d._dragOriginY + (d.height || WB_CARD_DEFAULT_SIZE.h),
-  });
+  add(
+    self || {
+      minX: d._dragOriginX,
+      minY: d._dragOriginY,
+      maxX: d._dragOriginX + (d.width || WB_CARD_DEFAULT_SIZE.w),
+      maxY: d._dragOriginY + (d.height || WB_CARD_DEFAULT_SIZE.h),
+    }
+  );
   for (const entry of d._bulkOrigin.values()) {
     if (entry.kind === "sketch") {
       add(wbPathBBox(entry.d));
@@ -549,8 +557,8 @@ function wbBulkGroupBox(d, kind) {
     }
   }
   if (!Number.isFinite(minX)) return null;
-  const dx = d.x - d._dragOriginX;
-  const dy = d.y - d._dragOriginY;
+  const dx = self ? self.dx : d.x - d._dragOriginX;
+  const dy = self ? self.dy : d.y - d._dragOriginY;
   return { x: minX + dx, y: minY + dy, w: maxX - minX, h: maxY - minY };
 }
 
@@ -13078,7 +13086,37 @@ function renderWhiteboard() {
       d._dragRawDX += event.dx / transform.k;
       d._dragRawDY += event.dy / transform.k;
       const bypassSnap = event.sourceEvent?.altKey;
-      const dx = wbSnap(d._dragRawDX, bypassSnap), dy = wbSnap(d._dragRawDY, bypassSnap);
+      let dx = wbSnap(d._dragRawDX, bypassSnap), dy = wbSnap(d._dragRawDY, bypassSnap);
+      //: **A sketch gets the alignment guides too.** Reported: "Alignment bars
+      //: don't appear for group selections". Measured, a group of *cards* has
+      //: had them since `wbBulkGroupBox` landed, and they draw correctly; this
+      //: handler is the one that never asked for them at all, solo or in a
+      //: group. So a marquee that happened to catch a sketch, dragged by that
+      //: sketch, was the one selection on the board with no guides, which is
+      //: exactly the report.
+      //:
+      //: A sketch has no x/y/width/height, only a path, so its box comes from
+      //: `wbPathBBox` and goes into the shared union through `self`.
+      if (!bypassSnap) {
+        const origin = wbPathBBox(d._dragOriginalD);
+        if (origin) {
+          const group = wbBulkGroupBox(d, "sketch", { ...origin, dx, dy });
+          const box = group || {
+            x: origin.minX + dx,
+            y: origin.minY + dy,
+            w: origin.maxX - origin.minX,
+            h: origin.maxY - origin.minY,
+          };
+          const snap = wbAlignmentGuides(
+            wbDragExcludeKeys(d, "sketch"), box.x, box.y, box.w, box.h
+          );
+          dx += snap.dx;
+          dy += snap.dy;
+          wbShowAlignmentGuides(snap.guideLines);
+        }
+      } else {
+        wbClearAlignmentGuides();
+      }
       const newD = wbTransformPathD(d._dragOriginalD, { dx, dy });
       d._dragLiveD = newD;
       const el = document.querySelector(`.sketch-group[data-id="${d.id}"]`);
@@ -13092,6 +13130,9 @@ function renderWhiteboard() {
       wbClearSketchHandles();
     })
     .on("end", async function (event, d) {
+      //: Every exit, before the early returns below: a guide left on the
+      //: canvas after the drag that drew it is a line pointing at nothing.
+      wbClearAlignmentGuides();
       if (d._linkKind === "sketch") {
         const r = dragEndNode.call(this, event, d);
         d._linkKind = null;

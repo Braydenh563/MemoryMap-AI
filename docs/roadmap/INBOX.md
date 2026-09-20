@@ -261,6 +261,16 @@ with its owner named in the entry.
     untrustworthy, (2) alignment bars missing on a group selection, which a
     previous session recorded as built (`5273bae`), so measure before
     believing either, (3) double-tapping a resize anchor to fit the content.
+    (2) fixed: measured first, and the report was right for a reason nobody
+    had guessed. A group of *cards* has drawn its guides since
+    `wbBulkGroupBox` landed, verified at 1 guide line on a two-card group
+    dragged into line. The sketch drag handler never asked for guides at all,
+    solo or in a group, so a marquee that caught a sketch and was dragged by
+    it was the one selection on the board with none. `wbBulkGroupBox` now
+    takes the dragged item's own box, since a sketch is a path with no
+    x/y/width/height, and the sketch handler snaps and draws like the other
+    two. Probe: `scratchpad/ui-sweeps/wbgroupguides.js`, in the gate's sweep
+    set. (3) still open.
     (1) fixed, `0f5d46d`, and measured: `liveMarkdownRenderer` armed a paint
     up to 66ms before the stream ended, which fired after the markers were
     placed and repainted the box from raw markdown, removing all three. The

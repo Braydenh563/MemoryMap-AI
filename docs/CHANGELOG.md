@@ -86,6 +86,15 @@ below). Versioning is `0.x` while the app stabilises.
   notebook was empty, and the dashboard's tiles printed "0 this week" and
   "0 day streak" from figures they had not read.
 
+- Alignment guides now appear when a selection is dragged by a sketch. Cards
+  have had them for a while; the sketch drag was the one that never asked for
+  them, so any group that happened to include a drawing had none.
+
+- A skill run is no longer cut short on a local model. Its token allowance is
+  per step rather than per run, and there is no wall-clock limit out of the
+  box: a nine-step skill measured on a 4B model reached step three after
+  twenty three minutes, and a ninety second budget had already ended it.
+
 - The graph minimap is hidden when there is nothing to map, rather than
   sitting empty in the corner under the top bar.
 

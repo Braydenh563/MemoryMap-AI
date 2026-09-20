@@ -17383,7 +17383,12 @@ function pushDraftUndo() {
 
 function updateDraftUndoButton() {
   const button = $("draft-undo");
-  button.disabled = draftUndoStack.length === 0;
+  // `draftController` as well as the stack: the undo point for a pass is
+  // pushed at its first token, not before the call, so without this the
+  // button came back to life half way through a stream and an Undo pressed
+  // there would restore the old draft while the new one was still arriving
+  // over the top of it.
+  button.disabled = !!draftController || draftUndoStack.length === 0;
   button.title = draftUndoStack.length
     ? `Go back to the version before the last AI pass (${draftUndoStack.length} available)`
     : "Nothing to undo yet";

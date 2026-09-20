@@ -1365,5 +1365,13 @@ header#top-bar,
   .action-menu .menu-item {
     min-height: var(--target-min);
   }
+
+  /* The empty chat's "Ask Atlas: ..." prompt is a text button on a line of
+     its own (`p.help-atlas`), 286x36 at 390 (`phone.js`, the one control on
+     the chat tab under the floor). Only that one: a `.linklike` inside a
+     help paragraph is inline text and takes the paragraph's line. */
+  .help-atlas > .linklike {
+    min-height: var(--target-min);
+  }
 }
 

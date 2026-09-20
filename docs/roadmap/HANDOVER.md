@@ -344,10 +344,10 @@ which is its own slow cost when the next session reads it. The same three sympto
 console are the signature: one real error, then `X is not defined` and
 `Cannot access Y before initialization` from everything declared after it.
 
-## How to proceed after PR 144 (the owner asked, 2026-09-14)
+## How to proceed after PR 149 (the owner asked, 2026-09-14)
 
-The full answer is `docs/ROADMAP.md`, "How to proceed after PR 144",
-rewritten today to 147 lines: the plan table with where each plan stands,
+The full answer is `docs/ROADMAP.md`, "How to proceed after PR 149",
+written for PR 144 and brought forward on 2026-09-20: the plan table with where each plan stands,
 the ordered queue (speed budget H7, the professional-use block BACKLOG
 115, `agent-remaining/OPEN.md` surface by surface with each plan's open
 phase, UI Phase 11, then WORLD_CLASS_PLAN 18's horizon H1 to H8), and the
@@ -430,7 +430,7 @@ next tag carries it. **After the merge:** tag `v0.3.0`, which builds the
 installers; the owner's brother needs that installer. **Next PR:**
 `docs/roadmap/agent-remaining/OPEN.md`, "What is left after PR 144", is
 the whole list in build order (the owner's reports, the plan tails, the
-horizon); `docs/ROADMAP.md`, "How to proceed after PR 144", is the method. Traps this session: a search-and-replace that
+horizon); `docs/ROADMAP.md`, "How to proceed after PR 149", is the method. Traps this session: a search-and-replace that
 rewrites a function's own body (`fetchDashStats` recursed), an early
 return above the branch meant to handle the case (`startBgArt`),
 `DOMContentLoaded` in a file that loads on demand (nine wirings never

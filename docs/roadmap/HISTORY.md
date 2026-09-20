@@ -30089,3 +30089,29 @@ told to open first.
     wiki ones, so every note chip in the app whose first line linked to
     another note showed its brackets.
 
+220. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the docs
+    and how to proceed.** "make sure all the other docs like architecture.md
+    are up to date, and extend the roadmap and backlog. make it clear to me
+    how to proceed with development for after this pr... help me get my
+    head around everything." Also: "clean out unneeded documents or files.
+    refine the repo." And: "clean up the agent remaining-files as well if
+    they are outdated or not needed anymore... same with the plans... are
+    there any other plans or parts of plans that havent been done yet?? is
+    all the ui modernised and consistent??" ARCHITECTURE.md checked against
+    the code; `agent-remaining/` reduced to the files with open work (the
+    rest to HISTORY); finished plans marked superseded in ROADMAP's table;
+    ROADMAP and BACKLOG extended; a "How to proceed after PR 144" section
+    in HANDOVER naming every open plan section. Owner: orchestrator, last.
+    **Progress, 2026-09-14:** `agent-remaining/` consolidated (38 files to
+    `archive/agent-remaining/`, 134 open bullets in `OPEN.md`, 70
+    references repointed, merged `878f78d`); ARCHITECTURE's directory map
+    rewritten against the tree (`4bae0a0`); BACKLOG 115 and
+    WORLD_CLASS_PLAN 18 written. Left: the ROADMAP rewrite and the
+    HANDOVER "how to proceed" block, after the four agents merge.
+    **2026-09-20: the last two are done.** ROADMAP's "How to proceed" is
+    now written for PR 149: what that PR closed, the one thing it taught
+    (a whole plan item built and unreachable, found by a route scan nothing
+    in the suite could see), and a queue that names the three things it
+    left deliberately undone with the reason for each. HANDOVER points at
+    it. The plan table's I9 row says the Settings section is built.
+

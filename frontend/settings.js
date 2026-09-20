@@ -3713,9 +3713,20 @@ async function submitHelpChatQuestion(question) {
 async function helpChatStreamTurn({ pending, signal, body }) {
   let response;
   try {
+    //: Hand-rolled like `/chat/stream` (app.js), because `api()` does not
+    //: hand back a streaming body, and with the same two headers `api()`
+    //: adds to everything else. Without `X-Auth-Token` a locked app answered
+    //: 401, this threw "no stream", and the fallback below answered in one
+    //: piece: the owner's "streaming is also broken" was exactly that, on
+    //: every locked notebook, while the streamed route tested green.
+    //: `tests/test_raw_fetch_headers.py` now fails on a raw fetch without it.
     response = await fetch("/help/ask/stream", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Auth-Token": authToken(),
+        "X-Workspace-ID": activeSpaceId(),
+      },
       signal,
       body: JSON.stringify(body),
     });

@@ -527,3 +527,14 @@ def test_an_unplaceable_question_falls_back_to_what_is_on_screen():
         "xyzzy plugh frobnicate", context="The board holds cards you can drag."
     )
     assert "The board holds cards you can drag." in reply["content"]
+
+
+def test_performance_mode_has_a_help_topic():
+    """Reported with a screenshot: "What does Performance mode do?" answered
+    "I'm not sure" with a Dashboard badge. The setting existed, the help
+    text did not, so the model was told to say it was not sure and did."""
+    topics = help_chat._matching_topics("What does Performance mode do?")
+    assert [t["id"] for t in topics][:1] == ["appearance"]
+    assert "Performance mode" in topics[0]["body"]
+    assert "2 cores" in topics[0]["body"]
+

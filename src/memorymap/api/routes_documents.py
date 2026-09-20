@@ -1086,13 +1086,13 @@ def ai_edit(
             verb="write",
             context=body.selection.strip(),
         )
-        offline = thinking == drafter.OFFLINE_MESSAGE
+        offline = drafter.was_offline(thinking)
         return {
             "revised": inserted,
             "replaced_selection": False,
             "verb": "write",
             "thinking": None if offline else thinking,
-            "message": drafter.OFFLINE_MESSAGE if offline else "",
+            "message": drafter.offline_message() if offline else "",
             "ollama_running": not offline,
         }
 
@@ -1113,13 +1113,13 @@ def ai_edit(
             instruction=instruction or "Remove this passage entirely.",
             verb="remove",
         )
-        offline = thinking == drafter.OFFLINE_MESSAGE
+        offline = drafter.was_offline(thinking)
         return {
             "revised": revised,
             "replaced_selection": bool(body.selection.strip()),
             "verb": "remove",
             "thinking": None if offline else thinking,
-            "message": drafter.OFFLINE_MESSAGE if offline else "",
+            "message": drafter.offline_message() if offline else "",
             "ollama_running": not offline,
         }
 
@@ -1132,14 +1132,14 @@ def ai_edit(
         deps.get_ollama(),
         instruction=instruction,
     )
-    offline = thinking == drafter.OFFLINE_MESSAGE
+    offline = drafter.was_offline(thinking)
     return {
         "verb": "edit",
         # The caller replaces either the selection or the whole document.
         "revised": revised,
         "replaced_selection": bool(body.selection.strip()),
         "thinking": None if offline else thinking,
-        "message": drafter.OFFLINE_MESSAGE if offline else "",
+        "message": drafter.offline_message() if offline else "",
         "ollama_running": not offline,
     }
 
@@ -1184,7 +1184,7 @@ def rephrase_passage(
     return {
         "options": options,
         "ollama_running": running,
-        "message": "" if running else drafter.OFFLINE_MESSAGE,
+        "message": "" if running else drafter.offline_message(),
     }
 
 

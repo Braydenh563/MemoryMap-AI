@@ -246,12 +246,20 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "appearance",
-        "keywords": ("theme", "dark mode", "light mode", "accent colour", "accent color", "font", "density", "glass"),
+        "keywords": (
+            "theme", "dark mode", "light mode", "accent colour", "accent color", "font",
+            "density", "glass", "performance", "performance mode", "animation", "animations",
+            "slow", "laggy", "blur",
+        ),
         "body": (
             "Settings -> Appearance controls theme (light/dark/system), accent "
             "colour, fonts, density, glass effects and the animated background. "
             "High-contrast and reduce-motion options are there for comfort and "
-            "accessibility."
+            "accessibility. Performance mode (Effects & accessibility) turns off "
+            "the frosted-glass blur, the animations and the animated background "
+            "and slows the graph physics, for a slow or small machine; Auto "
+            "switches it on by itself on a machine with 2 cores or 4 GB or fewer, "
+            "and On or Off overrides that."
         ),
         "badge": {"label": "Appearance", "section": "appearance"},
     },

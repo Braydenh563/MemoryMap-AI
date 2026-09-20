@@ -409,9 +409,22 @@ Three sweeps are new and in the gate's `--sweeps` set: `keyboard.js`
 (where Tab actually lands), `requests.js` (a request that fails where
 nobody is told), and `leaks.js` from earlier. The app passes all three.
 
-Open in INBOX: 213, 220, 228, 246, 253, 257, 258, 260, and 261 (the ten
-routes still unreachable, each triaged, three of them genuinely nothing to
-do). OPEN.md's row 232 was stale and is corrected in place: tables,
+**Into the small hours, 2026-09-20.** INBOX 246 built, both halves: a note
+says what points at it (boards, maps, documents, notes, with "on it",
+"links to it" or "mentions it" beside each) and can be put on a board or a
+map from its own menu, which writes the same `WhiteboardNode` row the board
+would have written itself. 260 taken (Battery-efficient mode stops the two
+moving pictures, and says so). 257 closed without a change, because the
+scan behind it was reading template literals as dead code. 232's other half
+measured and closed. 220's last two pieces written, so `docs/ROADMAP.md`'s
+"How to proceed" is now about this PR.
+258 was built and taken back out, which is the entry worth reading: the pan
+measures clean and the half that stops a context menu opening at the end of
+a drag could not be measured here, so the code came out and the acceptance
+test stayed (`scratchpad/ui-sweeps/wbrightpan.js`, written first, failing).
+
+Open in INBOX, five: 213 and 228 (the owner's, the merge is the last act),
+253 (the one-click repair, a launcher task), 258 and 261. OPEN.md's row 232 was stale and is corrected in place: tables,
 callouts, task lists and images all already render in the Live view,
 measured, so nobody rebuilds them.
 

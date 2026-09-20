@@ -1882,6 +1882,22 @@ summary > .ph-lead,
   text-align: left;
 }
 
+/* The hairline belongs above whatever the foot of the panel is (INBOX 270).
+   With the starters under the transcript, the foot is the chips plus the
+   composer, and drawing the line under the chips would put the transcript and
+   three things you can send on one side of it. `.hidden` is the class
+   `helpChatAppendRow` and `helpChatNewChat` already toggle, so the line
+   follows them without a third place to keep in step. */
+.atlas-starters:not(.hidden) {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-light);
+}
+
+.atlas-starters:not(.hidden) + .atlas-composer {
+  padding-top: 0;
+  border-top: 0;
+}
+
 /* The composer along the foot, and the one thing it needs that the form did
    not have: the field takes the room and the controls beside it keep their
    own size.

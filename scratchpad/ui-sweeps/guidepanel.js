@@ -180,6 +180,34 @@ const MEASURE = () => {
     console.log('  composer    ', JSON.stringify(full.parts.composer));
     console.log('  overflow    ', full.wider.length ? full.wider.join(', ') : 'none');
     console.log('  chrome      ', full.chromeHeight + 'px of ' + full.card.h + 'px = ' + full.chromeShare + '%');
+    console.log('  contrast    ', full.lowContrast.length ? full.lowContrast.join('\n                ') : 'all text at or above its threshold');
+    // The two bubbles, side by side with the Chat tab's own, so "one idea of a
+    // message" is a set of matching numbers rather than a claim.
+    const bubbles = await page.evaluate(() => {
+      const pick = (el) => {
+        if (!el) return null;
+        const c = getComputedStyle(el);
+        return { w: Math.round(el.getBoundingClientRect().width), pad: c.padding, radius: c.borderRadius,
+          font: c.fontSize, bg: c.backgroundColor, color: c.color };
+      };
+      return {
+        user: pick(document.querySelector('[data-sheet="guide"] .help-chat-msg.is-user')),
+        assistant: pick(document.querySelector('[data-sheet="guide"] .help-chat-msg.is-assistant')),
+        gap: getComputedStyle(document.getElementById('help-chat-messages')).gap,
+      };
+    });
+    console.log('  bubbles     ', JSON.stringify(bubbles));
+    // Density: `--space-*` multiply by it, raw rem does not.
+    for (const mode of ['compact', 'spacious']) {
+      const d = await page.evaluate((m) => {
+        document.documentElement.dataset.density = m;
+        const log = document.getElementById('help-chat-messages');
+        const msg = document.querySelector('[data-sheet="guide"] .help-chat-msg');
+        return { gap: getComputedStyle(log).gap, pad: getComputedStyle(msg).padding };
+      }, mode);
+      console.log('  density ' + mode.padEnd(8), JSON.stringify(d));
+    }
+    await page.evaluate(() => { document.documentElement.removeAttribute('data-density'); });
 
     // A '?' popover left open when the panel closes: `openSheet` takes Escape
     // in the capture phase, so the popover's own handler never sees it.

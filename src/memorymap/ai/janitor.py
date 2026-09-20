@@ -24,8 +24,8 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-import numpy as np
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -33,6 +33,14 @@ from memorymap.ai import librarian
 from memorymap.ai.embeddings import EmbeddingService, bytes_to_vector, cosine_similarity
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
+
+if TYPE_CHECKING:
+    # Annotation-only: see embeddings.py's own TYPE_CHECKING import for why.
+    # numpy is imported for real inside `_best_centroid_match` and
+    # `_knn_match`, the only two functions here that call `np.*`; every
+    # other filing path (the chat-model attempt, "no AI available") never
+    # touches a vector at all and must not pay to load one.
+    import numpy as np
 from memorymap.core import deps
 from memorymap.core.database import Category, EmbeddingRecord, Entry
 from memorymap.core.logbuffer import safe_value
@@ -246,6 +254,8 @@ def _best_centroid_match(
     if not rows:
         return None
 
+    import numpy as np
+
     vectors_by_category: dict[str, list[np.ndarray]] = {}
     for name, blob in rows:
         vectors_by_category.setdefault(name, []).append(bytes_to_vector(blob))
@@ -301,6 +311,8 @@ def _knn_match(
     # already avoids for the equivalent all-pairs comparison. One query vector
     # against N candidates is a single matrix-vector product, not a block sweep
     # (no N² blow-up to guard against the way `similar_pairs` does).
+    import numpy as np
+
     names = [name for name, _blob in rows]
     matrix = np.stack([bytes_to_vector(blob) for _name, blob in rows]).astype("float32")
     query_vec = note_vector.astype("float32")

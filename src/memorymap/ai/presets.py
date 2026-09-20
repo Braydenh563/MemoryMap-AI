@@ -127,6 +127,45 @@ MODES: dict[str, ResponseMode] = {
 #: behaviour that predates this module exactly.
 DEFAULT_MODE = "normal"
 
+#: **Presets the app chooses for itself, which the person never picks.**
+#: `MODES` above is the picker: routes_chat builds the mode switch from it and
+#: routes_settings refuses a preference that is not in it. A surface with its
+#: own needs would otherwise have to either add a fourth row to that picker,
+#: which puts a mode nobody asked for in front of everybody, or reuse one that
+#: is wrong for it. These are keyed the same way and resolve the same way, and
+#: they are simply not on the picker.
+GUIDE_MODE = "guide"
+
+INTERNAL_MODES: dict[str, ResponseMode] = {
+    #: The Guide panel (`ai/help_chat.py`): Quick's shape, because a "how do I
+    #: save a note" answer is two or three sentences and the low temperature
+    #: is what keeps it from inventing a menu that does not exist.
+    #:
+    #: **Except for `think`, and that is the whole reason this exists.** Quick
+    #: sends `think: False`, which is right for a lookup nobody reads the
+    #: reasoning of, and it is what made the Guide's thinking box dead markup:
+    #: the panel renders `.help-chat-think` from a `thinking` event that could
+    #: never arrive, because the mode the turn ran in had turned thinking off
+    #: at the backend. The owner, 2026-09-20: "thinking boxes dont render".
+    #: `None` here means the field is never sent and the model does whatever
+    #: it does, which for a reasoning model is to think and for every other
+    #: model is nothing at all, so neither kind is made worse.
+    #:
+    #: The reply cap is unchanged: `Provider.thinking_allowance` adds its own
+    #: headroom on top of `max_output_tokens` when thinking was not turned
+    #: off, which is the §35A.3 fix, so the answer is not competing with the
+    #: reasoning for the same 256 tokens.
+    GUIDE_MODE: ResponseMode(
+        id=GUIDE_MODE,
+        label="Guide",
+        description="The Guide panel's own preset: Quick's brevity, thinking left to the model.",
+        max_output_tokens=MODES["quick"].max_output_tokens,
+        temperature=MODES["quick"].temperature,
+        think=None,
+        length_hint=MODES["quick"].length_hint,
+    ),
+}
+
 
 def resolve(mode: str | None) -> ResponseMode:
     """The preset for a name, falling back rather than raising.
@@ -134,8 +173,14 @@ def resolve(mode: str | None) -> ResponseMode:
     Reached from a preference file the user may have edited by hand and from a
     request body, so an unknown name is a thing to absorb. Falling back to
     `normal` means a typo costs the setting, not the chat.
+
+    `INTERNAL_MODES` is consulted too, so a preset the app picks for one of
+    its own surfaces resolves through the one function every dialect already
+    calls, rather than through a second path that would have to be kept in
+    step with this one.
     """
-    return MODES.get((mode or "").strip().lower(), MODES[DEFAULT_MODE])
+    name = (mode or "").strip().lower()
+    return MODES.get(name) or INTERNAL_MODES.get(name) or MODES[DEFAULT_MODE]
 
 
 def sampling_options(mode: ResponseMode) -> dict:

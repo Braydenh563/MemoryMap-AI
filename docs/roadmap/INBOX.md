@@ -441,6 +441,30 @@ with its owner named in the entry.
     `localStorage`, which can disagree with the page. (3) The card's head
     gained an icon-only close X, `aria-label` "Close the tour", beside the
     counter; Skip and Escape still end the same run.
+    **The guide panel: fixed, with one part of it answered rather than
+    changed.** (a) The head reads "Atlas guide" over one muted line, "How this
+    app works, from its own help text", and the sheet's accessible name is
+    that same string (measured in Chromium: neither overflows its head at
+    1440 or at 390). (b) The model: `help_chat` did call `utility_model()`
+    all along, and `ModelManager.utility_model()` answers the **chat** model
+    in two cases, no utility model chosen and smart model routing turned off.
+    Both are the documented design, so nothing in the Guide was changed;
+    `tests/test_help_chat.py` now drives a real request through a real
+    `ModelManager` and pins which model each of the three cases takes, so the
+    panel's copy and the code can be held to each other. If the reader wants
+    a small model here, it is Settings that has to say so. (c) The thinking
+    box could not render: the streamed turn ran in the `quick` preset, whose
+    `think: False` is sent to any model that declares thinking, so
+    `chat_stream`'s `thinking_delta` branch had never fired on an Ollama
+    backend. The turn now runs in `presets.GUIDE_MODE`, Quick's cap and
+    temperature with `think` left unset, off the user-facing mode picker;
+    proven at the seam (`request_extras`) and in a real browser against a
+    stand-in model that reasons out loud (the thinking grew in four steps and
+    was visible during the turn). The streaming itself measured **correct**
+    on this head, over the wire and in the panel: one chunk per model piece
+    on its own 250ms beat, and the answer growing in four steps over 1920ms.
+    The report was real when it was made and was the missing `X-Auth-Token`
+    on the streaming fetch, already fixed on this branch.
 
 273. **Found by the Documents agent, 2026-09-20 (the session, not the
     owner), two things it measured and did not own.** (1) `errors.js` at

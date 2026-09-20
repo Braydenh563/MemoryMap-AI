@@ -3472,6 +3472,27 @@ function helpChatIsNearBottom() {
 //: index.html loads first; the backend's `AI_NAME` in ai/__init__.py is the
 //: same word. The guide is the same Atlas wearing its "about the app" hat.
 const GUIDE_NAME = AI_NAME;
+
+//: **What the panel calls itself.** The owner, 2026-09-20: "the atlas help
+//: panel needs a better title to make it evident that it is the guide". The
+//: head said "Atlas" and nothing else, which names the speaker and not the
+//: surface: a person who has not read the help does not know whether this is
+//: the chat that reads their notes or the one that does not. "Atlas guide"
+//: says which of the app's two assistants this is in the two words the head
+//: has room for, and it is still derived from the one name, so a rename
+//: still costs one edit. The sheet's accessible label is this same string
+//: rather than the bare name: a visible title and an accessible name that
+//: disagree is a screen reader describing a different panel.
+const GUIDE_TITLE = `${GUIDE_NAME} guide`;
+
+//: The line under it, and the reason it changed with the title: "About the
+//: app, never your notes" says what the guide will not do before it says what
+//: it does. DESIGN.md's rule is one line of description per section, so that
+//: one line is the whole budget, and it was spending it on a disclaimer that
+//: the '?' popover, the empty state and the composer's own hint all carry
+//: too. What it says instead is where the answers come from, which is the
+//: fact that makes the panel worth opening.
+const GUIDE_LINE = "How this app works, from its own help text";
 //: The persona hint's "(Atlas)" follows the name too.
 {
   const hint = document.getElementById("persona-placeholder-hint");
@@ -3971,7 +3992,7 @@ function openHelpChat() {
     ? { parent: helpToggle.parentNode, next: helpToggle.nextSibling }
     : null;
   const close = openSheet({
-    label: GUIDE_NAME,
+    label: GUIDE_TITLE,
     name: "guide",
     //: Anchored bottom right rather than across the foot of the window (INBOX
     //: 224): a chat is a column, and the full-width sheet gave Atlas 1356px
@@ -3994,10 +4015,10 @@ function openHelpChat() {
         words.className = "atlas-head-words";
         const name = document.createElement("span");
         name.className = "atlas-head-name";
-        name.textContent = GUIDE_NAME;
+        name.textContent = GUIDE_TITLE;
         const line = document.createElement("span");
         line.className = "muted atlas-head-line";
-        line.textContent = "About the app, never your notes";
+        line.textContent = GUIDE_LINE;
         words.append(name, line);
         title.replaceChildren(...(mark ? [mark] : []), words);
       }

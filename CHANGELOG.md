@@ -165,6 +165,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The guide panel says it is the guide, and its thinking box can now be
+  drawn. The head reads "Atlas guide" over one muted line, "How this app
+  works, from its own help text", and the sheet's accessible name is that
+  same string. The streamed turn runs in a preset of its own
+  (`presets.GUIDE_MODE`, Quick's brevity and temperature) rather than
+  `quick`, whose `think: False` told every reasoning model not to think:
+  `.help-chat-think` was drawing an event that could not arrive. Which model
+  the panel takes is now pinned by tests in all three cases, because
+  `utility_model()` answers the chat model when smart model routing is off
+  and when no utility model has been chosen.
 - The guided tour switches to its step's tab and waits for the control to
   arrive, leaves that control pressable, and carries a visible way out. The
   dim was one layer across the window, so `elementFromPoint` at the centre of

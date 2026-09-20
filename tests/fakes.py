@@ -62,6 +62,7 @@ class FakeOllama:
         self.base_url = "http://localhost:11434"
         self.chat_calls: list[list[dict]] = []
         self.chat_models: list[str] = []  # which model each chat() used (Wave N)
+        self.chat_modes: list[str | None] = []  # which preset each chat_stream() ran in
         self.librarian_reply = "Here's what I found in your notebook!"
         self.librarian_thinking: str | None = None  # set to fake a thinking model
         # `ai.extractor.propose_split`'s own JSON reply, kept apart from
@@ -141,6 +142,12 @@ class FakeOllama:
 
     def chat_stream(self, model: str, messages: list[dict], mode: str | None = None):
         """Chunks the canned reply like real streaming would."""
+        # Recorded for the same reason `chat` records its model: a surface
+        # that names the wrong model, or runs in a preset that turns off the
+        # thing it then tries to draw, is invisible to a fake that throws the
+        # arguments away. The Guide did both (INBOX 274).
+        self.chat_models.append(model)
+        self.chat_modes.append(mode)
         text = self._reply_text(messages)
         if self.librarian_thinking:
             yield {"thinking_delta": self.librarian_thinking}

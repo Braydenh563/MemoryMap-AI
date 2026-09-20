@@ -284,7 +284,15 @@ def test_the_guide_is_named_once_and_the_interface_agrees(ai_client, fake_ollama
     assert f'const AI_NAME = "{help_chat.GUIDE_NAME}"' in app_js
     assert "const GUIDE_NAME = AI_NAME" in settings_js
     #: The sheet's own title comes from that constant rather than a literal.
-    assert "label: GUIDE_NAME," in settings_js
+    #: It is the name plus one word since 2026-09-20 (the owner: "the atlas
+    #: help panel needs a better title to make it evident that it is the
+    #: guide"), and that word is added to the constant rather than typed out
+    #: beside it, so a rename still costs one edit. The sheet's accessible
+    #: label is the same string as the visible title: two that disagree is a
+    #: screen reader describing a panel nobody can see.
+    assert "const GUIDE_TITLE = `${GUIDE_NAME} guide`" in settings_js
+    assert "label: GUIDE_TITLE," in settings_js
+    assert "name.textContent = GUIDE_TITLE;" in settings_js
     #: And the one surface that is markup says the same word.
     assert f"Ask {help_chat.GUIDE_NAME}</h4>" in index
     #: The model is told who it is in the first system message, not in a
@@ -538,3 +546,166 @@ def test_performance_mode_has_a_help_topic():
     assert "Performance mode" in topics[0]["body"]
     assert "2 cores" in topics[0]["body"]
 
+
+
+# --- which model a real request actually takes (INBOX 274) --------------------
+#
+# The owner, 2026-09-20: the Guide "doesnt use the utility model and instead
+# uses the chat model". Every line of copy around the panel says "your utility
+# model", and `help_chat` does call `model_manager.utility_model()`, so the
+# disagreement is not in this module at all: it is in what `utility_model()`
+# answers. It falls back to the chat model in two separate cases, and a reading
+# of the source is not proof of which one a running app is in, so these drive a
+# real request through a real `ModelManager` and read back the model the
+# provider was actually handed.
+
+
+def _guide_model(ai_client, fake_ollama) -> str:
+    """The model a real streamed Guide request hands the provider."""
+    fake_ollama.chat_models.clear()
+    response = ai_client.post("/help/ask/stream", json={"question": "how do I save a note?"})
+    assert response.status_code == 200
+    assert fake_ollama.chat_models, "the turn never reached the provider"
+    return fake_ollama.chat_models[-1]
+
+
+def test_the_guide_takes_the_utility_model_when_one_is_set(ai_client, fake_ollama):
+    """The case the copy describes, and the only one of the three in which
+    "your utility model" is the whole truth."""
+    from memorymap.core import deps
+
+    manager = deps.get_model_manager()
+    manager.set_chat_model("big-chat-model")
+    manager.set_utility_model("small-utility-model")
+    assert _guide_model(ai_client, fake_ollama) == "small-utility-model"
+
+
+def test_the_guide_falls_back_to_the_chat_model_when_no_utility_model_is_chosen(
+    ai_client, fake_ollama
+):
+    """Fallback one, and the likelier of the two to be what was reported: the
+    preference ships empty, so a notebook that has never opened Settings and
+    picked a small model is running the chat model here by design. Nothing to
+    fix in `help_chat`; the fix, if the reader wants a different model, is to
+    choose one, and this pins that the fallback is the chat model and not
+    something else."""
+    from memorymap.core import deps
+
+    manager = deps.get_model_manager()
+    manager.set_chat_model("big-chat-model")
+    manager.set_utility_model("")
+    assert _guide_model(ai_client, fake_ollama) == "big-chat-model"
+
+
+def test_the_guide_falls_back_to_the_chat_model_when_smart_routing_is_off(
+    ai_client, fake_ollama
+):
+    """Fallback two, and the one that looks like a bug from outside: a utility
+    model IS chosen and shown in Settings, and the Guide still runs the chat
+    model, because "smart model routing" off means every role collapses onto
+    the chat model. `ModelManager.utility_model()` is where that is decided,
+    for the janitor and the digest as much as for the Guide."""
+    from memorymap.core import deps
+
+    manager = deps.get_model_manager()
+    manager.set_chat_model("big-chat-model")
+    manager.set_utility_model("small-utility-model")
+    deps.get_config().set_preference("smart_model_routing_enabled", False)
+    assert _guide_model(ai_client, fake_ollama) == "big-chat-model"
+
+
+def test_the_streamed_guide_turn_does_not_turn_thinking_off(ai_client, fake_ollama):
+    """The owner: "thinking boxes dont render". They could not: the streamed
+    turn ran in the `quick` preset, whose `think` is `False`, so
+    `request_extras` sent `think: False` to any model with thinking to turn
+    off and `chat_stream`'s `thinking_delta` branch never fired. The panel's
+    `.help-chat-think` block was drawing an event that could not arrive.
+
+    `presets.GUIDE_MODE` is Quick's brevity with `think` left unset, and unset
+    means the field is never sent, so a reasoning model reasons and an
+    ordinary one is unaffected."""
+    from memorymap.ai import presets
+
+    fake_ollama.chat_modes.clear()
+    response = ai_client.post("/help/ask/stream", json={"question": "how do I save a note?"})
+    assert response.status_code == 200
+    assert fake_ollama.chat_modes[-1] == presets.GUIDE_MODE
+    mode = presets.resolve(presets.GUIDE_MODE)
+    assert mode.think is None, "the Guide must not send think: False, or its thinking box is dead"
+    assert mode.max_output_tokens == presets.MODES["quick"].max_output_tokens
+    assert mode.temperature == presets.MODES["quick"].temperature
+
+
+def test_the_guide_preset_is_not_on_the_mode_picker():
+    """It is the app's own choice for one panel, not a fourth thing for the
+    reader to weigh up in the chat dock. `routes_chat` builds the picker from
+    `MODES` and `routes_settings` refuses a preference outside it, so both stay
+    three long."""
+    from memorymap.ai import presets
+
+    assert presets.GUIDE_MODE not in presets.MODES
+    assert presets.GUIDE_MODE in presets.INTERNAL_MODES
+    assert len(presets.MODES) == 3
+
+
+def test_the_thinking_a_model_produces_reaches_the_stream(ai_client, fake_ollama):
+    """End to end over the real route: a provider that thinks produces a
+    `thinking` event on the wire, before the answer, which is what the panel
+    reads to un-hide `.help-chat-think`."""
+    import json
+
+    fake_ollama.librarian_thinking = "checking the help text"
+    response = ai_client.post("/help/ask/stream", json={"question": "how do I save a note?"})
+    assert response.status_code == 200
+    events = [json.loads(line) for line in response.text.splitlines() if line.strip()]
+    kinds = [event["type"] for event in events]
+    assert kinds[0] == "thinking", kinds
+    assert events[0]["text"] == "checking the help text"
+    assert "delta" in kinds and kinds[-1] == "done"
+
+
+def test_the_streamed_answer_arrives_in_more_than_one_piece(ai_client, fake_ollama):
+    """The owner: "the streaming is just off". A reply delivered as one
+    `delta` is a reply the panel can only paint in one frame, whatever the
+    client does with it, so the route is held to passing the provider's pieces
+    through as pieces rather than joining them and sending the join."""
+    import json
+
+    response = ai_client.post("/help/ask/stream", json={"question": "how do I save a note?"})
+    deltas = [
+        json.loads(line)
+        for line in response.text.splitlines()
+        if line.strip() and json.loads(line)["type"] == "delta"
+    ]
+    assert len(deltas) >= 2, deltas
+
+
+def test_the_guide_preset_sends_no_thinking_toggle_to_ollama():
+    """The seam the fix actually turns on, tested at the seam.
+
+    `Provider.request_extras` is where a preset's `think` becomes a field in
+    the request, and it is Ollama's dialect that has one: the OpenAI shape has
+    no standard equivalent and its `request_extras` returns nothing, so a
+    browser measurement against an OpenAI-compatible stand-in cannot tell the
+    two presets apart at all. This can.
+
+    On a model that declares `thinking`, `quick` sends `think: False` and the
+    model obeys, which is why the Guide's `.help-chat-think` block had never
+    been drawn on an Ollama backend. `GUIDE_MODE` sends nothing, and nothing
+    means "whatever the model does by default".
+    """
+    from memorymap.ai import presets
+    from memorymap.ai.ollama_client import OllamaClient
+
+    class _Thinker(OllamaClient):
+        def supports(self, model, capability):
+            return capability == "thinking"
+
+    client = _Thinker(base_url="http://127.0.0.1:1")
+    assert client.request_extras("quick", "reasoner") == {"think": False}
+    assert client.request_extras(presets.GUIDE_MODE, "reasoner") == {}
+    #: And the headroom follows the toggle: a turn that may think is given
+    #: room to think in on top of its reply cap, rather than the reply and the
+    #: reasoning competing for the same 256 tokens (§35A.3).
+    assert client.thinking_allowance("quick", "reasoner") == 0
+    assert client.thinking_allowance(presets.GUIDE_MODE, "reasoner") > 0

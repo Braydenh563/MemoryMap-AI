@@ -4,10 +4,20 @@ ROADMAP.md item 40's "mini AI chat half", deliberately its own path,
 separate from `librarian.converse`/`librarian.answer`, because those two
 answer from the user's notes or hold a general conversation, and this one
 must do neither: it only explains the app. Uses the utility model (not the
-main chat model), its own system prompt, and the existing `"quick"` preset
-(low temperature, no extended thinking, a 256-token cap) rather than a new
-one, since that preset already is the "speed and accuracy over creativity,
-tight budget" the spec asked for.
+main chat model), its own system prompt, and a preset that is Quick's shape
+(low temperature, a 256-token cap) with one difference: thinking is left to
+the model rather than turned off, because the panel draws the thinking while
+it happens and Quick's `think: False` made that box dead markup
+(`presets.GUIDE_MODE`, which is off the user-facing picker on purpose).
+
+**The model is the utility model, and it is the utility model's own
+fallbacks that decide what that means.** `ModelManager.utility_model()`
+answers the chat model in two cases: smart model routing turned off, and no
+utility model chosen. Both are the documented behaviour and neither is a bug
+here, but together they are why the Guide can be seen running the chat model
+while every line of copy around it says "your utility model", so
+`tests/test_help_chat.py` pins which model a real request takes in each of
+the three cases rather than leaving it to be read off this sentence.
 
 **Grounded, not just instructed.** A first version of this module told the
 model "don't invent a feature you're not sure exists" and gave it nothing
@@ -36,6 +46,7 @@ from collections.abc import Iterator
 
 from memorymap import SUPPORT_EMAIL
 from memorymap.ai import AI_NAME
+from memorymap.ai import presets
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.provider import Provider
 
@@ -814,7 +825,13 @@ def answer_stream(
 
     messages, topics = _prompt_for(question, history, tab, context)
     pieces: list[str] = []
-    for piece in ollama.chat_stream(model_manager.utility_model(), messages, mode="quick"):
+    #: `GUIDE_MODE` rather than `"quick"`: same brevity, same temperature,
+    #: but thinking is not turned off, so the `thinking` events below are
+    #: events that can actually happen. Under `"quick"` this loop's
+    #: `thinking_delta` branch had never once run on a real backend.
+    for piece in ollama.chat_stream(
+        model_manager.utility_model(), messages, mode=presets.GUIDE_MODE
+    ):
         thinking = piece.get("thinking_delta")
         if thinking:
             yield {"type": "thinking", "text": thinking}
@@ -854,6 +871,10 @@ def answer(
         return offline_answer(question, tab, context)
 
     messages, topics = _prompt_for(question, history, tab, context)
+    #: Still `"quick"`, not `GUIDE_MODE`: this is the one-shot fallback, taken
+    #: only when a stream could not be opened, and it returns one object at the
+    #: end. There is nowhere for thinking to be shown on this path, so paying
+    #: a reasoning model to produce it would buy the reader nothing but a wait.
     reply = ollama.chat(model_manager.utility_model(), messages, mode="quick")
     content = reply["content"].strip()
     return {

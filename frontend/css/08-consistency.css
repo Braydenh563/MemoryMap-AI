@@ -1823,6 +1823,11 @@ summary > .ph-lead,
 
 .sheet-card-corner .help-chat-messages {
   flex: 1 1 auto;
+  /* The column's own `gap` is the spacing here; the log's margin is for the
+     Settings Help page, where the group is not a flex column. Left in, it
+     stacked with the gap and put 16px above the composer's hairline against
+     9.6px below it. */
+  margin-bottom: 0;
   /* The recipe's own 16rem cap is for a box inside a settings page; in a sheet
      the card's height is the bound and the transcript takes what is left. */
   max-height: none;
@@ -1878,12 +1883,21 @@ summary > .ph-lead,
 }
 
 /* The composer along the foot, and the one thing it needs that the form did
-   not have: the field takes the room and the three controls beside it keep
-   their own size. */
+   not have: the field takes the room and the controls beside it keep their
+   own size.
+
+   **A hairline, because a transcript that scrolls has to stop somewhere**
+   (INBOX 270). The card is a column of four blocks 8px apart with nothing
+   between them, so when the log scrolls, a half-cut line of an answer ends
+   8px above the field and reads as part of it. The popup agent draws exactly
+   this line under its own bar for the same reason, and it is the one edge
+   this panel needs: what you read, then what you type. */
 .atlas-composer {
   align-items: center;
   gap: var(--space-2);
   flex-wrap: nowrap;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-light);
 }
 
 .atlas-composer > #help-chat-input {
@@ -1933,9 +1947,13 @@ summary > .ph-lead,
   font-size: var(--text-sm);
   font-weight: 400;
 }
-.sheet-head > .atlas-menu {
-  margin-left: auto;
-  margin-right: var(--space-2);
+/* The head is title, '?', kebab, close (INBOX 270). The title takes the free
+   space so the three controls pack against the end on the head's own gap:
+   before this the kebab pushed itself right with an `auto` margin and added a
+   second gap of its own, which put 16px between it and the X and 8px between
+   every other pair of icons in the app. */
+.sheet-card-corner .sheet-title {
+  flex: 1 1 auto;
 }
 
 /* The line that offers Atlas a question, under a help popover and in an empty

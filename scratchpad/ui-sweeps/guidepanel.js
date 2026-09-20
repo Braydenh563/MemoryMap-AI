@@ -181,6 +181,22 @@ const MEASURE = () => {
     console.log('  overflow    ', full.wider.length ? full.wider.join(', ') : 'none');
     console.log('  chrome      ', full.chromeHeight + 'px of ' + full.card.h + 'px = ' + full.chromeShare + '%');
 
+    // A '?' popover left open when the panel closes: `openSheet` takes Escape
+    // in the capture phase, so the popover's own handler never sees it.
+    await page.evaluate(() => document.querySelector('[data-sheet="guide"] [data-help-for="help-chat-help"]').click());
+    await page.waitForTimeout(200);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    const orphan = await page.evaluate(() => {
+      const body = document.getElementById('help-chat-help');
+      return { sheetGone: !document.querySelector('[data-sheet="guide"]'),
+        popoverVisible: body ? !body.classList.contains('hidden') : null,
+        onBody: body ? body.parentElement === document.body : null };
+    });
+    console.log('  orphan check', JSON.stringify(orphan));
+    await page.evaluate(() => openHelpChat());
+    await page.waitForTimeout(400);
+
     // Escape, and a press on the scrim: both are the recipe's ways out.
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);

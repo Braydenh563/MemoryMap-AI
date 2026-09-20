@@ -42,14 +42,23 @@ import importlib
 import logging
 import math
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-import numpy as np
 from sqlalchemy import event, or_, select, text
 from sqlalchemy.orm import Session
 
 from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink
 from memorymap.search import index as search_index
 from memorymap.search import query as query_understanding
+
+if TYPE_CHECKING:
+    # Annotation-only: see ai/embeddings.py's own TYPE_CHECKING import for
+    # why. The matrix (`_Matrix`, this module's whole reason to exist) is
+    # built once, on the warm-up thread, by `_load_all_vectors`; every
+    # function below that touches `np.*` for real carries its own import so
+    # merely importing this module (which `routes_search.py` does at app
+    # start, to register the router) never does.
+    import numpy as np
 
 logger = logging.getLogger("memorymap.search.engine")
 
@@ -137,6 +146,8 @@ class _Matrix:
     def top_k(self, vector: np.ndarray, k: int, exclude: int | None = None) -> list[tuple[int, float]]:
         if not self.ids:
             return []
+        import numpy as np
+
         norm = float(np.linalg.norm(vector))
         if norm == 0:
             return []
@@ -155,6 +166,8 @@ class _Matrix:
         rows = [(entry_id, self.position[entry_id]) for entry_id in wanted if entry_id in self.position]
         if not rows:
             return {}
+        import numpy as np
+
         norm = float(np.linalg.norm(vector))
         if norm == 0:
             return {}
@@ -180,6 +193,8 @@ def _load_all_vectors(session: Session, backend_id: str) -> _Matrix:
     path call it again, that test fails, which is the whole point of it having
     a name rather than being inline.
     """
+    import numpy as np
+
     records = session.execute(
         select(EmbeddingRecord.entry_id, EmbeddingRecord.embedding).where(
             # Vectors from another backend live in a different space; mixing
@@ -221,6 +236,8 @@ def _load_all_vectors(session: Session, backend_id: str) -> _Matrix:
 
 
 def _unit(vector: np.ndarray) -> np.ndarray:
+    import numpy as np
+
     norm = float(np.linalg.norm(vector))
     return (vector / norm).astype("float32") if norm else vector.astype("float32")
 
@@ -305,6 +322,8 @@ def _remember(record: EmbeddingRecord) -> None:
     global _matrix
     if _matrix is None:
         return
+    import numpy as np
+
     vector = _unit(np.frombuffer(record.embedding, dtype="float32"))
     if _matrix.rows.size and vector.shape[0] != _matrix.rows.shape[1]:
         return  # a different width: the reindex that follows a model switch rebuilds
@@ -813,6 +832,8 @@ def _cosine_scores(session: Session, subject: str, rows: list[dict]) -> dict[int
         return {}
     if vector is None:
         return {}
+    import numpy as np
+
     wanted = [row["ref_id"] for row in rows if row["kind"] in ("note", "board")]
     return matrix.scores_for(np.asarray(vector, dtype="float32"), wanted)
 
@@ -846,6 +867,8 @@ def similar_to_vector(session: Session, vector, k: int = 10) -> list[tuple[int, 
     matrix = _live_matrix(session)
     if matrix is None:
         return []
+    import numpy as np
+
     return matrix.top_k(np.asarray(vector, dtype="float32"), k)
 
 

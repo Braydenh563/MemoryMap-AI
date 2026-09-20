@@ -15,8 +15,8 @@ import json
 import logging
 import threading
 import time
+from typing import TYPE_CHECKING
 
-import numpy as np
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -24,6 +24,17 @@ from sqlalchemy.orm import Session
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
 from memorymap.core.database import Attachment, Category, EmbeddingRecord, Entry
+
+if TYPE_CHECKING:
+    # Only for the annotations below, which `from __future__ import
+    # annotations` (above) already turns into strings: this import never
+    # runs. The real `import numpy as np` lives inside every function and
+    # method that actually calls `np.*`, so importing this module (which
+    # `core/deps.py` always does, to wire up the `EmbeddingService` class)
+    # never pulls numpy into a process that has not embedded anything yet.
+    # Same shape as `_load_st_model`'s own deferred `sentence_transformers`
+    # import just below, one step further out.
+    import numpy as np
 
 # The built-in embedding model. It was all-MiniLM-L6-v2 and is not any more,
 # which is exactly why nothing user-facing may hard-code a name: the Models
@@ -387,15 +398,21 @@ def embedding_text(session: Session, entry: Entry) -> str:
 
 def vector_to_bytes(vector: np.ndarray) -> bytes:
     """Raw float32 bytes: never pickle (plan §4)."""
+    import numpy as np
+
     return np.asarray(vector, dtype="float32").tobytes()
 
 
 def bytes_to_vector(blob: bytes) -> np.ndarray:
+    import numpy as np
+
     return np.frombuffer(blob, dtype="float32")
 
 
 def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     """1.0 = same direction, 0.0 = unrelated. Zero vectors score 0."""
+    import numpy as np
+
     norms = float(np.linalg.norm(a)) * float(np.linalg.norm(b))
     if norms == 0.0:
         return 0.0
@@ -425,6 +442,8 @@ def similar_pairs(
     """
     if not vectors:
         return []
+
+    import numpy as np
 
     by_width: dict[int, list[int]] = {}
     for node_id, vector in vectors.items():
@@ -543,6 +562,8 @@ class EmbeddingService:
 
     def _embed_uncached(self, text: str) -> np.ndarray | None:
         if self._models.embedding_backend() == "ollama":
+            import numpy as np
+
             try:
                 vector = self._ollama.embed(self._models.embedding_model(), text)
                 self.last_error = None
@@ -589,6 +610,8 @@ class EmbeddingService:
                 # starts fast and still runs if the package is missing.
                 self._st_model = self._load_st_model()
                 self._load_failed_at = None
+            import numpy as np
+
             result = np.asarray(self._st_model.encode(text), dtype="float32")
             self.last_error = None
             return result

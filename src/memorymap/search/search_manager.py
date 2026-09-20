@@ -15,8 +15,8 @@ import difflib
 import re
 from dataclasses import dataclass
 from datetime import datetime, time
+from typing import TYPE_CHECKING
 
-import numpy as np
 from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session
 
@@ -26,6 +26,14 @@ from memorymap.ai.embeddings import (
 )
 from memorymap.core.database import EmbeddingRecord, Entry, link_strength
 from memorymap.search import query as query_understanding
+
+if TYPE_CHECKING:
+    # Annotation-only: see ai/embeddings.py's own TYPE_CHECKING import for
+    # why. `semantic_search` is the one function here that scores vectors
+    # (it carries its own `import numpy as np`); `retrieve`/keyword search,
+    # what most `/chat` turns and every plain note save actually run, never
+    # touch numpy at all.
+    import numpy as np
 
 logger = logging.getLogger("memorymap.search")
 
@@ -271,6 +279,8 @@ def semantic_search(
     tuples, not full mapped entities, so that part is now a plain column
     query and only the handful of notes that actually rank get a real
     `Entry` fetched."""
+    import numpy as np
+
     query_vector = embeddings.embed_text(query)
     if query_vector is None:
         return None

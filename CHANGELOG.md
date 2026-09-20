@@ -7,6 +7,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Changed
+
+- numpy, and the embedding/search-matrix code that uses it, loads on first
+  use instead of at server start. `ai/embeddings.py`, `ai/janitor.py`,
+  `search/engine.py` and `search/search_manager.py` had `import numpy as np`
+  at module scope, so simply importing `api/app.py` (every boot) pulled
+  numpy in whether or not the notebook had anything to embed yet. A fresh,
+  never-used notebook now never loads numpy at all.
 - The guide panel is a panel again. It floats in the bottom right corner on one
   inset with all four corners rounded, instead of sitting welded to the bottom
   edge of the window with two square corners and two insets that disagreed; on

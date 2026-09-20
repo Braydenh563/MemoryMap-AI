@@ -5203,6 +5203,37 @@ function docLivePlugin(CM) {
   //: The capture is the whole `[!kind]`, so the marker can be hidden the way
   //: every other marker here is; the group inside it names the kind.
   const CALLOUT = /^>\s*(\[!([A-Za-z]+)\][-+]?)/;
+  //: How deep a list item is indented before the indent stops growing. Past
+  //: four levels the number is more useful as "this is deep" than as a count,
+  //: and an indent that kept growing would push a badly nested line off the
+  //: measure the whole document is set in.
+  const LIST_DEPTH_MAX = 4;
+
+  //: **A bullet's dash, drawn as a bullet while the caret is elsewhere.** The
+  //: last piece of raw markdown left in a rendered list: `-`, `*` and `+` all
+  //: mean the same thing and a reader has no use for knowing which was typed.
+  //:
+  //: Safe to replace here where hiding a `**` is not, and the difference is
+  //: length: this is one character standing in for one character, at the
+  //: start of a line, so nothing after it moves by more than the difference
+  //: between two glyph widths, and the caret cannot be inside it (the line is
+  //: not replaced while it is touched). `ignoreEvent` returns false for the
+  //: reason the callout label's does: a click on the bullet is a click into
+  //: the line behind it.
+  class DocBulletWidget extends WidgetType {
+    eq() {
+      return true;
+    }
+    ignoreEvent() {
+      return false;
+    }
+    toDOM() {
+      const dot = document.createElement("span");
+      dot.className = "cm-md-li-mark cm-md-li-bullet";
+      dot.textContent = "\u2022";
+      return dot;
+    }
+  }
 
   //: **A callout says which kind it is, in words, where its marker was.**
   //: Measured before this: with the caret away from the line, `> [!note] a
@@ -5587,6 +5618,71 @@ function docLivePlugin(CM) {
               }).range(node.from, node.to)
             );
             return false;
+          }
+          //: **Lists, which the live view drew as plain text.** Measured
+          //: against the same document's own paragraph: a `- First bullet`
+          //: line had the same left edge, the same 0 indent and the same 0
+          //: padding as a paragraph, and a nested `  - Nested bullet` was
+          //: drawn at that same left edge too, so nesting was invisible and a
+          //: wrapped item ran back under its own marker. The single most
+          //: common construct in markdown was the one this view did nothing
+          //: for (INBOX 262: "the rendering on the live view of the documents
+          //: needs a lot of improvement").
+          //:
+          //: **A hanging indent rather than a hidden marker**, and that is
+          //: the decision this file's long note beside `rangeRevealed`
+          //: argues: taking characters out from under the caret moves the
+          //: text the caret is in, which is the reflow bug measured at 28.4px
+          //: backwards on a leftward keystroke. The marker stays where it is
+          //: and the line is indented around it, so nothing under the caret
+          //: moves at any time, and a wrapped line aligns under its own text
+          //: the way a list reads on paper.
+          //:
+          //: The depth is the item's own indentation in the document, in
+          //: units of two spaces (the width a tab is drawn at here), capped:
+          //: past four levels the indent is more useful as a signal that it
+          //: is deep than as an accurate count, and an uncapped one would
+          //: push a badly nested line off the measure.
+          if (name === "ListItem") {
+            const line = doc.lineAt(node.from);
+            const lead = /^[ \t]*/.exec(line.text)[0];
+            const depth = Math.min(
+              LIST_DEPTH_MAX,
+              Math.floor(lead.replace(/\t/g, "  ").length / 2)
+            );
+            //: Every line the item occupies, so a two-line bullet keeps its
+            //: indent on the continuation as well as on the marker row. The
+            //: same walk the blockquote below does, for the same reason.
+            for (let at = node.from; at <= node.to; ) {
+              const row = doc.lineAt(at);
+              ranges.push(
+                Decoration.line({ class: `cm-md-li cm-md-li-${depth}` }).range(row.from)
+              );
+              if (row.to >= node.to) break;
+              at = row.to + 1;
+            }
+            //: The marker itself, dimmed to the muted ink so the eye reads
+            //: the words and not the punctuation, and left in place so it can
+            //: still be selected, deleted and typed over. Ordered and
+            //: unordered take the same class: an editor that draws "1." in
+            //: one colour and "-" in another is saying they are different
+            //: kinds of thing, and they are not.
+            const mark = /^[ \t]*([-*+]|\d+[.)])(?=\s)/.exec(line.text);
+            if (mark) {
+              const from = line.from + mark[0].length - mark[1].length;
+              const to = from + mark[1].length;
+              //: A number carries information ("this is item 3") and stays as
+              //: it was typed; a dash does not, and becomes a bullet while
+              //: the caret is elsewhere. Both keep the muted ink.
+              if (/^[-*+]$/.test(mark[1]) && !touched(line.from, line.to)) {
+                ranges.push(
+                  Decoration.replace({ widget: new DocBulletWidget() }).range(from, to)
+                );
+              } else {
+                ranges.push(Decoration.mark({ class: "cm-md-li-mark" }).range(from, to));
+              }
+            }
+            return undefined;
           }
           if (name === "Blockquote") {
             const first = doc.lineAt(node.from);
@@ -13349,6 +13445,26 @@ function docCmTheme(CM) {
         fontFamily: "var(--mono, ui-monospace, monospace)",
         fontSize: "0.85em",
       },
+      //: **A list item's hanging indent.** `padding-left` moves the whole
+      //: line in and a matching negative `text-indent` pulls the first line
+      //: back out again, so the marker sits in the margin and the words line
+      //: up under each other however many times the item wraps. One rule per
+      //: depth rather than a CSS variable, because a CodeMirror theme is a
+      //: static stylesheet and there is nowhere to set a per-line variable
+      //: without an inline style, which the app's CSP refuses.
+      //:
+      //: `1.6em` is the width of a marker and its space at this type size,
+      //: measured rather than chosen: a `-` plus a space is 2 characters of a
+      //: 0.8em-per-character face.
+      ".cm-md-li": { paddingLeft: "1.6em", textIndent: "-1.6em" },
+      ".cm-md-li-1": { paddingLeft: "3.2em", textIndent: "-1.6em" },
+      ".cm-md-li-2": { paddingLeft: "4.8em", textIndent: "-1.6em" },
+      ".cm-md-li-3": { paddingLeft: "6.4em", textIndent: "-1.6em" },
+      ".cm-md-li-4": { paddingLeft: "8em", textIndent: "-1.6em" },
+      //: The marker itself: the muted ink, so the eye reads the words rather
+      //: than the punctuation, and left in the document so it can be
+      //: selected, deleted and typed over like any other character.
+      ".cm-md-li-mark": { color: "var(--muted)" },
       ".cm-md-quote": {
         borderLeft: "3px solid var(--border)",
         paddingLeft: "0.75em",

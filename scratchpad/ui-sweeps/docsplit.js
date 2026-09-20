@@ -130,9 +130,21 @@ async function forward(page, heading) {
     const editor = docSurface();
     const places = window.__places(name);
     if (places.missing) return places;
-    editor.scrollTop = Math.round(places.srcTop);
-    editor.scrollEl.dispatchEvent(new Event("scroll"));
-    await new Promise((r) => setTimeout(r, 380));
+    //: Twice, and the second one is not belt and braces. CodeMirror measures
+    //: the lines it has actually drawn and estimates the rest, so the first
+    //: scroll into a region it has never rendered lands somewhere near the
+    //: mark and then corrects itself as the real heights arrive: measured
+    //: here, 82px on the first visit to the middle of the document. A reader
+    //: sees that correction too and then stops; a probe that measures during
+    //: it is timing CodeMirror's first paint and calling it a mapping error.
+    //: So: scroll, let it settle, scroll to where the mark actually is now,
+    //: and measure from there.
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const mark = window.__places(name);
+      editor.scrollTop = Math.round(mark.srcTop);
+      editor.scrollEl.dispatchEvent(new Event("scroll"));
+      await new Promise((r) => setTimeout(r, 380));
+    }
     const after = window.__places(name);
     return {
       heading: name,
@@ -155,9 +167,12 @@ async function reverse(page, heading) {
     const editor = docSurface();
     const places = window.__places(name);
     if (places.missing) return places;
-    preview.scrollTop = Math.round(places.prevTop);
-    preview.dispatchEvent(new Event("scroll"));
-    await new Promise((r) => setTimeout(r, 380));
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const mark = window.__places(name);
+      preview.scrollTop = Math.round(mark.prevTop);
+      preview.dispatchEvent(new Event("scroll"));
+      await new Promise((r) => setTimeout(r, 380));
+    }
     const after = window.__places(name);
     return {
       heading: name,

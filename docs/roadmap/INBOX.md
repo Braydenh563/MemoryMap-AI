@@ -411,6 +411,27 @@ with its owner named in the entry.
     the bottom, while typing mid-document, across a Live to Split switch,
     after a save, with the sidebar resized, at 1440 and 1024. If nothing
     drifts, the next suspect is a stale asset rather than the mapping.
+    **Fixed, and the first fix's probe was the reason it survived.** The
+    mapping was right; the measurement of where a block sits in the preview
+    was not. `docScrollAnchors` read `block.offsetTop`, which is taken from
+    the nearest **positioned** ancestor and not from the pane: measured on a
+    real document, 218px past the truth at 1440, 230px at 1024, and 146px
+    once the sidebar is collapsed, because collapsing it puts a positioned
+    `#doc-layout` in between. A constant bias on every anchor is handed
+    straight through the interpolation, so the preview sat that far past the
+    line the source was showing at every position, with no pattern to it,
+    which is the report. It is the rule `setDocPage` already states in
+    app.js, and the first fix did not follow it.
+    The old probe read `offsetTop` as well, so the bias cancelled and it
+    reported 0px. `scratchpad/ui-sweeps/docsplit.js` replaces it: rects on
+    both sides, a document with frontmatter, an H1, wrapped paragraphs, real
+    images, a table, a code fence, nested lists, a callout and 220 lines,
+    both directions at six headings including the last, in five states
+    (baseline, after a mid-document edit, after Live to Split, after a save,
+    after the sidebar moves), at 1440 and 1024. Before: worst 444px and
+    453px. After: worst 1px in all ten passes. The anchor cache token gained
+    both panes' widths, since a pane that changes width rewraps every
+    paragraph in it without necessarily changing either scroll height.
 
 277. **Found while fixing 274 (the session, not the owner): a role can say one
     model and run another, everywhere, silently.** 274's "it doesnt use the

@@ -227,6 +227,20 @@ below). Versioning is `0.x` while the app stabilises.
   and 11px below. The glyph beside it was dead centre the whole time, which
   is what made the text look dropped. Zeroed, and the bar takes the band's
   44px floor below 820, which it used to reach only by accident.
+- The split document view lines its panes up from rects, not `offsetTop`.
+  The first fix mapped source lines to rendered blocks correctly and then read
+  each block's position with `offsetTop`, which is measured from the nearest
+  positioned ancestor rather than from the pane: measured on a real document,
+  every block's `offsetTop` ran 218px past its true offset in the pane at
+  1440 and 230px at 1024, and collapsing the sidebar changed the bias to
+  146px by putting a positioned element in between. Every anchor carried that
+  constant, so the preview parked that far past the line the source was
+  showing, at every position. The probe that closed the first report read
+  `offsetTop` too, so the same bias cancelled on both sides of its
+  subtraction and it reported 0px from a pane a paragraph and a half out.
+  Measured with rects: worst 444px at 1440 and 453px at 1024 before, 1px
+  after, across ten passes covering both directions, a mid-document edit, a
+  view switch, a save and the sidebar moving.
 - The split document view keeps its two panes on the same place. The sync
   was a scroll fraction, which is exact at both ends and wrong in between
   wherever a block takes a different amount of room in the two halves: a

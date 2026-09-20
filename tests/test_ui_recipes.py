@@ -1329,6 +1329,33 @@ def test_the_rendered_blocks_carry_the_line_they_came_from() -> None:
         "markup on every surface that renders markdown"
     )
     anchors = _function_body(documents_js, "docScrollAnchors")
+    #: **Rects, never `offsetTop`** (INBOX 281). The mapping was right the
+    #: first time and the measurement of where a block sits was not:
+    #: `offsetTop` is taken from the nearest positioned ancestor, and measured
+    #: on a real document it ran 218px past the truth at 1440, 230px at 1024,
+    #: and 146px once the sidebar was collapsed and a positioned `#doc-layout`
+    #: appeared in between. Every anchor carried the bias, so the preview sat
+    #: that far past the line the source was showing at every position. It is
+    #: the rule `setDocPage` already states in app.js.
+    #: The comments in that function discuss `offsetTop` at length, which is
+    #: the point of them, so the check reads the code with the prose taken out.
+    anchor_code = "\n".join(
+        line for line in anchors.splitlines() if not line.lstrip().startswith("//")
+    )
+    assert "offsetTop" not in anchor_code, (
+        "docScrollAnchors must not read offsetTop: it is measured from the "
+        "nearest positioned ancestor, not from the pane, and the bias between "
+        "them lands on every anchor"
+    )
+    assert "getBoundingClientRect()" in anchor_code and "preview.scrollTop" in anchor_code, (
+        "a block's place in the pane is its rect corrected by the pane's own "
+        "rect and scroll"
+    )
+    assert "clientWidth" in anchor_code, (
+        "the cache token has to carry both panes' widths: a pane that changes "
+        "width rewraps every paragraph in it, and it can do that without "
+        "changing either scroll height"
+    )
     assert "docPreviewLineShift" in anchors, (
         "the stamps count lines in the string the preview rendered, which has "
         "the title prepended and the frontmatter taken off: the shift has to "

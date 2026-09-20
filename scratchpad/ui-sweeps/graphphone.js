@@ -203,7 +203,24 @@ async function touch(cdp, type, points) {
       dock: !document.getElementById('graph-selection-dock').classList.contains('hidden'),
       count: document.getElementById('graph-selection-count').textContent.trim(),
     }));
+    // The bar the lasso produces is the only reason to draw one, and it is a
+    // transient dock that `touch.js`'s list of surfaces does not hold.
+    const bar = await page.evaluate(() => {
+      const dock = document.getElementById('graph-selection-dock');
+      if (dock.classList.contains('hidden')) return null;
+      const r = dock.getBoundingClientRect();
+      const small = [...dock.querySelectorAll('button')]
+        .filter((el) => el.offsetParent !== null)
+        .filter((el) => { const b = el.getBoundingClientRect(); return b.width + 0.5 < 44 || b.height + 0.5 < 44; })
+        .map((el) => `${el.id} ${Math.round(el.getBoundingClientRect().width)}x${Math.round(el.getBoundingClientRect().height)}`);
+      return { rect: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)], small, right: Math.round(r.right) };
+    });
+    console.log('selection bar   ', JSON.stringify(bar));
     console.log('lasso           ', JSON.stringify({ armed, lassoed }));
+    if (bar) {
+      check(bar.right <= WIDTH, `the selection bar runs ${bar.right - WIDTH}px past the right edge`);
+      check(!bar.small.length, 'controls under 44px in the selection bar: ' + bar.small.join(', '));
+    }
     check(armed, 'a long press on the empty map did not arm the lasso');
     check(lassoed.selected > 0, `the lasso caught ${lassoed.selected} notes`);
     check(lassoed.dock, 'the selection dock stayed hidden after a lasso');

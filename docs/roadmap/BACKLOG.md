@@ -1017,6 +1017,14 @@ Still unmeasured, and still worth measuring before cutting: which of the
 count per round. Summarising older history is the usual answer, but it costs a
 model call, so it should be the last resort rather than the first.
 
+**A shape for that last resort, not a decision to build it yet.** Odysseus's
+`context_compactor.py` triggers at 85% of the model's reported context
+window and self-summarises older turns via the same LLM into a structured
+block, trimming harder below an 8k-token window; see ANALYSIS.md's
+"Odysseus read deeply, 2026-09-21" section, item 1, for the full read and the
+size/risk call (M, take the idea, measure it on a small model before
+trusting it).
+
 ---
 
 ## 12. Does the AI know it is an agent?
@@ -1297,6 +1305,17 @@ history. What's still weak:
 - A tool that fails is reported, but the model isn't told how to recover
 - `_CLAIM_PATTERN` catches "I saved it" when no write tool ran — worth extending
   to other claim types
+- **No fallback when the configured chat/agent endpoint errors.** Checked
+  directly: `ai/ollama_client.py`, `ai/openai_client.py`, and `ai/provider.py`
+  all talk to a single configured endpoint per role; a timeout or a 5xx ends
+  the turn, nothing tries a second endpoint. Odysseus's
+  `foreground_model_routing.py` is a shape worth taking as an idea: opt-in,
+  per-user, an ordered list of up to ten fallback endpoints, tried only on a
+  named allow-list of retryable statuses (408, 425, 429, 500, 502, 503, 504,
+  507, 508, 529), never a silent catch-all. See ANALYSIS.md's "Odysseus read
+  deeply, 2026-09-21" section, item 2, for the size/risk call (M, must stay
+  strictly opt-in so a local request never silently reaches an endpoint the
+  user did not explicitly add).
 - **The agent only lives in the Chat tab.** Asked for as "allow the agent to
   be accessed from anywhere in the program" — every other tab already has the
   pieces this would reuse (the confirm-before-destructive pattern from design

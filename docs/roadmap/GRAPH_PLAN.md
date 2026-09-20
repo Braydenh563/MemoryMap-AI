@@ -132,11 +132,36 @@ panel scrolls inside, never the page; measured at 1440 and 1024 and on
 390 as a sheet. Gate: `scratchpad/ui-sweeps/graph4b.js` plus a node-panel
 probe that counts buttons per row and the panel's own scrollHeight.
 
-### Phase 5 — backend (½ session)
-`/graph` returns `degree`, `cluster`, `age_days`, `space_id`, `map_ids`
-per node; positions on `/graph/views`; `/graph/structure` cached per
-notebook version; a `?since=` cursor; `tests/test_graph_api.py` covers
-each field and the payload size for a 5k-note fixture (< 600 KB gzipped).
+### Phase 5 — backend (built but for two rows, see below)
+Built 2026-09-09 (HISTORY.md, "Built, Phase 5 (backend)"): the per-node
+fields, `/graph/structure` cached per notebook version, and the payload
+gate. Two rows of the original phase were not built, and were re-read
+against the code on 2026-09-20 rather than started:
+
+- **Positions on `/graph/views`.** Views are localStorage on purpose
+  (`graph.js`, "saved views": per-device workspace state of the same kind
+  as `graph-layout`, not notebook content that belongs in a backup), and
+  the positions that *are* notebook content, the pins, are already on the
+  Entry as `graph_pin_x`/`graph_pin_y` and already restored by both
+  renderers. The reason recorded for leaving this was "the local pane and
+  multi-device views are the reason to move them, and neither exists yet";
+  the local pane exists now and does not read saved views, and there is no
+  second device to sync to in a local-first notebook. Nothing to build
+  here as written.
+- **What is genuinely missing** is smaller and belongs on this row rather
+  than on a server endpoint: a saved view restores the layout, the colour
+  rule, the filters, the groups and the zoom transform, but not where the
+  unpinned notes sat, so a force-layout view reopens as a fresh solution
+  of the same forces rather than the picture that was saved. The fix that
+  stays inside the decision above is `graphCaptureView` storing each
+  visible node's x and y alongside the transform it already stores, and
+  `graphApplyView` seeding the simulation with them. Not started: it is a
+  frontend change with a real design question in it (whether a restored
+  arrangement then holds or settles), and nothing has been asked for it.
+- **A `?since=` cursor.** Still nothing polls `/graph`: every call is
+  `renderGraph()` behind a control, a tab activation or a save. A query
+  parameter with no caller is the "feature that never ran once" shape
+  CLAUDE.md section 6 puts second on its list. Left until something polls.
 
 ## 6. Consistency rules (learnability)
 

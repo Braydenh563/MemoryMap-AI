@@ -194,12 +194,31 @@ being written by running agents stay beside this one.
   at 1024, nothing scrolling; 669 in 488 with all three open, scrolling inside
   the panel. At 390 the panel still scrolls (795 in 286, from 1071), which is
   the phone's own 286px cap, not the panel's size. [graph.md]
-- **`/graph/local` has no Show switches**, so focus mode and the local pane
-  still walk boards as notes. GRAPH_PLAN's "Decision made, 2026-09-13" says
-  why that was left. [graph.md]
-- **GRAPH_PLAN Phase 5** (the backend fields, positions on views, the
-  `?since=` cursor) is recorded as untouched. Phase 4 landed on 2026-09-13, so
-  read the plan's own state before starting. [graph.md]
+- ~~**`/graph/local` has no Show switches.**~~ **Left, on the decision already
+  on record, 2026-09-20.** Read again against the code: `graph_local`
+  (`src/memorymap/api/routes_graph.py`) takes `depth` and `similarity` and
+  nothing else, so the report is accurate. GRAPH_PLAN's "Decision made,
+  2026-09-13" decided it deliberately, and the reason holds: "off means the
+  thing is not on the map" is a statement about the picture of the notebook,
+  and the local pane is a neighbourhood of one note. A board two hops from
+  the note you are reading is part of that neighbourhood whatever the map's
+  own switch says, and hiding it would leave a hole in a path rather than a
+  smaller picture. Reopen this only if the owner asks for it; the switches
+  would then be four query parameters plus the `?include_*` plumbing the
+  top-level `/graph` already has. [graph.md]
+- ~~**GRAPH_PLAN Phase 5**~~ **triaged, 2026-09-20.** The backend fields,
+  the cached `/graph/structure` and the payload gate were built on 2026-09-09
+  (HISTORY, "Built, Phase 5 (backend)"); the two rows left open were re-read
+  against the code rather than started, and GRAPH_PLAN's Phase 5 row now
+  carries the finding. Positions on `/graph/views`: nothing to build as
+  written, because views are per-device localStorage by a decision in
+  `graph.js` itself and the positions that are notebook content (the pins)
+  are already on the Entry. `?since=`: still no caller, since every `/graph`
+  fetch is a `renderGraph()` behind a control or a tab activation, and a
+  parameter nothing calls is the second shape CLAUDE.md section 6 names. The
+  one real gap, on the plan's row now: a saved view does not restore where
+  the unpinned notes sat, so a force view reopens as a fresh solution of the
+  same forces. [graph.md]
 - **The node popup redesign the owner names** ("I dont think you have
   redesigned the popup agent yet") is GRAPH_PLAN Phase 6 and the three rows
   under "Placed from INBOX, 2026-09-09", which hold the node panel. The agent

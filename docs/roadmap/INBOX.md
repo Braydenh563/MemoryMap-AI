@@ -214,7 +214,40 @@ with its owner named in the entry.
 265. **Mid-work drop, 2026-09-20, verbatim (the owner).** "also can you fix
     the highlighter in the quick sketch?? it doesnt act as it should and
     looks messy"
-    Open.
+    **Fixed** (`6abc459`). Third report on this tool; the first two fixes
+    treated the alpha and this one is the compositing. Each segment was its
+    own `stroke()` at 0.35, so consecutive segments overlapped at every joint
+    and each pixel was covered about three times: measured 0.801 coverage
+    where the tool asks for 0.35, 0.725 to 0.824 along the band, and a
+    self-crossing going 0.286 to 0.824. The stroke is now drawn whole on its
+    own layer at full opacity and composited once. After: 0.353 everywhere,
+    spread 0, junction 0.353.
+
+266. **Mid-work drop, 2026-09-20, verbatim (the owner).** "What usability and
+    information architecture things are missing and can be added?? It's often
+    the small things that act up, are broken, unreliable, or missing with the
+    user needs to work which break the user's trust of the application and
+    make it feel less professional, unpolished, like a demo, and not
+    trustworthy to be actually used for legitimate work
+    Tar file for linus
+    Windows msi file
+    Version platform architecture for both windows and linux installers
+    Lightweight as possible
+    what happens if the user runs out of storage??
+    needs full backend professional design that accounts for everything
+    needs more optimisation
+    We need to do a full architecture analysis and make sure that we are
+    actually using the right architecture and backend functions. we need to
+    make sure that our choices are the best they can be. like why is storing
+    in an sqlite database the best way to store notes etc. are things running
+    when they arent necessary and taking up extra compute?? things like
+    containers are spun up as needed like serverless cloud architecture"
+    Open. Seven asks, and most are analysis rather than a fix: (1) the
+    usability and IA gaps that cost trust, (2) a `.tar.gz` for Linux, (3) an
+    `.msi` for Windows, (4) version, platform and architecture in every
+    installer's name, (5) lightweight, (6) what the app does when the disk
+    fills, (7) an architecture review with SQLite and idle compute named
+    specifically.
 
 ## Placed (last 20, newest first)
 

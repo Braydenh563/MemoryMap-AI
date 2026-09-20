@@ -1,0 +1,410 @@
+{
+  "about": [
+    "CHAT_PLAN Phase 1's gate set (Brief 12's fixture questions in tests/fixtures/chat), sixteen cases.",
+    "Each case is a question, the notes that would have been retrieved for it, an answer written the way a",
+    "model paraphrases (never by copying a note's sentence), and which notes every sentence of that answer",
+    "actually came from. note_ids empty means the sentence must carry no mark at all: either the model went",
+    "beyond the notes, or the question is unanswerable from them. Two notes on one sentence means the",
+    "sentence is about both, and which mark is drawn first is not a claim about anything, so the score is",
+    "set equality rather than order.",
+    "The answers are hand written. No model produced them, and no claim here is a claim about a real model",
+    "(CLAUDE.md section 4). What the set measures is the attribution step: given an answer and a candidate",
+    "set, does the right note get named, and does the passage span land on the words the claim came from.",
+    "passage_contains, when present, is a substring the highlighted span has to hold.",
+    "reach: embeddings marks a sentence that shares no content word with its note (a synonym or a bare",
+    "restatement). A lexical scorer cannot reach it by construction, so it is reported on its own rather",
+    "than gated: it is what decision 2's cosine-over-the-window half would have to answer, and every",
+    "embedding in this sandbox is the four-dimensional fake."
+  ],
+  "cases": [
+    {
+      "id": "starter-feeding",
+      "question": "how often do I feed the starter and what does the bread bake at?",
+      "notes": [
+        {
+          "id": 101,
+          "content": "Sourdough starter, week three. I feed it at eight in the morning and again at eight in the evening, so twelve hours apart. Fifty grams of rye flour and fifty grams of water each time, discarding half of it first. The rye makes it rise faster than the white flour did and it smells of apples rather than acetone now. If I am away for a weekend it goes in the fridge and gets one feed on the day I come back."
+        },
+        {
+          "id": 102,
+          "content": "Bread notes. The oven runs hot, so I set it to 230C with the lid on for twenty minutes and then 210C with the lid off for another twenty five. Steam matters more than temperature for the crust. The loaf sounds hollow underneath when it is done."
+        }
+      ],
+      "answer": "You feed it twice a day, roughly twelve hours apart, with fifty grams of rye and fifty grams of water. For baking you set the oven to 230C with the lid on and drop it to 210C once the lid comes off.",
+      "sentences": [
+        {
+          "text": "You feed it twice a day, roughly twelve hours apart, with fifty grams of rye and fifty grams of water.",
+          "note_ids": [101],
+          "passage_contains": "twelve hours apart"
+        },
+        {
+          "text": "For baking you set the oven to 230C with the lid on and drop it to 210C once the lid comes off.",
+          "note_ids": [102],
+          "passage_contains": "230C"
+        }
+      ]
+    },
+    {
+      "id": "boots-snowdon",
+      "question": "what was the plan with the new boots before Snowdon?",
+      "notes": [
+        {
+          "id": 201,
+          "content": "Bought the new boots today, a size up from the old ones so thick socks fit. They need breaking in before Snowdon at the end of the month, so short walks first and then the long one along the ridge. The shop said three or four outings is usually enough, and to wear them around the house in the evenings."
+        },
+        {
+          "id": 202,
+          "content": "Snowdon plan: train to Llanberis on the Friday, up the Pyg track early on the Saturday, back down the same way if the weather turns. Pack the waterproof, the map and enough water for six hours. Book the bunkhouse before the end of the month or it will be full."
+        }
+      ],
+      "answer": "You wanted to break the new boots in on short walks first, and the shop suggested three or four outings. The route itself is the Pyg track on the Saturday, coming back down the same way if the weather turns.",
+      "sentences": [
+        {
+          "text": "You wanted to break the new boots in on short walks first, and the shop suggested three or four outings.",
+          "note_ids": [201],
+          "passage_contains": "short walks"
+        },
+        {
+          "text": "The route itself is the Pyg track on the Saturday, coming back down the same way if the weather turns.",
+          "note_ids": [202],
+          "passage_contains": "Pyg track"
+        }
+      ]
+    },
+    {
+      "id": "twelfth-two-things",
+      "question": "what is happening on the twelfth?",
+      "notes": [
+        {
+          "id": 301,
+          "content": "Dentist on the twelfth at half past nine. It is the checkup that got moved from March, and they want to look at the filling on the bottom left again."
+        },
+        {
+          "id": 302,
+          "content": "Car in for its service on the twelfth as well. Drop it off before eight and they ring when it is done, probably mid afternoon. Ask them about the noise the front wheel makes on a slow turn."
+        }
+      ],
+      "answer": "On the twelfth you have the dentist checkup at half past nine and the car service drop off before eight.",
+      "sentences": [
+        {
+          "text": "On the twelfth you have the dentist checkup at half past nine and the car service drop off before eight.",
+          "note_ids": [301, 302]
+        }
+      ]
+    },
+    {
+      "id": "running-sunday",
+      "question": "how far did I run on the Sunday?",
+      "notes": [
+        {
+          "id": 401,
+          "content": "Running log, Tuesday: five kilometres along the canal, twenty six minutes, felt easy the whole way. The new shoes are fine on tarmac and I barely noticed them."
+        },
+        {
+          "id": 402,
+          "content": "Running log, Sunday: twelve kilometres on the trail, an hour and nine minutes, the last three were hard. The new shoes were heavy once they got wet and the laces came undone twice."
+        }
+      ],
+      "answer": "On the Sunday you ran twelve kilometres on the trail in an hour and nine minutes.",
+      "sentences": [
+        {
+          "text": "On the Sunday you ran twelve kilometres on the trail in an hour and nine minutes.",
+          "note_ids": [402],
+          "passage_contains": "twelve kilometres"
+        }
+      ]
+    },
+    {
+      "id": "boiler-quotes",
+      "question": "what were the two boiler quotes?",
+      "notes": [
+        {
+          "id": 501,
+          "content": "Boiler service quote from the first firm, 180 pounds including the parts, and they can come on the Thursday morning. No cover afterwards, and they charge again for a second visit."
+        },
+        {
+          "id": 502,
+          "content": "Second quote for the boiler, 240 pounds, but that one includes a year of cover and a call out within a day. The engineer has done the neighbours twice and they were happy."
+        }
+      ],
+      "answer": "The cheaper one was 180 pounds including the parts, with nothing afterwards. The other was 240 pounds and includes a year of cover with a call out within a day.",
+      "sentences": [
+        {
+          "text": "The cheaper one was 180 pounds including the parts, with nothing afterwards.",
+          "note_ids": [501],
+          "passage_contains": "180"
+        },
+        {
+          "text": "The other was 240 pounds and includes a year of cover with a call out within a day.",
+          "note_ids": [502],
+          "passage_contains": "240"
+        }
+      ]
+    },
+    {
+      "id": "retro-tail",
+      "question": "what did we decide at the end of the retro?",
+      "notes": [
+        {
+          "id": 601,
+          "content": "Retro for the release. We started on what went well: the freeze held, nobody pushed on the Friday, and the rollback we rehearsed in the morning was never needed. Then the long part, which was the staging environment: it drifted from production twice in six weeks, both times because a migration ran by hand, and both times it cost a day of somebody's week. There was a tangent about the alerting being too noisy that we agreed to take somewhere else. The decision in the end was that nobody runs a migration by hand again, the deploy job owns it, and Priya writes the job this sprint so the next release proves it."
+        },
+        {
+          "id": 602,
+          "content": "Alerting is too noisy. Four pages last week and three of them were the same disk filling and draining on the log box. Somebody has to sit down with the thresholds, but nobody owns them."
+        }
+      ],
+      "answer": "The decision was that no one runs a migration by hand any more, the deploy job owns it, and Priya writes that job this sprint.",
+      "sentences": [
+        {
+          "text": "The decision was that no one runs a migration by hand any more, the deploy job owns it, and Priya writes that job this sprint.",
+          "note_ids": [601],
+          "passage_contains": "Priya"
+        }
+      ]
+    },
+    {
+      "id": "plumber-radiator",
+      "question": "what did the plumber say about the radiator?",
+      "notes": [
+        {
+          "id": 701,
+          "content": "House list, autumn. The plumber is coming on the Tuesday, so be in from eight. The radiator in the back room is cold at the top again and the one on the landing clanks. The boiler pressure gauge sits at one bar which the manual says is low. Bleeding the upstairs ones helped last winter and took about an hour with a towel. Also the gutter over the door still drips and the window in the spare room does not latch."
+        },
+        {
+          "id": 702,
+          "content": "Plumber, Tuesday: the back radiator needs bleeding and the system pressure is low. Top it up to one and a half bar with the filling loop, then bleed from the top of the house down. He charged forty for the visit and said to call if it drops again within a month."
+        }
+      ],
+      "answer": "He said the back radiator needs bleeding and that the system pressure is low, so top it up to one and a half bar.",
+      "sentences": [
+        {
+          "text": "He said the back radiator needs bleeding and that the system pressure is low, so top it up to one and a half bar.",
+          "note_ids": [702],
+          "passage_contains": "filling loop"
+        }
+      ]
+    },
+    {
+      "id": "rent-notice",
+      "question": "when does the rent go up and when do I have to give notice?",
+      "notes": [
+        {
+          "id": 801,
+          "content": "Flat hunting notes. Everything decent within budget is either above a takeaway or a forty minute bus. One place on Mill Road wants two months rent up front and a guarantor. The agent said the notice period on most of these is a month, and that if I give notice in February I could move in March. Viewings are on the Saturday, the eighth, three of them back to back."
+        },
+        {
+          "id": 802,
+          "content": "Letter from the landlord. Rent goes up to 1,150 from the first of March. I have until the eighth of February to tell them if I am leaving instead, and it has to be in writing to the office rather than by text."
+        }
+      ],
+      "answer": "Your rent rises to 1,150 in March, and you have until the eighth of February to give notice in writing.",
+      "sentences": [
+        {
+          "text": "Your rent rises to 1,150 in March, and you have until the eighth of February to give notice in writing.",
+          "note_ids": [802],
+          "passage_contains": "1,150"
+        }
+      ]
+    },
+    {
+      "id": "plants-away",
+      "question": "what do the plants need while I am away?",
+      "notes": [
+        {
+          "id": 901,
+          "content": "Plant care while away. The fig by the window wants a weekly soak, right through until it runs out of the bottom, and nothing in between. The ferns in the bathroom are the opposite: a little every couple of days and they hate being moved. Ask Dan, he has the spare key and did it in June."
+        },
+        {
+          "id": 902,
+          "content": "Dan is back from Lisbon on the ninth and said to text him about the key rather than ring, he is on shifts that week."
+        }
+      ],
+      "answer": "Water the fig once a week until it drains through, and give the ferns a small amount every two days. Dan has the spare key and has done it before.",
+      "sentences": [
+        {
+          "text": "Water the fig once a week until it drains through, and give the ferns a small amount every two days.",
+          "note_ids": [901],
+          "passage_contains": "ferns"
+        },
+        {
+          "text": "Dan has the spare key and has done it before.",
+          "note_ids": [901]
+        }
+      ]
+    },
+    {
+      "id": "recipe-and-general-knowledge",
+      "question": "can I make the pancakes without buttermilk?",
+      "notes": [
+        {
+          "id": 1001,
+          "content": "Pancake recipe as written: 300g plain flour, two eggs, 400ml buttermilk, a teaspoon of bicarbonate and a pinch of salt. Rest the batter for half an hour or they come out tough. Makes about twelve."
+        },
+        {
+          "id": 1002,
+          "content": "Shopping, Thursday: flour, eggs, salt, washing up liquid, and a bulb for the hall light."
+        }
+      ],
+      "answer": "The recipe you saved asks for 400ml of buttermilk with 300g of plain flour and two eggs. Buttermilk is usually replaced with milk and a spoon of lemon juice left to stand for ten minutes.",
+      "sentences": [
+        {
+          "text": "The recipe you saved asks for 400ml of buttermilk with 300g of plain flour and two eggs.",
+          "note_ids": [1001],
+          "passage_contains": "buttermilk"
+        },
+        {
+          "text": "Buttermilk is usually replaced with milk and a spoon of lemon juice left to stand for ten minutes.",
+          "note_ids": []
+        }
+      ]
+    },
+    {
+      "id": "unanswerable-visa",
+      "question": "what did I decide about the visa application?",
+      "notes": [
+        {
+          "id": 1101,
+          "content": "Groceries for the weekend: bread, two tins of tomatoes, olive oil, and the cheese from the counter rather than the packet kind."
+        },
+        {
+          "id": 1102,
+          "content": "The film was longer than it needed to be and the sound in screen four is still wrong. Worth seeing at home, not there."
+        }
+      ],
+      "answer": "I could not find anything you have saved about a visa application. Nothing here mentions a consulate appointment or a passport renewal.",
+      "sentences": [
+        {
+          "text": "I could not find anything you have saved about a visa application.",
+          "note_ids": []
+        },
+        {
+          "text": "Nothing here mentions a consulate appointment or a passport renewal.",
+          "note_ids": []
+        }
+      ]
+    },
+    {
+      "id": "unanswerable-bike-price",
+      "question": "how much did I pay for the bike?",
+      "notes": [
+        {
+          "id": 1201,
+          "content": "Picked the bike up on the Saturday. The rear brake rubs slightly and the saddle is too low, otherwise it rides well and the gears are smooth."
+        },
+        {
+          "id": 1202,
+          "content": "Flat viewing on Mill Road at six. Two bedrooms, damp patch by the window in the smaller one, and the landlord lives upstairs."
+        }
+      ],
+      "answer": "I could not find that in what you have written down. Nothing records the amount or where the purchase happened.",
+      "sentences": [
+        {
+          "text": "I could not find that in what you have written down.",
+          "note_ids": []
+        },
+        {
+          "text": "Nothing records the amount or where the purchase happened.",
+          "note_ids": []
+        }
+      ]
+    },
+    {
+      "id": "paraphrase-low-overlap",
+      "question": "when am I driving up to Mum's?",
+      "notes": [
+        {
+          "id": 1301,
+          "content": "Told Mum I would drive up on the Friday after work rather than the Saturday morning, so we get the whole weekend out of it. The traffic on the A1 after six is the only problem, and she says there is no rush."
+        },
+        {
+          "id": 1302,
+          "content": "Weekend plan: Saturday morning market, then the garden if it stays dry. Sunday is for the tax return, no excuses this time."
+        }
+      ],
+      "answer": "You are heading up on the Friday evening instead of the Saturday, to get a full weekend there.",
+      "sentences": [
+        {
+          "text": "You are heading up on the Friday evening instead of the Saturday, to get a full weekend there.",
+          "note_ids": [1301],
+          "passage_contains": "Friday after work"
+        }
+      ]
+    },
+    {
+      "id": "near-duplicate-meetings",
+      "question": "what do I need to bring to the supervisor meeting?",
+      "notes": [
+        {
+          "id": 1401,
+          "content": "Supervisor meeting, week two: bring the chapter two draft and the results table. She wants the related work section cut down, and the figures redone at the size the template asks for."
+        },
+        {
+          "id": 1402,
+          "content": "Supervisor meeting, week five: bring the chapter three draft and the new plots. She wants the related work section expanded again after all, and a paragraph on the threats to validity."
+        }
+      ],
+      "answer": "For week five you need the chapter three draft and the new plots.",
+      "sentences": [
+        {
+          "text": "For week five you need the chapter three draft and the new plots.",
+          "note_ids": [1402],
+          "passage_contains": "chapter three draft"
+        }
+      ]
+    },
+    {
+      "id": "synonym-only",
+      "question": "is the hall sorted for the party?",
+      "notes": [
+        {
+          "id": 1501,
+          "content": "Booked the hall for the twenty third. Deposit paid, fifty pounds, and the rest is due on the day itself."
+        },
+        {
+          "id": 1502,
+          "content": "Party list: forty people, the cake from the place on the corner, and ask Sam about a playlist that is not all his own music."
+        }
+      ],
+      "answer": "The venue is reserved and the deposit is settled.",
+      "sentences": [
+        {
+          "text": "The venue is reserved and the deposit is settled.",
+          "note_ids": [1501],
+          "reach": "embeddings"
+        }
+      ]
+    },
+    {
+      "id": "three-notes-one-claim",
+      "question": "what is the state of the migration?",
+      "notes": [
+        {
+          "id": 1601,
+          "content": "Standup notes: the migration is blocked on the schema change, and the schema change is blocked on the backfill nobody has started. Same three lines as last week."
+        },
+        {
+          "id": 1602,
+          "content": "The backfill script is written and ran against a copy on the Tuesday. It took eleven minutes over four million rows and it is safe to run twice, which is the part I was worried about."
+        },
+        {
+          "id": 1603,
+          "content": "Release calendar: freeze from the twentieth, nothing ships in the last week of the month, and the next window after that is the fourth."
+        }
+      ],
+      "answer": "The migration is still waiting on the schema change, which waits on the backfill. That backfill script now exists and ran over four million rows in eleven minutes on a copy.",
+      "sentences": [
+        {
+          "text": "The migration is still waiting on the schema change, which waits on the backfill.",
+          "note_ids": [1601],
+          "passage_contains": "schema change"
+        },
+        {
+          "text": "That backfill script now exists and ran over four million rows in eleven minutes on a copy.",
+          "note_ids": [1602],
+          "passage_contains": "eleven minutes"
+        }
+      ]
+    }
+  ]
+}

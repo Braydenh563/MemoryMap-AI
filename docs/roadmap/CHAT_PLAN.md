@@ -231,6 +231,33 @@ supported sentences carry a mark to the right note (fixtures name the
 note); a skill run cites the notes it read; hover highlights the passage;
 "I don't know" appears on the two unanswerable fixtures.
 
+**Three of the four gate lines are green, 2026-09-20**, and the fixture set
+they are scored on now exists: `tests/fixtures/chat/grounding_cases.json`,
+sixteen cases, scored by `tests/test_grounding_fixtures.py`. Which note
+grounds a sentence is decided by the passage score (decision 2's open half);
+the account and the numbers moved to
+[HISTORY.md](HISTORY.md), "Moved from the plans, 2026-09-20". A skill run
+citing what it read is decision 1 and has been covered since it landed
+(`tests/test_grounding.py`, the tool-read cases); hover highlighting the
+passage is measured in the browser by
+`scratchpad/ui-sweeps/citepassage.js`.
+
+**What is left of Phase 1: the fourth gate line, the low-support state.**
+Brief 12 decided it ("unsupported sentences get a hollow mark and the 'I
+don't know' copy is triggered when < 50% of sentences are supported") and
+nothing in the app reads a support ratio: `grep` for `answer-citation` finds
+the marks, and there is no unsupported variant of one and no notice above an
+answer that came from the model rather than from the notebook. The empty case
+is designed already (`librarian.NO_RESULTS_MESSAGE` plus the "Elsewhere in
+your notebook" chips), so what is missing is only the partly-supported one.
+The fixture set can gate it as it stands: `recipe-and-general-knowledge` is
+one supported sentence of two, and the two `unanswerable-*` cases are zero of
+two. Next step, in order: the ratio on the `grounding` event
+(`routes_chat.py`, where `sentence_grounding` is assembled), one notice line
+above the answer on the app's own recipe, and a sweep that asserts it appears
+on an answer whose sentences are half marked and not on one that is fully
+marked.
+
 ### Phase 2: one composer, bubbles, streaming: **built 2026-09-13**, see
 [HISTORY.md](HISTORY.md) "Moved from the plans, 2026-09-13". Gate green
 (`scratchpad/ui-sweeps/chatphase2.js`), with one gate line superseded by the

@@ -30,7 +30,7 @@ then the plan tails by surface, then the horizon.
 | GRAPH_PLAN | Phase 5 (positions saved on views, the `?since=` cursor); Phase 6's node panel redesign; the local pane's Show switches; 6b the minimap. |
 | WHITEBOARD_PLAN | Decision 7's other half; the phone context bar comparison; sketch handles at zoom; the arrange panel items. |
 | MINDMAP_PLAN | The mapux agent's leftover list (this file's Mind map section). |
-| CHAT_PLAN | Phase 1's other half, which note grounds a sentence (blocked on Brief 12's eval fixtures); Phase 4's harness items. |
+| CHAT_PLAN | ~~Phase 1's other half, which note grounds a sentence~~ built 2026-09-20 (the fixtures exist, 18 of 18 attributed, was 17 of 18); Phase 1's fourth gate line, the low-support "I don't know" state, is still open and is written up in the plan; Phase 4's harness items. |
 | TIMELINE_PLAN | Section 7's two measurements. |
 | AGENT_SKILLS_REFORM | Phase D verified against a real model, which needs WORLD_CLASS_PLAN section 9's dev-only runner first. |
 
@@ -218,13 +218,16 @@ being written by running agents stay beside this one.
 
 ## Chat and popup agent
 
-- **CHAT_PLAN Phase 1: which note grounds a sentence.** `grounding.best_passage`
-  chooses where inside a note with BM25, and the renderer is built; decision 2
-  also asks which note, at "a threshold calibrated on the eval fixtures (Brief
-  12)", and those fixtures do not exist. Next steps in order: the ten-question
-  fixture set, then the threshold. Changing what counts as supported without
-  them would be a judgement dressed as a measurement.
-  [chat-timeline-skills.md, chat-popup-agent.md]
+- **CHAT_PLAN Phase 1: which note grounds a sentence. Built 2026-09-20.** The
+  fixture set is `tests/fixtures/chat/grounding_cases.json` (sixteen cases,
+  scored by `tests/test_grounding_fixtures.py`); the note is chosen by BM25
+  over the candidate set's pooled passages, and the second-mark ratio is
+  calibrated on the set. 18 of 18 supported sentences attributed, up from 17 of
+  18; 0 false marks on 5 unsupported sentences; 16 of 16 passage spans. The
+  account is in HISTORY.md, "Moved from the plans, 2026-09-20". Still open:
+  Phase 1's fourth gate line (the "I don't know" state when fewer than half an
+  answer's sentences are supported), written up in CHAT_PLAN Phase 1 with its
+  next steps. [chat-timeline-skills.md, chat-popup-agent.md]
 - **Ask's answer object was measured on the offline branch only.** The sweep
   runs against a server with no model, so `sentences` was empty in every
   measurement and the grounding chips and inline marks under an Ask answer

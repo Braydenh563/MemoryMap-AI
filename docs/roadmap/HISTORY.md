@@ -29777,3 +29777,91 @@ told to open first.
     The other surfaces this item's first sentence asks for ("a full ux sweep"
     of the whole app) are the orchestrator's own, surface by surface, and are
     not claimed here.
+
+## Moved from the plans, 2026-09-20
+
+Blocks the plans carried as open work and no longer do (CLAUDE.md standing
+order 10). Origin file named on each.
+
+### From CHAT_PLAN.md
+
+### Built, Phase 1's open half: which note grounds a sentence, 2026-09-20
+
+The half that was blocked. OPEN.md recorded it as "blocked on Brief 12's eval
+fixtures", and that was right: decision 2 asks for BM25 over passages to pick
+the note as well as the span, at "a threshold calibrated on the eval fixtures
+(Brief 12)", and `ai/grounding.py::_mark` carried a comment saying it would
+not re-decide what counts as supported without the set that says whether it
+got better. So the set was written first.
+
+**The set.** `tests/fixtures/chat/grounding_cases.json`, sixteen cases (Brief
+12 asked for ten). Each is a question, the notes retrieval would have handed
+the answer, an answer written the way a model paraphrases rather than by
+copying a note's sentence, and the notes each of its sentences came from.
+Five sentences across three cases come from nothing and must carry no mark:
+two unanswerable questions, and one where the answer volunteers general
+knowledge (what to use instead of buttermilk) beside a fact from the recipe
+note. `passage_contains` names a substring the highlighted span has to hold,
+so the hover highlight is scored and not just the note id. The answers are
+hand written: no model produced them and none of this is a claim about a real
+model (CLAUDE.md section 4). What it scores is the attribution step, which is
+the part that is ours.
+
+**Measured, before.** 17 of 18 supported sentences cited to exactly the right
+note or notes (94.4%), under the plan's own 95% gate; 0 false marks on the 5
+unsupported sentences; 16 of 16 passage spans correct. The single miss is
+worth writing down because it is the shape the word-overlap rules get wrong:
+the claim "your rent rises to 1,150 in March, and you have until the eighth
+of February to give notice in writing" comes from the landlord's letter, and
+the distinctive-terms rule cited the flat-hunting note beside it as well,
+because "give" and "notice" occur in that note only, in a paragraph about
+what an agent said about notice periods. Two words scattered through a note
+that never says the thing.
+
+**What changed.** `_note_passage_scores` in `ai/grounding.py` scores every
+candidate note's best passage against the sentence with BM25 over **the
+candidate set's** passages pooled, rather than each note's own. That
+distinction is the whole of it: counting document frequency inside one note
+and then comparing the numbers across notes compares scores computed against
+different populations, so the longer note wins for being longer, and a word
+every candidate shares ("sourdough", when both notes are about sourdough)
+would carry the choice. `best_passage` still counts within the note, because
+between two paragraphs of one note that same shared word is exactly what
+tells them apart; the two now share one `_bm25` helper and differ only in the
+population they are handed. The passage score orders the notes that clear the
+word rules, and a second mark has to score at least `PASSAGE_SECOND_RATIO`
+(0.75) of the first.
+
+**Calibrated, not guessed.** The sentence that is genuinely about two notes (a
+dentist and a car service on the same day) scores 4.12 and 3.85, a ratio of
+0.93. The wrong second mark scores 6.02 and 3.32, a ratio of 0.55. 0.75 sits
+between them with about 0.18 either way, and it is a ratio rather than an
+absolute score because the score moves with the candidate set's size and the
+sentence's length. The absolute separation is recorded here for whoever tunes
+it next: on this set a correct mark scores 1.85 and up, a wrong one 1.07 and
+down.
+
+**Measured, after.** 18 of 18 (100%), 0 false marks, 16 of 16 spans.
+`tests/test_grounding.py`'s 18 unit cases and `test_ask_answer_object.py` are
+unchanged and green, so nothing the earlier rules were tuned for moved.
+
+**What the support rule deliberately did not become.** Decision 2's words are
+"a sentence is supported when its best score clears a threshold", which reads
+as replacing the word rules with a passage threshold. It was not done, and
+the reason is a measurement rather than a preference: on this set the word
+rules miss nothing a lexical scorer can reach and produce no false mark, so a
+second support rule had nothing to add, and 16 hand-written cases are not the
+population to re-decide "supported" on. What the passage score decides is
+which note, which is the open half OPEN.md named.
+
+**The one case out of reach, on purpose.** "The venue is reserved and the
+deposit is settled" is the booking note said twice over in different words,
+sharing no content word with it. No lexical scorer reaches that, and it is
+marked `reach: embeddings` in the fixture and asserted as silence rather than
+gated: decision 2's other half is cosine over the passage window, and every
+embedding backend in this sandbox is the four-dimensional fake, so gating on
+it would gate on nothing.
+
+**Files.** `src/memorymap/ai/grounding.py`,
+`tests/fixtures/chat/grounding_cases.json`,
+`tests/test_grounding_fixtures.py` (23 tests).

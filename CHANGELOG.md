@@ -7,6 +7,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- A citation names the note a sentence actually came from. Which note is now
+  decided by the best passage in the answer's own candidate set rather than by
+  how many words the note shares with the sentence, so a long note that carries
+  a claim's words spread through paragraphs about other things no longer earns a
+  second mark beside the note that says the thing. Measured on sixteen fixture
+  questions (`tests/fixtures/chat/grounding_cases.json`): 18 of 18 sentences
+  cited to the right note, up from 17 of 18, with no mark at all on a sentence
+  the notes do not support.
+
 ## [0.3.1] - 2026-09-14
 
 - The status bar's help button says "Guide", not the assistant's name. It sat

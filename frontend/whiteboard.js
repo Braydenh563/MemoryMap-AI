@@ -6738,6 +6738,12 @@ function clearWbSelection() {
 //: selection to sit above, so it sits centred just over the tool rail, which
 //: is where the thing it is about is. Excalidraw and tldraw both park the
 //: style panel against the rail for the same reason.
+//: The app's phone band, held once rather than asked per frame: this is read
+//: from `wbUpdateSelectionBar`, which runs on every pan and zoom frame. A
+//: `MediaQueryList` keeps itself current across a resize, so there is nothing
+//: to invalidate.
+const WB_PHONE = window.matchMedia("(max-width: 599.98px)");
+
 function wbUpdateSelectionBar() {
   const bar = document.getElementById("wb-context");
   if (!bar) return;
@@ -6871,11 +6877,13 @@ function wbUpdateSelectionBar() {
   //:
   //: Desktop keeps the floating bar and is untouched, measured by the same
   //: sweep at 1440x900: 0.7% to 2.6% of the canvas, nothing covered, which is
-  //: what a contextual bar is for. 600px is the app's own phone band
-  //: (`10-responsive.css`), not a number chosen here, and the map's node strip
-  //: is left alone: it has its own measured narrow behaviour, two centred
-  //: rows.
-  const pinned = active === bar && window.innerWidth < 600;
+  //: what a contextual bar is for. `WB_PHONE` is the app's own phone band: the
+  //: same `(max-width: 599.98px)` query `PHONE_TABS` and `PHONE_FAB` use in
+  //: app.js and the same band `10-responsive.css` draws, rather than a number
+  //: chosen here or an `innerWidth` compare that a scrollbar can put on the
+  //: wrong side of the line. The map's node strip is left alone: it has its
+  //: own measured narrow behaviour, two centred rows.
+  const pinned = active === bar && WB_PHONE.matches;
   if (pinned) {
     bar.dataset.wbAnchor = "top";
     left = rect.left - hostRect.left + 8;

@@ -26568,39 +26568,54 @@ document.addEventListener("contextmenu", (event) => {
 //: whiteboard's own link gesture uses (`wbWireMapEdgeGestures`) so the app
 //: answers a long press at one speed. Cancelled by a move, because a hold
 //: that turns into a scroll is a scroll.
-const LINK_HOLD_CANCELS = ["pointerup", "pointercancel", "pointermove"];
+// --- a long-press is a right-click on a phone (UI Phase 11 item 9) ------------
+// A finger has no second button. Every right-click menu in the app gets the
+// same menu on a 500ms hold that neither moves nor lifts; `target` is the
+// element the hold is on, or `document` with a `selector` for holds that
+// land on elements built later (a link inside a rendered note). The handler
+// receives the pointer event of the press and the point to open at. Touch
+// only: a mouse held down is a drag waiting to happen, and it has the
+// button. `tests/test_ui_recipes.py` holds every contextmenu listener in
+// app.js and documents.js to a wireLongPress twin.
+const LONG_PRESS_MS = 500;
+const LONG_PRESS_CANCELS = ["pointerup", "pointercancel", "pointermove"];
 
-document.addEventListener(
-  "pointerdown",
-  (event) => {
-    if (event.pointerType !== "touch") return;
-    const found = linkAtEvent(event);
-    if (!found) return;
-    const { clientX, clientY } = event;
-    //: **The cancel listeners live only as long as the hold does.** The first
-    //: cut kept three of them on `document` for the life of the page, one of
-    //: them `pointermove`, which fires on every pixel of every drag on the
-    //: whiteboard, a surface whose per-move cost was measured down from
-    //: 7.67ms to 0.79ms by a previous session. A listener that exists for
-    //: 500ms after a touch on a link costs nothing anybody can measure;
-    //: one that exists always is a tax on the app's most expensive gesture.
-    //: `passive`, because none of them ever calls `preventDefault` and a
-    //: non-passive move listener is what makes a page scroll badly.
-    const cancel = () => {
-      clearTimeout(timer);
-      for (const name of LINK_HOLD_CANCELS) {
-        document.removeEventListener(name, cancel, true);
+function wireLongPress(target, handler, { selector = null } = {}) {
+  if (!target) return;
+  target.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (event.pointerType !== "touch") return;
+      const hit = selector
+        ? event.target instanceof Element && event.target.closest(selector)
+        : target;
+      if (!hit) return;
+      const { clientX, clientY } = event;
+      const cancel = () => {
+        clearTimeout(timer);
+        for (const name of LONG_PRESS_CANCELS) {
+          document.removeEventListener(name, cancel, true);
+        }
+      };
+      const timer = setTimeout(() => {
+        cancel();
+        handler(event, { x: clientX, y: clientY, el: hit });
+      }, LONG_PRESS_MS);
+      for (const name of LONG_PRESS_CANCELS) {
+        document.addEventListener(name, cancel, { capture: true, passive: true });
       }
-    };
-    const timer = setTimeout(() => {
-      cancel();
-      openMenuAtPoint(found.items, "Link actions", clientX, clientY);
-    }, 500);
-    for (const name of LINK_HOLD_CANCELS) {
-      document.addEventListener(name, cancel, { capture: true, passive: true });
-    }
+    },
+    { passive: true }
+  );
+}
+
+wireLongPress(
+  document,
+  (event, point) => {
+    const found = linkAtEvent(event);
+    if (found) openMenuAtPoint(found.items, "Link actions", point.x, point.y);
   },
-  { passive: true }
+  { selector: "a[href], .wiki-link" }
 );
 
 function renderMarkdown(container, text, depth = 0) {
@@ -34006,6 +34021,9 @@ $("status-undo").addEventListener("contextmenu", (event) => {
   event.preventDefault();
   openUndoHistoryMenu($("status-undo"));
 });
+wireLongPress($("status-undo"), () => {
+  if (undoStack.length) openUndoHistoryMenu($("status-undo"));
+});
 
 document.addEventListener("mousedown", (event) => {
   const menu = $("undo-history-menu");
@@ -41362,6 +41380,8 @@ $("status-forward").addEventListener("contextmenu", (event) => {
   event.preventDefault();
   openNavHistoryMenu($("status-forward"));
 });
+wireLongPress($("status-back"), () => openNavHistoryMenu($("status-back")));
+wireLongPress($("status-forward"), () => openNavHistoryMenu($("status-forward")));
 $("status-nav-history")?.addEventListener("click", () => {
   const menu = $("status-nav-history-menu");
   if (menu.classList.contains("hidden")) openNavHistoryMenu($("status-nav-history"));

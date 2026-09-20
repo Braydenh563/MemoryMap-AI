@@ -12758,7 +12758,6 @@ document.addEventListener("click", (event) => {
   });
 });
 
-document.addEventListener("contextmenu", (event) => {
   //: **The underlined word is a real element, so right-clicking it must work.**
   //: The other half of the same report. `docToolsBoxFor` only ever matched a
   //: `<textarea>`, so in Live view, the one view that *can* draw a squiggle,
@@ -12766,24 +12765,35 @@ document.addEventListener("contextmenu", (event) => {
   //: mark fell straight through to the browser's own menu. The app's menu was
   //: reachable only by left-clicking, which is not what an underline means
   //: anywhere else.
-  const flag = event.target instanceof Element
-    ? event.target.closest(".doc-flag, .cm-finding")
-    : null;
+//: One body for the right-click and the long-press (UI Phase 11 item 9): a
+//: flag opens its suggestion at the point, and a right-click or a hold on
+//: the box itself opens the suggestion at the caret, only when there is
+//: something to say (swallowing the browser's own menu over ordinary text
+//: would take away spell-check, paste and everything else it carries for
+//: the sake of a menu with nothing in it). Returns whether it opened
+//: anything, so the mouse path keeps the browser's menu otherwise.
+function docOpenSuggestAtPoint(target, point) {
+  const flag = target instanceof Element ? target.closest(".doc-flag, .cm-finding") : null;
   if (flag) docFindingMarks(); // resolves the engine's marks back to findings
   if (flag && flag._docFinding) {
-    event.preventDefault();
-    openDocSuggest(flag._docFinding, docMarkAnchor(flag, { x: event.clientX, y: event.clientY }));
-    return;
+    openDocSuggest(flag._docFinding, docMarkAnchor(flag, point));
+    return true;
   }
-  const box = docToolsBoxFor(event.target);
-  if (!box) return;
-  //: Only when there is something to say. Swallowing the browser's own menu
-  //: over ordinary text would take away spell-check, paste and everything else
-  //: it carries for the sake of a menu with nothing in it.
-  if (docOpenSuggestAtCaret(box, { x: event.clientX, y: event.clientY })) {
+  const box = docToolsBoxFor(target);
+  if (!box) return false;
+  return Boolean(docOpenSuggestAtCaret(box, point));
+}
+
+document.addEventListener("contextmenu", (event) => {
+  if (docOpenSuggestAtPoint(event.target, { x: event.clientX, y: event.clientY })) {
     event.preventDefault();
   }
 });
+if (typeof wireLongPress === "function") {
+  wireLongPress(document, (event, point) => docOpenSuggestAtPoint(event.target, point), {
+    selector: ".doc-flag, .cm-finding, .cm-content, textarea",
+  });
+}
 
 //: Anywhere else closes it, the rule every menu in this app follows.
 document.addEventListener("mousedown", (event) => {

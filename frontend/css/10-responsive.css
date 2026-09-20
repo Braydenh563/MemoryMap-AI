@@ -1615,3 +1615,15 @@ header#top-bar,
   }
 }
 
+/* --- Phase 11 item 9: no hover-only affordance -----------------------------
+   The one control the phone sweep found at opacity 0 in a visible row: the x
+   that unlinks a link chip, revealed by the row's hover. A finger cannot
+   hover, so where there is no hover the x is simply there, at the strength
+   the hover would have given it. */
+@media (hover: none) {
+
+  #entry-list .chip.link .unlink {
+    opacity: 0.7;
+  }
+}
+

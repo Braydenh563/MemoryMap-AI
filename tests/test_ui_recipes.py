@@ -1509,3 +1509,18 @@ def test_the_row_swipe_presses_the_rows_own_actions():
     assert "binNoteWithUndo(" in menu, "the menu row and the swipe must call the same function"
     assert "favourite-btn" in app[app.index("function favouriteButton(") :][:800]
 
+
+def test_every_right_click_menu_has_a_long_press_twin():
+    """Phase 11 item 9: a finger has no second button, so every contextmenu
+    listener in app.js and documents.js is matched by a `wireLongPress`
+    call opening the same thing. Counted per file, since the two are always
+    written side by side. whiteboard.js and graph-canvas.js have their own
+    contextmenu handlers and are the whiteboard and graph plans' files; they
+    join this count when those plans' phone items land."""
+    for name in ("app.js", "documents.js"):
+        text = (ROOT / "frontend" / name).read_text(encoding="utf-8")
+        right_clicks = len(re.findall(r'addEventListener\(\s*"contextmenu"', text))
+        calls = len(re.findall(r"\bwireLongPress\(", text))
+        holds = calls - (1 if name == "app.js" else 0)  # app.js holds the definition
+        assert right_clicks == holds, f"{name}: {right_clicks} right-click menus, {holds} long-press twins"
+

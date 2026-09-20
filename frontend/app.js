@@ -43075,16 +43075,30 @@ function maybeShowOnboarding() {
 $("onboarding-next").addEventListener("click", onboardingNext);
 $("onboarding-back").addEventListener("click", onboardingBack);
 $("onboarding-skip").addEventListener("click", closeOnboarding);
-// Two buttons, one behaviour. Settings → Help has "Replay welcome tour" and
-// Settings → About has "Take tour again"; only the first was ever wired, so
-// the About one was a button that did nothing at all. Found by listing every
-// id in index.html that no JS file and no stylesheet mentions.
-for (const id of ["show-guide-btn", "about-take-tour"]) {
-  $(id)?.addEventListener("click", () => {
-    closeSettingsModal();
-    openOnboarding();
+// Two buttons, two behaviours, each the one its own words name. Settings →
+// Help has "Replay welcome tour" and Settings → About has "Take tour again";
+// only the first was ever wired, so the About one was a button that did
+// nothing at all (found by listing every id in index.html that no JS file and
+// no stylesheet mentions), and wiring both to the same call then made the
+// About one say "tour" and open the welcome card instead. They are not the
+// same thing: the card is five slides about what MemoryMap is, the tour is
+// anchored cards on the real controls. So the welcome button opens the
+// welcome and the tour button opens the tour.
+$("show-guide-btn")?.addEventListener("click", () => {
+  closeSettingsModal();
+  openOnboarding();
+});
+$("about-take-tour")?.addEventListener("click", () => {
+  closeSettingsModal();
+  // A frame later, for the same reason tour.js's own replay strip waits: the
+  // first step's rectangle is measured against the page the modal was
+  // covering, and a step measured while the modal is still up is dropped for
+  // having nothing on screen to point at.
+  requestAnimationFrame(() => {
+    if (typeof openTour === "function") openTour("basics");
+    else openOnboarding();
   });
-}
+});
 
 // Keyboard-shortcuts cheat-sheet (press ?), a learnability aid.
 // --- rebindable keyboard shortcuts -----------------------------------------------

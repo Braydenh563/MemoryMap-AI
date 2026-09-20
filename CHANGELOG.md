@@ -241,6 +241,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- "Take the tour" takes you on the tour. The dashboard's tile and Settings,
+  about's "Take tour again" both opened the welcome card instead, which is a
+  different thing: five slides about what MemoryMap is, rather than the
+  guided tour's cards anchored on the real controls. Both open the tour now,
+  and the welcome card keeps the two doors whose words name it, Settings,
+  help and guide's "Replay welcome tour" and the features browser's
+  "Welcome tour" row.
+
 - The Ask sub-tab shows each cited note once. Under the answer sat numbered
   source cards for the same five notes, with the same ids in the same order,
   that Matching records was already showing beside them; under the answer

@@ -25,7 +25,7 @@ then the plan tails by surface, then the horizon.
 
 | Plan | Still open |
 | --- | --- |
-| DOCUMENTS_PLAN | Phase 3 item 4's Library filter by frontmatter property; Phase 4 items 3 to 5 (outline drag-to-reorder with breadcrumbs, the editor command palette and shortcut sheet from one table, daily notes and the templates gallery); Phase 5 items 2 to 4 (version history UI with diff and restore, AI edit with a per-hunk diff preview and findings rendered as findings, focus and typewriter modes with reading typography and a print stylesheet); Phase 6 and Phase 8 tails in this file's Documents section. |
+| DOCUMENTS_PLAN | Phase 4 item 5's daily notes, the one row of Phase 4 still open (the templates gallery was built, and verified 2026-09-20 by `scratchpad/ui-sweeps/doctemplates.js`: six templates, each with a description); the Phase 2, 6 and 8 tails and the engine's three deliberate omissions, in this file's Documents section. Everything else this row used to list was built or already existed: the Library's property filter, outline reorder with folding and a filter box, the command palette and shortcut sheet from one table, version history with its diff and its AI filter, the per-hunk AI diff, reading typography and the print stylesheet (all 2026-09-20 or earlier, each with its probe named in HISTORY.md). |
 | UI_MODERNISATION_PLAN | ~~Phase 8's docks over the seven-control ceiling~~: re-measured 2026-09-20 (`docks.js` at 1440): notes 6, graph 6, library 5, chat 4, timeline 4, reminders 4, and only `#wb-topbar` at 13, which the plan names as the menu-bar exception (Insert, Edit, Arrange, View, Board on the dock's zones). Done. Phase 11 items 1 to 9, the phone done properly. |
 | GRAPH_PLAN | Phase 5 (positions saved on views, the `?since=` cursor); Phase 6's node panel redesign; the local pane's Show switches; 6b the minimap. |
 | WHITEBOARD_PLAN | Decision 7's other half; the phone context bar comparison; sketch handles at zoom; the arrange panel items. |
@@ -60,29 +60,26 @@ being written by running agents stay beside this one.
 
 ## Documents
 
-- **DOCUMENTS_PLAN Phase 3 item 4's second clause, "searchable from the
-  Library's filter".** The frontmatter is parsed and the fields are editable;
-  nothing filters documents on a property. File `frontend/library.js`. Next
-  step, recorded so it is not re-derived: a client-side filter over the
-  documents list, because the list is already loaded whole.
+- **DOCUMENTS_PLAN Phase 4 item 5's daily notes, and only that.** Items 1 to 4
+  are built (backlinks and block references 2026-09-12; the outline's reorder,
+  folding and filter box, and the command palette and shortcut sheet from one
+  table, 2026-09-20, both recorded in HISTORY.md with their probes). The
+  templates half of item 5 exists and was measured on 2026-09-20
+  (`scratchpad/ui-sweeps/doctemplates.js`: the gallery opens at 480x526 with
+  six templates, each carrying a description). Daily notes were left alone
+  deliberately: `grep -n "daily" frontend/*.js src/memorymap/api/*.py` finds
+  `dailyNoteTitle` in app.js and twenty-two hits in routes_entries.py, so the
+  next step is to read what the Timeline already built (TIMELINE_PLAN Phase 4,
+  "a daily note is a convention, not a table") and decide what a *document*
+  daily note would add to it, rather than building a second one.
   [documents-phase4.md]
-- **DOCUMENTS_PLAN Phase 4, the connected document: not started.** Next step:
-  take the plan's items in order and record file, id and next step per item at
-  the first stopping point. [documents-phase4.md]
-- **`revalidateSelection` reads the stale fallback.** `frontend/app.js`, line
-  17697 on the branch head: it resolves the surface with
-  `document.getElementById` and requires an `HTMLTextAreaElement`, so a
-  selection sent to the chat from a document is re-checked against the wrong
-  string and reports `gone` or `unknown` while the passage is on screen. Next
-  step: `docSurfaceById(context.surfaceId)` and `surface.text`, three lines.
-  [documents-engine.md]
-- **The "is the user typing?" guard does not know `contenteditable`.**
-  `frontend/app.js` around line 33916 tests
-  `["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)`.
-  The documents editor guards its own host (`docGuardGlobalShortcuts`); the
-  shared guard is still wrong and the next contenteditable will meet it. Next
-  step: `|| document.activeElement?.isContentEditable`, which the chorded
-  branch twenty lines above already checks. [documents-engine.md]
+- **The templates gallery offers a description, not a preview of the page.**
+  Measured 2026-09-20: each row reads "Assignment plan / Brief, criteria,
+  sections, sources, timeline." The plan's words are "offered with a preview",
+  and a sentence about the template is a fair reading of that; a thumbnail of
+  the body is not built and may not be worth it. Left as a row here rather
+  than built, so the next session does not build it twice.
+  [documents-phase4.md]
 - **The document surface's aliases have no lint.** A call site that hands the
   surface to something expecting a DOM element reads as correct and fails at
   runtime (`autoGrow` wrote `style.height` on it and every "/" command in the
@@ -107,11 +104,6 @@ being written by running agents stay beside this one.
   answer), nothing says `Mod+click` opens a link chip beyond the tooltip, and
   which buttons are "on" for the caret is not driven from the syntax tree,
   which the tree now makes cheap. [documents-engine.md]
-- **The documents editor toolbar (`.doc-toolbar`) is the one surface in the
-  consistency sweep's item 3 still off the recipe.** It has the bar surface;
-  only its controls are open. Next step: apply the `.dock > * > button.ghost`
-  half scoped to `.doc-toolbar` and re-measure fills, radii and heights the
-  way `scratchpad/ui-sweeps/heads2.js` does. [consistency.md]
 - **Outline rows are 24 to 25.2px, under the app's own 28px floor.**
   `frontend/css/05-sidebars-themes.css`, `.outline-link`
   (`padding: 0.15rem 0.25rem` plus a 0.85rem line) against DESIGN.md's
@@ -120,18 +112,6 @@ being written by running agents stay beside this one.
   density-aware rule (compact keeps 24, comfortable and spacious take 28) or a
   touch layout for the sidebar, which is UI Phase 9's territory.
   [doc-sidebar.md]
-- **The outline is headings only, and it does not fold.** No folding (a
-  120-heading document wants collapsible h2s with the state kept per document)
-  and no filter box (Obsidian's outline has one, and past two screens of
-  headings it is how you use it at all). Belongs in DOCUMENTS_PLAN.
-  [doc-sidebar.md]
-- **The scroll-spy follows the viewport, not the caret.**
-  `frontend/documents.js`, `docVisibleTopLine`: typing in a section below the
-  one at the top of the view marks the wrong heading until the view scrolls.
-  Next step: listen to selection changes as well (`docSurface().onChange`
-  fires on edits, not arrow keys) and decide which wins when they disagree.
-  Measured cost of the current shape: one hit test per animation frame while
-  scrolling. [doc-sidebar.md]
 - **The rest of the app's viewport popups have not been measured with the
   background art on.** `kebabMenu` (`wireEscapedActionMenu`) and the toolbar
   dropdowns (`clampToolbarMenu`) are covered; the chat dock's popovers, the
@@ -170,18 +150,10 @@ being written by running agents stay beside this one.
   but not measured at all. Next step: time it on the plan's 20k-word document
   with 200 findings on screen; past a millisecond, cache the rects per repaint
   (the findings effect is the invalidation point). [prose-intelligence.md]
-- **The writing panel's answers are not reachable by keyboard from the row.**
-  Enter opens the row, focus stays on the control, the candidates are a Tab
-  away with nothing saying so. Next step: move focus to the first candidate
-  when a row opens by keyboard only (a pointer press must not steal it) and
-  return it to the row on collapse. [prose-intelligence.md]
 - **The three finding kinds are named in two places**, `DOC_FINDING_GROUPS`
   (the panel's group titles) and `docFindingKind` (the dot and the underline).
   They agree today; a fourth kind has to be added to both.
   [prose-intelligence.md]
-- **python-docx has no row in `core/extras.py`**, so the Word export's 501
-  names the package instead of pointing at a button in Settings, optional
-  extras. One `Extra(...)` entry. [documents-phases.md]
 
 ## Graph
 

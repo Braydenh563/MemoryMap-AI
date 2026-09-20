@@ -19051,13 +19051,35 @@ function renderSelectionAttachment() {
 //: which case the text is still sent, the user asked about it, but with no
 //: position claimed at all.
 function revalidateSelection(context) {
-  const surface = document.getElementById(context.surfaceId);
-  if (!(surface instanceof HTMLTextAreaElement)) {
+  //: **Through `docSurfaceById`, never `getElementById` alone.** A document
+  //: whose CodeMirror engine has mounted keeps `#doc-content` in the markup as
+  //: the form's empty value carrier: it is still an `HTMLTextAreaElement` and
+  //: its `.value` is still `""`, so reading it directly passed the type check
+  //: and then told the model every document passage was `gone` while the
+  //: passage was on screen (measured on the branch head by
+  //: `scratchpad/ui-sweeps/docsel.js`: "gone" for an untouched selection).
+  //: `docSurfaceById` resolves `doc-content` to whichever surface is editing,
+  //: and a note box that has mounted the engine the same way.
+  //:
+  //: Guarded by `typeof`, because documents.js is in the Library's lazy bundle
+  //: (`LAZY_MODULES`) and a selection taken from the capture box can be sent
+  //: before that bundle has ever loaded; the textarea is the right answer
+  //: there anyway.
+  const el = document.getElementById(context.surfaceId);
+  const surface =
+    typeof docSurfaceById === "function"
+      ? docSurfaceById(context.surfaceId)
+      //: `{ text }` rather than the element itself, so the one line below that
+      //: reads the words reads the same property in both branches.
+      : el instanceof HTMLTextAreaElement
+        ? { text: el.value }
+        : null;
+  if (!surface || typeof surface.text !== "string") {
     //: The note was closed or the document navigated away from. Nothing to
     //: check against, so nothing is claimed.
     return { ...context, position: "unknown" };
   }
-  const value = surface.value;
+  const value = surface.text;
   if (value.slice(context.start, context.end) === context.text) {
     return { ...context, position: "exact" };
   }
@@ -31299,7 +31321,18 @@ document.addEventListener(
 );
 
 function paletteCommands() {
+  //: **The documents editor's own commands, at the top, while one is open**
+  //: (DOCUMENTS_PLAN Phase 4 item 4). The plan named `Ctrl+K` for an editor
+  //: palette of its own, which is the chord this one already has: two
+  //: palettes on one key is the collision the agent palette's comment records
+  //: being caught twice. So the editor contributes a group here instead, and
+  //: `docPaletteCommands` (documents.js) returns nothing at all unless the
+  //: Documents tab is showing with a document in it. Guarded by `typeof`
+  //: because that file is in the Library's lazy bundle and the palette opens
+  //: from every tab, including before it has ever been fetched.
+  const editor = typeof docPaletteCommands === "function" ? docPaletteCommands() : [];
   return [
+    ...editor,
     { label: "ph:clipboard Go to Dashboard", run: () => switchTab("dashboard") },
     { label: "ph:magnifying-glass-plus Zoom in", run: () => nudgeZoom(1) },
     { label: "ph:magnifying-glass-minus Zoom out", run: () => nudgeZoom(-1) },
@@ -31586,9 +31619,15 @@ function paletteText(value) {
 
 function paletteMatches(query) {
   const lowered = query.trim().toLowerCase();
-  const commands = paletteCommands().filter((c) =>
-    paletteText(c.label).includes(lowered)
-  );
+  //: **The app's own commands get a group name too, now that something can
+  //: sit above them.** They had none because they were always first and a
+  //: header over the top of a list says nothing; with the editor's group
+  //: ahead of them, an unlabelled run reads as more of "This document", which
+  //: is the one thing it is not. `group` is only set where the row has not
+  //: already claimed one, so the editor's stays its own.
+  const commands = paletteCommands()
+    .filter((c) => paletteText(c.label).includes(lowered))
+    .map((c) => (c.group ? c : { ...c, group: "Everywhere" }));
   if (!lowered) return commands;
 
   //: **A question typed into the palette is a question** (INBOX 224). The
@@ -31722,6 +31761,16 @@ function renderPalette(query) {
     }
     const li = document.createElement("li");
     setLabel(li, match.label);
+    //: **The chord, beside the command that runs it.** A palette that only
+    //: performs an action teaches nobody the key for it, and the plan's whole
+    //: reason for this list is features that do not show themselves. Only the
+    //: rows that carry one, which today is the editor's group.
+    if (match.keys) {
+      const keys = document.createElement("kbd");
+      keys.className = "palette-keys";
+      keys.textContent = match.keys;
+      li.appendChild(keys);
+    }
     if (index === paletteIndex) li.classList.add("active");
     li.addEventListener("click", () => {
       closePalette();
@@ -41332,9 +41381,19 @@ document.addEventListener("keydown", (e) => {
   }
   // "/" focuses search: but only when you're not already typing somewhere
   // and no overlay is open, so it never steals a literal slash (Wave J).
-  const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(
-    document.activeElement && document.activeElement.tagName
-  );
+  //: **`isContentEditable` too**, which the chorded branch above already
+  //: checks and this one did not. The list of three tag names was exactly
+  //: right while every editing surface in this app was a textarea; it is not
+  //: any more. The documents editor stops its own single characters at its
+  //: host (`docGuardGlobalShortcuts` in documents.js, which explains why it is
+  //: done there rather than here), so the gap showed on the next
+  //: contenteditable instead: the Library's OCR region text, where a literal
+  //: "/" moved focus to the global search and swallowed the rest of the
+  //: correction (measured by `scratchpad/ui-sweeps/typingguard.js`). Fixing
+  //: the shared guard means the one after that is born working.
+  const el = document.activeElement;
+  const typing =
+    ["INPUT", "TEXTAREA", "SELECT"].includes(el && el.tagName) || Boolean(el && el.isContentEditable);
   const overlayOpen =
     settingsModalOpen() ||
     !$("palette-overlay").classList.contains("hidden") ||
@@ -42320,6 +42379,19 @@ function openShortcuts() {
   capturingShortcut = null;
   setShortcutStatus("");
   renderShortcutList();
+  //: **The editor's rows come from the editor's own table**
+  //: (DOCUMENTS_PLAN Phase 4 item 4: "a `?` shortcut sheet generated from the
+  //: same table so the two cannot disagree"). documents.js is lazily loaded,
+  //: so the section says where its contents are rather than sitting empty
+  //: when this dialog is opened before that bundle has ever been fetched.
+  const editorList = $("shortcut-list-documents");
+  const editorNote = $("shortcut-list-documents-note");
+  if (editorList && typeof renderDocShortcutSheet === "function") {
+    renderDocShortcutSheet(editorList);
+    editorNote?.classList.add("hidden");
+  } else if (editorNote) {
+    editorNote.classList.remove("hidden");
+  }
   $("shortcuts-overlay").classList.remove("hidden");
   $("shortcuts-close").focus();
 }

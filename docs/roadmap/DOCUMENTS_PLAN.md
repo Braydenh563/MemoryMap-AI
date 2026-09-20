@@ -273,12 +273,13 @@ the same thing.
    the id and copies the reference, the marker hides in Live and is stripped
    from Read, and `scratchpad/ui-sweeps/docblockref.js` measures the lot
    (25/25). Decisions in section 11.
-3. **Outline drag-to-reorder** (PLAN D6), breadcrumbs for the heading the
-   caret is in, sticky outline that highlights the current section.
-4. **Command palette** (`Ctrl+K`) listing every editor action with its
-   shortcut — the single biggest fix for "features that do not show
-   themselves" — and a `?` shortcut sheet generated from the same table so
-   the two cannot disagree.
+3. **Outline drag-to-reorder** (PLAN D6), breadcrumbs, sticky outline: built,
+   2026-09-20. The record is in HISTORY.md ("Moved from the plans,
+   2026-09-20", DOCUMENTS_PLAN.md Phase 4 item 3).
+4. **Command palette and shortcut sheet from one table**: built, 2026-09-20.
+   The record, including the `Ctrl+K` decision the plan left open, is in
+   HISTORY.md ("Moved from the plans, 2026-09-20", DOCUMENTS_PLAN.md Phase 4
+   item 4).
 5. **Daily notes** and **templates gallery** (New ▾ → Meeting / Spec /
    Decision / Weekly review / Daily), templates stored as documents tagged
    `template` (exists) and offered with a preview.
@@ -295,8 +296,9 @@ the same thing.
 3. **AI edit with a diff preview** and accept/reject per hunk (PLAN D11);
    "Check with AI" renders its findings *as findings* (Phase 0's menu),
    not as a paragraph of advice.
-4. **Focus and typewriter modes** (PLAN D9), reading typography for Read
-   view (measure, leading, a serif option), a print stylesheet.
+4. **Focus and typewriter modes, reading typography, a print stylesheet**:
+   built. The record is in HISTORY.md ("Moved from the plans, 2026-09-20",
+   DOCUMENTS_PLAN.md Phase 5 item 4).
 
 ### Phase 6 — responsive by device (partly built; UI Phase 9 did the bands)
 

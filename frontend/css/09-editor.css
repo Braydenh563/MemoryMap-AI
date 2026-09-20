@@ -652,6 +652,36 @@
   line-height: 1.72;
 }
 
+/* **And its own measure, for the same reason it has its own leading.** A
+   reading column is capped in pixels (`#doc-panes.reading > .doc-preview`,
+   04-chat-dock-appearance.css: 46rem, which is 76 characters of the app's
+   sans). A narrower face holds more characters in the same pixels: measured
+   at 1440 with `scratchpad/ui-sweeps/docreadprint.js`, the serif option put
+   93 characters on a line, past the 45 to 90 every reference gives, while
+   nothing about the column had changed.
+
+   `ch` is the width of the face's own zero, so a cap written in it means a
+   number of characters rather than a number of pixels, and it moves when the
+   face does. Only the serif is capped this way: the default column is a width
+   the owner has commented on twice and is not being narrowed here.
+
+   Specificity: `#doc-panes.reading > .doc-preview` is (1,2,0), so a class and
+   an id are what it takes to win, honestly, without an `!important`. */
+.doc-serif #doc-panes.reading > #doc-preview,
+.doc-serif #doc-preview {
+  max-width: 82ch;
+}
+
+/* And the width toggle still releases it. Both classes sit on
+   `#tab-documents`, so this is one element carrying two, and without this
+   rule the cap above (a later file, equal specificity) would quietly win over
+   `.doc-wide #doc-preview` and leave the one control whose whole job is
+   "give me the window I paid for" doing nothing for a serif reader. */
+.doc-wide.doc-serif #doc-panes.reading > #doc-preview,
+.doc-wide.doc-serif #doc-preview {
+  max-width: none;
+}
+
 /* --- the assistant's three verbs (INBOX 192) --------------------------------
    "change the style of and redesign this edit, write, remove ai assistant
    toggle row as it is ugly and needs a better visual and more modern look".
@@ -876,4 +906,130 @@
   opacity: 0;
   pointer-events: none;
   resize: none;
+}
+
+
+/* =============================================================================
+   On paper (DOCUMENTS_PLAN Phase 5 item 4, the print stylesheet)
+   =============================================================================
+
+   **What this is for.** The PDF export already printed the rendered preview
+   and nothing else, through `body.printing-doc` (05-sidebars-themes.css). A
+   plain Ctrl+P did not: measured with `emulateMedia({ media: "print" })`
+   before this existed, a print from the editor carried the tab bar at 693x44,
+   the sidebar at 260x767, the dock at 1082x78 and the status bar at 1082x38
+   onto the page, around a 736px column of text. `beforeprint` in documents.js
+   now sets the same class for any print of an open document, so both routes
+   put the same thing on paper, and this block is what that thing looks like.
+
+   The elements that go are listed in 05-sidebars-themes.css, next to the
+   export they were written for. Everything here is about the page itself:
+   the sheet, the ink, the measure and where a break may fall. */
+@media print {
+  /* **The last of the chrome.** 05-sidebars-themes.css hides the tab bar, the
+     sidebar, the dock and the toolbar; it was written for the PDF export and
+     predates three of the things that now sit around the editor. Measured
+     with the rest of it gone: the status bar still printed at 1408x38 and the
+     breadcrumb row at 1408x24, both of them at the full width of the sheet
+     because the card around them had already been taken away. The find bar,
+     the writing panel and the phone bar are listed with them rather than
+     waiting to be found on a printed page. */
+  body.printing-doc #doc-statusbar,
+  body.printing-doc #doc-crumbs,
+  body.printing-doc #doc-find-bar,
+  body.printing-doc #doc-prose-panel,
+  body.printing-doc .doc-phone-bar,
+  body.printing-doc #doc-title {
+    display: none !important;
+  }
+
+  /* A printed page is not a screen: the app's own dark or tinted grounds cost
+     ink and read worse, so the page is black on white whatever the app is
+     set to. `print-color-adjust` is deliberately *not* set: a reader who has
+     asked their browser for background graphics should still get their
+     highlights, and the colours that carry meaning here (a highlight, a code
+     block's ground) are the ones that survive that choice. */
+  body.printing-doc #doc-preview {
+    color: #000;
+    background: none;
+  }
+
+  /* **The measure again, in a unit paper understands.** On screen the column
+     is capped at 72ch inside a window the reader sized; on A4 with the app's
+     own 3rem card padding gone, an uncapped column runs the full width of the
+     sheet, which is the one thing every reference agrees is unreadable. The
+     `@page` margin is what leaves room for a printer's own unprintable edge,
+     and 2cm is the conventional body margin rather than a number picked
+     here. */
+  @page {
+    margin: 2cm;
+  }
+
+  body.printing-doc #doc-preview {
+    max-width: 68ch;
+    margin-inline: auto;
+    /* 1.5 on screen is a reading line; on paper, where the eye returns across
+       a fixed column with no scrolling, a touch more leading is the
+       conventional answer, and it is the number the serif option already uses
+       on screen. */
+    line-height: 1.6;
+  }
+
+  /* **A heading at the foot of a page is a heading on the wrong page.**
+     `break-after: avoid` keeps it with the text it names; two lines either
+     side of a break is the widow and orphan rule every typesetter uses and
+     the one thing a browser will do for free if it is asked. */
+  body.printing-doc #doc-preview h1,
+  body.printing-doc #doc-preview h2,
+  body.printing-doc #doc-preview h3,
+  body.printing-doc #doc-preview h4 {
+    break-after: avoid;
+    break-inside: avoid;
+  }
+
+  body.printing-doc #doc-preview p,
+  body.printing-doc #doc-preview li {
+    orphans: 2;
+    widows: 2;
+  }
+
+  /* A table, a code block, a quotation or an image split across a page break
+     is the shape that makes a printed document look like a mistake. Each is
+     small enough that keeping it whole costs at most a short page. */
+  body.printing-doc #doc-preview pre,
+  body.printing-doc #doc-preview blockquote,
+  body.printing-doc #doc-preview table,
+  body.printing-doc #doc-preview figure,
+  body.printing-doc #doc-preview img {
+    break-inside: avoid;
+  }
+
+  /* An image that is taller than the page cannot be kept whole, and one wider
+     than the column runs off the edge of the sheet with no scrollbar to
+     rescue it. */
+  body.printing-doc #doc-preview img {
+    max-width: 100%;
+    max-height: 22cm;
+  }
+
+  /* **A link on paper is just words unless it says where it goes.** Only
+     external ones: an internal `[[link]]` points at another document in this
+     notebook, and printing a `#doc-12` beside it would be noise. The URL is
+     set smaller and in the muted ink so it reads as an annotation rather than
+     as part of the sentence. */
+  body.printing-doc #doc-preview a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    color: #444;
+    word-break: break-all;
+  }
+
+  /* The remarks are the reader's own margin notes, and the export turns them
+     into footnotes when it is asked to (`docPrintComments`). A plain print
+     does not ask, so the marks they leave behind must not paint a highlight
+     across a printed sentence. */
+  body.printing-doc #doc-preview .doc-comment-mark {
+    background: none;
+    color: inherit;
+  }
 }

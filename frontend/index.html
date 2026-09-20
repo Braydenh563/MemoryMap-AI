@@ -3238,6 +3238,17 @@
                  first heading on the panel: "the empty state is a bare
                  heading with nothing under it". -->
             <p class="muted doc-outline-empty hidden" id="doc-outline-empty"></p>
+            <!-- **The filter box** (DOCUMENTS_PLAN Phase 4 item 3, and
+                 OPEN.md: "past two screens of headings it is how you use it at
+                 all"). Hidden until there are enough headings to hunt through,
+                 which documents.js decides: a filter over six rows is a
+                 control asking to be ignored. Not persisted, for the same
+                 reason the Library's property filter is not: a narrowing that
+                 survives a reload is an outline with most of the document
+                 missing and nothing saying why. -->
+            <input id="doc-outline-filter" type="search" class="doc-outline-filter hidden"
+              placeholder="Filter headings…" aria-label="Filter the outline"
+              autocomplete="off" spellcheck="false">
             <ul id="doc-outline" class="doc-outline"></ul>
           </div>
 
@@ -4270,6 +4281,19 @@
               aria-label="Search documents by title or content">
           </div>
           <div class="dock-group dock-arrange">
+            <!-- **Filter by a property the document declares about itself**
+                 (DOCUMENTS_PLAN Phase 3 item 4's second clause). One select,
+                 not two: a key picker plus a value picker would be two
+                 controls saying one thing and would take this dock to the
+                 seven-control ceiling. The options are built from the list
+                 that is on screen (library.js, `libraryDocsPropertyOptions`),
+                 each one reading "key: value (count)", so the control can only
+                 ever offer a property some document actually has. -->
+            <select id="library-docs-property"
+              aria-label="Filter documents by a property"
+              title="Show only documents whose front matter carries this property">
+              <option value="">Any property</option>
+            </select>
             <!-- The fourth Library sub-tab to get the sort control they were
                  reported as missing. One select, never a select and a segment
                  saying the same thing. -->
@@ -9657,6 +9681,16 @@
         <li><span class="shortcut-keys"><kbd>m</kbd> then <kbd>d</kbd>/<kbd>n</kbd>/<kbd>c</kbd>/<kbd>g</kbd>/<kbd>l</kbd>/<kbd>t</kbd>/<kbd>r</kbd></span><span>Jump to Dashboard / Notes / Chat / Graph / Library / Timeline / Reminders</span></li>
         <li><span class="shortcut-keys"><kbd>m</kbd> then <kbd>s</kbd>/<kbd>q</kbd>/<kbd>v</kbd></span><span>Open settings / a quick sketch / meeting notes</span></li>
       </ul>
+      <h3>In the documents editor</h3>
+      <p class="muted">These work while you are writing in a document.</p>
+      <!-- Built from `DOC_COMMANDS` in documents.js by `renderDocShortcutSheet`,
+           which is the same table the command palette's "This document" group
+           is built from, so the two cannot disagree about what a key does
+           (DOCUMENTS_PLAN Phase 4 item 4). -->
+      <ul class="shortcut-list" id="shortcut-list-documents"></ul>
+      <p class="muted hidden" id="shortcut-list-documents-note">
+        Open a document once and these appear here.
+      </p>
       <p class="muted">Tip: most actions also live in the command palette.</p>
     </div>
   </div>

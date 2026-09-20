@@ -23603,6 +23603,20 @@ the behaviour that shipped before this.
 "searchable from the Library's filter" is not built: `library.js` was another
 agent's file. The properties are parsed and editable, and nothing filters on
 them. It is written up in `archive/agent-remaining/documents-phase4.md`.
+**Built 2026-09-20**: the Library's Documents sub-tab has one select beside
+its search box, `#library-docs-property`, whose options are the `key: value
+(count)` pairs the documents on screen actually carry. The narrowing is
+client-side (the list is read to the end already) and the properties ride on
+the row, parsed by `core/docmeta.py`, because `_summary()` sends a preview
+rather than a document's content and a browser-side scan would have found
+nothing at all. Measured by `scratchpad/ui-sweeps/libprops.js`, 7/7: the
+control is hidden until something has a property, the opener reads at 144x36,
+five documents narrow to two on "status: draft", and the empty state names
+both the search and the property when the two cannot both be true. Two things
+found on the way: the shared `enhanceSelect` opener walks `select.options` and
+never reads an `<optgroup>` label, so the grouping the first shape used was
+invisible and the key moved into each option's own words; and hiding a select
+hides nothing, because the reader sees its `.select-shell`.
 ## INBOX resolved, 2026-09-13
 
 162. **Mid-work drop, 2026-09-13, verbatim (the owner), the app as an
@@ -25102,6 +25116,146 @@ them. It is written up in `archive/agent-remaining/documents-phase4.md`.
     mode still flips, the suppression class is gone again a frame later, and
     the art canvas is rebuilt. **Not verified:** the desktop webview, which is
     the window the report came from; the numbers above are headless Chromium.
+## Moved from the plans, 2026-09-20
+
+### DOCUMENTS_PLAN.md Phase 4 item 4, the editor's commands as one table
+
+The plan asked for a palette listing every editor action with its shortcut and
+a `?` sheet "generated from the same table so the two cannot disagree".
+
+**The decision the plan left open, taken because it had to be.** The plan
+names `Ctrl+K`, written before this app had a command palette of its own on
+exactly that chord: two palettes on one key is the collision the agent
+palette's own comment records being caught twice. So the editor contributes a
+"This document" group to the palette that exists, offered only while the
+Documents tab is showing with a document open, and the app's own commands
+gained a group name ("Everywhere") now that something can sit above them. A
+reader pressing Ctrl+K in a document finds the document's own actions at the
+top of a list they already know.
+
+**A row whose action already has a button runs the button**
+(`docRunControl`), not a copy of its handler: a copy is a second definition of
+what "Export as HTML" means and the two drift the first time one is edited.
+`tests/test_doc_commands.py` is the lint that division needs, and it fails on
+a command pressing a control that is not in `index.html`, on two commands
+claiming one chord, on a row with no label or icon, on a chord the editor
+binds that the table does not list, and on either door stopping reading the
+table.
+
+Measured by `scratchpad/ui-sweeps/doccommands.js`, 10/10: no editor group
+before a document is open, 31 commands after, 10 of them drawing a chord
+beside the words, the sheet's 13 rows byte-identical to the table's, and
+"Heading 2" run from the palette writing `## some words` into the document.
+
+### DOCUMENTS_PLAN.md Phase 5 item 4, reading typography and the print sheet
+
+Focus, typewriter and the serif option were built on 2026-09-13. What was left
+was the measure and the print stylesheet, and both turned out to be the same
+mistake in two places: a reading column written in pixels.
+
+**The serif face's measure.** Measured at 1440 with
+`scratchpad/ui-sweeps/docreadprint.js`: the reading column is capped at 46rem
+(736px), which is 76 characters of the app's own sans and inside the 45 to 90
+every typographic reference gives. The serif face is narrower, so the same
+736px held **93** characters on a line while nothing about the column had
+changed. The default column is left exactly where it is (a width the owner has
+commented on twice, "idk why the document rendered views are so thin??") and
+the serif takes a cap of its own in `ch`, beside the leading it already
+adjusts for the same reason: 82 characters at 606px after, and the width
+toggle still releases it.
+
+Also found and fixed on the way: `#doc-preview { max-width: 72ch }`, the
+"stricter measure for rendered prose", had never once applied. The rule above
+it is `#doc-preview:not(.doc-split-pane)` at (1,1,0) and a bare id is (1,0,0),
+so the looser 78ch cap won in exactly the case the tighter one was written
+for.
+
+**The print stylesheet.** The PDF export already printed the preview and
+nothing else, through `body.printing-doc`. A plain Ctrl+P did not: measured
+with `emulateMedia({ media: "print" })`, it put the tab bar (693x44), the
+sidebar (260x767), the dock (1082x78) and the status bar (1082x38) on the page
+around a 736px column. A `beforeprint` listener now sets the same class for
+any print of an open document, renders the preview and switches to Read view,
+and `afterprint` puts back what it changed; the `@media print` block in
+`09-editor.css` is what the page then looks like: black on white, a 2cm page
+margin, the measure kept, leading at 1.6, headings kept with the text they
+name, code blocks, quotations, tables and images not split across a break, an
+external link's URL printed after it, and the last of the chrome
+(`#doc-statusbar`, `#doc-crumbs`, the find bar, the writing panel, the phone
+bar) hidden, which the export's own older list predates. Deliberately not
+done: `docPrintComments` stays false, because a plain print did not ask for
+footnotes.
+
+Measured, 24/24, including the app coming back afterwards.
+
+**Not verified.** Chromium only. `emulateMedia` is not a printer: pagination,
+the real page size and what a driver does with `@page` were not tested, and no
+page was actually printed.
+
+### DOCUMENTS_PLAN.md Phase 4 item 3, the outline that navigates and reorders
+
+**Breadcrumbs and the sticky, current-section outline were already built**
+(the sidebar redesign, 2026-09-12: `renderDocCrumbs`, `markDocOutline`). What
+this pass added is the rest of the item, plus the two things
+`archive/agent-remaining/doc-sidebar.md` recorded as open beside it.
+
+**The scroll-spy follows the caret.** It read the top of the view alone, so
+typing in a section below the one at the top of the box marked the heading
+above it until the view scrolled. Measured before the change on a
+twelve-section document in a 512px editor: caret in Section 3 at scrollTop 0,
+outline marked Section 1. The decision the next step left open, which wins
+when the two disagree: the caret does, while it is visible, because a caret
+you can see is where you are writing; scroll it out of the box and the
+viewport takes over again, which also covers the Read pane, where there is no
+caret to see. The textarea fallback has no line-to-pixel map, so it keeps the
+viewport answer. `scratchpad/ui-sweeps/docspy.js`, 6/6.
+
+**Folding, per document, keyed by the heading rather than by its line.** A
+line number changes the moment anything is written above it, so a fold keyed
+that way unfolds itself or folds some other section in its place. The state is
+in `localStorage` because a fold is a per-viewer fact about how a panel is
+drawn; one written into the file would travel to everyone who opens the
+document and would show up in its diff. The control is a fixed 16px gutter at
+the row's left, a button where the heading has children and an empty slot
+where it does not: the row itself is already a button (a button inside a
+button is neither valid nor reachable), and a caret that appeared only on some
+rows would move those rows' text against their own level, which is the exact
+fault `.outline-link`'s own indent rules spend three paragraphs protecting.
+
+**The filter box**, from ten headings up. Filtering ignores folds outright: a
+search that hides its own matches inside a fold reports nothing and is right
+about nothing. The count reads "2 of 19" while it is running, because a bare
+"2" over a narrowed list reads as a document with two headings in it. Not
+persisted, for the same reason the Library's property filter is not. The spy
+marks the nearest row that is actually drawn, so a caret inside a folded
+section marks the fold rather than a row nobody can see.
+`scratchpad/ui-sweeps/outlinefold.js`, 14/14: gutter one width (16px) across
+19 rows, 7 foldable, h3 indent 30px against h2's 17px unchanged, filter box
+226x36.
+
+**Drag to reorder, and Alt with an arrow.** Dragging a row moves the section,
+the heading and everything under it down to the next heading at the same level
+or shallower. The lines are re-scanned at the moment of the drop
+(`docScanHeadings`, pulled out of `renderDocOutline` for this) and never taken
+from the outline's own rows: the outline is rebuilt on a pause in typing, so a
+row dragged a keystroke after an edit carries line numbers from the document as
+it was, and moving that run would cut the wrong paragraphs out of the middle of
+the text. The write goes through the surface's `text` setter, which diffs
+prefix and suffix, so a move is one undo step. A section dropped inside itself
+is refused rather than clamped: there is no place the reader could have meant.
+Rows are not draggable while a filter is running, because the rows on screen
+are then a search result and "between" two of them is not a position in the
+document. Alt with an arrow is the keyboard half, and the focus ring is
+restored by name across the second redraw the write schedules (measured before
+that: `document.activeElement` came back as `<body>`).
+`scratchpad/ui-sweeps/outlinedrag.js`, 12/12, including every body paragraph
+still present exactly once and no run of three blank lines left at a seam.
+
+**Not verified.** Chromium only, at 1440x900. The drag is driven by dispatched
+`DragEvent`s with a shared `DataTransfer` rather than by a real pointer drag,
+which is what this Chromium will do reliably; no touch drag was tested at all,
+and the fallback textarea path was not driven for any of it.
+
 ## Moved from the plans, 2026-09-13
 
 Blocks the plans carried as open work and no longer do (CLAUDE.md standing

@@ -365,6 +365,64 @@ below). Versioning is `0.x` while the app stabilises.
   ordinary one, running the packaged build's own repair (clears the cached
   window profile, then opens the app normally; notes and preferences are
   untouched).
+- Printing a document prints the document. A plain Ctrl+P from the editor put
+  the tab bar, the sidebar, the dock and the status bar on the page around the
+  text; it now puts black ink on white paper with a reading column, and keeps
+  a heading with the text it names, a code block and a quotation whole across
+  a page break.
+
+- The serif reading face gets a column of its own width. It is narrower than
+  the app's own face, so the same column held 93 characters on a line where
+  the default holds 76, which is past what is comfortable to read.
+
+- The command palette carries the documents editor's own actions while a
+  document is open, each with the keys that run it, and the keyboard shortcuts
+  dialog gained a section listing the editor's chords. Both are built from one
+  table, so they cannot disagree about what a key does.
+
+- A section can be moved by dragging its heading in the outline, and the
+  heading, its text and everything nested under it travel together. Alt with
+  an arrow does the same from the keyboard, on the row that has focus.
+
+- A document's outline folds and filters. A heading with sections under it
+  carries a caret that hides them, remembered per document, and past ten
+  headings a filter box appears above the list and says how many of them are
+  showing.
+
+- The Library's Documents list filters by a property a document declares about
+  itself. A document that opens with `status: draft` or `tags: [one, two]` can
+  now be found by that, from one control beside the search box that offers only
+  the properties the documents on screen actually have, with a count each.
+
+- The formatting strip above a document, and the matching one in the note
+  editor, light up under the pointer the way every other bar in the app does.
+  A hovered button wore an accent tint and a solid accent rim, so a hand
+  crossing twenty-seven controls lit each one in the colour this app uses to
+  mean "on".
+
+- The writing panel's answers are reachable from the keyboard. Pressing Enter
+  on a row now puts focus on the first suggestion, Escape hands it back to the
+  row, and a press with the pointer still leaves the caret in the document
+  where the word was just shown.
+
+- The outline marks the section you are writing in, not the one at the top of
+  the window. Typing in a section lower down the page left the heading above it
+  marked until the view happened to scroll. Scroll far enough that the caret
+  leaves the editor and the top of the view takes over again.
+
+- The Word (.docx) export is a button in Settings, optional extras. Without
+  python-docx the export answered with the name of a package and nowhere to
+  get it, which in an app that asks for no terminal is a dead end.
+
+- Typing into a box that is not a text field no longer triggers the app's
+  single-key shortcuts. A "/" typed while correcting a page reading in the
+  Library moved focus to the search box and swallowed the rest of the word.
+
+- A passage selected in a document and sent to the chat is re-checked against
+  the document you are looking at. It was checked against the empty textarea
+  the editor leaves behind, so every document selection was described to the
+  model as "the user has since edited it, so this passage may no longer be
+  there" while the passage was on screen.
 
 ## [0.3.1] - 2026-09-14
 

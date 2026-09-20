@@ -285,69 +285,103 @@ async function walkTour(page, label) {
       Math.abs(lum(brightBefore) - lum(brightAfter)) < 3,
       `${label} the highlighted control is not dimmed (${lum(brightBefore)} -> ${lum(brightAfter)})`
     );
+    // Relative, not a fixed number of levels: the dark theme's page is already
+    // at luminance 22 out of 255, so a scrim that takes 40% of it off can only
+    // ever be an 8-level drop, and an absolute threshold fails a dim that is
+    // working perfectly well. Measured: light 239.7 to 142 (41% off), dark
+    // 21.7 to 13 (40% off), which is the same scrim doing the same job.
     check(
-      lum(dimBefore) - lum(dimAfter) > 20,
-      `${label} the page around it is dimmed (${lum(dimBefore)} -> ${lum(dimAfter)})`
+      lum(dimAfter) <= lum(dimBefore) * 0.8,
+      `${label} the page around it is dimmed (${lum(dimBefore)} -> ${lum(dimAfter)}, ` +
+        `${Math.round((1 - lum(dimAfter) / lum(dimBefore)) * 100)}% off)`
     );
 
-    // --- the card's own text, composited ------------------------------------
-    // contrast.js walks the app's surfaces; the tour's card is hidden while it
-    // runs, so its three pieces of text are measured here. Composited over the
-    // first opaque background behind them, and reported the way contrast.js
-    // reports a translucent chain: `.card` carries a backdrop-filter, so the
-    // eye gets more than a strict composite says.
+    // --- the way back in: Settings, help and guide ---------------------------
+    // The replay strip is built from TOUR_SECTIONS, so this is also the check
+    // that the table and the buttons agree, and that pressing one closes the
+    // settings modal before measuring a control the modal was covering.
+    await page.click("#settings-btn");
+    await page.waitForTimeout(600);
+    await page.evaluate(() => showSettingsSection("help"));
+    await page.waitForTimeout(400);
+    const replay = await page.evaluate(() => {
+      const box = document.getElementById("tour-replay-buttons");
+      const buttons = [...box.querySelectorAll("button")];
+      return {
+        labels: buttons.map((b) => b.textContent),
+        filled: buttons.filter((b) => !b.classList.contains("ghost")).length,
+        height: Math.round(box.getBoundingClientRect().height),
+      };
+    });
+    console.log(`${label} replay strip: ${JSON.stringify(replay)}`);
+    check(
+      replay.labels.length === 5 && replay.labels[0] === "Start the tour",
+      `${label} the replay strip offers the whole tour and each section`
+    );
+    check(replay.filled === 1, `${label} one filled button in the strip (${replay.filled})`);
+    await page.evaluate(() =>
+      [...document.getElementById("tour-replay-buttons").querySelectorAll("button")]
+        .find((b) => b.textContent === "Finding things")
+        .click()
+    );
+    await page.waitForTimeout(1200);
+    const fromSettings = await page.evaluate(() => ({
+      open: !!tourRun,
+      settingsOpen: !document.getElementById("settings-modal").classList.contains("hidden"),
+      section: document.getElementById("tour-section").textContent,
+      counter: document.getElementById("tour-count").textContent,
+    }));
+    console.log(`${label} from Settings: ${JSON.stringify(fromSettings)}`);
+    check(
+      fromSettings.open && fromSettings.section === "Finding things",
+      `${label} a section button plays that section alone`
+    );
+    check(!fromSettings.settingsOpen, `${label} the settings modal is out of the way first`);
+    await page.evaluate(() => tourClose(false));
+
+    // --- the card's own text, in rendered pixels -----------------------------
+    // contrast.js walks the app's surfaces with nothing open, so the card is
+    // `display: none` while it runs and none of its text has ever been
+    // measured. It is measured here from the capture rather than from computed
+    // styles, and the first draft of this check is why: composited from
+    // `getComputedStyle`, it reported 1.21:1 in the dark theme, because the
+    // page's background is a gradient (a background-IMAGE, with a transparent
+    // background-COLOR), so the walk up the ancestors found nothing opaque and
+    // fell back to white behind light text. The pixels have no such opinion:
+    // inside a line of text the darkest pixel is the ink and the lightest is
+    // the surface it is on, whatever painted either of them.
     await page.evaluate(() => openTour("basics"));
-    await page.waitForTimeout(700);
-    const ink = await page.evaluate(() => {
-      const parse = (value) => {
-        const m = value.match(/rgba?\(([^)]+)\)/);
-        if (!m) return null;
-        const [r, g, b, a] = m[1].split(",").map(Number);
-        return { r, g, b, a: a === undefined ? 1 : a };
-      };
-      const over = (fg, bg) => ({
-        r: fg.r * fg.a + bg.r * (1 - fg.a),
-        g: fg.g * fg.a + bg.g * (1 - fg.a),
-        b: fg.b * fg.a + bg.b * (1 - fg.a),
-        a: 1,
-      });
-      const lum = (c) => {
-        const f = (v) => {
-          const s = v / 255;
-          return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-        };
-        return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
-      };
-      const backdrop = (el) => {
-        let node = el;
-        let acc = { r: 255, g: 255, b: 255, a: 1 };
-        const stack = [];
-        while (node && node !== document.documentElement) {
-          const c = parse(getComputedStyle(node).backgroundColor);
-          if (c && c.a > 0) stack.unshift(c);
-          node = node.parentElement;
-        }
-        const page = parse(getComputedStyle(document.body).backgroundColor);
-        if (page && page.a > 0) acc = over(page, acc);
-        for (const c of stack) acc = over(c, acc);
-        return acc;
-      };
+    await page.waitForTimeout(800);
+    const inkShot = `${SHOTS}/${label}-card.png`;
+    await page.screenshot({ path: inkShot });
+    const inkBoxes = await page.evaluate(() => {
       const out = {};
       for (const id of ["tour-title", "tour-text", "tour-count", "tour-section"]) {
-        const el = document.getElementById(id);
-        const fg = parse(getComputedStyle(el).color);
-        const bg = backdrop(el);
-        const a = lum(over(fg, bg)) + 0.05;
-        const b = lum(bg) + 0.05;
-        out[id] = Math.round((Math.max(a, b) / Math.min(a, b)) * 100) / 100;
+        const box = document.getElementById(id).getBoundingClientRect();
+        out[id] = [
+          Math.round(box.left),
+          Math.round(box.top),
+          Math.max(1, Math.round(box.width)),
+          Math.max(1, Math.round(box.height)),
+        ];
       }
       return out;
     });
     await page.evaluate(() => tourClose(false));
-    console.log(`${label} card text contrast (composited): ${JSON.stringify(ink)}`);
+    const ink = {};
+    for (const [id, box] of Object.entries(inkBoxes)) {
+      ink[id] = Number(
+        execFileSync(
+          "python3",
+          [path.join(__dirname, "rectcontrast.py"), inkShot, ...box.map(String)],
+          { encoding: "utf-8" }
+        ).trim()
+      );
+    }
+    console.log(`${label} card text contrast (rendered pixels): ${JSON.stringify(ink)}`);
     check(
       Object.values(ink).every((ratio) => ratio >= 4.5),
-      `${label} every piece of the card's text is at least 4.5:1 composited`
+      `${label} every piece of the card's text is at least 4.5:1 as rendered`
     );
 
     check(errors.length === 0, `${label} no page errors (${errors.join("; ")})`);

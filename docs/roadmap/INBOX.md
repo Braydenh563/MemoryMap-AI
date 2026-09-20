@@ -378,6 +378,25 @@ with its owner named in the entry.
     refused outright rather than warned about, so a Mac build is only worth
     shipping alongside an Apple Developer account for notarisation.
 
+280. **Mid-work drop, 2026-09-21, verbatim (the owner), one screenshot.**
+    "this happens when I press next on the welcome tour". Seen at about
+    2000x1140 on the Dashboard: after Next on the welcome tour's first step
+    the whole page is dimmed except a vertical strip about 100px wide at
+    the right edge (x about 1890 to 1990, the full height, the status bar
+    and header included), no tour card anywhere, nothing highlighted. The
+    shape of the new four-panel dim (INBOX 274's fix, `.tour-block-panel`)
+    drawn around a cut-out that sits off the page's right edge: the step's
+    target was not found or not on screen, so its rect was empty or at the
+    viewport's right, the panels closed over everything, and the card went
+    with the rect. Owner: frontend/tour.js (the welcome tour, the step
+    after the first, its target and tab switch), scratchpad/ui-sweeps/
+    tour.js. Recommendation: a step whose target is missing or off screen
+    after the wait never draws a cut-out; it either skips to the next step
+    with a target or draws the card centred with no dim, and the welcome
+    tour is driven end to end by the sweep at 2000x1140 as well as 1440 and
+    390, pressing Next on every step and asserting a visible card and a
+    cut-out inside the viewport each time. To the tour's own agent.
+
 279. **Mid-work drop, 2026-09-20, verbatim (the owner), four screenshots.**
     "also fix and refine the full compact and focused views on the dashboard
     as the hero section loses a lot and they can just be improved so much

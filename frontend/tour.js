@@ -199,6 +199,19 @@ function tourVisible(el) {
   return Number(style.opacity || "1") > 0.05;
 }
 
+//: The element a step actually points at, which is not always the element it
+//: names. `enhanceSelect` (app.js) wraps every `<select>` in the app in a
+//: `.select-shell` and puts a button in front of it, leaving the native
+//: control in place but out of the layout: measured on the capture form's
+//: category picker, `#entry-category` is a 0x0 box behind a 129x30 opener, so
+//: a step naming it would be dropped for having nothing to point at while the
+//: control it means sits right there on screen. The same rule DESIGN.md
+//: already states for focus ("never `select.focus()`", the native control is
+//: not the thing the person is looking at), applied to geometry.
+function tourAnchorFor(el) {
+  return el ? el.closest(".select-shell") || el : el;
+}
+
 //: **Set, measure, correct by the difference, never trust the first number.**
 //: DESIGN.md's rule for any popup placed in the window's own coordinates, and
 //: it is not defensive programming: a `position: fixed` element takes its
@@ -414,7 +427,7 @@ async function tourShow() {
     // from Settings, while a tab was loading. Whatever happens next belongs to
     // whichever run is current, not to this one.
     if (tourRun !== run) return;
-    const el = document.querySelector(step.target);
+    const el = tourAnchorFor(document.querySelector(step.target));
     if (!tourVisible(el)) {
       // A step with nothing to point at is dropped from this run, rather than
       // shown empty or left pointing at the corner of the window.

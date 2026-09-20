@@ -269,8 +269,15 @@ def for_context(
     pool = [entry for entry in ranked(session, limit=max(limit * 8, 24)) if entry.id != context_entry_id]
     if not pool:
         return []
+    #: `embedding`, which is what the column is called. It was `row.vector`
+    #: until the first request ever made to `GET /resurface/near/{entry_id}`
+    #: answered 500: the route had no caller in the frontend (INBOX 261) and
+    #: the one test over this function created no `EmbeddingRecord` rows, so
+    #: this comprehension had never run a single iteration and the attribute
+    #: had never been read. A loop body nothing has entered is not covered by
+    #: the test that surrounds it.
     vectors = {
-        row.entry_id: row.vector
+        row.entry_id: row.embedding
         for row in session.scalars(
             select(EmbeddingRecord).where(
                 EmbeddingRecord.entry_id.in_([entry.id for entry in pool] + [context_entry_id])

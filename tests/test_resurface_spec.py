@@ -197,3 +197,68 @@ def test_never_again_outlives_six_hundred_later_corrections(app_state):
         )
         # And the ranking honours it: the note is gone from the list itself.
         assert note_id not in {entry.id for entry in resurface.ranked(session, limit=50)}
+
+
+def test_the_context_ranking_survives_real_embedding_rows(session, fake_embeddings):
+    """The route crashed on its first real call, and nothing here saw it.
+
+    `for_context` read `row.vector` off an `EmbeddingRecord`, whose column is
+    `embedding`. The test above has covered this function since it was built
+    and passed the whole time, because with no `EmbeddingRecord` rows in the
+    database the dict comprehension that touches the attribute never runs a
+    single iteration: the bug lived inside a loop body nothing had ever
+    entered. `GET /resurface/near/{entry_id}` had no caller either
+    (INBOX 261), so the first request ever made to it, from the panel wired
+    this morning, answered 500 with `AttributeError: 'EmbeddingRecord' object
+    has no attribute 'vector'`.
+
+    So this test writes the rows. It is the cheap shape of CLAUDE.md's second
+    review question, "a feature that never ran once", applied to a code path
+    rather than to a feature.
+    """
+    import struct
+
+    from memorymap.ai import resurface
+    from memorymap.core.database import EmbeddingRecord
+    from memorymap.entry import manager
+
+    anchor = manager.create_entry(session, "sourdough starter feeding schedule", tags=[])
+    near = manager.create_entry(session, "sourdough loaf crumb and hydration", tags=[])
+    far = manager.create_entry(session, "hiking boots for the weekend trip", tags=[])
+    session.commit()
+
+    #: Three unit vectors chosen by hand rather than embedded, so "near" and
+    #: "far" are facts of the test rather than of whatever the fake service
+    #: happens to return: `near` is the anchor exactly, `far` is orthogonal.
+    vectors = {anchor.id: [1.0, 0.0], near.id: [1.0, 0.0], far.id: [0.0, 1.0]}
+    for entry_id, values in vectors.items():
+        session.add(
+            EmbeddingRecord(
+                entry_id=entry_id,
+                embedding=struct.pack(f"<{len(values)}f", *values),
+                dim=len(values),
+                model_version="test",
+            )
+        )
+    session.commit()
+    resurface.compute_scores(session)
+
+    got = resurface.for_context(session, context_entry_id=anchor.id, limit=2)
+    ids = [entry.id for entry in got]
+    assert anchor.id not in ids, "never the context note itself"
+    assert near.id in ids
+    assert ids.index(near.id) < ids.index(far.id) if far.id in ids else True
+
+
+def test_the_near_route_answers_rather_than_raising(ai_client):
+    """The route itself, end to end, because a helper that works and a route
+    that 500s are different facts: this is the one the panel calls."""
+    made = [
+        ai_client.post("/entries", json={"content": f"a note about retries number {i}"}).json()
+        for i in range(12)
+    ]
+    ai_client.post("/resurface/compute")
+    answer = ai_client.get(f"/resurface/near/{made[0]['id']}")
+    assert answer.status_code == 200, answer.text
+    items = answer.json()["items"]
+    assert made[0]["id"] not in [item["id"] for item in items]

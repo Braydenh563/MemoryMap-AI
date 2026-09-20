@@ -3946,6 +3946,19 @@ function openHelpChat() {
   helpChatHome = { parent: group.parentNode, next: group.nextSibling };
   const menu = $("help-chat-menu");
   const menuHome = menu ? { parent: menu.parentNode, next: menu.nextSibling } : null;
+  //: **The '?' belongs beside the line it lengthens, not beside the field**
+  //: (INBOX 270). DESIGN.md's help recipe is one line in place and the rest
+  //: behind a '?': the line in place here is the head's "About the app, never
+  //: your notes", and the '?' was three rows below it in the composer, where
+  //: the only thing it sat beside was a text field it does not describe. In
+  //: the head it is what the popup agent's own '?' is, next to the title,
+  //: and the composer goes back to the two controls every other composer in
+  //: this app has. Moved rather than duplicated, for the reason the whole
+  //: chat is moved rather than duplicated: one copy, one set of ids.
+  const helpToggle = group.querySelector('[data-help-for="help-chat-help"]');
+  const helpToggleHome = helpToggle
+    ? { parent: helpToggle.parentNode, next: helpToggle.nextSibling }
+    : null;
   const close = openSheet({
     label: GUIDE_NAME,
     name: "guide",
@@ -3977,6 +3990,10 @@ function openHelpChat() {
         words.append(name, line);
         title.replaceChildren(...(mark ? [mark] : []), words);
       }
+      //: Title, '?', kebab, close: the surface, what it is, what else you can
+      //: do with it, the way out. Inserted in that order, each before the X,
+      //: which is the one control the recipe puts there itself.
+      if (helpToggle && head) head.insertBefore(helpToggle, head.querySelector(".sheet-close"));
       if (menu && head) head.insertBefore(menu, head.querySelector(".sheet-close"));
     },
     onClose: () => {
@@ -3984,6 +4001,14 @@ function openHelpChat() {
       //: it is opened. `insertBefore` with a null `next` appends, which is
       //: the correct behaviour when it was the last child.
       group.classList.remove("atlas-docked");
+      //: **A popover outlives the panel it explains** unless this says so.
+      //: `openSheet` takes Escape in the capture phase and stops it, so the
+      //: '?' popover's own Escape handler never runs: measured before this
+      //: line, opening the '?' and pressing Escape closed the panel and left
+      //: the popover sitting on `document.body` over the app, with its home
+      //: inside a `hidden` host it could never be seen to belong to again.
+      if (typeof closeHelpPopovers === "function") closeHelpPopovers();
+      if (helpToggle && helpToggleHome) helpToggleHome.parent.insertBefore(helpToggle, helpToggleHome.next);
       if (menu && menuHome) menuHome.parent.insertBefore(menu, menuHome.next);
       if (helpChatHome) helpChatHome.parent.insertBefore(group, helpChatHome.next);
       helpChatHome = null;

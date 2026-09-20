@@ -7,6 +7,20 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The guide panel is a panel again. It floats in the bottom right corner on one
+  inset with all four corners rounded, instead of sitting welded to the bottom
+  edge of the window with two square corners and two insets that disagreed; on
+  a phone it is still the full-width sheet it has always been there. Its '?'
+  moved into the head, beside the line it explains, which gives the question
+  box back around 50px; a hairline marks where the conversation ends and what
+  you can send begins; the three example questions sit under the transcript and
+  over that box, where the Chat tab already puts its own; and a message looks
+  like a message in the Chat tab, same radius, padding, tail corner and ground,
+  and it follows the compact and spacious density settings, which it used to
+  ignore.
+
+- Opening the guide's '?' and pressing Escape no longer leaves the explanation
+  stranded on screen after the panel it belongs to has closed.
 ### Added
 
 - The Guide answers with no model running. Its whole knowledge of this app is

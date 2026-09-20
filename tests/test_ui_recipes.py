@@ -221,6 +221,47 @@ def test_the_sheet_recipe_keeps_its_dialog_semantics_and_its_bottom_inset() -> N
     )
 
 
+def test_the_corner_sheet_variant_floats_rather_than_leaning_on_an_edge() -> None:
+    """The half a corner panel gets wrong (INBOX 270).
+
+    `sheet-corner` is the one variant that is deliberately not an edge sheet:
+    above the phone break it hovers in the corner over the app. It inherits
+    `.sheet-card`'s bottom-sheet geometry, though, and inheriting it silently
+    is how it came to sit 10px from the right of the window and 0px from the
+    bottom with two square corners against an edge it was not touching. So the
+    floating block has to keep saying all three things: one radius for all four
+    corners, the same inset on both edges, and a foot padded like a card rather
+    than like a row under a home indicator.
+    """
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    bodies = [
+        body
+        for selector, body in _rules(css)
+        if selector.strip() == ".sheet-card.sheet-card-corner"
+    ]
+    assert bodies, "the corner sheet variant has no rule of its own"
+    whole = "\n".join(bodies)
+    radius = re.findall(r"border-radius:\s*([^;]+);", whole)
+    assert radius, "the corner panel no longer states a radius of its own"
+    for value in radius:
+        assert len(value.split()) == 1, (
+            "the corner panel is back to a two-corner radius, which is an edge "
+            f"sheet's shape and not a floating panel's: {value.strip()}"
+        )
+    inline = re.search(r"margin-inline-end:\s*([^;]+);", whole)
+    block = re.search(r"margin-block-end:\s*([^;]+);", whole)
+    assert inline and block, "the corner panel is leaning on the window's edge again"
+    assert inline.group(1).strip() == block.group(1).strip(), (
+        "a floating panel has one inset, not one per edge: "
+        f"{inline.group(1).strip()} against {block.group(1).strip()}"
+    )
+    assert "padding-bottom" in whole, (
+        "the corner panel kept `.sheet-card`'s safe-area foot, which is an edge "
+        "sheet's inset and leaves this one's composer closer to the bottom of "
+        "the card than its head is to the top"
+    )
+
+
 # And the two that predate the recipe keep its dismissal even though they do not
 # keep its construction (DESIGN.md, "A sheet"): an in-place sheet goes through
 # `wireInPlaceSheetDismissal`, so Escape is captured, a press outside closes it

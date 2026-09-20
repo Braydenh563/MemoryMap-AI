@@ -331,11 +331,6 @@
           <p class="muted atlas-line">Explains the app, from your utility model, never from your notes.</p>
         </div>
       </div>
-      <!-- Three, not a wall: the popup agent's starters are the same idea at
-           the same size, and these are the three questions the help topics
-           are asked most often to answer. `renderAtlasStarters` fills both
-           this and the Settings row from one table. -->
-      <div class="atlas-starters" id="help-chat-starters"></div>
       <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite" aria-label="Atlas">
         <!-- **Atlas says what it is before it is asked** (INBOX 204, the owner:
              "improve its capabillity and knowledge"). An empty log under a
@@ -350,6 +345,19 @@
           sure, and cannot read your notes or your documents.
         </p>
       </div>
+      <!-- Three, not a wall: the popup agent's starters are the same idea at
+           the same size, and these are the three questions the help topics
+           are asked most often to answer. `renderAtlasStarters` fills both
+           this and the Settings row from one table.
+
+           **Under the transcript, over the composer** (INBOX 270). They stood
+           above the log, so the panel offered three example questions before
+           the sentence that says what this chat is for, and the app's other
+           chat does the opposite: `#chat-suggest` sits between the transcript
+           and the dock, which is also where every chat people have used puts
+           them. They are things you are about to send, so they belong beside
+           the thing you send with. -->
+      <div class="atlas-starters" id="help-chat-starters"></div>
       <!-- The composer, along the foot, which is where the popup agent puts
            its own: input, an icon-only send at the app's one icon-button size,
            and the '?' that every surface in this app carries for the longer

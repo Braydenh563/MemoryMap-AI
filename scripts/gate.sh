@@ -163,7 +163,7 @@ if [ "$FULL" = 1 ]; then step full-suite "$PY" -m pytest -q -p no:warnings tests
 if [ "$SWEEPS" = 1 ]; then
   export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/pw-browsers}"
   export BASE="${BASE:-http://127.0.0.1:8781}"
-  for s in errors docks contrast touch; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
+  for s in errors docks contrast touch writingroom; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
 else
   skipped+=("sweeps (--sweeps, needs BASE)")
 fi

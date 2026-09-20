@@ -17127,6 +17127,22 @@ function renderRecordsDetails(holder, meta) {
 
 const DRAFT_STORE = "writingRoomDraft";
 
+//: The notes this draft is being written from: `{id, label}`, in the order
+//: they were picked. Ids go to the server, which reads the notes itself: the
+//: client saying what a note contains would be one more copy of the truth.
+let draftSources = [];
+
+//: Every draft this session produced, oldest first, so any of them can be
+//: come back to. Undo steps back one pass; this is the desk full of earlier
+//: pages beside it, and it is the half a single undo cannot give you (a pass
+//: you liked, three passes ago).
+let draftVersions = [];
+const MAX_DRAFT_VERSIONS = 12;
+
+//: Matches `MAX_SOURCES` in api/routes_drafts.py, which is the one that
+//: actually binds: this only stops the picker offering a seventh.
+const DRAFT_MAX_SOURCES = 6;
+
 function saveDraftLocally() {
   try {
     localStorage.setItem(
@@ -17135,6 +17151,11 @@ function saveDraftLocally() {
         thoughts: $("draft-thoughts").value,
         draft: $("draft-text").value,
         tags: $("draft-tags").value,
+        kind: $("draft-kind").value,
+        tone: $("draft-tone").value,
+        length: $("draft-length").value,
+        sources: draftSources,
+        versions: draftVersions,
       })
     );
   } catch {
@@ -17149,10 +17170,153 @@ function restoreDraftLocally() {
     $("draft-thoughts").value = saved.thoughts || "";
     $("draft-text").value = saved.draft || "";
     $("draft-tags").value = saved.tags || "";
+    // A stored value that is no longer an option would leave the select
+    // showing its first option while sending the old one, so each is only
+    // taken when the select actually holds it.
+    for (const [id, value] of [
+      ["draft-kind", saved.kind],
+      ["draft-tone", saved.tone],
+      ["draft-length", saved.length],
+    ]) {
+      const select = $(id);
+      if (value && [...select.options].some((o) => o.value === value)) select.value = value;
+    }
+    draftSources = Array.isArray(saved.sources) ? saved.sources.slice(0, DRAFT_MAX_SOURCES) : [];
+    draftVersions = Array.isArray(saved.versions) ? saved.versions.slice(-MAX_DRAFT_VERSIONS) : [];
+    renderDraftSources();
+    renderDraftVersions();
     updateDraftCount();
   } catch {
     /* unreadable: start clean rather than throwing on load */
   }
+}
+
+//: **The five asks the free-text instruction was being used for**, written
+//: down once. A chip sets what to write and, where it helps, a first line in
+//: the thoughts box; nothing runs until Draft is pressed, so a chip is a
+//: starting point rather than a button that spends a minute of a local
+//: model's time on a guess.
+const DRAFT_QUICKSTARTS = [
+  { label: "Write up my notes", icon: "ph:note-pencil", kind: "note", title: "Turn what is in the box into one organised note" },
+  { label: "Carry on writing", icon: "ph:pencil-line", kind: "continue", title: "Keep writing from where the draft stops, in the same voice" },
+  { label: "Say it plainly", icon: "ph:chat-text", kind: "rewrite", tone: "plain", title: "The same draft in plain words" },
+  { label: "Bullets to prose", icon: "ph:text-align-left", kind: "expand", title: "Open the bullet points out into paragraphs" },
+  { label: "Prose to bullets", icon: "ph:list-bullets", kind: "bullets", title: "Close the writing back up into bullet points" },
+];
+
+function renderDraftQuickstarts() {
+  const host = $("draft-quickstarts");
+  if (!host) return;
+  host.replaceChildren();
+  for (const start of DRAFT_QUICKSTARTS) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "library-chip";
+    chip.title = start.title;
+    setLabel(chip, `${start.icon} ${start.label}`);
+    chip.addEventListener("click", () => {
+      $("draft-kind").value = start.kind;
+      if (start.tone) $("draft-tone").value = start.tone;
+      markDraftQuickstart(start.kind);
+      saveDraftLocally();
+      $("draft-thoughts").focus();
+    });
+    host.appendChild(chip);
+  }
+  markDraftQuickstart($("draft-kind").value);
+}
+
+//: The chip and the select say the same thing, so picking either marks the
+//: other: two controls that disagree about what the next pass will do is the
+//: defect this feature is full of everywhere else it has been tried.
+function markDraftQuickstart(kind) {
+  const host = $("draft-quickstarts");
+  if (!host) return;
+  [...host.children].forEach((chip, index) => {
+    chip.classList.toggle("active", DRAFT_QUICKSTARTS[index]?.kind === kind);
+  });
+}
+
+function renderDraftSources() {
+  const host = $("draft-sources");
+  const count = $("draft-sources-count");
+  if (!host) return;
+  host.replaceChildren();
+  host.classList.toggle("hidden", draftSources.length === 0);
+  count.textContent = draftSources.length
+    ? `${draftSources.length} note${draftSources.length === 1 ? "" : "s"} to write from`
+    : "";
+  for (const source of draftSources) {
+    const chip = document.createElement("span");
+    chip.className = "chip draft-source-chip";
+    const text = document.createElement("span");
+    text.className = "draft-source-text";
+    text.textContent = source.label;
+    text.title = source.label;
+    const drop = document.createElement("button");
+    drop.type = "button";
+    drop.className = "ghost small icon-only draft-source-drop";
+    drop.setAttribute("aria-label", `Stop writing from "${source.label}"`);
+    drop.title = "Stop writing from this note";
+    setLabel(drop, "ph:x");
+    drop.addEventListener("click", () => {
+      draftSources = draftSources.filter((s) => s.id !== source.id);
+      renderDraftSources();
+      saveDraftLocally();
+    });
+    chip.append(text, drop);
+    host.appendChild(chip);
+  }
+}
+
+function renderDraftVersions() {
+  const host = $("draft-versions");
+  if (!host) return;
+  host.replaceChildren();
+  host.classList.toggle("hidden", draftVersions.length < 2);
+  if (draftVersions.length < 2) return;
+  const label = document.createElement("span");
+  label.className = "muted draft-versions-label";
+  label.textContent = "Earlier drafts";
+  host.appendChild(label);
+  draftVersions.forEach((version, index) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = `library-chip${version.text === $("draft-text").value ? " active" : ""}`;
+    chip.title = `${version.words} words, ${version.at}`;
+    chip.textContent = `v${index + 1}`;
+    chip.addEventListener("click", () => {
+      pushDraftUndo();
+      $("draft-text").value = version.text;
+      updateDraftCount();
+      renderDraftVersions();
+      saveDraftLocally();
+      setDraftStatus(`Back to version ${index + 1}.`);
+      announce(`Restored draft version ${index + 1}.`);
+    });
+    host.appendChild(chip);
+  });
+}
+
+function rememberDraftVersion(text) {
+  const trimmed = (text || "").trim();
+  if (!trimmed) return;
+  if (draftVersions.length && draftVersions[draftVersions.length - 1].text === trimmed) return;
+  draftVersions.push({
+    text: trimmed,
+    words: trimmed.split(/\s+/).length,
+    at: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  });
+  if (draftVersions.length > MAX_DRAFT_VERSIONS) draftVersions.shift();
+  renderDraftVersions();
+}
+
+//: One place that writes the status line, because "error" is a class that
+//: sticks: a failure followed by a success used to leave the red on.
+function setDraftStatus(text, isError = false) {
+  const status = $("draft-status");
+  status.classList.toggle("error", !!isError);
+  status.textContent = text;
 }
 
 function updateDraftCount() {
@@ -17211,6 +17375,11 @@ function setDraftBusy(busy) {
   $("draft-compose").classList.toggle("hidden", busy);
   $("draft-cancel").classList.toggle("hidden", !busy);
   $("draft-undo").disabled = busy || draftUndoStack.length === 0;
+  // The draft box is being written into while this runs, so editing it would
+  // be editing something that is about to be overwritten by the next chunk.
+  $("draft-text").readOnly = busy;
+  $("draft-refine").disabled = busy;
+  $("writing-room").classList.toggle("draft-writing", busy);
 }
 
 function cancelDraft() {
@@ -17222,6 +17391,17 @@ function cancelDraft() {
 // was solving, at the cost of destroying the user's own writing.
 let foldedThoughts = "";
 
+//: **One pass at the desk, streamed.** Measured before this: a draft against
+//: a stand-in model server took 22.9 seconds to arrive and arrived in one
+//: piece, because `/drafts/compose` could not answer until the model had
+//: finished. `/drafts/compose/stream` speaks the same NDJSON the chat and the
+//: Guide do, so this reader is the third of the same shape rather than a new
+//: protocol.
+//:
+//: **The draft in the box is never written over until the first token of the
+//: new one arrives**, and is put back if the pass fails or is stopped: a
+//: half-written revision over settled writing is the one outcome this feature
+//: must never produce.
 async function composeDraft() {
   const written = $("draft-thoughts").value;
   // Only the part they've added since the last pass. If they edited earlier
@@ -17231,62 +17411,147 @@ async function composeDraft() {
     ? written.slice(foldedThoughts.length).trim()
     : written.trim();
   const draft = $("draft-text").value;
-  const status = $("draft-status");
   if (!thoughts && !draft.trim()) {
-    status.classList.add("error");
-    status.textContent = "Write a thought first.";
+    setDraftStatus("Write a thought first.", true);
+    $("draft-thoughts").focus();
     return;
   }
-  status.classList.remove("error");
-  setLabel(status, draft.trim() ? "ph:magic-wand Revising…" : "ph:magic-wand Drafting…");
+  const instruction = $("draft-instruction").value.trim();
+  setDraftStatus("");
+  setLabel($("draft-status"), draft.trim() ? "ph:magic-wand Revising…" : "ph:magic-wand Drafting…");
+  const thinking = $("draft-thinking");
+  const thinkingText = $("draft-thinking-text");
+  thinkingText.textContent = "";
+  thinking.classList.add("hidden");
+  thinking.open = false;
   draftController = new AbortController();
   setDraftBusy(true);
+
+  let streamed = "";
+  let started = false;
+  let thought = "";
+  let done = null;
   try {
-    const body = await apiJson("/drafts/compose", {
-      method: "POST",
-      signal: draftController.signal,
-      body: JSON.stringify({
+    await streamDraft(
+      {
         thoughts,
         draft,
-        instruction: $("draft-instruction").value.trim(),
-      }),
-    });
-    // Only record an undo point once the model has actually returned
-    // something: a failed call shouldn't add a step that changes nothing.
-    if (body.draft !== draft) pushDraftUndo();
-    $("draft-text").value = body.draft;
+        instruction,
+        kind: $("draft-kind").value,
+        tone: $("draft-tone").value,
+        length: $("draft-length").value,
+        source_ids: draftSources.map((s) => s.id),
+      },
+      draftController.signal,
+      (event) => {
+        if (event.type === "thinking") {
+          thought += event.text;
+          thinking.classList.remove("hidden");
+          thinking.open = true;
+          thinkingText.textContent = thought;
+        } else if (event.type === "delta") {
+          if (!started) {
+            started = true;
+            // The first token is the moment the old draft is safe to replace:
+            // an undo point goes in here, not before the call.
+            if (draft.trim()) pushDraftUndo();
+            $("draft-text").value = "";
+          }
+          streamed += event.text;
+          $("draft-text").value = streamed;
+          updateDraftCount();
+        } else if (event.type === "done") {
+          done = event;
+        }
+      }
+    );
+  } catch (error) {
+    $("draft-text").value = draft;
     updateDraftCount();
+    if (error.name === "AbortError") {
+      // Nothing was kept, so nothing is lost, say so rather than showing it
+      // as a failure.
+      setDraftStatus("Stopped. Your thoughts and draft are untouched.");
+    } else {
+      setDraftStatus(error.message, true);
+    }
+    draftController = null;
+    setDraftBusy(false);
+    return;
+  }
+  draftController = null;
+  setDraftBusy(false);
+
+  const finished = done && typeof done.draft === "string" ? done.draft : streamed;
+  $("draft-text").value = finished || draft;
+  updateDraftCount();
+  // Collapsed once it lands: the thinking is worth watching and not worth
+  // keeping open over the draft it was about.
+  thinking.classList.toggle("hidden", !thought);
+  thinking.open = false;
+  if (done && done.message) {
+    setDraftStatus(done.message, true);
+  } else {
     // The thoughts have been folded in, remember that, but never delete what
     // they wrote. Clearing the box was reported twice as the app eating the
     // user's text, and it is: the raw thoughts are often the only copy of an
     // idea, and the draft is a rewrite of them, not a replacement.
-    if (body.ollama_running && thoughts) foldedThoughts = written;
+    if (thoughts) foldedThoughts = written;
     $("draft-instruction").value = "";
-    const thinking = $("draft-thinking");
-    thinking.classList.toggle("hidden", !body.thinking);
-    $("draft-thinking-text").textContent = body.thinking || "";
-    if (body.message) {
-      status.classList.add("error");
-      status.textContent = body.message;
-    } else {
-      status.textContent = thoughts
+    rememberDraftVersion($("draft-text").value);
+    setDraftStatus(
+      thoughts
         ? "Folded your thoughts into the draft, your notes above are untouched."
-        : "Draft updated: edit it, or add more thoughts.";
-      announce("The draft has been updated.");
+        : "Draft updated: edit it, or add more thoughts."
+    );
+    announce("The draft has been updated.");
+  }
+  saveDraftLocally();
+}
+
+//: The NDJSON reader for the writing desk. Hand-rolled rather than through
+//: `apiJson`, which cannot expose a streaming body, and deliberately small:
+//: the chat's reader carries a turn's worth of event kinds and an idle
+//: timeout for a conversation that can stall for minutes, and none of that
+//: belongs to a one-shot draft. A malformed line is skipped rather than
+//: thrown out of the loop, the same rule the chat reader keeps, so one bad
+//: frame cannot lose a draft that is already half written.
+async function streamDraft(body, signal, onEvent) {
+  const response = await fetch("/drafts/compose/stream", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Auth-Token": authToken(),
+      "X-Workspace-ID": activeSpaceId(),
+    },
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (response.status === 401) {
+    showLockScreen(false);
+    throw new Error("Locked");
+  }
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}));
+    throw new Error(detail.detail || `Request failed (${response.status})`);
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffered = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffered += decoder.decode(value, { stream: true });
+    const lines = buffered.split("\n");
+    buffered = lines.pop(); // the last piece may be half a line
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        onEvent(JSON.parse(line));
+      } catch {
+        recordBrowserLog("WARN", [`[Draft stream] Unparseable line: ${line.slice(0, 80)}`]);
+      }
     }
-    saveDraftLocally();
-  } catch (error) {
-    if (error.name === "AbortError") {
-      // Nothing was written, so nothing is lost, say so rather than
-      // showing it as a failure.
-      status.textContent = "Stopped. Your thoughts and draft are untouched.";
-    } else {
-      status.classList.add("error");
-      status.textContent = error.message;
-    }
-  } finally {
-    draftController = null;
-    setDraftBusy(false);
   }
 }
 
@@ -32823,6 +33088,13 @@ function syncModelGatedControls(status = modelStatus) {
     "No model is connected, so this answers from your notes alone: the matching records are below."
   );
   renderAiOfflineNotice($("command-palette-offline"), "No model is connected, so the agent cannot run.");
+  //: And the writing desk, which is the third surface that is nothing but
+  //: Atlas: with no model it cannot draft at all, and before this the only
+  //: thing that said so was a title on a button that could not be pressed.
+  renderAiOfflineNotice(
+    $("draft-offline"),
+    "No model is connected, so nothing can be drafted here yet. Everything else on this tab still works."
+  );
   syncAgentPaletteAvailability();
 }
 
@@ -37361,6 +37633,62 @@ $("draft-compose").addEventListener("click", composeDraft);
 $("draft-undo").addEventListener("click", undoDraft);
 $("draft-cancel").addEventListener("click", cancelDraft);
 $("draft-save").addEventListener("click", saveDraftAsNote);
+// Refine is Draft with an instruction in hand: the same pass, so it runs the
+// same function rather than a second copy of it that could drift.
+$("draft-refine").addEventListener("click", () => {
+  if (!$("draft-instruction").value.trim()) {
+    setDraftStatus("Say what to change, then refine.", true);
+    $("draft-instruction").focus();
+    return;
+  }
+  composeDraft();
+});
+$("draft-instruction").addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  $("draft-refine").click();
+});
+$("draft-copy").addEventListener("click", async (event) => {
+  const text = $("draft-text").value.trim();
+  if (!text) {
+    setDraftStatus("There's no draft to copy yet.", true);
+    return;
+  }
+  if (await copyToClipboard(text, event.currentTarget)) setDraftStatus("Draft copied.");
+});
+// `appendSelectionToNote` is the app's one "add this text to a note you
+// already have" path (the text-selection popup uses it): the same picker, the
+// same undo entry, the same flash on the note it landed in.
+$("draft-insert").addEventListener("click", () => {
+  const text = $("draft-text").value.trim();
+  if (!text) {
+    setDraftStatus("There's no draft to insert yet.", true);
+    return;
+  }
+  appendSelectionToNote(text);
+});
+$("draft-add-source").addEventListener("click", async () => {
+  if (draftSources.length >= DRAFT_MAX_SOURCES) {
+    setDraftStatus(`Six notes is the most one draft can be written from.`, true);
+    return;
+  }
+  const entry = await pickEntryDialog("Which note should Atlas write from?");
+  if (!entry) return;
+  if (draftSources.some((s) => s.id === entry.id)) return;
+  draftSources.push({
+    id: entry.id,
+    label: (entry.title || notePreviewText(entry.content) || "Untitled note").slice(0, 60),
+  });
+  renderDraftSources();
+  saveDraftLocally();
+});
+for (const id of ["draft-kind", "draft-tone", "draft-length"]) {
+  $(id).addEventListener("change", () => {
+    if (id === "draft-kind") markDraftQuickstart($("draft-kind").value);
+    saveDraftLocally();
+  });
+}
+renderDraftQuickstarts();
 $("draft-extract").addEventListener("click", () => openExtractPreview($("draft-text").value));
 $("extract-close").addEventListener("click", closeExtractPreview);
 $("extract-cancel").addEventListener("click", closeExtractPreview);
@@ -37386,7 +37714,14 @@ $("draft-discard").addEventListener("click", async () => {
   $("draft-text").value = "";
   $("draft-tags").value = "";
   $("draft-thinking").classList.add("hidden");
-  $("draft-status").textContent = "";
+  // The earlier versions and the notes it was being written from go with it:
+  // a desk that is cleared and still lists six sources and four old drafts
+  // has not been cleared.
+  draftSources = [];
+  draftVersions = [];
+  renderDraftSources();
+  renderDraftVersions();
+  setDraftStatus("");
   updateDraftCount();
   saveDraftLocally();
 });
@@ -37401,7 +37736,6 @@ $("draft-discard").addEventListener("click", async () => {
 function initHelpToggle(buttonId, panelId) {
   wireHelpPopover($(buttonId), $(panelId));
 }
-initHelpToggle("draft-help", "draft-intro");
 initHelpToggle("search-relevance-help", "search-relevance-intro");
 initHelpToggle("timeline-help", "timeline-intro");
 initHelpToggle("skills-help", "skills-intro");

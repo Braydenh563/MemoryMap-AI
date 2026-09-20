@@ -250,7 +250,11 @@ def test_every_appearance_setting_has_a_default():
 MODEL_GATED_CONTROLS = {
     "improve-btn": "/entries/improve",
     "improve-retry": "/entries/improve",
-    "draft-compose": "/drafts/compose",
+    "draft-compose": "/drafts/compose/stream",
+    # The same pass with an instruction in hand, and the same route, so it is
+    # gated by the same rule: a Refine that looks available with no model
+    # would fail only once it had been pressed.
+    "draft-refine": "/drafts/compose/stream",
     "draft-extract": "/entries/extract/preview",
     "extract-commit": "/entries/extract/commit",
     "doc-ai": "/documents/<id>/ai-edit",

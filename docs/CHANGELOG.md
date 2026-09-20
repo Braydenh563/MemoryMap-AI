@@ -165,6 +165,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The guided tour switches to its step's tab and waits for the control to
+  arrive, leaves that control pressable, and carries a visible way out. The
+  dim was one layer across the window, so `elementFromPoint` at the centre of
+  all fifteen steps answered the dim and not the control; it is now four
+  panels around the cut-out, and the hole belongs to the page. A step that
+  navigates waits up to 1.5s of frames for its target rather than dropping it
+  on the first frame after `switchTab` resolves, which is why steps inside a
+  tab used to vanish and the tour looked as though it never moved. The card's
+  head gained a close X beside the counter; Skip and Escape still end the same
+  run.
 - The Guide streams its answer on a locked notebook. The streaming fetch sent
   no session token, so it was refused and the panel fell back quietly to the
   one-shot route: the reply arrived in one piece, and "streaming is broken"

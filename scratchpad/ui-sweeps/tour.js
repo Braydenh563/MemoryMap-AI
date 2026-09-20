@@ -206,11 +206,18 @@ async function walkTour(page, label) {
       `${label} Skip closes the tour and its dim`
     );
 
-    // Escape, and the focus handed back to whatever opened the tour.
-    await page.evaluate(() => {
-      document.getElementById("settings-btn").focus();
+    // Escape, and the focus handed back to whatever opened the tour. The
+    // opener is the space switcher rather than the gear, because the gear is
+    // `display: none` below 600 (it is behind `#header-more`, and that host is
+    // a SPAN, which does not take focus either). Focusing an element that
+    // cannot hold focus left `document.activeElement` on `<body>`, and this
+    // check then read a sweep bug as a tour bug for as long as it ran. The
+    // space switcher is a real button at both widths.
+    const opener = "space-switcher-btn";
+    await page.evaluate((id) => {
+      document.getElementById(id).focus();
       openTour("basics");
-    });
+    }, opener);
     await page.waitForTimeout(700);
     await page.keyboard.press("Escape");
     await page.waitForTimeout(400);
@@ -220,8 +227,8 @@ async function walkTour(page, label) {
     }));
     check(!afterEscape.open, `${label} Escape skips the tour`);
     check(
-      afterEscape.focus === "settings-btn",
-      `${label} focus returns to the opener (${afterEscape.focus})`
+      afterEscape.focus === opener,
+      `${label} focus returns to the opener ${opener} (${afterEscape.focus})`
     );
 
     // --- a step whose element is hidden is skipped ---------------------------
@@ -300,7 +307,12 @@ async function walkTour(page, label) {
     // The replay strip is built from TOUR_SECTIONS, so this is also the check
     // that the table and the buttons agree, and that pressing one closes the
     // settings modal before measuring a control the modal was covering.
-    await page.click("#settings-btn");
+    // Not `page.click("#settings-btn")`: below 600 the four desktop header
+    // buttons are hidden behind `#header-more` (DESIGN.md, "The top bar on a
+    // phone"), so that click waited 30s for a control the phone does not draw
+    // and took the whole sweep down at 390x844. The opener itself is the same
+    // on both, and it is what the kebab row calls.
+    await page.evaluate(() => openSettingsModal());
     await page.waitForTimeout(600);
     await page.evaluate(() => showSettingsSection("help"));
     await page.waitForTimeout(400);

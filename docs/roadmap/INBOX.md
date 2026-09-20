@@ -426,6 +426,21 @@ with its owner named in the entry.
     thinking, streaming), the split-view scroll, the finder input and the
     Ask sources go to one Opus agent as bugs; the Write with AI redesign to
     a second Opus agent with a design brief.
+    **The tour: fixed.** Three separate faults, each measured before and
+    after with `scratchpad/ui-sweeps/tour.js` and a probe of its own.
+    (1) `#tour-block` was one layer at `inset: 0`, so
+    `document.elementFromPoint` at the centre of all fifteen steps answered
+    `tour-block`: it is now four panels around the cut-out and the hole is
+    left to the page (15 of 15 steps now answer the target, and a real press
+    plus typing reaches `#entry-content` mid-step). (2) A step measured its
+    target two frames after `switchTab` resolved, before the tab had loaded
+    its content, and a target that was not up yet was spliced out of the run:
+    the steps that would have moved the tour were the ones that disappeared.
+    A step that navigates now waits up to 1.5s of frames for its target, and
+    the tab it is on is read from the pressed tab button rather than from
+    `localStorage`, which can disagree with the page. (3) The card's head
+    gained an icon-only close X, `aria-label` "Close the tour", beside the
+    counter; Skip and Escape still end the same run.
 
 273. **Found by the Documents agent, 2026-09-20 (the session, not the
     owner), two things it measured and did not own.** (1) `errors.js` at

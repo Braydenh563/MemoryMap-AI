@@ -478,3 +478,57 @@ def test_the_read_only_built_ins_say_they_change_nothing_and_are_checked():
     catalog = {skill["name"]: skill for skill in skills.builtins(set(tools.TOOLS))}
     for name in ("Notebook health check", "Tidy suggestions", "Find loose ends"):
         assert catalog[name]["verify"]["expect"] == {"unchanged": True}, name
+
+
+#: **The run budget, corrected against a real run.**
+#:
+#: Reported: "Cut off after 3 skill steps with barely any tool calls."
+#: Measured from the owner's own screenshot: a nine-step skill, a local 4B
+#: model, 1,372 seconds elapsed, three steps finished, six never attempted.
+#: The shipped defaults were 20,000 tokens and 90 seconds *per run*, chosen
+#: from an assumption `budget.py`'s own "Not verified" note had already
+#: flagged: that ninety seconds is longer than a ten-step run takes. On the
+#: configuration this app exists for, it is shorter by a factor of fifteen.
+#:
+#: Two facts to hold, because both are easy to undo by "tidying" a constant.
+def test_the_token_allowance_is_one_step_s_worth_per_step() -> None:
+    from memorymap.ai import budget as run_budget
+
+    one = run_budget.RunBudget(tokens=20_000, steps=1)
+    nine = run_budget.RunBudget(tokens=20_000, steps=9)
+    assert one.allowance() == 20_000
+    assert nine.allowance() == 180_000, (
+        "a nine-step skill held to one step's worth of tokens is stopped by "
+        "arithmetic rather than by anything going wrong"
+    )
+    #: Nine steps' worth spent is the stop; one step's worth is not.
+    nine.spent_tokens = 20_000
+    assert not nine.exceeded()
+    nine.spent_tokens = 180_000
+    assert "reached its budget of 180,000 tokens" in nine.exceeded()
+
+
+def test_no_limit_stays_no_limit_however_many_steps() -> None:
+    from memorymap.ai import budget as run_budget
+
+    off = run_budget.RunBudget(tokens=0, steps=9)
+    assert off.allowance() == 0
+    off.spent_tokens = 10_000_000
+    assert not off.exceeded(), "zero means no limit, and must not be multiplied into one"
+
+
+def test_there_is_no_wall_clock_budget_by_default() -> None:
+    """Time measures the hardware, not the run.
+
+    The same nine steps take 40 seconds against a hosted model and forty
+    minutes against a 4B model on a laptop, and only one of those is a grind.
+    What bounds a grind is rounds and retries, which the agent and the
+    runner's attempt caps already hold. A wall clock set in Settings is still
+    honoured exactly; there just is not one out of the box.
+    """
+    from memorymap.ai import budget as run_budget
+
+    assert run_budget.DEFAULT_SECONDS == 0
+    fresh = run_budget.RunBudget()
+    fresh.started_at -= 10_000  # ten thousand seconds ago
+    assert not fresh.exceeded()

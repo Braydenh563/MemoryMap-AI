@@ -7285,11 +7285,19 @@
                   says so, and shows what it changed with a way to put it back.
                   Set either to 0 for no limit.
                 </p>
+                <p>
+                  The token figure is per step, so a nine step skill gets nine
+                  times it. There is no time limit out of the box: a local
+                  model is slow, and slow is not the same as wrong. A
+                  nine step skill measured on a 4B model took twenty three
+                  minutes to reach step three, and a ninety second run budget
+                  had already ended it.
+                </p>
               </div>
               <div class="setting-row">
                 <div class="setting-label">
-                  <span>Tokens</span>
-                  <small class="muted">Counted across every step of the run.</small>
+                  <span>Tokens per step</span>
+                  <small class="muted">Multiplied by the number of steps in the run.</small>
                 </div>
                 <input type="number" id="run-budget-tokens" class="setting-control"
                   min="0" step="1000" aria-label="Run budget in tokens">
@@ -7297,7 +7305,7 @@
               <div class="setting-row">
                 <div class="setting-label">
                   <span>Seconds</span>
-                  <small class="muted">Wall time, from the first step to the last.</small>
+                  <small class="muted">Wall time for the whole run. 0, and off, unless you set one.</small>
                 </div>
                 <input type="number" id="run-budget-seconds" class="setting-control"
                   min="0" step="10" aria-label="Run budget in seconds">

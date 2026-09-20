@@ -1631,7 +1631,13 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
                 # runner stays testable without app state and so a caller
                 # with its own budget (an eval, a background job) can pass
                 # one instead.
-                budget=run_budget.from_settings(deps.get_config()),
+                #: The step count goes with it: the token allowance is per
+                #: step, and a nine-step skill held to one step's worth is how
+                #: a correct run came to stop after three of them.
+                budget=run_budget.from_settings(
+                    deps.get_config(),
+                    steps=len(req.skill["skill"].get("steps") or []) or 1,
+                ),
                 **shared,
             )
         else:

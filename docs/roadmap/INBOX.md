@@ -326,6 +326,39 @@ with its owner named in the entry.
     lint in `test_ui_recipes.py`); 6 findings to 0. (1), the AI-free answer,
     still open.
 
+270. **Mid-work drop, 2026-09-20, verbatim (the owner), with a dashboard
+    screenshot and four MSN/Bing screenshots.** "hit the rest of the open
+    items. make sure you complete all of my requests and flagged items. fix
+    the codeql and ci errors. fix any bugs you might have missed. also is
+    there a way to declutter the dashboard a bit or spread things out a
+    bit?? idk it looks good but a lot is happening on it. maybe something
+    like the feed layout options with msn on microsoft bing?? the user needs
+    to be able to view and access what they want within around 3 clicks and
+    they need to know how to instantly access what they want after loading
+    the app. maybe the dashboard should have a universal searchbar on it??
+    maybe that searchbar can be accessible in a univerally accessible popup
+    window like the popup agent and guide??? also can you improve/redesign
+    the ui and layout of the guide popup panel at all??"
+    Measured from the screenshot: above the fold the dashboard stacks five
+    "Start something" tiles, four "Jump to" pills, three skill chips, four
+    stat tiles and a sparkline, then the widget grid heading, before a single
+    widget is visible. Six bands of chrome before any content. The MSN
+    reference is its "Feed layout" control: full page, partial view,
+    headings, three densities of the same page. Four things: (1) a density or
+    layout choice for the dashboard, (2) a search field on it that is the
+    obvious first thing, (3) that same search reachable from anywhere as a
+    popup, like the command palette already is, (4) a redesign of the guide
+    popup panel. Open.
+
+271. **Mid-work drop, 2026-09-20, verbatim (the owner).** "should we have the
+    msi and exe installer as an option?? what about mac??" Open; recommended
+    answer recorded with the reply: ship both Windows artifacts (an MSI is
+    what an IT department deploys, an EXE is what a person double-clicks, and
+    both come off one PyInstaller build), and treat macOS as its own decision
+    because Gatekeeper is stricter than SmartScreen: an unsigned app is
+    refused outright rather than warned about, so a Mac build is only worth
+    shipping alongside an Apple Developer account for notarisation.
+
 ## Placed (last 20, newest first)
 
 - 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.

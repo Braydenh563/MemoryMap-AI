@@ -280,9 +280,20 @@ the same thing.
    The record, including the `Ctrl+K` decision the plan left open, is in
    HISTORY.md ("Moved from the plans, 2026-09-20", DOCUMENTS_PLAN.md Phase 4
    item 4).
-5. **Daily notes** and **templates gallery** (New ▾ → Meeting / Spec /
-   Decision / Weekly review / Daily), templates stored as documents tagged
-   `template` (exists) and offered with a preview.
+5. **Daily notes** and **templates gallery**: built, 2026-09-20. The gallery
+   was already there with six templates, each carrying a description
+   (`scratchpad/ui-sweeps/doctemplates.js`); daily notes were the row that
+   needed the decision first, and it is section 14. What was built from it is
+   one template and one recognition: New from a template now offers Daily
+   (seven rows), the document it makes is titled with the ISO day, and the
+   Timeline's day bucket accepts a note *or* a document with that title, so
+   the "Start today's note" offer beside a day already written as a document
+   is gone. Measured before and after in `scratchpad/ui-sweeps/docdaily.js`,
+   11 of 11: before, 6 templates with no daily and the bucket offering to
+   start a second page beside a document titled `2026-09-20`; after, 7
+   templates, the created document titled `2026-09-20` with `# 2026-09-20` as
+   its first line, 0 "start today's note" offers, 1 "Today's document" offer,
+   and the calendar glyph on the row.
 
 ### Phase 5 — review, history and AI (1 session)
 
@@ -836,6 +847,55 @@ measure.
 **Not decided here, and deliberately still open**: DOCX both ways, Markdown
 with its assets, and import of `.html`. The first needs a dependency decision
 this session did not have a reason to force.
+
+## 14. What a document daily note is: decided 2026-09-20
+
+Phase 4 item 5 asks for "daily notes" on a surface that already has them
+somewhere else, so this is the decision that had to come before the code, and
+it is taken here rather than deferred a fourth time (standing order 3).
+
+**Read first, both surfaces.** The Timeline built the whole of it and wrote the
+reason down: a daily note is an ordinary note whose first line is the ISO day,
+`# 2026-09-20` (`dailyNoteTitle` in `app.js`, TIMELINE_PLAN Phase 4,
+WORLD_CLASS_PLAN D6). On top of that convention sit `GET`/`POST
+/entries/daily/{day}` (create or return), `GET /entries/daily` with a month of
+`written` flags for a calendar strip and a streak, the today bucket's "Start
+today's note" button, which opens the composer rather than writing the note,
+and the agent's own "add to today's note" tool. None of that is duplicated.
+
+**The measurement that decided it.** On the branch head, a document titled
+`2026-09-20` is already in the Timeline's own feed as a `document` row (it is
+one of the four kinds `/timeline` returns), and the day bucket beside it still
+offered "Start today's note". So the app already lets a day be written as a
+document, and then does not believe it: the writer gets a second offer for a
+day they have already begun, and pressing it splits the day across two stores.
+That, not a missing feature, is what was wrong.
+
+**The decision.** *One day, one page, and which store holds it is the writer's
+choice, not the app's.*
+
+- Documents gets the **"Daily" template** its own item-5 list names, and
+  nothing else new. The document it makes is titled with the ISO day, the
+  exact string `dailyNoteTitle` writes, so the two surfaces agree by spelling
+  rather than by a shared table.
+- **No second endpoint, no second streak, no second calendar strip.** A
+  create-or-return `/documents/daily/{day}` would be the second implementation
+  of the same idea this item was told to avoid, and the streak and the strip
+  read `/entries/daily`, which is where a journal's own history belongs.
+- **The Timeline learns to recognise either.** `timelineDailyNote` and
+  `timelineIsDailyNote` accept a `note` or a `document` whose title is the day,
+  so a day written as a document gets the calendar glyph and the bucket offers
+  to open it instead of starting a second one. The button names the kind it
+  found, because "today's note" pointing at a document is a small lie.
+- **What a document daily note adds, and why it is worth having at all**: the
+  outline, backlinks, block references, comments, version history, tables and
+  the export set, for a day that grew past a capture. That is a real difference
+  in kind, not a second copy of the feature, and it costs one template row.
+
+**Not built, deliberately**: a "Today" button in the documents dock. The
+template gallery is two clicks from the same place, the Timeline's day view is
+the surface that knows about days, and a third door onto one page is what this
+decision exists to refuse.
 
 ## Built, the sidebar redesign (INBOX 115), 2026-09-12
 

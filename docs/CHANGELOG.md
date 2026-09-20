@@ -173,6 +173,11 @@ below). Versioning is `0.x` while the app stabilises.
   stranded on screen after the panel it belongs to has closed.
 ### Added
 
+- A Daily page in the documents template gallery, and the Timeline now
+  recognises it. New from a template offers Daily alongside the other six; it
+  makes a document titled with the day, the same title the journal note uses,
+  so a day written as a document gets the calendar mark in the Timeline and
+  the day's own row offers to open it rather than to start a second page.
 - Share to MemoryMap from a phone's share sheet: with the app installed, a
   page, a link or a selection shared to it opens Capture with the title,
   the text and the link as one note ready to save.

@@ -28419,9 +28419,22 @@ function dailyNoteTitle(bucketKey) {
   return bucketKey;
 }
 
+//: **The day's page may be a note or a document** (DOCUMENTS_PLAN section 14).
+//: `/timeline` has returned documents as their own kind since Phase 4, so a
+//: document titled with the day was already in this feed; the day bucket just
+//: did not believe it, and went on offering to start a second page for a day
+//: already begun. One day, one page, and which store holds it is the writer's
+//: choice: the Documents tab's "Daily" template writes the same ISO title this
+//: function reads, so the two surfaces agree by spelling rather than by a
+//: shared table.
+//:
+//: Boards are not in the set on purpose: a mind map named after a date is a
+//: map of that date, not the day's writing.
+const TIMELINE_DAILY_KINDS = new Set(["note", "document"]);
+
 function timelineDailyNote(bucketKey, rows) {
   const wanted = dailyNoteTitle(bucketKey);
-  return rows.find((row) => row.kind === "note" && row.title.trim() === wanted) || null;
+  return rows.find((row) => TIMELINE_DAILY_KINDS.has(row.kind) && row.title.trim() === wanted) || null;
 }
 
 //: **The buckets are computed here, not fetched.** `/timeline` labels every
@@ -28534,7 +28547,10 @@ function timelineKindChoice() {
 }
 
 function timelineIsDailyNote(row) {
-  return row.kind === "note" && row.title.trim() === dailyNoteTitle(timelineBucketKey(row.when, "day"));
+  return (
+    TIMELINE_DAILY_KINDS.has(row.kind) &&
+    row.title.trim() === dailyNoteTitle(timelineBucketKey(row.when, "day"))
+  );
 }
 
 //: **One control, not four, and now one button rather than one well** (INBOX
@@ -29045,8 +29061,12 @@ function timelineBucketSection(bucket, scale, density, isToday = bucket.rows.len
     const existing = timelineDailyNote(bucket.key, bucket.rows);
     head.appendChild(
       existing
-        ? smallButton("ph:calendar-dot Today's note", "Open today's journal note", () =>
-            focusTimelineRow(existing.key)
+        ? //: The button names the kind it found: "today's note" pointing at a
+          //: document is a small lie, and the two are different things to open.
+          smallButton(
+            existing.kind === "document" ? "ph:calendar-dot Today's document" : "ph:calendar-dot Today's note",
+            existing.kind === "document" ? "Open today's document" : "Open today's journal note",
+            () => focusTimelineRow(existing.key)
           )
         : smallButton("ph:plus Start today's note", "Open a new note with today's date in the title", () =>
             startTodaysNote()
@@ -29153,7 +29173,9 @@ function timelineRowElement(row, density) {
   //: made, so their own glyph is free to say what they are.
   glyph.className = `ph ${TIMELINE_KIND_GLYPHS[row.kind] || "ph-note"}`;
   if (row.kind === "note" && row.placedBy === "mentioned") glyph.className = "ph ph-clock-countdown";
-  if (row.kind === "note" && timelineIsDailyNote(row)) glyph.className = "ph ph-calendar-dot";
+  //: The day's page carries the calendar whichever store holds it
+  //: (DOCUMENTS_PLAN section 14); `timelineIsDailyNote` is what knows the set.
+  if (timelineIsDailyNote(row)) glyph.className = "ph ph-calendar-dot";
   mark.appendChild(glyph);
 
   const main = document.createElement("span");

@@ -60,19 +60,21 @@ being written by running agents stay beside this one.
 
 ## Documents
 
-- **DOCUMENTS_PLAN Phase 4 item 5's daily notes, and only that.** Items 1 to 4
-  are built (backlinks and block references 2026-09-12; the outline's reorder,
-  folding and filter box, and the command palette and shortcut sheet from one
-  table, 2026-09-20, both recorded in HISTORY.md with their probes). The
-  templates half of item 5 exists and was measured on 2026-09-20
-  (`scratchpad/ui-sweeps/doctemplates.js`: the gallery opens at 480x526 with
-  six templates, each carrying a description). Daily notes were left alone
-  deliberately: `grep -n "daily" frontend/*.js src/memorymap/api/*.py` finds
-  `dailyNoteTitle` in app.js and twenty-two hits in routes_entries.py, so the
-  next step is to read what the Timeline already built (TIMELINE_PLAN Phase 4,
-  "a daily note is a convention, not a table") and decide what a *document*
-  daily note would add to it, rather than building a second one.
-  [documents-phase4.md]
+- ~~**DOCUMENTS_PLAN Phase 4 item 5's daily notes, and only that.**~~
+  **Decided and built, 2026-09-20.** The decision is DOCUMENTS_PLAN section 14
+  ("one day, one page, and which store holds it is the writer's choice"): the
+  Timeline owns the journal, its two endpoints, its streak and its calendar
+  strip, and none of that is duplicated. What Documents got is the Daily
+  template its own item-5 list names, titled with the ISO day so the two
+  surfaces agree by spelling; what the Timeline got is a day bucket that
+  accepts a note *or* a document with that title. The measurement that decided
+  it: a document titled `2026-09-20` was already in the Timeline's feed and
+  the bucket beside it still offered "Start today's note", so the app let a day
+  be written as a document and then did not believe it.
+  `scratchpad/ui-sweeps/docdaily.js`, 11 of 11: 6 templates to 7, 1 start
+  offer to 0, 0 open offers to 1 ("Today's document"), the calendar glyph on
+  the row. Not built, deliberately: a "Today" button in the documents dock, a
+  third door onto one page. [documents-phase4.md]
 - **The templates gallery offers a description, not a preview of the page.**
   Measured 2026-09-20: each row reads "Assignment plan / Brief, criteria,
   sections, sources, timeline." The plan's words are "offered with a preview",

@@ -1336,14 +1336,44 @@ const DOC_TEMPLATES = [
     id: "weekly", title: "Weekly review", hint: "What happened, what's next, what to drop.",
     content: "# Week of {{date}}\n\n## Went well\n\n- \n\n## Didn't\n\n- \n\n## Next week\n\n- [ ] \n\n## Stop doing\n\n- \n",
   },
+  //: **The day's page** (DOCUMENTS_PLAN section 14). The whole of "daily notes"
+  //: on this surface is this row: the Timeline owns the journal, its endpoints,
+  //: its streak and its calendar strip, and a second create-or-return here
+  //: would be the second implementation of one idea. What this adds is what a
+  //: document is and a note is not, for a day that grows past a capture.
+  //:
+  //: `docTitle` is the ISO day and not the gallery's label, because the day's
+  //: page is called by its day: it is the exact string `dailyNoteTitle` writes
+  //: in app.js, which is the only thing that lets the Timeline recognise a day
+  //: written here as that day's page.
+  {
+    id: "daily", title: "Daily", hint: "Today's page: what happened, what is open, what is next.",
+    docTitle: "{{isodate}}",
+    content: "# {{isodate}}\n\n## What happened\n\n- \n\n## Still open\n\n- [ ] \n\n## Next\n\n- \n",
+  },
 ];
 
 function docTemplateFill(template) {
-  const date = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-  const title = template.id === "blank" ? "Untitled" : template.title;
+  const now = new Date();
+  const date = now.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  //: **`{{isodate}}` is the local day, built by hand rather than from
+  //: `toISOString()`**, which converts to UTC first and so names yesterday for
+  //: anyone east of it after their evening. "Today" is a fact about where the
+  //: person is sitting; `routes_entries.py`'s D6 block makes the same argument
+  //: for the server, which is why the day is the caller's there too.
+  const iso = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+  ].join("-");
+  const fill = (text) => (text || "").replaceAll("{{date}}", date).replaceAll("{{isodate}}", iso);
+  //: A template's gallery label and the title it gives the document are not
+  //: always the same words: "Daily" names the choice in the gallery, and the
+  //: document it makes is called by its day (`docTitle`, section 14).
+  const title = template.id === "blank" ? "Untitled" : fill(template.docTitle || template.title);
   return {
     title,
-    content: (template.content || "").replaceAll("{{date}}", date).replaceAll("{{title}}", title),
+    content: fill(template.content).replaceAll("{{title}}", title),
   };
 }
 

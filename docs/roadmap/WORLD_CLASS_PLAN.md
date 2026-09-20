@@ -378,6 +378,82 @@ utilities as an icon cluster with hairline separators on the bar surface;
 a bottom tab bar on phone (five + more); sidebars as sheets under 900.
 Gate: Phase 9 numbers.
 
+### D16 Write with AI, the writing desk (M, Opus)
+
+The owner, INBOX 274: "I want to improve the design, capabilities and
+features in the write with ai subtab in notes because I think it is falling
+behind." HISTORY's flagged list already named it ("Write with AI tab: behind
+in function and UI. Owner: new dossier D16"); this is that dossier.
+
+**Measured before, 2026-09-20, on :8967 at 1440x900 and 390x844, light**
+(`scratchpad/ui-sweeps/writingroom.js` measures the same numbers after):
+
+| What | Before |
+| --- | --- |
+| Controls on the sub-tab | 10 at 1440, 10 at 390 |
+| Control heights | three at 1440 (36 / 40 / 330.3), four at 390 (40 / 44 / 189.2 / 330.3) |
+| Dock | none. The head is an `h2` and a lone round '?', so the sub-tab has no control bar and nothing on the dock grammar |
+| Primary buttons on the card | two, "Draft it" and "Save as note", both filled, one per column |
+| Quick starts | none (0 `.library-chip`, 0 `.seg`, 0 `data-help-for`; the help is the older `graph-help-toggle` pair) |
+| Empty state | none. Two empty boxes with placeholders, nothing that says what the desk is for |
+| Shape of a request | one POST `/drafts/compose`, answered when the whole draft exists |
+| A draft against the stand-in model server | arrived after **22.9s** in **2 distinct values** of the box (empty, then 82 characters): one piece, no stream, no progress beyond a status line |
+| Thinking | a `<details>` under both columns, written **after** the reply lands, never while it is written |
+| What can be done with a result | Extract notes, Discard, Save as note. No copy, no insert into an existing note, no retry, no version history beyond a single Undo |
+| Capabilities | thoughts in, a note out, plus a free-text instruction. No tone, no length, no "continue this note", no bullets/prose conversion, no sources: the notebook's own notes cannot be handed to the drafter at all |
+| With no model | "Draft it" and "Extract notes" are disabled with a `title` ("Drafting needs the local AI. Connect a model in Settings."); the section draws **no** `.ai-offline-note`, so the one control that fixes it (Settings → Models) is only in a tooltip on a disabled button |
+| Console errors | 0 at both widths |
+
+Against the two surfaces it should be a sibling of: the Chat composer
+streams token by token into a bubble, carries its sources, its mode segment
+and its length select on one strip under the box, and names its own offline
+state in a row with a button to Settings; the documents editor's AI edit
+shows a per-hunk diff before anything is accepted. The writing room has
+none of those three.
+
+**Target.** The sub-tab is a writing desk, not a form: a dock on the
+grammar (identity, one primary "Draft"), quick-start chips from the
+`.library-chip` recipe, one composer on the app's own composer surface
+carrying what to write, in what tone, at what length and from which notes,
+a result that streams as it is written with the thinking shown while it
+runs, one row of actions on the result (copy, insert into a note, save as
+note, retry), and a version history with a way back to any earlier draft.
+Every failure names its way out.
+
+**Gate.** `scratchpad/ui-sweeps/writingroom.js` (in `scripts/gate.sh`'s
+sweep list): the dock at seven controls or fewer with exactly one filled, a
+streamed draft arriving in more than one piece against the stand-in server,
+the actions row present, one column and 44px targets at 390, 0 console
+errors.
+
+**Built, 2026-09-20** (`feac0e2`, `9d03405`, `7db57d5`, `9a796be`), measured
+on :8967 and :8968 against `scratchpad/fake_openai_server.py`:
+
+| What | Before | After |
+| --- | --- | --- |
+| Dock | none | one on the grammar, 4 controls at one height (36px), 1 filled |
+| Filled buttons in the head | two on one card | one (Draft), with Save as note the result panel's own |
+| A draft arriving | 22.9s, 2 values of the box (one piece) | first text at 118 to 161ms, 3 writes of the box (40, 82, 82 characters) |
+| Thinking | after the reply, in a `<details>` | open while it is written, capped at 8rem (it had no CSS rule at all: it grew the column from 539px to 1576px on open, now 539 to 712) |
+| Quick starts | none | 5 `.library-chip`s at 36px (they drew at 22.4px until `--control-h` was given to the row), 44px at 390 |
+| What to write | one free-text instruction | 5 kinds, 5 tones, 3 lengths, and up to 6 notes as sources, each a removable chip |
+| Result actions | Extract notes, Discard, Save as note | Copy, Insert into a note, Save as note on one line, with Refine on its own composer row and Split into notes and Discard in the kebab |
+| Going back | one undo stack | the same undo, plus a version chip per draft this session, restoring any of them (dedupe and localStorage both measured) |
+| A note that already exists | nothing: every path here made a new note | "Carry on from a note" brings it in as the draft, marks which note it goes back to, and Save writes back to that note through the app's own PUT and undo entry (measured: the tag survives, no second copy) |
+| Inserting into a note | n/a | appends to the note you pick and stays on the desk, with the trip to it offered on the toast rather than taken (`flashEntry` used to hide the desk and its half-written draft) |
+| With no model | a title on a disabled button | that, plus an `.ai-offline-note` row naming Settings → Models, and a drafter message that names Ollama and Settings |
+| The two boxes at 390 | 189.2 and 330.3px | 189.2 and 176px (both `rows="7"`) |
+| Controls under 44px at 390 | 11 | 0 |
+| Card height at 1440 | 569px, columns 478/478 | 630px, columns 480/480, boxes 347.2 and 271.3 |
+| Console errors | 0 | 0 at 1440 and 390; errors.js clean at four widths, contrast.js clean light and dark |
+
+**Not verified.** Stop mid-pass (the stand-in server answers in ~150ms, so
+the pass is over before Stop can be pressed; the abort path is the one that
+was already there, plus a restore of the draft that went in). A real model's
+thinking stream, and therefore the 8rem panel with real content. Anything a
+small local model does with the five prompts: they are written and tested
+against a fake transport, not judged by a model's output.
+
 ---
 
 ## 4. The backend, made revolutionary (and still SQLite, still offline)

@@ -540,6 +540,36 @@ below). Versioning is `0.x` while the app stabilises.
   box, scrolling, before; 451px in 451px, not scrolling, after. At 1024 the
   same 451 in 451. At 390 the panel still scrolls, as it did, but with 795px
   of list where the same panel held 1071.
+- Notes → Write with AI is a writing desk. Its head is a dock on the app's
+  own grammar (identity, one Draft button, Stop, Undo, a '?' and a kebab)
+  where it used to be a heading and a lone round '?' over a card with two
+  filled buttons. Five quick-start chips stand where an empty pair of boxes
+  used to; under the thoughts box, three pickers say what to write, in what
+  voice and at what length, and an adder hands Atlas up to six of your own
+  notes to write from.
+
+- The draft arrives as it is written, with the thinking shown while it runs.
+  It used to appear in one piece once the model had finished: measured
+  against a stand-in model server, 22.9 seconds and one write of the box
+  before, first text in under a fifth of a second and one write per chunk
+  after. A pass that fails or is stopped hands back the draft that went in.
+
+- Five things to ask for rather than one: draft a note, carry on writing,
+  rewrite it in another voice, open bullets out into prose, close prose back
+  into bullets. Tone and length are pickers, not something to phrase.
+
+- What to do with a finished draft is one row: copy it, insert it into a note
+  you already have, or save it as a note. Inserting leaves you at the desk
+  with your draft, and offers the trip to the note rather than taking it.
+  Every draft the session produced is a chip you can go back to, beside the
+  undo that was already there.
+
+- A note you already have can be carried on: it comes into the draft, and
+  saving writes back to that note rather than filing a second copy of it.
+
+- With no model connected the writing desk says so in a line you can act on,
+  with the button that connects one, rather than only in a tooltip on a
+  button that cannot be pressed.
 
 ## [0.3.1] - 2026-09-14
 

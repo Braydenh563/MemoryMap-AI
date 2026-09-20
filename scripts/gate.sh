@@ -175,7 +175,7 @@ if [ "$SWEEPS" = 1 ]; then
   # previewclash: the board and map thumbnails, whose faults (a caption over a
   # block, over another caption, or past the paper) are pure geometry and so
   # are a number, but a number no lint can reach without a browser.
-  for s in errors docks contrast touch leaks keyboard requests previewclash sketchhighlighter vibecheck vibefail graphminimap wbgroupguides finder wbfitanchor refchips helpstream phonehead phonesidebar phonecapture phoneswipe phonenotepage phonechat phoneshare phonedocs phonereminders; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
+  for s in errors docks contrast touch leaks keyboard requests previewclash sketchhighlighter vibecheck vibefail graphminimap wbgroupguides finder wbfitanchor refchips helpstream phonehead phonesidebar phonecapture phoneswipe phonenotepage phonechat phoneshare phonedocs phonereminders writingroom; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
 else
   skipped+=("sweeps (--sweeps, needs BASE)")
 fi

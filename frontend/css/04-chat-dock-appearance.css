@@ -2825,7 +2825,7 @@ span > .chip {
 
 /* --- the writing room -------------------------------------------------------- */
 #writing-room {
-  /* The positioning root for #draft-intro's .graph-help-panel treatment: 
+  /* The positioning root for #draft-help-body's popover treatment:
      an absolutely positioned popup anchors to the nearest positioned
      ancestor, and without this it would fall back to the page. Same
      reasoning as #graph-card's own identical comment. */
@@ -2889,7 +2889,7 @@ span > .chip {
    the field inside it gives up its own, which is what the Ask tab's question
    row and the capture box already look like. The padding is the shell's, so
    the row's own `--control-h` still decides the controls' height. */
-.draft-compose-row {
+.draft-refine-row {
   gap: var(--space-2);
 }
 
@@ -2910,9 +2910,9 @@ span > .chip {
    focus its `flex: 1 1 auto` won by file order and the field jumped from
    272px to 510px, pushing Undo and Draft it onto two more lines and the tags
    caret under its label; blur put it all back. Measured, then fixed. */
-.draft-compose-row.ask-composer > #draft-instruction,
-.draft-compose-row.ask-composer > #draft-instruction:focus,
-.draft-compose-row.ask-composer > #draft-instruction:focus-visible,
+.draft-refine-row.ask-composer > #draft-instruction,
+.draft-refine-row.ask-composer > #draft-instruction:focus,
+.draft-refine-row.ask-composer > #draft-instruction:focus-visible,
 .draft-tags-row.ask-composer > #draft-tags,
 .draft-tags-row.ask-composer > #draft-tags:focus,
 .draft-tags-row.ask-composer > #draft-tags:focus-visible {
@@ -2939,7 +2939,7 @@ span > .chip {
 }
 
 /* Same control-height fix as `.capture-field-row` (07-whiteboard-misc.css):
-   `Draft it`/`Save as note` (40px), their `.ghost` neighbours (42px) and the
+   `Draft`/`Save as note` (40px), their `.ghost` neighbours (42px) and the
    instruction/tags inputs (45.19px, the global form-field rule) measured as
    three different heights on one row. */
 .draft-controls {
@@ -2970,11 +2970,148 @@ span > .chip {
   font-size: 0.8rem;
 }
 
+/* --- the desk's own rows (WORLD_CLASS_PLAN D16) -----------------------------
+   Quick starts, the strip under the thoughts box, the source chips and the
+   version chips. Every one of them is an existing recipe given a place to
+   sit: `.library-chip` for the chips, `.chip` for a fact about the request,
+   `.draft-controls`' own control height for the strip. Nothing here draws a
+   new shape. */
+.draft-quickstarts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  /* `.library-chip` takes its height from `--control-h`, and this row sits
+     outside the columns that declare one: measured, the chips drew at 22.4px
+     against the Library's own 36px, from the root fallback. The `max()` keeps
+     both bands honest at once, 36px where the Library's are and the touch
+     floor below 820, without writing either number twice. */
+  --control-h: max(2.25rem, var(--target-min));
+}
+
+/* The three selects and the adder are one family on one line, so they take
+   the column's control height rather than the global form-field height (the
+   same mismatch `.draft-controls` above was written for). */
+.draft-desk-controls {
+  gap: 0.4rem;
+}
+
+.draft-desk-controls select,
+.draft-desk-controls .select-opener {
+  height: var(--control-h);
+  margin: 0;
+  /* A select in a half-width column gives up its width before the button
+     does: "Draft a note" is the longest label here and it is still readable
+     truncated, while "Use notes" is not. */
+  flex: 1 1 6rem;
+  min-width: 0;
+}
+
+/* A source is a fact about this request (which notes it is written from),
+   which is what `.chip` means; the X inside it is the one action a fact is
+   allowed to carry, and it is how you take the fact back. */
+.draft-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.draft-source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  min-width: 0;
+}
+
+.draft-source-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Inside a chip, so it is the quiet tier: the chip is the frame, and a
+   bordered button inside a bordered chip is a box in a box (the same reading
+   `.ask-composer`'s interior rule records). */
+.draft-source-drop {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  min-height: 0;
+  flex: 0 0 auto;
+}
+
+/* **Bounded on purpose, and measured.** The thinking was an unstyled `<pre>`
+   (it had no rule anywhere in the app), so the moment it opened it grew the
+   column from 539px to 1576px: a 1031px panel thrown under the draft it is
+   about, while that draft is still being written. Capped and scrolled, the
+   disclosure costs the same 8rem wherever it opens, and app.js keeps the
+   newest line in view while the model is writing it. */
+.thinking-text {
+  max-height: 8rem;
+  overflow: auto;
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.draft-versions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.draft-versions-label {
+  font-size: var(--text-xs);
+}
+
+/* While a pass is running the draft box is being written into, so it says so
+   rather than leaving a box that looks editable and is not. The accent edge
+   is the same one `.ask-composer:focus-within` draws, for the same reason:
+   this is where the attention belongs right now. */
+#writing-room.draft-writing #draft-text,
+#writing-room.draft-writing .note-surface {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+/* **A desk has a working height of its own.** With both boxes on `rows="7"`
+   and everything below them stretching, the row collapsed to what its
+   contents asked for: measured at 1440, the draft box came out at 176px, its
+   own `min-height` floor, on a 534px card. The height belongs to the desk,
+   not to a rows attribute, and the boxes take the slack the way
+   `.draft-columns`' own `align-items: stretch` already intends. */
+@media (min-width: 901px) {
+  .draft-columns {
+    min-height: 30rem;
+  }
+}
+
 /* One column on narrow screens, side-by-side textareas become unusable
    well before the phone breakpoint. */
 @media (max-width: 900px) {
   .draft-columns {
     grid-template-columns: 1fr;
+  }
+}
+
+/* **And below 820 the desk's control height is the touch floor.** Measured at
+   390 before this: eleven controls on this sub-tab at 40px against a
+   `--target-min` of 2.75rem, because `.draft-controls`' own `--control-h` is
+   a fixed 2.5rem and it wins over the band's promise. The rows exist to make
+   every control on one line the same height, which is still what this does;
+   the number just comes from the band below 820 rather than from a constant
+   written for a desktop column. `scratchpad/ui-sweeps/writingroom.js` counts
+   them. */
+@media (max-width: 819.98px) {
+  .draft-column,
+  .draft-controls {
+    --control-h: var(--target-min);
   }
 }
 
@@ -4764,17 +4901,17 @@ input.doc-title-input::placeholder {
    at phone widths is where this was left; the remaining question is why the
    buttons will not share a line, and it is in agent-remaining. */
 @media (max-width: 449.98px) {
-  .draft-compose-row.ask-composer {
+  .draft-refine-row.ask-composer {
     flex-wrap: wrap;
   }
 
-  .draft-compose-row.ask-composer > #draft-instruction {
+  .draft-refine-row.ask-composer > #draft-instruction {
     flex: 1 1 100%;
     min-width: 0;
     order: -1;
   }
 
-  .draft-compose-row.ask-composer > button {
+  .draft-refine-row.ask-composer > button {
     flex: 1 1 auto;
   }
 

@@ -418,107 +418,6 @@ with its owner named in the entry.
     cases takes for the Guide, so the facts are written down; what is missing
     is the app saying them.
 
-274. **Mid-work drop, 2026-09-20, verbatim (the owner).** "There are a lot of
-    codeql and ci errors, The guided tour is completely broken, it doesnt
-    automatically switch pages on different steps, it doesnt let the user
-    click the highglighted items, it has no visible way to exit or quit it
-    like a button or smth so I had to guess by pressing the escape button".
-    "the scrolling is off in the split document view because of the md
-    rendering. also the atlas help panel needs a better title to make it
-    evident that it is the guide, and in that panel, it doesnt use the
-    utility model and instead uses the chat model, also thinking boxes dont
-    render and the streaming is just off and needs fixing when generating a
-    response." "I want to improve the design, capabilities and features in
-    the write with ai subtab in notes because I think it is falling behind."
-    "text in the find anything popup window isnt centred vertically in the
-    text box". "I also feel like having the notes appear as sources below the
-    ai response in the notes tab ask subtab is uncnecessary when they are
-    shown already on the right next to the ai response??" (screenshot: the
-    Ask answer with numbered source cards on the left and the same notes as
-    cards on the right). Triage: CI is one test window and three CodeQL
-    asserts, fixed in this commit; the tour, the guide panel (title, model,
-    thinking, streaming), the split-view scroll, the finder input and the
-    Ask sources go to one Opus agent as bugs; the Write with AI redesign to
-    a second Opus agent with a design brief.
-    **The tour: fixed.** Three separate faults, each measured before and
-    after with `scratchpad/ui-sweeps/tour.js` and a probe of its own.
-    (1) `#tour-block` was one layer at `inset: 0`, so
-    `document.elementFromPoint` at the centre of all fifteen steps answered
-    `tour-block`: it is now four panels around the cut-out and the hole is
-    left to the page (15 of 15 steps now answer the target, and a real press
-    plus typing reaches `#entry-content` mid-step). (2) A step measured its
-    target two frames after `switchTab` resolved, before the tab had loaded
-    its content, and a target that was not up yet was spliced out of the run:
-    the steps that would have moved the tour were the ones that disappeared.
-    A step that navigates now waits up to 1.5s of frames for its target, and
-    the tab it is on is read from the pressed tab button rather than from
-    `localStorage`, which can disagree with the page. (3) The card's head
-    gained an icon-only close X, `aria-label` "Close the tour", beside the
-    counter; Skip and Escape still end the same run.
-    **The guide panel: fixed, with one part of it answered rather than
-    changed.** (a) The head reads "Atlas guide" over one muted line, "How this
-    app works, from its own help text", and the sheet's accessible name is
-    that same string (measured in Chromium: neither overflows its head at
-    1440 or at 390). (b) The model: `help_chat` did call `utility_model()`
-    all along, and `ModelManager.utility_model()` answers the **chat** model
-    in two cases, no utility model chosen and smart model routing turned off.
-    Both are the documented design, so nothing in the Guide was changed;
-    `tests/test_help_chat.py` now drives a real request through a real
-    `ModelManager` and pins which model each of the three cases takes, so the
-    panel's copy and the code can be held to each other. If the reader wants
-    a small model here, it is Settings that has to say so. (c) The thinking
-    box could not render: the streamed turn ran in the `quick` preset, whose
-    `think: False` is sent to any model that declares thinking, so
-    `chat_stream`'s `thinking_delta` branch had never fired on an Ollama
-    backend. The turn now runs in `presets.GUIDE_MODE`, Quick's cap and
-    temperature with `think` left unset, off the user-facing mode picker;
-    proven at the seam (`request_extras`) and in a real browser against a
-    stand-in model that reasons out loud (the thinking grew in four steps and
-    was visible during the turn). The streaming itself measured **correct**
-    on this head, over the wire and in the panel: one chunk per model piece
-    on its own 250ms beat, and the answer growing in four steps over 1920ms.
-    The report was real when it was made and was the missing `X-Auth-Token`
-    on the streaming fetch, already fixed on this branch.
-    **The split view's scroll: fixed.** The owner named the cause ("because of
-    the md rendering") and it was right: the sync was a scroll fraction, which
-    is exact at both ends and wrong in between wherever a block takes a
-    different amount of room in the two panes. Measured on a five-section
-    document with a picture, a table, a code fence and a list in each, the
-    preview sat 282, 292, 266, 404 and 550px from the heading the source pane
-    was showing, growing downwards because the error is cumulative. The map is
-    now line to block: `renderMarkdown` stamps each block with the source line
-    it came from, `docScrollAnchors` pairs the stamps with each pane's own
-    offsets and the sync interpolates between the nearest two. After: 0, 75,
-    0, 0, 0px, and the 75 is the probe's own scroll landing 21px short in
-    CodeMirror, not the map. Recipe and lint added in the same commit
-    (DESIGN.md, "Two panes showing one document").
-    **The finder's input: fixed.** Measured before: the field's box sat 1px
-    below the bar's top padding and 11px above the bottom, its centre 4.8px
-    above the bar's, with the glyph beside it at exactly 0. The cause was the
-    stacked-form `margin-bottom` every input in this app carries, which the
-    rule that turns off the field's border, ground, radius and padding inside
-    the band had not turned off: `align-items: center` centres a flex item
-    together with its margins. This is the failure DESIGN.md already names,
-    "And zero the margins, not just the heights", so the fix is that rule
-    rather than a number. After: 5px and 5px at 390, 1px and 1px at 1440,
-    centre offset 0 at both. The bar had been reaching the band's 44px touch
-    floor only through that phantom margin, so it now takes it deliberately
-    below 820 (44.0px measured at 390).
-    **The Ask sub-tab's duplicate sources: fixed, taking the decision named
-    in the brief.** Measured before: five `.chat-source-card`s under the
-    answer with note ids 6, 3, 5, 4, 2 and five rows in Matching records with
-    the same five ids in the same order, five duplicates out of five. After:
-    zero duplicate note cards, and one line reading "Sources: 5 notes, on the
-    right" which scrolls the column into view when pressed (measured: the
-    column's top moved from 299 to 208). A source the column does not hold,
-    a file or a web page, keeps its card **and its number**, since the
-    numbers on those cards are the numbers printed in the answer.
-    `showCitedPassage` was finding its target by `.chat-source-card`, so the
-    citation marks would have become decoration on this tab: it now lights
-    the records row for the note and shows the passage there. The Chat tab
-    keeps its panel whole (5 cards, 1 panel, measured after), because it has
-    no column beside it.
-
 273. **Found by the Documents agent, 2026-09-20 (the session, not the
     owner), two things it measured and did not own.** (1) `errors.js` at
     820: "settings/extras section scrolls sideways 496>492", diagnosed with
@@ -615,3 +514,27 @@ with its owner named in the entry.
     below 1024 the way the phone band already hides other labels, and
     re-measure; it is worth about 60px, which is more than the 2px the wrap
     is short by. Owner: whoever next opens the pad's bar.
+
+281. **Found while measuring the writing desk, 2026-09-20 (WORLD_CLASS_PLAN
+    D16).** An OpenAI-dialect backend that is not there is still reported as
+    running, so every model-gated control in the app stays enabled and fails
+    only once it has been pressed, which is the exact failure
+    `data-needs-model` exists to prevent. Measured: `POST /models/provider`
+    with `base_url: http://127.0.0.1:8999/v1` (nothing listening),
+    `reload_llm_client` runs, and `GET /models/status` answers
+    `ollama_running: true` twelve seconds later with the new base_url in the
+    same body. Cause: `OpenAIClient._fetch_catalog` swallows every
+    `requests.RequestException` and returns `[]`, `list_models` then returns
+    `[]` rather than raising, and the status route decides `running` on
+    whether `list_models` raised. Recommendation: `_fetch_catalog` raises
+    `OllamaError` when no endpoint answered at all (distinct from one that
+    answered with an empty list), so "unreachable" and "no models installed"
+    stop being the same fact. Owner: the models/chat agent.
+
+282. **Found by errors.js while sweeping the writing desk, 2026-09-20.**
+    `[settings/extras] section scrolls sideways 496>492` at 820px, and only
+    at 820: 1440, 1024 and 390 are clean. Four pixels, so it is one control
+    or one row with a fixed width rather than the layout. Recommendation:
+    find the child whose `scrollWidth` is 496 at that width and let it
+    shrink, the same `min-width: 0` answer the dock heads take. Owner:
+    settings.

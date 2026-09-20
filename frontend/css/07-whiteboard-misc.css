@@ -10796,15 +10796,22 @@ header#top-bar {
      bottom value with the two insets alone, which are both 0 on a desktop,
      so the composer sat flush on the card's edge (reported: "there's no
      bottom padding in the chat dock"). */
-  padding-bottom: calc(var(--space-3) + var(--keyboard-inset) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(var(--space-3) + var(--dock-bottom-inset));
 }
 
 /* The formatting bar carries `padding: 0.4rem 0.4rem` of its own, so its
    base term is stated here rather than dropped, a longhand in a later file
    replaces the shorthand's bottom side outright, and `calc(0px + 0px)` would
-   have quietly taken 6.4px off the strip at every width. */
+   have quietly taken 6.4px off the strip at every width.
+
+   **This one only reaches the strip while it is expanded.** Collapsed, which
+   is its default, `.doc-toolbar.is-collapsed` in 05-sidebars-themes.css is
+   (0,2,0) against this rule's (0,1,0) and wins whatever the file order says,
+   so that rule carries `--dock-bottom-inset` itself. Measured at 820 with the
+   covered strip stubbed at 336px: expanded 6.4px to 342.4px, collapsed 4px to
+   4px, before the fix. */
 .doc-toolbar {
-  padding-bottom: calc(var(--space-2) + var(--keyboard-inset) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(var(--space-2) + var(--dock-bottom-inset));
 }
 
 /* --- 4. reduced motion ---------------------------------------------------

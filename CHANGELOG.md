@@ -293,6 +293,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The documents formatting strip rises above the on-screen keyboard while it
+  is collapsed, which is how it starts. Expanded it already did; collapsed, a
+  more specific rule was overriding the keyboard inset away, so the strip you
+  type at sat under the keys. What can sit under a bottom strip is now one
+  named length that all three of them add.
 - The Copy button on a code block and on a table is drawn with the app's own
   icon. Both said "⧉ Copy", a character typed where an icon belongs, while
   five other Copy buttons in the app used the real one. Save beside them takes

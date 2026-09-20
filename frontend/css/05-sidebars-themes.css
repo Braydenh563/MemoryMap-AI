@@ -1569,8 +1569,13 @@ body.resizing-sidebar {
   display: none;
 }
 
+/* The collapsed strip keeps its smaller base term and adds what is under a
+   bottom dock, which the `.doc-toolbar` rule in 07-whiteboard-misc.css cannot
+   give it: that one is (0,1,0) and this is (0,2,0), so it was overriding the
+   keyboard inset away in the strip's default state. See `--dock-bottom-inset`
+   in 00-tokens-shell.css for the measurement. */
 .doc-toolbar.is-collapsed {
-  padding-block: var(--space-1);
+  padding-block: var(--space-1) calc(var(--space-1) + var(--dock-bottom-inset));
 }
 
 .doc-toolbar-collapsed-name {

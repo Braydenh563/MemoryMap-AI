@@ -358,10 +358,37 @@ the reasoning; `docnarrow.js` asserts it.
    instead, if the reach is ever reported, is the sidebar sheet *opening on the
    Outline tab* while a document is open, which is one line in the opener and no
    new surface. Left unbuilt on purpose.
-3. **"The first line of text is on screen with the keyboard open"** is asserted
-   without a keyboard: the sandbox has no soft keyboard, so `docnarrow.js`
-   measures the first line at 318px with the viewport at its full height and
-   nothing more. Not verified.
+3. **"The first line of text is on screen with the keyboard open"**: measured
+   as far as a sandbox can, 2026-09-20, `scratchpad/ui-sweeps/dockeyboard.js`,
+   16 of 16, **and it found a bug in the default state of the formatting
+   strip.**
+
+   **What cannot be measured, and stays not verified**: headless Chromium
+   raises no on-screen keyboard and nothing here can make it, so
+   `visualViewport` never shrinks on its own and `env(keyboard-inset-height)`
+   is always 0. No run here says what a real phone does.
+
+   **What is measured**: everything between the number the platform would
+   report and the pixels. The probe stubs `visualViewport.height` at a
+   middling phone keyboard (336px) and fires the app's own listener, so
+   `initKeyboardInset`, `--keyboard-inset` and every rule that reads it are
+   the real ones. At 390x820 with a document open in Live: the token is 0px
+   with no keyboard and 336px with one, and back to 0px when it closes; the
+   thumb bar's bottom padding goes 4px to 336px and back; the chat composer's
+   8px to 344px; the first line of text sits at 343 to 379 against a visible
+   viewport of 484px, and the thumb bar's top is at 435, so the phase's own
+   line holds with 56px to spare.
+
+   **The bug**: `.doc-toolbar.is-collapsed` (05-sidebars-themes.css) sets
+   `padding-block` at (0,2,0) and beat the `.doc-toolbar` rule in 07 that
+   carries the inset at (0,1,0). Specificity beats file order, so the
+   formatting strip rose with the keyboard while expanded and sat under it
+   while collapsed, which is its default since D1. Measured at 820 with the
+   strip shown: expanded 6.4px to 342.4px, collapsed 4px to 4px. Fixed by
+   naming the sum once as `--dock-bottom-inset` (00-tokens-shell.css) and
+   giving each of the three rules its own base term; after, collapsed is 4px
+   to 340px, expanded unchanged, and collapsing still buys back the same
+   2.4px it did before.
 4. **820–1100's icons rail** is a deliberate no-op until something asks for the
    width: the measure is at its cap there already. Left as a row here rather
    than built, so the next session does not build it twice.

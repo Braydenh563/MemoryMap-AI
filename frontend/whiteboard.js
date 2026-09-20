@@ -7002,7 +7002,30 @@ function wbCaptureBulkMoveOrigin(excludeKey, keys = wbMultiSelection) {
   return origin;
 }
 
+//: **The selection chrome travels with the drag** (INBOX 262: "if I drag the
+//: selected group, the group selection box doesnt move with the selected
+//: objects when actively draging them around"). Measured before the fix: the
+//: cards moved 410px across a drag and the outline's left edge moved 0.
+//:
+//: A transform on the `<g>`, not a re-layout of its parts, for the reason the
+//: resize handles' own comment gives at length: every one of these groups has
+//: a live `d3.drag` bound to elements inside it, and anything that rebuilds
+//: them mid-gesture kills the gesture. The rotate handle already moves its
+//: group this way, so this is the shape the file already uses.
+//:
+//: Every handle group, not only the multi-selection's: a shape caught in the
+//: same sweep carries its own box and anchors in a `.wb-sketch-handle-group`
+//: of its own (`wbDrawSketchHandles`), and those were left behind by exactly
+//: the same amount.
+function wbTranslateSelectionChrome(dx, dy) {
+  for (const group of document.querySelectorAll("#wb-zoom-group > .wb-sketch-handle-group")) {
+    if (dx || dy) group.setAttribute("transform", `translate(${dx} ${dy})`);
+    else group.removeAttribute("transform");
+  }
+}
+
 function wbApplyBulkMove(origin, dx, dy) {
+  wbTranslateSelectionChrome(dx, dy);
   for (const entry of origin.values()) {
     if (entry.kind === "sketch") {
       const newD = wbTransformPathD(entry.d, { dx, dy });
@@ -7068,6 +7091,17 @@ async function wbSaveMapBulkMove(origin) {
 }
 
 async function wbSaveBulkMove(origin) {
+  //: **And is rebuilt where the items landed, before the save goes out.** The
+  //: translate above is a view of the drag, not the truth: the items' own
+  //: coordinates have moved, so the outline has to be recomputed from them or
+  //: it keeps the offset for as long as the selection lasts. Measured before
+  //: the fix: after the drag ended the box was still at the position the
+  //: items had started from, not just during the gesture.
+  //:
+  //: Here rather than in each of the three per-kind drag handlers, because
+  //: this is the one function all three end at, and it runs after the drag is
+  //: over, so replacing the handle elements can no longer cut a gesture short.
+  wbApplySelectionHighlight();
   const done = await wbSaveMapBulkMove(origin);
   for (const entry of origin.values()) {
     if (done && done.has(entry)) continue;

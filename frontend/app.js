@@ -29775,6 +29775,9 @@ async function renderPrefs() {
     prefsCache.notifications_muted_except_reminders
   );
   $("prefs-status").textContent = "";
+  //: The fields now hold what the server holds, so nothing is unsaved: this
+  //: also covers the reopen, since `showSettingsSection` re-renders.
+  markPrefsSaved();
 }
 
 // --- Settings → Web search ------------------------------------------------------
@@ -30223,11 +30226,78 @@ async function savePrefs() {
       prefsSaveInFlight = null;
     }
     $("prefs-status").textContent = "Saved.";
+    markPrefsSaved();
+    //: **A toast as well as the inline word** (INBOX 263). Reported: "no
+    //: visual confirmation popup shows when I use ctrl s to save my
+    //: preferences settings". The inline "Saved." is beside the button, which
+    //: is at the bottom of the last group: press ctrl+s while reading the
+    //: field you just changed at the top of the section and the only feedback
+    //: the app gives is off screen. `toast` is DESIGN.md's recipe for a brief
+    //: confirmation and it is the same one every other save in the app uses,
+    //: so this also stops Preferences being the one place a save says
+    //: nothing.
+    toast("Preferences saved.");
 
     // Reflect a name change immediately if the dashboard is showing.
     if (typeof renderDashboardGreeting === "function") renderDashboardGreeting();
   } catch (error) {
     $("prefs-status").textContent = error.message;
+    toast(error.message, true);
+  }
+}
+
+//: **Preferences is the only section in Settings that does not save on its
+//: own**, and that was true without being said anywhere: every other section
+//: writes on change (`setPreference`, `saveSearchProvider`, the appearance
+//: controls), so someone who has learned that everywhere else closes this one
+//: and loses the field they just typed. Reported as "there is no visual
+//: indications that the preferences settings are the only settings that dont
+//: save automatically".
+//:
+//: Two things say it. A standing line at the top of the section says it
+//: before anything is typed, and this mark says it again at the moment it
+//: starts to matter: the button fills and names the state, so the thing you
+//: have to press is the thing that changed.
+let prefsDirty = false;
+
+function markPrefsDirty() {
+  if (prefsDirty) return;
+  prefsDirty = true;
+  const button = $("prefs-save");
+  if (button) {
+    button.classList.add("primary");
+    button.textContent = "Save preferences";
+  }
+  const note = $("prefs-unsaved");
+  if (note) note.classList.remove("hidden");
+  const status = $("prefs-status");
+  if (status) status.textContent = "";
+}
+
+function markPrefsSaved() {
+  prefsDirty = false;
+  const button = $("prefs-save");
+  if (button) button.classList.remove("primary");
+  const note = $("prefs-unsaved");
+  if (note) note.classList.add("hidden");
+}
+
+//: Every control the payload above reads, so the mark cannot go stale against
+//: a field someone adds to one and forgets in the other. A `change` and an
+//: `input` both, because a `<select>` and a checkbox fire the first and a
+//: text field is worth marking on the keystroke rather than on the blur.
+const PREFS_FIELD_IDS = [
+  "pref-display-name", "pref-bin-days", "pref-chat-retention",
+  "pref-search-min-sim", "pref-search-z-margin", "pref-style",
+  "pref-profile", "pref-profile-enabled", "pref-notif-mute-except-reminders",
+];
+
+function wirePrefsDirtyMarks() {
+  for (const id of PREFS_FIELD_IDS) {
+    const el = $(id);
+    if (!el) continue;
+    el.addEventListener("input", markPrefsDirty);
+    el.addEventListener("change", markPrefsDirty);
   }
 }
 
@@ -39636,6 +39706,30 @@ initHelpToggle("capture-help", "capture-help-hint");
 
 
 $("prefs-save").addEventListener("click", savePrefs);
+wirePrefsDirtyMarks();
+
+//: **Ctrl+S on the Preferences section**, which the section's own copy has
+//: promised for a long time ("Ctrl+S saves too") without anything in the app
+//: implementing it: reported as no confirmation appearing on ctrl+s, and the
+//: reason there was none is that nothing ran. In a browser the press went to
+//: "save this page" instead; in the desktop window it did nothing at all.
+//:
+//: Capturing, so a focused textarea (the profile box is one) cannot swallow
+//: it, and `preventDefault` so the browser's own save dialog does not open
+//: on top of the toast. Scoped to this one section: ctrl+s elsewhere in
+//: Settings has nothing to save, and taking the key globally would break the
+//: browser shortcut everywhere for no gain.
+document.addEventListener(
+  "keydown",
+  (event) => {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+    if (event.key !== "s" && event.key !== "S") return;
+    if (!settingsOpen() || currentSettingsSection !== "preferences") return;
+    event.preventDefault();
+    savePrefs();
+  },
+  true
+);
 $("pref-search-reset").addEventListener("click", () => {
   $("pref-search-min-sim").value = 0.25;
   $("pref-search-z-margin").value = 0.5;

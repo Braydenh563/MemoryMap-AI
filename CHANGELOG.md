@@ -7,6 +7,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- One-click recovery. When start.sh or start.bat's normal launch fails for a
+  reason it can fix (no working interpreter in .venv, or a dependency the
+  app can't import), it repairs itself once, automatically, with no prompt,
+  says in one line what it did, and carries on; a repair that doesn't fix
+  it says exactly what is wrong and where the log is, and never loops. The
+  Windows installer gained a "Repair MemoryMap AI" shortcut beside the
+  ordinary one, running the packaged build's own repair (clears the cached
+  window profile, then opens the app normally; notes and preferences are
+  untouched).
+
 ## [0.3.1] - 2026-09-14
 
 - The status bar's help button says "Guide", not the assistant's name. It sat

@@ -292,6 +292,29 @@ with its owner named in the entry.
     certificate removes it), and the idle memory work is lazy imports rather
     than idle suspend. Open.
 
+269. **Mid-work drop, 2026-09-20, verbatim (the owner), two messages.** "And
+    I was wondering if we should have an ai free version of the guide
+    available for users who dont have the ai running or enabled?? like a
+    preprepared response or sentence stringing with sentence similarity and
+    stuff?? I want to maximise the ability and function of all the application
+    features without ai, the ai features should just eb the bonus." Then:
+    "maybe there can be a fill-in system response/description/explanation that
+    can replace the ai using clever sentence stringing and composition to give
+    the user a breakdown of the results on the ask page in place of the ai
+    without using the ai when it is disabled or not running?? and it can be
+    togglable to see both that response and the ai response when the ai is
+    enabled so the user can flick between both outputs... idk im just sprouting
+    ideas. but again I actually need you to use your ui and ux design skills
+    and the ones vendored in this repo and do a check for signs of being
+    vibecoded."
+    Two things. (1) An extractive, no-model answer on the Ask page: the
+    retrieval, the passage scorer and the grounding all run without a model
+    already, so the missing piece is composition, not search. Worth checking
+    what already exists before building: the Ask tab has a no-model path and
+    the passage scorer produces exactly the spans such an answer would be
+    made of. (2) A vibecoded sweep of the UI against DESIGN.md and the
+    vendored skills, which the owner has now asked for twice. Open.
+
 ## Placed (last 20, newest first)
 
 - 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.

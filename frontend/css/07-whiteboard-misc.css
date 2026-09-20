@@ -7500,6 +7500,25 @@ button.connection-row {
   flex: 1 1 100%;
 }
 
+/* The chip that replaced that fold (INBOX 279): it opens the picture rather
+   than the card, so it never has to hold a paragraph. It takes the step down
+   the type scale and the quiet padding the fold's summary took before it, for
+   the same reason, a 180px card cannot carry a control at the prose's own
+   rank; `min-height` rather than `height` so the 44px touch floor below 820
+   (10-responsive.css) still raises it.
+
+   On the chip's own class rather than on `.library-image-meta > ...`: a rule
+   led by a facts line's handle may not carry a `font-size`, because the rank
+   of a facts line comes from `.library-file-meta` alone
+   (`tests/test_ui_recipes.py`), and this is the control's size, not the
+   line's. */
+.library-image-text-chip {
+  height: auto;
+  min-height: var(--target-min);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+}
+
 .library-file-meta-sep {
   opacity: 0.5;
 }
@@ -7526,12 +7545,27 @@ button.connection-row {
   min-width: 0;
 }
 
-.library-file-reading > .library-file-open-reading {
-  align-self: flex-start;
+/* **The numbers and the one way in share a line** (INBOX 279). The block used
+   to stack four ranks inside the fold, two of them controls asking the same
+   question the fold had just been asked; it is now the facts line and the
+   reading, with the action at the end of the facts line where the Files rows
+   already put theirs. `space-between` rather than a margin, and wrapping, so a
+   narrow row puts the button under the numbers instead of clipping it. */
+.library-file-reading-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  min-width: 0;
 }
 
-.library-file-reading-full {
-  width: 100%;
+/* The button's own `margin-top` is for the stacked layout it used to be in;
+   on the facts line it would drop it four pixels below the numbers it sits
+   beside. */
+.library-file-reading-head > .library-file-open-reading {
+  margin-top: 0;
+  flex: 0 0 auto;
 }
 
 .library-file-summary {
@@ -10539,22 +10573,19 @@ input[type="file"] {
 /* The Files row's reading, opened in place (see buildFileReadingSummary).
    A pre so page breaks and tables survive, wrapped so a long line never
    widens the card, capped so a 40-page scan is a scrolling box rather than
-   a column that pushes every other card off the page. */
-.library-file-reading-more {
-  cursor: pointer;
-  color: var(--accent);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  list-style: none;
-}
+   a column that pushes every other card off the page.
 
-.library-file-reading-more::-webkit-details-marker {
-  display: none;
-}
-
+   **Three lines, not eighteen rem** (INBOX 279). The box used to sit behind a
+   second disclosure inside the first, so its height was somebody's problem
+   only after two clicks; it is what the fold opens onto now, and at 18rem one
+   opened row was 288px of reading in a list of rows. The recommendation on
+   record is "the first three lines of the reading shown inline and one Open
+   reading primary": the cap is those three lines at this size and line height,
+   the box still scrolls for anyone who wants the rest in place, and reading it
+   properly is what the button beside the numbers is for. */
 .library-file-reading-text {
   margin: var(--space-2) 0 0;
-  max-height: 18rem;
+  max-height: 4rem;
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -12287,14 +12318,35 @@ button.finder-row:hover,
 }
 
 /* --- the dashboard's three densities -----------------------------------------
-   INBOX 270. Keyed off `#tab-dashboard[data-density]` (dashboard.js,
-   `applyDashDensity`) rather than classes toggled on six elements, because the
-   attribute survives a render that replaces those elements and a class on a
-   replaced node does not.
+   INBOX 270, redesigned for INBOX 279. Keyed off `#tab-dashboard[data-density]`
+   (dashboard.js, `applyDashDensity`) rather than classes toggled on six
+   elements, because the attribute survives a render that replaces those
+   elements and a class on a replaced node does not.
 
    Nothing is display:none'd that cannot be reached another way: Compact folds,
    Focused hides the bands whose contents are all reachable from the search
-   field above them and from the tabs. */
+   field above them and from the tabs.
+
+   **What the first cut got wrong, measured** (INBOX 279, the owner: "fix and
+   refine the full compact and focused views on the dashboard as the hero
+   section loses a lot"). At 1440 the three levels stood at 593.6 / 456.6 /
+   282px of chrome above the widget grid, and their heroes at 157.2 / 76.3 /
+   133.2px. Two things are wrong in those six numbers:
+
+   * the hero does not shrink with the level. Focused, the level that shows
+     least, had the *second largest* hero, because it dropped whole bands and
+     never touched the banner it kept;
+   * Compact kept the clock at `--text-display` (58.3px tall) while cutting the
+     greeting to `--text-lg` (22.1px) and deleting the one line of numbers
+     about the notebook entirely. The decoration outranked the identity, which
+     is what "the hero section loses a lot" is.
+
+   So the rule every level now keeps: **the greeting and the one number stay at
+   every density, and what shrinks is the art and the secondary rows.** The
+   greeting steps down the type scale (h1 / h2 / h3) rather than falling off it,
+   the numbers line stays and takes `--text-sm` below Full, the emblem shrinks
+   (dashboard.js sizes it per density) before it goes, and the clock loses its
+   date and then itself. */
 
 /* Compact: the same things, smaller. The Start something tiles lose their
    description line and become a row of labelled icons, and the stats become
@@ -12322,10 +12374,6 @@ button.finder-row:hover,
   padding: var(--space-2) var(--space-3);
 }
 
-#tab-dashboard[data-density="compact"] .dash-hero-emblem {
-  display: none;
-}
-
 /* Measured: with only the tiles and the stats folded, Compact saved 50px of
    the 610px above the widget grid, which is not a decluttering anybody would
    notice. The rest of that height is the hero's own banner and the two pill
@@ -12333,17 +12381,41 @@ button.finder-row:hover,
    app's name is in the window title and the top bar), the greeting drops a
    step, and the Jump to and Run a skill rows tighten. Everything is still
    there and still one press away. */
-#tab-dashboard[data-density="compact"] .dash-wordmark,
-#tab-dashboard[data-density="compact"] .dash-submessage {
+#tab-dashboard[data-density="compact"] .dash-wordmark {
   display: none;
 }
 
+/* One step down the scale, not two and not off it. `--text-h2` is still the
+   largest thing in the banner, which is what makes the banner a greeting
+   rather than a strip of controls. */
 #tab-dashboard[data-density="compact"] .dash-greeting {
-  font-size: var(--text-lg);
+  font-size: var(--text-h2);
+}
+
+/* **The one number stays.** It is the only sentence on the dashboard that says
+   anything about this notebook ("You have 218 notes · 3 reminders due"), and
+   Compact used to delete it while keeping a clock the operating system already
+   draws. It takes the small rank instead. */
+#tab-dashboard[data-density="compact"] .dash-submessage {
+  font-size: var(--text-sm);
+  margin-top: 0;
 }
 
 #tab-dashboard[data-density="compact"] .dash-hero {
-  padding-block: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  gap: var(--space-5);
+}
+
+/* The clock is the banner's art, so it is what a density step takes: the date
+   goes first (the day is in every other surface of the app), and the time
+   drops from the display size to `--text-h1`, which keeps it below the
+   greeting rather than twice its size. */
+#tab-dashboard[data-density="compact"] .dash-clock-date {
+  display: none;
+}
+
+#tab-dashboard[data-density="compact"] .dash-clock-time {
+  font-size: var(--text-h1);
 }
 
 #tab-dashboard[data-density="compact"] .quick-pill {
@@ -12359,18 +12431,69 @@ button.finder-row:hover,
   gap: var(--space-2);
 }
 
+/* **And the group labels move onto their own rows' line.** Measured at 1440:
+   each of "Start something", "Jump to" and "Run a skill" costs 18px of label
+   plus its 8px gap above a row of tiles that already says what it is, so the
+   three eyebrows were 78px of a 480px page head. Beside the row instead of
+   over it, they cost nothing and still name the band.
+
+   Above 600 only: a phone has no room for a 7rem lead column, and its Full is
+   already the compact layout (10-responsive.css), which is why the picker
+   itself is hidden down there. */
+@media (min-width: 37.5625rem) {
+  #tab-dashboard[data-density="compact"] .launch-group {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  #tab-dashboard[data-density="compact"] .launch-label {
+    flex: 0 0 7rem;
+  }
+
+  #tab-dashboard[data-density="compact"] .launch-row {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
 /* Focused: the search and the widgets. Everything hidden here is one press
    away, from the search field itself (which finds actions as well as content)
    or from the tabs, which is the test a hidden thing has to pass. */
 #tab-dashboard[data-density="focused"] .dash-quicklinks,
 #tab-dashboard[data-density="focused"] .dash-stats,
 #tab-dashboard[data-density="focused"] .dash-hero-emblem,
+#tab-dashboard[data-density="focused"] .dash-wordmark,
 #tab-dashboard[data-density="focused"] .dash-clock {
   display: none;
 }
 
+/* **And the banner is a line, not a panel.** Focused kept a 133px hero, which
+   was more than Compact's, because it dropped bands around a banner it never
+   touched. Here the greeting and the one number share a baseline and the
+   padding comes down to a row's worth: the level that shows least has the
+   smallest hero, which is the only order the three levels can be read in.
+   `flex-wrap` rather than a width query, so a narrow window gets the two ranks
+   stacked back up without a second rule deciding where narrow starts. */
 #tab-dashboard[data-density="focused"] .dash-hero {
-  padding-block: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  gap: var(--space-4);
+}
+
+#tab-dashboard[data-density="focused"] .dash-hero-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+}
+
+#tab-dashboard[data-density="focused"] .dash-greeting {
+  font-size: var(--text-h3);
+}
+
+#tab-dashboard[data-density="focused"] .dash-submessage {
+  font-size: var(--text-sm);
+  margin-top: 0;
 }
 
 /* The picker sits in the toolbar with Widgets and Edit layout, so it lines up

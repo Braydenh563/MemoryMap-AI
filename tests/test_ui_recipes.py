@@ -1028,6 +1028,46 @@ def test_the_facts_line_is_one_rule_rather_than_three() -> None:
                 )
 
 
+def test_a_facts_line_chip_opens_a_surface_rather_than_the_card() -> None:
+    """DESIGN.md's recipe index: a fact that is also the way in is a
+    `.library-chip` button, and what it opens is never the card it sits on.
+
+    The report (INBOX 279): "I als want you to better design the bottom text
+    for captions and ocr in the image cards in the library images subtab",
+    with a screenshot of six rows of chrome under one thumbnail. The reading
+    was a `<details>` opening in place, and a 180px picture tile has no place:
+    measured at 1440, opening it took the card from 240.7px to 416.3px and the
+    grid gives every card in a row the tallest one's height, so one card's
+    transcription resized its five neighbours.
+
+    The chip opens the lightbox instead, at the reading, which is the same
+    door the tile's own click and the Files row's "Open reading" use. This
+    lint holds the two halves that made it right: the control is the app's own
+    pressable chip rather than a hand-built one, and the picture card's facts
+    line holds no disclosure.
+    """
+    library = (ROOT / "frontend" / "library.js").read_text(encoding="utf-8")
+    assert 'textChip.className = "library-chip library-image-text-chip"' in library, (
+        "the picture card's reading chip is `.library-chip`, the app's own "
+        "pressable chip (DESIGN.md, the recipe index)"
+    )
+    assert "metaRow.append(visionField)" not in library, (
+        "the picture card's facts line must not hold a disclosure again: what "
+        "it opens has to be a surface with room for a transcription"
+    )
+    #: The chip's own size, not the facts line's: a rule led by
+    #: `.library-image-meta` carrying a font-size is the regression
+    #: `test_the_facts_line_is_one_rule_rather_than_three` above describes, and
+    #: this is the rule that was written that way first.
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+    for selector, body in _rules(css):
+        if "library-image-text-chip" in selector and "font-size" in body:
+            assert _leading_name(selector) == ".library-image-text-chip", (
+                f"{selector.strip()} sizes the chip from the facts line's handle; "
+                "put it on the chip's own class"
+            )
+
+
 def _function_body(text: str, name: str) -> str:
     """The source of one top-level function, from its `function` to the next one.
 

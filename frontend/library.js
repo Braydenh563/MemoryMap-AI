@@ -5304,8 +5304,12 @@ function mediaReadingSummary(row) {
   //: document read page by page can say so. 0 for an image and for a file
   //: whose reading is one whole-file blob, where "pages read" would be a
   //: number about nothing.
+  //: "14 pages", not "14 pages read": the line sits under a control that
+  //: already says "Text extracted from this file", so "read" was the same
+  //: claim twice, and the owner wrote the shorter one out in the report
+  //: (INBOX 279).
   const pages = Number(row?.pages_read) || 0;
-  if (pages) facts.push(`${pages} page${pages === 1 ? "" : "s"} read`);
+  if (pages) facts.push(`${pages} page${pages === 1 ? "" : "s"}`);
   facts.push(`${words.toLocaleString()} word${words === 1 ? "" : "s"}`);
   return { sentence, facts, words, pages };
 }
@@ -5345,27 +5349,24 @@ function libraryLightboxItems(images) {
   }));
 }
 
-//: The Files row's reading block: one line of it, and the way to the rest.
-//: See `mediaReadingSummary` for why a clamped paragraph was the wrong answer.
-//: Rows whose whole reading is open; survives the gallery poll re-render.
-const openReadings = new Set();
-
-//: **And the fold above it, which had no such memory.** Reported again on
-//: 2026-09-09, against both media sub-tabs, after the poll's own signature
-//: check had already landed: "the text extracted from this file disclosure
-//: closes itself when the reader scrolls to the bottom of the text", and the
-//: same for "text in this image" on the Images tab.
+//: **Which rows are holding a reading open.** Reported on 2026-09-09, against
+//: both media sub-tabs, after the poll's own signature check had already
+//: landed: "the text extracted from this file disclosure closes itself when
+//: the reader scrolls to the bottom of the text", and the same for "text in
+//: this image" on the Images tab.
 //:
-//: Measured rather than reasoned. With the disclosure and the reading inside
-//: it both open and the list scrolled to 240, a caption written in the
-//: background (which is what the six-second poll exists to notice) rebuilt
-//: every tile: 9 rebuilds, the inner <details> still open because
-//: `openReadings` above remembers it, and the outer one *closed*, because
-//: nothing remembered that one at all. The signature check only ever covered
-//: the case where nothing changed; a poll that finds a real change still
-//: rebuilds, and then the fold a reader is holding open is gone. Six seconds
-//: is also about how long it takes to reach the bottom of a page of text,
-//: which is why the report reads as "when I scroll to the bottom".
+//: Measured rather than reasoned. With the disclosure open and the list
+//: scrolled to 240, a caption written in the background (which is what the
+//: six-second poll exists to notice) rebuilt every tile: 9 rebuilds, and the
+//: fold came back closed, because nothing remembered it. The signature check
+//: only ever covered the case where nothing changed; a poll that finds a real
+//: change still rebuilds, and then the fold a reader is holding open is gone.
+//: Six seconds is also about how long it takes to reach the bottom of a page
+//: of text, which is why the report reads as "when I scroll to the bottom".
+//:
+//: It carries the Images tab's on-demand reading panel too (see
+//: `revealReading`), which is mounted rather than folded and needs the same
+//: memory for the same reason.
 //:
 //: Keyed by `mediaRowKey`, not by `image.id`: an `Attachment` and a
 //: `MediaUpload` have separate id sequences and both kinds are rendered into
@@ -5391,13 +5392,26 @@ function buildFileReadingSummary(image, summary, images) {
     holder.appendChild(empty);
     return holder;
   }
-  const line = document.createElement("p");
-  line.className = "library-file-summary";
-  line.textContent = summary.sentence;
-  //: The whole first line in the tooltip: the summary is clipped to one line
-  //: by CSS, and a title is the cheapest way to see the rest without turning
-  //: the row into a paragraph again.
-  line.title = summary.sentence;
+  //: **One line of facts, the reading, one way in** (INBOX 279, the owner: "I
+  //: want you to better redesign the content in the text extracted from this
+  //: file dropdown in the files subtab").
+  //:
+  //: Measured at 1440 on a fourteen-page reading before this: opening the
+  //: disclosure added 102.3px to the row and drew four ranks inside it, the
+  //: first sentence (18px), the two numbers (18px), a full-width "Show the
+  //: whole reading" bar (32.8px) and an "Open reading" button (28px). Two of
+  //: those four are controls, and both of them answer the same question the
+  //: fold above them has already been asked. What is missing from the list is
+  //: the reading.
+  //:
+  //: So the block is the numbers, the reading, and one way to the page-by-page
+  //: view. The first sentence goes because the reading itself is now on screen
+  //: and starts with it; the inner disclosure goes because a fold inside a
+  //: fold is the same gesture twice, and the whole point of the outer one is
+  //: to be where the text is (reported once already: "a person who opens a
+  //: 'Text extracted from this file' field expects to read the text there").
+  const head = document.createElement("div");
+  head.className = "library-file-reading-head";
   const meta = document.createElement("p");
   meta.className = "muted text-sm library-file-summary-meta";
   meta.textContent = summary.facts.join("  ·  ");
@@ -5419,37 +5433,17 @@ function buildFileReadingSummary(image, summary, images) {
     //: complaint this item is answering.
     openLightbox(libraryLightboxItems(images), images.indexOf(image), { focusReading: true });
   });
+  head.append(meta, open);
   //: The whole reading, in place. Reported directly: "the text extracted
   //: from this file area and dropdown in the library files subtab is
   //: broken, it only shows the first line on the first page extracted". It
   //: was the Phase 7.5 one-line summary working as designed, and the design
-  //: was wrong: a person who opens a "Text extracted from this file" field
-  //: expects to read the text there, not to be sent to a dialog. The line
-  //: stays as the collapsed state; opening it shows every page's reading in
-  //: a scrolling box, and "Open reading" still opens the page-by-page view.
-  const full = document.createElement("details");
-  full.className = "library-file-reading-full";
-  // The gallery re-renders on a poll (libraryImagesPollTimer), which rebuilt
-  // this element closed while a person was reading it (reported: "it keeps
-  // on randomly collapsing, maybe when I scroll to the bottom"). The open
-  // state lives outside the element, keyed by the row, so a re-render puts
-  // it back exactly as it was.
-  full.open = openReadings.has(mediaRowKey(image));
-  const fullSummary = document.createElement("summary");
-  fullSummary.className = "library-file-reading-more";
-  setLabel(fullSummary, "ph:caret-down Show the whole reading");
+  //: was wrong. The box is capped and scrolls (`.library-file-reading-text`),
+  //: so a forty-page scan shows its first few lines and the rest is a scroll
+  //: rather than a column that pushes every other row off the page.
   const fullText = document.createElement("pre");
   fullText.className = "library-file-reading-text";
   fullText.textContent = mediaReading(image);
-  full.append(fullSummary, fullText);
-  const syncReadingLabel = () =>
-    setLabel(fullSummary, full.open ? "ph:caret-up Hide the reading" : "ph:caret-down Show the whole reading");
-  syncReadingLabel();
-  full.addEventListener("toggle", () => {
-    if (full.open) openReadings.add(mediaRowKey(image));
-    else openReadings.delete(mediaRowKey(image));
-    syncReadingLabel();
-  });
   fullText.addEventListener("scroll", () => {
     readingScrollTops.set(mediaRowKey(image), fullText.scrollTop);
   });
@@ -5459,8 +5453,8 @@ function buildFileReadingSummary(image, summary, images) {
   //: synchronously in the same task.
   const savedScroll = readingScrollTops.get(mediaRowKey(image)) || 0;
   if (savedScroll > 0) requestAnimationFrame(() => { fullText.scrollTop = savedScroll; });
-  full.addEventListener("click", (event) => event.stopPropagation());
-  holder.append(line, meta, full, open);
+  fullText.addEventListener("click", (event) => event.stopPropagation());
+  holder.append(head, fullText);
   return holder;
 }
 
@@ -6060,6 +6054,23 @@ function filterLibraryImagesGallery() {
       provenance.textContent = parts.join(" · ");
       provenance.title = [image.caption_model, image.vision_ocr_model].filter(Boolean).join(" · ");
       provenance.classList.toggle("hidden", parts.length === 0);
+      //: **And on the card itself, for the Images layout** (INBOX 279: "the
+      //: two model names in the card's `title`, not on its face"). An image
+      //: card has one line of prose and one line of facts and no room for a
+      //: third rank of model names; a Files row does, and keeps the visible
+      //: byline. Written from the same function as the line so the two can
+      //: never disagree, and with the long names rather than the short ones,
+      //: because a tooltip is where the exact thing belongs.
+      if (image._isImage) {
+        const full = [];
+        if (image.caption_model) {
+          full.push(`Described by ${image.caption_model}${image.caption_edited ? ", edited by hand" : ""}`);
+        } else if (image.caption && image.caption_edited) {
+          full.push("Described by hand");
+        }
+        if (image.vision_ocr_model) full.push(`read by ${image.vision_ocr_model}`);
+        fig.title = full.join(" · ");
+      }
     };
     //: The section the description lives in, declared here and built further
     //: down with the rest of the card's blocks. `let`, not `const` at the
@@ -7068,14 +7079,28 @@ function filterLibraryImagesGallery() {
         ? "Open the card's menu to go to any of them"
         : "This picture is not in any note, document or board";
 
-    //: The byline goes with the reading, inside the fold. "Described by X,
-    //: read by Y" is a claim about where the card's words came from, not one
-    //: of the card's words, and it was two lines of model names on the
-    //: outside of every tile (INBOX 56, and again in the second design batch,
-    //: both times called noise). When there is no reading there is no fold,
-    //: and then the card does not carry it at all: the lightbox has shown
-    //: both bylines under the picture since long before this.
-    readingBody.append(provenance);
+    //: **The byline is on the card, not in it** (INBOX 279, the owner: "I als
+    //: want you to better design the bottom text for captions and ocr in the
+    //: image cards in the library images subtab"; the recommendation on record
+    //: is "the two model names in the card's `title`, not on its face").
+    //:
+    //: It was already off the resting card (INBOX 56 took it off the face and
+    //: put it inside the fold), but opening the fold to read the text put it
+    //: back: measured at 1440, "Described by qwen3-vl:4b · read by
+    //: GLM-OCR-GGUF:Q8_0" wrapped to two lines and 47px of the 176px the fold
+    //: added. "Described by X, read by Y" is a claim about where the card's
+    //: words came from rather than one of the card's words, so it belongs
+    //: where a provenance claim belongs: on the object's own tooltip, with the
+    //: lightbox still printing it under the picture for anyone reading the
+    //: picture properly.
+    //:
+    //: `syncProvenance` writes the tooltip itself (see its own comment), so a
+    //: caption or a reading written after the card was built moves it. The
+    //: paragraph is simply never appended on this layout, which is why there
+    //: is no line to hide here: hiding it would not hold anyway, since
+    //: `syncProvenance` takes the class back off whenever there is something
+    //: to say. A Files row still appends it, where a byline has a row with
+    //: room for one.
 
     //: **What the bottom of the card is: the prose, then one line of facts.**
     //: Reported a third time, 2026-09-13: "redesign the bottom text area of the
@@ -7106,13 +7131,47 @@ function filterLibraryImagesGallery() {
     //: the handle carries only what this layout needs.
     metaRow.className = "library-file-meta library-image-meta";
     if (links.length || image.usage_incomplete) metaRow.append(uses);
+    //: **The reading is behind one chip, and the chip opens the picture**
+    //: (INBOX 279: "the OCR text behind one 'Text' chip"). It was a
+    //: `<details>` opening in place, and in place is the one thing a 180px
+    //: tile has none of: measured at 1440, opening it took the card from
+    //: 240.7px to 416.3px and drew six rows under the thumbnail, a label, the
+    //: text, a Show more, Tesseract's own labelled box and the two model
+    //: names.
+    //:
+    //: What it opens instead is the lightbox, at the reading, which is the
+    //: same door `Open reading` uses on a Files row and the same one the tile
+    //: itself opens: the picture at a size the text can be checked against,
+    //: with the caption, the whole reading and both bylines under it. So the
+    //: card never grows, and the reading is finally somewhere it can be read.
+    //: Correcting one by hand is still the menu's "Type the text in this
+    //: picture", which mounts the editable panel through `revealReading`.
+    //:
+    //: `.library-chip`, the app's own pressable chip, because this is an
+    //: action: `.chip` is a fact (docs/DESIGN.md), and the fact beside it is
+    //: the usage count.
     if ((image.vision_ocr_text || "").trim() || (image.ocr_text || "").trim()) {
-      metaRow.append(visionField);
+      const textChip = document.createElement("button");
+      textChip.type = "button";
+      textChip.className = "library-chip library-image-text-chip";
+      setLabel(textChip, "ph:text-aa Text");
+      textChip.title = "Open the picture with the text found in it";
+      textChip.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openLightbox(libraryLightboxItems(images), images.indexOf(image), { focusReading: true });
+      });
+      metaRow.append(textChip);
     }
     //: Nothing to say, no line: a picture nobody has used and nothing has read
     //: keeps the short foot it has now rather than an empty row holding the
     //: rhythm open.
     if (metaRow.children.length) fields.append(metaRow);
+    //: The editable panel is mounted, never folded: it is on the card only
+    //: while somebody is correcting a reading (`revealReading`, reached from
+    //: the menu's "Type the text in this picture" and from a reader that has
+    //: just run), and `openRowReadings` carries it across the gallery's poll
+    //: so a rebuild mid-edit does not take it away.
+    if (openRowReadings.has(mediaRowKey(image))) revealReading();
 
     fig.append(frame, actions, fields);
     grid.appendChild(fig);

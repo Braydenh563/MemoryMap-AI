@@ -153,14 +153,20 @@ def test_open_reading_opens_the_lightbox_at_the_reading():
     assert "Math.min(...docPagesRead)" in lightbox
 
 
-def test_both_doors_into_the_lightbox_build_the_same_items():
-    """Two copies of that mapping would be two chances for the tile click and
-    the Open reading button to open subtly different dialogs."""
+def test_every_door_into_the_lightbox_builds_the_same_items():
+    """Two copies of that mapping would be two chances for the doors into the
+    reading to open subtly different dialogs.
+
+    Three doors, not two, since INBOX 279 took the image card's `<details>`
+    off the tile: the tile's own click, the Files row's "Open reading" and the
+    picture card's "Text" chip, which opens the same dialog at the same place
+    rather than growing a 180px card by 175.6px of transcription.
+    """
     assert LIBRARY.count("function libraryLightboxItems(") == 1
     #: The declaration reads `function libraryLightboxItems(images)`, so it
     #: matches the call text too, subtracted rather than matched around, since
     #: a cleverer pattern here would be a lint about a lint.
-    assert LIBRARY.count("libraryLightboxItems(images)") - 1 == 2
+    assert LIBRARY.count("libraryLightboxItems(images)") - 1 == 3
 
 
 # --- what the row is for (UI_MODERNISATION_PLAN, "Decided, 2026-09-12") -------

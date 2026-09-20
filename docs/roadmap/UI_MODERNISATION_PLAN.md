@@ -1076,36 +1076,17 @@ menus that open out of their opener.
     width, carries a Continue pill and a fortnight sparkline, and every skill
     pill says when it last ran.
 
-279. **Mid-work drop, 2026-09-20, verbatim (the owner), four screenshots.**
-    "also fix and refine the full compact and focused views on the dashboard
-    as the hero section loses a lot and they can just be improved so much
-    more. the timeline table view shrinks horizontally when opening a note
-    row. I want you to better redesign the content in the text extracted
-    from this file dropdown in the files subtabab. and I als want you to
-    better design the bottom text for captions and ocr in the image cards in
-    the library images subtab". Seen: (1) the Timeline table at 1930px with
-    eight columns to the right edge, and the same table at 1600px with the
-    row detail open under it (the detail pane's width is the table's, so
-    the table takes the pane's narrower width); (2) the Files sub-tab's
-    "Text extracted from this file" disclosure: a title line, "14 pages read
-    · 808 words", a full-width "Show the whole reading" bar and an "Open
-    reading" button, three stacked controls for one thing; (3) an image
-    card's foot: "Used in 1 place", a "Text" disclosure, a bullet "Text in
-    this image", the first line of the text, "Show more", and a muted
-    "Described by qwen3-vl:4b · read by GLM-OCR-GGUF:Q8_0" line, six rows
-    of chrome under one thumbnail. Owner: dashboard.js and its density
-    rules (07-whiteboard-misc.css, `DASH_DENSITIES`), the timeline table
-    (app.js `timeline-table`), library.js (the file reading block and the
-    image card foot). Recommendation: (1) the table keeps `width: 100%` of
-    the card and the detail opens as a row beneath it inside the same
-    scroller, never as a sibling that reflows the table; (2) one line
-    ("14 pages · 808 words") with the first three lines of the reading
-    shown inline and one "Open reading" primary; the disclosure goes;
-    (3) the caption as the card's one line of text, the OCR text behind one
-    "Text" chip, the two model names in the card's `title`, not on its face;
-    (4) the density switch keeps the hero's identity at every level (the
-    greeting and the one number) and shrinks its art and secondary rows,
-    measured per level. Queued for an Opus design agent at the next slot.
+279. **The owner's four reports, 2026-09-20.** All four built (2026-09-20);
+    the block, with the before and after numbers at 1440, 1930, 1600 and 390,
+    is in HISTORY.md ("Moved from the plans, 2026-09-20"). The dashboard's
+    three densities keep the greeting and the one number and shrink the art
+    instead (heroes 157.2 / 99.6 / 47.2px, were 157.2 / 76.3 / 133.2); the
+    Timeline table's Title column stops halving when a row opens; the Files
+    sub-tab's reading block is two ranks and one control rather than four and
+    two, with the reading itself on screen; and a picture card's reading is one
+    `.library-chip` that opens the lightbox, so asking for the text no longer
+    grows the card from 240.7px to 416.3px and takes its five neighbours'
+    heights with it.
 
 ## Placed from INBOX, 2026-09-09 (the owner's evening batch)
 

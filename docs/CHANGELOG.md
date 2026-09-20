@@ -9,6 +9,47 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The Files sub-tab's "Text extracted from this file" block is the numbers, the
+  reading and one way in. Opening it used to draw four ranks and two controls,
+  the first sentence, "14 pages read · 808 words", a full-width "Show the whole
+  reading" bar and an "Open reading" button, and the one thing not in that list
+  was the reading. It is now "14 pages · 808 words" with Open reading at the end
+  of the same line and the reading itself under it, capped at three lines and
+  scrolling. Measured at 1440 on a fourteen-page reading: two ranks instead of
+  four, one control instead of two, the block 110.4px rather than 120.8px, and
+  the row 251.9px open rather than 262.3px with the text still one click away.
+
+- A picture card's reading is one chip, and the chip opens the picture. Asking
+  to see the text used to expand the card from 240.7px to 416.3px and draw six
+  rows under the thumbnail, a label, the text, a Show more, Tesseract's own box
+  and the two model names, and the gallery gives every card in a row the tallest
+  one's height. The "Text" chip opens the lightbox at the reading instead, where
+  the picture, the caption, the whole text and both bylines already sit together,
+  so the card does not move. The model names are on the card's tooltip. Typing a
+  reading by hand is still the card menu's "Type the text in this picture".
+
+- The dashboard's Compact and Focused views keep the hero. Compact used to
+  delete the one line that says anything about this notebook ("You have 218
+  notes, 3 reminders due") and cut the greeting to below body size while keeping
+  the clock at twice the greeting's height, and Focused, the level that shows
+  least, carried the second largest banner of the three: measured at 1440, the
+  three heroes stood 157.2, 76.3 and 133.2px tall. The rule now is one rule: the
+  greeting and the one number stay at every level, and what shrinks is the art
+  and the secondary rows. The greeting steps down the type scale rather than
+  falling off it, the emblem shrinks from 46px to 30px before it goes, the clock
+  loses its date and then itself, and Compact's three band labels move onto
+  their rows' own line. The heroes are 157.2, 99.6 and 47.2px, and the chrome
+  above the first widget is 593.6, 427.9 and 196px (it was 593.6, 456.6 and
+  282px).
+
+- The Timeline's table keeps its width when a note row is opened. The Title
+  column, the one column with no width of its own, was halving: 1032 to 516 at
+  1930, 702 to 351 at 1600, 542 to 271 at 1440, with the other half drawn as
+  empty space past the last header. The open row's cell spanned one column more
+  than the table draws, because the tick column is only there while the
+  selection mode is on, and a fixed table layout answers an extra column by
+  splitting the free space with it.
+
 - The whiteboard and the mind map answer a finger. Two fingers pan and zoom the
   board whatever tool is in hand, which is what every drawing app reserves them
   for: until now a pinch did nothing at all unless you first went and found the

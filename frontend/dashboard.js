@@ -452,7 +452,7 @@ function renderDashboardGreeting() {
   // so it has to be redrawn when the dashboard repaints after a theme change.
   // It also can't be sized while the tab is display:none, p5 measures zero , 
   // which is why this sits in the dashboard's own render and not in init.
-  renderEmblem($("dash-hero-emblem"), 46, { animate: true });
+  paintDashEmblem();
   paintDashClock();
   // One ticking clock, however many times the dashboard re-renders, and none
   // at all while the tab is hidden. It paints HH:MM, so a hidden tab was
@@ -1049,6 +1049,33 @@ function dashDensity() {
   return DASH_DENSITIES.includes(saved) ? saved : "full";
 }
 
+//: **The emblem is the hero's art, and art is what a density step spends**
+//: (INBOX 279). The first cut of the three levels hid the mark outright at the
+//: first step down and then kept a display-sized clock beside a greeting it had
+//: cut to `--text-lg`, which is how the hero came to "lose a lot" at Compact
+//: while Focused kept a bigger banner than Compact had.
+//:
+//: A size rather than a CSS rule because the mark is a p5 sketch drawn into a
+//: canvas of that many pixels: scaling the holder would either leave a 46px box
+//: around a 30px drawing or resample the canvas. 0 means the level does not
+//: carry it at all, and the CSS hides the holder to match.
+const DASH_EMBLEM_SIZE = { full: 46, compact: 30, focused: 0 };
+
+function paintDashEmblem() {
+  const holder = $("dash-hero-emblem");
+  if (!holder) return;
+  const size = DASH_EMBLEM_SIZE[dashDensity()] ?? DASH_EMBLEM_SIZE.full;
+  //: A sketch drawn into a hidden holder measures zero (the holder is
+  //: `display: none` at Focused), so the level that does not carry the mark
+  //: does not draw one either; switching back re-enters through
+  //: `applyDashDensity` below.
+  if (!size) {
+    holder.replaceChildren();
+    return;
+  }
+  renderEmblem(holder, size, { animate: true });
+}
+
 function applyDashDensity(value) {
   const density = DASH_DENSITIES.includes(value) ? value : "full";
   localStorage.setItem(DASH_DENSITY_KEY, density);
@@ -1066,6 +1093,11 @@ function applyDashDensity(value) {
   //: toolbar, and a select says which one is on by saying its name.
   const picker = document.getElementById("dash-density");
   if (picker && picker.value !== density) picker.value = density;
+  //: The mark is the one part of the banner CSS cannot resize (see
+  //: `DASH_EMBLEM_SIZE`), so the level change redraws it, but only once the
+  //: dashboard has drawn one: this function also runs at wiring time, before
+  //: the first render, and drawing there would race the render's own call.
+  if (page && page.querySelector("#dash-hero-emblem canvas")) paintDashEmblem();
 }
 
 function wireDashDensity() {

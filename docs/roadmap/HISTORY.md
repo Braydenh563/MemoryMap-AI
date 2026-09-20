@@ -25118,6 +25118,118 @@ hides nothing, because the reader sees its `.select-shell`.
     the window the report came from; the numbers above are headless Chromium.
 ## Moved from the plans, 2026-09-20
 
+### UI_MODERNISATION_PLAN "Placed from INBOX" 279, the owner's four reports
+
+Built 2026-09-20, all four, each measured in Chromium before and after against
+a seeded notebook (48 back-dated notes, three pictures with a caption, a vision
+reading and two model names, two PDFs with fourteen stored page readings each:
+`scratchpad/ui-sweeps/seed-libtext.js` and `seed-libtext.py`, beside
+`seed-timeline.js` and `seed-timeline.py`). The owner's words are in the plan
+entry this replaces.
+
+**1. The dashboard's three densities** ("fix and refine the full compact and
+focused views on the dashboard as the hero section loses a lot and they can
+just be improved so much more"). `scratchpad/ui-sweeps/dashdensity.js`, new.
+
+Before, at 1440: chrome above the widget grid 593.6 / 456.6 / 282px, heroes
+157.2 / 76.3 / 133.2px. Two faults in those six numbers. The hero did not
+shrink with the level: Focused, the level that shows least, carried the second
+largest banner, because it dropped whole bands and never touched the one it
+kept. And Compact kept the clock at `--text-display` (58.3px tall) beside a
+greeting cut to `--text-lg` (22.1px, below body size) and deleted
+`#dash-submessage`, the one line that says anything about this notebook. The
+decoration outranked the identity, which is what "loses a lot" was.
+
+One rule now, the one the recommendation named: the greeting and the one number
+stay at every level, and what shrinks is the art and the secondary rows. The
+greeting steps down the scale (h1 / h2 / h3) rather than falling off it, the
+number holds at `--text-sm`, the emblem goes 46px to 30px before it goes at all
+(a p5 canvas is drawn at a size, so `DASH_EMBLEM_SIZE` in dashboard.js sizes it
+per density and `applyDashDensity` redraws it), the clock loses its date and
+then itself, and Compact's three band labels sit beside their rows rather than
+above them (78px of eyebrow over rows that already say what they are).
+
+After, at 1440: chrome 593.6 / 427.9 / 196, heroes 157.2 / 99.6 / 47.2. At 390:
+chrome 665.9 / 592.3 / 285.2, heroes 151.2 / 114.4 / 96. Compact at 390 is 30px
+taller than it was, which is the one number coming back and is the trade the
+recommendation asks for; every other figure is down and all three levels read in
+order at both widths.
+
+**2. The Timeline table** ("the timeline table view shrinks horizontally when
+opening a note row"). `scratchpad/ui-sweeps/timelinetablewidth.js`, new.
+
+Not the shape the report guessed at: the detail was already a `<tr>` of the
+table rather than a sibling pane, and the table's own width never moved. What
+shrank was the Title column, the one column with no width of its own: with the
+second row opened, 1032 to 516 at 1930, 702 to 351 at 1600, 542 to 271 at 1440.
+Exactly half, every time, with the other half drawn as empty space past the last
+header.
+
+An off-by-one in one line. The detail cell spanned `TIMELINE_COLUMNS.length + 1`,
+but the tick column is `.hidden` unless the selection mode is on, so the table
+draws eight columns and the cell asked for nine; `table-layout: fixed` answers a
+column it has no header for by giving it an equal share of what the sized
+columns leave, which is the free space the Title column had all of. The span
+comes from `timelineTableColumnCount()` now, and `syncTimelineDetailSpans()`
+runs from the paint that shows and hides that column as well as from the opener.
+After: 1032, 702 and 542 unchanged at all three widths.
+
+**3. The Files sub-tab's reading block** ("I want you to better redesign the
+content in the text extracted from this file dropdown in the files subtab").
+`scratchpad/ui-sweeps/libreadingfoot.js`, new.
+
+Before, at 1440 on a fourteen-page reading: opening the fold added 102.3px and
+drew four ranks inside it, the first sentence (18px), "14 pages read · 1,106
+words" (18px), a full-width "Show the whole reading" bar (32.8px) and an "Open
+reading" button (28px). Two of the four are controls and both answer the
+question the fold above them had just been asked. What was not in the list was
+the reading.
+
+After: "14 pages · 1,106 words" with Open reading at the end of the same line
+(`.library-file-reading-head`), and the reading itself under it, capped at three
+lines and scrolling. Two ranks, one control, the block 110.4px rather than
+120.8px, the row 251.9px open rather than 262.3px, and the text on screen rather
+than one more click away. At 390 the head wraps to two rows, the button is 44px
+and nothing clips.
+
+**4. The picture card's foot** ("I als want you to better design the bottom text
+for captions and ocr in the image cards in the library images subtab").
+
+At rest the foot was already two ranks, the description and one facts line.
+Asking for the text was the fault: measured at 1440, it took the card from
+240.7px to 416.3px and drew six rows under the thumbnail, a label, the text, a
+Show more, Tesseract's own labelled box and "Described by qwen3-vl:4b · read by
+GLM-OCR-GGUF:Q8_0" over two lines (47px of the 176px the fold added). A 180px
+tile has no in place to open into, and the grid gives every card in a row the
+tallest one's height, so one card's transcription resized its five neighbours.
+
+The reading is one `.library-chip` "Text" now, and it opens the lightbox at the
+reading: the same door the tile's own click and the Files row's Open reading
+use, where the picture, the caption, the whole text and both bylines already sit
+together. The card stays at 240.7px whether the text is asked for or not. The
+two model names are on the card's own `title`, which is where the recommendation
+put them.
+
+Nothing was lost with the fold. Correcting a reading by hand is still the card
+menu's "Type the text in this picture", which mounts the editable panel through
+`revealReading`, and `openRowReadings` carries that panel across the gallery's
+six-second poll. The probe drives that menu row and checks the box is there
+rather than assuming it.
+
+The chip's recipe is a row in DESIGN.md's index ("A fact on a facts line that is
+also the way in") with its lint in `tests/test_ui_recipes.py`:
+`.library-chip` on a button, what it opens is never the card it sits on, and its
+size comes from its own class because a rule led by a facts line's handle may
+not carry a `font-size`.
+
+**Not verified.** No human has looked at any of the four. Every number here is
+`getBoundingClientRect` or `getComputedStyle` in headless Chromium at the widths
+named. The seeded captions, readings and model names are written into the
+database rather than produced by a model, because there is none in the sandbox;
+what is under test is what the card draws from them. The two PDFs are hand-built
+one-page files whose page thumbnails 404 in this sandbox, which is a seeding
+artefact and not a code path this work touched.
+
 ### DOCUMENTS_PLAN.md Phase 4 item 4, the editor's commands as one table
 
 The plan asked for a palette listing every editor action with its shortcut and

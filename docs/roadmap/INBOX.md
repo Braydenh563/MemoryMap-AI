@@ -416,7 +416,7 @@ with its owner named in the entry.
     refused outright rather than warned about, so a Mac build is only worth
     shipping alongside an Apple Developer account for notarisation.
 
-275. **Found while fixing 274 (the session, not the owner): a role can say one
+277. **Found while fixing 274 (the session, not the owner): a role can say one
     model and run another, everywhere, silently.** 274's "it doesnt use the
     utility model and instead uses the chat model" was not a bug in the Guide:
     `ModelManager.utility_model()` answers the **chat** model whenever no

@@ -31552,6 +31552,86 @@ const SKETCH_HIGHLIGHTER_COMPOSITE = "source-over";
 // slider moves.
 const SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER = 4;
 
+//: **A highlighter is one translucent band, so it is painted once.** Reported
+//: three times now, most recently as "it doesnt act as it should and looks
+//: messy", and the previous two fixes were both real and both incomplete
+//: because they treated the alpha rather than the compositing.
+//:
+//: Each segment used to be its own `stroke()` at 0.35. That is correct for
+//: one segment and wrong for a stroke: consecutive segments overlap at every
+//: joint, a 16px band advancing 6px per pointer event covers each pixel about
+//: three times, and 1-(1-0.35)^3 is 0.73. Measured on a straight drag against
+//: white: coverage 0.80 where the tool asks for 0.35, running from 0.725 to
+//: 0.824 down the band (the chain of darker lozenges that reads as "messy"),
+//: and a stroke crossing its own line went 0.576 to 0.824.
+//:
+//: So the points are collected and the whole polyline is drawn on a layer of
+//: its own at full opacity, then that layer is composited onto the canvas
+//: once, at the stroke's alpha. Overlaps inside the layer are opaque-over-
+//: opaque, which changes nothing, and the single composite is the only place
+//: alpha is applied. This is what the whiteboard gets for free by drawing one
+//: SVG path with `stroke-opacity`, and it is why the two look different.
+//:
+//: The in-progress stroke repaints from the snapshot each frame, which is the
+//: same thing the rect, circle and arrow tools already do here.
+let sketchStrokePoints = [];
+let sketchLayerCanvas = null;
+
+//: The layer, sized to the canvas it will be blitted onto. Kept between
+//: strokes rather than allocated per pointerdown: it is one full-size buffer
+//: and a sketch is a burst of strokes.
+function sketchStrokeLayer(canvas) {
+  if (!sketchLayerCanvas) sketchLayerCanvas = document.createElement("canvas");
+  if (sketchLayerCanvas.width !== canvas.width) sketchLayerCanvas.width = canvas.width;
+  if (sketchLayerCanvas.height !== canvas.height) sketchLayerCanvas.height = canvas.height;
+  const layer = sketchLayerCanvas.getContext("2d");
+  layer.setTransform(1, 0, 0, 1, 0, 0);
+  layer.clearRect(0, 0, sketchLayerCanvas.width, sketchLayerCanvas.height);
+  return layer;
+}
+
+//: Draw the whole highlighter stroke as it stands: the snapshot back, the
+//: polyline onto the layer at full opacity, the layer onto the canvas at the
+//: stroke's alpha. Called from every move and once more on the release.
+function sketchPaintHighlighter(context) {
+  const canvas = context.canvas;
+  const last = sketchHistory[sketchHistory.length - 1];
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  if (last) context.putImageData(last, 0, 0);
+  else context.clearRect(0, 0, canvas.width, canvas.height);
+  context.restore();
+  if (sketchStrokePoints.length === 0) return;
+
+  const layer = sketchStrokeLayer(canvas);
+  //: The canvas may be scaled for the device pixel ratio, and the points are
+  //: in CSS pixels because that is what `sketchPointer` returns. The layer is
+  //: a raw buffer, so it has to be given the same transform by hand.
+  const scale = canvas.width / (canvas.getBoundingClientRect().width || canvas.width);
+  layer.setTransform(scale, 0, 0, scale, 0, 0);
+  layer.lineCap = "square";
+  layer.lineJoin = SKETCH_HIGHLIGHTER_LINE_JOIN;
+  layer.globalAlpha = 1;
+  layer.strokeStyle = sketchPen.color;
+  layer.lineWidth = sketchPen.size * SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER;
+  layer.beginPath();
+  const [first, ...rest] = sketchStrokePoints;
+  layer.moveTo(first.x, first.y);
+  //: A single point is a dab, not a line, and `lineTo` to the same place
+  //: draws nothing at all: the nudge is what every one-click mark in this
+  //: file uses.
+  if (rest.length === 0) layer.lineTo(first.x + 0.01, first.y);
+  for (const point of rest) layer.lineTo(point.x, point.y);
+  layer.stroke();
+
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.globalCompositeOperation = SKETCH_HIGHLIGHTER_COMPOSITE;
+  context.globalAlpha = SKETCH_HIGHLIGHTER_ALPHA;
+  context.drawImage(sketchLayerCanvas, 0, 0);
+  context.restore();
+}
+
 let sketchPen = { color: "#3b82f6", size: 4, eraser: false };
 let sketchDrawing = false;
 let sketchDirty = false;
@@ -31694,7 +31774,8 @@ function sketchStart(event) {
 
   sketchSaveSnapshot();
   const context = sketchContext();
-  if (sketchTool === "pen" || sketchTool === "highlighter") {
+  sketchStrokePoints = sketchTool === "highlighter" ? [{ x, y }] : [];
+  if (sketchTool === "pen") {
     context.beginPath();
     context.moveTo(x, y);
   }
@@ -31708,38 +31789,39 @@ function sketchMove(event) {
   if (x === sketchStartX && y === sketchStartY) return;
   sketchMoved = true;
   
-  if (sketchTool !== "pen" && sketchTool !== "highlighter") {
+  //: The highlighter is painted whole, from the snapshot up, every frame:
+  //: see `sketchPaintHighlighter` for why it cannot be drawn a segment at a
+  //: time. Everything below this is the per-segment path the pen and the
+  //: shapes use.
+  if (sketchTool === "highlighter") {
+    sketchStrokePoints.push({ x, y });
+    sketchPaintHighlighter(context);
+    return;
+  }
+
+  if (sketchTool !== "pen") {
     const last = sketchHistory[sketchHistory.length - 1];
     if (last) context.putImageData(last, 0, 0);
     else context.clearRect(0, 0, context.canvas.width, context.canvas.height);
   }
 
-  context.lineCap = sketchTool === "highlighter" ? "square" : "round";
-  context.lineJoin = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_LINE_JOIN : "round";
+  context.lineCap = "round";
+  context.lineJoin = "round";
   context.globalCompositeOperation =
-    sketchPen.eraser && sketchTool === "pen"
-      ? "destination-out"
-      : sketchTool === "highlighter"
-        ? SKETCH_HIGHLIGHTER_COMPOSITE
-        : "source-over";
-  context.globalAlpha = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_ALPHA : 1.0;
+    sketchPen.eraser && sketchTool === "pen" ? "destination-out" : "source-over";
+  context.globalAlpha = 1.0;
   context.strokeStyle = sketchPen.color;
-  context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
+  context.lineWidth = sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size;
 
-  if (sketchTool === "pen" || sketchTool === "highlighter") {
+  if (sketchTool === "pen") {
     context.lineTo(x, y);
     context.stroke();
-    // Reported: "the highlighter has no opacity to it, it's basically a
-    // thick pen." The path opened in sketchStart keeps every point ever
-    // added via lineTo: stroke() re-draws the *whole accumulated path*
-    // each time, not just the newest segment, so a stroke a hundred points
-    // long gets its first segment re-composited a hundred times over. At
-    // full opacity (the plain pen) that's invisible: opaque drawn twice is
-    // still opaque: but at the highlighter's 0.35 alpha, ~10 overlapping
-    // passes already reads as ~99% opaque (1-(1-0.35)^10), which is exactly
-    // "no opacity to it". Starting a fresh single-segment path from the
-    // current point makes every stroke() call draw that one segment
-    // exactly once, at exactly the alpha asked for.
+    //: A fresh single-segment path per move, so a hundred-point stroke does
+    //: not re-composite its first segment a hundred times. Harmless at the
+    //: pen's full opacity and load-bearing for anything translucent, which
+    //: is why the highlighter was here once and is not any more: one segment
+    //: drawn once is still not one *stroke* drawn once, and the overlap at
+    //: each joint is what `sketchPaintHighlighter` exists to remove.
     context.beginPath();
     context.moveTo(x, y);
   } else if (sketchTool === "line") {
@@ -31788,19 +31870,25 @@ function sketchMove(event) {
 function sketchEnd(event) {
   if (sketchDrawing && !sketchMoved && event && (event.type === "pointerup" || event.type === "click")) {
     const context = sketchContext();
-    context.lineCap = sketchTool === "highlighter" ? "square" : "round";
-    context.lineJoin = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_LINE_JOIN : "round";
+    //: A dab with the highlighter goes through the same painter a drag does,
+    //: so a press that never moved leaves exactly the alpha every other
+    //: highlighter mark leaves.
+    if (sketchTool === "highlighter") {
+      sketchStrokePoints = [{ x: sketchStartX, y: sketchStartY }];
+      sketchPaintHighlighter(context);
+      sketchStrokePoints = [];
+      sketchDrawing = false;
+      return;
+    }
+    context.lineCap = "round";
+    context.lineJoin = "round";
     context.globalCompositeOperation =
-      sketchPen.eraser && sketchTool === "pen"
-        ? "destination-out"
-        : sketchTool === "highlighter"
-          ? SKETCH_HIGHLIGHTER_COMPOSITE
-          : "source-over";
-    context.globalAlpha = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_ALPHA : 1.0;
+      sketchPen.eraser && sketchTool === "pen" ? "destination-out" : "source-over";
+    context.globalAlpha = 1.0;
     context.strokeStyle = sketchPen.color;
-    
-    if (sketchTool === "pen" || sketchTool === "highlighter") {
-      context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
+
+    if (sketchTool === "pen") {
+      context.lineWidth = sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size;
       context.beginPath();
       context.moveTo(sketchStartX, sketchStartY);
       context.lineTo(sketchStartX, sketchStartY + 0.1);

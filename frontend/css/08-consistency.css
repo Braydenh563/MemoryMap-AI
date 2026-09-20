@@ -1938,9 +1938,14 @@ summary > .ph-lead,
 .atlas-composer > button.icon-only {
   width: 2.5rem;
 }
-/* In the sheet the head carries the mark, the name and the line, so the
-   intro block that repeated all three is not shown there; it stays for the
-   Settings Help page, where there is no sheet head. */
+/* In the sheet the head carries the mark, the name and the line, so the intro
+   block that repeated all three is not shown there. It is not shown anywhere
+   else either, and the comment here used to say it stayed for the Settings
+   Help page: that page shows `.atlas-row` and a button, and the chat itself
+   lives in `#atlas-host`, which is `hidden` until `openHelpChat` moves it
+   into the sheet. What the block is still for is the `.atlas-mark` the head
+   clones for its avatar, which is the reason to leave it in the markup
+   rather than delete it as dead (INBOX 270). */
 .atlas-chat.atlas-docked .atlas-intro {
   display: none;
 }
@@ -1988,19 +1993,15 @@ summary > .ph-lead,
   font-size: var(--text-sm);
 }
 
-/* **A chat is a column, not a wall** (INBOX 204: "modernise and redesign /
-   improve the ui and ux for the help ai"). The sheet recipe is deliberately
-   full width at every width, which is right for a list of rows and wrong for a
-   transcript: opened at 1440 the guide's messages ran 1356px wide, around 200
-   characters a line, against the 60 to 80 every other reading surface in this
-   app holds itself to. The cap is on the chat inside the sheet, not on the
-   sheet, so nothing else built from that recipe moves. Measured: 1356px, now
-   704px, centred. */
-[data-sheet="guide"] .help-chat-group {
-  max-width: 44rem;
-  margin-inline: auto;
-  width: 100%;
-}
+/* **A chat is a column, not a wall** (INBOX 204) was a 44rem cap on the chat
+   inside the sheet, put there when the sheet ran the full width of the window
+   and gave the transcript a 1356px line. INBOX 224 made the panel a corner
+   card instead, and the cap has been unreachable ever since: measured at
+   1440x900, the chat is 398px wide inside a 448px card, so a 704px ceiling
+   decided nothing. Removed rather than left standing, because a rule that
+   reads as live and is not is the next reader's wrong explanation for
+   whatever they are looking at (INBOX 270). The reading width is the card's
+   now, and `.sheet-card-corner`'s own block above says so. */
 
 .help-accordion + .help-chat-group {
   margin-top: var(--space-6);

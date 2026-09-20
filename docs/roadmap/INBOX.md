@@ -396,6 +396,67 @@ with its owner named in the entry.
     tour is driven end to end by the sweep at 2000x1140 as well as 1440 and
     390, pressing Next on every step and asserting a visible card and a
     cut-out inside the viewport each time. To the tour's own agent.
+    **Fixed.** The owner's exact trigger did not reproduce from a clean boot:
+    the welcome flow's hand-off (`onboardingNext` calls `openTour("basics")`
+    on its last Next) was driven end to end at 2000x1140, 1440x900 and
+    390x844, and every step had a visible card and an on-screen cut-out, with
+    112 pixel samples at the far edges confirming the dim covered them all,
+    with the background art on and off. So the mechanism was forced instead,
+    which settled it: with the step's control moved off the right edge, the
+    cut-out was placed at x 2994 carrying **the previous step's 708px width**.
+    `tourSpotlight` clamps `left` to the target and `right` to the window, so
+    `right - left` goes negative; `width: -994px` is invalid, the declaration
+    is dropped, and the element keeps the size it already had. That is
+    CLAUDE.md's invalid-value trap, and since the dim is the cut-out's own
+    `box-shadow`, a hole in the wrong place darkens the whole page and leaves
+    a band where the shadow's edge falls: the screenshot.
+    Two rules now, because neither shows up in the other's output: the clamped
+    box is checked before it is written, and a cut-out that cannot be drawn is
+    not drawn at all (the card is centred, nothing is dimmed); and a step
+    whose control is not really on screen after the wait is dropped so the
+    counter renumbers, in `tourShow` and again in `tourReflow` for a control
+    that leaves the window mid-step. Measured after, with the control forced
+    off the right edge, to a zero-width box and far below the fold: all three
+    skip to the next real step ("2 of 3"), cut-out and card on screen.
+    `scratchpad/ui-sweeps/tour.js` gained 2000x1140 and drives the welcome
+    hand-off, asserting a visible card and an on-screen-or-absent cut-out on
+    every step at all three sizes: all pass.
+
+281. **Mid-work drop, 2026-09-20, verbatim (the owner), on branch head
+    dce2449, after 274's split-view fix landed (filed as 278 in the agent's
+    worktree, renumbered here because the branch took 278 in parallel).** "the documents split view
+    scrolling is broken and misaligned". Triage: this is a second report of
+    274's third item against a head that already carries the fix, so the
+    measurement that closed it (0, 75, 0, 0, 0px on a synthetic five-section
+    document) is not evidence about the document the owner has open. Taken
+    back by the same agent, to be reproduced the way it is used rather than
+    the way it was probed: a real document (frontmatter, an H1 title, long
+    wrapped paragraphs, images, a table, a code fence, nested lists, a
+    callout, 200+ lines), both directions, three or more positions including
+    the bottom, while typing mid-document, across a Live to Split switch,
+    after a save, with the sidebar resized, at 1440 and 1024. If nothing
+    drifts, the next suspect is a stale asset rather than the mapping.
+    **Fixed, and the first fix's probe was the reason it survived.** The
+    mapping was right; the measurement of where a block sits in the preview
+    was not. `docScrollAnchors` read `block.offsetTop`, which is taken from
+    the nearest **positioned** ancestor and not from the pane: measured on a
+    real document, 218px past the truth at 1440, 230px at 1024, and 146px
+    once the sidebar is collapsed, because collapsing it puts a positioned
+    `#doc-layout` in between. A constant bias on every anchor is handed
+    straight through the interpolation, so the preview sat that far past the
+    line the source was showing at every position, with no pattern to it,
+    which is the report. It is the rule `setDocPage` already states in
+    app.js, and the first fix did not follow it.
+    The old probe read `offsetTop` as well, so the bias cancelled and it
+    reported 0px. `scratchpad/ui-sweeps/docsplit.js` replaces it: rects on
+    both sides, a document with frontmatter, an H1, wrapped paragraphs, real
+    images, a table, a code fence, nested lists, a callout and 220 lines,
+    both directions at six headings including the last, in five states
+    (baseline, after a mid-document edit, after Live to Split, after a save,
+    after the sidebar moves), at 1440 and 1024. Before: worst 444px and
+    453px. After: worst 1px in all ten passes. The anchor cache token gained
+    both panes' widths, since a pane that changes width rewraps every
+    paragraph in it without necessarily changing either scroll height.
 
 277. **Found while fixing 274 (the session, not the owner): a role can say one
     model and run another, everywhere, silently.** 274's "it doesnt use the

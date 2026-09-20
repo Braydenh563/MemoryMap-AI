@@ -236,6 +236,31 @@ below). Versioning is `0.x` while the app stabilises.
   and 11px below. The glyph beside it was dead centre the whole time, which
   is what made the text look dropped. Zeroed, and the bar takes the band's
   44px floor below 820, which it used to reach only by accident.
+- The guided tour never draws its cut-out off the page. A step whose control
+  was off the right edge clamped to a negative width, which is invalid CSS and
+  is dropped, so the cut-out kept the previous step's size and sat outside the
+  window: the dim is that element's own box-shadow, so the page went dark with
+  a bright band where the shadow's edge fell and nothing highlighted. Measured
+  at 2000x1140 with the target at x 3000: the cut-out placed at 2994 carrying
+  708px of stale width. A step whose control is not really on screen is now
+  dropped, the counter renumbers, and a cut-out that cannot be drawn is not
+  drawn at all, with the card centred instead. The tour sweep drives the
+  welcome flow's own hand-off at 2000x1140, 1440 and 390 and asserts a visible
+  card and an on-screen cut-out on every step.
+- The split document view lines its panes up from rects, not `offsetTop`.
+  The first fix mapped source lines to rendered blocks correctly and then read
+  each block's position with `offsetTop`, which is measured from the nearest
+  positioned ancestor rather than from the pane: measured on a real document,
+  every block's `offsetTop` ran 218px past its true offset in the pane at
+  1440 and 230px at 1024, and collapsing the sidebar changed the bias to
+  146px by putting a positioned element in between. Every anchor carried that
+  constant, so the preview parked that far past the line the source was
+  showing, at every position. The probe that closed the first report read
+  `offsetTop` too, so the same bias cancelled on both sides of its
+  subtraction and it reported 0px from a pane a paragraph and a half out.
+  Measured with rects: worst 444px at 1440 and 453px at 1024 before, 1px
+  after, across ten passes covering both directions, a mid-document edit, a
+  view switch, a save and the sidebar moving.
 - The split document view keeps its two panes on the same place. The sync
   was a scroll fraction, which is exact at both ends and wrong in between
   wherever a block takes a different amount of room in the two halves: a

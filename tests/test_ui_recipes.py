@@ -1329,6 +1329,33 @@ def test_the_rendered_blocks_carry_the_line_they_came_from() -> None:
         "markup on every surface that renders markdown"
     )
     anchors = _function_body(documents_js, "docScrollAnchors")
+    #: **Rects, never `offsetTop`** (INBOX 281). The mapping was right the
+    #: first time and the measurement of where a block sits was not:
+    #: `offsetTop` is taken from the nearest positioned ancestor, and measured
+    #: on a real document it ran 218px past the truth at 1440, 230px at 1024,
+    #: and 146px once the sidebar was collapsed and a positioned `#doc-layout`
+    #: appeared in between. Every anchor carried the bias, so the preview sat
+    #: that far past the line the source was showing at every position. It is
+    #: the rule `setDocPage` already states in app.js.
+    #: The comments in that function discuss `offsetTop` at length, which is
+    #: the point of them, so the check reads the code with the prose taken out.
+    anchor_code = "\n".join(
+        line for line in anchors.splitlines() if not line.lstrip().startswith("//")
+    )
+    assert "offsetTop" not in anchor_code, (
+        "docScrollAnchors must not read offsetTop: it is measured from the "
+        "nearest positioned ancestor, not from the pane, and the bias between "
+        "them lands on every anchor"
+    )
+    assert "getBoundingClientRect()" in anchor_code and "preview.scrollTop" in anchor_code, (
+        "a block's place in the pane is its rect corrected by the pane's own "
+        "rect and scroll"
+    )
+    assert "clientWidth" in anchor_code, (
+        "the cache token has to carry both panes' widths: a pane that changes "
+        "width rewraps every paragraph in it, and it can do that without "
+        "changing either scroll height"
+    )
     assert "docPreviewLineShift" in anchors, (
         "the stamps count lines in the string the preview rendered, which has "
         "the title prepended and the frontmatter taken off: the shift has to "
@@ -1560,6 +1587,65 @@ def test_a_tour_step_waits_for_the_tab_it_switched_to() -> None:
     )
     active = _function_body(js, "tourActiveTab")
     assert "#tab-bar" in active, "tourActiveTab reads the pressed tab button"
+
+
+def test_the_cut_out_is_never_drawn_where_it_cannot_be_seen() -> None:
+    """INBOX 280, the owner at about 2000x1140: "this happens when I press next
+    on the welcome tour", with the whole page dimmed except a strip about 100px
+    wide at the right edge, no card and nothing highlighted.
+
+    The dim is the cut-out's own `box-shadow`, so a cut-out placed outside the
+    window darkens everything and highlights nothing. It got there through the
+    invalid-value trap CLAUDE.md names: with a target off the right edge,
+    `left` clamps to the target and `right` clamps to the window, so
+    `right - left` is **negative**, `width: -994px` is dropped as invalid, and
+    the element silently keeps the width it had on the previous step. Measured
+    at 2000x1140 with the target moved to x 3000: the cut-out was placed at
+    2994 carrying the previous step's 708px width.
+
+    Two rules come out of it, and both are here because neither is visible in
+    the output of the other: the box is checked before it is written, and a
+    step whose control is not really on screen is dropped rather than drawn.
+    """
+    js = TOUR_JS.read_text(encoding="utf-8")
+    spot = _function_body(js, "tourSpotlight")
+    assert "if (width < 1 || height < 1)" in spot, (
+        "tourSpotlight must check the clamped box before writing it: a "
+        "negative width is invalid CSS, is dropped, and leaves the previous "
+        "step's size on an element that has moved"
+    )
+    assert "tourClearSpotlight()" in spot and "return false" in spot, (
+        "a box that cannot be drawn draws no cut-out at all, rather than one "
+        "in the wrong place"
+    )
+    assert "return true" in spot, "and the caller has to be told which happened"
+
+    position = _function_body(js, "tourPosition")
+    assert "tourSpotlight(" in position and "if (!lit)" in position, (
+        "tourPosition must place the card differently when there is no "
+        "cut-out: beside nothing is not a position"
+    )
+
+    show = _function_body(js, "tourShow")
+    assert "tourOnScreen(el)" in show, (
+        "a step whose control is not on screen after the wait is dropped, so "
+        "the counter renumbers and the tour moves to one that can be pointed "
+        "at (DESIGN.md, the recipe index)"
+    )
+    reflow = _function_body(js, "tourReflow")
+    assert "tourOnScreen(" in reflow, (
+        "and a control that leaves the window under the tour costs its step "
+        "too, or the card hangs on beside a rectangle that has gone"
+    )
+
+    on_screen = _function_body(js, "tourOnScreen")
+    assert "clientWidth" in on_screen and "clientHeight" in on_screen, (
+        "on screen is measured against the window, not against the document"
+    )
+    assert "TOUR_ON_SCREEN_MIN" in on_screen, (
+        "a few pixels inside the edge is not something to point at; the "
+        "threshold is named so it can be argued with"
+    )
 
 
 def test_a_tour_step_with_nothing_to_point_at_is_dropped() -> None:

@@ -7409,15 +7409,44 @@ function docSourceLineTop(surface, line) {
 //: are the minimum worth having, since one line and one slope is what
 //: interpolation needs.
 function docScrollAnchors(editor, preview) {
+  //: The widths are in the token, not decoration: a pane that changes width
+  //: rewraps every paragraph in it, which moves every anchor below the first
+  //: one that rewrapped. The sidebar collapsing is the case that found this,
+  //: and it can change a width without changing either scroll height, so the
+  //: four numbers that were here could all stay the same across it.
   const token = [
     preview.childElementCount,
     preview.scrollHeight,
+    preview.clientWidth,
     editor.scrollHeight,
+    editor.scrollEl?.clientWidth || 0,
     editor.kind === "codemirror" ? editor.view.state.doc.length : -1,
   ].join(":");
   if (docScrollAnchorCache.token === token) return docScrollAnchorCache.anchors;
   const anchors = [];
   let lastLine = -1;
+  //: **Rects, corrected by the pane's own, never `offsetTop`.** This is the
+  //: rule `setDocPage` (app.js) already states for the same reason, and
+  //: ignoring it is what INBOX 278 turned out to be: `offsetTop` is measured
+  //: against the nearest **positioned** ancestor, and the preview is not
+  //: positioned. Measured on the probe document at 1440: every block's
+  //: `offsetTop` ran 218px past its true offset in the pane with the sidebar
+  //: open, and 146px with it collapsed, because collapsing it puts a
+  //: positioned `#doc-layout` between the block and the body.
+  //:
+  //: A constant bias is not a harmless one here. Every anchor carries it, the
+  //: interpolation hands it straight through, and `syncDocScroll` then parks
+  //: the preview that far past the line the source is showing, at every
+  //: position in the document: which is exactly the shape of the report, "the
+  //: documents split view scrolling is broken and misaligned", with no
+  //: pattern to it because the error does not grow, it just sits there.
+  //:
+  //: It also defeated the probe that closed the first report, because that
+  //: probe read `offsetTop` too: the same bias on both sides of the
+  //: subtraction cancels, and the answer comes back 0 from a pane that is a
+  //: paragraph and a half out. `scratchpad/ui-sweeps/docsplit.js` measures
+  //: through rects now for that reason.
+  const previewTop = preview.getBoundingClientRect().top;
   for (const block of preview.children) {
     //: The stamp is a line in the string the preview rendered; the editor
     //: counts from a different zero (`docPreviewLineShift`).
@@ -7428,10 +7457,10 @@ function docScrollAnchors(editor, preview) {
       docScrollAnchorCache = { token, anchors: [] };
       return docScrollAnchorCache.anchors;
     }
-    //: `offsetTop` rather than a rect, because a rect is relative to the
-    //: window and this has to be relative to the pane's own scrolled content:
-    //: the preview is the offset parent of its own blocks.
-    anchors.push({ srcTop, prevTop: block.offsetTop });
+    anchors.push({
+      srcTop,
+      prevTop: block.getBoundingClientRect().top - previewTop + preview.scrollTop,
+    });
     lastLine = line;
   }
   docScrollAnchorCache = { token, anchors: anchors.length >= 2 ? anchors : [] };

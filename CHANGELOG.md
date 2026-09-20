@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The Word (.docx) export is a button in Settings, optional extras. Without
+  python-docx the export answered with the name of a package and nowhere to
+  get it, which in an app that asks for no terminal is a dead end.
+
 - Typing into a box that is not a text field no longer triggers the app's
   single-key shortcuts. A "/" typed while correcting a page reading in the
   Library moved focus to the search box and swallowed the rest of the word.

@@ -165,9 +165,6 @@ being written by running agents stay beside this one.
   (the panel's group titles) and `docFindingKind` (the dot and the underline).
   They agree today; a fourth kind has to be added to both.
   [prose-intelligence.md]
-- **python-docx has no row in `core/extras.py`**, so the Word export's 501
-  names the package instead of pointing at a button in Settings, optional
-  extras. One `Extra(...)` entry. [documents-phases.md]
 
 ## Graph
 

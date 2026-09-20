@@ -7,6 +7,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Changed
+
+- numpy, and the embedding/search-matrix code that uses it, loads on first
+  use instead of at server start. `ai/embeddings.py`, `ai/janitor.py`,
+  `search/engine.py` and `search/search_manager.py` had `import numpy as np`
+  at module scope, so simply importing `api/app.py` (every boot) pulled
+  numpy in whether or not the notebook had anything to embed yet. A fresh,
+  never-used notebook now never loads numpy at all.
+
 ## [0.3.1] - 2026-09-14
 
 - The status bar's help button says "Guide", not the assistant's name. It sat

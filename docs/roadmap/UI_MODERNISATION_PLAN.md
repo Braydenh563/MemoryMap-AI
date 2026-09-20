@@ -728,9 +728,21 @@ desktop has; it is reached through a sheet or a ⋯ menu instead.
      Notes, Chat and Documents at 390: closed sidebar right edge 0, page
      padding 0, opener 44x44 first in the dock, the sheet opens at x=0 with
      its closer showing and Escape closes it; at 768 the tablet keeps its
-     52px rail and the opener is hidden. Still open in this item: the
-     capture sheet from a floating +, swipe actions, filters in a sheet
-     (the notes dock is four rows and 198px tall at 390), the note page.
+     52px rail and the opener is hidden.
+   - **Filters in a sheet: already the fold** (measured 2026-09-20). Below
+     1100 `foldDockArrange` moves every dock's arrange zone (sort, view,
+     page size) into its own `...` menu, so at 390 the notes dock shows
+     search, Filter, Select, refresh, help and the menu, and nothing else.
+     What was wrong was the rows: the opener took a row of its own (the
+     identity zone's phone basis is 100%), and the search input could not
+     shrink (`min-width: min-content` below 1100) so Filter wrapped under
+     it. Fixed in the 600 band: the opener shares the title's row, the
+     input gives, a dock with an opener and no find zone (Chat) wraps its
+     actions under the title. Dock heights at 390, before and after: notes
+     250 to 166 (three rows), chat 166 to 114 (two), timeline 198 to 146,
+     graph 143, library 146 and reminders 94 unchanged. Still open in this
+     item: the capture sheet from a floating +, swipe actions, the note
+     page.
 3. **Chat.** The composer above the keyboard with the attachments and
    mode in one row; sources as a sheet; the sidebar as a sheet from the
    left edge; the popup agent unavailable on the phone (the chat is the

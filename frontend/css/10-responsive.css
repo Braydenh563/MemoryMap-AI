@@ -1413,5 +1413,41 @@ header#top-bar,
   .sidebar-panel ~ * {
     padding-left: 0;
   }
+
+  /* The opener shares the identity row rather than taking one of its own:
+     the identity zone's phone basis is 100% (the block above this file's
+     600 band), which pushed a 44px button onto a 44px row by itself and the
+     title onto the next. Measured on Notes at 390 before: dock 250px, four
+     rows (opener, title, search + Filter wrapped, actions). The find zone
+     had the same shape for a different reason: `min-width: min-content`
+     below 1100 (the spill rule) stops the search input shrinking, so the
+     Filter button wrapped under it. On a phone the input is the thing
+     that gives; the buttons beside it are fixed. */
+  .dock:has(.dock-find) .dock-nav + .dock-identity,
+  .dock:not(:has(.dock-find)) .dock-nav + .dock-identity {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .dock .dock-find {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  /* A dock with an opener and no find zone (Chat) put its actions on the
+     title's row and left the title 34px for 148px of text (`phone.js`:
+     "wider than its box with no scroller"). The actions take the next row,
+     kept to the right as everywhere. */
+  .dock > .dock-nav ~ .dock-actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+  }
+
+  .dock .dock-find > input[type="search"],
+  .dock .dock-find > .library-search {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+  }
 }
 

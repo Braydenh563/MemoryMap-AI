@@ -3697,7 +3697,7 @@ function renderGraphPopupActions(entry) {
   open.classList.add("graph-popup-tool-primary");
   read.appendChild(open);
   read.appendChild(
-    smallButton("≈", "Highlight notes that mean something similar", async () => {
+    smallButton("ph:approximate-equals", "Highlight notes that mean something similar", async () => {
       const related = await apiJson(`/entries/${entry.id}/related`).catch(() => []);
       if (!related.length) {
         toast("No similar notes found.");

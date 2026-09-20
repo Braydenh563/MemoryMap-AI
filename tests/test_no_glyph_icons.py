@@ -60,6 +60,7 @@ INSTEAD = {
     "\U0001f4c1": "ph:folder",
     "\U0001f4c4": "ph:file",
     "\U0001f4cc": "ph:push-pin",
+    "\u2248": "ph:approximate-equals",
 }
 
 #: The one deliberate exception, and it carries its reason in the code beside

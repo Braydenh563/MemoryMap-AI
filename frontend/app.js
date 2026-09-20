@@ -5189,11 +5189,16 @@ function entryOverflowMenu(entry) {
         run: () => expandNoteIntoDocument(entry),
       },
       { label: "ph:link Link to another", run: () => beginOrCompleteLink(entry) },
-      { label: "≈ Similar notes", run: () => toggleRelated(entry) },
+      { label: "ph:approximate-equals Similar notes", run: () => toggleRelated(entry) },
       {
         label: "ph:arrow-u-up-left Referenced by",
         title: "Documents, notes, boards and maps that point at this note",
         run: () => toggleReferences(entry),
+      },
+      {
+        label: "ph:hourglass-medium Forgotten notes like this",
+        title: "Notes you have not looked at in a long time that are close to this one",
+        run: () => toggleFaded(entry),
       },
     ];
 
@@ -8481,15 +8486,43 @@ async function downloadAttachment(attachment) {
   await saveFile(attachment.filename, await response.blob());
 }
 
-let relatedOpenId = null; // entry currently showing its similar notes
+//: **One open panel, named by which one it is.** Three menu items open a row
+//: under a note card: "Similar notes", "Referenced by" and "Forgotten notes
+//: like this". Each kept its own open-id, and two of them said in their own
+//: comments that there should only be one, which is what happens when a
+//: third arrives: opening one left the others' ids set, so the next click on
+//: a *different* panel toggled the stale id instead and did nothing visible.
+//:
+//: One id and one kind, because the panels genuinely are one thing: they draw
+//: the same `.entry-links` row in the same place on the same card, and
+//: `renderEntries` clears whichever is showing, so only one can ever be on
+//: screen anyway. The variable now says that rather than three variables
+//: agreeing by accident.
+let notePanel = { id: null, kind: null };
+
+//: Toggle the named panel on a note: returns true when it should now be
+//: drawn, false when the click closed it. `renderEntries` between the two is
+//: what takes the previous panel off, whichever card it was on.
+function toggleNotePanel(entry, kind) {
+  const open = notePanel.id === entry.id && notePanel.kind === kind;
+  notePanel = open ? { id: null, kind: null } : { id: entry.id, kind };
+  renderEntries();
+  return !open;
+}
+
+//: Is the panel this render is finishing still the one that was asked for? An
+//: `await` sits between the click and the append, and in that window the
+//: reader can open something else or close this one.
+function notePanelStillOpen(entry, kind) {
+  return notePanel.id === entry.id && notePanel.kind === kind;
+}
+
 
 async function toggleRelated(entry) {
-  relatedOpenId = relatedOpenId === entry.id ? null : entry.id;
-  renderEntries();
-  if (relatedOpenId !== entry.id) return;
+  if (!toggleNotePanel(entry, "related")) return;
   const related = await apiJson(`/entries/${entry.id}/related`).catch(() => []);
   const card = document.querySelector(`#entry-list li[data-id="${entry.id}"]`);
-  if (!card || relatedOpenId !== entry.id) return;
+  if (!card || !notePanelStillOpen(entry, "related")) return;
   const row = document.createElement("div");
   row.className = "entry-links";
   const label = document.createElement("span");
@@ -8518,11 +8551,6 @@ async function toggleRelated(entry) {
 //: card from the same menu, and a second way of drawing a row under a note
 //: would be a second thing to keep consistent for no gain.
 //:
-//: One id, not two, for the same reason the menu has one entry each: both
-//: panels open under the card, and two open at once is two answers stacked
-//: where a person asked one question.
-let referencesOpenId = null;
-
 //: What each kind of reference is called on the chip, and the icon that says
 //: it without being read. A table rather than a chain of ternaries, because
 //: the kinds are the four the owner named and a missing one should be
@@ -8534,13 +8562,67 @@ const REFERENCE_KIND_LABELS = {
   map: ["ph:tree-structure", "map"],
 };
 
+//: **The faded notes nearest this one** (INBOX 261). `GET
+//: /resurface/near/{entry_id}` shipped with the rest of resurfacing and no
+//: `frontend/*.js` ever named it: found by `scratchpad/probe_dead_routes.py`,
+//: the same scan that found WORLD_CLASS_PLAN I9's whole backend built with no
+//: screen at all. A ranking nobody can read is a ranking that does not exist.
+//:
+//: **Not the same question as "Similar notes" above**, which is why it is its
+//: own row rather than a filter on that one. `/entries/{id}/related` answers
+//: "what means the same as this", newest and busiest notes included;
+//: `resurface.for_context` answers "what have you forgotten that bears on
+//: this", ranking by age, links and opens first and nearness second. The
+//: first is a lookup, the second is the thing this app is for.
+//:
+//: One open panel at a time across all three: see `notePanel` above, which is
+//: the single piece of state the three share.
+
+async function toggleFaded(entry) {
+  if (!toggleNotePanel(entry, "faded")) return;
+  const answer = await apiJson(`/resurface/near/${entry.id}`, { silent: true }).catch(() => null);
+  const card = document.querySelector(`#entry-list li[data-id="${entry.id}"]`);
+  if (!card || !notePanelStillOpen(entry, "faded")) return;
+  const row = document.createElement("div");
+  row.className = "entry-links";
+  const label = document.createElement("span");
+  label.className = "muted";
+  const items = (answer && answer.items) || [];
+  //: Three states, not two, exactly as `toggleReferences` has them: "nothing
+  //: is faded near this" and "we could not ask" are different facts, and the
+  //: second has a third cause of its own here (a notebook under
+  //: `resurface.MIN_NOTEBOOK` is refused a ranking by design, so an empty
+  //: answer on a small notebook is not a finding about this note).
+  label.textContent = !answer
+    ? "Couldn't look for forgotten notes near this one."
+    : items.length
+      ? "Forgotten, and close to this:"
+      : "Nothing faded is close to this note.";
+  row.appendChild(label);
+  for (const item of items) {
+    const wrap = document.createElement("span");
+    wrap.className = "entry-related-row";
+    const fadedChip = chip("", "link", () => flashEntry(item.id));
+    setLabel(fadedChip, `ph:hourglass-medium ${item.title}`);
+    //: The card's own sentence, which the route sends precisely so a panel
+    //: can say why it chose something: "120 days old, no links, never
+    //: opened" is checkable and "0.82" is not.
+    fadedChip.title = item.reason || item.preview || "";
+    wrap.appendChild(fadedChip);
+    const why = document.createElement("span");
+    why.className = "muted entry-reference-how";
+    why.textContent = item.reason || "";
+    wrap.appendChild(why);
+    row.appendChild(wrap);
+  }
+  card.appendChild(row);
+}
+
 async function toggleReferences(entry) {
-  referencesOpenId = referencesOpenId === entry.id ? null : entry.id;
-  renderEntries();
-  if (referencesOpenId !== entry.id) return;
+  if (!toggleNotePanel(entry, "references")) return;
   const answer = await apiJson(`/entries/${entry.id}/references`).catch(() => null);
   const card = document.querySelector(`#entry-list li[data-id="${entry.id}"]`);
-  if (!card || referencesOpenId !== entry.id) return;
+  if (!card || !notePanelStillOpen(entry, "references")) return;
   const row = document.createElement("div");
   row.className = "entry-links";
   const label = document.createElement("span");
@@ -8616,7 +8698,14 @@ function similarNoteRow(entry, other, onLinked) {
   const wrap = document.createElement("span");
   wrap.className = "entry-related-row";
   const relChip = chip("", "link", () => flashEntry(other.id));
-  relChip.appendChild(document.createTextNode("≈ "));
+  //: The same mark the menu item that opens this row wears, drawn the same
+  //: way: an `<i class="ph">` rather than the character U+2248, which came
+  //: out in the page font at the text's own weight beside Phosphor icons in
+  //: every neighbouring chip (INBOX 263).
+  const relMark = document.createElement("i");
+  relMark.className = "ph ph-approximate-equals ph-lead";
+  relMark.setAttribute("aria-hidden", "true");
+  relChip.appendChild(relMark);
   const previewSpan = document.createElement("span");
   renderInlineMarkdown(previewSpan, preview, [], true);
   relChip.appendChild(previewSpan);

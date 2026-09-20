@@ -68,6 +68,7 @@
   #tab-bar button {
     min-height: var(--target-min);
   }
+
 }
 
 /* --- band 2 (820 to 1100): the tabs are icons, and the header is one row --

@@ -10034,12 +10034,16 @@
 
        * `#tour-block` swallows presses so a step cannot be taken out from
          under its own card (a tab pressed mid-step leaves the card pointing
-         at a rectangle that has moved). It paints nothing at all.
+         at a rectangle that has moved). It paints nothing at all, and it is
+         four panels around the hole rather than one sheet across the window:
+         the described control has to stay pressable, or the tour says "press
+         Save" and then eats the press (the owner, 2026-09-20: "it doesnt let
+         the user click the highglighted items"). tour.js lays the four out
+         from the same rectangle the cut-out uses, on every reflow.
        * `#tour-spot` is the cut-out. It draws no background; the dim is its
          own `box-shadow` spread far past the window, so the hole in the dim
          IS this element's box and the control inside it is painted by the
-         page, untouched. An overlay with a hole punched in it by four
-         rectangles was the alternative and needs four boxes kept in step.
+         page, untouched. It never takes a press of its own.
        * `#tour-card` is the step itself, positioned in window coordinates by
          tour.js and corrected by a second measurement, never by the first
          (DESIGN.md: a `position: fixed` element takes its frame from the
@@ -10050,13 +10054,22 @@
        handler traps focus inside whatever `activeOverlay()` returns, which is
        the last visible `[role="dialog"][aria-modal="true"]`, so the card gets
        the app's own focus trap rather than a second implementation of one. -->
-  <div id="tour-block" class="tour-block hidden"></div>
+  <div id="tour-block" class="tour-block hidden" aria-hidden="true">
+    <div id="tour-block-top" class="tour-block-panel"></div>
+    <div id="tour-block-right" class="tour-block-panel"></div>
+    <div id="tour-block-bottom" class="tour-block-panel"></div>
+    <div id="tour-block-left" class="tour-block-panel"></div>
+  </div>
   <div id="tour-spot" class="tour-spot hidden" aria-hidden="true"></div>
   <div id="tour-card" class="card tour-card hidden" role="dialog" aria-modal="true"
     aria-labelledby="tour-title" aria-describedby="tour-text" tabindex="-1">
     <div class="tour-head">
       <span id="tour-section" class="chip tour-section-chip"></span>
-      <span id="tour-count" class="tour-count muted" aria-live="polite"></span>
+      <span class="tour-head-end">
+        <span id="tour-count" class="tour-count muted" aria-live="polite"></span>
+        <button id="tour-close" class="ghost small icon-only" type="button"
+          aria-label="Close the tour"><i class="ph ph-x" aria-hidden="true"></i></button>
+      </span>
     </div>
     <h2 id="tour-title" class="tour-title"></h2>
     <p id="tour-text" class="tour-text muted"></p>

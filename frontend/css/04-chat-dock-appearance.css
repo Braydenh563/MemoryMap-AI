@@ -4797,7 +4797,12 @@ input.doc-title-input::placeholder {
    real cut-out rather than a sheet with a bright rectangle drawn on it:
 
    * `.tour-block` paints nothing and exists to swallow presses, so a control
-     cannot be pressed out from under the card that is describing it.
+     cannot be pressed out from under the card that is describing it. It is
+     four panels around the hole, not one sheet: the hole itself has to stay
+     pressable, because a tour that says "press Save" and then eats the press
+     teaches the person that the control is broken. Its own box is `inset: 0`
+     with `pointer-events: none`, so only the four children take presses and
+     the rectangle between them takes none.
    * `.tour-spot` is the hole. It has no background of its own; the dim is its
      `box-shadow` spread past the far corner of any window, so everything
      outside this box is darkened by it and everything inside is the page,
@@ -4815,6 +4820,16 @@ input.doc-title-input::placeholder {
   inset: 0;
   z-index: 1040;
   background: transparent;
+  /* The container is a frame of reference, never a surface: every press it
+     takes is taken by one of the four panels below instead, and the hole
+     between them is left to the page. */
+  pointer-events: none;
+}
+
+.tour-block-panel {
+  position: fixed;
+  background: transparent;
+  pointer-events: auto;
 }
 
 .tour-spot {
@@ -4830,9 +4845,9 @@ input.doc-title-input::placeholder {
   box-shadow:
     0 0 0 100vmax var(--scrim),
     inset 0 0 0 2px var(--accent);
-  /* The cut-out never takes a press: `.tour-block` above is what stops the
-     page being used mid-step, and a spot that swallowed presses would put a
-     dead rectangle over the control it is pointing at. */
+  /* The cut-out never takes a press: the four `.tour-block-panel`s above are
+     what stop the page being used mid-step, and a spot that swallowed presses
+     would put a dead rectangle over the control it is pointing at. */
   pointer-events: none;
 }
 
@@ -4850,6 +4865,15 @@ input.doc-title-input::placeholder {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+}
+
+/* The count and the way out, in the corner every panel in this app keeps its
+   close in. Skip is still on the actions row: the two are the same act reached
+   two ways, and the owner read neither Skip nor Escape as the exit. */
+.tour-head-end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .tour-count {

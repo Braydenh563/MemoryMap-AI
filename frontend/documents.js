@@ -2697,6 +2697,12 @@ async function renderDocStorage() {
 // the preview *now*, a view switch, a load, still calls renderDocPreview
 // directly.
 let docPreviewTimer = null;
+
+//: Set by `renderDocPreview`, read by `docScrollAnchors`. Zero until the
+//: preview has been drawn once, which is also when there are no stamps to
+//: read, so the default is never used as an answer.
+let docPreviewLineShift = 0;
+
 function scheduleDocPreview() {
   const preview = $("doc-preview");
   if (!preview || preview.classList.contains("hidden")) return;
@@ -2732,7 +2738,26 @@ function renderDocPreview() {
   //: them rather than dropping them silently, which is what `docPrintComments`
   //: is set for by `exportDocumentPdf`.
   const remarks = docPrintComments ? docCommentFootnotes : docCommentStrip;
-  const body = remarks(docBlockStripIds(fm ? docFrontmatterStrip(text) : text));
+  const stripped = fm ? docFrontmatterStrip(text) : text;
+  const body = remarks(docBlockStripIds(stripped));
+  //: **How far the preview's line numbers are from the editor's.** Every
+  //: block this renders carries the line it came from (`data-src-line`,
+  //: `renderMarkdown` in app.js), but it came from the line in the string
+  //: below, not in the document: the title is prepended as a heading and the
+  //: frontmatter is taken off the front, so the two texts are the same words
+  //: at different line numbers. The split view's scroll map reads the stamps
+  //: and has to undo this, or it lines the panes up two lines out on every
+  //: titled document (`docScrollAnchors`).
+  //:
+  //: Both terms are prefix changes, which is what makes one number enough.
+  //: The one transformation that is not is a remark removed by
+  //: `docCommentStrip`, and only when the remark spans a line break: that
+  //: shortens the text somewhere in the middle and everything below it drifts
+  //: by those lines. Bounded, rare, and a line or two against the hundreds of
+  //: pixels this map exists to remove, so it is written down here rather than
+  //: paid for with a second parse of the document on every render.
+  docPreviewLineShift =
+    (title ? 2 : 0) - (text.split("\n").length - stripped.split("\n").length);
   docRenderBody(preview, title ? `# ${title}\n\n${body}` : body);
   if (fm) {
     //: After the title, which is the document's name rather than part of its
@@ -7323,17 +7348,118 @@ function docOpenLink(href) {
 // is most of what "the panes get squished together and it feels annoying to
 // use" is about once they are actually side by side.
 //
-// Proportional rather than line-mapped, deliberately. Mapping source lines to
-// rendered blocks needs the markdown renderer to emit source positions, which
-// this one does not, and the approximations that get used instead (count the
-// headings, guess) drift worse the longer the document. Scroll fraction is
-// exact at both ends, close everywhere in between for prose, and, the part
-// that matters: never wrong in a way that looks like a bug.
+// **This used to be a scroll fraction, and the fraction is what was wrong.**
+// The owner, 2026-09-20: "the scrolling is off in the split document view
+// because of the md rendering", which names the cause exactly. A fraction
+// assumes the two panes are the same document at two scales, and they are not:
+// a picture is one line of source and four hundred pixels of preview, a table
+// is six lines and one box, a code fence is twenty lines in both but with a
+// header strip and a different line height in one of them. Every such block
+// shifts everything below it in one pane and not the other, and the error is
+// cumulative, so the top of a document lines up, the bottom lines up (both
+// ends are exact by construction), and the middle, which is where anybody
+// actually reads, is off by however much furniture is above it.
+//
+// So the map is line to block. `renderMarkdown` (app.js) stamps every block it
+// draws with the source line it came from, which is the one place that can
+// know; `docScrollAnchors` turns those stamps into pairs of offsets, one in
+// each pane, and the sync interpolates between the two nearest. The old
+// fraction is still here and still used, for the case where there is nothing
+// to interpolate between: fewer than two anchors, or a textarea fallback with
+// no line-to-pixel map of its own.
 
 //: Which pane the user is actually scrolling. Without this the two feed each
 //: other: A scrolls B, B's scroll event scrolls A, and the pair juddate to a
 //: stop somewhere neither of them was asked to go.
 let docScrollDriver = null;
+
+//: The anchor table, rebuilt only when something that could move an anchor has
+//: changed. Building it walks every block in the preview and asks the editor
+//: where each one's line sits, which is far too much to do on every frame of a
+//: scroll; the token below is two layout reads and changes whenever the
+//: rendering, the text or either pane's size has.
+let docScrollAnchorCache = { token: "", anchors: [] };
+
+//: Where a source line starts, in the editor's own scrolled coordinates.
+//:
+//: CodeMirror is asked through `lineBlockAt`, not through `coordsAtPos`, and
+//: the difference matters here more than anywhere else in this file: the view
+//: only renders the lines near the viewport, so `coordsAtPos` answers null for
+//: exactly the anchors this table is built for, the ones off screen.
+//: `lineBlockAt` answers from the height map, which covers the whole document.
+//:
+//: A textarea has no line map at all, and rather than guess, this returns null
+//: and the caller falls back to the fraction. An estimate here would be a
+//: worse fraction wearing the word "anchor".
+function docSourceLineTop(surface, line) {
+  if (!surface || surface.kind !== "codemirror") return null;
+  const view = surface.view;
+  const doc = view.state.doc;
+  const number = Math.max(1, Math.min(line + 1, doc.lines));
+  return view.lineBlockAt(doc.line(number).from).top;
+}
+
+//: One pair of offsets per rendered block that says where it came from: the
+//: top of its source line in the editor, and the top of the block itself in
+//: the preview, both in their own pane's scrolled coordinates.
+//:
+//: Monotonic by construction, and checked anyway: a block whose stamp is not
+//: past the previous one's is dropped rather than allowed to fold the map back
+//: on itself, which would make the interpolation jump backwards. Two anchors
+//: are the minimum worth having, since one line and one slope is what
+//: interpolation needs.
+function docScrollAnchors(editor, preview) {
+  const token = [
+    preview.childElementCount,
+    preview.scrollHeight,
+    editor.scrollHeight,
+    editor.kind === "codemirror" ? editor.view.state.doc.length : -1,
+  ].join(":");
+  if (docScrollAnchorCache.token === token) return docScrollAnchorCache.anchors;
+  const anchors = [];
+  let lastLine = -1;
+  for (const block of preview.children) {
+    //: The stamp is a line in the string the preview rendered; the editor
+    //: counts from a different zero (`docPreviewLineShift`).
+    const line = Number(block.dataset.srcLine) - docPreviewLineShift;
+    if (!Number.isFinite(line) || line <= lastLine) continue;
+    const srcTop = docSourceLineTop(editor, line);
+    if (srcTop === null) {
+      docScrollAnchorCache = { token, anchors: [] };
+      return docScrollAnchorCache.anchors;
+    }
+    //: `offsetTop` rather than a rect, because a rect is relative to the
+    //: window and this has to be relative to the pane's own scrolled content:
+    //: the preview is the offset parent of its own blocks.
+    anchors.push({ srcTop, prevTop: block.offsetTop });
+    lastLine = line;
+  }
+  docScrollAnchorCache = { token, anchors: anchors.length >= 2 ? anchors : [] };
+  return docScrollAnchorCache.anchors;
+}
+
+//: Piecewise-linear, with the end segments' own slopes carried outwards.
+//:
+//: The alternative at the ends is to clamp, and clamping is visibly wrong in
+//: the one place it would apply: the space above the first block and below the
+//: last, where a clamped map pins the other pane while this one keeps moving.
+//: Carrying the slope keeps both moving at the rate the nearest real pair of
+//: anchors says they should.
+function docMapThroughAnchors(value, anchors, forward) {
+  const key = forward ? "srcTop" : "prevTop";
+  const other = forward ? "prevTop" : "srcTop";
+  let index = 0;
+  while (index < anchors.length - 2 && anchors[index + 1][key] <= value) index += 1;
+  const low = anchors[index];
+  const high = anchors[index + 1];
+  const span = high[key] - low[key];
+  //: Two anchors at the same offset in one pane (an empty block, a heading
+  //: immediately followed by another) would divide by zero; the lower one's
+  //: partner is the honest answer.
+  if (span <= 0) return low[other];
+  const ratio = (value - low[key]) / span;
+  return low[other] + ratio * (high[other] - low[other]);
+}
 
 function syncDocScroll(from) {
   const editor = docSurface();
@@ -7349,8 +7475,16 @@ function syncDocScroll(from) {
   const fromRange = from.scrollHeight - from.clientHeight;
   const toRange = to.scrollHeight - to.clientHeight;
   if (fromRange <= 0 || toRange <= 0) return;
+  const anchors = docScrollAnchors(editor, preview);
+  let next;
+  if (anchors.length >= 2) {
+    next = docMapThroughAnchors(from.scrollTop, anchors, from !== preview);
+  } else {
+    //: No map to read: the fraction, which is what this always was.
+    next = (from.scrollTop / fromRange) * toRange;
+  }
   docScrollDriver = from;
-  to.scrollTop = (from.scrollTop / fromRange) * toRange;
+  to.scrollTop = Math.max(0, Math.min(Math.round(next), toRange));
   // Cleared on a timer rather than immediately: the assignment above fires the
   // other pane's own scroll event asynchronously, so clearing on this tick
   // lets that event through and starts the feedback loop this exists to stop.

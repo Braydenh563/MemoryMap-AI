@@ -1300,6 +1300,52 @@ def test_the_failed_state_is_built_in_exactly_one_place() -> None:
         "the failed state is drawn by surfaceFailed alone; a second builder is "
         "how the empty states came to disagree in the first place"
     )
+# --- two panes showing one document (DESIGN.md, "Two views of one document") --
+
+
+def test_the_rendered_blocks_carry_the_line_they_came_from() -> None:
+    """The split view's scroll map is a contract across two files: app.js's
+    `renderMarkdown` writes `data-src-line` on every block it draws, and
+    documents.js's `docScrollAnchors` reads it. Neither half is any use alone,
+    and the failure when one goes is silent: the map finds no anchors, falls
+    back to the scroll fraction, and the panes are a screenful apart again
+    with nothing in the console to say why.
+
+    Measured before the stamps existed: on a document of five sections with a
+    table, a code fence and a list in each, the preview was 282, 292, 266, 404
+    and 550px out at the five headings, growing downwards because every block
+    that takes a different amount of room in the two panes shifts everything
+    below it. With them: 0, 75, 0, 0, 0, and the 75 is the editor landing 21px
+    short of where the probe asked it to scroll, not the map.
+    """
+    app_js = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    documents_js = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    assert "dataset.srcLine = String(" in app_js, (
+        "renderMarkdown must stamp each block with the source line it came "
+        "from, or the split view has nothing to line its panes up by"
+    )
+    assert "dataset.srcLine" in documents_js, (
+        "documents.js must read the stamps; a stamp nothing reads is dead "
+        "markup on every surface that renders markdown"
+    )
+    anchors = _function_body(documents_js, "docScrollAnchors")
+    assert "docPreviewLineShift" in anchors, (
+        "the stamps count lines in the string the preview rendered, which has "
+        "the title prepended and the frontmatter taken off: the shift has to "
+        "be undone or every titled document lines up two lines out"
+    )
+    assert "lineBlockAt(" in _function_body(documents_js, "docSourceLineTop"), (
+        "CodeMirror only renders the lines near the viewport, so coordsAtPos "
+        "answers null for exactly the off-screen anchors this table is built "
+        "from; lineBlockAt reads the height map, which covers the document"
+    )
+    sync = _function_body(documents_js, "syncDocScroll")
+    assert "docScrollAnchors(" in sync and "docMapThroughAnchors(" in sync, (
+        "the sync must go through the anchor map, with the scroll fraction "
+        "kept only for the case where there are no anchors to read"
+    )
+
+
 # --- the guided tour (DESIGN.md, "A guided tour of the interface") ------------
 
 TOUR_JS = ROOT / "frontend" / "tour.js"
@@ -1410,6 +1456,110 @@ def test_the_tours_dim_never_covers_the_control_it_describes() -> None:
         "the dim is .tour-spot's own box-shadow, spread past the far corner "
         "of the window, in the app's scrim colour"
     )
+
+
+def test_the_tours_dim_leaves_the_control_pressable() -> None:
+    """The owner, 2026-09-20: "it doesnt let the user click the highglighted
+    items". `#tour-block` was `inset: 0` with a background of its own, and
+    `document.elementFromPoint` at the centre of all fifteen steps answered
+    `tour-block` rather than the control: the tour pointed at Save and then ate
+    the press, which teaches the person that Save is broken.
+
+    The shape that cannot come back is one element over the whole window taking
+    presses. The dim is four panels laid out around the hole, and the hole is
+    left to the page, so the container itself must take no presses and the
+    panels must take them instead.
+    """
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+    block = re.search(r"\n\.tour-block \{(.*?)\n\}", css, re.S)
+    assert block, ".tour-block has no rule; has the tour's press-catcher moved?"
+    assert "pointer-events: none" in block.group(1), (
+        ".tour-block spans the window, so it must take no presses itself: the "
+        "four .tour-block-panel children take them and the hole between them "
+        "is left to the control the step is about"
+    )
+    panel = re.search(r"\n\.tour-block-panel \{(.*?)\n\}", css, re.S)
+    assert panel, (
+        ".tour-block-panel has no rule: the dim is four panels around the "
+        "hole (DESIGN.md, the recipe index)"
+    )
+    assert "pointer-events: auto" in panel.group(1), (
+        "a .tour-block-panel is the thing that stops the page being used "
+        "mid-step, so it has to take presses"
+    )
+    js = TOUR_JS.read_text(encoding="utf-8")
+    panels = _function_body(js, "tourBlockPanels")
+    for side in ("tour-block-top", "tour-block-right", "tour-block-bottom", "tour-block-left"):
+        assert side in panels, (
+            f"tourBlockPanels does not place {side}: all four are laid out "
+            "from the cut-out's own rectangle, on every reflow, or the hole "
+            "drifts off the control"
+        )
+    assert "tourBlockPanels(" in _function_body(js, "tourSpotlight"), (
+        "the panels are placed by the one function that already runs on every "
+        "reflow, or a scroll leaves them where the control used to be"
+    )
+    markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert markup.count('class="tour-block-panel"') == 4, (
+        "the tour's dim is four panels around the hole, no more and no fewer"
+    )
+
+
+def test_the_tour_card_has_a_visible_way_out() -> None:
+    """The owner, 2026-09-20: "it has no visible way to exit or quit it like a
+    button or smth so I had to guess by pressing the escape button". Skip and
+    Escape both ended the tour already; neither read as the exit, because Skip
+    beside Back and Next reads as "not this part". The X in the card's head is
+    where every other panel in this app keeps its close, and all three stay:
+    they are one act reached three ways."""
+    markup = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    close = re.search(r'<button id="tour-close"[^>]*>', markup, re.S)
+    assert close, "the tour card has no #tour-close: the way out has to be visible"
+    assert "icon-only" in close.group(0) and "ghost" in close.group(0), (
+        "#tour-close is the app's own icon-only ghost button, not a new shape"
+    )
+    assert 'aria-label="Close the tour"' in close.group(0), (
+        "an icon-only button says what it does in its accessible name"
+    )
+    js = TOUR_JS.read_text(encoding="utf-8")
+    assert 'getElementById("tour-close")' in js and "tourClose(false)" in js, (
+        "#tour-close must be wired to tourClose, or the button is a picture "
+        "of a way out"
+    )
+    assert 'key === "Escape"' in js, "Escape still ends the tour"
+    assert 'getElementById("tour-skip")' in js, "Skip stays: it is the same act"
+
+
+def test_a_tour_step_waits_for_the_tab_it_switched_to() -> None:
+    """A tab switch is not finished when `switchTab` resolves: the tab's own
+    content is fetched after it, and for a beat the element the step names is
+    in the DOM at zero height. Measuring once and dropping the step then is the
+    owner's "it doesnt automatically switch pages on different steps" seen from
+    outside: the steps that would have moved the tour quietly stop existing.
+
+    And the guard that decides whether to switch at all reads the markup, not
+    `localStorage`: a restore or a history step leaves the stored name and the
+    painted tab disagreeing, and the tour then skips the switch.
+    """
+    js = TOUR_JS.read_text(encoding="utf-8")
+    show = _function_body(js, "tourShow")
+    assert "await tourWaitForTarget(" in show, (
+        "tourShow must wait for the step's target before judging it missing, "
+        "or a tab that loads its content costs every step inside it"
+    )
+    wait = _function_body(js, "tourWaitForTarget")
+    assert "tourVisible(" in wait and "tourFrame(" in wait, (
+        "the wait polls per frame for a visible target; a frame is when "
+        "layout has settled"
+    )
+    assert "TOUR_WAIT_MS" in wait, "the wait has to end: a target that never arrives costs its step"
+    navigate = _function_body(js, "tourNavigate")
+    assert "tourActiveTab()" in navigate, (
+        "which tab is showing is asked of the markup (tourActiveTab), never "
+        "of localStorage alone, or the switch is skipped on a disagreement"
+    )
+    active = _function_body(js, "tourActiveTab")
+    assert "#tab-bar" in active, "tourActiveTab reads the pressed tab button"
 
 
 def test_a_tour_step_with_nothing_to_point_at_is_dropped() -> None:

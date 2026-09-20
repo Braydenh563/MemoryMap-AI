@@ -176,6 +176,11 @@ const TOUR_SECTIONS = [
   },
 ];
 
+// The three layers, shown together and hidden together. `#tour-block` is the
+// press-catcher: one element holding the four panels that surround the hole,
+// so showing and hiding it is one class change rather than four.
+const TOUR_LAYERS = ["tour-block", "tour-spot", "tour-card"];
+
 // The run in progress, or null. `steps` is a flattened copy rather than a
 // reference into the table above, because a step whose element turns out to be
 // hidden is spliced out of it, and the table has to stay whole for the next
@@ -318,12 +323,58 @@ function tourChoose(target, side, size) {
 
 // --- painting one step ------------------------------------------------------
 
+//: The presses. Four panels around the hole rather than one sheet across the
+//: window, and the reason is the owner's report of 2026-09-20: "it doesnt let
+//: the user click the highglighted items". A tour that says "press Save" and
+//: then eats the press is worse than no tour, because the person believes the
+//: control is broken. `#tour-block` used to be `inset: 0`, and
+//: `document.elementFromPoint` at the centre of every one of the fifteen steps
+//: answered `tour-block`: the dim layer, not the control.
+//:
+//: Four panels, laid out from the same rectangle the cut-out uses, leave that
+//: rectangle with nothing of the tour's over it at all, so a press inside it
+//: reaches the page and a press anywhere else is still swallowed (the step
+//: cannot be taken out from under its own card). The four have to be kept in
+//: step on every scroll and resize, which is why they are written here, in the
+//: one function that already runs on every reflow, and never anywhere else.
+function tourBlockPanels(left, top, right, bottom) {
+  const vw = document.documentElement.clientWidth;
+  const vh = document.documentElement.clientHeight;
+  const panels = {
+    "tour-block-top": { left: 0, top: 0, width: vw, height: Math.max(0, top) },
+    "tour-block-bottom": {
+      left: 0,
+      top: Math.min(vh, bottom),
+      width: vw,
+      height: Math.max(0, vh - bottom),
+    },
+    "tour-block-left": {
+      left: 0,
+      top: Math.max(0, top),
+      width: Math.max(0, left),
+      height: Math.max(0, Math.min(vh, bottom) - Math.max(0, top)),
+    },
+    "tour-block-right": {
+      left: Math.min(vw, right),
+      top: Math.max(0, top),
+      width: Math.max(0, vw - right),
+      height: Math.max(0, Math.min(vh, bottom) - Math.max(0, top)),
+    },
+  };
+  for (const [id, box] of Object.entries(panels)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.style.width = `${Math.round(box.width)}px`;
+    el.style.height = `${Math.round(box.height)}px`;
+    tourPlaceFixed(el, box.left, box.top);
+  }
+}
+
 //: The cut-out. The dim is this element's own `box-shadow`, spread past the
 //: far corner of any window, so the hole in the dim IS this box and the
-//: control inside it is drawn by the page at full strength. The alternative,
-//: four rectangles arranged around the control, needs all four kept in step on
-//: every scroll and resize, and gets it wrong on exactly the frames nobody
-//: watches.
+//: control inside it is drawn by the page at full strength. The shadow paints
+//: but never takes a press (`pointer-events: none`); the four panels above,
+//: laid out from this same rectangle, are what take them.
 function tourSpotlight(target) {
   const spot = document.getElementById("tour-spot");
   const vw = document.documentElement.clientWidth;
@@ -335,6 +386,7 @@ function tourSpotlight(target) {
   spot.style.width = `${Math.round(right - left)}px`;
   spot.style.height = `${Math.round(bottom - top)}px`;
   tourPlaceFixed(spot, left, top);
+  tourBlockPanels(left, top, right, bottom);
 }
 
 //: A target below the fold is reached by moving the nearest scrolling
@@ -406,13 +458,63 @@ async function tourFrame() {
   );
 }
 
+//: Which tab is actually showing, asked of the markup rather than of
+//: `localStorage`. `switchTab` writes `activeTab` (app.js), so the two agree
+//: most of the time, but "most of the time" is the wrong standard for the
+//: guard that decides whether the tour navigates at all: a restore, a history
+//: step or a tab entered before the key was written all leave the stored name
+//: and the painted tab disagreeing, and a tour that trusts the key then skips
+//: the switch and points its card at a control on a page nobody is looking at.
+//: The pressed tab button is the page you can see.
+function tourActiveTab() {
+  const pressed = document.querySelector('#tab-bar [role="tab"].active');
+  return pressed?.dataset?.tab || localStorage.getItem("activeTab") || "";
+}
+
+//: A tab switch is not finished when `switchTab` resolves. The tab's own
+//: content is loaded after it (notes, the library, the graph all fetch), and
+//: for a beat the element this step names is in the DOM at zero height. The
+//: old code measured once, two frames after the switch, found nothing to point
+//: at and **dropped the step** (`tourShow` splices it out): on a fast empty
+//: notebook every step survived, which is why this was never seen here, and on
+//: a real one the steps that live inside a tab are exactly the ones that go.
+//: From outside that is the owner's report, "it doesnt automatically switch
+//: pages on different steps": the tour appears to stay where it was, because
+//: the steps that would have moved it have quietly stopped existing.
+//:
+//: So a step that navigated waits for its element, up to TOUR_WAIT_MS, and
+//: only a target that never arrives costs its step. The wait is per frame
+//: rather than on a timer: a frame is when layout has settled, and a target
+//: that is ready in one frame costs one frame.
+//:
+//: **Only a step that navigated waits.** A step naming a control that is
+//: always on the page (the tab bar, the status bar, the gear) has nothing on
+//: its way: if that control is not visible now it is because a responsive rule
+//: dropped it at this width, and no amount of waiting brings it back. Waiting
+//: anyway would put a second and a half of nothing between two cards every
+//: time a narrow window costs a step, which is the stall this wait was added
+//: to remove rather than to move somewhere else.
+const TOUR_WAIT_MS = 1500;
+
+async function tourWaitForTarget(step) {
+  const find = () => tourAnchorFor(document.querySelector(step.target));
+  if (!step.tab && !step.notes) return find();
+  const deadline = Date.now() + TOUR_WAIT_MS;
+  for (;;) {
+    const el = find();
+    if (tourVisible(el)) return el;
+    if (Date.now() >= deadline) return el;
+    await tourFrame();
+  }
+}
+
 //: Getting the app to the place where this step's element is on screen. Both
 //: calls are guarded rather than assumed: they live in app.js, which is loaded
 //: before this file, and a page served without it should fail loudly there
 //: rather than quietly here.
 async function tourNavigate(step) {
   if (step.tab && typeof switchTab === "function") {
-    if (localStorage.getItem("activeTab") !== step.tab) await switchTab(step.tab);
+    if (tourActiveTab() !== step.tab) await switchTab(step.tab);
   }
   if (step.notes && typeof showNotesSection === "function") showNotesSection(step.notes);
   await tourFrame();
@@ -427,7 +529,8 @@ async function tourShow() {
     // from Settings, while a tab was loading. Whatever happens next belongs to
     // whichever run is current, not to this one.
     if (tourRun !== run) return;
-    const el = tourAnchorFor(document.querySelector(step.target));
+    const el = await tourWaitForTarget(step);
+    if (tourRun !== run) return;
     if (!tourVisible(el)) {
       // A step with nothing to point at is dropped from this run, rather than
       // shown empty or left pointing at the corner of the window.
@@ -491,9 +594,7 @@ function openTour(sectionId) {
     // the tour ends, whether it ends at the last card, at Skip or at Escape.
     returnFocus: document.activeElement,
   };
-  for (const id of ["tour-block", "tour-spot", "tour-card"]) {
-    document.getElementById(id).classList.remove("hidden");
-  }
+  for (const id of TOUR_LAYERS) document.getElementById(id).classList.remove("hidden");
   tourShow();
 }
 
@@ -501,9 +602,7 @@ function tourClose(finished) {
   if (!tourRun) return;
   const run = tourRun;
   tourRun = null;
-  for (const id of ["tour-block", "tour-spot", "tour-card"]) {
-    document.getElementById(id).classList.add("hidden");
-  }
+  for (const id of TOUR_LAYERS) document.getElementById(id).classList.add("hidden");
   // Finished or skipped, the answer is the same: this person has been offered
   // the tour and nothing may offer it to them again by itself. Kept beside
   // `onboardingDone`, and mirrored to the notebook's own preferences by
@@ -544,6 +643,14 @@ function tourBack() {
 document.getElementById("tour-next").addEventListener("click", tourNext);
 document.getElementById("tour-back").addEventListener("click", tourBack);
 document.getElementById("tour-skip").addEventListener("click", () => tourClose(false));
+//: The way out, in the corner of the card where every panel in this app keeps
+//: it. Skip was already there and does the same thing, but the owner did not
+//: read it as the exit: "it has no visible way to exit or quit it like a
+//: button or smth so I had to guess by pressing the escape button". Skip reads
+//: as "not this part" beside Back and Next; an X in the head reads as "close
+//: this". Both stay, because they are the same act reached two ways, and
+//: Escape is the third.
+document.getElementById("tour-close").addEventListener("click", () => tourClose(false));
 
 //: Captured, and it stops the event: the arrow keys move between tabs in this
 //: app and Escape closes whatever is open, and both would fire underneath a

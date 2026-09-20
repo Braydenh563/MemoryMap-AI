@@ -210,6 +210,54 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Ask sub-tab shows each cited note once. Under the answer sat numbered
+  source cards for the same five notes, with the same ids in the same order,
+  that Matching records was already showing beside them; under the answer
+  there is now one line, "Sources: 5 notes, on the right", which brings the
+  column into view when pressed. A source the column does not hold, a file or
+  a web page, keeps its card and its number. A citation mark now lights the
+  records row for its note and shows the passage there, which is where that
+  note is drawn on this tab. The Chat tab is unchanged: it has no column
+  beside it, so its cards are the only place its sources can be.
+- Find anything centres its text in its bar. The field carried the
+  stacked-form `margin-bottom` every input in this app has, and the rule that
+  turns off the field's border, ground and padding inside the band had not
+  turned that off: `align-items: center` centres a flex item with its
+  margins, so the field sat 4.8px above the middle with 1px of room above it
+  and 11px below. The glyph beside it was dead centre the whole time, which
+  is what made the text look dropped. Zeroed, and the bar takes the band's
+  44px floor below 820, which it used to reach only by accident.
+- The split document view keeps its two panes on the same place. The sync
+  was a scroll fraction, which is exact at both ends and wrong in between
+  wherever a block takes a different amount of room in the two halves: a
+  picture is one line of source and four hundred pixels of preview, and every
+  such block shifts everything below it in one pane only. Measured on a
+  five-section document with a table, a code fence and a list in each, the
+  preview sat 282, 292, 266, 404 and 550px away from the heading the source
+  was showing, growing downwards. `renderMarkdown` now stamps every block
+  with the source line it came from and the sync interpolates between the
+  nearest pair of anchors: 0, 75, 0, 0, 0px, and the 75 is the editor landing
+  21px short of where it was asked to scroll.
+- The guide panel says it is the guide, and its thinking box can now be
+  drawn. The head reads "Atlas guide" over one muted line, "How this app
+  works, from its own help text", and the sheet's accessible name is that
+  same string. The streamed turn runs in a preset of its own
+  (`presets.GUIDE_MODE`, Quick's brevity and temperature) rather than
+  `quick`, whose `think: False` told every reasoning model not to think:
+  `.help-chat-think` was drawing an event that could not arrive. Which model
+  the panel takes is now pinned by tests in all three cases, because
+  `utility_model()` answers the chat model when smart model routing is off
+  and when no utility model has been chosen.
+- The guided tour switches to its step's tab and waits for the control to
+  arrive, leaves that control pressable, and carries a visible way out. The
+  dim was one layer across the window, so `elementFromPoint` at the centre of
+  all fifteen steps answered the dim and not the control; it is now four
+  panels around the cut-out, and the hole belongs to the page. A step that
+  navigates waits up to 1.5s of frames for its target rather than dropping it
+  on the first frame after `switchTab` resolves, which is why steps inside a
+  tab used to vanish and the tour looked as though it never moved. The card's
+  head gained a close X beside the counter; Skip and Escape still end the same
+  run.
 - The Guide streams its answer on a locked notebook. The streaming fetch sent
   no session token, so it was refused and the panel fell back quietly to the
   one-shot route: the reply arrived in one piece, and "streaming is broken"

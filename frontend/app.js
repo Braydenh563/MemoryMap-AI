@@ -12458,7 +12458,17 @@ function addInlineCitations(answerEl, sentences, rawResults, orderedSources = nu
 //: the one thing this adds only with a mouse.
 function showCitedPassage(noteId, passage) {
   clearCitedPassage();
-  for (const card of document.querySelectorAll(`.chat-source-card[data-note-id="${noteId}"]`)) {
+  //: **Both places a cited note can be drawn.** The Chat tab holds its
+  //: sources as cards under the answer; the Ask tab holds its notes in the
+  //: Matching records column beside it and draws no cards for them (INBOX
+  //: 274). A mark that only knew about the cards did nothing at all on Ask
+  //: once the cards went, which is a feature quietly lost rather than a
+  //: duplicate removed.
+  const cards = [
+    ...document.querySelectorAll(`.chat-source-card[data-note-id="${noteId}"]`),
+    ...document.querySelectorAll(`#raw-results li[data-id="${noteId}"]`),
+  ];
+  for (const card of cards) {
     //: A closed disclosure cannot show anything, and the mark is the reader
     //: asking to see this source: opened, and left open, because closing it
     //: again the moment the pointer moves would be the panel flickering at
@@ -12479,9 +12489,7 @@ function showCitedPassage(noteId, passage) {
 
 function clearCitedPassage() {
   for (const box of document.querySelectorAll(".chat-source-passage")) box.remove();
-  for (const card of document.querySelectorAll(".chat-source-card.is-cited")) {
-    card.classList.remove("is-cited");
-  }
+  for (const card of document.querySelectorAll(".is-cited")) card.classList.remove("is-cited");
 }
 
 // The "nothing in your notes, but…" row. Sent only on the empty path (see
@@ -12683,16 +12691,88 @@ function renderAskAnswerFoot(object, meta) {
 
   const sources = $("ask-answer-sources");
   sources.replaceChildren();
-  const panel = object.sources.length
-    ? chatSourcesPanel({ sources: object.sources, meta })
+  //: **The notes are on the right, so they are not also under the answer.**
+  //: The owner, 2026-09-20, with a screenshot: "having the notes appear as
+  //: sources below the ai response in the notes tab ask subtab is
+  //: uncnecessary when they are shown already on the right next to the ai
+  //: response". Measured on that screen: five numbered source cards under the
+  //: answer and the same five notes, same ids, same order, as rows in
+  //: Matching records beside it. The whole point of the two-column Ask layout
+  //: is that the records are already in view; a second copy of them is the
+  //: column's own content pushed down the page by a picture of itself.
+  //:
+  //: The Chat tab keeps its panel, and that is not an inconsistency: Chat has
+  //: no column beside it, so the panel is the only place its sources can be.
+  //: This is the same components arranged for a layout that already shows
+  //: them.
+  const onRight = askNotesOnTheRight();
+  const here = object.sources.filter(
+    (source) => source.kind === "note" && source.id != null && onRight.has(String(source.id))
+  );
+  //: Anything the column does not hold still needs somewhere to be: a file, a
+  //: web result or a document is a source of this answer and Matching records
+  //: is notes. Those keep the panel, and keep their own numbers, so a citation
+  //: marker in the answer still points at the row it names.
+  const elsewhere = object.sources.filter((source) => !here.includes(source));
+  const line = here.length ? askSourcesLine(here.length) : null;
+  if (line) sources.appendChild(line);
+  const panel = elsewhere.length
+    ? chatSourcesPanel({ sources: elsewhere, meta, numberFrom: object.sources })
     : null;
   if (panel) sources.appendChild(panel);
-  sources.classList.toggle("hidden", !panel);
+  sources.classList.toggle("hidden", !line && !panel);
 
   foot.classList.toggle(
     "hidden",
-    !object.related.length && !panel && $("ask-followups").classList.contains("hidden")
+    !object.related.length
+      && !line
+      && !panel
+      && $("ask-followups").classList.contains("hidden")
   );
+}
+
+//: The note ids the Matching records column is showing right now, as strings
+//: because that is what `dataset` answers on both sides of the comparison.
+function askNotesOnTheRight() {
+  const rows = document.querySelectorAll("#raw-results li[data-id]");
+  return new Set([...rows].map((row) => row.dataset.id));
+}
+
+//: One line where the cards were: what the answer drew on, and where to look.
+//: A button rather than a sentence, because it does something: the column can
+//: be below the fold on a short window, and "on the right" is only true if
+//: the right is on screen.
+function askSourcesLine(count) {
+  const line = document.createElement("button");
+  line.type = "button";
+  line.className = "ghost small ask-sources-line";
+  setLabel(line, `ph:books Sources: ${count} ${count === 1 ? "note" : "notes"}, on the right`);
+  line.title = "Bring Matching records into view";
+  line.addEventListener("click", () => askRevealRecords());
+  return line;
+}
+
+//: Into view through the nearest scrolling ancestor's own `scrollTop`, which
+//: is DESIGN.md's rule: `scrollIntoView` walks every scrolling ancestor up to
+//: the page, and the page moving is how a reader loses the answer they were
+//: reading while trying to look at what it was built from.
+function askRevealRecords() {
+  const list = $("raw-results");
+  if (!list) return;
+  const half = list.closest(".chat-half") || list;
+  let node = half.parentElement;
+  while (node && node !== document.body) {
+    const style = getComputedStyle(node);
+    if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight + 1) {
+      //: Rects rather than `offsetTop`, which is measured against the nearest
+      //: *positioned* ancestor and not against the scroller.
+      node.scrollTop += half.getBoundingClientRect().top - node.getBoundingClientRect().top;
+      return;
+    }
+    node = node.parentElement;
+  }
+  const scroller = document.scrollingElement || document.documentElement;
+  scroller.scrollTop += half.getBoundingClientRect().top - 12;
 }
 
 //: **A follow-up is a question that keeps the answer above it** (decision 8:
@@ -17936,6 +18016,13 @@ function chatSourcesPanel(input) {
   //: what INBOX 81's second half is about.
   const sources = input.sources || chatSourcesFrom(input);
   if (!sources.length) return null;
+  //: **The number on a card is the number in the answer**, which stops being
+  //: the card's own position the moment this panel is handed a subset (the
+  //: Ask tab passes only the sources its records column is not already
+  //: showing). `numberFrom` is the full list the citation markers were
+  //: numbered against; without it a panel of two would call them 1 and 2 and
+  //: disagree with the [4] and [5] printed in the answer above it.
+  const numbering = input.numberFrom || sources;
   const details = document.createElement("details");
   details.className = "chat-sources";
   const summary = document.createElement("summary");
@@ -17991,7 +18078,8 @@ function chatSourcesPanel(input) {
     head.className = "chat-source-head";
     const number = document.createElement("span");
     number.className = "chat-source-index";
-    number.textContent = String(index + 1);
+    const at = numbering.indexOf(source);
+    number.textContent = String((at === -1 ? index : at) + 1);
     const title = document.createElement("span");
     title.className = "chat-source-title";
     setLabel(title, `${icons[source.kind] || "ph:note"} ${source.label}`);
@@ -26625,12 +26713,48 @@ function renderMarkdown(container, text, depth = 0) {
   let list = null; // the <ul>/<ol> currently being filled, or null
   const headingIds = new Set(); // so two "Notes" headings get distinct anchors
 
+  //: **Which source line each rendered block came from**, written on the
+  //: block as `data-src-line`. The split document view needs it to line its
+  //: two panes up: a scroll fraction is exact at both ends and wrong
+  //: everywhere a picture, a table or a code fence takes a different amount
+  //: of room in the two halves, which is the owner's report of 2026-09-20
+  //: ("the scrolling is off in the split document view because of the md
+  //: rendering"). See `docScrollAnchors` in documents.js.
+  //:
+  //: Stamped here rather than worked out afterwards, because this loop is the
+  //: only thing that knows which lines produced which element. Any other
+  //: answer is a second parser standing beside this one, and two parsers
+  //: disagree the first time either is changed.
+  //:
+  //: The bookkeeping is deliberately outside the branches: a block is
+  //: appended at eight different points in this loop, several of them after
+  //: `i` has already moved past the lines they consumed, so the line is
+  //: remembered at the top of the iteration and everything the iteration
+  //: appended is stamped at the top of the next one. A list is the exception,
+  //: since `closeList` appends it in a later iteration than the one that
+  //: started it, so it carries its own start line.
+  let blockLine = 0;
+  let listLine = 0;
+  let stamped = 0;
+  const stampNewBlocks = () => {
+    while (stamped < container.childElementCount) {
+      container.children[stamped].dataset.srcLine = String(blockLine);
+      stamped += 1;
+    }
+  };
+
   const closeList = () => {
-    if (list) container.appendChild(list);
+    if (list) {
+      list.dataset.srcLine = String(listLine);
+      container.appendChild(list);
+      stamped = container.childElementCount;
+    }
     list = null;
   };
 
   while (i < lines.length) {
+    stampNewBlocks();
+    blockLine = i;
     const line = lines[i];
 
     // Fenced code block. Gets a header strip with the language (when the
@@ -26832,6 +26956,7 @@ function renderMarkdown(container, text, depth = 0) {
       if (!list || (list.tagName === "OL") !== wantOrdered) {
         closeList();
         list = document.createElement(wantOrdered ? "ol" : "ul");
+        listLine = i;
         // Start where the author started. Without this a list written as
         // "3. 4. 5." renders as 1, 2, 3, and, more importantly, a list that
         // resumes after a paragraph restarts from 1.
@@ -26919,6 +27044,9 @@ function renderMarkdown(container, text, depth = 0) {
     });
     container.appendChild(p);
   }
+  //: The last iteration's blocks, which no next iteration is coming to stamp,
+  //: and then the list the document may have ended in the middle of.
+  stampNewBlocks();
   closeList();
 }
 

@@ -133,6 +133,10 @@ def test_the_canvas_box_is_measured_once_per_gesture() -> None:
     for event in ("pointerdown", "pointerup", "pointercancel"):
         assert f'window.addEventListener("{event}", wbClearCanvasRectCache, true);' in WB
     assert 'window.addEventListener("resize", wbClearCanvasRectCache);' in WB
+    # And the gap the five leave: a keyboard shortcut can move the canvas with
+    # no pointer event at all, so a hovering pointer re-measures, which is what
+    # it did before the cache, while a gesture (buttons non-zero) keeps it.
+    assert "if (!event.buttons) wbClearCanvasRectCache();" in WB
     assert "const rect = wbCanvasOriginRect();" in _body("wbMapDropTargetAt")
 
 

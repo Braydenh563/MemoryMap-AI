@@ -421,6 +421,19 @@ window.addEventListener("pointerup", wbClearCanvasRectCache, true);
 window.addEventListener("pointercancel", wbClearCanvasRectCache, true);
 window.addEventListener("resize", wbClearCanvasRectCache);
 window.addEventListener("scroll", wbClearCanvasRectCache, true);
+//: And whenever nothing is being dragged, which closes the one gap the five
+//: above leave: a keyboard shortcut can open a panel and move the canvas
+//: without any pointer event at all, and the next read would have been taken
+//: against the box the canvas used to have. `buttons` is 0 for a hover and
+//: non-zero for every frame of a gesture, so this costs a hovering pointer
+//: exactly what it cost before the cache and costs a drag nothing.
+window.addEventListener(
+  "pointermove",
+  (event) => {
+    if (!event.buttons) wbClearCanvasRectCache();
+  },
+  true
+);
 
 function handleWbZoom(e) {
   wbApplyZoomTransform(e.transform);

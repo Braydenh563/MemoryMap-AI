@@ -68,3 +68,6 @@
   drop, and `tests/test_map_drag_cost.py` fails if a clear point is removed.
   A fourth way to change a topic's drawn size without a render would be a real
   bug and would show as an edge anchored to a box the topic no longer has.
+  The canvas box's cache has six clear points for the same reason, the sixth
+  being a hovering pointer, which covers a keyboard shortcut moving the canvas
+  with no pointer event at all.

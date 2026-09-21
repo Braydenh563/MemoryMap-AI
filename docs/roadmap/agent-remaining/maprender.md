@@ -18,6 +18,13 @@
   profile of the probe's own gesture put `document.querySelector` and
   `wbMapNodeSize`'s layout reads at the top of the self-time list, and
   `renderWhiteboard` at a twentieth of the drag's cost.
+- **`scratchpad/ui-sweeps/mapbranchdrag.js`**, in `scripts/gate.sh`'s sweep
+  list, 6/6. The correctness half that `mapperf.js` does not cover: one real
+  drag of a middle topic, and the four questions that each catch one of this
+  pass's caches being wrong (the branch came with it by the same delta, the
+  line into a child was redrawn mid-drag, both positions were saved, and a
+  topic re-measures once its own cache entry is dropped). Fifteen seconds
+  against mapperf's three minutes.
 - **`tests/test_map_drag_cost.py`**, nine rules, one per cost the profile
   found. Source shapes, not measurements: the docstring says so, because a
   lint that looked like a benchmark would be worse than no lint.
@@ -65,7 +72,8 @@
   (a render, the size grip, the end of a gesture) are the three this pass
   could find. `mapresize.js`, `maprejoin.js`, `mapstrip.js` and `mapline.js`
   all pass against the change, which covers the resize grip and the re-parent
-  drop, and `tests/test_map_drag_cost.py` fails if a clear point is removed.
+  drop, `mapbranchdrag.js` asks the four questions directly, and
+  `tests/test_map_drag_cost.py` fails if a clear point is removed.
   A fourth way to change a topic's drawn size without a render would be a real
   bug and would show as an edge anchored to a box the topic no longer has.
   The canvas box's cache has six clear points for the same reason, the sixth

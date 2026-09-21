@@ -16289,28 +16289,51 @@ function renderWbObjects(canvas) {
   wbWireContextMenu(objectEnter, "object");
 
   const objectUpdate = objectEnter.merge(objectSelection);
-  objectUpdate
-    .style("transform", wbItemTransform)
-    .style("width", (d) => `${d.width}px`)
-    .style("height", objectHeight)
-    .style("z-index", (d) => d.z);
+  //: **A render repaints the objects that changed, not every object on the
+  //: board** (MINDMAP_PLAN.md §13a, the render pass). The four `.style` calls
+  //: this replaces ran for every object on every render, and the `.each`
+  //: below them repainted every map node whether or not anything about it had
+  //: moved: at 500 topics that was 2,000 style writes and 500 full node
+  //: repaints for a change to one of them.
+  //:
+  //: The key is every input this pass reads, in one string. An object whose
+  //: key is what it was last render draws exactly what it is already
+  //: drawing, so the cheapest correct thing to do with it is nothing. A fresh
+  //: element (the enter selection) has no key at all, so it always paints.
+  //: `wbObjectPaintKey` is the one list of those inputs: a property this pass
+  //: starts reading has to go into it, and the way that failure shows is a
+  //: node that stops following a change, which is what `mapstrip.js`,
+  //: `maptheme.js`, `mapline.js` and `maprejoin.js` each ask about directly.
+  const paintCtx = {
+    index: mapIndex,
+    colors: mapColors,
+    //: Read once for the pass, not once per node: both are board-wide, and
+    //: `wbMapThemedData` merges the theme underneath every node's own data.
+    layout: mapIndex ? wbMapLayout() : "",
+    theme: mapIndex ? JSON.stringify(wbMapTheme()) : "",
+  };
   // An image's own src can change (rare: nothing in this UI replaces one
   // yet, but a future paste-to-replace shouldn't need this rewritten) and a
   // text box's saved colour/size might have changed elsewhere (undo/redo);
   // the text itself is deliberately left alone here so a re-render mid-edit
   // (another item moving, say) can't overwrite what's being typed.
   objectUpdate.each(function (d) {
+    const key = wbObjectPaintKey(d, paintCtx);
+    if (this._wbPaintKey === key) return;
+    this._wbPaintKey = key;
     const el = d3.select(this);
+    this.style.transform = wbItemTransform(d);
+    this.style.width = `${d.width}px`;
+    this.style.height = objectHeight(d);
+    //: `removeProperty` for an unset `z`, which is what d3's own
+    //: `.style("z-index", d => d.z)` did with a null: an object with no z
+    //: stacks in document order rather than at "undefined".
+    if (d.z === null || d.z === undefined) this.style.removeProperty("z-index");
+    else this.style.zIndex = d.z;
     if (d.kind === "image") {
       el.select("img").attr("src", mediaSrc(d.data.url) || "");
     } else if (WB_MAP_KINDS.has(d.kind)) {
       wbPaintMapNode(el, d, mapIndex, mapColors);
-      // The stored `height` is what the bounds, the alignment guides and the
-      // tidy layout all read, and a map node's real height is whatever its
-      // text needed. Syncing it here (locally: no PUT, nothing to save) is
-      // what keeps those three agreeing with what is actually on screen; the
-      // value rides along to the server on the node's next real save.
-      if (this.offsetHeight) d.height = this.offsetHeight;
     } else {
       el.style("background", d.data.bg || "").style("border-color", d.data.border_color || "");
       const textEl = el.select(".wb-text-content");
@@ -16322,6 +16345,70 @@ function renderWbObjects(canvas) {
   });
 
   objectSelection.exit().remove();
+
+  //: **Every topic measured in one pass, after every write, never between
+  //: them** (MINDMAP_PLAN.md §13a). This loop used to be the last two lines
+  //: of the `.each` above, one `offsetHeight` read per node interleaved with
+  //: that node's own style writes. A style write invalidates layout for the
+  //: whole document, so each of those reads flushed a fresh layout of the
+  //: entire board: 500 nodes cost 500 full layouts, which is where this
+  //: render's superlinearity actually lived (renderWbObjects: 405.6ms of a
+  //: 527ms render at 500 topics, against 32.1ms for the painting itself).
+  //: Reads on their own flush once and are then free, so the same
+  //: information now costs one layout.
+  //:
+  //: The stored `height` is what the bounds, the alignment guides and the
+  //: tidy layout all read, and a map node's real height is whatever its text
+  //: needed; the value rides along to the server on the node's next real
+  //: save. The size cache is filled from the same reads because
+  //: `wbRenderMapEdges` runs next and asks for both ends of every edge: that
+  //: is what keeps `wbMapNodeSize` off `document.querySelector` for a board
+  //: whose elements this pass is holding already.
+  if (mapIndex) {
+    if (!wbMapNodeSizeCache) wbMapNodeSizeCache = new Map();
+    objectUpdate.each(function (d) {
+      if (!WB_MAP_KINDS.has(d.kind)) return;
+      const h = this.offsetHeight;
+      if (!h) return;
+      wbMapNodeSizeCache.set(d.id, { w: this.offsetWidth, h });
+      d.height = h;
+    });
+  }
+}
+
+//: Everything `renderWbObjects` reads when it paints one object, as one
+//: string (MINDMAP_PLAN.md §13a). Two renders with the same key for an object
+//: would write the same pixels, so the second one skips it.
+//:
+//: **The map fields are the ones that are not on the object.** A topic's
+//: colour comes from its branch, its chevron from how many children it has,
+//: its badge from how many topics are folded under it, its spine from which
+//: side its parent is on, and everything the strip sets comes from the node's
+//: data with the map's theme merged underneath: all five change without the
+//: row itself changing, so all five are in the key.
+//:
+//: `height` is deliberately left out for a map node, because a map node's
+//: height is its text's: the measure pass at the end of `renderWbObjects`
+//: writes what was drawn back onto the datum, so including it would make
+//: every node's key differ from its own last render, for ever. The one
+//: exception is a topic somebody has resized by hand (`sized`), whose stored
+//: height is written back as a `min-height` and therefore is an input.
+function wbObjectPaintKey(d, ctx) {
+  const base = `${d.kind}|${d.x}|${d.y}|${d.z}|${d.width}|${d.rotation ?? ""}|${JSON.stringify(d.data ?? null)}`;
+  if (!WB_MAP_KINDS.has(d.kind)) return `${base}|${d.height}`;
+  const index = ctx.index;
+  const children = index?.childrenOf.get(d.id)?.length || 0;
+  const buried = d.data?.collapsed && index ? wbMapSubtree(index, d.id).length - 1 : 0;
+  //: Only where it is read: `wb-map-node-mirrored` is decided from the
+  //: parent's own box on a both-sides map, and on every other layout the
+  //: side is the layout's, so a parent moving cannot change a child's spine.
+  let parentBox = "";
+  if (ctx.layout === "tree-both" && index) {
+    const parent = index.byId.get(d.parent_id);
+    if (parent) parentBox = `${parent.x}:${parent.width ?? ""}`;
+  }
+  return `${base}|${d.data?.sized ? d.height : ""}|${wbMapLabel(d)}|${ctx.colors?.get(d.id) || ""}` +
+    `|${children}|${buried}|${d.parent_id ?? ""}|${parentBox}|${ctx.layout}|${ctx.theme}`;
 }
 
 //: The sketches touching `nodeId`, pre-parsed once. `wbUpdateLinkedSketches`

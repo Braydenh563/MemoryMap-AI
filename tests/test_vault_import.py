@@ -13,7 +13,7 @@ it arrives with every internal link pointing at nothing.
 from __future__ import annotations
 
 from memorymap.api import routes_settings
-from memorymap.core.database import Entry
+from memorymap.core.database import AuditLog, Entry
 from sqlalchemy import select
 
 from memorymap.entry import manager
@@ -74,6 +74,33 @@ def test_a_note_written_here_has_no_path(session):
     entry = manager.create_entry(session, "typed straight in", category_name=manager.UNCATEGORISED)
     session.commit()
     assert entry.source_path == ""
+
+
+def test_an_oversize_file_is_skipped_not_read_whole(tmp_path, session):
+    """INBOX 310, finding 2: unlike every other import path (`import_markdown`
+    caps at `MAX_IMPORT_BYTES` before reading), the directory importer used
+    to call `f.read_text()` on every `.md` file with no ceiling at all. A
+    file over the cap must be skipped, the smaller one still imported, and
+    the skip counted and reported in the activity log detail rather than
+    silently dropped."""
+    root = tmp_path / "vault3"
+    root.mkdir()
+    (root / "Small.md").write_text("a normal note", encoding="utf-8")
+    huge = "x" * (routes_settings.MAX_IMPORT_BYTES + 1)
+    (root / "Huge.md").write_text(huge, encoding="utf-8")
+
+    routes_settings._run_directory_import(str(root))
+
+    entries = session.scalars(select(Entry)).all()
+    assert [e.content for e in entries] == ["a normal note"]
+
+    logged = session.scalars(
+        select(AuditLog)
+        .where(AuditLog.action == "imported", AuditLog.entity_type == "data")
+        .order_by(AuditLog.id.desc())
+    ).first()
+    assert logged is not None
+    assert logged.detail == "markdown dir x1, skipped 1 (1 over 1 MB)"
 
 
 def test_an_uploaded_markdown_file_keeps_its_name(client):

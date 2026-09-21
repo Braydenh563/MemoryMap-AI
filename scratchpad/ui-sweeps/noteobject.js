@@ -15,28 +15,33 @@ const { boot } = require('./lib.js');
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 140)));
   await page.waitForTimeout(2500);
 
-  const ids = await page.evaluate(async () => {
+  // Unique names per run: this sweep runs against whatever notebook the gate
+  // has (its own earlier runs included), and two boards called "House jobs"
+  // would make the title fallback in `boardEmbedTarget` ambiguous, which is
+  // the sweep lying about the code rather than the code being wrong.
+  const tag = String(Date.now()).slice(-6);
+  const ids = await page.evaluate(async (tag) => {
     const post = (path, body) => apiJson(path, { method: 'POST', body: JSON.stringify(body) });
-    const board = await post('/whiteboard/boards', { name: 'House jobs', type: 'board' });
-    const map = await post('/whiteboard/boards', { name: 'The house', type: 'map' });
+    const board = await post('/whiteboard/boards', { name: `House jobs ${tag}`, type: 'board' });
+    const map = await post('/whiteboard/boards', { name: `The house ${tag}`, type: 'map' });
     // Something on each, so the preview has a real layout to draw rather
     // than the empty state: a miniature of nothing proves nothing. Cards on
     // a board and a reference node on a map, the two shapes `refchips.js`
     // already proves the API takes.
-    const roof = await post('/entries', { content: 'Roof quote', category: 'General' });
-    const gutters = await post('/entries', { content: 'Gutters', category: 'General' });
+    const roof = await post('/entries', { content: `Roof quote ${tag}`, category: 'General' });
+    const gutters = await post('/entries', { content: `Gutters ${tag}`, category: 'General' });
     await post('/whiteboard/nodes', { entry_id: roof.id, board_id: board.id, x: 20, y: 30 });
     await post('/whiteboard/nodes', { entry_id: gutters.id, board_id: board.id, x: 260, y: 180 });
     await post(`/whiteboard/boards/${map.id}/nodes`, { kind: 'note', parent_id: null, text: '', ref_id: roof.id });
     const note = await post('/entries', {
-      content: `Kitchen plan\n\n![[board:${board.id}|House jobs]]\n\n![[map:${map.id}|The house]]\n\n![[board:987654|Old plan]]`,
+      content: `Kitchen plan\n\n![[board:${board.id}|House jobs ${tag}]]\n\n![[map:${map.id}|The house ${tag}]]\n\n![[board:987654|Old plan ${tag}]]`,
       category: 'General',
     });
     const due = new Date(Date.now() + 86400000).toISOString().slice(0, 19);
     await post('/reminders', { text: 'Ring the roofer', due_at: due, entry_id: note.id });
     await post('/reminders', { text: 'Measure the hall', due_at: due, entry_id: note.id });
     return { board: board.id, map: map.id, note: note.id };
-  });
+  }, tag);
 
   await page.evaluate(() => switchTab('notes'));
   await page.evaluate(() => loadEntries());
@@ -93,8 +98,12 @@ const { boot } = require('./lib.js');
     console.log('reminders', JSON.stringify(reminders));
   }
 
-  // The "/" menu's own doorway.
-  await page.evaluate(() => { const b = document.getElementById('entry-content'); b.focus(); b.value = ''; });
+  // The "/" menu's own doorway. The capture box lives on the Notes tab's
+  // Capture sub-tab, which is `display: none` from the list, so a sweep that
+  // types into it from the list types into nothing.
+  await page.click('#notes-subtabs button[data-section="capture"]');
+  await page.waitForTimeout(700);
+  await page.click('#entry-content');
   await page.type('#entry-content', '/board');
   await page.waitForTimeout(900);
   const menu = await page.evaluate(() => {

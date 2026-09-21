@@ -37,3 +37,9 @@ port 8793, data dir `/tmp/mm-noteobj`.
   `scripts/gate.sh`. Measured against the unchanged code: 6 findings.
 
 ## Left
+
+- `<hash>` The object itself: `![[board:12|Title]]` renders a preview card
+  from `mapPreview`, opens the board on press, tombstones when the board is
+  gone. Measured on 8793: card 104px tall x 733 wide with an svg preview,
+  tombstone 88px naming "Old plan", press set `window.currentBoardId` to the
+  right board, 0 page errors.

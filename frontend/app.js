@@ -10251,7 +10251,68 @@ function wikiStem(entry) {
   return entry._wikiStem;
 }
 
+//: **A board or a map named by its id**, the form the "/" menu and the
+//: board's own "Add to a note" write: `board:12|House jobs`, or `map:12|The
+//: house`.
+//:
+//: Why an id rather than the title every other `[[link]]` uses (INBOX 309,
+//: the owner: "there is also no way to attach a whiteboard or mindmap to a
+//: note as like an object in the notes"). A title-addressed object breaks the
+//: moment the board is renamed, and it breaks *silently*: a renamed board and
+//: a deleted one look identical to the resolver, so the note either points at
+//: nothing or tombstones a board that is still there. A board is an `Entry`,
+//: so its id is stable, and renaming it now leaves every note that carries it
+//: pointing at the same board.
+//:
+//: **The title travels with the id anyway**, for two reasons that are not
+//: decoration. It is what a tombstone says when the board really is gone
+//: ("Old plan" beats "board 12"), and it is what the backend's own reference
+//: scan matches on: `_reference_rows` in routes_entries.py finds a board's
+//: references with a LIKE over note content for the board's label, so a note
+//: carrying the title still counts towards the card's "on 1 board" chip with
+//: no backend change at all.
+//:
+//: `whiteboard` and `mindmap` are accepted as spellings of the same two
+//: things because somebody typing this by hand will write one of them.
+const BOARD_REF_PATTERN = /^\s*(board|whiteboard|map|mindmap)\s*:\s*(\d{1,9})\s*(?:\|\s*([^|]*))?$/i;
+
+function boardEmbedRef(name) {
+  const match = BOARD_REF_PATTERN.exec(String(name || ""));
+  if (!match) return null;
+  return {
+    id: Number(match[2]),
+    title: (match[3] || "").trim(),
+    //: What the writer *said* it was, used only until the board itself is
+    //: found: the board's own `type` is the truth, and a map turned into a
+    //: whiteboard after the note was written should draw as a whiteboard.
+    map: /map/i.test(match[1]),
+  };
+}
+
+//: The board a reference points at, or null when it is really gone.
+//:
+//: Two lookups, in this order. The id is exact and is what the writer meant.
+//: The title is the fallback for the one case an id cannot survive: a board
+//: exported and imported again, or restored from a backup, keeps its name and
+//: takes a new id. Trying it before calling anything missing is the difference
+//: between a tombstone that is right and one that is merely early.
+function boardEmbedTarget(ref) {
+  if (!ref || !ref.id) return null;
+  const byId = typeof mapBoardById === "function" ? mapBoardById(ref.id) : null;
+  if (byId) return byId;
+  if (!ref.title || typeof mapBoardTitled !== "function") return null;
+  return mapBoardTitled(ref.title.toLowerCase());
+}
+
 function resolveWikiTarget(name) {
+  //: An id-addressed board is answered before anything is lower-cased or
+  //: scanned: it names exactly one thing, and the notes-then-documents walk
+  //: below could only ever find something else called "board:12".
+  const ref = boardEmbedRef(name);
+  if (ref) {
+    const board = boardEmbedTarget(ref);
+    return board ? { kind: "board", entry: board } : null;
+  }
   const needle = String(name || "").trim().toLowerCase();
   if (!needle) return null;
   const entries = typeof allEntries !== "undefined" ? allEntries : [];
@@ -25873,6 +25934,11 @@ function noteFirstImage(content) {
 //: text is nothing but markers is still a link somebody typed, and a button
 //: with no words in it cannot be clicked on purpose.
 function wikiLinkLabel(name) {
+  //: An id-addressed board reads as its title, never as "board:12|House
+  //: jobs". The raw form is an address, and an address on a chip is the
+  //: same mistake as a url where a link's text should be.
+  const ref = boardEmbedRef(name);
+  if (ref) return ref.title || (ref.map ? "Mind map" : "Board");
   const clean = notePreviewText(name).replace(/\s+/g, " ").trim();
   return clean || name;
 }
@@ -26827,6 +26893,30 @@ function mdCalloutElement(quoted, depth) {
 
 // A `.note-embed` element for `![[name]]`.
 function mdEmbedElement(name, depth) {
+  //: **A board or a map is not text to transclude, it is a picture** (INBOX
+  //: 309). Everything else a note can embed is words, and the card below
+  //: renders those words inline; a whiteboard has no words to inline, so
+  //: this branch draws the same miniature the Library and the dashboard
+  //: draw and makes it the way in.
+  //:
+  //: Both spellings land here, because both already exist in real notes:
+  //: `![[board:12|House jobs]]`, which the "/" menu writes, and a plain
+  //: `![[House jobs]]` that happens to name a board, which `resolveWikiTarget`
+  //: has resolved to a board since the map chips were built and which this
+  //: function then rendered as "Nothing called House jobs yet" (measured on
+  //: 8793 before this change: the embed of a live board claimed it did not
+  //: exist).
+  const ref = boardEmbedRef(name);
+  const named = ref ? null : resolveWikiTarget(name);
+  if (ref) return boardEmbedElement(ref);
+  if (named && named.kind === "board") {
+    return boardEmbedElement({
+      id: named.entry.id,
+      title: named.entry.title || String(name || "").trim(),
+      map: named.entry.type !== "board",
+    });
+  }
+
   const box = document.createElement("div");
   box.className = "note-embed";
 
@@ -26840,7 +26930,7 @@ function mdEmbedElement(name, depth) {
 
   const body = document.createElement("div");
   body.className = "note-embed-body";
-  const target = resolveWikiTarget(name);
+  const target = named;
   if (depth >= MD_MAX_DEPTH) {
     // A embeds B embeds A. The cap is what stops that hanging the tab, and
     // saying so beats rendering nothing and looking like a bug.
@@ -26866,6 +26956,138 @@ function mdEmbedElement(name, depth) {
   }
   box.appendChild(body);
   return box;
+}
+
+//: **A whiteboard or a mind map, living in a note as an object** (INBOX 309).
+//:
+//: One card, drawn from the one preview renderer this app has
+//: (`mapPreview`), so a board looks the same in a note as it does in the
+//: Library and on the dashboard. MINDMAP_PLAN §5 item 12's rule, which this
+//: is the fourth surface to keep: "One `mapChip()` and one `mapPreview()`,
+//: used by all of them: the app's recurring failure is the same object drawn
+//: five ways."
+//:
+//: The whole card is one `<button>`. A picture with a separate "open" link
+//: beside it is two tab stops for one action, and the picture is the thing
+//: the eye and the finger both go for; making the card itself the control is
+//: what `mapChip` already does for the chip-sized version of this.
+//:
+//: **The card is filled twice when the index is not loaded yet.** `mapPreview`
+//: draws from `/whiteboard/boards` (`loadMapBoardIndex`), which a document or
+//: a chat transcript has usually never asked for, and this function is
+//: synchronous because it runs inside a render pass. So an unloaded index
+//: draws the resting card, asks for the index, and fills in place. It cannot
+//: loop: `loadMapBoardIndex` de-duplicates and caches for eight seconds.
+function boardEmbedElement(ref) {
+  const box = document.createElement("div");
+  box.className = "note-embed board-embed";
+  //: The id this card points at, so a sweep (and a reader with the inspector
+  //: open) can tell which board a preview claims to be without reading the
+  //: note's source.
+  box.dataset.boardRef = String(ref.id || "");
+  //: **A miss is not a tombstone until the index has been asked again.**
+  //: `mapBoardIndexCache` is eight seconds old at most but is only *rebuilt*
+  //: when something asks for it, so a board made after this session's index
+  //: was built is missing from it: drawing "this board is no longer in your
+  //: notebook" over a board somebody created a minute ago is the worst thing
+  //: this card could say. So a miss asks once more, with the index refreshed,
+  //: and only then writes the tombstone. `final` is what tells the two apart,
+  //: and it cannot loop: the retry always passes true.
+  const fill = (final) => {
+    const found = boardEmbedFill(box, ref, final);
+    if (found || final || typeof loadMapBoardIndex !== "function") return;
+    loadMapBoardIndex().then(() => fill(true), () => fill(true));
+  };
+  fill(false);
+  return box;
+}
+
+function boardEmbedFill(box, ref, final) {
+  const board = boardEmbedTarget(ref);
+  box.replaceChildren();
+  box.classList.toggle("board-embed-gone", !board && final);
+
+  if (!board && !final) {
+    //: **Not the tombstone.** "We have not looked yet" and "it is gone" are
+    //: different facts, and printing the second while the first is true is
+    //: how a working board gets reported as deleted.
+    const waiting = document.createElement("p");
+    waiting.className = "note-embed-head";
+    setLabel(waiting, `${ref.map ? "ph:tree-structure" : "ph:squares-four"} ${ref.title || "Loading\u2026"}`);
+    box.appendChild(waiting);
+    return null;
+  }
+
+  if (!board) {
+    //: **A tombstone, not a disappearance** (the decision recorded in
+    //: DOCUMENTS_PLAN's "Decisions made"). A board deleted after it was put
+    //: in a note would otherwise take a paragraph of that note with it, and
+    //: the reader would never learn that anything had been there: content
+    //: that vanishes silently is worse than content that says it is gone.
+    //: The title the reference carries is exactly what makes this sentence
+    //: worth reading.
+    const head = document.createElement("p");
+    head.className = "note-embed-head";
+    setLabel(head, "ph:trash Removed");
+    const what = document.createElement("p");
+    what.className = "board-embed-title";
+    what.textContent = ref.title || (ref.map ? "A mind map" : "A whiteboard");
+    const why = document.createElement("p");
+    why.className = "library-file-meta board-embed-meta";
+    why.textContent = "This board is no longer in your notebook.";
+    box.append(head, what, why);
+    return null;
+  }
+
+  const isMap = board.type !== "board";
+  const title = board.title || ref.title || (isMap ? "Untitled map" : "Untitled board");
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "board-embed-open";
+  open.title = `Open \u201c${title}\u201d`;
+
+  const head = document.createElement("span");
+  head.className = "note-embed-head";
+  setLabel(head, `${isMap ? "ph:tree-structure" : "ph:squares-four"} ${isMap ? "Mind map" : "Whiteboard"}`);
+
+  const body = document.createElement("span");
+  body.className = "board-embed-body";
+  const picture = mapPreview(board, { size: "card" });
+  picture.classList.add("board-embed-picture");
+  const text = document.createElement("span");
+  text.className = "board-embed-text";
+  const name = document.createElement("span");
+  name.className = "board-embed-title";
+  name.textContent = title;
+  //: The facts line recipe (DESIGN.md), the same sentence the Library card
+  //: and the dashboard row carry under the same picture.
+  const meta = document.createElement("span");
+  meta.className = "library-file-meta board-embed-meta";
+  meta.textContent = mapCountLabel(board);
+  text.append(name, meta);
+  body.append(picture, text);
+  open.append(head, body);
+  open.addEventListener("click", (event) => {
+    //: The note card underneath is itself clickable (it expands), so a press
+    //: meant for the board must not also open the note.
+    event.stopPropagation();
+    if (typeof openWhiteboardBoard === "function") openWhiteboardBoard(board.id);
+  });
+  box.appendChild(open);
+  return board;
+}
+
+//: The reference a note carries for one board, the one place the text form is
+//: written. Read by the "/" menu and by the board's own "Add to a note", so
+//: the two cannot write two different spellings of the same object.
+function boardEmbedMarkdown(board) {
+  const isMap = board?.type !== "board";
+  const title = String(board?.title || (isMap ? "Untitled map" : "Untitled board"))
+    .replace(/[[\]|]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+  return `![[${isMap ? "map" : "board"}:${board?.id}|${title}]]`;
 }
 
 //: How deep a callout or an embed may nest before rendering stops.

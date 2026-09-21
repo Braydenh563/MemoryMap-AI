@@ -7,6 +7,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added
+
+- A whiteboard or a mind map can live inside a note as an object: a preview
+  card of the board itself, with its name and how much is on it, that opens
+  the board when pressed. It is written `![[board:12|House jobs]]`, by id, so
+  renaming the board does not break the note. A board that has been deleted
+  leaves a card saying what was there rather than taking a paragraph of the
+  note with it. An embedded board used to render as "Nothing called House
+  jobs yet", which was the one case the transclusion renderer never learnt.
+
 ### Changed
 
 - The loading bar on the splash screen is cheaper to draw, so it stays smooth

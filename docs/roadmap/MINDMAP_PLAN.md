@@ -627,6 +627,293 @@ right-click opens the ring and returns before the menu is built).
 - **The empty map says how to start.** One line under the templates card, gone
   on the first topic added and never shown again.
 
+## 13. The map, read against its six complaints: measured 2026-09-21, phases open
+
+The owner, INBOX 305: "the mindmap needs A LOT of improving. Tools and
+utilities are really awkward to use and dont show themselves how id expect,
+there are two types of connections, it is really confusing to access and use
+features and utilities, they are hard to find and figure out how to use, they
+are unintuitive, the ui needs improving, the mindmap is slow, the
+customisation features are lacking severely and it just feels really unclean
+and unprofessional."
+
+That is six complaints, and this section is a read rather than a redesign:
+the complaint is broad, and a redesign built on a guess is this project's
+most expensive recurring mistake. Every number below was taken in a real
+Chromium against the branch head on 2026-09-21, at 1440x900 in light unless
+another width is named. **Nothing here is carried over from a previous
+session**; where a previous session's figure is quoted it is labelled prior
+and was re-taken.
+
+**What the map surface is for, decided here so the phases cannot drift.**
+This is a notebook's thinking surface, not a diagram editor. The person using
+it is laying out what they already know or are working out, and the map's
+whole claim is that the structure in their head is on the screen with as
+little ceremony as possible. So "professional" here means a map they would be
+content to put in front of somebody, and "improved" means fewer decisions per
+topic, not more controls: nothing in the phases below adds a control to the
+canvas that a thinker did not ask for, and an affordance that belongs to one
+topic is sized like one topic.
+
+### 13.1 Is it slow? The one claim measured before anything was designed
+
+`scratchpad/ui-sweeps/mapperf.js`, registered in `scripts/gate.sh`'s sweep
+list. Maps of 50, 200 and 500 topics built through `/whiteboard/boards/import`
+(a route a person has, from the Board menu) so the figures are the cost of
+*having* the nodes rather than of adding them. Frame deltas come from a rAF
+loop running in the page across a real `page.mouse` gesture, so a blocked main
+thread shows up as one long frame, which is what it is.
+
+| Topics | Open to painted | `wbMapIndex` | `wbMapTidyPositions` | `renderWhiteboard` | Pan, median / worst | Drag, median / worst |
+| --- | --- | --- | --- | --- | --- | --- |
+| 50 | 371.5ms | 0.0ms | 2.9ms | 60.5ms | 16.7 / 33.3ms | 16.7 / 66.6ms |
+| 200 | 906.4ms | 0.1ms | 16.7ms | 281.4ms | 16.7 / 50.1ms | 16.7 / 416.5ms |
+| 500 | 3608.8ms | 0.1ms | 76.8ms | 1282.4ms | 16.7 / 133.4ms | 16.7 / 1583.3ms |
+
+**The claim is true, and it is one thing.** Four readings settle it:
+
+1. **Panning is not slow at any size.** The median frame is 16.7ms at 50, at
+   200 and at 500, which is vsync: a pan writes a transform and never
+   re-renders. Whatever the owner is feeling, it is not the pan.
+2. **The layout maths is not slow either.** 76.8ms to lay out 500 topics is
+   a command a person pressed, and `wbMapIndex`, which every map action calls
+   first, is free at 0.1ms. Neither is worth optimising.
+3. **`renderWhiteboard` is the whole of it**, and it grows faster than the
+   node count: 8.1× the nodes buys 21× the render. 1,282ms is a full second
+   of frozen tab per pass.
+4. **It lands on the user at the worst possible moment.** A second run of the
+   probe recorded where in the gesture the worst frame falls: `dragWorstAt`
+   **0.03**, three per cent into the drag. The 1.6-second stall at 500 topics
+   is not the drop, it is the **pick-up**: the map freezes the instant a
+   finger goes down on a topic, before it has moved. (`panWorstAt` 0.91, near
+   the end, which is the settle after the pan.) A second 500-node run
+   reproduced it: 1,616.5ms worst drag frame, 1,179.5ms render.
+
+So: the map is slow to open and slow to touch, and both are the same bug.
+Nothing else measured here is worth a phase until that one is fixed. **What
+is not known is the owner's own map size**, and it changes which phase
+matters: at 50 topics the stall is 67ms and nobody would write that sentence,
+at 500 it is 1.6 seconds. That question is 13.6's first row.
+
+### 13.2 The two kinds of connection
+
+`scratchpad/ui-sweeps/maptwokinds.js`, 10/10. One map, one tree edge and one
+free link between two topics that are both already in the tree, then the
+running app asked what each offers. They are drawn by the same renderer and
+look nearly alike, which is exactly why the difference had to be read off the
+controls rather than looked at.
+
+| | **Tree edge** (`parent_id`) | **Free link** (a link sketch) |
+| --- | --- | --- |
+| What it is | Not a row. It *is* the child's `parent_id`, so everything about it is stored on the child | Its own `whiteboard_sketches` row, `type: "link-straight"` or `"link-curved"`, naming both ends |
+| Made by | Tab, Enter, the ring's Add child / Add beside, the node's own `+`, dragging a loose topic onto another | The rail's **Connect** section: Straight link (C), Curved link (Shift+C); and the ring's **Connect** slot, which picks the same rail tool |
+| Right-click opens | The **link ring**, 3 slots: Reverse, Label, Cut | Nothing of the map's. The ring stays hidden (measured: `linkRingVisibleForFreeLink` false) |
+| Its look is set from | The **topic strip**, 5 of whose 14 controls are the line's: thickness, dash, arrowhead, shape, and the topic colour it inherits | The **board's own context bar**, `wbContextKindOf` returns `"link"`: ink, caps, stroke. A different surface, with different words, for the same idea |
+| Can be re-shaped | Yes: `edge_bend` / `edge_slide`, a waypoint dragged on the line (added this session) | No waypoint. The board's link has its own anchors and caps instead |
+| Label | Yes, `edge_label` on the child, from the ring | Yes, `label` in the sketch's data, but no map control writes it |
+| Survives Markdown / OPML / FreeMind export | **Yes**, all three: it is the indent | **No**, none of the three. `export_board` builds from `_build_tree(_map_objects(...))`, which walks objects and `parent_id` only. The tree endpoint does return `cross_links`; no exporter reads it |
+| Counted in the map's own stats | Yes, as the tree | Yes, separately, as "Cross-links" |
+
+**And one gesture produces either, decided by something invisible.**
+`wbMapJoinByLink` reads the drop: if the target is not already in the tree,
+the drag becomes a **re-parent** and a tree edge; if both ends are in the
+tree, the same drag leaves a **free link**. Nothing on screen says which is
+about to happen, and the two outcomes differ in whether the result exports.
+
+**The judgement, with the cost of each direction.** The split is *justified in
+the data* and *not justified in the controls*. A tree is a tree and a
+cross-reference is a graph edge; XMind and Coggle both keep the distinction,
+and collapsing `parent_id` into rows would be a migration of every map for no
+gain a user can see. What is not justified is that the two have separate
+control surfaces, separate vocabularies and different export fates:
+
+- **Absorb the free link into the map's own grammar** (the direction this
+  plan should take). The free link keeps being a sketch row; what changes is
+  that on a map it gets the link ring rather than the board's context bar, its
+  own word for what it is, and a line in the exports. Cost: an exporter change
+  in all three formats (FreeMind has `<arrowlink>`, OPML has no natural place
+  and needs a decision), plus the ring learning a second subject. Nothing
+  migrates.
+- **Absorb the tree edge into rows.** Cost: a migration of every map, the loss
+  of the one property that makes the tree cheap to read, and every one of the
+  seventeen `data` fields that currently ride on the child needing a new home.
+  Refused.
+
+### 13.3 What the surface offers, and by how many doors
+
+Re-measured with `scratchpad/ui-sweeps/mapaudit.js` on the same twelve-topic
+map the ninth run used, plus a route-split pass. **§12.5 has landed since that
+audit, and most of its numbers are stale:**
+
+| Surface | Prior (ninth run) | Now | |
+| --- | --- | --- | --- |
+| Top bar, on screen | 13 | **9** | 3 of the 9 are menu openers |
+| Top bar, inside its menus | 47 | **60** | across five menus |
+| Tool rail | 16 in 6 sections | **13 in 5** | Move 3, Map 3, Layout 7, Connect 2, Edit 3 |
+| Topic strip | 13, box 810x38 | **14, box 959x38** | |
+| Node ring | 8 slots, **no label drawn** | **6 slots, each a labelled pill**, 112x28 | the memory test is gone |
+| Link ring | 8 slots | **3**: Reverse, Label, Cut | the five that were looks moved to the strip |
+| The node's own row | 7 | 7 | |
+| Context menu | 8 items, **none reachable on a map node** | **15 items, reachable** through the ring's More | |
+
+So the ninth run's worst finding is fixed and the duplicate list is much
+shorter. What the re-measurement found instead:
+
+- **Two menus are built into a map's top bar with no opener on screen.** The
+  Insert menu's **8 items** (sticky, text box, image, note card, rectangle,
+  circle, arrow, connector) and the Arrange menu are both in the DOM and
+  neither opener is among the 9 controls actually on screen. They are not
+  reachable and not removed.
+- **The rail's most connection-looking control makes the other kind.** The
+  Connect section's two buttons, "Straight link (C)" and "Curved link
+  (Shift+C)", are the only things on screen with the word Connect on them, and
+  both make a **free link**. Nothing on the rail makes a tree edge; the tree
+  is Tab, Enter, the ring and the node's `+`. This is where "there are two
+  types of connections" is *felt*, as opposed to where it is stored.
+- **Still one door only:** everything on the link ring (reverse, label, cut)
+  needs a right-click on a line, which nothing on screen advertises; "Add a
+  top-level topic", the only route to a second trunk, is the rail's Map
+  section alone; "Open every folded branch" and the perspective legend are
+  inside the View menu alone.
+
+### 13.4 What can be customised, against what a map tool offers
+
+Read off `MAP_STYLE_FIELDS` and the layout picker, then confirmed on screen.
+
+**A topic, today (11):** colour, bold, italic, text size, alignment, icon,
+shape (pill / rect / ellipse), core-idea flag, the spine down its leading
+edge, a picture, a link out. **Its line (6):** label, shape (curve / elbow /
+straight), dash, thickness, arrowhead, and a dragged waypoint. That is a
+serious per-node set and it is not where the complaint is.
+
+**The map as a whole is where it is thin.** Four layouts exist: tree sideways,
+tree downward, radial, free. §12.0's own decision list promised eight, naming
+"tree right, tree left, both sides (Coggle), org chart down, logic chart,
+fishbone, timeline (XMind), radial". **Tree-left and both-sides are missing,
+and both-sides is Coggle's signature.** Beyond layout, a map has no theme of
+its own (no font choice, no branch palette a person picks, no line-style
+default), no per-branch layout override, and no way to set a default for new
+topics: every one of the eleven fields above is set one topic at a time, and
+"Reset to branch" is the only bulk operation of any kind.
+
+So "customisation is lacking severely" is right about the *map* and wrong
+about the *topic*, and a phase that adds more per-node fields answers the
+wrong half.
+
+### 13.5 Clean and professional: the same measurements section 17 took
+
+Gutters, rhythm, type scale, and whether the surface uses the app's tokens or
+its own values. The token scales were resolved by giving a probe element each
+value as a width, because `--space-N` is `calc(0.25rem * var(--density))` and
+reading the property text hands back the calc, never a length.
+
+| What | Reading |
+| --- | --- |
+| Topic card | 200x44 stored; padding 8px / 9.6px, gap 6.4px, radius 8.4px |
+| Topic type | 13.6px, line height 18.36px, so 1.35 |
+| Ring slot | 112x28, type 13.6px, radius 999px |
+| Rail | 624x36, gap 4px, sitting 11.4px above the canvas floor, centred |
+| Top bar | 1392x46, padding 4px / 6.4px, radius 14px |
+| Rhythm, zoomed to fit | leaf-to-leaf gap 59.6px, depth-to-depth gap 56.7px at both levels read |
+| Topic strip | **959.4 x 38**, opening 43.7px above the topic |
+
+**The tokens are not the problem, and that is worth saying plainly**, because
+it is the opposite of what section 17 found for the live view. Every padding
+and gap read on the map's chrome is on `--space-1..9` (`offScale` empty). The
+type is on the scale too: 13.6px is `--text-md`, the workhorse; the rail's
+section labels are 11.2px, `--text-xs`. The radii are derived from the user's
+own `--radius` of 14px: 8.4px is `--radius-md`, 999px is `--radius-pill`. A
+sweep of the stylesheet will not find the problem.
+
+**One number is the problem, and it holds at every width measured.** The topic
+strip is 959.4px wide to describe a topic that is 95px wide on screen: **10.1
+times the width of its own subject, and 67% of the window at 1440.** It does
+not adapt:
+
+| Width | Strip | Fraction of the window |
+| --- | --- | --- |
+| 1440 | 959.4 x 38 | 0.67 |
+| 1024 | **959.4 x 38** (unchanged) | **0.94** |
+| 390 | 348.4 x **150** (wrapped to four rows) | 0.89 |
+
+At 1024 a bar of fourteen controls takes 94% of the window every time a topic
+is selected; at 390 it becomes a 150px block, 18% of the screen height,
+floating 44px above the topic it belongs to. That is the measurable half of
+"unclean and unprofessional": the surface is built from the right tokens and
+then assembled at the wrong scale. It is also why §12.1's own remaining list
+already records the strip covering the handle of the line into the selected
+topic: a control that wide has nowhere to go.
+
+### Decisions made
+
+1. **The render is the bug, and it is fixed before anything is designed.**
+   No phase below 13a is worth starting, because every one of them would be
+   judged through a one-second stall.
+2. **The data keeps two kinds of connection; the controls stop having two.**
+   `parent_id` stays. What changes is that a map's free link is spoken about
+   in the map's own words, gets the map's own ring, and appears in the
+   exports.
+3. **The strip is sized like its subject.** A control surface for one topic
+   does not take two thirds of the window, and it adapts below 1440 rather
+   than keeping one width until the phone band wraps it.
+4. **Customisation grows at the map level, not at the topic level.** The
+   eleven per-topic fields are enough; the missing layouts and the absence of
+   any map-wide default are the gap.
+5. **Nothing is added to the canvas.** Per standing order 11, any new
+   affordance comes from DESIGN.md's recipe index or arrives with its own
+   recipe and lint in the same commit.
+
+### Phases, each with the gate it is finished against
+
+- **13a. The render pass.** Make `renderWhiteboard` proportional to what
+  changed rather than to what exists: the drag path must not rebuild every
+  node to pick one up. Gate: `mapperf.js` at 500 topics with the worst drag
+  frame under 100ms and `renderWhiteboard` under 200ms, open-to-painted under
+  1s, and the pan medians unchanged at 16.7ms at all three sizes.
+- **13b. The strip is sized like a topic.** One considered treatment of the
+  fourteen controls that does not assume 959px: grouped, or revealed on
+  approach, or moved to the topic's own row. Gate: the strip's width is under
+  half the window at 1440, 1024 and 820, it never covers the line into its own
+  topic, and `mapnarrow.js` and `mapstrip.js` stay clean.
+- **13c. One vocabulary for two connections.** The free link on a map gets the
+  link ring rather than the board's context bar, and one word that says what
+  it is. Gate: `maptwokinds.js` extended so that right-clicking either kind
+  opens the same ring with the slots that apply, and the board's context bar
+  never appears for a link on a map.
+- **13d. A free link survives an export.** FreeMind's `<arrowlink>` first,
+  since it has a place for it; OPML and Markdown need the decision made
+  before the code. Gate: a map with one cross link round-trips through
+  FreeMind with the link intact, and `maptwokinds.js`'s export check inverts
+  from "survives none" to "survives the format that can carry it".
+- **13e. The map's own customisation.** Tree-left and both-sides, the two
+  §12.0 promised and Coggle is known for; then a map-level default for new
+  topics. Gate: each layout laid out and measured for overlap at 12 and 200
+  topics, and `maptidy.js` still clean at 1440 and 390.
+- **13f. The doors that are built and shut.** The Insert menu's eight items
+  and the Arrange menu are in a map's top bar with no opener: remove them from
+  a map or give them a door. Gate: the route-split count shows no control in
+  a map's top bar that has no way to be reached.
+
+### Not verified, and to be taken first by whoever opens this
+
+- **The owner's own map size is unknown**, and it decides whether 13a is
+  urgent or academic. At 50 topics the stall is 67ms; at 500 it is 1.6
+  seconds. **Ask before building 13a.**
+- **Every figure above is light mode.** Dark is unmeasured in this read.
+- The timings are one machine, one Chromium, one run each except the 500-node
+  row, which was run twice (1,583.3ms and 1,616.5ms worst drag frame). They
+  are a shape, not a benchmark.
+- **The strip is measured at 1440, 1024 and 390 only.** `boot()` defaults to
+  1440 but takes `opts.viewport`, so other widths were reached by passing it;
+  820 (the tablet band) is not read here.
+- The free link was created through `/whiteboard/sketches` with the fields the
+  connect drag writes, not by driving the drag itself. The row is the same
+  shape; the drag's own hit-testing is not exercised.
+- **Nothing here reproduces the owner's phrase "awkward to use".** The counts
+  say where the controls are, not what it feels like to reach for one. 13b and
+  13c are the two that can be judged by measurement; whether they are what he
+  meant is a question, not a finding.
+
 ## Placed from INBOX, 2026-09-09
 
 The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.

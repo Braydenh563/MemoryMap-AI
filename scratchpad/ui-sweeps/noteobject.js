@@ -43,6 +43,8 @@ const { boot } = require('./lib.js');
     return { board: board.id, map: map.id, note: note.id };
   }, tag);
 
+  const findingsDoc = [];
+  await page.evaluate((id) => { window.__noteobjBoard = id; }, ids.board);
   await page.evaluate(() => switchTab('notes'));
   await page.evaluate(() => loadEntries());
   await page.waitForTimeout(3000);
@@ -171,7 +173,35 @@ const { boot } = require('./lib.js');
     console.log('addedToNote', JSON.stringify((addedToNote || '').slice(-60)));
   }
 
-  const findings = [];
+  // The same object in a document, because `mdEmbedElement` is shared by the
+  // note renderer and `renderMarkdown`, and "shared" is a claim until it is
+  // measured on both.
+  const inDocument = await page.evaluate(async (tag) => {
+    const doc = await apiJson('/documents', {
+      method: 'POST',
+      body: JSON.stringify({ title: `House plan ${tag}`, content: `The plan\n\n![[board:${window.__noteobjBoard}|House jobs ${tag}]]\n` }),
+    });
+    return doc.id;
+  }, tag).catch(() => null);
+  if (inDocument) {
+    await page.evaluate((id) => { switchTab('documents'); setTimeout(() => openDocument(id), 150); }, inDocument);
+    await page.waitForTimeout(3000);
+    // The rendered view, which is the one `renderMarkdown` draws; Live is the
+    // engine's own decorations and has no transclusion of any kind.
+    await page.evaluate(() => setDocView('rendered'));
+    await page.waitForTimeout(1500);
+    const drawn = await page.evaluate(() => {
+      const el = document.querySelector('#doc-preview .board-embed');
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { h: Math.round(r.height), svg: !!el.querySelector('svg'), gone: el.classList.contains('board-embed-gone') };
+    });
+    console.log('inDocument', JSON.stringify(drawn));
+    if (!drawn) findingsDoc.push('the board object did not render in a document');
+    else if (drawn.gone || !drawn.svg) findingsDoc.push('the board object in a document: ' + JSON.stringify(drawn));
+  }
+
+  const findings = [...findingsDoc];
   if (!card) findings.push('the note did not render');
   else {
     const live = card.objects.filter((o) => !o.gone);

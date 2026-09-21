@@ -38,7 +38,7 @@ import tempfile
 import threading
 import time
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import requests
 from fastapi import APIRouter, HTTPException
@@ -174,12 +174,55 @@ def current() -> dict:
     }
 
 
+#: github.com -> objects.githubusercontent.com (the module docstring above)
+#: is the whole redirect chain any real release download ever needs; a
+#: handful of spare hops covers a CDN's own internal bounce without letting
+#: a redirect loop hang the download indefinitely.
+MAX_DOWNLOAD_REDIRECTS = 5
+
+
 def _download(url: str, dest: Path) -> None:
     """Streamed, with progress on `_state`, the installer is well over a
     typical extras wheel, so a caller polling for "still alive" needs an
     actual number moving, not a static "downloading…" for however long a
-    slow connection takes."""
-    response = requests.get(url, stream=True, timeout=DOWNLOAD_TIMEOUT)
+    slow connection takes.
+
+    `requests.get(..., allow_redirects=True)` (the default) only checks the
+    *first* URL: `_run_apply` validates that one against
+    `ALLOWED_DOWNLOAD_HOSTS` before this function ever runs, but every hop
+    after that used to be followed unchecked. GitHub's own release flow
+    always redirects at least once (github.com to
+    objects.githubusercontent.com, the reason both hosts are on the
+    allowlist), so this is not a theoretical gap: `allow_redirects=False`
+    below, with each `Location` re-validated by hand before it is ever
+    fetched, keeps that real redirect working while refusing to follow one
+    off the allowlist. Chosen over "follow redirects and check
+    `response.url` afterwards" because by the time a response has a final
+    `url`, `requests` has already connected to every host on the way there;
+    checking first means a disallowed host is never contacted at all.
+    """
+    current_url = url
+    response = None
+    for _ in range(MAX_DOWNLOAD_REDIRECTS):
+        if not _download_url_is_allowed(current_url):
+            logger.warning("refusing to follow an update redirect to an unexpected host")
+            raise ValueError("redirected to a disallowed host")
+        response = requests.get(
+            current_url, stream=True, timeout=DOWNLOAD_TIMEOUT, allow_redirects=False
+        )
+        if response.is_redirect or response.is_permanent_redirect:
+            location = response.headers.get("Location")
+            response.close()
+            response = None
+            if not location:
+                raise ValueError("redirect with no Location header")
+            # Relative Location headers are legal (RFC 7231 7.1.2); resolved
+            # against the URL that sent them, same as a browser would.
+            current_url = urljoin(current_url, location)
+            continue
+        break
+    else:
+        raise ValueError("too many redirects")
     response.raise_for_status()
     _state.total_bytes = int(response.headers.get("Content-Length") or 0)
     written = 0

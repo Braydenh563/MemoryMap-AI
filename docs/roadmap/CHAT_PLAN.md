@@ -253,6 +253,17 @@ and every run ends with a verification line and an Undo.
     with a tooltip "Connect a model in Settings" and a one-click link;
     Ask falls back to search results with passages; nothing is hidden.
 
+16. **A read-only note row draws the facts, not the actions** (INBOX 297).
+   A search result, an Ask column record and any other row built through
+   `clickableResult` gets `entryItem(entry, {facts: true})`: every fact the
+   card states about the note (its category, tags, space, confidence, what
+   it is linked to, whether it has no tags yet) is true of the note wherever
+   it is drawn and belongs on the row. A chip that is really an action does
+   not: "Tag with Atlas" starts a model call, and the "No tags yet" flag's
+   handler opens the edit form in a list that is not on screen, so on a
+   read-only row that flag is a fact with no handler. Measured before the
+   decision: the same note drew five chips in Browse and two in Ask.
+
 ## 5. Phases
 
 ### Phase 1: grounding and marks (one session; Brief 12)
@@ -466,33 +477,54 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
 
 ## Placed from INBOX, 2026-09-21 (the Ask sub-tab, four reports in one pass)
 
+**All four built, 2026-09-21.** One pass, because they are one screen and
+four separate fixes would have meant four rounds of the same measurement.
+The probe is `scratchpad/ui-sweeps/asktab.js` (registered in
+`scripts/gate.sh`'s sweep list); it measures rather than captures, and it
+drives a real stream through `scratchpad/fake_answer_server.py`, which now
+takes `FAKE_DELAY_MS` so a stream lasts long enough to poll. The full record
+is in HISTORY.md, "INBOX resolved, 2026-09-21".
+
+~~297. Gaps between an attached file and the badges, and badges that do not
+all show.~~ **Built.** The gap: 0.0px to 6.4px, at 1440, 1024, 820 and 390.
+The badges: not a truncation and not a wrap (every badge the data implies
+was drawn at every width, none clipped, 0px of the lane scrolled out), but a
+condition that never fired: `clickableResult` passed `entryItem` no options,
+so every chip gated on `options.actions` was missing from a read-only row.
+The same note: 2 badges in the Ask column before, 4 after, against 5 in
+Browse, the fifth being the one chip decision 16 keeps off a result row.
+
+~~298. No generating animation while the model is thinking and streaming.~~
+**Built.** Frames with the answer actually streaming: 250 before, 0 of them
+showing anything moving; 63 after, 63 of them showing something. Across the
+whole turn: 120 of 372 before, 243 of 243 after. Two existing components
+(`progressLine`, `.is-generating`) called from a surface that never called
+either, not a new control.
+
+~~299. Number the matching records to match the inline referencing.~~
+**Built.** Records numbered: 0 of 5 before, 5 of 5 after, from
+`citationNumbers`, the map the prose marks, the "Grounded in" chips and the
+Sources panel already share. Marks whose row disagrees with them: 0. Numbers
+drawn over a row's own text: 0 (6.4px of clear gutter on every row).
+
+~~300. The sources button reads as a banner and describes a place.~~
+**Built.** 525px of a 525px column (100%) before, 204px (38.9%) after;
+"Sources: 5 notes, on the right" before, "Show the 5 notes used" after; and
+a press now moves the first cited record from 328px below the top of the
+window to 72px.
+
+### The four reports, verbatim
+
 297. **The owner, 2026-09-21, verbatim:** "in the ask subtab in notes, make
     sure there are appropriate gaps between uploaded files and attachments
-    and the badges and make sure all the badges show." His screenshot shows
-    a file chip, "cab432_lecture_agents.pdf" with a download button, sitting
-    hard against the row of badges under it: Courses & Study, AI 72%,
-    Default Space, and the date. Two things in one: the spacing, and badges
-    that do not all appear. Placed into CHAT_PLAN.
-
+    and the badges and make sure all the badges show."
 
 298. **The owner, 2026-09-21, verbatim:** "there's no generating animation
-    while the model is thinking and streaming in the ask tab either." The
-    Ask sub-tab in notes. Note that the app has a shared `.spinner`
-    (01-forms-settings.css) whose shape was fixed tonight, so this is a
-    missing call site rather than a new control. Placed into CHAT_PLAN.
-
+    while the model is thinking and streaming in the ask tab either."
 
 299. **The owner, 2026-09-21, verbatim:** "can the notes in the matching
     records that appear in the ask tab be numbered accordingly to match the
-    inline referencing??" The answer's inline references are numbered, and
-    the matching records beside them are not, so the two cannot be read
-    against each other. Placed into CHAT_PLAN.
-
+    inline referencing??"
 
 300. **The owner, 2026-09-21, verbatim:** "fix the ui of this sources button
-    in the ask tab." His screenshot shows a full-width pill reading "Sources:
-    10 notes, on the right", spanning the answer column under a "Grounded in"
-    line, with "Ask next" suggestions below it. It reads as a banner rather
-    than a control and it describes where something is rather than doing
-    anything. Placed into CHAT_PLAN.
-
+    in the ask tab."

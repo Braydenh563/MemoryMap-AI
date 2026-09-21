@@ -2714,6 +2714,13 @@ let ocrWorkspaceRegions = [];
 //: are. 0/1 for an image, which is a one-page document with no rail.
 let ocrWorkspacePage = 0;
 let ocrWorkspacePages = 1;
+//: **Whether that count is a fact or a placeholder.** `ocrWorkspacePages`
+//: starts at 1 for a document of unknown length, which is indistinguishable
+//: from a document that really has one page, and the two want opposite
+//: answers: "scroll cannot be honoured yet, wait for the count" against
+//: "scroll cannot be honoured at all, say so". Set when a region response
+//: brings the count back.
+let ocrPagesKnown = false;
 //: page index -> `{caption, caption_model}` for the document on the stage.
 //: Filled from the `page-reads` response (which carries a page's description
 //: on the same row as its reading), cleared and refilled on every page load so
@@ -3838,6 +3845,7 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
 //: does not render 200 pages to show three.
 function ocrBuildPageRail(image, pages) {
   ocrWorkspacePages = Math.max(1, pages || 1);
+  ocrPagesKnown = true;
   const rail = $("ocr-rail");
   if (!rail) return;
   //: The switch above the rail gains its "Pages" segment only once the page
@@ -4178,6 +4186,7 @@ function ocrOpenSibling(row) {
   if (ocrIsPdf(row)) {
     ocrWorkspacePage = 0;
     ocrWorkspacePages = 1;
+    ocrPagesKnown = false;
     ocrRailMode = "pages";
     ocrTearDownScroll();
     ocrLoadPage(row, 0);
@@ -4192,6 +4201,7 @@ function ocrOpenSibling(row) {
   ocrTearDownScroll();
   ocrWorkspacePage = 0;
   ocrWorkspacePages = 1;
+  ocrPagesKnown = false;
   ocrLoadPage(row);
   ocrRenderRail(row);
 }
@@ -4212,6 +4222,7 @@ function openOcrWorkspace(image, images, page = 0) {
   const startPage = Math.max(0, Number(page) || 0);
   ocrWorkspacePage = startPage;
   ocrWorkspacePages = 1;
+  ocrPagesKnown = false;
   //: Answers about regions belong to the file they were asked about. They are
   //: not stored anywhere, so opening another document has to take them away
   //: rather than leave them looking like something known about the new one.
@@ -4482,26 +4493,54 @@ function ocrStoredViewMode() {
   }
 }
 
-function ocrSyncViewButtons() {
+//: Lit for the mode you are actually in, which is not always the mode you
+//: asked for: see `ocrSetViewMode`. A segment showing "Scroll" over a single
+//: page is the control lying about the app's state, and it is most of what
+//: "even when on scroll mode I cant scroll" describes from the outside.
+function ocrSyncViewButtons(effective = ocrViewMode) {
   for (const button of document.querySelectorAll("#ocr-view button")) {
-    const on = button.dataset.ocrView === ocrViewMode;
+    const on = button.dataset.ocrView === effective;
     button.classList.toggle("active", on);
     button.setAttribute("aria-pressed", String(on));
   }
 }
 
-function ocrSetViewMode(mode, image) {
+//: `asked` is true only when a person pressed the segment. The same function
+//: re-applies a *remembered* preference on every document that opens, and a
+//: photograph explaining that it is not long enough to scroll is furniture.
+function ocrSetViewMode(mode, image, opts = {}) {
   ocrViewMode = mode === "scroll" ? "scroll" : "page";
   try {
     localStorage.setItem(OCR_VIEW_KEY, ocrViewMode);
   } catch {
     //: See ocrStoredViewMode: not remembering is not a failure worth showing.
   }
-  ocrSyncViewButtons();
   const continuous = ocrViewMode === "scroll" && ocrIsPdf(image) && ocrWorkspacePages > 1;
+  //: **A mode that cannot engage says so rather than quietly doing something
+  //: else** (INBOX 314). Scroll used to fall back to one page in silence, and
+  //: leave its own segment lit while it did, so the three reasons it can fail
+  //: were indistinguishable from a broken scroll: the file is not a document,
+  //: the document has one page, or the page count has not come back yet. Only
+  //: the last is temporary, and `ocrLoadPage` turns the mode on the moment the
+  //: count arrives, so the button stays lit through that one and the other two
+  //: hand the light back to "One page".
+  const pending = ocrViewMode === "scroll" && !ocrPagesKnown;
+  ocrSyncViewButtons(continuous || pending ? ocrViewMode : "page");
   if (!continuous) {
     ocrTearDownScroll();
     ocrApplyZoom();
+    //: A toast rather than `#ocr-message`: that line carries what the reader
+    //: said about the page (often "nothing read yet", which is the more useful
+    //: sentence, and sometimes the reason the request failed, which must not be
+    //: painted over with a guess about page counts). This answers the press
+    //: and goes away.
+    if (opts.asked && !pending) {
+      toast(
+        ocrIsPdf(image)
+          ? `Scrolling needs a document with more than one page, this one has ${ocrWorkspacePages}.`
+          : "Scrolling through pages is for documents, this is a single image."
+      );
+    }
     return;
   }
   $("ocr-page-pane")?.classList.add("is-scroll");
@@ -4871,7 +4910,7 @@ onDomReady(() => {
   }
   for (const button of document.querySelectorAll("#ocr-view button")) {
     button.addEventListener("click", () => {
-      ocrSetViewMode(button.dataset.ocrView, ocrWorkspaceCurrent);
+      ocrSetViewMode(button.dataset.ocrView, ocrWorkspaceCurrent, { asked: true });
     });
   }
   $("ocr-prev-page")?.addEventListener("click", () => ocrStepPage(-1));

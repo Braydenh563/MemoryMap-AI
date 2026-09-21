@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- The Windows splash screen can be got out of the way. It is a borderless
+  window that sits above everything, so a first install that pulls a model
+  could hold the screen for minutes with no way to move it aside. There is a
+  Minimise button beside Cancel now, and it drops the always-on-top flag while
+  minimised so the window restores from the taskbar without jumping back in
+  front of what you moved to.
 - The guided tour is switched off while it is being fixed. Every door into it
   is disabled and says why: the welcome's last panel offers "Get started"
   instead of starting a tour, and the replay buttons in Settings, Help are

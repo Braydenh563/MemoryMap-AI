@@ -85,6 +85,9 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   # index.html, app.js's two loader tables and every frontend file at once,
   # so a change to any one of them can break it without naming it.
   tests/test_lazy_bundle_calls.py
+  # The command tables' row shape: it reads editor.js and documents.js
+  # together, so neither file's name selects it on its own.
+  tests/test_command_row_shape.py
   tests/test_cheap_animations.py
   # The copy lint, here for the same reason `test_docs_site.py` is below: it
   # reads every string in `frontend/*.js` and every piece of markup outside a

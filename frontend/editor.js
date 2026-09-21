@@ -410,16 +410,16 @@ function chatCommands() {
   const mode = (name) => () =>
     document.querySelector(`#chat-mode-seg button[data-chat-mode="${name}"]`)?.click();
   return [
-    { id: "chat-attach-note", primary: true, group: "Attach", label: "ph:note A note", hint: "as context", keywords: ["attach", "note", "reference", "context"], run: pick("notes") },
-    { id: "chat-attach-document", primary: true, group: "Attach", label: "ph:file-text A document", hint: "from Documents", keywords: ["attach", "document", "doc"], run: pick("documents") },
-    { id: "chat-attach-file", primary: true, group: "Attach", label: "ph:paperclip A file", hint: "from the Library", keywords: ["attach", "file", "pdf", "spreadsheet"], run: pick("files") },
-    { id: "chat-attach-image", group: "Attach", label: "ph:image An image", hint: "from the Library", keywords: ["attach", "image", "picture", "photo", "sketch"], run: pick("images") },
-    { id: "chat-upload", primary: true, group: "Attach", label: "ph:upload-simple Upload something new", hint: "any file", keywords: ["upload", "new", "file", "attach"], run: press("attach-image") },
-    { id: "chat-web", primary: true, group: "This message", label: "ph:globe Web search", hint: "toggle", keywords: ["web", "search", "online", "internet"], run: press("web-search-toggle") },
-    { id: "chat-plan", primary: true, group: "This message", label: "ph:compass Plan first", hint: "toggle", keywords: ["plan", "steps", "think"], run: press("chat-plan") },
-    { id: "chat-skills", primary: true, group: "This message", label: "ph:lightning Skills", hint: "run a saved skill", keywords: ["skill", "skills", "run", "workflow"], run: press("chat-skills-btn") },
-    { id: "chat-mode-agent", group: "Mode", label: "ph:robot Agent mode", hint: "let it act on the notebook", keywords: ["agent", "mode", "tools", "act"], run: mode("agent") },
-    { id: "chat-mode-chat", group: "Mode", label: "ph:chat-circle Ask mode", hint: "answer only", keywords: ["ask", "chat", "mode", "answer"], run: mode("chat") },
+    { id: "chat-attach-note", primary: true, group: "Attach", icon: "ph:note", label: "A note", hint: "as context", keywords: ["attach", "note", "reference", "context"], run: pick("notes") },
+    { id: "chat-attach-document", primary: true, group: "Attach", icon: "ph:file-text", label: "A document", hint: "from Documents", keywords: ["attach", "document", "doc"], run: pick("documents") },
+    { id: "chat-attach-file", primary: true, group: "Attach", icon: "ph:paperclip", label: "A file", hint: "from the Library", keywords: ["attach", "file", "pdf", "spreadsheet"], run: pick("files") },
+    { id: "chat-attach-image", group: "Attach", icon: "ph:image", label: "An image", hint: "from the Library", keywords: ["attach", "image", "picture", "photo", "sketch"], run: pick("images") },
+    { id: "chat-upload", primary: true, group: "Attach", icon: "ph:upload-simple", label: "Upload something new", hint: "any file", keywords: ["upload", "new", "file", "attach"], run: press("attach-image") },
+    { id: "chat-web", primary: true, group: "This message", icon: "ph:globe", label: "Web search", hint: "toggle", keywords: ["web", "search", "online", "internet"], run: press("web-search-toggle") },
+    { id: "chat-plan", primary: true, group: "This message", icon: "ph:compass", label: "Plan first", hint: "toggle", keywords: ["plan", "steps", "think"], run: press("chat-plan") },
+    { id: "chat-skills", primary: true, group: "This message", icon: "ph:lightning", label: "Skills", hint: "run a saved skill", keywords: ["skill", "skills", "run", "workflow"], run: press("chat-skills-btn") },
+    { id: "chat-mode-agent", group: "Mode", icon: "ph:robot", label: "Agent mode", hint: "let it act on the notebook", keywords: ["agent", "mode", "tools", "act"], run: mode("agent") },
+    { id: "chat-mode-chat", group: "Mode", icon: "ph:chat-circle", label: "Ask mode", hint: "answer only", keywords: ["ask", "chat", "mode", "answer"], run: mode("chat") },
   ];
 }
 
@@ -483,7 +483,7 @@ function skillCommands() {
       id: "skill-nothing-yet",
       primary: true,
       group: "Nothing to offer yet",
-      label: "ph:info Add an input or tick a tool",
+      icon: "ph:info", label: "Add an input or tick a tool",
       hint: "then they appear here",
       keywords: ["input", "tool", "help", "empty"],
       run: () => {},
@@ -505,7 +505,8 @@ function editorCommands(context) {
       // Links, AI and Templates below the fold, which is exactly what a live
       // browser check caught. Four show by default; typing finds the rest.
       primary: ["note", "tip", "warning", "danger"].includes(kind),
-      label: `${meta.icon} ${meta.label} box`,
+      icon: meta.icon,
+      label: `${meta.label} box`,
       hint: `> [!${kind}]`,
       keywords: ["callout", "box", "frame", "admonition", kind, meta.label],
       run: (textarea) => editorApplyAction(textarea, calloutTemplate(kind)),
@@ -526,7 +527,7 @@ function editorCommands(context) {
     id: "callout-fold",
     primary: true,
     group: "Blocks & frames",
-    label: "ph:folder-open Collapsible section",
+    icon: "ph:folder-open", label: "Collapsible section",
     hint: "> [!note]-: folded until clicked",
     keywords: ["fold", "collapse", "collapsible", "toggle", "details", "section", "hide"],
     run: (textarea) => editorApplyAction(textarea, calloutTemplate("note", "-")),
@@ -537,7 +538,7 @@ function editorCommands(context) {
       id: "table",
       primary: true,
       group: "Blocks & frames",
-      label: "ph:table Table",
+      icon: "ph:table", label: "Table",
       hint: "3 columns",
       keywords: ["table", "grid", "columns"],
       //: `editorApplyNamed`, not `editorApplyAction`: the table is a `custom`
@@ -551,7 +552,7 @@ function editorCommands(context) {
       id: "codeblock",
       primary: true,
       group: "Blocks & frames",
-      label: "ph:code Code block",
+      icon: "ph:code", label: "Code block",
       hint: "```",
       keywords: ["code", "fence", "snippet"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.codeblock),
@@ -560,7 +561,7 @@ function editorCommands(context) {
       id: "checklist",
       primary: true,
       group: "Blocks & frames",
-      label: "ph:check-square Checklist",
+      icon: "ph:check-square", label: "Checklist",
       hint: "- [ ]",
       keywords: ["task", "todo", "check", "list"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.task),
@@ -568,7 +569,7 @@ function editorCommands(context) {
     {
       id: "bullets",
       group: "Blocks & frames",
-      label: "ph:list-bullets Bullet list",
+      icon: "ph:list-bullets", label: "Bullet list",
       hint: "-",
       keywords: ["list", "bullet", "ul"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.ul),
@@ -576,7 +577,7 @@ function editorCommands(context) {
     {
       id: "math",
       group: "Blocks & frames",
-      label: "ph:math-operations Math",
+      icon: "ph:math-operations", label: "Math",
       hint: "$\u2026$, rendered where you write it",
       keywords: ["math", "formula", "equation", "latex", "tex", "mathml"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.math),
@@ -585,7 +586,7 @@ function editorCommands(context) {
       id: "divider",
       primary: true,
       group: "Blocks & frames",
-      label: "ph:minus Divider",
+      icon: "ph:minus", label: "Divider",
       hint: "---",
       keywords: ["divider", "rule", "hr", "separator", "break"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.hr),
@@ -594,7 +595,7 @@ function editorCommands(context) {
       id: "heading",
       primary: true,
       group: "Blocks & frames",
-      label: "ph:bookmark-simple Section heading",
+      icon: "ph:bookmark-simple", label: "Section heading",
       hint: "##, becomes a jump target",
       keywords: ["heading", "section", "anchor", "title", "h2"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.h2),
@@ -608,7 +609,7 @@ function editorCommands(context) {
     {
       id: "h1",
       group: "Blocks & frames",
-      label: "ph:text-h Title heading",
+      icon: "ph:text-h", label: "Title heading",
       hint: "#",
       keywords: ["h1", "title", "heading", "big"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.h1),
@@ -616,7 +617,7 @@ function editorCommands(context) {
     {
       id: "h3",
       group: "Blocks & frames",
-      label: "ph:text-h-two Sub-heading",
+      icon: "ph:text-h-two", label: "Sub-heading",
       hint: "###",
       keywords: ["h3", "sub", "heading", "small"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.h3),
@@ -624,7 +625,7 @@ function editorCommands(context) {
     {
       id: "numbered",
       group: "Blocks & frames",
-      label: "ph:list-numbers Numbered list",
+      icon: "ph:list-numbers", label: "Numbered list",
       hint: "1.",
       keywords: ["ordered", "numbered", "list", "ol", "steps"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.ol),
@@ -632,7 +633,7 @@ function editorCommands(context) {
     {
       id: "quote",
       group: "Blocks & frames",
-      label: "ph:quotes Quote",
+      icon: "ph:quotes", label: "Quote",
       hint: ">",
       keywords: ["quote", "blockquote", "cite"],
       run: (textarea) => editorApplyAction(textarea, MD_ACTIONS.quote),
@@ -645,7 +646,7 @@ function editorCommands(context) {
       id: "wikilink",
       primary: true,
       group: "Links & references",
-      label: "ph:link Link to a note",
+      icon: "ph:link", label: "Link to a note",
       hint: "[[…]]",
       keywords: ["link", "note", "wiki", "reference", "connect"],
       // Insert the opening brackets and hand straight over to the [[ menu,
@@ -659,7 +660,7 @@ function editorCommands(context) {
       id: "embed",
       primary: true,
       group: "Links & references",
-      label: "ph:paperclip Embed a note inline",
+      icon: "ph:paperclip", label: "Embed a note inline",
       hint: "![[…]], shows its text here",
       keywords: ["embed", "transclude", "include", "inline", "note"],
       run: (textarea) => {
@@ -670,7 +671,7 @@ function editorCommands(context) {
     {
       id: "image",
       group: "Links & references",
-      label: "ph:image Image",
+      icon: "ph:image", label: "Image",
       hint: "![alt](url): or paste a file into the editor",
       keywords: ["image", "picture", "photo", "figure", "screenshot"],
       run: (textarea) => editorApplyNamed(textarea, "image"),
@@ -678,7 +679,7 @@ function editorCommands(context) {
     {
       id: "footnote",
       group: "Links & references",
-      label: "ph:push-pin Footnote",
+      icon: "ph:push-pin", label: "Footnote",
       hint: "[^1]: with its text at the foot",
       keywords: ["footnote", "reference", "cite", "aside"],
       run: (textarea) => editorApplyNamed(textarea, "footnote"),
@@ -686,7 +687,7 @@ function editorCommands(context) {
     {
       id: "comment",
       group: "Links & references",
-      label: "ph:eye-slash Private comment",
+      icon: "ph:eye-slash", label: "Private comment",
       hint: "%%…%%, kept in the file, never rendered",
       keywords: ["comment", "private", "hidden", "todo", "note to self"],
       run: (textarea) => editorApplyNamed(textarea, "comment"),
@@ -695,7 +696,7 @@ function editorCommands(context) {
       id: "weblink",
       primary: true,
       group: "Links & references",
-      label: "ph:globe Web link",
+      icon: "ph:globe", label: "Web link",
       hint: "[text](url)",
       keywords: ["url", "web", "href", "external"],
       run: (textarea) => {
@@ -719,7 +720,7 @@ function editorCommands(context) {
       id: "properties",
       primary: true,
       group: "Blocks & frames",
-      label: "ph:tag Properties",
+      icon: "ph:tag", label: "Properties",
       hint: "tags, status, dates",
       keywords: ["properties", "frontmatter", "metadata", "tags", "yaml", "status", "aliases"],
       run: (textarea) => editorApplyNamed(textarea, "properties"),
@@ -737,7 +738,7 @@ function editorCommands(context) {
     commands.push({
       id: "blockref",
       group: "Links & references",
-      label: "ph:link Link to this block",
+      icon: "ph:link", label: "Link to this block",
       hint: "copies [[Title#^id]]",
       keywords: ["block", "reference", "anchor", "paragraph", "permalink", "copy link", "^"],
       run: (textarea) => editorApplyNamed(textarea, "blockref"),
@@ -746,7 +747,7 @@ function editorCommands(context) {
       id: "columns",
       primary: true,
       group: "Blocks & frames",
-      label: "ph:columns Two columns",
+      icon: "ph:columns", label: "Two columns",
       hint: ":::columns",
       keywords: ["columns", "column", "two", "side", "split", "grid", "layout"],
       run: (textarea) => editorApplyNamed(textarea, "columns"),
@@ -760,7 +761,7 @@ function editorCommands(context) {
     commands.push({
       id: "annotate",
       group: "Links & references",
-      label: "ph:chat-circle Comment on this",
+      icon: "ph:chat-circle", label: "Comment on this",
       hint: "==words== %%remark%%, listed in the sidebar",
       keywords: ["comment", "annotate", "remark", "review", "note on", "feedback", "margin"],
       run: (textarea) => editorApplyNamed(textarea, "annotate"),
@@ -784,7 +785,7 @@ function editorCommands(context) {
         id: "ai-inline",
         primary: true,
         group: "AI",
-        label: "ph:sparkle Ask Atlas to write here",
+        icon: "ph:sparkle", label: "Ask Atlas to write here",
         hint: "at the cursor \u{2014} Ctrl+J",
         keywords: ["ai", "write", "inline", "here", "cursor", "ask", "generate", "continue"],
         run: (textarea) => inlineAiOpen(textarea),
@@ -793,7 +794,7 @@ function editorCommands(context) {
         id: "ai-edit",
       primary: true,
         group: "AI",
-        label: "ph:sparkle AI edit this selection",
+        icon: "ph:sparkle", label: "AI edit this selection",
         hint: "rewrite, expand, tighten",
         keywords: ["ai", "rewrite", "improve", "expand", "edit"],
         run: () => $("doc-ai")?.click(),
@@ -802,7 +803,7 @@ function editorCommands(context) {
         id: "ai-extract",
       primary: true,
         group: "AI",
-        label: "ph:scissors Extract notes from here",
+        icon: "ph:scissors", label: "Extract notes from here",
         hint: "split into linked notes",
         keywords: ["ai", "extract", "split", "notes"],
         run: () => $("doc-extract")?.click(),
@@ -817,7 +818,7 @@ function editorCommands(context) {
       id: "stamp-date",
       primary: true,
       group: "Templates",
-      label: "ph:calendar Today's date",
+      icon: "ph:calendar", label: "Today's date",
       hint: now.toLocaleDateString(),
       keywords: ["date", "today", "stamp"],
       run: (textarea) => editorApplyAction(textarea, { insert: now.toLocaleDateString() }),
@@ -825,7 +826,7 @@ function editorCommands(context) {
     {
       id: "stamp-time",
       group: "Templates",
-      label: "ph:clock Time now",
+      icon: "ph:clock", label: "Time now",
       hint: now.toLocaleTimeString(),
       keywords: ["time", "now", "stamp", "clock"],
       run: (textarea) =>
@@ -844,7 +845,8 @@ function editorCommands(context) {
     commands.push({
       id: `template-${template.name}`,
       group: "Templates",
-      label: `ph:file-text ${template.name}`,
+      icon: "ph:file-text",
+      label: `${template.name}`,
       hint: "template",
       keywords: ["template", template.name],
       run: (textarea) =>
@@ -1120,12 +1122,15 @@ function editorRenderMenu() {
 
     const label = document.createElement("span");
     label.className = "editor-menu-label";
-    //: `setLabel`, not `textContent`: a command row's label may open with a
-    //: `ph:` token, and `textContent` would print the token. Every other menu
-    //: in the app builds its rows this way; this one did not, which is why the
-    //: eight callout commands were the only rows in the app that could not
-    //: carry a real icon and reached for emoji instead.
-    setLabel(label, item.label);
+    //: `setLabel`, not `textContent`: a command row carries its icon as a
+    //: `ph:` token in its own `icon` field, and `textContent` would print the
+    //: token. Every other menu in the app builds its rows this way; this one
+    //: did not, which is why the eight callout commands were the only rows in
+    //: the app that could not carry a real icon and reached for emoji instead.
+    //: The two fields are joined here rather than stored joined, so the table
+    //: stays a table of objects (DOCUMENTS_PLAN 18a) and a row can be read for
+    //: its icon without parsing its label.
+    setLabel(label, item.icon ? `${item.icon} ${item.label}` : item.label);
     row.appendChild(label);
     if (item.hint) {
       const hint = document.createElement("span");

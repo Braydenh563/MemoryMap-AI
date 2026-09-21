@@ -9,6 +9,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Typing the first word of a "/" command now finds it first. Every command
+  label used to open with an emoji, so the menu's "starts with what you typed"
+  ranking could never match anything and every search fell through to keyword
+  guessing.
 - The "/" menu tells you it is there, and opens from the keyboard. Every
   writing box now says "Press / for blocks and commands" while it is empty,
   and Ctrl+/ opens the same menu without you having to know the trick. The

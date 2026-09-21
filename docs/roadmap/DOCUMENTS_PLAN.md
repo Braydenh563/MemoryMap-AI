@@ -1149,7 +1149,7 @@ the reason given in 17a, and the phone is untouched by this section: the
 live view on a phone is UI_MODERNISATION_PLAN Phase 11's territory and
 should not be redesigned from here.
 
-## 18. The slash menus as one system: 18b and 18c built 2026-09-21, 18a open
+## 18. The slash menus as one system: built 2026-09-21
 
 The owner, INBOX 295: "I want you to MAJORLY rework and improve the slash
 commands in the notes and documents, I want them to be properly structured
@@ -1208,10 +1208,29 @@ behind it is fine.
 
 **Phases, each with its gate.**
 
-- **18a. One row shape.** Reconcile the two tables onto the row described
-  above, without changing what any command does. Gate: a test reads both
-  tables and asserts every row carries every field, and the existing
-  `test_doc_commands.py` still passes.
+- ~~**18a. One row shape.**~~ **Built 2026-09-21**, and the difference
+  between the two shapes turned out not to be cosmetic. `DOC_COMMANDS` kept
+  its icon in an `icon` field; editor.js's four lists packed theirs into the
+  front of `label`, as a string the row builder printed whole. Two
+  consequences, both fixed by the split:
+
+  * it is *why* the eight callout commands reached for emoji. The row builder
+    used `textContent`, so a `ph:` token in a label would have printed as the
+    literal text "ph:note Note box"; an emoji was the only mark that could go
+    there at all.
+  * it quietly broke the menu's own ranking. `editorRankCommands` scores
+    `label.startsWith(query)` first, and no label started with a letter, so
+    that branch could never fire: typing the first word of a command ranked
+    it no better than a keyword hit.
+
+  39 rows split (38 plain, one template literal), the icon joined to the
+  label at render rather than stored joined, so a row can be read for its
+  icon without parsing its label. `tests/test_command_row_shape.py` reads
+  both tables from source with no browser and asserts every row carries an
+  `icon`, that no `label` opens with a token, and that no `label` opens with
+  a character outside ASCII (the shape check that backs
+  `test_no_glyph_icons.py`'s named-character one). Two of its three fail
+  against the code before the split.
 - ~~**18b. The icons.**~~ **Built 2026-09-21, and it found the menu did not
   open at all.** The 38 are `ph:` tokens; the menu row builds its label
   through `setLabel` like every other menu in the app, which it did not

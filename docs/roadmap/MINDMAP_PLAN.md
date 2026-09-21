@@ -680,6 +680,45 @@ that run's own baseline, taken minutes earlier, not the numbers above):
 | 200 | 906.4 to **714.2ms** | 16.7 to **0.3ms** | 281.4 to **123.2ms** | 16.7 / 50.1ms | 416.6 to **33.3ms** |
 | 500 | 3443.3 to **2049.1ms** | 76.3 to **0.6ms** | 1279.2 to **543.0ms** | 16.7 / 133.4ms | 1650.0 to **66.8ms** |
 
+**Re-measured a third time, after 13a-open** (2026-09-21, same machine, same
+Chromium, the probe's own five new numbers). The before column is that run's
+own baseline, taken from the merge head on a second server minutes earlier,
+not the tables above; `renderWhiteboard` is now measured after a change,
+because a differential render timed against nothing measures the skip:
+
+| Topics | Open to painted | Render, one topic moved | Render, every topic | Render, nothing changed |
+| --- | --- | --- | --- | --- |
+| 50 | 314.0 to **393.1ms** | 22.6 to **7.9ms** | 27.7 to **16.6ms** | 23.7 to **10.5ms** |
+| 200 | 757.0 to **537.2ms** | 122.6 to **19.8ms** | 138.5 to **53.5ms** | 112.2 to **19.4ms** |
+| 500 | 2022.3 to **965.6ms** | 534.7 to **47.8ms** | 540.2 to **149.1ms** | 509.4 to **45.3ms** |
+
+And the gesture the same run takes, before and after, at 500 topics: pan
+16.7ms median and 133.4 to 150.0ms worst, drag 16.7ms median and 66.6 to
+66.7ms worst, and one branch drag over 300 link sketches **1,000.0 to
+116.7ms** worst (66.7ms without the links, both before and after).
+
+The 50-topic open is slower after the pass than its own baseline was: at that
+size the open is not the render at all (7.9ms of it), it is the tab switch,
+the fetch and the fit, and the spread between two runs of it is bigger than
+anything this pass changed.
+
+**Zoom, measured for the first time** (nothing in this repository had ever
+taken it, and 13.1 reading 1 predicted it): six ctrl-wheel steps out and six
+back in, at 500 topics, **16.7ms median and 166.7ms worst**, against 16.7 and
+133.4ms on the same head before this pass, which is one frame of this
+machine's spread either way. The prediction is confirmed: a zoom
+changes the scale of one promoted layer holding every topic, the browser
+re-rasters it, and no amount of making the render cheaper touches it, because
+no script runs on those frames. That is 13a-view.
+
+**One edge of the zoom control, found while measuring it.** d3-zoom multiplies
+a wheel delta by ten when ctrl is held, because that is how a browser reports
+a trackpad pinch. A trackpad sends a few units a notch and gets a smooth
+1.1x; a mouse wheel sends 120 and gets **5.3x a notch**, so two notches take a
+map from 1x to the 4x ceiling or to the 0.1x floor. Nobody has reported it and
+it is not this pass's work, but it is the likeliest reading of a zoom that
+"jumps" on a machine with a real mouse.
+
 **The claim is true, and it is one thing.** Four readings settled it, and 13a
 found that the third and fourth name two different bugs, not one:
 
@@ -1009,15 +1048,32 @@ topic: a control that wide has nowhere to go.
   not be met by caching: `renderWhiteboard` is still a full d3 data-join over
   every node on the board, and making it proportional to what changed is a
   separate piece of work.
-- **13a-open. The render pass proper.** `renderWhiteboard` rebuilds the whole
-  board for any change to it. Gate: `mapperf.js` at 500 topics with
-  `renderWhiteboard` under 200ms and open-to-painted under 1s, the drag and
-  pan figures above no worse. **This is also where the pan lands** (13.1
-  reading 1, withdrawn): a board that draws every topic whether or not it is
-  on screen is one promoted layer the size of the map, and panning it
-  re-rasterises. Drawing only what is in view is the one change that answers
-  the open, the pan and the zoom together, and it is the reason this row is
-  worth more than any of the control work below it.
+- ~~**13a-open. The render pass proper.**~~ **Built 2026-09-21**, and the
+  record is in HISTORY.md ("Moved from the plans, 2026-09-21", "From
+  MINDMAP_PLAN.md section 13a-open: the render pass"). Both gate figures are
+  met at 500 topics: `renderWhiteboard` 534.7 to **47.8ms** after one topic
+  moves and **149.1ms** with every topic changed at once, against the 200ms
+  asked for, and open-to-painted 2,022.3 to **965.6ms** against the 1s asked
+  for.
+  The drag and pan figures are no worse. **What the row also predicted is not
+  built and is now 13a-view below**: drawing only what is on screen. The open
+  turned out not to need it.
+- **13a-view. Draw the topics that are on screen.** The pan and the zoom are
+  what is left of 13.1 reading 1, and 13a-open did not touch them: measured on
+  `mapperf.js` after it, a 500-topic map pans at a 16.7ms median with a worst
+  frame of 150.0ms and zooms at a 16.7ms median with a worst frame of 166.7ms
+  (six ctrl-wheel steps out and six back in, the probe's new `zoom` column,
+  and the first measurement of a zoom in this repository), against 133.4 and
+  133.4 on the head before the render pass: the same numbers within this
+  machine's spread, from a render eleven times cheaper. Both are the
+  browser re-rasterising one promoted layer that holds every topic on the
+  board, which is why neither moved when the render stopped rebuilding: no
+  script runs on those frames at all. Gate: `mapperf.js` at 500 topics with
+  the worst pan and zoom frames under 50ms, and `mapbranchdrag.js`,
+  `maplayouts.js` and `mapstrip.js` unchanged, since a culled board must not
+  lose the topic a gesture is reaching for. The open of a very large map is
+  the second prize (a board that draws 80 topics instead of 500 opens in the
+  time it takes to draw 80).
 
 - **13g. The middle-button pan on the owner's own machine.** He reports, with
   13.1's own gesture: "the whiteboard and mindmap goes haywire and moves to

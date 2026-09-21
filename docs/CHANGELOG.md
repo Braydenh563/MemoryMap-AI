@@ -49,6 +49,14 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- A big mind map redraws only what changed. A change to one topic used to
+  rebuild every topic and every line on the board, which is why a large map
+  felt heavy to work on: at five hundred topics a redraw took just over half
+  a second of frozen tab, and opening such a map took two seconds. A redraw
+  after moving a topic is now 47.8ms, a redraw that changes every topic at
+  once is 149.1ms, and the same map opens in under a second. Picking up a
+  branch on a board that also holds hundreds of link lines went from a full
+  second of stall to a tenth of one.
 - The first screen tells you what you are agreeing to. It asked for a password
   in 26 words that never said what the app is, never said it runs on your own
   machine, never gave the length rule until you had already failed, and never

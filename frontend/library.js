@@ -5346,12 +5346,10 @@ function libraryLightboxItems(images) {
     // the lightbox…can the captions and ocr accompany it somehow??"
     // The tile is the one place these are too small to read.
     caption: i.caption || "",
-    text: (i.vision_ocr_text || i.ocr_text || "").trim(),
-    byline: i.vision_ocr_text
-      ? `Text read by ${shortModelName(i.vision_ocr_model) || "a model"}`
-      : i.ocr_text
-        ? "Text read with Tesseract OCR"
-        : "",
+    //: Both readings, from app.js's one reader of a media row: a picture that
+    //: has been read twice shows the second reading under the first, the way
+    //: this file's own card fold already does. See `lightboxReadingsFor`.
+    ...lightboxReadingsFor(i),
     addedAt: i.created_at || "",
   }));
 }

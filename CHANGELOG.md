@@ -331,6 +331,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- A picture read twice shows both readings in the lightbox. A file can carry
+  Tesseract's own pass and a vision model's transcription at the same time,
+  and the lightbox drew only the vision one, so the other reading was nowhere
+  on the surface built for checking text against the picture. The second
+  reader's answer now sits under the first, labelled "Also read with Tesseract
+  OCR", exactly as the Library card's reading fold already showed it. A
+  picture with one reading looks as it did.
 - The documents formatting strip rises above the on-screen keyboard while it
   is collapsed, which is how it starts. Expanded it already did; collapsed, a
   more specific rule was overriding the keyboard inset away, so the strip you

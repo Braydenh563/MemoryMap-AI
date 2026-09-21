@@ -1107,10 +1107,24 @@ function wbItemBBox(kind, item) {
   // wins when the element is on screen, a link aimed at the stored box
   // stopped short of the visible one.
   if (kind === "object") {
-    const el = document.querySelector(`.wb-object[data-id="${item.id}"]`);
-    if (el && el.offsetWidth && el.offsetHeight) {
-      w = el.offsetWidth;
-      h = el.offsetHeight;
+    //: **The measurement the render already took, when there is one**
+    //: (MINDMAP_PLAN.md §13a). `wbContentBounds` asks this of every item on
+    //: the board, so on a 500-topic map the fit that runs on open was 500
+    //: document walks and 500 layout reads: 127.2ms of the open, for boxes
+    //: `renderWbObjects` had just measured in one pass. The cache holds
+    //: exactly those numbers (`offsetWidth`/`offsetHeight`, same reads, same
+    //: elements) and is dropped by every render and at the end of every
+    //: gesture, so a hit here cannot be older than what is on screen.
+    const measured = wbMapNodeSizeCache?.get(item.id);
+    if (measured) {
+      w = measured.w;
+      h = measured.h;
+    } else {
+      const el = document.querySelector(`.wb-object[data-id="${item.id}"]`);
+      if (el && el.offsetWidth && el.offsetHeight) {
+        w = el.offsetWidth;
+        h = el.offsetHeight;
+      }
     }
   }
   w = w || (kind === "node" ? WB_CARD_DEFAULT_SIZE.w : WB_OBJECT_MIN_SIZE);
@@ -14905,11 +14919,19 @@ function wbDrawSketchHandles(sketch, { outlineOnly = false } = {}) {
 // getBoundingClientRect or querySelector would have needed to stay synchronous
 // and none was. `renderWhiteboardNow()` is kept for anything that ever does.
 let wbRenderQueued = false;
+//: The queued frame itself, so a synchronous render can call it off rather
+//: than merely lower the flag it checks (MINDMAP_PLAN.md §13a). Without this
+//: `renderWhiteboardNow` left the frame standing: opening a board queues a
+//: render, renders synchronously to measure the nodes for the fit, and then
+//: paid for a second full render of the same unchanged board one frame later.
+//: On a 500-topic map that was the whole board rendered twice on every open.
+let wbRenderFrame = 0;
 
 function wbScheduleRender() {
   if (wbRenderQueued) return;
   wbRenderQueued = true;
-  requestAnimationFrame(() => {
+  wbRenderFrame = requestAnimationFrame(() => {
+    wbRenderFrame = 0;
     wbRenderQueued = false;
     renderWhiteboard();
     wbUpdateSelectionBar();
@@ -14919,8 +14941,18 @@ function wbScheduleRender() {
 // The unbatched escape hatch. Prefer wbScheduleRender(); use this only when
 // the very next statement has to read the rendered DOM.
 function renderWhiteboardNow() {
+  //: Whether a queued frame was called off, so the one thing it did that this
+  //: function does not (the selection bar, below) still happens, and in the
+  //: order that frame would have done it in.
+  let cancelled = false;
+  if (wbRenderFrame) {
+    cancelAnimationFrame(wbRenderFrame);
+    wbRenderFrame = 0;
+    cancelled = true;
+  }
   wbRenderQueued = false;
   renderWhiteboard();
+  if (cancelled) wbUpdateSelectionBar();
   // A render replaces card elements, so the search highlight classes are gone
   // with them and the navigator's item rectangles are stale. Both re-apply
   // from state rather than being re-derived by their own callers.

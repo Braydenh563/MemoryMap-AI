@@ -107,6 +107,25 @@ def test_windows_msi_filename_carries_name_version_platform_and_arch():
     assert msi_step.count(".msi") >= 1, "the built file is missing the .msi extension"
 
 
+def test_windows_exe_filename_carries_name_version_platform_and_arch():
+    # The .exe's own filename is set in installer.iss (OutputBaseFilename),
+    # not in release.yml, which only globs for it at upload time
+    # (MemoryMap-AI-Setup-*.exe): a glob that would still match a filename
+    # with the platform/arch dropped from it. This is the lint on the actual
+    # source of the name, matched to what installer.iss produces today,
+    # MemoryMap-AI-Setup-{#MyAppVersion}-windows-x86_64.exe, the same shape
+    # WORLD_CLASS_PLAN's H6 decisions section records.
+    text = INSTALLER_ISS
+    line = next(
+        (ln for ln in text.splitlines() if ln.strip().startswith("OutputBaseFilename=")),
+        "",
+    )
+    assert line, "installer.iss has no OutputBaseFilename= line"
+    assert "MemoryMap-AI-Setup-" in line, "the .exe filename is missing the app name"
+    assert "{#MyAppVersion}" in line, "the .exe filename is missing the version"
+    assert "windows-x86_64" in line, "the .exe filename is missing the platform/arch"
+
+
 def test_linux_zip_filename_carries_name_version_platform_and_arch():
     job = _job("build-linux-package")
     #: "Pack the build", not "Zip the build": the Linux job gained a tarball

@@ -1841,6 +1841,36 @@ reachable, `keys.js` extended to every tab); a WCAG AA audit with
 desktop (a document in its own window); a first-run tour that ends in a
 first note and a first question, measured by time to first answer.
 
+**Decisions made.**
+
+1. **Release artifact naming: `<name>-<version>-<platform>-<arch>.<ext>`,
+   one scheme across every installer.** INBOX 266 asked for version,
+   platform and architecture in every installer's name, "so two files
+   downloaded a month apart from different machines are distinguishable in
+   a Downloads folder, and a 64-bit build and a future 32-bit or ARM one
+   never overwrite each other." Built and applied to all four release
+   artifacts `.github/workflows/release.yml` produces: the Windows `.exe`
+   (`packaging/windows/installer.iss`'s `OutputBaseFilename`,
+   `MemoryMap-AI-Setup-{#MyAppVersion}-windows-x86_64`), the Windows `.msi`
+   (`MemoryMap-AI-$env:MEMORYMAP_VERSION-windows-x86_64.msi`, built by
+   `packaging/windows/installer.wxs`), and the Linux `.tar.gz` and `.zip`
+   (`MemoryMap-AI-${VERSION}-linux-x86_64.{tar.gz,zip}`). `x86_64` rather
+   than Inno's own `x64` spelling: it is what `uname -m` prints and what
+   the Linux side already used, and one spelling across platforms is worth
+   more than matching one installer's internal vocabulary. Both the
+   `.tar.gz` (item 2) and the `.msi` (item 3, shipped beside the `.exe`,
+   not instead of it, with its own "Repair MemoryMap AI" shortcut per
+   INBOX 253) already existed before this entry was picked up; the naming
+   pass (item 4) is what is new, and `tests/test_release_smoke_step.py`
+   (`test_windows_exe_filename_carries_name_version_platform_and_arch`,
+   `..._msi_filename_...`, `..._zip_filename_...`) is the lint: it parses
+   `release.yml` and `installer.iss` as text and fails if any artifact's
+   name loses its version, platform or architecture. Not verified on a
+   real release run: no tag push or Windows/WiX runner exists in this
+   sandbox, so the check is that the workflow and installer sources parse
+   and read as intended, not that `wix build`/`ISCC.exe` actually produced
+   a file with that name.
+
 ### H7 The speed budget (A1 continued; S each)
 
 Boot JS under 1 MB compressed (from 1.7 MB), first paint under 300 ms on

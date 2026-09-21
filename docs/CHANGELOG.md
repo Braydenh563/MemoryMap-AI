@@ -38,6 +38,17 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Added
 
+- A lint on the release artifact naming scheme (INBOX 266, item 4).
+  `tests/test_release_smoke_step.py` now also parses `installer.iss`'s
+  `OutputBaseFilename` and fails if the Windows `.exe`'s own filename loses
+  its version, platform or architecture; the `.msi`, `.tar.gz` and `.zip`
+  were already linted the same way. The `.tar.gz` for Linux (item 2) and the
+  `.msi` for Windows (item 3) both already existed on this branch, verified
+  by reading `.github/workflows/release.yml`, `packaging/windows/
+  installer.iss` and `packaging/windows/installer.wxs`; nothing was rebuilt.
+  The naming scheme itself, `<name>-<version>-<platform>-<arch>.<ext>`
+  across all four artifacts, is recorded as a decision in
+  `WORLD_CLASS_PLAN.md`'s H6.
 - A cross-link on a mind map now survives an export. FreeMind files carry it
   in their own arrow element, so a map opened in FreeMind, Freeplane or
   Coggle is drawn with its cross-links; OPML files carry it as an attribute

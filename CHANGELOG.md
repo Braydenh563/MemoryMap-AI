@@ -9,6 +9,13 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Answers arrive without their padding. A greeting, an announcement of what
+  the model is about to do, and a closing offer of further help are taken off
+  before anything else reads the answer, so the saved turn, the export and the
+  grounding marks all see the same text. Conservative on purpose: a qualifier
+  like "based on your notes" is part of the claim and stays, and a pleasantry
+  that is the whole answer stays too, since an empty answer says less than a
+  useless one.
 - Tesseract only reads a page when it is the reader you chose. Storing each
   page's regions stopped the repeated reads, but a first look at a page still
   ran Tesseract whether or not you had picked it, which is how a page meant

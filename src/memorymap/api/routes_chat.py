@@ -42,6 +42,7 @@ from memorymap.ai import (
     tools,
     vision_ocr,
 )
+from memorymap.ai.answer_trim import trim_assistant_padding
 from memorymap.ai.grounding import ground_answer_sentences, support as grounding_support
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
@@ -1788,6 +1789,19 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         # connection detail; same sanitiser librarian.model_error_message
         # already trusts for this exact shape.
         yield event({"type": "answer", "delta": f"\n\nSomething went wrong: {safe_value(exc)}"})
+    #: **The greeting and the sign-off come off before anything else reads it**
+    #: (the owner, 2026-09-21). Here, not in the browser: grounding marks
+    #: sentences by their offsets in this string, the saved turn stores it, and
+    #: an export reads it back, so trimming anywhere else would leave three
+    #: copies of the answer disagreeing about where sentence two starts.
+    trimmed_answer = trim_assistant_padding(answer_text)
+    if trimmed_answer != answer_text:
+        answer_text = trimmed_answer
+        #: The browser has already drawn the untrimmed text, so it is sent the
+        #: finished answer to replace it with. One event at the end rather than
+        #: a filter on every delta: a stream that edits what it already said,
+        #: token by token, flickers.
+        yield event({"type": "answer_final", "text": answer_text})
     conversational = not intent.needs_retrieval(prepared["intent"])
     candidates = _grounding_candidates(req.session, prepared["notes"], touched_note_ids)
     #: Kept past the branch below so the saved turn carries the same rows the

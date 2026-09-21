@@ -13567,6 +13567,7 @@ async function streamChat({
   onHint,
   onStats,
   onGrounding,
+  onAnswerFinal,
   onRelated,
   onUnsupported,
 }) {
@@ -13741,6 +13742,11 @@ async function streamChat({
       // ROADMAP.md item 36: which retrieved note backs which sentence of a
       // direct-Q&A answer. Only ever sent for that path (routes_chat.py).
       else if (event.type === "grounding" && onGrounding) onGrounding(event);
+      //: The finished answer, sent only when the server trimmed a greeting or
+      //: a sign-off off it (routes_chat.py, `trim_assistant_padding`). The
+      //: stream has already drawn the untrimmed text, so this replaces it once
+      //: rather than filtering every delta, which would flicker.
+      else if (event.type === "answer_final" && onAnswerFinal) onAnswerFinal(event);
       // Sent only when a question found no notes at all, the notebook is
       // more than its notes, so the answer names what else mentions it
       // (routes_chat.py's `_related_elsewhere`).
@@ -14059,6 +14065,14 @@ async function askQuestion(preset) {
       },
       onStats: (event) => {
         answerStats = event;
+      },
+      //: The server took a greeting or a sign-off off the answer, so the text
+      //: on screen is not the text anything else will use. Repainted from the
+      //: trimmed version, and `answerRaw` moves with it: the grounding markers
+      //: placed a moment later are offsets into *this* string.
+      onAnswerFinal: (event) => {
+        answerRaw = event.text || answerRaw;
+        renderLive(answerRaw);
       },
       onGrounding: (event) => {
         //: **Remembered here, drawn once at the end.** This used to draw the

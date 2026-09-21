@@ -447,3 +447,86 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
   accept a node with no entry (a plain shape is not a note), and the
   client's error path should say what failed rather than print an empty
   object.
+
+## Placed from INBOX, 2026-09-21
+
+258. **Recommendation, not a change, 2026-09-19 (the session).** The
+    reverted outside commit added right-drag to pan the board, filtered so
+    a right-click still reaches a node's context menu
+    (`wbZoomFilter`: `event.button === 2` on a target that is not
+    `.node-card, .sketch-group, .wb-object`). It is a good gesture and
+    every canvas app has it, but nobody asked for it and a new gesture on
+    the surface that carries the app's only context menu is a decision, not
+    a patch. Not built here on purpose (standing order 8: a new need is an
+    entry, not an ad-hoc build).
+    Recommendation: take it, guarded as above, plus `contextmenu` suppressed
+    on the canvas only while such a drag actually moved (so a right *click*
+    on empty canvas keeps whatever it does today), and measured against
+    `scratchpad/ui-sweeps/wbpan.js`. The other two ideas from that commit,
+    a rotated group outline and alignment guides for a group drag, are built
+    (861e740, 5273bae).
+    **Tried 2026-09-19 and taken back out, with what was learned.** The pan
+    itself is four lines in `wbZoomFilter` (`event.button === 2` when
+    `event.target` is not inside `.node-card, .sketch-group, .wb-object,
+    .wb-map-edge-hit, [contenteditable]`, and the mousemove half gated on a
+    flag the mousedown set) and measured clean: a right-drag moved the board
+    150px, a right-click with no drag left the transform untouched.
+    The half that matters could not be measured. Three things were found
+    and are worth having written down:
+    - The `contextmenu` that ends a right-drag over this board is dispatched
+      at the `<section>` *around* it, not at anything inside it, so a
+      listener scoped to `#whiteboard-container` never sees it and
+      `event.target.closest("#library-view-whiteboard")` is null on it.
+    - It is dispatched **before** `pointerup`, not after, so clearing the
+      "this drag moved" flag on the release is safe and clearing it on a
+      `setTimeout(0)` from the release is not.
+    - With all of that accounted for, two runs of identical code disagreed
+      about whether the menu was dispatched at all. Non-deterministic here,
+      and the difference between "the gesture is polished" and "the gesture
+      leaves a menu open on your board" is exactly that dispatch.
+    So: not shipped. `scratchpad/ui-sweeps/wbrightpan.js` is the acceptance
+    test, written first and failing, with the three facts above in its
+    header. Whoever builds it makes that file pass on a board with a card on
+    it, which is also the case this run could not cover.
+    **Built and taken back out a second time, 2026-09-20, and this run found
+    why. Two of the three facts above are wrong.** Measured with every event
+    logged in the capture phase across a full right-drag:
+
+        pointerdown@wb-svg-layer
+        mousedown@wb-svg-layer
+        contextmenu@wb-svg-layer      <- on the press
+        pointerup@wb-svg-layer
+        mouseup@wb-svg-layer
+        auxclick@wb-svg-layer
+
+    `contextmenu` arrives **on the press, before the drag has moved a pixel**,
+    and at `#wb-svg-layer`, not at the `<section>`. So at the only moment the
+    decision can be made, nothing can know whether the gesture will become a
+    drag: "suppress the menu only when the drag moved" is not implementable,
+    which is why both attempts left a menu open. The non-determinism recorded
+    above did not reproduce: six runs across two attempts agreed every time,
+    so it should not be planned around.
+    The pan half measured clean again (0 to 150px, three runs identical), and
+    a probe bug was fixed while there: the card's position was read at setup,
+    before checks 1 and 2 pan the board, so check 3 pressed empty canvas and
+    reported a 120px pan "on a card" that never touched one.
+    **Recommendation, for the owner, because it is a decision and not a
+    patch.** One shape works: suppress the native menu on the canvas outright
+    and open the app's own pointer menu (`openMenuAtPoint`, which exists) in
+    its place. A right-click then gives board actions instead of Chrome's
+    menu, and a right-drag gives a clean pan. What goes in that menu is the
+    open question, and assertion 2 of the acceptance test ("a right-click
+    still opens whatever it opened before") changes with it.
+
+276. **The sketch pad's toolbar wraps to two rows at 820 on Large text**, and
+    has since before this session: `scratchpad/ui-sweeps/sketchbar.js` reports
+    `rows=2` at 820/large-text (content 712 of an inner 714) and at
+    820/large+spacious (688 of 690), while 820/default and 820/spacious are
+    one row. The Canvas group is the one that drops. Found while giving the
+    ink dots a finger-sized target (the same sweep), not caused by it: the
+    dots only change below 820. Recommendation: the bar is five groups and
+    Large text buys their labels about 10px each, so the cheapest honest fix
+    is the group labels, not the controls: hide `.wb-tool-section-label`
+    below 1024 the way the phone band already hides other labels, and
+    re-measure; it is worth about 60px, which is more than the 2px the wrap
+    is short by. Owner: whoever next opens the pad's bar.

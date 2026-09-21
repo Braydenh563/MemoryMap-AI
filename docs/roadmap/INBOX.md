@@ -74,129 +74,6 @@ with its owner named in the entry.
     down here rather than left as a number somebody later mistakes for a
     defect count.
 
-258. **Recommendation, not a change, 2026-09-19 (the session).** The
-    reverted outside commit added right-drag to pan the board, filtered so
-    a right-click still reaches a node's context menu
-    (`wbZoomFilter`: `event.button === 2` on a target that is not
-    `.node-card, .sketch-group, .wb-object`). It is a good gesture and
-    every canvas app has it, but nobody asked for it and a new gesture on
-    the surface that carries the app's only context menu is a decision, not
-    a patch. Not built here on purpose (standing order 8: a new need is an
-    entry, not an ad-hoc build).
-    Recommendation: take it, guarded as above, plus `contextmenu` suppressed
-    on the canvas only while such a drag actually moved (so a right *click*
-    on empty canvas keeps whatever it does today), and measured against
-    `scratchpad/ui-sweeps/wbpan.js`. The other two ideas from that commit,
-    a rotated group outline and alignment guides for a group drag, are built
-    (861e740, 5273bae).
-    **Tried 2026-09-19 and taken back out, with what was learned.** The pan
-    itself is four lines in `wbZoomFilter` (`event.button === 2` when
-    `event.target` is not inside `.node-card, .sketch-group, .wb-object,
-    .wb-map-edge-hit, [contenteditable]`, and the mousemove half gated on a
-    flag the mousedown set) and measured clean: a right-drag moved the board
-    150px, a right-click with no drag left the transform untouched.
-    The half that matters could not be measured. Three things were found
-    and are worth having written down:
-    - The `contextmenu` that ends a right-drag over this board is dispatched
-      at the `<section>` *around* it, not at anything inside it, so a
-      listener scoped to `#whiteboard-container` never sees it and
-      `event.target.closest("#library-view-whiteboard")` is null on it.
-    - It is dispatched **before** `pointerup`, not after, so clearing the
-      "this drag moved" flag on the release is safe and clearing it on a
-      `setTimeout(0)` from the release is not.
-    - With all of that accounted for, two runs of identical code disagreed
-      about whether the menu was dispatched at all. Non-deterministic here,
-      and the difference between "the gesture is polished" and "the gesture
-      leaves a menu open on your board" is exactly that dispatch.
-    So: not shipped. `scratchpad/ui-sweeps/wbrightpan.js` is the acceptance
-    test, written first and failing, with the three facts above in its
-    header. Whoever builds it makes that file pass on a board with a card on
-    it, which is also the case this run could not cover.
-    **Built and taken back out a second time, 2026-09-20, and this run found
-    why. Two of the three facts above are wrong.** Measured with every event
-    logged in the capture phase across a full right-drag:
-
-        pointerdown@wb-svg-layer
-        mousedown@wb-svg-layer
-        contextmenu@wb-svg-layer      <- on the press
-        pointerup@wb-svg-layer
-        mouseup@wb-svg-layer
-        auxclick@wb-svg-layer
-
-    `contextmenu` arrives **on the press, before the drag has moved a pixel**,
-    and at `#wb-svg-layer`, not at the `<section>`. So at the only moment the
-    decision can be made, nothing can know whether the gesture will become a
-    drag: "suppress the menu only when the drag moved" is not implementable,
-    which is why both attempts left a menu open. The non-determinism recorded
-    above did not reproduce: six runs across two attempts agreed every time,
-    so it should not be planned around.
-    The pan half measured clean again (0 to 150px, three runs identical), and
-    a probe bug was fixed while there: the card's position was read at setup,
-    before checks 1 and 2 pan the board, so check 3 pressed empty canvas and
-    reported a 120px pan "on a card" that never touched one.
-    **Recommendation, for the owner, because it is a decision and not a
-    patch.** One shape works: suppress the native menu on the canvas outright
-    and open the app's own pointer menu (`openMenuAtPoint`, which exists) in
-    its place. A right-click then gives board actions instead of Chrome's
-    menu, and a right-drag gives a clean pan. What goes in that menu is the
-    open question, and assertion 2 of the acceptance test ("a right-click
-    still opens whatever it opened before") changes with it.
-
-261. **Found by scan, 2026-09-19 (the session, not the owner).** Ten routes
-    the app serves that `frontend/*.js` never names, from
-    `scratchpad/probe_dead_routes.py` (new; run it with `PYTHONPATH=src`).
-    Four more were in this list and are now wired: `GET /learned` and its
-    whole lifecycle, `POST /night/run`, `GET /search/stats` and
-    `POST /drafts/title`. What is left, triaged:
-    - `GET|POST /entries/daily/{day}`, `POST /resurface/compute` and
-      `GET /openapi.json`: not the frontend's to call. The daily-note pair
-      is the agent's "add to today's note" tool and says so in app.js; the
-      compute half of resurfacing is the scheduler's, and its module
-      docstring is explicit that the read is the fast one; `/openapi.json`
-      is FastAPI's own. **Nothing to do.**
-    - `POST /insights/digest` and `GET /whiteboard/images`: superseded and
-      recorded as such (`/insights/digest/stream` is what the dashboard
-      calls; BACKLOG says `/media` replaced the board image listing).
-      **Recommendation:** leave them, or delete them in a sweep of their
-      own; either is defensible and neither is urgent.
-    - `GET /insights/on-this-day`: superseded by choice. The widget filters
-      `allEntries` in the browser, which is one fewer request and is
-      correct once the notebook has finished paging in.
-      **Recommendation:** leave it, and say so in the route's docstring, so
-      the next scan does not re-open this.
-    - `GET /tags`: **done.** The autocomplete was built from `allEntries`
-      (`refreshTagSuggestions`), so it was incomplete until every page of a
-      four thousand note notebook had arrived, and alphabetical, so a tag
-      used once outranked one used four hundred times. Measured on a
-      notebook tagged to show the difference, old against new:
-      `archive, budget, house, winter-roof-repair` (archive is used five
-      times) became `house, winter-roof-repair, budget, archive` (400, 400,
-      20, 5). One request, cached, in place of a flatten over every loaded
-      note twice per load.
-    - `GET /settings/events`: B1's event feed. Its own docstring names the
-      consumer, "what a Dashboard or Timeline activity strip should read
-      instead of scanning the notes table for recency", and no such strip
-      reads it. **Recommendation:** a brief in WORLD_CLASS_PLAN B1, not an
-      improvisation here: it is a surface, not a wire-up.
-    - `GET /resurface/near/{entry_id}`: "the faded notes closest to the one
-      being read", built and tested, and there is nowhere in the app that
-      reads a note. Checked before recommending anything: a note is a card
-      in a list, and the only thing resembling a detail view is the inline
-      edit form (`editingId`), which is a form. `lastOpenedEntryId` exists
-      but only feeds the agent's "what am I looking at" subject. So this is
-      a surface, not a wire-up, and probably why it was never wired.
-      **Recommendation:** decide the surface first. The cheapest honest one
-      is a row inside the edit form, under the tags, reusing
-      `paintFadedNotes` from dashboard.js (the route returns the same
-      `_card` shape the dashboard widget already renders); the better one
-      is the note detail view this app does not have, which is a plan item
-      rather than an INBOX item.
-    `POST /auth/rotate-vault-key` was on this list until the probe learned
-    to read `` `/auth/${mode === "setup" ? "setup" : "unlock"}` ``; it is
-    still uncalled, and re-keying the vault has no UI. Filed here rather
-    than fixed: it is the one route in the app that rewrites every private
-    note, and a button for it wants its own session.
-
 266. **Mid-work drop, 2026-09-20, verbatim (the owner).** "What usability and
     information architecture things are missing and can be added?? It's often
     the small things that act up, are broken, unreliable, or missing with the
@@ -450,22 +327,51 @@ with its owner named in the entry.
     the question (`ai/extractive.py`). The standing half, refinement, is the
     session's own order of work from here.
 
-285. **Found by a line-by-line review of tonight's merges, 2026-09-21.**
-    `OpenAIClient._accumulate_tool_calls` reads a streamed fragment's index
-    as `fragment.get("index", 0)`. Every fragment a provider sends without
-    that field therefore lands in bucket 0, so with two concurrent calls
-    their `arguments` strings concatenate into one unparseable blob and both
-    calls are lost at `normalise_tool_calls`. OpenAI itself always sends the
-    index, which is why no test sees this and why the accumulator is
-    otherwise correct: buckets are keyed by index, replayed in index order,
-    and a missing id falls back to `call_<index>`. The risk is a local
-    OpenAI-compatible server that is looser than the spec, which is most of
-    them. Not reproduced: it needs a server that omits the field.
-    Recommendation: when `index` is absent, open a new bucket for a fragment
-    that carries a `function.name` and fold a nameless fragment into the
-    last one opened, so an omitted index degrades to arrival order rather
-    than to a collision. Owner: the models/chat agent, with a fake-transport
-    test that sends two indexless calls.
+286. **The owner, 2026-09-21, verbatim:** "the send and stop button in the
+    atlas guide panel looks disabled". Screenshot shows the guide panel's
+    Overview with the composer's control at the top right reading as greyed
+    out. Next step: measure the button's computed colour, opacity and
+    `disabled` state at rest, mid-stream and after a reply, against the
+    dock's own enabled reading; a control that is live but reads as dead is
+    the same bug as one that is dead.
+
+287. **The owner, 2026-09-21, verbatim:** "the thinking box doesnt properly
+    render in it either at least while streaming". The guide panel, while a
+    reply streams. Note that `_ThinkTagSplitter` gained four more tag
+    spellings and a stray-close-tag rule tonight (cb15a20), so reproduce on
+    the current head before theorising: the guide may be on a path that does
+    not use the splitter at all.
+
+288. **The owner, 2026-09-21, verbatim:** "also it doesnt use my utility
+    model as my utility model isnt a thinking model". The evidence is item
+    287's thinking box: if the guide is thinking, it is not on the utility
+    model. This was reported once before and recorded as fixed, so either it
+    regressed or the earlier fix covered a different call. Next step: assert
+    the model name that actually reached the provider for a guide turn, not
+    the setting.
+
+289. **The owner, 2026-09-21, verbatim:** "in the files subtab, I want the
+    expanded text box to be slightly taller as it is quite short
+    vertically". The extracted-text panel in Library, Files. Measure the
+    panel's current height and what it would need to show one more line or
+    two without pushing the row below the fold.
+
+290. **The owner, 2026-09-21, verbatim:** "when I click on a header row in a
+    table on the live view in documents page, another row appears below it
+    until I click off, and I cant click the meatball button on the end of
+    the row". Screenshot shows a table titled "Example Table" with an empty
+    band between the header and the first data row, and the kebab at the
+    header's right edge. Two faults or one: a phantom row on focus, and a
+    control that cannot be pressed.
+
+291. **The owner, 2026-09-21, verbatim:** "also on the live view, a text
+    which should be highlighted a normal yellow is still highlighted blue??"
+    The screenshots carry more than the sentence does. The source line is
+    `==highlighted==` and `==blue|highlighted==`; rendered, the first is
+    blue when a bare highlight should be yellow, and the second renders the
+    literal text "blue|highlighted" rather than reading `blue` as the colour
+    and highlighting the word. So the colour prefix is not parsed and the
+    default colour is wrong.
 
 ## Placed (last 20, newest first)
 
@@ -479,55 +385,6 @@ with its owner named in the entry.
   list") and most built.
 
 
-
-275. **Found by an agent, 2026-09-20, the graph's full screen spends one
-    Escape on two things.** With the map in full screen, opening the
-    lightbox (the node panel's attachment, a document) and pressing Escape
-    closes the lightbox *and* leaves full screen, in one press. Measured
-    with `scratchpad/ui-sweeps/graphfslightbox.js`: lightbox gone true,
-    still in full screen false. The cause is named in the app's own
-    comments and is one word out of date: the full-screen listener
-    (`app.js`, "Escape leaves full screen") says it is "placed after the
-    popover handlers above so a help panel or a note popup open over the
-    map takes the first Escape and the map takes the second", but listener
-    order does not stop an event. The graph options panel's own handler
-    calls `stopPropagation` and therefore really does spend the key ("The
-    Escape is spent here", app.js); `openLightbox`'s `onKey` does not, and
-    neither does anything else that opens over the map.
-    Recommendation: the full-screen handler asks whether anything is open
-    over the map before it acts (the app already has `activeOverlay()`, and
-    the lightbox sets `role="dialog"` precisely so it is inside its reach),
-    rather than every overlay in the app having to remember to stop the
-    key. Owner: GRAPH_PLAN, Phase 2's chrome row. Size S.
-
-276. **The sketch pad's toolbar wraps to two rows at 820 on Large text**, and
-    has since before this session: `scratchpad/ui-sweeps/sketchbar.js` reports
-    `rows=2` at 820/large-text (content 712 of an inner 714) and at
-    820/large+spacious (688 of 690), while 820/default and 820/spacious are
-    one row. The Canvas group is the one that drops. Found while giving the
-    ink dots a finger-sized target (the same sweep), not caused by it: the
-    dots only change below 820. Recommendation: the bar is five groups and
-    Large text buys their labels about 10px each, so the cheapest honest fix
-    is the group labels, not the controls: hide `.wb-tool-section-label`
-    below 1024 the way the phone band already hides other labels, and
-    re-measure; it is worth about 60px, which is more than the 2px the wrap
-    is short by. Owner: whoever next opens the pad's bar.
-
-283. **Found while measuring the writing desk, 2026-09-20 (WORLD_CLASS_PLAN
-    D16).** An OpenAI-dialect backend that is not there is still reported as
-    running, so every model-gated control in the app stays enabled and fails
-    only once it has been pressed, which is the exact failure
-    `data-needs-model` exists to prevent. Measured: `POST /models/provider`
-    with `base_url: http://127.0.0.1:8999/v1` (nothing listening),
-    `reload_llm_client` runs, and `GET /models/status` answers
-    `ollama_running: true` twelve seconds later with the new base_url in the
-    same body. Cause: `OpenAIClient._fetch_catalog` swallows every
-    `requests.RequestException` and returns `[]`, `list_models` then returns
-    `[]` rather than raising, and the status route decides `running` on
-    whether `list_models` raised. Recommendation: `_fetch_catalog` raises
-    `OllamaError` when no endpoint answered at all (distinct from one that
-    answered with an empty list), so "unreachable" and "no models installed"
-    stop being the same fact. Owner: the models/chat agent.
 
 282. **Found by errors.js while sweeping the writing desk, 2026-09-20.**
     `[settings/extras] section scrolls sideways 496>492` at 820px, and only

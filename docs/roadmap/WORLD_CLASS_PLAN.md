@@ -2049,3 +2049,94 @@ SQLAlchemy layer's own shape (are the ORM's lazy loads causing N+1s on the
 list paths?), the event bus, the job queue's back-pressure, the frozen
 build's startup profile on Windows, and the `EXPLAIN QUERY PLAN` pass in
 19.3. Each is a measurement with a command, in the manner of §10.
+
+## Placed from INBOX, 2026-09-21
+
+261. **Found by scan, 2026-09-19 (the session, not the owner).** Ten routes
+    the app serves that `frontend/*.js` never names, from
+    `scratchpad/probe_dead_routes.py` (new; run it with `PYTHONPATH=src`).
+    Four more were in this list and are now wired: `GET /learned` and its
+    whole lifecycle, `POST /night/run`, `GET /search/stats` and
+    `POST /drafts/title`. What is left, triaged:
+    - `GET|POST /entries/daily/{day}`, `POST /resurface/compute` and
+      `GET /openapi.json`: not the frontend's to call. The daily-note pair
+      is the agent's "add to today's note" tool and says so in app.js; the
+      compute half of resurfacing is the scheduler's, and its module
+      docstring is explicit that the read is the fast one; `/openapi.json`
+      is FastAPI's own. **Nothing to do.**
+    - `POST /insights/digest` and `GET /whiteboard/images`: superseded and
+      recorded as such (`/insights/digest/stream` is what the dashboard
+      calls; BACKLOG says `/media` replaced the board image listing).
+      **Recommendation:** leave them, or delete them in a sweep of their
+      own; either is defensible and neither is urgent.
+    - `GET /insights/on-this-day`: superseded by choice. The widget filters
+      `allEntries` in the browser, which is one fewer request and is
+      correct once the notebook has finished paging in.
+      **Recommendation:** leave it, and say so in the route's docstring, so
+      the next scan does not re-open this.
+    - `GET /tags`: **done.** The autocomplete was built from `allEntries`
+      (`refreshTagSuggestions`), so it was incomplete until every page of a
+      four thousand note notebook had arrived, and alphabetical, so a tag
+      used once outranked one used four hundred times. Measured on a
+      notebook tagged to show the difference, old against new:
+      `archive, budget, house, winter-roof-repair` (archive is used five
+      times) became `house, winter-roof-repair, budget, archive` (400, 400,
+      20, 5). One request, cached, in place of a flatten over every loaded
+      note twice per load.
+    - `GET /settings/events`: B1's event feed. Its own docstring names the
+      consumer, "what a Dashboard or Timeline activity strip should read
+      instead of scanning the notes table for recency", and no such strip
+      reads it. **Recommendation:** a brief in WORLD_CLASS_PLAN B1, not an
+      improvisation here: it is a surface, not a wire-up.
+    - `GET /resurface/near/{entry_id}`: "the faded notes closest to the one
+      being read", built and tested, and there is nowhere in the app that
+      reads a note. Checked before recommending anything: a note is a card
+      in a list, and the only thing resembling a detail view is the inline
+      edit form (`editingId`), which is a form. `lastOpenedEntryId` exists
+      but only feeds the agent's "what am I looking at" subject. So this is
+      a surface, not a wire-up, and probably why it was never wired.
+      **Recommendation:** decide the surface first. The cheapest honest one
+      is a row inside the edit form, under the tags, reusing
+      `paintFadedNotes` from dashboard.js (the route returns the same
+      `_card` shape the dashboard widget already renders); the better one
+      is the note detail view this app does not have, which is a plan item
+      rather than an INBOX item.
+    `POST /auth/rotate-vault-key` was on this list until the probe learned
+    to read `` `/auth/${mode === "setup" ? "setup" : "unlock"}` ``; it is
+    still uncalled, and re-keying the vault has no UI. Filed here rather
+    than fixed: it is the one route in the app that rewrites every private
+    note, and a button for it wants its own session.
+
+
+285. **Found by a line-by-line review of tonight's merges, 2026-09-21.**
+    `OpenAIClient._accumulate_tool_calls` reads a streamed fragment's index
+    as `fragment.get("index", 0)`. Every fragment a provider sends without
+    that field therefore lands in bucket 0, so with two concurrent calls
+    their `arguments` strings concatenate into one unparseable blob and both
+    calls are lost at `normalise_tool_calls`. OpenAI itself always sends the
+    index, which is why no test sees this and why the accumulator is
+    otherwise correct: buckets are keyed by index, replayed in index order,
+    and a missing id falls back to `call_<index>`. The risk is a local
+    OpenAI-compatible server that is looser than the spec, which is most of
+    them. Not reproduced: it needs a server that omits the field.
+    Recommendation: when `index` is absent, open a new bucket for a fragment
+    that carries a `function.name` and fold a nameless fragment into the
+    last one opened, so an omitted index degrades to arrival order rather
+    than to a collision. Owner: the models/chat agent, with a fake-transport
+    test that sends two indexless calls.
+
+283. **Found while measuring the writing desk, 2026-09-20 (WORLD_CLASS_PLAN
+    D16).** An OpenAI-dialect backend that is not there is still reported as
+    running, so every model-gated control in the app stays enabled and fails
+    only once it has been pressed, which is the exact failure
+    `data-needs-model` exists to prevent. Measured: `POST /models/provider`
+    with `base_url: http://127.0.0.1:8999/v1` (nothing listening),
+    `reload_llm_client` runs, and `GET /models/status` answers
+    `ollama_running: true` twelve seconds later with the new base_url in the
+    same body. Cause: `OpenAIClient._fetch_catalog` swallows every
+    `requests.RequestException` and returns `[]`, `list_models` then returns
+    `[]` rather than raising, and the status route decides `running` on
+    whether `list_models` raised. Recommendation: `_fetch_catalog` raises
+    `OllamaError` when no endpoint answered at all (distinct from one that
+    answered with an empty list), so "unreachable" and "no models installed"
+    stop being the same fact. Owner: the models/chat agent.

@@ -3007,7 +3007,13 @@ function ocrRenderRegions(body) {
     const ownPage = Number.isInteger(region.page) ? region.page : Number(body.page) || 0;
     const pageNumber = ownPage + 1;
     const pageCount = Number(body.pages) || 1;
-    if (Number.isInteger(region.page)) {
+    //: **Whole page, or a section of one.** This used to be read off `page`
+    //: being present, which was true only because a section never carried
+    //: one. It does now (`ocrDocumentReading` lists every page the app knows
+    //: about, and the sections of the page on screen sit among them), so the
+    //: row says which of the two it is rather than leaving it to be guessed.
+    const wholePage = region.whole === true;
+    if (wholePage) {
       // A stored reading is one panel per page: say the page, not "§1".
       where.textContent = `Page ${pageNumber}`;
       where.title = `The reading of page ${pageNumber}`;
@@ -3071,7 +3077,7 @@ function ocrRenderRegions(body) {
     //: landed on a page with nothing to delete and nothing changed. Each
     //: stored panel now removes its own page's reading.
     //: An image's reading is one panel; its delete is the header's delete.
-    if (!Number.isInteger(region.page) && ocrWorkspaceCurrent && !ocrIsPdf(ocrWorkspaceCurrent)
+    if (!wholePage && ocrWorkspaceCurrent && !ocrIsPdf(ocrWorkspaceCurrent)
         && body.source !== "text-file" && (region.text || "").trim()) {
       const remove = document.createElement("button");
       remove.type = "button";
@@ -3085,7 +3091,11 @@ function ocrRenderRegions(body) {
       });
       head.appendChild(remove);
     }
-    if (Number.isInteger(region.page) && body.source === "stored-text") {
+    //: Its own page's reading, deletable from the panel that shows it. Gated
+    //: on the row being a whole page rather than on the badge: the badge says
+    //: where the *page on screen* was read from, and the other pages in the
+    //: list are stored readings whatever it says.
+    if (wholePage && (region.text || "").trim()) {
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "ghost small icon-button danger ocr-region-delete";
@@ -3493,6 +3503,91 @@ async function ocrStoredPageReads(image) {
   return apiJson(`${base}/page-reads`).catch(() => null);
 }
 
+//: **What the app knows about this document, page by page, in page order.**
+//:
+//: Reported (INBOX 314), verbatim: *"I could scroll through the pages and the
+//: ocr extracted text would scroll and if I clicked on a specific text setcion,
+//: it would go to that page scroll wise on the pdf. but now I can only view the
+//: extracted text on a single page"*.
+//:
+//: Both halves of that were already built, and both were unreachable for the
+//: reader he was using. The panel is page-linked through each row's
+//: `data-page` (`ocrWireRegionJump` takes you to it, `ocrRevealRegionsForPage`
+//: follows the page you scroll to), but the list it worked on was built one of
+//: two ways: the stored reading of *every* page, which is what he remembers,
+//: **or** the regions of the page on screen, whenever the reader returned any.
+//: Tesseract returns some for every page, so the second branch always won,
+//: every row in the list belonged to the page already in front of him, there
+//: was nothing to scroll, and a click could only ever ask for the page it was
+//: already on. Measured before the change with a fake reader standing in for
+//: Tesseract (`scratchpad/ui-sweeps/ocrscroll.js`): scrolled to page 4 of 6,
+//: the panel held 3 rows, all of page 4, and no row of any other page to click.
+//:
+//: So it is one list rather than a choice between two: every page the app has
+//: something for, in order, and where that page is the one on screen its own
+//: sections stand in for the summary, so the boxes on the picture keep their
+//: rows. A page has something when it has been read, described, or looked at
+//: with an optical reader (`regions_text`, see `PageRead.regions`).
+function ocrDocumentReading(body, storedPages, storedMessage) {
+  const here = Number(body.page) || 0;
+  //: Only a *positioned* reading of the page on screen replaces that page's
+  //: summary. A reading-derived list has no boxes and is already what the
+  //: stored panel for that page says, so letting it in would list the page
+  //: twice.
+  const live = body.source === "tesseract" ? body.regions || [] : [];
+  const byPage = new Map();
+  for (const entry of storedPages) byPage.set(Number(entry.page) || 0, entry);
+  const pages = [...new Set([...byPage.keys(), ...(live.length ? [here] : [])])].sort(
+    (a, b) => a - b
+  );
+  if (!pages.length) return body;
+  const regions = [];
+  for (const number of pages) {
+    if (number === here && live.length) {
+      for (const region of live) {
+        //: `whole: false`: these are sections of a page, which is what lets
+        //: the row keep its section number and its box.
+        regions.push({ ...region, page: number, whole: false });
+      }
+      continue;
+    }
+    const entry = byPage.get(number);
+    regions.push({
+      kind: "text",
+      //: The page's own reading first: a transcription somebody asked for is
+      //: a better answer than what an optical reader saw in passing, and only
+      //: one of the two can be shown on one row.
+      text: (entry.text || "").trim() || (entry.regions_text || "").trim(),
+      confidence: 0,
+      //: **No rectangle, rather than a rectangle round the whole page.** This
+      //: list is drawn over the page on screen, and a full-page box belonging
+      //: to page 2 would land on page 4's picture: a wrong answer where a
+      //: missing one is the truth.
+      box: null,
+      caption: (entry.caption || "").trim(),
+      caption_model: entry.caption_model || "",
+      page: number,
+      whole: true,
+    });
+  }
+  //: Renumbered across the whole list: `index` is what a box, its row, the
+  //: find filter and an edit all key off each other by, so two rows may not
+  //: share one.
+  regions.forEach((region, index) => {
+    region.index = index;
+  });
+  return {
+    ...body,
+    regions,
+    //: The badge is about the page on screen, which is the only page anything
+    //: was measured on.
+    source: live.length ? "tesseract" : "stored-text",
+    message: live.length ? body.message || "" : storedMessage || body.message || "",
+    pages: body.pages || ocrWorkspacePages,
+    page: here,
+  };
+}
+
 async function ocrLoadPage(image, page = 0, opts = {}) {
   ocrWorkspaceCurrent = image;
   ocrWorkspacePage = Math.max(0, page);
@@ -3669,31 +3764,19 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
       //: it is something the app knows about that page, and leaving it out
       //: meant a described-but-unread page rendered as "nothing read yet"
       //: with its description nowhere on screen.
-      (p) => (p.text || "").trim() || (p.caption || "").trim()
+      //: `regions_text` is the third kind of thing known about a page: what an
+      //: optical reader saw while the page was on screen (see
+      //: `PageRead.regions`). It is what puts a scan being read by Tesseract
+      //: into this list at all.
+      (p) => (p.text || "").trim() || (p.caption || "").trim() || (p.regions_text || "").trim()
     );
-    if (storedPages.length && body.source !== "tesseract") {
-      ocrRenderRegions({
-        regions: storedPages.map((entry, index) => ({
-          index,
-          kind: "text",
-          text: (entry.text || "").trim(),
-          confidence: 0,
-          box: { x: 0, y: 0, w: 1, h: 1 },
-          caption: (entry.caption || "").trim(),
-          caption_model: entry.caption_model || "",
-          //: Which page this reading is *of*, the row's own badge and its
-          //: delete button both need it, and `body.page` is only the page
-          //: currently on screen.
-          page: entry.page,
-        })),
-        source: "stored-text",
-        message: stored.message || `${storedPages.length} page(s) already read.`,
-        pages: body.pages || ocrWorkspacePages,
-        page: ocrWorkspacePage,
-      });
-    } else {
-      ocrRenderRegions(body);
-    }
+    //: **A document's reading is the whole document's**, not only the page in
+    //: front of you. See `ocrDocumentReading`, and INBOX 314.
+    ocrRenderRegions(
+      ocrIsPdf(image)
+        ? ocrDocumentReading(body, storedPages, stored?.message || "")
+        : body
+    );
     //: An image's description lives here too, so caption and reading are
     //: managed side by side (reported: "a lot of disconnect between files and
     //: images regarding ocr and image captioning").

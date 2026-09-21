@@ -129,6 +129,42 @@ def _allowed_line_numbers(name: str, source_lines: list[str]) -> set[int]:
 
 EDGE = re.compile(r"^\s*(.)|(.)\s*$")
 
+#: The markup's own text, one element's worth at a time.
+#:
+#: `_html_outside_comments` hands back everything between two comments as one
+#: piece, which for `index.html` is thousands of characters. `_offending` looks
+#: at a piece's first and last character and at whether the whole piece is
+#: marks, so against a piece that size it can never answer yes: the check was
+#: alive for JS strings and dead for markup. Found 2026-09-21 by an affordance
+#: sweep, not by this test, with three graph zoom buttons reading "＋",
+#: "－" and "⤢" beside a fourth drawn with `ph:frame-corners`.
+#:
+#: So the text between one `>` and the next `<` is scanned on its own, which is
+#: exactly the unit a button's whole content is.
+HTML_TEXT = re.compile(r">([^<>]+)<")
+
+#: `<kbd>` holds a key's own name. An arrow there is the arrow key, the one
+#: case this file's own docstring already carved out ("an arrow key in a
+#: shortcut list is the key's own name"), and the shortcuts sheet is full of
+#: them. Blanked before the scan rather than listed line by line, because the
+#: sheet gains rows and a line-number allowlist would rot.
+HTML_KBD = re.compile(r"<kbd\b[^>]*>.*?</kbd>", re.S)
+
+
+def _html_element_text(source: str) -> list[tuple[int, str]]:
+    def keep_lines(match: re.Match[str]) -> str:
+        return "\n" * match.group(0).count("\n")
+
+    body = re.sub(r"<!--.*?-->", keep_lines, source, flags=re.S)
+    body = HTML_KBD.sub(keep_lines, body)
+    out: list[tuple[int, str]] = []
+    for match in HTML_TEXT.finditer(body):
+        text = match.group(1)
+        if not text.strip():
+            continue
+        out.append((body.count("\n", 0, match.start(1)) + 1, text))
+    return out
+
 #: `\u{1F4C1}` and `\u00d7` are the same characters as the ones above, written
 #: the way a JS file is allowed to write them, and for a while that was the way
 #: past this test. Thirty-eight of the "/" menu's command labels were escaped
@@ -197,4 +233,5 @@ def test_no_typed_glyph_stands_in_for_an_icon():
         offenders += _scan(path.name, _js_string_bodies(source), source.splitlines())
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     offenders += _scan("index.html", _html_outside_comments(html), html.splitlines())
+    offenders += _scan("index.html", _html_element_text(html), html.splitlines())
     assert not offenders, "\n".join(offenders)

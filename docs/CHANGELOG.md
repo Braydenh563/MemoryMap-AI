@@ -9,6 +9,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The graph's zoom controls are drawn like the rest of the app. Zoom in, zoom
+  out and fit were typed characters sitting beside a full-screen button drawn
+  with a real icon; all four now match, 34px square with an 18.4px icon
+  centred in each.
 - An answer the notebook barely backs says so. Under half its sentences
   coming from your notes, a line above the answer now says how many did and
   that the rest is the model's own writing. The marks under each sentence have

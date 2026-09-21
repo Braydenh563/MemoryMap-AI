@@ -108,7 +108,7 @@ OFFLINE_MESSAGE = (
 HELP_TOPICS: list[dict] = [
     {
         "id": "capture",
-        "keywords": ("capture", "note", "template", "dictate", "sketch", "improve", "proofread", "draft"),
+        "keywords": ("capture", "note", "template", "dictate", "sketch", "improve", "proofread", "draft", "tag", "category", "categorise", "write", "compose"),
         "body": (
             "Notes tab: type into \"Capture a thought\" and Save. A local AI files "
             "it into a category and suggests tags; you can re-file or edit anytime. "
@@ -182,7 +182,7 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "library",
-        "keywords": ("library", "bookmark", "link shelf", "contents", "outline"),
+        "keywords": ("library", "bookmark", "link shelf", "contents", "outline", "search", "find", "filter", "look for", "browse"),
         "body": (
             "The Library is everything already made, in one searchable, "
             "filterable place: notes, documents, chats, files and tags, plus "
@@ -323,7 +323,7 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "storage",
-        "keywords": ("backup", "storage", "data dir", "where is my", "export", "data folder"),
+        "keywords": ("backup", "storage", "data dir", "where is my", "export", "data folder", "import", "obsidian", "vault", "migrate", "restore"),
         "body": (
             "Everything lives in a data folder you control: the notebook "
             "database, uploads, and daily local backups. Settings -> Data shows "
@@ -334,7 +334,7 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "websearch",
-        "keywords": ("web search", "websearch", "internet search", "searxng"),
+        "keywords": ("web search", "websearch", "internet search", "searxng", "search the web", "search online", "look it up online"),
         "body": (
             "Web search is opt-in and off by default. When turned on in "
             "Settings -> Web search, only your search words are sent out, "
@@ -345,7 +345,7 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "privacy",
-        "keywords": ("private note", "encrypt", "password", "lock", "security"),
+        "keywords": ("private note", "encrypt", "password", "lock", "security", "offline", "online", "internet", "cloud", "telemetry", "tracking"),
         "body": (
             "Private notes are encrypted at rest with a key derived from your "
             "unlock password. The app binds to localhost, has no account or "
@@ -665,14 +665,34 @@ _KEYWORD_PATTERNS: dict[str, re.Pattern[str]] = {
 
 
 def _matching_topics(question: str) -> list[dict]:
-    """Which `HELP_TOPICS` entries this question is actually about, ranked
-    by how many of a topic's keywords it mentions. Ties keep `HELP_TOPICS`
-    order, so the more commonly-asked-about features (listed first) win a
-    tie over a rarer one."""
+    """Which `HELP_TOPICS` entries this question is actually about, ranked by
+    how much of a topic's vocabulary it mentions. Ties keep `HELP_TOPICS`
+    order, so the more commonly-asked-about features (listed first) win a tie
+    over a rarer one.
+
+    **A phrase counts for its words, not for one.** This used to score one per
+    matching keyword, which makes "search" and "web search" equally strong
+    evidence, and the generic one always belongs to the more commonly-asked
+    topic that sits earlier in the list. Measured 2026-09-21, the moment
+    "search" was added to the Library's keywords so that "how do I search my
+    notes" would stop being answered by the capture box: "can it search the
+    web" started answering with the Library, and "how do I turn on web search"
+    put the Library first. Both were one-against-one ties broken by list
+    order.
+
+    Weighting a keyword by its own word count is the smallest rule that says
+    what is actually true: somebody who typed two particular words in a row
+    has told you more than somebody who typed one common one. "web search"
+    now scores 2 against "search"'s 1 and wins on the merits rather than on
+    where it happens to sit in the table."""
     lowered = question.lower()
     scored = [
         (
-            sum(1 for keyword in topic["keywords"] if _KEYWORD_PATTERNS[keyword].search(lowered)),
+            sum(
+                len(keyword.split())
+                for keyword in topic["keywords"]
+                if _KEYWORD_PATTERNS[keyword].search(lowered)
+            ),
             topic,
         )
         for topic in HELP_TOPICS

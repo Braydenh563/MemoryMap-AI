@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The guide answers the question you asked. Three plain questions reached no
+  help topic at all ("Can I use this offline?", "How do I add a tag?", "Can I
+  import from Obsidian?"), so it answered them from whatever tab you happened
+  to be on. Twenty-six plainly worded questions now reach the right entry, and
+  a phrase like "web search" beats a bare "search" instead of losing to
+  whichever topic came first in the list.
 - The graph's zoom controls are drawn like the rest of the app. Zoom in, zoom
   out and fit were typed characters sitting beside a full-screen button drawn
   with a real icon; all four now match, 34px square with an 18.4px icon

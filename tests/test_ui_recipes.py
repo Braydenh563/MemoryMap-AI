@@ -1583,9 +1583,19 @@ def test_the_tours_dim_never_covers_the_control_it_describes() -> None:
     A sheet over the page with a highlight drawn on the control is the shape
     this must not become, because the control is then behind a dim layer and
     the tour is the centred slide carousel with extra steps. The cut-out is
-    `.tour-spot`: no background of its own, the dim spread out of it by its own
-    `box-shadow`, and no pointer events, so nothing of the tour's is ever drawn
-    on top of the thing being pointed at.
+    `.tour-spot`: no background of its own and no pointer events, so nothing of
+    the tour's is ever drawn on top of the thing being pointed at.
+
+    **The dim moved off this element on 2026-09-21 and this test moved with
+    it.** It used to be `.tour-spot`'s own `box-shadow`, spread 100vmax, and
+    this test pinned exactly that: an implementation, not the invariant. One
+    shadow's reach depends on `vmax` and on its own corner radius inflated by
+    the spread, and no probe could read it, which is how the owner came to
+    report an undimmed strip three times against a green suite. The dim is now
+    the four `.tour-block-panel`s that already tile the window around the hole,
+    so what this test asserts is the part that must never change (the spot is a
+    hole, not a highlight) plus where the scrim now has to be. Both the old
+    shape and a sheet over the whole window still fail it.
     """
     css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
     rule = re.search(r"\n\.tour-spot \{(.*?)\n\}", css, re.S)
@@ -1599,9 +1609,21 @@ def test_the_tours_dim_never_covers_the_control_it_describes() -> None:
         ".tour-spot must not take pointer events: #tour-block is what stops "
         "the page being used mid-step"
     )
-    assert "100vmax" in body and "var(--scrim)" in body, (
-        "the dim is .tour-spot's own box-shadow, spread past the far corner "
-        "of the window, in the app's scrim colour"
+    assert "var(--scrim)" not in body, (
+        "the dim must not be cast out of the cut-out again: one shadow's reach "
+        "is unmeasurable, which is why the owner reported a lit strip three "
+        "times. It belongs on the four .tour-block-panel rectangles"
+    )
+    panel = re.search(r"\n\.tour-block-panel \{(.*?)\n\}", css, re.S)
+    assert panel, ".tour-block-panel has no rule; where is the tour's dim?"
+    assert "background: var(--scrim)" in panel.group(1), (
+        "the four panels around the hole are the dim, in the app's scrim "
+        "colour: they are the rectangles tourdim.js can actually measure"
+    )
+    block = re.search(r"\n\.tour-block \{(.*?)\n\}", css, re.S)
+    assert block and "background: transparent" in block.group(1), (
+        "their container must stay transparent, or the dim is a sheet over the "
+        "whole window again and the cut-out is a highlight drawn on top of one"
     )
 
 

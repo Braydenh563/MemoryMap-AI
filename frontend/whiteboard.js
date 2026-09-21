@@ -8558,6 +8558,11 @@ function wbCaptureBulkMoveOrigin(excludeKey, keys = wbMultiSelection) {
   //: Both of the things every member of this capture is about to be asked
   //: for, taken in one pass rather than one lookup per member per frame.
   const objectEls = wbIsMap() ? wbIndexMapNodeElements() : null;
+  //: The link sketches, parsed once for the whole capture rather than the
+  //: whole board re-parsed for each member (see `wbLinkSketchIndex`). Built
+  //: unconditionally, because a board with no sketches costs an empty loop
+  //: and an empty Map, while the case it saves is the one that hurts.
+  const linkIndex = wbLinkSketchIndex();
   //: **An edge belongs to one end, not to both.** A tree edge joins two
   //: topics, so when both are in the same dragged branch it appeared in two
   //: members' lists and was recomputed and rewritten twice on every frame of
@@ -8598,7 +8603,7 @@ function wbCaptureBulkMoveOrigin(excludeKey, keys = wbMultiSelection) {
       }
       origin.set(key, {
         kind, id, item, x: item.x, y: item.y,
-        linked: wbLinkedSketchesFor(id, kind),
+        linked: wbLinkedSketchesFor(id, kind, linkIndex),
         mapEdges,
         //: Resolved here when the board is a map (one pass for the whole
         //: capture, above) and on the first frame that needs it otherwise;
@@ -16489,6 +16494,42 @@ function wbObjectPaintKey(d, ctx) {
     `|${children}|${buried}|${d.parent_id ?? ""}|${parentBox}|${ctx.layout}|${ctx.theme}`;
 }
 
+//: **Every link sketch on the board, parsed once and filed under both of its
+//: ends** (MINDMAP_PLAN.md §13a). Built by whoever is about to ask about more
+//: than one item, which is `wbCaptureBulkMoveOrigin`: it is handed the whole
+//: branch under a dragged topic, and the alternative is `wbLinkedSketchesFor`
+//: walking and re-parsing every sketch on the board once per member.
+//:
+//: Keyed `kind:id`, the same pair `wbLinkedSketchesFor` matches on. The keys
+//: are strings, so a link whose stored id is `"12"` rather than `12` now finds
+//: its node where the scan's `===` did not: nothing in this app writes one,
+//: since both come from the same rows, and a link that cannot find its end is
+//: a line left behind by a drag either way.
+//:
+//: A sketch with both ends on one item is filed once, which is what the scan's
+//: `atSource || atTarget` did.
+function wbLinkSketchIndex() {
+  const byEnd = new Map();
+  for (const sketch of wbState.sketches || []) {
+    let parsed;
+    try {
+      parsed = JSON.parse(sketch.data);
+    } catch {
+      continue;
+    }
+    if (!parsed.type || !parsed.type.startsWith("link-")) continue;
+    const pair = { sketch, parsed };
+    const source = `${parsed.sourceKind || "node"}:${parsed.sourceId}`;
+    const target = `${parsed.targetKind || "node"}:${parsed.targetId}`;
+    for (const end of target === source ? [source] : [source, target]) {
+      const list = byEnd.get(end);
+      if (list) list.push(pair);
+      else byEnd.set(end, [pair]);
+    }
+  }
+  return byEnd;
+}
+
 //: The sketches touching `nodeId`, pre-parsed once. `wbUpdateLinkedSketches`
 //: used to do this same JSON.parse-and-scan of *every* sketch on the board on
 //: every single mousemove frame of a card drag, a board with a few hundred
@@ -16496,7 +16537,15 @@ function wbObjectPaintKey(d, ctx) {
 //: parses a second, visible as stutter on a busy board. `dragStart` below
 //: builds this list once per drag instead; a card gains or loses a link only
 //: between drags, never mid-drag, so it doesn't need to be live.
-function wbLinkedSketchesFor(nodeId, kind = "node") {
+function wbLinkedSketchesFor(nodeId, kind = "node", index = null) {
+  //: **One parse of the board, not one parse per item asking**
+  //: (MINDMAP_PLAN.md §13a). Given an index (see `wbLinkSketchIndex`), this
+  //: is a lookup. Without one it is the scan below, which is right for the
+  //: single item a solo drag picks up and quadratic for a bulk move, which
+  //: hands this every topic under the one grabbed: a branch of two hundred
+  //: topics over a board of a few hundred link sketches was two hundred full
+  //: scans with a `JSON.parse` in each of them, before the pointer had moved.
+  if (index) return index.get(`${kind}:${nodeId}`) || [];
   const found = [];
   for (const sketch of wbState.sketches) {
     let parsed;

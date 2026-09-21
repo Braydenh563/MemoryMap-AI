@@ -5586,7 +5586,15 @@ function buildFileReadingSummary(image, summary, images) {
     event.stopPropagation();
     copyToClipboard(mediaReading(image), copy);
   });
-  head.append(meta, copy, open);
+  //: The two controls travel together on the right, with the facts on the
+  //: left (the owner, 2026-09-21: "move the files tab row copy text button
+  //: next to the open readinf button on the right"). The head is
+  //: `space-between`, so three children put Copy in the middle of the row on
+  //: its own, which reads as a third column rather than as one of a pair.
+  const headActions = document.createElement("div");
+  headActions.className = "row library-file-reading-actions";
+  headActions.append(copy, open);
+  head.append(meta, headActions);
   //: The whole reading, in place. Reported directly: "the text extracted
   //: from this file area and dropdown in the library files subtab is
   //: broken, it only shows the first line on the first page extracted". It

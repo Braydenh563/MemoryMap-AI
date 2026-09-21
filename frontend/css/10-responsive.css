@@ -602,7 +602,16 @@ header#top-bar,
 .chord-guide {
   position: fixed;
   inset: 0;
-  z-index: 95;
+  /* **Above every surface it is meant to navigate out of** (the owner,
+     2026-09-21: "the 'm' navigation overlay doesnt show infront of
+     everything and goes behind the settings modal and possibly other popups
+     as well"). The handler already outranks the overlay guard on purpose, so
+     the chord works while Settings is open; at `z-index: 95` the guide it
+     draws was then painted underneath the modal it was letting you leave.
+     Modals sit at 1040 to 1050, the highest fixed layer in the app is 3000,
+     so this goes above both: it is momentary, it is a mode, and nothing is
+     meant to cover it. */
+  z-index: 3100;
   display: flex;
   flex-direction: column;
   align-items: center;

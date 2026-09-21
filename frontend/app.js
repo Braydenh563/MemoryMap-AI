@@ -44643,7 +44643,20 @@ $("show-guide-btn")?.addEventListener("click", () => {
   closeSettingsModal();
   openOnboarding();
 });
+//: The third door into the tour, and it was the one left open (the owner,
+//: 2026-09-21: "the take the tour again button in the about settings page
+//: isnt disabled"). Same flag, same words as the replay strip's buttons.
+if (typeof TOUR_ENABLED !== "undefined" && !TOUR_ENABLED) {
+  const aboutTour = $("about-take-tour");
+  if (aboutTour) {
+    aboutTour.disabled = true;
+    aboutTour.title = "The guided tour is being fixed and is turned off for now.";
+    aboutTour.setAttribute("aria-label", aboutTour.title);
+  }
+}
+
 $("about-take-tour")?.addEventListener("click", () => {
+  if (typeof TOUR_ENABLED !== "undefined" && !TOUR_ENABLED) return;
   closeSettingsModal();
   // A frame later, for the same reason tour.js's own replay strip waits: the
   // first step's rectangle is measured against the page the modal was

@@ -7651,7 +7651,17 @@ button.connection-row {
 /* The button's own `margin-top` is for the stacked layout it used to be in;
    on the facts line it would drop it four pixels below the numbers it sits
    beside. */
-.library-file-reading-head > .library-file-open-reading {
+/* Copy and Open reading are one group at the right end of the facts line. */
+.library-file-reading-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+}
+
+.library-file-reading-head > .library-file-open-reading,
+.library-file-reading-actions > .library-file-open-reading,
+.library-file-reading-actions > .library-file-copy-reading {
   margin-top: 0;
   flex: 0 0 auto;
 }

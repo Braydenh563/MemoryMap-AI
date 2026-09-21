@@ -10114,10 +10114,12 @@ input[type="file"] {
 }
 
 /* **The waypoint handle on a line** (MINDMAP_PLAN.md §12.1 item 5's third).
-   Round and card-filled in the branch's own colour: the same recipe
-   `.wb-link-endpoint-handle` above uses for the other drag-a-dot-on-a-line
-   control in this app, so the two read as the same kind of thing, and coloured
-   so it belongs to the line it reshapes rather than to the canvas.
+   The same control `.wb-link-bend-handle` is for a link sketch, on a tree edge
+   instead: a round grip on the line, dragged to bend it and double-clicked to
+   put it back. So it takes that rule's shape exactly, one size to the hand at
+   every zoom (the grip block near the end of this file) and coloured by the
+   branch rather than by the accent, because on a map the line's colour is what
+   says which branch you are holding.
 
    **Invisible and inert until the topic at one end of the line is selected**
    (`wbSyncMapEdgeHandles`). Both halves matter: a grab dot on every line would

@@ -7927,17 +7927,16 @@ button.connection-row {
    dock takes the full width, and the zoom cluster lifts above it (its
    `bottom` comes from the 40rem rule in 06-timeline-dialogs.css).
 
-   **The halves themselves stay `nowrap`, and below 600 that costs something
-   measured** (2026-09-20, `scratchpad/ui-sweeps/wbtopbar820.js` on an open
-   board): the bar's scrollWidth runs 5px past its client width at 390 and
-   **75px at 320**, so at 320 the last controls in the row cannot be reached.
-   Letting the halves wrap does fix it and costs a row: 104px and two rows
-   becomes 152px and three at 390, and 200px and four at 320, over a canvas
-   that is 604px tall to begin with. That trade is the phone-shaped board bar
-   Phase 11 item 7 deliberately left to WHITEBOARD_PLAN (fewer controls on a
-   phone, not the same eleven wrapped harder), so the number is written down
-   here and in that plan rather than paid for with a quarter of the screen.
-   Above 600 the bar does not overflow at any width measured. */
+   **The halves themselves stay `nowrap`, and the phone band below pays for
+   that by carrying fewer controls rather than by wrapping harder**, which is
+   the trade WHITEBOARD_PLAN asked for in as many words. Measured before it
+   (2026-09-20, `wbtopbar820.js`, then `wbtopbar.js`): the bar's scrollWidth
+   ran 5px past its client width at 390 and **75px at 320**, so at 320 the
+   last controls in the row could not be reached at all. Letting the halves
+   wrap does fix it and costs a row (104px and two rows becomes 152px and
+   three at 390, and 200px and four at 320, over a canvas that is 604px tall
+   to begin with), which is why it is not what happens. Above 600 the bar does
+   not overflow at any width measured. */
 @media (max-width: 48rem) {
   .wb-topbar {
     flex-wrap: wrap;
@@ -8220,6 +8219,22 @@ button.connection-row {
   background: var(--accent-soft);
 }
 
+/* Rename arrives here from the bar's identity zone, and it is the one menu
+   item in the board's menus that can be disabled: the default scratch board
+   has no underlying note to rename (`refreshBoardList`). As an icon button it
+   said so through the button ramp's own disabled state; as a menu row it had
+   no rule at all, so a row that does nothing looked exactly like the row above
+   it. */
+.wb-menu-item:disabled {
+  color: var(--muted);
+  cursor: default;
+  opacity: 0.6;
+}
+
+.wb-menu-item:disabled:hover {
+  background: transparent;
+}
+
 .wb-menu-item kbd,
 .wb-help-grid kbd {
   font-family: var(--mono, ui-monospace, monospace);
@@ -8425,6 +8440,30 @@ button.connection-row {
   .wb-topbar #wb-search-toggle,
   .wb-topbar #wb-navigator-toggle,
   .wb-topbar #wb-navigator-toggle + .wb-topbar-divider {
+    display: none;
+  }
+
+  /* **Two more leave on a phone, and neither is lost.** Measured at 320 with
+     the 44px touch floor on: the right half needs 5 menu toggles, a divider
+     and the Library button at 44px each in 260px of content box, which is
+     284px of demand, and the bar ran 75px past itself with the last two
+     controls unreachable. Both of the two that go are already somewhere a
+     finger can reach:
+
+     Full screen is View › Zoom › Full screen, and on a phone there is no
+     browser chrome for it to hide in the first place.
+
+     Arrange is the twelve alignment, distribution and order actions, every
+     one of which is on the **context bar** above a selection (WHITEBOARD_PLAN
+     decision 3, INBOX 12), which is the only time any of them can do
+     anything: the menu's own rows are labelled "2+ selected" and "3+
+     selected". A phone that has managed to select two objects has the context
+     bar in front of it already.
+
+     Insert, Edit, View and Board stay, because each of those is the only way
+     to what it holds. */
+  .wb-topbar #wb-fullscreen,
+  .wb-topbar .wb-board-menu-wrap:has([aria-controls="wb-arrange-menu"]) {
     display: none;
   }
 

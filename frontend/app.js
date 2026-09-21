@@ -13895,6 +13895,21 @@ function askStatusBusy(text) {
   box.replaceChildren();
   const line = progressLine(text);
   box.appendChild(line);
+  //: **And brought into view, because it is now further down the page than
+  //: the old one was.** `#ask-status` sat directly under the question box, so
+  //: it was always in sight; the answer bubble is below the asked question
+  //: and below the thinking disclosure, which expands as the model reasons and
+  //: pushes the bubble further down. Reported as "nothing happens except the
+  //: send button changing to stop": the indicator was there and off screen,
+  //: which is the same thing as not having one.
+  requestAnimationFrame(() => {
+    try {
+      line.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    } catch {
+      //: An older engine without the options object still gets the default.
+      line.scrollIntoView();
+    }
+  });
   return line;
 }
 

@@ -9,6 +9,205 @@ that answers "has this been done?" before anyone starts.
 
 ## Moved from the plans, 2026-09-21
 
+### From MINDMAP_PLAN.md section 13e: the two layouts the plan promised
+
+Built 2026-09-21. §12.0's decision list named eight layouts, §13.4 measured
+four, and the two missing ones included **both sides**, which is the layout
+Coggle is known for. Added: `tree-left` and `tree-both`, in the picker, in
+`BOARD_LAYOUTS` and in the tidy.
+
+**Both sides is this layout twice, not a third algorithm.** The trunk's
+branches are split between a right-growing run and a left-growing one, both
+anchored on the same trunk (the tidy's closing shift keeps `roots[0]` where
+it already was, so the halves meet on it with no arithmetic), and the left
+run's positions are the sideways tree with the depth axis negated and the
+node's own width taken off it.
+
+**The split is greedy by weight, in branch order.** Alternating was the first
+version and it is wrong on any map that is not already balanced: measured on
+a 40-topic map whose four branches held 1, 1, 1 and 36 topics, alternating
+put 37 topics on one side and 2 on the other, because it counts branches and
+a person sees topics. Greedy by subtree size, keeping the branches in the
+order they were written: **5 left / 6 right at 12 topics, 93 / 106 at 200**.
+A trunk with one branch, or with one branch heavier than all the others put
+together, falls back to the sideways tree it would have been anyway.
+
+**The branch bar moves to the edge the parent is on.** It is the left edge in
+a map that grows right, the top edge in one that grows down (a class on the
+view), and the right edge for a topic whose parent is to its right, which is
+per node because a both-sides map has both kinds on it
+(`wb-map-node-mirrored`, four CSS rules mirroring the three the left edge
+already had). Measured: 4px on the right against a 1px hairline on the left,
+on 200 of 200 topics in tree-left and 93 of 200 in tree-both.
+
+`scratchpad/ui-sweeps/maplayouts.js` is new, **19/19**, five of them failing
+on the base branch, and registered in `scripts/gate.sh`'s sweep list. It lays
+every one of the five tidy layouts out at 12 and 200 topics and counts
+overlapping pairs in the board's own coordinates (**0 pairs everywhere**, the
+gate §13e set), asks whether each new layout survives the round trip through
+the server, and checks the bar. `tests/test_mindmap.py` gained the API half,
+written before the drawing: a layout the API refuses is a picker that lies.
+`maptidy.js` stays 5/5 at 1440 and at 390.
+
+The picker's first row was relabelled with it: "Tree, sideways" is no longer
+a distinct thing from "Tree, to the left", so the four read "to the right",
+"to the left", "both sides", "downward".
+
+
+### From MINDMAP_PLAN.md section 13: the two gestures a blank map did not answer
+
+Built 2026-09-21. §13.3 counted the doors into the map's tools and found them
+few and one-way; what it did not ask is what the canvas itself answers.
+Measured: a **right-click on empty map canvas opened nothing at all**, and a
+**double-click added no topic** (7 topics before, 7 after). Those are the
+first two things anybody tries on a blank part of a mind map, and on a map
+both were dead. The rail's "Add a top-level topic" was the only route to a
+second trunk, and it puts the trunk wherever the layout decides.
+
+- **Right-click** opens the map's own menu through `openMenuAtPoint`, the
+  app's pointer-menu recipe, with four rows in words: add a topic here, tidy
+  the map, open every folded branch (with the count when there are any), and
+  fit everything. A topic and a line stop the event before it gets here, so
+  each of the three subjects has exactly one menu.
+- **Double-click** makes a trunk where the pointer was, pinned and open for
+  typing. Pinned because the position is a decision made with the pointer,
+  which is the same bargain `wbMapPinOnDrag` strikes for a dragged node;
+  without it the next tidy would move the new trunk off the spot just chosen.
+  Measured: 0 and 21px from the press.
+
+Neither adds a resting affordance to the canvas, which §13's decision 5
+refuses.
+
+`scratchpad/ui-sweeps/mapdoors.js` is new, 7/7, **3/7 on the base branch**,
+and registered in `scripts/gate.sh`'s sweep list. It also carries the two
+counts §13.3 is written from, re-measured on this head: a map's top bar has 9
+controls on screen and 60 in its menus, the rail 13, the strip 4 (plus the
+three doors' contents), and every one of the 22 on the bar and the rail has
+both an `aria-label` and a `title`, which is DESIGN.md's icon-only rule.
+
+**§13.3's "two menus built into a map's top bar with no opener" is withdrawn
+as written.** Re-measured: `wbSyncMapChrome` sets `hidden` on the Insert and
+Arrange wraps on a map, and `hidden` takes the menu inside the wrap with it,
+so their 8 and 10 controls are neither drawn nor exposed to a screen reader.
+They are dead markup on a map, not a shut door, and `mapdoors.js` asks the
+question that matters instead: no menu in a map's top bar is exposed while
+its toggle is gone.
+
+
+### From MINDMAP_PLAN.md section 13c: one vocabulary for two connections
+
+Built 2026-09-21. Section 13.2 measured what the owner's "there are two types
+of connections" cost in practice: a branch (the child's own `parent_id`) and a
+cross-link (a link sketch naming both ends) sat beside each other, and a
+right-click on the first opened the map's ring while a right-click on the
+second opened the *board's* flat menu and its context bar, with a different
+vocabulary (ink, caps, stroke) for the same idea. Nothing anywhere said which
+kind a line was, and the rail's two Connect tools, the only controls on screen
+with the word Connect on them, both made the kind nobody had a word for.
+
+What changed, all of it in the controls, none of it in the data (§13's
+decision 2: "the data keeps two kinds of connection; the controls stop having
+two"):
+
+- **One ring for both.** `wbOpenMapCrossLinkRadial` opens the same three-slot
+  ring on a cross-link, through the one door every right-click and hold
+  already went through (`wbOpenContextMenuFor`). The ring names the kind it is
+  on, in its `aria-label` and in the caption under it, and two of its three
+  slots do the kind's own thing: Cut takes a branch off its parent and deletes
+  a cross-link outright, and the middle slot labels a branch and **turns a
+  cross-link into one**.
+- **"Make branch"**, the new slot, is the way back from the gesture that
+  decides for you: `wbMapJoinByLink` makes a branch when the far end is not
+  yet in the tree and a cross-link when it is, which is invisible at the time.
+  The far end moves under the near one, its own branch comes with it, and the
+  cross-link row goes.
+- **The board's context bar never appears for a cross-link on a map.**
+  `wbContextKindOf` returns null for one, so the second vocabulary is gone
+  rather than merely discouraged. A link between a topic and a card, and every
+  link on an ordinary board, still gets the bar.
+- **The rail says which kind it makes.** On a map the Connect section is
+  "Cross-link" and its two tools are "Straight cross-link (C)" and "Curved
+  cross-link (Shift+C)", each saying it joins two branches without changing
+  the tree and where a branch comes from instead. On a board the words are
+  untouched. The section's `aria-label` moves with the drawn word, because the
+  rail's section labels are 1x1 on screen and the label is what a screen
+  reader reads.
+- **A cross-link is drawn in the map's own ink**, `--muted`, dashed, whatever
+  colour the pen held. A link sketch carries the rail ink well's colour, which
+  on a map is meaningless (the branches are coloured by the palette), so a
+  cross-link drawn while the ink was red read as a red branch. Two kinds that
+  can be given each other's look are two kinds nobody can tell apart.
+- **And it is told it is one before it is drawn.** What marks a link sketch as
+  a cross-link is the board tree's `cross_links`, fetched with the map's
+  state, so a link drawn now and rendered now carried none of the map's
+  treatment until the board was next opened: solid, in the pen's colour, for
+  the whole of the session that drew it. `dragEndNode` now awaits
+  `wbRefreshMapState` before the render, and so do the cut and the promotion.
+- **The drawing gesture says what it made.** The branch half already toasted
+  ("Connected to ... as a branch"); the cross-link half now does too.
+
+Measured with `scratchpad/ui-sweeps/maptwokinds.js`, extended from 10 checks
+to 16 and **16/16**. Six of them fail on the base branch, which is what says
+the change is the change: the context row reads "link" there, the right-click
+opens no ring, the ring says "this line" on both kinds, the cross-link draws
+in `rgb(125, 211, 200)` (the pen) rather than `rgb(76, 85, 99)` (the map's
+ink), and the rail says "Connect: Straight link (C)". Two of the sweep's own
+checks were **inverted** by this work and say so in a comment, because they
+asserted the behaviour §13.2 measured and this pass removed.
+
+
+### From MINDMAP_PLAN.md section 13b: the topic strip is sized like a topic
+
+Built 2026-09-21. Section 13.5 measured the map's topic strip at **959.4 x 38**
+to describe a topic 95px wide: 10.1 times the width of its own subject, 67% of
+a 1440 window, and **94% of a 1024 one**, where it did not adapt at all (the
+same 959.4px at both widths, wrapping only in the phone band, to 348.4 x 150).
+Fourteen controls in one flat run, not one of which drew a word: bold, italic,
+core, text size, alignment, colour, icon, shape, spine, and the five of the
+line into the topic.
+
+The fourteen are all still there and none of them changed surface. They sit
+behind three named doors on the bar, **Text**, **Shape** and **Branch line**,
+each the board menu bar's own recipe (`.wb-board-menu-wrap` plus
+`[data-wb-menu-toggle]` and a `.wb-board-menu` written in markup, which is
+DESIGN.md's recipe for a menu whose rows are not all commands), so the ARIA
+stamping, the arrow keys, the outside click, Escape and `escapeAndCapMenu`'s
+clipping escape are all the wiring the top bar already has. Every id is the id
+the control had, so no listener in whiteboard.js moved. The colour well and
+"back to the branch" stay on the bar itself: the first is the control a
+mindmapper reaches for constantly (Coggle's branch colour) and the second
+undoes everything the three doors do.
+
+Measured with `scratchpad/ui-sweeps/mapstrip.js` (39/39) and the §13b probe:
+
+| Width | Strip before | Strip now | Fraction of the window |
+| --- | --- | --- | --- |
+| 1440 | 959.4 x 38 | **314 x 38** | 0.67 to **0.22** |
+| 1024 | 959.4 x 38 | **314 x 38** | 0.94 to **0.31** |
+| 820 | not read | **314 x 38** | **0.38** |
+| 390 | 348.4 x 150 | **314 x 54** | height 150 to **54** |
+
+Words on the bar: **0 of 14 before, 3 of 5 now**, and every control inside a
+door carries its own word in the row beside it (Weight, Size, Alignment, Icon;
+Core idea, Box, Edge bar; Thickness, Shape, Dashed, Arrowhead). The trade is
+one press: a look that was one press from a selected topic is now two, through
+a door that says what is behind it, which is §13's decision 3 ("a control
+surface for one topic does not take two thirds of the window") taken at its
+word.
+
+Three things the bar had to learn because it moves, none of which the top bar
+needs: the open door is re-placed with the bar on every pan and zoom frame
+(`wbTrackMapStripMenu`), every door is shut when the bar goes away
+(`wbCloseMapStripMenus` in `hideBoth`), and the doors are shut when the
+selection moves to another topic, so a menu about the topic just left is never
+left open over the topic just chosen.
+
+Two things measured on the way and left alone: `mapline.js` (13/13),
+`mapcore.js` (16/16) and `mapspine.js` (9/9) drive these controls by id and
+pass untouched, which is what says the listeners did not move; and
+`mapstyle.js`'s "radial slot" check fails on the base branch as well as on
+this one, so it is not this work's (recorded in `agent-remaining/mapux2.md`).
+
 ### From MINDMAP_PLAN.md section 13a: the drag pick-up
 
 Built 2026-09-21. Section 13.1 measured that a map freezes the instant a topic

@@ -90,11 +90,16 @@ const show = (o) => console.log("    " + JSON.stringify(o));
       }),
     });
     wbState.sketches.push(sketch);
+    // What the drag itself now does (`dragEndNode`): a link sketch is only a
+    // cross-link once the board tree says so, and this row was written
+    // straight to the API rather than drawn.
+    await wbRefreshMapState();
     renderWhiteboardNow();
     await new Promise((r) => setTimeout(r, 500));
     return { sketchId: sketch.id, treeChildId: branches[1].id, aId: a.id, bId: b.id };
   });
   check("a free link between two in-tree topics exists", made.sketchId > 0, `sketch ${made.sketchId}`);
+  await page.evaluate((id) => { window.__cross = id; }, made.sketchId);
 
   // Does the backend agree it is a cross link rather than a tree edge?
   const tree = await page.evaluate(() =>
@@ -173,8 +178,113 @@ const show = (o) => console.log("    " + JSON.stringify(o));
   const ctx = await page.evaluate(controlsIn("#wb-context"));
   const freeRing = await page.evaluate(controlsIn("#wb-map-link-radial"));
   show({ contextKind: freeSel.kind, contextBar: ctx, linkRingVisibleForFreeLink: freeRing.visible });
-  check("the free link reads as the board's 'link' row, not the map's", freeSel.kind === "link", `kind ${freeSel.kind}`);
-  check("the free link does NOT get the map's link ring", !freeRing.visible, `ring visible ${freeRing.visible}`);
+  //: **Both of these checks were inverted by MINDMAP_PLAN §13c** and the old
+  //: wording is kept in the detail so the change is legible: this sweep used
+  //: to assert that a cross-link "reads as the board's 'link' row, not the
+  //: map's" and that it "does NOT get the map's link ring", which is what
+  //: §13.2 measured and what the owner's "there are two types of connections"
+  //: was about. The map now answers for both of its own kinds.
+  check("a cross-link has no board context row: its surface is the map's", freeSel.kind === null,
+    `kind ${freeSel.kind} (was "link")`);
+  check("and the board's context bar is not drawn for it", !ctx.visible, `bar visible ${ctx.visible}`);
+
+  // Right-click the cross-link the way a person does: a point on the line
+  // itself, after a fit, because a 13-topic map runs off the canvas and a
+  // click at the path's bounding-box centre lands on empty space.
+  await page.click("#wb-zoom-fit");
+  await page.waitForTimeout(900);
+  const crossPoint = await page.evaluate(() => {
+    const path = document.querySelector(".sketch-group.wb-map-crosslink .sketch-path");
+    if (!path) return null;
+    // A third of the way along, not the middle: a selected link shows its
+    // bend grip at its mid-point, and the grip takes the press (measured: the
+    // right-click landed on `circle.wb-link-bend-handle` and did nothing).
+    const pt = path.getPointAtLength(path.getTotalLength() * 0.35);
+    const m = path.getScreenCTM();
+    return { x: pt.x * m.a + pt.y * m.c + m.e, y: pt.x * m.b + pt.y * m.d + m.f };
+  });
+  check("the cross-link is drawn with the map's own class", Boolean(crossPoint),
+    crossPoint ? `mid-point at ${Math.round(crossPoint.x)},${Math.round(crossPoint.y)}` : "no .wb-map-crosslink path");
+  if (crossPoint) show({ under: await page.evaluate(([x, y]) => {
+    const el = document.elementFromPoint(x, y);
+    return el ? `${el.tagName}.${el.getAttribute("class") || ""}` : "none";
+  }, [crossPoint.x, crossPoint.y]) });
+  if (crossPoint) await page.mouse.click(crossPoint.x, crossPoint.y, { button: "right" });
+  await page.waitForTimeout(600);
+  const crossRing = await page.evaluate(() => {
+    const ring = document.getElementById("wb-map-link-radial");
+    const bar = document.getElementById("wb-context");
+    return {
+      visible: !ring.classList.contains("hidden"),
+      slots: [...ring.querySelectorAll(".wb-map-radial-slot")].map((s) => s.querySelector(".wb-map-radial-name").textContent.trim()),
+      label: ring.getAttribute("aria-label"),
+      caption: ring.querySelector(".wb-map-radial-caption").textContent.trim(),
+      barVisible: !bar.classList.contains("hidden"),
+    };
+  });
+  show(crossRing);
+  check("right-clicking a cross-link opens the map's own ring", crossRing.visible && !crossRing.barVisible,
+    `ring ${crossRing.visible}, board bar ${crossRing.barVisible}`);
+  check("and the ring says which of the two kinds it is on",
+    crossRing.label.includes("cross-link") && /cross-link/.test(crossRing.caption)
+      && crossRing.slots.join(",") === "Reverse,Make branch,Cut",
+    `${crossRing.label}: ${crossRing.slots.join(", ")}`);
+  await page.evaluate(() => wbCloseMapLinkRadial());
+
+  // The same ring on the other kind says the other thing.
+  const branchRing = await page.evaluate(async (childId) => {
+    wbOpenMapLinkRadial(childId, 600, 400);
+    await new Promise((r) => setTimeout(r, 300));
+    const ring = document.getElementById("wb-map-link-radial");
+    return {
+      label: ring.getAttribute("aria-label"),
+      caption: ring.querySelector(".wb-map-radial-caption").textContent.trim(),
+      slots: [...ring.querySelectorAll(".wb-map-radial-slot")].map((s) => s.querySelector(".wb-map-radial-name").textContent.trim()),
+    };
+  }, made.treeChildId);
+  show(branchRing);
+  check("and on a branch it says branch, with the branch's own slots",
+    branchRing.label.includes("branch") && /branch/i.test(branchRing.caption)
+      && branchRing.slots.join(",") === "Reverse,Label,Cut",
+    `${branchRing.label}: ${branchRing.slots.join(", ")}`);
+  await page.evaluate(() => wbCloseMapLinkRadial());
+
+  // The two kinds cannot be given each other's look: a cross-link on a map is
+  // drawn in the map's own ink whatever colour the pen was.
+  const inks = await page.evaluate(() => {
+    const cross = document.querySelector(".sketch-group.wb-map-crosslink .sketch-path");
+    const branch = document.querySelector(".wb-map-edge");
+    const muted = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim();
+    const probe = document.createElement("div");
+    probe.style.color = muted;
+    document.body.appendChild(probe);
+    const mutedRgb = getComputedStyle(probe).color;
+    probe.remove();
+    return {
+      crossStroke: getComputedStyle(cross).stroke,
+      crossDash: getComputedStyle(cross).strokeDasharray,
+      crossStored: JSON.parse((wbState.sketches || []).find((s) => s.id === window.__cross)?.data || "{}").color || null,
+      branchFill: getComputedStyle(branch).fill,
+      branchDash: getComputedStyle(branch).strokeDasharray,
+      mutedRgb,
+    };
+  });
+  show(inks);
+  check("a cross-link is drawn in the map's ink, dashed, whatever the pen held",
+    inks.crossStroke === inks.mutedRgb && inks.crossDash !== "none" && inks.branchDash === "none",
+    `${inks.crossStroke} dashed ${inks.crossDash} against the branch's fill ${inks.branchFill}`);
+
+  // The rail's two Connect tools say which kind they make, on each surface.
+  const railWords = await page.evaluate(() => ({
+    map: {
+      section: document.querySelector('#wb-tool-group .wb-tool-section[aria-label]:has([data-tool="link-straight"])')?.getAttribute("aria-label"),
+      straight: document.querySelector('#wb-tool-group [data-tool="link-straight"]')?.getAttribute("aria-label"),
+    },
+  }));
+  show(railWords);
+  check("the rail's Connect tools say cross-link on a map",
+    /cross-link/i.test(railWords.map.section || "") && /cross-link/i.test(railWords.map.straight || ""),
+    `${railWords.map.section}: ${railWords.map.straight}`);
 
   // 3. Export: does each kind survive?
   const exports = await page.evaluate(async () => {

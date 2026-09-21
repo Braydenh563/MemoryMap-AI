@@ -901,6 +901,19 @@ topic: a control that wide has nowhere to go.
 5. **Nothing is added to the canvas.** Per standing order 11, any new
    affordance comes from DESIGN.md's recipe index or arrives with its own
    recipe and lint in the same commit.
+6. **A cross-link has no colour of its own** (taken 2026-09-21, building
+   13c). It is drawn in `--muted`, dashed, whatever the rail's ink well held
+   when it was drawn. The alternative was to keep the stored colour and give
+   the ring a colour well, which would have let a person paint a cross-link in
+   a branch's colour: two kinds of line that can be given each other's look
+   are two kinds nobody can tell apart, which is the report this section
+   exists for. The colour stays on the row, so an ordinary board still draws
+   it and a map turned back into a board gets it back.
+7. **The ring's middle slot promotes a cross-link to a branch** (taken
+   2026-09-21, building 13c). The gesture that makes one or the other decides
+   from whether the far end is already in the tree, which nothing on screen
+   can say in advance without describing the tree; the honest answer is a way
+   back afterwards, in the surface that already names both kinds.
 
 ### Phases, each with the gate it is finished against
 
@@ -949,29 +962,60 @@ topic: a control that wide has nowhere to go.
   appears when he presses the wheel; if it does, the guard is not reaching
   the event on his machine and the next thing to read is whether
   `#library-view-whiteboard` is really an ancestor of what he pressed on.
-- **13b. The strip is sized like a topic.** One considered treatment of the
-  fourteen controls that does not assume 959px: grouped, or revealed on
-  approach, or moved to the topic's own row. Gate: the strip's width is under
-  half the window at 1440, 1024 and 820, it never covers the line into its own
-  topic, and `mapnarrow.js` and `mapstrip.js` stay clean.
-- **13c. One vocabulary for two connections.** The free link on a map gets the
-  link ring rather than the board's context bar, and one word that says what
-  it is. Gate: `maptwokinds.js` extended so that right-clicking either kind
-  opens the same ring with the slots that apply, and the board's context bar
-  never appears for a link on a map.
+- ~~**13b. The strip is sized like a topic.**~~ **Built 2026-09-21**, and the
+  record is in HISTORY.md ("Moved from the plans, 2026-09-21", "From
+  MINDMAP_PLAN.md section 13b: the topic strip is sized like a topic"). The
+  fourteen controls are behind three named doors, Text, Shape and Branch line,
+  each the board menu bar's own recipe; the strip is **314 x 38** at 1440,
+  1024 and 820 (0.22, 0.31 and 0.38 of the window, against a gate of a half)
+  and 314 x 54 at 390, against 959.4 x 38 and 348.4 x 150 before. `mapstrip.js`
+  39/39, `mapnarrow.js` 3/3, and `mapline.js`, `mapcore.js` and `mapspine.js`
+  untouched at 13/13, 16/16 and 9/9. **What is left of 13b** is the one thing
+  its gate asked that this did not measure: whether the strip still covers the
+  handle of the line into its own topic. It is a third of the width it was,
+  which makes it far less likely and does not make it false.
+- ~~**13c. One vocabulary for two connections.**~~ **Built 2026-09-21**, and
+  the record is in HISTORY.md ("Moved from the plans, 2026-09-21", "From
+  MINDMAP_PLAN.md section 13c: one vocabulary for two connections"). Both
+  kinds get the same ring, which names the kind it is on; the board's context
+  bar never appears for a cross-link on a map; the rail says cross-link on a
+  map and link on a board; a cross-link draws in the map's own ink, dashed,
+  whatever the pen held, and is told it is one before it is first drawn rather
+  than at the next reload. `maptwokinds.js` 10 checks to 16, **16/16**, six of
+  which fail on the base branch. **What is left of 13c**: a right-click that
+  lands on a selected cross-link's bend grip still does nothing (the grip
+  takes the press), and nothing yet says which kind a drag is about to make
+  *while* it is in flight, only after it lands.
 - **13d. A free link survives an export.** FreeMind's `<arrowlink>` first,
   since it has a place for it; OPML and Markdown need the decision made
   before the code. Gate: a map with one cross link round-trips through
   FreeMind with the link intact, and `maptwokinds.js`'s export check inverts
   from "survives none" to "survives the format that can carry it".
-- **13e. The map's own customisation.** Tree-left and both-sides, the two
-  §12.0 promised and Coggle is known for; then a map-level default for new
-  topics. Gate: each layout laid out and measured for overlap at 12 and 200
-  topics, and `maptidy.js` still clean at 1440 and 390.
-- **13f. The doors that are built and shut.** The Insert menu's eight items
-  and the Arrange menu are in a map's top bar with no opener: remove them from
-  a map or give them a door. Gate: the route-split count shows no control in
-  a map's top bar that has no way to be reached.
+- **13e. The map's own customisation.** ~~Tree-left and both-sides, the two
+  §12.0 promised and Coggle is known for~~ **built 2026-09-21**, recorded in
+  HISTORY.md ("Moved from the plans, 2026-09-21", "From MINDMAP_PLAN.md
+  section 13e: the two layouts the plan promised"): both in the picker, in
+  `BOARD_LAYOUTS` and in the tidy, 0 overlapping pairs at 12 and 200 topics
+  in all five layouts, 5/6 and 93/106 either side of the trunk, `maptidy.js`
+  5/5 at 1440 and 390, `maplayouts.js` new at 19/19 (5 failing on base).
+  **What is left of 13e is the other half: a map-level default for new
+  topics.** §13.4's finding stands: every one of the eleven per-topic fields
+  is still set one topic at a time, the map has no theme of its own (no font
+  choice, no branch palette a person picks, no line-style default) and "Reset
+  to branch" is still its only bulk operation.
+- ~~**13f. The doors that are built and shut.**~~ **Withdrawn 2026-09-21, and
+  a different thing built in its place**, recorded in HISTORY.md ("Moved from
+  the plans, 2026-09-21", "the two gestures a blank map did not answer").
+  Re-measured: `wbSyncMapChrome` sets `hidden` on the Insert and Arrange wraps
+  on a map, and that takes the menu inside the wrap with it, so their 8 and 10
+  controls are neither drawn nor exposed to a screen reader. Dead markup on a
+  map, not a shut door. What the counting *did* find is that a map's canvas
+  answered neither of the two gestures anybody tries on a blank part of it: a
+  right-click opened nothing and a double-click added nothing. Both now do,
+  and `mapdoors.js` (7/7, 3/7 on base, in the gate's sweep list) holds them
+  plus the door count and the naming rule. **What is left**: the Insert and
+  Arrange markup is still in the bar for a map to carry, which is a tidy-up,
+  not a user-visible bug.
 
 ### Not verified, and to be taken first by whoever opens this
 

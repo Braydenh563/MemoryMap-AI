@@ -5302,7 +5302,9 @@
         <span class="wb-tool-section-label" title="How the map arranges itself, and laying it out again">Layout</span>
         <div class="wb-tool-section-row">
         <select id="wb-map-layout" class="ghost small" aria-label="How this map is laid out" title="How this map is laid out" hidden>
-          <option value="tree-right">Tree, sideways</option>
+          <option value="tree-right">Tree, to the right</option>
+          <option value="tree-left">Tree, to the left</option>
+          <option value="tree-both">Tree, both sides</option>
           <option value="tree-down">Tree, downward</option>
           <option value="radial">Radial</option>
           <option value="free">Free</option>
@@ -5661,109 +5663,177 @@
       <span id="wb-stroke-width-badge" class="wb-stroke-width-badge hidden"></span>
     </div>
 
-    <!-- **The node edit strip** (MINDMAP_PLAN.md §12.1 item 2, Coggle's four:
-         text, link, image, icon). It stands in the selection bar's place on a
-         map node rather than beside it: two bars above one node is how they
-         come to overlap, and the board's bar offers duplicate, copy style and
-         the z-order pair, none of which a topic in a tree has any use for.
-         What a topic needs instead is how it reads and what it points at.
+    <!-- **The node edit strip** (MINDMAP_PLAN.md §12.1 item 2, §12.5, and
+         §13b). It stands in the selection bar's place on a map node rather
+         than beside it: two bars above one node is how they come to overlap,
+         and the board's bar offers duplicate, copy style and the z-order
+         pair, none of which a topic in a tree has any use for. What a topic
+         needs instead is how it reads and what its line looks like.
 
-         Same recipe as the bar it replaces: `.card.glass` over the canvas,
-         a run of `.ghost.small.icon-only` quieted by the panel rule in
-         07-whiteboard-misc.css, plain `<select>`s that `enhanceSelect`
-         restyles at boot, and the divider the bar already uses. Positioned by
-         `wbUpdateSelectionBar`, which owns both. -->
+         **Five controls, not fourteen** (§13b, the owner: the map's tools
+         "dont show themselves how id expect"). It carried all fourteen in one
+         flat run of glyphs, which measured 959.4px to describe a topic 95px
+         wide: 67% of a 1440 window, 94% of a 1024 one, and not one of the
+         fourteen drew a word. What a person met was a row of icons the width
+         of the screen. The fourteen are all still here and none of them moved
+         surface: they are behind three named doors, Text, Shape and Line,
+         each of which says in a word what is inside it and then labels every
+         control in the menu with its own word. The colour well and "back to
+         the branch" stay on the bar itself, the first because it is the one
+         control a mindmapper reaches for constantly (Coggle's branch colour)
+         and the second because it undoes everything the three doors do.
+
+         Recipes, not a fourth kind of popover: each door is the board menu
+         bar's own `.wb-board-menu-wrap` plus `[data-wb-menu-toggle]` and a
+         `.wb-board-menu` written in markup (DESIGN.md's recipe index, "a menu
+         bar over a canvas"), which is the recipe for a menu whose rows are
+         not all commands. `wbStampMenuRoles` stamps the ARIA and
+         `wireMenuKeyboard` gives it the arrows at boot, both by class, and
+         `escapeAndCapMenu` keeps it inside the window; every id below is the
+         id the control already had, so every listener in whiteboard.js is
+         untouched. Positioned by `wbUpdateSelectionBar`, which owns both. -->
     <div id="wb-map-strip" class="wb-map-strip card glass hidden" role="toolbar" aria-label="Topic">
-      <button type="button" id="wb-map-bold" class="ghost small icon-only" title="Bold" aria-label="Bold" aria-pressed="false"><i class="ph ph-text-b" aria-hidden="true"></i></button>
-      <button type="button" id="wb-map-italic" class="ghost small icon-only" title="Italic" aria-label="Italic" aria-pressed="false"><i class="ph ph-text-italic" aria-hidden="true"></i></button>
-      <!-- **A core idea** (MINDMAP_PLAN.md item 177). Beside bold and italic
-           because it is the same kind of thing: how much this topic weighs
-           against the ones around it. Not a third node type, which §12.0
-           refused for good reasons; a mark the node wears, which the shape
-           picker beside it then has a wider set for. -->
-      <button type="button" id="wb-map-core" class="ghost small icon-only" title="Mark this topic as a core idea" aria-label="Mark this topic as a core idea" aria-pressed="false"><i class="ph ph-crown-simple" aria-hidden="true"></i></button>
-      <select id="wb-map-text-size" class="ghost small" aria-label="Text size" title="How big this topic reads">
-        <option value="12">S</option>
-        <option value="">M</option>
-        <option value="19">L</option>
-        <option value="25">XL</option>
-      </select>
-      <select id="wb-map-align" class="ghost small" aria-label="Text alignment" title="Where the text sits in the topic">
-        <option value="">Auto</option>
-        <option value="left">Left</option>
-        <option value="center">Centre</option>
-        <option value="right">Right</option>
-      </select>
       <input type="color" id="wb-map-strip-color" class="wb-color-picker" aria-label="Topic colour" title="Topic colour">
-      <span class="wb-topbar-divider" aria-hidden="true"></span>
-      <select id="wb-map-strip-icon" class="ghost small" aria-label="Icon on this topic" title="Put an icon on this topic">
-        <option value="">No icon</option>
-        <option value="star">Star</option>
-        <option value="flag">Flag</option>
-        <option value="check-circle">Done</option>
-        <option value="warning">Warning</option>
-        <option value="question">Question</option>
-        <option value="lightbulb">Idea</option>
-        <option value="heart">Heart</option>
-        <option value="rocket">Rocket</option>
-        <option value="target">Target</option>
-        <option value="clock">Clock</option>
-        <option value="push-pin">Pin</option>
-      </select>
-      <select id="wb-map-shape" class="ghost small" aria-label="Topic shape" title="The shape this topic is drawn in">
-        <option value="">Rounded</option>
-        <option value="pill">Pill</option>
-        <option value="rect">Box</option>
-        <option value="ellipse">Ellipse</option>
-        <option value="none">Plain</option>
-      </select>
-      <!-- **The bar down the topic's edge** (MINDMAP_PLAN.md item 177,
-           "per-node left edge: solid, dashed or none"). Beside the shape
-           because it is the other half of how a topic is drawn: the shape is
-           the box, this is the one edge of it that carries the branch's
-           colour. A select rather than a toggle because there are three
-           values and a three-state button is a button nobody can read. -->
-      <select id="wb-map-spine" class="ghost small" aria-label="The bar on this topic's edge" title="The bar that carries the branch colour down this topic's edge">
-        <option value="">Solid bar</option>
-        <option value="dashed">Dashed bar</option>
-        <option value="none">No bar</option>
-      </select>
-      <!-- **The line into this topic** (MINDMAP_PLAN.md item 177,
-           "connection line styles: per-branch thickness, dash and arrowhead,
-           managed from the map strip rather than by one global rule"). A tree
-           edge has no row of its own, it *is* `parent_id`, so every control
-           here writes to the topic that is selected, which is the end of its
-           one incoming line. `data-wb-map-line` marks the group so a trunk,
-           which has no line above it, is shown none of it.
+      <div class="wb-board-menu-wrap">
+        <button type="button" class="ghost small wb-menu-toggle" data-wb-menu-toggle title="How this topic reads: weight, size, alignment and its icon" aria-label="Text: how this topic reads" aria-haspopup="true" aria-expanded="false" aria-controls="wb-map-text-menu"><span class="wb-menu-label">Text</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
+        <div id="wb-map-text-menu" class="wb-board-menu wb-map-strip-menu hidden" role="menu" aria-label="Text">
+          <div class="wb-menu-section">
+            <div class="wb-menu-row">
+              <span>Weight</span>
+              <span class="wb-menu-controls">
+                <button type="button" id="wb-map-bold" class="ghost small icon-only" title="Bold" aria-label="Bold" aria-pressed="false"><i class="ph ph-text-b" aria-hidden="true"></i></button>
+                <button type="button" id="wb-map-italic" class="ghost small icon-only" title="Italic" aria-label="Italic" aria-pressed="false"><i class="ph ph-text-italic" aria-hidden="true"></i></button>
+              </span>
+            </div>
+            <!-- **M is no stored size at all**: see `wbSyncMapStrip`, which
+                 says why the default has to stay the default. -->
+            <div class="wb-menu-row">
+              <span>Size</span>
+              <select id="wb-map-text-size" class="ghost small" aria-label="Text size" title="How big this topic reads">
+                <option value="12">S</option>
+                <option value="">M</option>
+                <option value="19">L</option>
+                <option value="25">XL</option>
+              </select>
+            </div>
+            <div class="wb-menu-row">
+              <span>Alignment</span>
+              <select id="wb-map-align" class="ghost small" aria-label="Text alignment" title="Where the text sits in the topic">
+                <option value="">Auto</option>
+                <option value="left">Left</option>
+                <option value="center">Centre</option>
+                <option value="right">Right</option>
+              </select>
+            </div>
+            <div class="wb-menu-row">
+              <span>Icon</span>
+              <select id="wb-map-strip-icon" class="ghost small" aria-label="Icon on this topic" title="Put an icon on this topic">
+                <option value="">No icon</option>
+                <option value="star">Star</option>
+                <option value="flag">Flag</option>
+                <option value="check-circle">Done</option>
+                <option value="warning">Warning</option>
+                <option value="question">Question</option>
+                <option value="lightbulb">Idea</option>
+                <option value="heart">Heart</option>
+                <option value="rocket">Rocket</option>
+                <option value="target">Target</option>
+                <option value="clock">Clock</option>
+                <option value="push-pin">Pin</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="wb-board-menu-wrap">
+        <button type="button" class="ghost small wb-menu-toggle" data-wb-menu-toggle title="The box this topic is drawn in: how much it weighs, its shape and the bar down its edge" aria-label="Shape: the box this topic is drawn in" aria-haspopup="true" aria-expanded="false" aria-controls="wb-map-shape-menu"><span class="wb-menu-label">Shape</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
+        <div id="wb-map-shape-menu" class="wb-board-menu wb-map-strip-menu hidden" role="menu" aria-label="Shape">
+          <div class="wb-menu-section">
+            <!-- **A core idea** (MINDMAP_PLAN.md item 177): not a third node
+                 type, which §12.0 refused for good reasons, but a mark the
+                 topic wears, which the shape picker beside it has a wider set
+                 for. -->
+            <div class="wb-menu-row">
+              <span>Core idea</span>
+              <span class="wb-menu-controls">
+                <button type="button" id="wb-map-core" class="ghost small icon-only" title="Mark this topic as a core idea" aria-label="Mark this topic as a core idea" aria-pressed="false"><i class="ph ph-crown-simple" aria-hidden="true"></i></button>
+              </span>
+            </div>
+            <div class="wb-menu-row">
+              <span>Box</span>
+              <select id="wb-map-shape" class="ghost small" aria-label="Topic shape" title="The shape this topic is drawn in">
+                <option value="">Rounded</option>
+                <option value="pill">Pill</option>
+                <option value="rect">Box</option>
+                <option value="ellipse">Ellipse</option>
+                <option value="none">Plain</option>
+              </select>
+            </div>
+            <!-- **The bar down the topic's edge** (MINDMAP_PLAN.md item 177).
+                 Beside the shape because it is the other half of how a topic
+                 is drawn: the shape is the box, this is the one edge of it
+                 that carries the branch's colour. -->
+            <div class="wb-menu-row">
+              <span>Edge bar</span>
+              <select id="wb-map-spine" class="ghost small" aria-label="The bar on this topic's edge" title="The bar that carries the branch colour down this topic's edge">
+                <option value="">Solid bar</option>
+                <option value="dashed">Dashed bar</option>
+                <option value="none">No bar</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- **The line into this topic** (MINDMAP_PLAN.md item 177 and §13c).
+           A tree edge has no row of its own, it *is* `parent_id`, so every
+           control here writes to the topic that is selected, which is the end
+           of its one incoming line. `data-wb-map-line` marks the door so a
+           trunk, which has no line above it, is shown none of it: the whole
+           door goes, not four rows inside an open menu.
 
-           The colour and the dash are on the link ring as well, and that is
-           deliberate rather than an oversight: the ring is a right-click
-           nobody finds by accident (the owner's words about the rings: "soooo
-           annoying and unintuitive to use"), and the strip is the surface
-           that is simply there when a topic is selected. -->
-      <span class="wb-topbar-divider" data-wb-map-line aria-hidden="true"></span>
-      <select id="wb-map-edge-width" class="ghost small" data-wb-map-line aria-label="How thick the line into this topic is" title="How thick the line into this topic is">
-        <option value="thin">Thin line</option>
-        <option value="">Line</option>
-        <option value="thick">Thick line</option>
-      </select>
-      <button type="button" id="wb-map-edge-dashed" class="ghost small icon-only" data-wb-map-line title="Dash the line into this topic" aria-label="Dash the line into this topic" aria-pressed="false"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
-      <button type="button" id="wb-map-edge-arrow" class="ghost small icon-only" data-wb-map-line title="Put an arrowhead on the line into this topic" aria-label="Put an arrowhead on the line into this topic" aria-pressed="false"><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
-      <!-- **The shape of the line into this topic** (MINDMAP_PLAN §12.5). It
-           was three slots on the link ring, which is a right-click on a line
-           nobody finds; it is a look, and looks are the strip's. One select
-           rather than three buttons, for the same reason the spine is one:
-           three values with a current one to report is what a select is for. -->
-      <select id="wb-map-edge-shape" class="ghost small" data-wb-map-line aria-label="The shape of the line into this topic" title="The shape of the line into this topic">
-        <option value="">Curved line</option>
-        <option value="elbow">Elbow line</option>
-        <option value="straight">Straight line</option>
-      </select>
+           Named "Branch line", not "Line": §13c's decision is that the map
+           says which of its two kinds of connection it is talking about,
+           everywhere it talks about one. This is the branch. -->
+      <div class="wb-board-menu-wrap" data-wb-map-line>
+        <button type="button" class="ghost small wb-menu-toggle" data-wb-menu-toggle title="The branch line into this topic: how thick it is, whether it is dashed, its arrowhead and its shape" aria-label="Branch line: the line into this topic" aria-haspopup="true" aria-expanded="false" aria-controls="wb-map-line-menu"><span class="wb-menu-label">Branch line</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
+        <div id="wb-map-line-menu" class="wb-board-menu wb-map-strip-menu hidden" role="menu" aria-label="Branch line">
+          <div class="wb-menu-section">
+            <div class="wb-menu-row">
+              <span>Thickness</span>
+              <select id="wb-map-edge-width" class="ghost small" aria-label="How thick the line into this topic is" title="How thick the line into this topic is">
+                <option value="thin">Thin line</option>
+                <option value="">Line</option>
+                <option value="thick">Thick line</option>
+              </select>
+            </div>
+            <div class="wb-menu-row">
+              <span>Shape</span>
+              <select id="wb-map-edge-shape" class="ghost small" aria-label="The shape of the line into this topic" title="The shape of the line into this topic">
+                <option value="">Curved line</option>
+                <option value="elbow">Elbow line</option>
+                <option value="straight">Straight line</option>
+              </select>
+            </div>
+            <div class="wb-menu-row">
+              <span>Dashed</span>
+              <span class="wb-menu-controls">
+                <button type="button" id="wb-map-edge-dashed" class="ghost small icon-only" title="Dash the line into this topic" aria-label="Dash the line into this topic" aria-pressed="false"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
+              </span>
+            </div>
+            <div class="wb-menu-row">
+              <span>Arrowhead</span>
+              <span class="wb-menu-controls">
+                <button type="button" id="wb-map-edge-arrow" class="ghost small icon-only" title="Put an arrowhead on the line into this topic" aria-label="Put an arrowhead on the line into this topic" aria-pressed="false"><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
       <span class="wb-topbar-divider" aria-hidden="true"></span>
       <!-- **Back to the branch** (MINDMAP_PLAN §12.5). It was the eighth slot
            on the node ring, where it sat among five structural edits; what it
-           undoes is every choice made in this strip, so it belongs at the end
-           of the strip. -->
+           undoes is every choice made behind the three doors, so it stays on
+           the bar rather than inside one of them. -->
       <button type="button" id="wb-map-reset" class="ghost small icon-only" title="Back to the branch: drop this topic's own colour, size, weight, alignment, shape, icon, link and the look of the line into it" aria-label="Reset this topic to its branch"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
     </div>
 
@@ -5795,7 +5865,7 @@
       <button type="button" id="wb-radial-sibling" class="ghost small wb-map-radial-slot" title="Add a topic beside this one (Enter). Hold Alt to remove this topic and keep its branch" aria-label="Add a topic beside this one (Enter)"><i class="ph ph-arrow-down" aria-hidden="true"></i><span class="wb-map-radial-name">Add beside</span></button>
       <button type="button" id="wb-radial-collapse" class="ghost small wb-map-radial-slot" title="Fold this branch away (C)" aria-label="Fold this branch away (C)"><i class="ph ph-caret-circle-down" aria-hidden="true"></i><span class="wb-map-radial-name">Fold</span></button>
       <button type="button" id="wb-radial-delete" class="ghost small wb-map-radial-slot" title="Delete this topic and everything under it (Delete)" aria-label="Delete this topic and everything under it (Delete)"><i class="ph ph-trash" aria-hidden="true"></i><span class="wb-map-radial-name">Delete</span></button>
-      <button type="button" id="wb-radial-connect" class="ghost small wb-map-radial-slot" title="Draw a line from this topic to another (Shift+C)" aria-label="Draw a line from this topic to another (Shift+C)"><i class="ph ph-graph" aria-hidden="true"></i><span class="wb-map-radial-name">Connect</span></button>
+      <button type="button" id="wb-radial-connect" class="ghost small wb-map-radial-slot" title="Draw a cross-link from this topic to another (Shift+C): it joins two branches without changing the tree" aria-label="Draw a cross-link from this topic to another (Shift+C)"><i class="ph ph-graph" aria-hidden="true"></i><span class="wb-map-radial-name">Cross-link</span></button>
       <button type="button" id="wb-radial-more" class="ghost small wb-map-radial-slot" title="Everything else you can do with this topic (Shift+F10)" aria-label="Everything else you can do with this topic (Shift+F10)"><i class="ph ph-dots-three-outline" aria-hidden="true"></i><span class="wb-map-radial-name">More</span></button>
       <span class="wb-map-radial-caption" aria-hidden="true" data-rest="Tab adds a child, Enter one beside, C folds, Delete removes"></span>
     </div>

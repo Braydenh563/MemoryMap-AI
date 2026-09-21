@@ -9339,6 +9339,36 @@ input[type="file"] {
   border-top-color: color-mix(in srgb, var(--wb-branch-edge) 55%, transparent);
 }
 
+/* --- the spine on the other edge (MINDMAP_PLAN.md §13e) ---------------------
+   A topic whose parent is to its *right* carries the branch bar on its right
+   edge, for the same reason a downward map carries it on the top: a bar on
+   the far side from the branch it belongs to points at nothing. Set per node
+   (`wb-map-node-mirrored`, written by `wbPaintMapNode`) rather than per view,
+   because a both-sides map has topics of both kinds on it.
+
+   Each of the three rules above has its mirror here, in the same order and
+   for the same reason: the explicit choice has to win over the weight a core
+   mark gave the edge, and source order is what decides that. */
+.wb-map-node.wb-map-node-mirrored {
+  border-left-width: 1.5px;
+  border-right: 4px solid var(--wb-branch);
+}
+
+.wb-map-node.wb-map-core.wb-map-node-mirrored {
+  border-left-width: 2px;
+  border-right-width: 6px;
+}
+
+.wb-map-node-mirrored[data-spine="dashed"]:not([data-shape="none"]) {
+  border-left-style: solid;
+  border-right-style: dashed;
+}
+
+.wb-map-node-mirrored[data-spine="none"]:not([data-shape="none"]) {
+  border-right-width: 1.5px;
+  border-right-color: color-mix(in srgb, var(--wb-branch-edge) 55%, transparent);
+}
+
 .wb-map-node-body {
   display: flex;
   align-items: center;
@@ -9675,7 +9705,13 @@ input[type="file"] {
   white-space: nowrap;
 }
 
-.wb-map-strip button.icon-only {
+/* The bar's own controls, which since §13b are the colour well, three menu
+   toggles and the reset: the child combinator, because a menu's rows are
+   inside a `.wb-board-menu` that `escapeAndCapMenu` moves to <body> the
+   moment the canvas would clip it, and a rule that reached into it would
+   dress a control one way in place and another way escaped. Inside a door,
+   the board menus' own row styling applies, wherever the door is. */
+.wb-map-strip > button.icon-only {
   height: 1.75rem;
   width: 1.75rem;
   min-width: 0;
@@ -9687,14 +9723,18 @@ input[type="file"] {
    inside a tray reads as separate objects sharing a tray). `.active` is a
    control that is currently *on* for this node, which is a fact about the
    node, not a hover state, so it keeps its fill. */
-.wb-map-strip button.ghost:not(.active):not(:disabled) {
+.wb-map-strip > button.ghost:not(.active):not(:disabled),
+.wb-map-strip .wb-menu-toggle:not(.active):not(:disabled) {
   background: none;
   border-color: transparent;
   box-shadow: none;
 }
 
-.wb-map-strip button.ghost:not(.active):hover,
-.wb-map-strip button.ghost:not(.active):focus-visible {
+.wb-map-strip > button.ghost:not(.active):hover,
+.wb-map-strip > button.ghost:not(.active):focus-visible,
+.wb-map-strip .wb-menu-toggle:not(.active):hover,
+.wb-map-strip .wb-menu-toggle:not(.active):focus-visible,
+.wb-map-strip .wb-menu-toggle[aria-expanded="true"] {
   background: var(--ghost-btn-bg);
 }
 
@@ -9736,12 +9776,50 @@ input[type="file"] {
   border-radius: 50%;
 }
 
-/* The size selects stay small enough that the strip does not out-measure the
-   node it belongs to: one or two characters of value plus the caret. */
-.wb-map-strip .select-shell > .select-opener {
+/* A select that is still on the bar itself rather than behind one of §13b's
+   three doors stays small enough that the strip does not out-measure the node
+   it belongs to: one or two characters of value plus the caret. Inside a
+   door, a select is a menu row's control and takes the board menus' own
+   sizing, which is the same in place and escaped. */
+.wb-map-strip > .select-shell > .select-opener {
   height: 1.75rem;
   min-width: 0;
   padding-inline: var(--space-2);
+}
+
+/* --- the strip's three doors (MINDMAP_PLAN.md §13b) ------------------------
+   Text, Shape and Branch line. The bar held fourteen glyphs in one run and
+   measured 959.4px against a 95px topic; these three say in a word what they
+   hold, and each row inside them labels its own control. The toggle is the
+   top bar's own `.wb-menu-toggle` (a word and a caret, reading as a menu
+   rather than as a button that does something), brought to the strip's own
+   1.75rem control height so it sits on the same line as the colour well. */
+.wb-map-strip .wb-menu-toggle {
+  height: 1.75rem;
+  gap: var(--space-1);
+  padding-inline: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+/* The door's panel. Narrower than the board menus' 17rem, because these hold
+   one section of four rows rather than five sections, and centred under its
+   own toggle rather than pinned to its right edge: a 17rem panel hung off the
+   right of a 60px button on a bar that is itself centred on a topic lands
+   well off to one side of the thing it is about. `escapeAndCapMenu` still
+   takes over whenever the canvas would clip it. */
+.wb-map-strip-menu {
+  width: 14rem;
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: normal;
+}
+
+/* Escaped to the window (`action-menu-escaped`), the transform above would be applied to a box that
+   `placeEscapedMenu` has already positioned by its own measured left edge,
+   which would put it half its own width to the left of where it was placed. */
+.wb-map-strip-menu.action-menu-escaped {
+  transform: none;
 }
 
 /* --- the node radial (MINDMAP_PLAN.md §12.1 item 3) -------------------------
@@ -10248,8 +10326,20 @@ input[type="file"] {
    two branches. Dashed, which is the systems-map convention every serious
    mindmapper uses to say "related, but not part of the tree" (MINDMAP_PLAN.md
    §5 item 9). The tree edges above stay solid so the difference is readable
-   without a legend. */
+   without a legend.
+
+   **And it is the map's own ink, not the pen's** (MINDMAP_PLAN §13c, the
+   owner: "there are two types of connections"). A link sketch carries the
+   colour the rail's ink well held when it was drawn, which on a map is a
+   colour with no meaning: it is the *pen's* colour, and the branches around
+   it are coloured by the palette, so a cross-link drawn while the ink was red
+   read as a branch in red. Two kinds of line that can be given each other's
+   look are two kinds nobody can tell apart, which is exactly the report. The
+   attribute stays on the row (an ordinary board still draws it, and a map
+   turned back into a board gets it back); on a map this rule wins, because a
+   CSS declaration beats the presentation attribute the renderer writes. */
 .sketch-group.wb-map-crosslink .sketch-path {
+  stroke: var(--muted);
   stroke-dasharray: 7 5;
   opacity: 0.85;
 }

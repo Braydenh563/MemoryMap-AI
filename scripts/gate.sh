@@ -80,6 +80,11 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   tests/test_docs_layout.py tests/test_asset_cache_busting.py tests/test_no_em_dashes.py
   tests/test_no_innerhtml_interpolation.py tests/test_markdown_link_schemes.py
   tests/test_frontend_load_order.py tests/test_ui_recipes.py tests/test_perf_mode.py
+  # Which boot-loaded file may call into a lazy bundle, and on what terms.
+  # Here rather than left to the changed-test heuristic because it reads
+  # index.html, app.js's two loader tables and every frontend file at once,
+  # so a change to any one of them can break it without naming it.
+  tests/test_lazy_bundle_calls.py
   tests/test_cheap_animations.py
   # The copy lint, here for the same reason `test_docs_site.py` is below: it
   # reads every string in `frontend/*.js` and every piece of markup outside a

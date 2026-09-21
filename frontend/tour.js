@@ -353,13 +353,14 @@ function tourChoose(target, side, size) {
 
 // --- painting one step ------------------------------------------------------
 
-//: The presses. Four panels around the hole rather than one sheet across the
-//: window, and the reason is the owner's report of 2026-09-20: "it doesnt let
-//: the user click the highglighted items". A tour that says "press Save" and
-//: then eats the press is worse than no tour, because the person believes the
-//: control is broken. `#tour-block` used to be `inset: 0`, and
-//: `document.elementFromPoint` at the centre of every one of the fifteen steps
-//: answered `tour-block`: the dim layer, not the control.
+//: The dim, and the presses, in one set of four rectangles. Four panels around
+//: the hole rather than one sheet across the window, and the reason is the
+//: owner's report of 2026-09-20: "it doesnt let the user click the highglighted
+//: items". A tour that says "press Save" and then eats the press is worse than
+//: no tour, because the person believes the control is broken. `#tour-block`
+//: used to be `inset: 0`, and `document.elementFromPoint` at the centre of
+//: every one of the fifteen steps answered `tour-block`: the dim layer, not the
+//: control.
 //:
 //: Four panels, laid out from the same rectangle the cut-out uses, leave that
 //: rectangle with nothing of the tour's over it at all, so a press inside it
@@ -367,6 +368,12 @@ function tourChoose(target, side, size) {
 //: cannot be taken out from under its own card). The four have to be kept in
 //: step on every scroll and resize, which is why they are written here, in the
 //: one function that already runs on every reflow, and never anywhere else.
+//:
+//: **Since 2026-09-21 these four also paint the dim** (04-chat-dock-appearance,
+//: the note over `.tour-block`). It used to be one `box-shadow` spread 100vmax
+//: from the cut-out, which no test could read; these four are the rectangles
+//: the sweep below already measures, so an uncovered strip is now a failing
+//: test rather than a photograph.
 function tourBlockPanels(left, top, right, bottom) {
   //: **`innerWidth`, not `clientWidth`, and the difference is the bug the
   //: owner photographed twice.** `clientWidth` stops at the scrollbar;
@@ -413,11 +420,10 @@ function tourBlockPanels(left, top, right, bottom) {
   }
 }
 
-//: The cut-out. The dim is this element's own `box-shadow`, spread past the
-//: far corner of any window, so the hole in the dim IS this box and the
-//: control inside it is drawn by the page at full strength. The shadow paints
-//: but never takes a press (`pointer-events: none`); the four panels above,
-//: laid out from this same rectangle, are what take them.
+//: The cut-out. The hole in the dim is the rectangle the four panels above are
+//: laid out around, and this element only draws the ring inside it, so the
+//: control is the page at full strength with an accent outline on it. It never
+//: takes a press (`pointer-events: none`); the four panels are what take them.
 //: The tour with no cut-out: the card, centred, over a page that is not
 //: dimmed and not covered. Used when there is nothing on screen to point at,
 //: which is the one case where a dim is worse than none: a dim needs a hole,

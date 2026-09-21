@@ -4939,20 +4939,30 @@ input.doc-title-input::placeholder {
    Three elements, three jobs, and keeping them apart is what makes the dim a
    real cut-out rather than a sheet with a bright rectangle drawn on it:
 
-   * `.tour-block` paints nothing and exists to swallow presses, so a control
-     cannot be pressed out from under the card that is describing it. It is
-     four panels around the hole, not one sheet: the hole itself has to stay
-     pressable, because a tour that says "press Save" and then eats the press
-     teaches the person that the control is broken. Its own box is `inset: 0`
-     with `pointer-events: none`, so only the four children take presses and
-     the rectangle between them takes none.
-   * `.tour-spot` is the hole. It has no background of its own; the dim is its
-     `box-shadow` spread past the far corner of any window, so everything
-     outside this box is darkened by it and everything inside is the page,
-     untouched. That is the difference between "the control is highlighted"
-     and "the control is the one bright thing on screen".
-   * `.tour-card` is the step, a `.card` like every other surface in the app,
-     positioned in window coordinates from tour.js.
+   * `.tour-block` is the dim AND the press guard, and it is four panels
+     around the hole rather than one sheet across the window. The hole has to
+     stay pressable, because a tour that says "press Save" and then eats the
+     press teaches the person that the control is broken. Its own box is
+     `inset: 0` with `pointer-events: none`, so only the four children take
+     presses and the rectangle between them takes none.
+   * `.tour-spot` is the hole: the ring that says which control this step is
+     about, and nothing else.
+   * `.tour-card` is the step, positioned in window coordinates from tour.js.
+
+   **The dim used to be `.tour-spot`'s own `box-shadow: 0 0 0 100vmax`, and
+   moving it onto the four panels is the 2026-09-21 fix for the owner's third
+   report of it ("the whole tour is completely and utterly broken", and twice
+   before that with photographs of an undimmed band at the right edge).** The
+   shadow was one rectangle whose reach depended on `vmax`, on the spot's own
+   corner radius inflated by the spread, and on nothing that any test could
+   read: `scratchpad/ui-sweeps/tourdim.js` measured the four panels and passed
+   every time, because the panels were transparent and were not the dim. The
+   panels already tile the window minus the hole exactly, are already sized
+   from `max(clientWidth, innerWidth)` so the scrollbar gutter is covered, and
+   are already kept in step on every scroll and resize. Painting them is the
+   same rectangle arithmetic the sweep can check, so a gap is now a failing
+   test rather than a photograph. The cost is a square-cornered hole; the ring
+   keeps its radius and covers the corners.
 
    Deliberately no transition on `left`/`top`/`width`/`height`: tour.js sets a
    position, measures it and corrects by the difference (DESIGN.md's rule for a
@@ -4971,7 +4981,9 @@ input.doc-title-input::placeholder {
 
 .tour-block-panel {
   position: fixed;
-  background: transparent;
+  /* The dim itself. See the note above: it is here, on four rectangles laid
+     out from the same box as the cut-out, rather than on one giant shadow. */
+  background: var(--scrim);
   pointer-events: auto;
 }
 
@@ -4980,14 +4992,15 @@ input.doc-title-input::placeholder {
   z-index: 1041;
   background: transparent;
   border-radius: var(--radius-md);
-  /* The first shadow is the dim, the second is the ring that says which
-     control this step is about. 100vmax is "past the far corner of the window
-     whatever its shape", and it is a length rather than a token because it is
-     not a spacing decision: it is the one number that guarantees the dim
-     reaches every edge. */
+  /* The ring, and a short outer halo in the same accent. The halo is what
+     seats the ring against the four dim panels that butt up to this box: it
+     covers the square corners they leave and it makes a small target (the
+     Atlas dot is 40x38) read as the one lit thing rather than as a stray
+     outline. No spread past a few pixels: this element is no longer the dim. */
   box-shadow:
-    0 0 0 100vmax var(--scrim),
-    inset 0 0 0 2px var(--accent);
+    0 0 0 2px var(--accent) inset,
+    0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent),
+    0 0 var(--space-4) color-mix(in srgb, var(--accent) 35%, transparent);
   /* The cut-out never takes a press: the four `.tour-block-panel`s above are
      what stop the page being used mid-step, and a spot that swallowed presses
      would put a dead rectangle over the control it is pointing at. */
@@ -4997,6 +5010,13 @@ input.doc-title-input::placeholder {
 .tour-card {
   position: fixed;
   z-index: 1042;
+  /* **Opaque, like every other dialog in the app.** A `.card` is a 55% white
+     fill with no blur, which over a dimmed page let the dashboard clock read
+     straight through the step's own text (measured 2026-09-21, step 4 of the
+     basics tour at 1400x900). The house recipe for a surface whose legibility
+     cannot depend on what is behind it is a `--card` tint laid on
+     `--modal-bg-opaque`, the same pair the timeline dialog uses. */
+  background: linear-gradient(var(--card), var(--card)), var(--modal-bg-opaque);
   margin: 0;
   width: min(21rem, calc(100vw - var(--space-9)));
   max-height: calc(100dvh - var(--space-9));

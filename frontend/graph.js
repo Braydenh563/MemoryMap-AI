@@ -627,9 +627,11 @@ function renderTraceState() {
     return span;
   };
 
-  const arrow = document.createElement("span");
-  arrow.className = "graph-trace-arrow";
-  arrow.textContent = "→";
+  //: The vendored set, not a typed arrow: this sits between two chips as a
+  //: mark, which is where an icon belongs, and a typed one drew at the system
+  //: face beside chips built from Phosphor.
+  const arrow = document.createElement("i");
+  arrow.className = "ph ph-arrow-right graph-trace-arrow";
   arrow.setAttribute("aria-hidden", "true");
   holder.append(chip(traceFromNode, "click a note to start"), arrow,
                 chip(traceToNode, "then click where to end"));
@@ -925,9 +927,10 @@ function renderTraceReadout(result) {
     const connector = document.createElement("span");
     connector.className = "graph-trace-connector";
     connector.title = step.how;
-    const arrow = document.createElement("span");
-    arrow.className = "graph-trace-arrow-icon";
-    arrow.textContent = "→";
+    //: The class already said icon; it is one now. A typed arrow drew at the
+    //: system face inside a connector built from Phosphor everywhere else.
+    const arrow = document.createElement("i");
+    arrow.className = "ph ph-arrow-right graph-trace-arrow-icon";
     arrow.setAttribute("aria-hidden", "true");
     const how = document.createElement("span");
     how.className = "graph-trace-connector-label";
@@ -3343,7 +3346,9 @@ function openGraphLinkPanel(edge, nodes) {
   sourceLine.textContent = label(sourceNode, sourceId);
   const arrow = document.createElement("div");
   arrow.className = "muted graph-link-panel-arrow";
-  arrow.textContent = "↕ connected to";
+  //: Through `setLabel`, so the leading mark is a Phosphor icon rather than a
+  //: typed arrow at the system face.
+  setLabel(arrow, "ph:arrows-down-up connected to");
   const targetLine = document.createElement("div");
   targetLine.textContent = label(targetNode, targetId);
   title.append(sourceLine, arrow, targetLine);
@@ -3900,7 +3905,7 @@ function openGraphNewNote(event, linkFrom = null) {
   $("graph-new-tags").value = "";
   $("graph-new-status").textContent = "";
   $("graph-new-status").classList.remove("error");
-  $("graph-new-title").textContent = linkFrom ? "＋ Connected note" : "＋ New note";
+  setLabel($("graph-new-title"), linkFrom ? "ph:plus Connected note" : "ph:plus New note");
   $("graph-new-hint").textContent = linkFrom
     ? "This note will be linked to the one you grew it from."
     : "It joins the map as soon as you add it.";

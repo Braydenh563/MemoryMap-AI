@@ -5499,7 +5499,7 @@ function renderReevaluateResult(entry, wrap) {
     label.textContent = "Add tags:";
     tagRow.appendChild(label);
     for (const tag of tags) {
-      const tagChip = chip(`＋ ${tag}`, "tag", async () => {
+      const tagChip = chip(`ph:plus ${tag}`, "tag", async () => {
         try {
           await api(`/entries/${entry.id}`, {
             method: "PUT",
@@ -11881,7 +11881,11 @@ async function renderAttachToDocument(entry, wrap) {
   // does not exist until the note makes you realise you want it.
   const fresh = document.createElement("option");
   fresh.value = NEW_DOCUMENT;
-  fresh.textContent = "＋ New document…";
+  //: No mark at all, and that is the only honest answer here: an `<option>`
+  //: may hold text and nothing else, so it cannot carry one of the app's
+  //: icons, and a typed one beside a menu of Phosphor is the mismatch this
+  //: rule exists to stop. The ellipsis already says "this opens something".
+  fresh.textContent = "New document…";
   picker.appendChild(fresh);
 
   const row = document.createElement("div");
@@ -12004,7 +12008,7 @@ function renderCaptureTagSuggestions(tags) {
   label.textContent = "Suggested tags:";
   row.appendChild(label);
   for (const tag of tags) {
-    const tagChip = chip(`＋ ${tag}`, "tag", () => {
+    const tagChip = chip(`ph:plus ${tag}`, "tag", () => {
       const box = $("entry-tags");
       const have = box.value.split(",").map((t) => t.trim()).filter(Boolean);
       if (!have.includes(tag)) box.value = [...have, tag].join(", ");
@@ -19609,7 +19613,10 @@ function renderFileAttachments() {
     const remove = document.createElement("button");
     remove.className = "attachment-remove";
     remove.type = "button";
-    remove.textContent = "\u2715";
+    //: Through `setLabel`, like every other close in the app. It was a typed
+    //: U+2715, written as an escape, which is how it passed the glyph lint
+    //: while nine other close buttons were being converted.
+    setLabel(remove, "ph:x");
     remove.title = `Don't send “${file.name}” with this message`;
     remove.setAttribute("aria-label", remove.title);
     remove.addEventListener("click", () => {
@@ -20510,7 +20517,7 @@ function appendRunResumeControls(bubble, spec) {
   } else if (!stopped && ranOutOfRounds) {
     bubble.appendChild(
       continueRunControls({
-        label: "→ Continue",
+        label: "ph:arrow-right Continue",
         hint: "Picks up from what it had already done.",
         onClick: () =>
           sendChatMessage(
@@ -26277,7 +26284,7 @@ function reminderItem(reminder, label) {
       )
     );
     actions.appendChild(
-      smallButton("→ tmrw", "Snooze to tomorrow 9am", () =>
+      smallButton("ph:arrow-right tmrw", "Snooze to tomorrow 9am", () =>
         snoozeReminderTo(reminder, presetDate("tomorrow"))
       )
     );
@@ -26806,9 +26813,12 @@ function mdCalloutElement(quoted, depth) {
 
   const head = document.createElement(fold ? "summary" : "p");
   head.className = "callout-head";
-  const icon = document.createElement("span");
+  //: The kind's icon, drawn from the vendored set like every other icon in
+  //: the app. `CALLOUT_KINDS` holds a `ph:` token (editor.js); this was a
+  //: `<span>` carrying the emoji itself until 2026-09-21.
+  const icon = document.createElement("i");
+  icon.className = `ph ph-${String((meta ? meta.icon : "ph:note")).replace(/^ph:/, "")}`;
   icon.setAttribute("aria-hidden", "true");
-  icon.textContent = meta ? meta.icon : "\u{1F4DD}";
   head.appendChild(icon);
   const title = document.createElement("span");
   // The title after the marker wins; failing that, the kind's own name.
@@ -26832,9 +26842,9 @@ function mdEmbedElement(name, depth) {
 
   const head = document.createElement("p");
   head.className = "note-embed-head";
-  const marker = document.createElement("span");
+  const marker = document.createElement("i");
+  marker.className = "ph ph-paperclip";
   marker.setAttribute("aria-hidden", "true");
-  marker.textContent = "\u{1F4CE}";
   head.append(marker, document.createTextNode(` Embedded: ${name}`));
   box.appendChild(head);
 

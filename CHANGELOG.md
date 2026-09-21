@@ -9,6 +9,22 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The "/" menu works again in the note box, the note edit form, the chat
+  composer and a skill's steps. It had stopped opening in all four: the file
+  that builds an editing surface moved into the Library's on-demand bundle,
+  and until you happened to open Library or Documents there was nothing for
+  the menu to attach to, so the slash did nothing and said nothing. Measured
+  on a fresh load: 0 menu rows before, 14 after. The bundle is now fetched the
+  moment you put the caret in one of those boxes, and the keystroke that found
+  it missing is replayed once it lands, so even the first "/" of a session
+  opens a menu.
+- Every row of the "/" menu draws the app's own icon instead of an emoji.
+  Thirty-eight of them were emoji, written as escapes, which is how they sat
+  through a lint that exists to catch exactly this; the eight callout kinds
+  were drawing theirs at the head of every callout in every note and document
+  as well. The Library's create menu, the chat attachment close, a note embed's
+  marker and two graph arrows went the same way. The lint now reads an escaped
+  character as the character it is, so the next one cannot hide the same way.
 - Buttons that share a row share a height, and a probe now holds it. The
   greeting's "Add your name" was 29.2px beside its own 28px close button, the
   last mixed row of seventy in the app. The one-line change that would have

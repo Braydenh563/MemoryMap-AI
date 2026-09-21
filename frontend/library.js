@@ -1289,14 +1289,14 @@ $("library-refresh").addEventListener("click", loadLibrary);
 // than rushed; see BACKLOG.md.
 const LIBRARY_CREATE_BY_KIND = {
   note: {
-    label: "＋ New note",
+    label: "ph:plus New note",
     run: () => {
       switchTab("notes");
       showNotesSection("capture", { focus: true });
     },
   },
   document: {
-    label: "＋ New document",
+    label: "ph:plus New document",
     run: () => {
       switchTab("documents");
       // The Documents page's own loader opens the last document otherwise,
@@ -1305,14 +1305,14 @@ const LIBRARY_CREATE_BY_KIND = {
     },
   },
   chat: {
-    label: "＋ New chat",
+    label: "ph:plus New chat",
     run: () => {
       switchTab("chat");
       newChatConversation();
     },
   },
   meeting: {
-    label: "⏺ Transcribe audio",
+    label: "ph:microphone Transcribe audio",
     run: () => openMeetingRecorder(),
   },
   // Asked for directly: "I want ways to make custom knowledge graphs that are
@@ -1422,7 +1422,12 @@ function openLibraryCreatePicker() {
     button.className = "ghost doc-template-choice";
     button.dataset.kind = kind;
     const name = document.createElement("strong");
-    setLabel(name, `${icon} ${entry.label.replace(/^\S+\s*/, "")}`);
+    //: The picker names its own icon per kind (`LIBRARY_CREATE_HINTS`),
+    //: which is more specific than the button's shared `ph:plus`, so the
+    //: label's own leading token is dropped in favour of it. It used to be
+    //: a typed "\uff0b" that this line stripped by pattern; both ends are
+    //: `ph:` tokens now, so the strip is a token swap rather than a repair.
+    setLabel(name, `${icon} ${entry.label.replace(/^ph:\S+\s*/, "")}`);
     const line = document.createElement("span");
     line.className = "muted text-sm";
     line.textContent = hint;
@@ -1452,10 +1457,10 @@ function updateLibraryCreateButton() {
   const entry = LIBRARY_CREATE_BY_KIND[libraryKind];
   if (entry) {
     setLabel(btn, entry.label);
-    btn.title = entry.label.replace(/^\S+\s*/, "");
+    btn.title = entry.label.replace(/^ph:\S+\s*/, "");
     btn.onclick = entry.run;
   } else {
-    setLabel(btn, "＋ Create");
+    setLabel(btn, "ph:plus Create");
     btn.title = "Choose what to create";
     btn.onclick = openLibraryCreatePicker;
   }

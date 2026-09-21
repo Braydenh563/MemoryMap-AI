@@ -22,6 +22,8 @@ the way the JS-measured version did.
 
 from __future__ import annotations
 
+import re
+
 from pathlib import Path
 
 JS = Path("frontend/app.js").read_text(encoding="utf-8")
@@ -133,8 +135,24 @@ def test_the_document_block_reuses_the_image_panel():
     panel, the same `renderInfo`. A second panel for documents would be two
     places to keep in step, which is the shape this plan is subtracting."""
     assert "lightbox-pages" in LIGHTBOX
-    assert "info.append(infoFacts, infoPages," in LIGHTBOX, (
+    # Matched as a call rather than as one line of source. The rule is that
+    # the page chips go into the *existing* panel, and that is a fact about
+    # which element they are appended to, not about where the formatter put
+    # the line breaks: this asserted a single-line `info.append(infoFacts,
+    # infoPages,` and broke the moment a second reading's two elements made
+    # the argument list long enough to wrap, while the behaviour it protects
+    # was untouched.
+    appends = re.findall(r"\binfo\.append\(([^)]*)\)", LIGHTBOX, re.S)
+    assert len(appends) == 1, (
+        f"the info panel is filled by {len(appends)} append calls; one panel "
+        "means one place that fills it"
+    )
+    arguments = appends[0]
+    assert "infoFacts" in arguments and "infoPages" in arguments, (
         "the page chips belong inside the existing info panel"
+    )
+    assert arguments.index("infoFacts") < arguments.index("infoPages"), (
+        "the facts line comes before the page chips"
     )
     # One renderer for the facts line, called from the document path too.
     assert "renderInfo(item, true);" in LIGHTBOX

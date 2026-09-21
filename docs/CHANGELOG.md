@@ -173,6 +173,13 @@ below). Versioning is `0.x` while the app stabilises.
   stranded on screen after the panel it belongs to has closed.
 ### Added
 
+- The documents formatting strip says what the caret is already in. Stand in a
+  bold word and Bold reads as on; the same for italic, code, the three heading
+  levels, lists, tasks, quotes and links. Only the buttons that have a state
+  to be in say so, so the ones that always insert something new are unchanged.
+- The table cell menu is grouped. Its ten commands cover rows, columns,
+  alignment and the table itself, and read as one list of ten; they now sit in
+  four groups with a hairline between them.
 - A "/" menu in a skill's steps box. It offers the two things the form beside
   it already knows and nobody can type from memory: the answers the skill will
   ask you for, as `{{placeholders}}`, and the exact names of the tools it has

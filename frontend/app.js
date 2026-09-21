@@ -22643,7 +22643,31 @@ function kebabMenu(items, ariaLabel) {
   opener.setAttribute("aria-haspopup", "menu");
   opener.setAttribute("aria-expanded", "false");
 
+  //: **Groups, drawn from the items rather than from separator objects**
+  //: (DOCUMENTS_PLAN section 16). The table cell's menu was the case that
+  //: asked for this: ten items covering rows, columns, alignment and the
+  //: whole table, read as one list of ten, and a reader scanning it had to
+  //: know the order to find anything. A menu of five or fewer needs no help;
+  //: past that, the thing that makes a list scannable is a break every few
+  //: rows, which is what every other application's menus do.
+  //:
+  //: An item carries `group`, a name, and the rule is "a hairline wherever
+  //: the name changes". Callers declare meaning, never pixels, and a caller
+  //: that declares nothing gets exactly what it got before, so every existing
+  //: menu in the app is untouched. The name is not drawn: a heading per three
+  //: rows would make a ten-row menu seventeen rows tall, and the rule here is
+  //: the divider, not the label. `role="separator"` so the grouping is in the
+  //: accessibility tree too, and `wireMenuKeyboard` walks `.menu-item`, so a
+  //: divider is never a stop on the way down.
+  let lastGroup = null;
   for (const item of items) {
+    if (lastGroup !== null && item.group && item.group !== lastGroup) {
+      const rule = document.createElement("div");
+      rule.className = "menu-sep";
+      rule.setAttribute("role", "separator");
+      menu.appendChild(rule);
+    }
+    if (item.group) lastGroup = item.group;
     const button = document.createElement("button");
     button.className = item.disabled ? "menu-item menu-item-unavailable" : "menu-item";
     //: A destructive row says so in the app's own danger colour. Added when

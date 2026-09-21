@@ -104,17 +104,35 @@ being written by running agents stay beside this one.
   meant for the text. The work item is "move the commit keymap and the gesture
   guard onto the surface, then add the row", for whoever owns whiteboard.js.
   [documents-phases.md]
-- **The table cell menu is a `kebabMenu` with ten items and no grouping.**
-  Rows, columns and alignment read as one list of ten. `kebabMenu` has no
-  separator, so this is a change to the shared recipe and to DESIGN.md rather
-  than a phase item. [documents-phase4.md]
-- **Atomic ranges, the `Mod+click` affordance and the toolbar's own state**
-  are the three things DOCUMENTS_PLAN lists for the engine phase that were
-  deliberately not built: a hidden marker can be walked into with the arrow
-  keys (`EditorView.atomicRanges` over the replace decorations is the usual
-  answer), nothing says `Mod+click` opens a link chip beyond the tooltip, and
-  which buttons are "on" for the caret is not driven from the syntax tree,
-  which the tree now makes cheap. [documents-engine.md]
+- ~~**The table cell menu is a `kebabMenu` with ten items and no grouping.**~~
+  **Built 2026-09-20, as the change to the shared recipe this row said it was.**
+  An item may carry `group`, a name, and `kebabMenu` draws a hairline wherever
+  it changes; the name is not printed, because a heading over every three rows
+  makes this menu seventeen rows tall. Measured: 10 items, 3 hairlines at 1px
+  by 172px, 10 `menuitem` roles and 3 `separator` roles, and `wireMenuKeyboard`
+  walks `[role="menuitem"]` so a hairline is never a keyboard stop. In
+  DESIGN.md's recipe index with a ratchet in `tests/test_ui_recipes.py`.
+  [documents-phase4.md]
+- ~~**Atomic ranges, the `Mod+click` affordance and the toolbar's own
+  state**~~ **All three decided 2026-09-20, DOCUMENTS_PLAN section 16,
+  `scratchpad/ui-sweeps/doctoolbarstate.js` 21 of 21.**
+  **The toolbar's state is built**: `renderDocToolbarState` resolves one
+  syntax node at the caret and walks its ancestors, so the cost is the depth
+  of the markdown and not the length of the document. Measured at eleven
+  stops: h1, nothing, bold, italic, code, h2, ul, task, ol, quote, link, each
+  with nothing else lit; 17 of the strip's 41 `data-md` buttons carry
+  `aria-pressed` and the other 24 are the ones that always insert something
+  new. **Atomic ranges: decided against, and the measurement contradicts the
+  note that asked for them.** The caret visits offsets 29 to 36 in order
+  across `**a bold run**`, moving 10, 5, 9, 8, 11, 5 and 12 pixels: no
+  two-character jump anywhere. What does reproduce is different and bigger:
+  the reveal is per *line*, so entering that line moves the rest of it by
+  41px (x=779 to x=820). Atomic ranges would not touch that and would take
+  away the marker you can put the caret between, which Phase 2 built on
+  purpose. **If the shift is reported, the fix is a narrower reveal, not
+  atomic ranges.** **`Mod+click`: the note is out of date**; a chip carries
+  `cursor: pointer` and `title="Ctrl+click to open <url>"`, which names the
+  chord and the destination. Left unbuilt on purpose. [documents-engine.md]
 - **Outline rows are 24 to 25.2px, under the app's own 28px floor.**
   `frontend/css/05-sidebars-themes.css`, `.outline-link`
   (`padding: 0.15rem 0.25rem` plus a 0.85rem line) against DESIGN.md's

@@ -3938,6 +3938,7 @@ function docTableRemoveEdits(context) {
 const DOC_TABLE_COMMANDS = [
   {
     id: "row-above",
+    group: "rows",
     label: "Insert row above",
     title: "Add an empty row above this one",
     run: (context) =>
@@ -3946,6 +3947,7 @@ const DOC_TABLE_COMMANDS = [
   },
   {
     id: "row-below",
+    group: "rows",
     label: "Insert row below",
     title: "Add an empty row below this one",
     run: (context) =>
@@ -3954,6 +3956,7 @@ const DOC_TABLE_COMMANDS = [
   },
   {
     id: "row-delete",
+    group: "rows",
     label: "Delete row",
     title: "Remove this row",
     danger: true,
@@ -3966,6 +3969,7 @@ const DOC_TABLE_COMMANDS = [
   },
   {
     id: "col-left",
+    group: "columns",
     label: "Insert column left",
     title: "Add a column before this one",
     run: (context) =>
@@ -3974,6 +3978,7 @@ const DOC_TABLE_COMMANDS = [
   },
   {
     id: "col-right",
+    group: "columns",
     label: "Insert column right",
     title: "Add a column after this one",
     run: (context) =>
@@ -3982,6 +3987,7 @@ const DOC_TABLE_COMMANDS = [
   },
   {
     id: "col-delete",
+    group: "columns",
     label: "Delete column",
     title: "Remove this column",
     danger: true,
@@ -3992,6 +3998,7 @@ const DOC_TABLE_COMMANDS = [
   },
   {
     id: "align-left",
+    group: "alignment",
     label: "Align left",
     title: "Align this column to the left",
     run: (context) => docTableGo(context, docTableAlignEdits(context.table, context.cell.col, "left"),
@@ -3999,6 +4006,7 @@ const DOC_TABLE_COMMANDS = [
   },
   {
     id: "align-centre",
+    group: "alignment",
     label: "Align centre",
     title: "Centre this column",
     run: (context) => docTableGo(context, docTableAlignEdits(context.table, context.cell.col, "center"),
@@ -4006,6 +4014,7 @@ const DOC_TABLE_COMMANDS = [
   },
   {
     id: "align-right",
+    group: "alignment",
     label: "Align right",
     title: "Align this column to the right",
     run: (context) => docTableGo(context, docTableAlignEdits(context.table, context.cell.col, "right"),
@@ -4013,6 +4022,7 @@ const DOC_TABLE_COMMANDS = [
   },
   {
     id: "table-delete",
+    group: "table",
     label: "Delete table",
     title: "Remove the whole table",
     danger: true,
@@ -4045,6 +4055,11 @@ function docTableMenu(context) {
     label: command.label,
     title: command.title,
     danger: command.danger,
+    //: Rows, columns, alignment, the table itself. Ten rows read as one list
+    //: of ten before this, and finding "Align centre" in it meant knowing the
+    //: order. `kebabMenu` draws a hairline wherever this name changes
+    //: (DOCUMENTS_PLAN section 16).
+    group: command.group,
     disabled: command.enabled ? !command.enabled(context) : false,
     run: () => docTableCommand(command.id),
   }));
@@ -11259,6 +11274,87 @@ function renderDocCaret() {
   //: rather than from a listener of its own: two things that answer "where am
   //: I" and update on different events are two things that disagree.
   renderDocCrumbs(stats.line - 1);
+  renderDocToolbarState();
+}
+
+//: **Which formatting buttons are on for the caret** (DOCUMENTS_PLAN Phase 2,
+//: the third of the three things the engine phase left deliberately unbuilt:
+//: "which buttons are 'on' for the caret's position is not driven from the
+//: syntax tree, which the tree now makes cheap").
+//:
+//: It was never built because before the engine there was no tree to ask: a
+//: textarea's value is a string, and deciding whether the caret is inside
+//: `**bold**` meant counting asterisks from the top of the document on every
+//: keystroke. The tree already exists for the decorations, and this walks one
+//: node's ancestors, so the cost is the depth of the markdown at the caret and
+//: not the length of the document.
+//:
+//: A lezer node name to the `data-md` of the button that writes it. Only the
+//: marks a caret can be *inside*: Link is here because a caret in `[text](x)`
+//: is inside a Link node, while the buttons that always insert something new
+//: (a divider, a table, a colour) have no state to be in and are left alone,
+//: which is also why `aria-pressed` is set on these and on nothing else. A
+//: button that is not a toggle must not claim to be one to a screen reader.
+const DOC_TOOLBAR_MARKS = {
+  StrongEmphasis: "bold",
+  Emphasis: "italic",
+  Strikethrough: "strike",
+  InlineCode: "code",
+  FencedCode: "code",
+  ATXHeading1: "h1",
+  ATXHeading2: "h2",
+  ATXHeading3: "h3",
+  BulletList: "ul",
+  OrderedList: "ol",
+  Blockquote: "quote",
+  Link: "link",
+  Task: "task",
+};
+
+//: The `data-md` values this can answer for, so a button outside the set is
+//: never touched rather than being told it is off.
+const DOC_TOOLBAR_STATEFUL = new Set(Object.values(DOC_TOOLBAR_MARKS));
+
+function docToolbarMarksAt(CM, state) {
+  const marks = new Set();
+  const { syntaxTree } = CM.language;
+  //: **`-1`, the side the caret came from.** With `1`, a caret just past the
+  //: final `d` of `**bold**` resolves to whatever follows the emphasis and
+  //: Bold reads as off at the exact moment a writer is still typing the word.
+  //: Asking for the node on the left is what makes "keep typing in bold" and
+  //: "the button says bold" the same answer.
+  let node = syntaxTree(state).resolveInner(state.selection.main.head, -1);
+  while (node) {
+    const mark = DOC_TOOLBAR_MARKS[node.name];
+    if (mark) marks.add(mark);
+    node = node.parent;
+  }
+  //: A task list *is* a bullet list in the grammar, so both would light and
+  //: the bar would claim two list kinds at once. The more specific one wins,
+  //: which is also the one pressing the button again would turn off.
+  if (marks.has("task")) marks.delete("ul");
+  return marks;
+}
+
+function renderDocToolbarState() {
+  const bar = $("doc-toolbar");
+  //: Only the document's own strip. The capture composer's clone carries the
+  //: same `data-md` buttons and a different caret, and lighting it from this
+  //: view would be a bar describing a document nobody is looking at.
+  if (!bar || !docCmView || !window.CM6) return;
+  let marks;
+  try {
+    marks = docToolbarMarksAt(window.CM6, docCmView.state);
+  } catch {
+    //: A tree that is not ready yet answers nothing rather than throwing on
+    //: the beat of every arrow key. The next selection change asks again.
+    return;
+  }
+  for (const button of bar.querySelectorAll("button[data-md]")) {
+    if (!DOC_TOOLBAR_STATEFUL.has(button.dataset.md)) continue;
+    const on = marks.has(button.dataset.md);
+    button.setAttribute("aria-pressed", on ? "true" : "false");
+  }
 }
 
 //: The counts. A whole-document pass, which is why it is scheduled rather

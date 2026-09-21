@@ -987,6 +987,84 @@ glyph is in `tests/test_no_glyph_icons.py`'s banned list so it cannot come
 back, and `scratchpad/ui-sweeps/doccodecopy.js` holds the whole measurement,
 11 of 11.
 
+## 16. The engine's three omissions, and the table menu: decided 2026-09-20
+
+Phase 2 named three things it deliberately did not build, and the sidebar work
+left a fourth beside them. Each is decided here rather than carried again, and
+each decision rests on a number from `scratchpad/ui-sweeps/doctoolbarstate.js`
+(21 of 21) rather than on how the item was described.
+
+**1. The toolbar's own state: built.** This is the one that was only ever
+waiting for the tree. Before the engine, deciding whether the caret sat inside
+`**bold**` meant counting asterisks from the top of the document on every
+keystroke; the tree exists now for the decorations, so `renderDocToolbarState`
+resolves one node and walks its ancestors, which costs the depth of the
+markdown at the caret and not the length of the document. It runs on the same
+beat as the caret readout, which is the beat that already exists.
+
+Measured at eleven stops in a document with one of everything: `h1` in a
+heading, nothing in plain prose, `bold`, `italic`, `code`, `h2`, `ul`, `task`,
+`ol`, `quote` and `link`, each with no other button lit. 17 of the strip's 41
+`data-md` buttons carry `aria-pressed`, and the other 24 are the ones that
+always insert something new and have no state to be in: a button that is not a
+toggle must not tell a screen reader it is one. The caret resolves with side
+`-1`, so a caret just past the final `d` of a bold word still reads as bold,
+which is what makes "keep typing in bold" and "the button says bold" the same
+answer. A task item lights `task` and not `ul`, although a task list is a
+bullet list in the grammar, because the more specific one is the one pressing
+the button would turn off.
+
+**2. Atomic ranges: decided against, and the decision rests on a
+measurement that contradicts the note that asked for them.** The engine file
+records the symptom as "a hidden marker can still be walked into with the
+arrow keys ... the caret appears to jump two characters". Walked on the branch
+head across `**a bold run**`, the caret visits offsets 29 to 36 in order,
+skipping none, and moves 10, 5, 9, 8, 11, 5 and 12 pixels between them: single
+characters throughout, with no two-character jump anywhere.
+
+What *is* measurable is a different thing, and a bigger one: **the reveal is
+per line, not per range.** With the caret on another line the word "italic"
+sits at x=779; with the caret inside the bold run it sits at x=820, so
+entering that line moves everything after the first hidden marker along it by
+41px. Atomic ranges would not touch that, because they govern where the caret
+may be placed and not what is revealed; and they would take away the one thing
+Phase 2 item 3 deliberately built, a marker you can put the caret between in
+order to edit it. So they are the wrong tool for the only symptom that
+reproduces. **If the line's shift is ever reported, the fix is a narrower
+reveal (the range under the caret rather than the whole line), not atomic
+ranges**, and that is the work item, not this one.
+
+**3. The `Mod+click` affordance: the note is out of date, and nothing is
+built.** It says "there is no affordance saying so beyond the tooltip".
+Measured, a link chip in Live carries `cursor: pointer` and
+`title="Ctrl+click to open https://example.com"`, which is a pointer inviting
+the press, the chord named, and the destination shown before it is followed.
+That is what Obsidian offers for the same gesture. The one thing that would
+improve it is the underline-while-the-modifier-is-held that VS Code draws, and
+it costs a window-level key listener with a reset on blur for a hover hint
+that is already available by resting on the chip. Left unbuilt on purpose; a
+row here rather than a fourth session rediscovering the tooltip.
+
+**4. The table cell's ten-row menu: built, as a change to the shared recipe.**
+Rows, columns, alignment and the whole table read as one list of ten, and
+finding "Align centre" in it meant knowing the order. The bullet that recorded
+this said correctly that `kebabMenu` had no separator and that this was
+therefore a change to the recipe and to DESIGN.md rather than a phase item, so
+that is what it is: an item may carry `group`, a name, and `kebabMenu` draws a
+hairline wherever the name changes. Callers declare meaning, never pixels, and
+an item with no `group` behaves exactly as before, so every other menu in the
+app is untouched.
+
+The name is not drawn. A heading over every three rows would make this menu
+seventeen rows tall, and what makes a list scannable is the break rather than
+the word. Measured after: 10 items, 3 hairlines at 1px tall and 172px wide,
+`role="separator"` on each so the grouping reaches the accessibility tree,
+10 `menuitem` roles and 3 separators, and `wireMenuKeyboard` walks
+`[role="menuitem"]`, so a hairline is never a stop on the way down. The recipe
+index carries it and `tests/test_ui_recipes.py` holds the ratchet: a command
+table past five rows declares its groups, and the separator element and its
+stylesheet rule both still exist.
+
 ## Built, the sidebar redesign (INBOX 115), 2026-09-12
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-12", DOCUMENTS_PLAN.md) on

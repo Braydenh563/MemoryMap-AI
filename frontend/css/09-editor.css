@@ -1033,3 +1033,24 @@
     color: inherit;
   }
 }
+
+/* --- the formatting strip says what the caret is already in -----------------
+
+   DOCUMENTS_PLAN Phase 2's third deliberate omission, built 2026-09-20:
+   `renderDocToolbarState` in documents.js walks the syntax tree at the caret
+   and sets `aria-pressed` on the buttons that have a state to be in. This is
+   the sighted half of that statement, and the same pair the chat dock's tool
+   toggles make (`.chat-dock-controls>.chat-tool-group>button[aria-pressed]`
+   in 04-chat-dock-appearance.css): without it, Bold reads identically inside
+   and outside a bold word unless you notice the markers.
+
+   The accent's soft fill rather than its surface, because these are small
+   dense buttons in a wrapping strip and the filled variant at this size reads
+   as a row of chips rather than as one button in a state. It is the same pair
+   of declarations `.doc-toolbar-toggle.is-active` already uses one bar over,
+   so the strip's two kinds of "on" look like one idea. */
+.doc-toolbar button[data-md][aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--ink);
+}

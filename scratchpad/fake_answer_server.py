@@ -23,10 +23,20 @@ import json
 import os
 import re
 import sys
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 MODEL = "fake-answerer"
 DUMP = os.environ.get("FAKE_DUMP") or ""
+#: Milliseconds to wait between streamed words, off by default.
+#:
+#: A fixture that sends a whole answer inside one tick cannot be used to
+#: measure anything the page does *while* it is streaming: the busy
+#: affordance of INBOX 298 exists only between the first request and the last
+#: token, and a probe polling for it saw either nothing or one frame. A real
+#: small model takes seconds per sentence, so pacing the fixture is the
+#: honest fixture, not a slower one.
+STREAM_DELAY_MS = float(os.environ.get("FAKE_DELAY_MS") or 0)
 
 
 def _sentences_from_prompt(prompt: str) -> list[str]:
@@ -114,6 +124,8 @@ class Handler(BaseHTTPRequestHandler):
             chunk = {"choices": [{"index": 0, "delta": {"content": word + " "}}]}
             self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
             self.wfile.flush()
+            if STREAM_DELAY_MS:
+                time.sleep(STREAM_DELAY_MS / 1000)
         done = {"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}
         self.wfile.write(f"data: {json.dumps(done)}\n\n".encode())
         self.wfile.write(b"data: [DONE]\n\n")

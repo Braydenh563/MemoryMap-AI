@@ -3577,6 +3577,42 @@ at propose time and the "in force now" marker. Neither needs a decision and
 neither adds a dependency.
 
 
+#### Two of the eight skims, read properly after all: AFFiNE and siyuan
+
+Done after the section was first committed, because both were named above as
+the skims most worth promoting. Both are one-subsystem reads, not full ones.
+
+**AFFiNE (MIT outside `packages/backend`), and the one place it beats this
+app's whiteboard.** Its connector routing is A star over an obstacle graph:
+`blocksuite/affine/gfx/connector/src/connector-manager.ts:1158` builds an
+`AStarRunner` (exported from `blocksuite/affine/blocks/surface/src/utils/
+a-star.js`) and takes its path, so an elbow connector routes *around* the
+shapes between its two ends. MemoryMap's elbow connectors are careful about
+the things AFFiNE's are also careful about, leaving a card perpendicular to
+the side they attach to and turning at a computed midpoint
+(`frontend/whiteboard.js:1640`, `:4725`, `wbMapEdgeElbowTurn`), and they do
+not avoid obstacles at all: a connector between two cards with a third card
+between them draws straight through it. **What we would change:** the
+algorithm is self-contained and portable to vanilla JS, and the cost is
+honest, an obstacle set assembled per re-route and a noticeably harder thing
+to keep fast on a large board than the midpoint turn it would replace. It is
+a WHITEBOARD_PLAN row, not a quick win. Everything else in AFFiNE is
+BlockSuite, which is a framework the size of this whole app and not a
+technique.
+
+**siyuan (AGPL-3.0): ours is at least as good, on the feature it is famous
+for.** Its selling point is block-level references and backlinks
+(`kernel/sql/backlink_ref_defs.go` and the queue beside it), which this app
+cannot match at block granularity because its unit is a note, and moving to
+blocks would be a rewrite of the data model rather than a feature.
+But the thing block references are *for*, a backlink that tells you something,
+is already here and done well: `api/routes_documents.py:703` onward returns
+backlinks **with the sentence the link sits in**, plus unlinked mentions,
+computed server-side with the reason written down (the client holds no
+document content, so a client-side scan would silently miss every document
+backlink), and bounded by four named constants. That is the Obsidian and
+Kortex shape the plan aimed at, already built. No action.
+
 ### Revisited: where theirs is better, project by project
 
 The instruction that prompted this block: *"even if features already exist in
@@ -3672,12 +3708,11 @@ rather than "nothing we could learn". One line each, and where the answer is
   its repositories). Read at the level of licence, layout, size and the one
   relevant subsystem: whisper.cpp, vosk-api, piper (and its GPL successor),
   kokoro. **Skimmed only, at licence and README depth, with no subsystem
-  read:** siyuan, logseq, notesnook, AFFiNE, anytype-ts (stopped at its
-  licence), anything-llm, open-webui (stopped at its licence), onyx. No claim
-  in this section rests on one of those eight, and any of them could be worth
-  a proper read later, siyuan and AFFiNE most of all, since one is the
-  block-model notebook and the other has the canvas this app's whiteboard is
-  behind.
+  read:** logseq, notesnook, anytype-ts (stopped at its licence),
+  anything-llm, open-webui (stopped at its licence), onyx. No claim in this
+  section rests on one of those six. siyuan and AFFiNE began as skims and
+  were promoted to one-subsystem reads before this section closed; they have
+  their own block above.
 - **No audio was recorded, transcribed or spoken this session.** Every claim
   about whisper.cpp, vosk, piper and kokoro is a source and licence read;
   none of the four was built, installed or measured, and the accuracy

@@ -9,6 +9,15 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Two things the Documents agent measured and left for later (INBOX 273).
+  The settings Extras row's action buttons (Reinstall/Remove) could push
+  past the panel's right edge at 820px because their column never shrank;
+  it now takes `min-width: 0` and wraps instead. The shared `enhanceSelect`
+  dropdown never read an `<optgroup>`'s label, so grouping set on any
+  `<select>` (the whiteboard/mind-map board picker, the Library's document
+  property filter) was invisible in the menu a reader actually opens; it
+  now draws a group label row per `<optgroup>`, and the Library's flat-text
+  workaround for the gap came back out.
 - Four low-severity findings from a release security audit (INBOX 310).
   Restoring a backup now writes into a temp file beside the live database,
   runs `PRAGMA integrity_check`, and only then swaps it in atomically,

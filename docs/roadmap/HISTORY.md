@@ -32519,6 +32519,95 @@ row and head of different lengths).
     - **Gate**: `bash scripts/gate.sh --changed` and `--full` both run
       before this entry moved, five-line results in the merge report.
 
+267. **Mid-work drop, 2026-09-20, verbatim (the owner), a screenshot of four
+    lines.** "Alignment bars don't appear for group selections
+    Double tap anchor resize nodes to auto size adjust
+    In-text referencing and grounding in the ask subtab doesn't stick, the
+    wrong numbers will be used and in the wrong spot, and the numbers wont
+    match the grounding.
+    Grounding and in-text referencing not working now?? Needs fix."
+    Four things, taken worst first: (1) grounding and in-text references in
+    Ask, which the owner wrote twice and which is the one that makes answers
+    untrustworthy, (2) alignment bars missing on a group selection, which a
+    previous session recorded as built (`5273bae`), so measure before
+    believing either, (3) double-tapping a resize anchor to fit the content.
+    (2) fixed: measured first, and the report was right for a reason nobody
+    had guessed. A group of *cards* has drawn its guides since
+    `wbBulkGroupBox` landed, verified at 1 guide line on a two-card group
+    dragged into line. The sketch drag handler never asked for guides at all,
+    solo or in a group, so a marquee that caught a sketch and was dragged by
+    it was the one selection on the board with none. `wbBulkGroupBox` now
+    takes the dragged item's own box, since a sketch is a path with no
+    x/y/width/height, and the sketch handler snaps and draws like the other
+    two. Probe: `scratchpad/ui-sweeps/wbgroupguides.js`, in the gate's sweep
+    set. (3) fixed: the gesture was already wired (a `dblclick` on
+    `.wb-resize-handle` calling `wbFitToText`) and measured as doing nothing.
+    Two causes, both real. The handles carried no title, so the gesture was
+    invisible and indistinguishable from missing, which is why it was
+    reported as missing. And `wbFitToText` measured the *card's* own
+    `scrollHeight`, which cannot answer the question: `.wb-card-content`
+    clips on purpose (INBOX 238), so the card's scroll height is the height
+    of a box that is already clipping. It measures the content, unclipped,
+    plus the card's chrome now. Measured: a 100px card holding fourteen
+    wrapped lines went 100px to 100px before and 100px to 748px after, with
+    nothing clipped. Probe: `scratchpad/ui-sweeps/wbfitanchor.js`.
+    (1) fixed, `0f5d46d`, and measured: `liveMarkdownRenderer` armed a paint
+    up to 66ms before the stream ended, which fired after the markers were
+    placed and repainted the box from raw markdown, removing all three. The
+    Ask tab was the one caller that never called the renderer's own `stop()`,
+    which has existed for this since INBOX 40. Probe:
+    `scratchpad/ui-sweeps/askgrounding.js` against
+    `scratchpad/fake_answer_server.py`, 0 markers before, 3 after, numbered
+    1/2/3 against chips 1/2/3 and Sources rows 1/2/3. The reported "wrong
+    numbers" could not be reproduced on a clean notebook: 1/3/5 came from a
+    scratch data dir holding duplicate notes from earlier probe runs, so the
+    sources list genuinely had five rows. (2) and (3) open.
+
+273. **Found by the Documents agent, 2026-09-20 (the session, not the
+    owner), two things it measured and did not own.** (1) `errors.js` at
+    820: "settings/extras section scrolls sideways 496>492", diagnosed with
+    `scratchpad/ui-sweeps/extraswide.js` to the embedding-models row's
+    `.entry-actions` (right edge 769 against a 765 frame), pre-existing.
+    Recommendation: the row's actions take `min-width: 0` and wrap, the
+    way the note card's own `.entry-meta` does at that width. (2) The
+    shared `enhanceSelect` opener builds its menu from `select.options`
+    and never reads an `<optgroup>` label, so grouping in any select is
+    invisible to the reader; the templates picker works around it by
+    putting the group in each option's words. Recommendation: the opener
+    draws a `.select-group-label` row per optgroup, the `.dock-menu-section`
+    shape, and the workaround comes out.
+    **(1) and (2) both fixed (Sonnet, hygiene worktree, 2026-09-21).**
+    (1): took the recommendation, `56bf0db`. `.extras-row .entry-actions`
+    now takes `min-width: 0` and `flex-wrap: wrap`. Measured before and
+    after with `scratchpad/ui-sweeps/extraswide2.js` (new): the
+    Search-by-meaning row's own `.entry-actions` right edge at 820px, on
+    two servers running this branch's code either side of the CSS change.
+    Both read 748 against a 765 frame, comfortably inside; `errors.js`
+    found no sideways scroll either side either. The specific 496>492 /
+    769>765 overflow could not be reproduced in this sandbox (font-metric
+    or scrollbar differences between environments are the likely reason
+    for a 4px gap); the fix went in anyway because it removes the actual
+    cause, an actions column that can never shrink beside a title that
+    can, so a tighter row than either sandbox happened to render still has
+    somewhere to go. (2): took the recommendation as written, `6e937c1`.
+    `enhanceSelect`'s `rebuild()` now walks `select.children` instead of
+    `select.options` and draws a `.select-group-label` row per `<optgroup>`
+    before its options; the row carries no `role`, so `syncValue`'s
+    `[role='option']` walk and the click handler both skip it. Measured
+    with `scratchpad/ui-sweeps/selectgrouplabels.js` (new): a synthetic
+    grouped select run through the real `enhanceSelect`/`openActionMenu`
+    draws 2 group-label rows in the right order, still exactly 4 real
+    `[role="option"]` rows (a hidden option correctly excluded), and
+    clicking a grouped option still sets the underlying select's value.
+    The Library's workaround came back out too, `ce69887`:
+    `renderLibraryDocsPropertyFilter` now groups its options into a real
+    `<optgroup>` per key instead of repeating the key in each option's
+    text. Measured with `scratchpad/ui-sweeps/libpropgroups.js` (new):
+    given synthetic `status`/`area` properties, the live function draws
+    two `<optgroup>`s in the real `<select>` and the same two as
+    `.select-group-label` rows in the opener's own menu, with plain
+    "value (count)" option text under each.
+
 ## INBOX resolved, 2026-09-21
 
 286. **The owner, 2026-09-21, verbatim:** "the send and stop button in the

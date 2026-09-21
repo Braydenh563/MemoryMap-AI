@@ -4104,6 +4104,28 @@ input[type="url"]:hover:not(:focus) {
   font-weight: 600;
 }
 
+/* An `<optgroup>`'s own name, drawn once above its options (INBOX 273:
+   `enhanceSelect` walked `select.options`, which drops which group an
+   option came from, so grouping the app set on a select was invisible in
+   the menu the reader actually opens). `.dock-menu-section`'s shape --
+   a hairline above every group but the first, small muted text below it --
+   not a new one: the same "a break, then a label" a dock menu already uses
+   to divide its own sections. Never a `role="option"` row: `enhanceSelect`
+   skips it in `syncValue`'s selection walk and in the click handler by
+   giving it no `role` at all, so the arrow-key/Tab order it lands in still
+   only ever stops on a real choice. */
+.select-group-label {
+  padding: var(--space-2) var(--space-3) 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.select-group-label:not(:first-child) {
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--divider);
+}
+
 /* --- a chip lane scrolls without drawing a scrollbar ----------------------
    Reported: "the collapsed view of notes is completely visually broken", 
    a scrollbar had appeared under the chips on every row.

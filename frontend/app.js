@@ -22948,41 +22948,67 @@ function enhanceSelect(select) {
     }
   };
 
+  //: **An option the app has hidden is not offered here either.** Measured
+  //: on the OCR workspace's reader picker: `#ocr-reader` carries
+  //: `<option value="ocr" hidden>AI vision model</option>`, which
+  //: `ocrLoadReaders` unhides only on a machine that really has two
+  //: different readers, and this stand-in listed all three regardless, so
+  //: the control offered a reader that does not exist here. The native
+  //: `<select>` has honoured `hidden` on an option for years; the shell in
+  //: front of it had never been told to. `syncHidden` below covers the same
+  //: mistake one level up, for a select that is hidden as a whole.
+  const buildOptionRow = (option) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "menu-item select-option";
+    row.setAttribute("role", "option");
+    row.dataset.value = option.value;
+    row.textContent = option.textContent.trim();
+    if (option.disabled) row.setAttribute("aria-disabled", "true");
+    row.addEventListener("click", (event) => {
+      event.stopPropagation();
+      closeActionMenus();
+      if (option.disabled || select.value === option.value) return;
+      select.value = option.value;
+      syncValue();
+      // The app listens on the real control, so the real control is what
+      // announces the change.
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    return row;
+  };
+
   const rebuild = () => {
     menu.replaceChildren();
-    for (const option of select.options) {
-      //: **An option the app has hidden is not offered here either.** Measured
-      //: on the OCR workspace's reader picker: `#ocr-reader` carries
-      //: `<option value="ocr" hidden>AI vision model</option>`, which
-      //: `ocrLoadReaders` unhides only on a machine that really has two
-      //: different readers, and this stand-in listed all three regardless, so
-      //: the control offered a reader that does not exist here. The native
-      //: `<select>` has honoured `hidden` on an option for years; the shell in
-      //: front of it had never been told to. `syncHidden` below covers the same
-      //: mistake one level up, for a select that is hidden as a whole.
-      //:
-      //: No observer needed for it: `rebuild()` runs on every open, so a
-      //: picker that gains a reader while the app is running shows it the next
-      //: time it is opened.
-      if (option.hidden) continue;
-      const row = document.createElement("button");
-      row.type = "button";
-      row.className = "menu-item select-option";
-      row.setAttribute("role", "option");
-      row.dataset.value = option.value;
-      row.textContent = option.textContent.trim();
-      if (option.disabled) row.setAttribute("aria-disabled", "true");
-      row.addEventListener("click", (event) => {
-        event.stopPropagation();
-        closeActionMenus();
-        if (option.disabled || select.value === option.value) return;
-        select.value = option.value;
-        syncValue();
-        // The app listens on the real control, so the real control is what
-        // announces the change.
-        select.dispatchEvent(new Event("change", { bubbles: true }));
-      });
-      menu.appendChild(row);
+    //: **A group's own name, drawn once, not folded into each option's
+    //: words.** INBOX 273: this opener built its menu by walking
+    //: `select.options`, `HTMLOptionsCollection`'s flat view that drops
+    //: which `<optgroup>` (if any) an option came from, so grouping the app
+    //: sets on a select never reached the control the reader actually opens
+    //: -- the Library's document-property filter worked around it by putting
+    //: the group's name in each option's own text ("status: draft") rather
+    //: than teach this shared opener about groups. Walking `select.children`
+    //: instead of `select.options` keeps document order (an optgroup's
+    //: options stay under it, a bare option stays where it was written) and
+    //: lets a group draw its own label row, `.dock-menu-section`'s shape: a
+    //: hairline above it and small text, not a `role="option"` row, so
+    //: `syncValue`'s `[role='option']` walk and the click handler both skip
+    //: past it without change. No observer needed for either shape: `rebuild()`
+    //: runs on every open, so a picker that gains a reader, or a group, while
+    //: the app is running shows it the next time it is opened.
+    for (const node of select.children) {
+      if (node.tagName === "OPTGROUP") {
+        const visible = [...node.children].filter((option) => !option.hidden);
+        if (!visible.length) continue;
+        const label = document.createElement("div");
+        label.className = "select-group-label";
+        label.textContent = node.label || "";
+        menu.appendChild(label);
+        for (const option of visible) menu.appendChild(buildOptionRow(option));
+      } else if (node.tagName === "OPTION") {
+        if (node.hidden) continue;
+        menu.appendChild(buildOptionRow(node));
+      }
     }
     syncValue();
   };

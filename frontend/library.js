@@ -1973,16 +1973,14 @@ function libraryDocsMatchesProperty(doc) {
 
 //: The select's own contents.
 //:
-//: **Flat, with the key in each option's own words, rather than `<optgroup>`
-//: per key.** The first shape used groups, which is the browser's own way of
-//: saying "these options are one kind of thing", and measuring it found the
-//: reason it could not stay: every `<select>` in this app is drawn by
-//: `enhanceSelect` (app.js), which builds its menu by walking
-//: `select.options` and never reads a group's label, so the grouping existed
-//: only in a control the reader never sees. Teaching the shared opener about
-//: groups is a change to a recipe fifty-one selects use and belongs in its own
-//: pass; an option that reads `status: draft (2)` says the same thing here and
-//: costs nothing.
+//: **Grouped by key, `<optgroup>` per one.** The first shape kept this flat,
+//: an option reading `status: draft (2)` rather than a group, because
+//: `enhanceSelect` (app.js) built its menu by walking `select.options`,
+//: which drops which `<optgroup>` an option came from: the grouping existed
+//: only in a control the reader never saw. INBOX 273 taught the shared
+//: opener to draw a group's label, which is the recipe fifty-one other
+//: selects use too, so the workaround comes back out: the key is the
+//: group's name now, said once, and each option is just its value.
 function renderLibraryDocsPropertyFilter(docs) {
   const select = document.getElementById("library-docs-property");
   if (!select) return;
@@ -1999,17 +1997,23 @@ function renderLibraryDocsPropertyFilter(docs) {
   const any = document.createElement("option");
   any.value = "";
   any.textContent = "Any property";
-  const options = [any];
+  const groups = new Map();
   for (const [id, count] of [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
     const [key, value] = id.split(LIBRARY_DOC_PROP_SEP);
     const option = document.createElement("option");
     option.value = id;
-    //: The count is the half that makes this worth opening: "status: draft"
-    //: alone does not say whether it is one document or forty.
-    option.textContent = `${key}: ${value} (${count})`;
-    options.push(option);
+    //: The count is the half that makes this worth opening: "draft" alone
+    //: does not say whether it is one document or forty.
+    option.textContent = `${value} (${count})`;
+    let group = groups.get(key);
+    if (!group) {
+      group = document.createElement("optgroup");
+      group.label = key;
+      groups.set(key, group);
+    }
+    group.appendChild(option);
   }
-  select.replaceChildren(...options);
+  select.replaceChildren(any, ...groups.values());
   select.value = libraryDocsProperty;
   //: Nothing to filter by is not an empty control: a select with one option
   //: reading "Any property" is a control that looks broken. Hidden until some

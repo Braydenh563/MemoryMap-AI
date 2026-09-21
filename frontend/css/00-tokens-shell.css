@@ -1523,6 +1523,18 @@ header#top-bar.tabs-wrapped #tab-bar {
 .extras-row .entry-actions {
   margin-left: auto;
   align-items: center;
+  /* INBOX 273: `flex: 0 0 auto` above never shrinks this column, and a row
+     whose title has shrunk to its own minimum (a long name plus the
+     "Installed" chip) can still leave a two-button Reinstall/Remove pair
+     with nowhere to go but past the frame's right edge -- measured on the
+     embedding-models row at 820px, `min-width: 0` lets the flex algorithm
+     shrink this item at all rather than holding it to its buttons' natural
+     width, and `wrap` gives the two buttons a second line instead of an
+     overflow when there truly is no room, the same trade `.entry-meta`
+     itself already makes at this width. */
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 /* The install-in-progress state: a step description over a progress bar,

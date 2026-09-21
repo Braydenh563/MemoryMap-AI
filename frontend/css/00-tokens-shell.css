@@ -4406,24 +4406,42 @@ summary.small.icon-button {
   overflow: hidden;
 }
 
+/* Full width, scaled down, rather than a growing width (INBOX 308, the
+   owner: animations should be "done the cheapest they can be"). A width
+   animation lays out on every frame of the 2.4s crawl; measured on this
+   bar with scratchpad/ui-sweeps/animcost.js, 121 layouts against a control
+   floor of 3. `transform` is composited, so the same crawl costs none.
+   Two things the conversion has to get right, both of them here:
+
+   - The rounded ends belong to the track above, not to this element: a
+     scaled box scales its own border-radius into an ellipse. The track is
+     `overflow: hidden` with the pill radius, so it clips this fill's left
+     end round for free. What that costs is the 2.4px rounding the leading
+     edge used to carry (999px clamped to half of a 0.3rem bar); a squared
+     leading edge inside a rounded track is what a progress bar normally
+     looks like, and it is the right side of the trade against a radius
+     that visibly distorts as the bar moves.
+   - The track keeps the geometry: 11rem wide and 0.3rem tall, painted, so
+     scaling this fill cannot change the size of the thing on screen. */
 .boot-splash-progress-fill {
   height: 100%;
-  width: 0%;
-  border-radius: inherit;
+  width: 100%;
   background: var(--accent);
-  transition: width 220ms ease-out;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 220ms ease-out;
   animation: boot-splash-progress-crawl 2.4s ease-out forwards;
 }
 
 @keyframes boot-splash-progress-crawl {
-  0% { width: 8%; }
-  50% { width: 55%; }
-  100% { width: 90%; }
+  0% { transform: scaleX(0.08); }
+  50% { transform: scaleX(0.55); }
+  100% { transform: scaleX(0.9); }
 }
 
 .boot-splash-progress-fill.done {
   animation: none;
-  width: 100%;
+  transform: scaleX(1);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4437,7 +4455,7 @@ summary.small.icon-button {
 
   .boot-splash-progress-fill {
     animation: none;
-    width: 90%;
+    transform: scaleX(0.9);
     transition: none;
   }
 }

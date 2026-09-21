@@ -936,7 +936,19 @@ header#top-bar,
     border-top: 1px solid var(--glass-border);
     backdrop-filter: blur(var(--glass-blur)) saturate(150%);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-    /* Height, because that is the only thing that changes when it recedes.
+    /* Height, because that is the only thing that changes when it recedes,
+       and it is one of the three animations in this stylesheet that a
+       transform cannot replace (INBOX 308, the owner on doing animations as
+       cheaply as they can be done). It is not dead code: measured on a 390
+       viewport, setting `data-receded` walks the box from 57.59px to 44px
+       across twelve frames, and costs a median 15 layouts and 1.0ms of
+       layout time against a floor of 0, once per recede.
+       A transform would be cheaper and wrong. `translateY` pushes the bar
+       down, so the bottom of a 44px touch target leaves the screen instead
+       of the caption leaving the row; `scaleY` squashes the icons, and the
+       point of the receded state is that it is still a full row of 44px
+       targets. What shrinks here is a real box with real content in it, so
+       it is a real layout change.
        The reduced-motion block in this file turns every transition off. */
     transition: height var(--motion-slow) ease;
   }

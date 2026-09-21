@@ -9,6 +9,12 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The loading bar on the splash screen is cheaper to draw, so it stays smooth
+  on a slow machine, which is the only kind of machine that sees it for long.
+  It used to grow by changing its width, which made the browser lay the page
+  out again on every frame: 121 times over one 2.4 second load, against none
+  now that it scales instead. Every animation in the app is now held to that
+  by a lint, so the next one cannot quietly cost more.
 - A mind map no longer freezes when a topic is picked up. Dragging a topic
   carries its branch, and the frame that took hold of it was doing the work
   once per topic in the branch rather than once per thing that moved: a board

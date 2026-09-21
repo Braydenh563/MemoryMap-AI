@@ -3618,7 +3618,18 @@ p.graph-help-panel {
   height: 100%;
   background: var(--accent);
   border-radius: var(--radius-pill);
-  transition: width var(--motion-slow) ease;
+  /* No transition on that width, deliberately (INBOX 308). There used to be
+     one, and it could never have run: `renderLooseEnds` sets the custom
+     property on this element while it is still detached and appends it
+     afterwards, so the first style it ever has is its final one, and a
+     transition has no before-change value to start from. Measured rather than
+     reasoned: replaying that exact order in the running app fires no
+     `transitionrun`, while changing the property on an element already in the
+     document fires one for `width`, which is a path nothing in the app
+     takes: the widget rebuilds the meter on every render.
+     If this ever should animate, it is the boot splash's shape and not a
+     width: full-width fill, `transform: scaleX()` from a left origin, the
+     rounded ends left to this track, which already clips. */
 }
 
 .dash-loose-caption {

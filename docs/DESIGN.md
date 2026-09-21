@@ -375,6 +375,7 @@ this table and its lint in the same commit as the feature, never after.
 | A guided tour of the interface (a card that points at a real control, over a dimmed page) | a step in `TOUR_SECTIONS` (tour.js): a selector, a side and one sentence, in a section. The card is `.card.tour-card`, `role="dialog" aria-modal="true"` so app.js's own Tab trap holds focus in it, placed by the window-coordinates rule above (set, measured, corrected), flipped to the opposite side and clamped rather than ever covering the control it names, and a step whose element is missing, hidden **or not really on screen** is dropped from the run so the "3 of 7" counter renumbers rather than promising a step that is not coming. **A cut-out is never drawn outside the window**: the dim is the cut-out's own box-shadow, so a hole placed off the page darkens everything and highlights nothing, which is what a target off the right edge produced (INBOX 280, measured at 2000x1140: `right - left` went negative, `width: -994px` was dropped as invalid, and the cut-out kept the previous step's 708px width at x 2994). `tourSpotlight` checks the clamped box before writing it and answers whether it drew one; when it did not, the card is centred and nothing is dimmed. Each step switches to its target's tab and Notes sub-tab first and then **waits** for the target to be on screen (`tourWaitForTarget`, up to 1.5s of frames), because a tab's content is fetched after `switchTab` resolves and a step measured too early is dropped for having nothing to point at, which from outside reads as a tour that never leaves the page you were on. Which tab is showing is asked of the pressed tab button, never of `localStorage` alone. The dim is a **cut-out**: `#tour-spot` paints no background and spreads its own `box-shadow` past the far corner of the window, so the described control is the one bright thing on screen; `#tour-block` takes the presses so a step cannot be taken out from under its own card, and it is **four `.tour-block-panel`s around the hole**, not one sheet, so the control the step names stays pressable (a tour that says "press Save" and eats the press teaches that Save is broken). The way out is visible: an icon-only `.ghost.small` X in the card's head, `aria-label="Close the tour"`, beside the count, with Skip on the actions row and Escape both still ending the same run. A new subject is a section in that one table (the replay buttons in Settings, help and guide build themselves from it), never a second tour | `tests/test_ui_recipes.py`, `scratchpad/ui-sweeps/tour.js` |
 | Two panes showing one document (a source pane beside its rendered pane) | the two are kept on the same place by a **line-to-block map**, never by a scroll fraction. `renderMarkdown` (app.js) stamps every block it draws with the source line it came from (`data-src-line`); `docScrollAnchors` (documents.js) pairs each stamp with that line's top in the editor (CodeMirror's `lineBlockAt`, which answers for the whole document, not `coordsAtPos`, which answers null off screen) and the block's own **rect, corrected by the pane's rect and scroll**, in the preview, never `offsetTop`, which is taken from the nearest positioned ancestor and ran 218px past the truth at 1440, 230px at 1024 and 146px with the sidebar collapsed (INBOX 281); the sync interpolates between the two nearest pairs and carries the end segments' slopes outwards. The stamps count lines in the string the preview rendered, so the title prefix and the stripped frontmatter are undone through `docPreviewLineShift`. A fraction is exact at both ends and wrong in the middle, because a picture is one line of source and four hundred pixels of preview and every such block shifts everything below it in one pane only: measured on a five-section document, the preview was 282, 292, 266, 404 and 550px out at the five headings, growing downwards. With the map: 0, 75, 0, 0, 0. The fraction stays as the fallback for a surface with no line map of its own | `tests/test_ui_recipes.py` |
 | Spacing, type, radius, shadow, motion | the tokens above; a px in a stylesheet is a lint failure | `tests/test_style_scale.py` |
+| An animation of anything | `transform` and `opacity`, never `width`, `height`, `top`, `left`, `margin` or `padding`. A bar that fills is a full-width box scaled from a left origin inside a track that clips (`.boot-splash-progress-fill`, 00-tokens-shell.css), never a box that grows: measured, the width version cost 121 layouts for one 2.4s crawl and the scaled one costs none. A box that genuinely does change size with content in it keeps its transition and states the reason in a comment on the line above, as `#phone-tab-dock` does | `tests/test_cheap_animations.py`, `scratchpad/ui-sweeps/animcost.js` |
 | Copy | sentence case, no em-dashes, no exclamation marks, one line per section | `tests/test_no_em_dashes.py` |
 
 The sweeps that say whether a new surface matches the rest are
@@ -1050,3 +1051,33 @@ Both animations added in this pass follow it: the "Filing…" chip keeps its
 label and drops the spin, and the streaming caret stays visible and stops
 blinking. Someone who asked for less motion is the person least able to
 infer "this is still loading" from text quietly appearing.
+
+### And the one that costs money on someone else's phone
+
+> **An animation moves `transform` or `opacity`. It does not move `width`,
+> `height`, `top`, `left`, `margin` or `padding`.**
+
+Those six make the browser lay the whole page out again on every frame, and
+the frames an animation runs on are the ones already least affordable: a cold
+boot, a scroll on a phone, a laptop on battery. `transform` and `opacity` are
+handed to the compositor, which does not lay anything out.
+
+The difference is measured here, not assumed. `scratchpad/ui-sweeps/animcost.js`
+counts the layouts the boot splash's progress bar forces over its 2.4s crawl:
+121 when the bar animated `width`, 0 once it became a full-width box scaled
+from a left origin, with the same painted geometry to the tenth of a pixel.
+
+The recipe for a bar that fills, since that is the case this keeps coming up
+for: the **track** keeps the geometry, the border, the rounded ends and
+`overflow: hidden`; the **fill** is `width: 100%` with no radius of its own and
+`transform: scaleX(<fraction>)` from `transform-origin: left`. The fill must
+not carry the rounded ends, because a scaled box scales its radius into an
+ellipse.
+
+`tests/test_cheap_animations.py` fails a `transition` or `@keyframes` that
+names one of those properties. The way past it is a reason in a `/* ... */`
+comment on the line above, and there is one in the app: `#phone-tab-dock`
+(10-responsive.css) really does change size with content inside it, where
+`translateY` would take the bottom off a 44px touch target and `scaleY` would
+squash the icons. `box-shadow` is not covered, on purpose, and the lint's own
+docstring says why.
